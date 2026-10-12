@@ -126,6 +126,20 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                 app.scheduler.showAchievementNotification(result.newlyUnlockedAchievements, language)
         }
     }
+    suspend fun recordInterval(habit: Habit, time: String, checked: Boolean, settings: HabitFeedbackSettings) {
+        val previous=workspace?.completions?.firstOrNull { it.habitId==habit.id && it.date==LocalDate.now() }
+        val marks=habitIntervalMarks(habit,previous).toMutableSet()
+        if(checked) marks.add(time) else marks.remove(time)
+        val result=repository.completeInterval(habit.id,time,checked)
+        if(checked) {
+            if(previous?.completed!=true && habit.intervalSchedule!!.times().all { it in marks } &&
+                (!habit.scoringMode.startsWith("quality") || previous?.qualityValue!=null))
+                externalSync.advanceTaskAfterCompletion(habit,LocalDate.now())
+            completionFeedback(settings)
+            if(settings.achievementPopups && result.newlyUnlockedAchievements>0)
+                app.scheduler.showAchievementNotification(result.newlyUnlockedAchievements,language)
+        }
+    }
     LaunchedEffect(repository) {
         try { repository.workspace.collect { workspace=it; storageError=false } }
         catch(e: CancellationException) { throw e }
@@ -236,6 +250,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                     onComplete={checked,quality -> scope.launch { runAction {
                         recordCompletion(habit.id,checked,quality,current.settings.feedback)
                     } }},
+                    onIntervalComplete={time,checked -> scope.launch { runAction { recordInterval(habit,time,checked,current.settings.feedback) } }},
                     onEdit={edit=habit;editorOpen=true},
                     onToggle={scope.launch { runAction { repository.save(habit.copy(active=!habit.active)) } }},
                     onDelete={deleteCandidate=habit})
@@ -257,8 +272,9 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                             onCheckedChange={ checked -> scope.launch { runAction {
                                 recordCompletion(habit.id,checked,null,current.settings.feedback)
                             } } })
-                        Text(if(entry?.completed==true) "Выполнено · ${entry.score} баллов" else "Отметить выполнение",Modifier.padding(top=12.dp))
+                        Text(if(entry?.completed==true) "Выполнено · ${entry.score} баллов" else if(habit.intervalSchedule?.completionMode=="each") "Отметить все повторения" else "Отметить выполнение",Modifier.padding(top=12.dp))
                     }
+                    HabitIntervalMarks(habit,entry,scheduled&&!busy&&!storageError) { time,checked -> scope.launch { runAction { recordInterval(habit,time,checked,current.settings.feedback) } } }
                     Row {
                         TextButton(enabled=!busy&&!storageError,onClick={edit=habit;editorOpen=true}) { Text("Изменить") }
                         TextButton(enabled=!busy&&!storageError,onClick={scope.launch { runAction { repository.save(habit.copy(active=!habit.active)) } }}) { Text(if(habit.active) "Пауза" else "Продолжить") }
@@ -400,6 +416,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
 @Composable
 private fun ExperimentalHabitCard(habit: Habit, entry: HabitCompletion?, scheduled: Boolean, disabled: Boolean,
     animate: Boolean, onComplete: (Boolean, Double?) -> Unit, onEdit: () -> Unit,
+    onIntervalComplete: (String,Boolean) -> Unit,
     onToggle: () -> Unit, onDelete: () -> Unit) {
     val status = if (!habit.active) "На паузе" else if (scheduled) "Запланировано сегодня" else "Сегодня свободно"
     val calendar = when (habit.schedule.recurrence.mode) {
@@ -463,11 +480,12 @@ private fun ExperimentalHabitCard(habit: Habit, entry: HabitCompletion?, schedul
                         Checkbox(checked=entry?.completed==true,enabled=scheduled&&!disabled,
                             onCheckedChange={ checked -> onComplete(checked,null) })
                         Text(if(entry?.completed==true) "Выполнено · ${entry.score} баллов" else
-                            if(scheduled) "Отметить выполнение" else "Сегодня не запланировано",
+                            if(scheduled) if(habit.intervalSchedule?.completionMode=="each") "Отметить все повторения" else "Отметить выполнение" else "Сегодня не запланировано",
                             style = MaterialTheme.typography.bodyMedium)
                     }
                 }
             }
+            HabitIntervalMarks(habit,entry,scheduled&&!disabled,onIntervalComplete)
             HorizontalDivider(color = Color(0xffd5cab4))
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
                 TextButton(enabled=!disabled,onClick=onEdit) { Text("Изменить") }
@@ -505,6 +523,7 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
     var ritualName by rememberSaveable(initial.id) { mutableStateOf(initial.ritualName) }
     var preferredTime by rememberSaveable(initial.id) { mutableStateOf(initial.preferredTime) }
     var reminder by remember(initial.id) { mutableStateOf(initial.reminder) }
+    var intervalSchedule by remember(initial.id) { mutableStateOf(initial.intervalSchedule) }
     var priority by rememberSaveable(initial.id) { mutableIntStateOf(initial.priority) }
     var scoring by rememberSaveable(initial.id) { mutableStateOf(initial.scoringMode) }
     var start by rememberSaveable(initial.id) { mutableStateOf(initial.schedule.startDate.toString()) }
@@ -678,7 +697,12 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
             }
             }
             EditorSection("Время и напоминание") {
+            HabitIntervalFields(intervalSchedule,!busy) { interval ->
+                intervalSchedule=interval
+                if(interval!=null) { preferredTime=""; reminder=reminder.copy(timing="habit") }
+            }
             HabitReminderFields(preferredTime, reminder, !busy,
+                intervalSchedule=intervalSchedule,
                 googleTasksReady=accountSettings?.authProvider=="google" && accountSettings.accounts.any { it.tasksConnected },
                 googleCalendarReady=accountSettings?.authProvider=="google" && accountSettings.accounts.any { it.calendarConnected },
                 onTime = {
@@ -698,12 +722,12 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
                 TextButton(enabled=!busy,onClick=onDismiss) { Text("Отмена") }
                 Button(enabled=!busy&&title.isNotBlank()&&normalizedHabitColor(color)!=null&&normalizedHabitEmoji(emoji)!=null&&
                     (ritualId!="custom"||ritualName.isNotBlank())&&
-                    (limit==0||config.days.isNotEmpty())&&(end.isEmpty()||end>=start),onClick={
+                    (limit==0||config.days.isNotEmpty())&&(end.isEmpty()||end>=start)&&intervalSchedule?.valid()!=false,onClick={
                     onSave(initial.copy(title=title.trim(),description=description,priority=priority,scoringMode=scoring,
                         createdDate=if(existing==null) LocalDate.parse(start) else initial.createdDate,
                         emoji=requireNotNull(normalizedHabitEmoji(emoji)),color=requireNotNull(normalizedHabitColor(color)),
                         isKeyHabit=isKeyHabit,ritualId=ritualId,ritualName=if(ritualId=="custom") ritualName.trim() else "",
-                        preferredTime=preferredTime,reminder=reminder,
+                        preferredTime=preferredTime,reminder=reminder,intervalSchedule=intervalSchedule,
                         qualityScale=when(scoring){"quality-ten"->"ten";"quality-bipolar"->"bipolar";else->"none"},
                         schedule=initial.schedule.copy(startDate=LocalDate.parse(start),endDate=end.takeIf(String::isNotEmpty)?.let(LocalDate::parse),recurrence=config)))
                 }) { Text(if(busy) "Сохранение…" else "Сохранить") }

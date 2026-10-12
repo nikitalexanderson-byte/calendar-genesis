@@ -9,6 +9,17 @@ import ru.genesis.calendar.domain.*
 import ru.genesis.calendar.domain.habits.*
 
 class HabitDocumentTest {
+    @Test fun intervalConfigurationAndPartialMarksRoundTripWithoutChangingOtherData() {
+        val interval=HabitIntervalSchedule(30,"09:00","10:00","each")
+        val habit=habit().copy(intervalSchedule=interval)
+        val partial=engine.updateIntervalCompletion(emptyList(),habit,day,day,"09:00",true)
+        val workspace=LocalHabitWorkspace(habits=listOf(habit),completions=partial,revision=7)
+        val decoded=HabitDocument.decode(HabitDocument.encode(workspace),7)
+        assertEquals(workspace,decoded)
+        assertEquals(listOf("09:00"),decoded.completions.single().completedTimes)
+        assertFalse(decoded.completions.single().completed)
+        assertEquals(habit.reminder.googleTaskId,decoded.habits.single().reminder.googleTaskId)
+    }
     private val day=LocalDate.of(2026,9,23)
     private val stamp="2026-09-23T10:00:00.000Z"
     private val engine=HabitEngine(GenesisCalendar(ZoneId.of("Europe/Moscow")))

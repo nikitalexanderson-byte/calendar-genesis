@@ -18,7 +18,7 @@ jobs:
     timeout-minutes: 60
     env:
       PRODUCTION_ORIGIN: ${{ vars.GENESIS_DEPLOY_TARGET == 'hostinger' && 'https://genesiscalendar.com' || 'https://genesiscalendar.ru' }}
-      PLAY_BUNDLE_ARTIFACT: genesis-play-2.8.0
+      PLAY_BUNDLE_ARTIFACT: genesis-play-2.8.1
       # Set the repository variable to false for website-only deployments.
       # Unset it or set it to true to resume the existing Android release flow.
       DEPLOY_ANDROID: ${{ vars.GENESIS_DEPLOY_ANDROID != 'false' }}
@@ -192,15 +192,15 @@ jobs:
           "$ANDROID_HOME/build-tools/37.0.0/apksigner" verify --verbose --print-certs "$APK" \
             | grep -qi 'certificate SHA-1 digest: 9a28ae70b1933d86ff3a4ef931e924f81a4426bc'
           "$ANDROID_HOME/build-tools/37.0.0/aapt" dump badging "$APK" \
-            | grep -q "package: name='ru.genesis.calendar' versionCode='80' versionName='2.8.0'"
-          cp "$APK" dist-beget/public_html/downloads/GENESIS-Android-Native-2.8.0.apk
-          APK_SHA="$(sha256sum dist-beget/public_html/downloads/GENESIS-Android-Native-2.8.0.apk | cut -d' ' -f1)"
-          printf '{"versionCode":80,"versionName":"2.8.0","minimumSupportedVersionCode":76,"minimumSupportedVersionName":"2.7.0","sha256":"%s"}\n' "$APK_SHA" \
+            | grep -q "package: name='ru.genesis.calendar' versionCode='81' versionName='2.8.1'"
+          cp "$APK" dist-beget/public_html/downloads/GENESIS-Android-Native-2.8.1.apk
+          APK_SHA="$(sha256sum dist-beget/public_html/downloads/GENESIS-Android-Native-2.8.1.apk | cut -d' ' -f1)"
+          printf '{"versionCode":81,"versionName":"2.8.1","minimumSupportedVersionCode":76,"minimumSupportedVersionName":"2.7.0","sha256":"%s"}\n' "$APK_SHA" \
             > dist-beget/public_html/android-update.json
           # Signing inputs stay private; only the published download is readable by HTTP.
           chmod 755 dist-beget/public_html/downloads
-          chmod 644 dist-beget/public_html/downloads/GENESIS-Android-Native-2.8.0.apk dist-beget/public_html/android-update.json
-          sha256sum dist-beget/public_html/downloads/GENESIS-Android-Native-2.8.0.apk
+          chmod 644 dist-beget/public_html/downloads/GENESIS-Android-Native-2.8.1.apk dist-beget/public_html/android-update.json
+          sha256sum dist-beget/public_html/downloads/GENESIS-Android-Native-2.8.1.apk
 
           AAB=android/app/build/outputs/bundle/play/app-play.aab
           test -s "$AAB"
@@ -209,10 +209,10 @@ jobs:
             android/app/build/intermediates/merged_manifest/play/processPlayMainManifest/AndroidManifest.xml
           # Keep the verified Console bundle with the release even when GitHub
           # delays artifact-quota recalculation. The APK download route stays unchanged.
-          cp "$AAB" dist-beget/public_html/downloads/GENESIS-Android-Play-2.8.0.aab
-          (cd dist-beget/public_html/downloads && sha256sum GENESIS-Android-Play-2.8.0.aab \
-            > GENESIS-Android-Play-2.8.0.aab.sha256)
-          chmod 644 dist-beget/public_html/downloads/GENESIS-Android-Play-2.8.0.aab*
+          cp "$AAB" dist-beget/public_html/downloads/GENESIS-Android-Play-2.8.1.aab
+          (cd dist-beget/public_html/downloads && sha256sum GENESIS-Android-Play-2.8.1.aab \
+            > GENESIS-Android-Play-2.8.1.aab.sha256)
+          chmod 644 dist-beget/public_html/downloads/GENESIS-Android-Play-2.8.1.aab*
 
       - name: Reclaim unused build tools for the release emulator
         if: env.DEPLOY_ANDROID == 'true'
@@ -298,7 +298,7 @@ jobs:
         if: env.DEPLOY_ANDROID == 'true' && steps.save-play-bundle.outcome == 'failure'
         run: |
           echo '::notice::GitHub artifact storage is unavailable; the verified Play bundle will be published with this release on GENESIS.'
-          printf 'Play Console bundle mirror: %s/downloads/GENESIS-Android-Play-2.8.0.aab\n' "$PRODUCTION_ORIGIN" >> "$GITHUB_STEP_SUMMARY"
+          printf 'Play Console bundle mirror: %s/downloads/GENESIS-Android-Play-2.8.1.aab\n' "$PRODUCTION_ORIGIN" >> "$GITHUB_STEP_SUMMARY"
 
       # PHP-роутер должен физически лежать в public_html/api. Добавляем его в
       # единый public artifact, чтобы rsync --delete не создавал окно с 404.
@@ -491,11 +491,11 @@ jobs:
         if: env.DEPLOY_ANDROID == 'true'
         run: |
           set -euo pipefail
-          EXPECTED="$(sha256sum dist-beget/public_html/downloads/GENESIS-Android-Native-2.8.0.apk | cut -d' ' -f1)"
+          EXPECTED="$(sha256sum dist-beget/public_html/downloads/GENESIS-Android-Native-2.8.1.apk | cut -d' ' -f1)"
           # Hostinger CDN propagation can briefly retain the preceding release.
           for attempt in $(seq 1 12); do
             if curl -fsSL --retry 3 -H 'Cache-Control: no-cache' "$PRODUCTION_ORIGIN/android-update.json?deploy=$GITHUB_SHA" \
-              | jq -e --arg sha "$EXPECTED" '.versionCode == 80 and .versionName == "2.8.0" and .sha256 == $sha' >/dev/null; then
+              | jq -e --arg sha "$EXPECTED" '.versionCode == 81 and .versionName == "2.8.1" and .sha256 == $sha' >/dev/null; then
               break
             fi
             test "$attempt" -lt 12
@@ -503,12 +503,12 @@ jobs:
           done
           DOWNLOAD_REDIRECT="$(curl -sS -o /dev/null -w '%{http_code} %{redirect_url}' \
             "$PRODUCTION_ORIGIN/api/android/download")"
-          test "$DOWNLOAD_REDIRECT" = "302 $PRODUCTION_ORIGIN/downloads/GENESIS-Android-Native-2.8.0.apk"
-          curl -fsSL --retry 3 -H 'Cache-Control: no-cache' "$PRODUCTION_ORIGIN/downloads/GENESIS-Android-Native-2.8.0.apk?sha=$EXPECTED" \
+          test "$DOWNLOAD_REDIRECT" = "302 $PRODUCTION_ORIGIN/downloads/GENESIS-Android-Native-2.8.1.apk"
+          curl -fsSL --retry 3 -H 'Cache-Control: no-cache' "$PRODUCTION_ORIGIN/downloads/GENESIS-Android-Native-2.8.1.apk?sha=$EXPECTED" \
             | sha256sum \
             | awk -v expected="$EXPECTED" '$1 == expected { found = 1 } END { exit !found }'
-          BUNDLE_EXPECTED="$(sha256sum dist-beget/public_html/downloads/GENESIS-Android-Play-2.8.0.aab | cut -d' ' -f1)"
-          curl -fsSL --retry 3 -H 'Cache-Control: no-cache' "$PRODUCTION_ORIGIN/downloads/GENESIS-Android-Play-2.8.0.aab?sha=$BUNDLE_EXPECTED" \
+          BUNDLE_EXPECTED="$(sha256sum dist-beget/public_html/downloads/GENESIS-Android-Play-2.8.1.aab | cut -d' ' -f1)"
+          curl -fsSL --retry 3 -H 'Cache-Control: no-cache' "$PRODUCTION_ORIGIN/downloads/GENESIS-Android-Play-2.8.1.aab?sha=$BUNDLE_EXPECTED" \
             | sha256sum \
             | awk -v expected="$BUNDLE_EXPECTED" '$1 == expected { found = 1 } END { exit !found }'
 

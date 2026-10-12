@@ -158,7 +158,11 @@ html[data-genesis-theme^="standart"] .genesis-app .workspace-header :is(.project
 /* The original DOM and every action stay shared; this is the new project composition. */
 .genesis-app .project-toolbar { display: contents; }
 html[data-genesis-theme] .genesis-app .workspace-title-secondary em { font-family: var(--font-heading) !important; font-size: inherit; font-style: normal; font-weight: inherit; line-height: inherit; }
-html[data-genesis-theme^="standart"] .genesis-app .workspace-title-secondary em { font-style: italic; }
+html[data-genesis-theme] :is(.genesis-app,.welcome-shell,.legal-shell) :is(h1,h2,h3,h4,h5,h6),
+html[data-genesis-theme] :is(.genesis-app,.welcome-shell,.legal-shell) :is(h1,h2,h3,h4,h5,h6) :is(em,i) { font-style: normal !important; }
+html[data-genesis-theme] .genesis-app h1 { font-weight: 700; }
+html[data-genesis-theme] .genesis-app .workspace-title-secondary,
+html[data-genesis-theme] .genesis-app .workspace-title-secondary em { font-weight: 400; }
 .experimental-icon { display: inline-block; width: 18px; height: 18px; flex: none; vertical-align: middle; }
 html[data-genesis-theme^="standart"] .genesis-app .project-toolbar { display: grid; grid-template-columns: auto minmax(160px, 1fr); gap: 12px; align-items: center; }
 html[data-genesis-theme^="standart"] .genesis-app .project-toolbar .affairs-actions { display: contents; }

@@ -35,6 +35,7 @@ data class Habit(
     val sourceTemplateId: String? = null, val sacredPracticeId: String? = null,
     val sacredSectorId: String? = null, val preferredTime: String = "",
     val scoringMode: String = "binary", val qualityScale: String = "none", val reminder: HabitReminder = HabitReminder(),
+    val intervalSchedule: HabitIntervalSchedule? = null,
 ) { val id: String get() = entity.id }
 
 /** The first tracking date and XP formula become immutable after the first save. */
@@ -53,7 +54,8 @@ fun preserveHabitCreationSettings(candidate: Habit, previous: Habit?, today: Loc
 }
 data class HabitCompletion(val entity: TrackerEntity, val habitId: String, val date: LocalDate,
     val completed: Boolean = false, val qualityValue: Double? = null, val score: Int = 0,
-    val xpAwarded: Int = 0, val note: String = "", val qualityConfirmedAt: String? = null)
+    val xpAwarded: Int = 0, val note: String = "", val qualityConfirmedAt: String? = null,
+    val completedTimes: List<String> = emptyList())
 
 /** Direct port of scoreHabitFormula. XP is distinct from current score. */
 fun scoreHabitFormula(mode: String, completed: Boolean, qualityValue: Double?): Int {
@@ -102,15 +104,31 @@ class HabitEngine(private val calendar: GenesisCalendar) {
      */
     fun updateCompletion(entries: List<HabitCompletion>, habit: Habit, date: LocalDate, today: LocalDate,
         completed: Boolean, qualityValue: Double?, note: String,
-        timestamp: String = Instant.now().toString(), newId: String = "habit-completion-${UUID.randomUUID()}"): List<HabitCompletion> {
+        timestamp: String = Instant.now().toString(), newId: String = "habit-completion-${UUID.randomUUID()}",
+        completedTimes: List<String>? = null): List<HabitCompletion> {
         if (date != today || date < habit.createdDate) return entries
         val current = entries.firstOrNull { it.habitId == habit.id && it.date == date }
         val base = current ?: HabitCompletion(TrackerEntity.create("habit-completion",timestamp,newId),habit.id,date)
         val preservedQuality = if (base.qualityConfirmedAt != null) base.qualityValue else qualityValue
         val score = scoreHabitFormula(habit.scoringMode,completed,preservedQuality)
         val next = base.copy(entity=base.entity.changed(timestamp),completed=completed,qualityValue=preservedQuality,
-            note=note,score=score,xpAwarded=completionXpAward(base.xpAwarded.toDouble(),score.toDouble()))
+            note=note,score=score,xpAwarded=completionXpAward(base.xpAwarded.toDouble(),score.toDouble()),
+            completedTimes=completedTimes ?: if(habit.intervalSchedule?.completionMode=="each")
+                if(completed) habit.intervalSchedule.times() else emptyList() else base.completedTimes)
         return entries.filterNot { it.habitId == habit.id && it.date == date } + next
+    }
+
+    fun updateIntervalCompletion(entries: List<HabitCompletion>, habit: Habit, date: LocalDate,
+        today: LocalDate, time: String, completed: Boolean): List<HabitCompletion> {
+        val schedule = habit.intervalSchedule?.takeIf { it.completionMode == "each" } ?: return entries
+        val times = schedule.times()
+        if (time !in times) return entries
+        val current = entries.firstOrNull { it.habitId == habit.id && it.date == date }
+        val marks = habitIntervalMarks(habit, current).toMutableSet()
+        if (completed) marks.add(time) else marks.remove(time)
+        return updateCompletion(entries, habit, date, today, times.all { it in marks } &&
+            (!habit.scoringMode.startsWith("quality") || current?.qualityValue != null), current?.qualityValue,
+            current?.note.orEmpty(), completedTimes = marks.sorted())
     }
 
     fun dailyCounts(habits: List<Habit>, entries: List<HabitCompletion>, date: LocalDate): Pair<Int,Int> {

@@ -2100,5 +2100,22 @@
   "Какое событие?": "Quel événement ?",
   "С кем будет встреча и где?": "Avec qui a lieu la rencontre et où ?",
   "Карта изменилась. Закройте окно, обновите каталог и повторите удаление.": "La carte a changé. Fermez cette fenêtre, actualisez le catalogue et réessayez de la supprimer.",
-  "Не удалось удалить карту. Проверьте подключение и повторите попытку.": "Impossible de supprimer la carte. Vérifiez votre connexion et réessayez."
+  "Не удалось удалить карту. Проверьте подключение и повторите попытку.": "Impossible de supprimer la carte. Vérifiez votre connexion et réessayez.",
+  "Повторять в течение дня": "Répéter dans la journée",
+  "Начало промежутка": "Début du créneau",
+  "Конец промежутка": "Fin du créneau",
+  "Способ отметки": "Mode de validation",
+  "Каждое повторение отдельно": "Valider chaque répétition séparément",
+  "Одна отметка за день": "Une validation pour la journée",
+  "Укажите интервал от 1 до 1440 минут и время окончания не раньше начала.": "Indiquez un intervalle de 1 à 1440 minutes et une heure de fin qui ne précède pas le début.",
+  "Запланированные времена": "Heures prévues",
+  "Повторений за день:": "Répétitions par jour :",
+  "Все повторения завершены — привычка выполнена за день.": "Une fois toutes les répétitions validées, l’habitude est accomplie pour la journée.",
+  "Одна отметка подтверждает выполнение привычки за весь день.": "Une validation confirme l’habitude pour toute la journée.",
+  "Отметки повторений:": "Répétitions validées :",
+  "В каждое время повтора": "À chaque heure de répétition",
+  "Напоминания по временам повтора:": "Rappels aux heures de répétition :",
+  "Майндмеп": "Carte mentale",
+  "Отметить все повторения": "Valider toutes les répétitions",
+  "Снять все отметки повторений": "Annuler toutes les validations"
 }

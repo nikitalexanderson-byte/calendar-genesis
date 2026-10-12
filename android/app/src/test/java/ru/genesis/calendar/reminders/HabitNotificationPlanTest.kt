@@ -18,6 +18,22 @@ class HabitNotificationPlanTest {
         notifications=HabitNotificationSettings(enabled=true, motivational=false)))
     private val now = date.atTime(8, 0).atZone(zone).toInstant()
 
+    @Test fun intervalNotificationsStayInsideTheWindowAndSkipMarkedSlots() {
+        val habit=habit("interval","09:00").copy(intervalSchedule=HabitIntervalSchedule(30,"09:00","10:00","each"))
+        val initial=workspace(habit)
+        assertEquals(listOf("09:00","09:30","10:00"),planHabitNotifications(initial,date,now,zone,false,1).map { it.at.atZone(zone).toLocalTime().toString() })
+        val partial=engine.updateIntervalCompletion(emptyList(),habit,date,date,"09:30",true)
+        assertEquals(listOf("09:00","10:00"),planHabitNotifications(initial.copy(completions=partial),date,now,zone,false,1).map { it.at.atZone(zone).toLocalTime().toString() })
+        val done=engine.updateCompletion(partial,habit,date,date,true,null,"")
+        assertTrue(planHabitNotifications(initial.copy(completions=done),date,now,zone,false,1).isEmpty())
+    }
+    @Test fun dayMarkIntervalsAndCustomReminderRemainIndependent() {
+        val habit=habit("day","09:00").copy(intervalSchedule=HabitIntervalSchedule(30,"09:00","10:00","day"))
+        assertEquals(3,planHabitNotifications(workspace(habit),date,now,zone,false,1).size)
+        val custom=habit.copy(reminder=habit.reminder.copy(timing="custom",time="11:00"))
+        assertEquals(listOf("11:00"),planHabitNotifications(workspace(custom),date,now,zone,false,1).map { it.at.atZone(zone).toLocalTime().toString() })
+    }
+
     @Test fun closeTimesStaySeparateAndUseEachHabitTime() {
         val plan = planHabitNotifications(workspace(habit("water", "09:00"), habit("reading", "09:15")),date,now,zone,false,1)
         assertEquals(listOf("water", "reading"),plan.map { it.habitId })

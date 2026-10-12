@@ -2100,5 +2100,22 @@
   "Какое событие?": "Jakie wydarzenie?",
   "С кем будет встреча и где?": "Z kim odbędzie się spotkanie i gdzie?",
   "Карта изменилась. Закройте окно, обновите каталог и повторите удаление.": "Mapa została zmieniona. Zamknij okno, odśwież katalog i spróbuj ponownie ją usunąć.",
-  "Не удалось удалить карту. Проверьте подключение и повторите попытку.": "Nie udało się usunąć mapy. Sprawdź połączenie i spróbuj ponownie."
+  "Не удалось удалить карту. Проверьте подключение и повторите попытку.": "Nie udało się usunąć mapy. Sprawdź połączenie i spróbuj ponownie.",
+  "Повторять в течение дня": "Powtarzaj w ciągu dnia",
+  "Начало промежутка": "Początek przedziału",
+  "Конец промежутка": "Koniec przedziału",
+  "Способ отметки": "Sposób oznaczania",
+  "Каждое повторение отдельно": "Oznaczaj każde powtórzenie osobno",
+  "Одна отметка за день": "Jedno oznaczenie na dzień",
+  "Укажите интервал от 1 до 1440 минут и время окончания не раньше начала.": "Podaj odstęp od 1 do 1440 minut i godzinę zakończenia nie wcześniejszą niż początek.",
+  "Запланированные времена": "Zaplanowane godziny",
+  "Повторений за день:": "Powtórzenia dziennie:",
+  "Все повторения завершены — привычка выполнена за день.": "Po oznaczeniu wszystkich powtórzeń nawyk jest wykonany na dany dzień.",
+  "Одна отметка подтверждает выполнение привычки за весь день.": "Jedno oznaczenie potwierdza wykonanie nawyku przez cały dzień.",
+  "Отметки повторений:": "Oznaczone powtórzenia:",
+  "В каждое время повтора": "O każdej godzinie powtórzenia",
+  "Напоминания по временам повтора:": "Przypomnienia o godzinach powtórzeń:",
+  "Майндмеп": "Mapa myśli",
+  "Отметить все повторения": "Oznacz wszystkie powtórzenia",
+  "Снять все отметки повторений": "Odznacz wszystkie powtórzenia"
 }

@@ -2538,5 +2538,22 @@
   "Какое событие?": "What event?",
   "С кем будет встреча и где?": "Who is the meeting with and where?",
   "Карта изменилась. Закройте окно, обновите каталог и повторите удаление.": "The map has changed. Close this window, refresh the catalog, and try deleting it again.",
-  "Не удалось удалить карту. Проверьте подключение и повторите попытку.": "Could not delete the map. Check your connection and try again."
+  "Не удалось удалить карту. Проверьте подключение и повторите попытку.": "Could not delete the map. Check your connection and try again.",
+  "Повторять в течение дня": "Repeat throughout the day",
+  "Начало промежутка": "Window start",
+  "Конец промежутка": "Window end",
+  "Способ отметки": "Completion method",
+  "Каждое повторение отдельно": "Mark each repetition separately",
+  "Одна отметка за день": "One mark for the day",
+  "Укажите интервал от 1 до 1440 минут и время окончания не раньше начала.": "Enter an interval from 1 to 1440 minutes and an end time no earlier than the start.",
+  "Запланированные времена": "Scheduled times",
+  "Повторений за день:": "Repetitions per day:",
+  "Все повторения завершены — привычка выполнена за день.": "Once all repetitions are marked, the habit is complete for the day.",
+  "Одна отметка подтверждает выполнение привычки за весь день.": "One mark confirms completion of the habit for the whole day.",
+  "Отметки повторений:": "Repetition marks:",
+  "В каждое время повтора": "At each repetition time",
+  "Напоминания по временам повтора:": "Reminders at repetition times:",
+  "Майндмеп": "Mind map",
+  "Отметить все повторения": "Mark all repetitions",
+  "Снять все отметки повторений": "Unmark all repetitions"
 }

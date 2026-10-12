@@ -124,6 +124,7 @@ const curatedTranslations: Record<string, string> = {
   "Сначала завершите зависимости задачи.": "Complete the task dependencies first.",
   "Майндмепы": "Mind maps",
   "Майндмеп:": "Mind map:",
+  "Майндмеп": "Mind map",
   "Создать связь:": "Create link:",
   "Связи узлов": "Node links",
   "Выбрать связь:": "Select link:",

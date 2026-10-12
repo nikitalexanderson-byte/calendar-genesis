@@ -24,6 +24,7 @@ import ru.genesis.calendar.data.LocalHabitWorkspace
 import ru.genesis.calendar.domain.GenesisCalendar
 import ru.genesis.calendar.domain.habits.Habit
 import ru.genesis.calendar.domain.habits.HabitEngine
+import ru.genesis.calendar.domain.habits.habitIntervalMarks
 
 /** Uses each habit's saved schedule, independently of the display calendar. */
 @Composable
@@ -66,6 +67,34 @@ internal fun TodayHabitsContent(app: GenesisApplication, date: LocalDate,
             finally { busy = false }
         }
     }
+    fun markInterval(habit: Habit,time: String,checked: Boolean) {
+        if(busy || date!=LocalDate.now()) return
+        busy=true
+        scope.launch {
+            try {
+                val result = repository.completeInterval(habit.id,time,checked,date)
+                error=null
+                if(checked) {
+                    val feedback=workspace.settings.feedback
+                    if(feedback.haptics) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    if(feedback.sound) {
+                        val tone=ToneGenerator(AudioManager.STREAM_NOTIFICATION,35)
+                        try { tone.startTone(ToneGenerator.TONE_PROP_ACK,120); delay(140) }
+                        finally { tone.release() }
+                    }
+                    if(feedback.achievementPopups && result.newlyUnlockedAchievements>0)
+                        app.scheduler.showAchievementNotification(result.newlyUnlockedAchievements,language)
+                    val marks=habitIntervalMarks(habit,entries[habit.id]).toMutableSet().apply { add(time) }
+                    if(habit.scoringMode.startsWith("quality") && entries[habit.id]?.qualityValue==null &&
+                        habit.intervalSchedule!!.times().all { it in marks }) ratingHabit=habit
+                }
+            }
+            catch(e: CancellationException) { throw e }
+            catch(e: IllegalArgumentException) { error=e.message }
+            catch(_: Exception) { error="Не удалось сохранить отметку привычки. Повторите попытку." }
+            finally { busy=false }
+        }
+    }
     Column(Modifier.fillMaxWidth().testTag("today-habits-section"),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (showTopDivider) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -95,7 +124,8 @@ internal fun TodayHabitsContent(app: GenesisApplication, date: LocalDate,
             Surface(Modifier.fillMaxWidth().testTag("today-habit-${habit.id}"),
                 shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceContainerLowest,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
-                Row(Modifier.padding(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.padding(6.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = entry?.completed == true, enabled = !busy && date == LocalDate.now(),
                         modifier = Modifier.testTag("today-habit-check-${habit.id}"),
                         onCheckedChange = { checked ->
@@ -107,6 +137,8 @@ internal fun TodayHabitsContent(app: GenesisApplication, date: LocalDate,
                         if (entry?.completed == true) Text("Выполнено · ${entry.score} баллов",
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                     }
+                }
+                HabitIntervalMarks(habit,entry,!busy&&date==LocalDate.now()) { time,checked -> markInterval(habit,time,checked) }
                 }
             }
         }

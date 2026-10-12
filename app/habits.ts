@@ -1,6 +1,7 @@
 import type { CalendarMode } from "./calendar-data";
 import { catalogText } from "./catalog-i18n";
 import type { Language } from "./i18n";
+import { habitIntervalTimes, habitIntervalMarks, normalizeHabitInterval, normalizeHabitCompletedTimes, type HabitIntervalSchedule } from "./habit-interval";
 import {
   normalizeAddictionEntry,
   normalizeAddictionTracker,
@@ -193,6 +194,7 @@ export type Habit = TrackerEntity & {
   sacredPracticeId: string | null;
   sacredSectorId: SacredPracticeSectorId | null;
   preferredTime: string;
+  intervalSchedule?: HabitIntervalSchedule | null;
   schedule: TrackerSchedule;
   scoringMode: HabitScoringMode;
   qualityScale: HabitQualityScale;
@@ -203,6 +205,7 @@ export type HabitCompletion = TrackerEntity & {
   habitId: string;
   date: string;
   completed: boolean;
+  completedTimes?: string[];
   qualityValue: number | null;
   qualityConfirmedAt?: string | null;
   score: number;
@@ -269,6 +272,7 @@ type LegacyHabit = Partial<TrackerEntity> & {
   sacredPracticeId?: string | null;
   sacredSectorId?: SacredPracticeSectorId | null;
   preferredTime?: string;
+  intervalSchedule?: HabitIntervalSchedule | null;
   scoringEnabled?: boolean;
   completionPoints?: number;
   failurePoints?: number;
@@ -285,6 +289,7 @@ type LegacyHabitEntry = Partial<TrackerEntity> & {
   habitId?: string;
   date?: string;
   completed?: boolean;
+  completedTimes?: string[];
   quality?: number | null;
   qualityValue?: number | null;
   time?: string;
@@ -464,6 +469,7 @@ function normalizeHabit(value: LegacyHabit, fallbackDate: string, calendarMode: 
     sacredPracticeId,
     sacredSectorId,
     preferredTime: TIME_PATTERN.test(value.preferredTime ?? "") ? value.preferredTime! : "",
+    intervalSchedule: normalizeHabitInterval(value.intervalSchedule),
     schedule,
     scoringMode,
     qualityScale,
@@ -495,6 +501,10 @@ export function updateHabitCompletion(
     note: "",
   };
   const patched = markTrackerEntityChanged({ ...base, ...patch,
+    ...(habit.intervalSchedule?.completionMode === "each" && patch.completed !== undefined ? {
+      completedTimes: patch.completedTimes !== undefined ? normalizeHabitCompletedTimes(patch.completedTimes)
+        : patch.completed ? habitIntervalTimes(habit.intervalSchedule) : [],
+    } : {}),
     ...(base.qualityConfirmedAt ? { qualityValue: base.qualityValue, qualityConfirmedAt: base.qualityConfirmedAt } : {}) });
   const score = scoreHabitCompletion(habit, patched);
   const entry = { ...patched, score, xpAwarded: completionXpAward(base.xpAwarded, score, MAX_HABIT_XP_PER_COMPLETION) };
@@ -505,6 +515,19 @@ export function updateHabitCompletion(
       entry,
     ],
   };
+}
+
+export function updateHabitIntervalCompletion(workspace: HabitWorkspace, habit: Habit, date: string,
+  time: string, completed: boolean, today = habitDateKey(new Date())) {
+  if (habit.intervalSchedule?.completionMode !== "each") return workspace;
+  const times = habitIntervalTimes(habit.intervalSchedule);
+  if (!times.includes(time)) return workspace;
+  const current = workspace.habitCompletions.find(entry => entry.habitId === habit.id && entry.date === date);
+  const marks = new Set(habitIntervalMarks(habit.intervalSchedule, current));
+  if (completed) marks.add(time); else marks.delete(time);
+  return updateHabitCompletion(workspace, habit, date, {
+    completed: times.every(value => marks.has(value)) && (habit.qualityScale === "none" || Boolean(current?.qualityConfirmedAt)), completedTimes: [...marks].sort(),
+  }, today);
 }
 
 function normalizeHabitCompletion(value: LegacyHabitEntry, habits: Map<string, Habit>): HabitCompletion | null {
@@ -525,6 +548,7 @@ function normalizeHabitCompletion(value: LegacyHabitEntry, habits: Map<string, H
     habitId,
     date,
     ...completion,
+    completedTimes: normalizeHabitCompletedTimes(value.completedTimes),
     qualityConfirmedAt: typeof value.qualityConfirmedAt === "string" ? value.qualityConfirmedAt : null,
     score,
     xpAwarded: typeof value.xpAwarded === "number"

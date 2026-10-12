@@ -15,16 +15,19 @@ import ru.genesis.calendar.GenesisApplication
 import ru.genesis.calendar.data.LocalPreferences
 import ru.genesis.calendar.data.UiPreferences
 import ru.genesis.calendar.domain.habits.HabitReminder
+import ru.genesis.calendar.domain.habits.HabitIntervalSchedule
 
 @Composable
 internal fun HabitReminderFields(preferredTime: String, reminder: HabitReminder, enabled: Boolean,
     googleTasksReady: Boolean = false, googleCalendarReady: Boolean = false,
+    intervalSchedule: HabitIntervalSchedule? = null,
     onTime: (String) -> Unit, onReminder: (HabitReminder) -> Unit) {
     val app = LocalContext.current.applicationContext as GenesisApplication
     val preferences = remember(app) { LocalPreferences(app, app.workspaceScope) }
     val prefs by preferences.values.collectAsStateWithLifecycle(UiPreferences())
     val requestAccess = rememberRequestNotificationAccess(app)
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if(intervalSchedule==null) {
         Text("Точное время привычки", style = MaterialTheme.typography.titleMedium)
         Row(Modifier.fillMaxWidth().toggleable(value=preferredTime.isNotEmpty(), enabled=enabled,
             role=Role.Checkbox, onValueChange={ checked ->
@@ -34,23 +37,24 @@ internal fun HabitReminderFields(preferredTime: String, reminder: HabitReminder,
             Text("Выполнять в определённое время")
         }
         if (preferredTime.isNotEmpty()) AuthorTimePicker(preferredTime, prefs.use24) { if (enabled) onTime(it) }
+        }
         HorizontalDivider()
         Text("Персональное напоминание", style = MaterialTheme.typography.titleMedium)
         Text("Действует независимо от общего напоминания о дневной цели. Для доставки нужно разрешение Android.", style = MaterialTheme.typography.bodySmall)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Switch(reminder.enabled, { onReminder(reminder.copy(enabled = it,
-                timing=if(it && preferredTime.isEmpty()) "custom" else reminder.timing)); if(it) requestAccess() }, enabled = enabled,
+                timing=if(it && preferredTime.isEmpty() && intervalSchedule==null) "custom" else reminder.timing)); if(it) requestAccess() }, enabled = enabled,
                 modifier = Modifier.testTag("habit-personal-reminder-enabled"))
             Text("Добавить напоминание", Modifier.padding(start = 8.dp))
         }
         if (reminder.enabled) {
             HabitNotificationAccessNotice(app, true)
-            listOf("habit" to "В точное время привычки", "custom" to "В отдельное время").forEach { (value, label) ->
-                FilterChip(selected = reminder.timing == value, enabled = enabled && (value!="habit" || preferredTime.isNotEmpty()),
+            listOf("habit" to if(intervalSchedule!=null) "В каждое время повтора" else "В точное время привычки", "custom" to "В отдельное время").forEach { (value, label) ->
+                FilterChip(selected = reminder.timing == value, enabled = enabled && (value!="habit" || preferredTime.isNotEmpty() || intervalSchedule!=null),
                     onClick = { onReminder(reminder.copy(timing = value)) }, label = { Text(label) },
                     modifier = Modifier.testTag("habit-reminder-timing-$value"))
             }
-            if (reminder.timing == "habit" && preferredTime.isEmpty())
+            if (reminder.timing == "habit" && preferredTime.isEmpty() && intervalSchedule==null)
                 Text("Для напоминания в точное время привычки включите время привычки выше.", style=MaterialTheme.typography.bodySmall)
             if (reminder.timing == "custom") {
                 Text("Время напоминания")

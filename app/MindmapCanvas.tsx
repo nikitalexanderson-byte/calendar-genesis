@@ -19,7 +19,7 @@ export default function MindmapCanvas({ map, view, selected, selectedLink, title
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nodeDrag = useRef<{id:string;clientX:number;clientY:number;x:number;y:number;active:boolean;moved:boolean;position?:{x:number;y:number}} | null>(null);
   const suppressClick = useRef(false);
-  const [menu,setMenu] = useState<{left:number;top:number;x:number;y:number} | null>(null);
+  const [menu,setMenu] = useState<{left:number;top:number;x:number;y:number;nodeId?:string} | null>(null);
   const menuRef=useRef<HTMLDivElement>(null);
   const [connecting,setConnecting]=useState<{from:string;point?:{x:number;y:number}} | null>(null);
   const linkMoved=useRef(false);
@@ -75,7 +75,7 @@ export default function MindmapCanvas({ map, view, selected, selectedLink, title
   }, [map.id, view.viewport?.left, view.viewport?.top]);
   useEffect(() => () => { if (scrollTimer.current) clearTimeout(scrollTimer.current); if(holdTimer.current)clearTimeout(holdTimer.current); }, []);
   useEffect(()=>{ if(!menu)return;menuRef.current?.querySelector<HTMLButtonElement>('button')?.focus();const close=(e:PointerEvent)=>{if(!(e.target as Element).closest('.mindmap-context-menu'))setMenu(null);};document.addEventListener('pointerdown',close);return()=>document.removeEventListener('pointerdown',close); },[menu]);
-  const contextAt=(clientX:number,clientY:number)=>{const el=scroller.current!;const rect=el.getBoundingClientRect();setMenu({left:Math.min(clientX,window.innerWidth-210),top:Math.min(clientY,window.innerHeight-70),x:Math.max(0,(clientX-rect.left+el.scrollLeft)/view.zoom),y:Math.max(0,(clientY-rect.top+el.scrollTop)/view.zoom)});};
+  const contextAt=(clientX:number,clientY:number,nodeId?:string)=>{const el=scroller.current!;const rect=el.getBoundingClientRect();if(nodeId)onSelect(nodeId);setMenu({left:Math.max(0,Math.min(clientX,window.innerWidth-210)),top:Math.max(0,Math.min(clientY,window.innerHeight-(nodeId ? 130 : 70))),x:Math.max(0,(clientX-rect.left+el.scrollLeft)/view.zoom),y:Math.max(0,(clientY-rect.top+el.scrollTop)/view.zoom),nodeId});};
   const finishNode=(cancel=false)=>{if(holdTimer.current)clearTimeout(holdTimer.current);const current=nodeDrag.current;if(current?.moved)suppressClick.current=true;if(!cancel&&current?.position)onPosition(current.id,current.position);nodeDrag.current=null;setMoving(null);};
   const width = Math.max(...rows.map(r => r.x)) + 280; const height = Math.max(...rows.map(r=>r.y)) + 176;
   const byId = new Map(rows.map(r => [r.node.id, r]));
@@ -98,9 +98,9 @@ export default function MindmapCanvas({ map, view, selected, selectedLink, title
       onPointerUpCapture={e=>{if(e.pointerType==="touch")endTouch(e.pointerId);}}
       onPointerCancelCapture={e=>{if(e.pointerType==="touch")endTouch(e.pointerId);}}
       onScroll={e => { setViewport({ top: e.currentTarget.scrollTop, height: e.currentTarget.clientHeight }); if(scrollTimer.current) clearTimeout(scrollTimer.current); scrollTimer.current=setTimeout(()=>{if(scroller.current)onViewport({left:scroller.current.scrollLeft,top:scroller.current.scrollTop});},180); }}
-      onContextMenu={e=>{if((e.target as Element).closest('button'))return;e.preventDefault();contextAt(e.clientX,e.clientY);}}
+      onContextMenu={e=>{const target=(e.target as Element).closest<HTMLElement>('[data-map-node-id]');if(!target&&(e.target as Element).closest('button'))return;e.preventDefault();contextAt(e.clientX,e.clientY,target?.dataset.mapNodeId);}}
       onClick={e=>{if(!(e.target as Element).closest('button'))suppressClick.current=false;}}
-      onKeyDown={e=>{if((e.key==='Delete'||e.key==='Backspace')&&!(e.target as Element).closest('input,textarea,select,[contenteditable="true"]')){e.preventDefault();e.stopPropagation();onDeleteSelection();return;}if(e.key==='Escape'){setMenu(null);setConnecting(null);}if(e.key==='ContextMenu'||e.shiftKey&&e.key==='F10'){e.preventDefault();const r=e.currentTarget.getBoundingClientRect();contextAt(r.left+40,r.top+40);}}}
+      onKeyDown={e=>{if((e.key==='Delete'||e.key==='Backspace')&&!(e.target as Element).closest('input,textarea,select,[contenteditable="true"]')){e.preventDefault();e.stopPropagation();onDeleteSelection();return;}if(e.key==='Escape'){setMenu(null);setConnecting(null);}if(e.key==='ContextMenu'||e.shiftKey&&e.key==='F10'){e.preventDefault();const target=(e.target as Element).closest<HTMLElement>('[data-map-node-id]');const r=(target??e.currentTarget).getBoundingClientRect();contextAt(r.left+40,r.top+40,target?.dataset.mapNodeId);}}}
       onPointerDown={e => { if (e.button !== 0 || pinch.current || (e.target as Element).closest('button')) return; suppressClick.current=false;const el = scroller.current!; drag.current = { x: e.clientX, y: e.clientY, left: el.scrollLeft, top: el.scrollTop }; el.setPointerCapture(e.pointerId); }}
       onPointerMove={e => { if (pinch.current || !drag.current) return;if(Math.hypot(drag.current.x-e.clientX,drag.current.y-e.clientY)>6)suppressClick.current=true; scroller.current!.scrollLeft = drag.current.left + drag.current.x - e.clientX; scroller.current!.scrollTop = drag.current.top + drag.current.y - e.clientY; }}
       onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; suppressClick.current=true; }}>
@@ -151,6 +151,13 @@ export default function MindmapCanvas({ map, view, selected, selectedLink, title
       }}><ExperimentalIcon name="thought-focus"/><span role="tooltip" className="mindmap-action-tooltip">К выбранному узлу</span></button>
     </div>
     {connecting ? <p role="status">Выберите вторую карточку для связи. Escape отменяет соединение.</p> : null}
-    {menu ? <div ref={menuRef} className="mindmap-context-menu" role="menu" tabIndex={-1} aria-label="Действия на полотне" style={{left:menu.left,top:menu.top}} onKeyDown={e=>{if(e.key==='Escape'){setMenu(null);scroller.current?.focus();}}}><button type="button" role="menuitem" onClick={()=>{onCreateAt({x:menu.x,y:menu.y});setMenu(null);}}>Добавить мысль</button></div> : null}
+    {menu ? <div ref={menuRef} className="mindmap-context-menu" role="menu" tabIndex={-1} aria-label="Действия на полотне" style={{left:menu.left,top:menu.top}} onKeyDown={e=>{
+      if(e.key==='Escape'){setMenu(null);scroller.current?.focus();}
+      if(e.key==='Tab')setMenu(null);
+      if(['ArrowDown','ArrowUp','Home','End'].includes(e.key)){e.preventDefault();const buttons=[...e.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')];const index=buttons.indexOf(document.activeElement as HTMLButtonElement);buttons[e.key==='Home'?0:e.key==='End'?buttons.length-1:(index+(e.key==='ArrowDown'?1:-1)+buttons.length)%buttons.length]?.focus();}
+    }}>{menu.nodeId ? <>
+      <button type="button" role="menuitem" onClick={()=>{onEditNode(menu.nodeId!);setMenu(null);}}><ExperimentalIcon name="edit"/><span>Редактировать</span></button>
+      <button type="button" role="menuitem" disabled={!map.nodes.find(node=>node.id===menu.nodeId)?.parentId} onClick={()=>{onDeleteSelection();setMenu(null);}}><ExperimentalIcon name="delete"/><span>Удалить</span></button>
+    </> : <button type="button" role="menuitem" onClick={()=>{onCreateAt({x:menu.x,y:menu.y});setMenu(null);}}>Добавить мысль</button>}</div> : null}
   </div>;
 }

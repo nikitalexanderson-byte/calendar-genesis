@@ -4,7 +4,8 @@ import java.time.*
 import ru.genesis.calendar.data.LocalHabitWorkspace
 import ru.genesis.calendar.domain.GenesisCalendar
 import ru.genesis.calendar.domain.habits.HabitEngine
-import ru.genesis.calendar.domain.habits.habitReminderAt
+import ru.genesis.calendar.domain.habits.habitReminderOccurrences
+import ru.genesis.calendar.domain.habits.habitIntervalMarks
 
 internal data class PlannedHabitNotification(val date: LocalDate, val at: Instant, val kind: String,
     val habitId: String?, val title: String, val body: String) {
@@ -26,13 +27,16 @@ internal fun planHabitNotifications(workspace: LocalHabitWorkspace, today: Local
         val date = today.plusDays(offset.toLong())
         val planned = workspace.habits.filter { runCatching { engine.isScheduled(it, date) }.getOrDefault(false) }
         val completed = workspace.completions.filter { it.date == date && it.completed }.mapTo(hashSetOf()) { it.habitId }
-        val candidates = planned.filter { it.reminder.enabled && it.id !in completed }.mapNotNull { habit ->
-            val at = habitReminderAt(habit, date)?.toInstant() ?: return@mapNotNull null
-            if (at <= now || !habit.reminder.allowDuringQuietHours && quiet(at)) return@mapNotNull null
+        val candidates = planned.filter { it.reminder.enabled && it.id !in completed }.flatMap { habit ->
+            val marks = habitIntervalMarks(habit,workspace.completions.firstOrNull { it.habitId == habit.id && it.date == date })
+            habitReminderOccurrences(habit,date).mapNotNull { (time, scheduled) ->
+            val at = scheduled.toInstant()
+            if (at <= now || !habit.reminder.allowDuringQuietHours && quiet(at)
+                || habit.reminder.timing != "custom" && habit.intervalSchedule?.completionMode == "each" && time.toString() in marks) return@mapNotNull null
             PlannedHabitNotification(date, at, "habit", habit.id, habit.title,
                 habitNotificationBody(settings.tone, "habit", 1, language,
                     "$date:${habit.id}:${at.toEpochMilli()}", "«${habit.title}»"))
-        }.toMutableList()
+        } }.toMutableList()
         val completedCount = planned.count { it.id in completed }
         val target = workspace.goals.firstOrNull { it.date == date }?.targetCount ?: planned.size
         val remaining = (target - completedCount).coerceAtLeast(0)

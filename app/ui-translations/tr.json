@@ -2100,5 +2100,22 @@
   "Какое событие?": "Hangi etkinlik?",
   "С кем будет встреча и где?": "Toplantı kiminle ve nerede olacak?",
   "Карта изменилась. Закройте окно, обновите каталог и повторите удаление.": "Harita değişti. Bu pencereyi kapatın, kataloğu yenileyin ve tekrar silmeyi deneyin.",
-  "Не удалось удалить карту. Проверьте подключение и повторите попытку.": "Harita silinemedi. Bağlantınızı kontrol edip tekrar deneyin."
+  "Не удалось удалить карту. Проверьте подключение и повторите попытку.": "Harita silinemedi. Bağlantınızı kontrol edip tekrar deneyin.",
+  "Повторять в течение дня": "Gün içinde tekrarla",
+  "Начало промежутка": "Zaman aralığının başlangıcı",
+  "Конец промежутка": "Zaman aralığının sonu",
+  "Способ отметки": "Tamamlama yöntemi",
+  "Каждое повторение отдельно": "Her tekrarı ayrı işaretle",
+  "Одна отметка за день": "Gün için tek işaret",
+  "Укажите интервал от 1 до 1440 минут и время окончания не раньше начала.": "1 ile 1440 dakika arasında bir aralık ve başlangıçtan önce olmayan bir bitiş saati girin.",
+  "Запланированные времена": "Planlanan saatler",
+  "Повторений за день:": "Günlük tekrar sayısı:",
+  "Все повторения завершены — привычка выполнена за день.": "Tüm tekrarlar işaretlendiğinde alışkanlık o gün için tamamlanır.",
+  "Одна отметка подтверждает выполнение привычки за весь день.": "Tek bir işaret tüm gün için alışkanlığın tamamlandığını doğrular.",
+  "Отметки повторений:": "Tekrar işaretleri:",
+  "В каждое время повтора": "Her tekrar saatinde",
+  "Напоминания по временам повтора:": "Tekrar saatlerinde hatırlatmalar:",
+  "Майндмеп": "Zihin haritası",
+  "Отметить все повторения": "Tüm tekrarları işaretle",
+  "Снять все отметки повторений": "Tüm tekrarların işaretini kaldır"
 }
