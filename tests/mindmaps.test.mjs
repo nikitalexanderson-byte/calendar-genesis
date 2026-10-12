@@ -11,7 +11,7 @@ function loadTs(path) {
  const loaded = {exports:{}};
  const source = ts.transpileModule(readFileSync(path,'utf8'), {compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText;
  new Function('require','module','exports',source)(id => {
-   if(id === './i18n') return {runtimeLocale:()=> 'ru-RU',translateText:v=>v};
+   if(id === './i18n') return {runtimeLocale:()=> 'ru-RU',getRuntimeLanguage:()=> 'ru',translateText:v=>v};
    if(id.endsWith('?raw')) return readFileSync(resolve(path,'..',id.slice(0,-4)),'utf8');
    if(id.endsWith('.json')) return JSON.parse(readFileSync(resolve(path,'..',id),'utf8'));
    return id.startsWith('.') ? loadTs(resolve(path,'..',id+'.ts')) : require(id);
@@ -22,6 +22,18 @@ const {newMindmap, validateMindmap, removeBranch, moveNode, attachTask, nodeTitl
 
 const task = {id:'real-task',title:'Source title',done:false,projectId:'project-a',dependsOnIds:['other'],dueDate:'2026-10-12',recurrenceMode:'none',recurrenceExcludedDates:[]};
 const view={mode:'map',collapsed:[],focus:null,zoom:1};
+test('undated tasks stay references without a fabricated calendar occurrence or overdue state',()=>{
+ const source={...task,dueDate:'',endDate:'',time:''};const map=newMindmap('Undated');
+ const linked=attachTask(map,map.nodes[0].id,source);
+ assert.equal(linked.nodes[0].occurrenceDate,undefined);
+ assert.equal(nodeDateLabel(linked.nodes[0],[source]),'Без срока');
+ const {isTaskOverdue}=loadTs(resolve('app/task-overdue.ts'));
+ assert.equal(isTaskOverdue(source,new Date('2026-10-12T12:00:00Z')),false);
+ const {recurrenceDatesForTask}=loadTs(resolve('app/task-recurrence.ts'));
+ assert.deepEqual(recurrenceDatesForTask(source),[]);
+ const {cleanTaskDescription}=loadTs(resolve('app/task-description.ts'));
+ assert.equal(cleanTaskDescription('User note\n\nGENESIS-CREATE:'+'a'.repeat(64)),'User note');
+});
 test('T01/T03 one task resolves live in several maps, unique progress excludes ProjectRef',()=>{
  let a=newMindmap('A',null,'idea');a=attachTask(a,a.nodes[1].id,task);a=attachTask(a,a.nodes[2].id,task);
  let b=newMindmap('B'); b=attachTask(b,b.nodes[0].id,task);
@@ -55,6 +67,22 @@ test('T06 occurrence resolves its existing exception and never silently resolves
  const moved = {...occurrence,dueDate:'2026-10-20',recurrenceOriginalDate:'2026-10-12'};
  assert.equal(resolveMapTask(n,[root,moved]),moved);
  assert.equal(resolveMapTask({kind:'task',refId:task.id},[root]),undefined);
+});
+test('ordinary task schedule preserves empty dates, shifted ranges and occurrence exclusions',()=>{
+ const schedule=loadTs(resolve('app/personal-task-schedule.ts'));
+ const {DEFAULT_RECURRENCE_CONFIG,recurrenceDatesForTask}=loadTs(resolve('app/task-recurrence.ts'));
+ const undated={...task,dueDate:'',endDate:'',time:''};
+ const saved=schedule.buildTaskSeries(undated,DEFAULT_RECURRENCE_CONFIG)[0];
+ assert.equal(saved.dueDate,'');assert.equal(saved.endDate,'');assert.equal(schedule.taskRangeLabel(saved),'Без даты');
+ assert.equal(schedule.shiftRangeEndDate('2026-03-07','2026-03-10','2026-03-08'),'2026-03-11');
+ const series=schedule.buildTaskSeries({...task,endDate:'2026-10-14',calendarMode:'profane'},
+  {...DEFAULT_RECURRENCE_CONFIG,enabled:true,mode:'classic',pattern:'daily',rangeStart:'2026-10-12',rangeEnd:'2026-10-15'})[0];
+ const remaining=schedule.taskSeriesAfterExcludingOccurrence(series,'2026-10-12');
+ assert.equal(remaining.dueDate,'2026-10-13');assert.equal(remaining.endDate,'2026-10-15');
+ assert.deepEqual(recurrenceDatesForTask(remaining),['2026-10-13','2026-10-14','2026-10-15']);
+ assert.deepEqual(series.recurrenceExcludedDates,[]);
+ const standalone=schedule.standaloneTaskFromOccurrence(schedule.taskForOccurrence(series,'2026-10-14'),series.id);
+ assert.equal(standalone.endDate,'2026-10-16');assert.equal(standalone.recurrenceMode,'none');assert.equal(standalone.recurrenceSeriesId,series.id);
 });
 test('map dates read both start and deadline, shifting a recurring range by the occurrence date',()=>{
  const node={kind:'task',refId:task.id};

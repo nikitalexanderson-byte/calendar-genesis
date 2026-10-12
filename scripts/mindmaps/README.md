@@ -51,15 +51,21 @@ node scripts/mindmaps/e2e-conversion-fault.mjs
 node scripts/mindmaps/e2e-recurring.mjs
 node scripts/mindmaps/e2e-catalog.mjs
 node scripts/mindmaps/e2e-controls.mjs
+node scripts/mindmaps/e2e-undated.mjs
 node scripts/mindmaps/e2e-navigation.mjs
 node scripts/mindmaps/e2e-project-chaos.mjs
 node scripts/mindmaps/capture-after.mjs
 php server/tests/mindmaps.php
 php server/tests/mindmaps-google-contract.php
+php server/tests/mindmaps-native-contract.php
 php server/tests/mindmaps-migration.php
 ```
 
 Faults прерывает ответ **после настоящего server commit**; conversion-fault запрещает map PUT после реального сохранения локальной задачи. Это инъекции отказов транспорта, не подменённые успешные backend responses. Isolation использует реальную B PHP-сессию и штатный guard выхода A; не эмулирует полноценный Google login.
+
+Undated требует одновременно flag-on сервер 4319 и flag-off 4322 (запуск ниже). Проверяет настоящую обычную задачу без даты, назначение/снятие даты, отсутствие в загруженном «Сегодня», выполнение, перезапуск и обычное редактирование с выключенным флагом. Сохраняет приватный `output/undated-state.json`; не коммитить. `mindmaps-native-contract.php` использует реальную изолированную SQLite/парсер, но симулирует Google transport; его PASS не является проверкой живого Google.
+
+После undated команда `node scripts/mindmaps/capture-undated.mjs` снимает обычную форму без даты в 10 сочетаниях схемы/ширины. Она явно ставит внутреннюю прокрутку формы и документа в начало без smooth-scroll, ждёт два кадра и сохраняет viewport PNG `form-*.png` поверх прежних. Полный screenshot страницы с открытым fixed modal не используется: он искажает положение окна относительно фона.
 
 Для flag-off запустите ещё один Vite процесс с тем же config, удалив только `GENESIS_MINDMAPS` из его окружения: порт 4322. Затем `node scripts/mindmaps/e2e-flagoff-text.mjs`. Скрипт также делает CSS text-resize 200% и не заменяет проверку экранного диктора/физического телефона.
 
@@ -69,6 +75,6 @@ Faults прерывает ответ **после настоящего server co
 
 Перед browser-тестом дождитесь окончания изменения файлов/Vite HMR: перезагрузка во время сценария аннулирует результат. Не трактуйте проход dev server как проверку release JS: обязательная `GENESIS_MINDMAPS=true pnpm build:beget` выполняется отдельно.
 
-Собранную веб-версию можно проверить через тот же локальный PHP: после сборки запустите `pnpm exec vite preview --config scripts/mindmaps/vite.config.ts` (порт 4323), затем `node scripts/mindmaps/e2e-built-preview.mjs`. Он проверяет вход, загрузку зашифрованной карты, структуру и ленивый chunk полотна из реального `dist-beget/public_html/`, без подмены API. После recurring можно выполнить `node scripts/mindmaps/capture-built.mjs` для снимков диапазона дат на 390/1440 px. Полный сквозной сценарий создания/редактирования отдельно выполняется на dev-стенде.
+Собранную веб-версию можно проверить через тот же локальный PHP: после сборки и успешных core/undated запустите `pnpm exec vite preview --config scripts/mindmaps/vite.config.ts` (порт 4323), затем `node scripts/mindmaps/e2e-built-preview.mjs`. Он проверяет вход, загрузку зашифрованной карты, структуру, ленивый chunk полотна и обычное редактирование undated-задачи после перезапуска из реального `dist-beget/public_html/`, без подмены API. После recurring можно выполнить `node scripts/mindmaps/capture-built.mjs` для снимков диапазона дат на 390/1440 px. Полный сквозной сценарий создания/редактирования отдельно выполняется на dev-стенде.
 
 Остановка стенда — Ctrl+C в его терминалах. Отключение флага/остановка серверов не удаляет карты. Никаких production-команд, git push, deploy workflow, Android/Gradle и удаления SQLite в harness нет.

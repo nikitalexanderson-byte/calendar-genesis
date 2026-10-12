@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/personal-task-creation.php';
 
 /** The server validates envelopes only. Titles, graphs and references stay opaque. */
 function genesisMindmapId(string $id): void
@@ -21,8 +22,7 @@ function genesisMindmaps(string $userId): array
 }
 
 /** Google Calendar supports client-supplied IDs. Retry the same ID, never overwrite
- * an existing task. Google Tasks has no equivalent: creation there is deliberately
- * excluded from this operation, while references/editing use the ordinary domain.
+ * an existing task. Native Tasks uses a durable attempt receipt and recovery scan.
  * No SQLite transaction is held across an external network call.
  */
 function genesisCreatePersonalTaskOnce(array $user, string $id, array $task): array
@@ -35,13 +35,14 @@ function genesisCreatePersonalTaskOnce(array $user, string $id, array $task): ar
     try {
         if (genesisTaskWasDeleted($userId, $id, $task)) throw new DomainException('TASK_DELETED');
         if (genesisUserProvider($user) !== 'google') throw new InvalidArgumentException('Personal map creation requires Google sign-in.');
-        if (!empty($task['googleTaskListId'])) throw new InvalidArgumentException('Создание из мысли доступно в календаре GENESIS. Задачу из Google Tasks можно привязать через «Добавить из дел».');
+        $native = !empty($task['googleTaskListId']);
         $targets = genesisResolveTaskTargetAccounts($user, $task);
         if (!$targets) throw new InvalidArgumentException('Подключите Google Calendar перед созданием задачи.');
         // Validate before recording the attempt. Only metadata is retained here.
-        $payload = genesisTaskPayloadForGoogle($id, $task);
+        $payload = $native ? genesisGoogleNativeTaskPayload($id, $task) : genesisTaskPayloadForGoogle($id, $task);
+        if ($native && count($targets) !== 1) throw new InvalidArgumentException('Выберите один Google-аккаунт для списка задач.');
         $targetIds = array_column($targets, 'id'); sort($targetIds);
-        $fingerprint = hash('sha256', implode(':', $targetIds));
+        $fingerprint = hash('sha256', implode(':', $targetIds) . ($native ? ':tasks:' . $task['googleTaskListId'] : ''));
         $q = genesisDb()->prepare('SELECT state FROM personal_task_creations WHERE user_id=? AND task_id=?');
         $q->execute([$userId, $id]);
         $state = $q->fetchColumn();
@@ -49,6 +50,12 @@ function genesisCreatePersonalTaskOnce(array $user, string $id, array $task): ar
         if ($state === false) genesisDb()->prepare('INSERT INTO personal_task_creations VALUES (?,?,?)')->execute([$userId, $id, $fingerprint]);
         $savedTask = null; $links = [];
         foreach ($targets as $account) {
+            if ($native) {
+                $savedTask = genesisCreatePersonalNativeTaskOnce($account, $userId, $id, $task);
+                $links[(string)$account['id']] = ['eventId'=>null,'taskId'=>$savedTask['googleTaskId'],
+                    'taskListId'=>$savedTask['googleTaskListId'],'taskListTitle'=>$savedTask['googleTaskListTitle']];
+                continue;
+            }
             $account = genesisEnsureGoogleCalendar($account);
             $eventId = 'genesis' . hash('sha256', $userId . ':' . $id);
             $path = '/calendars/' . rawurlencode((string)$account['google_calendar_id']) . '/events';

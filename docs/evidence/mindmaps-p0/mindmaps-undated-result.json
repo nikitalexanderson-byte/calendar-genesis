@@ -1,0 +1,17 @@
+{
+  "passed": [
+    "real composer creates undated ordinary task",
+    "ordinary affairs edit keeps empty dates",
+    "assign and remove date through ordinary editor",
+    "calendar action disabled",
+    "loaded Today excludes undated task",
+    "completion uses same source",
+    "close/reopen keeps title/status/empty dates",
+    "flag-off ordinary editor preserves empty dates",
+    "form and structure in 10 theme/width combinations without page overflow"
+  ],
+  "mapUrl": "http://127.0.0.1:4319/?mindmap=d179b3fe-6591-4b0e-853f-e6ba645e66f0#projects",
+  "taskId": "maptask-b554e9df36f88d194cee3e236d00c571e3352d45b68df77543a48fcf66b7b184",
+  "pageErrors": [],
+  "scope": "Local real app/PHP map API; no live Google"
+}

@@ -24,9 +24,10 @@ $fetchTasks = function (string $method, string $path) use (&$calls, $rawTask): a
 $items = genesisListGoogleNativeTasks($user, [['id' => 'a', 'title' => 'Renamed'], ['id' => 'new', 'title' => 'New']], $previous,
     '2026-10-11T12:00:00Z', [['id' => 'a']], $fetchTasks);
 $byId = array_column($items, null, 'googleTaskId');
-incrementalExpect(count($calls) === 3 && count($items) === 3, 'Pagination or list removal failed.');
+incrementalExpect(count($calls) === 3 && count($items) === 4, 'Pagination or list removal failed.');
 incrementalExpect($byId['changed']['title'] === 'After' && $byId['keep']['googleTaskListTitle'] === 'Renamed' && isset($byId['new-task']), 'Incremental merge lost updates or unchanged tasks.');
-incrementalExpect(!isset($byId['deleted'], $byId['undated'], $byId['removed-list-task']), 'Deleted/undated task survived incremental sync.');
+incrementalExpect(!isset($byId['deleted']) && !isset($byId['removed-list-task']), 'Deleted task or removed list survived incremental sync.');
+incrementalExpect(isset($byId['undated']) && $byId['undated']['dueDate'] === '', 'Undated task lost during incremental sync.');
 $full = genesisListGoogleNativeTasks($user, [['id' => 'a', 'title' => 'A']], [], null, [], static function (string $method, string $path) use ($rawTask): array {
     parse_str((string)parse_url($path, PHP_URL_QUERY), $query);
     incrementalExpect(!isset($query['updatedMin']) && $query['showDeleted'] === 'false', 'Full read used an incremental cursor.');

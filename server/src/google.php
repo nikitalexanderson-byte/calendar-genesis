@@ -713,6 +713,7 @@ function genesisHasLegacyTaskDescriptionMetadata(mixed $value): bool
 
 function genesisCleanTaskDescription(mixed $value): string
 {
+    $value = preg_replace('/^GENESIS-CREATE:[a-f0-9]{64}\r?\n?/m', '', (string)$value);
     $description = str_replace("\r", '', (string)$value);
     $lines = preg_split('/\R/u', $description) ?: [];
     foreach ($lines as $index => $line) {
@@ -875,7 +876,7 @@ function genesisGoogleNativeTaskForClient(array $task, string $taskListId, strin
     }
     $googleTaskId = trim((string)($task['id'] ?? ''));
     $due = (string)($task['due'] ?? '');
-    if ($googleTaskId === '' || !preg_match('/^(\d{4}-\d{2}-\d{2})T/', $due, $dueMatch)) {
+    if ($googleTaskId === '' || ($due !== '' && !preg_match('/^(\d{4}-\d{2}-\d{2})T/', $due, $dueMatch))) {
         return null;
     }
     $notes = genesisDecodeTaskNotes((string)($task['notes'] ?? ''));
@@ -885,13 +886,13 @@ function genesisGoogleNativeTaskForClient(array $task, string $taskListId, strin
         ? $managedTaskId
         : 'google-task-' . substr(hash('sha256', $taskListId . "\0" . $googleTaskId), 0, 36);
     $createdIn = genesisTaskOrigin($metadata['createdIn'] ?? null, $managedTaskId !== '' ? 'genesis' : 'google-tasks');
-    $endDate = $dueMatch[1];
+    $endDate = $dueMatch[1] ?? '';
     $metadataStartDate = (string)($metadata['startDate'] ?? '');
     $dueDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', $metadataStartDate) && $metadataStartDate <= $endDate
         ? $metadataStartDate
         : $endDate;
     $time = preg_match('/^\d{2}:\d{2}$/', (string)($metadata['time'] ?? '')) ? (string)$metadata['time'] : '';
-    $sacred = genesisSacredFromDate($dueDate);
+    $sacred = $dueDate !== '' ? genesisSacredFromDate($dueDate) : ['sacredYear'=>0,'monthIndex'=>0,'day'=>0];
     $done = ($task['status'] ?? '') === 'completed';
     $updatedAt = strtotime((string)($task['updated'] ?? ''));
     $completedAt = trim((string)($task['completed'] ?? ''));
@@ -938,6 +939,24 @@ function genesisGoogleNativeTaskForClient(array $task, string $taskListId, strin
         'googleReadOnly' => false,
         'updatedAt' => $updatedAt !== false ? $updatedAt * 1000 : (int)(microtime(true) * 1000),
     ];
+}
+
+/** Keep GENESIS-only fields; native Google owns title, notes, status and deadline. */
+function genesisPersonalNativeMetadata(array $clientTask, array $metadata): array
+{
+    foreach (['project','projectId','categoryId','tags','dependsOnIds','priority','calendarMode'] as $field) {
+        if (array_key_exists($field, $metadata)) $clientTask[$field] = $metadata[$field];
+    }
+    if ($clientTask['dueDate'] !== '') {
+        $clientTask['time'] = $metadata['time'] ?? $clientTask['time'];
+        // A single-day task follows a changed Google deadline. Preserve a
+        // GENESIS range start only while it still precedes the native deadline.
+        if (!empty($metadata['dueDate']) && $metadata['dueDate'] !== ($metadata['endDate'] ?? $metadata['dueDate'])
+            && $metadata['dueDate'] <= $clientTask['endDate']) $clientTask['dueDate'] = $metadata['dueDate'];
+        $sacred = genesisSacredFromDate($clientTask['dueDate']);
+        foreach (['sacredYear','monthIndex','day'] as $field) $clientTask[$field] = $sacred[$field];
+    } else $clientTask['time'] = '';
+    return $clientTask;
 }
 
 function genesisDefaultGoogleTaskListId(array $user): string
@@ -1029,10 +1048,19 @@ function genesisListGoogleNativeTasks(array $user, array $taskLists, array $prev
                 if (!is_array($task)) {
                     continue;
                 }
-                // A changed task can become undated or otherwise no longer importable.
+                $previousTask = $tasks[$taskListId . ':' . ($task['id'] ?? '')] ?? null;
                 if (!empty($task['id'])) unset($tasks[$taskListId . ':' . $task['id']]);
                 $clientTask = genesisGoogleNativeTaskForClient($task, $taskListId, $taskListTitle);
                 if ($clientTask !== null) {
+                    $identity = function_exists('genesisPersonalNativeIdentity') ? genesisPersonalNativeIdentity($user, $taskListId, $task) : null;
+                    if ($identity !== null) {
+                        $clientTask['id'] = $identity;
+                        $clientTask['createdIn'] = 'genesis';
+                        // Retain GENESIS-only metadata in the existing encrypted snapshot.
+                        if ($previousTask !== null && $previousTask['id'] === $identity) {
+                            $clientTask = genesisPersonalNativeMetadata($clientTask, $previousTask);
+                        }
+                    }
                     $tasks[$taskListId . ':' . $clientTask['googleTaskId']] = $clientTask;
                 }
                 if (
@@ -1236,11 +1264,11 @@ function genesisGoogleNativeTaskPayload(string $taskId, array $task): array
         throw new InvalidArgumentException('Название задачи обязательно.');
     }
     $dueDate = (string)($task['dueDate'] ?? '');
-    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dueDate)) {
+    if ($dueDate !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dueDate)) {
         throw new InvalidArgumentException('Дата задачи указана неверно.');
     }
     $endDate = (string)($task['endDate'] ?? $dueDate);
-    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $endDate) || $endDate < $dueDate) {
+    if (($dueDate === '' && $endDate !== '') || ($dueDate !== '' && (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $endDate) || $endDate < $dueDate))) {
         throw new InvalidArgumentException('Срок выполнения задачи указан неверно.');
     }
     $done = !empty($task['done']);
@@ -1248,7 +1276,8 @@ function genesisGoogleNativeTaskPayload(string $taskId, array $task): array
         'title' => $title,
         'notes' => genesisTaskNotesForGoogle($taskId, $task),
         'status' => $done ? 'completed' : 'needsAction',
-        'due' => $endDate . 'T00:00:00.000Z',
+        // null explicitly removes an existing due date on PATCH.
+        'due' => $endDate !== '' ? $endDate . 'T00:00:00.000Z' : null,
     ];
     if ($done) {
         $completed = trim((string)($task['completedAt'] ?? ''));

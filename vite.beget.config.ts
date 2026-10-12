@@ -187,7 +187,7 @@ export default defineConfig({
             },
             {
               name: "calendar-engine",
-              test: /app[\\/](?:calendar-data|solar-times|day-rhythm|task-recurrence|task-reminders|time-format)\.ts$/,
+              test: /app[\\/](?:calendar-data|solar-times|day-rhythm|personal-task-schedule|task-recurrence|task-reminders|time-format)\.ts$/,
               priority: 13,
             },
           ],

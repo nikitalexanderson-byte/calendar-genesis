@@ -45,8 +45,7 @@ expectContract($retried['title']==='Edited in ordinary tasks','Creation retry ov
 expectContract(count(array_filter($GLOBALS['calls'],fn($call)=>$call[0]==='POST'))===2,'Repeated submit posted another event');
 $GLOBALS['targets'] = [$GLOBALS['targets'][0]];
 try { genesisCreatePersonalTaskOnce($user,'stable-task',$task); throw new LogicException('Routing change accepted'); } catch(GenesisResourceLimitException $error) { expectContract($error->status===409,'Routing conflict status'); }
-try { genesisCreatePersonalTaskOnce($user,'native-task',[...$task,'googleTaskListId'=>'native-list']); throw new LogicException('Unsupported native creation accepted'); } catch(InvalidArgumentException $expected) {}
 $GLOBALS['deleteDuringCreate'] = true; $GLOBALS['deletionChecks'] = 0;
 try { genesisCreatePersonalTaskOnce($user,'deleted-during-create',$task); throw new LogicException('Concurrent deletion ignored'); }
 catch (DomainException $error) { expectContract($error->getMessage()==='TASK_DELETED' && count($GLOBALS['deletionCleanup'])===1,'Concurrent deletion did not clean up created links'); }
-echo "PASS provider contract simulation: stable event ID, lost response, repeated submit, partial multi-account recovery, no overwrite, routing freeze, native creation guard, concurrent deletion cleanup. Live Google NOT tested.\n";
+echo "PASS Calendar provider contract simulation: stable event ID, lost response, repeated submit, partial multi-account recovery, no overwrite, routing freeze, concurrent deletion cleanup. Live Google NOT tested.\n";

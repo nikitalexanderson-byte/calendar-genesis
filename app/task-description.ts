@@ -9,7 +9,8 @@ const GENESIS_METADATA_LINE = /^\s*(?:(?:Приоритет|Priority|Срок|Du
  */
 export function cleanTaskDescription(value: unknown) {
   if (typeof value !== "string" || !value) return "";
-  const lines = value.replace(/\r\n?/g, "\n").split("\n");
+  const visible = value.replace(/^GENESIS-CREATE:[a-f0-9]{64}\r?\n?/gm, "");
+  const lines = visible.replace(/\r\n?/g, "\n").split("\n");
   const markerIndex = lines.findIndex((line, index) => (
     GENESIS_BLOCK_MARKER.test(line)
     && lines.slice(index + 1).some((candidate) => GENESIS_DATA_LINE.test(candidate) || GENESIS_METADATA_LINE.test(candidate))
@@ -17,7 +18,7 @@ export function cleanTaskDescription(value: unknown) {
   if (markerIndex >= 0) return lines.slice(0, markerIndex).join("\n").trim();
 
   const dataIndex = lines.findIndex((line) => GENESIS_DATA_LINE.test(line));
-  if (dataIndex < 0) return value.trim();
+  if (dataIndex < 0) return visible.trim();
 
   let blockStart = dataIndex;
   while (blockStart > 0) {

@@ -1,3 +1,8 @@
+dist-beget/public_html/assets/static-data-Cg7BA7D4.js                 212.92 kB │ gzip:  52.82 kB
+dist-beget/public_html/assets/locale-el.b-DHLbXjNi.js                 242.36 kB │ gzip:  61.74 kB
+dist-beget/public_html/assets/locale-years-B3D3ILcC.js                253.97 kB │ gzip:  49.80 kB
+dist-beget/public_html/assets/static-data-D44OFvR5.js                 256.30 kB │ gzip:  88.22 kB
+dist-beget/public_html/assets/static-data-Ckgn_uVc.js                 269.30 kB │ gzip:  88.02 kB
 dist-beget/public_html/assets/static-data-BArKBAgZ.js                 271.52 kB │ gzip:  90.69 kB
 dist-beget/public_html/assets/locale-zh-aatoGoBH.js                   309.96 kB │ gzip: 101.84 kB
 dist-beget/public_html/assets/locale-tr-Arf_rhxC.js                   331.31 kB │ gzip: 102.32 kB
@@ -7,9 +12,9 @@ dist-beget/public_html/assets/locale-it-B_XUw-S1.js                   344.79 kB 
 dist-beget/public_html/assets/locale-es-8DculWLH.js                   345.06 kB │ gzip: 104.38 kB
 dist-beget/public_html/assets/locale-de-GuKNpR8G.js                   348.12 kB │ gzip: 106.48 kB
 dist-beget/public_html/assets/locale-ja-DqtmdDQt.js                   348.50 kB │ gzip: 103.03 kB
-dist-beget/public_html/assets/index-DabJW7dB.js                       349.36 kB │ gzip:  97.92 kB
+dist-beget/public_html/assets/index-D0PDJqa1.js                       349.00 kB │ gzip:  97.80 kB
 dist-beget/public_html/assets/locale-fr-DY0RZIDe.js                   349.74 kB │ gzip: 105.58 kB
 
-✓ built in 2.10s
+✓ built in 2.12s
 Public homepage and four legal documents are readable without JavaScript; Google-only .com references verified.
 Offline precache verified: 47 mandatory entry assets and 103 visual assets. Largest JS chunk: locale-fr-DY0RZIDe.js (349746 bytes).

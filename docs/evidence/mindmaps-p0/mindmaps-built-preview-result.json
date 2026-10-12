@@ -3,7 +3,9 @@
     "actual build:beget output boots",
     "personal entry",
     "encrypted map loads through real local API",
-    "structure and lazy canvas chunks load"
+    "structure and lazy canvas chunks load",
+    "undated source opens in ordinary editor after restart",
+    "ordinary save preserves empty dates and completion"
   ],
   "pageErrors": []
 }
