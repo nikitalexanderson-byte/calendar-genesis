@@ -154,7 +154,7 @@ html[data-genesis-theme^="standart"] .genesis-app .workspace-header p { max-widt
 html[data-genesis-theme^="standart"] .genesis-app .workspace-header :is(.projects-summary, .all-tasks-summary) { min-width: 220px; }
 html[data-genesis-theme^="standart"] .genesis-app .workspace-header :is(.projects-summary, .all-tasks-summary) > span { padding: 4px 14px; align-items: flex-start; color: var(--ink-soft); font: 400 11px/1.4 var(--font-ui); text-transform: none; }
 html[data-genesis-theme^="standart"] .genesis-app .workspace-header :is(.projects-summary, .all-tasks-summary) > span + span { border-color: var(--line); }
-html[data-genesis-theme^="standart"] .genesis-app .workspace-header :is(.projects-summary strong, .all-tasks-summary strong, .mindmap-catalog-statistics dd) { color: var(--gold); font: 400 30px/1.15 var(--font-heading); }
+html[data-genesis-theme^="standart"] .genesis-app .workspace-header :is(.projects-summary, .all-tasks-summary) strong { color: var(--gold); font: 400 30px/1.15 var(--font-heading); }
 /* The original DOM and every action stay shared; this is the new project composition. */
 .genesis-app .project-toolbar { display: contents; }
 html[data-genesis-theme] .genesis-app .workspace-title-secondary em { font-family: var(--font-heading) !important; font-size: inherit; font-style: normal; font-weight: inherit; line-height: inherit; }
