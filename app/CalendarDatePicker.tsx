@@ -28,6 +28,7 @@ type CalendarDatePickerProps = {
   ariaLabel?: string;
   showGregorianReference?: boolean;
   triggerText?: string;
+  referencePlacement?: "below" | "inline";
   onChange: (value: string) => void;
 };
 
@@ -59,7 +60,7 @@ function formatCompactGregorian(date: Date) {
   return `${dateLabel} ${capitalizedWeekday}`;
 }
 
-export function CalendarDatePicker({ id, value, mode, min, max, required, ariaLabel, showGregorianReference = true, triggerText, onChange }: CalendarDatePickerProps) {
+export function CalendarDatePicker({ id, value, mode, min, max, required, ariaLabel, showGregorianReference = true, triggerText, referencePlacement = "below", onChange }: CalendarDatePickerProps) {
   const isEnglish = getRuntimeLanguage() === "en";
   const [open, setOpen] = useState(false);
   const selectedDate = useMemo(() => parseDate(value), [value]);
@@ -95,9 +96,9 @@ export function CalendarDatePicker({ id, value, mode, min, max, required, ariaLa
 
   return (
     <>
-      <button id={id} type="button" className={`calendar-date-trigger mode-${mode}${showGregorianReference ? "" : " no-reference"}`} data-genesis-preserve={`${mode}-date-picker-trigger`} onClick={openPicker} aria-label={ariaLabel} aria-haspopup="dialog">
+      <button id={id} type="button" className={`calendar-date-trigger mode-${mode}${showGregorianReference ? "" : " no-reference"}${referencePlacement === "inline" ? " inline-reference" : ""}`} data-genesis-preserve={`${mode}-date-picker-trigger`} onClick={openPicker} aria-label={ariaLabel} aria-haspopup="dialog">
         <span>{value ? triggerText ?? formatCalendarDate(selectedDate, mode, true) : isEnglish ? "Choose date" : "Выберите дату"}</span>
-        {value && showGregorianReference ? <small>{formatGregorian(selectedDate, true)}</small> : null}
+        {value && showGregorianReference ? <small>{referencePlacement === "inline" ? `(${value.split("-").reverse().join(".")})` : formatGregorian(selectedDate, true)}</small> : null}
       </button>
       {open ? (
         <div className="modal-backdrop calendar-picker-backdrop" role="presentation" data-genesis-preserve={`${mode}-date-picker`} onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>

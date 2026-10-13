@@ -1279,7 +1279,7 @@ function SacredHabitLibrary({
   const renderSectorTab = (sectorId: SacredPracticeSectorId) => {
     const item = segments.get(sectorId)!;
     const started = workspace.habits.filter((habit) => habit.sacredSectorId === sectorId).length;
-    const sectorName = SACRED_SECTOR_NAMES[sectorId][language];
+    const sectorName = catalogText(SACRED_SECTOR_NAMES[sectorId], language);
     return (
       <button
         type="button"
@@ -1302,7 +1302,7 @@ function SacredHabitLibrary({
     <section className={`sacred-habit-library${collapsed ? " is-collapsed" : ""}`} aria-labelledby="sacred-habit-library-title">
       <header>
         <div>
-          <span className="eyebrow">ΘΕΟΚΥΚΛΟΣ · {isEnglish ? "embodied myth" : "воплощённый миф"}</span>
+          <span className="eyebrow">{translateText("Теокиклос",language).toLocaleUpperCase()} · {isEnglish ? "embodied myth" : "воплощённый миф"}</span>
           <h2 id="sacred-habit-library-title">{isEnglish ? "Sacred habits" : "Сакральные привычки"}</h2>
           <p hidden={collapsed}>{isEnglish ? "Every practice is an ordinary, trackable action illuminated by a myth and a patron deity." : "Каждая практика — обычное отслеживаемое действие, освещённое мифом и божеством-покровителем."}</p>
         </div>
@@ -1334,12 +1334,12 @@ function SacredHabitLibrary({
       {selectedSectorId && sector ? <div className="modal-backdrop sacred-sector-modal-backdrop" role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) closeSectorDialog(); }}>
         <section ref={sectorDialogRef} className="sacred-sector-modal" role="dialog" aria-modal="true" aria-labelledby="sacred-sector-modal-title" tabIndex={-1}>
           <header>
-            <div><span className="eyebrow">ΘΕΟΚΥΚΛΟΣ · {SACRED_SECTOR_NAMES[selectedSectorId][language]}</span><h2 id="sacred-sector-modal-title">{isEnglish ? "Choose a sacred habit" : "Выберите сакральную привычку"}</h2></div>
+            <div><span className="eyebrow">{translateText("Теокиклос",language).toLocaleUpperCase()} · {catalogText(SACRED_SECTOR_NAMES[selectedSectorId], language)}</span><h2 id="sacred-sector-modal-title">{isEnglish ? "Choose a sacred habit" : "Выберите сакральную привычку"}</h2></div>
             <button type="button" className="modal-close sacred-sector-header-close" onClick={closeSectorDialog} aria-label={isEnglish ? "Close" : "Закрыть"}><SacredDialogActionIcon variant="close" /></button>
           </header>
           <div className="sacred-sector-summary">
             <div><SacredSectorSigil sectorId={selectedSectorId} active /><p><small>{catalogText(SACRED_SECTOR_NAMES[selectedSectorId], language)} · {isEnglish ? "patron deity" : "божество-покровитель"}</small><strong data-no-translate>{catalogText(sector.patrons, language)}</strong></p></div>
-            <p>{sector.essence[language]}</p>
+            <p>{catalogText(sector.essence, language)}</p>
           </div>
           <div className="sacred-practice-grid">
           {practices.map((practice) => {

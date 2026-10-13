@@ -27,6 +27,10 @@ require(yandexClientId.isEmpty() || yandexClientId.matches(Regex("[A-Za-z0-9_-]{
 }
 val releaseSigningReady = listOf(releaseStore, releaseStorePassword, releaseKeyAlias, releaseKeyPassword)
     .all { !it.isNullOrBlank() }
+val debugApplicationSuffix = providers.gradleProperty("genesisDebugApplicationIdSuffix").orElse(".debug").get()
+require(debugApplicationSuffix.matches(Regex("(?:\\.[a-z][a-z0-9]*)*\\.debug"))) {
+    "Debug application ID must end in .debug and remain separate from production"
+}
 
 android {
     namespace = "ru.genesis.calendar"
@@ -40,8 +44,8 @@ android {
         applicationId = "ru.genesis.calendar"
         minSdk = 26
         targetSdk = 37
-        versionCode = 81
-        versionName = "2.8.1"
+        versionCode = 82
+        versionName = "2.8.2"
         buildConfigField("boolean", "PLAY_DISTRIBUTION", "false")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -65,7 +69,7 @@ android {
 
     buildTypes {
         debug {
-            applicationIdSuffix = ".debug"
+            applicationIdSuffix = debugApplicationSuffix
             resValue("string", "app_name", "GENESIS Alpha")
         }
         release {
@@ -119,7 +123,7 @@ val genesisAssets = tasks.register<GenesisAssetsTask>("genesisAssets") {
     from(rootProject.file("../app/native-affairs-translations.json")) { into("i18n") }
     from(rootProject.file("../app/emoji-catalog.json")) { into("i18n") }
     from(rootProject.file("../app/emoji-full-catalog.json")) { into("i18n") }
-    from(rootProject.file("../app/calendar-days.en.json")) { into("i18n") }
+    from(rootProject.file("../app")) { include("calendar-days.*.json"); into("i18n") }
     from(rootProject.file("../app/stoicheion.en.json")) { into("i18n") }
     from(rootProject.file("../app/catalog-translations")) {
         include("*.json")

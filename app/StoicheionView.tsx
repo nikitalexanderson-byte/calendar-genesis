@@ -16,6 +16,7 @@ import {
   type StoicheionLetter,
 } from "./stoicheion-data";
 import { getStoicheionCardArt } from "./stoicheion-card-art";
+import { formatGreekTerms } from "./greek-terms";
 import { catalogText, sacredWordCopy, stoicheionArtCopy } from "./catalog-i18n";
 import {
   isGoogleSyncConfigured,
@@ -281,7 +282,7 @@ function StoicheionCardFace({
   const language = getRuntimeLanguage();
   const localizedArt = stoicheionArtCopy(letter.id, language);
   const body = localizedArt?.body ?? art.body;
-  const bodyGreek = localizedArt?.bodyGreek ?? art.bodyGreek;
+  const bodyGreek = formatGreekTerms(localizedArt?.bodyGreek ?? art.bodyGreek, language);
   const invocation = localizedArt?.invocation ?? art.invocation;
   const cardLabel = `${CARD_LABEL[language]} ${letter.name}: ${letter.symbol}, ${body}, ${bodyGreek}`;
 
@@ -343,7 +344,7 @@ function LetterDetails({
   const sector = position ? THEOKYKLOS_SEGMENTS.find((segment) => segment.id === position.id) ?? null : null;
   const guidance = position ? sacredSectorGuidance(position.id) : null;
   const practices = position ? sacredPracticesForSector(position.id) : [];
-  const sections = stoicheionReadingSections(letter.content);
+  const sections = stoicheionReadingSections(formatGreekTerms(letter.content, getRuntimeLanguage()));
   const orientationSections = sections.filter((section) => /^(Парадное положение|Перев[её]рнутое положение|Upright position|Reversed position)/i.test(section.heading));
   const profileSections = sections.filter((section) => !orientationSections.includes(section));
   const drawReading = reversed !== null && orientationSections.length > 0;
@@ -368,7 +369,7 @@ function LetterDetails({
       <p data-no-translate>{catalogText(guidance[reversed ? "reversed" : "upright"], language)}</p>
       <div className="stoicheion-sector-words">
         <small>{language === "en" ? "Sacred words" : "Священные слова"}</small>
-        <div>{sector.words.map((word) => <span key={word.greek} data-no-translate><b lang={language === "ru" || language === "el" ? "grc" : language}>{sacredWordCopy(word.greek, language)}</b><em>{catalogText(word.pronunciation, language)}</em></span>)}</div>
+        <div>{sector.words.map((word) => <span key={word.greek} data-no-translate><b lang={language === "el" ? "grc" : language}>{sacredWordCopy(word.greek, language, word.pronunciation.ru)}</b><em>{catalogText(word.pronunciation, language)}</em></span>)}</div>
       </div>
       <div className="stoicheion-sector-habits">
         <small>{language === "en" ? "Suggested embodied practices" : "Предлагаемые воплощённые практики"}</small>
@@ -797,7 +798,7 @@ export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSec
                 </button>
               ) : null}
               {spreadVisible ? <aside className="stoicheion-isopsephy" aria-labelledby="isopsephy-title">
-                <span className="eyebrow">ἰσοψηφία · числовое равенство</span>
+                <span className="eyebrow">Исопсефия · числовое равенство</span>
                 <h3 id="isopsephy-title">Пифмен расклада</h3>
                 <p className="stoicheion-sum">{spreadLetters.map((letter) => letter.value).join(" + ")} = <strong>{spreadTotal}</strong></p>
                 <div className="stoicheion-root-line">

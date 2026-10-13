@@ -1,7 +1,19 @@
 import source from "../references/days.txt?raw";
 import { MoonPhase, SearchMoonPhase, Seasons } from "astronomy-engine";
 import englishDays from "./calendar-days.en.json";
-import { runtimeLocale, translateText } from "./i18n";
+import greekDays from "./calendar-days.el.json";
+import germanDays from "./calendar-days.de.json";
+import frenchDays from "./calendar-days.fr.json";
+import spanishDays from "./calendar-days.es.json";
+import italianDays from "./calendar-days.it.json";
+import portugueseDays from "./calendar-days.pt.json";
+import polishDays from "./calendar-days.pl.json";
+import serbianDays from "./calendar-days.sr.json";
+import ukrainianDays from "./calendar-days.uk.json";
+import chineseDays from "./calendar-days.zh.json";
+import turkishDays from "./calendar-days.tr.json";
+import japaneseDays from "./calendar-days.ja.json";
+import { getRuntimeLanguage, runtimeLocale, translateText } from "./i18n";
 
 export type SacredDay = {
   id: string;
@@ -652,12 +664,14 @@ export function calendarDateNote(date: Date, mode: CalendarMode) {
 
 export function getSacredDay(monthIndex: number, day: number) {
   const sacredDay = MONTHS[monthIndex]?.days[day - 1] ?? MONTHS[12].days[0];
-  // Authored translations currently exist in Russian and English. Other
-  // locales use the English day copy until their own calendar corpus exists.
-  if (runtimeLocale() === "ru-RU") return sacredDay;
+  const language = getRuntimeLanguage();
+  if (language === "ru") return sacredDay;
   const index = monthIndex < 12 ? (monthIndex * 30) + day - 1 : 360 + day - 1;
-  const englishDay = ENGLISH_DAYS[index];
-  return englishDay ? { ...sacredDay, ...englishDay } : sacredDay;
+  const catalog = {en:ENGLISH_DAYS,el:greekDays,de:germanDays,fr:frenchDays,es:spanishDays,
+    it:italianDays,pt:portugueseDays,pl:polishDays,sr:serbianDays,uk:ukrainianDays,
+    zh:chineseDays,tr:turkishDays,ja:japaneseDays}[language];
+  const localizedDay = catalog[index];
+  return localizedDay ? { ...sacredDay, ...localizedDay } : sacredDay;
 }
 
 export function getDayElement(monthIndex: number, day: number) {

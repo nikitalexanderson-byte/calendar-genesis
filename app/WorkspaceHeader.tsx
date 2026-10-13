@@ -14,7 +14,7 @@ export function WorkspaceHeader({ title, description, mark, context, children, o
       <div className="workspace-header-copy"><h1>{localizedTitle.includes(" · ") ? <>{localizedTitle.split(" · ")[0]}<span className="workspace-title-secondary"> · <em>{localizedTitle.split(" · ").slice(1).join(" · ")}</em></span></> : localizedTitle}</h1><div id={`${id}-context`} className="workspace-header-context">{description ? <p>{description}</p> : null}{context}</div></div>
     </div>
     {children ? <div id={`${id}-summary`} className="workspace-header-summary">{children}</div> : null}
-    {overviewLabel ? <button type="button" className="workspace-overview-toggle" aria-expanded={expanded} aria-controls={`${id}-context${children ? ` ${id}-summary` : ""}`} onClick={() => setExpanded(value => !value)}><ExperimentalIcon name="chevron"/>{overviewLabel}</button> : null}
+    {overviewLabel ? <button type="button" className="workspace-overview-toggle" aria-expanded={expanded} aria-controls={`${id}-context${children ? ` ${id}-summary` : ""}`} onClick={() => setExpanded(value => !value)}><ExperimentalIcon name="chevron"/>{translateText("Обзор")}</button> : null}
   </header>;
 }
 

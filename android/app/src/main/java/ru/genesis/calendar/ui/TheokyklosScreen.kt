@@ -198,7 +198,7 @@ private fun TheokyklosMandala(sectors: List<TheokyklosSector>, english: Boolean,
         Box(Modifier.offset(maxWidth * .5f - 64.dp, maxWidth * .49f - 64.dp)
             .size(128.dp)
             .clickable { onSelect("hearth") }
-            .semantics { role = Role.Button; contentDescription = hearthDescription }
+            .genesisDescription(hearthDescription).semantics { role = Role.Button }
             .testTag("theokyklos-sector-hearth"), contentAlignment = Alignment.Center) {
             Canvas(Modifier.fillMaxSize()) {
                 val center = Offset(size.width / 2f, size.height / 2f)

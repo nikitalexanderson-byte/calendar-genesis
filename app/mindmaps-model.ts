@@ -9,7 +9,7 @@ export type MapNodePresentation = { icon?: string; align?: "left" | "center" | "
 export type MapNode = { id: string; parentId: string | null; kind: "idea" | "task" | "project";
   text?: string; refId?: string; occurrenceDate?: string; note: string; tags?: string[]; style?: {fill?:string;border?:string}; presentation?: MapNodePresentation };
 export type MapLink = { id: string; from: string; to: string; label: string; color?:string };
-export type Mindmap = { schemaVersion: 1; id: string; title: string; projectId: string | null;
+export type Mindmap = { schemaVersion: 1; id: string; title: string; description?: string; projectId: string | null;
   pinned: boolean; archived: boolean; nodes: MapNode[]; links: MapLink[]; appearance?: {lineColor?:string} };
 export type MapPoint = { x: number; y: number };
 export type MapView = { mode: "map" | "structure"; collapsed: string[]; focus: string | null; zoom: number; viewport?: {left:number;top:number}; positions?: Record<string, MapPoint> };
@@ -75,6 +75,7 @@ export function validateMindmap(input: unknown): Mindmap {
   const m = input as Mindmap;
   if (m.schemaVersion !== 1) throw new Error("Эта версия карты не поддерживается. Обновите приложение; файл не изменён.");
   if (!validId(m.id) || !string(m.title, MAP_LIMITS.text) || !m.title.trim()
+    || m.description !== undefined && !string(m.description, MAP_LIMITS.note)
     || !(m.projectId === null || validId(m.projectId)) || typeof m.pinned !== "boolean" || typeof m.archived !== "boolean"
     || !Array.isArray(m.nodes) || !m.nodes.length || m.nodes.length > MAP_LIMITS.nodes
     || !Array.isArray(m.links) || m.links.length > MAP_LIMITS.links) return invalid();
@@ -111,18 +112,18 @@ export function validateMindmap(input: unknown): Mindmap {
     if(l.color!==undefined && !validColor(l.color)) return invalid();
     linkIds.add(l.id); return { id: l.id, from: l.from, to: l.to, label: l.label,...(l.color ? {color:l.color} : {}) };
   });
-  const result: Mindmap = { schemaVersion: 1, id: m.id, title: m.title, projectId: m.projectId, pinned: m.pinned, archived: m.archived, nodes, links };
+  const result: Mindmap = { schemaVersion: 1, id: m.id, title: m.title, projectId: m.projectId, pinned: m.pinned, archived: m.archived, nodes, links, ...(m.description !== undefined ? {description:m.description} : {}) };
   if(m.appearance) { if(Object.entries(m.appearance).some(([key,value])=>key!=="lineColor" || !validColor(value)))return invalid();result.appearance={...m.appearance}; }
   if (new TextEncoder().encode(JSON.stringify(result)).length > MAP_LIMITS.bytes) return invalid();
   return result;
 }
 
-export function newMindmap(title: string, projectId: string | null = null, template = "empty"): Mindmap {
+export function newMindmap(title: string, projectId: string | null = null, template = "empty", label: (source: string) => string = source => source): Mindmap {
   const root: MapNode = { id: mapId(), parentId: null, kind: "idea", text: title.trim(), note: "" };
   const templates: Record<string, string[]> = { idea: ["Замысел", "Что уже известно", "Вопросы", "Следующий шаг"],
     project: ["Результат", "Этапы", "Ресурсы", "Риски"], decision: ["Критерии", "Варианты", "За и против", "Решение"] };
   return validateMindmap({ schemaVersion: 1, id: mapId(), title: title.trim(), projectId, pinned: false, archived: false,
-    nodes: [root, ...(templates[template] ?? []).map(text => ({ id: mapId(), parentId: root.id, kind: "idea", text, note: "" }))], links: [] });
+    nodes: [root, ...(templates[template] ?? []).map(text => ({ id: mapId(), parentId: root.id, kind: "idea", text: label(text), note: "" }))], links: [] });
 }
 
 export function descendants(map: Mindmap, id: string): Set<string> {

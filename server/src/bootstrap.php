@@ -112,6 +112,8 @@ function genesisDb(): PDO
         }
     }
     genesisInitializeSharedContentStorage($db);
+    genesisInitializeSharedTrashReadView($db);
+    genesisInitializeSharedMapProjectIndex($db);
     return $db;
 }
 

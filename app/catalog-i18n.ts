@@ -12,6 +12,7 @@ import chinese from "./catalog-translations/zh.json";
 import turkish from "./catalog-translations/tr.json";
 import japanese from "./catalog-translations/ja.json";
 import { translateText, type Language } from "./i18n";
+import { formatGreekTerms } from "./greek-terms";
 
 type Catalog = {
   theokyklos: Record<string, string>;
@@ -29,7 +30,7 @@ const catalogues: Record<Exclude<Language, "ru">, Catalog> = {
 export type LocalizedPair = { ru: string; en: string };
 
 export function catalogText(copy: LocalizedPair, language: Language): string {
-  if (language === "ru") return copy.ru;
+  if (language === "ru") return formatGreekTerms(copy.ru, language);
   if (language === "en") return copy.en;
   return catalogues[language].theokyklos[copy.ru]
     ?? translateText(copy.ru, language) ?? copy.en;
@@ -45,7 +46,7 @@ export function stoicheionArtCopy(id: string, language: Language) {
   return catalogues[language].stoicheionArt[id] ?? null;
 }
 
-export function sacredWordCopy(greek: string, language: Language): string {
-  if (language === "ru") return greek;
+export function sacredWordCopy(greek: string, language: Language, pronunciation?: string): string {
+  if (language === "ru") return pronunciation ?? formatGreekTerms(greek, language);
   return catalogues[language].theokyklosWords[greek] ?? greek;
 }

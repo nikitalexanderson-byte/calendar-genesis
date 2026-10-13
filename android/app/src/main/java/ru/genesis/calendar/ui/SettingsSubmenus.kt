@@ -104,6 +104,7 @@ internal fun SettingsSubmenu(selectedId: String, language: String, showLabels: B
 private fun SettingsSubmenuButton(item: SettingsSectionDestination, picked: Boolean,
     language: String, showLabels: Boolean, onSelect: (String) -> Unit,
     modifier: Modifier = Modifier) {
+    val localizedTitle = genesisTranslate(item.title(language))
     Surface(onClick = { onSelect(item.id) }, shape = RoundedCornerShape(15.dp),
         color = if (picked) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
         border = BorderStroke(1.dp, if (picked) MaterialTheme.colorScheme.primary
@@ -115,7 +116,7 @@ private fun SettingsSubmenuButton(item: SettingsSectionDestination, picked: Bool
             .semantics {
                 selected = picked
                 role = Role.Tab
-                contentDescription = item.title(language)
+                contentDescription = localizedTitle
             }) {
         if (showLabels) {
             Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp),

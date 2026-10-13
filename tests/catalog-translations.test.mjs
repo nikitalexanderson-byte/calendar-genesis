@@ -67,6 +67,7 @@ for (const language of languages) {
     for (const value of Object.values(catalog.theokyklosWords)) {
       if (language === "el") assert.match(value, greekWord);
       else if (language === "uk") assert.match(value, cyrillic);
+      else if (language === "sr") assert.match(value, /^[\p{Script=Cyrillic} '-]+$/u);
       else assert.match(value, /^[A-Za-z '-]+$/u);
     }
   });

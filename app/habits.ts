@@ -1220,7 +1220,7 @@ export function createHabitFromSacredPractice(
   practice: SacredPractice,
   startDate: string,
   calendarMode: CalendarMode,
-  language: "ru" | "en" = "ru",
+  language: Language = "ru",
 ): Habit {
   return {
     ...defaultHabit(startDate, calendarMode),

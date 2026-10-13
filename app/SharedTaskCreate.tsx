@@ -13,17 +13,18 @@ import { SharedTaskSchedule, emptySharedPlan } from "./SharedTaskSchedule";
 import type { TimeFormat } from "./time-format";
 import {
   createSharedTask, listSharedProjects, listSharedSpaces, loadSharedProject,
-  type SharedProject, type SharedProjectSnapshot, type SharedSpace,
+  type SharedProject, type SharedProjectSnapshot, type SharedSpace, type SharedTask,
 } from "./cloud-sync";
 
 type Props = { language: string; enabledCalendars: CalendarMode[];
   initialSpaceId?: string; initialProjectId?: string; initialStatusId?: string;
   initialEntryType?: EntryType; onEntryTypeChange?: (value:EntryType)=>void;
   timeFormat?:TimeFormat;
-  onCreated?: (pending: boolean) => void };
+  initialTitle?: string; fixedSpaceId?: string; mindmapSource?: {mapId:string;nodeId:string};
+  onSaved?: (task: SharedTask) => Promise<void>; onCreated?: (pending: boolean) => void };
 
 export function SharedTaskCreate({ language, enabledCalendars,
-  initialSpaceId, initialProjectId, initialStatusId, initialEntryType="task", onEntryTypeChange, timeFormat="24h", onCreated }: Props) {
+  initialSpaceId, initialProjectId, initialStatusId, initialEntryType="task", onEntryTypeChange, timeFormat="24h", initialTitle="", fixedSpaceId, mindmapSource, onSaved, onCreated }: Props) {
   const english = language === "en";
   const [spaces, setSpaces] = useState<SharedSpace[]>([]);
   const [loadingSpaces, setLoadingSpaces] = useState(true);
@@ -32,7 +33,7 @@ export function SharedTaskCreate({ language, enabledCalendars,
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [projectId, setProjectId] = useState("");
   const [snapshot, setSnapshot] = useState<SharedProjectSnapshot | null>(null);
-  const [title, setTitle] = useState("");
+  const [title, setTitle] = useState(initialTitle);
   const [tags, setTags] = useState("");
   const [description, setDescription] = useState("");
   const [files, setFiles] = useState<TaskFileDraft[]>([]);
@@ -54,7 +55,7 @@ export function SharedTaskCreate({ language, enabledCalendars,
     let live = true;
     void listSharedSpaces().then((items) => {
       if (!live) return;
-      setSpaces(items);
+      setSpaces(fixedSpaceId ? items.filter(space => space.id === fixedSpaceId) : items);
       setSpaceId((current) => items.some((item) => item.id === current) ? current
         : items.find((item) => item.id === initialSpaceId)?.id ?? items[0]?.id ?? "");
     }).catch((error: unknown) => { if (live) setMessage(error instanceof Error ? error.message : String(error)); })
@@ -63,7 +64,7 @@ export function SharedTaskCreate({ language, enabledCalendars,
     const timer = (stored === "profane" || stored === "sacred" || stored === "lunar") && enabledCalendars.includes(stored)
       ? window.setTimeout(() => setCalendarMode(stored), 0) : 0;
     return () => { live = false; if (timer) window.clearTimeout(timer); };
-  }, [enabledCalendars, initialSpaceId]);
+  }, [enabledCalendars, initialSpaceId, fixedSpaceId]);
   useEffect(() => {
     if (!enabledCalendars.includes(calendarMode)) {
       const timer = window.setTimeout(() => setCalendarMode(enabledCalendars[0] ?? "profane"), 0);
@@ -104,6 +105,7 @@ export function SharedTaskCreate({ language, enabledCalendars,
     setBusy(true); setMessage("");
     try {
       const created = await createSharedTask(snapshot.project.id, {
+        ...(mindmapSource ? {mindmapSource} : {}),
         title: title.trim(), description: description.trim(), tags: [...new Set(tags.split(/[,;\s]+/).map((tag) => tag.replace(/^#/, "")).filter(Boolean))], dueDate: dueDate || null,
         approvalRequired, approverIds,
         entryType,
@@ -112,6 +114,7 @@ export function SharedTaskCreate({ language, enabledCalendars,
         ...(files.length ? { attachments: files.map(({ name, data }) => ({ name, data })) } : {}),
       });
       setTitle(""); setDescription(""); setTags(""); setDueDate(""); setFiles([]);
+      await onSaved?.(created);
       onCreated?.(Boolean(created.pending));
       setMessage(created.pending
         ? (english ? "Task saved on this device and waiting for the connection."
@@ -139,9 +142,9 @@ export function SharedTaskCreate({ language, enabledCalendars,
         : projects.length ? <label>{english ? "Project or shared inbox" : "Проект или общий хаос-бокс"}
         <select value={projectId} onChange={(event) => { setProjectId(event.target.value); setSnapshot(null); }}>
           {projects.filter(item => item.isInbox).map(item => <option key={item.id} value={item.id}>
-            {english ? "Shared inbox" : "Хаос-бокс пространства"} · {formatTaskCount(item.taskCount ?? 0, english ? "en" : "ru")}</option>)}
+            {english ? "Shared inbox" : "Хаос-бокс пространства"} · {formatTaskCount(item.taskCount ?? 0, language as import("./i18n").Language)}</option>)}
           {sharedProjectTree(projects).map(({ project, depth }) => <option key={project.id} value={project.id}>
-            {depth ? `${"\u00a0\u00a0".repeat(depth)}↳ ` : ""}{project.title} · {formatTaskCount(project.taskCount ?? 0, english ? "en" : "ru")}</option>)}</select></label>
+            {depth ? `${"\u00a0\u00a0".repeat(depth)}↳ ` : ""}{project.title} · {formatTaskCount(project.taskCount ?? 0, language as import("./i18n").Language)}</option>)}</select></label>
         : <p role="status">{english ? "No project in this workspace allows you to add tasks." : "В этом пространстве нет проекта, в который вы можете добавить задачу."}</p>}
       <div className="shared-projects-date-field"><span>{english ? "Due date" : "Срок"}</span>
         {dueDate ? <><CalendarDatePicker mode={calendarMode} value={dueDate} onChange={setDueDate}

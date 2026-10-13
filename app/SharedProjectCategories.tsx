@@ -1,6 +1,7 @@
 "use client";
 import { type CSSProperties, type FormEvent, useEffect, useId, useRef, useState } from "react";
 import { deleteSharedProjectCategory, saveSharedProjectCategory, type SharedCategory, type SharedProject } from "./cloud-sync";
+import { translateText } from "./i18n";
 import { ExperimentalIcon } from "./ExperimentalIcon";
 
 export function SharedProjectCategories({ spaceId, categories, projects, canManage, english, expanded, onExpanded, onChanged, onOpen }: {
@@ -59,10 +60,10 @@ export function SharedProjectCategories({ spaceId, categories, projects, canMana
           <header className="shared-category-header">
           <i aria-hidden="true" /><h4 data-no-translate>{category.title}</h4><span className="shared-category-count">{items.length} {english ? "projects" : "проектов"}</span>
           {category.id && canManage ? <div className="category-actions">
-            <button type="button" disabled={busy} aria-label={english ? `Edit category ${category.title}` : `Редактировать категорию «${category.title}»`}
+            <button type="button" disabled={busy} data-no-translate aria-label={`${translateText("Редактировать категорию")} «${category.title}»`}
               onClick={() => openForm(category)}><ExperimentalIcon name="edit" /></button>
-            <button type="button" disabled={busy} aria-label={english ? `Delete category ${category.title}` : `Удалить категорию «${category.title}»`}
-              onClick={() => { if (window.confirm(english ? "Delete this category? Projects and tasks will be kept." : "Удалить категорию? Проекты и задачи сохранятся.")) void run(async () => {
+            <button type="button" disabled={busy} data-no-translate aria-label={`${translateText("Удалить категорию")} «${category.title}»`}
+              onClick={() => { if (window.confirm(translateText("Удалить категорию? Проекты и задачи сохранятся."))) void run(async () => {
                 await deleteSharedProjectCategory(spaceId, category.id, category.revision);
                 if (editing?.id === category.id) { setEditing(null); setTitle(""); }
               }); }}><ExperimentalIcon name="delete" /></button>

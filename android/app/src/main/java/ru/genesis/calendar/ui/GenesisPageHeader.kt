@@ -50,6 +50,8 @@ internal fun GenesisPageHeader(title: String, description: String, symbol: Strin
     val night = Color(0xff0b2b2d)
     val gold = Color(0xffdfc17e)
     val calendarCopy = mobileCalendarCopy(LocalGenesisLanguage.current)
+    val localizedTitle = genesisTranslate(title)
+    val localizedDescription = genesisTranslate(description)
     var switchCount by remember { mutableIntStateOf(0) }
     val canSwitch = calendarMode != null && onCalendarModeClick != null
     val switchCalendar = {
@@ -58,7 +60,7 @@ internal fun GenesisPageHeader(title: String, description: String, symbol: Strin
     }
     Surface(modifier.fillMaxWidth().testTag("genesis-page-header")
         .then(if (canSwitch) Modifier.semantics {
-            contentDescription = "$title. ${calendarCopy.calendarName(requireNotNull(calendarMode))}. ${calendarCopy.switchHint}"
+            contentDescription = "$localizedTitle. ${calendarCopy.calendarName(requireNotNull(calendarMode))}. ${calendarCopy.switchHint}"
             onClick(label = calendarCopy.switchHint) { switchCalendar(); true }
         }.pointerInput(onCalendarModeClick) {
             awaitEachGesture {
@@ -98,7 +100,7 @@ internal fun GenesisPageHeader(title: String, description: String, symbol: Strin
                         Text(it, color = gold, style = MaterialTheme.typography.labelMedium,
                             modifier = Modifier.testTag("genesis-page-subtitle"))
                     }
-                    androidx.compose.material3.Text(description, color = Color(0xffc8d9d4),
+                    androidx.compose.material3.Text(localizedDescription, color = Color(0xffc8d9d4),
                         style = MaterialTheme.typography.bodySmall)
                     if (calendarMode != null) androidx.compose.material3.Text(
                         calendarCopy.switchHint,

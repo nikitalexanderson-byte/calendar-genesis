@@ -25,7 +25,7 @@ internal class MindmapRepository(private val db:GenesisDatabase,private val scop
         val raw=JSONArray(cipher.decrypt(stored.encrypted,"$scope/mindmaps"));val cached=(0 until raw.length()).map { val row=raw.getJSONObject(it);NativeMapRecord(MindmapDocument.parse(row.getJSONObject("document")),row.getLong("revision"),row.optJSONObject("pending"),row.optJSONObject("pendingDocument")?.let(MindmapDocument::parse),row.optBoolean("dirty")) };check();mutable.value=cached }
     private suspend fun key():ByteArray { check();val w=transport.workspace().getJSONObject("workspace");check();require(w.getString("keyMode")=="account") { "Разблокируйте пространство с кодом восстановления на сайте. Карты не изменены." };return WorkspaceCipher.decodeKey(w.getString("key")) }
     private fun aad(id:String)="genesis-mindmap-v1:$uid:map:$id".toByteArray()
-    private fun open(row:JSONObject,key:ByteArray):NativeMapRecord { require(row.getInt("schemaVersion")==1);val id=row.getString("id")
+    private fun open(row:JSONObject,key:ByteArray):NativeMapRecord { require(row.getInt("schemaVersion") in 1..2);val id=row.getString("id")
         val bytes=WorkspaceCipher.decrypt(WorkspaceCipher.Envelope(row.getString("ciphertext"),row.getString("iv")),key,aad(id))
         return try { NativeMapRecord(MindmapDocument.parse(JSONObject(bytes.toString(Charsets.UTF_8))),row.getLong("revision")).also { require(it.document.id==id) } } finally { bytes.fill(0) } }
     suspend fun refresh()=mutex.withLock { val key=key();try { val raw=transport.request("/mindmaps").getJSONArray("maps");check()
@@ -44,7 +44,7 @@ internal class MindmapRepository(private val db:GenesisDatabase,private val scop
             if(row.pending!=null) { val result=transport.request("/mindmaps/${row.document.id}",row.pending);check();val revision=result.getLong("revision")
                 val alreadySaved=row.pendingDocument?.json()?.toString()==row.document.json().toString();row=NativeMapRecord(row.document,revision,dirty=!alreadySaved);replace(row);if(alreadySaved)return }
             val sealed=WorkspaceCipher.encrypt(row.document.json().toString().toByteArray(),key,aad(row.document.id))
-            val pending=JSONObject().put("schemaVersion",1).put("expectedRevision",row.revision).put("operationId",UUID.randomUUID().toString()).put("iv",sealed.iv).put("ciphertext",sealed.ciphertext)
+            val pending=JSONObject().put("schemaVersion",2).put("expectedRevision",row.revision).put("operationId",UUID.randomUUID().toString()).put("iv",sealed.iv).put("ciphertext",sealed.ciphertext)
             row=row.copy(pending=pending,pendingDocument=row.document);replace(row)
             val result=transport.request("/mindmaps/${row.document.id}",pending);check();replace(NativeMapRecord(row.document,result.getLong("revision")))
         } finally { key.fill(0) }

@@ -300,10 +300,24 @@ html[data-genesis-theme] .genesis-app .mindmap-header .mindmap-back-link { grid-
   .mindmap-settings-actions > button:nth-child(-n+2) { grid-column: span 3; }
 }
 .mindmap-save-state:empty { display: none; }
+.mindmap-edit-fields { display:grid; gap:14px; border:0; padding:0; margin:0; min-width:0; }
+@media(max-width:760px) {
+  .genesis-app .mindmap-catalog-controls > .mindmap-actions > .mindmap-icon-action { flex-direction:column; gap:4px; }
+  .mindmap-catalog-controls > .mindmap-actions .mindmap-action-label { font-size:12px; word-break:normal; overflow-wrap:normal; }
+}
 .mindmap-primary-toolbar > :is(.mindmap-add-thought,.mindmap-add-affair) { display: flex; align-items: center; justify-content: center; gap: 8px; }
 .mindmap-primary-toolbar > :is(.mindmap-add-thought,.mindmap-add-affair) > svg { width: 20px; height: 20px; flex-shrink: 0; }
 @media(max-width:430px) {
   .mindmaps .mindmap-primary-toolbar > :is(.mindmap-add-thought,.mindmap-add-affair,.mindmap-more-toggle) { display: flex; align-items: center; justify-content: center; height: 48px; min-height: 48px; gap: 0; }
   .mindmaps .mindmap-primary-toolbar > :is(.mindmap-add-thought,.mindmap-add-affair,.mindmap-more-toggle) > span { display: none; }
   .mindmaps .mindmap-primary-toolbar > :is(.mindmap-add-thought,.mindmap-add-affair,.mindmap-more-toggle) > svg:first-child { width: 24px; height: 24px; flex: 0 0 24px; }
+}
+
+/* Keep the catalog's mobile overview below its title, including lazy CSS loads. */
+@media (max-width:1099px) {
+  html[data-genesis-theme] .genesis-app .mindmap-header[data-mobile-overview]:not(:has(.mindmap-save-state)) { grid-template-columns:repeat(2,minmax(0,1fr)); grid-template-rows:auto auto auto; gap:16px 12px; }
+  html[data-genesis-theme] .genesis-app .mindmap-header[data-mobile-overview]:not(:has(.mindmap-save-state)) > .mindmap-header-main { grid-column:1 / -1; grid-row:1; }
+  html[data-genesis-theme] .genesis-app .mindmap-header[data-mobile-overview]:not(:has(.mindmap-save-state)) > .mindmap-overview-toggle { grid-column:1; grid-row:2; width:100%; justify-self:stretch; align-self:stretch; height:auto; }
+  html[data-genesis-theme] .genesis-app .mindmap-header[data-mobile-overview]:not(:has(.mindmap-save-state)) > .mindmap-back-link { grid-column:2; grid-row:2; width:100%; justify-self:stretch; align-self:stretch; height:auto; }
+  html[data-genesis-theme] .genesis-app .mindmap-header[data-mobile-overview]:not(:has(.mindmap-save-state)) > .mindmap-catalog-statistics { grid-column:1 / -1; grid-row:3; }
 }

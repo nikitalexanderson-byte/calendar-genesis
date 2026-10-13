@@ -8,7 +8,7 @@ import {
   type TheokyklosSegment,
   type TheokyklosSegmentId,
 } from "./theokyklos-data";
-import type { Language } from "./i18n";
+import { translateText, type Language } from "./i18n";
 import { catalogText } from "./catalog-i18n";
 import type { CalendarMode } from "./calendar-data";
 import type { HabitWorkspace } from "./habits";
@@ -118,7 +118,7 @@ export function TheokyklosView({ language, workspace, date, calendarMode, initia
     <section className="theokyklos-view" aria-labelledby="theokyklos-title" data-genesis-preserve="theokyklos">
       <header className="theokyklos-hero">
         <div className="theokyklos-hero-copy">
-          <span className="eyebrow">ΘΕΟΚΥΚΛΟΣ · {language === "en" ? "THE CIRCLE OF GODS" : "КРУГ БОГОВ"}</span>
+          <span className="eyebrow">{translateText("Теокиклос",language).toLocaleUpperCase()} · {language === "en" ? "THE CIRCLE OF GODS" : "КРУГ БОГОВ"}</span>
           <h1 id="theokyklos-title">{language === "en" ? "Theokyklos" : "Теокиклос"}</h1>
           <p>{language === "en"
             ? "An interactive circle of divine powers: eight directions of manifestation, the vertical axis, the sacred hearth, the Point of the Absolute, and the guardians of entry and exit."

@@ -1,10 +1,10 @@
 {
   "Ещё": "Más",
-  "Задача будет зашифрована на сервере GENESIS и синхронизирована между вашими устройствами.": "This task will be encrypted on the GENESIS server and synced across your devices.",
-  "Синхронизировано с GENESIS": "Synced with GENESIS",
-  "GENESIS · зашифрованные задачи": "GENESIS · encrypted tasks",
+  "Задача будет зашифрована на сервере GENESIS и синхронизирована между вашими устройствами.": "Esta tarea se cifrará en el servidor de GENESIS y se sincronizará entre tus dispositivos.",
+  "Синхронизировано с GENESIS": "Sincronizado con GENESIS",
+  "GENESIS · зашифрованные задачи": "GENESIS · tareas cifradas",
   "Данные в GENESIS": "Data in GENESIS",
-  "Изменения синхронизируются с зашифрованной копией GENESIS.": "Changes sync with the encrypted GENESIS copy.",
+  "Изменения синхронизируются с зашифрованной копией GENESIS.": "Los cambios se sincronizan con la copia cifrada de GENESIS.",
   "Яндекс.Календарь подключён": "Yandex Calendar conectado",
   "По проекту списка GENESIS": "Proyecto de la lista GENESIS",
   "Запись будет синхронизирована с Яндекс.Календарём по времени устройства.": "La entrada se sincronizará con Yandex Calendar según la zona horaria del dispositivo.",
@@ -891,7 +891,7 @@
   "Google Calendar подключён": "Calendario de Google conectado",
   "Google-аккаунт": "cuenta de google",
   "OAuth-токены": "tokens de OAuth",
-  "ἰσοψηφία · числовое равенство": "ἰσοψηφία · igualdad numérica",
+  "ἰσοψηφία · числовое равенство": "Isopsephia · igualdad numérica",
   "Выполнено": "Completado",
   "Google-аккаунт для списка не найден.": "No se encontró la cuenta de Google para esta lista.",
   "Google-аккаунт списка": "Listar cuenta de Google",
@@ -2743,5 +2743,6 @@
   "Достигнут лимит данных. Экспортируйте и удалите ненужные данные или обратитесь в поддержку.": "Se ha alcanzado el límite de datos. Exporte y elimine los datos innecesarios o contacte con soporte.",
   "Локальный выход выполнен. Серверный выход не подтверждён. Повторите вход и выход при доступной сети.": "Ha cerrado la sesión localmente. El cierre en el servidor no está confirmado. Inicie y cierre la sesión de nuevo cuando haya conexión.",
   "Очистка браузера не подтверждена. Закройте вкладки GENESIS и удалите данные сайта в настройках браузера перед передачей устройства.": "La limpieza del navegador no está confirmada. Cierre las pestañas de GENESIS y borre los datos del sitio en los ajustes del navegador antes de entregar el dispositivo.",
-  "Выход удалит данные аккаунтов и ключи из браузера, включая несинхронизированные изменения. Данные в облаке сохранятся. Сохраните черновики и код восстановления перед выходом. Выйти?": "Cerrar la sesión elimina los datos de las cuentas y las claves de este navegador, incluidos los cambios sin sincronizar. Los datos en la nube se conservan. Guarde los borradores y su código de recuperación antes de continuar. ¿Cerrar la sesión?"
+  "Выход удалит данные аккаунтов и ключи из браузера, включая несинхронизированные изменения. Данные в облаке сохранятся. Сохраните черновики и код восстановления перед выходом. Выйти?": "Cerrar la sesión elimina los datos de las cuentas y las claves de este navegador, incluidos los cambios sin sincronizar. Los datos en la nube se conservan. Guarde los borradores y su código de recuperación antes de continuar. ¿Cerrar la sesión?",
+  "Исопсефия · числовое равенство": "Isopsephia · igualdad numérica"
 }

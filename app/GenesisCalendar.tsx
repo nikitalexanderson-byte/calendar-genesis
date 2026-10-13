@@ -196,6 +196,7 @@ import {
   type RecurrenceMode,
   type RecurrencePattern,
 } from "./task-recurrence";
+import { ReminderNotices } from "./ReminderNotices";
 import { legacyReminderMinutes, normalizeTaskReminders, type TaskReminder } from "./task-reminders";
 import { formatClockTime, formatTimeValue, normalizeTimeFormat, type TimeFormat } from "./time-format";
 import { nextOccurrenceDate, shiftRangeEndDate, buildTaskSeries, taskForOccurrence, standaloneTaskFromOccurrence, taskSeriesAfterExcludingOccurrence, taskWithSharedSeriesFields, taskRangeLabel } from "./personal-task-schedule";
@@ -1697,7 +1698,7 @@ export function GenesisCalendar() {
     return repeating ? recurrenceDatesForTask(task).at(-1) ?? "" : task.endDate || task.dueDate;
   };
   const renderOverdueBadge = (task: Task, occurrence?: string) => isTaskOverdue(task, today, overdueDeadline(task, occurrence))
-    ? <span className="task-overdue-badge" data-no-translate>{language === "en" ? "Overdue" : "Просрочено"}</span> : null;
+    ? <span className="task-overdue-badge" data-no-translate>{translateText("Просрочено")}</span> : null;
   const selectedDateValue = inputDate(selectedDate);
   const selectedGregorianYear = selectedDate.getFullYear();
   useEffect(() => {
@@ -1809,6 +1810,15 @@ export function GenesisCalendar() {
   }, []);
 
   useEffect(() => scheduleHabitNotifications(todayHabitNotificationPlan, APP_BASE), [todayHabitNotificationPlan]);
+  useEffect(() => {
+    if (!cloudUser?.uid || typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    let active = true;
+    let stop: (() => void) | undefined;
+    void import("./web-task-notifications").then(({ scheduleWebTaskReminders }) => {
+      if (active) stop = scheduleWebTaskReminders(tasks, cloudUser.uid, APP_BASE);
+    });
+    return () => { active = false; stop?.(); };
+  }, [tasks, cloudUser?.uid, habitNotificationPermissionState]);
   const selectedSunriseSunset = deviceLocation ? getSunriseSunset(selectedDate, deviceLocation) : null;
   const selectedSunrise = selectedSunriseSunset
     ? displaySolarTime(selectedSunriseSunset.sunrise)
@@ -5905,8 +5915,8 @@ export function GenesisCalendar() {
                     <strong data-no-translate>{localizeCategoryName(category, language)}</strong>
                     <span>{projectCount} проектов</span>
                     <div className="category-actions">
-                      <button type="button" onClick={() => beginCategoryEdit(category)} aria-label={`Редактировать категорию «${category.name}»`}>{experimentalThemeActive ? <ExperimentalIcon name="edit" /> : "✎"}</button>
-                      <button type="button" onClick={() => deleteCategory(category.id)} aria-label={`Удалить категорию «${category.name}»`}>{experimentalThemeActive ? <ExperimentalIcon name="delete" /> : "×"}</button>
+                      <button type="button" onClick={() => beginCategoryEdit(category)} data-no-translate aria-label={`${translateText("Редактировать категорию")} «${category.name}»`}>{experimentalThemeActive ? <ExperimentalIcon name="edit" /> : "✎"}</button>
+                      <button type="button" onClick={() => deleteCategory(category.id)} data-no-translate aria-label={`${translateText("Удалить категорию")} «${category.name}»`}>{experimentalThemeActive ? <ExperimentalIcon name="delete" /> : "×"}</button>
                     </div>
                   </>
                 )}
@@ -6487,6 +6497,7 @@ export function GenesisCalendar() {
           setProjectToComplete(null);
           if (project?.status === "active") toggleProject(project.id);
         }} /> : null}
+      <ReminderNotices key={cloudUser?.uid ?? "guest"} appBase={APP_BASE}/>
       <a className="skip-link" href="#main-content">К основному содержанию</a>
       <aside id="app-sidebar" ref={sidebarRef} className="app-sidebar" aria-label="Основная навигация" data-exp-ui="navigation">
         <button className="brand-mark" type="button" onClick={selectToday} aria-label="GENESIS — на главную">
@@ -6497,7 +6508,7 @@ export function GenesisCalendar() {
             aria-hidden="true"
           />
           <strong>GENESIS</strong>
-          <small>ἡμερολόγιον</small>
+          <small data-no-translate>{language === "el" ? "ἡμερολόγιον" : language === "uk" ? "Гемерологіон" : language === "ru" || language === "sr" ? "Гемерологион" : "Hemerologion"}</small>
         </button>
         <nav className="main-nav">
           {navigation.map((item) => (

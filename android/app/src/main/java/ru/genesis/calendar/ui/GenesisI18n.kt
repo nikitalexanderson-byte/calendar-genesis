@@ -28,6 +28,9 @@ import java.util.concurrent.ConcurrentHashMap
 val LocalGenesisLanguage = compositionLocalOf { "ru" }
 
 private val nativeCopy = mapOf(
+    "Практики Теокиклоса: мифы и божества в ежедневном ритме." to "Theokyklos practices: myths and deities in your daily rhythm.",
+    "Открыть сакральные практики" to "Open sacred practices",
+    "Очаг, Гестия" to "Hearth, Hestia",
     "до задачи" to "before the task",
     "В момент начала задачи" to "At task start",
     "неделю" to "week",
@@ -1495,6 +1498,22 @@ private object TranslationCatalog {
                                 json.keys().forEach { put(it, json.getString(it)) }
                             }
                         }
+                    val days = context.assets.open("originals/i18n/calendar-days.$language.json")
+                        .bufferedReader().use { JSONArray(it.readText()) }
+                    val originalDays = SacredCatalog.months.flatMap { it.days }
+                    require(days.length() == originalDays.size)
+                    originalDays.forEachIndexed { index, day ->
+                        val localized = days.getJSONObject(index)
+                        val name = localized.getString("name")
+                        put(day.name, name)
+                        put(day.description, localized.getString("description"))
+                        val parts = Regex("^(.*?)\\s*(\\([^()]+\\))$").matchEntire(day.name)
+                        val localizedParts = Regex("^(.*?)\\s*(\\([^()]+\\))$").matchEntire(name)
+                        if (parts != null && localizedParts != null) {
+                            put(parts.groupValues[1], localizedParts.groupValues[1])
+                            put(parts.groupValues[2], localizedParts.groupValues[2])
+                        }
+                    }
                 }
             }.getOrElse { error ->
                 Log.e("GenesisI18n", "Could not load $language: ${error.javaClass.simpleName}")
@@ -1507,7 +1526,7 @@ private object TranslationCatalog {
         if (!cyrillic.containsMatchIn(normalized)) return@getOrPut text
         var pieces = listOf(normalized to false)
         val candidateFragments = if (language == "en") fragments else foreignFragments.getOrPut(language) {
-            translations.entries.associate {entry->entry.key.trim() to (translations[entry.key.trim()] ?: entry.value.trim())}.entries.filter { it.key.length in 2..180 }.sortedByDescending { it.key.length }
+            translations.entries.associate {entry->entry.key.trim() to (translations[entry.key.trim()] ?: entry.value.trim())}.entries.filter { it.key.length in 2..1000 }.sortedByDescending { it.key.length }
         }
         for ((russian, translated) in candidateFragments) {
             pieces = pieces.flatMap { piece ->

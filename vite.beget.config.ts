@@ -78,7 +78,7 @@ function offlinePrecacheManifest(basePath: string): Plugin {
         "fonts/experimental/SourceSerif4-latin-ext.woff2",
         "fonts/experimental/SourceSerif4-latin.woff2"];
       const iconFiles = mindmapIconCatalog.map(icon => `mindmap-icons/${icon.id}.png`);
-      const staticFiles = [...fonts, ...iconFiles, "mindmap-icons/LICENSE.txt", "mindmap-icons/SOURCE.txt", "mindmap-icons/GENESIS-100-PNG.zip"];
+      const staticFiles = [...fonts, ...iconFiles, "mindmap-icons/LICENSE.txt", "mindmap-icons/SOURCE.txt", "mindmap-icons/GENESIS-100-PNG.zip", "sounds/task.wav", "sounds/habit.wav"];
       const fingerprint = createHash("sha256").update(`${PRECACHE_STATIC_REVISION}\n${requiredFiles.join("\n")}`);
       staticFiles.forEach((file) => fingerprint.update(readFileSync(path.join(projectRoot, "public", file))));
       const version = fingerprint.digest("hex").slice(0, 16);
@@ -192,6 +192,11 @@ export default defineConfig({
             {
               name: "workspace-layout",
               test: /app[\\/](?:InboxToolbar\.tsx|(?:ui-visibility|use-account-layout|use-sidebar-collapse)\.ts)$/,
+              priority: 14,
+            },
+            {
+              name: "web-reminder-ui",
+              test: /app[\\/](?:ReminderNotices\.tsx|web-reminder-presentation\.ts)$/,
               priority: 14,
             },
             {

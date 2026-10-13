@@ -8,6 +8,8 @@ const I18N_SOURCE = path.join(SOURCE_ROOT, "ui/GenesisI18n.kt");
 const CYRILLIC = /[А-Яа-яЁё]/u;
 const SKIPPED_FILES = new Set([
   I18N_SOURCE,
+  // Phonetic alphabet correspondences; these constants are not displayed labels.
+  path.join(SOURCE_ROOT, "domain/GreekTerms.kt"),
   // This component keeps every Russian string beside its reviewed English
   // counterpart in a local copy(russian, english) helper.
   path.join(SOURCE_ROOT, "ui/CalendarYearDescription.kt"),
@@ -145,7 +147,7 @@ const supplemental=JSON.parse(await readFile(path.join(ROOT,"app/ui-translations
 const translations = { ...web, ...curated, ...supplemental, ...sacred, ...native };
 const affairs = JSON.parse(await readFile(path.join(ROOT, "app/native-affairs-translations.json"), "utf8"));
 const affairKeys = Object.keys(affairs.en ?? {});
-if (affairKeys.length !== 36) throw new Error("Native affairs copy must contain all 36 labels.");
+if (affairKeys.length !== 39) throw new Error("Native supplemental copy must contain all 39 labels.");
 for (const language of ["en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja"]) {
   for (const key of affairKeys) {
     const value = affairs[language]?.[key];

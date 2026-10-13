@@ -1,3 +1,4 @@
+import { presentWebReminder } from "./web-reminder-presentation.ts";
 import { habitNotificationMessage, notificationCopyIndex } from "./habit-notification-message.ts";
 import { habitReminderDateTime } from "./habit-reminder-time.ts";
 import type { Language } from "./i18n";
@@ -187,14 +188,17 @@ async function showCandidate(candidate: HabitNotificationCandidate, appBase: str
   const options: NotificationOptions = {
     body: candidate.body,
     tag: `genesis-${candidate.id}`,
-    icon: `${appBase}/icons/icon-192.png`,
-    badge: `${appBase}/icons/icon-192.png`,
+    icon: `${appBase}/mindmap-icons/repeat-2.png`,
+    badge: `${appBase}/mindmap-icons/repeat-2.png`,
     data: { genesisNotificationId: candidate.id, kind: candidate.kind, variant: candidate.variant, url: `${appBase || "/"}#today` },
   };
   const registration = "serviceWorker" in navigator ? await navigator.serviceWorker.getRegistration() : undefined;
   if (privateDeviceAccessBlocked()) return;
-  if (registration) await registration.showNotification(candidate.title, options);
-  else new Notification(candidate.title, options);
+  options.silent = presentWebReminder("habit", candidate.title, candidate.body);
+  if (document.hidden) {
+    if (registration) await registration.showNotification(candidate.title, options);
+    else new Notification(candidate.title, options);
+  }
   if (privateDeviceAccessBlocked()) {
     const shown = await registration?.getNotifications({ tag: options.tag });
     shown?.forEach((notification) => notification.close());

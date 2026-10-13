@@ -1,10 +1,10 @@
 {
   "Ещё": "Mehr",
-  "Задача будет зашифрована на сервере GENESIS и синхронизирована между вашими устройствами.": "This task will be encrypted on the GENESIS server and synced across your devices.",
-  "Синхронизировано с GENESIS": "Synced with GENESIS",
-  "GENESIS · зашифрованные задачи": "GENESIS · encrypted tasks",
+  "Задача будет зашифрована на сервере GENESIS и синхронизирована между вашими устройствами.": "Diese Aufgabe wird auf dem GENESIS-Server verschlüsselt und zwischen Ihren Geräten synchronisiert.",
+  "Синхронизировано с GENESIS": "Mit GENESIS synchronisiert",
+  "GENESIS · зашифрованные задачи": "GENESIS · verschlüsselte Aufgaben",
   "Данные в GENESIS": "Data in GENESIS",
-  "Изменения синхронизируются с зашифрованной копией GENESIS.": "Changes sync with the encrypted GENESIS copy.",
+  "Изменения синхронизируются с зашифрованной копией GENESIS.": "Änderungen werden mit der verschlüsselten GENESIS-Kopie synchronisiert.",
   "Яндекс.Календарь подключён": "Yandex Kalender verbunden",
   "По проекту списка GENESIS": "Projekt der GENESIS-Liste",
   "Запись будет синхронизирована с Яндекс.Календарём по времени устройства.": "Der Eintrag wird mit Yandex Kalender in der Zeitzone Ihres Geräts synchronisiert.",
@@ -891,7 +891,7 @@
   "Google Calendar подключён": "Google Kalender verbunden",
   "Google-аккаунт": "Google-Konto",
   "OAuth-токены": "OAuth-Tokens",
-  "ἰσοψηφία · числовое равенство": "ἰσοψηφία · numerische Gleichheit",
+  "ἰσοψηφία · числовое равенство": "Isopsephia · numerische Gleichheit",
   "Выполнено": "Abgeschlossen",
   "Google-аккаунт для списка не найден.": "Das Google-Konto für diese Liste wurde nicht gefunden.",
   "Google-аккаунт списка": "Google-Konto auflisten",
@@ -1745,7 +1745,7 @@
   "Мои привычки": "Meine Gewohnheiten",
   "Открыть путь и награды": "Offener Weg und Belohnungen",
   "Свернуть путь": "Pfad einklappen",
-  "Древо рангов, достижения и защита серии. Накопленный XP не тратится.": "Rank tree, achievements, and streak protection. Earned XP is never spent.",
+  "Древо рангов, достижения и защита серии. Накопленный XP не тратится.": "Rangbaum, Erfolge und Schutz der Serie. Gesammelte XP werden nicht ausgegeben.",
   "Оставить изменения телефона": "Telefonänderungen beibehalten",
   "Оставить изменения сайта": "Behalten Sie Website-Änderungen bei",
   "Оставить версию телефона?": "Die Telefonversion behalten?",
@@ -2737,5 +2737,6 @@
   "Перетащите плашку для переноса": "Karte zum Verschieben ziehen",
   "Удерживайте плашку для переноса": "Karte zum Verschieben gedrückt halten",
   "Перетащите плашку задачи или списка в проект либо в хаос-бокс.": "Ziehe eine Aufgaben- oder Listenkarte in ein Projekt oder die Chaos-Box.",
-  "Для переноса удерживайте задачу или список, затем перетащите. Для прокрутки проведите пальцем без удержания.": "Zum Verschieben eine Aufgabe oder Liste gedrückt halten und ziehen. Zum Scrollen ohne Halten wischen."
+  "Для переноса удерживайте задачу или список, затем перетащите. Для прокрутки проведите пальцем без удержания.": "Zum Verschieben eine Aufgabe oder Liste gedrückt halten und ziehen. Zum Scrollen ohne Halten wischen.",
+  "Исопсефия · числовое равенство": "Isopsephia · numerische Gleichheit"
 }

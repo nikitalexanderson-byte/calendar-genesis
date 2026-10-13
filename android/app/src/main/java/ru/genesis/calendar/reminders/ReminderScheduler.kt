@@ -7,8 +7,10 @@ import android.content.pm.PackageManager
 import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.net.Uri
+import android.graphics.Color
 import android.os.Build
 import android.os.PowerManager
+import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import kotlinx.coroutines.sync.Mutex
@@ -30,8 +32,8 @@ class ReminderScheduler(private val context: Context) {
     private val mutation = Mutex()
     suspend fun <T> withMutation(block: suspend () -> T): T = mutation.withLock { block() }
     companion object {
-        const val TASK_CHANNEL = "genesis.tasks.v1"
-        const val HABIT_CHANNEL = "genesis.habits.v1"
+        const val TASK_CHANNEL = "genesis.tasks.v2"
+        const val HABIT_CHANNEL = "genesis.habits.v2"
         const val DAILY_GOAL_CHANNEL = "genesis.daily-goal.v1"
         const val ACHIEVEMENT_CHANNEL = "genesis.achievements.v1"
         internal const val HABIT_LATE_WINDOW_SECONDS = 6L * 60 * 60
@@ -54,16 +56,38 @@ class ReminderScheduler(private val context: Context) {
     fun lastDiagnosticScheduledAt() = diagnosticStore.getLong("scheduledAt", 0)
     fun lastDiagnosticDeliveredAt() = diagnosticStore.getLong("deliveredAt", 0)
     fun lastRecoveryAt() = diagnosticStore.getLong("lastRecoveryAt", 0)
-    fun createChannels(language: String = "ru") {
+    private fun NotificationCompat.Builder.distinctPresentation(channel: String, body: String): NotificationCompat.Builder {
+        val task = channel == TASK_CHANNEL
+        val view = RemoteViews(context.packageName, R.layout.notification_reminder).apply {
+            setInt(R.id.reminder_type_badge, "setBackgroundResource", if (task) R.drawable.notification_task_badge else R.drawable.notification_habit_badge)
+            setImageViewResource(R.id.reminder_type_icon, if (task) R.drawable.ic_notification_task else R.drawable.ic_notification_habit)
+            setTextViewText(R.id.reminder_type_label, notifications.getNotificationChannel(channel)?.name?.toString().orEmpty())
+            setTextViewText(R.id.reminder_body, body)
+        }
+        return setStyle(NotificationCompat.DecoratedCustomViewStyle()).setCustomContentView(view).setCustomBigContentView(view)
+    }
+    fun createChannels(language: String = "ru", taskChannelId: String = TASK_CHANNEL, habitChannelId: String = HABIT_CHANNEL) {
         context.getSharedPreferences("genesis.notification.locale.v1", Context.MODE_PRIVATE)
             .edit().putString("language", language).apply()
         val names = notificationChannelNames(language)
-        val labels = listOf(TASK_CHANNEL, HABIT_CHANNEL, DAILY_GOAL_CHANNEL, ACHIEVEMENT_CHANNEL).zip(names)
+        val labels = listOf(taskChannelId, habitChannelId, DAILY_GOAL_CHANNEL, ACHIEVEMENT_CHANNEL).zip(names)
         labels.forEach { (id, label) ->
-            val channel = NotificationChannel(id, label, NotificationManager.IMPORTANCE_HIGH)
-            channel.enableVibration(true)
-            channel.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),
+            val oldId = when (id) { taskChannelId -> "genesis.tasks.v1"; habitChannelId -> "genesis.habits.v1"; else -> id }
+            val legacy = notifications.getNotificationChannel(oldId)
+            val channel = NotificationChannel(id, label, legacy?.importance ?: NotificationManager.IMPORTANCE_HIGH)
+            val defaultSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            val customLegacy = legacy?.takeIf { (Build.VERSION.SDK_INT >= 30 && it.hasUserSetSound()) || (Build.VERSION.SDK_INT < 30 && it.sound != defaultSound) }
+            val sound = when (id) {
+                taskChannelId -> Uri.parse("android.resource://${context.packageName}/raw/genesis_task_notification")
+                habitChannelId -> Uri.parse("android.resource://${context.packageName}/raw/genesis_habit_notification")
+                else -> defaultSound
+            }
+            channel.setSound(if (customLegacy != null) customLegacy.sound else sound,
                 AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).build())
+            channel.enableLights(true)
+            channel.lightColor = if (id == taskChannelId) Color.rgb(37, 91, 89) else Color.rgb(140, 103, 43)
+            channel.vibrationPattern = legacy?.vibrationPattern ?: if (id == taskChannelId) longArrayOf(0, 120, 80, 120) else longArrayOf(0, 60, 180, 60)
+            channel.enableVibration(legacy?.shouldVibrate() ?: true)
             channel.lockscreenVisibility = Notification.VISIBILITY_PRIVATE
             notifications.createNotificationChannel(channel)
         }
@@ -78,9 +102,10 @@ class ReminderScheduler(private val context: Context) {
         if (!notificationsAllowed() || !channelAllowed(HABIT_CHANNEL)) return false
         val body = habitNotificationBody(tone, "habit", 1, language, System.nanoTime().toString())
         val note = NotificationCompat.Builder(context, HABIT_CHANNEL)
-            .setSmallIcon(R.drawable.ic_notification)
+            .setGroup("genesis.habits").setSubText(notifications.getNotificationChannel(HABIT_CHANNEL)?.name)
+            .setColor(Color.rgb(140, 103, 43)).setSmallIcon(R.drawable.ic_notification_habit)
             .setContentTitle("GENESIS")
-            .setContentText(body).setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setContentText(body).distinctPresentation(HABIT_CHANNEL, body)
             .setContentIntent(openHabitsIntent()).setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).setAutoCancel(true).build()
         return try {
@@ -143,9 +168,10 @@ class ReminderScheduler(private val context: Context) {
         val copy = notificationAuxCopy(language)
         val body = copy.diagnosticBody
         val note = NotificationCompat.Builder(context, HABIT_CHANNEL)
-            .setSmallIcon(R.drawable.ic_notification)
+            .setGroup("genesis.habits").setSubText(notifications.getNotificationChannel(HABIT_CHANNEL)?.name)
+            .setColor(Color.rgb(140, 103, 43)).setSmallIcon(R.drawable.ic_notification_habit)
             .setContentTitle("GENESIS · ${copy.diagnosticTitle}")
-            .setContentText(body).setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setContentText(body).distinctPresentation(HABIT_CHANNEL, body)
             .setContentIntent(openHabitsIntent()).setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).setAutoCancel(true).build()
         return try {
@@ -288,8 +314,9 @@ class ReminderScheduler(private val context: Context) {
         val delivered = registry.getStringSet("delivered", emptySet()).orEmpty()
         if (key in delivered) return false
         val notification = NotificationCompat.Builder(context, channel)
-            .setSmallIcon(R.drawable.ic_notification).setContentTitle(candidate.title)
-            .setContentText(candidate.body).setStyle(NotificationCompat.BigTextStyle().bigText(candidate.body))
+            .setGroup("genesis.habits").setSubText(notifications.getNotificationChannel(channel)?.name)
+            .setColor(Color.rgb(140, 103, 43)).setSmallIcon(R.drawable.ic_notification_habit).setContentTitle(candidate.title)
+            .setContentText(candidate.body).distinctPresentation(HABIT_CHANNEL, candidate.body)
             .setContentIntent(openHabitsIntent()).setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).setAutoCancel(true).build()
         return try {
@@ -333,8 +360,9 @@ class ReminderScheduler(private val context: Context) {
             intent(row, name, ReminderActionReceiver::class.java), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val taskCopy = taskNotificationCopy(LocalPreferences(context, scope).values.first().language)
         val note = NotificationCompat.Builder(context, TASK_CHANNEL)
-            .setSmallIcon(R.drawable.ic_notification).setContentTitle("GENESIS")
-            .setContentText(taskCopy[0]).setContentIntent(open)
+            .setGroup("genesis.tasks").setSubText(notifications.getNotificationChannel(TASK_CHANNEL)?.name)
+            .setColor(Color.rgb(37, 91, 89)).setSmallIcon(R.drawable.ic_notification_task).setContentTitle("GENESIS")
+            .setContentText(taskCopy[0]).distinctPresentation(TASK_CHANNEL, taskCopy[0]).setContentIntent(open)
             .setCategory(NotificationCompat.CATEGORY_REMINDER).setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setAutoCancel(true).setOnlyAlertOnce(true)
             .addAction(0, taskCopy[1], action("complete"))
