@@ -6560,7 +6560,6 @@ export function GenesisCalendar() {
                 <path className="voice-microphone-grille" d="M10.55 6.2h2.9M10.55 8.45h2.9" />
                 <path className="voice-microphone-capture" d="M5.9 10.4v.9a6.1 6.1 0 0 0 12.2 0v-.9" />
                 <path className="voice-microphone-stand" d="M12 17.4v3.35M8.9 20.75h6.2" />
-                <circle className="voice-microphone-spark" cx="18.7" cy="5.2" r="1.15" />
               </svg>
             </button> : null}
             {cloudUser ? (

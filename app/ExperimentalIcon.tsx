@@ -13,6 +13,8 @@ export function ExperimentalIcon({ name, className = "" }: { name: string; class
     {name === "stoicheion" || name === "theokyklos" ? <><path d="m12 3 2 7 7 2-7 2-2 7-2-7-7-2 7-2Z"/><path d="M20 2v4m2-2h-4M3 18v4m2-2H1"/></> : null}
     {name === "admin" ? <><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1Z"/><path d="m9 12 2 2 4-4"/></> : null}
     {name === "plus" ? <path d="M5 12h14M12 5v14"/> : null}
+    {name === "help" ? <><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 4.3 1.7c-1.1.8-1.8 1.3-1.8 2.8M12 17h.01"/></> : null}
+    {name === "thought-new" ? <><path d="M9 18h6m-5 3h4M8 14a6 6 0 1 1 8-1c-1.2 1-1.5 2-1.5 3h-5c0-1-.3-1.7-1.5-2Z"/><path d="M19 3v6m-3-3h6"/></> : null}
     {name === "map-mode" ? <><rect x="8" y="8" width="8" height="8" rx="2"/><path d="M8 10 4 5m12 5 4-5M8 14l-4 5m12-5 4 5"/><circle cx="3" cy="3" r="2"/><circle cx="21" cy="3" r="2"/><circle cx="3" cy="21" r="2"/><circle cx="21" cy="21" r="2"/></> : null}
     {name === "outline-mode" ? <><path d="M4 4v16m0-12h4m-4 6h4m-4 6h4"/><path d="M11 8h10m-10 6h10m-10 6h10M4 4h7"/></> : null}
     {name === "thought-child" ? <><rect x="3" y="3" width="7" height="5" rx="1.5"/><rect x="13" y="15" width="8" height="6" rx="1.5"/><path d="M6.5 8v10H13m-7 0H3m14-3v-5m-2.5 2.5h5"/></> : null}

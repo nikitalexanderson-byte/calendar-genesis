@@ -27,6 +27,7 @@ type CalendarDatePickerProps = {
   required?: boolean;
   ariaLabel?: string;
   showGregorianReference?: boolean;
+  triggerText?: string;
   onChange: (value: string) => void;
 };
 
@@ -58,7 +59,7 @@ function formatCompactGregorian(date: Date) {
   return `${dateLabel} ${capitalizedWeekday}`;
 }
 
-export function CalendarDatePicker({ id, value, mode, min, max, required, ariaLabel, showGregorianReference = true, onChange }: CalendarDatePickerProps) {
+export function CalendarDatePicker({ id, value, mode, min, max, required, ariaLabel, showGregorianReference = true, triggerText, onChange }: CalendarDatePickerProps) {
   const isEnglish = getRuntimeLanguage() === "en";
   const [open, setOpen] = useState(false);
   const selectedDate = useMemo(() => parseDate(value), [value]);
@@ -95,7 +96,7 @@ export function CalendarDatePicker({ id, value, mode, min, max, required, ariaLa
   return (
     <>
       <button id={id} type="button" className={`calendar-date-trigger mode-${mode}${showGregorianReference ? "" : " no-reference"}`} data-genesis-preserve={`${mode}-date-picker-trigger`} onClick={openPicker} aria-label={ariaLabel} aria-haspopup="dialog">
-        <span>{value ? formatCalendarDate(selectedDate, mode, true) : isEnglish ? "Choose date" : "Выберите дату"}</span>
+        <span>{value ? triggerText ?? formatCalendarDate(selectedDate, mode, true) : isEnglish ? "Choose date" : "Выберите дату"}</span>
         {value && showGregorianReference ? <small>{formatGregorian(selectedDate, true)}</small> : null}
       </button>
       {open ? (

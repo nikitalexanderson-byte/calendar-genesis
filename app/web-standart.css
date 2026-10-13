@@ -7,8 +7,8 @@ html[data-genesis-theme="standart"] .voice-open-button .voice-microphone-icon,
 html[data-genesis-theme="experimental"] .voice-open-button .voice-microphone-icon { color: #000; filter: none; }
 html[data-genesis-theme="standart"] .voice-open-button :is(.voice-microphone-capsule, .voice-microphone-grille, .voice-microphone-capture, .voice-microphone-stand),
 html[data-genesis-theme="experimental"] .voice-open-button :is(.voice-microphone-capsule, .voice-microphone-grille, .voice-microphone-capture, .voice-microphone-stand) { stroke: #000; opacity: 1; }
-html[data-genesis-theme="standart"] .voice-open-button :is(.voice-microphone-capsule, .voice-microphone-spark),
-html[data-genesis-theme="experimental"] .voice-open-button :is(.voice-microphone-capsule, .voice-microphone-spark) { fill: #000; filter: none; }
+html[data-genesis-theme="standart"] .voice-open-button .voice-microphone-capsule,
+html[data-genesis-theme="experimental"] .voice-open-button .voice-microphone-capsule { fill: #000; filter: none; }
 
 html[data-genesis-theme] {
   --font-ui: "Source Sans 3", "Segoe UI", sans-serif;

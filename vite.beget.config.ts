@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
 import { LEGAL_UPDATED, legalPages } from "./app/legal-content";
+import mindmapIconCatalog from "./app/mindmap-icon-catalog.json";
 import { SERVICE_IDENTITY } from "./app/public-service";
 
 const projectRoot = path.dirname(fileURLToPath(import.meta.url));
@@ -76,11 +77,13 @@ function offlinePrecacheManifest(basePath: string): Plugin {
         "fonts/experimental/SourceSerif4-vietnamese.woff2",
         "fonts/experimental/SourceSerif4-latin-ext.woff2",
         "fonts/experimental/SourceSerif4-latin.woff2"];
+      const iconFiles = mindmapIconCatalog.map(icon => `mindmap-icons/${icon.id}.png`);
+      const staticFiles = [...fonts, ...iconFiles, "mindmap-icons/LICENSE.txt", "mindmap-icons/SOURCE.txt", "mindmap-icons/GENESIS-100-PNG.zip"];
       const fingerprint = createHash("sha256").update(`${PRECACHE_STATIC_REVISION}\n${requiredFiles.join("\n")}`);
-      fonts.forEach((file) => fingerprint.update(readFileSync(path.join(projectRoot, "public", file))));
+      staticFiles.forEach((file) => fingerprint.update(readFileSync(path.join(projectRoot, "public", file))));
       const version = fingerprint.digest("hex").slice(0, 16);
       const publicUrls = requiredFiles.map((fileName) => `${basePath}${fileName}`);
-      fonts.forEach((file) => publicUrls.push(`${basePath}${file}`));
+      staticFiles.forEach((file) => publicUrls.push(`${basePath}${file}`));
       this.emitFile({
         type: "asset",
         fileName: "precache-manifest.js",

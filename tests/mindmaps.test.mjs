@@ -18,7 +18,7 @@ function loadTs(path) {
  },loaded,loaded.exports);
  modules.set(path,loaded.exports);return loaded.exports;
 }
-const {newMindmap, validateMindmap, removeBranch, moveNode, attachTask, nodeTitle, nodeDateLabel, mapProgress, mapCatalogStats, mapHomeView, parseOutline, exportMindmap, importMindmap, mapSvg, mapMarkdown, layoutMap, resolveMapTask} = loadTs(resolve('app/mindmaps-model.ts'));
+const {newMindmap, validateMindmap, removeBranch, moveNode, attachTask, nodeTitle, nodeDateLabel, mapProgress, mapCatalogStats, mapHomeView, parseOutline, exportMindmap, importMindmap, mapSvg, mapMarkdown, layoutMap, resolveMapTask, mapNodeBox, mapConnection, MAP_IMAGE_LIMIT} = loadTs(resolve('app/mindmaps-model.ts'));
 
 const task = {id:'real-task',title:'Source title',done:false,projectId:'project-a',dependsOnIds:['other'],dueDate:'2026-10-12',recurrenceMode:'none',recurrenceExcludedDates:[]};
 const view={mode:'map',collapsed:[],focus:null,zoom:1};
@@ -152,5 +152,45 @@ test('T13 deterministic 200/1000-node layout, collapse and focus (measured CPU, 
   const samples=[];for(let i=0;i<20;i++){const t=performance.now();const rows=layoutMap(validateMindmap(m),view);assert.equal(rows.length,count);samples.push(performance.now()-t);}
   assert.equal(layoutMap(m,{...view,collapsed:[m.nodes[0].id]}).length,1);assert.equal(layoutMap(m,{...view,focus:'node1'}).length,1);
   console.log(`layout ${count} nodes: p95 ${samples.sort((a,b)=>a-b)[18].toFixed(2)}ms`);
+ }
+});
+
+test('card presentation and embedded image survive JSON, task conversion and branch changes',()=>{
+ const m=newMindmap('Designed',null,'idea'),png='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';
+ m.nodes[0].presentation={icon:'target',align:'center',width:400,layout:'side',showNote:true,image:{data:png,alt:'Project target',fit:'contain'}};
+ m.nodes[1].presentation={icon:'lightbulb'};m.nodes[1].style={fill:'#ffffff',border:'#255b59'};
+ const clean=validateMindmap(m);assert.deepEqual(importMindmap(exportMindmap(clean)),clean);
+ const converted=attachTask(clean,clean.nodes[0].id,task);assert.deepEqual(converted.nodes[0].presentation,clean.nodes[0].presentation);assert.equal(task.title,'Source title');
+ assert.deepEqual(moveNode(clean,clean.nodes[1].id,clean.nodes[2].id).nodes.find(n=>n.id===clean.nodes[1].id).presentation,{icon:'lightbulb'});
+});
+
+test('untrusted icons, non-root formatting, remote and executable images are rejected',()=>{
+ const m=newMindmap('Safe',null,'idea');
+ for(const presentation of [{icon:'../../other'},{width:900},{align:'bottom'},{html:'<script/>'},{image:{data:'https://example.com/a.png',alt:'x',fit:'contain'}},{image:{data:'data:image/svg+xml;base64,PHN2Zy8+',alt:'x',fit:'contain'}},{image:{data:'data:image/png;base64,PHNjcmlwdD4=',alt:'x',fit:'contain'}},{image:{data:'data:image/png;base64,'+'A'.repeat(MAP_IMAGE_LIMIT),alt:'x',fit:'contain'}}]){
+  assert.throws(()=>validateMindmap({...m,nodes:m.nodes.map((n,i)=>i? n:{...n,presentation})}));
+ }
+ assert.throws(()=>validateMindmap({...m,nodes:m.nodes.map((n,i)=>i===1?{...n,presentation:{align:'center'}}:n)}));
+ assert.deepEqual(mapNodeBox(m.nodes[0]),{width:240,height:88});
+});
+
+test('card dimensions and joints follow wide, tall and manually moved cards in all directions',()=>{
+ const m=newMindmap('Root',null,'idea');m.nodes[0].presentation={width:400,align:'center',icon:'target',showNote:true};m.nodes[0].note='Note';
+ const rows=layoutMap(m,view),a=rows[0],b=rows[1];assert.equal(a.width,400);assert.ok(a.height>88);assert.ok(b.x>a.x+a.width);assert.ok(b.y>=a.y+a.height+28);
+ assert.equal(mapConnection(a,b).start.x,a.x+a.width);assert.equal(mapConnection(a,b).end.x,b.x);
+ const left={x:0,y:a.y,width:240,height:88};assert.equal(mapConnection({...a,x:600},left).start.x,600);assert.equal(mapConnection({...a,x:600},left).end.x,240);
+ const down={...a,y:a.y+a.height+100};assert.equal(mapConnection(a,down).start.y,a.y+a.height);assert.equal(mapConnection(down,a).end.y,a.y+a.height);
+});
+
+test('SVG is self-contained with embedded raster, trusted vectors and license notices',()=>{
+ const m=newMindmap('Export');m.nodes[0].presentation={icon:'target',width:400,image:{data:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==',alt:'<script> example',fit:'cover'}};
+ const svg=mapSvg(m,n=>n.text);assert.match(svg,/<metadata>ISC License/);assert.match(svg,/Cole Bemis/);assert.match(svg,/<image href="data:image\/png;base64,/);assert.match(svg,/&lt;script&gt;/);assert.doesNotMatch(svg,/<script|<foreignObject|onerror=|href="https?:/i);
+});
+
+test('100 bundled PNG icons and feature labels cover every supported language',()=>{
+ const catalog=JSON.parse(readFileSync('app/mindmap-icon-catalog.json','utf8')),names=JSON.parse(readFileSync('app/mindmap-icon-names.json','utf8')),copy=JSON.parse(readFileSync('app/mindmap-feature-copy.json','utf8'));
+ assert.equal(catalog.length,100);assert.equal(new Set(catalog.map(i=>i.id)).size,100);
+ for(const icon of catalog)assert.equal(readFileSync(`public/mindmap-icons/${icon.id}.png`).subarray(1,4).toString(),'PNG');
+ for(const language of ['ru','en','de','fr','es','it','pt','pl','el','sr','uk','zh','tr','ja']){
+  assert.equal(names[language].length,100);assert.ok(names[language].every(v=>typeof v==='string'&&v.trim()));assert.deepEqual(Object.keys(copy[language]).sort(),Object.keys(copy.ru).sort());assert.ok(Object.values(copy[language]).every(v=>typeof v==='string'&&v.trim()));
  }
 });

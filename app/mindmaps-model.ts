@@ -1,9 +1,13 @@
 import type { GenesisProject, GenesisTask } from "./cloud-sync";
 import { recurrenceDatesForTask } from "./task-recurrence";
+import iconLicense from "../public/mindmap-icons/LICENSE.txt?raw";
+import { MINDMAP_ICON_IDS, mindmapIconVector } from "./mindmap-icons";
 
 export const MAP_LIMITS = { nodes: 1000, depth: 32, text: 2000, note: 12000, links: 2000, bytes: 2_000_000, paste: 200 };
+export type MapNodePresentation = { icon?: string; align?: "left" | "center" | "right"; width?: 240 | 320 | 400;
+  layout?: "stack" | "side"; showNote?: boolean; image?: { data: string; alt: string; fit: "contain" | "cover" } };
 export type MapNode = { id: string; parentId: string | null; kind: "idea" | "task" | "project";
-  text?: string; refId?: string; occurrenceDate?: string; note: string; tags?: string[]; style?: {fill?:string;border?:string} };
+  text?: string; refId?: string; occurrenceDate?: string; note: string; tags?: string[]; style?: {fill?:string;border?:string}; presentation?: MapNodePresentation };
 export type MapLink = { id: string; from: string; to: string; label: string; color?:string };
 export type Mindmap = { schemaVersion: 1; id: string; title: string; projectId: string | null;
   pinned: boolean; archived: boolean; nodes: MapNode[]; links: MapLink[]; appearance?: {lineColor?:string} };
@@ -14,6 +18,51 @@ const validId = (v: unknown): v is string => typeof v === "string" && /^[a-zA-Z0
 const string = (v: unknown, max: number) => typeof v === "string" && v.length <= max;
 function invalid(): never { throw new Error("Файл карты повреждён или превышает ограничения (1000 узлов, 32 уровня, 2 МБ)."); }
 const validColor = (value: unknown): value is string => typeof value === "string" && /^#[a-fA-F0-9]{6}$/.test(value);
+export const MAP_IMAGE_LIMIT = 350_000;
+function validMapImage(image: MapNodePresentation["image"]) {
+  if (!image || typeof image !== "object" || !string(image.alt, 240) || !["contain","cover"].includes(image.fit)
+    || typeof image.data !== "string" || image.data.length > MAP_IMAGE_LIMIT) return false;
+  const match = /^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/]+={0,2})$/.exec(image.data);
+  if (!match || match[2].length % 4) return false;
+  try {
+    const header = atob(match[2].slice(0, 16));
+    return match[1] === "png" ? header.startsWith("\x89PNG\r\n\x1a\n") : match[1] === "jpeg"
+      ? header.startsWith("\xff\xd8\xff") : header.startsWith("RIFF") && header.slice(8, 12) === "WEBP";
+  } catch { return false; }
+}
+function normalizePresentation(node: MapNode): MapNodePresentation | undefined {
+  const p=node.presentation;
+  if(p===undefined)return undefined;
+  if(!p||typeof p!=="object"||Object.keys(p).some(key=>!["icon","align","width","layout","showNote","image"].includes(key))
+    || p.icon!==undefined && !MINDMAP_ICON_IDS.has(p.icon)
+    || p.align!==undefined && !["left","center","right"].includes(p.align)
+    || p.width!==undefined && ![240,320,400].includes(p.width)
+    || p.layout!==undefined && !["stack","side"].includes(p.layout)
+    || p.showNote!==undefined && typeof p.showNote!=="boolean"
+    || p.image!==undefined && !validMapImage(p.image)
+    || node.parentId!==null && Object.keys(p).some(key=>key!=="icon"&&p[key as keyof MapNodePresentation]!==undefined)) return invalid();
+  const result: MapNodePresentation={...(p.icon ? {icon:p.icon}:{}),...(p.align ? {align:p.align}:{}),...(p.width ? {width:p.width}:{}),
+    ...(p.layout ? {layout:p.layout}:{}),...(p.showNote!==undefined ? {showNote:p.showNote}:{}),...(p.image ? {image:{data:p.image.data,alt:p.image.alt,fit:p.image.fit}}:{})};
+  return Object.keys(result).length ? result : undefined;
+}
+export function mapNodeBox(node: MapNode) {
+  const p=node.presentation;
+  if(node.parentId!==null||!p)return {width:240,height:88};
+  const width=p.width??240;
+  const bodyHeight=164+(p.icon&&p.align==="center"?40:0)+(p.showNote&&node.note?60:0);
+  const height=p.layout==="side"&&p.image ? Math.max(180,bodyHeight) : bodyHeight+(p.image?148:0);
+  return {width,height};
+}
+export type MapLayoutNode = { x:number;y:number;width:number;height:number };
+export function mapConnection(from: MapLayoutNode,to: MapLayoutNode) {
+  const dx=to.x+to.width/2-from.x-from.width/2,dy=to.y+to.height/2-from.y-from.height/2;
+  const vertical=Math.abs(dx)<Math.min(from.width,to.width)/2 && Math.abs(dy)>(from.height+to.height)/2;
+  const direction=(vertical?dy:dx)>=0?1:-1;
+  const start=vertical?{x:from.x+from.width/2,y:from.y+(direction>0?from.height:0)}:{x:from.x+(direction>0?from.width:0),y:from.y+from.height/2};
+  const end=vertical?{x:to.x+to.width/2,y:to.y+(direction>0?0:to.height)}:{x:to.x+(direction>0?0:to.width),y:to.y+to.height/2};
+  return {start,end,path:vertical?`M${start.x} ${start.y} C${start.x} ${start.y+direction*48},${end.x} ${end.y-direction*48},${end.x} ${end.y}`
+    :`M${start.x} ${start.y} C${start.x+direction*48} ${start.y},${end.x-direction*48} ${end.y},${end.x} ${end.y}`};
+}
 export function nodeColors(node: MapNode): Record<string,string> {
   const fill=node.style?.fill;const rgb=fill ? [1,3,5].map(i=>parseInt(fill.slice(i,i+2),16)/255).map(v=>v<=.04045 ? v/12.92 : ((v+.055)/1.055)**2.4) : null;
   const luminance=rgb ? .2126*rgb[0]+.7152*rgb[1]+.0722*rgb[2] : 0;
@@ -41,9 +90,10 @@ export function validateMindmap(input: unknown): Mindmap {
     if (n.style && (typeof n.style !== "object" || Object.entries(n.style).some(([key,value]) => !["fill","border"].includes(key) || !validColor(value)))) return invalid();
     if (n.occurrenceDate !== undefined && (n.kind !== "task" || !/^\d{4}-\d{2}-\d{2}$/.test(n.occurrenceDate)
       || new Date(n.occurrenceDate).toISOString().slice(0, 10) !== n.occurrenceDate)) return invalid();
+    const presentation=normalizePresentation(n);
     return { id: n.id, parentId: n.parentId, kind: n.kind, note: n.note,
       ...(n.kind === "idea" ? { text: n.text! } : { refId: n.refId! }),
-      ...(n.occurrenceDate ? { occurrenceDate: n.occurrenceDate } : {}),...(n.tags?.length ? { tags: [...n.tags] } : {}),...(n.style ? {style:{...n.style}} : {}) };
+      ...(n.occurrenceDate ? { occurrenceDate: n.occurrenceDate } : {}),...(n.tags?.length ? { tags: [...n.tags] } : {}),...(n.style ? {style:{...n.style}} : {}),...(presentation ? {presentation}: {}) };
   });
   if (nodes.filter(n => n.parentId === null).length !== 1) return invalid();
   const byId = new Map(nodes.map(n => [n.id, n]));
@@ -97,7 +147,7 @@ export function moveNode(map: Mindmap, id: string, parentId: string, before?: st
 }
 export function attachTask(map: Mindmap, nodeId: string, task: GenesisTask): Mindmap {
   return validateMindmap({ ...map, nodes: map.nodes.map(n => n.id === nodeId
-    ? { id: n.id, parentId: n.parentId, kind: "task", refId: task.id, note: n.note, ...(n.tags?.length ? { tags: n.tags } : {}),
+    ? { id: n.id, parentId: n.parentId, kind: "task", refId: task.id, note: n.note, ...(n.tags?.length ? { tags: n.tags } : {}),...(n.style ? {style:n.style}:{}),...(n.presentation ? {presentation:n.presentation}:{}),
       ...(task.recurrenceMode !== "none" && task.dueDate ? { occurrenceDate: task.dueDate } : {}) } : n) });
 }
 export function nodeTitle(node: MapNode, tasks: GenesisTask[], projects: GenesisProject[]) {
@@ -163,10 +213,14 @@ export function visibleNodes(map: Mindmap, view: MapView) {
 }
 /** Stable preorder layout; cross-links never affect geometry or task hierarchy. */
 export function layoutMap(map: Mindmap, view: MapView) {
-  return visibleNodes(map, view).map((row, index) => {
+  const rows=visibleNodes(map,view),rootWidth=mapNodeBox(rows[0].node).width;
+  let top=24;
+  return rows.map(row => {
+    const box=mapNodeBox(row.node),defaultTop=top;
+    top+=box.height+28;
     const point = view.positions?.[row.node.id];
     const valid = point && Number.isFinite(point.x) && Number.isFinite(point.y) && point.x >= 0 && point.y >= 0 && point.x <= 100_000 && point.y <= 100_000;
-    return { ...row, x: valid ? point.x : 24 + row.depth * 285, y: valid ? point.y : 24 + index * 116 };
+    return { ...row,...box, x: valid ? point.x : 24 + row.depth * 285+(row.depth>0?rootWidth-240:0), y: valid ? point.y : defaultTop };
   });
 }
 export function mapHomeView(map: Mindmap, view: MapView): MapView {
@@ -201,10 +255,31 @@ export function mapMarkdown(map: Mindmap, title: (n: MapNode) => string) {
     .map(({ node, depth }) => `${"  ".repeat(depth)}- ${title(node).replaceAll("\n", " ")}${node.kind !== "idea" ? ` [${node.kind}: ${node.refId}]` : ""}${node.note ? `\n${"  ".repeat(depth + 1)}${node.note.replaceAll("\n", "\n" + "  ".repeat(depth + 1))}` : ""}`).join("\n");
 }
 export function mapSvg(map: Mindmap, title: (n: MapNode) => string, view?: MapView) {
+  map=validateMindmap(map);
   const esc = (v: string) => v.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" })[c]!);
   const rows = layoutMap(map, { mode: "map", collapsed: [], focus: null, zoom: 1, positions: view?.positions });
   const byId = new Map(rows.map(n => [n.node.id, n]));
-  const paths = rows.map(r => { const p = byId.get(r.node.parentId ?? ""); return p ? `<path d="M${p.x + 240} ${p.y + 44}L${r.x} ${r.y + 44}"/>` : ""; }).join("");
-  const links = map.links.map(l => { const a = byId.get(l.from)!; const b = byId.get(l.to)!; return `<path stroke="${l.color || map.appearance?.lineColor || "#8c672b"}" stroke-dasharray="5 5" d="M${a.x + 120} ${a.y + 88}L${b.x + 120} ${b.y}"/><text x="${a.x + 120}" y="${a.y + 104}" fill="#132426">${esc(l.label)}</text>`; }).join("");
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.max(...rows.map(r => r.x)) + 280}" height="${Math.max(...rows.map(r => r.y)) + 140}" role="img"><title>${esc(map.title)}</title><rect width="100%" height="100%" fill="#eee9dc"/><g fill="none" stroke="${map.appearance?.lineColor || "#8c672b"}">${paths}${links}</g>${rows.map(r => `<g><title>${esc(title(r.node))}</title><rect x="${r.x}" y="${r.y}" width="240" height="88" rx="12" fill="${r.node.style?.fill || "#fffdf8"}" stroke="${r.node.style?.border || "#255b59"}"/><text x="${r.x + 12}" y="${r.y + 26}" fill="${nodeColors(r.node)["--mindmap-node-ink"] || "#132426"}" font-family="sans-serif" font-size="14">${[...title(r.node)].slice(0, 28).join("") ? esc([...title(r.node)].slice(0, 28).join("")) : ""}</text><text x="${r.x + 12}" y="${r.y + 50}" fill="${nodeColors(r.node)["--mindmap-node-ink"] || "#132426"}" font-size="14">${esc([...title(r.node)].slice(28, 56).join(""))}</text></g>`).join("")}</svg>`;
+  const paths = rows.map(r => { const p = byId.get(r.node.parentId ?? ""); if(!p)return "";const edge=mapConnection(p,r),color=map.appearance?.lineColor||r.node.style?.border||"#8c672b";
+    return `<g stroke="${color}"><path d="${edge.path}"/>${[edge.start,edge.end].map(point=>`<circle cx="${point.x}" cy="${point.y}" r="6" fill="#fffdf8" stroke-width="2"/>`).join("")}</g>`; }).join("");
+  const links = map.links.map(l => { const a = byId.get(l.from)!; const b = byId.get(l.to)!,edge=mapConnection(a,b); return `<path stroke="${l.color || map.appearance?.lineColor || "#8c672b"}" stroke-dasharray="5 5" d="${edge.path}"/><text x="${edge.start.x+8}" y="${edge.start.y+20}" fill="#132426">${esc(l.label)}</text>`; }).join("");
+  const lines=(text:string,length:number,count:number)=>{const result:string[]=[];for(const line of text.split(/\r?\n/)){const chars=[...line];while(chars.length&&result.length<count)result.push(chars.splice(0,length).join(""));if(result.length>=count)break;}return result;};
+  const cards=rows.map(r=>{
+    const p=r.node.presentation,root=r.node.parentId===null,ink=nodeColors(r.node)["--mindmap-node-ink"]||"#132426",align=root?p?.align||"left":"left";
+    const side=root&&p?.layout==="side"&&p.image,imageWidth=side?Math.round(r.width*.32):r.width-24;
+    const bodyX=r.x+12+(side?imageWidth+12:0),bodyWidth=r.width-24-(side?imageWidth+12:0),iconSize=root?32:24;
+    const centeredIcon=p?.icon&&align==="center";
+    const above=p?.image&&!side?148:0;
+    const iconX=centeredIcon?bodyX+(bodyWidth-iconSize)/2:align==="right"?bodyX+bodyWidth-iconSize:bodyX;
+    const icon=p?.icon?`<g transform="translate(${iconX} ${r.y+12+above}) scale(${iconSize/24})" fill="none" stroke="${ink}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${mindmapIconVector(p.icon)}</g>`:"";
+    const textLeft=bodyX+(p?.icon&&!centeredIcon&&align==="left"?iconSize+8:0),textRight=bodyX+bodyWidth-(p?.icon&&!centeredIcon&&align==="right"?iconSize+8:0);
+    const textX=align==="center"?bodyX+bodyWidth/2:align==="right"?textRight:textLeft,anchor=align==="center"?"middle":align==="right"?"end":"start";
+    const fontSize=root&&p?16:14,titleLines=lines(title(r.node),Math.max(10,Math.floor((textRight-textLeft)/(fontSize*.56))),root&&p?4:2),textY=r.y+26+above+(centeredIcon?40:0);
+    const heading=titleLines.map((line,index)=>`<text x="${textX}" y="${textY+index*21}" text-anchor="${anchor}" fill="${ink}" font-family="sans-serif" font-size="${fontSize}">${esc(line)}</text>`).join("");
+    const headingEnd=Math.max(r.y+48+above,textY+Math.max(0,titleLines.length-1)*21+12),imageY=side?r.y+16:r.y+12;
+    const image=p?.image?`<defs><clipPath id="image-${r.node.id}"><rect x="${r.x+12}" y="${imageY}" width="${imageWidth}" height="128" rx="8"/></clipPath></defs><image href="${p.image.data}" x="${r.x+12}" y="${imageY}" width="${imageWidth}" height="128" preserveAspectRatio="xMidYMid ${p.image.fit==="cover"?"slice":"meet"}" clip-path="url(#image-${r.node.id})"><title>${esc(p.image.alt||title(r.node))}</title></image>`:"";
+    const noteY=headingEnd+16;
+    const note=p?.showNote?lines(r.node.note,Math.max(12,Math.floor(bodyWidth/6)),3).map((line,index)=>`<text x="${align==="left"?bodyX:textX}" y="${noteY+index*15}" text-anchor="${anchor}" fill="${ink}" font-family="sans-serif" font-size="11">${esc(line)}</text>`).join(""):"";
+    return `<g><title>${esc(title(r.node))}</title><rect x="${r.x}" y="${r.y}" width="${r.width}" height="${r.height}" rx="${root&&p?16:12}" fill="${r.node.style?.fill||"#fffdf8"}" stroke="${r.node.style?.border||"#255b59"}"/>${icon}${heading}${image}${note}</g>`;
+  }).join("");
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.max(...rows.map(r=>r.x+r.width))+40}" height="${Math.max(...rows.map(r=>r.y+r.height))+52}" role="img"><title>${esc(map.title)}</title>${map.nodes.some(node=>node.presentation?.icon)?`<metadata>${esc(iconLicense)}</metadata>`:""}<rect width="100%" height="100%" fill="#eee9dc"/><g fill="none" stroke="${map.appearance?.lineColor||"#8c672b"}">${paths}${links}</g>${cards}</svg>`;
 }
