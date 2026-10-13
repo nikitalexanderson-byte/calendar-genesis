@@ -274,6 +274,7 @@ export type AdminUserStats = {
   id: string;
   email: string;
   displayName: string;
+  subscriptionPlan?: SubscriptionPlan;
   createdAt: string;
   lastLoginAt: string | null;
   lastSeenAt: string | null;
@@ -2366,6 +2367,14 @@ export async function saveAdminAd(input: AdminAdInput, id?: string) {
 
 export async function deleteAdminAd(id: string) {
   return api<{ deleted: true }>(`/admin/ads/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+export type SubscriptionPlan = "free" | "standart" | "premium" | "business" | "premium4life";
+
+export async function updateAdminSubscription(userId: string, subscriptionPlan: SubscriptionPlan, expectedPlan: SubscriptionPlan) {
+  return api<{ userId: string; subscriptionPlan: SubscriptionPlan }>(`/admin/users/${encodeURIComponent(userId)}/subscription`, {
+    method: "PUT", body: JSON.stringify({ subscriptionPlan, expectedPlan }),
+  });
 }
 
 export async function deleteAdminUser(userId: string, blacklist: boolean) {

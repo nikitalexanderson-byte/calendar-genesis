@@ -651,6 +651,9 @@ try {
         throw new RuntimeException('Arbitrary feature content was accepted.');
     } catch (InvalidArgumentException $expected) { /* Only fixed identifiers are accepted. */ }
     $adminStats = genesisAdminStats();
+    foreach ($adminStats['users'] as $adminStatUser) {
+        expect(in_array($adminStatUser['subscriptionPlan'] ?? null, ['free', 'standart', 'premium', 'business', 'premium4life'], true), 'Administrator subscription status is missing or invalid.');
+    }
     $taskUsage = array_values(array_filter($adminStats['featureUsage']['features'],
         static fn (array $row): bool => $row['id'] === 'menu.tasks'))[0] ?? null;
     expect($taskUsage !== null && $taskUsage['opens'] === 2 && $taskUsage['usedUsers'] === 1

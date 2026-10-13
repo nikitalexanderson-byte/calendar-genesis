@@ -935,6 +935,16 @@ try {
         }
     }
 
+    if ($method === 'PUT' && count($segments) === 4 && $segments[0] === 'admin'
+        && $segments[1] === 'users' && $segments[3] === 'subscription') {
+        $userId = genesisRequireUserId();
+        genesisRequireCsrf();
+        require_once dirname(__DIR__, 2) . '/src/subscriptions.php';
+        $payload = genesisReadJson();
+        genesisJson(genesisAdminSetSubscription($userId, (string)$segments[2],
+            (string)($payload['subscriptionPlan'] ?? ''), (string)($payload['expectedPlan'] ?? '')));
+    }
+
     if ($method === 'GET' && $path === 'admin/stats') {
         $userId = genesisRequireUserId();
         $user = genesisFindUser($userId);

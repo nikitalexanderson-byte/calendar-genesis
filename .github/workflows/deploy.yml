@@ -141,6 +141,7 @@ jobs:
           php server/tests/mindmaps-google-contract.php
           php server/tests/mindmaps-native-contract.php
           php server/tests/mindmaps-migration.php
+          php server/tests/subscriptions.php
 
       - name: Build client for Beget
         run: pnpm build:beget
