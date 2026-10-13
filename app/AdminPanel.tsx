@@ -1,10 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { deleteAdminUser, type AdminStats, type AdminUserStats, loadAdminStats } from "./cloud-sync";
 import { runtimeLocale } from "./i18n";
 import { useDialogAccessibility } from "./use-dialog-accessibility";
 import { AdminAdsPanel } from "./AdminAdsPanel";
+import { SubscriptionControl } from "./SubscriptionControl";
+import { adminUserCopy as userCopy } from "./admin-user-copy";
+
+const mobileUsersQuery = () => window.matchMedia("(max-width: 760px)");
+const subscribeMobileUsers = (listener: () => void) => { const query=mobileUsersQuery();query.addEventListener("change",listener);return()=>query.removeEventListener("change",listener); };
+const mobileUsersSnapshot = () => mobileUsersQuery().matches;
+const desktopUsersSnapshot = () => false;
 
 function formatActivity(value: string | null) {
   if (!value) return "—";
@@ -89,6 +96,14 @@ export function AdminPanel() {
   const [blacklist, setBlacklist] = useState(false);
   const [busy, setBusy] = useState(false);
   const [section, setSection] = useState<AdminSection>(adminSectionFromHash);
+  const mobileUsers=useSyncExternalStore(subscribeMobileUsers,mobileUsersSnapshot,desktopUsersSnapshot);
+  const [userPage,setUserPage]=useState(1);
+  const userPageCount=Math.max(1,Math.ceil((stats?.users.length ?? 0)/10));
+  const currentUserPage=Math.min(userPage,userPageCount);
+  const visibleUsers=mobileUsers ? stats?.users.slice((currentUserPage-1)*10,currentUserPage*10) ?? [] : stats?.users ?? [];
+  const userPagination=mobileUsers&&userPageCount>1 ? <nav className="admin-user-pagination" aria-label={userCopy("pages")} data-no-translate>
+    {Array.from({length:userPageCount},(_,index)=>index+1).map(page=><button type="button" key={page} aria-label={`${userCopy("page")} ${page}`} aria-current={currentUserPage===page ? "page" : undefined} onClick={()=>{setUserPage(page);requestAnimationFrame(()=>document.getElementById("admin-users-title")?.scrollIntoView({block:"start"}));}}>{page}</button>)}
+  </nav> : null;
 
   useEffect(() => {
     const followSection = () => setSection(adminSectionFromHash());
@@ -176,12 +191,16 @@ export function AdminPanel() {
             <span><strong>{stats.totals.androidReportingUsers}</strong><span>{copy.reportingUsers}</span></span>
           </div>
         </div>
+        <div className="admin-users-heading"><h2 id="admin-users-title" data-no-translate>{userCopy("users")}</h2><span aria-live="polite" data-no-translate>{mobileUsers&&stats.users.length ? `${(currentUserPage-1)*10+1}–${Math.min(currentUserPage*10,stats.users.length)} / ${stats.users.length}` : stats.users.length}</span></div>
+        {userPagination}
+        {!stats.users.length ? <p data-no-translate>{userCopy("empty")}</p> : null}
         <div className="admin-table-wrap">
           <table className="admin-table admin-users-table">
-            <thead><tr><th>{copy.user}</th><th>{copy.activity}</th><th>{copy.logins}</th><th>{copy.habits}</th><th>{copy.projects}</th><th>{copy.tasks}</th><th>{copy.google}</th><th>{copy.download}</th><th>{copy.version}</th><th>{copy.googleServices}</th><th>{copy.server}</th><th>{copy.moderation}</th></tr></thead>
-            <tbody>{stats.users.map((user) => (
+            <thead><tr><th>{copy.user}</th><th data-no-translate>{userCopy("plan")}</th><th>{copy.activity}</th><th>{copy.logins}</th><th>{copy.habits}</th><th>{copy.projects}</th><th>{copy.tasks}</th><th>{copy.google}</th><th>{copy.download}</th><th>{copy.version}</th><th>{copy.googleServices}</th><th>{copy.server}</th><th>{copy.moderation}</th></tr></thead>
+            <tbody>{visibleUsers.map((user) => (
               <tr key={user.id}>
                 <td data-label={copy.user}><strong>{user.email}</strong><small>{user.displayName}{user.isAdmin ? ` · ${copy.admin}` : ""}</small></td>
+                <td className="admin-subscription-cell" data-label={userCopy("plan")}><SubscriptionControl user={user} onRefresh={refresh} onSaved={subscriptionPlan=>setStats(current=>current ? {...current,users:current.users.map(item=>item.id===user.id ? {...item,subscriptionPlan} : item)} : current)}/></td>
                 <td data-label={copy.activity}>{formatActivity(user.lastSeenAt)}<small>{isEnglish ? "Registered" : "Регистрация"}: {formatActivity(user.createdAt)}<br />{isEnglish ? "Last sign-in" : "Последний вход"}: {formatActivity(user.lastLoginAt)}</small></td>
                 <td data-label={copy.logins}>{user.loginCount}</td>
                 <td data-label={copy.habits}><strong>{user.habitCount}</strong><small>{copy.aggregate}</small></td>
@@ -202,6 +221,7 @@ export function AdminPanel() {
             ))}</tbody>
           </table>
         </div>
+        {userPagination}
       </> : null}
       {stats && section === "actions" ? (
         <section className="admin-feature-usage" aria-labelledby="admin-feature-title">

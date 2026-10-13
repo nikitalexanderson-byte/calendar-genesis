@@ -1319,3 +1319,19 @@ html[data-genesis-theme] .genesis-app .shared-gantt-help-dialog p { margin: 0; c
 @media(max-width:380px) {
   html[data-genesis-theme] .genesis-app .shared-projects-task-panel { padding: 8px; }
 }
+.admin-users-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 24px 0 12px; }
+.admin-users-heading h2 { margin: 0; font: 500 24px/1.3 var(--font-heading); }
+.admin-users-heading > span { color: var(--ink-soft); font: 500 14px/1.4 var(--font-ui); font-variant-numeric: tabular-nums; }
+.admin-user-pagination { display: flex; gap: 8px; max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; padding: 4px 0 12px; margin: 0 0 12px; }
+.admin-user-pagination > button { flex: 0 0 44px; min-height: 44px; padding: 8px; border: 1px solid var(--line); border-radius: var(--ui-radius); background: var(--surface); color: var(--ink); font: 500 14px/1.4 var(--font-ui); }
+.admin-user-pagination > button[aria-current=page] { background: var(--ui-accent); border-color: var(--ui-accent); color: var(--ui-on-accent); }
+.admin-subscription-control { min-width: 230px; max-width: 100%; }
+.admin-subscription-control form { display: flex; align-items: stretch; gap: 8px; margin: 8px 0 0; }
+.admin-subscription-control form > select { flex: 1; min-width: 0; width: 100%; min-height: 44px; padding: 8px; border-radius: var(--ui-radius); font: 500 14px/1.4 var(--font-ui); }
+.admin-subscription-control form > button { min-height: 44px; padding-inline: 12px; font: 500 13px/1.4 var(--font-ui); }
+.admin-subscription-control > p { margin: 8px 0; font: 400 13px/1.5 var(--font-ui); }
+@media(max-width:760px) {
+  html[data-genesis-theme] .genesis-app .admin-subscription-cell { grid-template-columns: minmax(0,1fr); gap: 8px; }
+  html[data-genesis-theme] .genesis-app .admin-subscription-cell::before { grid-column: 1; grid-row: 1; }
+  .admin-subscription-control { grid-column: 1 / -1; grid-row: 2; width: 100%; min-width: 0; }
+}
