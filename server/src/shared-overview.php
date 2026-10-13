@@ -49,7 +49,7 @@ function genesisSharedInbox(string $userId, string $before = '', bool $unreadOnl
     $query = genesisDb()->prepare('SELECT e.id, e.action, COALESCE(e.task_id, e.object_id) AS objectId,
         e.created_at AS createdAt, p.id AS projectId, p.title AS projectTitle, p.space_id AS spaceId,
         COALESCE(NULLIF(u.display_name, \'\'), \'Участник GENESIS\') AS actorName,
-        t.title AS taskTitle, substr(c.body, 1, 180) AS commentBody,
+        t.title AS taskTitle, substr(c.body, 1, 180) AS commentBody, c.id AS commentId,
         CASE WHEN r.event_id IS NULL THEN 0 ELSE 1 END AS isRead
         FROM shared_audit_events_read e JOIN shared_projects p ON p.id = e.project_id AND p.archived_at IS NULL
         JOIN shared_project_members m ON m.project_id = p.id AND m.user_id = :user

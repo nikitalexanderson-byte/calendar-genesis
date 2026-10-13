@@ -1892,13 +1892,13 @@ export function GenesisCalendar() {
     setView(nextView);
     let nextUrl = new URL(window.location.href);
     if (nextView === "projects") {
-      if ((cloudUser?.uid ? storedAffairsArea(cloudUser.uid) : projectsArea) === "shared") {
+      if (sharedDestination || (cloudUser?.uid ? storedAffairsArea(cloudUser.uid) : projectsArea) === "shared") {
         const place = sharedDestination ? { ...sharedDestination, taskId: sharedDestination.taskId || "", view: null }
           : nextUrl.hash === "#projects" && nextUrl.searchParams.get("affairs") === "shared" ? null : savedSharedPlace(cloudUser?.uid || "");
         if (place) nextUrl = sharedPlaceUrl(nextUrl, place);
         else nextUrl.searchParams.set("affairs", "shared");
       } else nextUrl.searchParams.set("affairs", "personal");
-    } else for (const key of ["affairs", "space", "project", "task", "projectView", "taskAction"]) nextUrl.searchParams.delete(key);
+    } else for (const key of ["affairs", "space", "project", "task", "projectView", "taskAction", "comment"]) nextUrl.searchParams.delete(key);
     nextUrl.hash = nextView;
     const cleanUrl = cleanGenesisAppUrl(nextUrl);
     const state = { ...(window.history.state ?? {}), genesisView: nextView };
@@ -3709,7 +3709,7 @@ export function GenesisCalendar() {
   };
 
   const beginProjectPointerDrag = (event: PointerEvent<HTMLElement>, item: ProjectDragItem) => {
-    if (event.pointerType !== "mouse" || event.button !== 0 || projectDragControl(event.target)) return;
+    if (event.pointerType === "touch" || event.button !== 0 || projectDragControl(event.target)) return;
     projectDragSourceRef.current = event.currentTarget;
     event.currentTarget.setPointerCapture(event.pointerId);
     projectPointerDragRef.current = {
@@ -3819,6 +3819,7 @@ export function GenesisCalendar() {
     onPointerUp: (event: PointerEvent<HTMLElement>) => finishProjectPointerDrag(event),
     onPointerCancel: (event: PointerEvent<HTMLElement>) => finishProjectPointerDrag(event, true),
     onLostPointerCapture: (event: PointerEvent<HTMLElement>) => finishProjectPointerDrag(event, true),
+    onDragStart: (event: React.DragEvent<HTMLElement>) => { if (projectPointerDragRef.current) event.preventDefault(); },
     onClickCapture: (event: MouseEvent<HTMLElement>) => {
       if (suppressProjectItemClickRef.current) { event.preventDefault(); event.stopPropagation(); }
     },
@@ -5955,7 +5956,7 @@ export function GenesisCalendar() {
                 <button type="button" className="task-check" onClick={() => toggleTask(task.id)} aria-label={namedAction(task.done ? "Вернуть задачу" : "Завершить задачу", task.title, language)}>
                   {task.done ? "✓" : ""}
                 </button>
-                <div className="all-task-body">
+                <div className="all-task-body" data-affair-drag-surface>
                   <div className="all-task-title-row">
                     <strong data-no-translate title={task.title}>{task.title}</strong>
                     <span className="all-task-priority" title="Приоритет">⚑{task.priority}</span>

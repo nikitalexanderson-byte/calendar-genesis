@@ -2057,7 +2057,7 @@ export async function listSharedInvitations(signal?: AbortSignal) {
 export type SharedNotification = {
   id: string; action: string; objectId: string; createdAt: string;
   projectId: string; projectTitle: string; spaceId: string;
-  actorName: string; taskTitle: string | null; commentBody?: string | null; isRead: number;
+  actorName: string; taskTitle: string | null; commentBody?: string | null; commentId?: string | null; isRead: number;
 };
 export type SharedOverview = { projects: number; rootProjects: number; subprojects: number;
   tasks: number; openTasks: number; completedTasks: number; newTasks: number; newProjects: number; newComments: number };

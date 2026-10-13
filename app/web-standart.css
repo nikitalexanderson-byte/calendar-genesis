@@ -294,6 +294,8 @@ html[data-genesis-theme] .genesis-app .shared-board-settings { display: inline-g
 html[data-genesis-theme] .genesis-app .shared-board-settings { min-width: 44px; min-height: 44px; }
 .shared-affair-draggable { cursor: grab; touch-action: pan-y; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .shared-affair-draggable[data-dragging="true"] { outline: 3px solid var(--teal); outline-offset: 2px; opacity: .72; }
+html[data-genesis-theme] .genesis-app :is(.shared-affair-draggable,.project-draggable-item) [data-affair-drag-surface] { cursor: grab; -webkit-user-select: none; user-select: none; -webkit-user-drag: none; }
+html[data-genesis-theme] .genesis-app :is(.shared-affair-draggable,.project-draggable-item) [data-affair-drag-surface]:active { cursor: grabbing; }
 html[data-genesis-theme] .genesis-app .shared-board-container { border-left: 4px solid #b2914a; background: color-mix(in srgb, #b2914a 12%, var(--paper)); }
 html[data-genesis-theme] .genesis-app .shared-board-container.shared-kind-task-list { border-left-color: #8573ab; background: color-mix(in srgb, #8573ab 12%, var(--paper)); }
 html[data-genesis-theme] .genesis-app .shared-projects-task { grid-template-columns: minmax(0, 1fr); border-left: 4px solid #2d8682; background: color-mix(in srgb, #2d8682 9%, var(--paper)); }

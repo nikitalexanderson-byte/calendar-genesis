@@ -119,6 +119,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   const english = language === "en";
   const [initialPlace] = useState(() => (typeof window === "undefined" ? null : sharedPlaceFromUrl(new URL(window.location.href))) ?? (destination ? { spaceId: destination.spaceId, projectId: destination.projectId || "", taskId: "", view: null } : initialSharedPlace(userId)));
   const [requestedTaskId, setRequestedTaskId] = useState(initialPlace.taskId);
+  const [commentId, setCommentId] = useState(initialPlace.commentId ?? "");
   const [locatedTaskId, setLocatedTaskId] = useState("");
   const locatedTaskApplied = useRef("");
   const initialRoute = useRef(true);
@@ -229,7 +230,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   const taskProjectId = taskSnapshot?.project.id;
   const selectedTask = taskSnapshot?.tasks.find((task) => task.id === taskId);
   const taskOpen = Boolean(selectedTask);
-  const closeTask = () => { setTaskId(""); setTaskSnapshot(null); setComments([]); };
+  const closeTask = () => { setTaskId(""); setTaskSnapshot(null); setComments([]); setCommentId(""); };
 
   useEffect(() => {
     if (!spaceId) return;
@@ -883,6 +884,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
     setMessage("");
     setTaskSnapshot(context);
     setTaskSection("task");
+    setCommentId("");
     setTaskId(task.id); setComments([]);
     setEditTaskCalendarMode(taskCalendarMode);
     setEditTaskFiles([]); setRemovedTaskFileIds([]);
@@ -899,6 +901,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       const place = sharedPlaceFromUrl(new URL(window.location.href)); if (!place) return;
       setSpaceId(place.spaceId); setProjectId(place.projectId); setViewOverride(place.view);
       setRequestedTaskId(place.taskId); setTaskId(""); setTaskSnapshot(null); setComments([]);
+      setCommentId(place.commentId ?? "");
       locatedTaskApplied.current = "";
     };
     window.addEventListener("popstate", restore); window.addEventListener("genesis:shared-route", restore);
@@ -910,10 +913,14 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
     void loadSharedProject(projectId).then(result => {
       if (!live) return;
       const task = result.tasks.find(item => item.id === requestedTaskId);
-      if (task && new URL(window.location.href).searchParams.get("taskAction") === "locate") {
+      const place = sharedPlaceFromUrl(new URL(window.location.href));
+      if (task && place?.taskAction === "locate") {
         setSnapshot(result); setViewOverride(result.project.layout); setLocatedTaskId(task.id);
         setExpandedIds(ids => [...new Set([...ids, projectId])]);
-      } else if (task) openTask(task, result);
+      } else if (task) {
+        openTask(task, result);
+        if (place?.taskAction === "comments") { setTaskSection("comments"); setCommentId(place.commentId ?? ""); }
+      }
       else setMessage(english ? "This task is no longer available." : "Эта задача больше недоступна.");
       setRequestedTaskId("");
     }).catch(() => { if (live) { setMessage(english ? "Could not open the task. Check your access and connection." : "Не удалось открыть задачу. Проверьте доступ и подключение."); setRequestedTaskId(""); } });
@@ -931,9 +938,10 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   useEffect(() => {
     if (loading || requestedTaskId || (spaceId && uiReadySpace !== spaceId)) return;
     if (!window.location.hash.startsWith("#projects")) return;
-    recordSharedPlace(userId, { spaceId, projectId: taskId ? taskSnapshot?.project.id ?? projectId : projectId, taskId, view: viewOverride }, initialRoute.current);
+    recordSharedPlace(userId, { spaceId, projectId: taskId ? taskSnapshot?.project.id ?? projectId : projectId, taskId, view: viewOverride,
+      ...(taskId && taskSection === "comments" ? { taskAction: "comments", ...(commentId ? { commentId } : {}) } : {}) }, initialRoute.current);
     initialRoute.current = false;
-  }, [userId, spaceId, projectId, taskId, taskSnapshot?.project.id, viewOverride, loading, requestedTaskId, uiReadySpace]);
+  }, [userId, spaceId, projectId, taskId, taskSnapshot?.project.id, viewOverride, loading, requestedTaskId, uiReadySpace, taskSection, commentId]);
   const canWrite = snapshot && (snapshot.project.permissions?.editTasks ?? ["owner", "manager", "member"].includes(snapshot.project.role));
   const canInvite = snapshot && (snapshot.project.permissions?.inviteMembers ?? ["owner", "manager"].includes(snapshot.project.role));
   const canManage = snapshot && (snapshot.project.permissions?.manageProjects ?? ["owner", "manager"].includes(snapshot.project.role));
@@ -1483,7 +1491,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
         <SharedTaskAttachmentList files={selectedTask.attachments ?? []} english={english} />
         </div>
         <div id="shared-task-discussion" hidden={taskSection !== "comments"}>
-        <SharedComments key={`comments-${selectedTask.id}`} comments={comments} members={taskSnapshot.members} english={english} canComment={Boolean(canCommentTask)} busy={busy} onSubmit={submitComment}/>
+        <SharedComments key={`comments-${selectedTask.id}`} comments={comments} members={taskSnapshot.members} english={english} canComment={Boolean(canCommentTask)} busy={busy} onSubmit={submitComment} highlightedId={commentId} active={taskSection === "comments"}/>
         <SharedActivity key={`activity-${selectedTask.id}`} projectId={taskSnapshot.project.id} taskId={selectedTask.id} english={english} refreshKey={activityKey}/>
         </div>
         {taskSection === "task" && taskSnapshot.project.canOrganizeTasks ? <footer className="shared-task-delete-footer"><button type="button" className="danger-button shared-task-delete-button" disabled={busy || selectedTask.pending} onClick={() => removeTask(selectedTask, taskSnapshot)}><ExperimentalIcon name="close" />{english ? "Delete task" : "Удалить задачу"}</button></footer> : null}
