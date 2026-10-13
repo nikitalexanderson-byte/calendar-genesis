@@ -23,7 +23,7 @@ try {
  mapExpect(genesisMindmaps($ids[1])===[] && genesisMindmapHistory($ids[1],'map-one')===[],'Second account read first account');
  try {genesisSaveMindmap($ids[1],'map-one',[...$payload,'expectedRevision'=>1]);throw new RuntimeException('Foreign revision accepted');}catch(GenesisResourceLimitException $e){mapExpect($e->status===409,'Wrong owner conflict status');}
  try {genesisSaveMindmap($ids[0],'map-one',[...$payload,'operationId'=>'stale']);throw new RuntimeException('Stale revision accepted');}catch(GenesisResourceLimitException $e){mapExpect($e->getMessage()==='MAP_REVISION_CONFLICT','Wrong conflict');}
- foreach([['schemaVersion'=>2],['iv'=>'bad'],['ciphertext'=>'plaintext title'],['expectedRevision'=>-1]] as $invalid){try{genesisSaveMindmap($ids[0],'bad',[...$payload,...$invalid]);throw new RuntimeException('Invalid envelope accepted');}catch(InvalidArgumentException $expected){}}
+ foreach([['schemaVersion'=>0],['schemaVersion'=>3],['schemaVersion'=>'2'],['iv'=>'bad'],['ciphertext'=>'plaintext title'],['expectedRevision'=>-1]] as $invalid){try{genesisSaveMindmap($ids[0],'bad',[...$payload,...$invalid]);throw new RuntimeException('Invalid envelope accepted');}catch(InvalidArgumentException $expected){}}
  for($i=1;$i<=24;$i++) genesisSaveMindmap($ids[0],'map-one',[...$payload,'expectedRevision'=>$i,'operationId'=>'operation-'.$i]);
  mapExpect(count(genesisMindmapHistory($ids[0],'map-one'))===20,'History retention');
  $before=genesisMindmaps($ids[0]);
