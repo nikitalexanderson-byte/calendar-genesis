@@ -75,9 +75,9 @@ fun StoicheionScreen(app: GenesisApplication, divinationDisabled: Boolean,
                         StoicheionLetter(id, item.getInt("order"), localized?.getString("name") ?: item.getString("name"),
                             item.getString("symbol"), item.getString("lowercase"), item.getInt("value"), item.getInt("pythmen"),
                             localized?.getString("tagline") ?: item.getString("tagline"),
-                            localized?.getString("content") ?: item.getString("content"),
+                            ru.genesis.calendar.domain.formatGreekTerms(localized?.getString("content") ?: item.getString("content"), language),
                             artCopy?.getString("body") ?: image.getString("body"),
-                            artCopy?.getString("bodyGreek") ?: image.getString("bodyGreek"),
+                            ru.genesis.calendar.domain.formatGreekTerms(artCopy?.getString("bodyGreek") ?: image.getString("bodyGreek"), language),
                             artCopy?.getString("invocation") ?: image.getString("invocation"),
                             Color(android.graphics.Color.parseColor(image.getString("accent"))))
                     }

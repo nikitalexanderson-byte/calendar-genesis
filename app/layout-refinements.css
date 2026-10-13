@@ -1335,3 +1335,95 @@ html[data-genesis-theme] .genesis-app .shared-gantt-help-dialog p { margin: 0; c
   html[data-genesis-theme] .genesis-app .admin-subscription-cell::before { grid-column: 1; grid-row: 1; }
   .admin-subscription-control { grid-column: 1 / -1; grid-row: 2; width: 100%; min-width: 0; }
 }
+
+/* Shared disclosure headers follow the category surface in both color modes. */
+html[data-genesis-theme] .genesis-app .shared-projects :is(.shared-projects-google,.shared-activity)[open] > summary {
+  margin: -16px -16px 16px; padding: 16px; min-height: 64px;
+  border-radius: 11px 11px 0 0; border-bottom: 1px solid var(--line);
+}
+
+html[data-genesis-theme] .genesis-app .shared-gantt .calendar-date-trigger.inline-reference {
+  display: grid; grid-template-columns: 88px minmax(0,1fr) 88px;
+  align-items: center; gap: 8px; padding: 10px 12px;
+}
+html[data-genesis-theme] .genesis-app .shared-gantt .calendar-date-trigger.inline-reference > span { grid-column: 2; text-align: center; }
+html[data-genesis-theme] .genesis-app .shared-gantt .calendar-date-trigger.inline-reference > small { grid-column: 3; text-align: right; font-size: 12px; overflow: visible; }
+html[data-genesis-theme] .genesis-app .shared-gantt .calendar-date-trigger.inline-reference::after { display: none; }
+@media (max-width: 767px) {
+  html[data-genesis-theme] .genesis-app .shared-gantt .calendar-date-trigger.inline-reference { grid-template-columns: 56px minmax(0,1fr) 56px; gap: 2px; padding-inline: 4px; }
+  html[data-genesis-theme] .genesis-app .shared-gantt .calendar-date-trigger.inline-reference > span { grid-column: 2; font-size: 12px; }
+  html[data-genesis-theme] .genesis-app .shared-gantt .calendar-date-trigger.inline-reference > small { grid-column: 3; font-size: 10px; }
+}
+@media (min-width:768px) and (max-width:1099px) {
+  html[data-genesis-theme] .genesis-app .shared-gantt .shared-gantt-date-navigation { flex-basis:100%; }
+}
+html[data-genesis-theme$="-dark"] .genesis-app .habit-heatmap > div span.rest {
+  background:color-mix(in srgb,var(--ink) 18%,var(--surface));
+  border:1px solid color-mix(in srgb,var(--ink) 50%,var(--surface));
+}
+
+html[data-genesis-theme] .genesis-app .shared-gantt-help-dialog {
+  align-self: center; flex: none; height: auto; min-height: 0;
+}
+html[data-genesis-theme] .genesis-app .shared-gantt-help-dialog > section:last-child { margin-bottom: 0; }
+html[data-genesis-theme] .genesis-app .shared-gantt-help-dialog > section:last-child > p:last-child { margin-bottom: 0; }
+
+html[data-genesis-theme] .genesis-app fieldset.mindmap-inspector-content { border: 0; margin: 0; padding: 0; min-width: 0; }
+@media (max-width: 767px) {
+  html[data-genesis-theme] .genesis-app .habit-heatmap { align-self: start; }
+  html[data-genesis-theme] .genesis-app .habit-heatmap > div { grid-template-columns: repeat(10,minmax(0,1fr)); grid-template-rows: repeat(3,auto); gap: 5px; height: auto; }
+  html[data-genesis-theme] .genesis-app .habit-heatmap > div span { min-height: 0; width: 100%; aspect-ratio: 1; }
+}
+
+html[data-genesis-theme] .genesis-app .shared-workspace-toolbar .shared-mindmaps-open { display: flex; align-items: center; justify-content: center; gap: 8px; margin-left: auto; white-space: nowrap; flex: 0 0 auto; width:auto; min-width:max-content; }
+html[data-genesis-theme] .genesis-app .shared-workspace-toolbar .shared-workspace-search { flex-basis: 180px; min-width: 140px; }
+@media (max-width: 767px) {
+  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar .shared-mindmaps-open { order: 4; width: 100%; }
+  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar .shared-workspace-search { flex-basis: 100%; min-width: 0; }
+}
+@media (min-width: 768px) and (max-width: 1099px) {
+  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar .shared-mindmaps-open { grid-column: 2; grid-row: 2; order: 4; width: 100%; }
+  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar .shared-workspace-search { grid-column: 1; grid-row: 2; order: 3; }
+}
+
+html[data-genesis-theme] .genesis-app .task-overdue-badge { color: #fff8f3; background: #742d35; }
+html[data-genesis-theme] .genesis-app .mindmaps .mindmap-graph-node:is(:hover,:focus-visible) {
+  background: var(--mindmap-node-fill,color-mix(in srgb,var(--ui-accent) 10%,var(--surface)));
+  color: var(--mindmap-node-ink,var(--ink)); border-color: var(--mindmap-node-border,var(--ui-accent));
+  box-shadow: inset 0 0 0 2px var(--mindmap-node-border,var(--ui-accent));
+}
+html[data-genesis-theme] .genesis-app .mindmaps .mindmap-graph-node[style*="--mindmap-node-ink"]:is(:hover,:focus-visible) :is(span,small,strong) { color: inherit; }
+.mindmap-overview-toggle { display: none; }
+@media (max-width: 1099px) {
+  html[data-genesis-theme] .genesis-app .workspace-header .workspace-overview-toggle,
+  html[data-genesis-theme] .genesis-app .mindmap-header :is(.mindmap-overview-toggle,.mindmap-back-link) {
+    display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px;
+    padding: 10px 12px; border: 1px solid #d0ded54d; border-radius: 10px;
+    background: #d0ded510; color: #f4f0e5; font: 600 13px/1.4 var(--font-ui);
+  }
+  html[data-genesis-theme] .genesis-app .workspace-header .workspace-overview-toggle:is(:hover,[aria-expanded="true"]),
+  html[data-genesis-theme] .genesis-app .mindmap-header :is(.mindmap-overview-toggle,.mindmap-back-link):is(:hover,[aria-expanded="true"]) { color: #fff8f3; background: #d0ded526; border-color: #d0ded566; }
+  html[data-genesis-theme] .genesis-app .workspace-header[data-mobile-expanded] { display: flex; flex-wrap: wrap; padding: 16px; }
+  html[data-genesis-theme] .genesis-app .workspace-header[data-mobile-expanded] > .workspace-header-main { order: 1; flex: 1 0 100%; }
+  html[data-genesis-theme] .genesis-app .workspace-header[data-mobile-expanded] > .workspace-overview-toggle { order: 2; }
+  html[data-genesis-theme] .genesis-app .workspace-header[data-mobile-expanded] > .workspace-header-summary { order: 3; flex: 1 0 100%; margin: 0; }
+  html[data-genesis-theme] .genesis-app .mindmap-header { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 16px 12px; }
+  html[data-genesis-theme] .genesis-app .mindmap-header > .workspace-header-main { grid-column: 1 / -1; grid-row: 1; }
+  html[data-genesis-theme] .genesis-app .mindmap-header > .mindmap-overview-toggle { grid-column: 1; grid-row: 2; }
+  html[data-genesis-theme] .genesis-app .mindmap-header > .mindmap-back-link { grid-column: 2; grid-row: 2; margin: 0; }
+  html[data-genesis-theme] .genesis-app .mindmap-header > .mindmap-catalog-statistics { grid-column: 1 / -1; grid-row: 3; margin: 0; }
+  html[data-genesis-theme] .genesis-app .mindmap-header[data-mobile-overview="false"] > .mindmap-catalog-statistics { display: none; }
+  html[data-genesis-theme] .genesis-app .workspace-header :is(.projects-summary,.all-tasks-summary) { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); width: 100%; min-width: 0; }
+  html[data-genesis-theme] .genesis-app .workspace-header :is(.projects-summary,.all-tasks-summary) > span { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; min-width: 0; gap: 8px; padding-inline: 8px; font-size: 11px; text-align: center; }
+  html[data-genesis-theme] .genesis-app .workspace-header :is(.projects-summary,.all-tasks-summary) strong { white-space: nowrap; font-size: 28px; font-variant-numeric: tabular-nums; }
+}
+
+.reminder-notices { position:fixed; z-index:1500; right:16px; bottom:88px; display:grid; gap:12px; width:min(360px,calc(100vw - 32px)); }
+.reminder-notice { display:flex; align-items:flex-start; gap:12px; padding:16px; border:1px solid; border-radius:12px; box-shadow:0 4px 18px #0002; }
+.reminder-notice.reminder-task { background:#e3f0ed; color:#153b32; border-color:#255b59; }
+.reminder-notice.reminder-habit { background:#fff1cf; color:#493515; border-color:#8c672b; }
+html[data-genesis-theme$="-dark"] .reminder-notice.reminder-task { background:#173c34; color:#e1eee7; border-color:#acc7af; }
+html[data-genesis-theme$="-dark"] .reminder-notice.reminder-habit { background:#40341c; color:#fff0cb; border-color:#e4c78c; }
+.reminder-notice > div { flex:1; min-width:0; }
+.reminder-notice :is(p,small,strong) { color:inherit; margin:4px 0; overflow-wrap:anywhere; }
+.reminder-notice > button { color:inherit; background:transparent; min-width:44px; min-height:44px; padding:8px; }

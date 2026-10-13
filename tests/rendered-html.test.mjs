@@ -2056,7 +2056,8 @@ test("retains the legacy TWA artifact but promotes only the signed native Androi
   assert.ok(deployWorkflow.includes(`versionCode='${nativeVersionCode}' versionName='${nativeVersionName}'`));
   assert.ok(deployWorkflow.includes(`GENESIS-Android-Native-${nativeVersionName}.apk`));
   assert.match(androidBuild, /releaseSigningReady/);
-  assert.match(androidBuild, /applicationIdSuffix = "\.debug"/);
+  assert.match(androidBuild, /applicationIdSuffix = debugApplicationSuffix/);
+  assert.match(androidBuild, /gradleProperty\("genesisDebugApplicationIdSuffix"\)\.orElse\("\.debug"\)/);
   assert.match(androidBuild, /androidx\.browser:browser:1\.10\.0/);
   assert.match(androidBuild, /isMinifyEnabled = true/);
   assert.doesNotMatch(androidBuild, /signingConfig\s*=\s*signingConfigs\.getByName\("debug"\)/);

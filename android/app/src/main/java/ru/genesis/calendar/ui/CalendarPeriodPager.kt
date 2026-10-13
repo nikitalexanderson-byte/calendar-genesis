@@ -168,8 +168,8 @@ internal fun CalendarPeriodNavigation(title: String, year: Boolean,
 @Composable
 private fun PeriodArrow(direction: Int, period: String, onClick: () -> Unit) {
     val english = LocalGenesisLanguage.current == "en"
-    val label = if (english) "${if (direction < 0) "Previous" else "Next"} $period"
-        else "${if (direction < 0) "Предыдущий" else "Следующий"} ${if (period == "year") "год" else "месяц"}"
+    val label = genesisTranslate(if (english) "${if (direction < 0) "Previous" else "Next"} $period"
+        else "${if (direction < 0) "Предыдущий" else "Следующий"} ${if (period == "year") "год" else "месяц"}")
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val shift by animateFloatAsState(if (pressed) direction * 3f else 0f, spring(stiffness = Spring.StiffnessLow), label = "arrow-press")

@@ -102,14 +102,15 @@ function genesisSaveMindmap(string $userId, string $id, array $input): array
     $operation = $input['operationId'] ?? '';
     if (!is_string($operation)) throw new InvalidArgumentException('Invalid operation identifier.');
     genesisMindmapId($operation);
-    if (($input['schemaVersion'] ?? null) !== 1 || !is_int($input['expectedRevision'] ?? null)
+    if (!in_array($input['schemaVersion'] ?? null, [1, 2], true) || !is_int($input['expectedRevision'] ?? null)
         || $input['expectedRevision'] < 0) throw new InvalidArgumentException('Unsupported map envelope version.');
     $ciphertext = $input['ciphertext'] ?? null;
     $iv = $input['iv'] ?? null;
     if (!is_string($ciphertext) || strlen($ciphertext) > 2_800_000 || strlen($ciphertext) < 24
         || base64_decode($ciphertext, true) === false || !is_string($iv) || strlen($iv) !== 16
         || strlen((string)base64_decode($iv, true)) !== 12) throw new InvalidArgumentException('Invalid encrypted map envelope.');
-    $hash = hash('sha256', $input['expectedRevision'] . ':' . $iv . ':' . $ciphertext);
+    $envelopeVersion = $input['schemaVersion'];
+    $hash = hash('sha256', ($envelopeVersion === 2 ? 'v2:' : '') . $input['expectedRevision'] . ':' . $iv . ':' . $ciphertext);
     $db = genesisDb();
     genesisBeginWriteTransaction($db);
     try {
@@ -127,7 +128,7 @@ function genesisSaveMindmap(string $userId, string $id, array $input): array
         $q = $db->prepare('SELECT revision, schema_version FROM personal_mindmaps WHERE user_id=? AND id=?');
         $q->execute([$userId, $id]);
         $current = $q->fetch();
-        if (($current && (int)$current['schema_version'] !== 1)
+        if (($current && (int)$current['schema_version'] > (int)($input['schemaVersion'] ?? 1))
             || (int)($current['revision'] ?? 0) !== $input['expectedRevision']) {
             throw new GenesisResourceLimitException(409, 'MAP_REVISION_CONFLICT');
         }
@@ -141,9 +142,9 @@ function genesisSaveMindmap(string $userId, string $id, array $input): array
         $q->execute([$userId, $id, $revision - 20]);
         if ((int)$q->fetchColumn() + strlen($ciphertext) > 40_000_000) throw new GenesisResourceLimitException(413, 'MAP_STORAGE_LIMIT');
         $now = genesisNow();
-        $db->prepare('INSERT INTO personal_mindmaps VALUES (?,?,?,?,?,?,?) ON CONFLICT(user_id,id) DO UPDATE SET revision=excluded.revision,ciphertext=excluded.ciphertext,iv=excluded.iv,updated_at=excluded.updated_at')
-            ->execute([$userId, $id, 1, $revision, $ciphertext, $iv, $now]);
-        $db->prepare('INSERT INTO personal_mindmap_versions VALUES (?,?,?,?,?,?,?)')->execute([$userId, $id, $revision, 1, $ciphertext, $iv, $now]);
+        $db->prepare('INSERT INTO personal_mindmaps VALUES (?,?,?,?,?,?,?) ON CONFLICT(user_id,id) DO UPDATE SET schema_version=excluded.schema_version,revision=excluded.revision,ciphertext=excluded.ciphertext,iv=excluded.iv,updated_at=excluded.updated_at')
+            ->execute([$userId, $id, $envelopeVersion, $revision, $ciphertext, $iv, $now]);
+        $db->prepare('INSERT INTO personal_mindmap_versions VALUES (?,?,?,?,?,?,?)')->execute([$userId, $id, $revision, $envelopeVersion, $ciphertext, $iv, $now]);
         $db->prepare('INSERT INTO personal_mindmap_receipts VALUES (?,?,?,?,?)')->execute([$userId, $id, $operation, $hash, $revision]);
         $db->prepare('DELETE FROM personal_mindmap_versions WHERE user_id=? AND map_id=? AND revision <= ?')->execute([$userId, $id, $revision - 20]);
         $db->commit();
@@ -169,7 +170,7 @@ function genesisDeleteMindmap(string $userId, string $id, array $input): array
         $q = $db->prepare('SELECT revision, schema_version FROM personal_mindmaps WHERE user_id=? AND id=?');
         $q->execute([$userId, $id]);
         $current = $q->fetch();
-        if (($current && (int)$current['schema_version'] !== 1)
+        if (($current && (int)$current['schema_version'] > (int)($input['schemaVersion'] ?? 1))
             || (int)($current['revision'] ?? 0) !== $input['expectedRevision']) {
             throw new GenesisResourceLimitException(409, 'MAP_REVISION_CONFLICT');
         }

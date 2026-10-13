@@ -65,7 +65,7 @@ object TheokyklosCatalogSource {
         fun text(value: JSONObject): TheokyklosText {
             val russian = value.getString("ru")
             val english = value.getString("en")
-            return TheokyklosText(if (translated == null) russian else translated.getString(russian), english)
+            return TheokyklosText(if (translated == null) formatGreekTerms(russian, "ru") else translated.getString(russian), formatGreekTerms(english, "en"))
         }
         val segments = document.getJSONArray("segments")
         val sectors = (0 until segments.length()).map { index ->
@@ -80,7 +80,7 @@ object TheokyklosCatalogSource {
                 words = (0 until words.length()).map { wordIndex ->
                     val word = words.getJSONObject(wordIndex)
                     val greek = word.getString("greek")
-                    TheokyklosWord(localizedWords?.getString(greek) ?: greek, text(word.getJSONObject("pronunciation")),
+                    TheokyklosWord(localizedWords?.getString(greek) ?: word.getJSONObject("pronunciation").getString("ru"), text(word.getJSONObject("pronunciation")),
                         text(word.getJSONObject("meaning")))
                 },
                 art = value.getString("art"), symbolArt = value.getString("symbolArt"),

@@ -32,6 +32,9 @@ const ancientNameLabels = {
   "Пентада": "Pentas", "Тетрада": "Tetras", "Триада": "Trias",
   "Эфир": "Aether",
 };
+const serbianNames = {"Artemis": "Артемида", "Hecate": "Хеката", "Zeus": "Зевс", "Hera": "Хера", "Poseidon": "Посејдон", "Hesiod": "Хесиод", "Homer": "Хомер", "Pythagoras": "Питагора", "Monas": "Монас", "Apeiron": "Апеирон", "Agonion": "Агонион", "Stoicheion": "Стоихејон", "Theokyklos": "Теокиклос", "Pythmen": "Питмен", "Gno": "Гно", "Meter": "Метер", "Basileia": "Басилеја", "Ares": "Арес", "Aphrodite": "Афродита", "Hermes": "Хермес", "Apollo": "Аполон", "Demeter": "Деметра", "Hephaestus": "Хефест", "Athena": "Атина", "Hestia": "Хестија", "Dyad": "Дијада", "Pentas": "Пентас", "Tetras": "Тетрас", "Trias": "Тријас", "Aether": "Етар", "Nyx": "Никс", "Erebus": "Еребос", "Tartaros": "Тартарос", "Eros": "Ерос", "Phanes": "Фанес"};
+const serbianTerm = value => value.replace(/\b[A-Za-z]+\b/g, term => serbianNames[term] ?? term);
+const serbianNameLabels = Object.fromEntries(Object.entries(ancientNameLabels).map(([key,value]) => [key,serbianTerm(value)]));
 const ukrainianNameLabels = {
   "Артемида": "Артеміда", "Геката": "Геката", "Зевс": "Зевс", "Гера": "Гера",
   "Пифагор": "Піфагор", "Посейдон": "Посейдон", "Гесиод": "Гесіод", "Гомер": "Гомер",
@@ -107,24 +110,24 @@ for (const language of languages) {
     if (language === "tr" && key.length < 30 && value.length > Math.max(40, key.length * 3))
       missing.push(`${language}: suspiciously repeated short label ${key}`);
   }
-  for (const [key, expected] of Object.entries(language === "uk" ? ukrainianNameLabels : ancientNameLabels)) {
+  for (const [key, expected] of Object.entries(language === "uk" ? ukrainianNameLabels : language === "sr" ? serbianNameLabels : ancientNameLabels)) {
     if (language === "el") {
       if (!catalog[key] || /[A-Za-zА-Яа-яЁё]/u.test(catalog[key])) missing.push(`el: ancient name must use Greek letters in ${key}`);
     } else if (catalog[key] !== expected) missing.push(`${language}: changed ancient name ${key}`);
   }
   for (const key of stoicheionPhrases) {
-    if (!catalog[key]?.includes(language === "uk" ? "Стойхейон" : language === "el" ? "Στοιχεῖον" : "Stoicheion"))
+    if (!catalog[key]?.includes(language === "uk" ? "Стойхейон" : language === "sr" ? "Стоихејон" : language === "el" ? "Στοιχεῖον" : "Stoicheion"))
       missing.push(`${language}: Stoicheion name lost in ${key}`);
   }
   for (const [key, [latin, ukrainian]] of Object.entries(greekCompoundNames)) {
     if (language === "el") {
       if (!catalog[key] || /[A-Za-zА-Яа-яЁё]/u.test(catalog[key])) missing.push(`el: Greek compound name changed in ${key}`);
-    } else if (!catalog[key]?.startsWith(`${language === "uk" ? ukrainian : latin} · `))
+    } else if (!catalog[key]?.startsWith(`${language === "uk" ? ukrainian : language === "sr" ? serbianTerm(latin) : latin} · `))
       missing.push(`${language}: changed ancient name in ${key}`);
   }
   for (const [source, [latin, ukrainian]] of Object.entries(namedTermsInPhrases)) {
     for (const [key, value] of Object.entries(catalog)) {
-      if (key.includes(source) && !value.includes(language === "uk" ? ukrainian : language === "el" ? greekTermsInPhrases[source] : latin))
+      if (key.includes(source) && !value.includes(language === "uk" ? ukrainian : language === "sr" ? serbianTerm(latin) : language === "el" ? greekTermsInPhrases[source] : latin))
         missing.push(`${language}: ancient name missing in ${key}`);
     }
   }
@@ -145,6 +148,7 @@ for (const language of languages) {
       }
     }
   }
+  if (language === "sr" && Object.values(catalog).some(value => latinAncientNames.test(value))) missing.push("sr: Latin ancient name remains");
   if (language === "sr" && Object.values(catalog).some((value) => /~@|¦|_BAR_|\$\[|›|ГЕНЕЗУС/u.test(value)))
     missing.push("sr: translation markup or encoding artifact remains");
   for (const key of ["Григорианский", "Сакральный", "Лунный", "Равноденствие", "Солнцестояние",

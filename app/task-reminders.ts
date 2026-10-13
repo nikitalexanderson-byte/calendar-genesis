@@ -88,8 +88,22 @@ export function formatRelativeReminder(minutes: number, locale: string) {
   ];
   const unit = units.find((item) => minutes >= item.divisor && minutes % item.divisor === 0) ?? units.at(-1)!;
   const value = minutes / unit.divisor;
-  if (locale.startsWith("en")) return `${value} ${value === 1 ? unit.en[0] : unit.en[1]} before`;
-  return `За ${value} ${russianUnit(value, unit.ru)}`;
+  const language = locale.split(/[-_]/)[0];
+  if (language === "ru") return `За ${value} ${russianUnit(value, unit.ru)}`;
+  if (language === "en") return `${value} ${value === 1 ? unit.en[0] : unit.en[1]} before`;
+  const name = unit.divisor === 10080 ? "week" : unit.divisor === 1440 ? "day" : unit.divisor === 60 ? "hour" : "minute";
+  const caseForms: Record<string, Record<string, [string,string,string]>> = {
+    uk: {week:["тиждень","тижні","тижнів"],day:["день","дні","днів"],hour:["годину","години","годин"],minute:["хвилину","хвилини","хвилин"]},
+    sr: {week:["недељу","недеље","недеља"],day:["дан","дана","дана"],hour:["сат","сата","сати"],minute:["минут","минута","минута"]},
+    pl: {week:["tydzień","tygodnie","tygodni"],day:["dzień","dni","dni"],hour:["godzinę","godziny","godzin"],minute:["minutę","minuty","minut"]},
+  };
+  const quantity = caseForms[language] ? `${value} ${russianUnit(value,caseForms[language][name])}`
+    : new Intl.NumberFormat(locale, {style:"unit",unit:name,unitDisplay:"long"}).format(value);
+  if (language === "uk") return `За ${quantity}`;
+  if (language === "zh") return `提前${quantity}`;
+  if (language === "ja") return `${quantity}前`;
+  const before: Record<string,string> = {el:"πριν",de:"vorher",fr:"avant",es:"antes",it:"prima",pt:"antes",pl:"wcześniej",sr:"раније",tr:"önce"};
+  return `${quantity} ${before[language] ?? "before"}`;
 }
 
 export function formatTaskReminder(reminder: TaskReminder, locale: string, timeFormat: TimeFormat = "24h") {

@@ -17,14 +17,14 @@ function loadTs(path, overrides) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
   }).outputText;
   vm.runInNewContext(js, { exports: loaded.exports, module: loaded, Date, Math, Map, Set, Intl,
-    require: (id) => id in overrides ? overrides[id] : require(id) });
+    require: (id) => id in overrides ? overrides[id] : require(id.startsWith(".") ? resolve(root,dirname(path),id) : id) });
   return loaded.exports;
 }
 
 const calendar = loadTs("app/calendar-data.ts", {
   "../references/days.txt?raw": readFileSync(resolve(root, "references/days.txt"), "utf8"),
   "./calendar-days.en.json": JSON.parse(readFileSync(resolve(root, "app/calendar-days.en.json"), "utf8")),
-  "./i18n": { runtimeLocale: () => "ru-RU", translateText: (value) => value },
+  "./i18n": { getRuntimeLanguage: () => "ru", runtimeLocale: () => "ru-RU", translateText: (value) => value },
 });
 const recurrence = loadTs("app/task-recurrence.ts", { "./calendar-data": calendar });
 const ganttCore = loadTs("app/shared-gantt.ts", {});

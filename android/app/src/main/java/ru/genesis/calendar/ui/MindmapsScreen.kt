@@ -43,9 +43,11 @@ import kotlin.math.roundToInt
 internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,projects:List<GenesisProject>,projectId:String?,onBack:()->Unit,
     onTask:(LocalTask,String?)->Unit,onCreate:(LocalTask)->Unit,onComplete:(LocalTask,String?)->Unit,onProject:(String)->Unit) {
     val records by repo.records.collectAsState();val scope=rememberCoroutineScope()
+    val mapContext=LocalContext.current;val mapLanguage=LocalGenesisLanguage.current
+    fun defaultLabel(source:String)=translateGenesisText(mapContext,source,mapLanguage)
     var mapId by rememberSaveable { mutableStateOf<String?>(null) };var selected by rememberSaveable { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) };var busy by remember { mutableStateOf(false) };var query by rememberSaveable { mutableStateOf("") }
-    var archived by rememberSaveable { mutableStateOf(false) };var create by rememberSaveable { mutableStateOf(false) };var title by rememberSaveable { mutableStateOf("") }
+    var archived by rememberSaveable { mutableStateOf(false) };var create by rememberSaveable { mutableStateOf(false) };var title by rememberSaveable { mutableStateOf("") };var description by rememberSaveable {mutableStateOf("")}
     var editing by remember { mutableStateOf<MindmapNode?>(null) };var text by rememberSaveable { mutableStateOf("") };var note by rememberSaveable { mutableStateOf("") }
     var occurrenceTask by remember {mutableStateOf<LocalTask?>(null)};var occurrenceDate by rememberSaveable {mutableStateOf("")}
     var remove by remember { mutableStateOf(false) };var picker by remember { mutableStateOf(false) };var files by remember { mutableStateOf(false) }
@@ -58,7 +60,7 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
     fun save(next:MindmapDocument,remember:Boolean=true) { if(busy)return;if(remember&&map!=null)undo=(undo+map).takeLast(20);run { repo.save(next) } }
     fun open(id:String) {mapId=id;selected=null;undo=emptyList();query="";scope.launch { view=repo.view(id) ?: JSONObject().put("mode","structure").put("zoom",1.0) } }
     fun changeView(next:JSONObject) {view=next;mapId?.let { id->scope.launch { repo.saveView(id,next) } } }
-    fun add(sibling:Boolean=false,point:Offset?=null) {if(map==null||node==null)return;val next=MindmapNode(UUID.randomUUID().toString(),if(sibling)node.parentId ?: node.id else node.id,text="Новая мысль")
+    fun add(sibling:Boolean=false,point:Offset?=null) {if(map==null||node==null)return;val next=MindmapNode(UUID.randomUUID().toString(),if(sibling)node.parentId ?: node.id else node.id,text=defaultLabel("Новая мысль"))
         selected=next.id;text=next.text;note="";editing=next;save(map.copy(nodes=map.nodes+next));if(point!=null) {val v=JSONObject(view.toString());val positions=v.optJSONObject("positions") ?: JSONObject();positions.put(next.id,JSONObject().put("x",point.x).put("y",point.y));changeView(v.put("positions",positions))} }
     fun linkedTask(n:MindmapNode):LocalTask? {
         if(n.kind!="task")return null
@@ -100,13 +102,14 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
                 }
             }
         } else {
+            if(map.description.isNotBlank()) Text(map.description)
             val refs=map.nodes.mapNotNull { n->linkedTask(n)?.let { t->(t.id+(n.occurrenceDate ?: "")) to t } }.toMap().values;Text("Связанные задачи: ${refs.count {it.done}} из ${refs.size} · "+if(record.unsynced)"Сохранено на устройстве" else "Синхронизировано")
             Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 MapIconButton("Карта",0,{changeView(JSONObject(view.toString()).put("mode","map"))})
                 MapIconButton("Структура",1,{changeView(JSONObject(view.toString()).put("mode","structure"))})
                 Button(enabled=!busy,onClick={add()}){Text("Добавить мысль")};OutlinedButton(onClick={picker=true}){Text("Добавить из дел")};OutlinedButton(onClick={files=!files}){Text("Карта и файлы")}
             }
-            if(files) Row(Modifier.horizontalScroll(rememberScrollState())) {TextButton(enabled=undo.isNotEmpty()&&!busy,onClick={val old=undo.last();undo=undo.dropLast(1);save(old,false)}){Text("Отменить")};TextButton(onClick={run {serverPreview=false;history=repo.history(map.id)}}){Text("История")};TextButton(onClick={text=JSONObject().put("format","genesis-mindmap").put("version",1).put("document",map.json()).toString(2);export=true}){Text("Экспорт JSON")};TextButton(enabled=!busy,onClick={pdfSnapshot=Triple(map,map.nodes.associate {it.id to label(it)},JSONObject(view.toString()));pdfLauncher.launch("GENESIS-map.pdf")}){Text("Экспорт PDF")};TextButton(onClick={title=map.title;create=true}){Text("Название карты")} }
+            if(files) Row(Modifier.horizontalScroll(rememberScrollState())) {TextButton(enabled=undo.isNotEmpty()&&!busy,onClick={val old=undo.last();undo=undo.dropLast(1);save(old,false)}){Text("Отменить")};TextButton(onClick={run {serverPreview=false;history=repo.history(map.id)}}){Text("История")};TextButton(onClick={text=JSONObject().put("format","genesis-mindmap").put("version",1).put("document",map.json()).toString(2);export=true}){Text("Экспорт JSON")};TextButton(enabled=!busy,onClick={pdfSnapshot=Triple(map,map.nodes.associate {it.id to label(it)},JSONObject(view.toString()));pdfLauncher.launch("GENESIS-map.pdf")}){Text("Экспорт PDF")};TextButton(onClick={title=map.title;description=map.description;create=true}){Text("Название карты")} }
             if(view.optString("focus").isNotBlank()&&view.optString("focus")!="null")TextButton(onClick={changeView(JSONObject(view.toString()).removeFocus())}){Text("Вся карта")}
             OutlinedTextField(query,{query=it},Modifier.fillMaxWidth(),label={Text("Найти узел")},singleLine=true)
             val collapsed=view.optJSONArray("collapsed")?.let { a->(0 until a.length()).map {a.optString(it)}.toSet() } ?: emptySet()
@@ -120,7 +123,7 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
             } }
         }
     }
-    if(create) AlertDialog(onDismissRequest={create=false},title={Text(if(map==null)"Новая карта" else "Название карты")},text={Column {OutlinedTextField(title,{title=it},label={Text("Название карты")});if(map==null)FlowRow {listOf("empty" to "Пустая карта","idea" to "Идея","project" to "Проект","decision" to "Решение").forEach {(id,label)->FilterChip(selected=template==id,onClick={template=id},label={Text(label)})}}}},confirmButton={TextButton(enabled=title.isNotBlank()&&!busy,onClick={if(map==null){val next=MindmapDocument.new(title,projectId,template);save(next);open(next.id)}else save(map.copy(title=title.trim()));create=false}){Text("Сохранить")}},dismissButton={TextButton(onClick={create=false}){Text("Отмена")}})
+    if(create) AlertDialog(onDismissRequest={create=false},title={Text(if(map==null)"Новая карта" else "Настройка карты")},text={Column {OutlinedTextField(title,{title=it},label={Text("Название карты")});OutlinedTextField(description,{description=it.take(12000)},label={Text("Описание")});if(map==null)FlowRow {listOf("empty" to "Пустая карта","idea" to "Идея","project" to "Проект","decision" to "Решение").forEach {(id,label)->FilterChip(selected=template==id,onClick={template=id},label={Text(label)})}}}},confirmButton={TextButton(enabled=title.isNotBlank()&&!busy,onClick={if(map==null){val next=MindmapDocument.new(title,projectId,template,::defaultLabel).copy(description=description);save(next);open(next.id)}else save(map.copy(title=title.trim(),description=description));create=false}){Text("Сохранить")}},dismissButton={TextButton(onClick={create=false}){Text("Отмена")}})
     if(editing!=null&&map!=null&&node!=null) AlertDialog(onDismissRequest={editing=null},title={Text(label(node))},text={Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)) {
         if(node.kind=="idea")OutlinedTextField(text,{text=it},label={Text("Название мысли")},modifier=Modifier.testTag("mindmap-node-text"))
         OutlinedTextField(note,{note=it},label={Text("Пояснение · только в карте")})

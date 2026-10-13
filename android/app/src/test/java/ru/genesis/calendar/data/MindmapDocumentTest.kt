@@ -6,6 +6,21 @@ import org.junit.Test
 import ru.genesis.calendar.security.WorkspaceCipher
 
 class MindmapDocumentTest {
+    @Test fun nativeEditingPreservesWebDescriptionPresentationAndTags() {
+        val web = MindmapDocument.new("User title").json().put("description", "Detailed map description")
+            .put("futureDisplaySetting", JSONObject().put("enabled", true))
+        val root = web.getJSONArray("nodes").getJSONObject(0)
+        root.put("tags", org.json.JSONArray(listOf("Planning", "Work")))
+            .put("presentation", JSONObject().put("align", "center").put("icon", "lightbulb"))
+        val edited = MindmapDocument.parse(web).copy(title = "Edited title").json()
+        assertEquals("Detailed map description", edited.getString("description"))
+        assertTrue(edited.getJSONObject("futureDisplaySetting").getBoolean("enabled"))
+        assertEquals(root.getJSONArray("tags").toString(), edited.getJSONArray("nodes").getJSONObject(0).getJSONArray("tags").toString())
+        assertEquals(root.getJSONObject("presentation").toString(), edited.getJSONArray("nodes").getJSONObject(0).getJSONObject("presentation").toString())
+        val localized = MindmapDocument.new("User title", template = "idea", label = { "Translated: $it" })
+        assertEquals("User title", localized.nodes[0].text)
+        assertTrue(localized.nodes.drop(1).all { it.text.startsWith("Translated:") })
+    }
     @Test fun webDocumentRoundtripAndTaskIdentity() {
         val map=MindmapDocument.new("Проверка",template="project")
         val thought=map.nodes[1];val ref=thought.copy(kind="task",text="",refId=map.taskId(thought.id))

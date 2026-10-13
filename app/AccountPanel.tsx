@@ -1037,6 +1037,7 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
         <section className="account-preferences settings-reminders-panel" data-settings-group="reminders">
           <div><span className="eyebrow">GENESIS</span><h3>{user.language === "en" ? "System reminders" : "Системные напоминания"}</h3>
             <p>{user.language === "en" ? "Browser notifications depend on your browser permission. Task reminders in Google Calendar and Tasks use the connected Google account." : "Уведомления браузера зависят от его разрешения. Напоминания задач в Google Calendar и Tasks работают через подключённый Google-аккаунт."}</p></div>
+          <p>Уведомления задач и привычек используют разные звуки и значки. Звуковые сигналы сайта доступны после взаимодействия со страницей; браузер определяет вид системных уведомлений.</p>
           <p className="account-preference-status">{user.language === "en" ? "Browser permission" : "Разрешение браузера"}: {typeof Notification === "undefined" ? "—" : Notification.permission}</p>
         </section>
 

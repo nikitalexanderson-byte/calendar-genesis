@@ -1,0 +1,15 @@
+.shared-task-review { display:flex; flex-wrap:wrap; align-items:center; gap:8px; grid-column:1 / -1; }
+.shared-review-badge { padding:4px 8px; border:1px solid var(--line); border-radius:6px; color:var(--ink); background:var(--surface); font:500 12px/1.5 var(--font-ui); }
+.shared-task-review fieldset,.shared-review-settings fieldset { min-width:0; padding:12px; border:1px solid var(--line); border-radius:10px; }
+.shared-task-review fieldset { flex:1 0 100%; }
+.shared-task-review fieldset label,.shared-review-settings fieldset label { display:flex; gap:8px; align-items:center; margin-block:8px; }
+.shared-review-settings select { width:100%; min-width:0; }
+.shared-review-settings fieldset > div { margin-block:16px; }
+.shared-review-settings fieldset > div > label { display:grid; }
+.shared-trash-item { padding-block:16px; border-top:1px solid var(--line); }
+.shared-trash-item > div { display:flex; flex-wrap:wrap; align-items:end; gap:12px; }
+.shared-trash-item input { max-width:120px; }
+.shared-trash-dialog { max-height:calc(100dvh - 32px); overflow:auto; }
+
+.shared-trash-confirmation { margin:auto; max-height:calc(100dvh - 32px); overflow:auto; }
+.shared-trash-confirmation::backdrop { background:rgb(0 0 0 / .55); }

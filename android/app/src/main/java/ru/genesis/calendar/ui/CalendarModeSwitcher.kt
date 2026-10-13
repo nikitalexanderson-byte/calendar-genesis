@@ -67,11 +67,11 @@ internal fun CalendarModeSwitcher(mode: CalendarMode, onNext: () -> Unit,
     var running by remember { mutableStateOf(false) }
     val ambient by rememberInfiniteTransition(label = "calendar-icon-ambient").animateFloat(
         0f, 1f, infiniteRepeatable(tween(4600), RepeatMode.Reverse), label = "calendar-icon-glow")
-    val name = when (mode) {
+    val name = genesisTranslate(when (mode) {
         CalendarMode.PROFANE -> "Григорианский"
         CalendarMode.SACRED -> "Сакральный"
         CalendarMode.LUNAR -> "Лунный"
-    }
+    })
     val clickHint = genesisTranslate("Нажмите на иконку, чтобы сменить календарь")
     val gold = Color(0xffdfc17e)
     LaunchedEffect(animationTrigger) {

@@ -75,3 +75,24 @@ function genesisRollbackSharedContentStorage(PDO $db): void
         $db->commit();
     } catch (Throwable $error) { if ($db->inTransaction()) $db->rollBack(); throw $error; }
 }
+
+/** A separate marker upgrades existing encrypted readers without touching their contents. */
+function genesisInitializeSharedTrashReadView(PDO $db):void {
+ if(!$db->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='shared_trash'")->fetchColumn()||$db->query('SELECT 1 FROM shared_content_storage WHERE version=2')->fetchColumn())return;
+ $db->beginTransaction();try{
+  $db->exec('INSERT OR IGNORE INTO shared_content_storage VALUES(2,CURRENT_TIMESTAMP)');if((int)$db->query('SELECT changes()')->fetchColumn()===0){$db->commit();return;}
+  $columns=$db->query('PRAGMA table_info(shared_tasks)')->fetchAll(PDO::FETCH_ASSOC);
+  $projection=array_map(static fn(array $c):string=>in_array($c['name'],GENESIS_SHARED_CONTENT_FIELDS['shared_tasks'],true)?'genesis_content_decrypt("'.$c['name'].'") AS "'.$c['name'].'"':'"'.$c['name'].'"',$columns);
+  $db->exec('DROP VIEW shared_tasks_read');$db->exec('CREATE VIEW shared_tasks_read AS SELECT '.implode(', ',$projection)." FROM shared_tasks WHERE NOT EXISTS(SELECT 1 FROM shared_trash tr WHERE tr.kind='task' AND tr.object_id=shared_tasks.id)");
+  $db->commit();
+ }catch(Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
+}
+
+function genesisInitializeSharedMapProjectIndex(PDO $db):void {
+ if(!$db->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='shared_mindmaps'")->fetchColumn()||$db->query('SELECT 1 FROM shared_content_storage WHERE version=3')->fetchColumn())return;
+ $db->beginTransaction();try{
+  $db->exec('INSERT OR IGNORE INTO shared_content_storage VALUES(3,CURRENT_TIMESTAMP)');if((int)$db->query('SELECT changes()')->fetchColumn()===0){$db->commit();return;}
+  foreach(['shared_mindmaps','shared_mindmap_versions'] as $table)$db->exec('UPDATE '.$table." SET project_id=(SELECT id FROM shared_projects WHERE id=json_extract(genesis_content_decrypt(content),'$.projectId'))");
+  $db->commit();
+ }catch(Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
+}

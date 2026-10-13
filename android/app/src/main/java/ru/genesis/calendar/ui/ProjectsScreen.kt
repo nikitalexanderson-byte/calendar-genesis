@@ -104,9 +104,10 @@ private fun TaskDragHandle(task: LocalTask) {
 
 @Composable
 private fun ProjectTaskDeleteButton(task: LocalTask, onClick: () -> Unit) {
+    val action = genesisTranslate("Удалить задачу")
     IconButton(onClick = onClick, modifier = Modifier.size(48.dp)
         .testTag("project-delete-task-${task.id}")
-        .semantics { contentDescription = "Удалить задачу ${task.title}" }) {
+        .semantics { contentDescription = "$action ${task.title}" }) {
         Text("×", style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.error)
     }

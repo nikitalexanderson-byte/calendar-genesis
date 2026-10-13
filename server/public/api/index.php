@@ -31,6 +31,7 @@ define('GENESIS_STATELESS_REQUEST', $method === 'OPTIONS'
 require $serverRoot . '/src/bootstrap.php';
 require $serverRoot . '/src/repository.php';
 require $serverRoot . '/src/mindmaps.php';
+require $serverRoot . '/src/shared-mindmaps.php';
 require $serverRoot . '/src/ads.php';
 require $serverRoot . '/src/google.php';
 require $serverRoot . '/src/yandex.php';
@@ -831,7 +832,7 @@ try {
             genesisJson(['task' => genesisSharedTask($userId, $segments[2], genesisReadJson(), $segments[4])]);
         }
         if (count($segments) === 5 && $segments[1] === 'projects' && $segments[3] === 'tasks' && $method === 'DELETE') {
-            $result = genesisSharedDeleteTask($userId, $segments[2], $segments[4], genesisReadJson());
+            $result = genesisSharedTrashTask($userId, $segments[2], $segments[4], genesisReadJson());
             genesisSharedCleanGoogleCopies($userId, 10);
             genesisJson($result);
         }
@@ -847,6 +848,30 @@ try {
             if ($method === 'GET') genesisJson(['comments' => genesisSharedComments($userId, $segments[2], $segments[4])]);
             if ($method === 'POST') genesisJson(['comment' => genesisSharedAddComment($userId, $segments[2], $segments[4], genesisReadJson())], 201);
         }
+    }
+
+    if (count($segments) >= 4 && $segments[0] === 'shared' && $segments[1] === 'spaces' && $segments[3] === 'mindmaps') {
+        $userId = genesisRequireUserId(); header('Cache-Control: no-store');
+        if ($method === 'GET' && count($segments) === 4) genesisJson(['maps'=>genesisSharedMindmaps($userId,$segments[2])]);
+        if ($method === 'GET' && count($segments) === 6 && $segments[5] === 'history') genesisJson(['versions'=>genesisSharedMindmaps($userId,$segments[2],$segments[4])]);
+        if ($method === 'PUT' && count($segments) === 5) { genesisRequireCsrf(); genesisJson(genesisSaveSharedMindmap($userId,$segments[2],$segments[4],genesisReadJson())); }
+        if ($method === 'DELETE' && count($segments) === 5) { genesisRequireCsrf(); genesisJson(genesisDeleteSharedMindmap($userId,$segments[2],$segments[4],genesisReadJson())); }
+    }
+
+    if (count($segments) === 4 && $segments[0] === 'shared' && $segments[1] === 'projects' && $segments[3] === 'review-settings') {
+        $userId=genesisRequireUserId(); header('Cache-Control: no-store');
+        if ($method==='GET') genesisJson(genesisSharedReviewSettings($userId,$segments[2]));
+        if ($method==='PATCH') { genesisRequireCsrf(); genesisJson(genesisSharedReviewSettings($userId,$segments[2],genesisReadJson())); }
+    }
+    if (count($segments) === 6 && $segments[0] === 'shared' && $segments[1] === 'projects' && $segments[3] === 'tasks' && $segments[5] === 'reviews' && $method==='PATCH') {
+        $userId=genesisRequireUserId(); genesisRequireCsrf(); genesisJson(genesisSharedReviewTask($userId,$segments[2],$segments[4],genesisReadJson()));
+    }
+
+    if (count($segments)===4 && $segments[0]==='shared' && $segments[1]==='projects' && $segments[3]==='trash' && $method==='POST') { $userId=genesisRequireUserId();genesisRequireCsrf();genesisJson(genesisSharedTrashProject($userId,$segments[2],genesisReadJson())); }
+    if (count($segments)>=4 && $segments[0]==='shared' && $segments[1]==='spaces' && $segments[3]==='trash') {
+        $userId=genesisRequireUserId();header('Cache-Control: no-store');
+        if(count($segments)===4 && $method==='GET')genesisJson(['items'=>genesisSharedTrashList($userId,$segments[2])]);
+        if(count($segments)===6 && $method==='PATCH'){genesisRequireCsrf();genesisJson(genesisSharedRestoreTrash($userId,$segments[2],$segments[4],$segments[5],genesisReadJson()));}
     }
 
     if ($segments && $segments[0] === 'mindmaps') {

@@ -441,6 +441,32 @@ export function personalDocumentAccess(userId: string) {
   };
 }
 
+/** Server-encrypted shared documents; device drafts still use this member's private key. */
+export function sharedMindmapDocumentAccess(userId: string, spaceId: string) {
+  const local = personalDocumentAccess(userId);
+  const scope = (value: string) => `shared:${spaceId}:${value}`;
+  const seal = (value: unknown, valueScope: string) => local.seal(value, scope(valueScope));
+  const open = <T>(envelope: {iv:string;ciphertext:string}, valueScope: string) => local.open<T>(envelope, scope(valueScope));
+  return {check: local.check, seal, open, async request<T>(path: string, init: RequestInit = {}) {
+    local.check();
+    if (!/^\/mindmaps(?:\/[a-zA-Z0-9_-]+(?:\/history)?)?$/.test(path)) throw new Error("Invalid shared document path");
+    const remotePath = `/shared/spaces/${encodeURIComponent(spaceId)}${path}`;
+    if (init.method === "PUT") {
+      const request = JSON.parse(String(init.body));
+      const id = path.split("/")[2];
+      const document = await open(request, `map:${id}`);
+      const result = await api<T>(remotePath, {...init,body:JSON.stringify({schemaVersion:1,expectedRevision:request.expectedRevision,operationId:request.operationId,document})});
+      local.check(); return result;
+    }
+    const result = await api<T>(remotePath, init); local.check();
+    if (init.method === "DELETE") return result;
+    const key = path.endsWith("/history") ? "versions" : "maps";
+    const rows = (result as Record<string, {id:string;schemaVersion:number;revision:number;updatedAt:string;document:unknown}[]>)[key];
+    const envelopes = await Promise.all(rows.map(async ({document,...row}) => ({...row,...await seal(document, `map:${row.id}`)})));
+    local.check(); return {[key]:envelopes} as T;
+  }};
+}
+
 function endLocalSession() {
   localSessionEnded = true;
   sessionGeneration += 1;
@@ -1593,7 +1619,12 @@ export type SharedCategory = { id: string; title: string; color: string; positio
 export type SharedLabel = SharedCategory;
 export type SharedTaskAttachment = { id: string; name: string; type: string; size: number; url: string };
 export type SharedTaskFileInput = { name: string; data: string };
-export type SharedTask = { id: string; projectId: string; statusId: string; title: string;
+export type SharedReviewKind = "checked" | "confirmed" | "deletable";
+export type SharedReviewPolicy = {enabled:boolean} & Record<SharedReviewKind,{group:"everyone"|"editors"|"organizers"|"selected";userIds:string[]}>;
+export type SharedReviewSettingsData = {rootProjectId:string;rootTitle:string;revision:number;canManage:boolean;policy:SharedReviewPolicy;members:{userId:string;displayName:string}[]};
+export type SharedTaskReviewData = {enabled:boolean;allowed:Record<SharedReviewKind,boolean>;entries:{kind:SharedReviewKind;userId:string;displayName:string;reviewedAt:string}[]};
+export type SharedTrashEntry = {kind:"task"|"project";id:string;title:string;deletedAt:string;expiresAt:string;retentionDays:number;canRestore:boolean};
+export type SharedTask = { review?:SharedTaskReviewData; id: string; projectId: string; statusId: string; title: string;
   entryType?: "task" | "meeting" | "birthday" | "event";
   approvalRequired?: boolean; approvals?: {userId: string | null; displayName: string; approvedAt: string | null}[];
   imageUrl?: string | null;
@@ -1958,9 +1989,9 @@ export async function createSharedTask(projectId: string, input: { title: string
   attachments?: SharedTaskFileInput[];
   labelIds?: string[]; startDate?: string | null; startTime?: string | null; endTime?: string | null; dependsOnIds?: string[];
   categoryId?: string | null; assigneeId?: string | null; dueDate?: string | null; description?: string;
-  sourceTaskId?: string; tags?: string[] }) {
+  sourceTaskId?: string; mindmapSource?: {mapId:string;nodeId:string}; tags?: string[] }) {
   const path = `/shared/projects/${encodeURIComponent(projectId)}/tasks`;
-  if (input.sourceTaskId) {
+  if (input.sourceTaskId || input.mindmapSource) {
     return (await api<{ task: SharedTask }>(path, { method: "POST", body: JSON.stringify(input) })).task;
   }
   const requestId = crypto.randomUUID();
@@ -2011,9 +2042,9 @@ export async function inviteSharedMember(projectId: string, email: string, role:
       method: "POST", body: JSON.stringify({ email, role }),
     })).invitation;
 }
-export function deleteSharedTask(projectId: string, taskId: string, expectedRevision: number) {
+export function deleteSharedTask(projectId: string, taskId: string, expectedRevision: number, retentionDays = 30) {
   return api<{ ok: boolean; id: string }>(`/shared/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}`, {
-    method: "DELETE", body: JSON.stringify({ expectedRevision, requestId: crypto.randomUUID() }),
+    method: "DELETE", body: JSON.stringify({ expectedRevision, retentionDays, requestId: crypto.randomUUID() }),
   });
 }
 export type SharedInvitation = {
@@ -2421,3 +2452,10 @@ export function inviteSharedSpaceMember(spaceId: string, email: string, role: "a
   return api<{ invitation: { id: string; expiresAt: string } }>(`/shared/spaces/${encodeURIComponent(spaceId)}/invitations`,
     { method: "POST", body: JSON.stringify({ email, role, ...(permissions ? { permissions } : {}) }) });
 }
+
+export function loadSharedReviewSettings(projectId:string) {return api<SharedReviewSettingsData>(`/shared/projects/${encodeURIComponent(projectId)}/review-settings`);}
+export function saveSharedReviewSettings(projectId:string,policy:SharedReviewPolicy,expectedRevision:number) {return api<SharedReviewSettingsData>(`/shared/projects/${encodeURIComponent(projectId)}/review-settings`,{method:"PATCH",body:JSON.stringify({policy,expectedRevision})});}
+export function setSharedTaskReview(task:SharedTask,kind:SharedReviewKind,enabled:boolean) {return api<{ok:true}>(`/shared/projects/${encodeURIComponent(task.projectId)}/tasks/${encodeURIComponent(task.id)}/reviews`,{method:"PATCH",body:JSON.stringify({kind,enabled,expectedRevision:task.revision})});}
+export async function listSharedTrash(spaceId:string) {return (await api<{items:SharedTrashEntry[]}>(`/shared/spaces/${encodeURIComponent(spaceId)}/trash`)).items;}
+export function restoreSharedTrash(spaceId:string,item:SharedTrashEntry,retentionDays?:number) {return api<{ok:true}>(`/shared/spaces/${encodeURIComponent(spaceId)}/trash/${item.kind}/${encodeURIComponent(item.id)}`,{method:"PATCH",body:JSON.stringify(retentionDays===undefined?{expectedExpiresAt:item.expiresAt}:{retentionDays,expectedExpiresAt:item.expiresAt})});}
+export function trashSharedProject(project:SharedProject,retentionDays:number) {return api<{ok:true}>(`/shared/projects/${encodeURIComponent(project.id)}/trash`,{method:"POST",body:JSON.stringify({expectedRevision:project.revision,retentionDays})});}

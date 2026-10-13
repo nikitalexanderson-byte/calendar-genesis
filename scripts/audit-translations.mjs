@@ -8,6 +8,8 @@ const APP_DIR = path.join(ROOT, "app");
 const CYRILLIC = /[А-Яа-яЁё]/u;
 const SKIPPED_FILES = new Set([
   "i18n.ts",
+  // Alphabet correspondences are phonetic data, not UI labels.
+  "greek-terms.ts",
   "local-voice-plan.ts",
   "task-reminders.ts",
   "stoicheion-data.ts",

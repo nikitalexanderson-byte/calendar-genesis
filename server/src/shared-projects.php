@@ -1,5 +1,7 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/shared-task-review.php';
+require_once __DIR__ . '/shared-trash.php';
 
 require_once __DIR__ . '/shared-labels.php';
 require_once __DIR__ . '/shared-project-categories.php';
@@ -97,7 +99,7 @@ function genesisSharedProjectAccess(string $projectId, string $userId, string $p
         sm.role AS space_member_role, sm.permissions_json AS space_permissions_json, sm.can_organize_tasks AS can_organize_tasks FROM shared_projects p
         JOIN shared_project_members m ON m.project_id = p.id AND m.user_id = :user
         JOIN shared_space_members sm ON sm.space_id = p.space_id AND sm.user_id = :user
-        WHERE p.id = :id' . ($includeArchived ? '' : ' AND p.archived_at IS NULL') . ' LIMIT 1');
+        WHERE p.id = :id AND NOT EXISTS(SELECT 1 FROM shared_trash tr WHERE tr.kind=\'project\' AND tr.object_id=p.id)' . ($includeArchived ? '' : ' AND p.archived_at IS NULL') . ' LIMIT 1');
     $query->execute(['id' => $projectId, 'user' => $userId]);
     $project = $query->fetch();
     if (!$project) throw new GenesisSharedAccessException();
@@ -225,7 +227,7 @@ function genesisSharedArchivedProjects(string $userId, string $spaceId): array
         (SELECT GROUP_CONCAT(label_id) FROM shared_project_labels WHERE project_id = p.id) AS labelIdsCsv,
         p.title, p.description, p.tags_json AS tagsJson, p.layout, p.kind, p.board_status_id AS boardStatusId, p.revision, p.archived_at AS archivedAt, m.role
         FROM shared_projects p JOIN shared_project_members m ON m.project_id = p.id
-        WHERE p.space_id = :space AND m.user_id = :user AND p.archived_at IS NOT NULL
+        WHERE p.space_id = :space AND m.user_id = :user AND p.archived_at IS NOT NULL AND NOT EXISTS(SELECT 1 FROM shared_trash tr WHERE tr.kind=\'project\' AND tr.object_id=p.id)
         ORDER BY p.archived_at DESC LIMIT 100');
     $query->execute(['space' => $spaceId, 'user' => $userId]);
     return array_map('genesisSharedRowTags', $query->fetchAll());
@@ -1102,6 +1104,7 @@ function genesisSharedProjectSnapshot(string $userId, string $projectId): array
     $members->execute(['project' => $projectId, 'space' => $project['space_id']]);
     $attachments = genesisSharedAttachmentIndex($projectId);
     $approvals = genesisSharedApprovalIndex($projectId);
+    $reviews = genesisSharedReviewIndex($userId,$project);
     return [
         'project' => [
             'id' => $projectId, 'spaceId' => $project['space_id'], 'parentId' => $project['parent_id'], 'categoryId' => $project['category_id'],
@@ -1116,7 +1119,8 @@ function genesisSharedProjectSnapshot(string $userId, string $projectId): array
             'updatedAt' => $project['updated_at'],
         ],
         'statuses' => $statuses->fetchAll(), 'categories' => $categories->fetchAll(),
-        'tasks' => array_map(static function (array $task) use ($attachments, $approvals): array {
+        'tasks' => array_map(static function (array $task) use ($attachments, $approvals, $reviews): array {
+            $task['review'] = ['enabled'=>$reviews['enabled'],'allowed'=>$reviews['allowed'],'entries'=>$reviews['entries'][$task['id']]??[]];
             $task['approvals'] = $approvals[$task['id']] ?? [];
             $task['approvalRequired'] = count($task['approvals']) > 0;
             $task['imageUrl'] = genesisSharedTaskImageUrl($task['id'], (bool)$task['hasImage']);
@@ -1545,6 +1549,11 @@ function genesisSharedTask(string $userId, string $projectId, array $input, ?str
     genesisBeginWriteTransaction($db);
     try {
         $project = genesisSharedProjectAccess($projectId, $userId, 'write');
+        if ($taskId === null && isset($input['mindmapSource'])) {
+            if (!is_array($input['mindmapSource'])) throw new InvalidArgumentException('INVALID_MINDMAP');
+            $converted = genesisSharedMindmapConversion($userId, $project, $input['mindmapSource']);
+            if ($converted !== null) { $db->commit(); return $converted; }
+        }
         $receipt = genesisSharedMutationReceipt($db, $userId, $requestId, $action, $resourceId);
         if ($receipt !== null) {
             $db->commit();
@@ -1691,6 +1700,10 @@ function genesisSharedTask(string $userId, string $projectId, array $input, ?str
         genesisSharedConfigureTaskApprovals($userId, $projectId, $id, $input, $existing, $isDone);
         $response['approvals'] = genesisSharedTaskApprovals($id);
         $response['approvalRequired'] = count($response['approvals']) > 0;
+        if ($taskId === null && isset($input['mindmapSource'])) {
+            $source=$input['mindmapSource'];
+            $db->prepare('INSERT INTO shared_mindmap_conversions VALUES(?,?,?,?,?)')->execute([$project['space_id'],$source['mapId'],$source['nodeId'],$projectId,$id]);
+        }
         genesisSharedSaveMutationReceipt($db, $userId, $requestId, $action, $resourceId, $response);
         $db->commit();
         return $response;

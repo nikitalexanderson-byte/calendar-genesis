@@ -1,10 +1,10 @@
 {
   "Ещё": "Mais",
-  "Задача будет зашифрована на сервере GENESIS и синхронизирована между вашими устройствами.": "This task will be encrypted on the GENESIS server and synced across your devices.",
-  "Синхронизировано с GENESIS": "Synced with GENESIS",
-  "GENESIS · зашифрованные задачи": "GENESIS · encrypted tasks",
+  "Задача будет зашифрована на сервере GENESIS и синхронизирована между вашими устройствами.": "Esta tarefa será encriptada no servidor GENESIS e sincronizada entre os seus dispositivos.",
+  "Синхронизировано с GENESIS": "Sincronizado com GENESIS",
+  "GENESIS · зашифрованные задачи": "GENESIS · tarefas encriptadas",
   "Данные в GENESIS": "Data in GENESIS",
-  "Изменения синхронизируются с зашифрованной копией GENESIS.": "Changes sync with the encrypted GENESIS copy.",
+  "Изменения синхронизируются с зашифрованной копией GENESIS.": "As alterações são sincronizadas com a cópia encriptada do GENESIS.",
   "Яндекс.Календарь подключён": "Yandex Calendar ligado",
   "По проекту списка GENESIS": "Projeto da lista GENESIS",
   "Запись будет синхронизирована с Яндекс.Календарём по времени устройства.": "O registo será sincronizado com o Yandex Calendar no fuso horário do dispositivo.",
@@ -1192,7 +1192,7 @@
   "Арете / Расцвет Олимпа": "Arete / Farinha de Olimpo",
   "Проявление доблести. Энергия месяца достигает своего зенита. Лучшая версия реализации наших планов.": "Virtude revelada. A energia do mês atinge o seu zênite. A realização mais completa dos nossos planos.",
   "Пята Плодов": "Quinta de Frutos",
-  "Ностос / Героическое деяние": "Nostos / Heroic Deed",
+  "Ностос / Героическое деяние": "Nostos / Feito heroico",
   "Путь домой. Божественная энергия спускается на уровень человеческого действия. Сбор плодов и оценка результатов.": "O caminho para casa. A energia divina desce ao nível da ação humana. Recolher os frutos e avaliar os resultados.",
   "Пята Перехода": "Quinta de Transição",
   "Апофеоз / Железный век": "Apoteose / Idade do Ferro",
@@ -1377,7 +1377,7 @@
   "Восточная Азия · Токио": "Ásia Oriental · Tóquio",
   "Северная Америка · Нью-Йорк": "América do Norte · Nova Iorque",
   "Тихоокеанское побережье · Лос-Анджелес": "Costa do Pacífico · Los Angeles",
-  "Пустынный юго-запад · Финикс": "Desert Southwest · Phoenix",
+  "Пустынный юго-запад · Финикс": "Sudoeste desértico · Phoenix",
   "Тропическая Южная Америка · Сан-Паулу": "América do Sul tropical · São Paulo",
   "Аргентина · Буэнос-Айрес": "Argentina · Buenos Aires",
   "Чили · Сантьяго": "Chile · Santiago",
@@ -2743,5 +2743,6 @@
   "Достигнут лимит данных. Экспортируйте и удалите ненужные данные или обратитесь в поддержку.": "O limite de dados foi atingido. Exporte e elimine dados desnecessários ou contacte o suporte.",
   "Локальный выход выполнен. Серверный выход не подтверждён. Повторите вход и выход при доступной сети.": "A sessão foi encerrada localmente. O encerramento no servidor não está confirmado. Inicie e encerre a sessão novamente quando a rede estiver disponível.",
   "Очистка браузера не подтверждена. Закройте вкладки GENESIS и удалите данные сайта в настройках браузера перед передачей устройства.": "A limpeza do navegador não está confirmada. Feche os separadores GENESIS e apague os dados do site nas definições do navegador antes de entregar o dispositivo.",
-  "Выход удалит данные аккаунтов и ключи из браузера, включая несинхронизированные изменения. Данные в облаке сохранятся. Сохраните черновики и код восстановления перед выходом. Выйти?": "Encerrar a sessão remove os dados das contas e as chaves deste navegador, incluindo alterações não sincronizadas. Os dados na nuvem permanecem. Guarde primeiro os rascunhos e o código de recuperação. Encerrar a sessão?"
+  "Выход удалит данные аккаунтов и ключи из браузера, включая несинхронизированные изменения. Данные в облаке сохранятся. Сохраните черновики и код восстановления перед выходом. Выйти?": "Encerrar a sessão remove os dados das contas e as chaves deste navegador, incluindo alterações não sincronizadas. Os dados na nuvem permanecem. Guarde primeiro os rascunhos e o código de recuperação. Encerrar a sessão?",
+  "Исопсефия · числовое равенство": "• igualdade numérica"
 }

@@ -1,10 +1,10 @@
-import { GenesisApiError, personalDocumentAccess, type GenesisTask } from "./cloud-sync";
+import { GenesisApiError, personalDocumentAccess, sharedMindmapDocumentAccess, type GenesisTask } from "./cloud-sync";
 import { mapId, validateMindmap, type Mindmap, type MapView } from "./mindmaps-model";
 
 type Sealed = { iv: string; ciphertext: string };
 type Envelope = Sealed & { id: string; schemaVersion: number; revision: number; updatedAt: string };
 export type MapRecord = { document: Mindmap; revision: number; updatedAt: string; pending?: boolean; draftKey?: string };
-type PendingMap = { schemaVersion: 1; expectedRevision: number; operationId: string } & Sealed;
+type PendingMap = { schemaVersion: 1 | 2; expectedRevision: number; operationId: string } & Sealed;
 export type Conversion = { mapId: string; nodeId: string; taskId: string; task?: GenesisTask; applied?: boolean };
 export type SaveState = "saving" | "device" | "pending" | "synced" | "conflict" | "error";
 export const MINDMAPS_ENABLED = process.env.NEXT_PUBLIC_GENESIS_MINDMAPS === "true";
@@ -14,14 +14,19 @@ export class MindmapRepository {
   private access: ReturnType<typeof personalDocumentAccess>;
   private prefix: string;
   private tab: string;
+  private envelopeVersion: 1 | 2;
   private serial = Promise.resolve();
   private viewSerial = Promise.resolve();
   private revisions = new Map<string, number>();
   private pending = new Map<string, PendingMap>();
   private staged = new Map<string, number>();
   private stopped = false;
-  constructor(userId: string) {
-    this.access = personalDocumentAccess(userId); this.prefix = `genesis-mindmaps:${userId}:`;
+  private journalListeners = new Set<() => void>();
+  subscribeJournal(listener: () => void) { this.journalListeners.add(listener); return () => { this.journalListeners.delete(listener); }; }
+  constructor(userId: string, spaceId?: string) {
+    this.envelopeVersion = spaceId ? 1 : 2;
+    this.access = spaceId ? sharedMindmapDocumentAccess(userId, spaceId) : personalDocumentAccess(userId);
+    this.prefix = spaceId ? `genesis-shared-mindmaps:${userId}:${spaceId}:` : `genesis-mindmaps:${userId}:`;
     // A duplicated browser tab inherits sessionStorage. Use a fresh writer identity.
     this.tab = mapId();
   }
@@ -50,7 +55,7 @@ export class MindmapRepository {
     }
     const records: MapRecord[] = [];
     for (const e of envelopes) {
-      if (e.schemaVersion !== 1) throw new Error("Есть карты новой версии. Обновите приложение, чтобы открыть их безопасно.");
+      if (![1, 2].includes(e.schemaVersion)) throw new Error("Есть карты новой версии. Обновите приложение, чтобы открыть их безопасно.");
       const document = validateMindmap(await this.access.open(e, `map:${e.id}`));
       if (document.id !== e.id) throw new Error("Идентификатор карты не совпадает с конвертом.");
       this.revisions.set(e.id, e.revision);
@@ -69,6 +74,7 @@ export class MindmapRepository {
   async journal(operation: Conversion) {
     this.check(); const encrypted = await this.access.seal(operation, `conversion:${operation.mapId}:${operation.nodeId}`);
     this.check(); localStorage.setItem(`${this.prefix}conversion:${operation.mapId}:${operation.nodeId}`, JSON.stringify(encrypted));
+    this.journalListeners.forEach(listener => listener());
   }
   async conversions(map: Mindmap) {
     const prefix = `${this.prefix}conversion:${map.id}:`;
@@ -97,7 +103,7 @@ export class MindmapRepository {
       this.check();
       await this.viewSerial.catch(() => {});
       const expectedRevision = Math.max(record.revision, this.revisions.get(id) ?? 0);
-      await this.access.request(`/mindmaps/${id}`, { method: "DELETE", body: JSON.stringify({ expectedRevision }) });
+      await this.access.request(`/mindmaps/${id}`, { method: "DELETE", body: JSON.stringify({ expectedRevision, schemaVersion: this.envelopeVersion }) });
       this.check();
       this.pending.delete(id); this.revisions.delete(id);
       for (const key of Object.keys(localStorage)) {
@@ -119,7 +125,7 @@ export class MindmapRepository {
     // Encrypt immediately, independently of a slow/failed network request.
     const staged = this.access.seal(snapshot, `map:${snapshot.id}`).then(encrypted => {
       this.check();
-      const request: PendingMap = { ...encrypted, schemaVersion: 1, expectedRevision: this.revisions.get(snapshot.id) ?? 0, operationId: mapId() };
+      const request: PendingMap = { ...encrypted, schemaVersion: this.envelopeVersion, expectedRevision: this.revisions.get(snapshot.id) ?? 0, operationId: mapId() };
       if (this.staged.get(snapshot.id) === sequence) {
         localStorage.setItem(this.draftKey(snapshot.id), JSON.stringify(request)); status("device");
       }
@@ -175,7 +181,7 @@ export class MindmapRepository {
         if (raw && JSON.parse(raw).operationId === request.operationId) localStorage.removeItem(key);
       }
       const cached: Envelope[] = JSON.parse(localStorage.getItem(`${this.prefix}cache`) || "[]");
-      const latest: Envelope = { id, schemaVersion: 1, revision: result.revision, ciphertext: request.ciphertext, iv: request.iv, updatedAt: new Date().toISOString() };
+      const latest: Envelope = { id, schemaVersion: request.schemaVersion, revision: result.revision, ciphertext: request.ciphertext, iv: request.iv, updatedAt: new Date().toISOString() };
       if (!cached.some(e => e.id === id && e.revision > result.revision)) localStorage.setItem(`${this.prefix}cache`, JSON.stringify([...cached.filter(e => e.id !== id), latest]));
       status("synced");
     } catch (error) {
