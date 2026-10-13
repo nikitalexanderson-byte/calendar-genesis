@@ -181,7 +181,7 @@ export default defineConfig({
             },
             {
               name: "task-form-controls",
-              test: /app[\\/](?:TimeClockPicker|CalendarDatePicker|TaskReminderPicker|RecurrenceBuilder)\.tsx$/,
+              test: /app[\\/](?:TimeClockPicker|CalendarDatePicker|TaskReminderPicker|RecurrenceBuilder|ProjectCompletionDialog)\.tsx$/,
               priority: 14,
             },
             {
@@ -191,7 +191,7 @@ export default defineConfig({
             },
             {
               name: "workspace-layout",
-              test: /app[\\/](?:InboxToolbar\.tsx|(?:ui-visibility|use-account-layout|use-sidebar-collapse)\.ts)$/,
+              test: /app[\\/](?:(?:InboxToolbar|WorkspaceHeader)\.tsx|(?:ui-visibility|use-account-layout|use-sidebar-collapse)\.ts)$/,
               priority: 14,
             },
             {
