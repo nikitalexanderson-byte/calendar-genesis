@@ -25,7 +25,9 @@ const HERO_PATH_ICON_FILES = [
   "19_amphora_of_mastery",
   "20_amphora_of_abyss",
 ];
+const mindmapIcons = JSON.parse(await readFile(new URL("../app/mindmap-icon-catalog.json", import.meta.url), "utf8"));
 const REQUIRED_VISUAL_ASSETS = [
+  ...mindmapIcons.map(icon => `mindmap-icons/${icon.id}.png`),
   ...Array.from({ length: 13 }, (_, index) => `lunar-month-art-v1/month-${String(index + 1).padStart(2, "0")}.webp`),
   "habit-ranks/heroic-ranks.webp",
   "calendar-art/saturn-cronus.webp",
@@ -124,7 +126,9 @@ for (const asset of REQUIRED_VISUAL_ASSETS) {
     missingVisualAssets.push(asset);
     continue;
   }
-  if (asset.startsWith("hero-path/")) {
+  if (asset.startsWith("mindmap-icons/")) {
+    if (!precacheUrls.includes(`${basePath}${asset}`)) missingVisualAssets.push(`${asset} (not precached)`);
+  } else if (asset.startsWith("hero-path/")) {
     const fileName = asset.slice(asset.lastIndexOf("/") + 1, -".webp".length);
     const size = asset.split("/")[1];
     if (!serviceWorker.includes(JSON.stringify(fileName)) || !serviceWorker.includes(`\`./hero-path/${size}/\${fileName}.webp\``)) {

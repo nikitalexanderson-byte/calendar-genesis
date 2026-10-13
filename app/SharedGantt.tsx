@@ -1,18 +1,23 @@
 "use client";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import { CalendarDatePicker } from "./CalendarDatePicker";
 import { formatCalendarDate, type CalendarMode } from "./calendar-data";
 import type { SharedProjectSnapshot, SharedTask } from "./cloud-sync";
 import { dateSerial, serialDate, taskSpan, ganttTaskGroups, ganttUnscheduledTasks, ganttUnscheduledSchedule, ganttSchedule, ganttCreationSchedule, ganttResizeSchedule, ganttAxisPosition, ganttAxisPoint, GANTT_CELL_WIDTH, type GanttEdge, type GanttSchedule, type GanttScale, type GanttReturnTarget } from "./shared-gantt";
 import { translateText } from "./i18n";
 import { ExperimentalIcon } from "./ExperimentalIcon";
-import { calendarGanttRange, calendarGanttPeriods, calendarGanttMonths, shiftGanttAnchor, type GanttPeriod } from "./shared-gantt-calendar";
+import { calendarGanttRange, calendarGanttPeriods, calendarGanttMonths, shiftGanttAnchor, sacredGanttDate, type GanttPeriod } from "./shared-gantt-calendar";
+import { useDialogAccessibility } from "./use-dialog-accessibility";
+import { ganttCopy } from "./gantt-copy";
 import { useAffairDrag } from "./use-affair-drag";
 import { formatTimeValue, type TimeFormat } from "./time-format";
 
 type ResizeItem = {id:string;title:string;task:SharedTask;edge:GanttEdge;offset:number};
 export function SharedGantt({snapshot,english,calendarMode,timeFormat,initialDay,onOpen,onCreate,onSchedule,onReturn,resolveReturn,onReturnTarget,busy,externalDrop,externalDropRow}:{snapshot:SharedProjectSnapshot;english:boolean;calendarMode:CalendarMode;timeFormat:TimeFormat;initialDay?:string;onOpen:(task:SharedTask)=>void;onCreate:(schedule:GanttSchedule)=>void;onSchedule:(task:SharedTask,schedule:GanttSchedule)=>void;onReturn:(task:SharedTask,target:GanttReturnTarget)=>void;resolveReturn:(x:number,y:number,task:SharedTask)=>GanttReturnTarget|null;onReturnTarget:(target:GanttReturnTarget|null)=>void;busy:boolean;externalDrop?:GanttSchedule;externalDropRow?:string}) {
   const root=useRef<HTMLElement>(null);
+  const [helpOpen,setHelpOpen]=useState(false);
+  const helpTitle=useId();
+  const helpRef=useDialogAccessibility<HTMLDivElement>(()=>setHelpOpen(false),helpOpen);
   const scrollRoot=useRef<HTMLDivElement>(null);
   const [availablePeriods,setAvailablePeriods]=useState(0);
   useEffect(()=>{
@@ -112,20 +117,29 @@ export function SharedGantt({snapshot,english,calendarMode,timeFormat,initialDay
   });
   const createCells=canCreate ? ticks.map(tick=><button type="button" className="shared-gantt-create-cell" key={tick.start} style={periodStyle(tick)} {...createProps(tick)}/>) : null;
   const shift = (direction:number)=>{setFit(false);setAnchor(shiftGanttAnchor(anchor,scale,calendarMode,direction));};
-  const groupedLabel = calendarMode === "sacred" ? (english ? "Five-day periods" : "Пятидневки") : calendarMode === "lunar" ? (english ? "Ten-day periods" : "Декады") : (english ? "Weeks" : "Недели");
+  const groupedLabel = calendarMode === "sacred" ? ganttCopy("pyatas") : calendarMode === "lunar" ? (english ? "Ten-day periods" : "Декады") : (english ? "Weeks" : "Недели");
   return <section className="shared-gantt" ref={root} data-gantt-periods={JSON.stringify(axisPeriods)} aria-busy={busy} aria-label={english ? "Gantt chart" : "Диаграмма Ганта"}>
-    <div className="shared-gantt-tools"><div role="group" aria-label={english ? "Time scale" : "Масштаб времени"}>
-      {(["day","days","weeks","months"] as const).map(item=><button type="button" key={item} aria-pressed={scale===item} onClick={()=>{setScale(item);setFit(false);}}>{({day:english ? "Within a day" : "Внутри дня",days:english ? "Days" : "Дни",weeks:groupedLabel,months:english ? "Months" : "Месяцы"})[item]}</button>)}
-    </div><div className="shared-gantt-navigation"><button type="button" onClick={()=>shift(-1)} aria-label={english ? "Previous period" : "Предыдущий период"}>←</button>
-      <CalendarDatePicker mode={calendarMode} value={anchor} onChange={value=>{setAnchor(value);setFit(false);}} ariaLabel={english ? "Timeline date" : "Дата таймлайна"}/>
+    <div className="shared-gantt-tools"><div className="shared-gantt-scale" role="group" aria-label={english ? "Time scale" : "Масштаб времени"}>
+      {(["day","days","weeks","months"] as const).map(item=><button type="button" key={item} aria-pressed={scale===item} onClick={()=>{setScale(item);setFit(false);}}>{({day:ganttCopy("time"),days:english ? "Days" : "Дни",weeks:groupedLabel,months:english ? "Months" : "Месяцы"})[item]}</button>)}
+    </div><div className="shared-gantt-navigation"><div className="shared-gantt-date-navigation" role="group" aria-label={english ? "Timeline date" : "Дата таймлайна"}><button type="button" onClick={()=>shift(-1)} aria-label={english ? "Previous period" : "Предыдущий период"}>←</button>
+      <CalendarDatePicker mode={calendarMode} value={anchor} triggerText={calendarMode==="sacred" ? sacredGanttDate(anchor) : undefined} showGregorianReference={calendarMode!=="sacred"} onChange={value=>{setAnchor(value);setFit(false);}} ariaLabel={english ? "Timeline date" : "Дата таймлайна"}/>
       <button type="button" onClick={()=>shift(1)} aria-label={english ? "Next period" : "Следующий период"}>→</button>
+      </div><div className="shared-gantt-actions" role="group" aria-label={ganttCopy("actions")}>
       <button type="button" onClick={()=>{setAnchor(todayKey);setFit(false);}}>{english ? "Today" : "Сегодня"}</button>
       {scale!=="day" ? <button type="button" aria-pressed={fit} onClick={()=>setFit(value=>!value)}>{english ? "Fit tasks" : "По задачам"}</button> : null}
+      <button type="button" aria-haspopup="dialog" onClick={()=>setHelpOpen(true)}><ExperimentalIcon name="help"/><span data-no-translate>{ganttCopy("help")}</span></button>
+    </div>
     </div></div>
     <p className="shared-gantt-period">{formatDate(serialDate(range.start))}{scale!=="day" ? ` — ${formatDate(serialDate(range.end-1))}` : ""}</p>
-    {canCreate ? <p className="shared-gantt-help">{english ? "Click an empty timeline cell to create a task on that date. Within a day, new tasks start today at the selected time." : "Нажмите на свободное место шкалы, чтобы создать задачу на эту дату. В режиме «Внутри дня» задача создаётся на сегодня с выбранным временем."}</p> : null}
-    <p className="shared-gantt-help">{english ? "Drag unscheduled tasks onto a period. Move a bar to reschedule it; drag its edges to change its duration. Steps: 15 minutes within a day, one day on other scales. Dates and times are saved in the task; dependent tasks change separately." : "Перетащите неразмеченную задачу на нужный период. Перемещайте плашку для переноса сроков, тяните за её края для изменения длительности. Шаг: 15 минут внутри дня, один день в остальных режимах. Даты и время сохраняются в карточке; зависимые задачи меняются отдельно."}</p>
-    {canEdit ? <p className="shared-gantt-help">Перетащите плашку обратно в нижний список, хаос-бокс или на кнопку «Список» / «Доски», чтобы снять её со шкалы.</p> : null}
+    {helpOpen ? <div className="modal-backdrop shared-gantt-help-backdrop" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget)setHelpOpen(false);}}>
+      <div ref={helpRef} className="shared-projects-modal shared-gantt-help-dialog" role="dialog" aria-modal="true" aria-labelledby={helpTitle} tabIndex={-1}>
+        <header><h2 id={helpTitle} data-no-translate>{ganttCopy("helpTitle")}</h2><button type="button" className="shared-projects-close" onClick={()=>setHelpOpen(false)} aria-label={english ? "Close" : "Закрыть"}><ExperimentalIcon name="close"/></button></header>
+        {canCreate ? <section><h3 data-no-translate>{ganttCopy("create")}</h3><p data-no-translate>{translateText("Нажмите на свободное место шкалы, чтобы создать задачу на эту дату. В режиме «Внутри дня» задача создаётся на сегодня с выбранным временем.").replace(/«Внутри дня»/u,`«${ganttCopy("time")}»`)}</p></section> : null}
+        <section><h3 data-no-translate>{ganttCopy("schedule")}</h3><p>{english ? "Drag unscheduled tasks onto a period. Move a bar to reschedule it; drag its edges to change its duration. Steps: 15 minutes within a day, one day on other scales. Dates and times are saved in the task; dependent tasks change separately." : "Перетащите неразмеченную задачу на нужный период. Перемещайте плашку для переноса сроков, тяните за её края для изменения длительности. Шаг: 15 минут внутри дня, один день в остальных режимах. Даты и время сохраняются в карточке; зависимые задачи меняются отдельно."}</p></section>
+        {canEdit ? <section><h3 data-no-translate>{ganttCopy("return")}</h3><p>Перетащите плашку обратно в нижний список, хаос-бокс или на кнопку «Список» / «Доски», чтобы снять её со шкалы.</p></section> : null}
+        <section><h3 data-no-translate>{ganttCopy("edit")}</h3><p data-no-translate>{ganttCopy("editHint")}</p></section>
+      </div>
+    </div> : null}
     {snapshot.tasks.length>=500 ? <p role="status">{english ? "Showing the first 500 loaded tasks." : "Показаны первые 500 загруженных задач."}</p> : null}
     <div ref={scrollRoot} className="shared-gantt-scroll" role="region" aria-label={english ? "Scrollable timeline" : "Прокручиваемая шкала времени"}>
       <div className="shared-gantt-sheet" style={{"--gantt-width":`${width}px`} as CSSProperties}>

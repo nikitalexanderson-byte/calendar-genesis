@@ -1,8 +1,21 @@
-import { calendarMonthRange, formatCalendarMonthValue, getSacredDate, type CalendarMode } from "./calendar-data";
+import { calendarMonthRange, formatCalendarMonthValue, getSacredDate, getSacredDay, MONTHS, type CalendarMode } from "./calendar-data";
+import { translateText } from "./i18n";
 import type { SharedTask } from "./cloud-sync";
 import { dateSerial, ganttRange, serialDate, taskSpan, type GanttScale } from "./shared-gantt";
 
 export type GanttPeriod = { start: number; end: number; label: string };
+
+/** Compact display only; dates and scheduling keep their existing calendar rules. */
+export function sacredGanttDate(key: string) {
+  const sacred = getSacredDate(new Date(`${key}T12:00:00`));
+  const month = MONTHS[sacred.monthIndex];
+  const day = getSacredDay(sacred.monthIndex, sacred.day);
+  const roman = ["I", "II", "III", "IIII", "V"][(sacred.day - 1) % 5];
+  const name = translateText(month.name);
+  const monthName = name.charAt(0) + name.slice(1).toLocaleLowerCase();
+  // Apeiron days are outside the five-day cycles.
+  return day.pyata ? `${roman}/${day.pyata}/${month.roman} (${monthName})` : `${sacred.day}/Ω/${month.roman} (${monthName})`;
+}
 
 function monthAt(day: number, mode: CalendarMode): GanttPeriod {
   const key = serialDate(day);

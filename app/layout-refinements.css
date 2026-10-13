@@ -600,10 +600,10 @@ html[data-genesis-theme] .genesis-app .shared-task-actions { display: flex; flex
 html[data-genesis-theme] .genesis-app .shared-task-actions > button { display: inline-flex; flex: 0 0 32px; align-items: center; justify-content: center; width: 32px; height: 32px; min-width: 32px; min-height: 32px; padding: 6px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--ink); }
 html[data-genesis-theme] .genesis-app .shared-task-actions .experimental-icon { width: 16px; height: 16px; }
 @media (min-width: 1041px) {
-  html[data-genesis-theme] .genesis-app .shared-projects-list .shared-projects-task { grid-template-columns: minmax(0, 1fr) minmax(160px, 25%); align-items: start; gap: 8px 16px; }
+  html[data-genesis-theme] .genesis-app .shared-projects-list .shared-projects-task { grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 4px 16px; min-height: 0; padding-block: 12px; }
   html[data-genesis-theme] .genesis-app .shared-projects-list .shared-projects-task > :not(.shared-task-card-controls) { grid-column: 1; }
-  html[data-genesis-theme] .genesis-app .shared-projects-list .shared-projects-task > .shared-task-card-controls { grid-column: 2; grid-row: 1 / span 3; display: grid; grid-template-columns: minmax(0, 1fr); justify-content: stretch; align-content: start; gap: 8px; }
-  html[data-genesis-theme] .genesis-app .shared-projects-list .shared-projects-task.shared-affair-draggable[data-shared-task-id] .shared-task-card-controls > select[aria-label]:not([multiple]) { width: 100%; }
+  html[data-genesis-theme] .genesis-app .shared-projects-list .shared-projects-task > .shared-task-card-controls { grid-column: 2; grid-row: 1; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+  html[data-genesis-theme] .genesis-app .shared-projects-list .shared-projects-task.shared-affair-draggable[data-shared-task-id] .shared-task-card-controls > select[aria-label]:not([multiple]) { flex: 0 1 190px; width: 190px; max-width: 190px; }
 }
 html[data-genesis-theme] .genesis-app .shared-inbox-task { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 8px; }
 html[data-genesis-theme] .genesis-app .shared-inbox-task > button { min-width: 0; min-height: 0; padding: 0; gap: 4px; overflow-wrap: anywhere; }
@@ -1207,4 +1207,115 @@ html[data-genesis-theme] .genesis-app .mobile-disclosure > .mobile-disclosure-to
   html[data-genesis-theme] .genesis-app :is(.inbox-display-switch button,.inbox-drag-handle) { min-height: 44px; }
   html[data-genesis-theme] .genesis-app .project-tree-workspace :is(.experimental-add-subproject,.project-edit,.project-delete,.project-transfer) { width: 44px; min-width: 44px; height: 44px; min-height: 44px; }
   html[data-genesis-theme] .genesis-app :is(.shared-projects-modal,.projects-view .editor-modal) :is(input,select,textarea) { font-size: 16px; }
+}
+html[data-genesis-theme] .genesis-app .habit-daily-panel { gap: 16px; font-family: var(--font-ui); }
+html[data-genesis-theme] .genesis-app .habit-daily-panel > header { align-items: center; flex-direction: row; gap: 16px; }
+html[data-genesis-theme] .genesis-app .habit-daily-panel > header > div:first-child { min-width: 0; flex: 1; }
+html[data-genesis-theme] .genesis-app .habit-daily-panel .daily-goal-ring { flex: 0 0 auto; box-shadow: none; }
+html[data-genesis-theme] .genesis-app .habit-daily-panel :is(.daily-goal-ring strong,.daily-goal-guidance strong,.habit-ritual-group > header strong,.habit-check-list output,h3,.mood-summary strong) { font-family: var(--font-ui); font-style: normal; font-weight: 600; }
+html[data-genesis-theme] .genesis-app .habit-daily-panel .daily-goal-ring strong { font-size: 18px; line-height: 1.3; font-variant-numeric: tabular-nums; }
+html[data-genesis-theme] .genesis-app .habit-daily-panel .daily-goal-ring small { font: 500 11px/1.3 var(--font-ui); letter-spacing: .04em; }
+html[data-genesis-theme] .genesis-app .habit-daily-panel .daily-goal-guidance strong { font-size: 16px; line-height: 1.5; }
+html[data-genesis-theme] .genesis-app .habit-daily-panel .daily-goal-guidance { gap: 8px 16px; }
+html[data-genesis-theme] .genesis-app .habit-daily-panel .daily-goal-actions strong { font: 400 12px/1.5 var(--font-ui); }
+html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-ritual-group > header strong { font-size: 17px; line-height: 1.5; }
+html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-ritual-group > header span { font: 600 11px/1.5 var(--font-ui); letter-spacing: .04em; }
+html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-ritual-group > header em { font: 600 13px/1.5 var(--font-ui); font-variant-numeric: tabular-nums; }
+html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-check-list > article { grid-template-columns: 44px minmax(0,1fr) auto; align-items: start; gap: 12px; padding: 14px; }
+html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-check { width: 44px; height: 44px; }
+html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-check-copy > span { display: grid; grid-template-columns: 24px minmax(0,1fr) auto; align-items: start; gap: 4px 8px; }
+html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-check-copy strong { min-width: 0; white-space: normal; overflow-wrap: anywhere; font: 600 15px/1.5 var(--font-ui); }
+html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-check-copy em { font: 500 11px/1.5 var(--font-ui); letter-spacing: 0; text-transform: none; white-space: nowrap; }
+html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-check-copy small { font: 400 13px/1.5 var(--font-ui); }
+html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-check-list output { font: 600 14px/1.5 var(--font-ui); min-width: 28px; padding-top: 0; font-variant-numeric: tabular-nums; }
+html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-quality-slider { grid-column: 2 / -1; }
+html[data-genesis-theme] .genesis-app .habit-daily-panel .mood-summary { align-items: center; font-family: var(--font-ui); }
+html[data-genesis-theme] .genesis-app .habit-daily-panel .mood-summary strong { justify-content: flex-start; text-align: start; font: 500 15px/1.5 var(--font-ui); }
+@media (max-width: 760px) {
+  html[data-genesis-theme] .genesis-app .habit-daily-panel .daily-goal-ring { width: 64px; height: 64px; }
+  html[data-genesis-theme] .genesis-app .habit-daily-panel > header { align-items: start; }
+  html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-check-list > article { gap: 10px; padding: 12px; }
+  html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-check-copy { padding-top: 0; gap: 6px; }
+  html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-check-copy > span { grid-template-columns: 24px minmax(0,1fr); }
+  html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-check-copy em { grid-column: 2; }
+  html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-check-copy mark { grid-column: 2; width: fit-content; }
+  html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-ritual-group > header div { gap: 2px; }
+  html[data-genesis-theme] .genesis-app .habit-daily-panel .mood-summary { grid-template-columns: minmax(0,1fr) auto; gap: 4px 12px; }
+  html[data-genesis-theme] .genesis-app .habit-daily-panel .mood-summary > span:first-child { grid-column: 1; grid-row: 1; text-align: start; }
+  html[data-genesis-theme] .genesis-app .habit-daily-panel .mood-summary > strong { grid-column: 1; grid-row: 2; }
+  html[data-genesis-theme] .genesis-app .habit-daily-panel .mood-summary-action { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
+}
+@media (min-width: 1041px) {
+  html[data-genesis-theme] .genesis-app .habit-charts-grid { grid-template-columns: minmax(0,1.5fr) minmax(280px,1fr); align-items: start; gap: 16px; }
+  html[data-genesis-theme] .genesis-app .habit-heatmap > div { grid-template-columns: repeat(10,minmax(0,1fr)); grid-template-rows: repeat(3,auto); }
+  html[data-genesis-theme] .genesis-app .habit-heatmap > div > span { aspect-ratio: 1; max-height: 48px; }
+  html[data-genesis-theme] .genesis-app .habit-line-chart { min-height: 0; }
+}
+@media (max-width: 760px) {
+  html[data-genesis-theme] .genesis-app .workspace-overview-toggle { min-height: 44px; padding: 10px 12px; border: 1px solid transparent; border-radius: 10px; }
+  html[data-genesis-theme] .genesis-app .workspace-overview-toggle[aria-expanded="true"] { border-color: color-mix(in srgb,var(--ui-accent) 20%,var(--line)); background: color-mix(in srgb,var(--ui-accent) 6%,var(--surface)); color: var(--ink); }
+}
+@media (max-width: 760px) {
+  html[data-genesis-theme] .genesis-app .shared-projects-sidebar { align-self: start; grid-template-rows: none; }
+  html[data-genesis-theme] .genesis-app .shared-projects-inbox-card { min-height: 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+  html[data-genesis-theme] .genesis-app .inbox-card:has(> .workspace-inbox-header[data-mobile-expanded="false"]) { padding: 12px; min-height: 0; gap: 0; }
+  html[data-genesis-theme] .genesis-app .inbox-card > .inbox-move-bar { margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; gap: 8px; }
+  html[data-genesis-theme] .genesis-app .workspace-inbox-header > .inbox-mobile-toggle { min-height: 44px; padding: 10px 12px; border: 1px solid transparent; border-radius: 10px; }
+  html[data-genesis-theme] .genesis-app .workspace-inbox-header > .inbox-mobile-toggle[aria-expanded="true"] { border-color: color-mix(in srgb,var(--ui-accent) 20%,var(--line)); background: color-mix(in srgb,var(--ui-accent) 6%,var(--surface)); color: var(--ink); }
+}
+.inbox-mobile-heading { display: none; }
+@media (max-width: 1099px) {
+  html[data-genesis-theme] .genesis-app .workspace-inbox-header > .inbox-mobile-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px; min-width: 0; padding-block: 10px; }
+  .inbox-mobile-heading strong { font: 600 15px/1.4 var(--font-ui); }
+  .inbox-mobile-heading small { font: 400 12px/1.4 var(--font-ui); }
+}
+/* Project views and Gantt controls share the content edges in every calendar. */
+html[data-genesis-theme] .genesis-app .shared-projects-task-panel > .shared-projects-planning { padding: 0; }
+html[data-genesis-theme] .genesis-app .shared-projects-planning .shared-planning-controls {
+  grid-column: 1 / -1; grid-row: auto; display: grid;
+  grid-template-columns: minmax(0,1fr) auto; align-items: end; gap: 8px 12px; width: 100%;
+}
+html[data-genesis-theme] .genesis-app .shared-projects-planning .shared-planning-view { min-width: 0; width: 100%; }
+html[data-genesis-theme] .genesis-app .shared-projects-planning .shared-projects-create-actions { grid-column: 2; grid-row: 1; align-self: end; margin: 0; }
+html[data-genesis-theme] .genesis-app .shared-projects-planning .shared-projects-create-actions button { min-height: 54px; height: 54px; margin: 0; }
+html[data-genesis-theme] .genesis-app .shared-projects-planning .shared-projects-view-switch {
+  display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); width: 100%;
+  padding: 4px; gap: 4px; border: 1px solid var(--line); background: var(--paper);
+}
+html[data-genesis-theme] .genesis-app .shared-projects-planning .shared-projects-view-switch > button { width: 100%; min-width: 0; min-height: 44px; margin: 0; }
+html[data-genesis-theme] .genesis-app .shared-projects-planning .shared-planning-dates { grid-column: 1 / -1; margin: 0; }
+html[data-genesis-theme] .genesis-app .shared-gantt .shared-gantt-tools { display: grid; gap: 12px; }
+html[data-genesis-theme] .genesis-app .shared-gantt .shared-gantt-scale { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); width: 100%; }
+html[data-genesis-theme] .genesis-app .shared-gantt .shared-gantt-tools button { min-width: 0; min-height: 44px; font: 500 13px/1.4 var(--font-ui); }
+html[data-genesis-theme] .genesis-app .shared-gantt .shared-gantt-scale > button { padding-inline: 4px; border-color: transparent; background: transparent; }
+html[data-genesis-theme] .genesis-app .shared-gantt .shared-gantt-scale > button[aria-pressed=true] { background: var(--ui-accent); color: var(--ui-on-accent); }
+html[data-genesis-theme] .genesis-app .shared-gantt .shared-gantt-navigation { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+html[data-genesis-theme] .genesis-app .shared-gantt .shared-gantt-date-navigation { display: flex; align-items: stretch; gap: 8px; flex: 1 1 320px; min-width: 0; }
+html[data-genesis-theme] .genesis-app .shared-gantt .shared-gantt-date-navigation > button:not(.calendar-date-trigger) { flex: 0 0 44px; padding-inline: 0; }
+html[data-genesis-theme] .genesis-app .shared-gantt .shared-gantt-date-navigation > :is(.calendar-date-trigger,input[type=date]) { flex: 1 1 0; width: 0; min-width: 0; max-width: none; min-height: 48px; height: 48px; }
+html[data-genesis-theme] .genesis-app .shared-gantt .shared-gantt-date-navigation .calendar-date-trigger > :is(span,small) { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+html[data-genesis-theme] .genesis-app .shared-gantt .shared-gantt-date-navigation .calendar-date-trigger > span { font: 500 14px/1.4 var(--font-ui); letter-spacing: 0; }
+html[data-genesis-theme] .genesis-app .shared-gantt .shared-gantt-date-navigation > button { min-height: 48px; }
+html[data-genesis-theme] .genesis-app .shared-gantt .shared-gantt-actions { display: flex; align-items: center; justify-content: flex-end; flex: 0 1 auto; gap: 8px; margin-left: auto; }
+html[data-genesis-theme] .genesis-app .shared-gantt .shared-gantt-actions > button { display: flex; align-items: center; justify-content: center; gap: 4px; min-height: 48px; padding-inline: 12px; white-space: nowrap; }
+html[data-genesis-theme] .genesis-app .shared-gantt .shared-gantt-period { margin: 16px 0 12px; }
+html[data-genesis-theme] .genesis-app .shared-gantt-help-dialog { width: min(640px,calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 24px; margin: auto; overflow-y: auto; border-radius: var(--ui-radius); background: var(--surface); }
+html[data-genesis-theme] .genesis-app .shared-gantt-help-dialog > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+html[data-genesis-theme] .genesis-app .shared-gantt-help-dialog > header h2 { margin: 0; font: 500 24px/1.3 var(--font-heading); }
+html[data-genesis-theme] .genesis-app .shared-gantt-help-dialog > section { margin-top: 24px; }
+html[data-genesis-theme] .genesis-app .shared-gantt-help-dialog h3 { margin: 0 0 8px; font: 600 14px/1.4 var(--font-ui); }
+html[data-genesis-theme] .genesis-app .shared-gantt-help-dialog p { margin: 0; color: var(--ink-soft); font: 400 14px/1.6 var(--font-ui); }
+@media(max-width:760px) {
+  html[data-genesis-theme] .genesis-app .shared-projects-planning .shared-planning-controls { gap: 8px; }
+  html[data-genesis-theme] .genesis-app .shared-projects-planning .shared-projects-view-switch { gap: 0; padding-inline: 2px; }
+  html[data-genesis-theme] .genesis-app .shared-projects-planning .shared-projects-view-switch > button { font-size: 12px; font-weight: 500; letter-spacing: -.02em; padding-inline: 0; }
+  html[data-genesis-theme] .genesis-app .shared-projects-planning .shared-projects-create-actions button { width: 44px; padding: 0; }
+  html[data-genesis-theme] .genesis-app .shared-projects-planning .shared-projects-create-actions :is(.shared-create-full,.shared-create-short) { display: none; }
+  html[data-genesis-theme] .genesis-app .shared-gantt .shared-gantt-date-navigation { flex-basis: 100%; }
+  html[data-genesis-theme] .genesis-app .shared-gantt .shared-gantt-actions { width: 100%; }
+  html[data-genesis-theme] .genesis-app .shared-gantt .shared-gantt-actions > button { flex: 0 1 auto; padding-inline: 8px; }
+  html[data-genesis-theme] .genesis-app .shared-gantt-help-dialog { padding: 20px; }
+}
+@media(max-width:380px) {
+  html[data-genesis-theme] .genesis-app .shared-projects-task-panel { padding: 8px; }
 }

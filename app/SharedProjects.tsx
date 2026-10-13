@@ -1194,11 +1194,6 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       <section className="shared-projects-task-panel" aria-labelledby="shared-projects-tasks-title">
       <section className="shared-projects-planning" aria-label={english ? "Tasks and views" : "Задачи и виды проекта"}>
         <h3 id="shared-projects-tasks-title">{english ? "Tasks" : "Задачи"}</h3>
-      {canWrite && !snapshot.project.isInbox ? <div className="shared-projects-create-actions">
-        <button type="button" className="shared-projects-open-modal primary-button" onClick={() => openCreateTask(snapshot.project, undefined, "task", true)}>
-          <ExperimentalIcon name="plus" /><span className="shared-create-full">{english ? "Create task" : "Создать задачу"}</span><span className="shared-create-short">{english ? "Task" : "Задача"}</span>
-        </button>
-      </div> : null}
       <div className="shared-planning-controls">
       <div className="shared-planning-view">
       <p className="shared-projects-calendar-mode-label">{english ? "Project view" : "Вид проекта"}</p>
@@ -1211,6 +1206,11 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
               : item === "gantt" ? (english ? "Gantt" : "Гант") : (english ? "Calendar" : "Календарь")}</button>)}
       </div>
       </div>
+      {canWrite && !snapshot.project.isInbox ? <div className="shared-projects-create-actions">
+        <button type="button" className="shared-projects-open-modal primary-button" aria-label={english ? "Create task" : "Создать задачу"} title={english ? "Create task" : "Создать задачу"} onClick={() => openCreateTask(snapshot.project, undefined, "task", true)}>
+          <ExperimentalIcon name="plus" /><span className="shared-create-full">{english ? "Create task" : "Создать задачу"}</span><span className="shared-create-short">{english ? "Task" : "Задача"}</span>
+        </button>
+      </div> : null}
       {!experimentalTheme ? <div className="shared-planning-dates">
       <p className="shared-projects-calendar-mode-label">{english ? "Calendar for project view and task dates" : "Календарь проекта и дат задач"}</p>
       <div className="shared-projects-calendar-mode display-calendar-choice" role="group" aria-label={english ? "Calendar for project view and task dates" : "Календарь проекта и дат задач"}>

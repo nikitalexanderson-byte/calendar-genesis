@@ -28,7 +28,16 @@ const calendar = loadTs("app/calendar-data.ts", {
 });
 const recurrence = loadTs("app/task-recurrence.ts", { "./calendar-data": calendar });
 const ganttCore = loadTs("app/shared-gantt.ts", {});
-const gantt = loadTs("app/shared-gantt-calendar.ts", { "./calendar-data": calendar, "./shared-gantt": ganttCore });
+const gantt = loadTs("app/shared-gantt-calendar.ts", { "./calendar-data": calendar, "./shared-gantt": ganttCore, "./i18n": { translateText: value => value } });
+
+test("Compact sacred Gantt dates use five-day ordinals and reset at cycle boundaries", () => {
+  assert.equal(gantt.sacredGanttDate("2026-09-23"), "III/2/VII (Триге)");
+  assert.equal(gantt.sacredGanttDate("2026-09-19"), "IIII/1/VII (Триге)");
+  assert.equal(gantt.sacredGanttDate("2026-09-20"), "V/1/VII (Триге)");
+  assert.equal(gantt.sacredGanttDate("2026-09-21"), "I/2/VII (Триге)");
+  assert.equal(gantt.sacredGanttDate("2026-10-13"), "III/6/VII (Триге)");
+  assert.match(gantt.sacredGanttDate("2026-03-19"), /^5\/Ω\/XIII/);
+});
 
 test("wide Gantt reveals more dates with consistent creation and resize coordinates in every calendar", () => {
   for (const mode of ["profane","sacred","lunar"]) for (const scale of ["days","weeks","months"]) for (const fit of [false,true]) {

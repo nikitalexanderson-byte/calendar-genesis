@@ -399,7 +399,7 @@ button:disabled {
   overflow: visible;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .28));
   transform-origin: 50% 55%;
-  animation: voiceMicFloat 2.9s ease-in-out infinite;
+  animation: voiceMicBreathe 2.9s ease-in-out infinite;
 }
 
 .voice-microphone-capsule {
@@ -421,14 +421,6 @@ button:disabled {
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 1.65;
-}
-
-.voice-microphone-spark {
-  fill: #ffe4a2;
-  filter: drop-shadow(0 0 3px rgba(255, 218, 133, .9));
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: voiceSpark 1.8s ease-in-out infinite;
 }
 
 .voice-open-button:hover,
@@ -459,7 +451,7 @@ button:disabled {
 
 .voice-open-button:hover .voice-microphone-icon,
 .voice-open-button:focus-visible .voice-microphone-icon {
-  animation: voiceMicHover .72s ease-in-out infinite alternate;
+  animation: voiceMicBreathe 2.9s ease-in-out infinite;
 }
 
 .voice-open-button:active {
@@ -495,9 +487,7 @@ button:disabled {
 }
 
 @keyframes voiceHaloRotate { to { transform: rotate(360deg); } }
-@keyframes voiceMicFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.25px); } }
-@keyframes voiceSpark { 0%, 100% { opacity: .5; transform: scale(.72); } 50% { opacity: 1; transform: scale(1.18); } }
-@keyframes voiceMicHover { from { transform: translateY(-1px) rotate(-2deg) scale(1.03); } to { transform: translateY(1px) rotate(2deg) scale(1.09); } }
+@keyframes voiceMicBreathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.07); } }
 @keyframes voiceButtonActivate { 0% { transform: scale(1); } 42% { transform: scale(.86); } 100% { transform: scale(1.12); } }
 @keyframes voiceClickRipple { 0% { opacity: .8; transform: scale(.88); } 100% { opacity: 0; transform: scale(1.72); } }
 @keyframes voiceHaloBurst { 0% { opacity: .55; transform: rotate(0) scale(.9); } 100% { opacity: 1; transform: rotate(210deg) scale(1.12); } }
@@ -507,8 +497,7 @@ button:disabled {
   .voice-open-button,
   .voice-open-button::before,
   .voice-open-button::after,
-  .voice-microphone-icon,
-  .voice-microphone-spark { animation: none !important; }
+  .voice-microphone-icon { animation: none !important; }
 }
 
 .voice-mark {
@@ -13862,3 +13851,11 @@ html[data-genesis-theme] .genesis-app .project-task-card .task-check { width:36p
 .modal-backdrop.experimental-theme-warning-backdrop { z-index:900; }
 .tag-search-results .task-tags i { font:500 12px/1.4 Arial,sans-serif; padding:4px 8px; }
 .stoicheion-view > .stoicheion-hero { position:relative; top:auto; left:auto; max-width:1220px; width:100%; margin:0 auto clamp(24px,4vw,46px); z-index:2; }
+.habit-emoji-catalog section > div > .habit-emoji-choice { display: inline-flex; min-width: 0; }
+.habit-emoji-choice > button { position: relative; width: 100%; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+.habit-emoji-variants-mark { position: absolute; right: 4px; bottom: 4px; width: 8px; height: 8px; opacity: .65; }
+.genesis-app .habit-emoji-variants { position: fixed; z-index: 100; width: 240px; max-height: 280px; overflow: auto; display: grid; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); box-shadow: 0 8px 24px #0002; }
+.habit-emoji-variants > strong { font: 600 13px/1.4 var(--font-ui); }
+.genesis-app .habit-emoji-variants > div { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 4px; }
+.genesis-app .habit-emoji-variants > div > button { width: 100%; height: 44px; min-height: 44px; padding: 4px; font-size: 24px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.genesis-app .habit-emoji-variants button[aria-pressed="true"] { background: var(--ui-accent-soft,var(--exp-accent-wash)); border-color: var(--ui-accent); }

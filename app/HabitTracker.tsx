@@ -1,6 +1,7 @@
 "use client";
 
-import fullEmojiCatalog from "./emoji-full-catalog.json" with { type: "json" };
+import {groupedEmojiCatalog as fullEmojiCatalog} from "./emoji-variants";
+import {HabitEmojiChoice} from "./HabitEmojiChoice";
 
 import {
   useEffect,
@@ -358,7 +359,7 @@ function HabitEmojiField({ value, language, onChange, title, presets = HABIT_EMO
     <fieldset className="habit-emoji-field">
       <legend>{title ?? (isEnglish ? "Habit emoji" : "Эмодзи привычки")}</legend>
       <div className="habit-emoji-suggestions">
-      <div className="habit-emoji-presets">{presets.map((emoji) => <button type="button" className={value === emoji ? "selected" : ""} aria-label={emoji} aria-pressed={value === emoji} onClick={() => onChange(emoji)} key={emoji}>{emoji}</button>)}</div>
+      <div className="habit-emoji-presets">{presets.map((emoji) => <HabitEmojiChoice key={emoji} emoji={emoji} value={value} language={language} onChange={onChange}/>)}</div>
       <button type="button" className="habit-emoji-expand" aria-expanded={catalogOpen} aria-controls={catalogId} onClick={() => setCatalogOpen((current) => !current)}>
         <span>{catalogOpen ? (isEnglish ? "Hide full catalog" : "Скрыть полный набор") : (isEnglish ? "Open full emoji catalog" : "Открыть полный набор эмодзи")}</span>
         <DisclosureChevron open={catalogOpen} />
@@ -375,9 +376,7 @@ function HabitEmojiField({ value, language, onChange, title, presets = HABIT_EMO
           <section aria-labelledby={`${catalogId}-${selectedFullCategory.id}`}>
             <h3 id={`${catalogId}-${selectedFullCategory.id}`}>
               {isEnglish ? selectedFullCategory.labelEn : selectedFullCategory.label}</h3>
-            <div>{selectedFullCategory.emojis.slice(0, visibleCount).map((emoji) => <button type="button"
-              className={value === emoji ? "selected" : ""} aria-label={emoji} aria-pressed={value === emoji}
-              onClick={() => onChange(emoji)} key={emoji}>{emoji}</button>)}</div>
+            <div>{selectedFullCategory.emojis.slice(0, visibleCount).map((emoji) => <HabitEmojiChoice key={emoji} emoji={emoji} value={value} language={language} onChange={onChange}/>)}</div>
             {visibleCount < selectedFullCategory.emojis.length ? <button type="button" className="habit-emoji-expand"
               onClick={() => setVisibleCount((count) => count + 120)}>
               {isEnglish ? "Show more emoji" : "Показать ещё эмодзи"}</button> : null}

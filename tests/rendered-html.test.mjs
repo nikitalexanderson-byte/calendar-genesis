@@ -2800,7 +2800,9 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.doesNotMatch(calendar, /<span aria-hidden="true">●<\/span>/);
   assert.match(styles, /@keyframes voiceButtonBreathe/);
   assert.match(styles, /@keyframes voiceSignalPulse/);
-  assert.match(styles, /@keyframes voiceMicHover/);
+  assert.match(styles, /@keyframes voiceMicBreathe/);
+  assert.doesNotMatch(calendar, /voice-microphone-spark/);
+  assert.doesNotMatch(localVoiceAssistant, /voice-microphone-spark/);
   assert.match(styles, /@keyframes voiceButtonActivate/);
   assert.match(styles, /\.voice-open-button\.is-activating/);
   assert.match(styles, /prefers-reduced-motion: reduce[\s\S]*\.voice-microphone-icon/);
