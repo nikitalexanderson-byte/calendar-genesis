@@ -93,7 +93,7 @@ export function useAffairDrag<T extends { id: string; title: string }, D>(
     "data-affair-item-id": item.id,
     "data-dragging": preview?.item.id === item.id || undefined,
     onPointerDown: (event: PointerEvent<HTMLElement>) => {
-      if (!enabled || event.pointerType !== "mouse" || event.button !== 0 || control(event.target)) return;
+      if (!enabled || event.pointerType === "touch" || event.button !== 0 || control(event.target)) return;
       const surface=event.target instanceof Element ? event.target.closest<HTMLElement>("[data-affair-drag-surface]") : null;
       const capture=surface && event.currentTarget.contains(surface) ? surface : event.currentTarget;
       candidate.current = { item, source: event.currentTarget, capture, x: event.clientX, y: event.clientY, pointerId: event.pointerId, active: false };

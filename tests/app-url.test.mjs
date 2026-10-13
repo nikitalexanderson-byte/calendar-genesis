@@ -45,6 +45,17 @@ test("shared navigation restores links, browser history and separate users' last
   }
 });
 
+test("comment destinations retain the exact discussion across reload and clear it on exit", () => {
+  const place = { spaceId: "space-1", projectId: "project-1", taskId: "task-1", view: null, taskAction: "comments", commentId: "comment-2" };
+  const url = sharedPlaceUrl(new URL("https://genesiscalendar.com/#today"), place);
+  assert.deepEqual(sharedPlaceFromUrl(url), place);
+  const next = sharedPlaceUrl(url, { ...place, taskId: "", taskAction: undefined, commentId: undefined });
+  assert.equal(next.searchParams.has("comment"), false);
+  assert.equal(next.searchParams.has("taskAction"), false);
+  assert.equal(normalizeSharedPlace({ ...place, commentId: "../invalid" }).commentId, undefined);
+  assert.equal(normalizeSharedPlace({ ...place, taskId: "" }).commentId, undefined);
+});
+
 test("removes the transient QA marker from every GENESIS section link", () => {
   const sections = [
     "today",

@@ -60,6 +60,9 @@ try {
     webExpect(genesisSharedOverview($outsider)['tasks'] === 0 && genesisSharedInbox($outsider)['notifications'] === [], 'Inbox leaks another workspace.');
     for ($i = 0; $i < 55; $i++) genesisSharedAddComment($owner, $project['id'], $task['id'], ['body' => 'Comment ' . $i]);
     $first = genesisSharedInbox($member, '', true); $second = genesisSharedInbox($member, $first['nextCursor'], true);
+    $commentNotice = array_values(array_filter($first['notifications'], static fn($event) => $event['action'] === 'comment.created'))[0];
+    webExpect($commentNotice['objectId'] === $task['id'] && !empty($commentNotice['commentId']), 'Comment notice lost its task or exact comment destination.');
+    webExpect((bool)array_filter(genesisSharedComments($member, $project['id'], $task['id']), static fn($comment) => $comment['id'] === $commentNotice['commentId']), 'Comment destination does not belong to its task.');
     webExpect(count($first['notifications']) === 50 && count($second['notifications']) === 8, 'Inbox pagination loses older updates.');
     $older = array_values(array_filter($second['notifications'], static fn($event) => $event['action'] === 'comment.created'))[0]['id'];
     webDenied(fn() => genesisSharedReadInbox($outsider, ['eventIds' => [$older]]));
