@@ -17,6 +17,21 @@ export function sharedProjectTree<T extends ExpandableProject>(projects: T[]): {
   return result;
 }
 
+/** Destination rows keep the visible ancestry even if only some rows are writable. */
+export function sharedProjectDestinations<T extends ExpandableProject & { title: string }>(projects: T[]): { project: T; depth: number; path: string }[] {
+  const byId = new Map(projects.map(project => [project.id, project]));
+  const rows = [...projects.filter(project => project.isInbox).map(project => ({ project, depth: 0 })), ...sharedProjectTree(projects)];
+  return rows.map(row => {
+    const titles: string[] = []; const visited = new Set<string>();
+    let current: T | undefined = row.project;
+    while (current && !visited.has(current.id)) {
+      visited.add(current.id); titles.unshift(current.title);
+      current = current.parentId ? byId.get(current.parentId) : undefined;
+    }
+    return { ...row, path: titles.join(" › ") };
+  });
+}
+
 /** Restore a selected project only when its entire path is visible in the saved tree. */
 export function restoredSharedProject(projects: ExpandableProject[], expandedIds: string[]): string {
   const expanded = new Set(expandedIds);

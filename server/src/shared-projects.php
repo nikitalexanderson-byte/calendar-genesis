@@ -14,6 +14,8 @@ require_once __DIR__ . '/shared-space-covers.php';
 require_once __DIR__ . '/shared-task-approvals.php';
 require_once __DIR__ . '/shared-member-categories.php';
 require_once __DIR__ . '/entry-types.php';
+require_once __DIR__ . '/shared-presence.php';
+require_once __DIR__ . '/shared-private-messages.php';
 
 final class GenesisSharedAccessException extends RuntimeException
 {
@@ -1247,6 +1249,7 @@ function genesisSharedCalendarTasks(string $userId, string $from, string $to): a
         FROM shared_tasks_read t JOIN shared_projects p ON p.id = t.project_id AND p.archived_at IS NULL
         JOIN shared_project_members m ON m.project_id = p.id AND m.user_id = :user
         JOIN shared_project_statuses st ON st.id = t.status_id AND st.is_done = 0
+        JOIN shared_space_members sm ON sm.space_id = p.space_id AND sm.user_id = m.user_id
         WHERE t.completed_at IS NULL AND t.due_date BETWEEN :start AND :end ORDER BY t.due_date, t.position LIMIT 5000');
     $query->execute(['user' => $userId, 'start' => $from, 'end' => $to]);
     return $query->fetchAll();

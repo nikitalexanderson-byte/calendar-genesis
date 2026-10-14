@@ -1,18 +1,20 @@
 "use client";
 import { type CSSProperties, type FormEvent, useEffect, useId, useRef, useState } from "react";
 import { deleteSharedProjectCategory, saveSharedProjectCategory, type SharedCategory, type SharedProject } from "./cloud-sync";
-import { translateText } from "./i18n";
+import { translateText, getRuntimeLanguage } from "./i18n";
+import { formatProjectCount } from "./task-count-i18n";
 import { ExperimentalIcon } from "./ExperimentalIcon";
+import { CategorySection } from "./CategorySection";
 
-export function SharedProjectCategories({ spaceId, categories, projects, canManage, english, expanded, onExpanded, onChanged, onOpen }: {
+export function SharedProjectCategories({ spaceId, categories, projects, canManage, english, expanded, onExpanded, view, onView, onChanged, onOpen }: {
   spaceId: string; categories: SharedCategory[]; projects: SharedProject[]; canManage: boolean; english: boolean;
   onChanged: () => Promise<void>; onOpen: (project: SharedProject) => void;
   expanded: boolean; onExpanded: (expanded: boolean) => void;
+  view: "cards" | "list"; onView: (view: "cards" | "list") => void;
 }) {
   const [editing, setEditing] = useState<SharedCategory | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const headingId = useId();
   const dialogTitleId = useId();
   const [title, setTitle] = useState("");
   const [color, setColor] = useState("#2d6c68");
@@ -46,19 +48,13 @@ export function SharedProjectCategories({ spaceId, categories, projects, canMana
     });
   };
   const projectItems = projects.filter(project => !project.isInbox && project.kind !== "task-list");
-  return <><details className="shared-project-categories" aria-labelledby={headingId} open={expanded} onToggle={event => { if (event.currentTarget.open !== expanded) onExpanded(event.currentTarget.open); }}>
-    <summary className="shared-categories-header">
-      <ExperimentalIcon name="chevron" /><h3 id={headingId}>{english ? "Categories" : "Категории"}</h3>
-      {canManage ? <button type="button" className="secondary-button shared-category-create" disabled={busy} onClick={event => { event.preventDefault(); openForm(null); }}>
-        <ExperimentalIcon name="plus" /><span>{english ? "New category" : "Новая категория"}</span>
-      </button> : null}
-    </summary>
+  return <><CategorySection expanded={expanded} onExpanded={onExpanded} view={view} onView={onView} onCreate={canManage && !busy ? ()=>openForm(null) : undefined}>
     <div className="shared-category-list">
       {[...categories, { id: "", title: english ? "No category" : "Без категории", color: "#718077", position: 0, revision: 0 }].map(category => {
         const items = projectItems.filter(project => (project.categoryId ?? "") === category.id);
         return <article key={category.id} style={{ "--category-color": category.color } as CSSProperties}>
           <header className="shared-category-header">
-          <i aria-hidden="true" /><h4 data-no-translate>{category.title}</h4><span className="shared-category-count">{items.length} {english ? "projects" : "проектов"}</span>
+          <i aria-hidden="true" /><h4 data-no-translate>{category.id ? category.title : translateText("Без категории")}</h4><span className="shared-category-count" data-no-translate>{formatProjectCount(items.length,getRuntimeLanguage())}</span>
           {category.id && canManage ? <div className="category-actions">
             <button type="button" disabled={busy} data-no-translate aria-label={`${translateText("Редактировать категорию")} «${category.title}»`}
               onClick={() => openForm(category)}><ExperimentalIcon name="edit" /></button>
@@ -76,7 +72,7 @@ export function SharedProjectCategories({ spaceId, categories, projects, canMana
       })}
     </div>
     {message && !formOpen ? <p role="status">{message}</p> : null}
-    </details>
+    </CategorySection>
     {canManage ? <dialog ref={dialogRef} className="shared-projects-modal shared-category-modal" aria-labelledby={dialogTitleId}
       onCancel={event => { if (busy) event.preventDefault(); }}
       onClose={() => { setFormOpen(false); setEditing(null); }}>

@@ -2611,5 +2611,22 @@
   "Ежедневно · утром": "Daily · morning",
   "Понедельник–пятница": "Monday–Friday",
   "Ежедневно · вечером": "Daily · evening",
-  "Завершить проект": "Complete project"
+  "Завершить проект": "Complete project",
+  "Карточки": "Cards",
+  "Метки проекта": "Project labels",
+  "Удалить метку": "Remove label",
+  "Выбрать задачу": "Choose a task",
+  "Вы": "You",
+  "Удалить сообщение?": "Delete this message?",
+  "Личные сообщения участников": "Private participant messages",
+  "Личные сообщения между двумя участниками пространства используют сквозное шифрование. Сервер хранит зашифрованный текст, публичные ключи и служебные данные диалога; закрытые ключи остаются на устройствах. Для другого устройства нужен файл ключа, защищённый паролем. Без ключа сервер не может восстановить сообщения. Уведомления не содержат текст переписки.": "Private messages between two workspace participants use end-to-end encryption. The server stores encrypted text, public keys and conversation metadata; private keys stay on devices. Another device requires a password-protected key file. The server cannot recover messages without the key. Notifications do not contain message text.",
+  "14 октября 2026 года": "14 October 2026",
+  "Редакция от 14 октября 2026 года": "Updated on 14 October 2026",
+  "Добавить дочернюю мысль": "Add child thought",
+  "Добавить соседнюю мысль": "Add sibling thought",
+  "Добавить из дел": "Add from tasks and projects",
+  "Фокус на ветке": "Focus on branch",
+  "Свернуть ветку": "Collapse branch",
+  "Развернуть ветку": "Expand branch",
+  "Убрать ветку с карты": "Remove branch from map"
 }

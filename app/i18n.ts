@@ -239,7 +239,7 @@ const curatedTranslations: Record<string, string> = {
   "Открыть личный проект": "Open personal project",
   "Добавить дочернюю мысль": "Add child thought",
   "Добавить соседнюю мысль": "Add sibling thought",
-  "Добавить из дел": "Add from affairs",
+  "Добавить из дел": "Add from tasks and projects",
   "Фокус на ветке": "Focus on branch",
   "Развернуть ветку": "Expand branch",
   "Свернуть ветку": "Collapse branch",

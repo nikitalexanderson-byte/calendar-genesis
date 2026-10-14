@@ -50,3 +50,12 @@ export function formatTaskCount(count: number, language: Language): string {
 export function formatTaskListCount(count: number, language: Language): string {
   return `${TASK_SUMMARY_LABELS[language].list} · ${formatTaskCount(count, language)}`;
 }
+
+export function formatProjectCount(count: number, language: Language): string {
+  if(language==='ru')return `${count} ${slavicForm(count,'проект','проекта','проектов')}`;
+  if(language==='uk')return `${count} ${slavicForm(count,'проєкт','проєкти','проєктів')}`;
+  if(language==='sr')return `${count} ${slavicForm(count,'пројекат','пројекта','пројеката')}`;
+  if(language==='pl')return `${count} ${count===1?'projekt':count%100>=12&&count%100<=14?'projektów':count%10>=2&&count%10<=4?'projekty':'projektów'}`;
+  const forms={en:['project','projects'],el:['έργο','έργα'],de:['Projekt','Projekte'],fr:['projet','projets'],es:['proyecto','proyectos'],it:['progetto','progetti'],pt:['projeto','projetos'],zh:['个项目','个项目'],tr:['proje','proje'],ja:['件のプロジェクト','件のプロジェクト']};
+  return `${count} ${forms[language][count===1?0:1]}`;
+}

@@ -16,7 +16,7 @@ export function SharedLabelBadges({labels,ids}:{labels:SharedLabel[];ids?:string
 }
 
 export function SharedLabelPicker({labels,value,onChange,english,onManage,disabled}:{labels:SharedLabel[];value:string[];onChange:(ids:string[])=>void;english:boolean;onManage?:()=>void;disabled?:boolean}) {
-  return <details className="shared-label-picker"><summary>{english ? "Labels" : "Метки"}{value.length ? ` · ${value.length}` : ""}</summary>
+  return <details className="shared-label-picker"><summary>{english ? "Workspace labels" : "Метки пространства"}{value.length ? ` · ${value.length}` : ""}</summary>
     <SharedLabelBadges labels={labels} ids={value}/>
     {labels.length ? <fieldset disabled={disabled}><legend>{english ? "Select labels" : "Выбрать метки"}</legend>
       {labels.map(label => <label key={label.id}><input type="checkbox" checked={value.includes(label.id)} onChange={event=>onChange(event.target.checked ? [...value,label.id] : value.filter(id=>id!==label.id))}/>

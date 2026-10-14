@@ -4,7 +4,10 @@ declare(strict_types=1);
 /** Exercise the real router: binary downloads must never invoke logout. */
 function attachmentHttpDownloads(string $userId, string $taskId, array $file, string $fileBytes, string $imageBytes): void
 {
-    if ((genesisConfig()['app_url'] ?? '') !== 'https://localhost.invalid') {
+    $fixture = getenv('GENESIS_MINDMAPS_TEST') === 'isolated'
+        && (genesisConfig()['app_url'] ?? '') === 'http://127.0.0.1:4319'
+        && realpath(genesisConfig()['db_path']) === realpath(dirname(__DIR__,2).'/output/mindmaps-test.sqlite');
+    if ((genesisConfig()['app_url'] ?? '') !== 'https://localhost.invalid' && !$fixture) {
         throw new RuntimeException('HTTP regression requires the isolated smoke configuration.');
     }
     $listener = stream_socket_server('tcp://127.0.0.1:0', $errno, $error);

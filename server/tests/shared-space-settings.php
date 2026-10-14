@@ -122,3 +122,5 @@ try {
 }
 echo "Shared space settings, permission isolation, revisions and rollback passed.\n";
 require __DIR__ . '/shared-web-updates.php';
+require __DIR__ . '/shared-private-messages.php';
+require __DIR__ . '/shared-collaboration-migration.php';
