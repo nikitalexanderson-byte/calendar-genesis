@@ -1753,7 +1753,7 @@
   "Соревнование с собой": "Compete with yourself",
   "Личные рекорды и мастерство": "Personal records and mastery",
   "Прогресс каждой привычки существует отдельно от общего героического ранга.": "Progress for each habit is separate from your overall heroic rank.",
-  "Начало": "Started",
+  "Начало": "Start",
   "всего": "done",
   "Текущая серия": "Current streak",
   "Лучшая серия": "Best streak",
@@ -2632,5 +2632,15 @@
   "Раздел не удалось отобразить": "This section could not be displayed",
   "Не удалось загрузить раздел после повторной попытки. Проверьте соединение. Перед обновлением страницы сохраните открытые черновики.": "This section could not be loaded after a retry. Check your connection. Save any open drafts before refreshing the page.",
   "Остальные разделы продолжают работать. Перед обновлением страницы сохраните открытые черновики.": "Other sections are still available. Save any open drafts before refreshing the page.",
-  "Обновить страницу": "Refresh page"
+  "Обновить страницу": "Refresh page",
+  "Создатель задачи": "Task creator",
+  "Исполнитель": "Assignee",
+  "Обновлено": "Updated",
+  "Создать список задач": "Create task list",
+  "Пространства": "Spaces",
+  "Проекты": "Projects",
+  "Создатель": "Created by",
+  "Создано": "Created",
+  "Не удалось загрузить данные. Проверьте подключение и повторите попытку.": "Could not load data. Check your connection and try again.",
+  "Не удалось сохранить изменения": "Could not save changes"
 }
