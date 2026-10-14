@@ -79,6 +79,23 @@ try {
     webDenied(fn() => genesisSharedReadInbox($outsider, ['eventIds' => [$older]]));
     genesisSharedReadInbox($member, ['eventIds' => [$older]]);
     webExpect(genesisSharedOverview($member)['newComments'] === 54, 'Reading an old comment did not persist.');
+    $unrelated = genesisSharedAddComment($owner, $project['id'], $boundary['id'], ['body' => 'Unopened task comment']);
+    $displayed = array_column(genesisSharedComments($member, $project['id'], $task['id']), 'id');
+    webDenied(fn() => genesisSharedReadTaskUpdates($outsider, $project['id'], $task['id'], ['commentIds' => $displayed]));
+    webDenied(fn() => genesisSharedReadTaskUpdates($member, $project['id'], genesisUuid(), []));
+    webInvalid(fn() => genesisSharedReadTaskUpdates($member, $project['id'], $task['id'], ['commentIds' => ['invalid']]));
+    $readTask = genesisSharedReadTaskUpdates($member, $project['id'], $task['id'], []);
+    webExpect($readTask['overview']['newTasks'] === 1 && $readTask['overview']['newComments'] === 55, 'Opening task fields consumed hidden comments or another task.');
+    $later = genesisSharedAddComment($owner, $project['id'], $task['id'], ['body' => 'Arrived after discussion loaded']);
+    $readDiscussion = genesisSharedReadTaskUpdates($member, $project['id'], $task['id'], ['commentIds' => [...$displayed, $unrelated['id']]]);
+    webExpect($readDiscussion['overview']['newComments'] === 2 && $readDiscussion['overview']['newProjects'] === 1,
+        'Viewing discussion consumed unseen comments or project updates.');
+    webExpect(genesisSharedReadTaskUpdates($member, $project['id'], $task['id'], ['commentIds' => $displayed])['overview']['newComments'] === 2,
+        'Repeated acknowledgement changed the unread count.');
+    $left = array_column(genesisSharedInbox($member, '', true)['notifications'], 'commentId');
+    webExpect(in_array($later['id'], $left, true) && in_array($unrelated['id'], $left, true), 'Unseen comment was marked as read.');
+    genesisSharedReadTaskUpdates($member, $project['id'], $task['id'], ['commentIds' => [$later['id']]]);
+    webExpect(genesisSharedOverview($member)['newComments'] === 1, 'A newly displayed comment did not clear.');
     genesisSharedReadInbox($member, ['all' => true]);
     webExpect(genesisSharedInbox($member, '', true)['notifications'] === [] && genesisSharedOverview($member)['newTasks'] === 0, 'Mark all read did not persist.');
     // The existing server-only SQLite backup includes ciphertext and passes integrity checking.

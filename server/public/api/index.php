@@ -643,6 +643,9 @@ try {
         }
         if (count($segments) >= 4 && $segments[1] === 'private-conversations') {
             $conversationId = $segments[2];
+            if (count($segments) === 4 && $segments[3] === 'invitation' && $method === 'POST') {
+                genesisJson(genesisSharedRespondPrivateInvitation($userId,$conversationId,genesisReadJson()));
+            }
             if (count($segments) === 4 && $segments[3] === 'messages') {
                 if ($method === 'GET') genesisJson(genesisSharedPrivateMessages($userId,$conversationId,(int)($_GET['before'] ?? 0)));
                 if ($method === 'POST') genesisJson(genesisSharedPrivateSave($userId,$conversationId,genesisReadJson()),201);
@@ -670,6 +673,9 @@ try {
         }
         if ($method === 'POST' && $path === 'shared/inbox/read') {
             genesisSharedReadInbox($userId, genesisReadJson()); genesisJson(['ok' => true]);
+        }
+        if ($method === 'POST' && count($segments) === 6 && $segments[1] === 'projects' && $segments[3] === 'tasks' && $segments[5] === 'read') {
+            genesisJson(genesisSharedReadTaskUpdates($userId, $segments[2], $segments[4], genesisReadJson()));
         }
         if ($method === 'GET' && count($segments) === 4 && $segments[1] === 'tasks' && $segments[3] === 'image') {
             $image = genesisSharedReadTaskImage($userId, $segments[2]);

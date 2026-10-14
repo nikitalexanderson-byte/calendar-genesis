@@ -274,7 +274,7 @@
   "Задачи перейдут в выбранный статус.": "As tarefas passarão para o status selecionado.",
   "Статусы доски": "Status do conselho",
   "Название статуса": "Nome do status",
-  "Сохранить название": "Salvar nome",
+  "Сохранить название": "Guardar nome",
   "Переименовать": "Renomear",
   "Перенести задачи в": "Mover tarefas para",
   "Удалить статус": "Excluir status",
@@ -594,7 +594,7 @@
   "Другая вкладка изменила карту. Ваш текст сохранён отдельно. Откройте историю или сохраните этот вариант отдельной картой.": "Outra aba mudou o mapa. Seu texto foi salvo separadamente. Abra o histórico ou salve esta variante como um mapa separado.",
   "Не удалось выполнить действие.": "Não foi possível executar a ação.",
   "Новая мысль": "Novo pensamento",
-  "Название мысли": "Título pensado",
+  "Название мысли": "Nome do pensamento",
   "Пояснение · только в карте": "Nota · apenas neste mapa",
   "Мысль не имеет срока. Создание откроет обычную форму одной задачи; пояснение останется в карте.": "Um pensamento não tem data prevista. A criação abre o formulário padrão para uma tarefa; a nota permanece no mapa.",
   "Создать задачу из мысли": "Criar tarefa a partir do pensamento",
@@ -2293,5 +2293,10 @@
   "Серия не сохранена. Черновик оставлен на экране; повторите после подключения.": "A série não foi guardada. O rascunho permanece no ecrã; tente novamente após restabelecer a ligação.",
   "Закрыть карточку без сохранения настроек серии?": "Fechar o cartão sem guardar as definições da série?",
   "Введите действительный часовой пояс IANA, например Europe/Moscow. Черновик сохранён.": "Introduza um fuso horário IANA válido, por exemplo Europe/Moscow. O rascunho é mantido.",
-  "Ваш тариф: {plan}": "O seu plano: {plan}"
+  "Ваш тариф: {plan}": "O seu plano: {plan}",
+  "Действия с мыслью": "Ações do pensamento",
+  "Действия со связью": "Ações da ligação",
+  "Настроить связь": "Editar ligação",
+  "Удалить связь": "Eliminar ligação",
+  "Связать с другой мыслью": "Ligar a outro pensamento"
 }

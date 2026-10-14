@@ -2142,16 +2142,25 @@ export function loadSharedInbox({ unread = false, before = "", signal }: { unrea
   const params = new URLSearchParams(); if (unread) params.set("unread", "1"); if (before) params.set("before", before);
   return api<{ notifications: SharedNotification[]; nextCursor: string | null }>(`/shared/inbox?${params}`, { signal });
 }
-export function readSharedInbox(eventIds: string[], all = false) {
-  return api<{ ok: boolean }>("/shared/inbox/read", { method: "POST", body: JSON.stringify({ eventIds, all }) });
+export async function readSharedInbox(eventIds: string[], all = false) {
+  const result = await api<{ ok: boolean }>("/shared/inbox/read", { method: "POST", body: JSON.stringify({ eventIds, all }) });
+  window.dispatchEvent(new Event("genesis:shared-inbox-read"));
+  return result;
+}
+export async function readSharedTaskUpdates(projectId: string, taskId: string, commentIds: string[], signal?: AbortSignal) {
+  return api<{ ok: boolean; overview: SharedOverview }>(`/shared/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}/read`, {
+    method: "POST", body: JSON.stringify({ commentIds }), signal,
+  });
 }
 export async function listSharedNotifications() {
   return (await api<{ notifications: SharedNotification[] }>("/shared/notifications")).notifications;
 }
 export async function readSharedNotifications(eventIds: string[]) {
-  return api<{ ok: boolean }>("/shared/notifications/read", {
+  const result = await api<{ ok: boolean }>("/shared/notifications/read", {
     method: "POST", body: JSON.stringify({ eventIds }),
   });
+  window.dispatchEvent(new Event("genesis:shared-inbox-read"));
+  return result;
 }
 export async function acceptSharedInvitation(id: string) {
   return api<{ projectId: string; spaceId: string }>("/shared/invitations/accept", {

@@ -134,6 +134,19 @@
 .mindmap-semantic-link .mindmap-semantic-hit { fill: none; stroke: transparent; stroke-width: 24px; pointer-events: stroke; cursor: pointer; }
 .mindmap-semantic-link text { pointer-events: none; }
 .mindmap-semantic-link:is(:hover,:focus-visible,[aria-pressed="true"]) .mindmap-semantic { stroke-width: 3px; }
+.mindmap-semantic-link[aria-pressed="true"] .mindmap-semantic-hit { stroke: color-mix(in srgb,var(--gold) 18%,transparent); }
+.mindmap-selected-link-actions { display:flex; flex-wrap:wrap; gap:8px; padding:8px; }
+.mindmap-selected-link-actions button { display:flex; align-items:center; gap:8px; min-height:44px; }
+.mindmap-selected-link-actions svg { width:18px; height:18px; }
+.mindmaps .mindmap-graph-node.mindmap-inline-node { height:auto; z-index:7; cursor:text; user-select:text; }
+.mindmap-inline-title { display:grid; gap:6px; min-width:0; }
+html[data-genesis-theme] .genesis-app .mindmaps .mindmap-inline-title input { min-width:0; width:100%; min-height:44px; font:500 16px/1.5 var(--font-ui); caret-color:var(--gold); }
+.mindmap-inline-title > div { display:flex; gap:6px; justify-content:flex-end; }
+.mindmap-inline-title button { display:grid; place-items:center; min-width:44px; min-height:44px; padding:6px; }
+.mindmap-inline-title svg { width:18px; height:18px; }
+.mindmap-link-editor { display:grid; gap:16px; }
+.mindmap-link-editor fieldset { display:grid; gap:12px; padding:0; border:0; }
+.mindmap-link-editor p { overflow-wrap:anywhere; }
 .mindmap-plane text { fill: var(--ink-soft); font: 12px var(--font-ui); }
 .mindmaps .mindmap-graph-node { position: absolute; width: 240px; height: 88px; display: flex; flex-direction: column; gap: 5px; text-align: start; border-radius: 12px; padding: 10px 14px; }
 .mindmap-node-content { display: flex; flex-direction: column; gap: 8px; min-width: 0; width: 100%; }

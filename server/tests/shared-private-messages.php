@@ -33,6 +33,32 @@ try{
   $conversation=genesisSharedPrivateConversation($owner,$spaceId,['userId'=>$peer]);$cid=$conversation['id'];
   privateExpect(genesisSharedPrivateConversation($peer,$spaceId,['userId'=>$owner])['id']===$cid,'Pair created duplicate conversations.');
   $payload=['version'=>1,'iv'=>'AAAAAAAAAAAAAAAA','ciphertext'=>str_repeat('A',44),'keyIds'=>[$owner=>$a['keyId'],$peer=>$b['keyId']]];$id=genesisUuid();
+  privateExpect($conversation['status']==='pending'&&$conversation['initiatorId']===$owner,'New dialogue did not request consent.');
+  privateExpect(count(genesisSharedPrivateInbox($peer)['invitations'])===1&&genesisSharedPrivateInbox($owner)['invitations']===[]
+    &&genesisSharedPrivateInbox($admin)['invitations']===[],'Invitation metadata escaped recipient ACL.');
+  privateReject(fn()=>genesisSharedPrivateSave($owner,$cid,['id'=>$id,'payload'=>$payload]));
+  privateReject(fn()=>genesisSharedPrivateMessages($peer,$cid));privateReject(fn()=>genesisSharedPrivateRead($peer,$cid,['seq'=>0]));
+  privateReject(fn()=>genesisSharedPrivateFileChunk($owner,$cid,genesisUuid(),0,['ciphertext'=>str_repeat('A',22),'chunks'=>1,'bytes'=>16]));
+  privateReject(fn()=>genesisSharedRespondPrivateInvitation($owner,$cid,['accept'=>true]));
+  privateReject(fn()=>genesisSharedRespondPrivateInvitation($admin,$cid,['accept'=>true]));
+  privateReject(fn()=>genesisSharedRespondPrivateInvitation($outsider,$cid,['accept'=>false]));
+  privateReject(fn()=>genesisSharedRespondPrivateInvitation($peer,$cid,['accept'=>'true']));
+  genesisSharedRespondPrivateInvitation($peer,$cid,['accept'=>true]);genesisSharedRespondPrivateInvitation($peer,$cid,['accept'=>true]);
+  privateExpect(genesisSharedPrivateConversation($owner,$spaceId,['userId'=>$peer])['status']==='accepted'
+    &&genesisSharedPrivateInbox($peer)['invitations']===[],'Recipient acceptance did not persist.');
+  privateReject(fn()=>genesisSharedRespondPrivateInvitation($peer,$cid,['accept'=>false]));
+  // Recipients without registered keys can still receive and decline a metadata-only invitation.
+  $unkeyed=genesisSharedPrivateConversation($owner,$spaceId,['userId'=>$pending]);
+  privateExpect(count(genesisSharedPrivateInbox($pending)['invitations'])===1,'A recipient without a key never received the invitation.');
+  privateReject(fn()=>genesisSharedRespondPrivateInvitation($pending,$unkeyed['id'],['accept'=>true]));
+  genesisSharedRespondPrivateInvitation($pending,$unkeyed['id'],['accept'=>false]);genesisSharedRespondPrivateInvitation($pending,$unkeyed['id'],['accept'=>false]);
+  privateExpect(genesisSharedPrivateInbox($pending)['invitations']===[]&&genesisSharedPrivateConversation($owner,$spaceId,['userId'=>$pending])['status']==='declined','Declined invitation was re-sent on polling.');
+  privateReject(fn()=>genesisSharedPrivateSave($owner,$unkeyed['id'],['id'=>genesisUuid(),'payload'=>$payload]));
+  // Additive upgrade leaves established conversations readable by older clients.
+  $legacy=genesisUuid();[$la,$lb]=strcmp($owner,$admin)<0?[$owner,$admin]:[$admin,$owner];
+  $db->prepare('INSERT INTO shared_private_conversations(id,space_id,user_a,user_b,created_at) VALUES(?,?,?,?,?)')->execute([$legacy,$spaceId,$la,$lb,genesisNow()]);
+  privateExpect(genesisSharedPrivateConversation($owner,$spaceId,['userId'=>$admin])['status']==='accepted'
+    &&genesisSharedPrivateMessages($admin,$legacy)['messages']===[],'Migration interrupted established dialogue access.');
   genesisSharedPrivateSave($owner,$cid,['id'=>$id,'payload'=>$payload]);genesisSharedPrivateSave($owner,$cid,['id'=>$id,'payload'=>$payload]);
   privateExpect(count(genesisSharedPrivateMessages($peer,$cid)['messages'])===1,'Retry duplicated message.');
   privateReject(fn()=>genesisSharedPrivateMessages($admin,$cid));privateReject(fn()=>genesisSharedPrivateMessages($outsider,$cid));
@@ -64,7 +90,10 @@ try{
   privateReject(fn()=>genesisSharedPrivateFileChunk($owner,$cid,$fileId,0));
   genesisSharedPrivateSave($owner,$cid,['id'=>genesisUuid(),'payload'=>$payload]);privateExpect(count(genesisSharedPrivateMessages($peer,$cid)['messages'])===1,'Conversation could not resume after deletion.');
   genesisSharedProjectComments($owner,$project['id'],['body'=>'Project discussion']);genesisSharedProjectComments($owner,$project['id'],['body'=>'Board discussion','boardId'=>$status]);privateExpect(count(genesisSharedProjectComments($peer,$project['id'],null,$status))===1,'Board comments missing');privateReject(fn()=>genesisSharedProjectComments($owner,$project['id'],['body'=>'Bad board','boardId'=>'other']));privateExpect(count(genesisSharedProjectComments($peer,$project['id']))===1,'Project comments missing.');privateReject(fn()=>genesisSharedProjectComments($outsider,$project['id']));
+  $pendingAgain=genesisSharedPrivateConversation($peer,$spaceId,['userId'=>$pending]);
   $db->prepare('DELETE FROM shared_space_members WHERE space_id=? AND user_id=?')->execute([$spaceId,$peer]);
+  privateExpect(!array_filter(genesisSharedPrivateInbox($pending)['invitations'],fn($item)=>$item['id']===$pendingAgain['id']),'Revoked membership left a visible invitation.');
+  privateReject(fn()=>genesisSharedRespondPrivateInvitation($pending,$pendingAgain['id'],['accept'=>false]));
   privateReject(fn()=>genesisSharedPrivateMessages($peer,$cid));privateReject(fn()=>genesisSharedPrivateMessages($owner,$cid));
   privateExpect(genesisSharedOverview($peer)['tasks']===0&&genesisSharedCalendarTasks($peer,'2026-10-01','2026-10-31')===[],'Revoked workspace access survived in counters or calendar.');
   $backup=tempnam(sys_get_temp_dir(),'genesis-private-backup-');try{$db->exec('VACUUM INTO '.$db->quote($backup));$snapshot=new PDO('sqlite:'.$backup);privateExpect($snapshot->query('PRAGMA integrity_check')->fetchColumn()==='ok','Consistent backup failed.');privateExpect((int)$snapshot->query('SELECT COUNT(*) FROM shared_private_conversations')->fetchColumn()>=1,'Backup lost messaging metadata.');}finally{$snapshot=null;if(is_file($backup))unlink($backup);}

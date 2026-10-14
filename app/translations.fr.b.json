@@ -4,5 +4,12 @@
   "Достигнут лимит данных. Экспортируйте и удалите ненужные данные или обратитесь в поддержку.": "La limite de données est atteinte. Exportez et supprimez les données inutiles ou contactez le support.",
   "Локальный выход выполнен. Серверный выход не подтверждён. Повторите вход и выход при доступной сети.": "La déconnexion locale est effectuée. La déconnexion du serveur reste non confirmée. Reconnectez-vous puis déconnectez-vous lorsque le réseau est disponible.",
   "Очистка браузера не подтверждена. Закройте вкладки GENESIS и удалите данные сайта в настройках браузера перед передачей устройства.": "Le nettoyage du navigateur reste non confirmé. Fermez les onglets GENESIS et effacez les données du site dans les paramètres du navigateur avant de céder cet appareil.",
-  "Выход удалит данные аккаунтов и ключи из браузера, включая несинхронизированные изменения. Данные в облаке сохранятся. Сохраните черновики и код восстановления перед выходом. Выйти?": "La déconnexion supprime les données des comptes et les clés de ce navigateur, y compris les modifications non synchronisées. Les données cloud restent conservées. Enregistrez les brouillons et votre code de récupération avant de continuer. Se déconnecter ?"
+  "Выход удалит данные аккаунтов и ключи из браузера, включая несинхронизированные изменения. Данные в облаке сохранятся. Сохраните черновики и код восстановления перед выходом. Выйти?": "La déconnexion supprime les données des comptes et les clés de ce navigateur, y compris les modifications non synchronisées. Les données cloud restent conservées. Enregistrez les brouillons et votre code de récupération avant de continuer. Se déconnecter ?",
+  "Название мысли": "Nom de la pensée",
+  "Сохранить название": "Enregistrer le nom",
+  "Действия с мыслью": "Actions de la pensée",
+  "Действия со связью": "Actions de la relation",
+  "Настроить связь": "Modifier la relation",
+  "Удалить связь": "Supprimer la relation",
+  "Связать с другой мыслью": "Relier à une autre pensée"
 }

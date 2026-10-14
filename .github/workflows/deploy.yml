@@ -143,6 +143,7 @@ jobs:
           php server/tests/shared-series-migration.php
           php server/tests/shared-ui.php
           php server/tests/shared-space-settings.php
+          php server/tests/private-invitations-migration.php
 
       - name: Test
         run: pnpm test
