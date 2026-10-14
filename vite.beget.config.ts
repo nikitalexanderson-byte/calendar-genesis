@@ -120,6 +120,11 @@ export default defineConfig({
         codeSplitting: {
           groups: [
             { name: "view-recovery", test: /app[\\/]DeferredViews\.tsx$/, priority: 14 },
+            {
+              name: "shared-task-controls",
+              test: /app[\\/](?:SharedTaskPageControls|SharedDependencyPicker|SharedArchivedTasks|SharedTaskDetailsEditor|SharedEntityPreview|SharedEntityComments)\.tsx$/,
+              priority: 14,
+            },
             ...["en","el","de","fr","es","it","pt","pl","sr","uk","zh","tr","ja"].map((locale) => ({
               name: `locale-ui-${locale}`,
               test: new RegExp(`ui-translations[\\\\/]${locale}\\.json$`),
