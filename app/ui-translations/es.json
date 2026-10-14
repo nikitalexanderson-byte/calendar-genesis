@@ -234,7 +234,7 @@
   "Передайте ссылку указанному человеку лично": "Comparte el enlace de forma privada con la persona nombrada.",
   "Создать приглашение": "Crear invitación",
   "Новая задача команды": "Nueva tarea de equipo",
-  "Исполнитель": "Cesionario",
+  "Исполнитель": "Responsable",
   "Никто": "Nadie",
   "Обсуждение": "Discusión",
   "Комментарий": "Comentario",
@@ -2173,5 +2173,15 @@
   "Раздел не удалось отобразить": "No se pudo mostrar esta sección",
   "Не удалось загрузить раздел после повторной попытки. Проверьте соединение. Перед обновлением страницы сохраните открытые черновики.": "No se pudo cargar esta sección tras volver a intentarlo. Comprueba tu conexión. Guarda los borradores abiertos antes de actualizar la página.",
   "Остальные разделы продолжают работать. Перед обновлением страницы сохраните открытые черновики.": "Las demás secciones siguen disponibles. Guarda los borradores abiertos antes de actualizar la página.",
-  "Обновить страницу": "Actualizar página"
+  "Обновить страницу": "Actualizar página",
+  "Создатель задачи": "Creada por",
+  "Обновлено": "Actualizada",
+  "Создать список задач": "Crear lista de tareas",
+  "Пространства": "Espacios",
+  "Проекты": "Proyectos",
+  "Создатель": "Creado por",
+  "Создано": "Creado",
+  "Начало": "Inicio",
+  "Не удалось загрузить данные. Проверьте подключение и повторите попытку.": "No se pudieron cargar los datos. Compruebe la conexión e inténtelo de nuevo.",
+  "Не удалось сохранить изменения": "No se pudieron guardar los cambios"
 }

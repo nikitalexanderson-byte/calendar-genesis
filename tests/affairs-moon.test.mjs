@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { matchesAffair } from "../app/affairs-search.ts";
 import { restoredSharedProject, sharedProjectTree, sharedProjectDestinations } from "../app/shared-expansion.ts";
-import { createMessagingIdentity, conversationKey, encryptPrivateMessage, decryptPrivateMessage, exportMessagingBackup, importMessagingBackup, securityCode } from "../app/private-message-crypto.ts";
+import { createMessagingIdentity, conversationKey, encryptPrivateMessage, decryptPrivateMessage, exportMessagingBackup, importMessagingBackup, securityCode, encryptPrivateFile, decryptPrivateFile, decodePrivateContent, PRIVATE_FILE_LIMIT } from "../app/private-message-crypto.ts";
 import { collaborationCopy, collaborationText } from "../app/collaboration-copy.ts";
 
 test("private messages authenticate both peers, context, revisions and encrypted key recovery", async () => {
@@ -29,6 +29,25 @@ test("collaboration copy explicitly covers all fourteen supported languages", ()
     assert.equal(rows.length,14,key);
     for(const [index,locale] of locales.entries()){assert.ok(rows[index].trim(),`${locale}/${key}`);assert.equal(collaborationText(key,locale),rows[index]);if(!['ru','sr','uk'].includes(locale))assert.doesNotMatch(rows[index],/[А-Яа-яЁё]/u,`${locale}/${key}`);}
   }
+});
+
+test("private files authenticate content and conversation, keep names encrypted and survive message edits", async () => {
+  const [alice,bob,eve]=await Promise.all([createMessagingIdentity(),createMessagingIdentity(),createMessagingIdentity()]);
+  const [a,b,e]=await Promise.all([conversationKey(alice,bob.publicKey,'chat','space'),conversationKey(bob,alice.publicKey,'chat','space'),conversationKey(eve,alice.publicKey,'chat','space')]);
+  const context={conversationId:'chat',spaceId:'space',id:'message',senderId:'alice',revision:1};
+  const source=crypto.getRandomValues(new Uint8Array(65536)),file=new File([source,source,source,source,source],'Приватный документ.bin');
+  const encrypted=await encryptPrivateFile(a,context,file);
+  assert.equal(encrypted.chunks.length,2);
+  assert.deepEqual(new Uint8Array(await (await decryptPrivateFile(b,{...context,revision:2},encrypted.metadata,encrypted.chunks)).arrayBuffer()),new Uint8Array(await file.arrayBuffer()));
+  for(const changes of [{id:'other'},{senderId:'bob'},{conversationId:'other'},{spaceId:'other'}])await assert.rejects(()=>decryptPrivateFile(b,{...context,...changes},encrypted.metadata,encrypted.chunks));
+  await assert.rejects(()=>decryptPrivateFile(e,context,encrypted.metadata,encrypted.chunks));
+  await assert.rejects(()=>decryptPrivateFile(b,context,encrypted.metadata,[encrypted.chunks[1],encrypted.chunks[0]]));
+  const ids={alice:alice.keyId,bob:bob.keyId},body=JSON.stringify({format:'genesis-private-content',text:'Файл',files:[encrypted.metadata]}),payload=await encryptPrivateMessage(a,context,body,ids);
+  assert.ok(!JSON.stringify(payload).includes(file.name));
+  assert.equal(decodePrivateContent(await decryptPrivateMessage(b,context,payload,ids)).files[0].name,file.name);
+  assert.equal(decodePrivateContent('old text').text,'old text');
+  const empty=await encryptPrivateFile(a,context,new File([],'empty.txt'));assert.equal((await decryptPrivateFile(b,context,empty.metadata,empty.chunks)).size,0);
+  await assert.rejects(()=>encryptPrivateFile(a,context,new File([new Uint8Array(PRIVATE_FILE_LIMIT+1)],'oversized')));
 });
 
 test("project picker keeps descendants with parents and includes orphaned or cyclic projects once", () => {

@@ -1094,7 +1094,7 @@ function genesisSharedProjectSnapshot(string $userId, string $projectId): array
         EXISTS (SELECT 1 FROM shared_task_images image WHERE image.task_id = t.id) AS hasImage,
         t.assignee_id AS assigneeId, t.created_by AS createdBy,
         t.updated_by AS updatedBy, t.completed_by AS completedBy, t.completed_at AS completedAt,
-        t.position, t.revision, t.updated_at AS updatedAt FROM shared_tasks_read t
+        t.position, t.revision, t.created_at AS createdAt, t.updated_at AS updatedAt FROM shared_tasks_read t
         WHERE t.project_id = :project ORDER BY t.status_id, t.position LIMIT 500');
     $tasks->execute(['project' => $projectId]);
     $members = $db->prepare('SELECT m.user_id AS userId, m.role, sm.role AS spaceRole,
@@ -1118,7 +1118,7 @@ function genesisSharedProjectSnapshot(string $userId, string $projectId): array
             'canOrganizeTasks' => $project['permissions']['organizeTasks'],
             'canCreateBoards' => $project['permissions'][$project['space_permissions_json'] === null ? 'editTasks' : 'manageProjects'],
             'permissions' => $project['permissions'],
-            'updatedAt' => $project['updated_at'],
+            'updatedAt' => $project['updated_at'], 'createdAt' => $project['created_at'], 'createdBy' => $project['created_by'],
         ],
         'statuses' => $statuses->fetchAll(), 'categories' => $categories->fetchAll(),
         'tasks' => array_map(static function (array $task) use ($attachments, $approvals, $reviews): array {
@@ -1729,6 +1729,31 @@ function genesisSharedComments(string $userId, string $projectId, string $taskId
     $query->execute(['task' => $taskId, 'project' => $projectId]);
     return array_map(static function ($row) { $row['mentionIds'] = $row['mentionIdsCsv'] ? explode(',', $row['mentionIdsCsv']) : [];
         unset($row['mentionIdsCsv']); return $row; }, $query->fetchAll());
+}
+
+function genesisSharedProjectComments(string $userId,string $projectId,?array $input=null,?string $boardId=null): array
+{
+    genesisSharedRequireEnabled($userId);
+    genesisSharedProjectAccess($projectId,$userId,$input===null ? 'read' : 'comment');
+    $db=genesisDb();
+    $boardId=$input['boardId']??$boardId;
+    if($boardId!==null){if(!is_string($boardId))throw new InvalidArgumentException('INVALID_BOARD');$q=$db->prepare('SELECT 1 FROM shared_project_statuses WHERE id=? AND project_id=?');$q->execute([$boardId,$projectId]);if(!$q->fetchColumn())throw new GenesisSharedAccessException('BOARD_NOT_FOUND');}
+    if($input!==null){
+        $body=genesisSharedText($input['body']??'',5000);if($body==='')throw new InvalidArgumentException('TITLE_REQUIRED');
+        $ids=$input['mentionIds']??[];
+        if(!is_array($ids)||!array_is_list($ids)||count($ids)>20||array_filter($ids,static fn($id)=>!is_string($id)||strlen($id)>100))throw new InvalidArgumentException('INVALID_MENTIONS');
+        genesisBeginWriteTransaction($db);
+        try{
+            genesisSharedProjectAccess($projectId,$userId,'comment');
+            $q=$db->prepare('SELECT u.display_name FROM shared_project_members m JOIN users u ON u.id=m.user_id WHERE m.project_id=? AND m.user_id=?');
+            foreach($ids as $id){$q->execute([$projectId,$id]);$name=$q->fetchColumn();if(!is_string($name)||$name===''||!preg_match('/@'.preg_quote($name,'/').'(?![\p{L}\p{N}_])/u',$body))throw new InvalidArgumentException('INVALID_MENTIONS');}
+            $q=$db->prepare('SELECT COUNT(*) FROM shared_project_comments WHERE project_id=?');$q->execute([$projectId]);if((int)$q->fetchColumn()>=10000)throw new GenesisSharedAccessException('MESSAGE_STORAGE_LIMIT',409);
+            $db->prepare('INSERT INTO shared_project_comments(id,project_id,board_id,author_id,body,mention_ids_json,created_at) VALUES(?,?,?,?,?,?,?)')->execute([genesisUuid(),$projectId,$boardId,$userId,$body,json_encode(array_values(array_unique($ids)),JSON_THROW_ON_ERROR),genesisNow()]);
+            $db->commit();
+        }catch(Throwable $error){$db->rollBack();throw $error;}
+    }
+    $q=$db->prepare('SELECT c.id,c.body,c.author_id AS authorId,COALESCE(u.display_name,\'GENESIS\') AS authorName,c.created_at AS createdAt,c.mention_ids_json FROM shared_project_comments c LEFT JOIN users u ON u.id=c.author_id WHERE c.project_id=? AND c.board_id IS ? ORDER BY c.created_at DESC,c.id DESC LIMIT 200');$q->execute([$projectId,$boardId]);
+    return array_reverse(array_map(static function($row){$row['mentionIds']=json_decode($row['mention_ids_json'],true);unset($row['mention_ids_json']);return $row;},$q->fetchAll()));
 }
 
 function genesisSharedAddComment(string $userId, string $projectId, string $taskId, array $input): array

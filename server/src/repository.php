@@ -234,6 +234,9 @@ function genesisUiVisibility(mixed $value): array
         if (!in_array($view,['cards','list'],true)) throw new InvalidArgumentException('INVALID_CATEGORY_LAYOUT');
         $result[$field] = $view;
     }
+    $tasksCompact = $decoded['sharedTasksCompact'] ?? true;
+    if (!is_bool($tasksCompact)) throw new InvalidArgumentException('INVALID_TASK_LAYOUT');
+    $result['sharedTasksCompact'] = $tasksCompact;
     return $result;
 }
 
@@ -1147,7 +1150,7 @@ function genesisUpdateAccountPreferences(string $userId, array $payload): array
     }
     $visibilityInput = $payload['uiVisibility'] ?? ($user['ui_visibility_json'] ?? '{}');
     $savedVisibility = genesisUiVisibility($user['ui_visibility_json'] ?? '{}');
-    $layoutFields = ['sidebarWidth', 'personalInboxPosition', 'personalInboxHidden', 'personalInboxCompact', 'sharedInboxPosition', 'sharedInboxHidden', 'sharedInboxCompact', 'sharedCategoriesExpanded', 'personalCategoriesExpanded', 'personalCategoriesView', 'sharedCategoriesView', 'personalInboxWidth', 'sharedInboxWidth'];
+    $layoutFields = ['sidebarWidth', 'personalInboxPosition', 'personalInboxHidden', 'personalInboxCompact', 'sharedInboxPosition', 'sharedInboxHidden', 'sharedInboxCompact', 'sharedCategoriesExpanded', 'personalCategoriesExpanded', 'personalCategoriesView', 'sharedCategoriesView', 'sharedTasksCompact', 'personalInboxWidth', 'sharedInboxWidth'];
     // Older web/native clients must not reset account layout preferences.
     if (is_array($visibilityInput)) {
         foreach (['sidebarAutoCollapseSeconds', ...$layoutFields] as $field) {

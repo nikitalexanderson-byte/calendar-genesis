@@ -107,6 +107,7 @@ try {
     expect($defaults['personalInboxWidth'] === 300 && $defaults['sharedInboxWidth'] === 300,
         'Inbox widths must default to 300.');
     expect($defaults['sharedCategoriesExpanded'] === false, 'Shared categories must default to collapsed.');
+    expect($defaults['sharedTasksCompact'] === true, 'Shared project tasks must keep their existing compact default.');
     $visibility = [
         'hiddenMenuItems' => ['tasks', 'stoicheion'], 'hiddenSubmenus' => ['calendar.year'],
         'hiddenTodayBlocks' => ['rhythm', 'tasks'], 'enabledCalendars' => ['profane'],
@@ -116,13 +117,14 @@ try {
         'sharedInboxPosition' => 'bottom', 'sharedInboxHidden' => false, 'sharedInboxCompact' => false,
         'sharedInboxWidth' => 420, 'sharedCategoriesExpanded' => true,
         'personalCategoriesExpanded' => true, 'personalCategoriesView' => 'list', 'sharedCategoriesView' => 'cards',
+        'sharedTasksCompact' => false,
     ];
     $user = genesisUpdateAccountPreferences($userId, ['uiVisibility' => $visibility]);
     expect(genesisUserForClient($user)['uiVisibility'] === $visibility, 'Navigation visibility did not round-trip.');
     $legacyVisibility = $visibility;
     foreach (['sidebarAutoCollapseSeconds', 'sidebarWidth', 'personalInboxPosition', 'personalInboxHidden',
         'personalInboxCompact', 'sharedInboxPosition', 'sharedInboxHidden', 'sharedInboxCompact',
-        'personalInboxWidth', 'sharedInboxWidth', 'sharedCategoriesExpanded', 'personalCategoriesExpanded', 'personalCategoriesView', 'sharedCategoriesView'] as $field) unset($legacyVisibility[$field]);
+        'personalInboxWidth', 'sharedInboxWidth', 'sharedCategoriesExpanded', 'personalCategoriesExpanded', 'personalCategoriesView', 'sharedCategoriesView', 'sharedTasksCompact'] as $field) unset($legacyVisibility[$field]);
     $user = genesisUpdateAccountPreferences($userId, ['uiVisibility' => $legacyVisibility]);
     expect(genesisUserForClient($user)['uiVisibility']['sidebarAutoCollapseSeconds'] === 30,
         'An older client reset the sidebar delay.');
@@ -144,6 +146,7 @@ try {
         ['personalInboxWidth' => 299], ['sharedInboxWidth' => 5001], ['personalInboxWidth' => '400'],
         ['sharedCategoriesExpanded' => 1],
         ['personalCategoriesExpanded'=>1], ['sharedCategoriesView'=>'table'], ['personalCategoriesView'=>true],
+        ['sharedTasksCompact'=>1],
         ['sharedInboxHidden' => 1], ['personalInboxPosition' => 'floating'], ['sharedInboxCompact' => 'true']] as $invalid) {
         try {
             genesisUpdateAccountPreferences($userId, ['uiVisibility' => [...$visibility, ...$invalid]]);

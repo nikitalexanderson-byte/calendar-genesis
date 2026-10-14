@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { type FormEvent, lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import {
   createSharedStatus, deleteSharedStatus, listSharedProjects, listSharedSpaces,
   listSharedTaskLists, loadSharedProject, updateSharedStatus,
@@ -10,11 +10,14 @@ import { type CalendarMode } from "./calendar-data";
 import { SharedTaskCreate } from "./SharedTaskCreate";
 import "./shared-task-lists.css";
 
+const SharedEntityPreview=lazy(()=>import("./SharedEntityPreview"));
+
 type Props = { language: string; enabledCalendars: CalendarMode[]; onOpenProject: () => void; embeddedCreate?: boolean; onCreated?: () => void };
 type Modal = "create" | "edit" | "delete" | "task" | null;
 
 export function SharedTaskLists({ language, enabledCalendars, onOpenProject, embeddedCreate = false, onCreated }: Props) {
   const en = language === "en";
+  const [preview,setPreview]=useState<SharedTaskList|null>(null);
   const [lists, setLists] = useState<SharedTaskList[]>([]);
   const [spaces, setSpaces] = useState<SharedSpace[]>([]);
   const [projects, setProjects] = useState<SharedProject[]>([]);
@@ -139,6 +142,7 @@ export function SharedTaskLists({ language, enabledCalendars, onOpenProject, emb
   if (embeddedCreate) return <section className="shared-task-lists">{message ? <p role="status">{message}</p> : null}{modalContent}</section>;
 
   return <section className="shared-task-lists" aria-label={en ? "Team task lists" : "Общие списки задач"}>
+    {preview?<Suspense fallback={null}><SharedEntityPreview id={preview.projectId} boardId={preview.id} language={language} onClose={()=>setPreview(null)} onEdit={()=>openEdit(preview)}/></Suspense>:null}
     <header><div><h3>{en ? "Team task lists" : "Общие списки задач"}</h3>
       <p>{en ? "Saved in GENESIS and visible to project members. Each list is also a board column."
         : "Хранятся в GENESIS и доступны участникам проекта. Каждый список также является колонкой доски."}</p></div>
@@ -148,7 +152,7 @@ export function SharedTaskLists({ language, enabledCalendars, onOpenProject, emb
     {!spaces.length ? <p>{en ? "Create a shared workspace first." : "Сначала создайте общее пространство."}</p> : null}
     <div className="shared-task-lists-grid">{lists.map((row) => <article key={row.id}>
       <button type="button" className="shared-task-lists-title" aria-expanded={openedId === row.id}
-        onClick={() => { setSnapshot(null); setOpenedId((current) => current === row.id ? "" : row.id); }}>{row.title}</button>
+        onClick={() => { setPreview(row);setSnapshot(null); setOpenedId((current) => current === row.id ? "" : row.id); }}>{row.title}</button>
       <small>{row.spaceTitle} / {row.projectTitle} · {row.taskCount} {en ? "tasks" : "задач"}</small>
       {openedId === row.id ? <div className="shared-task-lists-body">
         {(snapshot?.project.id === row.projectId ? snapshot.tasks.filter((task) => task.statusId === row.id) : [])

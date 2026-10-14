@@ -54,11 +54,15 @@ try {
         INSERT INTO shared_private_conversations VALUES ('fixture-chat','legacy-space','legacy-a','legacy-b','now');
         INSERT INTO shared_private_messages(id,conversation_id,sender_id,payload_json,created_at,updated_at) VALUES ('fixture-message','fixture-chat','legacy-a','opaque-ciphertext','now','now');
         INSERT INTO shared_private_message_reads VALUES ('fixture-chat','legacy-b',1)");
+    $legacyMessages=$collaborationDb->query('SELECT * FROM shared_private_messages')->fetchAll();
+    collaborationMigrate($collaborationDb, '057_shared_project_comments.sql');collaborationMigrate($collaborationDb, '057_shared_project_comments.sql');
+    collaborationMigrationExpect($collaborationDb->query('SELECT * FROM shared_private_messages')->fetchAll()===$legacyMessages,'Attachment upgrade changed legacy messages');
+    $collaborationDb->exec("INSERT INTO shared_private_files VALUES('file','fixture-chat','legacy-a','fixture-message',1,16,'now'); INSERT INTO shared_private_file_chunks VALUES('file',0,'opaque-file'); INSERT INTO shared_project_comments VALUES('comment','legacy-project',NULL,'legacy-a','Discussion','[]','now')");
     collaborationMigrationExpect($collaborationDb->query('PRAGMA foreign_key_check')->fetch() === false, 'Migration foreign keys failed');
     $collaborationDb->exec("DELETE FROM shared_space_members WHERE user_id='legacy-b'");
     collaborationMigrationExpect((int)$collaborationDb->query('SELECT COUNT(*) FROM shared_space_presence')->fetchColumn() === 0, 'Revoked membership retained presence');
     $collaborationDb->exec("DELETE FROM shared_spaces WHERE id='legacy-space'");
-    foreach (['shared_private_conversations','shared_private_messages','shared_private_message_reads'] as $table) {
+    foreach (['shared_private_conversations','shared_private_messages','shared_private_message_reads','shared_private_files','shared_private_file_chunks','shared_project_comments'] as $table) {
         collaborationMigrationExpect((int)$collaborationDb->query('SELECT COUNT(*) FROM ' . $table)->fetchColumn() === 0, 'Space deletion did not cascade to ' . $table);
     }
     $collaborationBackup = new PDO('sqlite:' . $collaborationBackupPath, null, null, $collaborationOptions);
@@ -69,7 +73,7 @@ try {
     }
     $collaborationFresh = new PDO('sqlite::memory:', null, null, $collaborationOptions);
     $collaborationFresh->exec('PRAGMA foreign_keys=ON');
-    collaborationMigrate($collaborationFresh, '055_space_presence_private_messages.sql');
+    collaborationMigrate($collaborationFresh, '057_shared_project_comments.sql');
     collaborationMigrationExpect($collaborationFresh->query('PRAGMA integrity_check')->fetchColumn() === 'ok', 'Fresh schema failed');
     collaborationMigrationExpect((int)$collaborationFresh->query("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('shared_space_presence','shared_messaging_keys','shared_private_conversations','shared_private_messages','shared_private_message_reads')")->fetchColumn() === 5, 'Fresh schema is incomplete');
 } finally {

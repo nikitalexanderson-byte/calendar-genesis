@@ -15,12 +15,14 @@ export type AccountLayout = {
   personalCategoriesExpanded: boolean;
   personalCategoriesView: "cards" | "list";
   sharedCategoriesView: "cards" | "list";
+  sharedTasksCompact: boolean;
 };
 export const DEFAULT_ACCOUNT_LAYOUT: AccountLayout = {
   sidebarWidth: 240, personalInboxPosition: "right", personalInboxHidden: false, personalInboxCompact: false,
   sharedInboxPosition: "right", sharedInboxHidden: false, sharedInboxCompact: false,
   sharedCategoriesExpanded: false,
   personalCategoriesExpanded: false, personalCategoriesView: "cards", sharedCategoriesView: "list",
+  sharedTasksCompact: true,
   personalInboxWidth: 300, sharedInboxWidth: 300,
 };
 export function accountLayout(value?: Partial<AccountLayout> | null): AccountLayout {
@@ -35,6 +37,7 @@ export function accountLayout(value?: Partial<AccountLayout> | null): AccountLay
     personalCategoriesExpanded: value?.personalCategoriesExpanded === true,
     personalCategoriesView: value?.personalCategoriesView === "list" ? "list" : "cards",
     sharedCategoriesView: value?.sharedCategoriesView === "cards" ? "cards" : "list",
+    sharedTasksCompact: value?.sharedTasksCompact !== false,
     personalInboxWidth: Number.isInteger(value?.personalInboxWidth) ? Math.max(300, Math.min(5000, value!.personalInboxWidth!)) : 300,
     sharedInboxWidth: Number.isInteger(value?.sharedInboxWidth) ? Math.max(300, Math.min(5000, value!.sharedInboxWidth!)) : 300,
   };

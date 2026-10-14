@@ -645,6 +645,7 @@ try {
             if (count($segments) === 4 && $segments[3] === 'messages') {
                 if ($method === 'GET') genesisJson(genesisSharedPrivateMessages($userId,$conversationId,(int)($_GET['before'] ?? 0)));
                 if ($method === 'POST') genesisJson(genesisSharedPrivateSave($userId,$conversationId,genesisReadJson()),201);
+                if ($method === 'DELETE') { genesisSharedPrivateClear($userId,$conversationId); genesisJson(['ok'=>true]); }
             }
             if (count($segments) === 5 && $segments[3] === 'messages' && in_array($method,['PATCH','DELETE'],true)) {
                 genesisJson(genesisSharedPrivateSave($userId,$conversationId,genesisReadJson(),$method,$segments[4]));
@@ -652,8 +653,17 @@ try {
             if (count($segments) === 4 && $segments[3] === 'read' && $method === 'POST') {
                 genesisSharedPrivateRead($userId,$conversationId,genesisReadJson()); genesisJson(['ok'=>true]);
             }
+            if ($segments[3] === 'files' && count($segments) === 6 && ctype_digit($segments[5])) {
+                if ($method === 'GET') genesisJson(genesisSharedPrivateFileChunk($userId,$conversationId,$segments[4],(int)$segments[5]));
+                if ($method === 'PUT') genesisJson(genesisSharedPrivateFileChunk($userId,$conversationId,$segments[4],(int)$segments[5],genesisReadJson()));
+            }
+            if ($segments[3] === 'files' && count($segments) === 5 && $method === 'DELETE') { genesisSharedPrivateDiscardFile($userId,$conversationId,$segments[4]); genesisJson(['ok'=>true]); }
         }
         if ($method === 'GET' && $path === 'shared/overview') genesisJson(['overview' => genesisSharedOverview($userId)]);
+        if (count($segments)===4 && $segments[1]==='projects' && $segments[3]==='comments') {
+            if ($method==='GET') genesisJson(['comments'=>genesisSharedProjectComments($userId,$segments[2],null,isset($_GET['board'])?(string)$_GET['board']:null)]);
+            if ($method==='POST') genesisJson(['comments'=>genesisSharedProjectComments($userId,$segments[2],genesisReadJson())],201);
+        }
         if ($method === 'GET' && $path === 'shared/inbox') {
             genesisJson(genesisSharedInbox($userId, (string)($_GET['before'] ?? ''), ($_GET['unread'] ?? '') === '1'));
         }
