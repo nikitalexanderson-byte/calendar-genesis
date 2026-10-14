@@ -123,7 +123,7 @@ function genesisSharedHydrateTasks(string $userId, array $rows, array $projects 
             'statusId'=>$row['status_id'],'categoryId'=>$row['category_id'],'assigneeId'=>$row['assignee_id'],
             'createdBy'=>$row['created_by'],'updatedBy'=>$row['updated_by'],'completedBy'=>$row['completed_by'],'completedAt'=>$row['completed_at'],
             'dueDate'=>$row['due_date'],'startDate'=>$row['start_date'],'startTime'=>$row['start_time'],'endTime'=>$row['end_time'],
-            'position'=>(int)$row['position'],'revision'=>(int)$row['revision'],'updatedAt'=>$row['updated_at'],
+            'position'=>(int)$row['position'],'revision'=>(int)$row['revision'],'createdAt'=>$row['created_at'],'updatedAt'=>$row['updated_at'],
             'priority'=>(int)$row['priority'],'parentTaskId'=>$row['parent_task_id'],'archivedAt'=>$row['archived_at'],
             'checklists'=>json_decode($row['checklists_json'],true),'childCount'=>(int)($childCounts[$row['id']]['total']??0),'completedChildCount'=>(int)($childCounts[$row['id']]['done']??0)];
         $task['dependsOnIds'] = genesisSharedDependencyIds($row['id']);

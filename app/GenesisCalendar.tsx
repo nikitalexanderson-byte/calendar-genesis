@@ -4,6 +4,7 @@ import { SharedTaskPageControls } from "./SharedTaskPageControls";
 import { DeferredViewFallback, DeferredDialogFallback, DeferredHabitFallback, ViewErrorBoundary, lazyWithRecovery as lazy } from "./DeferredViews";
 import { habitReminderTime, habitReminderTimes } from "./habit-reminder-time";
 import { habitIntervalMarks } from "./habit-interval";
+const PersonalEntityPreview=lazy(()=>import("./PersonalEntityPreview"));
 import type { MindmapTaskRequest } from "./Mindmaps";
 import { captureAccountSessionGuard, createCloudTaskOnce } from "./cloud-sync";
 import ukrainianSynthemaNames from "./weekday-synthema.uk.json";
@@ -579,6 +580,7 @@ function readStoredState(key: string): StoredState {
         const reminders = normalizeTaskReminders(legacy.reminders, legacy.reminderMinutes);
         return {
           id: legacy.id ?? uid(),
+          comments: Array.isArray(legacy.comments)?legacy.comments:[],createdAt:legacy.createdAt,createdByName:legacy.createdByName,
           sacredYear: legacyYear,
           monthIndex: legacyMonth,
           day: legacyDay,
@@ -1326,6 +1328,7 @@ export function GenesisCalendar() {
   const [editingTaskScope, setEditingTaskScope] = useState<TaskSeriesScope>("occurrence");
   const [editingOccurrenceDate, setEditingOccurrenceDate] = useState("");
   const [pendingTaskDeletion, setPendingTaskDeletion] = useState<PendingTaskDeletion | null>(null);
+  const [personalPreview,setPersonalPreview]=useState<{kind:"task"|"project"|"task-list";id:string;date?:string}|null>(null);
   const [editingTaskList, setEditingTaskList] = useState<GoogleTaskList | null>(null);
   const [workspaceRecoveryRequest, setWorkspaceRecoveryRequest] = useState<WorkspaceRecoveryRequest | null>(null);
   const [projectDragItem, setProjectDragItem] = useState<ProjectDragItem | null>(null);
@@ -2136,7 +2139,7 @@ export function GenesisCalendar() {
             : reconciledTasks;
           tasksRef.current = visibleTasks;
           setTasks(visibleTasks);
-          if (user.authProvider === "google") setTaskLists(cloudTaskLists);
+          if (user.authProvider === "google") setTaskLists(old=>cloudTaskLists.map(list=>({...list,comments:old.find(saved=>saved.id===list.id)?.comments})));
           setSyncError(warning ?? "");
           setSyncStatus(warning ? "error" : fromCache ? "offline" : "synced");
         },
@@ -2508,7 +2511,7 @@ export function GenesisCalendar() {
     const sacred = getSacredDate(dueDate);
     const selectedProject = projects.find((project) => project.id === projectId);
     return {
-      id: uid(),
+      id: uid(),createdAt:new Date().toISOString(),createdByName:cloudUser?.displayName??undefined,
       sacredYear: sacred.sacredYear,
       monthIndex: sacred.monthIndex,
       day: sacred.day,
@@ -2796,7 +2799,7 @@ export function GenesisCalendar() {
     }
 
     const task: Task = {
-      id: mindmapConversion?.taskId ?? uid(),
+      id: mindmapConversion?.taskId ?? uid(),createdAt:new Date().toISOString(),createdByName:cloudUser?.displayName??undefined,
       sacredYear: sacred.sacredYear,
       monthIndex: sacred.monthIndex,
       day: sacred.day,
@@ -3815,7 +3818,11 @@ export function GenesisCalendar() {
     resetProjectDrag();
   };
 
-  const projectDragControl = (target: EventTarget) => target instanceof Element && Boolean(target.closest("button, input, select, textarea, a, summary, label, [role=button], [contenteditable=true]"));
+  const projectDragControl = (target: EventTarget) => {
+    if (!(target instanceof Element)) return false;
+    const control=target.closest("button,input,select,textarea,a,summary,label,[contenteditable=true]");
+    return Boolean(control&&!control.hasAttribute("data-affair-drag-surface"));
+  };
 
   const projectDragProps = (item: ProjectDragItem) => ({
     "data-project-item-id": item.id,
@@ -3848,7 +3855,7 @@ export function GenesisCalendar() {
       .filter(Boolean)
       .slice(0, 10);
     const project: GenesisProject = {
-      id: uid(),
+      id: uid(),createdAt:new Date().toISOString(),createdByName:cloudUser?.displayName??undefined,
       parentId: newProjectParent || null,
       categoryId: newProjectCategory || null,
       title,
@@ -4445,7 +4452,7 @@ export function GenesisCalendar() {
                     >
                       <header>
                         <div className="task-list-column-heading">
-                          <span><strong data-no-translate>{taskList.title}</strong><small>{listTasks.length} задач{taskList.accountEmail ? ` · ${taskList.accountEmail}` : ""}</small></span>
+                          <span><button type="button" className="task-preview-open" onClick={()=>setPersonalPreview({kind:"task-list",id:taskList.id})} data-no-translate>{taskList.title}</button><small>{listTasks.length} задач{taskList.accountEmail ? ` · ${taskList.accountEmail}` : ""}</small></span>
                           <span className="task-list-column-actions">
                             <button type="button" onClick={() => setEditingTaskList(taskList)} aria-label={`Редактировать список «${taskList.title}»`}>{experimentalThemeActive ? <ExperimentalIcon name="edit" /> : "✎"}</button>
                             {!taskList.isDefault ? (
@@ -4482,7 +4489,7 @@ export function GenesisCalendar() {
                               onDragEnd={() => setTaskListDropTargetId("")}
                             >⋮⋮</button>
                             <button type="button" className="task-check" onClick={() => toggleTask(task.id)} aria-label={namedAction(task.done ? "Вернуть задачу" : "Завершить задачу", task.title, language)}>{task.done ? "✓" : ""}</button>
-                            <button type="button" className="task-list-item-open" onClick={() => openTaskEditor(task)}>
+                            <button type="button" className="task-list-item-open" onClick={() => setPersonalPreview({kind:"task",id:task.id})}>
                               <strong data-no-translate>{task.title}</strong>
                               {renderOverdueBadge(task)}
                               <small>{taskRangeLabel(task, activeCalendarMode, activeTimeFormat)}</small>
@@ -4956,7 +4963,7 @@ export function GenesisCalendar() {
                   <button type="button" className="task-check" onClick={() => toggleTask(task.id)} aria-label={namedAction(task.done ? "Вернуть задачу" : "Завершить задачу", task.title, language)}>
                     {task.done ? "✓" : ""}
                   </button>
-                  <button type="button" className="today-task-open" onClick={() => openTaskEditor(task, todayDateValue)}>
+                  <button type="button" className="today-task-open" onClick={() => setPersonalPreview({kind:"task",id:task.id,date:todayDateValue})}>
                     <strong data-no-translate>{task.title}</strong>
                     {renderOverdueBadge(task, todayDateValue)}
                     <span>
@@ -5663,7 +5670,7 @@ export function GenesisCalendar() {
           if (draft) setTaskFormCalendar(draft.calendarMode);
           setTaskRecurrenceConfig({ ...DEFAULT_RECURRENCE_CONFIG, enabled: false }); setMindmapConversion(request);
         }}
-        onEditTask={openTaskEditor}
+        onEditTask={(task,date)=>setPersonalPreview({kind:"task",id:task.id,date})}
         onToggleTask={(task, date) => {
           if (task.googleReadOnly) return;
           if (!date || task.recurrenceMode === "none") { toggleTask(task.id); return; }
@@ -5698,9 +5705,11 @@ export function GenesisCalendar() {
       }
       return false;
     };
-    const visibleProjects = projects.filter((project) => isCompletedProject(project) === completedProjectsOpen
-      || !completedProjectsOpen && completingProjectIds.includes(project.id));
     const completedCount = projects.filter(isCompletedProject).length;
+    const completedView = completedProjectsOpen && completedCount > 0;
+    const visibleProjects = projects.filter((project) => isCompletedProject(project) === completedView
+      || !completedView && completingProjectIds.includes(project.id));
+
     const matchingTaggedProjects = visibleProjects.filter((project) => searchTerms.length > 0 && matchesAffair(project, tagSearch));
     const matchingProjectIds = new Set(matchingTaggedProjects.map((project) => project.id));
     if (searchTerms.length) {
@@ -5717,7 +5726,7 @@ export function GenesisCalendar() {
     }
     const projectRows = flattenProjects(projects).filter(({ project }) => visibleProjects.includes(project) && (!searchTerms.length || matchingProjectIds.has(project.id)));
     const inboxTasks = tasks.filter((task) => !resolvedTaskProject(task));
-    const matchingTasks = tasks.filter((task) => { const project = resolvedTaskProject(task); return (!project || isCompletedProject(project) === completedProjectsOpen) && matchesAffair(task, tagSearch); });
+    const matchingTasks = tasks.filter((task) => { const project = resolvedTaskProject(task); return (!project || isCompletedProject(project) === completedView) && matchesAffair(task, tagSearch); });
     const inboxTaskLists = taskListsForWorkspace.filter((taskList) => !linkedProjectId(taskList.id));
     const rootProjects = projects.filter((project) => !project.parentId).length;
 
@@ -5732,13 +5741,13 @@ export function GenesisCalendar() {
             <span><strong>{projects.length - rootProjects}</strong> {language === "en" ? "subprojects" : "подпроектов"}</span>
           </div>
         </WorkspaceHeader>
-        <div className="project-toolbar">
-        <div className="affairs-actions">
+        <div className="project-toolbar" data-has-completed={completedCount > 0}>
+        {completedCount > 0 ? <div className="affairs-actions">
           <div className="project-completion-tabs" role="group" aria-label={language === "en" ? "Project status" : "Статус проектов"}>
-            <button type="button" aria-pressed={!completedProjectsOpen} onClick={() => setCompletedProjectsOpen(false)}>{language === "en" ? "Current" : "Текущие"} · {projects.length - completedCount}</button>
-            <button type="button" aria-pressed={completedProjectsOpen} onClick={() => setCompletedProjectsOpen(true)}>{language === "en" ? "Completed" : "Завершённые"} · {completedCount}</button>
+            <button type="button" aria-pressed={!completedView} onClick={() => setCompletedProjectsOpen(false)}>{language === "en" ? "Current" : "Текущие"} · {projects.length - completedCount}</button>
+            <button type="button" aria-pressed={completedView} onClick={() => setCompletedProjectsOpen(true)}>{language === "en" ? "Completed" : "Завершённые"} · {completedCount}</button>
           </div>
-        </div>
+        </div> : null}
 
         <label className="tag-search personal-affairs-search">
           <span aria-hidden="true">{experimentalThemeActive ? <ExperimentalIcon name="search" /> : "⌕"}</span>
@@ -5757,7 +5766,7 @@ export function GenesisCalendar() {
             </header>
             <div>
               {matchingTaggedProjects.map((project) => (
-                <button type="button" key={`project-${project.id}`} onClick={() => openProjectEditor(project)}>
+                <button type="button" key={`project-${project.id}`} onClick={() => setPersonalPreview({kind:"project",id:project.id})}>
                   <span>Проект</span><strong data-no-translate>{project.title}</strong><small data-no-translate>{project.tags.map((tag) => `#${tag}`).join(" ")}</small>
                 </button>
               ))}
@@ -5769,9 +5778,9 @@ export function GenesisCalendar() {
 
         <div className="projects-layout" hidden={searchTerms.length > 0}>
           <section className="project-tree-panel" aria-labelledby={experimentalThemeActive ? "experimental-project-tree-title" : "project-tree-title"} data-exp-ui="panel">
-            {!completedProjectsOpen && accountLayout.personalInboxHidden ? <InboxRestore english={language === "en"} onRestore={() => saveLayout({ personalInboxHidden: false })} /> : null}
-            <div className={`project-tree-workspace${completedProjectsOpen ? " is-completed-view" : ""}`} data-inbox-workspace data-inbox-position={accountLayout.personalInboxPosition} data-inbox-hidden={accountLayout.personalInboxHidden || completedProjectsOpen}>
-              {!completedProjectsOpen ? <section
+            {!completedView && accountLayout.personalInboxHidden ? <InboxRestore english={language === "en"} onRestore={() => saveLayout({ personalInboxHidden: false })} /> : null}
+            <div className={`project-tree-workspace${completedView ? " is-completed-view" : ""}`} data-inbox-workspace data-inbox-position={accountLayout.personalInboxPosition} data-inbox-hidden={accountLayout.personalInboxHidden || completedView}>
+              {!completedView ? <section
                 className={`inbox-card${projectDropTargetId === TASK_INBOX_PROJECT_ID ? " drop-target" : ""}`}
                 hidden={accountLayout.personalInboxHidden}
                 data-inbox-compact={accountLayout.personalInboxCompact}
@@ -5790,7 +5799,7 @@ export function GenesisCalendar() {
                     const taskCount = tasks.filter((task) => task.googleTaskListId === taskList.id).length;
                     return (
                       <article className="inbox-list-item project-draggable-item" key={taskList.id} aria-label={`Перетащить список «${taskList.title}»`} {...projectDragProps(item)}>
-                        <span><strong data-no-translate>{taskList.title}</strong><small data-no-translate>{formatTaskListCount(taskCount, language)}</small></span>
+                        <button type="button" className="task-preview-open" data-affair-drag-surface onClick={()=>setPersonalPreview({kind:"task-list",id:taskList.id})}><strong data-no-translate>{taskList.title}</strong><small data-no-translate>{formatTaskListCount(taskCount, language)}</small></button>
                         <span className="task-list-column-actions">
                           <button type="button" onClick={() => setEditingTaskList(taskList)} aria-label={`Редактировать список «${taskList.title}»`}>{experimentalThemeActive ? <ExperimentalIcon name="edit" /> : "✎"}</button>
                           {!taskList.isDefault ? <button type="button" onClick={() => void deleteTaskList(taskList)} aria-label={`Удалить список «${taskList.title}»`}>{experimentalThemeActive ? <ExperimentalIcon name="close" /> : "×"}</button> : null}
@@ -5802,7 +5811,7 @@ export function GenesisCalendar() {
                 </div>
               </section> : null}
 
-              {!completedProjectsOpen && !accountLayout.personalInboxHidden ? <InboxResizeBoundary position={accountLayout.personalInboxPosition} width={accountLayout.personalInboxWidth} onWidth={personalInboxWidth => saveLayout({ personalInboxWidth })} /> : null}
+              {!completedView && !accountLayout.personalInboxHidden ? <InboxResizeBoundary position={accountLayout.personalInboxPosition} width={accountLayout.personalInboxWidth} onWidth={personalInboxWidth => saveLayout({ personalInboxWidth })} /> : null}
               <div className="project-tree-main" data-projects-compact={accountLayout.personalInboxCompact}>
                 {!experimentalThemeActive ? <div className="section-heading compact-heading">
                   <div><span className="eyebrow">Иерархия</span><h2 id="project-tree-title">Дерево проектов</h2></div>
@@ -5832,7 +5841,7 @@ export function GenesisCalendar() {
                     data-project-drop-id={project.id}
                     style={{ "--project-depth": depth, "--project-color": category?.color ?? "#8d7750" } as CSSProperties}
                   >
-                    <button type="button" className="project-open" aria-expanded={experimentalThemeActive ? expandedExperimentalProjects.includes(project.id) : undefined} onClick={() => { setTaskProject(project.id); if (experimentalThemeActive) setExpandedExperimentalProjects(ids => ids.includes(project.id) ? ids.filter(id => id !== project.id) : [...ids, project.id]); }}>
+                    <button type="button" className="project-open" aria-expanded={experimentalThemeActive ? expandedExperimentalProjects.includes(project.id) : undefined} onClick={() => { setPersonalPreview({kind:"project",id:project.id});setTaskProject(project.id); if (experimentalThemeActive) setExpandedExperimentalProjects(ids => ids.includes(project.id) ? ids.filter(id => id !== project.id) : [...ids, project.id]); }}>
                       <span>{experimentalThemeActive ? <ExperimentalIcon name="chevron" /> : depth ? "↳" : "◇"}</span>
                       <div>
                         <strong data-no-translate>{project.title}</strong>
@@ -5871,7 +5880,7 @@ export function GenesisCalendar() {
                           const taskCount = tasks.filter((task) => task.googleTaskListId === taskList.id).length;
                           return (
                             <div className="project-assigned-list project-draggable-item" key={taskList.id} aria-label={`Перетащить список «${taskList.title}»`} {...projectDragProps(item)}>
-                              <span><strong data-no-translate>{taskList.title}</strong><small data-no-translate>{formatTaskListCount(taskCount, language)}</small></span>
+                              <button type="button" className="task-preview-open" data-affair-drag-surface onClick={()=>setPersonalPreview({kind:"task-list",id:taskList.id})}><strong data-no-translate>{taskList.title}</strong><small data-no-translate>{formatTaskListCount(taskCount, language)}</small></button>
                               <span className="task-list-column-actions">
                                 <button type="button" onClick={() => setEditingTaskList(taskList)} aria-label={`Редактировать список «${taskList.title}»`}>{experimentalThemeActive ? <ExperimentalIcon name="edit" /> : "✎"}</button>
                                 {!taskList.isDefault ? <button type="button" onClick={() => void deleteTaskList(taskList)} aria-label={`Удалить список «${taskList.title}»`}>{experimentalThemeActive ? <ExperimentalIcon name="close" /> : "×"}</button> : null}
@@ -5891,7 +5900,7 @@ export function GenesisCalendar() {
               }) : (
                 <div className="task-empty compact-empty">
                   <span aria-hidden="true">{searchTerms.length ? "⌕" : "◇"}</span>
-                  <strong>{searchTerms.length ? "По этим тегам ничего не найдено" : completedProjectsOpen ? "Завершённых проектов пока нет" : "Создайте первый проект"}</strong>
+                  <strong>{searchTerms.length ? "По этим тегам ничего не найдено" : completedView ? "Завершённых проектов пока нет" : "Создайте первый проект"}</strong>
                   <p>{searchTerms.length ? "Попробуйте другой тег или очистите строку поиска." : "Большая цель становится управляемой, когда у неё есть структура."}</p>
                 </div>
               )}
@@ -5921,6 +5930,18 @@ export function GenesisCalendar() {
     );
   };
 
+  const previewTask=personalPreview?.kind==='task'?tasks.find(task=>task.id===personalPreview.id):null;
+  const previewProject=personalPreview?.kind==='project'?projects.find(project=>project.id===personalPreview.id):null;
+  const previewList=personalPreview?.kind==='task-list'?taskLists.find(list=>list.id===personalPreview.id):null;
+  const previewEntity=previewTask??previewProject??previewList;
+  const addPersonalComment=async(body:string)=>{
+    if(!personalPreview||!previewEntity)return;
+    const comments=[...(previewEntity.comments??[]),{id:uid(),body,authorId:cloudUser?.uid??'local',authorName:cloudUser?.displayName??translateText('Вы',language),createdAt:new Date().toISOString()}].slice(-200);
+    if(previewTask){const next={...previewTask,comments,updatedAt:timestamp()};setTasks(old=>old.map(task=>task.id===next.id?next:task));saveTask(next);}
+    else if(previewProject){const next=projects.map(project=>project.id===previewProject.id?{...project,comments}:project);setProjects(next);await persistStructure(next,categories);}
+    else if(previewList){const next=taskLists.map(list=>list.id===previewList.id?{...list,comments}:list);setTaskLists(next);if(cloudUser)await saveWorkspaceStructure(projects,categories,taskListLinks,metricsFor(tasks,projects,habitWorkspace.habits.length),habitWorkspace,next);}
+  };
+
   const renderTaskRows = (items: Task[]) => <div className="all-tasks-list" aria-live="polite">
     {items.map((task) => {
             const project = resolvedTaskProject(task);
@@ -5933,13 +5954,13 @@ export function GenesisCalendar() {
               .map((dependencyId) => tasks.find((item) => item.id === dependencyId)?.title)
               .filter((title): title is string => Boolean(title));
             return (
-              <article className={`all-task-row project-task-card project-draggable-item${task.done ? " done" : ""}${overdue ? " past" : ""}${locatedPersonalTaskId === task.id ? " task-location-highlight" : ""}`} data-personal-task-id={task.id} key={task.id} {...projectDragProps({ kind: "task", id: task.id, title: task.title })}>
+              <div className={`all-task-row project-task-card project-draggable-item${task.done ? " done" : ""}${overdue ? " past" : ""}${locatedPersonalTaskId === task.id ? " task-location-highlight" : ""}`} data-personal-task-id={task.id} key={task.id} role="button" tabIndex={0} onKeyDown={event=>{if(event.target===event.currentTarget&&(event.key==="Enter"||event.key===" ")){event.preventDefault();setPersonalPreview({kind:"task",id:task.id});}}} onClick={event=>{if(!(event.target as Element).closest("button,input,select,textarea,a,summary,label,details"))setPersonalPreview({kind:"task",id:task.id});}} {...projectDragProps({ kind: "task", id: task.id, title: task.title })}>
                 <button type="button" className="task-check" onClick={() => toggleTask(task.id)} aria-label={namedAction(task.done ? "Вернуть задачу" : "Завершить задачу", task.title, language)}>
                   {task.done ? "✓" : ""}
                 </button>
                 <div className="all-task-body" data-affair-drag-surface>
                   <div className="all-task-title-row">
-                    <strong data-no-translate title={task.title}>{task.title}</strong>
+                    <button type="button" className="task-preview-open" data-affair-drag-surface data-no-translate title={task.title} onClick={()=>setPersonalPreview({kind:"task",id:task.id})}>{task.title}</button>
                     <span className="all-task-priority" title="Приоритет">⚑{task.priority}</span>
                   </div>
                   <div className="all-task-meta">
@@ -5980,7 +6001,7 @@ export function GenesisCalendar() {
                     </select></label>
                 </div>
                 {overdue ? <div className="all-task-overdue">{renderOverdueBadge(task)}</div> : null}
-              </article>
+              </div>
             );
     })}
   </div>;
@@ -6472,6 +6493,7 @@ export function GenesisCalendar() {
         setInvitationDestination(current=>({...destination,userId:uid,request:(current?.request??0)+1}));
         setProjectsArea("shared"); navigateTo("projects",false,destination,true);
       }}/></Suspense> : null}
+      {previewEntity&&personalPreview?<Suspense fallback={<DeferredDialogFallback label={translateText("Загрузка…",language)}/>}><PersonalEntityPreview key={personalPreview.kind+personalPreview.id} task={previewTask??undefined} project={previewProject??undefined} list={previewList??undefined} schedule={previewTask?taskRangeLabel(previewTask,activeCalendarMode,activeTimeFormat):""} projectTitle={previewTask?resolvedTaskProjectTitle(previewTask):""} taskCount={tasks.filter(task=>previewProject?resolvedTaskProject(task)?.id===previewProject.id:task.googleTaskListId===previewList?.id).length} language={language} onClose={()=>setPersonalPreview(null)} onComment={addPersonalComment} onEdit={()=>{setPersonalPreview(null);if(previewTask)openTaskEditor(previewTask,personalPreview.date);else if(previewProject)openProjectEditor(previewProject);else if(previewList)setEditingTaskList(previewList);}}/></Suspense>:null}
       {cloudUser?.sharedProjectsEnabled ? <Suspense fallback={null}><SharedCommentNotices key={cloudUser.uid} userId={cloudUser.uid} english={language === "en"} onOpen={place => { setProjectsArea("shared"); navigateTo("projects", false, place); }} /></Suspense> : null}
       {cloudUser?.sharedProjectsEnabled ? <Suspense fallback={null}><SharedPrivateNotices key={cloudUser.uid} userId={cloudUser.uid} language={language}/></Suspense> : null}
       {projectToComplete ? <ProjectCompletionDialog title={projectToComplete.title}
@@ -6487,7 +6509,7 @@ export function GenesisCalendar() {
           <span
             className="brand-icon"
             data-genesis-preserve="brand-icon"
-            style={{ backgroundImage: `url("${APP_BASE}/icons/icon-192.png")` }}
+            style={{ backgroundImage: `url("${APP_BASE}/icons/icon-round-v2.png")` }}
             aria-hidden="true"
           />
           <strong>GENESIS</strong>
@@ -6527,7 +6549,7 @@ export function GenesisCalendar() {
       <section className="app-stage" data-exp-layout="stage">
         <header className="app-brand-header">
           <button type="button" onClick={selectToday} aria-label="GENESIS — на главную">
-            <img src={`${APP_BASE}/icons/icon-192.png`} alt="" aria-hidden="true" data-genesis-preserve="web-header-logo" />
+            <img src={`${APP_BASE}/icons/icon-round-v2.png`} alt="" aria-hidden="true" data-genesis-preserve="web-header-logo" />
             <strong data-no-translate>GENESIS</strong>
           </button>
         </header>
@@ -6641,6 +6663,7 @@ export function GenesisCalendar() {
                     inboxPosition={accountLayout.sharedInboxPosition} inboxHidden={accountLayout.sharedInboxHidden}
                     inboxWidth={accountLayout.sharedInboxWidth} onInboxWidth={sharedInboxWidth => saveLayout({ sharedInboxWidth })}
                     inboxCompact={accountLayout.sharedInboxCompact} onInboxCompact={sharedInboxCompact => saveLayout({ sharedInboxCompact })}
+                    tasksCompact={accountLayout.sharedTasksCompact} onTasksCompact={sharedTasksCompact => saveLayout({ sharedTasksCompact })}
                     categoriesExpanded={accountLayout.sharedCategoriesExpanded} onCategoriesExpanded={sharedCategoriesExpanded => saveLayout({ sharedCategoriesExpanded })}
                     categoriesView={accountLayout.sharedCategoriesView} onCategoriesView={sharedCategoriesView => saveLayout({ sharedCategoriesView })}
                     onInboxPosition={sharedInboxPosition => saveLayout({ sharedInboxPosition })} onInboxHidden={sharedInboxHidden => saveLayout({ sharedInboxHidden })}
@@ -6919,7 +6942,7 @@ export function GenesisCalendar() {
                         </button>
                         <button type="button" className="day-details-task-open" onClick={() => {
                           setDayDetailsOpen(false);
-                          openTaskEditor(task, selectedDateValue);
+                          setPersonalPreview({kind:"task",id:task.id,date:selectedDateValue});
                         }}>
                           <span><time>{task.time ? formatTimeValue(task.time, activeTimeFormat) : "Весь день"}</time>{task.priority ? <em>Приоритет {task.priority}</em> : null}</span>
                           <strong data-no-translate>{task.title}</strong>

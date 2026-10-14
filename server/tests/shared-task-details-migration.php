@@ -5,7 +5,7 @@ require_once dirname(__DIR__).'/src/shared-content-storage.php';
 function migrationExpect(bool $value,string $message):void { if(!$value)throw new RuntimeException($message); }
 $db=new PDO('sqlite::memory:',null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC]);
 $db->exec('PRAGMA foreign_keys=ON');
-foreach(glob(dirname(__DIR__).'/migrations/*.sql') as $file)if(basename($file)<'056_')$db->exec(file_get_contents($file));
+foreach(glob(dirname(__DIR__).'/migrations/*.sql') as $file)if(basename($file)<'058_')$db->exec(file_get_contents($file));
 genesisRegisterSharedContentFunctions($db);
 genesisInitializeSharedContentStorage($db);genesisInitializeSharedTrashReadView($db);genesisInitializeSharedMapProjectIndex($db);
 $db->exec("INSERT INTO users(id,google_sub,email,created_at,updated_at) VALUES('u','u','fixture@example.test','now','now');
@@ -16,7 +16,7 @@ $db->exec("INSERT INTO users(id,google_sub,email,created_at,updated_at) VALUES('
 $backupPath=tempnam(sys_get_temp_dir(),'genesis-details-backup-');
 try {
  $db->exec('VACUUM INTO '.$db->quote($backupPath));
- $db->exec(file_get_contents(dirname(__DIR__).'/migrations/056_shared_task_details.sql'));
+ $db->exec(file_get_contents(dirname(__DIR__).'/migrations/058_shared_task_details.sql'));
  genesisInitializeSharedTaskDetails($db);genesisInitializeSharedTaskDetails($db);
  $task=$db->query("SELECT * FROM shared_tasks_read WHERE id='t'")->fetch();
  migrationExpect($task['title']==='Legacy task' && $task['due_date']==='2026-10-20' && (int)$task['priority']===0 && $task['checklists_json']==='[]','Legacy data or defaults changed');

@@ -140,7 +140,7 @@ export function TheokyklosView({ language, workspace, date, calendarMode, initia
           </div>
 
           <div className="theokyklos-mandala-viewport">
-            <svg className="theokyklos-mandala" viewBox="0 0 900 840" role="img" aria-labelledby="theokyklos-svg-title theokyklos-svg-description">
+            <svg className="theokyklos-mandala" viewBox="0 -16 900 872" role="img" aria-labelledby="theokyklos-svg-title theokyklos-svg-description">
               <title id="theokyklos-svg-title">{language === "en" ? "Interactive Circle of Divine Powers" : "Интерактивный Круг божественных сил"}</title>
               <desc id="theokyklos-svg-description">{language === "en"
                 ? "Eight directional sectors surround Hestia's inner ring and the central point of Dionysus and Ariadne. Zeus and Hera stand at the zenith, Hades and Persephone at the nadir, with the entrance on the eastern axis and the exit on the western axis."

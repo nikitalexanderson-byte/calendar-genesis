@@ -132,8 +132,74 @@ function genesisSharedPrivateSave(string $userId, string $conversationId, array 
             $db->prepare('UPDATE shared_private_messages SET payload_json=?,revision=revision+1,updated_at=?,deleted_at=? WHERE id=?')
                 ->execute([$payload,genesisNow(),$method==='DELETE' ? genesisNow() : null,$id]);
         }
+        if ($method === 'DELETE') {
+            $db->prepare('DELETE FROM shared_private_files WHERE message_id=?')->execute([$id]);
+        } elseif (array_key_exists('attachmentIds', $input)) {
+            $ids = $input['attachmentIds'];
+            if (!is_array($ids) || !array_is_list($ids) || count($ids)>5 || count(array_unique($ids, SORT_REGULAR))!==count($ids)) throw new InvalidArgumentException('INVALID_PRIVATE_FILES');
+            foreach ($ids as $fileId) {
+                if (!is_string($fileId)) throw new InvalidArgumentException('INVALID_PRIVATE_FILES');
+                $q=$db->prepare('SELECT f.*,COUNT(c.chunk_index) AS uploaded FROM shared_private_files f LEFT JOIN shared_private_file_chunks c ON c.file_id=f.id WHERE f.id=? GROUP BY f.id');$q->execute([$fileId]);$file=$q->fetch();
+                if (!$file || $file['sender_id']!==$userId || $file['conversation_id']!==$conversationId || ($file['message_id']!==null && $file['message_id']!==$id) || (int)$file['uploaded']!==(int)$file['chunk_count']) throw new GenesisSharedAccessException('PRIVATE_FILE_NOT_READY',409);
+                $db->prepare('UPDATE shared_private_files SET message_id=? WHERE id=?')->execute([$id,$fileId]);
+            }
+            $q=$db->prepare('SELECT id FROM shared_private_files WHERE message_id=?');$q->execute([$id]);
+            foreach ($q->fetchAll(PDO::FETCH_COLUMN) as $fileId) if (!in_array($fileId,$ids,true)) $db->prepare('DELETE FROM shared_private_files WHERE id=?')->execute([$fileId]);
+        }
         $db->commit(); return ['ok'=>true,'id'=>$id];
     } catch (Throwable $error) { $db->rollBack(); throw $error; }
+}
+
+/** Atomic deletion leaves the conversation identity stable for either open window. */
+function genesisSharedPrivateClear(string $userId, string $conversationId): void
+{
+    $db=genesisDb();genesisBeginWriteTransaction($db);
+    try {
+        genesisSharedPrivateAccess($userId,$conversationId);
+        $db->prepare('DELETE FROM shared_private_files WHERE conversation_id=?')->execute([$conversationId]);
+        $db->prepare('DELETE FROM shared_private_messages WHERE conversation_id=?')->execute([$conversationId]);
+        $db->prepare('DELETE FROM shared_private_message_reads WHERE conversation_id=?')->execute([$conversationId]);
+        $db->commit();
+    } catch(Throwable $error) {$db->rollBack();throw $error;}
+}
+
+function genesisSharedPrivateFileChunk(string $userId,string $conversationId,string $id,int $chunk,?array $input=null): array
+{
+    if (!preg_match('/\A[a-f0-9-]{36}\z/',$id) || $chunk<0 || $chunk>40) throw new InvalidArgumentException('INVALID_PRIVATE_FILE');
+    $db=genesisDb();
+    if ($input===null) {
+        genesisSharedPrivateAccess($userId,$conversationId);
+        $q=$db->prepare('SELECT c.ciphertext FROM shared_private_file_chunks c JOIN shared_private_files f ON f.id=c.file_id JOIN shared_private_messages m ON m.id=f.message_id WHERE f.id=? AND f.conversation_id=? AND c.chunk_index=? AND m.deleted_at IS NULL');$q->execute([$id,$conversationId,$chunk]);
+        $cipher=$q->fetchColumn();if($cipher===false)throw new GenesisSharedAccessException('PRIVATE_FILE_NOT_FOUND');
+        return ['ciphertext'=>$cipher];
+    }
+    $count=$input['chunks']??null;$size=$input['bytes']??null;$cipher=$input['ciphertext']??null;
+    if(array_diff(array_keys($input),['chunks','bytes','ciphertext']) || !is_int($count) || !is_int($size) || $size<16 || $size>10485776 || $count!==(int)ceil($size/262144) || $chunk>=$count || !is_string($cipher) || strlen($cipher)>349526 || !preg_match('/\A[A-Za-z0-9_-]+\z/',$cipher))throw new InvalidArgumentException('INVALID_PRIVATE_FILE');
+    $raw=base64_decode(strtr($cipher,'-_','+/'),true);
+    if($raw===false || strlen($raw)!==min(262144,$size-$chunk*262144) || rtrim(strtr(base64_encode($raw),'+/','-_'),'=')!==$cipher)throw new InvalidArgumentException('INVALID_PRIVATE_FILE');
+    genesisBeginWriteTransaction($db);
+    try {
+        genesisSharedPrivateAccess($userId,$conversationId);
+        // Abandoned uploads cannot consume a user's quota indefinitely.
+        $db->prepare('DELETE FROM shared_private_files WHERE message_id IS NULL AND created_at<?')->execute([gmdate('Y-m-d\TH:i:s\Z',time()-86400)]);
+        $q=$db->prepare('SELECT * FROM shared_private_files WHERE id=?');$q->execute([$id]);$file=$q->fetch();
+        if($file && ($file['sender_id']!==$userId || $file['conversation_id']!==$conversationId || $file['message_id']!==null || (int)$file['chunk_count']!==$count || (int)$file['byte_size']!==$size))throw new GenesisSharedAccessException('PRIVATE_FILE_CONFLICT',409);
+        if(!$file){
+            $q=$db->prepare('SELECT COALESCE(SUM(byte_size),0),COUNT(*) FROM shared_private_files WHERE sender_id=?');$q->execute([$userId]);$quota=$q->fetch(PDO::FETCH_NUM);
+            if((int)$quota[0]+$size>104857600 || (int)$quota[1]>=1000)throw new GenesisSharedAccessException('MESSAGE_STORAGE_LIMIT',409);
+            $db->prepare('INSERT INTO shared_private_files(id,conversation_id,sender_id,chunk_count,byte_size,created_at) VALUES(?,?,?,?,?,?)')->execute([$id,$conversationId,$userId,$count,$size,genesisNow()]);
+        }
+        $q=$db->prepare('SELECT ciphertext FROM shared_private_file_chunks WHERE file_id=? AND chunk_index=?');$q->execute([$id,$chunk]);$old=$q->fetchColumn();
+        if($old!==false && $old!==$cipher)throw new GenesisSharedAccessException('PRIVATE_FILE_CONFLICT',409);
+        $db->prepare('INSERT OR IGNORE INTO shared_private_file_chunks(file_id,chunk_index,ciphertext) VALUES(?,?,?)')->execute([$id,$chunk,$cipher]);
+        $db->commit();return ['ok'=>true];
+    } catch(Throwable $error){$db->rollBack();throw $error;}
+}
+
+function genesisSharedPrivateDiscardFile(string $userId,string $conversationId,string $id): void
+{
+    genesisSharedPrivateAccess($userId,$conversationId);
+    genesisDb()->prepare('DELETE FROM shared_private_files WHERE id=? AND conversation_id=? AND sender_id=? AND message_id IS NULL')->execute([$id,$conversationId,$userId]);
 }
 
 function genesisSharedPrivateRead(string $userId, string $conversationId, array $input): void

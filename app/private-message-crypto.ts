@@ -1,9 +1,17 @@
 export type MessagingIdentity = { privateKey: CryptoKey; publicKey: JsonWebKey; keyId: string };
 export type MessageContext = { conversationId: string; spaceId: string; id: string; senderId: string; revision: number };
 export type MessagePayload = { version: 1; iv: string; ciphertext: string; keyIds: Record<string, string> };
+export type PrivateFile = { id: string; name: string; type: string; size: number; iv: string; chunks: number };
+export type PrivateContent = { format: 'genesis-private-content'; text: string; files: PrivateFile[] };
+export const PRIVATE_FILE_LIMIT = 10 * 1024 * 1024;
+export const PRIVATE_CHUNK_SIZE = 256 * 1024;
 const encoder = new TextEncoder();
 const bytes = (text: string) => encoder.encode(text);
-const base64 = (data: ArrayBuffer | Uint8Array) => btoa(String.fromCharCode(...new Uint8Array(data))).replaceAll('+','-').replaceAll('/','_').replace(/=+$/, '');
+const base64 = (data: ArrayBuffer | Uint8Array) => {
+  const values = new Uint8Array(data); let binary = '';
+  for (let offset = 0; offset < values.length; offset += 8192) binary += String.fromCharCode(...values.subarray(offset, offset + 8192));
+  return btoa(binary).replaceAll('+','-').replaceAll('/','_').replace(/=+$/, '');
+};
 const unbase64 = (text: string) => Uint8Array.from(atob(text.replaceAll('-','+').replaceAll('_','/')), char => char.charCodeAt(0));
 export function canonicalPublicKey(jwk: JsonWebKey): JsonWebKey {
   if (jwk.kty !== 'EC' || jwk.crv !== 'P-256' || !/^[A-Za-z0-9_-]{43}$/.test(jwk.x ?? '') || !/^[A-Za-z0-9_-]{43}$/.test(jwk.y ?? '')) throw new Error('INVALID_PUBLIC_KEY');
@@ -26,6 +34,30 @@ export async function conversationKey(identity: MessagingIdentity, peer: JsonWeb
   return crypto.subtle.deriveKey({ name:'HKDF', hash:'SHA-256', salt, info:bytes('AES-GCM-256') }, material, { name:'AES-GCM',length:256 }, false, ['encrypt','decrypt']);
 }
 const aad = (context: MessageContext) => bytes(JSON.stringify([1,context.spaceId,context.conversationId,context.id,context.senderId,context.revision]));
+const fileAad = (context: MessageContext, id: string) => bytes(JSON.stringify(['GENESIS private file v1', context.spaceId, context.conversationId, context.id, context.senderId, id]));
+export async function encryptPrivateFile(key: CryptoKey, context: MessageContext, file: File, id = crypto.randomUUID()): Promise<{ metadata: PrivateFile; chunks: string[] }> {
+  if (file.size > PRIVATE_FILE_LIMIT) throw new Error('PRIVATE_FILE_TOO_LARGE');
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const cipher = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData: fileAad(context, id) }, key, await file.arrayBuffer()));
+  const chunks: string[] = [];
+  for (let offset = 0; offset < cipher.length; offset += PRIVATE_CHUNK_SIZE) chunks.push(base64(cipher.subarray(offset, offset + PRIVATE_CHUNK_SIZE)));
+  return { metadata: { id, name: file.name.slice(0, 255), type: file.type, size: file.size, iv: base64(iv), chunks: chunks.length }, chunks };
+}
+export async function decryptPrivateFile(key: CryptoKey, context: MessageContext, file: PrivateFile, chunks: string[]): Promise<Blob> {
+  if (file.size < 0 || file.size > PRIVATE_FILE_LIMIT || chunks.length !== file.chunks || file.chunks !== Math.ceil((file.size + 16) / PRIVATE_CHUNK_SIZE)) throw new Error('INVALID_PRIVATE_FILE');
+  const cipher = new Uint8Array(file.size + 16); let offset = 0;
+  for (const chunk of chunks) { const part = unbase64(chunk); cipher.set(part, offset); offset += part.length; }
+  if (offset !== cipher.length) throw new Error('INVALID_PRIVATE_FILE');
+  const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unbase64(file.iv), additionalData: fileAad(context, file.id) }, key, cipher);
+  return new Blob([plain], { type: 'application/octet-stream' });
+}
+export function decodePrivateContent(source: string): PrivateContent {
+  // Legacy messages remain plain strings inside the encrypted envelope.
+  if (!source.startsWith('{"format":"genesis-private-content"')) return { format: 'genesis-private-content', text: source, files: [] };
+  const content = JSON.parse(source) as PrivateContent;
+  if (typeof content.text !== 'string' || !Array.isArray(content.files) || content.files.length > 5 || content.files.some(file => !/^[a-f0-9-]{36}$/.test(file.id) || typeof file.name !== 'string' || file.name.length > 255 || typeof file.iv !== 'string' || !Number.isInteger(file.size) || file.size < 0 || file.size > PRIVATE_FILE_LIMIT || !Number.isInteger(file.chunks) || file.chunks !== Math.ceil((file.size + 16) / PRIVATE_CHUNK_SIZE) || !/^[A-Za-z0-9_-]{16}$/.test(file.iv))) throw new Error('INVALID_PRIVATE_CONTENT');
+  return content;
+}
 export async function encryptPrivateMessage(key: CryptoKey, context: MessageContext, text: string, keyIds: Record<string,string>): Promise<MessagePayload> {
   if (!text.trim() || bytes(text).length > 32000) throw new Error('INVALID_MESSAGE');
   const iv = crypto.getRandomValues(new Uint8Array(12));

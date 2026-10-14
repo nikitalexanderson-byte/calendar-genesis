@@ -37,6 +37,7 @@ export type RecurrenceKind =
 export type TaskOrigin = "genesis" | "google-calendar" | "google-tasks";
 
 export type GoogleTaskList = {
+  comments?: SharedComment[];
   id: string;
   title: string;
   updatedAt: string | null;
@@ -85,6 +86,7 @@ export type TaskListProjectLink = {
 };
 
 export type GenesisTask = {
+  comments?: SharedComment[]; createdAt?: string; createdByName?: string;
   entryType?: "task" | "meeting" | "birthday" | "event";
   endTime?: string;
   id: string;
@@ -182,6 +184,7 @@ export type GenesisCategory = {
 };
 
 export type GenesisProject = {
+  comments?: SharedComment[]; createdAt?: string; createdByName?: string;
   id: string;
   parentId: string | null;
   categoryId: string | null;
@@ -1300,7 +1303,7 @@ export async function loadGenesisWorkspace(): Promise<GenesisWorkspace> {
     projects: structure.projects,
     categories: structure.categories,
     taskLists: payload.user.authProvider !== "google" ? structure.taskLists
-      : Array.isArray(payload.taskLists) ? payload.taskLists : [],
+      : Array.isArray(payload.taskLists) ? payload.taskLists.map(list=>({...list,comments:structure.taskLists.find(saved=>saved.id===list.id)?.comments})) : [],
     taskListLinks: structure.taskListLinks,
     trackerSchemaVersion: structure.trackerSchemaVersion,
     userProgress: structure.userProgress,
@@ -1614,7 +1617,7 @@ export type SharedSpaceSettings = { space: SharedSpace; members: { categoryId?: 
 export type SharedProject = { id: string; spaceId: string; parentId: string | null; title: string;
   categoryId?: string | null;
   labelIds?: string[];
-  description: string; tags?: string[]; kind?: "project" | "task-list"; boardStatusId?: string | null; layout: "list" | "board"; isInbox?: number; taskCount?: number; boardCount?: number;
+  createdBy?: string | null; createdAt?: string; description: string; tags?: string[]; kind?: "project" | "task-list"; boardStatusId?: string | null; layout: "list" | "board"; isInbox?: number; taskCount?: number; boardCount?: number;
   revision: number; role: string; spaceRole?: string; canOrganizeTasks?: boolean; canCreateBoards?: boolean; permissions?: SharedPermissions; updatedAt: string };
 export type SharedStatus = { color?: string; imageUrl?: string; taskTitleLines?: number; visibleTaskCount?: number; id: string; title: string; position: number; isDone: number; revision: number };
 export type SharedTaskList = SharedStatus & { projectId: string; projectTitle: string;
@@ -1637,7 +1640,7 @@ export type SharedTask = { review?:SharedTaskReviewData; id: string; projectId: 
   attachments?: SharedTaskAttachment[];
   labelIds?: string[]; startDate?: string | null; startTime?: string | null; endTime?: string | null; dependsOnIds?: string[];
   categoryId: string | null; description: string; tags?: string[]; dueDate: string | null;
-  assigneeId: string | null; createdBy?: string | null;
+  assigneeId: string | null; createdBy?: string | null; createdAt?: string;
   completedBy?: string | null; completedAt?: string | null; position: number;
   revision: number; updatedAt: string; pending?: boolean };
 export type SharedMember = { userId: string; role: string; spaceRole: string;
