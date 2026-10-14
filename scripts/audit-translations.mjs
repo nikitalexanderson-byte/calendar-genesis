@@ -30,6 +30,8 @@ const SKIPPED_FILES = new Set([
   "web-voice-actions.ts",
   // Fourteen explicit locale labels; checked with the ad copy coverage test.
   "TodayAdBlock.tsx",
+  // Explicit 14-language collaboration dictionary, checked in affairs-moon.test.mjs.
+  "collaboration-copy.ts",
 ]);
 
 function normalize(value) {

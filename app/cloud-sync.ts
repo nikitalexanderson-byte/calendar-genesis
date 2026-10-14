@@ -14,6 +14,7 @@ import {
   type HabitWorkspace,
 } from "./habits";
 import { clearAllTrackerAnalyticsCaches, clearTrackerAnalyticsCache } from "./tracker-cache";
+import {clearMessagingVault} from "./private-message-vault";
 import { acceptAuthenticatedLogin, clearPrivateDeviceStorage, hasLocalSignOut, LOCAL_SIGN_OUT_KEY, markLocalSignOut, prepareLocalSignIn, privateDeviceAccessBlocked } from "./local-sign-out";
 import {
   mergeWorkspaceDocuments,
@@ -1513,6 +1514,7 @@ export async function signOutFromGoogle() {
   try { clearPrivateDeviceStorage(sessionStorage); } catch { localCleared = false; }
   activeAuthProvider = "google";
   try { await clearAllTrackerAnalyticsCaches(); } catch { localCleared = false; }
+  try { await clearMessagingVault(); } catch { localCleared = false; }
   if ("serviceWorker" in navigator) {
     const registration = await navigator.serviceWorker.getRegistration().catch(() => undefined);
     const notifications = await registration?.getNotifications().catch(() => []);
@@ -1529,6 +1531,7 @@ export async function deleteGenesisAccount(userId?: string) {
   const deletedUserId = userId || workspaceUserId || "";
   const result = await api<{ ok: boolean; deleted: boolean }>("/account", { method: "DELETE", body: "{}" });
   if (!result.deleted) throw new Error("Сервер не подтвердил полное удаление аккаунта.");
+  await clearMessagingVault();
   if (deletedUserId) {
     localStorage.removeItem(`${WORKSPACE_DEVICE_KEY_PREFIX}${deletedUserId}`);
     localStorage.removeItem(`${WORKSPACE_DEVICE_ID_PREFIX}${deletedUserId}`);
@@ -1821,6 +1824,10 @@ async function sendSharedMutation<T extends { pending?: boolean }>(item: SharedQ
 
 export async function listSharedSpaces() {
   return (await sharedCachedRequest<{ spaces: SharedSpace[] }>("/shared/spaces")).spaces;
+}
+/** Uses the normal session, CSRF protection and account-generation cancellation. */
+export function sharedCollaborationRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
+  return api<T>(`/shared${path}`, init);
 }
 export async function createSharedSpace(title: string, description = "", invitations: SharedSpaceInvitationInput[] = [], cover?:{coverImage?:string;coverPosition:{x:number;y:number}}) {
   return (await api<{ space: SharedSpace }>("/shared/spaces", {

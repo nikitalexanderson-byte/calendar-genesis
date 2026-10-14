@@ -1,0 +1,14 @@
+import { sharedCollaborationRequest } from './cloud-sync';
+import type { MessagePayload } from './private-message-crypto';
+export type SpaceParticipant = { userId:string; displayName:string; role:string; viewing:boolean; keyId:string|null; publicKey:JsonWebKey|null };
+export type PrivateMessage = { seq:number; id:string; senderId:string; payload:MessagePayload|null; revision:number; createdAt:string; updatedAt:string; deletedAt:string|null };
+export type PrivateNotice = { id:string; spaceId:string; spaceTitle:string; peerId:string; peerName:string; unread:number; latestSeq:number };
+const request = <T>(path:string,body?:unknown,method='POST',signal?:AbortSignal)=>sharedCollaborationRequest<T>(path,{...(body===undefined?{}:{method,body:JSON.stringify(body)}),signal});
+export const spaceParticipants=(spaceId:string,active?:boolean,signal?:AbortSignal,clientId?:string)=>request<{members:SpaceParticipant[]}>(`/spaces/${encodeURIComponent(spaceId)}/participants`,active===undefined?undefined:{active,clientId},'POST',signal);
+export const messagingKey=(publicKey?:JsonWebKey)=>request<{keyId:string|null;publicKey:JsonWebKey|null}>('/messaging/key',publicKey?{publicKey}:undefined);
+export const openConversation=(spaceId:string,userId:string)=>request<{id:string}>(`/spaces/${encodeURIComponent(spaceId)}/private-conversations`,{userId});
+export const privateInbox=(signal?:AbortSignal)=>request<{conversations:PrivateNotice[]}>('/messaging/inbox',undefined,'GET',signal);
+export const privateMessages=(id:string,before=0,signal?:AbortSignal)=>request<{messages:PrivateMessage[];nextCursor:number|null}>(`/private-conversations/${encodeURIComponent(id)}/messages?before=${before}`,undefined,'GET',signal);
+export const savePrivateMessage=(conversation:string,id:string,payload:MessagePayload,revision?:number)=>request(`/private-conversations/${encodeURIComponent(conversation)}/messages${revision?'/'+encodeURIComponent(id):''}`,{id,payload,...(revision?{expectedRevision:revision}:{})},revision?'PATCH':'POST');
+export const deletePrivateMessage=(conversation:string,message:PrivateMessage)=>request(`/private-conversations/${encodeURIComponent(conversation)}/messages/${encodeURIComponent(message.id)}`,{expectedRevision:message.revision},'DELETE');
+export const readPrivateMessages=(conversation:string,seq:number)=>request(`/private-conversations/${encodeURIComponent(conversation)}/read`,{seq});

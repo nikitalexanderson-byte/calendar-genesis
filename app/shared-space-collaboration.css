@@ -1,0 +1,25 @@
+.shared-space-collaboration { margin-block:16px; border:1px solid var(--line); border-radius:12px; background:var(--surface); }
+.shared-space-collaboration summary { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:16px; cursor:pointer; font-weight:700; }
+.shared-space-collaboration summary>span { margin-left:auto; font-size:12px; font-weight:400; }
+.shared-space-collaboration ul { list-style:none; margin:0; padding:0 16px; }
+.shared-space-collaboration li { display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding-block:12px; border-top:1px solid var(--line); }
+.shared-space-collaboration li>button { margin-left:auto; }
+.shared-space-collaboration details>button,.shared-space-collaboration .shared-key-recovery { margin:16px; }
+.shared-key-recovery { padding-block:12px; border-block:1px solid var(--line); }
+.shared-key-recovery summary,.shared-security-code summary { cursor:pointer; font-weight:700; }
+.shared-key-recovery p,.shared-private-dialog>p { max-width:65ch; }
+.shared-key-actions,.shared-private-actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+.shared-key-import { display:grid; gap:8px; flex:1; min-width:0; }
+.shared-key-import input { width:100%; }
+.shared-private-dialog { width:min(760px,calc(100vw - 24px)); }
+.shared-security-code { margin-block:16px; }
+.shared-security-code code { display:block; margin-block:12px; font-size:14px; overflow-wrap:anywhere; }
+.shared-private-messages { display:grid; gap:16px; list-style:none; padding:0; }
+.shared-private-messages li { max-width:85%; padding:12px 16px; border:1px solid var(--line); border-radius:12px; background:var(--surface); }
+.shared-private-messages li[data-self] { margin-left:auto; background:color-mix(in srgb,var(--ui-accent) 10%,var(--surface)); }
+.shared-private-messages header { display:flex; flex-wrap:wrap; gap:8px; font-size:12px; }
+.shared-private-messages p { white-space:pre-wrap; overflow-wrap:anywhere; }
+.shared-private-notices { position:fixed; right:16px; top:96px; z-index:105; max-width:calc(100vw - 32px); }
+.shared-private-notices:empty { display:none; }
+.shared-private-notice { display:flex; flex-direction:column; gap:8px; text-align:left; width:100%; padding:16px; margin-block:8px; }
+@media(max-width:600px) { .shared-space-collaboration li>button { width:100%; } .shared-private-messages li { max-width:95%; } }

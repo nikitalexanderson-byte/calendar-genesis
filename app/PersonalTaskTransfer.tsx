@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import {
   createSharedTask, listSharedProjects, listSharedSpaces, loadSharedProject,
   removeCloudTaskForTransfer,
-  type GenesisTask, type SharedProject, type SharedProjectSnapshot,
+  type GenesisTask, type SharedProject, type SharedProjectSnapshot, type SharedSpace,
 } from "./cloud-sync";
+import { sharedProjectDestinations } from "./shared-expansion";
+import { translateText, type Language } from "./i18n";
 import { useDialogAccessibility } from "./use-dialog-accessibility";
 import "./personal-task-transfer.css";
 
@@ -35,7 +37,7 @@ function moveRestriction(task: GenesisTask, calendarConnected: boolean): string 
 
 export function PersonalTaskTransfer({ task, language, personalCalendarConnected, onClose, onMoved }: Props) {
   const english = language === "en";
-  const [projects, setProjects] = useState<SharedProject[]>([]);
+  const [groups, setGroups] = useState<{ space: SharedSpace; projects: SharedProject[] }[]>([]);
   const [projectId, setProjectId] = useState("");
   const [snapshot, setSnapshot] = useState<SharedProjectSnapshot | null>(null);
   const [includeDescription, setIncludeDescription] = useState(true);
@@ -47,6 +49,12 @@ export function PersonalTaskTransfer({ task, language, personalCalendarConnected
   const canMove = !restriction && includeDescription && includeDueDate;
   const publishedTitle = task.title.trim().replace(/\s+/gu, " ");
   const publishedDescription = includeDescription ? task.description.trim() : "";
+  const destinations = groups.map(group => ({ ...group, rows: sharedProjectDestinations(group.projects)
+    .filter(({ project }) => ["owner", "manager", "member"].includes(project.role)) })).filter(group => group.rows.length);
+  const selectedGroup = destinations.find(group => group.rows.some(({ project }) => project.id === projectId));
+  const selectedRow = selectedGroup?.rows.find(({ project }) => project.id === projectId);
+  const inboxTitle = translateText("Хаос-бокс", language as Language);
+  const destinationPath = selectedGroup && selectedRow ? `${selectedGroup.space.title} › ${selectedRow.project.isInbox ? inboxTitle : selectedRow.path}` : "";
 
   useEffect(() => {
     let active = true;
@@ -55,7 +63,7 @@ export function PersonalTaskTransfer({ task, language, personalCalendarConnected
       const groups = await Promise.all(spaces.map((space) => listSharedProjects(space.id)));
       if (!active) return;
       const writable = groups.flat().filter((project) => ["owner", "manager", "member"].includes(project.role));
-      setProjects(writable);
+      setGroups(spaces.map((space, index) => ({ space, projects: groups[index] })));
       setProjectId(writable[0]?.id ?? "");
     })().catch((cause: unknown) => { if (active) setError(cause instanceof Error ? cause.message : String(cause)); });
     return () => { active = false; };
@@ -117,10 +125,15 @@ export function PersonalTaskTransfer({ task, language, personalCalendarConnected
         : "Проверьте поля, которые увидят участники проекта. Общие данные обрабатываются сервером GENESIS."}</p>
       <label><span>{english ? "Shared project" : "Общий проект"}</span>
         <select value={projectId} onChange={(event) => { setProjectId(event.target.value); setSnapshot(null); }} disabled={busy}>
-          {projects.map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}
+          {destinations.map(group => <optgroup key={group.space.id} label={group.space.title} data-no-translate>
+            {group.rows.map(({ project, depth, path }) => <option key={project.id} value={project.id} data-no-translate>
+              {depth ? `${"\u00a0\u00a0".repeat(depth)}↳ ` : ""}{project.isInbox ? `${inboxTitle} (${group.space.title})` : path}
+            </option>)}
+          </optgroup>)}
         </select>
       </label>
-      {!projects.length ? <p>{english ? "Create a shared project first." : "Сначала создайте общий проект."}</p> : null}
+      {destinationPath ? <p className="transfer-destination-path" data-no-translate>{destinationPath}</p> : null}
+      {!destinations.length ? <p>{english ? "Create a shared project first." : "Сначала создайте общий проект."}</p> : null}
       <div className="personal-task-transfer-preview">
         <strong>{english ? "Members will see" : "Участники увидят"}</strong>
         <p data-no-translate>{publishedTitle}</p>

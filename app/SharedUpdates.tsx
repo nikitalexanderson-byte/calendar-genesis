@@ -4,6 +4,7 @@ import { loadSharedInbox, type SharedNotification } from "./cloud-sync";
 import { useSharedUpdates } from "./SharedUpdatesProvider";
 import { ExperimentalIcon } from "./ExperimentalIcon";
 import "./shared-updates.css";
+import { SharedInvitationNotices } from "./SharedInvitationNotices";
 
 export type SharedTaskDestination = { spaceId: string; projectId: string; taskId?: string; taskAction?: "locate" | "comments"; commentId?: string };
 export const notificationDestination = (item: SharedNotification): SharedTaskDestination => ({
@@ -11,7 +12,7 @@ export const notificationDestination = (item: SharedNotification): SharedTaskDes
   ...(item.action === "comment.created" ? { taskAction: "comments", ...(item.commentId ? { commentId: item.commentId } : {}) } : {}),
 });
 
-export function SharedWorkspaceSummary({ english, onOpen }: { english: boolean; onOpen: (place: SharedTaskDestination) => void }) {
+export function SharedWorkspaceSummary({ userId, english, onOpen }: { userId: string; english: boolean; onOpen: (place: SharedTaskDestination) => void }) {
   const { overview, error, refresh, markRead } = useSharedUpdates();
   const [open, setOpen] = useState(false); const [unread, setUnread] = useState(true);
   const [items, setItems] = useState<SharedNotification[]>([]); const [cursor, setCursor] = useState<string | null>(null);
@@ -67,6 +68,7 @@ export function SharedWorkspaceSummary({ english, onOpen }: { english: boolean; 
         <button type="button" disabled={busy || !newCount} onClick={() => void read([], true)}>{english ? "Mark all as read" : "Прочитать всё"}</button></div>
       <p className="shared-updates-counts">{english ? "New tasks" : "Новых задач"}: {overview?.newTasks ?? "…"} · {english ? "New projects" : "Новых проектов"}: {overview?.newProjects ?? "…"} · {english ? "Comments" : "Комментариев"}: {overview?.newComments ?? "…"}</p>
       {failed ? <p role="alert">{english ? "Could not update notifications. Try again." : "Не удалось обновить уведомления. Повторите попытку."} <button type="button" disabled={busy} onClick={() => setReload(value => value + 1)}>{english ? "Retry" : "Повторить"}</button></p> : null}
+      {open ? <SharedInvitationNotices userId={userId} english={english} persistent onAccepted={place => { setOpen(false); refresh(); onOpen(place); window.dispatchEvent(new Event("genesis:shared-updates")); }}/>:null}
       <ul className="shared-updates-list">{items.map(item => <li key={item.id} data-unread={!item.isRead || undefined}>
         <button type="button" className="shared-update-open" disabled={busy} onClick={() => void read([item.id], false, notificationDestination(item))}>
           <ExperimentalIcon name={item.action === "project.created" ? "projects" : item.action === "comment.created" ? "comment" : "plus"} />

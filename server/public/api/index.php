@@ -632,6 +632,27 @@ try {
     if (($segments[0] ?? null) === 'shared') {
         $userId = genesisRequireUserId();
         if ($method !== 'GET') genesisRequireCsrf();
+        if ($path === 'shared/messaging/key') {
+            if ($method === 'GET') genesisJson(genesisSharedMessagingKey($userId));
+            if ($method === 'POST') genesisJson(genesisSharedMessagingKey($userId,genesisReadJson()));
+        }
+        if ($method === 'GET' && $path === 'shared/messaging/inbox') genesisJson(genesisSharedPrivateInbox($userId));
+        if (count($segments) === 4 && $segments[1] === 'spaces' && $segments[3] === 'private-conversations' && $method === 'POST') {
+            genesisJson(genesisSharedPrivateConversation($userId,$segments[2],genesisReadJson()));
+        }
+        if (count($segments) >= 4 && $segments[1] === 'private-conversations') {
+            $conversationId = $segments[2];
+            if (count($segments) === 4 && $segments[3] === 'messages') {
+                if ($method === 'GET') genesisJson(genesisSharedPrivateMessages($userId,$conversationId,(int)($_GET['before'] ?? 0)));
+                if ($method === 'POST') genesisJson(genesisSharedPrivateSave($userId,$conversationId,genesisReadJson()),201);
+            }
+            if (count($segments) === 5 && $segments[3] === 'messages' && in_array($method,['PATCH','DELETE'],true)) {
+                genesisJson(genesisSharedPrivateSave($userId,$conversationId,genesisReadJson(),$method,$segments[4]));
+            }
+            if (count($segments) === 4 && $segments[3] === 'read' && $method === 'POST') {
+                genesisSharedPrivateRead($userId,$conversationId,genesisReadJson()); genesisJson(['ok'=>true]);
+            }
+        }
         if ($method === 'GET' && $path === 'shared/overview') genesisJson(['overview' => genesisSharedOverview($userId)]);
         if ($method === 'GET' && $path === 'shared/inbox') {
             genesisJson(genesisSharedInbox($userId, (string)($_GET['before'] ?? ''), ($_GET['unread'] ?? '') === '1'));
@@ -661,6 +682,15 @@ try {
         }
         if ($method === 'GET' && $path === 'shared/spaces') {
             genesisJson(['spaces' => genesisSharedSpaces($userId)]);
+        }
+        if (count($segments) === 4 && $segments[1] === 'spaces' && $segments[3] === 'participants') {
+            if ($method === 'GET') genesisJson(genesisSharedSpaceParticipants($userId, $segments[2]));
+            if ($method === 'POST') {
+                $input = genesisReadJson();
+                if (!isset($input['active']) || !is_bool($input['active'])) throw new InvalidArgumentException('INVALID_PRESENCE');
+                if (!is_string($input['clientId'] ?? null)) throw new InvalidArgumentException('INVALID_PRESENCE');
+                genesisJson(genesisSharedSpaceParticipants($userId, $segments[2], $input['active'], $input['clientId']));
+            }
         }
         if (count($segments) === 4 && $segments[1] === 'spaces' && $segments[3] === 'labels') {
             if ($method === 'GET') genesisJson(['labels' => genesisSharedLabels($userId, $segments[2])]);

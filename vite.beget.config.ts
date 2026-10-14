@@ -155,7 +155,7 @@ export default defineConfig({
             },
             {
               name: "device-access",
-              test: /app[\\/]local-sign-out\.ts$/,
+              test: /app[\\/](?:local-sign-out|private-message-vault)\.ts$/,
               priority: 45,
             },
             {
@@ -191,7 +191,7 @@ export default defineConfig({
             },
             {
               name: "workspace-layout",
-              test: /app[\\/](?:(?:InboxToolbar|WorkspaceHeader)\.tsx|(?:ui-visibility|use-account-layout|use-sidebar-collapse)\.ts)$/,
+              test: /app[\\/](?:(?:InboxToolbar|WorkspaceHeader|CategorySection|PersonalCategoryPanel)\.tsx|(?:ui-visibility|use-account-layout|use-sidebar-collapse|use-affair-drag|use-inbox-drag|task-count-i18n)\.ts)$/,
               priority: 14,
             },
             {

@@ -5,12 +5,13 @@ import { ExperimentalIcon } from "./ExperimentalIcon";
 import { layoutMap, mapHomeView, mapConnection, nodeColors, type Mindmap, type MapNode, type MapView } from "./mindmaps-model";
 import { MindmapNodeContent } from "./MindmapNodeContent";
 
-export default function MindmapCanvas({ map, view, selected, selectedLink, title, onSelect, onEditNode, onSelectLink, onDeleteSelection, onZoom, onHome, onViewport, onPosition, onCreateAt, onLink }: {
+export default function MindmapCanvas({ map, view, selected, selectedLink, title, onSelect, onEditNode, onSelectLink, onDeleteSelection, onZoom, onHome, onViewport, onPosition, onCreateAt, onLink, onContextAction, readOnly = false }: {
   map: Mindmap; view: MapView; selected: string; selectedLink: string | null; title: (node: MapNode) => string;
   onSelect: (id: string) => void; onZoom: (zoom: number) => void; onViewport: (viewport: {left:number;top:number}) => void;
   onHome: (view: MapView) => void;
   onPosition: (id:string,position:{x:number;y:number})=>void; onCreateAt:(position:{x:number;y:number})=>void;
   onLink:(from:string,to:string)=>void; onSelectLink:(id:string,from:string)=>void; onEditNode:(id:string)=>void; onDeleteSelection:()=>void;
+  onContextAction:(action:"child"|"sibling"|"affair"|"remove",nodeId?:string)=>void; readOnly?:boolean;
 }) {
   const [moving, setMoving] = useState<{id:string;x:number;y:number} | null>(null);
   const rows = useMemo(() => layoutMap(map, view).map(row => moving?.id===row.node.id ? {...row,x:moving.x,y:moving.y} : row), [map, view, moving]);
@@ -75,7 +76,8 @@ export default function MindmapCanvas({ map, view, selected, selectedLink, title
     return () => cancelAnimationFrame(frame);
   }, [map.id, view.viewport?.left, view.viewport?.top]);
   useEffect(() => () => { if (scrollTimer.current) clearTimeout(scrollTimer.current); if(holdTimer.current)clearTimeout(holdTimer.current); }, []);
-  useEffect(()=>{ if(!menu)return;menuRef.current?.querySelector<HTMLButtonElement>('button')?.focus();const close=(e:PointerEvent)=>{if(!(e.target as Element).closest('.mindmap-context-menu'))setMenu(null);};document.addEventListener('pointerdown',close);return()=>document.removeEventListener('pointerdown',close); },[menu]);
+  useEffect(()=>{ if(!menu)return;menuRef.current?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus();const close=(e:PointerEvent)=>{if(!(e.target as Element).closest('.mindmap-context-menu'))setMenu(null);};document.addEventListener('pointerdown',close);return()=>document.removeEventListener('pointerdown',close); },[menu]);
+  useLayoutEffect(()=>{if(!menu||!menuRef.current)return;const clamp=()=>{if(!menuRef.current)return;const rect=menuRef.current.getBoundingClientRect(),left=Math.max(8,Math.min(menu.left,innerWidth-rect.width-8)),top=Math.max(8,Math.min(menu.top,innerHeight-rect.height-8));if(left!==menu.left||top!==menu.top)setMenu({...menu,left,top});};clamp();const observer=new ResizeObserver(clamp);observer.observe(menuRef.current);return()=>observer.disconnect();},[menu]);
   const contextAt=(clientX:number,clientY:number,nodeId?:string)=>{const el=scroller.current!;const rect=el.getBoundingClientRect();if(nodeId)onSelect(nodeId);setMenu({left:Math.max(0,Math.min(clientX,window.innerWidth-210)),top:Math.max(0,Math.min(clientY,window.innerHeight-(nodeId ? 130 : 70))),x:Math.max(0,(clientX-rect.left+el.scrollLeft)/view.zoom),y:Math.max(0,(clientY-rect.top+el.scrollTop)/view.zoom),nodeId});};
   const finishNode=(cancel=false)=>{if(holdTimer.current)clearTimeout(holdTimer.current);const current=nodeDrag.current;if(current?.moved)suppressClick.current=true;if(!cancel&&current?.position)onPosition(current.id,current.position);nodeDrag.current=null;setMoving(null);};
   const width = Math.max(...rows.map(r => r.x+r.width)) + 48; const height = Math.max(...rows.map(r=>r.y+r.height)) + 88;
@@ -157,8 +159,20 @@ export default function MindmapCanvas({ map, view, selected, selectedLink, title
       if(e.key==='Tab')setMenu(null);
       if(['ArrowDown','ArrowUp','Home','End'].includes(e.key)){e.preventDefault();const buttons=[...e.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')];const index=buttons.indexOf(document.activeElement as HTMLButtonElement);buttons[e.key==='Home'?0:e.key==='End'?buttons.length-1:(index+(e.key==='ArrowDown'?1:-1)+buttons.length)%buttons.length]?.focus();}
     }}>{menu.nodeId ? <>
+      <button type="button" role="menuitem" disabled={readOnly} onClick={()=>{onContextAction("child",menu.nodeId);setMenu(null);}}><ExperimentalIcon name="thought-child"/><span>Добавить дочернюю мысль</span></button>
+      <button type="button" role="menuitem" disabled={readOnly||!map.nodes.find(node=>node.id===menu.nodeId)?.parentId} onClick={()=>{onContextAction("sibling",menu.nodeId);setMenu(null);}}><ExperimentalIcon name="thought-sibling"/><span>Добавить соседнюю мысль</span></button>
+      <button type="button" role="menuitem" disabled={readOnly} onClick={()=>{onContextAction("affair",menu.nodeId);setMenu(null);}}><ExperimentalIcon name="thought-affair"/><span>Добавить из дел</span></button>
       <button type="button" role="menuitem" onClick={()=>{onEditNode(menu.nodeId!);setMenu(null);}}><ExperimentalIcon name="edit"/><span>Редактировать</span></button>
-      <button type="button" role="menuitem" disabled={!map.nodes.find(node=>node.id===menu.nodeId)?.parentId} onClick={()=>{onDeleteSelection();setMenu(null);}}><ExperimentalIcon name="delete"/><span>Удалить</span></button>
-    </> : <button type="button" role="menuitem" onClick={()=>{onCreateAt({x:menu.x,y:menu.y});setMenu(null);}}>Добавить мысль</button>}</div> : null}
+      <hr/>
+      <button type="button" role="menuitem" onClick={()=>{onHome({...view,focus:menu.nodeId!});setMenu(null);}}><ExperimentalIcon name="thought-focus"/><span>Фокус на ветке</span></button>
+      <button type="button" role="menuitem" onClick={()=>{onHome({...view,collapsed:view.collapsed.includes(menu.nodeId!)?view.collapsed.filter(id=>id!==menu.nodeId):[...view.collapsed,menu.nodeId!]});setMenu(null);}}><ExperimentalIcon name="thought-fold"/><span>{view.collapsed.includes(menu.nodeId!)?"Развернуть ветку":"Свернуть ветку"}</span></button>
+      <hr/>
+      <button type="button" role="menuitem" className="danger" disabled={readOnly||!map.nodes.find(node=>node.id===menu.nodeId)?.parentId} onClick={()=>{onContextAction("remove",menu.nodeId);setMenu(null);}}><ExperimentalIcon name="thought-unlink"/><span>Убрать ветку с карты</span></button>
+    </> : <>
+      <button type="button" role="menuitem" disabled={readOnly} onClick={()=>{onCreateAt({x:menu.x,y:menu.y});setMenu(null);}}><ExperimentalIcon name="thought-new"/><span>Добавить мысль</span></button>
+      <button type="button" role="menuitem" disabled={readOnly} onClick={()=>{onContextAction("affair");setMenu(null);}}><ExperimentalIcon name="thought-affair"/><span>Добавить из дел</span></button>
+      {view.focus?<button type="button" role="menuitem" onClick={()=>{onHome({...view,focus:null});setMenu(null);}}><ExperimentalIcon name="map-mode"/><span>Вся карта</span></button>:null}
+      <button type="button" role="menuitem" onClick={()=>{onHome(mapHomeView(map,view));setMenu(null);}}><ExperimentalIcon name="map-home"/><span>К началу</span></button>
+    </>}</div> : null}
   </div>;
 }

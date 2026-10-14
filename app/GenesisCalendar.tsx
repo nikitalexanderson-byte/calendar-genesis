@@ -35,6 +35,7 @@ import { uiVisibility, viewIsVisible } from "./ui-visibility";
 import { useSidebarCollapse } from "./use-sidebar-collapse";
 import { useAccountLayout } from "./use-account-layout";
 import { InboxToolbar, InboxRestore, InboxResizeBoundary } from "./InboxToolbar";
+import { PersonalCategoryPanel } from "./PersonalCategoryPanel";
 import { ProjectsHeroMark } from "./ProjectsHeroMark";
 import { matchesAffair } from "./affairs-search";
 import { ExperimentalIcon } from "./ExperimentalIcon";
@@ -225,6 +226,7 @@ const CalendarSharedTaskControl = lazy(() => import("./CalendarSharedTaskControl
 const SharedTaskCreate = lazy(() => import("./SharedTaskCreate").then((module) => ({ default: module.SharedTaskCreate })));
 const SharedInvitationNotices = lazy(() => import("./SharedInvitationNotices").then(module => ({ default: module.SharedInvitationNotices })));
 const SharedCommentNotices = lazy(() => import("./SharedUpdates").then(module => ({ default: module.SharedCommentNotices })));
+const SharedPrivateNotices = lazy(() => import("./SharedSpaceCollaboration").then(module => ({ default: module.SharedPrivateNotices })));
 const SharedProjects = lazy(() => import("./SharedProjects").then((module) => ({ default: module.SharedProjects })));
 const SharedTaskLists = lazy(() => import("./SharedTaskLists").then((module) => ({ default: module.SharedTaskLists })));
 const PersonalTaskTransfer = lazy(() => import("./PersonalTaskTransfer").then((module) => ({ default: module.PersonalTaskTransfer })));
@@ -1643,7 +1645,13 @@ export function GenesisCalendar() {
   const taskFormCalendarMode = taskFormCalendar ?? activeTaskCalendarMode;
   const editTaskCalendarMode = editingTask?.calendarMode ?? activeTaskCalendarMode;
   const visibility = uiVisibility(cloudUser?.uiVisibility);
-  const applyLayoutUser = useCallback((user: GenesisUser) => setCloudUser(current => current?.uid === user.uid ? user : current), []);
+  const applyLayoutUser = useCallback((user: GenesisUser) => {
+    setCloudUser(current => current?.uid === user.uid ? user : current);
+    try {
+      const cached = JSON.parse(localStorage.getItem(LAST_USER_KEY) || "null") as GenesisUser | null;
+      if (cached?.uid === user.uid && !privateDeviceAccessBlocked()) localStorage.setItem(LAST_USER_KEY, JSON.stringify(user));
+    } catch { /* Server preferences remain saved when device storage is unavailable. */ }
+  }, []);
   const { layout: accountLayout, save: saveLayout, error: layoutError } = useAccountLayout(cloudUser, applyLayoutUser);
   const saveSidebarWidth = useCallback((sidebarWidth: number) => saveLayout({ sidebarWidth }), [saveLayout]);
   const { width: sidebarWidth, collapsed: sidebarCollapsed, resizing: sidebarResizing, sidebarRef, resizeProps } = useSidebarCollapse(accountLayout.sidebarWidth, visibility.sidebarAutoCollapseSeconds, saveSidebarWidth);
@@ -5732,7 +5740,6 @@ export function GenesisCalendar() {
             <button type="button" aria-pressed={!completedProjectsOpen} onClick={() => setCompletedProjectsOpen(false)}>{language === "en" ? "Current" : "Текущие"} · {projects.length - completedCount}</button>
             <button type="button" aria-pressed={completedProjectsOpen} onClick={() => setCompletedProjectsOpen(true)}>{language === "en" ? "Completed" : "Завершённые"} · {completedCount}</button>
           </div>
-          {personalMindmapsEnabled ? <button type="button" className="primary-button personal-mindmaps-entry" onClick={() => { mindmapsReturnScroll.current = window.scrollY; setMindmapsProjectId(null); setMindmapsOpen(true); }}>Майндмепы</button> : null}
         </div>
 
         <label className="tag-search personal-affairs-search">
@@ -5740,6 +5747,7 @@ export function GenesisCalendar() {
           <input aria-label="Поиск задач и проектов по названию или #тегу" value={tagSearch} onChange={(event) => setTagSearch(event.target.value)} placeholder="Поиск задач и проектов по названию или #тегу" />
           {tagSearch ? <button type="button" onClick={() => setTagSearch("")} aria-label="Очистить поиск">{experimentalThemeActive ? <ExperimentalIcon name="close" /> : "×"}</button> : null}
         </label>
+        {personalMindmapsEnabled ? <button type="button" className="primary-button personal-mindmaps-entry" onClick={() => { mindmapsReturnScroll.current = window.scrollY; setMindmapsProjectId(null); setMindmapsOpen(true); }}><ExperimentalIcon name="map-mode" /><span>Майндмепы</span></button> : null}
 
         </div>
 
@@ -5797,7 +5805,7 @@ export function GenesisCalendar() {
               </section> : null}
 
               {!completedProjectsOpen && !accountLayout.personalInboxHidden ? <InboxResizeBoundary position={accountLayout.personalInboxPosition} width={accountLayout.personalInboxWidth} onWidth={personalInboxWidth => saveLayout({ personalInboxWidth })} /> : null}
-              <div className="project-tree-main">
+              <div className="project-tree-main" data-projects-compact={accountLayout.personalInboxCompact}>
                 {!experimentalThemeActive ? <div className="section-heading compact-heading">
                   <div><span className="eyebrow">Иерархия</span><h2 id="project-tree-title">Дерево проектов</h2></div>
                   <span className="ornament" aria-hidden="true">◎</span>
@@ -5834,8 +5842,8 @@ export function GenesisCalendar() {
                         <small>{category?.name ?? "Без категории"} · {finished}/{projectTasks.length} действий{projectTaskLists.length
                           ? cloudUser?.authProvider === "yandex" ? ` · GENESIS: ${projectTaskLists.length}`
                             : ` · ${projectTaskLists.length} списков Google Tasks` : ""}</small>
-                        {project.description ? <p data-no-translate>{project.description}</p> : null}
-                        {project.tags.length ? <em>{project.tags.map((tag) => `#${tag}`).join("  ")}</em> : null}
+                        {!accountLayout.personalInboxCompact && project.description ? <p data-no-translate>{project.description}</p> : null}
+                        {!accountLayout.personalInboxCompact && project.tags.length ? <em data-no-translate>{project.tags.map((tag) => `#${tag}`).join("  ")}</em> : null}
                       </div>
                     </button>
                     <button type="button" className={`project-complete-action${completingProjectIds.includes(project.id) ? " is-completing" : ""}`} aria-pressed={project.status !== "active"} disabled={completingProjectIds.includes(project.id)}
@@ -5897,38 +5905,13 @@ export function GenesisCalendar() {
 
         </div>
 
-        <section className="category-strip" aria-label="Категории жизни">
-          {categories.map((category) => {
-            const projectCount = projects.filter((project) => project.categoryId === category.id).length;
-            const isEditing = editingCategoryId === category.id;
-            return (
-              <article className={isEditing ? "editing" : ""} key={category.id} style={{ "--category-color": category.color } as CSSProperties}>
-                {isEditing ? (
-                  <form className="category-edit-form" onSubmit={saveCategoryEdit}>
-                    <input type="color" value={editingCategoryColor} onChange={(event) => setEditingCategoryColor(event.target.value)} aria-label="Цвет категории" />
-                    <input value={editingCategoryTitle} onChange={(event) => setEditingCategoryTitle(event.target.value)} aria-label="Название категории" />
-                    <button type="submit" aria-label="Сохранить категорию">✓</button>
-                    <button type="button" onClick={() => setEditingCategoryId("")} aria-label="Отменить редактирование">{experimentalThemeActive ? <ExperimentalIcon name="close" /> : "×"}</button>
-                  </form>
-                ) : (
-                  <>
-                    <i aria-hidden="true" />
-                    <strong data-no-translate>{localizeCategoryName(category, language)}</strong>
-                    <span>{projectCount} проектов</span>
-                    <div className="category-actions">
-                      <button type="button" onClick={() => beginCategoryEdit(category)} data-no-translate aria-label={`${translateText("Редактировать категорию")} «${category.name}»`}>{experimentalThemeActive ? <ExperimentalIcon name="edit" /> : "✎"}</button>
-                      <button type="button" onClick={() => deleteCategory(category.id)} data-no-translate aria-label={`${translateText("Удалить категорию")} «${category.name}»`}>{experimentalThemeActive ? <ExperimentalIcon name="delete" /> : "×"}</button>
-                    </div>
-                  </>
-                )}
-              </article>
-            );
-          })}
-          <form className="quick-category-form" onSubmit={addCategory}>
-            <label className="sr-only" htmlFor="new-category">Новая категория</label>
-            <input id="new-category" value={newCategoryTitle} onChange={(event) => setNewCategoryTitle(event.target.value)} placeholder="＋ категория" />
-          </form>
-        </section>
+        <PersonalCategoryPanel categories={categories} projects={projects} language={language}
+          expanded={accountLayout.personalCategoriesExpanded} onExpanded={personalCategoriesExpanded => saveLayout({ personalCategoriesExpanded })}
+          view={accountLayout.personalCategoriesView} onView={personalCategoriesView => saveLayout({ personalCategoriesView })}
+          editingId={editingCategoryId} editColor={editingCategoryColor} editTitle={editingCategoryTitle}
+          onEditColor={setEditingCategoryColor} onEditTitle={setEditingCategoryTitle} onEdit={beginCategoryEdit} onCancel={() => setEditingCategoryId("")}
+          onSave={saveCategoryEdit} onDelete={deleteCategory} newTitle={newCategoryTitle} onNewTitle={setNewCategoryTitle} onCreate={addCategory}
+          onOpen={id => { setExpandedExperimentalProjects(ids => [...new Set([...ids, id])]); document.querySelector(`[data-project-drop-id="${CSS.escape(id)}"]`)?.scrollIntoView({block:"center",behavior:"smooth"}); }}/>
         <p className="sr-only" aria-live="polite">{projectMoveAnnouncement}</p>
         {projectTouchPoint && projectDragItem ? (
           <div className="project-drag-preview" style={{ left: projectTouchPoint.x, top: projectTouchPoint.y }}>
@@ -6492,6 +6475,7 @@ export function GenesisCalendar() {
         setProjectsArea("shared"); navigateTo("projects",false,destination,true);
       }}/></Suspense> : null}
       {cloudUser?.sharedProjectsEnabled ? <Suspense fallback={null}><SharedCommentNotices key={cloudUser.uid} userId={cloudUser.uid} english={language === "en"} onOpen={place => { setProjectsArea("shared"); navigateTo("projects", false, place); }} /></Suspense> : null}
+      {cloudUser?.sharedProjectsEnabled ? <Suspense fallback={null}><SharedPrivateNotices key={cloudUser.uid} userId={cloudUser.uid} language={language}/></Suspense> : null}
       {projectToComplete ? <ProjectCompletionDialog title={projectToComplete.title}
         onCancel={() => setProjectToComplete(null)} onConfirm={() => {
           const project = projects.find((item) => item.id === projectToComplete.id);
@@ -6660,6 +6644,7 @@ export function GenesisCalendar() {
                     inboxWidth={accountLayout.sharedInboxWidth} onInboxWidth={sharedInboxWidth => saveLayout({ sharedInboxWidth })}
                     inboxCompact={accountLayout.sharedInboxCompact} onInboxCompact={sharedInboxCompact => saveLayout({ sharedInboxCompact })}
                     categoriesExpanded={accountLayout.sharedCategoriesExpanded} onCategoriesExpanded={sharedCategoriesExpanded => saveLayout({ sharedCategoriesExpanded })}
+                    categoriesView={accountLayout.sharedCategoriesView} onCategoriesView={sharedCategoriesView => saveLayout({ sharedCategoriesView })}
                     onInboxPosition={sharedInboxPosition => saveLayout({ sharedInboxPosition })} onInboxHidden={sharedInboxHidden => saveLayout({ sharedInboxHidden })}
                     destination={invitationDestination?.userId===cloudUser?.uid ? invitationDestination ?? undefined : undefined}
                     timeFormat={activeTimeFormat}

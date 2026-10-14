@@ -6,6 +6,7 @@ import {
   type GenesisTask, type SharedProjectImport, type SharedSpace, type SharedProject, listSharedProjects, loadSharedProject, type SharedStatus,
 } from "./cloud-sync";
 import { useDialogAccessibility } from "./use-dialog-accessibility";
+import { sharedProjectDestinations } from "./shared-expansion";
 import "./personal-task-transfer.css";
 
 type Props = {
@@ -68,6 +69,9 @@ export function PersonalProjectTransfer({ root, projects, tasks, categories, lin
   const unsupported = projectTasks.filter(moveRestriction).length;
   const missingCategories = projectTasks.filter((task) => task.categoryId && !categoryById.has(task.categoryId)).length;
   const canMove = linkedListCount === 0 && unsupported === 0 && missingCategories === 0;
+  const destinationRows = sharedProjectDestinations(destinations).filter(({ project }) => !project.isInbox && ["owner", "manager", "member"].includes(project.role));
+  const selectedSpace = spaces.find(space => space.id === spaceId);
+  const selectedParent = destinationRows.find(({ project }) => project.id === parentId);
 
   useEffect(() => {
     let active = true;
@@ -85,7 +89,7 @@ export function PersonalProjectTransfer({ root, projects, tasks, categories, lin
     let active = true;
     const timer = window.setTimeout(() => setLoadingDestination(true), 0);
     void listSharedProjects(spaceId).then((items) => {
-      if (active) { setDestinations(items.filter((item) => !item.isInbox && ["owner", "manager", "member"].includes(item.role))); }
+      if (active) setDestinations(items);
     }).catch((cause: unknown) => { if (active) setError(cause instanceof Error ? cause.message : String(cause)); })
       .finally(() => { window.clearTimeout(timer); if (active) setLoadingDestination(false); });
     return () => { active = false; window.clearTimeout(timer); };
@@ -161,13 +165,16 @@ export function PersonalProjectTransfer({ root, projects, tasks, categories, lin
         : "Проверьте состав проекта: участники увидят все перечисленные данные."}</p>
       <label><span>{english ? "Shared space" : "Общее пространство"}</span>
         <select value={spaceId} onChange={(event) => { setSpaceId(event.target.value); setDestinations([]); setParentId(""); setBoards([]); setBoardId(""); }} disabled={busy}>
-          {spaces.map((space) => <option key={space.id} value={space.id}>{space.title}</option>)}
+          {spaces.map((space) => <option key={space.id} value={space.id} data-no-translate>{space.title}</option>)}
         </select></label>
       {spaces.length ? <label><span>{english ? "Place in" : "Поместить в"}</span>
         <select value={parentId} disabled={busy || loadingDestination} onChange={(event) => { setParentId(event.target.value); setBoards([]); setBoardId(""); }}>
           <option value="">{english ? "Workspace root" : "Корень пространства"}</option>
-          {destinations.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
+          {destinationRows.map(({ project, depth, path }) => <option key={project.id} value={project.id} data-no-translate>
+            {depth ? `${"\u00a0\u00a0".repeat(depth)}↳ ` : ""}{path}
+          </option>)}
         </select></label> : null}
+      {selectedSpace ? <p className="transfer-destination-path" data-no-translate>{selectedSpace.title}{selectedParent ? ` › ${selectedParent.path}` : ""}</p> : null}
       {boards.length ? <label><span>{english ? "Board" : "Доска"}</span><select value={boardId} disabled={busy} onChange={(event) => setBoardId(event.target.value)}>
         <option value="">{english ? "Unassigned" : "Без доски"}</option>{boards.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
       </select></label> : null}
