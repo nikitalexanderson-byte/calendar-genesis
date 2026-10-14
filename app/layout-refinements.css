@@ -1548,6 +1548,8 @@ html[data-genesis-theme] .genesis-app .shared-projects-modal.shared-task-modal {
 }
 
 /* Task panels share the inbox density control and keep their actions together. */
+html[data-genesis-theme] .genesis-app .shared-workspace-toolbar .shared-project-toolbar-group { display:grid; grid-template-columns:minmax(0,1fr) repeat(3,44px); flex:0 1 400px; }
+html[data-genesis-theme] .genesis-app .shared-project-toolbar-group > select { width:100%; min-width:0; }
 html[data-genesis-theme] .genesis-app .shared-project-toolbar-group > :is(button,.shared-archive-open) { flex-shrink:0; width:44px; height:44px; padding:10px; }
 html[data-genesis-theme] .genesis-app .shared-project-toolbar-group > .shared-create-first-project { width:auto; height:auto; }
 html[data-genesis-theme] .genesis-app .shared-workspace-search { position:relative; min-width:0; }
