@@ -739,8 +739,24 @@ try {
             genesisJson(['ok' => true]);
         }
         if ($method === 'GET' && $path === 'shared/calendar/tasks') {
-            genesisJson(['tasks' => genesisSharedCalendarTasks($userId,
-                (string)($_GET['from'] ?? ''), (string)($_GET['to'] ?? ''))]);
+            $from=genesisSharedTaskDate($_GET['from']??null);$to=genesisSharedTaskDate($_GET['to']??null);
+            if (!$from || !$to || $from>$to) throw new InvalidArgumentException('INVALID_SHARED_CALENDAR_RANGE');
+            genesisJson(genesisSharedQueryTasks($userId,['dueFrom'=>$from,'dueTo'=>$to,'completion'=>'open'],$_GET['cursor']??null,100,'dueDate'));
+        }
+        if ($method === 'POST' && count($segments)===6 && $segments[1]==='projects' && $segments[3]==='tasks' && $segments[5]==='archive') {
+            genesisRequireCsrf();genesisJson(genesisSharedArchiveTask($userId,$segments[2],$segments[4],genesisReadJson()));
+        }
+        if ($method === 'POST' && count($segments)===7 && $segments[1]==='spaces' && $segments[3]==='trash' && $segments[4]==='task' && $segments[6]==='purge') {
+            genesisRequireCsrf();genesisJson(genesisSharedPurgeTask($userId,$segments[2],$segments[5],genesisReadJson()));
+        }
+        if ($method === 'GET' && $path === 'shared/tasks') {
+            genesisJson(genesisSharedQueryTasks($userId,genesisSharedReadTaskFilter($_GET['filter']??null),$_GET['cursor']??null,(int)($_GET['limit']??100),(string)($_GET['sort']??'position')));
+        }
+        if ($method === 'GET' && count($segments) === 5 && $segments[1] === 'projects' && $segments[3] === 'tasks') {
+            genesisJson(['task'=>genesisSharedGetTask($userId,$segments[2],$segments[4],($_GET['archived']??'')==='true')]);
+        }
+        if ($method === 'POST' && count($segments) === 6 && $segments[1] === 'projects' && $segments[3] === 'tasks' && $segments[5] === 'convert-checklist') {
+            genesisJson(genesisSharedConvertChecklistItem($userId,$segments[2],$segments[4],genesisReadJson()));
         }
         if ($method === 'POST' && $path === 'shared/invitations/accept') {
             $invitationInput = genesisReadJson();
@@ -753,7 +769,7 @@ try {
             genesisJson(['ok' => true]);
         }
         if ($method === 'GET' && count($segments) === 4 && $segments[1] === 'spaces' && $segments[3] === 'search') {
-            genesisJson(genesisSharedSearch($userId, $segments[2], (string)($_GET['q'] ?? '')));
+            genesisJson(genesisSharedSearch($userId, $segments[2], (string)($_GET['q'] ?? ''), $_GET['cursor']??null));
         }
         if (count($segments) === 4 && $segments[1] === 'spaces' && $segments[3] === 'projects') {
             if ($method === 'GET') genesisJson(['projects' => genesisSharedProjects($userId, $segments[2])]);
@@ -795,7 +811,7 @@ try {
             genesisJson(['ok' => true]);
         }
         if (count($segments) === 3 && $segments[1] === 'projects' && $method === 'GET') {
-            genesisJson(genesisSharedProjectSnapshot($userId, $segments[2]));
+            genesisJson(genesisSharedProjectSnapshot($userId, $segments[2], genesisSharedReadTaskFilter($_GET['filter']??null), $_GET['cursor']??null, (string)($_GET['sort']??'position')));
         }
         if (count($segments) === 4 && $segments[1] === 'projects' && $segments[3] === 'google') {
             if ($method === 'GET') genesisJson(['settings' => genesisSharedGoogleSettings($userId, $segments[2])]);

@@ -49,6 +49,7 @@ private class WorkspaceFixture(val available: Boolean = true) : SharedWorkspaceG
             .put("tasks", JSONArray()).put("members", JSONArray()).put("spaceMembers", JSONArray())
             .put("categories", JSONArray())
     }
+    override suspend fun querySharedTasks(filter: JSONObject, cursor: String?) = JSONObject().put("tasks", JSONArray()).put("total", 0).put("queryVersion", "fixture").put("hasMore", false)
     override suspend fun sharedGoogleSettings(projectId: String) = JSONObject().put("settings", JSONObject())
     override suspend fun queuedSharedTasks(projectId: String) = emptyList<JSONObject>()
     override suspend fun flushSharedOfflineTasks() = 0

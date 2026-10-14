@@ -119,7 +119,7 @@ function genesisSharedAttachmentIndex(string $projectId): array
 function genesisSharedReadTaskAttachment(string $userId, string $taskId, string $attachmentId): array
 {
     genesisSharedRequireEnabled($userId);
-    $query = genesisDb()->prepare('SELECT project_id FROM shared_tasks_read WHERE id = :task');
+    $query = genesisDb()->prepare('SELECT project_id FROM shared_tasks_history_read WHERE id = :task');
     $query->execute(['task' => $taskId]);
     $projectId = $query->fetchColumn();
     if (!$projectId) throw new GenesisSharedAccessException();

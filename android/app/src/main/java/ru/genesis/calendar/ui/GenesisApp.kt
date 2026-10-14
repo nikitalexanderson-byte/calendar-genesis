@@ -284,27 +284,43 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
             pendingSharedProjectsToggle = null
     }
     var sharedCalendarEntries by remember { mutableStateOf<List<SharedCalendarEntry>>(emptyList()) }
+    var sharedCalendarCounts by remember { mutableStateOf<Map<String,Int>>(emptyMap()) }
     val sharedCalendarYear = selected.take(4)
     LaunchedEffect(sharedProjectsEnabled, tab, sharedCalendarYear, authState.user) {
         if (!sharedProjectsEnabled || tab != "Календарь") {
-            if (!sharedProjectsEnabled) sharedCalendarEntries = emptyList()
+            if (!sharedProjectsEnabled) { sharedCalendarEntries = emptyList(); sharedCalendarCounts = emptyMap() }
             return@LaunchedEffect
         }
         val year = sharedCalendarYear.toIntOrNull() ?: LocalDate.now().year
         while (isActive) {
             runCatching {
                 val result = authController.sharedCalendarTasks("${year - 1}-01-01", "${year + 1}-12-31")
-                result.getJSONArray("tasks")
-            }.onSuccess { rows ->
-                sharedCalendarEntries = (0 until rows.length()).map { index ->
-                    rows.getJSONObject(index).let { row ->
-                        SharedCalendarEntry(row.optString("id"), row.optString("title"),
-                            row.optString("dueDate"), row.optString("projectTitle"),
-                            row.optString("completedAt").isNotBlank())
-                    }
-                }
-            }
+                val counts = result.optJSONObject("dateCounts") ?: org.json.JSONObject()
+                sharedCalendarCounts = counts.keys().asSequence().associateWith { counts.optInt(it) }
+            }.onFailure { sharedCalendarCounts = emptyMap() }
             delay(30_000)
+        }
+    }
+    LaunchedEffect(sharedProjectsEnabled, tab, selected, authState.user) {
+        sharedCalendarEntries = emptyList()
+        if (!sharedProjectsEnabled || tab != "Календарь") return@LaunchedEffect
+        val filter = org.json.JSONObject().put("dueFrom", selected).put("dueTo", selected).put("completion", "open")
+        while (isActive) {
+            runCatching {
+                var cursor: String? = null
+                val entries = mutableListOf<SharedCalendarEntry>()
+                do {
+                    val page = authController.querySharedTasks(filter, cursor)
+                    val rows = page.getJSONArray("tasks")
+                    for (index in 0 until rows.length()) rows.getJSONObject(index).let { row ->
+                        entries += SharedCalendarEntry(row.getString("id"), row.getString("title"), row.getString("dueDate"),
+                            row.optString("projectTitle"), !row.isNull("completedAt"))
+                    }
+                    cursor = page.optString("nextCursor").takeUnless { it.isBlank() || it == "null" }
+                } while (cursor != null)
+                entries.toList()
+            }.onSuccess { sharedCalendarEntries = it }.onFailure { sharedCalendarEntries = emptyList() }
+            delay(5_000)
         }
     }
     val serverUiVisibility = authState.accountSettings?.uiVisibility ?: ru.genesis.calendar.auth.UiVisibility()
@@ -864,7 +880,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                             else scope.launch { prefsStore.set("display", next.wireValue) }
                         },
                         experimental=true, tasks=tasks, use24=prefs.use24,
-                        sharedTasks=sharedCalendarEntries,
+                        sharedTasks=sharedCalendarEntries, sharedCounts=sharedCalendarCounts,
                         onOpenSharedProjects={ menuSwipeState.projectArea="shared"; tab="Проекты"; menuSwipeState.personalView="projects" },
                         weekStartsOnSunday=prefs.weekStartsOnSunday,
                         gregorianYearStartsInMarch=prefs.gregorianYearStartsInMarch,

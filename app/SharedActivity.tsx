@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { loadSharedActivity, type SharedActivityEvent } from "./cloud-sync";
 import { ExperimentalIcon } from "./ExperimentalIcon";
 const actions:Record<string,[string,string]>={
+  "task.archived":["Архивировал(а) задачу","Archived task"],"task.unarchived":["Восстановил(а) задачу из архива","Restored task from archive"],"task.purged":["Удалил(а) задачу навсегда","Permanently deleted task"],
   "task.created":["Создал(а) задачу","Created task"],"task.updated":["Изменил(а) задачу","Updated task"],"task.deleted":["Удалил(а) задачу","Deleted task"],"task.moved_out":["Переместил(а) задачу","Moved task"],"task.moved_in":["Переместил(а) задачу сюда","Moved task here"],
   "comment.created":["Добавил(а) комментарий","Added comment"],"project.created":["Создал(а) проект","Created project"],"project.updated":["Изменил(а) проект","Updated project"],"project.archived":["Завершил(а) проект","Completed project"],"project.restored":["Восстановил(а) проект","Restored project"],"project.imported":["Перенёс(ла) проект","Imported project"],
   "status.created":["Создал(а) доску","Created board"],"status.updated":["Изменил(а) доску","Updated board"],"status.deleted":["Удалил(а) доску","Deleted board"],"label.created":["Создал(а) метку","Created label"],"label.updated":["Изменил(а) метку","Updated label"],"label.deleted":["Удалил(а) метку","Deleted label"],

@@ -103,7 +103,7 @@ try {
     sharedExpect($placed['startTime'] === '09:15' && $placed['dueDate'] === '2026-10-10', 'Inbox drop did not atomically save schedule.');
     genesisSharedDeleteTask($co, $cp['id'], $ct['id'], ['expectedRevision' => $ct['revision']]);
     $followSnapshot = array_values(array_filter(genesisSharedProjectSnapshot($co, $cp['id'])['tasks'], static fn($task) => $task['id'] === $follow['id']))[0];
-    sharedExpect($followSnapshot['dependsOnIds'] === [] && $followSnapshot['revision'] > $follow['revision'], 'Deletion left dangling dependencies or stale revisions.');
+    sharedExpect($followSnapshot['dependsOnIds'] === [$ct['id']], 'Trash destroyed recoverable dependency relationships.');
     genesisSharedDeleteLabel($co, $cs['id'], $label['id'], ['expectedRevision' => 1]);
     sharedExpect(!in_array($label['id'], genesisSharedProjectSnapshot($co, $cp['id'])['project']['labelIds'], true), 'Label deletion left assignments.');
 } finally {

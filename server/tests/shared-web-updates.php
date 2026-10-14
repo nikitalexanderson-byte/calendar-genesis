@@ -88,7 +88,9 @@ try {
     $db->prepare('DELETE FROM shared_space_members WHERE space_id = :space AND user_id = :user')->execute(['space' => $space['id'], 'user' => $member]);
     webDenied(fn() => genesisSharedReadTaskImage($member, $task['id']));
     genesisSharedDeleteTask($owner, $destination['id'], $task['id'], ['expectedRevision' => $moved['revision']]);
-    $query->execute(['task' => $task['id']]); webExpect($query->fetchColumn() === false, 'Deleting a task left photo ciphertext.');
+    $query->execute(['task' => $task['id']]); webExpect($query->fetchColumn() !== false, 'Trash lost recoverable photo ciphertext.');
+    $query->closeCursor(); // Release the retained row before the next test opens a separate HTTP writer.
+    webDenied(fn() => genesisSharedReadTaskImage($owner, $task['id']));
 } finally { foreach ($users as $id) if (genesisFindUser($id)) genesisDeleteAccount($id); }
 echo "Shared web summary, persistent inbox, encrypted images, ACL and Google task links passed.\n";
 require __DIR__ . '/shared-task-attachments.php';

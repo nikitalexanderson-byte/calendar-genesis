@@ -133,6 +133,9 @@ jobs:
           php server/tests/shared-content-storage.php
           php server/tests/smoke.php
           php server/tests/shared-projects.php
+          php server/tests/shared-task-details.php
+          php server/tests/shared-task-details-migration.php
+          php server/tests/shared-task-lifecycle.php
           php server/tests/shared-ui.php
           php server/tests/shared-space-settings.php
 

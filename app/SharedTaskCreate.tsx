@@ -152,7 +152,7 @@ export function SharedTaskCreate({ language, enabledCalendars,
           <button type="button" onClick={() => setDueDate("")}>{english ? "Clear" : "Убрать срок"}</button></>
           : <button type="button" onClick={() => setDueDate(calendarDateValue(new Date()))}>
             {english ? "Set due date" : "Установить срок"}</button>}</div>
-      {entryType !== "task" ? <SharedTaskSchedule plan={plan} onChange={setPlan} dueDate={dueDate} onDueDate={setDueDate} mode={calendarMode} timeFormat={timeFormat} english={english} tasks={snapshot?.tasks ?? []}/> : null}
+      {entryType !== "task" ? <SharedTaskSchedule plan={plan} onChange={setPlan} dueDate={dueDate} onDueDate={setDueDate} mode={calendarMode} timeFormat={timeFormat} english={english} projectId={projectId} tasks={snapshot?.tasks ?? []}/> : null}
       <details className="task-advanced-fields"><summary>{english ? "Details and settings" : "Подробности и настройки"}</summary>
       <label>{english ? "Tags" : "Теги"}<input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="работа, запуск" /></label>
       <label>{english ? "Description" : "Описание"}<textarea value={description} maxLength={20000}

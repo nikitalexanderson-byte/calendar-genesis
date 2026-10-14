@@ -34,6 +34,8 @@ interface SharedWorkspaceGateway {
     suspend fun sharedComments(projectId: String, taskId: String): JSONObject = throw UnsupportedOperationException("sharedComments")
     suspend fun sharedGoogleSettings(projectId: String): JSONObject = throw UnsupportedOperationException("sharedGoogleSettings")
     suspend fun sharedInvitations(): JSONObject = throw UnsupportedOperationException("sharedInvitations")
+    suspend fun querySharedTasks(filter: JSONObject, cursor: String? = null): JSONObject = throw UnsupportedOperationException("querySharedTasks")
+    suspend fun sharedTask(projectId: String, taskId: String): JSONObject = throw UnsupportedOperationException("sharedTask")
     suspend fun sharedProject(projectId: String): JSONObject = throw UnsupportedOperationException("sharedProject")
     suspend fun sharedProjects(spaceId: String): JSONObject = throw UnsupportedOperationException("sharedProjects")
     suspend fun sharedSpaceUi(spaceId: String): JSONObject = throw UnsupportedOperationException("sharedSpaceUi")
