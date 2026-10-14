@@ -1,0 +1,64 @@
+<?php
+declare(strict_types=1);
+
+/** Payloads are server-encrypted. No user content appears in job diagnostics. */
+function genesisBackgroundEnqueue(string $kind,string $key,array $payload,?string $availableAt=null): void
+{
+    $now=genesisNow();
+    genesisDb()->prepare('INSERT OR IGNORE INTO background_jobs(id,kind,unique_key,payload,available_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?)')
+        ->execute([genesisUuid(),$kind,$key,genesisSharedContentEncrypt(json_encode($payload,JSON_THROW_ON_ERROR)),$availableAt??$now,$now,$now]);
+}
+
+function genesisBackgroundClaim(?string $now=null): ?array
+{
+    $db=genesisDb(); $now??=genesisNow(); genesisBeginWriteTransaction($db);
+    try {
+        $db->prepare("UPDATE background_jobs SET state='failed',lease_token=NULL,lease_until=NULL,error_code='BACKGROUND_LEASE_EXPIRED',updated_at=? WHERE state='running' AND lease_until<=? AND attempts>=5")->execute([$now,$now]);
+        $q=$db->prepare("SELECT * FROM background_jobs WHERE (state='pending' AND available_at<=?) OR (state='running' AND lease_until<=?) ORDER BY available_at,id LIMIT 1");
+        $q->execute([$now,$now]);$job=$q->fetch();$q->closeCursor();
+        if(!$job){$db->commit();return null;}
+        $token=genesisUuid();$lease=gmdate('Y-m-d\TH:i:s\Z',strtotime($now)+120);
+        $db->prepare("UPDATE background_jobs SET state='running',attempts=attempts+1,lease_token=?,lease_until=?,updated_at=? WHERE id=?")->execute([$token,$lease,$now,$job['id']]);
+        $db->commit();return array_merge($job,['lease_token'=>$token,'attempts'=>(int)$job['attempts']+1]);
+    }catch(Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
+}
+
+/** A result and its acknowledgement share one transaction; an expired lease is safely retried. */
+function genesisBackgroundPerform(array $job,?callable $handler=null): string
+{
+    $db=genesisDb();genesisBeginWriteTransaction($db);
+    try {
+        $q=$db->prepare("SELECT state,lease_token FROM background_jobs WHERE id=?");$q->execute([$job['id']]);$current=$q->fetch();$q->closeCursor();
+        if(!$current||$current['state']!=='running'||$current['lease_token']!==$job['lease_token']){$db->commit();return 'superseded';}
+        $payload=json_decode(genesisSharedContentDecrypt($job['payload']),true,32,JSON_THROW_ON_ERROR);
+        $state=$handler ? $handler($job['kind'],$payload) : match($job['kind']) {
+            'shared-series'=>genesisSharedSeriesGenerate($payload),
+            default=>throw new RuntimeException('BACKGROUND_KIND_UNSUPPORTED'),
+        };
+        $state=$state==='cancelled'?'cancelled':'succeeded';
+        $db->prepare('UPDATE background_jobs SET state=?,lease_until=NULL,lease_token=NULL,error_code=NULL,updated_at=? WHERE id=?')
+            ->execute([$state,genesisNow(),$job['id']]);
+        $db->commit();return $state;
+    } catch(Throwable $e) {
+        if($db->inTransaction())$db->rollBack();
+        $code=in_array($e->getMessage(),['SHARED_PROJECT_NOT_FOUND','SHARED_PROJECT_FORBIDDEN','INVALID_ASSIGNEE','INVALID_TASK_APPROVER','SERIES_SOURCE_UNAVAILABLE','SERIES_INVALID','SERIES_TEMPLATE_UNAVAILABLE','BACKGROUND_KIND_UNSUPPORTED'],true)?$e->getMessage():'BACKGROUND_RETRY';
+        $state=(int)$job['attempts']>=5?'failed':'pending';
+        $delay=min(3600,30*(2**min(7,(int)$job['attempts'])));
+        $db->prepare('UPDATE background_jobs SET state=?,available_at=?,lease_until=NULL,lease_token=NULL,error_code=?,updated_at=? WHERE id=? AND lease_token=?')
+            ->execute([$state,gmdate('Y-m-d\TH:i:s\Z',time()+$delay),$code,genesisNow(),$job['id'],$job['lease_token']]);
+        if(($job['kind']??'')==='shared-series' && isset($payload['seriesId'],$payload['revision'])) $db->prepare('UPDATE shared_task_series SET last_error=? WHERE id=? AND revision=?')->execute([$code,$payload['seriesId'],$payload['revision']]);
+        return $state;
+    }
+}
+
+function genesisBackgroundRun(int $limit=20): array
+{
+    $db=genesisDb();$db->exec("UPDATE background_worker_state SET started_at=strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id=1");
+    genesisSharedSeriesEnqueue();
+    $counts=['succeeded'=>0,'cancelled'=>0,'pending'=>0,'failed'=>0,'superseded'=>0];$deadline=microtime(true)+25;
+    for($i=0;$i<max(1,min(50,$limit))&&microtime(true)<$deadline;$i++){
+        $job=genesisBackgroundClaim();if(!$job)break;$counts[genesisBackgroundPerform($job)]++;
+    }
+    $db->prepare('UPDATE background_worker_state SET completed_at=? WHERE id=1')->execute([genesisNow()]);
+    return $counts;
+}

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { loadSharedInbox, type SharedNotification } from "./cloud-sync";
+import { loadSharedInbox, loadSharedOverview, type SharedOverview, type SharedNotification } from "./cloud-sync";
 import { useSharedUpdates } from "./SharedUpdatesProvider";
 import { ExperimentalIcon } from "./ExperimentalIcon";
 import "./shared-updates.css";
@@ -12,8 +12,19 @@ export const notificationDestination = (item: SharedNotification): SharedTaskDes
   ...(item.action === "comment.created" ? { taskAction: "comments", ...(item.commentId ? { commentId: item.commentId } : {}) } : {}),
 });
 
-export function SharedWorkspaceSummary({ userId, english, onOpen }: { userId: string; english: boolean; onOpen: (place: SharedTaskDestination) => void }) {
+export function SharedWorkspaceSummary({ userId, english, spaceId, onOpen }: { userId: string; english: boolean; spaceId?: string; onOpen: (place: SharedTaskDestination) => void }) {
   const { overview, error, refresh, markRead } = useSharedUpdates();
+  const [scoped, setScoped] = useState<{spaceId: string; value: SharedOverview | null; error: boolean} | null>(null);
+  useEffect(() => {
+    if (!spaceId) return;
+    const controller = new AbortController();
+    void loadSharedOverview(controller.signal, spaceId).then(value => {
+      if (!controller.signal.aborted) setScoped({spaceId, value, error: false});
+    }).catch(() => { if (!controller.signal.aborted) setScoped({spaceId, value: null, error: true}); });
+    return () => controller.abort();
+  }, [spaceId, overview]);
+  const totals = spaceId ? scoped?.spaceId === spaceId ? scoped.value : null : overview;
+  const summaryError = error || Boolean(spaceId && scoped?.spaceId === spaceId && scoped.error);
   const [open, setOpen] = useState(false); const [unread, setUnread] = useState(true);
   const [items, setItems] = useState<SharedNotification[]>([]); const [cursor, setCursor] = useState<string | null>(null);
   const [busy, setBusy] = useState(false); const [failed, setFailed] = useState(false); const [reload, setReload] = useState(0);
@@ -45,9 +56,9 @@ export function SharedWorkspaceSummary({ userId, english, onOpen }: { userId: st
     } catch { setFailed(true); } finally { setBusy(false); }
   };
   const metrics = [
-    [overview?.projects, english ? "projects" : "проектов"], [overview?.rootProjects, english ? "main" : "основных"],
-    [overview?.subprojects, english ? "subprojects" : "подпроектов"], [overview?.tasks, english ? "tasks" : "задач"],
-    [overview?.openTasks, english ? "current" : "текущих"], [overview?.completedTasks, english ? "completed" : "завершённых"],
+    [totals?.projects, english ? "projects" : "проектов"], [totals?.rootProjects, english ? "main" : "основных"],
+    [totals?.subprojects, english ? "subprojects" : "подпроектов"], [totals?.tasks, english ? "tasks" : "задач"],
+    [totals?.openTasks, english ? "current" : "текущих"], [totals?.completedTasks, english ? "completed" : "завершённых"],
   ];
   const newCount = overview ? overview.newTasks + overview.newProjects + overview.newComments : 0;
   return <div className="shared-workspace-summary">
@@ -57,7 +68,7 @@ export function SharedWorkspaceSummary({ userId, english, onOpen }: { userId: st
     <button type="button" className="shared-updates-open" onClick={() => setOpen(true)}>
       <ExperimentalIcon name="mail" />{english ? "Updates" : "Новое"}<strong>{newCount}</strong>
     </button>
-    {error ? <button type="button" className="shared-summary-retry" onClick={refresh}>{english ? "Refresh summary" : "Обновить сводку"}</button> : null}
+    {summaryError ? <button type="button" className="shared-summary-retry" onClick={refresh}>{english ? "Refresh summary" : "Обновить сводку"}</button> : null}
     <dialog className="shared-projects-modal shared-updates-dialog" ref={dialog} onCancel={() => setOpen(false)}
       aria-labelledby="shared-updates-title" onPointerDown={event => { if (event.target === event.currentTarget) { const box = event.currentTarget.getBoundingClientRect(); if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) setOpen(false); } }}>
       <header><h2 id="shared-updates-title">{english ? "New in shared affairs" : "Новое в общих делах"}</h2>

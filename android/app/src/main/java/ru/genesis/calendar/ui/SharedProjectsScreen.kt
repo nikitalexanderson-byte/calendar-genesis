@@ -1290,6 +1290,10 @@ internal fun SharedProjectsScreen(controller: SharedWorkspaceGateway, language: 
             if (selectedTask != null) ElevatedCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(selectedTask.getString("title"), style = MaterialTheme.typography.titleLarge)
+                    if (selectedTask.optString("seriesId").let { it.isNotBlank() && it != "null" }) {
+                        Text(genesisTranslate("Серия общих задач"), style = MaterialTheme.typography.titleSmall)
+                        Text(genesisTranslate("Изменения задачи относятся к этому повтору. Настройки серии действуют только на ещё не созданные задачи."), style = MaterialTheme.typography.bodySmall)
+                    }
                     if (canWrite) {
                         OutlinedTextField(editTaskTitle, { editTaskTitle = it },
                             label = { Text(if (en) "Name" else "Название") }, modifier = Modifier.fillMaxWidth())

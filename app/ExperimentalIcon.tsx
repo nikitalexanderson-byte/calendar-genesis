@@ -24,7 +24,10 @@ export function ExperimentalIcon({ name, className = "" }: { name: string; class
     {name === "thought-fold" ? <><rect x="9" y="2" width="6" height="5" rx="1"/><path d="M12 7v5M5 16v-4h14v4m-14 5 3-3-3-3m14 6-3-3 3-3"/></> : null}
     {name === "thought-unlink" ? <><rect x="3" y="3" width="7" height="5" rx="1"/><rect x="14" y="16" width="7" height="5" rx="1"/><path d="M6 8v5h4m4 0h3v3m-7-6 4 6m0-6-4 6"/></> : null}
     {name === "map-pin" ? <><path d="m8 3 8 0-1 6 3 4H6l3-4-1-6ZM12 13v8"/></> : null}
-    {name === "map-archive" ? <><rect x="3" y="3" width="18" height="5" rx="1"/><path d="M5 8v13h14V8M9 12h6"/></> : null}
+    {name === "map-archive" || name === "archive" ? <><rect x="3" y="3" width="18" height="5" rx="1"/><path d="M5 8v13h14V8M9 12h6"/></> : null}
+    {name === "save" ? <><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12l4 4v12a2 2 0 0 1-2 2Z"/><path d="M7 3v6h9V3M7 21v-8h10v8"/></> : null}
+    {name === "copy" ? <><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></> : null}
+    {name === "history" ? <><path d="M3 11a9 9 0 1 1 2.6 7M3 4v7h7M12 7v5l3 2"/></> : null}
     {name === "map-import" ? <><path d="M14 2H6v8m8-8 6 6v13H6v-5m8-14v6h6M2 13h10m-3-3 3 3-3 3"/></> : null}
     {name === "map-refresh" ? <><path d="M20 8a8 8 0 0 0-14-3L3 8m0-5v5h5M4 16a8 8 0 0 0 14 3l3-3m0 5v-5h-5"/></> : null}
     {name === "map-up" ? <path d="M12 20V4m-6 6 6-6 6 6"/> : null}

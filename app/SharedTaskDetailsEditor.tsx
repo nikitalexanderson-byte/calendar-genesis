@@ -29,6 +29,7 @@ export function SharedTaskReadOnlyMetadata({task, snapshot, labels, statusName, 
     <div><dt>{t("Тип дела")}</dt><dd>{t(entryTypeLabel(task.entryType ?? "task",false))}</dd></div>
     <div><dt>{t("Доска")}</dt><dd data-no-translate>{statusName}</dd></div>
     <div><dt>{t("Исполнитель")}</dt><dd data-no-translate>{member?.displayName ?? t(task.assigneeId ? "Бывший участник" : "Не назначен")}</dd></div>
+    <div><dt>{t("Приоритет")}</dt><dd>{sharedPriorityLabel(task.priority ?? 0)}</dd></div>
     <div><dt>{t("Начало")}</dt><dd>{dateTime(task.startDate,task.startTime)}</dd></div>
     <div><dt>{t("Окончание")}</dt><dd>{dateTime(task.dueDate,task.endTime)}</dd></div>
     {category ? <div><dt>{t("Категория")}</dt><dd data-no-translate>{category.title}</dd></div> : null}
@@ -73,9 +74,9 @@ export function SharedTaskDetailsEditor({ task, value, onChange, members, mode, 
   };
   const working = disabled || pending;
   return <section className="shared-task-details-editor">
-    {readOnly ? <p>{sharedPriorityLabel(value.priority)}</p> : <label>{t("Приоритет")}<select value={value.priority} disabled={working} onChange={event => onChange({ ...value, priority: Number(event.target.value) })}>
+    {!readOnly ? <label>{t("Приоритет")}<select value={value.priority} disabled={working} onChange={event => onChange({ ...value, priority: Number(event.target.value) })}>
       {[0, 1, 2, 3].map(priority => <option key={priority} value={priority}>{sharedPriorityLabel(priority)}</option>)}
-    </select></label>}
+    </select></label> : null}
     <details className="task-advanced-fields shared-task-relations">
       <summary>{t("Подзадачи и родитель")} · {progressLabel(task.completedChildCount ?? 0, task.childCount ?? 0)}</summary>
       <p>{t("Родитель завершается после подзадач и чек-листов. Подтверждения участников сохраняются.")}</p>
