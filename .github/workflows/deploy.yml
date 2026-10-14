@@ -160,6 +160,7 @@ jobs:
           php server/tests/mindmaps-native-contract.php
           php server/tests/mindmaps-migration.php
           php server/tests/subscriptions.php
+          php server/tests/subscription-profile.php
           php server/tests/shared-mindmaps.php
 
       - name: Build client for Beget

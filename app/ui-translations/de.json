@@ -2292,5 +2292,6 @@
   "Проверьте даты, часовой пояс, лимит и обновление образца серии.": "Prüfe Daten, Zeitzone, Limit und Aktualisierung der Serienvorlage.",
   "Серия не сохранена. Черновик оставлен на экране; повторите после подключения.": "Die Serie wurde nicht gespeichert. Dein Entwurf bleibt auf dem Bildschirm; versuche es nach dem Verbinden erneut.",
   "Закрыть карточку без сохранения настроек серии?": "Karte ohne Speichern der Serieneinstellungen schließen?",
-  "Введите действительный часовой пояс IANA, например Europe/Moscow. Черновик сохранён.": "Geben Sie eine gültige IANA-Zeitzone ein, zum Beispiel Europe/Moscow. Ihr Entwurf bleibt erhalten."
+  "Введите действительный часовой пояс IANA, например Europe/Moscow. Черновик сохранён.": "Geben Sie eine gültige IANA-Zeitzone ein, zum Beispiel Europe/Moscow. Ihr Entwurf bleibt erhalten.",
+  "Ваш тариф: {plan}": "Ihr Tarif: {plan}"
 }

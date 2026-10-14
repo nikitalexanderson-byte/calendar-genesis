@@ -2292,5 +2292,6 @@
   "Проверьте даты, часовой пояс, лимит и обновление образца серии.": "Controlla le date, il fuso orario, il limite e l’aggiornamento del modello.",
   "Серия не сохранена. Черновик оставлен на экране; повторите после подключения.": "La serie non è stata salvata. La bozza resta sullo schermo; riprova dopo la riconnessione.",
   "Закрыть карточку без сохранения настроек серии?": "Chiudere la scheda senza salvare le impostazioni della serie?",
-  "Введите действительный часовой пояс IANA, например Europe/Moscow. Черновик сохранён.": "Inserisci un fuso orario IANA valido, ad esempio Europe/Moscow. La bozza viene conservata."
+  "Введите действительный часовой пояс IANA, например Europe/Moscow. Черновик сохранён.": "Inserisci un fuso orario IANA valido, ad esempio Europe/Moscow. La bozza viene conservata.",
+  "Ваш тариф: {plan}": "Il tuo piano: {plan}"
 }

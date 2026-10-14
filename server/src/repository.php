@@ -297,6 +297,7 @@ function genesisUserForClient(array $user): array
     $anyTasksConnected = count(array_filter($accounts, static fn(array $account): bool => !empty($account['googleTasksImportReady']))) > 0;
     return [
         'uid' => (string)$user['id'],
+        'subscriptionPlan' => (string)($user['subscription_plan'] ?? 'free'),
         'authProvider' => genesisUserProvider($user),
         'displayName' => (string)$user['display_name'],
         'email' => (string)$user['email'],

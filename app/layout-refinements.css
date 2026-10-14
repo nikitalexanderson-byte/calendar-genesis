@@ -373,11 +373,11 @@ html[data-genesis-theme] .genesis-app .shared-task-metadata dt { color:var(--ink
 html[data-genesis-theme] .genesis-app .shared-task-metadata dt::after { content:":"; }
 html[data-genesis-theme] .genesis-app .shared-task-metadata dd { margin:0; color:var(--ink); }
 html[data-genesis-theme] .genesis-app .shared-projects-planning { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px 16px; padding: 0; }
-html[data-genesis-theme] .genesis-app .shared-project-task-panel-heading > h3 { margin:0; font: 500 20px/1.3 var(--font-heading); }
+html[data-genesis-theme] .genesis-app .shared-project-task-panel-heading > h3 { margin:0; font: 500 28px/1.3 var(--font-heading); }
 html[data-genesis-theme] .genesis-app .shared-projects-planning .shared-planning-controls { grid-column: 1; grid-row: 2; display: block; }
 html[data-genesis-theme] .genesis-app .shared-projects-planning .shared-projects-view-switch { width: fit-content; max-width: 100%; padding: 0; background: transparent; }
 html[data-genesis-theme] .genesis-app .shared-projects-planning .shared-projects-create-actions { grid-column: 2; grid-row: 2; }
-html[data-genesis-theme] .genesis-app .shared-projects-planning .shared-projects-calendar-mode-label { margin: 0 0 8px; font-size: 12px; }
+html[data-genesis-theme] .genesis-app .shared-projects-planning .shared-projects-calendar-mode-label { margin: 0 0 8px; font:400 var(--type-caption)/1.5 var(--font-ui); }
 html[data-genesis-theme] .genesis-app .shared-projects-board-hint { grid-column: 1 / -1; font-size: 12px; }
 html[data-genesis-theme] .genesis-app .shared-projects-board { align-items: stretch; gap: 16px; }
 html[data-genesis-theme] .genesis-app .shared-board-header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 8px; }
@@ -1550,14 +1550,22 @@ html[data-genesis-theme] .genesis-app .shared-projects-modal.shared-task-modal {
 html[data-genesis-theme] .genesis-app .shared-workspace-toolbar .shared-project-toolbar-group { display:grid; grid-template-columns:minmax(0,1fr) repeat(3,44px); flex:0 1 400px; }
 html[data-genesis-theme] .genesis-app .shared-project-toolbar-group > select { width:100%; min-width:0; }
 html[data-genesis-theme] .genesis-app .shared-project-toolbar-group > :is(button,.shared-archive-open) { flex-shrink:0; width:44px; height:44px; padding:10px; }
-html[data-genesis-theme] .genesis-app .shared-project-toolbar-group > .shared-create-first-project { width:auto; height:auto; }
+html[data-genesis-theme] .genesis-app .shared-workspace-toolbar .shared-project-toolbar-group:has(> .shared-create-first-project) { grid-template-columns:minmax(0,1fr) auto repeat(2,44px); }
+html[data-genesis-theme] .genesis-app .shared-project-toolbar-group > .shared-create-first-project { width:auto; height:44px; min-height:44px; padding:10px 12px; gap:8px; white-space:nowrap; font:500 13px/1.4 var(--font-ui); }
+html[data-genesis-theme] .genesis-app .shared-project-toolbar-group > .shared-workspace-search { grid-column:1/-1; grid-row:3; order:0; min-width:0; width:100%; }
 html[data-genesis-theme] .genesis-app .shared-workspace-search { position:relative; min-width:0; }
 html[data-genesis-theme] .genesis-app .shared-workspace-search > span { position:absolute; inset-inline-start:12px; inset-inline-end:auto; top:50%; transform:translateY(-50%); width:20px; height:20px; pointer-events:none; }
 html[data-genesis-theme] .genesis-app .shared-workspace-toolbar .shared-workspace-search > input { width:100%; min-width:0; padding:12px 12px 12px 44px !important; }
 html[data-genesis-theme] .genesis-app .shared-project-task-panel-heading { flex-wrap:wrap; align-items:end; gap:16px; }
-html[data-genesis-theme] .genesis-app .shared-project-task-panel-heading > h3 { display:flex; align-items:center; min-height:44px; }
+html[data-genesis-theme] .genesis-app .shared-project-task-panel-heading > h3 { align-self:flex-start; }
 html[data-genesis-theme] .genesis-app .shared-project-task-panel-heading > .shared-task-query-bar { flex:1; align-items:end; justify-content:flex-end; margin:0; }
 html[data-genesis-theme] .genesis-app .shared-task-query-bar > label { flex:0 1 180px; }
+html[data-genesis-theme] .genesis-app .shared-task-query-bar > label { font:400 var(--type-caption)/1.5 var(--font-ui); }
+html[data-genesis-theme] .genesis-app .shared-task-query-bar[data-active-view=gantt] > label { display:none; }
+html[data-genesis-theme] .genesis-app .shared-projects-task-panel > .shared-projects-planning { row-gap:20px; }
+@media(min-width:1100px) {
+  html[data-genesis-theme] .genesis-app .shared-task-query-bar[data-active-view=gantt] > label { display:grid; visibility:hidden; pointer-events:none; }
+}
 html[data-genesis-theme] .genesis-app .shared-disclosure-heading,
 html[data-genesis-theme] .genesis-app .shared-categories-header > h3 { display:flex; align-items:center; gap:8px; }
 html[data-genesis-theme] .genesis-app :is(.shared-disclosure-heading,.shared-categories-header > h3) > .experimental-icon { flex:0 0 18px; width:18px; height:18px; }
@@ -1570,15 +1578,23 @@ html[data-genesis-theme] .genesis-app .shared-task-modal .entity-information dl 
 html[data-genesis-theme] .genesis-app .shared-task-modal .entity-information dt { color:var(--ink-soft); font-size:var(--type-caption); font-weight:400; margin-bottom:4px; }
 html[data-genesis-theme] .genesis-app .shared-task-delete-footer { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
 html[data-genesis-theme] .genesis-app .shared-task-delete-footer > button { display:flex; align-items:center; justify-content:center; gap:8px; width:100%; min-height:44px; height:100%; margin:0; padding:12px; }
+html[data-genesis-theme] .genesis-app .topbar-tariff { display:block; color:var(--ink-soft); font:400 var(--type-caption)/1.5 var(--font-ui); margin-top:4px; }
 @media(min-width:1280px) {
   html[data-genesis-theme] .genesis-app .shared-workspace-toolbar { flex-wrap:nowrap; align-items:end; gap:12px; }
   html[data-genesis-theme] .genesis-app .shared-workspace-toolbar-group { display:grid; grid-template-columns:minmax(90px,180px) auto; gap:8px; flex:0 1 440px; }
   html[data-genesis-theme] .genesis-app .shared-workspace-toolbar-group > select { grid-column:1; grid-row:2; width:100%; }
   html[data-genesis-theme] .genesis-app .shared-workspace-tools { display:flex; flex-wrap:nowrap; gap:8px; }
-  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar .shared-project-toolbar-group { flex:0 1 320px; padding-inline-start:16px; margin:0; }
+  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar .shared-project-toolbar-group { grid-template-columns:minmax(90px,180px) minmax(90px,1fr) repeat(3,44px); flex:1 1 520px; padding-inline-start:16px; margin:0; }
+  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar .shared-project-toolbar-group:has(> .shared-create-first-project) { grid-template-columns:minmax(90px,1fr) auto repeat(2,44px); }
+  html[data-genesis-theme] .genesis-app .shared-project-toolbar-group > select { grid-column:1; grid-row:2; }
+  html[data-genesis-theme] .genesis-app .shared-project-toolbar-group > .shared-workspace-search { grid-column:2; grid-row:2; }
+  html[data-genesis-theme] .genesis-app .shared-project-toolbar-group:has(> .shared-create-first-project) > .shared-workspace-search { grid-column:1; }
   html[data-genesis-theme] .genesis-app .shared-workspace-toolbar .shared-workspace-search { flex:1 1 180px; min-width:90px; min-height:44px; height:44px; }
   html[data-genesis-theme] .genesis-app .shared-workspace-toolbar .shared-workspace-search > input { min-height:44px; height:44px; }
   html[data-genesis-theme] .genesis-app .shared-workspace-toolbar :is(select,input,.shared-mindmaps-open) { min-height:44px; height:44px; }
+}
+@media(max-width:1279px) {
+  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar .shared-project-toolbar-group:has(> .shared-create-first-project) { grid-template-columns:minmax(0,1fr) repeat(2,44px); }
 }
 @media(max-width:767px) {
   html[data-genesis-theme] .genesis-app .shared-project-task-panel-heading > .shared-task-query-bar { flex-basis:100%; }

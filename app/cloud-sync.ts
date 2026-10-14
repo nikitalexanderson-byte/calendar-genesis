@@ -151,6 +151,7 @@ export type GenesisTask = {
 
 export type GenesisUser = {
   uid: string;
+  subscriptionPlan?: SubscriptionPlan;
   authProvider?: "google" | "yandex";
   displayName: string | null;
   email: string | null;
