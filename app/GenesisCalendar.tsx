@@ -5757,13 +5757,14 @@ export function GenesisCalendar() {
           </div>
         </div> : null}
 
+        <div className="personal-search-actions">
         <label className="tag-search personal-affairs-search">
           <span aria-hidden="true">{experimentalThemeActive ? <ExperimentalIcon name="search" /> : "⌕"}</span>
           <input aria-label="Поиск задач и проектов по названию или #тегу" value={tagSearch} onChange={(event) => setTagSearch(event.target.value)} placeholder="Поиск задач и проектов по названию или #тегу" />
           {tagSearch ? <button type="button" onClick={() => setTagSearch("")} aria-label="Очистить поиск">{experimentalThemeActive ? <ExperimentalIcon name="close" /> : "×"}</button> : null}
         </label>
         {personalMindmapsEnabled ? <button type="button" className="primary-button personal-mindmaps-entry" onClick={() => { mindmapsReturnScroll.current = window.scrollY; setMindmapsProjectId(null); setMindmapsOpen(true); }}><ExperimentalIcon name="map-mode" /><span>Майндмепы</span></button> : null}
-
+        </div>
         </div>
 
         {searchTerms.length ? (
