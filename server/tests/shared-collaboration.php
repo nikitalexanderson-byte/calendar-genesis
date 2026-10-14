@@ -87,7 +87,9 @@ try {
     sharedExpect($closed['completedAt'] !== null, 'Checkbox move did not close the task.');
     $ct = [...$ct, ...genesisSharedMoveTask($co, $cp['id'], $ct['id'], [...$move, 'statusId' => $open, 'expectedRevision' => $ct['revision']])];
     $activity = genesisSharedActivity($co, $cp['id'], $ct['id'], null);
-    sharedExpect((bool)array_filter($activity['events'], static fn($event) => $event['action'] === 'comment.created'), 'Task history omitted comments.');
+    sharedExpect(!array_filter($activity['events'], static fn($event) => !str_starts_with($event['action'], 'task.')), 'Task history includes comments or project activity.');
+    sharedExpect(count(array_filter($activity['events'], static fn($event) => str_starts_with($event['action'], 'task.moved_'))) === 2, 'Two board moves generated duplicate task history.');
+    sharedExpect((bool)array_filter(genesisSharedActivity($co, $cp['id'], null, $open)['events'], static fn($event) => $event['taskId'] === $ct['id']), 'Board arrival history was lost.');
     sharedExpect((bool)array_filter(genesisSharedActivity($co, $cp['id'], null, $done)['events'], static fn($event) => $event['taskId'] === $ct['id']), 'Board history omitted status changes.');
     for ($i = 0; $i < 53; $i++) genesisSharedAudit($cp['id'], $co, 'task.updated', $ct['id']);
     $page = genesisSharedActivity($co, $cp['id'], null, null);

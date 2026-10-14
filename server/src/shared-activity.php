@@ -65,14 +65,18 @@ function genesisSharedActivity(string $userId, string $projectId, ?string $taskI
         $query = $db->prepare('SELECT 1 FROM shared_tasks_history_read WHERE id = :id AND project_id = :project');
         $query->execute(['id' => $taskId, 'project' => $projectId]);
         if (!$query->fetchColumn()) throw new GenesisSharedAccessException();
-        $filter .= ' AND (e.task_id = :task OR e.object_id = :task OR EXISTS (SELECT 1 FROM shared_comments_read c WHERE c.id = e.object_id AND c.task_id = :task))';
+        $filter .= " AND (e.action LIKE 'task.%' OR e.action = 'series.instance.created') AND (e.task_id = :task OR e.object_id = :task)
+            AND NOT (e.action = 'task.moved_in' AND EXISTS (SELECT 1 FROM shared_audit_events_read paired
+                WHERE paired.project_id = e.project_id AND paired.object_id = e.object_id AND paired.actor_id IS e.actor_id
+                AND paired.action = 'task.moved_out' AND paired.created_at = e.created_at
+                AND json_extract(paired.details_json, '$.changes') = json_extract(e.details_json, '$.changes')))";
         $values['task'] = $taskId;
     }
     if ($boardId !== null) {
         $query = $db->prepare('SELECT 1 FROM shared_project_statuses WHERE id = :id AND project_id = :project');
         $query->execute(['id' => $boardId, 'project' => $projectId]);
         if (!$query->fetchColumn()) throw new GenesisSharedAccessException();
-        $filter .= ' AND (e.board_id = :board OR e.object_id = :board)'; $values['board'] = $boardId;
+        $filter .= " AND (e.board_id = :board OR e.object_id = :board OR json_extract(e.details_json, '$.destinationBoardId') = :board)"; $values['board'] = $boardId;
     }
     if ($before !== '') {
         $query = $db->prepare('SELECT created_at FROM shared_audit_events_read WHERE id = :id AND project_id = :project');

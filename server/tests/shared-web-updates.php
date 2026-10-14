@@ -57,6 +57,17 @@ try {
     webExpect(!str_contains($payload['notes'], 'Secret') && !str_contains($payload['notes'], '/image') && !str_contains($payload['notes'], base64_encode($bytes)), 'Google received private image or description.');
     $totals = genesisSharedOverview($member);
     webExpect($totals['projects'] === 1 && $totals['tasks'] === 2 && $totals['newProjects'] === 1 && $totals['newTasks'] === 2, 'Shared summary is inaccurate.');
+    $secondSpace = genesisSharedCreateSpace($owner, ['title' => 'Separate workspace']);
+    $secondProject = genesisSharedCreateProject($owner, $secondSpace['id'], ['title' => 'Separate project']);
+    $secondStatus = genesisSharedProjectSnapshot($owner, $secondProject['id'])['statuses'][0]['id'];
+    genesisSharedTask($owner, $secondProject['id'], ['title' => 'Separate task', 'statusId' => $secondStatus]);
+    webExpect(genesisSharedOverview($owner)['tasks'] === 3 && genesisSharedOverview($owner, $space['id'])['tasks'] === 2
+        && genesisSharedOverview($owner, $secondSpace['id'])['tasks'] === 1, 'Workspace scope mixes totals from other spaces.');
+    webDenied(fn() => genesisSharedOverview($member, $secondSpace['id']));
+    webDenied(fn() => genesisSharedOverview($outsider, $space['id']));
+    $historyBefore = count(genesisSharedActivity($owner, $project['id'], $task['id'], null)['events']);
+    $task = genesisSharedTask($owner, $project['id'], ['title' => $task['title'], 'expectedRevision' => $task['revision']], $task['id']);
+    webExpect(count(genesisSharedActivity($owner, $project['id'], $task['id'], null)['events']) === $historyBefore, 'Saving unchanged fields duplicated task history.');
     webExpect(genesisSharedOverview($outsider)['tasks'] === 0 && genesisSharedInbox($outsider)['notifications'] === [], 'Inbox leaks another workspace.');
     for ($i = 0; $i < 55; $i++) genesisSharedAddComment($owner, $project['id'], $task['id'], ['body' => 'Comment ' . $i]);
     $first = genesisSharedInbox($member, '', true); $second = genesisSharedInbox($member, $first['nextCursor'], true);

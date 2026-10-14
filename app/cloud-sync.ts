@@ -1634,6 +1634,7 @@ export type SharedReviewSettingsData = {rootProjectId:string;rootTitle:string;re
 export type SharedTaskReviewData = {enabled:boolean;allowed:Record<SharedReviewKind,boolean>;entries:{kind:SharedReviewKind;userId:string;displayName:string;reviewedAt:string}[]};
 export type SharedTrashEntry = {kind:"task"|"project";id:string;title:string;deletedAt:string;expiresAt:string;retentionDays:number;canRestore:boolean;canPurge?:boolean;projectId?:string};
 export type SharedTask = { review?:SharedTaskReviewData; id: string; projectId: string; statusId: string; title: string;
+  seriesId?: string; seriesProjectId?: string; seriesOriginalDate?: string;
   priority?: number; parentTaskId?: string | null; checklists?: SharedChecklist[]; archivedAt?: string | null;
   childCount?: number; completedChildCount?: number; projectTitle?: string; spaceId?: string; isInbox?: number;
   entryType?: "task" | "meeting" | "birthday" | "event";
@@ -1661,6 +1662,31 @@ export function querySharedTasks(filter: SharedTaskFilter, cursor?: string | nul
 }
 export async function loadSharedTask(projectId: string, taskId: string, archived = false) {
   return (await sharedCachedRequest<{ task: SharedTask }>(`/shared/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}${archived ? "?archived=true" : ""}`)).task;
+}
+export async function loadSharedSeries(task: SharedTask) {
+  return (await api<{series: import("./shared-series").SharedSeries | null}>(`/shared/projects/${encodeURIComponent(task.projectId)}/tasks/${encodeURIComponent(task.id)}/series`)).series;
+}
+export async function saveSharedSeries(task: SharedTask, input: {
+  requestId: string; seriesId?: string; expectedRevision?: number; settings: import("./shared-series").SharedSeriesSettings;
+  paused: boolean; refreshTemplate: boolean;
+}) {
+  const result = await api<{series: import("./shared-series").SharedSeries}>(`/shared/projects/${encodeURIComponent(task.projectId)}/tasks/${encodeURIComponent(task.id)}/series`, {
+    method: "POST", body: JSON.stringify({...input, taskRevision: task.revision}),
+  });
+  if (typeof window !== "undefined") window.dispatchEvent(new Event("genesis:shared-updates"));
+  return result.series;
+}
+export async function previewSharedSeries(task: SharedTask, settings: import("./shared-series").SharedSeriesSettings, seriesId?: string, refreshTemplate = false) {
+  return (await api<{preview: import("./shared-series").SharedSeriesPreview}>(`/shared/projects/${encodeURIComponent(task.projectId)}/tasks/${encodeURIComponent(task.id)}/series`, {
+    method: "POST", body: JSON.stringify({preview: true, settings, taskRevision: task.revision, seriesId, refreshTemplate}),
+  })).preview;
+}
+export async function skipSharedSeriesInstance(task: SharedTask, series: import("./shared-series").SharedSeries, requestId: string) {
+  const result = await api<{series: import("./shared-series").SharedSeries}>(`/shared/projects/${encodeURIComponent(task.projectId)}/tasks/${encodeURIComponent(task.id)}/series`, {
+    method: "POST", body: JSON.stringify({skipInstance: true, seriesId: series.id, expectedRevision: series.revision, taskRevision: task.revision, requestId}),
+  });
+  if (typeof window !== "undefined") window.dispatchEvent(new Event("genesis:shared-updates"));
+  return result.series;
 }
 export function convertSharedChecklistItem(task: SharedTask, itemId: string, requestId: string) {
   return api<{taskId: string; projectId: string}>(`/shared/projects/${encodeURIComponent(task.projectId)}/tasks/${encodeURIComponent(task.id)}/convert-checklist`, {
@@ -2108,8 +2134,8 @@ export type SharedNotification = {
 };
 export type SharedOverview = { projects: number; rootProjects: number; subprojects: number;
   tasks: number; openTasks: number; completedTasks: number; newTasks: number; newProjects: number; newComments: number };
-export async function loadSharedOverview(signal?: AbortSignal) {
-  return (await api<{ overview: SharedOverview }>("/shared/overview", { signal })).overview;
+export async function loadSharedOverview(signal?: AbortSignal, spaceId?: string) {
+  return (await api<{ overview: SharedOverview }>(`/shared/overview${spaceId ? `?spaceId=${encodeURIComponent(spaceId)}` : ""}`, { signal })).overview;
 }
 export function loadSharedInbox({ unread = false, before = "", signal }: { unread?: boolean; before?: string; signal?: AbortSignal } = {}) {
   const params = new URLSearchParams(); if (unread) params.set("unread", "1"); if (before) params.set("before", before);

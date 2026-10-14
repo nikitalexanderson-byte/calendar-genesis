@@ -115,12 +115,17 @@ const configs = [
   ['2026-02-01', { mode:'lunar', pattern:'lunar-days', days:[2,30], months:[1,3,5], rangeEnd:'2026-07-01' }],
   ['2100-12-30', { mode:'lunar', pattern:'lunar-days', days:Array.from({length:30}, (_,i)=>i+1), rangeEnd:'2105-12-31' }],
   ['2024-02-29', { mode:'classic', pattern:'daily', interval:99 }],
+  ['2025-03-01', { mode:'lunar', pattern:'lunar-yearly', days:[1,30], months:[13], rangeEnd:'2027-05-01' }],
+  ['2026-02-01', { mode:'lunar', pattern:'lunar-phases', days:[1,2], rangeEnd:'2026-07-01', calendarContext:calendarContext.calendarContext({timeZone:'America/New_York'}) }],
+  ['2026-02-01', { mode:'lunar', pattern:'lunar-decades', days:[3], rangeEnd:'2026-04-01' }],
+  ['2026-02-01', { mode:'lunar', pattern:'lunar-decade-days', days:[1,10], pyatas:[2,3], rangeEnd:'2026-04-01' }],
+  ['1900-03-01', { mode:'genesis', pattern:'month-days', days:[1,30], months:[1,12], rangeEnd:'1901-04-01', calendarContext:calendarContext.calendarContext({timeZone:'Pacific/Auckland'}) }],
 ];
 const intList = (v) => `listOf(${v.join(',')})`;
 output(resolve(tests, 'WebRecurrenceVectors.kt'), header + `internal data class WebRecurrenceVector(val start: String, val config: RecurrenceConfig, val expected: List<String>)\ninternal val webRecurrenceVectors = listOf(\n${configs.map(([start, overrides]) => {
   const c = {...recurrence.DEFAULT_RECURRENCE_CONFIG, enabled:true, ...overrides};
   const expected = recurrence.buildRecurrenceDates(start,c);
-  return `    WebRecurrenceVector(${str(start)}, RecurrenceConfig(enabled=true, mode=${str(c.mode)}, pattern=${str(c.pattern)}, days=${intList(c.days)}, interval=${c.interval}, rangeStart=${str(c.rangeStart)}, rangeEnd=${str(c.rangeEnd)}, months=${intList(c.months)}, pyatas=${intList(c.pyatas)}, calendarContext=CalendarContext(version=2,timeZone="Europe/Moscow")), listOf(${expected.map(str).join(',')}))`;
+  return `    WebRecurrenceVector(${str(start)}, RecurrenceConfig(enabled=true, mode=${str(c.mode)}, pattern=${str(c.pattern)}, days=${intList(c.days)}, interval=${c.interval}, rangeStart=${str(c.rangeStart)}, rangeEnd=${str(c.rangeEnd)}, months=${intList(c.months)}, pyatas=${intList(c.pyatas)}, calendarContext=CalendarContext(version=${c.calendarContext.version},timeZone=${str(c.calendarContext.timeZone)})), listOf(${expected.map(str).join(',')}))`;
 }).join(',\n')}\n)\n`);
 console.log(JSON.stringify({ months: calendar.MONTHS.length, days: 366, newMoons: moments.length, vectors: vectors.length, recurrenceVectors: configs.length, sourceSha256: createHash('sha256').update(source).digest('hex') }));
 
@@ -131,3 +136,7 @@ output(resolve(resources, 'calendar-ephemeris-v2.json'), JSON.stringify({version
  firstMoonIndex:firstIndex,newMoons:moments,fullMoons:fullMoments,firstLunarYear:1898,lunarYearStarts:years,
  firstSolarYear:1898,solarMoments})+'\n');
 output(resolve(resources, 'calendar-vectors-v2.json'), JSON.stringify(vectors.map(row=>row.split('|')))+'\n');
+output(resolve(resources, 'recurrence-vectors-v2.json'), JSON.stringify(configs.map(([anchor,overrides])=>{
+  const raw={...recurrence.DEFAULT_RECURRENCE_CONFIG,enabled:true,...overrides};
+  return {anchor,rule:recurrence.resolveRecurrenceConfig(anchor,raw),expected:recurrence.buildRecurrenceDates(anchor,raw)};
+}))+'\n');

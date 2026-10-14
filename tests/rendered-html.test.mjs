@@ -683,7 +683,9 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.ok(trackerPage.indexOf('{hasHabits ? <HabitSectionBlock') < trackerPage.indexOf('className="habit-range-toolbar"'));
   assert.ok(trackerPage.indexOf("<SacredHabitLibrary") > trackerPage.indexOf("<HabitStatistics"));
   assert.ok(trackerPage.indexOf('className="tracker-module-grid"') < trackerPage.indexOf('className="habit-range-toolbar"'));
-  assert.ok(trackerPage.indexOf('className="habit-range-toolbar"') < trackerPage.indexOf("<HabitStatistics"));
+  assert.ok(trackerPage.includes('rangeToolbar={<section className="habit-range-toolbar">'));
+  assert.ok(tracker.indexOf('{rangeToolbar}') > tracker.indexOf('showCompletionCalendar={experimental}'));
+  assert.ok(tracker.indexOf('{rangeToolbar}') < tracker.indexOf('className="habit-stat-cards"'));
   assert.match(tracker, /Статистика моих привычек/);
   assert.doesNotMatch(tracker, /Клиентская аналитика/);
   assert.match(tracker, /<HabitInsightsPanel/);

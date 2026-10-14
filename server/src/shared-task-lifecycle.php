@@ -8,11 +8,11 @@ function genesisSharedTaskBranch(PDO $db,string $projectId,string $taskId):array
 }
 function genesisSharedArchiveTask(string $userId,string $projectId,string $taskId,array $input):array {
  if(!is_bool($input['archived']??null)||!is_int($input['expectedRevision']??null))throw new InvalidArgumentException('INVALID_TASK_REVISION');
- $db=genesisDb();genesisBeginWriteTransaction($db);try {
+ $db=genesisDb();$ownsTransaction=!$db->inTransaction();if($ownsTransaction)genesisBeginWriteTransaction($db);try {
   genesisSharedProjectAccess($projectId,$userId,'organize');
   $requestId=genesisSharedRequestId($input);$action=$input['archived']?'task.archive':'task.unarchive';
   $receipt=genesisSharedMutationReceipt($db,$userId,$requestId,$action,$taskId);
-  if($receipt!==null){$db->commit();return $receipt;}
+  if($receipt!==null){if($ownsTransaction)$db->commit();return $receipt;}
   $q=$db->prepare('SELECT * FROM shared_tasks_history_read WHERE id=? AND project_id=?');$q->execute([$taskId,$projectId]);$task=$q->fetch();
   if(!$task)throw new GenesisSharedAccessException();
   if((int)$task['revision']!==$input['expectedRevision'])throw new GenesisSharedAccessException('SHARED_TASK_CONFLICT',409);
@@ -38,8 +38,8 @@ function genesisSharedArchiveTask(string $userId,string $projectId,string $taskI
   }
   $q=$db->prepare('SELECT revision FROM shared_tasks WHERE id=?');$q->execute([$taskId]);
   $result=['ok'=>true,'id'=>$taskId,'projectId'=>$projectId,'revision'=>(int)$q->fetchColumn(),'affected'=>$affected,'archived'=>$archived];
-  genesisSharedSaveMutationReceipt($db,$userId,$requestId,$action,$taskId,$result);$db->commit();return $result;
- }catch(Throwable $error){if($db->inTransaction())$db->rollBack();throw $error;}
+  genesisSharedSaveMutationReceipt($db,$userId,$requestId,$action,$taskId,$result);if($ownsTransaction)$db->commit();return $result;
+ }catch(Throwable $error){if($ownsTransaction&&$db->inTransaction())$db->rollBack();throw $error;}
 }
 function genesisSharedCanPurgeTasks(array $project):bool {
  return in_array($project['space_member_role'],['owner','admin'],true) && $project['permissions']['manageProjects'];

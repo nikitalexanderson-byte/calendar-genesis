@@ -127,6 +127,12 @@ function genesisSharedHydrateTasks(string $userId, array $rows, array $projects 
             'priority'=>(int)$row['priority'],'parentTaskId'=>$row['parent_task_id'],'archivedAt'=>$row['archived_at'],
             'checklists'=>json_decode($row['checklists_json'],true),'childCount'=>(int)($childCounts[$row['id']]['total']??0),'completedChildCount'=>(int)($childCounts[$row['id']]['done']??0)];
         $task['dependsOnIds'] = genesisSharedDependencyIds($row['id']);
+        $seriesQuery=$db->prepare('SELECT i.series_id,i.original_date,s.project_id FROM shared_series_instances i JOIN shared_task_series s ON s.id=i.series_id WHERE i.task_id=?');
+        $seriesQuery->execute([$row['id']]);$series=$seriesQuery->fetch();$seriesQuery->closeCursor();
+        if($series) {
+            try { genesisSharedProjectAccess($series['project_id'],$userId); $task['seriesId']=$series['series_id'];$task['seriesProjectId']=$series['project_id'];$task['seriesOriginalDate']=$series['original_date']; }
+            catch(GenesisSharedAccessException) { /* A subscription or series link never grants access. */ }
+        }
         $task['labelIds'] = genesisSharedLabelIds('task', $row['id']);
         $task['approvals'] = genesisSharedTaskApprovals($row['id']); $task['approvalRequired'] = count($task['approvals']) > 0;
         $task['attachments'] = genesisSharedTaskAttachments($row['id']);

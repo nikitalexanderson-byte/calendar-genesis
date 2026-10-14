@@ -136,7 +136,8 @@ try {
     }
     genesisEnforceApiBudget($method, $path, genesisCurrentUserId());
     if ($method === 'GET' && $path === 'health') {
-        genesisJson(['ok' => true, 'service' => 'GENESIS', 'privacyModel' => 2, 'time' => genesisNow()]);
+        $worker=genesisDb()->query('SELECT started_at AS startedAt,completed_at AS completedAt FROM background_worker_state WHERE id=1')->fetch();
+        genesisJson(['ok' => true, 'service' => 'GENESIS', 'privacyModel' => 2, 'time' => genesisNow(), 'backgroundWorker'=>$worker]);
     }
 
     if ($method === 'GET' && $path === 'auth/providers') {
@@ -659,7 +660,7 @@ try {
             }
             if ($segments[3] === 'files' && count($segments) === 5 && $method === 'DELETE') { genesisSharedPrivateDiscardFile($userId,$conversationId,$segments[4]); genesisJson(['ok'=>true]); }
         }
-        if ($method === 'GET' && $path === 'shared/overview') genesisJson(['overview' => genesisSharedOverview($userId)]);
+        if ($method === 'GET' && $path === 'shared/overview') genesisJson(['overview' => genesisSharedOverview($userId, isset($_GET['spaceId']) ? (string)$_GET['spaceId'] : null)]);
         if (count($segments)===4 && $segments[1]==='projects' && $segments[3]==='comments') {
             if ($method==='GET') genesisJson(['comments'=>genesisSharedProjectComments($userId,$segments[2],null,isset($_GET['board'])?(string)$_GET['board']:null)]);
             if ($method==='POST') genesisJson(['comments'=>genesisSharedProjectComments($userId,$segments[2],genesisReadJson())],201);
@@ -767,6 +768,15 @@ try {
         }
         if ($method === 'POST' && count($segments) === 6 && $segments[1] === 'projects' && $segments[3] === 'tasks' && $segments[5] === 'convert-checklist') {
             genesisJson(genesisSharedConvertChecklistItem($userId,$segments[2],$segments[4],genesisReadJson()));
+        }
+        if (count($segments)===6 && $segments[1]==='projects' && $segments[3]==='tasks' && $segments[5]==='series') {
+            if($method==='GET')genesisJson(['series'=>genesisSharedSeriesForTask($userId,$segments[2],$segments[4])]);
+            if($method==='POST'){
+                genesisRequireCsrf();$input=genesisReadJson();
+                if(($input['preview']??false)===true)genesisJson(['preview'=>genesisSharedSeriesPreview($userId,$segments[2],$segments[4],$input)]);
+                if(($input['skipInstance']??false)===true)genesisJson(['series'=>genesisSharedSeriesSkip($userId,$segments[2],$segments[4],$input)]);
+                genesisJson(['series'=>genesisSharedSeriesSave($userId,$segments[2],$segments[4],$input,isset($input['seriesId'])?(string)$input['seriesId']:null)]);
+            }
         }
         if ($method === 'POST' && $path === 'shared/invitations/accept') {
             $invitationInput = genesisReadJson();

@@ -64,6 +64,7 @@ export function RecurrenceBuilder({
   allowCalendarModeChange = false,
   headerControls,
   footerControls,
+  sharedSeries = false,
 }: {
   value: RecurrenceConfig;
   onChange: (value: RecurrenceConfig) => void;
@@ -74,6 +75,7 @@ export function RecurrenceBuilder({
   allowCalendarModeChange?: boolean;
   headerControls?: ReactNode;
   footerControls?: ReactNode;
+  sharedSeries?: boolean;
 }) {
   const isEnglish = getRuntimeLanguage() === "en";
   // Tracker schedules keep the calendar in which they were created. Aligning a
@@ -111,7 +113,7 @@ export function RecurrenceBuilder({
         ? "daily" : "pyata-days";
   const previewDates = value.enabled ? buildRecurrenceDates(startDate, { ...value, rangeStart, rangeEnd }) : [startDate];
   const occurrenceCount = previewDates.length;
-  const tooManyOccurrences = occurrenceCount > MAX_RECURRENCE_OCCURRENCES;
+  const tooManyOccurrences = !sharedSeries && occurrenceCount > MAX_RECURRENCE_OCCURRENCES;
 
   const setPattern = (pattern: RecurrenceConfig["pattern"]) => {
     onChange({
@@ -176,7 +178,7 @@ export function RecurrenceBuilder({
     <section className={`recurrence-builder${value.enabled ? " enabled" : ""}`} aria-label="Настройка повторения">
       {destination === "tracker" && allowCalendarModeChange ? <RecordCalendarChoice value={displayCalendarMode} onChange={changeCalendarMode} /> : null}
       {headerControls}
-      <div className="recurrence-switch-row">
+      {!sharedSeries ? <div className="recurrence-switch-row">
         <div>
           <strong>Повторение</strong>
           <small>{destination === "tracker" ? (value.enabled ? (isEnglish ? "Habit tracking on selected days. Google copies are optional." : "Привычка отслеживается в выбранные дни. Копии в Google подключаются отдельно.") : (isEnglish ? "Habit without recurrence" : "Привычка без повторений")) : value.enabled ? RECURRENCE_MODE_COPY[value.mode].description : "Одиночная задача без повторений"}</small>
@@ -197,7 +199,7 @@ export function RecurrenceBuilder({
           <span aria-hidden="true" />
           <b>{value.enabled ? "Включено" : "Выключено"}</b>
         </label>
-      </div>
+      </div> : null}
 
       {value.enabled || destination === "tracker" ? (
           <fieldset className="recurrence-range">
@@ -251,7 +253,7 @@ export function RecurrenceBuilder({
                 </div>
               ) : (
                 <p className="recurrence-pattern-explainer">
-                    {destination === "tracker" ? (value.pattern === "daily"
+                    {destination === "tracker" && !sharedSeries ? (value.pattern === "daily"
                       ? "Привычка отслеживается через выбранное число календарных дней."
                       : value.pattern === "monthly" ? `Привычка отслеживается ${new Date(`${startDate}T12:00:00`).getDate()} числа выбранных месяцев.`
                       : `Привычка отслеживается ежегодно ${shortDate(startDate, displayCalendarMode)}.`) : value.pattern === "daily"
@@ -336,7 +338,7 @@ export function RecurrenceBuilder({
             </>
           ) : null}
 
-          {trackerLunar ? <div className="recurrence-pattern-toggle wrap" role="group" aria-label="Ритм лунной привычки">
+          {trackerLunar ? <div className="recurrence-pattern-toggle wrap" role="group" aria-label={sharedSeries ? "Настройка повторения" : "Ритм лунной привычки"}>
             {([ ["daily", "Ежедневно"], ["lunar-days", "Дни месяца"], ["lunar-decades", "Декады"],
               ["lunar-decade-days", "Дни декады"], ["lunar-phases", "Новолуние / полнолуние"],
               ["lunar-yearly", "Ежегодно"] ] as const).map(([cadence, label]) =>
@@ -400,7 +402,7 @@ export function RecurrenceBuilder({
             )
           ) : null}
 
-          <div className={`recurrence-summary${tooManyOccurrences ? " warning" : ""}`} role={tooManyOccurrences ? "alert" : "status"}>
+          {!sharedSeries ? <div className={`recurrence-summary${tooManyOccurrences ? " warning" : ""}`} role={tooManyOccurrences ? "alert" : "status"}>
             <strong>{occurrenceCount}</strong>
             <span>{tooManyOccurrences
               ? (isEnglish
@@ -409,7 +411,7 @@ export function RecurrenceBuilder({
               : (isEnglish
                   ? `— number of ${destination === "tracker" ? "tracker dates" : "recurrences of one task"} from ${shortDate(rangeStart, displayCalendarMode, true)} to ${shortDate(rangeEnd, displayCalendarMode, true)}`
                   : `— количество ${destination === "tracker" ? "дней трекинга" : "повторений одной задачи"} с ${shortDate(rangeStart, displayCalendarMode, true)} по ${shortDate(rangeEnd, displayCalendarMode, true)}`)}</span>
-          </div>
+          </div> : null}
 
           <div className="recurrence-selection-hint" aria-live="polite">
             <p>{translateText("Следующие даты: {dates}").replace("{dates}", previewDates.slice(0, 5).map(date => formatCalendarDateValue(date, displayCalendarMode, true, value.calendarContext)).join(" · ") || "—")}</p>
@@ -417,7 +419,7 @@ export function RecurrenceBuilder({
             <p>{translateText("Несуществующие дни пропускаются. Апейрон не входит в сакральные повторы; 13-й лунный месяц выбирается только в годах, где он есть.")}</p>
             {value.mode === "genesis" && value.calendarContext?.version === 1 ? <p>{translateText("Сохранённое расписание использует прежнее начало сакрального года — 20 марта.")}</p> : null}
           </div>
-          <small className="recurrence-sync-note">
+          {!sharedSeries ? <small className="recurrence-sync-note">
             {destination === "tracker"
               ? (isEnglish
                   ? "GENESIS stores the habit and its recurrence. Google copies are created only when you enable them below."
@@ -429,7 +431,7 @@ export function RecurrenceBuilder({
               : (isEnglish
                   ? `GENESIS will save one task, and Google Calendar will save one recurring event with all ${value.mode === "lunar" ? "lunar" : value.mode === "genesis" ? "sacred" : "selected"} dates.`
                   : `GENESIS сохранит одну задачу, а Google Calendar — одно повторяющееся событие со всеми ${value.mode === "lunar" ? "лунными" : value.mode === "genesis" ? "сакральными" : "выбранными"} датами.`)}
-          </small>
+          </small> : null}
         </div>
       ) : null}
       {footerControls}

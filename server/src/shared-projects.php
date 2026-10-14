@@ -19,6 +19,7 @@ require_once __DIR__ . '/shared-private-messages.php';
 require_once __DIR__ . '/shared-task-details.php';
 require_once __DIR__ . '/shared-task-lifecycle.php';
 require_once __DIR__ . '/shared-task-query.php';
+require_once __DIR__ . '/shared-series.php';
 
 final class GenesisSharedAccessException extends RuntimeException
 {
@@ -1466,10 +1467,10 @@ function genesisSharedMoveTask(string $userId, string $sourceProjectId, string $
         array_splice($ordered, min($position, count($ordered)), 0, [$taskId]);
         $reposition = $db->prepare('UPDATE shared_tasks SET position = :position WHERE id = :id');
         foreach ($ordered as $index => $id) $reposition->execute(['position' => $index, 'id' => $id]);
-        $moveDetails = ['taskId' => $taskId, 'objectTitle' => $task['title'], 'changes' => [
+        $moveDetails = ['taskId' => $taskId, 'objectTitle' => $task['title'], 'destinationBoardId' => $statusId, 'changes' => [
             'statusId' => ['from' => $task['status_id'], 'to' => $statusId], 'projectId' => ['from' => $sourceProjectId, 'to' => $destinationId]] + genesisSharedChanges(['dueDate' => $task['due_date'], 'startDate' => $task['start_date'], 'startTime' => $task['start_time'], 'endTime' => $task['end_time']], ['dueDate' => $dueDate] + $schedule)];
         genesisSharedAudit($sourceProjectId, $userId, 'task.moved_out', $taskId, $moveDetails + ['boardId' => $task['status_id']]);
-        if ($changedProject || $task['status_id'] !== $statusId) genesisSharedAudit($destinationId, $userId, 'task.moved_in', $taskId, $moveDetails + ['boardId' => $statusId]);
+        if ($changedProject) genesisSharedAudit($destinationId, $userId, 'task.moved_in', $taskId, $moveDetails + ['boardId' => $statusId]);
         $response = ['id' => $taskId, 'projectId' => $destinationId, 'statusId' => $statusId,
             'position' => min($position, count($ordered) - 1), 'revision' => $expected + 1,
             'assigneeId' => $assignee, 'categoryId' => $changedProject ? null : $task['category_id'],
@@ -1652,11 +1653,14 @@ function genesisSharedTask(string $userId, string $projectId, array $input, ?str
             'id' => $id, 'entry' => $entryType, 'start' => $schedule['startDate'], 'start_time' => $schedule['startTime'], 'end_time' => $schedule['endTime']]);
         $dependsOnIds = genesisSharedAssignDependencies($projectId, $id, $input);
         $labelIds = genesisSharedAssignLabels($project['space_id'], 'task', $id, $input);
-        genesisSharedAudit($projectId, $userId, $existing ? 'task.updated' : 'task.created', $id, ['changes' => genesisSharedChanges(
-            ['title' => $existing['title'] ?? null, 'description' => $existing['description'] ?? null, 'tags' => isset($existing['tags_json']) ? json_decode($existing['tags_json'], true) : [],
+        $taskChanges = genesisSharedChanges(
+            ['entryType' => $existing['entry_type'] ?? 'task', 'title' => $existing['title'] ?? null, 'description' => $existing['description'] ?? null, 'tags' => isset($existing['tags_json']) ? json_decode($existing['tags_json'], true) : [],
              'dueDate' => $existing['due_date'] ?? null, 'statusId' => $existing['status_id'] ?? null, 'categoryId' => $existing['category_id'] ?? null, 'assigneeId' => $existing['assignee_id'] ?? null, 'labelIds' => $oldLabels,
              'startDate' => $existing['start_date'] ?? null, 'startTime' => $existing['start_time'] ?? null, 'endTime' => $existing['end_time'] ?? null, 'dependsOnIds' => $oldDependencies, 'priority'=>(int)($existing['priority']??0), 'parentTaskId'=>$existing['parent_task_id']??null, 'checklists'=>json_decode($existing['checklists_json']??'[]',true)],
-            compact('title', 'description', 'tags', 'dueDate', 'statusId', 'categoryId', 'assigneeId', 'labelIds', 'dependsOnIds') + $schedule + ['priority'=>$details['priority'],'parentTaskId'=>$details['parentId'],'checklists'=>$details['checklists']])]);
+            compact('entryType', 'title', 'description', 'tags', 'dueDate', 'statusId', 'categoryId', 'assigneeId', 'labelIds', 'dependsOnIds') + $schedule + ['priority'=>$details['priority'],'parentTaskId'=>$details['parentId'],'checklists'=>$details['checklists']]);
+        if (!$existing || $taskChanges || !empty($input['attachments']) || !empty($input['removeAttachmentIds']) || array_key_exists('imageData', $input)) {
+            genesisSharedAudit($projectId, $userId, $existing ? 'task.updated' : 'task.created', $id, ['changes' => $taskChanges]);
+        }
         $response = ['id' => $id, 'projectId' => $projectId, 'statusId' => $statusId,
             'title' => $title, 'description' => $description, 'tags' => $tags, 'dueDate' => $dueDate,
             'assigneeId' => $assigneeId, 'categoryId' => $categoryId, 'labelIds' => $labelIds,

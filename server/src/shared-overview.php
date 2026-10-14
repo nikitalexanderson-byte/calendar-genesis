@@ -2,23 +2,29 @@
 declare(strict_types=1);
 
 /** All totals come from current project AND space membership, never cached client lists. */
-function genesisSharedOverview(string $userId): array
+function genesisSharedOverview(string $userId, ?string $spaceId = null): array
 {
     genesisSharedRequireEnabled($userId);
     $db = genesisDb();
+    $values = ['user' => $userId];
+    if ($spaceId !== null) {
+        genesisSharedSpaceAccess($spaceId, $userId);
+        $values['space'] = $spaceId;
+    }
     $scope = ' FROM shared_projects p
         JOIN shared_project_members m ON m.project_id = p.id AND m.user_id = :user
         JOIN shared_space_members sm ON sm.space_id = p.space_id AND sm.user_id = m.user_id';
+    if ($spaceId !== null) $scope .= ' AND p.space_id = :space';
     $query = $db->prepare('SELECT COUNT(*) AS projects,
         COALESCE(SUM(p.parent_id IS NULL), 0) AS rootProjects,
         COALESCE(SUM(p.parent_id IS NOT NULL), 0) AS subprojects' . $scope .
         " WHERE p.archived_at IS NULL AND p.is_inbox = 0 AND p.kind = 'project'");
-    $query->execute(['user' => $userId]); $totals = $query->fetch();
+    $query->execute($values); $totals = $query->fetch();
     $query = $db->prepare('SELECT COUNT(*) AS tasks,
         COALESCE(SUM(t.completed_at IS NULL), 0) AS openTasks,
         COALESCE(SUM(t.completed_at IS NOT NULL), 0) AS completedTasks' . $scope .
         ' JOIN shared_tasks_read t ON t.project_id = p.id WHERE p.archived_at IS NULL');
-    $query->execute(['user' => $userId]); $totals += $query->fetch();
+    $query->execute($values); $totals += $query->fetch();
     $query = $db->prepare('SELECT
         COALESCE(SUM(e.action = \'task.created\'), 0) AS newTasks,
         COALESCE(SUM(e.action = \'project.created\'), 0) AS newProjects,
@@ -28,7 +34,7 @@ function genesisSharedOverview(string $userId): array
         LEFT JOIN shared_notification_reads r ON r.event_id = e.id AND r.user_id = :user
         WHERE p.archived_at IS NULL AND e.actor_id IS NOT :user AND r.event_id IS NULL
         AND (e.action = \'project.created\' OR (t.id IS NOT NULL AND e.action IN (\'task.created\', \'comment.created\')))');
-    $query->execute(['user' => $userId]); $totals += $query->fetch();
+    $query->execute($values); $totals += $query->fetch();
     return array_map('intval', $totals);
 }
 
