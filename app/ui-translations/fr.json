@@ -2292,5 +2292,6 @@
   "Проверьте даты, часовой пояс, лимит и обновление образца серии.": "Vérifiez les dates, le fuseau horaire, la limite et la mise à jour du modèle.",
   "Серия не сохранена. Черновик оставлен на экране; повторите после подключения.": "La série n’a pas été enregistrée. Le brouillon reste à l’écran ; réessayez après reconnexion.",
   "Закрыть карточку без сохранения настроек серии?": "Fermer la fiche sans enregistrer les paramètres de la série ?",
-  "Введите действительный часовой пояс IANA, например Europe/Moscow. Черновик сохранён.": "Saisissez un fuseau horaire IANA valide, par exemple Europe/Moscow. Votre brouillon est conservé."
+  "Введите действительный часовой пояс IANA, например Europe/Moscow. Черновик сохранён.": "Saisissez un fuseau horaire IANA valide, par exemple Europe/Moscow. Votre brouillon est conservé.",
+  "Ваш тариф: {plan}": "Votre forfait : {plan}"
 }

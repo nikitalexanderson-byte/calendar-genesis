@@ -2754,5 +2754,6 @@
   "Серия не сохранена. Черновик оставлен на экране; повторите после подключения.": "The series was not saved. Your draft stays on screen; retry after reconnecting.",
   "Закрыть карточку без сохранения настроек серии?": "Close the card without saving series settings?",
   "Архивировать": "Archive",
-  "Введите действительный часовой пояс IANA, например Europe/Moscow. Черновик сохранён.": "Enter a valid IANA time zone, for example Europe/Moscow. Your draft is kept."
+  "Введите действительный часовой пояс IANA, например Europe/Moscow. Черновик сохранён.": "Enter a valid IANA time zone, for example Europe/Moscow. Your draft is kept.",
+  "Ваш тариф: {plan}": "Your plan: {plan}"
 }

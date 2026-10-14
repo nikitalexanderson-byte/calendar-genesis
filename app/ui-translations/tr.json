@@ -2292,5 +2292,6 @@
   "Проверьте даты, часовой пояс, лимит и обновление образца серии.": "Tarihleri, saat dilimini, sınırı ve seri şablonu güncellemesini kontrol edin.",
   "Серия не сохранена. Черновик оставлен на экране; повторите после подключения.": "Seri kaydedilmedi. Taslağınız ekranda kalır; yeniden bağlandıktan sonra tekrar deneyin.",
   "Закрыть карточку без сохранения настроек серии?": "Seri ayarları kaydedilmeden kart kapatılsın mı?",
-  "Введите действительный часовой пояс IANA, например Europe/Moscow. Черновик сохранён.": "Geçerli bir IANA saat dilimi girin, örneğin Europe/Moscow. Taslağınız korunur."
+  "Введите действительный часовой пояс IANA, например Europe/Moscow. Черновик сохранён.": "Geçerli bir IANA saat dilimi girin, örneğin Europe/Moscow. Taslağınız korunur.",
+  "Ваш тариф: {plan}": "Paketiniz: {plan}"
 }
