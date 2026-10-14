@@ -7,6 +7,24 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 
 class GenesisCalendarTest {
+    @Test fun yearNavigationAndSavedRecurrencesKeepTheirOwnAstronomicalContext() {
+        val ny = GenesisCalendar(ZoneId.of("America/New_York"))
+        val start = LocalDate.of(2024,3,19)
+        assertEquals(start, ny.sacredYearStart(2024))
+        assertEquals(LocalDate.of(2025,3,20), ny.shiftYear(start, CalendarMode.SACRED, 1))
+        assertEquals(start, ny.shiftYear(ny.shiftYear(start, CalendarMode.SACRED, 1), CalendarMode.SACRED, -1))
+        val legacy = RecurrenceConfig(true,"genesis","month-days",listOf(1),rangeEnd="2024-03-21",months=listOf(1))
+        val modern = legacy.copy(calendarContext=CalendarContext(timeZone="America/New_York"))
+        val engine = RecurrenceEngine(GenesisCalendar(ZoneId.of("Pacific/Auckland")))
+        assertEquals(listOf("2024-03-20"), engine.buildDates("2024-03-18",legacy))
+        assertEquals(listOf("2024-03-19"), engine.buildDates("2024-03-18",modern))
+        val march = GenesisCalendar(ZoneId.of("UTC"),gregorianYearStart="march")
+        assertEquals(CalendarRange(LocalDate.of(2023,3,1),LocalDate.of(2024,2,29)), march.yearRange(LocalDate.of(2024,2,29),CalendarMode.PROFANE))
+        val lunar = march.lunarYear(2025)
+        assertEquals(13,lunar.monthCount)
+        assertTrue(java.time.temporal.ChronoUnit.DAYS.between(lunar.startDate,lunar.endDate) > 370)
+        assertEquals(lunar.startDate, march.yearRange(lunar.endDate.minusDays(1),CalendarMode.LUNAR).start)
+    }
     @Test fun matchesActualWebCalendarVectorsAcrossFourZones() {
         webCalendarVectors.forEach { line ->
             val v = line.split('|')
@@ -105,7 +123,7 @@ class GenesisCalendarTest {
     }
 
     @Test fun exhaustedEphemerisIsExplicit() {
-        assertThrows(IllegalArgumentException::class.java) { GenesisCalendar().lunarDate(LocalDate.of(2101,1,1)) }
+        assertThrows(IllegalArgumentException::class.java) { GenesisCalendar().lunarDate(LocalDate.of(2103,1,1)) }
     }
 
     @Test fun moonPhaseDisplayUsesAllThirtyStepsAndMeaningfulBounds() {

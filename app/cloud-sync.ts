@@ -118,6 +118,8 @@ export type GenesisTask = {
   recurrenceEndDate: string | null;
   recurrenceMonths: number[];
   recurrencePyatas: number[];
+  recurrenceContext?: import("./calendar-context").CalendarContext;
+  recurrenceInvalidDayPolicy?: "skip";
   recurrenceExcludedDates: string[];
   recurrenceSeriesId: string | null;
   /** Stable identity of a detached occurrence, even after its date is edited. */
@@ -770,7 +772,7 @@ function normalizeTask(task: Partial<GenesisTask> & Pick<GenesisTask, "id" | "ti
   const recurrenceMode: RecurrenceMode = ["none", "genesis", "classic", "lunar"].includes(task.recurrenceMode ?? "")
     ? task.recurrenceMode as RecurrenceMode
     : task.recurrence && task.recurrence !== "none" ? "classic" : "none";
-  const recurrencePattern: RecurrencePattern = ["none", "daily", "weekdays", "monthly", "yearly", "pyata-days", "month-days", "lunar-days"].includes(task.recurrencePattern ?? "")
+  const recurrencePattern: RecurrencePattern = ["none", "daily", "weekdays", "monthly", "yearly", "pyata-days", "month-days", "lunar-days", "lunar-decades", "lunar-decade-days", "lunar-phases", "lunar-yearly"].includes(task.recurrencePattern ?? "")
     ? task.recurrencePattern as RecurrencePattern
     : recurrenceMode === "classic"
       ? task.recurrence === "daily" || task.recurrence === "monthly" || task.recurrence === "yearly" ? task.recurrence : "weekdays"

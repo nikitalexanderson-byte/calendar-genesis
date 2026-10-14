@@ -232,9 +232,9 @@ internal object HabitDocument {
     private fun entity(v: JSONObject)=TrackerEntity(v.getString("id"),v.getString("createdAt"),v.getString("updatedAt"),v.getInt("version"),v.getString("syncState"))
     private fun entity(e: TrackerEntity)=JSONObject().put("id",e.id).put("createdAt",e.createdAt).put("updatedAt",e.updatedAt).put("version",e.version).put("syncState",e.syncState)
     private fun recurrence(c: RecurrenceConfig)=JSONObject().put("enabled",c.enabled).put("mode",c.mode).put("pattern",c.pattern).put("days",JSONArray(c.days))
-        .put("interval",c.interval).put("rangeStart",c.rangeStart).put("rangeEnd",c.rangeEnd).put("months",JSONArray(c.months)).put("pyatas",JSONArray(c.pyatas))
+        .put("interval",c.interval).put("rangeStart",c.rangeStart).put("rangeEnd",c.rangeEnd).put("months",JSONArray(c.months)).put("pyatas",JSONArray(c.pyatas)).put("calendarContext",calendarContextJson(c.calendarContext)).put("invalidDayPolicy","skip")
     private fun recurrence(c: JSONObject)=RecurrenceConfig(c.getBoolean("enabled"),c.getString("mode"),c.getString("pattern"),ints(c.getJSONArray("days")),
-        c.getInt("interval"),c.getString("rangeStart"),c.getString("rangeEnd"),ints(c.getJSONArray("months")),ints(c.getJSONArray("pyatas")))
+        c.getInt("interval"),c.getString("rangeStart"),c.getString("rangeEnd"),ints(c.getJSONArray("months")),ints(c.getJSONArray("pyatas")),calendarContextFromJson(c.optJSONObject("calendarContext")))
     private fun habit(h: Habit): JSONObject = entity(h.entity).put("title",h.title).put("description",h.description).put("createdDate",h.createdDate.toString())
         .put("emoji",h.emoji).put("priority",h.priority).put("isKeyHabit",h.isKeyHabit).put("ritualId",h.ritualId).put("ritualName",h.ritualName).put("color",h.color)
         .put("active",h.active).put("sourceTemplateId",h.sourceTemplateId ?: JSONObject.NULL).put("sacredPracticeId",h.sacredPracticeId ?: JSONObject.NULL)

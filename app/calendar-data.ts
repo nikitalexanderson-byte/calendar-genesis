@@ -1,5 +1,7 @@
 import source from "../references/days.txt?raw";
 import { MoonPhase, SearchMoonPhase, Seasons } from "astronomy-engine";
+import { addCivilDays, calendarContext, civilDateCarrier, isCivilDate, momentCivilDate, type CalendarContext } from "./calendar-context";
+import { calendarPeriod, lunarDateParts, lunarMonthForDate, lunarMonthStartDate, lunarYearPeriod, newMoonMoment, sacredDateParts, sacredToCivilDate, sacredYearStartDate } from "./calendar-astronomy";
 import englishDays from "./calendar-days.en.json";
 import greekDays from "./calendar-days.el.json";
 import germanDays from "./calendar-days.de.json";
@@ -288,41 +290,21 @@ export const DAY_MS = 86_400_000;
 export const MOON_CYCLE = 29.53058867;
 export const MOON_EPOCH = Date.UTC(2000, 0, 6, 18, 14);
 
-const newMoonCache = new Map<number, Date>();
-const lunarYearCache = new Map<number, LunarYearInfo>();
 
 function utcDay(date: Date) {
   return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
-export function getSacredYearStart(date: Date) {
-  const year = date.getFullYear();
-  const thisYearStart = new Date(year, 2, 20);
-  return date >= thisYearStart ? thisYearStart : new Date(year - 1, 2, 20);
+export function getSacredYearStart(date: Date, context: CalendarContext = calendarContext()) {
+  return civilDateCarrier(sacredYearStartDate(getSacredDate(date, context).sacredYear, context), 0);
 }
 
-export function getSacredDate(date: Date): SacredDateInfo {
-  const start = getSacredYearStart(date);
-  const nextStart = new Date(start.getFullYear() + 1, 2, 20);
-  const dayOfYear = Math.round((utcDay(date) - utcDay(start)) / DAY_MS);
-  const daysInYear = Math.round((utcDay(nextStart) - utcDay(start)) / DAY_MS);
-  const monthIndex = dayOfYear < 360 ? Math.floor(dayOfYear / 30) : 12;
-  const day = dayOfYear < 360 ? (dayOfYear % 30) + 1 : dayOfYear - 359;
-
-  return {
-    sacredYear: start.getFullYear(),
-    monthIndex,
-    day,
-    dayOfYear,
-    daysInYear,
-    apeironDays: daysInYear - 360,
-  };
+export function getSacredDate(date: Date, context: CalendarContext = calendarContext()): SacredDateInfo {
+  return sacredDateParts(calendarDateValue(date), context);
 }
 
-export function getGregorianDate(sacredYear: number, monthIndex: number, day: number) {
-  const date = new Date(sacredYear, 2, 20);
-  date.setDate(date.getDate() + (monthIndex < 12 ? monthIndex * 30 + day - 1 : 360 + day - 1));
-  return date;
+export function getGregorianDate(sacredYear: number, monthIndex: number, day: number, context: CalendarContext = calendarContext()) {
+  return civilDateCarrier(sacredToCivilDate(sacredYear, monthIndex, day, context), 0);
 }
 
 export function formatGregorian(date: Date, long = false) {
@@ -334,11 +316,11 @@ export function formatGregorian(date: Date, long = false) {
   }).format(date);
 }
 
-export function getMoon(date: Date): MoonInfo {
+export function getMoon(date: Date, context: CalendarContext = calendarContext()): MoonInfo {
   const phaseAngle = MoonPhase(date);
   const fraction = phaseAngle / 360;
-  const index = lunarMonthIndex(date);
-  const monthStart = getLunarMonthStart(index);
+  const index = lunarMonthIndex(date, context);
+  const monthStart = getLunarMonthStart(index, context);
   const age = Math.max(0, Math.round((utcDay(date) - utcDay(monthStart)) / DAY_MS));
   const day = age + 1;
   const phaseIndex = Math.round(fraction * 8) % 8;
@@ -375,80 +357,36 @@ export function getMoon(date: Date): MoonInfo {
   };
 }
 
-export function lunarMonthIndex(date: Date) {
-  const target = utcDay(date);
-  let index = Math.floor((date.getTime() - MOON_EPOCH) / (MOON_CYCLE * DAY_MS));
-  while (target < utcDay(getLunarMonthStart(index))) index -= 1;
-  while (target >= utcDay(getLunarMonthStart(index + 1))) index += 1;
-  return index;
+export function lunarMonthIndex(date: Date, context: CalendarContext = calendarContext()) {
+  return lunarMonthForDate(calendarDateValue(date), context);
 }
 
-export function getLunarMonthDates(index: number) {
-  const start = getLunarMonthStart(index);
-  const end = getLunarMonthStart(index + 1);
-  const length = Math.round((utcDay(end) - utcDay(start)) / DAY_MS);
-  return Array.from({ length }, (_, offset) => {
-    const date = new Date(start);
-    date.setDate(start.getDate() + offset);
-    return date;
-  });
+export function getLunarMonthDates(index: number, context: CalendarContext = calendarContext()) {
+  const start = lunarMonthStartDate(index, context);
+  const end = lunarMonthStartDate(index + 1, context);
+  const dates: Date[] = [];
+  for (let value = start; value < end; value = addCivilDays(value, 1)) dates.push(civilDateCarrier(value));
+  return dates;
 }
 
-export function getLunarMonthStart(index: number) {
-  const moment = getNewMoonMoment(index);
-  return new Date(moment.getFullYear(), moment.getMonth(), moment.getDate(), 12);
+export function getLunarMonthStart(index: number, context: CalendarContext = calendarContext()) {
+  return civilDateCarrier(lunarMonthStartDate(index, context));
 }
 
-export function isLunarFullMoon(date: Date) {
-  const fullMoon = SearchMoonPhase(180, getNewMoonMoment(lunarMonthIndex(date)), 30);
-  return Boolean(fullMoon && fullMoon.date.getFullYear() === date.getFullYear()
-    && fullMoon.date.getMonth() === date.getMonth() && fullMoon.date.getDate() === date.getDate());
+export function isLunarFullMoon(date: Date, context: CalendarContext = calendarContext()) {
+  const fullMoon = SearchMoonPhase(180, newMoonMoment(lunarMonthIndex(date, context)), 30);
+  return Boolean(fullMoon && momentCivilDate(fullMoon.date, context.timeZone) === calendarDateValue(date));
 }
 
-function firstLunarMonthAfterSpringEquinox(sacredYear: number) {
-  const springEquinox = Seasons(sacredYear).mar_equinox.date;
-  const firstNewMoon = SearchMoonPhase(0, springEquinox, 40);
-  if (!firstNewMoon) throw new Error(runtimeLocale().startsWith("en")
-    ? `Could not calculate the first new moon of ${sacredYear}.`
-    : `Не удалось вычислить первое новолуние ${sacredYear} года.`);
-  return Math.round((firstNewMoon.date.getTime() - MOON_EPOCH) / (MOON_CYCLE * DAY_MS));
+export function getLunarYear(sacredYear: number, context: CalendarContext = calendarContext()): LunarYearInfo {
+  const year = lunarYearPeriod(sacredYear, context);
+  return { sacredYear, startMonthIndex: year.startMonthIndex, endMonthIndex: year.endMonthIndex,
+    monthCount: year.monthCount, startDate: civilDateCarrier(year.start), endDate: civilDateCarrier(year.end) };
 }
 
-function getNewMoonMoment(index: number) {
-  const cached = newMoonCache.get(index);
-  if (cached) return new Date(cached);
-  const approximate = new Date(MOON_EPOCH + index * MOON_CYCLE * DAY_MS);
-  const searchStart = new Date(approximate.getTime() - 2.5 * DAY_MS);
-  const found = SearchMoonPhase(0, searchStart, 5);
-  if (!found) throw new Error(runtimeLocale().startsWith("en")
-    ? `Could not calculate new moon ${index}.`
-    : `Не удалось вычислить новолуние ${index}.`);
-  const moment = new Date(found.date);
-  newMoonCache.set(index, moment);
-  return new Date(moment);
-}
-
-export function getLunarYear(sacredYear: number): LunarYearInfo {
-  const cached = lunarYearCache.get(sacredYear);
-  if (cached) return cached;
-  const startMonthIndex = firstLunarMonthAfterSpringEquinox(sacredYear);
-  const endMonthIndex = firstLunarMonthAfterSpringEquinox(sacredYear + 1);
-  const year = {
-    sacredYear,
-    startMonthIndex,
-    endMonthIndex,
-    monthCount: endMonthIndex - startMonthIndex,
-    startDate: getLunarMonthStart(startMonthIndex),
-    endDate: getLunarMonthStart(endMonthIndex),
-  };
-  lunarYearCache.set(sacredYear, year);
-  return year;
-}
-
-export function getLunarYearForDate(date: Date) {
-  const sacredYear = getSacredDate(date).sacredYear;
-  const candidate = getLunarYear(sacredYear);
-  return utcDay(date) >= utcDay(candidate.startDate) ? candidate : getLunarYear(sacredYear - 1);
+export function getLunarYearForDate(date: Date, context: CalendarContext = calendarContext()) {
+  const candidate = getLunarYear(date.getFullYear(), context);
+  return calendarDateValue(date) >= calendarDateValue(candidate.startDate) ? candidate : getLunarYear(date.getFullYear() - 1, context);
 }
 
 export function getLunarMonthDefinition(monthOrdinal: number) {
@@ -461,164 +399,96 @@ export function getLunarDecade(day: number) {
   return LUNAR_DECADES[2];
 }
 
-export function getLunarDate(date: Date): LunarDateInfo {
-  const year = getLunarYearForDate(date);
-  const monthIndex = lunarMonthIndex(date);
-  const monthOrdinal = monthIndex - year.startMonthIndex + 1;
-  const monthLength = getLunarMonthDates(monthIndex).length;
-  const day = Math.round((utcDay(date) - utcDay(getLunarMonthStart(monthIndex))) / DAY_MS) + 1;
-  return {
-    year,
-    monthIndex,
-    monthOrdinal,
-    month: getLunarMonthDefinition(monthOrdinal),
-    day,
-    monthLength,
-    decade: getLunarDecade(day),
-    isThreshold: day === monthLength,
-  };
+export function getLunarDate(date: Date, context: CalendarContext = calendarContext()): LunarDateInfo {
+  const lunar = lunarDateParts(calendarDateValue(date), context);
+  return { year: getLunarYear(lunar.year.sacredYear, context), monthIndex: lunar.monthIndex,
+    monthOrdinal: lunar.monthOrdinal, month: getLunarMonthDefinition(lunar.monthOrdinal),
+    day: lunar.day, monthLength: lunar.monthLength, decade: getLunarDecade(lunar.day), isThreshold: lunar.day === lunar.monthLength };
 }
 
-export function formatSacredDate(date: Date, long = false) {
-  const sacred = getSacredDate(date);
+export function formatSacredDate(date: Date, long = false, context: CalendarContext = calendarContext()) {
+  const sacred = getSacredDate(date, context);
   const month = MONTHS[sacred.monthIndex];
   const day = getSacredDay(sacred.monthIndex, sacred.day);
   if (!long) return `${sacred.day} · ${translateText(month.name)}`;
   return translateText(`${day.name} · ${sacred.day} день · Пята ${day.pyata || "Ω"} · ${month.name} ${sacred.sacredYear}`, undefined, true);
 }
 
-export function formatLunarDate(date: Date, long = false) {
-  const moon = getMoon(date);
-  const lunar = getLunarDate(date);
+export function formatLunarDate(date: Date, long = false, context: CalendarContext = calendarContext()) {
+  const moon = getMoon(date, context);
+  const lunar = getLunarDate(date, context);
   return translateText(long
     ? `${lunar.month.name} · ${lunar.day} лунный день · ${lunar.isThreshold ? "Рубеж" : lunar.decade.name} · ${moon.phase}`
     : `${lunar.day} · ${lunar.month.name}`, undefined, true);
 }
 
-export function formatCalendarDate(date: Date, mode: CalendarMode, long = false) {
-  if (mode === "sacred") return formatSacredDate(date, long);
-  if (mode === "lunar") return formatLunarDate(date, long);
+export function formatCalendarDate(date: Date, mode: CalendarMode, long = false, context: CalendarContext = calendarContext()) {
+  if (mode === "sacred") return formatSacredDate(date, long, context);
+  if (mode === "lunar") return formatLunarDate(date, long, context);
   return formatGregorian(date, long);
 }
 
-const CALENDAR_DATE_VALUE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
 
 export function parseCalendarDateValue(value: string) {
   const normalized = value.slice(0, 10);
-  if (!CALENDAR_DATE_VALUE_PATTERN.test(normalized)) return null;
-  const date = new Date(`${normalized}T12:00:00`);
-  return Number.isNaN(date.getTime()) ? null : date;
+  return isCivilDate(normalized) ? civilDateCarrier(normalized) : null;
 }
 
 export function calendarDateValue(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-export function formatCalendarDateValue(value: string, mode: CalendarMode, long = false) {
+export function formatCalendarDateValue(value: string, mode: CalendarMode, long = false, context: CalendarContext = calendarContext()) {
   const date = parseCalendarDateValue(value);
-  return date ? formatCalendarDate(date, mode, long) : value;
+  return date ? formatCalendarDate(date, mode, long, context) : value;
 }
 
-function calendarDayBefore(date: Date) {
-  const previous = new Date(date);
-  previous.setDate(previous.getDate() - 1);
-  return previous;
-}
-
-export function calendarYearRange(value: string, mode: CalendarMode) {
+function inclusiveCalendarRange(value: string, mode: CalendarMode, unit: "month" | "quarter" | "year", context: CalendarContext) {
   const date = parseCalendarDateValue(value) ?? new Date();
-  if (mode === "sacred") {
-    const sacred = getSacredDate(date);
-    const start = getGregorianDate(sacred.sacredYear, 0, 1);
-    const end = calendarDayBefore(getGregorianDate(sacred.sacredYear + 1, 0, 1));
-    return { start: calendarDateValue(start), end: calendarDateValue(end) };
-  }
-  if (mode === "lunar") {
-    const lunarYear = getLunarYearForDate(date);
-    return { start: calendarDateValue(lunarYear.startDate), end: calendarDateValue(calendarDayBefore(lunarYear.endDate)) };
-  }
-  return {
-    start: `${date.getFullYear()}-01-01`,
-    end: `${date.getFullYear()}-12-31`,
-  };
+  const range = calendarPeriod(calendarDateValue(date), mode, unit, context);
+  return { start: range.start, end: addCivilDays(range.end, -1) };
 }
 
-export function calendarMonthRange(value: string, mode: CalendarMode) {
-  const date = parseCalendarDateValue(value) ?? new Date();
-  if (mode === "sacred") {
-    const sacred = getSacredDate(date);
-    const start = getGregorianDate(sacred.sacredYear, sacred.monthIndex, 1);
-    const next = sacred.monthIndex < 12
-      ? getGregorianDate(sacred.sacredYear, sacred.monthIndex + 1, 1)
-      : getGregorianDate(sacred.sacredYear + 1, 0, 1);
-    return { start: calendarDateValue(start), end: calendarDateValue(calendarDayBefore(next)) };
-  }
-  if (mode === "lunar") {
-    const index = lunarMonthIndex(date);
-    return { start: calendarDateValue(getLunarMonthStart(index)), end: calendarDateValue(calendarDayBefore(getLunarMonthStart(index + 1))) };
-  }
-  const start = new Date(date.getFullYear(), date.getMonth(), 1, 12);
-  const next = new Date(date.getFullYear(), date.getMonth() + 1, 1, 12);
-  return { start: calendarDateValue(start), end: calendarDateValue(calendarDayBefore(next)) };
+export function calendarYearRange(value: string, mode: CalendarMode, context: CalendarContext = calendarContext()) {
+  return inclusiveCalendarRange(value, mode, "year", context);
 }
 
-export function calendarQuarterRange(value: string, mode: CalendarMode) {
-  const date = parseCalendarDateValue(value) ?? new Date();
-  if (mode === "sacred") {
-    const sacred = getSacredDate(date);
-    const firstMonth = Math.floor(sacred.monthIndex / 3) * 3;
-    const start = getGregorianDate(sacred.sacredYear, firstMonth, 1);
-    const next = firstMonth + 3 < 13
-      ? getGregorianDate(sacred.sacredYear, firstMonth + 3, 1)
-      : getGregorianDate(sacred.sacredYear + 1, 0, 1);
-    return { start: calendarDateValue(start), end: calendarDateValue(calendarDayBefore(next)) };
-  }
-  if (mode === "lunar") {
-    const lunar = getLunarDate(date);
-    const firstMonth = lunar.year.startMonthIndex + Math.floor((lunar.monthOrdinal - 1) / 3) * 3;
-    const nextMonth = Math.min(firstMonth + 3, lunar.year.endMonthIndex);
-    return { start: calendarDateValue(getLunarMonthStart(firstMonth)), end: calendarDateValue(calendarDayBefore(getLunarMonthStart(nextMonth))) };
-  }
-  const firstMonth = Math.floor(date.getMonth() / 3) * 3;
-  const start = new Date(date.getFullYear(), firstMonth, 1, 12);
-  const next = new Date(date.getFullYear(), firstMonth + 3, 1, 12);
-  return { start: calendarDateValue(start), end: calendarDateValue(calendarDayBefore(next)) };
+export function calendarMonthRange(value: string, mode: CalendarMode, context: CalendarContext = calendarContext()) {
+  return inclusiveCalendarRange(value, mode, "month", context);
 }
 
-export function calendarYearLabel(value: string, mode: CalendarMode) {
-  const date = parseCalendarDateValue(value);
-  if (!date) return value.slice(0, 4);
-  if (mode === "sacred") {
-    const year = getSacredDate(date).sacredYear;
-    return `${year}–${year + 1}`;
-  }
-  if (mode === "lunar") {
-    const year = getLunarYearForDate(date).sacredYear;
-    return `${year}–${year + 1}`;
-  }
-  return String(date.getFullYear());
+export function calendarQuarterRange(value: string, mode: CalendarMode, context: CalendarContext = calendarContext()) {
+  return inclusiveCalendarRange(value, mode, "quarter", context);
 }
 
-export function calendarMonthKey(value: string, mode: CalendarMode) {
+export function calendarYearLabel(value: string, mode: CalendarMode, context: CalendarContext = calendarContext()) {
+  if (!parseCalendarDateValue(value)) return value.slice(0, 4);
+  const range = calendarYearRange(value, mode, context);
+  const year = range.start.slice(0, 4), endYear = range.end.slice(0, 4);
+  return year === endYear ? year : `${year}–${endYear}`;
+}
+
+export function calendarMonthKey(value: string, mode: CalendarMode, context: CalendarContext = calendarContext()) {
   const date = parseCalendarDateValue(value);
   if (!date) return value.slice(0, 7);
   if (mode === "sacred") {
-    const sacred = getSacredDate(date);
+    const sacred = getSacredDate(date, context);
     return `sacred:${sacred.sacredYear}:${sacred.monthIndex}`;
   }
-  if (mode === "lunar") return `lunar:${lunarMonthIndex(date)}`;
+  if (mode === "lunar") return `lunar:${lunarMonthIndex(date, context)}`;
   return value.slice(0, 7);
 }
 
-export function formatCalendarMonthValue(value: string, mode: CalendarMode) {
+export function formatCalendarMonthValue(value: string, mode: CalendarMode, context: CalendarContext = calendarContext()) {
   const date = parseCalendarDateValue(value);
   if (!date) return value;
   if (mode === "sacred") {
-    const sacred = getSacredDate(date);
+    const sacred = getSacredDate(date, context);
     return `${translateText(MONTHS[sacred.monthIndex].name)} · ${sacred.sacredYear}`;
   }
   if (mode === "lunar") {
-    const lunar = getLunarDate(date);
+    const lunar = getLunarDate(date, context);
     return `${translateText(lunar.month.name)} · ${lunar.year.sacredYear}–${lunar.year.sacredYear + 1}`;
   }
   return new Intl.DateTimeFormat(runtimeLocale(), { month: "long", year: "numeric" }).format(date);

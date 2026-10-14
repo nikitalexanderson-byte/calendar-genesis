@@ -2711,5 +2711,9 @@
   "Архивировал(а) задачу": "Archived task",
   "Восстановил(а) задачу из архива": "Restored task from archive",
   "Удалил(а) задачу навсегда": "Permanently deleted task",
-  "Удалить навсегда": "Delete permanently"
+  "Удалить навсегда": "Delete permanently",
+  "Следующие даты: {dates}": "Next dates: {dates}",
+  "Часовой пояс повторения: {zone}": "Recurrence time zone: {zone}",
+  "Несуществующие дни пропускаются. Апейрон не входит в сакральные повторы; 13-й лунный месяц выбирается только в годах, где он есть.": "Nonexistent days are skipped. Apeiron is excluded from sacred recurrences; lunar month 13 is selected only in years that contain it.",
+  "Сохранённое расписание использует прежнее начало сакрального года — 20 марта.": "This saved schedule uses the previous sacred year start: March 20."
 }

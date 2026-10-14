@@ -1,4 +1,5 @@
 "use client";
+import type { CalendarContext } from "./calendar-context";
 
 import {groupedEmojiCatalog as fullEmojiCatalog} from "./emoji-variants";
 import {HabitEmojiChoice} from "./HabitEmojiChoice";
@@ -140,6 +141,7 @@ type DailyPanelProps = {
   language: Language;
   timeFormat: TimeFormat;
   calendarMode: CalendarMode;
+  reportContext?: CalendarContext;
   onChange: (workspace: HabitWorkspace) => void;
   onOpenHabits?: () => void;
   onCreateHabit?: () => void;
@@ -163,11 +165,11 @@ function completionFor(workspace: HabitWorkspace, habitId: string, date: string)
   return workspace.habitCompletions.find((entry) => entry.habitId === habitId && entry.date === date);
 }
 
-function reportCalendarStarts(date: string, calendarMode: CalendarMode) {
+function reportCalendarStarts(date: string, calendarMode: CalendarMode, context?: CalendarContext) {
   return {
-    month: calendarMonthRange(date, calendarMode).start,
-    quarter: calendarQuarterRange(date, calendarMode).start,
-    year: calendarYearRange(date, calendarMode).start,
+    month: calendarMonthRange(date, calendarMode, context).start,
+    quarter: calendarQuarterRange(date, calendarMode, context).start,
+    year: calendarYearRange(date, calendarMode, context).start,
   };
 }
 
@@ -1175,9 +1177,9 @@ function AddictionEditor({ tracker, language, calendarMode, allowCalendarModeCha
   );
 }
 
-function HabitStatistics({ workspace, date, language, calendarMode, experimental }: { workspace: HabitWorkspace; date: string; language: Language; calendarMode: CalendarMode; experimental: boolean }) {
+function HabitStatistics({ workspace, date, language, calendarMode, experimental, reportContext }: { workspace: HabitWorkspace; date: string; language: Language; calendarMode: CalendarMode; experimental: boolean; reportContext?: CalendarContext }) {
   const isEnglish = language === "en";
-  const range = reportDateRange(workspace.habitSettings, date, reportCalendarStarts(date, calendarMode));
+  const range = reportDateRange(workspace.habitSettings, date, reportCalendarStarts(date, calendarMode, reportContext));
   const dates = useMemo(() => dateValuesBetween(range.start, range.end), [range.start, range.end]);
   const daily = useMemo(() => dates.map((value) => ({
     date: value,
@@ -1217,7 +1219,7 @@ function HabitStatistics({ workspace, date, language, calendarMode, experimental
   return (
     <section className="habit-statistics" aria-labelledby="habit-statistics-title">
       <header className="habit-stats-heading"><div><span className="eyebrow">{isEnglish ? "My habit statistics" : "Статистика моих привычек"}</span><h2 id="habit-statistics-title">{isEnglish ? "Independent tracker metrics" : "Метрики отдельных трекеров"}</h2></div></header>
-      <HabitInsightsPanel workspace={workspace} date={date} language={language} calendarMode={calendarMode} showCompletionCalendar={experimental} />
+      <HabitInsightsPanel reportContext={reportContext} workspace={workspace} date={date} language={language} calendarMode={calendarMode} showCompletionCalendar={experimental} />
       <article className="heroic-rank-card" style={{ "--rank-color": rank.color } as CSSProperties}><div className="heroic-rank-art" /><div className="heroic-rank-copy"><span>{isEnglish ? "Heroic progression" : "Героический путь"}</span><h3>{isEnglish ? rank.titleEn : rank.title}</h3><p>{isEnglish ? `${total} lifetime XP · never spent or lost` : `${total} пожизненного XP · не тратится и не теряется`}</p><div><i style={{ width: `${progress}%` }} /></div><small>{nextRank ? (isEnglish ? `${nextRank.threshold - total} XP to ${nextRank.titleEn}` : `${nextRank.threshold - total} XP до «${nextRank.title}»`) : (isEnglish ? "Highest rank reached" : "Высший ранг достигнут")}</small></div><HeroicRankSigil className="heroic-rank-seal" rankId={rank.id} color={rank.color} /></article>
       <div className="habit-stat-cards"><article className="laurels-stat"><span>{isEnglish ? "Spendable currency" : "Расходуемая валюта"}</span><strong>♕ {workspace.userProgress.laurelsBalance}</strong><small>{isEnglish ? "Laurels balance" : "Баланс Лавров"}</small></article><article className="perfect-days-stat"><span>Perfect Day</span><strong>{perfectDays}</strong><small>{isEnglish ? "in selected period" : "за выбранный период"}</small></article><article><span>{isEnglish ? "Habit completion" : "Выполнение привычек"}</span><strong>{rate}%</strong><small>{done} / {scheduled}</small></article><article><span>{isEnglish ? "Average quality" : "Среднее качество"}</span><strong>{habitQualityCount ? (habitQualityTotal / habitQualityCount).toFixed(1) : "—"}</strong><small>{habitQualityCount} {isEnglish ? "ratings" : "оценок"}</small></article><article><span>{isEnglish ? "Period score" : "Баллы периода"}</span><strong>{Math.max(0, periodScore)}</strong><small>{formatCalendarDateValue(range.start, calendarMode)} — {formatCalendarDateValue(range.end, calendarMode)}</small></article><article><span>{isEnglish ? "Average sleep" : "Средняя длительность сна"}</span><strong>{formatDuration(sleepCount ? Math.round(sleepMinutes / sleepCount) : 0, isEnglish)}</strong><small>{sleepCount} {isEnglish ? "entries" : "записей"}</small></article><article><span>{isEnglish ? "Average mood" : "Среднее настроение"}</span><strong>{moodCount ? (moodTotal / moodCount).toFixed(1) : "—"}</strong><small>{moodCount} {isEnglish ? "entries" : "записей"}</small></article><article><span>{isEnglish ? "Abstinence" : "Воздержание"}</span><strong>{cleanDays}</strong><small>{isEnglish ? `${relapses} relapse(s)` : `${relapses} срывов`}</small></article></div>
       <article className="laurel-ledger"><header><div><span className="eyebrow">{isEnglish ? "Immutable reward history" : "Неизменяемая история наград"}</span><h3>{isEnglish ? "Laurels ledger" : "Журнал Лавров"}</h3></div><strong>♕ {workspace.userProgress.laurelsBalance}</strong></header>{recentRewards.length ? <div>{recentRewards.map((transaction) => <div key={transaction.idempotencyKey}><span className={transaction.amount > 0 ? "credit" : transaction.amount < 0 ? "debit" : "neutral"}>{transaction.amount > 0 ? "+" : ""}{transaction.amount}</span><div><strong>{rewardReasonLabel(transaction.reason, isEnglish)}</strong><small>{/^\d{4}-\d{2}-\d{2}$/.test(transaction.sourceId) ? formatCalendarDateValue(transaction.sourceId, calendarMode, true) : transaction.sourceId}</small></div><code>{transaction.currency}</code></div>)}</div> : <p>{isEnglish ? "Complete a daily goal to earn the first 5 Laurels." : "Выполните дневную цель, чтобы получить первые 5 Лавров."}</p>}</article>
@@ -1388,7 +1390,7 @@ function SacredHabitLibrary({
   );
 }
 
-export function HabitTrackerPage({ workspace, date, language, timeFormat, calendarMode, googleTasksReady, googleCalendarReady, experimentalThemeActive = false, voiceRequest, onVoiceRequestConsumed, onChange, onReminderRequested, onReminderRemoved }: HabitTrackerPageProps) {
+export function HabitTrackerPage({ workspace, date, language, timeFormat, calendarMode, reportContext, googleTasksReady, googleCalendarReady, experimentalThemeActive = false, voiceRequest, onVoiceRequestConsumed, onChange, onReminderRequested, onReminderRemoved }: HabitTrackerPageProps) {
   const isEnglish = language === "en";
   const workspaceRef = useRef(workspace);
   useEffect(() => {
@@ -1404,7 +1406,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
   const habitTabs = ["today", "library", "modules", "progress"] as const;
   const activeHabitTab = habitTabs.includes(experimentalHabitTab) ? experimentalHabitTab : habitTabs[0] ?? "today";
   const experimentalHabitTabsRef = useRef<HTMLDivElement>(null);
-  const range = reportDateRange(workspace.habitSettings, date, reportCalendarStarts(date, calendarMode));
+  const range = reportDateRange(workspace.habitSettings, date, reportCalendarStarts(date, calendarMode, reportContext));
   const total = calculateHabitTotal(workspace);
   const rank = heroicRankForProgress(workspace.userProgress);
   const creationDate = habitDateKey(new Date());
@@ -1597,7 +1599,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
           <CalendarDatePicker mode={calendarMode} value={workspace.habitSettings.customRangeEnd} min={workspace.habitSettings.customRangeStart} max={date} ariaLabel={isEnglish ? "Analytics period end" : "Конец периода аналитики"} showGregorianReference={false} onChange={(customRangeEnd) => onChange({ ...workspace, habitSettings: { ...workspace.habitSettings, customRangeEnd } })} />
         </div> : <small>{formatCalendarDateValue(range.start, calendarMode)} — {formatCalendarDateValue(range.end, calendarMode)}</small>}
       </section>
-      <HabitStatistics workspace={workspace} date={date} language={language} calendarMode={calendarMode} experimental={experimentalThemeActive} />
+      <HabitStatistics reportContext={reportContext} workspace={workspace} date={date} language={language} calendarMode={calendarMode} experimental={experimentalThemeActive} />
       </HabitSectionBlock>
       <HabitSectionBlock className="experimental-habit-section experimental-habit-section-library" label={isEnglish ? "Sacred habits" : "Сакральные привычки"} language={language} {...sectionProps("sacred-habits")}><SacredHabitLibrary
           workspace={workspace}

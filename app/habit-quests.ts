@@ -63,7 +63,7 @@ function addDays(value: string, days: number) {
 
 function datesBetween(start: string, end: string) {
   const values: string[] = [];
-  for (let value = start; value <= end && values.length < 370; value = addDays(value, 1)) values.push(value);
+  for (let value = start; value <= end; value = addDays(value, 1)) values.push(value);
   return values;
 }
 

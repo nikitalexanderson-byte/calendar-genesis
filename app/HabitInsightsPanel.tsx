@@ -1,4 +1,5 @@
 "use client";
+import type { CalendarContext } from "./calendar-context";
 
 import { useId, useMemo, useState, type CSSProperties } from "react";
 import {
@@ -24,6 +25,7 @@ type HabitInsightsPanelProps = {
   language: Language;
   calendarMode: CalendarMode;
   showCompletionCalendar?: boolean;
+  reportContext?: CalendarContext;
 };
 
 function rhythmLabel(score: number, isEnglish: boolean) {
@@ -41,29 +43,29 @@ function comparisonCopy(current: number, previous: number, change: number, isEng
   return isEnglish ? `${value} vs last week` : `${value} к прошлой неделе`;
 }
 
-export function HabitInsightsPanel({ workspace, date, language, calendarMode, showCompletionCalendar = false }: HabitInsightsPanelProps) {
+export function HabitInsightsPanel({ workspace, date, language, calendarMode, reportContext, showCompletionCalendar = false }: HabitInsightsPanelProps) {
   const isEnglish = language === "en";
   const [mosaicOpen, setMosaicOpen] = useState(false);
   const [completionCalendarMode, setCompletionCalendarMode] = useState<CalendarMode>(calendarMode);
   const mosaicBodyId = useId();
   const weekly = useMemo(() => buildWeeklyHabitSummary(workspace, date), [date, workspace]);
-  const mosaicRange = useMemo(() => calendarYearRange(date, calendarMode), [calendarMode, date]);
+  const mosaicRange = useMemo(() => calendarYearRange(date, calendarMode, reportContext), [calendarMode, date, reportContext]);
   const mosaic = useMemo(() => buildHabitYearMosaic(workspace.dailyGoalRecords, date, mosaicRange), [date, mosaicRange, workspace.dailyGoalRecords]);
   const records = useMemo(() => [...workspace.habits]
     .sort((left, right) => right.priority - left.priority || left.title.localeCompare(right.title))
     .map((habit) => ({
       habit,
       record: buildHabitPersonalRecord(habit, workspace.habitCompletions, date, calendarMode, isHabitScheduledForDate, (value) => ({
-        key: calendarMonthKey(value, calendarMode),
-        label: formatCalendarMonthValue(value, calendarMode),
+        key: calendarMonthKey(value, calendarMode, reportContext),
+        label: formatCalendarMonthValue(value, calendarMode, reportContext),
       })),
-    })), [calendarMode, date, workspace.habitCompletions, workspace.habits]);
+    })), [calendarMode, date, reportContext, workspace.habitCompletions, workspace.habits]);
   const rhythm = workspace.userProgress.rhythmScore;
   const perfectDays = mosaic.filter((cell) => cell.status === "perfect").length;
   const qualifiedDays = mosaic.filter((cell) => cell.status === "qualified" || cell.status === "perfect").length;
-  const yearLabel = calendarYearLabel(date, calendarMode);
+  const yearLabel = calendarYearLabel(date, calendarMode, reportContext);
   const mosaicWeeks = Math.max(1, ...mosaic.map((cell) => cell.week));
-  const completionRange = useMemo(() => calendarMonthRange(date, completionCalendarMode), [date, completionCalendarMode]);
+  const completionRange = useMemo(() => calendarMonthRange(date, completionCalendarMode, reportContext), [date, completionCalendarMode, reportContext]);
   const completionDates = useMemo(() => dateValuesBetween(completionRange.start, completionRange.end), [completionRange]);
   const completionCalendarOptions: { mode: CalendarMode; ru: string }[] = [
     { mode: "profane", ru: "Григорианский" },

@@ -21,12 +21,16 @@ function loadTs(path, overrides) {
   return loaded.exports;
 }
 
+const context = loadTs("app/calendar-context.ts", {});
+const astronomy = loadTs("app/calendar-astronomy.ts", { "./calendar-context": context });
 const calendar = loadTs("app/calendar-data.ts", {
+  "./calendar-context": context,
+  "./calendar-astronomy": astronomy,
   "../references/days.txt?raw": readFileSync(resolve(root, "references/days.txt"), "utf8"),
   "./calendar-days.en.json": JSON.parse(readFileSync(resolve(root, "app/calendar-days.en.json"), "utf8")),
   "./i18n": { getRuntimeLanguage: () => "ru", runtimeLocale: () => "ru-RU", translateText: (value) => value },
 });
-const recurrence = loadTs("app/task-recurrence.ts", { "./calendar-data": calendar });
+const recurrence = loadTs("app/task-recurrence.ts", { "./calendar-data": calendar, "./calendar-context": context });
 const ganttCore = loadTs("app/shared-gantt.ts", {});
 const gantt = loadTs("app/shared-gantt-calendar.ts", { "./calendar-data": calendar, "./shared-gantt": ganttCore, "./i18n": { translateText: value => value } });
 

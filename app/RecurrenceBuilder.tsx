@@ -18,7 +18,7 @@ import {
 } from "./task-recurrence";
 import { CalendarDatePicker } from "./CalendarDatePicker";
 import { RecordCalendarChoice } from "./RecordCalendarChoice";
-import { getRuntimeLanguage } from "./i18n";
+import { getRuntimeLanguage, translateText } from "./i18n";
 
 const PYATA_DAY_LABELS = ["I", "II", "III", "IIII", "V"];
 const PYATA_LABELS = ["I пята", "II пята", "III пята", "IIII пята", "V пята", "VI пята"];
@@ -54,10 +54,6 @@ function toggleSelection(selected: number[], item: number, all: number[]) {
   return sameNumbers(next, all) ? [] : next;
 }
 
-function shortDate(value: string, calendarMode: CalendarMode, includeYear = false) {
-  return formatCalendarDateValue(value, calendarMode, includeYear);
-}
-
 export function RecurrenceBuilder({
   value: rawValue,
   onChange,
@@ -86,7 +82,9 @@ export function RecurrenceBuilder({
   // the currently selected account calendar.
   const value = destination === "tracker"
     ? normalizeRecurrenceConfig(rawValue)
-    : alignRecurrenceConfigWithCalendar(rawValue, calendarMode, startDate);
+    : normalizeRecurrenceConfig(alignRecurrenceConfigWithCalendar(rawValue, calendarMode, startDate));
+  const shortDate = (date: string, mode: CalendarMode, includeYear = false) =>
+    formatCalendarDateValue(date, mode, includeYear, value.calendarContext);
   const displayCalendarMode = destination === "tracker"
     ? calendarModeForRecurrence(value.mode)
     : calendarMode;
@@ -95,7 +93,7 @@ export function RecurrenceBuilder({
   const rangeEnd = value.rangeEnd && value.rangeEnd >= rangeStart
     ? value.rangeEnd <= maximumEnd ? value.rangeEnd : maximumEnd
     : recurrenceDefaultEndDate(rangeStart);
-  const lunarMonths = lunarMonthOptions(rangeStart, rangeEnd);
+  const lunarMonths = lunarMonthOptions(rangeStart, rangeEnd, value.calendarContext);
   const monthValues = value.pattern === "lunar-yearly" ? Array.from({ length: 13 }, (_, index) => index + 1)
     : value.mode === "lunar" ? lunarMonths.map((month) => month.value) : SACRED_MONTHS;
   const selectedMonths = effectiveSelection(value.months, monthValues);
@@ -111,14 +109,15 @@ export function RecurrenceBuilder({
       ? "parity"
       : sameNumbers(value.days, [1, 2, 3, 4, 5]) && !value.pyatas.length && !value.months.length
         ? "daily" : "pyata-days";
-  const occurrenceCount = value.enabled ? buildRecurrenceDates(startDate, { ...value, rangeStart, rangeEnd }).length : 1;
+  const previewDates = value.enabled ? buildRecurrenceDates(startDate, { ...value, rangeStart, rangeEnd }) : [startDate];
+  const occurrenceCount = previewDates.length;
   const tooManyOccurrences = occurrenceCount > MAX_RECURRENCE_OCCURRENCES;
 
   const setPattern = (pattern: RecurrenceConfig["pattern"]) => {
     onChange({
       ...value,
       pattern,
-      days: suggestedRecurrenceDays(value.mode, pattern, rangeStart),
+      days: suggestedRecurrenceDays(value.mode, pattern, rangeStart, value.calendarContext),
       interval: 1,
     });
   };
@@ -142,7 +141,7 @@ export function RecurrenceBuilder({
   };
 
   const setSacredCadence = (cadence: string) => {
-    const sacred = getSacredDate(new Date(`${rangeStart}T12:00:00`));
+    const sacred = getSacredDate(new Date(`${rangeStart}T12:00:00`), value.calendarContext);
     const day = sacred.monthIndex < 12 ? sacred.day : 1;
     onChange({ ...value,
       pattern: cadence === "monthly" || cadence === "yearly" ? "month-days" : "pyata-days",
@@ -153,7 +152,7 @@ export function RecurrenceBuilder({
   };
 
   const setLunarCadence = (cadence: string) => {
-    const lunar = getLunarDate(new Date(`${rangeStart}T12:00:00`));
+    const lunar = getLunarDate(new Date(`${rangeStart}T12:00:00`), value.calendarContext);
     onChange({ ...value,
       pattern: cadence === "daily" ? "lunar-days" : cadence as RecurrenceConfig["pattern"],
       days: cadence === "daily" ? Array.from({ length: 30 }, (_, index) => index + 1)
@@ -192,7 +191,7 @@ export function RecurrenceBuilder({
               enabled: event.target.checked,
               rangeStart,
               rangeEnd,
-              days: event.target.checked ? suggestedRecurrenceDays(value.mode, value.pattern, rangeStart) : value.days,
+              days: event.target.checked ? suggestedRecurrenceDays(value.mode, value.pattern, rangeStart, value.calendarContext) : value.days,
             })}
           />
           <span aria-hidden="true" />
@@ -203,16 +202,16 @@ export function RecurrenceBuilder({
       {value.enabled || destination === "tracker" ? (
           <fieldset className="recurrence-range">
             <legend>Период повторения</legend>
-            {lockRangeStart ? <div className="recurrence-locked-start"><span>С какого</span><strong>{formatCalendarDateValue(rangeStart, displayCalendarMode, true)}</strong><small>{isEnglish ? "Start date · cannot be changed" : "Дата начала · изменить нельзя"}</small></div> : <label htmlFor="recurrence-range-start">
+            {lockRangeStart ? <div className="recurrence-locked-start"><span>С какого</span><strong>{formatCalendarDateValue(rangeStart, displayCalendarMode, true, value.calendarContext)}</strong><small>{isEnglish ? "Start date · cannot be changed" : "Дата начала · изменить нельзя"}</small></div> : <label htmlFor="recurrence-range-start">
               <span>С какого</span>
-              <CalendarDatePicker id="recurrence-range-start" mode={displayCalendarMode} min={startDate} value={rangeStart} showGregorianReference={destination !== "tracker"} onChange={(nextStart) => {
+              <CalendarDatePicker calculationContext={value.calendarContext} id="recurrence-range-start" mode={displayCalendarMode} min={startDate} value={rangeStart} showGregorianReference={destination !== "tracker"} onChange={(nextStart) => {
                 const nextEnd = rangeEnd < nextStart ? recurrenceDefaultEndDate(nextStart) : rangeEnd;
                 onChange({ ...value, rangeStart: nextStart, rangeEnd: nextEnd, months: value.mode === "lunar" && value.pattern !== "lunar-yearly" ? [] : value.months });
               }} />
             </label>}
             <label htmlFor="recurrence-range-end">
               <span>По какое</span>
-              <CalendarDatePicker id="recurrence-range-end" mode={displayCalendarMode} min={rangeStart} max={maximumEnd} value={rangeEnd} showGregorianReference={destination !== "tracker"} onChange={(nextEnd) => onChange({
+              <CalendarDatePicker calculationContext={value.calendarContext} id="recurrence-range-end" mode={displayCalendarMode} min={rangeStart} max={maximumEnd} value={rangeEnd} showGregorianReference={destination !== "tracker"} onChange={(nextEnd) => onChange({
                 ...value,
                 rangeStart,
                 rangeEnd: nextEnd,
@@ -412,6 +411,12 @@ export function RecurrenceBuilder({
                   : `— количество ${destination === "tracker" ? "дней трекинга" : "повторений одной задачи"} с ${shortDate(rangeStart, displayCalendarMode, true)} по ${shortDate(rangeEnd, displayCalendarMode, true)}`)}</span>
           </div>
 
+          <div className="recurrence-selection-hint" aria-live="polite">
+            <p>{translateText("Следующие даты: {dates}").replace("{dates}", previewDates.slice(0, 5).map(date => formatCalendarDateValue(date, displayCalendarMode, true, value.calendarContext)).join(" · ") || "—")}</p>
+            <p>{translateText("Часовой пояс повторения: {zone}").replace("{zone}", value.calendarContext!.timeZone)}</p>
+            <p>{translateText("Несуществующие дни пропускаются. Апейрон не входит в сакральные повторы; 13-й лунный месяц выбирается только в годах, где он есть.")}</p>
+            {value.mode === "genesis" && value.calendarContext?.version === 1 ? <p>{translateText("Сохранённое расписание использует прежнее начало сакрального года — 20 марта.")}</p> : null}
+          </div>
           <small className="recurrence-sync-note">
             {destination === "tracker"
               ? (isEnglish

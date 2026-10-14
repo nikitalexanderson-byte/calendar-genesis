@@ -50,7 +50,7 @@ internal fun CalendarYearDescriptionCard(calendar: GenesisCalendar, shown: Local
         "en" -> englishText
         else -> translateGenesisText(context, russian, language)
     }
-    val sacredYear = calendar.sacredDate(shown).sacredYear
+    val sacredYear = if (mode == CalendarMode.LUNAR) calendar.lunarDate(shown).year.sacredYear else calendar.sacredDate(shown).sacredYear
     val lunarYear = remember(sacredYear) { calendar.lunarYear(sacredYear) }
     val lunarDays = ChronoUnit.DAYS.between(lunarYear.startDate, lunarYear.endDate).toString()
     var detailsOpen by rememberSaveable { mutableStateOf(false) }

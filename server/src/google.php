@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__ . '/entry-types.php';
 require_once __DIR__ . '/google-sync-cache.php';
+require_once __DIR__ . '/calendar.php';
 
 require_once __DIR__ . '/relocation.php';
 
@@ -496,11 +497,14 @@ function genesisGoogleRecurrenceLines(array $task, string $dueDate, string $time
         return [];
     }
 
-    $values = array_map(static function (string $date) use ($timeValue): string {
+    $context = genesisCalendarContext($task['recurrenceContext'] ?? null, $timezoneName);
+    $useUtc = $context['version'] === 2 && $timeValue !== '';
+    $values = array_map(static function (string $date) use ($timeValue, $context, $useUtc): string {
+        if ($useUtc) return genesisCalendarWallDateTime($date, $timeValue, $context['timeZone'])->setTimezone(new DateTimeZone('UTC'))->format('Ymd\THis\Z');
         $compactDate = str_replace('-', '', $date);
         return $timeValue === '' ? $compactDate : $compactDate . 'T' . str_replace(':', '', $timeValue) . '00';
     }, $additionalDates);
-    $prefix = $timeValue === '' ? 'RDATE;VALUE=DATE:' : 'RDATE;TZID=' . $timezoneName . ':';
+    $prefix = $timeValue === '' ? 'RDATE;VALUE=DATE:' : ($useUtc ? 'RDATE:' : 'RDATE;TZID=' . $timezoneName . ':');
     return array_map(
         static fn(array $chunk): string => $prefix . implode(',', $chunk),
         array_chunk($values, 50),
@@ -511,6 +515,9 @@ function genesisTaskPayloadForGoogle(string $taskId, array $task): array
 {
     $timezone = genesisClientTimeZone();
     $timezoneName = $timezone->getName();
+    $ruleContext = genesisCalendarContext($task['recurrenceContext'] ?? null, $timezoneName);
+    $versionedRule = $ruleContext['version'] === 2 && in_array($task['recurrenceMode'] ?? '', ['genesis','classic','lunar'], true);
+    if ($versionedRule) { $timezoneName = $ruleContext['timeZone']; $timezone = new DateTimeZone($timezoneName); }
     $title = mb_substr(trim((string)($task['title'] ?? '')), 0, 500);
     if ($title === '') {
         throw new InvalidArgumentException('Название задачи обязательно.');
@@ -524,7 +531,7 @@ function genesisTaskPayloadForGoogle(string $taskId, array $task): array
         throw new InvalidArgumentException('Срок выполнения задачи указан неверно.');
     }
     $timeValue = preg_match('/^\d{2}:\d{2}$/', (string)($task['time'] ?? '')) ? (string)$task['time'] : '';
-    $eventStart = new DateTimeImmutable($dueDate . ' ' . ($timeValue !== '' ? $timeValue : '00:00'), $timezone);
+    $eventStart = $versionedRule && $timeValue !== '' ? genesisCalendarWallDateTime($dueDate, $timeValue, $timezoneName) : new DateTimeImmutable($dueDate . ' ' . ($timeValue !== '' ? $timeValue : '00:00'), $timezone);
     $reminders = genesisNormalizeTaskReminders($task['reminders'] ?? [], $task['reminderMinutes'] ?? null);
     $reminderOverrides = genesisTaskReminderOverrides($reminders, $eventStart);
     $done = !empty($task['done']);
@@ -533,7 +540,7 @@ function genesisTaskPayloadForGoogle(string $taskId, array $task): array
     $priority = genesisClampInt($task['priority'] ?? 5, 1, 10, 5);
     $recurrence = in_array($task['recurrence'] ?? '', ['none', 'daily', 'weekdays', 'weekly', 'monthly', 'yearly'], true) ? (string)$task['recurrence'] : 'none';
     $recurrenceMode = in_array($task['recurrenceMode'] ?? '', ['none', 'genesis', 'classic', 'lunar'], true) ? (string)$task['recurrenceMode'] : 'none';
-    $recurrencePattern = in_array($task['recurrencePattern'] ?? '', ['none', 'daily', 'weekdays', 'monthly', 'yearly', 'pyata-days', 'month-days', 'lunar-days'], true) ? (string)$task['recurrencePattern'] : 'none';
+    $recurrencePattern = in_array($task['recurrencePattern'] ?? '', ['none', 'daily', 'weekdays', 'monthly', 'yearly', 'pyata-days', 'month-days', 'lunar-days', 'lunar-decades', 'lunar-decade-days', 'lunar-phases', 'lunar-yearly'], true) ? (string)$task['recurrencePattern'] : 'none';
     $recurrenceDays = array_values(array_unique(array_filter(
         array_map('intval', genesisStringList($task['recurrenceDays'] ?? [], 30)),
         static fn(int $day): bool => $day >= 1 && $day <= 30,
@@ -577,6 +584,8 @@ function genesisTaskPayloadForGoogle(string $taskId, array $task): array
         'genesisDependsOn' => genesisBase64Url(json_encode($dependsOn, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)),
         'genesisRecurrence' => $recurrence,
         'genesisInterval' => (string)genesisClampInt($task['recurrenceInterval'] ?? 1, 1, 99, 1),
+        'genesisCalendarContext' => genesisBase64Url(json_encode($ruleContext, JSON_THROW_ON_ERROR)),
+        'genesisInvalidDayPolicy' => 'skip',
         'genesisCycleMode' => $recurrenceMode,
         'genesisCyclePattern' => $recurrencePattern,
         'genesisCycleDays' => genesisBase64Url(json_encode($recurrenceDays, JSON_THROW_ON_ERROR)),
@@ -606,12 +615,19 @@ function genesisTaskPayloadForGoogle(string $taskId, array $task): array
     if ($timeValue !== '') {
         $start = $eventStart;
         $endTime = preg_match('/\A\d{2}:\d{2}\z/', (string)($task['endTime'] ?? '')) ? $task['endTime'] : $timeValue;
-        $end = new DateTimeImmutable($endDate . ' ' . $endTime, $timezone);
+        $end = $versionedRule ? genesisCalendarWallDateTime($endDate, $endTime, $timezoneName) : new DateTimeImmutable($endDate . ' ' . $endTime, $timezone);
         if ($end <= $start) {
             $end = $start->modify('+1 hour');
         }
         $event['start'] = ['dateTime' => $start->format(DATE_RFC3339), 'timeZone' => $timezoneName];
         $event['end'] = ['dateTime' => $end->format(DATE_RFC3339), 'timeZone' => $timezoneName];
+        if ($versionedRule) {
+            // A DST gap changes the emitted instant, never the series' saved wall time.
+            $event['extendedProperties']['private']['genesisWallStart'] = $dueDate . 'T' . $timeValue;
+            $event['extendedProperties']['private']['genesisWallEnd'] = $endDate . 'T' . $endTime;
+            $event['extendedProperties']['private']['genesisResolvedStart'] = (string)$start->getTimestamp();
+            $event['extendedProperties']['private']['genesisResolvedEnd'] = (string)$end->getTimestamp();
+        }
     } else {
         $date = new DateTimeImmutable($dueDate . ' 12:00:00', $timezone);
         $rangeEnd = new DateTimeImmutable($endDate . ' 12:00:00', $timezone);
@@ -781,6 +797,9 @@ function genesisGoogleEventForClient(array $event): ?array
     $done = ($private['genesisDone'] ?? '') === '1' || str_starts_with($summary, '✓ ');
     $title = $done && str_starts_with($summary, '✓ ') ? mb_substr($summary, 2) : $summary;
     $timezone = genesisClientTimeZone();
+    $ruleContext = genesisCalendarContext(json_decode(genesisDecodeBase64String((string)($private['genesisCalendarContext'] ?? '')), true), (string)($event['start']['timeZone'] ?? $timezone->getName()));
+    $versionedRule = $ruleContext['version'] === 2 && in_array($private['genesisCycleMode'] ?? '', ['genesis', 'classic', 'lunar'], true);
+    if ($versionedRule) $timezone = new DateTimeZone($ruleContext['timeZone']);
     $dateTime = $event['start']['dateTime'] ?? null;
     $date = $event['start']['date'] ?? null;
     $endDateTime = $event['end']['dateTime'] ?? null;
@@ -792,8 +811,16 @@ function genesisGoogleEventForClient(array $event): ?array
         $start = (new DateTimeImmutable($dateTime))->setTimezone($timezone);
         $dueDate = $start->format('Y-m-d');
         $time = $start->format('H:i');
+        if ($versionedRule && (string)$start->getTimestamp() === ($private['genesisResolvedStart'] ?? '')
+            && preg_match('/^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d$/', (string)($private['genesisWallStart'] ?? ''))) {
+            [$dueDate, $time] = explode('T', $private['genesisWallStart']);
+        }
         if (is_string($endDateTime) && $endDateTime !== '') {
             $endDate = (new DateTimeImmutable($endDateTime))->setTimezone($timezone)->format('Y-m-d');
+            if ($versionedRule && (string)(new DateTimeImmutable($endDateTime))->getTimestamp() === ($private['genesisResolvedEnd'] ?? '')
+                && preg_match('/^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d$/', (string)($private['genesisWallEnd'] ?? ''))) {
+                $endDate = substr($private['genesisWallEnd'], 0, 10);
+            }
         } else {
             $endDate = $dueDate;
         }
@@ -844,7 +871,9 @@ function genesisGoogleEventForClient(array $event): ?array
         'recurrence' => (string)($private['genesisRecurrence'] ?? 'none'),
         'recurrenceInterval' => genesisClampInt($private['genesisInterval'] ?? 1, 1, 99, 1),
         'recurrenceMode' => in_array($private['genesisCycleMode'] ?? '', ['none', 'genesis', 'classic', 'lunar'], true) ? (string)$private['genesisCycleMode'] : 'none',
-        'recurrencePattern' => in_array($private['genesisCyclePattern'] ?? '', ['none', 'daily', 'weekdays', 'monthly', 'yearly', 'pyata-days', 'month-days', 'lunar-days'], true) ? (string)$private['genesisCyclePattern'] : 'none',
+        'recurrencePattern' => in_array($private['genesisCyclePattern'] ?? '', ['none', 'daily', 'weekdays', 'monthly', 'yearly', 'pyata-days', 'month-days', 'lunar-days', 'lunar-decades', 'lunar-decade-days', 'lunar-phases', 'lunar-yearly'], true) ? (string)$private['genesisCyclePattern'] : 'none',
+        'recurrenceContext' => $ruleContext,
+        'recurrenceInvalidDayPolicy' => 'skip',
         'recurrenceDays' => genesisDecodeBase64IntJson((string)($private['genesisCycleDays'] ?? '')),
         'recurrenceStartDate' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($private['genesisCycleStart'] ?? '')) ? (string)$private['genesisCycleStart'] : null,
         'recurrenceEndDate' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($private['genesisCycleEnd'] ?? '')) ? (string)$private['genesisCycleEnd'] : null,
@@ -920,7 +949,9 @@ function genesisGoogleNativeTaskForClient(array $task, string $taskListId, strin
         'recurrence' => 'none',
         'recurrenceInterval' => genesisClampInt($metadata['recurrenceInterval'] ?? 1, 1, 99, 1),
         'recurrenceMode' => in_array($metadata['recurrenceMode'] ?? '', ['none', 'genesis', 'classic', 'lunar'], true) ? (string)$metadata['recurrenceMode'] : 'none',
-        'recurrencePattern' => in_array($metadata['recurrencePattern'] ?? '', ['none', 'daily', 'weekdays', 'monthly', 'yearly', 'pyata-days', 'month-days', 'lunar-days'], true) ? (string)$metadata['recurrencePattern'] : 'none',
+        'recurrencePattern' => in_array($metadata['recurrencePattern'] ?? '', ['none', 'daily', 'weekdays', 'monthly', 'yearly', 'pyata-days', 'month-days', 'lunar-days', 'lunar-decades', 'lunar-decade-days', 'lunar-phases', 'lunar-yearly'], true) ? (string)$metadata['recurrencePattern'] : 'none',
+        'recurrenceContext' => genesisCalendarContext($metadata['recurrenceContext'] ?? null),
+        'recurrenceInvalidDayPolicy' => 'skip',
         'recurrenceDays' => array_values(array_filter(array_map('intval', is_array($metadata['recurrenceDays'] ?? null) ? $metadata['recurrenceDays'] : []), static fn(int $day): bool => $day >= 1 && $day <= 30)),
         'recurrenceStartDate' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($metadata['recurrenceStartDate'] ?? '')) ? (string)$metadata['recurrenceStartDate'] : null,
         'recurrenceEndDate' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($metadata['recurrenceEndDate'] ?? '')) ? (string)$metadata['recurrenceEndDate'] : null,

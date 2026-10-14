@@ -66,6 +66,8 @@ data class LocalTask(
             .put("recurrenceEndDate", recurrence.rangeEnd.takeIf { recurrence.enabled && it.isNotBlank() } ?: JSONObject.NULL)
             .put("recurrenceMonths", JSONArray(if (recurrence.enabled) recurrence.months else emptyList<Int>()))
             .put("recurrencePyatas", JSONArray(if (recurrence.enabled) recurrence.pyatas else emptyList<Int>()))
+            .put("recurrenceContext", calendarContextJson(recurrence.calendarContext))
+            .put("recurrenceInvalidDayPolicy", "skip")
             .put("recurrenceExcludedDates", JSONArray(if (recurrence.enabled) recurrenceExcludedDates else emptyList<String>()))
         return source.toString()
     }
@@ -88,7 +90,7 @@ data class LocalTask(
                 }, ints(v.optJSONArray("recurrenceDays")).ifEmpty { listOf(1) },
                 v.optInt("recurrenceInterval", 1), v.optString("recurrenceStartDate").takeUnless { it == "null" } ?: "",
                 v.optString("recurrenceEndDate").takeUnless { it == "null" } ?: "",
-                ints(v.optJSONArray("recurrenceMonths")), ints(v.optJSONArray("recurrencePyatas")))
+                ints(v.optJSONArray("recurrenceMonths")), ints(v.optJSONArray("recurrencePyatas")), calendarContextFromJson(v.optJSONObject("recurrenceContext")))
             return LocalTask(record.id, v.getString("title"), v.optString("description"),
                 v.getString("dueDate"), v.optString("time"), v.getString("zoneId"),
                 v.getInt("priority"), record.done,

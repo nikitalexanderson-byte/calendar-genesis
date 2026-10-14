@@ -403,7 +403,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
         if(active!=null || plans.isNotEmpty()) return active
         val date=LocalDate.now()
         val schedule=HabitEngine(GenesisCalendar()).defaultSchedule(date,prefs.input).let { base ->
-            base.copy(recurrence=RecurrenceConfig(enabled=true,mode="classic",pattern="daily",
+            base.copy(recurrence=RecurrenceConfig(enabled=true,mode="classic",pattern="daily",calendarContext=ru.genesis.calendar.domain.CalendarContext(),
                 days=listOf(1),rangeStart=date.toString()))
         }
         trackersRepository.savePlan(SleepPlan(TrackerEntity.create("sleep-plan"),schedule))
