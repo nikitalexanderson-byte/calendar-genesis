@@ -21,6 +21,7 @@ import {
   type ThemeControllerState,
 } from "./theme-controller";
 import { withThemeColorMode } from "./web-theme";
+import { subscriptionName } from "./subscription-name";
 
 const COLOR_MODE_NAMES: Record<Language, { light: string; dark: string; group: string }> = {
   ru: { light: "Светлая", dark: "Тёмная", group: "Цветовая схема сайта" },
@@ -526,7 +527,10 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
         <button type="button" className="modal-close" onClick={onClose} aria-label="Закрыть">×</button>
         <span className="eyebrow">Личный кабинет</span>
         <h2 id="account-title">{user.displayName || "Аккаунт GENESIS"}</h2>
-        <p className="account-email">{user.email}</p>
+        <div className="account-profile-details">
+          <p className="account-email">{user.email}</p>
+          <p className="account-plan" data-no-translate>{translateText("Ваш тариф: {plan}", user.language, true).replace("{plan}", subscriptionName(user.subscriptionPlan))}</p>
+        </div>
 
         <nav className="settings-section-nav"
           aria-label={user.language === "en" ? "Settings sections" : "Разделы настроек"}>

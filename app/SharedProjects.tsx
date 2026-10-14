@@ -7,7 +7,7 @@ import { setSharedTaskArchived, restoreSharedTrash, type SharedTrashEntry } from
 import { SharedTaskDetailsEditor, SharedTaskReadOnlyMetadata, taskDetailsDraft } from "./SharedTaskDetailsEditor";
 import { sharedTaskDetailsError, sharedPriorityLabel, type SharedTaskDetailsDraft } from "./shared-task-details";
 import { useSharedTaskPage } from "./use-shared-task-page";
-import { SharedTaskPageControls } from "./SharedTaskPageControls";
+import { SharedTaskPageControls, SharedTaskPageCount } from "./SharedTaskPageControls";
 import {
   searchSharedAffairs, type SharedAffairSearch,
   listSharedLabels, type SharedLabel,
@@ -1337,7 +1337,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
         : "Проведите по доске, чтобы увидеть все статусы."}</p> : null}
       </section>
       <div className="shared-projects-workspace">
-      {activeView !== "gantt" ? <SharedTaskPageControls page={snapshot.taskPage} loaded={snapshot.tasks.length} busy={projectPage.busy} onMore={() => void projectPage.more()} onRefresh={() => void projectPage.refresh()} error={projectPage.error}/> : null}
+      {activeView !== "gantt" ? <SharedTaskPageControls page={snapshot.taskPage} loaded={snapshot.tasks.length} busy={projectPage.busy} onMore={() => void projectPage.more()} onRefresh={() => void projectPage.refresh()} error={projectPage.error} showCount={activeView === "calendar"}/> : null}
       {activeView === "gantt" ? <SharedGantt snapshot={snapshot} english={english} calendarMode={calendarMode} timeFormat={timeFormat} initialDay={ganttDay} onOpen={openTask} onCreate={schedule=>{openCreateTask(snapshot.project);setNewPlan({startDate:schedule.startDate,startTime:schedule.startTime||"",endTime:schedule.endTime||"",dependsOnIds:[]});setNewTaskDueDate(schedule.dueDate);}} onSchedule={scheduleTask} onReturn={returnGanttTask} resolveReturn={resolveGanttReturn} onReturnTarget={setGanttReturnTarget} busy={busy} externalDrop={sharedDrag.target?.schedule} externalDropRow={sharedDrag.target?.ganttRow}/> : activeView === "calendar" ? <section className="shared-projects-calendar" aria-label={english ? "Project calendar" : "Календарь проекта"}>
         <div className="shared-projects-calendar-head">
           <button type="button" aria-label={english ? "Previous month" : "Предыдущий месяц"} onClick={() => { setCalendarMonth(calendarPeriod.previous); setCalendarDay(localDateKey(calendarPeriod.previous)); }}>←</button>
@@ -1409,7 +1409,8 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
                 aria-label={english ? `Rename board ${status.title}` : `Переименовать доску «${status.title}»`}
                 onClick={() => { cancelledBoardTitleRef.current = false; setBoardTitleEdit({ id: status.id, title: statusLabel(status.title) }); }}>{statusLabel(status.title)}</button>
               : statusLabel(status.title)}</h2>
-            <small className="shared-board-task-count" aria-label={english ? "Task count" : "Количество задач"} data-no-translate>{formatTaskCount(snapshot.taskPage?.statusCounts[status.id] ?? snapshot.tasks.filter((task) => task.statusId === status.id).length, language as import("./i18n").Language)}</small>
+            {snapshot.taskPage ? <SharedTaskPageCount loaded={group.recent.length + group.older.length} total={snapshot.taskPage.statusCounts[status.id] ?? 0}/>
+              : <small className="shared-board-task-count" aria-label={english ? "Task count" : "Количество задач"} data-no-translate>{formatTaskCount(group.recent.length + group.older.length, language as import("./i18n").Language)}</small>}
           {canWrite || canManage ? <div className="shared-board-create-actions" role="group" aria-label={statusLabel(status.title)}>
             {canWrite ? <><div className="shared-board-create-work">
             <button type="button" className="shared-board-create-task" onClick={() => openCreateTask(snapshot.project, status)}

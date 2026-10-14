@@ -1,7 +1,6 @@
 "use client";
 
 import { calendarContext } from "./calendar-context";
-import { subscriptionName } from "./subscription-name";
 import { useSharedTaskPage } from "./use-shared-task-page";
 import { SharedTaskPageControls } from "./SharedTaskPageControls";
 import { DeferredViewFallback, DeferredDialogFallback, DeferredHabitFallback, ViewErrorBoundary, lazyWithRecovery as lazy } from "./DeferredViews";
@@ -6567,7 +6566,6 @@ export function GenesisCalendar() {
           <div className="topbar-date">
             <span className="topbar-kicker">{view === "theokyklos" ? "Теокиклос" : view === "habits" ? (language === "en" ? "Habit tracker" : "Трекер привычек") : CALENDAR_MODE_META[activeCalendarMode].label}</span>
             <strong>{formatCalendarDate(today, activeCalendarMode, activeCalendarMode !== "sacred")}</strong>
-            {cloudUser ? <span className="topbar-tariff" data-no-translate>{translateText("Ваш тариф: {plan}").replace("{plan}",subscriptionName(cloudUser.subscriptionPlan))}</span> : null}
           </div>
           {experimentalThemeActive ? renderDisplayCalendarChoice(language === "en" ? "Display calendar" : "Календарь отображения", "topbar-calendar-choice") : null}
           <div className="topbar-actions">

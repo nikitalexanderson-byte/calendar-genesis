@@ -383,6 +383,7 @@ html[data-genesis-theme] .genesis-app .shared-projects-board { align-items: stre
 html[data-genesis-theme] .genesis-app .shared-board-header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 8px; }
 html[data-genesis-theme] .genesis-app .shared-board-header h2 { grid-column: 1; grid-row: 1; }
 html[data-genesis-theme] .genesis-app .shared-board-task-count { flex: 0 0 auto; white-space: nowrap; font-size: 13px; }
+html[data-genesis-theme] .genesis-app .shared-board-header > .shared-task-page-count { flex:0 1 auto; min-width:0; color:var(--ink-soft); font:400 var(--type-caption)/1.5 var(--font-ui); }
 html[data-genesis-theme] .genesis-app .shared-board-tools { grid-column: 3; grid-row: 1; justify-content: flex-end; }
 html[data-genesis-theme] .genesis-app .shared-board-create-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; width: 100%; max-width: 360px; margin: 12px 0; }
 html[data-genesis-theme] .genesis-app .shared-board-create-actions button {
@@ -1578,7 +1579,9 @@ html[data-genesis-theme] .genesis-app .shared-task-modal .entity-information dl 
 html[data-genesis-theme] .genesis-app .shared-task-modal .entity-information dt { color:var(--ink-soft); font-size:var(--type-caption); font-weight:400; margin-bottom:4px; }
 html[data-genesis-theme] .genesis-app .shared-task-delete-footer { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
 html[data-genesis-theme] .genesis-app .shared-task-delete-footer > button { display:flex; align-items:center; justify-content:center; gap:8px; width:100%; min-height:44px; height:100%; margin:0; padding:12px; }
-html[data-genesis-theme] .genesis-app .topbar-tariff { display:block; color:var(--ink-soft); font:400 var(--type-caption)/1.5 var(--font-ui); margin-top:4px; }
+html[data-genesis-theme] .genesis-app .account-profile-details { display:grid; gap:4px; margin:0 0 24px; min-width:0; }
+html[data-genesis-theme] .genesis-app .account-profile-details > .account-email { margin:0; overflow-wrap:anywhere; }
+html[data-genesis-theme] .genesis-app .account-plan { margin:0; color:var(--ink); font:400 var(--type-body)/1.5 var(--font-ui); }
 @media(min-width:1280px) {
   html[data-genesis-theme] .genesis-app .shared-workspace-toolbar { flex-wrap:nowrap; align-items:end; gap:12px; }
   html[data-genesis-theme] .genesis-app .shared-workspace-toolbar-group { display:grid; grid-template-columns:minmax(90px,180px) auto; gap:8px; flex:0 1 440px; }
