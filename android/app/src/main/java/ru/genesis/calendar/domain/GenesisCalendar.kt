@@ -44,18 +44,31 @@ data class CalendarRange(val start: LocalDate, val end: LocalDate) {
     fun dates(): List<LocalDate> = (0..ChronoUnit.DAYS.between(start, end)).map(start::plusDays)
 }
 
-/** Port of app/calendar-data.ts. Sacred year starts March 20 (not the astronomical equinox).
+/** Port of the versioned web calendar. V2 starts on the local equinox day; V1 retains March 20.
  * Lunar year uses the actual first new moon following the astronomical equinox.
- * Public offline ephemeris supports 1900..2100 inclusive; out-of-range calls fail explicitly.
+ * User dates support 1900..2100. Boundary years let complete periods cross that range.
  */
-class GenesisCalendar(val zoneId: ZoneId = ZoneId.systemDefault()) {
+data class CalendarContext(val version: Int = 2, val timeZone: String = ZoneId.systemDefault().id,
+    val gregorianYearStart: String = "january") {
+    init { require(version in 1..2); ZoneId.of(timeZone); require(gregorianYearStart in setOf("january", "march")) }
+}
+
+class GenesisCalendar(val zoneId: ZoneId = ZoneId.systemDefault(), val algorithmVersion: Int = 2,
+    val gregorianYearStart: String = "january") {
+    init { require(algorithmVersion in 1..2) }
+    fun sacredYearStart(year: Int): LocalDate {
+        if (algorithmVersion == 1) return LocalDate.of(year, 3, 20)
+        val offset = (year - SolarEphemeris.firstYear) * 4
+        require(offset in SolarEphemeris.moments.indices) { "Calendar outside ephemeris" }
+        return Instant.ofEpochMilli(SolarEphemeris.moments[offset]).atZone(zoneId).toLocalDate()
+    }
     private val fullMoonDates by lazy {
         LunarEphemeris.fullMoons.map { Instant.ofEpochMilli(it).atZone(zoneId).toLocalDate() }.toSet()
     }
 
     fun isLunarFullMoon(date: LocalDate): Boolean = date in fullMoonDates
     fun solarEvents(year: Int): List<SolarEvent> {
-        require(year in 1900..2100) { "Offline solar ephemeris supports 1900–2100" }
+        require(year in 1898..2102) { "Offline solar ephemeris exhausted" }
         val offset = (year - SolarEphemeris.firstYear) * 4
         val names = listOf("Весеннее равноденствие", "Летнее солнцестояние",
             "Осеннее равноденствие", "Зимнее солнцестояние")
@@ -70,10 +83,10 @@ class GenesisCalendar(val zoneId: ZoneId = ZoneId.systemDefault()) {
     fun solarEvent(date: LocalDate): SolarEvent? = solarEvents(date.year).firstOrNull { it.date == date }
 
     fun sacredDate(date: LocalDate): SacredDateInfo {
-        val year = if (date < LocalDate.of(date.year, 3, 20)) date.year - 1 else date.year
-        val start = LocalDate.of(year, 3, 20)
+        val year = if (date < sacredYearStart(date.year)) date.year - 1 else date.year
+        val start = sacredYearStart(year)
         val dayOfYear = ChronoUnit.DAYS.between(start, date).toInt()
-        val length = ChronoUnit.DAYS.between(start, start.plusYears(1)).toInt()
+        val length = ChronoUnit.DAYS.between(start, sacredYearStart(year + 1)).toInt()
         return SacredDateInfo(year, if (dayOfYear < 360) dayOfYear / 30 else 12,
             if (dayOfYear < 360) dayOfYear % 30 + 1 else dayOfYear - 359, dayOfYear, length, length - 360)
     }
@@ -81,12 +94,12 @@ class GenesisCalendar(val zoneId: ZoneId = ZoneId.systemDefault()) {
     fun gregorianDate(sacredYear: Int, monthIndex: Int, day: Int): LocalDate {
         require(monthIndex in 0..12)
         require(day in 1..sacredMonthLength(sacredYear, monthIndex))
-        return LocalDate.of(sacredYear, 3, 20).plusDays((monthIndex * 30 + day - 1).toLong())
+        return sacredYearStart(sacredYear).plusDays((monthIndex * 30 + day - 1).toLong())
     }
 
     fun sacredMonthLength(sacredYear: Int, monthIndex: Int): Int {
         require(monthIndex in 0..12)
-        return if (monthIndex < 12) 30 else LocalDate.of(sacredYear + 1, 3, 20).toEpochDay().minus(LocalDate.of(sacredYear, 3, 20).toEpochDay()).toInt() - 360
+        return if (monthIndex < 12) 30 else sacredYearStart(sacredYear + 1).toEpochDay().minus(sacredYearStart(sacredYear).toEpochDay()).toInt() - 360
     }
 
     fun lunarMonthStart(index: Int): LocalDate {
@@ -96,7 +109,7 @@ class GenesisCalendar(val zoneId: ZoneId = ZoneId.systemDefault()) {
     }
 
     fun lunarMonthIndex(date: LocalDate): Int {
-        require(date.year in 1900..2100) { "Offline lunar calendar supports 1900–2100; update required" }
+        require(date.year in 1899..2101) { "Offline lunar calendar exhausted; update required" }
         var low = 0
         var high = LunarEphemeris.newMoons.lastIndex
         while (low < high) {
@@ -115,9 +128,8 @@ class GenesisCalendar(val zoneId: ZoneId = ZoneId.systemDefault()) {
     }
 
     fun lunarDate(date: LocalDate): LunarDateInfo {
-        val sacred = sacredDate(date)
-        val candidate = lunarYear(sacred.sacredYear)
-        val year = if (date >= candidate.startDate) candidate else lunarYear(sacred.sacredYear - 1)
+        val candidate = lunarYear(date.year)
+        val year = if (date >= candidate.startDate) candidate else lunarYear(date.year - 1)
         val index = lunarMonthIndex(date)
         val start = lunarMonthStart(index)
         val ordinal = index - year.startMonthIndex + 1
@@ -155,9 +167,20 @@ class GenesisCalendar(val zoneId: ZoneId = ZoneId.systemDefault()) {
     }
 
     fun yearRange(date: LocalDate, mode: CalendarMode): CalendarRange = when (mode) {
-        CalendarMode.PROFANE -> CalendarRange(date.withDayOfYear(1), date.withDayOfYear(date.lengthOfYear()))
-        CalendarMode.SACRED -> sacredDate(date).let { CalendarRange(LocalDate.of(it.sacredYear,3,20), LocalDate.of(it.sacredYear+1,3,19)) }
+        CalendarMode.PROFANE -> {
+            val month = if (gregorianYearStart == "march") 3 else 1
+            val year = date.year - if (date.monthValue < month) 1 else 0
+            val start = LocalDate.of(year, month, 1)
+            CalendarRange(start, start.plusYears(1).minusDays(1))
+        }
+        CalendarMode.SACRED -> sacredDate(date).let { CalendarRange(sacredYearStart(it.sacredYear), sacredYearStart(it.sacredYear+1).minusDays(1)) }
         CalendarMode.LUNAR -> lunarDate(date).year.let { CalendarRange(it.startDate, it.endDate.minusDays(1)) }
+    }
+
+    fun shiftYear(date: LocalDate, mode: CalendarMode, years: Int): LocalDate = when (mode) {
+        CalendarMode.PROFANE -> date.plusYears(years.toLong())
+        CalendarMode.SACRED -> sacredYearStart(sacredDate(date).sacredYear + years)
+        CalendarMode.LUNAR -> lunarYear(lunarDate(date).year.sacredYear + years).startDate
     }
 
     fun formatDate(date: LocalDate, mode: CalendarMode): String = when(mode) {

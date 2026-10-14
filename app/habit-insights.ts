@@ -185,7 +185,7 @@ export function buildHabitYearMosaic(records: readonly DailyGoalRecord[], today:
   const end = range?.end ?? `${year}-12-31`;
   const firstWeekday = (localDate(start).getDay() + 6) % 7;
   const byDate = new Map(records.map((record) => [record.date, record]));
-  return datesBetween(start, end, 370).map((date, dayIndex) => {
+  return datesBetween(start, end).map((date, dayIndex) => {
     const record = byDate.get(date);
     return {
       date,

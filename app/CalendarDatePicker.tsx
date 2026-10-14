@@ -1,4 +1,5 @@
 "use client";
+import { civilDateCarrier, isCivilDate, type CalendarContext } from "./calendar-context";
 
 import { useMemo, useState } from "react";
 import {
@@ -22,6 +23,7 @@ type CalendarDatePickerProps = {
   id?: string;
   value: string;
   mode: CalendarMode;
+  calculationContext?: CalendarContext;
   min?: string;
   max?: string;
   required?: boolean;
@@ -38,12 +40,12 @@ function inputDate(date: Date) {
 }
 
 function parseDate(value: string) {
-  const parsed = new Date(`${value}T12:00:00`);
-  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  const viewportDate = isCivilDate(value) ? value : inputDate(new Date());
+  return civilDateCarrier(viewportDate < "1900-01-01" ? "1900-01-01" : viewportDate > "2100-12-31" ? "2100-12-31" : viewportDate);
 }
 
 function allowed(value: string, min?: string, max?: string) {
-  return (!min || value >= min) && (!max || value <= max);
+  return isCivilDate(value) && value >= "1900-01-01" && value <= "2100-12-31" && (!min || value >= min) && (!max || value <= max);
 }
 
 function formatCompactGregorian(date: Date) {
@@ -60,18 +62,18 @@ function formatCompactGregorian(date: Date) {
   return `${dateLabel} ${capitalizedWeekday}`;
 }
 
-export function CalendarDatePicker({ id, value, mode, min, max, required, ariaLabel, showGregorianReference = true, triggerText, referencePlacement = "below", onChange }: CalendarDatePickerProps) {
+export function CalendarDatePicker({ id, value, mode, calculationContext, min, max, required, ariaLabel, showGregorianReference = true, triggerText, referencePlacement = "below", onChange }: CalendarDatePickerProps) {
   const isEnglish = getRuntimeLanguage() === "en";
   const [open, setOpen] = useState(false);
   const selectedDate = useMemo(() => parseDate(value), [value]);
-  const selectedSacred = useMemo(() => getSacredDate(selectedDate), [selectedDate]);
+  const selectedSacred = useMemo(() => getSacredDate(selectedDate, calculationContext), [selectedDate, calculationContext]);
   const [sacredYear, setSacredYear] = useState(selectedSacred.sacredYear);
   const [sacredMonth, setSacredMonth] = useState(selectedSacred.monthIndex);
-  const [lunarMonth, setLunarMonth] = useState(() => lunarMonthIndex(selectedDate));
+  const [lunarMonth, setLunarMonth] = useState(() => lunarMonthIndex(selectedDate, calculationContext));
   const dialogRef = useDialogAccessibility<HTMLElement>(() => setOpen(false), open);
 
   if (mode === "profane") {
-    return <input id={id} type="date" value={value} min={min} max={max} required={required} aria-label={ariaLabel} data-genesis-preserve="gregorian-date-picker" onChange={(event) => onChange(event.target.value)} />;
+    return <input id={id} type="date" value={value} min={min && min > "1900-01-01" ? min : "1900-01-01"} max={max && max < "2100-12-31" ? max : "2100-12-31"} required={required} aria-label={ariaLabel} data-genesis-preserve="gregorian-date-picker" onChange={(event) => { if (!event.target.value || allowed(event.target.value, min, max)) onChange(event.target.value); }} />;
   }
 
   const choose = (date: Date) => {
@@ -83,21 +85,21 @@ export function CalendarDatePicker({ id, value, mode, min, max, required, ariaLa
   const openPicker = () => {
     setSacredYear(selectedSacred.sacredYear);
     setSacredMonth(selectedSacred.monthIndex);
-    setLunarMonth(lunarMonthIndex(selectedDate));
+    setLunarMonth(lunarMonthIndex(selectedDate, calculationContext));
     setOpen(true);
   };
   const month = MONTHS[sacredMonth];
   const sacredDays = month.days
     .map((day) => getSacredDay(sacredMonth, day.day))
-    .filter((day) => sacredMonth !== 12 || inputDate(getGregorianDate(sacredYear, sacredMonth, day.day)) < inputDate(getGregorianDate(sacredYear + 1, 0, 1)));
-  const lunarDates = getLunarMonthDates(lunarMonth);
+    .filter((day) => sacredMonth !== 12 || day.day <= getSacredDate(getGregorianDate(sacredYear, 0, 1, calculationContext), calculationContext).apeironDays);
+  const lunarDates = getLunarMonthDates(lunarMonth, calculationContext);
   const lunarTitleDate = lunarDates[Math.floor(lunarDates.length / 2)] ?? selectedDate;
-  const lunarTitle = getLunarDate(lunarTitleDate);
+  const lunarTitle = getLunarDate(lunarTitleDate, calculationContext);
 
   return (
     <>
       <button id={id} type="button" className={`calendar-date-trigger mode-${mode}${showGregorianReference ? "" : " no-reference"}${referencePlacement === "inline" ? " inline-reference" : ""}`} data-genesis-preserve={`${mode}-date-picker-trigger`} onClick={openPicker} aria-label={ariaLabel} aria-haspopup="dialog">
-        <span>{value ? triggerText ?? formatCalendarDate(selectedDate, mode, true) : isEnglish ? "Choose date" : "Выберите дату"}</span>
+        <span>{value ? triggerText ?? (value >= "1900-01-01" && value <= "2100-12-31" && isCivilDate(value) ? formatCalendarDate(selectedDate, mode, true, calculationContext) : value) : isEnglish ? "Choose date" : "Выберите дату"}</span>
         {value && showGregorianReference ? <small>{referencePlacement === "inline" ? `(${value.split("-").reverse().join(".")})` : formatGregorian(selectedDate, true)}</small> : null}
       </button>
       {open ? (
@@ -109,9 +111,9 @@ export function CalendarDatePicker({ id, value, mode, min, max, required, ariaLa
             {mode === "sacred" ? (
               <>
                 <div className="calendar-picker-controls">
-                  <button type="button" onClick={() => setSacredYear((current) => current - 1)} aria-label="Предыдущий сакральный год">←</button>
+                  <button type="button" disabled={sacredYear <= 1899} onClick={() => setSacredYear((current) => current - 1)} aria-label="Предыдущий сакральный год">←</button>
                   <strong>{sacredYear}–{sacredYear + 1}</strong>
-                  <button type="button" onClick={() => setSacredYear((current) => current + 1)} aria-label="Следующий сакральный год">→</button>
+                  <button type="button" disabled={sacredYear >= 2100} onClick={() => setSacredYear((current) => current + 1)} aria-label="Следующий сакральный год">→</button>
                 </div>
                 <div className="calendar-picker-months" role="listbox" aria-label="Сакральный месяц">
                   {MONTHS.map((item) => <button type="button" className={item.index === sacredMonth ? "active" : ""} onClick={() => setSacredMonth(item.index)} key={item.index}>{item.roman}</button>)}
@@ -119,7 +121,7 @@ export function CalendarDatePicker({ id, value, mode, min, max, required, ariaLa
                 <header className="calendar-picker-heading"><strong>{month.name}</strong><span>{month.title}</span></header>
                 <div className="sacred-picker-days">
                   {sacredDays.map((day) => {
-                    const date = getGregorianDate(sacredYear, sacredMonth, day.day);
+                    const date = getGregorianDate(sacredYear, sacredMonth, day.day, calculationContext);
                     const dateValue = inputDate(date);
                     return (
                       <button type="button" disabled={!allowed(dateValue, min, max)} className={dateValue === value ? "selected" : ""} onClick={() => choose(date)} key={day.id}>
@@ -133,9 +135,9 @@ export function CalendarDatePicker({ id, value, mode, min, max, required, ariaLa
             ) : (
               <>
                 <div className="calendar-picker-controls">
-                  <button type="button" onClick={() => setLunarMonth((current) => current - 1)} aria-label="Предыдущий лунный месяц">←</button>
+                  <button type="button" disabled={inputDate(lunarDates[0]) <= "1900-01-01"} onClick={() => setLunarMonth((current) => current - 1)} aria-label="Предыдущий лунный месяц">←</button>
                   <strong>{lunarTitle.month.name} · {lunarTitle.month.roman}</strong>
-                  <button type="button" onClick={() => setLunarMonth((current) => current + 1)} aria-label="Следующий лунный месяц">→</button>
+                  <button type="button" disabled={inputDate(lunarDates[lunarDates.length - 1]) >= "2100-12-31"} onClick={() => setLunarMonth((current) => current + 1)} aria-label="Следующий лунный месяц">→</button>
                 </div>
                 <p className="calendar-picker-note">{lunarTitle.month.title}. {isEnglish
                   ? "The month begins at the exact new moon and is divided into the Decades of Growth, Fullness, and Outflow."
@@ -143,8 +145,8 @@ export function CalendarDatePicker({ id, value, mode, min, max, required, ariaLa
                 <div className="lunar-picker-days">
                   {lunarDates.map((date) => {
                     const dateValue = inputDate(date);
-                    const moon = getMoon(date);
-                    const lunar = getLunarDate(date);
+                    const moon = getMoon(date, calculationContext);
+                    const lunar = getLunarDate(date, calculationContext);
                     return (
                       <button type="button" disabled={!allowed(dateValue, min, max)} className={dateValue === value ? "selected" : ""} onClick={() => choose(date)} key={dateValue}>
                         <MoonPhaseIcon phaseStep={moon.phaseStep} size={24} /><strong>{moon.day}</strong><span>{lunar.isThreshold ? "Рубеж" : lunar.decade.name}</span><small>{moon.phase} · {moon.illumination}%</small>

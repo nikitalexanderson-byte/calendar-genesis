@@ -151,26 +151,26 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
             is NativeVoiceAction.CalendarStep -> {
                 val target=runCatching {
                     val current=LocalDate.parse(shown)
-                    if(action.year) current.plusYears(action.step.toLong()) else {
+                    if(action.year) calendar.shiftYear(current, mode, action.step) else {
                         val period=calendar.monthRange(current,mode)
                         if(action.step>0) period.end.plusDays(1) else period.start.minusDays(1)
                     }
                 }.getOrNull()
-                if(target!=null) { shown=target.toString();selected=target.toString();onSelect(target) }
+                if(target!=null && target.year in 1900..2100) { shown=target.toString();selected=target.toString();onSelect(target) }
                 localYearView=action.year;menuSwipeState?.calendar=if(action.year) "year" else "month"
             }
             is NativeVoiceAction.CalendarSwipe -> {
                 val current=LocalDate.parse(shown)
                 val target=runCatching {
-                    if(yearView) current.plusYears(action.step.toLong()) else calendar.monthRange(current,mode).let {
+                    if(yearView) calendar.shiftYear(current, mode, action.step) else calendar.monthRange(current,mode).let {
                         if(action.step>0) it.end.plusDays(1) else it.start.minusDays(1)
                     }
                 }.getOrNull()
-                if(target!=null) { shown=target.toString();selected=target.toString();onSelect(target) }
+                if(target!=null && target.year in 1900..2100) { shown=target.toString();selected=target.toString();onSelect(target) }
             }
             is NativeVoiceAction.CalendarDate -> {
                 val target=runCatching { LocalDate.of(action.year,action.month,action.day) }.getOrNull()
-                if(target!=null) {
+                if(target!=null && target.year in 1900..2100) {
                     shown=target.toString();selected=target.toString();onSelect(target)
                     localYearView=false;menuSwipeState?.calendar="month"
                 }
@@ -185,7 +185,7 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
                         calendar.lunarMonthStart(year.startMonthIndex+action.ordinal-1)
                     }
                 } }.getOrNull()
-                if(target!=null) {
+                if(target!=null && target.year in 1900..2100) {
                     shown=target.toString();selected=target.toString();onSelect(target)
                     localYearView=false;menuSwipeState?.calendar="month"
                 }
@@ -339,8 +339,8 @@ private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange
         val monthContent: @Composable () -> Unit = {
             CalendarPageHeader(false, mode, onModeChange, Modifier.padding(vertical = 8.dp))
         CalendarPeriodPager(range,
-            remember(range, mode) { runCatching { calendar.monthRange(range.start.minusDays(1), mode) }.getOrNull() },
-            remember(range, mode) { runCatching { calendar.monthRange(range.end.plusDays(1), mode) }.getOrNull() },
+            remember(range, mode) { runCatching { calendar.monthRange(range.start.minusDays(1), mode) }.getOrNull()?.takeIf { it.end.year >= 1900 } },
+            remember(range, mode) { runCatching { calendar.monthRange(range.end.plusDays(1), mode) }.getOrNull()?.takeIf { it.start.year <= 2100 } },
             { onNavigate(range.start.minusDays(1)) },
             { onNavigate(range.end.plusDays(1)) }, Modifier.fillMaxWidth()) { page, previous, next ->
             val sacred = calendar.sacredDate(page.start)
@@ -1086,17 +1086,18 @@ private fun CalendarYearOverview(calendar: GenesisCalendar, shown: LocalDate, mo
     onStartGregorianYearInMarch: () -> Unit,
     voiceScrollToken: Int, voiceScrollDirection: String,
     onMonth: (LocalDate) -> Unit, onYear: (LocalDate) -> Unit) {
-    val sacredYear = calendar.sacredDate(shown).sacredYear
     val period = if (mode == CalendarMode.PROFANE) LocalDate.of(
         shown.year - if (gregorianYearStartsInMarch && shown.monthValue < 3) 1 else 0,
         if (gregorianYearStartsInMarch) 3 else 1, 1)
-        else LocalDate.of(sacredYear, 3, 20)
+        else calendar.yearRange(shown, mode).start
     val context = LocalContext.current
     val suggestionPrefs = remember(context) { context.getSharedPreferences("genesis.calendar-suggestions", android.content.Context.MODE_PRIVATE) }
     var springSuggestionDismissed by remember { mutableStateOf(suggestionPrefs.getBoolean("spring-year-dismissed", false)) }
     Box(Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 8.dp)) {
-        CalendarPeriodPager(period, period.minusYears(1), period.plusYears(1),
-            { onYear(period.minusYears(1)) }, { onYear(period.plusYears(1)) },
+        CalendarPeriodPager(period,
+            runCatching { calendar.shiftYear(period, mode, -1) }.getOrNull()?.takeIf { calendar.yearRange(it,mode).end.year >= 1900 },
+            runCatching { calendar.shiftYear(period, mode, 1) }.getOrNull()?.takeIf { it.year <= 2100 },
+            { onYear(calendar.shiftYear(period, mode, -1)) }, { onYear(calendar.shiftYear(period, mode, 1)) },
             Modifier.fillMaxSize(), fillHeight = true) { page, previous, next ->
             CalendarYearPanel(calendar, page, mode, onModeChange, experimental, tasks,
                 gregorianYearStartsInMarch, regionalSeasonArt, seasonRegionZone,
@@ -1117,7 +1118,7 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
     onPrevious: () -> Unit, onNext: () -> Unit,
     voiceScrollToken: Int, voiceScrollDirection: String, activePage: Boolean) {
     val locale = Locale.forLanguageTag(LocalGenesisLanguage.current)
-    val sacredYear = calendar.sacredDate(shown).sacredYear
+    val sacredYear = if (mode == CalendarMode.LUNAR) calendar.lunarDate(shown).year.sacredYear else calendar.sacredDate(shown).sacredYear
     val yearLabel = if (mode == CalendarMode.PROFANE && gregorianYearStartsInMarch)
         "${shown.year}–${shown.year + 1}" else if (mode == CalendarMode.PROFANE) shown.year.toString() else sacredYear.toString()
     val entries = remember(shown, mode, locale, gregorianYearStartsInMarch) { runCatching {

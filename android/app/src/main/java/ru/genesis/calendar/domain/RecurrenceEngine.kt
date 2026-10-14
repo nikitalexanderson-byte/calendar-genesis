@@ -13,10 +13,13 @@ data class RecurrenceConfig(
     val rangeEnd: String = "",
     val months: List<Int> = emptyList(),
     val pyatas: List<Int> = emptyList(),
+    val calendarContext: CalendarContext? = null,
+    val invalidDayPolicy: String = "skip",
 )
 
 /** Rules ported from app/task-recurrence.ts. Date iteration is civil, not elapsed 24h. */
 class RecurrenceEngine(private val calendar: GenesisCalendar) {
+    private val ruleCalendars = mutableMapOf<CalendarContext, GenesisCalendar>()
     fun normalize(raw: RecurrenceConfig): RecurrenceConfig {
         require(raw.mode in setOf("classic", "genesis", "lunar")) { "Unknown recurrence mode" }
         val pattern = when(raw.mode) {
@@ -43,9 +46,10 @@ class RecurrenceEngine(private val calendar: GenesisCalendar) {
         val config = normalize(raw)
         val start = parse(startDate) ?: return config
         val anchor = maxOf(start, parse(config.rangeStart) ?: start)
+        if (anchor.year !in 1900..2100) return config
         // JavaScript setFullYear rolls Feb 29 to March 1 in non-leap years.
         fun shiftedYear(years: Int) = LocalDate.of(anchor.year + years, anchor.monthValue,1).plusDays(anchor.dayOfMonth.toLong() - 1)
-        val maximum = shiftedYear(5).minusDays(1)
+        val maximum = minOf(shiftedYear(5).minusDays(1), LocalDate.of(2100,12,31))
         val end = (parse(config.rangeEnd) ?: shiftedYear(1).minusDays(1)).coerceIn(anchor, maximum)
         return config.copy(rangeStart=anchor.toString(), rangeEnd=end.toString())
     }
@@ -55,7 +59,11 @@ class RecurrenceEngine(private val calendar: GenesisCalendar) {
         val date = parse(dateValue) ?: return false
         val config = normalize(raw)
         if (!config.enabled) return date == template
+        if (template.year !in 1900..2100 || date.year !in 1900..2100) return false
+        val context = config.calendarContext ?: CalendarContext(version=1, timeZone=calendar.zoneId.id)
+        val ruleCalendar = ruleCalendars.getOrPut(context) { GenesisCalendar(java.time.ZoneId.of(context.timeZone), context.version, context.gregorianYearStart) }
         val anchor = maxOf(template, parse(config.rangeStart) ?: template)
+        if (anchor.year !in 1900..2100) return false
         if (date < anchor || (!ignoreRangeEnd && parse(config.rangeEnd)?.let { date > it } == true)) return false
         return when(config.mode) {
             "classic" -> when(config.pattern) {
@@ -65,22 +73,22 @@ class RecurrenceEngine(private val calendar: GenesisCalendar) {
                 else -> (date.year-anchor.year) % config.interval == 0 && date.monthValue == template.monthValue && date.dayOfMonth == template.dayOfMonth
             }
             "genesis" -> {
-                val sacred = calendar.sacredDate(date)
+                val sacred = ruleCalendar.sacredDate(date)
                 sacred.monthIndex < 12 && (config.months.isEmpty() || sacred.monthIndex+1 in config.months) &&
                     if(config.pattern == "pyata-days") {
                         (config.pyatas.isEmpty() || (sacred.day-1)/5+1 in config.pyatas) && (sacred.day-1)%5+1 in config.days
                     } else sacred.day in config.days
             }
             else -> {
-                val lunar = calendar.lunarDate(date)
+                val lunar = ruleCalendar.lunarDate(date)
                 val matchingDay = when(config.pattern) {
                     "lunar-decades" -> (lunar.day-1)/10+1 in config.days
                     "lunar-decade-days" -> (config.pyatas.isEmpty() || (lunar.day-1)/10+1 in config.pyatas) && (lunar.day-1)%10+1 in config.days
-                    "lunar-phases" -> (1 in config.days && lunar.day == 1) || (2 in config.days && calendar.isLunarFullMoon(date))
+                    "lunar-phases" -> (1 in config.days && lunar.day == 1) || (2 in config.days && ruleCalendar.isLunarFullMoon(date))
                     else -> lunar.day in config.days
                 }
                 matchingDay && if(config.pattern == "lunar-yearly") lunar.monthOrdinal in config.months
-                    else config.months.isEmpty() || lunar.monthIndex-calendar.lunarMonthIndex(anchor)+1 in config.months
+                    else config.months.isEmpty() || lunar.monthIndex-ruleCalendar.lunarMonthIndex(anchor)+1 in config.months
             }
         }
     }
@@ -91,6 +99,7 @@ class RecurrenceEngine(private val calendar: GenesisCalendar) {
         if (!config.enabled) return listOf(template.toString())
         val start = parse(config.rangeStart) ?: return emptyList()
         val end = parse(config.rangeEnd) ?: return emptyList()
+        if (template.year !in 1900..2100 || start.year !in 1900..2100) return emptyList()
         return CalendarRange(start,end).dates().filter { matches(startDate, config, it.toString()) }.map(LocalDate::toString)
     }
 

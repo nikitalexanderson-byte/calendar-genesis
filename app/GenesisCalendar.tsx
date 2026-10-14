@@ -1,4 +1,6 @@
 "use client";
+
+import { calendarContext } from "./calendar-context";
 import { useSharedTaskPage } from "./use-shared-task-page";
 import { SharedTaskPageControls } from "./SharedTaskPageControls";
 import { DeferredViewFallback, DeferredDialogFallback, DeferredHabitFallback, ViewErrorBoundary, lazyWithRecovery as lazy } from "./DeferredViews";
@@ -290,6 +292,7 @@ function reconcileGoogleTaskMetadata(remoteTasks: Task[], localTasks: Task[]) {
       recurrenceEndDate: local.recurrenceEndDate,
       recurrenceMonths: [...local.recurrenceMonths],
       recurrencePyatas: [...local.recurrencePyatas],
+      recurrenceContext: local.recurrenceContext, recurrenceInvalidDayPolicy: local.recurrenceInvalidDayPolicy,
       recurrenceExcludedDates: [...local.recurrenceExcludedDates],
       recurrenceSeriesId: local.recurrenceSeriesId,
       recurrenceOriginalDate: local.recurrenceOriginalDate ?? remote.recurrenceOriginalDate,
@@ -565,7 +568,11 @@ function readStoredState(key: string): StoredState {
         const legacyYear = legacy.sacredYear ?? new Date().getFullYear();
         const legacyMonth = legacy.monthIndex ?? 0;
         const legacyDay = legacy.day ?? 1;
-        const dueDate = typeof legacy.dueDate === "string" ? legacy.dueDate : inputDate(getGregorianDate(legacyYear, legacyMonth, legacyDay));
+        // Old records without a canonical date used JS overflow (including Apeiron day 6).
+        // Preserve exactly that migration; strict v2 entry must not rewrite their history.
+        const legacyDate = new Date(legacyYear, 2, 20);
+        legacyDate.setDate(legacyDate.getDate() + (legacyMonth < 12 ? legacyMonth * 30 : 360) + legacyDay - 1);
+        const dueDate = typeof legacy.dueDate === "string" ? legacy.dueDate : inputDate(legacyDate);
         const recurrenceMode: RecurrenceMode = ["none", "genesis", "classic", "lunar"].includes(legacy.recurrenceMode ?? "")
           ? legacy.recurrenceMode as RecurrenceMode
           : legacy.recurrence && legacy.recurrence !== "none" ? "classic" : "none";
@@ -711,12 +718,7 @@ function DependencyPicker({ tasks, excludeId, value, onChange, disabled = false 
 }
 
 function apeironLength(sacredYear: number) {
-  return (
-    Math.round(
-      (Date.UTC(sacredYear + 1, 2, 20) - Date.UTC(sacredYear, 2, 20)) /
-        86_400_000,
-    ) - 360
-  );
+  return getSacredDate(getGregorianDate(sacredYear, 0, 1)).apeironDays;
 }
 
 function taskDateKey(sacredYear: number, monthIndex: number, day: number) {
@@ -1857,6 +1859,7 @@ export function GenesisCalendar() {
   const resolvedTaskProjectTitle = (task: Task) => resolvedTaskProject(task)?.title ?? task.project;
 
   const selectCalendarDate = (date: Date) => {
+    if (date.getFullYear() < 1900 || date.getFullYear() > 2100) return;
     const sacred = getSacredDate(date);
     setSacredYear(sacred.sacredYear);
     setMonthIndex(sacred.monthIndex);
@@ -2492,6 +2495,7 @@ export function GenesisCalendar() {
       nextYear += 1;
       normalized = 0;
     }
+    if (nextYear < 1899 || nextYear > 2100) return;
     setSacredYear(nextYear);
     setMonthIndex(normalized);
     setSelectedDay(1);
@@ -2499,6 +2503,7 @@ export function GenesisCalendar() {
   };
 
   const changeSacredYear = (nextYear: number) => {
+    if (nextYear < 1899 || nextYear > 2100) return;
     setSacredYear(nextYear);
     setOpenDayTaskPopover("");
     if (monthIndex === 12) {
@@ -2639,6 +2644,7 @@ export function GenesisCalendar() {
         recurrenceEndDate: habit.schedule.endDate ?? (recurrence.rangeEnd || null),
         recurrenceMonths: recurrence.months,
         recurrencePyatas: recurrence.pyatas,
+        recurrenceContext: recurrence.calendarContext, recurrenceInvalidDayPolicy: recurrence.invalidDayPolicy,
         recurrenceExcludedDates: [],
         recurrenceSeriesId: null,
         calendarMode: activeTaskCalendarMode,
@@ -2827,6 +2833,7 @@ export function GenesisCalendar() {
       recurrenceEndDate: taskRecurrenceConfig.enabled ? taskRecurrenceConfig.rangeEnd || null : null,
       recurrenceMonths: taskRecurrenceConfig.enabled ? [...taskRecurrenceConfig.months] : [],
       recurrencePyatas: taskRecurrenceConfig.enabled ? [...taskRecurrenceConfig.pyatas] : [],
+      recurrenceContext: taskRecurrenceConfig.calendarContext, recurrenceInvalidDayPolicy: taskRecurrenceConfig.invalidDayPolicy,
       recurrenceExcludedDates: [],
       recurrenceSeriesId: null,
       calendarMode: taskFormCalendarMode,
@@ -2962,6 +2969,7 @@ export function GenesisCalendar() {
         recurrenceEndDate: temporal.recurrenceEndDate,
         recurrenceMonths: [...temporal.recurrenceMonths],
         recurrencePyatas: [...temporal.recurrencePyatas],
+        recurrenceContext: temporal.recurrenceContext, recurrenceInvalidDayPolicy: temporal.recurrenceInvalidDayPolicy,
         recurrenceExcludedDates: [...temporal.recurrenceExcludedDates],
       };
     });
@@ -6015,9 +6023,9 @@ export function GenesisCalendar() {
           <p>Двенадцать упорядоченных месяцев и короткий период Апейрона — пространство между завершением и новым началом.</p>
         </div>
         <div className="year-switcher">
-          <button type="button" onClick={() => changeSacredYear(sacredYear - 1)} aria-label="Предыдущий год">←</button>
+          <button type="button" disabled={sacredYear <= 1899} onClick={() => changeSacredYear(sacredYear - 1)} aria-label="Предыдущий год">←</button>
           <strong>{sacredYear}</strong>
-          <button type="button" onClick={() => changeSacredYear(sacredYear + 1)} aria-label="Следующий год">→</button>
+          <button type="button" disabled={sacredYear >= 2100} onClick={() => changeSacredYear(sacredYear + 1)} aria-label="Следующий год">→</button>
         </div>
       </header>
       <section className="solar-year-strip" aria-label="Солнцестояния и равноденствия года">
@@ -6249,9 +6257,9 @@ export function GenesisCalendar() {
             {mode === "lunar" ? <p data-no-translate>{yearDescription}</p> : null}
           </div>
           <div className="year-switcher">
-            <button type="button" onClick={() => changeYear(-1)} aria-label="Предыдущий год">←</button>
+            <button type="button" disabled={selectedDate.getFullYear() <= 1900} onClick={() => changeYear(-1)} aria-label="Предыдущий год">←</button>
             <strong>{mode === "profane" ? profaneYearLabel : `${lunarYear.sacredYear}–${lunarYear.sacredYear + 1}`}</strong>
-            <button type="button" onClick={() => changeYear(1)} aria-label="Следующий год">→</button>
+            <button type="button" disabled={selectedDate.getFullYear() >= 2100} onClick={() => changeYear(1)} aria-label="Следующий год">→</button>
           </div>
         </header>
         <section className="solar-year-strip" aria-label="Солнцестояния и равноденствия года">
@@ -6676,6 +6684,7 @@ export function GenesisCalendar() {
               {view === "habits" && habitWorkspace.habitSettings.enabled ? (
                 <Suspense fallback={<DeferredViewFallback label={language === "en" ? "Opening habit tracker…" : "Открываем трекер привычек…"} />}>
                   <HabitTrackerPage
+                    reportContext={calendarContext({ gregorianYearStart: cloudUser?.gregorianYearStart ?? "january" })}
                     workspace={habitWorkspace}
                     date={todayDateValue}
                     language={language}
@@ -7109,7 +7118,7 @@ export function GenesisCalendar() {
               const recurrence = alignRecurrenceConfigWithCalendar(recurrenceConfigFromTask(current), mode, current.dueDate);
               return { ...current, calendarMode: mode, recurrenceMode: recurrence.enabled ? recurrence.mode : "none",
                 recurrencePattern: recurrence.enabled ? recurrence.pattern : "none", recurrenceDays: recurrence.days,
-                recurrenceMonths: recurrence.months, recurrencePyatas: recurrence.pyatas };
+                recurrenceMonths: recurrence.months, recurrencePyatas: recurrence.pyatas, recurrenceContext: recurrence.calendarContext, recurrenceInvalidDayPolicy: recurrence.invalidDayPolicy };
             })} />
             {(personalMindmapsEnabled || !editingTask.dueDate) && (editingTask.entryType ?? "task") === "task" && cloudUser?.authProvider !== "yandex" ? <label>
               <input type="checkbox" checked={!editingTask.dueDate} disabled={Boolean(cloudUser?.calendarConnected && !editingTask.googleTaskListId) || taskHasSeries(editingTask)} onChange={event => setEditingTask(current => current ? {
@@ -7259,6 +7268,7 @@ export function GenesisCalendar() {
                   recurrenceEndDate: recurrence.enabled ? recurrence.rangeEnd || null : null,
                   recurrenceMonths: recurrence.enabled ? [...recurrence.months] : [],
                   recurrencePyatas: recurrence.enabled ? [...recurrence.pyatas] : [],
+                  recurrenceContext: recurrence.calendarContext, recurrenceInvalidDayPolicy: recurrence.invalidDayPolicy,
                   recurrenceExcludedDates: recurrence.enabled ? current.recurrenceExcludedDates : [],
                   googleTaskListId: recurrence.enabled ? null : current.googleTaskListId,
                   googleTaskListTitle: recurrence.enabled ? "" : current.googleTaskListTitle,

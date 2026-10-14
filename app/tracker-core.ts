@@ -1,4 +1,5 @@
 import type { CalendarMode } from "./calendar-data";
+import { calendarContext } from "./calendar-context";
 import {
   normalizeRecurrenceConfig,
   recurrenceMatchesDate,
@@ -75,6 +76,8 @@ export function defaultTrackerRecurrence(date: string, calendarMode: CalendarMod
     rangeEnd: "",
     months: [],
     pyatas: [],
+    calendarContext: calendarContext(),
+    invalidDayPolicy: "skip",
   };
 }
 
@@ -99,7 +102,9 @@ export function normalizeTrackerSchedule(
   // account's temporarily loaded mode used to replace saved weekdays with the
   // start day's value (commonly Friday) during app startup.
   const recurrence = value?.recurrence && typeof value.recurrence === "object"
-    ? normalizeRecurrenceConfig({ ...fallback, ...value.recurrence })
+    ? normalizeRecurrenceConfig({ ...fallback, ...value.recurrence,
+        calendarContext: value.recurrence.calendarContext ?? calendarContext({ version: 1, timeZone: value.timezone || trackerTimeZone() }),
+      })
     : fallback;
   return {
     startDate,

@@ -164,14 +164,17 @@ fun timeLabel(value: String, use24: Boolean): String {
 }
 
 @Composable
-fun AuthorDatePicker(value: String, mode: CalendarMode, minDate: LocalDate? = null, onChange: (String) -> Unit) {
+fun AuthorDatePicker(value: String, mode: CalendarMode, minDate: LocalDate? = null,
+    calculationContext: ru.genesis.calendar.domain.CalendarContext? = null, onChange: (String) -> Unit) {
     var open by rememberSaveable { mutableStateOf(false) }
-    val zone = ZoneId.systemDefault()
-    val calendar = remember(zone) { GenesisCalendar(zone) }
+    val context = calculationContext ?: ru.genesis.calendar.domain.CalendarContext()
+    val calendar = remember(context) { GenesisCalendar(ZoneId.of(context.timeZone), context.version, context.gregorianYearStart) }
     val date = LocalDate.parse(value)
-    OutlinedButton(onClick = { open=true }) { Text(calendar.formatDate(date,mode)) }
+    val firstDate = LocalDate.of(1900, 1, 1)
+    val lastDate = LocalDate.of(2100, 12, 31)
+    OutlinedButton(onClick = { open=true }) { Text(runCatching { calendar.formatDate(date,mode) }.getOrDefault(value)) }
     if (!open) return
-    var shown by remember { mutableStateOf(date) }
+    var shown by remember { mutableStateOf(date.coerceIn(firstDate, lastDate)) }
     Dialog(onDismissRequest={open=false}) {
         Surface(shape=RoundedCornerShape(20.dp)) {
             Column(Modifier.padding(12.dp).verticalScroll(rememberScrollState())) {
@@ -179,10 +182,10 @@ fun AuthorDatePicker(value: String, mode: CalendarMode, minDate: LocalDate? = nu
                 Text(when(mode){CalendarMode.SACRED->"Выберите день круга";CalendarMode.LUNAR->"Выберите лунный день";else->"Выберите дату"},
                     style=MaterialTheme.typography.titleLarge)
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
-                    TextButton(enabled=runCatching { calendar.monthRange(range.start.minusDays(1),mode) }.isSuccess,
+                    TextButton(enabled=range.start > firstDate,
                         onClick={shown=range.start.minusDays(1)}){Text("←")}
                     Text(calendar.formatDate(shown,mode),Modifier.weight(1f))
-                    TextButton(enabled=runCatching { calendar.monthRange(range.end.plusDays(1),mode) }.isSuccess,
+                    TextButton(enabled=range.end < lastDate,
                         onClick={shown=range.end.plusDays(1)}){Text("→")}
                 }
                 if (mode==CalendarMode.SACRED) {
@@ -214,7 +217,7 @@ fun AuthorDatePicker(value: String, mode: CalendarMode, minDate: LocalDate? = nu
                             }
                             Column(Modifier.weight(1f).defaultMinSize(minHeight=56.dp)
                                 .background(if(day==date) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
-                                .clickable(enabled=minDate == null || day >= minDate) { onChange(day.toString()); open=false }.padding(3.dp)
+                                .clickable(enabled=day in firstDate..lastDate && (minDate == null || day >= minDate)) { onChange(day.toString()); open=false }.padding(3.dp)
                                 .semantics { contentDescription=calendar.formatDate(day,mode) },horizontalAlignment=Alignment.CenterHorizontally) {
                                 if(mode==CalendarMode.SACRED) Text(if(s.monthIndex==12) "Ω" else "Пята ${(s.day-1)/5+1}",style=MaterialTheme.typography.labelSmall)
                                 Text(label)

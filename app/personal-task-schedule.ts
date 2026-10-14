@@ -82,6 +82,8 @@ export function buildTaskSeries(task: Task, rawConfig: RecurrenceConfig) {
     recurrenceEndDate: config.rangeEnd,
     recurrenceMonths: [...config.months],
     recurrencePyatas: [...config.pyatas],
+    recurrenceContext: config.calendarContext,
+    recurrenceInvalidDayPolicy: config.invalidDayPolicy,
     recurrenceExcludedDates: [],
     recurrenceSeriesId: null,
     calendarNote: calendarDateNote(date, task.calendarMode),

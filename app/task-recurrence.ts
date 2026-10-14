@@ -1,4 +1,5 @@
 import { getLunarDate, getMoon, getSacredDate, isLunarFullMoon, type CalendarMode } from "./calendar-data";
+import { calendarContext, isCivilDate, type CalendarContext } from "./calendar-context";
 
 export type RecurrenceMode = "none" | "genesis" | "classic" | "lunar";
 export type RecurrencePattern =
@@ -25,6 +26,9 @@ export type RecurrenceConfig = {
   rangeEnd: string;
   months: number[];
   pyatas: number[];
+  /** Missing version is a saved legacy rule, never an implicit algorithm upgrade. */
+  calendarContext?: CalendarContext;
+  invalidDayPolicy?: "skip";
 };
 
 export type LunarMonthOption = {
@@ -45,6 +49,8 @@ export const DEFAULT_RECURRENCE_CONFIG: RecurrenceConfig = {
   rangeEnd: "",
   months: [],
   pyatas: [],
+  calendarContext: calendarContext(),
+  invalidDayPolicy: "skip",
 };
 
 export const RECURRENCE_MODE_COPY = {
@@ -85,7 +91,7 @@ export function alignRecurrenceConfigWithCalendar(config: RecurrenceConfig, cale
     ...config,
     mode,
     pattern,
-    days: suggestedRecurrenceDays(mode, pattern, startDate),
+    days: suggestedRecurrenceDays(mode, pattern, startDate, config.calendarContext ?? calendarContext({ version: 1 })),
     interval: 1,
     months: [],
     pyatas: [],
@@ -113,7 +119,6 @@ export function convertTrackerRecurrenceCalendar(config: RecurrenceConfig, calen
   return { ...converted, pattern: "lunar-days", days: Array.from({ length: 30 }, (_, index) => index + 1) };
 }
 
-const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const DAY_MS = 86_400_000;
 
 function inputDate(date: Date) {
@@ -122,9 +127,13 @@ function inputDate(date: Date) {
 }
 
 function parseInputDate(value: string) {
-  if (!ISO_DATE_PATTERN.test(value)) return null;
+  if (!isCivilDate(value)) return null;
   const date = new Date(`${value}T12:00:00`);
   return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function supportedRecurrenceDate(value: string) {
+  return isCivilDate(value) && value >= "1900-01-01" && value <= "2100-12-31";
 }
 
 function shiftDate(date: Date, days: number) {
@@ -181,7 +190,7 @@ export function recurrenceDefaultEndDate(startDate: string) {
   const end = new Date(start);
   end.setFullYear(end.getFullYear() + 1);
   end.setDate(end.getDate() - 1);
-  return inputDate(end);
+  return inputDate(end) > "2100-12-31" ? "2100-12-31" : inputDate(end);
 }
 
 export function recurrenceMaximumEndDate(startDate: string) {
@@ -189,7 +198,7 @@ export function recurrenceMaximumEndDate(startDate: string) {
   const end = new Date(start);
   end.setFullYear(end.getFullYear() + 5);
   end.setDate(end.getDate() - 1);
-  return inputDate(end);
+  return inputDate(end) > "2100-12-31" ? "2100-12-31" : inputDate(end);
 }
 
 export function normalizeRecurrenceConfig(config: RecurrenceConfig): RecurrenceConfig {
@@ -206,10 +215,13 @@ export function normalizeRecurrenceConfig(config: RecurrenceConfig): RecurrenceC
     rangeEnd: parseInputDate(config.rangeEnd) ? config.rangeEnd : "",
     months: normalizeIntegerList(config.months, 1, pattern === "lunar-yearly" ? 13 : 72),
     pyatas: normalizeIntegerList(config.pyatas, 1, pattern === "lunar-decade-days" ? 3 : 6),
+    calendarContext: calendarContext(config.calendarContext ?? { version: 1 }),
+    invalidDayPolicy: "skip",
   };
 }
 
 function resolvedRecurrenceRange(startDate: string, config: RecurrenceConfig) {
+  if (!supportedRecurrenceDate(startDate) || config.rangeStart && !supportedRecurrenceDate(config.rangeStart)) return null;
   const taskStart = parseInputDate(startDate);
   if (!taskStart) return null;
   const requestedStart = parseInputDate(config.rangeStart);
@@ -232,32 +244,34 @@ export function suggestedRecurrenceDays(
   mode: RecurrenceConfig["mode"],
   pattern: RecurrenceConfig["pattern"],
   startDate: string,
+  context: CalendarContext = calendarContext(),
 ) {
   const date = parseInputDate(startDate) ?? new Date();
   if (mode === "classic") return [calendarDayNumber(date)];
   if (mode === "lunar") {
-    const lunarDay = getLunarDate(date).day;
+    const lunarDay = getLunarDate(date, context).day;
     if (pattern === "lunar-decades") return [Math.floor((lunarDay - 1) / 10) + 1];
     if (pattern === "lunar-decade-days") return [((lunarDay - 1) % 10) + 1];
     if (pattern === "lunar-phases") return [1];
     return [lunarDay];
   }
-  const sacred = getSacredDate(date);
+  const sacred = getSacredDate(date, context);
   return [pattern === "month-days" ? Math.min(30, sacred.day) : ((sacred.day - 1) % 5) + 1];
 }
 
-export function lunarMonthOptions(startDate: string, endDate: string): LunarMonthOption[] {
+export function lunarMonthOptions(startDate: string, endDate: string, context: CalendarContext = calendarContext()): LunarMonthOption[] {
+  if (!supportedRecurrenceDate(startDate)) return [];
   const start = parseInputDate(startDate);
-  const end = parseInputDate(endDate);
+  const end = parseInputDate(endDate > "2100-12-31" ? "2100-12-31" : endDate);
   if (!start || !end || end < start) return [];
 
   const options: LunarMonthOption[] = [];
   let value = 1;
   let monthStart = new Date(start);
-  let previousDay = getMoon(start).day;
+  let previousDay = getMoon(start, context).day;
 
   for (let cursor = shiftDate(start, 1); cursor <= end; cursor = shiftDate(cursor, 1)) {
-    const lunarDay = getMoon(cursor).day;
+    const lunarDay = getMoon(cursor, context).day;
     if (lunarDay < previousDay) {
       options.push({
         value,
@@ -285,6 +299,7 @@ export function recurrenceMatchesDate(
   if (!taskStart || !candidate) return false;
   const config = normalizeRecurrenceConfig(rawConfig);
   if (!config.enabled) return dateValue === startDate;
+  if (!supportedRecurrenceDate(startDate) || !supportedRecurrenceDate(dateValue) || config.rangeStart && !supportedRecurrenceDate(config.rangeStart)) return false;
 
   const requestedStart = parseInputDate(config.rangeStart);
   const anchor = requestedStart && requestedStart > taskStart ? requestedStart : taskStart;
@@ -315,7 +330,7 @@ export function recurrenceMatchesDate(
   }
 
   if (config.mode === "genesis") {
-    const sacred = getSacredDate(candidate);
+    const sacred = getSacredDate(candidate, config.calendarContext);
     if (sacred.monthIndex >= 12 || (selectedMonths.size && !selectedMonths.has(sacred.monthIndex + 1))) return false;
     if (config.pattern === "pyata-days") {
       const pyata = Math.floor((sacred.day - 1) / 5) + 1;
@@ -324,19 +339,19 @@ export function recurrenceMatchesDate(
     return selectedDays.has(sacred.day);
   }
 
-  const lunar = getLunarDate(candidate);
+  const lunar = getLunarDate(candidate, config.calendarContext);
   const lunarDay = lunar.day;
   const matchesDay = config.pattern === "lunar-decades" ? selectedDays.has(Math.floor((lunarDay - 1) / 10) + 1)
     : config.pattern === "lunar-decade-days" ? (!selectedPyatas.size || selectedPyatas.has(Math.floor((lunarDay - 1) / 10) + 1)) && selectedDays.has(((lunarDay - 1) % 10) + 1)
-    : config.pattern === "lunar-phases" ? (selectedDays.has(1) && lunarDay === 1) || (selectedDays.has(2) && isLunarFullMoon(candidate))
+    : config.pattern === "lunar-phases" ? (selectedDays.has(1) && lunarDay === 1) || (selectedDays.has(2) && isLunarFullMoon(candidate, config.calendarContext))
     : selectedDays.has(lunarDay);
   if (!matchesDay) return false;
   if (config.pattern === "lunar-yearly") return selectedMonths.has(lunar.monthOrdinal);
   if (!selectedMonths.size) return true;
   let lunarMonth = 1;
-  let previousDay = getMoon(anchor).day;
+  let previousDay = getMoon(anchor, config.calendarContext).day;
   for (let cursor = shiftDate(anchor, 1); cursor <= candidate; cursor = shiftDate(cursor, 1)) {
-    const day = getMoon(cursor).day;
+    const day = getMoon(cursor, config.calendarContext).day;
     if (day < previousDay) lunarMonth += 1;
     previousDay = day;
   }
@@ -356,7 +371,7 @@ export function buildRecurrenceDates(startDate: string, rawConfig: RecurrenceCon
   const firstWeekMonday = mondayOf(range.start);
   const templateDate = parseInputDate(startDate) ?? range.start;
   let lunarMonth = 1;
-  let previousLunarDay = getMoon(range.start).day;
+  let previousLunarDay = getMoon(range.start, config.calendarContext).day;
 
   for (let cursor = new Date(range.start); cursor <= range.end; cursor = shiftDate(cursor, 1)) {
     let matches = false;
@@ -378,18 +393,18 @@ export function buildRecurrenceDates(startDate: string, rawConfig: RecurrenceCon
           && cursor.getDate() === templateDate.getDate();
       }
     } else if (config.mode === "lunar") {
-      const lunarDay = getMoon(cursor).day;
+      const lunarDay = getMoon(cursor, config.calendarContext).day;
       if (cursor > range.start && lunarDay < previousLunarDay) lunarMonth += 1;
       previousLunarDay = lunarDay;
-      const lunar = getLunarDate(cursor);
+      const lunar = getLunarDate(cursor, config.calendarContext);
       const matchesDay = config.pattern === "lunar-decades" ? selectedDays.has(Math.floor((lunar.day - 1) / 10) + 1)
         : config.pattern === "lunar-decade-days" ? (!selectedPyatas.size || selectedPyatas.has(Math.floor((lunar.day - 1) / 10) + 1)) && selectedDays.has(((lunar.day - 1) % 10) + 1)
-        : config.pattern === "lunar-phases" ? (selectedDays.has(1) && lunar.day === 1) || (selectedDays.has(2) && isLunarFullMoon(cursor))
+        : config.pattern === "lunar-phases" ? (selectedDays.has(1) && lunar.day === 1) || (selectedDays.has(2) && isLunarFullMoon(cursor, config.calendarContext))
         : selectedDays.has(lunar.day);
       matches = matchesDay && (config.pattern === "lunar-yearly"
         ? selectedMonths.has(lunar.monthOrdinal) : selectedMonths.size === 0 || selectedMonths.has(lunarMonth));
     } else {
-      const sacred = getSacredDate(cursor);
+      const sacred = getSacredDate(cursor, config.calendarContext);
       if (sacred.monthIndex < 12 && (selectedMonths.size === 0 || selectedMonths.has(sacred.monthIndex + 1))) {
         if (config.pattern === "pyata-days") {
           const pyata = Math.floor((sacred.day - 1) / 5) + 1;
@@ -417,6 +432,8 @@ export function recurrenceConfigFromTask(task: {
   recurrenceEndDate?: string | null;
   recurrenceMonths?: number[];
   recurrencePyatas?: number[];
+  recurrenceContext?: CalendarContext;
+  recurrenceInvalidDayPolicy?: "skip";
 }): RecurrenceConfig {
   const mode = ["genesis", "classic", "lunar"].includes(task.recurrenceMode ?? "")
     ? task.recurrenceMode as RecurrenceConfig["mode"]
@@ -430,6 +447,8 @@ export function recurrenceConfigFromTask(task: {
   return normalizeRecurrenceConfig({
     enabled: (task.recurrenceMode !== undefined && task.recurrenceMode !== "none") || Boolean(task.recurrence && task.recurrence !== "none"),
     mode,
+    calendarContext: task.recurrenceContext ?? calendarContext({ version: 1 }),
+    invalidDayPolicy: task.recurrenceInvalidDayPolicy ?? "skip",
     pattern: task.recurrencePattern && task.recurrencePattern !== "none" ? task.recurrencePattern : defaultPattern,
     days: Array.isArray(task.recurrenceDays) ? task.recurrenceDays : [1],
     interval: task.recurrenceInterval ?? 1,
@@ -453,6 +472,8 @@ export function recurrenceDatesForTask(task: {
   recurrenceEndDate?: string | null;
   recurrenceMonths?: number[];
   recurrencePyatas?: number[];
+  recurrenceContext?: CalendarContext;
+  recurrenceInvalidDayPolicy?: "skip";
   recurrenceExcludedDates?: string[];
 }) {
   if (!parseInputDate(task.dueDate)) return [];

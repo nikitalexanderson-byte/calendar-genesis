@@ -119,6 +119,13 @@ export default defineConfig({
       output: {
         codeSplitting: {
           groups: [
+            {
+              // Default recurrence values are created during module initialization.
+              // Keep their dependency-free context out of cyclic UI/engine groups.
+              name: "calendar-context",
+              test: /app[\\/]calendar-context\.ts$/,
+              priority: 50,
+            },
             { name: "view-recovery", test: /app[\\/]DeferredViews\.tsx$/, priority: 14 },
             {
               name: "shared-task-controls",
@@ -185,6 +192,11 @@ export default defineConfig({
               priority: 14,
             },
             {
+              name: "calendar-display",
+              test: /app[\\/](?:CalendarTaskCounts|MoonPhaseIcon|WeekdaySymbol)\.tsx$/,
+              priority: 14,
+            },
+            {
               name: "task-form-controls",
               test: /app[\\/](?:TimeClockPicker|CalendarDatePicker|TaskReminderPicker|RecurrenceBuilder|ProjectCompletionDialog|EntryTypeChoice|RecordCalendarChoice)\.tsx$/,
               priority: 14,
@@ -206,7 +218,7 @@ export default defineConfig({
             },
             {
               name: "calendar-engine",
-              test: /app[\\/](?:calendar-data|solar-times|day-rhythm|personal-task-schedule|task-recurrence|task-reminders|time-format)\.ts$/,
+              test: /app[\\/](?:calendar-data|calendar-context|calendar-astronomy|solar-times|day-rhythm|personal-task-schedule|task-recurrence|task-reminders|time-format)\.ts$/,
               priority: 13,
             },
           ],

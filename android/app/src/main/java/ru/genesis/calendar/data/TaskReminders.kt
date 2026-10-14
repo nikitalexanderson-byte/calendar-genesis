@@ -74,7 +74,7 @@ object TaskReminderPlan {
             googleTaskListId = JSONObject(task.sourceFieldsJson).optString("googleTaskListId"),
             recurrenceSeriesId = JSONObject(task.sourceFieldsJson).optString("recurrenceSeriesId"),
             excludedDates = task.recurrenceExcludedDates.toSet()) else listOf(task.date)
-        val zone = ZoneId.of(task.zoneId)
+        val zone = ZoneId.of(task.recurrence.calendarContext?.takeIf { task.recurrence.enabled && it.version == 2 }?.timeZone ?: task.zoneId)
         val time = task.time.takeIf { it.isNotBlank() }?.let(LocalTime::parse) ?: LocalTime.MIDNIGHT
         return dates.flatMap { date ->
             val start = LocalDate.parse(date).atTime(time).atZone(zone).toInstant().toEpochMilli()

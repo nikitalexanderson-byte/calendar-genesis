@@ -89,13 +89,13 @@ internal object TrackersDocument {
         val r=s.recurrence
         return JSONObject().put("startDate",s.startDate.toString()).put("endDate",s.endDate?.toString() ?: JSONObject.NULL).put("timezone",s.timezone)
             .put("recurrence",JSONObject().put("enabled",r.enabled).put("mode",r.mode).put("pattern",r.pattern).put("days",JSONArray(r.days))
-                .put("interval",r.interval).put("rangeStart",r.rangeStart).put("rangeEnd",r.rangeEnd).put("months",JSONArray(r.months)).put("pyatas",JSONArray(r.pyatas)))
+                .put("interval",r.interval).put("rangeStart",r.rangeStart).put("rangeEnd",r.rangeEnd).put("months",JSONArray(r.months)).put("pyatas",JSONArray(r.pyatas)).put("calendarContext",calendarContextJson(r.calendarContext)).put("invalidDayPolicy","skip"))
     }
     private fun schedule(s: JSONObject): TrackerSchedule {
         val r=s.getJSONObject("recurrence")
         return TrackerSchedule(LocalDate.parse(s.getString("startDate")),s.nullable("endDate")?.let(LocalDate::parse),s.getString("timezone"),
             RecurrenceConfig(r.getBoolean("enabled"),r.getString("mode"),r.getString("pattern"),ints(r.getJSONArray("days")),r.getInt("interval"),
-                r.getString("rangeStart"),r.getString("rangeEnd"),ints(r.getJSONArray("months")),ints(r.getJSONArray("pyatas"))))
+                r.getString("rangeStart"),r.getString("rangeEnd"),ints(r.getJSONArray("months")),ints(r.getJSONArray("pyatas")),calendarContextFromJson(r.optJSONObject("calendarContext"))))
     }
     fun encode(w: LocalTrackersWorkspace): String = JSONObject().put("localSchema",1)
         .put("sleepPlans",JSONArray(w.sleepPlans.map { p -> entity(p.entity).put("title",p.title).put("active",p.active).put("schedule",schedule(p.schedule))

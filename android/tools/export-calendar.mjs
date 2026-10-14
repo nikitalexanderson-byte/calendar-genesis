@@ -15,11 +15,14 @@ const days = readFileSync(resolve(root, 'references/days.txt'), 'utf8');
 function loadTs(text, overrides) {
   const mod = { exports: {} };
   const js = ts.transpileModule(text, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText;
-  vm.runInNewContext(js, { exports: mod.exports, module: mod, Date, Math, Map, Set, Intl, require: (id) => id in overrides ? overrides[id] : require(id) });
+  vm.runInNewContext(js, { exports: mod.exports, module: mod, Date, Math, Map, Set, Intl, require: (id) => id in overrides ? overrides[id] : require(id.startsWith('./') ? resolve(root, 'app', id) : id) });
   return mod.exports;
 }
+const calendarContext = loadTs(readFileSync(resolve(root, 'app/calendar-context.ts'), 'utf8'), {});
+const astronomy = loadTs(readFileSync(resolve(root, 'app/calendar-astronomy.ts'), 'utf8'), { './calendar-context': calendarContext });
 function webCalendar() {
   return loadTs(source, {
+    './calendar-context': calendarContext, './calendar-astronomy': astronomy,
     '../references/days.txt?raw': days,
     './calendar-days.en.json': JSON.parse(readFileSync(resolve(root, 'app/calendar-days.en.json'), 'utf8')),
     './i18n': { runtimeLocale: () => 'ru-RU', translateText: (value) => value },
@@ -58,28 +61,28 @@ for (let index = firstIndex; index <= lastIndex; index++) {
   fullMoments.push(full.date.getTime());
 }
 const years = [];
-for (let year = 1899; year <= 2102; year++) {
+for (let year = 1898; year <= 2102; year++) {
   const spring = astro.Seasons(year).mar_equinox.date;
-  const moon = astro.SearchMoonPhase(0, spring, 40);
+  const moon = astro.SearchMoonPhase(0, new Date(spring.getTime() + 1), 40);
   years.push(Math.round((moon.date.getTime() - epoch) / cycle));
 }
 const chunks = [];
 for (let i = 0; i < moments.length; i += 100) chunks.push(str(moments.slice(i, i + 100).join(',')));
 const fullChunks = [];
 for (let i = 0; i < fullMoments.length; i += 100) fullChunks.push(str(fullMoments.slice(i, i + 100).join(',')));
-output(resolve(domain, 'LunarEphemeris.kt'), header + `/** astronomy-engine 2.1.19, exact SearchMoonPhase and Seasons, UTC milliseconds. */\ninternal object LunarEphemeris {\n    const val firstIndex = ${firstIndex}\n    const val firstYear = 1899\n    val newMoons: LongArray by lazy { listOf(\n${chunks.map((s) => `        ${s}`).join(',\n')}\n    ).flatMap { it.split(',') }.map { it.toLong() }.toLongArray() }\n    val fullMoons: LongArray by lazy { listOf(\n${fullChunks.map((s) => `        ${s}`).join(',\n')}\n    ).flatMap { it.split(',') }.map { it.toLong() }.toLongArray() }\n    val yearStartIndices = intArrayOf(${years.join(',')})\n}\n`);
+output(resolve(domain, 'LunarEphemeris.kt'), header + `/** astronomy-engine 2.1.19, exact SearchMoonPhase and Seasons, UTC milliseconds. */\ninternal object LunarEphemeris {\n    const val firstIndex = ${firstIndex}\n    const val firstYear = 1898\n    val newMoons: LongArray by lazy { listOf(\n${chunks.map((s) => `        ${s}`).join(',\n')}\n    ).flatMap { it.split(',') }.map { it.toLong() }.toLongArray() }\n    val fullMoons: LongArray by lazy { listOf(\n${fullChunks.map((s) => `        ${s}`).join(',\n')}\n    ).flatMap { it.split(',') }.map { it.toLong() }.toLongArray() }\n    val yearStartIndices = intArrayOf(${years.join(',')})\n}\n`);
 
 const solarMoments = [];
-for (let year = 1900; year <= 2100; year++) {
+for (let year = 1898; year <= 2102; year++) {
   const seasons = astro.Seasons(year);
   solarMoments.push(...['mar_equinox', 'jun_solstice', 'sep_equinox', 'dec_solstice']
     .map((key) => seasons[key].date.getTime()));
 }
 const solarChunks = [];
 for (let i = 0; i < solarMoments.length; i += 100) solarChunks.push(str(solarMoments.slice(i, i + 100).join(',')));
-output(resolve(domain, 'SolarEphemeris.kt'), header + `/** The same astronomy-engine Seasons instants used by the web calendar. */\ninternal object SolarEphemeris {\n    const val firstYear = 1900\n    val moments: LongArray by lazy { listOf(\n${solarChunks.map((s) => `        ${s}`).join(',\n')}\n    ).flatMap { it.split(',') }.map { it.toLong() }.toLongArray() }\n}\n`);
+output(resolve(domain, 'SolarEphemeris.kt'), header + `/** The same astronomy-engine Seasons instants used by the web calendar. */\ninternal object SolarEphemeris {\n    const val firstYear = 1898\n    val moments: LongArray by lazy { listOf(\n${solarChunks.map((s) => `        ${s}`).join(',\n')}\n    ).flatMap { it.split(',') }.map { it.toLong() }.toLongArray() }\n}\n`);
 
-const dates = ['1900-03-19','1900-03-20','2000-02-29','2023-03-14','2023-03-19','2023-03-20','2024-02-29','2024-03-13','2024-03-14','2024-03-19','2024-03-20','2026-03-19','2026-03-20','2026-04-17','2026-09-23','2026-12-31','2027-01-01','2099-03-19','2100-03-20','2100-12-31'];
+const dates = ['1899-12-31','1900-01-01','2101-01-01','2101-03-31','1900-03-19','1900-03-20','2000-02-29','2023-03-14','2023-03-19','2023-03-20','2024-02-29','2024-03-13','2024-03-14','2024-03-19','2024-03-20','2026-03-19','2026-03-20','2026-04-17','2026-09-23','2026-12-31','2027-01-01','2099-03-19','2100-03-20','2100-12-31'];
 const vectors = [];
 for (const zone of ['Europe/Moscow','America/New_York','Pacific/Auckland','UTC']) {
   process.env.TZ = zone;
@@ -100,7 +103,7 @@ output(resolve(tests, 'WebCalendarVectors.kt'), header + `internal val webCalend
 
 const recurrenceSource = readFileSync(resolve(root, 'app/task-recurrence.ts'), 'utf8');
 process.env.TZ = 'Europe/Moscow';
-const recurrence = loadTs(recurrenceSource, { './calendar-data': webCalendar() });
+const recurrence = loadTs(recurrenceSource, { './calendar-data': webCalendar(), './calendar-context': calendarContext });
 const configs = [
   ['2026-09-23', { mode:'classic', pattern:'daily', interval:3, rangeEnd:'2026-10-15' }],
   ['2026-09-23', { mode:'classic', pattern:'weekdays', days:[1,4,7], interval:2, rangeEnd:'2026-11-02' }],
@@ -110,12 +113,21 @@ const configs = [
   ['2026-03-01', { mode:'genesis', pattern:'month-days', days:[29,30], months:[1,12], rangeEnd:'2027-03-20' }],
   ['2026-02-01', { mode:'lunar', pattern:'lunar-days', days:[1,29,30], rangeEnd:'2026-07-01' }],
   ['2026-02-01', { mode:'lunar', pattern:'lunar-days', days:[2,30], months:[1,3,5], rangeEnd:'2026-07-01' }],
+  ['2100-12-30', { mode:'lunar', pattern:'lunar-days', days:Array.from({length:30}, (_,i)=>i+1), rangeEnd:'2105-12-31' }],
   ['2024-02-29', { mode:'classic', pattern:'daily', interval:99 }],
 ];
 const intList = (v) => `listOf(${v.join(',')})`;
 output(resolve(tests, 'WebRecurrenceVectors.kt'), header + `internal data class WebRecurrenceVector(val start: String, val config: RecurrenceConfig, val expected: List<String>)\ninternal val webRecurrenceVectors = listOf(\n${configs.map(([start, overrides]) => {
   const c = {...recurrence.DEFAULT_RECURRENCE_CONFIG, enabled:true, ...overrides};
   const expected = recurrence.buildRecurrenceDates(start,c);
-  return `    WebRecurrenceVector(${str(start)}, RecurrenceConfig(enabled=true, mode=${str(c.mode)}, pattern=${str(c.pattern)}, days=${intList(c.days)}, interval=${c.interval}, rangeStart=${str(c.rangeStart)}, rangeEnd=${str(c.rangeEnd)}, months=${intList(c.months)}, pyatas=${intList(c.pyatas)}), listOf(${expected.map(str).join(',')}))`;
+  return `    WebRecurrenceVector(${str(start)}, RecurrenceConfig(enabled=true, mode=${str(c.mode)}, pattern=${str(c.pattern)}, days=${intList(c.days)}, interval=${c.interval}, rangeStart=${str(c.rangeStart)}, rangeEnd=${str(c.rangeEnd)}, months=${intList(c.months)}, pyatas=${intList(c.pyatas)}, calendarContext=CalendarContext(version=2,timeZone="Europe/Moscow")), listOf(${expected.map(str).join(',')}))`;
 }).join(',\n')}\n)\n`);
 console.log(JSON.stringify({ months: calendar.MONTHS.length, days: 366, newMoons: moments.length, vectors: vectors.length, recurrenceVectors: configs.length, sourceSha256: createHash('sha256').update(source).digest('hex') }));
+
+// Same public event instants for the PHP worker; no user or runtime data.
+const resources = resolve(root, 'server/resources');
+mkdirSync(resources, {recursive: true});
+output(resolve(resources, 'calendar-ephemeris-v2.json'), JSON.stringify({version:2,engine:'astronomy-engine@2.1.19',civilRange:[1900,2100],
+ firstMoonIndex:firstIndex,newMoons:moments,fullMoons:fullMoments,firstLunarYear:1898,lunarYearStarts:years,
+ firstSolarYear:1898,solarMoments})+'\n');
+output(resolve(resources, 'calendar-vectors-v2.json'), JSON.stringify(vectors.map(row=>row.split('|')))+'\n');

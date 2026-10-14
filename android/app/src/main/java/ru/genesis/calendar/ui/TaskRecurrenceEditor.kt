@@ -12,6 +12,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import java.time.LocalDate
+import java.time.ZoneId
+import ru.genesis.calendar.domain.CalendarContext
 import ru.genesis.calendar.domain.CalendarMode
 import ru.genesis.calendar.domain.GenesisCalendar
 import ru.genesis.calendar.domain.RecurrenceConfig
@@ -24,9 +26,9 @@ internal fun recurrenceModeFor(mode: CalendarMode) = when (mode) {
     CalendarMode.SACRED -> "genesis"
 }
 
-internal fun defaultTaskRecurrence(startDate: String, mode: CalendarMode): RecurrenceConfig {
+internal fun defaultTaskRecurrence(startDate: String, mode: CalendarMode, context: CalendarContext = CalendarContext()): RecurrenceConfig {
     val date = LocalDate.parse(startDate)
-    val calendar = GenesisCalendar()
+    val calendar = GenesisCalendar(ZoneId.of(context.timeZone), context.version, context.gregorianYearStart)
     val recurrenceMode = recurrenceModeFor(mode)
     val day = when (recurrenceMode) {
         "classic" -> date.dayOfWeek.value
@@ -35,7 +37,7 @@ internal fun defaultTaskRecurrence(startDate: String, mode: CalendarMode): Recur
     }
     return RecurrenceConfig(mode = recurrenceMode,
         pattern = when (recurrenceMode) { "classic" -> "weekdays"; "lunar" -> "lunar-days"; else -> "pyata-days" },
-        days = listOf(day), rangeStart = startDate, rangeEnd = date.plusYears(1).minusDays(1).toString())
+        days = listOf(day), calendarContext = context, rangeStart = startDate, rangeEnd = date.plusYears(1).minusDays(1).toString())
 }
 
 private fun toggleSubset(selected: List<Int>, item: Int, all: List<Int>): List<Int> {
@@ -70,6 +72,8 @@ private fun NumberGrid(title: String, numbers: List<Int>, selected: List<Int>,
 internal fun TaskRecurrenceEditor(value: RecurrenceConfig, startDate: String, inputMode: CalendarMode,
     onChange: (RecurrenceConfig) -> Unit): Int {
     val engine = remember { RecurrenceEngine(GenesisCalendar()) }
+    val context = value.calendarContext ?: CalendarContext(version = 1)
+    val calendar = remember(context) { GenesisCalendar(ZoneId.of(context.timeZone), context.version, context.gregorianYearStart) }
     val start = runCatching { LocalDate.parse(startDate) }.getOrNull()
     val end = value.rangeEnd.takeIf { runCatching { LocalDate.parse(it) }.isSuccess }
         ?: start?.plusYears(1)?.minusDays(1)?.toString().orEmpty()
@@ -90,7 +94,7 @@ internal fun TaskRecurrenceEditor(value: RecurrenceConfig, startDate: String, in
             }
             Switch(checked = value.enabled, onCheckedChange = { enabled ->
                 if (start != null) {
-                    val base = if (value.enabled) value else defaultTaskRecurrence(startDate, inputMode)
+                    val base = if (value.rangeStart.isNotBlank() || value.calendarContext != null) value else defaultTaskRecurrence(startDate, inputMode)
                     onChange(base.copy(enabled = enabled, rangeStart = startDate,
                         rangeEnd = base.rangeEnd.ifBlank { start.plusYears(1).minusDays(1).toString() }))
                 }
@@ -103,7 +107,7 @@ internal fun TaskRecurrenceEditor(value: RecurrenceConfig, startDate: String, in
                 .forEach { (mode, name) ->
                     FilterChip(selected = value.mode == mode, onClick = {
                         val nextMode = when (mode) { "classic" -> CalendarMode.PROFANE; "lunar" -> CalendarMode.LUNAR; else -> CalendarMode.SACRED }
-                        onChange(defaultTaskRecurrence(startDate, nextMode).copy(enabled = true, rangeEnd = end))
+                        onChange(defaultTaskRecurrence(startDate, nextMode, context).copy(enabled = true, rangeEnd = end))
                     }, label = { Text(name) }, modifier = Modifier.testTag("recurrence-mode-$mode"))
                 }
         }
@@ -111,7 +115,7 @@ internal fun TaskRecurrenceEditor(value: RecurrenceConfig, startDate: String, in
         Text("По какое", style = MaterialTheme.typography.titleSmall)
         AuthorDatePicker(end, when (value.mode) {
             "classic" -> CalendarMode.PROFANE; "lunar" -> CalendarMode.LUNAR; else -> CalendarMode.SACRED
-        }) { onChange(value.copy(rangeStart = startDate, rangeEnd = it,
+        }, calculationContext = context) { onChange(value.copy(rangeStart = startDate, rangeEnd = it,
             months = if (value.mode == "lunar") emptyList() else value.months)) }
         Text("Срок серии — не более пяти лет.", style = MaterialTheme.typography.bodySmall)
         if (value.mode == "classic") {
@@ -148,8 +152,8 @@ internal fun TaskRecurrenceEditor(value: RecurrenceConfig, startDate: String, in
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     listOf("pyata-days" to "По пятам", "month-days" to "По дням месяца").forEach { (pattern, label) ->
                         FilterChip(selected = value.pattern == pattern, onClick = {
-                            val day = if (pattern == "pyata-days") (GenesisCalendar().sacredDate(start).day - 1) % 5 + 1
-                                else GenesisCalendar().sacredDate(start).day
+                            val day = if (pattern == "pyata-days") (calendar.sacredDate(start).day - 1) % 5 + 1
+                                else calendar.sacredDate(start).day
                             onChange(value.copy(pattern = pattern, days = listOf(day), interval = 1))
                         }, label = { Text(label) }, modifier = Modifier.testTag("recurrence-pattern-$pattern"))
                     }
@@ -169,8 +173,7 @@ internal fun TaskRecurrenceEditor(value: RecurrenceConfig, startDate: String, in
                     }
                 }
             } else {
-                val calendar = remember { GenesisCalendar() }
-                val lunarMonths = remember(startDate, end) { runCatching {
+                val lunarMonths = remember(startDate, end, context) { runCatching {
                     val first = calendar.lunarMonthIndex(start)
                     val last = calendar.lunarMonthIndex(LocalDate.parse(end))
                     (first..last).map { index -> index - first + 1 to calendar.lunarMonthStart(index).toString() }
@@ -194,6 +197,14 @@ internal fun TaskRecurrenceEditor(value: RecurrenceConfig, startDate: String, in
         if (count == 0) Text("В выбранном периоде нет дат для этого правила.", color = MaterialTheme.colorScheme.error)
         if (count > 500) Text("Максимум 500 повторений. Сократите период или выберите меньше дат.",
             color = MaterialTheme.colorScheme.error)
+        Text(genesisTranslate("Следующие даты: {dates}").replace("{dates}", dates.take(5).joinToString(" · ").ifEmpty { "—" }),
+            style = MaterialTheme.typography.bodySmall)
+        Text(genesisTranslate("Часовой пояс повторения: {zone}").replace("{zone}", context.timeZone),
+            style = MaterialTheme.typography.bodySmall)
+        Text("Несуществующие дни пропускаются. Апейрон не входит в сакральные повторы; 13-й лунный месяц выбирается только в годах, где он есть.",
+            style = MaterialTheme.typography.bodySmall)
+        if (value.mode == "genesis" && context.version == 1) Text("Сохранённое расписание использует прежнее начало сакрального года — 20 марта.",
+            style = MaterialTheme.typography.bodySmall)
     }
     }
     return count

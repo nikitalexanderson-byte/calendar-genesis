@@ -2250,5 +2250,9 @@
   "Архивировал(а) задачу": "Zarchiwizowano zadanie",
   "Восстановил(а) задачу из архива": "Przywrócono zadanie z archiwum",
   "Удалил(а) задачу навсегда": "Trwale usunięto zadanie",
-  "Удалить навсегда": "Usuń trwale"
+  "Удалить навсегда": "Usuń trwale",
+  "Следующие даты: {dates}": "Następne daty: {dates}",
+  "Часовой пояс повторения: {zone}": "Strefa czasowa powtarzania: {zone}",
+  "Несуществующие дни пропускаются. Апейрон не входит в сакральные повторы; 13-й лунный месяц выбирается только в годах, где он есть.": "Nieistniejące dni są pomijane. Apeiron jest wyłączony ze świętych powtórzeń; 13. miesiąc księżycowy jest wybierany tylko w latach, w których występuje.",
+  "Сохранённое расписание использует прежнее начало сакрального года — 20 марта.": "Ten zapisany harmonogram używa poprzedniego początku świętego roku: 20 marca."
 }

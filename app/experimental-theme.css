@@ -246,6 +246,9 @@ html[data-genesis-theme^="standart"] .genesis-app .mobile-nav[data-exp-ui="mobil
 html[data-genesis-theme^="standart"] .genesis-app :is([hidden], [hidden] *) { display: none !important; }
 /* Preserve the authored month legend and clock geometry with readable dark ink roles. */
 html[data-genesis-theme="standart-dark"] .time-clock-dial { fill: var(--surface); stroke: var(--line); }
+html[data-genesis-theme="standart-dark"] .habit-year-mosaic :is(.habit-year-mosaic-grid, footer) > i:is(.none, .future) {
+  background: color-mix(in srgb, var(--ink-soft) 60%, var(--surface));
+}
 html[data-genesis-theme="standart-dark"] .time-clock-dial-inner { fill: var(--paper); stroke: var(--line); }
 html[data-genesis-theme="standart-dark"] .time-clock-tick.hour { fill: #315440; }
 html[data-genesis-theme="standart-dark"] .time-clock-tick.minute { fill: #4d432c; }

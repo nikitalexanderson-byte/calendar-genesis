@@ -77,13 +77,13 @@ class HabitEngine(private val calendar: GenesisCalendar) {
         val recurrenceMode=when(mode) { CalendarMode.PROFANE -> "classic"; CalendarMode.SACRED -> "genesis"; CalendarMode.LUNAR -> "lunar" }
         val pattern=when(mode) { CalendarMode.PROFANE -> "daily"; CalendarMode.SACRED -> "pyata-days"; CalendarMode.LUNAR -> "lunar-days" }
         val day=when(mode) { CalendarMode.PROFANE -> date.dayOfWeek.value; CalendarMode.SACRED -> (calendar.sacredDate(date).day-1)%5+1; CalendarMode.LUNAR -> calendar.lunarDate(date).day }
-        return TrackerSchedule(date,timezone=calendar.zoneId.id,recurrence=RecurrenceConfig(true,recurrenceMode,pattern,listOf(day),rangeStart=date.toString()))
+        return TrackerSchedule(date,timezone=calendar.zoneId.id,recurrence=RecurrenceConfig(true,recurrenceMode,pattern,listOf(day),rangeStart=date.toString(),calendarContext=ru.genesis.calendar.domain.CalendarContext(timeZone=calendar.zoneId.id)))
     }
 
     fun normalizeSchedule(schedule: TrackerSchedule): TrackerSchedule {
         val end=schedule.endDate?.takeIf { it >= schedule.startDate }
         return schedule.copy(endDate=end,timezone=schedule.timezone.ifEmpty { calendar.zoneId.id },
-            recurrence=recurrence.normalize(schedule.recurrence).copy(rangeStart=schedule.startDate.toString(),rangeEnd=end?.toString() ?: ""))
+            recurrence=recurrence.normalize(schedule.recurrence).copy(calendarContext=schedule.recurrence.calendarContext ?: ru.genesis.calendar.domain.CalendarContext(version=1,timeZone=schedule.timezone.ifEmpty { calendar.zoneId.id }),rangeStart=schedule.startDate.toString(),rangeEnd=end?.toString() ?: ""))
     }
 
     /** Saved schedule owns its mode. The account display calendar is intentionally absent. */
@@ -91,6 +91,7 @@ class HabitEngine(private val calendar: GenesisCalendar) {
         val schedule = habit.schedule
         if (!habit.active || date < schedule.startDate || schedule.endDate?.let { date > it } == true) return false
         return recurrence.matches(schedule.startDate.toString(),schedule.recurrence.copy(
+            calendarContext=schedule.recurrence.calendarContext ?: ru.genesis.calendar.domain.CalendarContext(version=1,timeZone=schedule.timezone.ifEmpty { calendar.zoneId.id }),
             rangeStart=schedule.startDate.toString(),rangeEnd=schedule.endDate?.toString() ?: ""),
             date.toString(),ignoreRangeEnd=schedule.endDate == null)
     }

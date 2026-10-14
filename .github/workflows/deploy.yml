@@ -129,6 +129,8 @@ jobs:
           '
 
           php server/tests/google-sync-cache.php
+          php server/tests/calendar.php
+          php server/tests/google-calendar-context.php
           php server/tests/google-incremental.php
           php server/tests/shared-content-storage.php
           php server/tests/smoke.php

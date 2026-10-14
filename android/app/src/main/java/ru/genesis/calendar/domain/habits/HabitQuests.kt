@@ -44,7 +44,7 @@ object HabitQuests {
     private fun dates(start: LocalDate, end: LocalDate): List<LocalDate> {
         val result = mutableListOf<LocalDate>()
         var date = start
-        while (date <= end && result.size < 370) { result += date; date = date.plusDays(1) }
+        while (date <= end) { result += date; date = date.plusDays(1) }
         return result
     }
 

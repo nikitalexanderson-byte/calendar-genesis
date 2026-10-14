@@ -2250,5 +2250,9 @@
   "Архивировал(а) задачу": "Görevi arşivledi",
   "Восстановил(а) задачу из архива": "Görevi arşivden geri yükledi",
   "Удалил(а) задачу навсегда": "Görevi kalıcı olarak sildi",
-  "Удалить навсегда": "Kalıcı olarak sil"
+  "Удалить навсегда": "Kalıcı olarak sil",
+  "Следующие даты: {dates}": "Sonraki tarihler: {dates}",
+  "Часовой пояс повторения: {zone}": "Tekrar saat dilimi: {zone}",
+  "Несуществующие дни пропускаются. Апейрон не входит в сакральные повторы; 13-й лунный месяц выбирается только в годах, где он есть.": "Var olmayan günler atlanır. Apeiron kutsal takvim tekrarlarına dahil değildir; 13. ay yalnızca onu içeren ay takvimi yıllarında seçilir.",
+  "Сохранённое расписание использует прежнее начало сакрального года — 20 марта.": "Bu kayıtlı program, kutsal yılın önceki başlangıcını kullanır: 20 Mart."
 }
