@@ -99,6 +99,7 @@
 - A1: исправлены SPA fallback, SW HTML response, порядок публикации immutable assets и ограниченный retry lazy import. Runtime хранит только графы путей ассетов, без копий кода. PHP retention-тест проверяет срок, общие зависимости, недостающий файл и fail-closed cleanup. Миграций БД нет; откат через revert, уже сохранённые immutable assets безвредны.
 - A1: `pnpm lint` — 0 ошибок (2 прежних предупреждения img), `pnpm test` — 193/193 с i18n:audit, `pnpm build:beget` и PHP retention test — успешно. Отдельный tsc выявляет исходные ошибки habit-reset/streak-protection/TheokyklosView/Yandex/cloudflare; успешным не считается.
 - A1: изолированный PHP/SQLite и синтетические owner/editor/viewer/outsider; реальные аккаунты и production-данные не использовались. Браузер подтвердил отсутствие auto-reload и перевод recovery на всех 14 языках, отсутствие горизонтального overflow. Скриншоты до/после: `output/playwright/recovery-*` (RU обе схемы × 360/390/768/1440; остальные языки 360 light). Старая вкладка загрузила прежний SharedProjects chunk с HTTP 200 после смены сборки; `output/a1-old-tab.log` и `old-tab-after-release.png`.
+- A1 интегрирован поверх параллельного PR #161 (`528c8e9`), переводы обоих выпусков сохранены. Повторные install/lint/build и 197/197 тестов — успешно. Impeccable finish review: `ship` только для состояния ошибки A1; все 29 переданных снимков проверены, обязательных исправлений нет. Клавиатура/screen reader и все сочетания остальных языков отдельно не подтверждены.
 
 ## Миграции, ограничения, оставшиеся проверки
 
