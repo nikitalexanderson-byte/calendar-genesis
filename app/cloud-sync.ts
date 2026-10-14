@@ -1,6 +1,7 @@
 import { recurrenceDatesForTask, type RecurrenceMode, type RecurrencePattern } from "./task-recurrence";
 import { normalizeCalendarDateNote, type CalendarMode } from "./calendar-data";
 import type { Language } from "./i18n";
+import type { SharedChecklist, SharedTaskDetailsDraft } from "./shared-task-details";
 import { legacyReminderMinutes, normalizeTaskReminders, type TaskReminder } from "./task-reminders";
 import type { TimeFormat } from "./time-format";
 import { ThemeConflictError, type GenesisTheme } from "./theme-controller";
@@ -1629,8 +1630,10 @@ export type SharedReviewKind = "checked" | "confirmed" | "deletable";
 export type SharedReviewPolicy = {enabled:boolean} & Record<SharedReviewKind,{group:"everyone"|"editors"|"organizers"|"selected";userIds:string[]}>;
 export type SharedReviewSettingsData = {rootProjectId:string;rootTitle:string;revision:number;canManage:boolean;policy:SharedReviewPolicy;members:{userId:string;displayName:string}[]};
 export type SharedTaskReviewData = {enabled:boolean;allowed:Record<SharedReviewKind,boolean>;entries:{kind:SharedReviewKind;userId:string;displayName:string;reviewedAt:string}[]};
-export type SharedTrashEntry = {kind:"task"|"project";id:string;title:string;deletedAt:string;expiresAt:string;retentionDays:number;canRestore:boolean};
+export type SharedTrashEntry = {kind:"task"|"project";id:string;title:string;deletedAt:string;expiresAt:string;retentionDays:number;canRestore:boolean;canPurge?:boolean;projectId?:string};
 export type SharedTask = { review?:SharedTaskReviewData; id: string; projectId: string; statusId: string; title: string;
+  priority?: number; parentTaskId?: string | null; checklists?: SharedChecklist[]; archivedAt?: string | null;
+  childCount?: number; completedChildCount?: number; projectTitle?: string; spaceId?: string; isInbox?: number;
   entryType?: "task" | "meeting" | "birthday" | "event";
   approvalRequired?: boolean; approvals?: {userId: string | null; displayName: string; approvedAt: string | null}[];
   imageUrl?: string | null;
@@ -1643,7 +1646,25 @@ export type SharedTask = { review?:SharedTaskReviewData; id: string; projectId: 
 export type SharedMember = { userId: string; role: string; spaceRole: string;
   canOrganizeTasks: number; displayName: string };
 export type SharedProjectSnapshot = { project: SharedProject; statuses: SharedStatus[]; categories: SharedCategory[];
-  tasks: SharedTask[]; members: SharedMember[] };
+  tasks: SharedTask[]; members: SharedMember[]; taskPage?: Omit<SharedTaskPage, "tasks"> };
+export type SharedTaskFilter = { spaceId?: string; projectIds?: string[]; statusIds?: string[]; assigneeIds?: string[];
+  createdBy?: string; priority?: number[]; labelIds?: string[]; tags?: string[]; q?: string; from?: string; to?: string;
+  dueFrom?: string; dueTo?: string; undated?: boolean; unscheduled?: "date" | "time"; scheduled?: "date" | "time"; completion?: "any" | "open" | "completed";
+  approvalPending?: boolean; archived?: boolean; includeArchived?: boolean; parentTaskId?: string | null; ids?: string[] };
+export type SharedTaskPage = { tasks: SharedTask[]; total: number; hasMore: boolean; nextCursor: string | null;
+  statusCounts: Record<string, number>; dateCounts: Record<string, number>; consistency: "restart-on-change"; queryVersion: string; bounds?: {first: string | null; last: string | null} };
+export type SharedTaskSort = "position" | "dueDate" | "priority" | "updatedAt" | "title";
+export function querySharedTasks(filter: SharedTaskFilter, cursor?: string | null, sort: SharedTaskSort = "position", signal?: AbortSignal) {
+  return sharedCachedRequest<SharedTaskPage>(`/shared/tasks?filter=${encodeURIComponent(JSON.stringify(filter))}&sort=${sort}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`, signal);
+}
+export async function loadSharedTask(projectId: string, taskId: string, archived = false) {
+  return (await sharedCachedRequest<{ task: SharedTask }>(`/shared/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}${archived ? "?archived=true" : ""}`)).task;
+}
+export function convertSharedChecklistItem(task: SharedTask, itemId: string, requestId: string) {
+  return api<{taskId: string; projectId: string}>(`/shared/projects/${encodeURIComponent(task.projectId)}/tasks/${encodeURIComponent(task.id)}/convert-checklist`, {
+    method: "POST", body: JSON.stringify({ itemId, expectedRevision: task.revision, requestId }),
+  });
+}
 export type SharedMemberCategory = { id: string; title: string; permissions: SharedPermissions; revision: number };
 export async function listSharedMemberCategories(spaceId: string) {
   return (await api<{categories: SharedMemberCategory[]}>(`/shared/spaces/${encodeURIComponent(spaceId)}/member-categories`)).categories;
@@ -1729,9 +1750,9 @@ export function canRestoreOfflineSession(error: unknown) {
   return !localSessionEnded && !privateDeviceAccessBlocked() && sharedNetworkFailure(error);
 }
 
-async function sharedCachedRequest<T>(path: string): Promise<T> {
+async function sharedCachedRequest<T>(path: string, signal?: AbortSignal): Promise<T> {
   try {
-    const payload = await api<T>(path);
+    const payload = await api<T>(path, {signal});
     sharedLastReadFromCache = false;
     await changeSharedOfflineStore((store) => { store.cache[path] = { savedAt: Date.now(), payload }; })
       .catch(() => undefined);
@@ -1739,11 +1760,12 @@ async function sharedCachedRequest<T>(path: string): Promise<T> {
   } catch (error) {
     if (error instanceof GenesisApiError && [401, 403, 404].includes(error.status)) {
       if (workspaceUserId) await changeSharedOfflineStore((store) => {
-        if (error.status === 401) store.cache = {};
-        else delete store.cache[path];
+        // A revoked task/project can also be present in cached query pages and references.
+        // Keep unsent drafts, but do not leave alternate cached routes to denied content.
+        store.cache = {};
       }).catch(() => undefined);
     }
-    if (!sharedNetworkFailure(error)) throw error;
+    if (signal?.aborted || !sharedNetworkFailure(error)) throw error;
     const saved = (await readSharedOfflineStore()).cache[path];
     if (!saved || Date.now() - saved.savedAt > 30 * 24 * 60 * 60 * 1000) throw error;
     sharedLastReadFromCache = true;
@@ -1773,10 +1795,18 @@ export async function discardSharedMutation(requestId: string) {
   });
 }
 
-export async function flushSharedMutations() {
+let sharedMutationFlush: Promise<void> | null = null;
+export function flushSharedMutations() {
+  if (!sharedMutationFlush) sharedMutationFlush = flushSharedMutationQueue().finally(() => { sharedMutationFlush = null; });
+  return sharedMutationFlush;
+}
+
+async function flushSharedMutationQueue() {
   if (!workspaceUserId || !workspaceKey || !navigator.onLine) return;
+  const owner = workspaceUserId;
   const queued = (await readSharedOfflineStore()).queue;
   for (const item of queued) {
+    if (workspaceUserId !== owner || !workspaceKey) return;
     if (item.error) continue;
     if (Date.now() - Date.parse(item.queuedAt) > 89 * 24 * 60 * 60 * 1000) {
       await changeSharedOfflineStore((store) => {
@@ -1791,6 +1821,7 @@ export async function flushSharedMutations() {
         store.queue = store.queue.filter((entry) => entry.requestId !== item.requestId);
       });
     } catch (error) {
+      if (workspaceUserId !== owner || !workspaceKey) return;
       if (sharedNetworkFailure(error)) return;
       await changeSharedOfflineStore((store) => {
         const entry = store.queue.find((current) => current.requestId === item.requestId);
@@ -1865,9 +1896,9 @@ export async function listArchivedSharedProjects(spaceId: string) {
   return (await sharedCachedRequest<{ projects: (SharedProject & { archivedAt: string })[] }>(
     `/shared/spaces/${encodeURIComponent(spaceId)}/archived-projects`)).projects;
 }
-export type SharedAffairSearch = { projects: SharedProject[]; tasks: { id: string; title: string; projectId: string; projectTitle: string; tags: string[]; completedAt: string | null }[] };
-export function searchSharedAffairs(spaceId: string, query: string, signal?: AbortSignal) {
-  return api<SharedAffairSearch>(`/shared/spaces/${encodeURIComponent(spaceId)}/search?q=${encodeURIComponent(query)}`, { signal });
+export type SharedAffairSearch = { projects: SharedProject[]; tasks: { id: string; title: string; projectId: string; projectTitle: string; tags: string[]; completedAt: string | null }[]; total?: number; projectTotal?: number; nextCursor?: string | null; hasMore?: boolean };
+export function searchSharedAffairs(spaceId: string, query: string, signal?: AbortSignal, cursor?: string | null) {
+  return api<SharedAffairSearch>(`/shared/spaces/${encodeURIComponent(spaceId)}/search?q=${encodeURIComponent(query)}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`, { signal });
 }
 export async function createSharedProject(spaceId: string, input: { title: string; description: string;
   layout: "list" | "board"; tags?: string[]; labelIds?: string[]; categoryId?: string | null; kind?: "project" | "task-list"; boardStatusId?: string | null; parentId?: string | null }) {
@@ -1895,8 +1926,12 @@ export async function importSharedProject(spaceId: string, input: SharedProjectI
     { method: "POST", body: JSON.stringify(input) },
   )).receipt;
 }
-export async function loadSharedProject(projectId: string) {
-  return sharedCachedRequest<SharedProjectSnapshot>(`/shared/projects/${encodeURIComponent(projectId)}`);
+export async function loadSharedProject(projectId: string, filter?: SharedTaskFilter, cursor?: string | null, sort: SharedTaskSort = "position") {
+  const query = new URLSearchParams();
+  if (filter && Object.keys(filter).length) query.set("filter", JSON.stringify(filter));
+  if (cursor) query.set("cursor", cursor);
+  if (sort !== "position") query.set("sort", sort);
+  return sharedCachedRequest<SharedProjectSnapshot>(`/shared/projects/${encodeURIComponent(projectId)}${query.size ? `?${query}` : ""}`);
 }
 export async function loadSharedGoogleSettings(projectId: string) {
   return (await api<{ settings: SharedGoogleSettings }>(
@@ -1999,7 +2034,7 @@ export async function createSharedTask(projectId: string, input: { title: string
   attachments?: SharedTaskFileInput[];
   labelIds?: string[]; startDate?: string | null; startTime?: string | null; endTime?: string | null; dependsOnIds?: string[];
   categoryId?: string | null; assigneeId?: string | null; dueDate?: string | null; description?: string;
-  sourceTaskId?: string; mindmapSource?: {mapId:string;nodeId:string}; tags?: string[] }) {
+  sourceTaskId?: string; mindmapSource?: {mapId:string;nodeId:string}; tags?: string[] } & Partial<SharedTaskDetailsDraft>) {
   const path = `/shared/projects/${encodeURIComponent(projectId)}/tasks`;
   if (input.sourceTaskId || input.mindmapSource) {
     return (await api<{ task: SharedTask }>(path, { method: "POST", body: JSON.stringify(input) })).task;
@@ -2012,7 +2047,7 @@ export async function createSharedTask(projectId: string, input: { title: string
     queuedAt: new Date().toISOString(),
   }, { id: `pending:${requestId}`, projectId, statusId: input.statusId,
     approvalRequired: input.approvalRequired, approvals: input.approverIds?.map(userId => ({userId, displayName:"", approvedAt:null})),
-    entryType: input.entryType ?? "task",
+    entryType: input.entryType ?? "task", priority: input.priority ?? 0, parentTaskId: input.parentTaskId ?? null, checklists: input.checklists ?? [],
     title: input.title, description: input.description ?? "", dueDate: input.dueDate ?? null,
     categoryId: input.categoryId ?? null, assigneeId: input.assigneeId ?? null, labelIds: input.labelIds ?? [], startDate: input.startDate ?? null, dependsOnIds: input.dependsOnIds ?? [],
     startTime: input.startTime ?? null, endTime: input.endTime ?? null,
@@ -2030,7 +2065,7 @@ export async function updateSharedTask(projectId: string, taskId: string, input:
   { id: taskId, projectId, statusId: input.statusId ?? "", title: input.title ?? "",
     description: input.description ?? "", categoryId: input.categoryId ?? null,
     assigneeId: input.assigneeId ?? null, dueDate: input.dueDate ?? null,
-    ...Object.fromEntries(Object.entries({labelIds: input.labelIds, startDate: input.startDate, startTime: input.startTime, endTime: input.endTime, dependsOnIds: input.dependsOnIds}).filter(([,value])=>value!==undefined)),
+    ...Object.fromEntries(Object.entries({labelIds: input.labelIds, startDate: input.startDate, startTime: input.startTime, endTime: input.endTime, dependsOnIds: input.dependsOnIds, priority: input.priority, parentTaskId: input.parentTaskId, checklists: input.checklists}).filter(([,value])=>value!==undefined)),
     position: 0, revision: input.expectedRevision, updatedAt: new Date().toISOString(), pending: true });
 }
 export async function moveSharedTask(projectId: string, taskId: string, input: {
@@ -2053,7 +2088,7 @@ export async function inviteSharedMember(projectId: string, email: string, role:
     })).invitation;
 }
 export function deleteSharedTask(projectId: string, taskId: string, expectedRevision: number, retentionDays = 30) {
-  return api<{ ok: boolean; id: string }>(`/shared/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}`, {
+  return api<{ ok: boolean; id: string; expiresAt:string; affected:number }>(`/shared/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}`, {
     method: "DELETE", body: JSON.stringify({ expectedRevision, retentionDays, requestId: crypto.randomUUID() }),
   });
 }
@@ -2104,10 +2139,16 @@ export type SharedCalendarTask = {
   id: string; title: string; dueDate: string; completedAt: string | null;
   projectId: string; projectTitle: string; spaceId: string; isInbox: number;
 };
-export async function listSharedCalendarTasks(from: string, to: string) {
-  return (await api<{ tasks: SharedCalendarTask[] }>(
-    `/shared/calendar/tasks?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`)).tasks;
+export async function listSharedCalendarTasks(from: string, to: string, cursor?: string | null, signal?: AbortSignal) {
+  return api<Omit<SharedTaskPage,"tasks"> & {tasks:SharedCalendarTask[]}>(
+    `/shared/calendar/tasks?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`, {signal});
 }
+export function sharedCalendarProjection(task: SharedTask): SharedCalendarTask {
+  return {id:task.id,title:task.title,dueDate:task.dueDate!,completedAt:task.completedAt ?? null,
+    projectId:task.projectId,projectTitle:task.projectTitle ?? "",spaceId:task.spaceId!,isInbox:task.isInbox ?? 0,
+    ...(task.entryType && task.entryType !== "birthday" ? {entryType:task.entryType} : {})};
+}
+
 export async function listSharedComments(projectId: string, taskId: string) {
   return (await api<{ comments: SharedComment[] }>(
     `/shared/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}/comments`)).comments;
@@ -2155,8 +2196,8 @@ export function observeCloudTasks(
     if (polling) return;
     polling = true;
     try {
-      await flushPendingMutations();
       await flushSharedMutations();
+      await flushPendingMutations();
       await refreshWorkspaceFromCloud();
       const result = await api<{ tasks: GenesisTask[]; deletedTaskIds?: string[]; taskLists?: GoogleTaskList[]; syncWarning?: string | null }>("/sync/tasks");
       rememberDeletedTasks(result.deletedTaskIds ?? []);
@@ -2191,6 +2232,7 @@ export function observeCloudWorkspace(onError?: (error: Error) => void) {
     if (!workspaceUserId || !workspaceKey || polling) return;
     polling = true;
     try {
+      await flushSharedMutations();
       await flushPendingMutations();
       await refreshWorkspaceFromCloud();
     } catch (error) {
@@ -2467,5 +2509,12 @@ export function loadSharedReviewSettings(projectId:string) {return api<SharedRev
 export function saveSharedReviewSettings(projectId:string,policy:SharedReviewPolicy,expectedRevision:number) {return api<SharedReviewSettingsData>(`/shared/projects/${encodeURIComponent(projectId)}/review-settings`,{method:"PATCH",body:JSON.stringify({policy,expectedRevision})});}
 export function setSharedTaskReview(task:SharedTask,kind:SharedReviewKind,enabled:boolean) {return api<{ok:true}>(`/shared/projects/${encodeURIComponent(task.projectId)}/tasks/${encodeURIComponent(task.id)}/reviews`,{method:"PATCH",body:JSON.stringify({kind,enabled,expectedRevision:task.revision})});}
 export async function listSharedTrash(spaceId:string) {return (await api<{items:SharedTrashEntry[]}>(`/shared/spaces/${encodeURIComponent(spaceId)}/trash`)).items;}
-export function restoreSharedTrash(spaceId:string,item:SharedTrashEntry,retentionDays?:number) {return api<{ok:true}>(`/shared/spaces/${encodeURIComponent(spaceId)}/trash/${item.kind}/${encodeURIComponent(item.id)}`,{method:"PATCH",body:JSON.stringify(retentionDays===undefined?{expectedExpiresAt:item.expiresAt}:{retentionDays,expectedExpiresAt:item.expiresAt})});}
+export function restoreSharedTrash(spaceId:string,item:SharedTrashEntry,retentionDays?:number) {return api<{ok:true}>(`/shared/spaces/${encodeURIComponent(spaceId)}/trash/${item.kind}/${encodeURIComponent(item.id)}`,{method:"PATCH",body:JSON.stringify({requestId:crypto.randomUUID(),...(retentionDays===undefined?{}:{retentionDays}),expectedExpiresAt:item.expiresAt})});}
 export function trashSharedProject(project:SharedProject,retentionDays:number) {return api<{ok:true}>(`/shared/projects/${encodeURIComponent(project.id)}/trash`,{method:"POST",body:JSON.stringify({expectedRevision:project.revision,retentionDays})});}
+
+export function setSharedTaskArchived(task:SharedTask,archived:boolean,requestId=crypto.randomUUID()) {
+  return api<{ok:true;id:string;projectId:string;revision:number;affected:number;archived:boolean}>(`/shared/projects/${encodeURIComponent(task.projectId)}/tasks/${encodeURIComponent(task.id)}/archive`,{method:"POST",body:JSON.stringify({archived,expectedRevision:task.revision,requestId})});
+}
+export function purgeSharedTask(spaceId:string,item:SharedTrashEntry,requestId=crypto.randomUUID()) {
+  return api<{ok:true;affected:number}>(`/shared/spaces/${encodeURIComponent(spaceId)}/trash/task/${encodeURIComponent(item.id)}/purge`,{method:"POST",body:JSON.stringify({requestId,expectedExpiresAt:item.expiresAt,confirmPermanent:true})});
+}

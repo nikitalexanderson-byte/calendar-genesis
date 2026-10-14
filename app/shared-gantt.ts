@@ -37,10 +37,11 @@ export function taskSpan(task: SharedTask): { start: number; end: number; timed:
   return { start: dateSerial(first) + (timed ? timeFraction(task.startTime) : 0),
     end: dateSerial(last) + (timed ? timeFraction(task.endTime) : 1), timed };
 }
-export function ganttRange(anchor: string, scale: GanttScale, tasks: SharedTask[], fit = false) {
+export function ganttRange(anchor: string, scale: GanttScale, tasks: SharedTask[], fit = false, bounds?: {first: string | null; last: string | null}) {
   const day = dateSerial(anchor);
   if (scale === "day") return { start: day, end: day + 1 };
   if (fit) {
+    if (bounds?.first && bounds.last) { const start=dateSerial(bounds.first)-1; return {start,end:Math.min(start+366,dateSerial(bounds.last)+2)}; }
     const spans = tasks.map(taskSpan).filter((span): span is NonNullable<typeof span> => Boolean(span));
     if (spans.length) { const start = Math.floor(Math.min(...spans.map(span => span.start))) - 1;
       return { start, end: Math.min(start + 366, Math.ceil(Math.max(...spans.map(span => span.end))) + 1) }; }

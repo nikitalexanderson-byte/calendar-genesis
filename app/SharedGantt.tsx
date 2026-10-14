@@ -11,11 +11,15 @@ import { useDialogAccessibility } from "./use-dialog-accessibility";
 import { ganttCopy } from "./gantt-copy";
 import { useAffairDrag } from "./use-affair-drag";
 import { formatTimeValue, type TimeFormat } from "./time-format";
+import { useSharedTaskPage } from "./use-shared-task-page";
+import { SharedDependencyDialog } from "./SharedDependencyPicker";
+import { SharedTaskPageControls } from "./SharedTaskPageControls";
 
 type ResizeItem = {id:string;title:string;task:SharedTask;edge:GanttEdge;offset:number};
 export function SharedGantt({snapshot,english,calendarMode,timeFormat,initialDay,onOpen,onCreate,onSchedule,onReturn,resolveReturn,onReturnTarget,busy,externalDrop,externalDropRow}:{snapshot:SharedProjectSnapshot;english:boolean;calendarMode:CalendarMode;timeFormat:TimeFormat;initialDay?:string;onOpen:(task:SharedTask)=>void;onCreate:(schedule:GanttSchedule)=>void;onSchedule:(task:SharedTask,schedule:GanttSchedule)=>void;onReturn:(task:SharedTask,target:GanttReturnTarget)=>void;resolveReturn:(x:number,y:number,task:SharedTask)=>GanttReturnTarget|null;onReturnTarget:(target:GanttReturnTarget|null)=>void;busy:boolean;externalDrop?:GanttSchedule;externalDropRow?:string}) {
   const root=useRef<HTMLElement>(null);
   const [helpOpen,setHelpOpen]=useState(false);
+  const [dependencyTask,setDependencyTask]=useState<SharedTask|null>(null);
   const helpTitle=useId();
   const helpRef=useDialogAccessibility<HTMLDivElement>(()=>setHelpOpen(false),helpOpen);
   const scrollRoot=useRef<HTMLDivElement>(null);
@@ -39,8 +43,13 @@ export function SharedGantt({snapshot,english,calendarMode,timeFormat,initialDay
   const [anchor,setAnchor] = useState(initialDay || todayKey);
   const [scale,setScale] = useState<GanttScale>(initialDay ? "day" : "weeks");
   const [fit,setFit] = useState(false);
-  const {active:activeTasks,completed:completedTasks}=ganttTaskGroups(snapshot.tasks,snapshot.statuses);
-  const range = calendarGanttRange(anchor,scale,activeTasks,calendarMode,fit,availablePeriods);
+  const {active:initialTasks}=ganttTaskGroups(snapshot.tasks,snapshot.statuses);
+  const range = calendarGanttRange(anchor,scale,initialTasks,calendarMode,fit,availablePeriods,snapshot.taskPage?.bounds);
+  const rangePage = useSharedTaskPage({projectIds:[snapshot.project.id],completion:"open",scheduled:scale==="day"?"time":"date",from:serialDate(Math.floor(range.start)),to:serialDate(Math.ceil(range.end)-1)},"position",snapshot.taskPage?.queryVersion);
+  const unscheduledPage = useSharedTaskPage({projectIds:[snapshot.project.id],completion:"open",unscheduled:scale==="day"?"time":"date"},"position",snapshot.taskPage?.queryVersion);
+  const completedPage = useSharedTaskPage({projectIds:[snapshot.project.id],completion:"completed"},"updatedAt",snapshot.taskPage?.queryVersion);
+  const {active:activeTasks}=ganttTaskGroups(rangePage.page?.tasks??[],snapshot.statuses);
+  const completedTasks=completedPage.page?.tasks ?? [];
   const ticks = calendarGanttPeriods(range,scale,calendarMode);
   const axisPeriods=ticks.map(period=>({start:Math.max(range.start,period.start),end:Math.min(range.end,period.end)}));
   const width=axisPeriods.length*GANTT_CELL_WIDTH;
@@ -50,7 +59,7 @@ export function SharedGantt({snapshot,english,calendarMode,timeFormat,initialDay
   const periodStyle = (period:GanttPeriod) => ({left:positionAt(Math.max(range.start,period.start)),width:positionAt(Math.min(period.end,range.end))-positionAt(Math.max(period.start,range.start))});
   const gridLines = ticks.map(tick=><i className="shared-gantt-grid-line" key={tick.start} style={{left:periodStyle(tick).left}} aria-hidden="true"/>);
   const rows = activeTasks.map(task=>({task,span:taskSpan(task)})).filter(({span})=>span && (scale !== "day" || span.timed) && span.start<range.end && span.end>range.start);
-  const unscheduled = ganttUnscheduledTasks(activeTasks, scale);
+  const unscheduled = ganttUnscheduledTasks(unscheduledPage.page?.tasks??[], scale);
   const axisProps={"data-gantt-axis":true,"data-gantt-start":range.start,"data-gantt-end":range.end,"data-gantt-scale":scale};
   const resize=useAffairDrag<ResizeItem,GanttSchedule>((x,_y,item)=>{
     const track=root.current?.querySelector<HTMLElement>(`[data-gantt-task="${CSS.escape(item.task.id)}"] .shared-gantt-track`);
@@ -140,7 +149,7 @@ export function SharedGantt({snapshot,english,calendarMode,timeFormat,initialDay
         <section><h3 data-no-translate>{ganttCopy("edit")}</h3><p data-no-translate>{ganttCopy("editHint")}</p></section>
       </div>
     </div> : null}
-    {snapshot.tasks.length>=500 ? <p role="status">{english ? "Showing the first 500 loaded tasks." : "Показаны первые 500 загруженных задач."}</p> : null}
+    <SharedTaskPageControls page={rangePage.page} loaded={rangePage.page?.tasks.length??0} busy={rangePage.busy} onMore={()=>void rangePage.more()} onRefresh={()=>void rangePage.refresh()} error={rangePage.error}/>
     <div ref={scrollRoot} className="shared-gantt-scroll" role="region" aria-label={english ? "Scrollable timeline" : "Прокручиваемая шкала времени"}>
       <div className="shared-gantt-sheet" style={{"--gantt-width":`${width}px`} as CSSProperties}>
         <div className={`shared-gantt-header${months.length ? " has-months" : ""}`}><strong>{english ? "Task" : "Задача"}</strong><div {...axisProps}>
@@ -149,7 +158,7 @@ export function SharedGantt({snapshot,english,calendarMode,timeFormat,initialDay
         </div></div>
         <div className="shared-gantt-rows">
           {rows.map(({task,span})=>{const status=snapshot.statuses.find(item=>item.id===task.statusId);const pos=positions.get(task.id)!;
-            return <div className="shared-gantt-row" key={task.id} data-gantt-task={task.id}><div className="shared-gantt-name-cell"><button type="button" className="shared-gantt-name" onClick={()=>onOpen(task)} title={task.title} data-no-translate>{task.title}</button>{canEdit ? <button type="button" className="shared-gantt-return" disabled={busy||Boolean(task.pending)} title="Вернуть задачу в список" aria-label={`${translateText("Вернуть задачу в список")}: ${task.title}`} onClick={()=>onReturn(task,{projectId:task.projectId,statusId:"",position:0,unschedule:ganttUnscheduledSchedule(task,scale)})}><ExperimentalIcon name="map-back"/></button> : null}</div>
+            return <div className="shared-gantt-row" key={task.id} data-gantt-task={task.id}><div className="shared-gantt-name-cell"><button type="button" className="shared-gantt-name" onClick={()=>onOpen(task)} title={task.title} data-no-translate>{task.title}</button>{task.dependsOnIds?.length ? <button type="button" className="shared-gantt-return" aria-label={`${translateText("Предшествующие задачи")}: ${task.title}`} onClick={()=>setDependencyTask(task)}>{task.dependsOnIds.length}</button> : null}{canEdit ? <button type="button" className="shared-gantt-return" disabled={busy||Boolean(task.pending)} title="Вернуть задачу в список" aria-label={`${translateText("Вернуть задачу в список")}: ${task.title}`} onClick={()=>onReturn(task,{projectId:task.projectId,statusId:"",position:0,unschedule:ganttUnscheduledSchedule(task,scale)})}><ExperimentalIcon name="map-back"/></button> : null}</div>
               <div className="shared-gantt-track" {...axisProps}>{createCells}{gridLines}<div className={`shared-gantt-bar${pos.end-pos.x<24 ? " is-short" : ""}${status?.isDone ? " is-done" : ""}${resize.preview?.item.task.id===task.id ? " is-resizing" : ""}`} style={{left:pos.x,width:Math.max(4,pos.end-pos.x),"--bar-color":status?.color||"#2d6c68"} as CSSProperties}>
                 <button type="button" className="shared-gantt-open" data-affair-drag-surface {...dragProps(task,true)} onClick={()=>onOpen(task)}
                   aria-label={`${task.title} · ${formatDate(serialDate(Math.floor(span!.start)))} ${task.startTime||""} — ${formatDate(task.dueDate||task.startDate!)} ${task.endTime||""}${status?.isDone ? english ? " · Completed" : " · Завершена" : ""}`} title={`${task.title} · ${task.startTime||""}–${task.endTime||""}`}><span data-no-translate>{task.title}</span></button>
@@ -167,19 +176,22 @@ export function SharedGantt({snapshot,english,calendarMode,timeFormat,initialDay
     </div>
     {activeSchedule ? <p className="shared-gantt-drop-label" role="status">{formatDate(activeSchedule.startDate)} {activeSchedule.startTime ? formatTimeValue(activeSchedule.startTime,timeFormat) : ""} — {formatDate(activeSchedule.dueDate)} {activeSchedule.endTime ? formatTimeValue(activeSchedule.endTime,timeFormat) : ""}</p> : null}
     {!rows.length ? <p>{english ? "No scheduled tasks in this period." : "В этом периоде нет задач с заданным временем."}</p> : null}
-    {fit && activeTasks.some(task=>{const span=taskSpan(task);return span && span.end>range.end;}) ? <p role="status">{english ? "The fitted range is limited to one year. Use navigation to see later tasks." : "Общий диапазон ограничен годом. Используйте навигацию для более поздних задач."}</p> : null}
+    {fit && snapshot.taskPage?.bounds?.last && dateSerial(snapshot.taskPage.bounds.last)>=range.end ? <p role="status">{english ? "The fitted range is limited to one year. Use navigation to see later tasks." : "Общий диапазон ограничен годом. Используйте навигацию для более поздних задач."}</p> : null}
     <section className="shared-gantt-unscheduled" data-gantt-unscheduled={scale} data-drop-active={Boolean(drag.target?.destination?.unschedule) && !drag.target?.destination?.view || undefined} aria-label={english ? "Unscheduled tasks" : "Неразмеченные задачи"}>
-      <header><h3>{scale==="day" ? (english ? "Without time" : "Без времени") : (english ? "Without dates" : "Без даты")}</h3><span>{unscheduled.length}</span></header>
+      <header><h3>{scale==="day" ? (english ? "Without time" : "Без времени") : (english ? "Without dates" : "Без даты")}</h3><span>{unscheduledPage.page?.total ?? 0}</span></header>
       <p>{english ? "Drag a task onto the timeline, then adjust its start and end with the bar edges or in its card." : "Перетащите задачу на нужный период шкалы, затем настройте начало и окончание за края плашки или в карточке."}</p>
       <div>{unscheduled.map(task=><button type="button" key={task.id} onClick={()=>onOpen(task)} data-affair-drag-surface {...dragProps(task)}>
         <span data-no-translate>{task.title}</span>{scale === "day" && (task.startDate || task.dueDate) ? <small>{formatDate(task.startDate || task.dueDate!)}{task.startDate && task.dueDate && task.startDate !== task.dueDate ? ` — ${formatDate(task.dueDate)}` : ""}</small> : null}
       </button>)}</div>
       {!unscheduled.length ? <p>{scale === "day" ? (english ? "All active tasks have a time assigned." : "Всем активным задачам назначено время.") : (english ? "All tasks in this period are scheduled." : "Все задачи этого периода размечены.")}</p> : null}
+      <SharedTaskPageControls page={unscheduledPage.page} loaded={unscheduled.length} busy={unscheduledPage.busy} onMore={()=>void unscheduledPage.more()} onRefresh={()=>void unscheduledPage.refresh()} error={unscheduledPage.error}/>
     </section>
-    {completedTasks.length ? <details className="shared-gantt-completed"><summary><ExperimentalIcon name="chevron" /><span>{english ? "Completed" : "Выполненные"}</span><span>{completedTasks.length}</span></summary>
+    {completedPage.page?.total ? <details className="shared-gantt-completed"><summary><ExperimentalIcon name="chevron" /><span>{english ? "Completed" : "Выполненные"}</span><span>{completedPage.page.total}</span></summary>
       <p>{english ? "Completed tasks are kept here and do not take up space on the timeline. Open a task to return it to an active board." : "Выполненные задачи сохранены здесь и не занимают место на шкале. Откройте задачу, чтобы вернуть её на активную доску."}</p>
       <div>{completedTasks.map(task => <button type="button" key={task.id} onClick={() => onOpen(task)}><ExperimentalIcon name="check" /><span data-no-translate>{task.title}</span></button>)}</div>
+      <SharedTaskPageControls page={completedPage.page} loaded={completedTasks.length} busy={completedPage.busy} onMore={()=>void completedPage.more()} onRefresh={()=>void completedPage.refresh()} error={completedPage.error}/>
     </details> : null}
+    {dependencyTask ? <SharedDependencyDialog task={dependencyTask} onClose={()=>setDependencyTask(null)} onOpen={task=>{setDependencyTask(null);onOpen(task);}}/> : null}
     {drag.preview && drag.target?.destination ? <div className="shared-projects-drag-preview" aria-hidden="true" style={{left:drag.preview.x+14,top:drag.preview.y+14}}>{drag.preview.item.title}</div> : null}
   </section>;
 }

@@ -35,10 +35,11 @@ function genesisSharedReviewSettings(string $userId,string $projectId,?array $in
 function genesisSharedReviewAllowed(array $rule,array $project,string $userId):bool {
  return match($rule['group']){'everyone'=>true,'editors'=>$project['permissions']['editTasks'],'organizers'=>$project['permissions']['organizeTasks']||$project['permissions']['manageProjects'],'selected'=>in_array($userId,$rule['userIds'],true),default=>false};
 }
-function genesisSharedReviewIndex(string $userId,array $project):array {
+function genesisSharedReviewIndex(string $userId,array $project,?array $taskIds=null):array {
  $root=genesisSharedReviewRoot($project);$policy=genesisSharedReviewPolicy($root['id'])['policy'];
  $allowed=[];foreach(['checked','confirmed','deletable'] as $kind)$allowed[$kind]=$policy['enabled']&&genesisSharedReviewAllowed($policy[$kind],$project,$userId);
- $q=genesisDb()->prepare('SELECT r.task_id AS taskId,r.user_id AS userId,r.kind,u.display_name AS displayName,r.reviewed_at AS reviewedAt FROM shared_task_reviews r JOIN shared_tasks t ON t.id=r.task_id AND t.revision=r.task_revision JOIN users u ON u.id=r.user_id WHERE t.project_id=?');$q->execute([$project['id']]);$index=[];
+ $filter=$taskIds===null?'':' AND t.id IN ('.implode(',',array_fill(0,count($taskIds),'?')).')';
+ $q=genesisDb()->prepare('SELECT r.task_id AS taskId,r.user_id AS userId,r.kind,u.display_name AS displayName,r.reviewed_at AS reviewedAt FROM shared_task_reviews r JOIN shared_tasks t ON t.id=r.task_id AND t.revision=r.task_revision JOIN users u ON u.id=r.user_id WHERE t.project_id=?'.$filter);$q->execute([$project['id'],...($taskIds??[])]);$index=[];
  foreach($q->fetchAll() as $row)$index[$row['taskId']][]=$row;
  return ['enabled'=>$policy['enabled'],'allowed'=>$allowed,'entries'=>$index];
 }

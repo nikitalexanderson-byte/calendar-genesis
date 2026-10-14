@@ -170,7 +170,7 @@ export default defineConfig({
             },
             {
               name: "sync-engine",
-              test: /app[\\/](?:cloud-sync|workspace-sync-state|tracker-cache)\.ts$/,
+              test: /app[\\/](?:cloud-sync|workspace-sync-state|tracker-cache|use-shared-task-page|shared-task-details)\.ts$/,
               maxSize: 300_000,
               priority: 15,
             },

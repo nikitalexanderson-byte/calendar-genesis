@@ -1,10 +1,12 @@
 "use client";
 
+import { useSharedTaskPage } from "./use-shared-task-page";
+import { SharedTaskPageControls } from "./SharedTaskPageControls";
 import { type FormEvent, lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import {
   createSharedStatus, deleteSharedStatus, listSharedProjects, listSharedSpaces,
   listSharedTaskLists, loadSharedProject, updateSharedStatus,
-  type SharedProject, type SharedProjectSnapshot, type SharedSpace, type SharedStatus, type SharedTaskList,
+  type SharedProject, type SharedSpace, type SharedStatus, type SharedTaskList,
 } from "./cloud-sync";
 import { type CalendarMode } from "./calendar-data";
 import { SharedTaskCreate } from "./SharedTaskCreate";
@@ -27,7 +29,6 @@ export function SharedTaskLists({ language, enabledCalendars, onOpenProject, emb
   const [target, setTarget] = useState<SharedTaskList | null>(null);
   const [destinationId, setDestinationId] = useState("");
   const [deleteStatuses, setDeleteStatuses] = useState<SharedStatus[]>([]);
-  const [snapshot, setSnapshot] = useState<SharedProjectSnapshot | null>(null);
   const [openedId, setOpenedId] = useState("");
   const [modal, setModal] = useState<Modal>(embeddedCreate ? "create" : null);
   const [busy, setBusy] = useState(false);
@@ -56,18 +57,11 @@ export function SharedTaskLists({ language, enabledCalendars, onOpenProject, emb
     return () => { live = false; };
   }, [spaceId]);
   useEffect(() => {
-    if (!openedId) return;
-    const row = lists.find((item) => item.id === openedId);
-    if (!row) return;
-    let live = true;
-    void loadSharedProject(row.projectId).then((value) => { if (live) setSnapshot(value); })
-      .catch((error) => { if (live) setMessage(String(error)); });
-    return () => { live = false; };
-  }, [openedId, lists]);
-  useEffect(() => {
     if (!embeddedCreate && modal && dialog.current && !dialog.current.open) dialog.current.showModal();
   }, [modal, embeddedCreate]);
 
+  const openedList = lists.find(row=>row.id===openedId);
+  const tasksPage = useSharedTaskPage(openedList ? {projectIds:[openedList.projectId],statusIds:[openedList.id]} : null);
   const close = () => { dialog.current?.close(); setModal(null); setTarget(null); if (embeddedCreate) onCreated?.(); };
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -152,13 +146,14 @@ export function SharedTaskLists({ language, enabledCalendars, onOpenProject, emb
     {!spaces.length ? <p>{en ? "Create a shared workspace first." : "Сначала создайте общее пространство."}</p> : null}
     <div className="shared-task-lists-grid">{lists.map((row) => <article key={row.id}>
       <button type="button" className="shared-task-lists-title" aria-expanded={openedId === row.id}
-        onClick={() => { setPreview(row);setSnapshot(null); setOpenedId((current) => current === row.id ? "" : row.id); }}>{row.title}</button>
+        onClick={() => { setPreview(row); setOpenedId((current) => current === row.id ? "" : row.id); }}>{row.title}</button>
       <small>{row.spaceTitle} / {row.projectTitle} · {row.taskCount} {en ? "tasks" : "задач"}</small>
       {openedId === row.id ? <div className="shared-task-lists-body">
-        {(snapshot?.project.id === row.projectId ? snapshot.tasks.filter((task) => task.statusId === row.id) : [])
+        {(tasksPage.page?.tasks ?? [])
           .map((task) => <p key={task.id}>{task.title}{task.dueDate ? ` · ${task.dueDate}` : ""}</p>)}
-        {snapshot?.project.id === row.projectId && !snapshot.tasks.some((task) => task.statusId === row.id)
+        {tasksPage.page?.total === 0
           ? <p>{en ? "This list is empty." : "Список пока пуст."}</p> : null}
+        <SharedTaskPageControls page={tasksPage.page} loaded={tasksPage.page?.tasks.length ?? 0} busy={tasksPage.busy} onMore={()=>void tasksPage.more()} onRefresh={()=>void tasksPage.refresh()} error={tasksPage.error}/>
         <div className="shared-task-lists-actions">
           {["owner", "manager", "member"].includes(row.role) ? <button type="button" onClick={() => { setTarget(row); setModal("task"); }}>
             {en ? "Add task" : "Добавить задачу"}</button> : null}

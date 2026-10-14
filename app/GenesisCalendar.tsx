@@ -1,4 +1,6 @@
 "use client";
+import { useSharedTaskPage } from "./use-shared-task-page";
+import { SharedTaskPageControls } from "./SharedTaskPageControls";
 import { DeferredViewFallback, DeferredDialogFallback, DeferredHabitFallback, ViewErrorBoundary, lazyWithRecovery as lazy } from "./DeferredViews";
 import { habitReminderTime, habitReminderTimes } from "./habit-reminder-time";
 import { habitIntervalMarks } from "./habit-interval";
@@ -69,7 +71,7 @@ import {
   canRestoreOfflineSession,
   type AssistantProvider,
   loadGenesisWorkspace,
-  listSharedCalendarTasks,
+  listSharedCalendarTasks, sharedCalendarProjection,
   mergeLocalWorkspace,
   metricsFor,
   observeCloudTasks,
@@ -1184,7 +1186,7 @@ export function GenesisCalendar() {
   const voiceLanguageEnabled = hydrated && (language === "ru" || language === "en");
   const [authResolved, setAuthResolved] = useState(!isGoogleSyncConfigured);
   const [cloudUser, setCloudUser] = useState<GenesisUser | null>(null);
-  const [sharedCalendarTasks, setSharedCalendarTasks] = useState<SharedCalendarTask[]>([]);
+  const [sharedCalendarCounts, setSharedCalendarCounts] = useState<Record<string,number>>({});
   const [calendarCompletionBusy, setCalendarCompletionBusy] = useState("");
   const [locatedPersonalTaskId, setLocatedPersonalTaskId] = useState("");
   const [springYearSuggestionDismissed, setSpringYearSuggestionDismissed] = useState(false);
@@ -1713,27 +1715,24 @@ export function GenesisCalendar() {
   const selectedGregorianYear = selectedDate.getFullYear();
   useEffect(() => {
     if (!cloudUser?.sharedProjectsEnabled) {
-      const timer = window.setTimeout(() => setSharedCalendarTasks([]), 0);
+      const timer = window.setTimeout(() => setSharedCalendarCounts({}), 0);
       return () => window.clearTimeout(timer);
     }
     let live = true;
+    const controller = new AbortController();
     const year = selectedGregorianYear;
     const from = `${year - 1}-01-01`;
     const to = `${year + 1}-12-31`;
-    const refresh = () => { void listSharedCalendarTasks(from, to).then((items) => {
-      if (live) setSharedCalendarTasks(items.filter(item => !item.completedAt));
-    }).catch(() => undefined); };
+    const refresh = () => { void listSharedCalendarTasks(from, to, null, controller.signal).then((result) => {
+      if (live) setSharedCalendarCounts(result.dateCounts);
+    }).catch(() => { if(live) setSharedCalendarCounts({}); }); };
     refresh();
     const timer = window.setInterval(() => { if (document.visibilityState === "visible") refresh(); }, 30000);
     window.addEventListener("genesis:shared-updates", refresh);
-    return () => { live = false; window.clearInterval(timer); window.removeEventListener("genesis:shared-updates", refresh); };
+    return () => { live = false; controller.abort(); window.clearInterval(timer); window.removeEventListener("genesis:shared-updates", refresh); };
   }, [cloudUser?.uid, cloudUser?.sharedProjectsEnabled, selectedGregorianYear]);
-  const sharedCalendarByDate = useMemo(() => {
-    const byDate = new Map<string, SharedCalendarTask[]>();
-    for (const item of sharedCalendarTasks) byDate.set(item.dueDate,
-      [...(byDate.get(item.dueDate) ?? []), item]);
-    return byDate;
-  }, [sharedCalendarTasks]);
+  const sharedDayPage = useSharedTaskPage(cloudUser?.sharedProjectsEnabled && dayDetailsOpen ? {dueFrom:selectedDateValue,dueTo:selectedDateValue,completion:"open"} : null);
+  const sharedDayTasks = sharedDayPage.page?.tasks.map(sharedCalendarProjection) ?? [];
   const newTaskDueDate = taskUndated ? "" : taskDueDate || (view === "today" || view === "all-tasks" ? todayDateValue : selectedDateValue);
   const newTaskEndDate = taskUndated ? "" : taskEndDate || newTaskDueDate;
   const selectedMonth = MONTHS[monthIndex];
@@ -5133,7 +5132,7 @@ export function GenesisCalendar() {
     const cellTasks = isAdjacentMonth ? [] : [...(calendarTasksByDate.get(dateValue) ?? [])]
       .sort((a, b) => a.time.localeCompare(b.time));
     const taskCount = cellTasks.length;
-    const sharedTasks = isAdjacentMonth ? [] : (sharedCalendarByDate.get(dateValue) ?? []);
+    const sharedCount = isAdjacentMonth ? 0 : (sharedCalendarCounts[dateValue] ?? 0);
     const isToday = !isAdjacentMonth && dateValue === todayDateValue;
     const isSelected = !isAdjacentMonth && dateValue === selectedDateValue;
     const weekdayIndex = date.getDay();
@@ -5213,7 +5212,7 @@ export function GenesisCalendar() {
           <span><i aria-hidden="true">↗</i>{sunrise}</span>
           <span><i aria-hidden="true">↘</i>{sunset}</span>
         </span>
-        <Suspense fallback={null}><CalendarSharedTaskControl tasks={sharedTasks} dateLabel={formatGregorian(date, true)} language={language}
+        <Suspense fallback={null}><CalendarSharedTaskControl tasks={[]} total={sharedCount} date={dateValue} dateLabel={formatGregorian(date, true)} language={language}
           popoverKey={sharedPopoverKey} alignment={popoverAlignment} openKey={openDayTaskPopover}
           onOpenKey={setOpenDayTaskPopover} onOpenTask={openSharedCalendarTask} onCompleteTask={completeSharedCalendarTask} busyTaskId={calendarCompletionBusy} />
         <CalendarPersonalTaskControl tasks={cellTasks.filter(task => !task.done)} dateLabel={formatGregorian(date, true)} language={language}
@@ -5317,7 +5316,7 @@ export function GenesisCalendar() {
                     const cellTasks = [...(calendarTasksByDate.get(gregorianDateValue) ?? [])]
                       .sort((a, b) => a.time.localeCompare(b.time));
                     const taskCount = cellTasks.length;
-                    const sharedTasks = sharedCalendarByDate.get(gregorianDateValue) ?? [];
+                    const sharedCount = sharedCalendarCounts[gregorianDateValue] ?? 0;
                     const isToday = key === todayKey;
                     const isSelected = dayNumber === selectedDay;
                     const isSaturday = gregorian.getDay() === 6;
@@ -5372,7 +5371,7 @@ export function GenesisCalendar() {
                           <span><i aria-hidden="true">↘</i>{sunset}</span>
                         </span>
                         <small>{sacredDay.name.split("(")[0].trim()}</small>
-                        <Suspense fallback={null}><CalendarSharedTaskControl tasks={sharedTasks} dateLabel={formatGregorian(gregorian, true)} language={language}
+                        <Suspense fallback={null}><CalendarSharedTaskControl tasks={[]} total={sharedCount} date={gregorianDateValue} dateLabel={formatGregorian(gregorian, true)} language={language}
                           popoverKey={sharedPopoverKey} alignment={popoverAlignment} openKey={openDayTaskPopover}
                           onOpenKey={setOpenDayTaskPopover} onOpenTask={openSharedCalendarTask} onCompleteTask={completeSharedCalendarTask} busyTaskId={calendarCompletionBusy} />
                         <CalendarPersonalTaskControl tasks={cellTasks.filter(task => !task.done)} dateLabel={formatGregorian(gregorian, true)} language={language}
@@ -6095,7 +6094,7 @@ export function GenesisCalendar() {
                       {days.map((dayNumber) => {
                         const key = taskDateKey(sacredYear, month.index, dayNumber);
                         const dayTasks = calendarTasksByDate.get(inputDate(getGregorianDate(sacredYear, month.index, dayNumber))) ?? [];
-                        const sharedTasks = sharedCalendarByDate.get(inputDate(getGregorianDate(sacredYear, month.index, dayNumber))) ?? [];
+                        const sharedCount = sharedCalendarCounts[inputDate(getGregorianDate(sacredYear, month.index, dayNumber))] ?? 0;
                         const taskCount = dayTasks.length;
                         const hasTask = taskCount > 0;
                         const todayDot = key === todayKey;
@@ -6113,7 +6112,7 @@ export function GenesisCalendar() {
                           >
                             <span className="mini-day-number">{(["I", "II", "III", "IIII", "V"] as const)[(dayNumber - 1) % 5]}</span>
                             <CalendarYearTaskCounts tasks={dayTasks} />
-                            {sharedTasks.length ? <span className="mini-day-shared-count" aria-label={`${sharedTasks.length} ${translateText("общих задач", language)}`}>{sharedTasks.length}</span> : null}
+                            {sharedCount ? <span className="mini-day-shared-count" aria-label={`${sharedCount} ${translateText("общих задач", language)}`}>{sharedCount}</span> : null}
                           </button>
                         );
                       })}
@@ -6328,7 +6327,7 @@ export function GenesisCalendar() {
                   {month.dates.map((date) => {
                     const dateValue = inputDate(date);
                     const cellTasks = calendarTasksByDate.get(dateValue) ?? [];
-                    const sharedTasks = sharedCalendarByDate.get(dateValue) ?? [];
+                    const sharedCount = sharedCalendarCounts[dateValue] ?? 0;
                     const dayTasks = cellTasks.length;
                     const moon = getMoon(date);
                     const sacred = getSacredDate(date);
@@ -6347,7 +6346,7 @@ export function GenesisCalendar() {
                           <CalendarPersonalTaskControl tasks={cellTasks} dateLabel={formatGregorian(date, true)} language={language}
                             popoverKey={`year-personal-${dateValue}`} alignment="align-center" openKey={openDayTaskPopover} onOpenKey={setOpenDayTaskPopover}
                             onOpenTask={openPersonalCalendarTask} onCompleteTask={task => toggleTask(task.id)} formatTime={time => formatTimeValue(time, activeTimeFormat)} />
-                          <CalendarSharedTaskControl tasks={sharedTasks} dateLabel={formatGregorian(date, true)} language={language}
+                          <CalendarSharedTaskControl tasks={[]} total={sharedCount} date={dateValue} dateLabel={formatGregorian(date, true)} language={language}
                             popoverKey={`year-shared-${dateValue}`} alignment="align-center" openKey={openDayTaskPopover} onOpenKey={setOpenDayTaskPopover}
                             onOpenTask={openSharedCalendarTask} onCompleteTask={completeSharedCalendarTask} busyTaskId={calendarCompletionBusy} />
                         </Suspense>
@@ -6364,7 +6363,7 @@ export function GenesisCalendar() {
                       >
                         <span className="mini-day-number">{date.getDate()}</span>
                         <CalendarYearTaskCounts tasks={cellTasks} />
-                        {sharedTasks.length ? <span className="mini-day-shared-count" aria-label={`${sharedTasks.length} ${language === "en" ? "shared tasks" : "общих задач"}`}>{sharedTasks.length}</span> : null}
+                        {sharedCount ? <span className="mini-day-shared-count" aria-label={`${sharedCount} ${language === "en" ? "shared tasks" : "общих задач"}`}>{sharedCount}</span> : null}
                       </button>
                     );
                   })}
@@ -6958,17 +6957,18 @@ export function GenesisCalendar() {
                 </div>
               </section>
             ) : null}
-            {(sharedCalendarByDate.get(selectedDateValue) ?? []).length ? (
+            {(sharedDayPage.page?.total ?? sharedCalendarCounts[selectedDateValue] ?? 0) ? (
               <section className="day-details-tasks day-details-shared-tasks" aria-labelledby="day-details-shared-tasks-title">
                 <header><span className="eyebrow">{language === "en" ? "Team plan" : "Командный план"}</span>
-                  <h3 id="day-details-shared-tasks-title">{language === "en" ? "Shared tasks" : "Общие задачи"} · {(sharedCalendarByDate.get(selectedDateValue) ?? []).length}</h3></header>
+                  <h3 id="day-details-shared-tasks-title">{language === "en" ? "Shared tasks" : "Общие задачи"} · {(sharedDayPage.page?.total ?? sharedCalendarCounts[selectedDateValue] ?? 0)}</h3></header>
                 <div className="day-details-task-list">
-                  {(sharedCalendarByDate.get(selectedDateValue) ?? []).map((task) => <article className={task.completedAt ? "done" : ""} key={task.id}>
+                  {sharedDayTasks.map((task) => <article className={task.completedAt ? "done" : ""} key={task.id}>
                     <button type="button" className="day-details-task-open" onClick={() => openSharedCalendarTask(task)}>
                       <span><time>{task.projectTitle || (language === "en" ? "Space inbox" : "Хаос-бокс пространства")}</time></span>
                       <strong data-no-translate>{task.title}</strong>
                     </button>
                   </article>)}
+                <SharedTaskPageControls page={sharedDayPage.page} loaded={sharedDayTasks.length} busy={sharedDayPage.busy} onMore={()=>void sharedDayPage.more()} onRefresh={()=>void sharedDayPage.refresh()} error={sharedDayPage.error}/>
                 </div>
               </section>
             ) : null}

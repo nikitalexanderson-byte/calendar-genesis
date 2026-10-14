@@ -113,6 +113,10 @@ internal fun SharedProjectsScreen(controller: SharedWorkspaceGateway, language: 
     var calendarAnchor by remember { mutableStateOf(LocalDate.now()) }
     var calendarDay by remember { mutableStateOf(LocalDate.now()) }
     var showUndated by remember { mutableStateOf(false) }
+    var taskPage by remember { mutableStateOf<JSONObject?>(null) }
+    var taskSearch by remember { mutableStateOf("") }
+    var openedTask by remember { mutableStateOf<JSONObject?>(null) }
+    var editTaskDetails by remember { mutableStateOf(JSONObject()) }
     var taskId by remember { mutableStateOf("") }
     var createModal by remember { mutableStateOf<String?>(null) }
     var showManagement by remember { mutableStateOf(false) }
@@ -182,7 +186,11 @@ internal fun SharedProjectsScreen(controller: SharedWorkspaceGateway, language: 
         offlineSnapshot = result.optBoolean("offlineCache")
         if (projectId != id) return
         if (snapshot?.toString() != result.toString()) snapshot = result
-        if (result.getJSONArray("tasks").rows().none { it.getString("id") == taskId }) taskId = ""
+        if (taskId.isNotBlank()) {
+            val currentId = taskId
+            try { val found = controller.sharedTask(id, currentId).getJSONObject("task"); if (taskId == currentId) openedTask = found }
+            catch (error: Exception) { message = error.message ?: "TASK_NOT_FOUND"; openedTask = null }
+        }
     }
     fun persistExpansion(ids: Set<String>) {
         if (spaceId.isBlank() || uiReadySpace != spaceId) return
@@ -286,7 +294,7 @@ internal fun SharedProjectsScreen(controller: SharedWorkspaceGateway, language: 
     val project = snapshot?.getJSONObject("project")
     val statuses = snapshot?.getJSONArray("statuses")?.rows().orEmpty()
     val categories = snapshot?.optJSONArray("categories")?.rows().orEmpty()
-    val tasks = snapshot?.getJSONArray("tasks")?.rows().orEmpty()
+    val tasks = taskPage?.optJSONArray("tasks")?.rows().orEmpty()
     val inboxProject = projects.firstOrNull { it.optInt("isInbox") == 1 }
     val inboxTasks = inboxPreview?.optJSONArray("tasks")?.rows().orEmpty()
     LaunchedEffect(inboxExpanded, inboxProject?.optString("id")) {
@@ -307,8 +315,25 @@ internal fun SharedProjectsScreen(controller: SharedWorkspaceGateway, language: 
     val canOrganize = project?.optBoolean("canOrganizeTasks") == true
     val canComment = role in setOf("owner", "manager", "member", "commenter")
     val canInvite = role in setOf("owner", "manager")
-    val selectedTask = tasks.firstOrNull { it.optString("id") == taskId }
+    val selectedTask = openedTask?.takeIf { it.optString("id") == taskId && it.optString("projectId") == projectId } ?: tasks.firstOrNull { it.optString("id") == taskId }
     val activeView = viewOverride ?: project?.optString("layout") ?: "list"
+    val taskFilter = JSONObject().put("projectIds", JSONArray().put(projectId)).put("q", taskSearch)
+    if (activeView == "calendar") {
+        if (showUndated) taskFilter.put("undated", true)
+        else taskFilter.put("dueFrom", calendarDay.toString()).put("dueTo", calendarDay.toString())
+    }
+    val taskFilterKey = taskFilter.toString()
+    LaunchedEffect(taskFilterKey) {
+        taskPage = null
+        if (projectId.isBlank()) return@LaunchedEffect
+        while (isActive) {
+            try {
+                val next = controller.querySharedTasks(JSONObject(taskFilterKey))
+                taskPage = mergeSharedTaskPage(taskPage, next, false)
+            } catch(error: Exception) { message = error.message ?: "Не удалось загрузить данные"; taskPage = null }
+            delay(5_000)
+        }
+    }
     var draggingTask by remember { mutableStateOf<JSONObject?>(null) }
     var draggingAt by remember { mutableStateOf<Offset?>(null) }
     var rootPosition by remember { mutableStateOf(Offset.Zero) }
@@ -379,11 +404,16 @@ internal fun SharedProjectsScreen(controller: SharedWorkspaceGateway, language: 
         }
     }
     LaunchedEffect(projectId, taskId) {
-        editTaskTitle = selectedTask?.optString("title") ?: ""
-        editTaskDescription = selectedTask?.optString("description") ?: ""
-        editTaskDueDate = selectedTask?.optString("dueDate")?.takeUnless { it == "null" } ?: ""
-        editTaskCategoryId = selectedTask?.optString("categoryId")?.takeUnless { it == "null" } ?: ""
-        editTaskRevision = selectedTask?.optInt("revision") ?: 0
+        if (taskId.isBlank()) { openedTask = null; return@LaunchedEffect }
+        val current = try { controller.sharedTask(projectId, taskId).getJSONObject("task") }
+            catch(error: Exception) { message = error.message ?: "TASK_NOT_FOUND"; return@LaunchedEffect }
+        openedTask = current
+        editTaskDetails = sharedTaskDetailDraft(current)
+        editTaskTitle = current?.optString("title") ?: ""
+        editTaskDescription = current?.optString("description") ?: ""
+        editTaskDueDate = current?.optString("dueDate")?.takeUnless { it == "null" } ?: ""
+        editTaskCategoryId = current?.optString("categoryId")?.takeUnless { it == "null" } ?: ""
+        editTaskRevision = current?.optInt("revision") ?: 0
     }
     LaunchedEffect(projectId, project?.optInt("revision")) {
         editTitle = project?.optString("title") ?: ""
@@ -1086,10 +1116,6 @@ internal fun SharedProjectsScreen(controller: SharedWorkspaceGateway, language: 
             }
             }
             if (activeView == "calendar") {
-                if (tasks.size >= 500) Text(if (en)
-                    "This project has at least 500 tasks. The calendar may omit later tasks."
-                    else "В проекте не менее 500 задач. Календарь может не показывать задачи за пределами загруженной части.",
-                    style = MaterialTheme.typography.bodySmall)
                 val locale = if (en) Locale.US else Locale.forLanguageTag("ru-RU")
                 val range = calendarEngine.monthRange(calendarAnchor, calendarMode)
                 val periodDates = range.dates()
@@ -1126,8 +1152,8 @@ internal fun SharedProjectsScreen(controller: SharedWorkspaceGateway, language: 
                                 return@repeat
                             }
                             val date = range.start.plusDays(index.toLong())
-                            val count = tasks.count { it.optString("dueDate") == date.toString() }
-                            TextButton(onClick = { calendarDay = date }, modifier = Modifier.weight(1f).height(54.dp).semantics {
+                            val count = snapshot?.optJSONObject("taskPage")?.optJSONObject("dateCounts")?.optInt(date.toString()) ?: 0
+                            TextButton(onClick = { calendarDay = date; showUndated = false }, modifier = Modifier.weight(1f).height(54.dp).semantics {
                                 contentDescription = calendarEngine.formatDate(date, calendarMode) +
                                     if (count > 0) (if (en) " · $count tasks" else " · задач: $count") else ""
                             },
@@ -1161,9 +1187,9 @@ internal fun SharedProjectsScreen(controller: SharedWorkspaceGateway, language: 
                     onDragEnd = { finishDrag() },
                     onDragCancel = { draggingTask = null; draggingAt = null; dropBounds.clear() }) }
                 val undated = tasks.filter { it.isNull("dueDate") || it.optString("dueDate").isBlank() }
-                if (undated.isNotEmpty()) {
+                if (true) {
                     TextButton(onClick = { showUndated = !showUndated }) {
-                        Text((if (en) "Without a due date" else "Без срока") + " · ${undated.size}")
+                        Text((if (en) "Without a due date" else "Без срока") + if (showUndated) " · ${taskPage?.optInt("total") ?: 0}" else "")
                     }
                     if (showUndated) undated.forEach { task ->
                         TextButton(onClick = { taskId = task.getString("id") }) { Text(task.getString("title")) }
@@ -1253,6 +1279,14 @@ internal fun SharedProjectsScreen(controller: SharedWorkspaceGateway, language: 
                     onDragCancel = { draggingTask = null; draggingAt = null; dropBounds.clear() })
                 }
             }
+            OutlinedTextField(taskSearch, { taskSearch = it }, label = { Text("Поиск задач") }, modifier = Modifier.fillMaxWidth())
+            taskPage?.let { page ->
+                Text(genesisTranslate("Показано: {loaded} из {total}").replace("{loaded}", tasks.size.toString()).replace("{total}", page.optInt("total").toString()))
+                if (page.optBoolean("hasMore")) TextButton(enabled = !busy, onClick = { run {
+                    try { taskPage = mergeSharedTaskPage(taskPage, controller.querySharedTasks(JSONObject(taskFilterKey), page.optString("nextCursor")), true) }
+                    catch(error: Exception) { taskPage = controller.querySharedTasks(JSONObject(taskFilterKey)); message = error.message ?: "SHARED_QUERY_CHANGED" }
+                } }) { Text("Показать ещё") }
+            }
             if (selectedTask != null) ElevatedCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(selectedTask.getString("title"), style = MaterialTheme.typography.titleLarge)
@@ -1277,10 +1311,12 @@ internal fun SharedProjectsScreen(controller: SharedWorkspaceGateway, language: 
                                     label = { Text(category?.optString("title") ?: if (en) "No category" else "Без категории") })
                             }
                         }
+                        SharedTaskDetailsFields(selectedTask, editTaskDetails, { editTaskDetails = it }, busy)
                         if (selectedTask.optInt("revision") != editTaskRevision) {
                             Text(if (en) "Changed elsewhere. Your draft is kept." else "Изменено другим участником. Черновик сохранён.",
                                 color = MaterialTheme.colorScheme.error)
                             TextButton(onClick = {
+                                editTaskDetails = sharedTaskDetailDraft(selectedTask)
                                 editTaskTitle = selectedTask.optString("title")
                                 editTaskDescription = selectedTask.optString("description")
                                 editTaskDueDate = selectedTask.optString("dueDate").takeUnless { it == "null" } ?: ""
@@ -1290,12 +1326,13 @@ internal fun SharedProjectsScreen(controller: SharedWorkspaceGateway, language: 
                         }
                         val dateValid = editTaskDueDate.isBlank() || runCatching { LocalDate.parse(editTaskDueDate) }.isSuccess
                         Button(onClick = { run {
-                            val changed = controller.updateSharedTask(projectId, taskId, JSONObject()
+                            val changed = controller.updateSharedTask(projectId, taskId, JSONObject(editTaskDetails.toString())
                                 .put("title", editTaskTitle.trim()).put("description", editTaskDescription.trim())
                                 .put("dueDate", editTaskDueDate.ifBlank { null } ?: JSONObject.NULL)
                                 .put("categoryId", editTaskCategoryId.ifBlank { null } ?: JSONObject.NULL)
                                 .put("expectedRevision", editTaskRevision)).getJSONObject("task")
                             editTaskRevision = changed.getInt("revision")
+                            editTaskDetails = sharedTaskDetailDraft(changed)
                             pendingTasks = controller.queuedSharedTasks(projectId)
                             if (changed.optBoolean("pending")) message = if (en)
                                 "Change saved on this device. It will sync when connected."
@@ -1305,7 +1342,10 @@ internal fun SharedProjectsScreen(controller: SharedWorkspaceGateway, language: 
                             selectedTask.optInt("revision") == editTaskRevision) {
                             Text(if (en) "Save task" else "Сохранить задачу")
                         }
-                    } else if (selectedTask.optString("description").isNotBlank()) Text(selectedTask.getString("description"))
+                    } else {
+                        if (selectedTask.optString("description").isNotBlank()) Text(selectedTask.getString("description"))
+                        SharedTaskDetailsFields(selectedTask, sharedTaskDetailDraft(selectedTask), {}, true)
+                    }
                     if (canWrite) {
                         Text(if (en) "Assigned to" else "Исполнитель")
                         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {

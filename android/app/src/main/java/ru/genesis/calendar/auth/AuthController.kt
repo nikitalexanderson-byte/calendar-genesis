@@ -178,6 +178,10 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
                 .put("boardStatusId", boardStatusId ?: JSONObject.NULL)) }
     suspend fun importSharedProject(spaceId: String, body: JSONObject): JSONObject =
         sharedCall { api, generation -> api.importSharedProject(generation, spaceId, body) }
+    override suspend fun querySharedTasks(filter: JSONObject, cursor: String?): JSONObject =
+        sharedCachedCall("task-page:$filter:$cursor") { api, generation -> api.querySharedTasks(generation, filter, cursor) }
+    override suspend fun sharedTask(projectId: String, taskId: String): JSONObject =
+        sharedCachedCall("task:$projectId:$taskId") { api, generation -> api.sharedTask(generation, projectId, taskId) }
     override suspend fun sharedProject(projectId: String): JSONObject =
         sharedCachedCall("project:$projectId") { api, generation -> api.sharedProject(generation, projectId) }
     override suspend fun sharedGoogleSettings(projectId: String): JSONObject =

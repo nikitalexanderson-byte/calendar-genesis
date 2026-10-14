@@ -1,21 +1,26 @@
 import { useLayoutEffect, useRef, type Dispatch, type SetStateAction, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import type { SharedCalendarTask, GenesisTask } from "./cloud-sync";
+import { sharedCalendarProjection, type SharedCalendarTask, type GenesisTask } from "./cloud-sync";
 import { ExperimentalIcon } from "./ExperimentalIcon";
 import { translateText, type Language } from "./i18n";
 import { CalendarDayTaskCounts } from "./CalendarTaskCounts";
 import { entryTypeLabel, type EntryType } from "./EntryTypeChoice";
 
+import { useSharedTaskPage } from "./use-shared-task-page";
+import { SharedTaskPageControls } from "./SharedTaskPageControls";
+
 type PopoverTask = { id: string; title: string; entryType?:EntryType; done?: boolean; completedAt?: string | null };
 type ControlProps<T extends PopoverTask> = {
-  tasks: readonly T[]; dateLabel: string; language: Language; popoverKey: string; alignment: string; openKey: string;
+  tasks: readonly T[]; total?: number; footer?: ReactNode; date?: string; dateLabel: string; language: Language; popoverKey: string; alignment: string; openKey: string;
   onOpenKey: Dispatch<SetStateAction<string>>; onOpenTask: (task: T) => void;
   onCompleteTask: (task: T) => void; busyTaskId?: string;
 };
 
-export function CalendarSharedTaskControl({ tasks, dateLabel, language, popoverKey, alignment,
+export function CalendarSharedTaskControl({ tasks, total, date, dateLabel, language, popoverKey, alignment,
   openKey, onOpenKey, onOpenTask, onCompleteTask, busyTaskId }: ControlProps<SharedCalendarTask>) {
-  return <CalendarTaskControl tasks={tasks} dateLabel={dateLabel} language={language} popoverKey={popoverKey} alignment={alignment}
+  const result = useSharedTaskPage(date && openKey === popoverKey ? {dueFrom:date,dueTo:date,completion:"open"} : null);
+  const visible = result.page?.tasks.map(sharedCalendarProjection) ?? tasks;
+  return <CalendarTaskControl tasks={visible} total={result.page?.total ?? total} footer={date ? <SharedTaskPageControls page={result.page} loaded={visible.length} busy={result.busy} onMore={()=>void result.more()} onRefresh={()=>void result.refresh()} error={result.error}/> : null} dateLabel={dateLabel} language={language} popoverKey={popoverKey} alignment={alignment}
     openKey={openKey} onOpenKey={onOpenKey} onOpenTask={onOpenTask} onCompleteTask={onCompleteTask} busyTaskId={busyTaskId} shared
     renderMeta={task => <small data-no-translate>{task.projectTitle || (language === "en" ? "Space inbox" : "Хаос-бокс пространства")}</small>} />;
 }
@@ -24,7 +29,7 @@ export function CalendarPersonalTaskControl(props: ControlProps<GenesisTask> & {
   return <CalendarTaskControl {...props} renderMeta={task => <time>{task.time ? props.formatTime(task.time) : (props.language === "en" ? "All day" : "Весь день")}</time>} />;
 }
 
-function CalendarTaskControl<T extends PopoverTask>({ tasks, dateLabel, language, popoverKey, alignment, openKey, onOpenKey, onOpenTask, onCompleteTask, busyTaskId, shared = false, renderMeta }: ControlProps<T> & { shared?: boolean; renderMeta: (task: T) => ReactNode }) {
+function CalendarTaskControl<T extends PopoverTask>({ tasks, total = tasks.length, footer, dateLabel, language, popoverKey, alignment, openKey, onOpenKey, onOpenTask, onCompleteTask, busyTaskId, shared = false, renderMeta }: ControlProps<T> & { shared?: boolean; renderMeta: (task: T) => ReactNode }) {
   const expanded = openKey === popoverKey;
   const controlRef = useRef<HTMLDivElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
@@ -67,7 +72,7 @@ function CalendarTaskControl<T extends PopoverTask>({ tasks, dateLabel, language
       window.clearTimeout(settleTimer);
     };
   }, [expanded, alignment, tasks.length]);
-  if (!tasks.length) return null;
+  if (!total) return null;
   const english = language === "en";
   const title = shared ? (english ? "Shared tasks" : "Общие задачи") : (english ? "Personal tasks" : "Личные задачи");
   const id = `calendar-task-popover-${popoverKey}`;
@@ -86,12 +91,12 @@ function CalendarTaskControl<T extends PopoverTask>({ tasks, dateLabel, language
       }
     }}>
     {shared ? <button type="button" className="calendar-shared-task-count" onClick={pinPopover}
-      aria-label={`${title}: ${tasks.length} · ${dateLabel}`}
-      aria-expanded={expanded} aria-controls={id} aria-haspopup="dialog">{tasks.length}</button> : <CalendarDayTaskCounts tasks={tasks.map(task => ({ done: Boolean(task.done) }))} dateLabel={dateLabel} language={language} onOpen={pinPopover} expanded={expanded} controls={id} />}
+      aria-label={`${title}: ${total} · ${dateLabel}`}
+      aria-expanded={expanded} aria-controls={id} aria-haspopup="dialog">{total}</button> : <CalendarDayTaskCounts tasks={tasks.map(task => ({ done: Boolean(task.done) }))} dateLabel={dateLabel} language={language} onOpen={pinPopover} expanded={expanded} controls={id} />}
     {expanded && typeof document !== "undefined" ? createPortal(<div ref={popupRef} className={`calendar-task-popover calendar-stable-task-popover ${shared ? "calendar-shared-task-popover" : "calendar-personal-task-popover"}`}
       onPointerEnter={openPopover} onPointerLeave={event => {if(event.pointerType === "mouse")closePopoverSoon();}}
       id={id} role="dialog" aria-label={`${title} · ${dateLabel}`}>
-      <header><strong>{title} · {tasks.length}</strong>
+      <header><strong>{title} · {total}</strong>
         <button type="button" onClick={() => onOpenKey("")} aria-label={english ? "Close task list" : "Закрыть список задач"}>
           <ExperimentalIcon name="close" />
         </button>
@@ -105,6 +110,7 @@ function CalendarTaskControl<T extends PopoverTask>({ tasks, dateLabel, language
           {renderMeta(task)}
         </button>
       </li>)}</ul>
+      {footer}
     </div>, document.querySelector(".genesis-app") ?? document.body) : null}
   </div>;
 }

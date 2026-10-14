@@ -79,6 +79,7 @@ function genesisSharedApproveTask(string $userId, string $projectId, string $tas
         if ($approved->rowCount()) {
             $remaining = $db->prepare('SELECT COUNT(*) FROM shared_task_approvals WHERE task_id = :task AND approved_at IS NULL');
             $remaining->execute(['task' => $taskId]); $complete = (int)$remaining->fetchColumn() === 0;
+            if ($complete) genesisSharedRequireTaskChildrenComplete($taskId);
             $db->prepare('UPDATE shared_tasks SET status_id = :status, completed_by = :actor, completed_at = :completed,
                 updated_by = :user, updated_at = :now, revision = revision + 1 WHERE id = :task')->execute([
                 'status' => $complete ? $doneId : $task['status_id'], 'actor' => $complete ? $userId : null,
@@ -86,7 +87,6 @@ function genesisSharedApproveTask(string $userId, string $projectId, string $tas
             genesisSharedAudit($projectId, $userId, 'task.updated', $taskId, ['objectTitle' => $task['title'], 'changes' => ['approval' => ['from' => false, 'to' => true]]]);
         }
         $db->commit();
-        foreach (genesisSharedProjectSnapshot($userId, $projectId)['tasks'] as $result) if ($result['id'] === $taskId) return $result;
-        throw new GenesisSharedAccessException();
+        return genesisSharedGetTask($userId, $projectId, $taskId);
     } catch (Throwable $error) { if ($db->inTransaction()) $db->rollBack(); throw $error; }
 }

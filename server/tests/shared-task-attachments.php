@@ -100,6 +100,8 @@ try {
     $db->prepare('DELETE FROM shared_space_members WHERE space_id = :space AND user_id = :user')->execute(['space' => $space['id'], 'user' => $member]);
     attachmentDenied(fn() => genesisSharedReadTaskAttachment($member, $task['id'], $file['id']));
     genesisSharedDeleteTask($owner, $destination['id'], $task['id'], ['expectedRevision' => $moved['revision']]);
-    $stored->execute(['id' => $file['id']]); attachmentExpect($stored->fetch() === false, 'Deleted task left file ciphertext.');
+    $stored->execute(['id' => $file['id']]); attachmentExpect($stored->fetch() !== false, 'Trash lost recoverable file ciphertext.');
+    $stored->closeCursor();
+    attachmentDenied(fn() => genesisSharedReadTaskAttachment($owner, $task['id'], $file['id']));
 } finally { foreach ($users as $id) if (genesisFindUser($id)) genesisDeleteAccount($id); }
 echo "Shared task files: formats, encryption, atomicity, retries, compatibility, backup, ACL and deletion passed.\n";

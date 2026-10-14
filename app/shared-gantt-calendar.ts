@@ -29,8 +29,8 @@ function advanceMonth(day: number, count: number, mode: CalendarMode) {
   return month.start;
 }
 
-function initialCalendarGanttRange(anchor: string, scale: GanttScale, tasks: SharedTask[], mode: CalendarMode, fit = false) {
-  if (scale === "day" || fit && tasks.some(task => taskSpan(task))) return ganttRange(anchor, scale, tasks, fit);
+function initialCalendarGanttRange(anchor: string, scale: GanttScale, tasks: SharedTask[], mode: CalendarMode, fit = false, bounds?: {first: string | null; last: string | null}) {
+  if (scale === "day" || fit && (bounds?.first || tasks.some(task => taskSpan(task)))) return ganttRange(anchor, scale, tasks, fit, bounds);
   const day = dateSerial(anchor);
   if (scale === "months") {
     const start = monthAt(day, mode).start;
@@ -45,8 +45,8 @@ function initialCalendarGanttRange(anchor: string, scale: GanttScale, tasks: Sha
 }
 
 /** Keep the cell scale unchanged and reveal more periods when the workspace grows. */
-export function calendarGanttRange(anchor: string, scale: GanttScale, tasks: SharedTask[], mode: CalendarMode, fit = false, minimumPeriods = 0) {
-  const range = initialCalendarGanttRange(anchor, scale, tasks, mode, fit);
+export function calendarGanttRange(anchor: string, scale: GanttScale, tasks: SharedTask[], mode: CalendarMode, fit = false, minimumPeriods = 0, bounds?: {first: string | null; last: string | null}) {
+  const range = initialCalendarGanttRange(anchor, scale, tasks, mode, fit, bounds);
   if (scale === "day") return range;
   const count = Math.max(0, Math.min(100, Math.ceil(minimumPeriods)));
   let periods = calendarGanttPeriods(range, scale, mode);

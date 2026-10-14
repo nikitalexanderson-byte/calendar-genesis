@@ -114,6 +114,7 @@ function genesisDb(): PDO
     genesisInitializeSharedContentStorage($db);
     genesisInitializeSharedTrashReadView($db);
     genesisInitializeSharedMapProjectIndex($db);
+    genesisInitializeSharedTaskDetails($db);
     return $db;
 }
 

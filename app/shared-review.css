@@ -13,3 +13,4 @@
 
 .shared-trash-confirmation { margin:auto; max-height:calc(100dvh - 32px); overflow:auto; }
 .shared-trash-confirmation::backdrop { background:rgb(0 0 0 / .55); }
+.shared-trash-dialog .danger-button, .shared-trash-confirmation .danger-button { color: var(--ui-on-accent); }
