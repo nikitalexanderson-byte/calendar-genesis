@@ -1,5 +1,5 @@
 "use client";
-import { DeferredViewFallback, DeferredDialogFallback, DeferredHabitFallback, ViewErrorBoundary } from "./DeferredViews";
+import { DeferredViewFallback, DeferredDialogFallback, DeferredHabitFallback, ViewErrorBoundary, lazyWithRecovery as lazy } from "./DeferredViews";
 import { habitReminderTime, habitReminderTimes } from "./habit-reminder-time";
 import { habitIntervalMarks } from "./habit-interval";
 import type { MindmapTaskRequest } from "./Mindmaps";
@@ -13,7 +13,6 @@ import {
   type PointerEvent,
   type MouseEvent,
   type TouchEvent,
-  lazy,
   Suspense,
   useCallback,
   useEffect,

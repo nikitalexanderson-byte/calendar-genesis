@@ -1,5 +1,9 @@
 "use client";
-import { Component, type ReactNode, type ErrorInfo } from "react";
+import { Component, lazy, type ReactNode, type ErrorInfo } from "react";
+import { translateText } from "./i18n";
+import { importWithRecovery, isModuleLoadError } from "./module-recovery";
+
+export const lazyWithRecovery: typeof lazy = load => lazy(() => importWithRecovery(load));
 
 export function DeferredViewFallback({ label }: { label: string }) {
   return <section className="deferred-view-loading" role="status" aria-live="polite"><span aria-hidden="true"><i /></span><strong>{label}</strong></section>;
@@ -16,11 +20,11 @@ export function DeferredHabitFallback({ label }: { label: string }) {
 export class ViewErrorBoundary extends Component<{
   children: ReactNode;
   resetKey: string;
-}, { hasError: boolean }> {
-  state = { hasError: false };
+}, { hasError: boolean; moduleFailed: boolean }> {
+  state = { hasError: false, moduleFailed: false };
 
-  static getDerivedStateFromError() {
-    return { hasError: true };
+  static getDerivedStateFromError(error: unknown) {
+    return { hasError: true, moduleFailed: isModuleLoadError(error) };
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
@@ -29,7 +33,7 @@ export class ViewErrorBoundary extends Component<{
 
   componentDidUpdate(previous: Readonly<{ resetKey: string }>) {
     if (this.state.hasError && previous.resetKey !== this.props.resetKey) {
-      this.setState({ hasError: false });
+      this.setState({ hasError: false, moduleFailed: false });
     }
   }
 
@@ -39,10 +43,12 @@ export class ViewErrorBoundary extends Component<{
       <section className="view-error-state" role="alert">
         <span aria-hidden="true">◇</span>
         <div>
-          <strong>Раздел не удалось отобразить</strong>
-          <p>Остальные разделы продолжают работать. Обновите данные страницы и повторите открытие.</p>
+          <strong>{translateText("Раздел не удалось отобразить")}</strong>
+          <p>{translateText(this.state.moduleFailed
+            ? "Не удалось загрузить раздел после повторной попытки. Проверьте соединение. Перед обновлением страницы сохраните открытые черновики."
+            : "Остальные разделы продолжают работать. Перед обновлением страницы сохраните открытые черновики.")}</p>
         </div>
-        <button type="button" onClick={() => window.location.reload()}>Обновить страницу</button>
+        <button type="button" onClick={() => window.location.reload()}>{translateText("Обновить страницу")}</button>
       </section>
     );
   }

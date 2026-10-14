@@ -2628,5 +2628,9 @@
   "Фокус на ветке": "Focus on branch",
   "Свернуть ветку": "Collapse branch",
   "Развернуть ветку": "Expand branch",
-  "Убрать ветку с карты": "Remove branch from map"
+  "Убрать ветку с карты": "Remove branch from map",
+  "Раздел не удалось отобразить": "This section could not be displayed",
+  "Не удалось загрузить раздел после повторной попытки. Проверьте соединение. Перед обновлением страницы сохраните открытые черновики.": "This section could not be loaded after a retry. Check your connection. Save any open drafts before refreshing the page.",
+  "Остальные разделы продолжают работать. Перед обновлением страницы сохраните открытые черновики.": "Other sections are still available. Save any open drafts before refreshing the page.",
+  "Обновить страницу": "Refresh page"
 }
