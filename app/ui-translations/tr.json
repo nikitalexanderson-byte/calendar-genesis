@@ -274,7 +274,7 @@
   "Задачи перейдут в выбранный статус.": "Görevler seçilen duruma geçecektir.",
   "Статусы доски": "Kart durumları",
   "Название статуса": "Durum adı",
-  "Сохранить название": "İsmi kaydet",
+  "Сохранить название": "Adı kaydet",
   "Переименовать": "Yeniden Adlandır",
   "Перенести задачи в": "Görevleri şuraya taşı:",
   "Удалить статус": "Durumu sil",
@@ -594,7 +594,7 @@
   "Другая вкладка изменила карту. Ваш текст сохранён отдельно. Откройте историю или сохраните этот вариант отдельной картой.": "Başka bir sekme haritayı değiştirdi. Metniniz ayrı olarak kaydedildi. Geçmişi açın veya bu varyantı ayrı bir harita olarak kaydedin.",
   "Не удалось выполнить действие.": "Eylem gerçekleştirilemedi.",
   "Новая мысль": "Yeni düşünce",
-  "Название мысли": "Düşünce başlığı",
+  "Название мысли": "Düşünce adı",
   "Пояснение · только в карте": "Not · yalnızca bu haritada",
   "Мысль не имеет срока. Создание откроет обычную форму одной задачи; пояснение останется в карте.": "Bir düşüncenin son tarihi yoktur. Oluşturma, bir görev için standart formu açar; not haritada kalır.",
   "Создать задачу из мысли": "Düşünceden görev oluştur",
@@ -2293,5 +2293,10 @@
   "Серия не сохранена. Черновик оставлен на экране; повторите после подключения.": "Seri kaydedilmedi. Taslağınız ekranda kalır; yeniden bağlandıktan sonra tekrar deneyin.",
   "Закрыть карточку без сохранения настроек серии?": "Seri ayarları kaydedilmeden kart kapatılsın mı?",
   "Введите действительный часовой пояс IANA, например Europe/Moscow. Черновик сохранён.": "Geçerli bir IANA saat dilimi girin, örneğin Europe/Moscow. Taslağınız korunur.",
-  "Ваш тариф: {plan}": "Paketiniz: {plan}"
+  "Ваш тариф: {plan}": "Paketiniz: {plan}",
+  "Действия с мыслью": "Düşünce işlemleri",
+  "Действия со связью": "Bağlantı işlemleri",
+  "Настроить связь": "Bağlantıyı düzenle",
+  "Удалить связь": "Bağlantıyı sil",
+  "Связать с другой мыслью": "Başka bir düşünceye bağla"
 }

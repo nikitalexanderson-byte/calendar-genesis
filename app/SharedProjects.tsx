@@ -46,6 +46,7 @@ import { EntryTypeChoice, entryTypeLabel, entryTypeTitlePlaceholder, type EntryT
 import { SharedLabelBadges, SharedLabelPicker, SharedLabelsDialog } from "./SharedLabels";
 import { SharedProjectLabels } from "./SharedProjectLabels";
 import { SharedComments } from "./SharedComments";
+import { useSharedTaskRead } from "./use-shared-task-read";
 import { SharedActivity } from "./SharedActivity";
 import { SharedTaskImage } from "./SharedTaskImage";
 import { SharedTaskAttachmentsInput, SharedTaskAttachmentList, taskFileError, type TaskFileDraft } from "./SharedTaskAttachments";
@@ -264,6 +265,8 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   const inboxPage = useSharedTaskPage(inboxProjectId && !inboxHidden ? {projectIds:[inboxProjectId]} : null,"position",activityKey);
   const taskProjectId = taskSnapshot?.project.id;
   const selectedTask = taskSnapshot?.tasks.find((task) => task.id === taskId);
+  useSharedTaskRead(selectedTask && !selectedTask.pending ? taskProjectId : undefined, selectedTask?.id,
+    taskSection === "comments" ? comments.map(comment => comment.id) : []);
   const [seriesDirty, setSeriesDirty] = useState(false);
   const taskFieldsSaved = Boolean(selectedTask && JSON.stringify(editTaskDetails) === JSON.stringify(taskDetailsDraft(selectedTask))
     && editTaskTitle === selectedTask.title && editTaskDescription === selectedTask.description

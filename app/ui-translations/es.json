@@ -594,7 +594,7 @@
   "Другая вкладка изменила карту. Ваш текст сохранён отдельно. Откройте историю или сохраните этот вариант отдельной картой.": "Otra pestaña cambió el mapa. Su texto se guardó por separado. Abra el historial o guarde esta variante como un mapa separado.",
   "Не удалось выполнить действие.": "No se pudo realizar la acción.",
   "Новая мысль": "Nuevo pensamiento",
-  "Название мысли": "Título del pensamiento",
+  "Название мысли": "Nombre del pensamiento",
   "Пояснение · только в карте": "Nota · sólo en este mapa",
   "Мысль не имеет срока. Создание откроет обычную форму одной задачи; пояснение останется в карте.": "Un pensamiento no tiene fecha de vencimiento. La creación abre el formulario estándar para una tarea; la nota permanece en el mapa.",
   "Создать задачу из мысли": "Crear tarea a partir del pensamiento.",
@@ -2293,5 +2293,10 @@
   "Серия не сохранена. Черновик оставлен на экране; повторите после подключения.": "La serie no se guardó. El borrador sigue en pantalla; inténtalo al reconectarte.",
   "Закрыть карточку без сохранения настроек серии?": "¿Cerrar la tarjeta sin guardar la configuración de la serie?",
   "Введите действительный часовой пояс IANA, например Europe/Moscow. Черновик сохранён.": "Introduce una zona horaria IANA válida, por ejemplo Europe/Moscow. Tu borrador se conserva.",
-  "Ваш тариф: {plan}": "Tu plan: {plan}"
+  "Ваш тариф: {plan}": "Tu plan: {plan}",
+  "Действия с мыслью": "Acciones del pensamiento",
+  "Действия со связью": "Acciones del vínculo",
+  "Настроить связь": "Editar vínculo",
+  "Удалить связь": "Eliminar vínculo",
+  "Связать с другой мыслью": "Vincular con otro pensamiento"
 }

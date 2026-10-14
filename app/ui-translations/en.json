@@ -2755,5 +2755,11 @@
   "Закрыть карточку без сохранения настроек серии?": "Close the card without saving series settings?",
   "Архивировать": "Archive",
   "Введите действительный часовой пояс IANA, например Europe/Moscow. Черновик сохранён.": "Enter a valid IANA time zone, for example Europe/Moscow. Your draft is kept.",
-  "Ваш тариф: {plan}": "Your plan: {plan}"
+  "Ваш тариф: {plan}": "Your plan: {plan}",
+  "Название мысли": "Thought name",
+  "Действия с мыслью": "Thought actions",
+  "Действия со связью": "Connection actions",
+  "Настроить связь": "Edit connection",
+  "Удалить связь": "Delete connection",
+  "Связать с другой мыслью": "Link to another thought"
 }

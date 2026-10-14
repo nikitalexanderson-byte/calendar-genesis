@@ -16,7 +16,7 @@
 .shared-key-actions,.shared-private-actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
 .shared-key-import { display:grid; gap:8px; flex:1; min-width:0; }
 .shared-key-import input { width:100%; }
-html[data-genesis-theme] .genesis-app .shared-projects-modal.shared-private-dialog { position:fixed; inset:auto 24px 24px auto; margin:0; height:auto; z-index:150; width:min(560px,calc(100vw - 24px)); max-height:calc(100dvh - 16px); padding:20px; overflow:auto; box-shadow:0 12px 40px #0004; }
+html[data-genesis-theme] .genesis-app .shared-projects-modal.shared-private-dialog { position:fixed; inset:auto 24px 24px auto; margin:0; height:auto; z-index:720; width:min(560px,calc(100vw - 24px)); max-height:calc(100dvh - 16px); padding:20px; overflow:auto; box-shadow:0 12px 40px #0004; }
 .shared-private-dialog:not([open]) { display:none; }
 .shared-private-drag-bar { cursor:move; touch-action:none; user-select:none; }
 .shared-private-drag-bar h2 { font-size:20px; }
@@ -35,8 +35,12 @@ html[data-genesis-theme] .genesis-app .shared-projects-modal.shared-private-dial
 .shared-private-messages li[data-self] { margin-left:auto; background:color-mix(in srgb,var(--ui-accent) 10%,var(--surface)); }
 .shared-private-messages header { display:flex; flex-wrap:wrap; gap:8px; font-size:12px; }
 .shared-private-messages p { white-space:pre-wrap; overflow-wrap:anywhere; }
-.shared-private-notices { position:fixed; right:16px; top:96px; z-index:105; max-width:calc(100vw - 32px); }
+.shared-private-notices { position:fixed; right:16px; top:96px; z-index:710; max-width:calc(100vw - 32px); }
 .shared-private-notices:empty { display:none; }
+.shared-private-notices { display:grid; gap:12px; max-height:calc(100dvh - 120px); overflow-y:auto; overscroll-behavior:contain; }
+.shared-private-invitation-notice { width:min(340px,calc(100vw - 32px)); padding:16px; border:1px solid var(--exp-border); border-radius:12px; background:var(--surface); color:var(--ink); }
+.shared-private-invitation-notice p { margin:8px 0; overflow-wrap:anywhere; font:14px/1.5 var(--font-ui); }
+.shared-private-invitation-notice button { min-height:44px; }
 .shared-private-notice { display:flex; flex-direction:column; gap:8px; text-align:left; width:100%; padding:16px; margin-block:8px; }
 @media(max-width:767px) { html[data-genesis-theme] .genesis-app .shared-projects-modal.shared-private-dialog { inset:auto 12px 12px 12px!important; width:calc(100vw - 24px); height:auto; max-height:calc(100dvh - 24px); border-radius:16px; padding:16px; } .shared-private-drag-bar { cursor:default; touch-action:auto; } }
 @media(max-width:600px) { .shared-space-collaboration li>button { width:100%; } .shared-private-messages li { max-width:95%; } }

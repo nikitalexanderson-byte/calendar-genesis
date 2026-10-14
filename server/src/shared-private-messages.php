@@ -26,15 +26,17 @@ function genesisSharedMessagingKey(string $userId, ?array $input = null): array
     return ['keyId'=>$row['keyId'] ?? null, 'publicKey'=>isset($row['public_key_json']) ? json_decode($row['public_key_json'],true) : null];
 }
 
-function genesisSharedPrivateAccess(string $userId, string $id): array
+function genesisSharedPrivateAccess(string $userId, string $id, bool $requireAccepted = true): array
 {
     genesisSharedRequireEnabled($userId);
-    $q = genesisDb()->prepare('SELECT c.* FROM shared_private_conversations c
+    $q = genesisDb()->prepare('SELECT c.*, COALESCE(i.status,\'accepted\') AS invitation_status, i.initiator_id FROM shared_private_conversations c
         JOIN shared_space_members a ON a.space_id=c.space_id AND a.user_id=c.user_a
         JOIN shared_space_members b ON b.space_id=c.space_id AND b.user_id=c.user_b
+        LEFT JOIN shared_private_conversation_invitations i ON i.conversation_id=c.id
         WHERE c.id=? AND (c.user_a=? OR c.user_b=?)');
     $q->execute([$id,$userId,$userId]); $row = $q->fetch();
     if (!$row) throw new GenesisSharedAccessException('PRIVATE_CONVERSATION_NOT_FOUND');
+    if ($requireAccepted && $row['invitation_status'] !== 'accepted') throw new GenesisSharedAccessException('PRIVATE_INVITATION_REQUIRED', 403);
     return $row;
 }
 
@@ -44,13 +46,43 @@ function genesisSharedPrivateConversation(string $userId, string $spaceId, array
     $peer = $input['userId'] ?? null;
     if (!is_string($peer) || $peer === $userId) throw new InvalidArgumentException('INVALID_RECIPIENT');
     genesisSharedSpaceAccess($spaceId,$peer);
-    $q = genesisDb()->prepare('SELECT COUNT(*) FROM shared_messaging_keys WHERE user_id IN (?,?)'); $q->execute([$userId,$peer]);
-    if ((int)$q->fetchColumn() !== 2) throw new GenesisSharedAccessException('RECIPIENT_KEY_REQUIRED',409);
     [$a,$b] = strcmp($userId,$peer) < 0 ? [$userId,$peer] : [$peer,$userId];
-    genesisDb()->prepare('INSERT OR IGNORE INTO shared_private_conversations(id,space_id,user_a,user_b,created_at) VALUES(?,?,?,?,?)')
-        ->execute([genesisUuid(),$spaceId,$a,$b,genesisNow()]);
-    $q = genesisDb()->prepare('SELECT id FROM shared_private_conversations WHERE space_id=? AND user_a=? AND user_b=?'); $q->execute([$spaceId,$a,$b]);
-    return ['id'=>$q->fetchColumn(),'spaceId'=>$spaceId,'userA'=>$a,'userB'=>$b];
+    $db = genesisDb(); genesisBeginWriteTransaction($db);
+    try {
+        $q = $db->prepare('SELECT id FROM shared_private_conversations WHERE space_id=? AND user_a=? AND user_b=?'); $q->execute([$spaceId,$a,$b]);
+        $id = $q->fetchColumn();
+        if ($id === false) {
+            $q = $db->prepare('SELECT 1 FROM shared_messaging_keys WHERE user_id=?'); $q->execute([$userId]);
+            if ($q->fetchColumn() === false) throw new GenesisSharedAccessException('MESSAGING_KEY_REQUIRED',409);
+            $q = $db->prepare('SELECT COUNT(*) FROM shared_private_conversation_invitations WHERE initiator_id=? AND created_at>=?');
+            $q->execute([$userId,gmdate('Y-m-d\TH:i:s\Z',time()-60)]);
+            if ((int)$q->fetchColumn() >= 30) throw new GenesisSharedAccessException('MESSAGE_RATE_LIMIT',429);
+            $id = genesisUuid(); $now = genesisNow();
+            $db->prepare('INSERT INTO shared_private_conversations(id,space_id,user_a,user_b,created_at) VALUES(?,?,?,?,?)')->execute([$id,$spaceId,$a,$b,$now]);
+            $db->prepare('INSERT INTO shared_private_conversation_invitations(conversation_id,initiator_id,status,created_at) VALUES(?,?,\'pending\',?)')->execute([$id,$userId,$now]);
+        }
+        $row = genesisSharedPrivateAccess($userId, (string)$id, false);
+        $db->commit();
+        return ['id'=>$id,'spaceId'=>$spaceId,'userA'=>$a,'userB'=>$b,'status'=>$row['invitation_status'],'initiatorId'=>$row['initiator_id']];
+    } catch (Throwable $error) { $db->rollBack(); throw $error; }
+}
+
+function genesisSharedRespondPrivateInvitation(string $userId, string $id, array $input): array
+{
+    if (!is_bool($input['accept'] ?? null)) throw new InvalidArgumentException('INVALID_INVITATION_RESPONSE');
+    $db = genesisDb(); genesisBeginWriteTransaction($db);
+    try {
+        $row = genesisSharedPrivateAccess($userId, $id, false);
+        if ($row['initiator_id'] === null || $row['initiator_id'] === $userId) throw new GenesisSharedAccessException('INVITATION_RECIPIENT_REQUIRED', 403);
+        $status = $input['accept'] ? 'accepted' : 'declined';
+        if ($row['invitation_status'] !== 'pending' && $row['invitation_status'] !== $status) throw new GenesisSharedAccessException('INVITATION_ALREADY_RESPONDED', 409);
+        if ($input['accept']) {
+            $q = $db->prepare('SELECT COUNT(*) FROM shared_messaging_keys WHERE user_id IN (?,?)'); $q->execute([$row['user_a'],$row['user_b']]);
+            if ((int)$q->fetchColumn() !== 2) throw new GenesisSharedAccessException('RECIPIENT_KEY_REQUIRED', 409);
+        }
+        $db->prepare('UPDATE shared_private_conversation_invitations SET status=?,responded_at=COALESCE(responded_at,?) WHERE conversation_id=?')->execute([$status,genesisNow(),$id]);
+        $db->commit(); return ['ok'=>true,'status'=>$status];
+    } catch (Throwable $error) { $db->rollBack(); throw $error; }
 }
 
 /** A metadata-only inbox: no message bodies or private keys in notifications. */
@@ -66,12 +98,23 @@ function genesisSharedPrivateInbox(string $userId): array
         JOIN shared_space_members b ON b.space_id=c.space_id AND b.user_id=c.user_b
         JOIN users u ON u.id=CASE WHEN c.user_a=:user THEN c.user_b ELSE c.user_a END
         LEFT JOIN shared_private_message_reads r ON r.conversation_id=c.id AND r.user_id=:user
+        LEFT JOIN shared_private_conversation_invitations i ON i.conversation_id=c.id
         JOIN shared_private_messages m ON m.conversation_id=c.id AND m.sender_id<>:user
             AND m.seq>COALESCE(r.last_read_seq,0) AND m.deleted_at IS NULL
-        WHERE c.user_a=:user OR c.user_b=:user
+        WHERE (c.user_a=:user OR c.user_b=:user) AND (i.status IS NULL OR i.status=\'accepted\')
         GROUP BY c.id ORDER BY latestSeq DESC LIMIT 100');
     $q->execute(['user'=>$userId]);
-    return ['conversations'=>array_map(static function(array $row): array { $row['unread']=(int)$row['unread']; $row['latestSeq']=(int)$row['latestSeq']; return $row; },$q->fetchAll())];
+    $conversations = array_map(static function(array $row): array { $row['unread']=(int)$row['unread']; $row['latestSeq']=(int)$row['latestSeq']; return $row; },$q->fetchAll());
+    $q = genesisDb()->prepare('SELECT c.id,c.space_id AS spaceId,s.title AS spaceTitle,i.initiator_id AS peerId,
+        COALESCE(NULLIF(u.display_name,\'\'),\'GENESIS\') AS peerName,i.created_at AS createdAt
+        FROM shared_private_conversation_invitations i JOIN shared_private_conversations c ON c.id=i.conversation_id
+        JOIN shared_spaces s ON s.id=c.space_id JOIN users u ON u.id=i.initiator_id
+        JOIN shared_space_members a ON a.space_id=c.space_id AND a.user_id=c.user_a
+        JOIN shared_space_members b ON b.space_id=c.space_id AND b.user_id=c.user_b
+        WHERE (c.user_a=:user OR c.user_b=:user) AND i.initiator_id<>:user AND i.status=\'pending\'
+        ORDER BY i.created_at DESC,c.id DESC LIMIT 100');
+    $q->execute(['user'=>$userId]);
+    return ['conversations'=>$conversations,'invitations'=>$q->fetchAll()];
 }
 
 function genesisSharedPrivateMessages(string $userId, string $conversationId, int $before = 0): array

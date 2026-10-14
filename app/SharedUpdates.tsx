@@ -51,7 +51,10 @@ export function SharedWorkspaceSummary({ userId, english, spaceId, onOpen }: { u
   };
   const read = async (ids: string[], all = false, destination?: SharedTaskDestination) => {
     if (busy) return; setBusy(true); setFailed(false);
-    if (destination) { setOpen(false); onOpen(destination); }
+    if (destination) {
+      setOpen(false); onOpen(destination);
+      if (destination.taskId) { setBusy(false); return; }
+    }
     try { await markRead(ids, all); setReload(value => value + 1);
     } catch { setFailed(true); } finally { setBusy(false); }
   };
@@ -96,25 +99,18 @@ export function SharedWorkspaceSummary({ userId, english, spaceId, onOpen }: { u
 }
 
 export function SharedCommentNotices({ userId, english, onOpen }: { userId: string; english: boolean; onOpen: (place: SharedTaskDestination) => void }) {
-  const { comments, markRead } = useSharedUpdates();
+  const { comments } = useSharedUpdates();
   const [hidden, setHidden] = useState<string[]>(() => { try { return JSON.parse(sessionStorage.getItem(`genesis-comment-notices:${userId}`) || "[]"); } catch { return []; } });
-  const [busy, setBusy] = useState(""); const [failed, setFailed] = useState("");
   const dismiss = (id: string) => { const next = [...hidden, id].slice(-500); setHidden(next); try { sessionStorage.setItem(`genesis-comment-notices:${userId}`, JSON.stringify(next)); } catch { /* Dismissal still works in memory. */ } };
-  const open = (item: SharedNotification) => {
-    if (busy === item.id) return;
-    setBusy(item.id); setFailed(""); onOpen(notificationDestination(item));
-    void markRead([item.id]).catch(() => setFailed(item.id)).finally(() => setBusy(""));
-  };
   return <aside className="shared-comment-notices" aria-label={english ? "New task comments" : "Новые комментарии к задачам"} aria-live="polite">
     {comments.filter(item => !hidden.includes(item.id)).slice(0, 3).map(item => <article key={item.id}>
-      <button type="button" className="shared-comment-notice-open" data-comment-id={item.commentId} disabled={busy === item.id} onClick={() => open(item)}>
+      <button type="button" className="shared-comment-notice-open" data-comment-id={item.commentId} onClick={() => onOpen(notificationDestination(item))}>
         <span className="shared-comment-notice-heading"><ExperimentalIcon name="comment" /><strong>{english ? "New comment" : "Новый комментарий"}</strong></span>
         <span><strong data-no-translate>{item.actorName}</strong> · <span data-no-translate>{item.taskTitle}</span></span>
         {item.commentBody ? <span className="shared-comment-preview" data-no-translate>{item.commentBody}</span> : null}
         <span className="shared-comment-notice-action"><ExperimentalIcon name="open" />{english ? "Open task" : "Открыть задачу"}</span>
       </button>
       <button type="button" className="shared-comment-notice-dismiss" aria-label={english ? "Hide comment notification" : "Скрыть уведомление о комментарии"} onClick={() => dismiss(item.id)}><ExperimentalIcon name="close" /></button>
-      {failed === item.id ? <p role="alert">{english ? "Could not open the update. Try again." : "Не удалось открыть обновление. Повторите попытку."}</p> : null}
     </article>)}
   </aside>;
 }

@@ -107,3 +107,40 @@ function genesisSharedReadInbox(string $userId, array $input): void
         $db->commit();
     } catch (Throwable $error) { $db->rollBack(); throw $error; }
 }
+
+/** Read only the task and comments the client actually displayed, regardless of entry route. */
+function genesisSharedReadTaskUpdates(string $userId, string $projectId, string $taskId, array $input): array
+{
+    genesisSharedRequireEnabled($userId);
+    $ids = $input['commentIds'] ?? [];
+    if (!is_array($ids) || !array_is_list($ids) || count($ids) > 200 ||
+        array_filter($ids, static fn($id) => !is_string($id) || !preg_match('/\A[a-f0-9-]{36}\z/', $id))) {
+        throw new InvalidArgumentException('INVALID_COMMENT_IDS');
+    }
+    $db = genesisDb(); $db->beginTransaction();
+    try {
+        genesisSharedProjectAccess($projectId, $userId);
+        $query = $db->prepare('SELECT id FROM shared_tasks_history_read WHERE id = :task AND project_id = :project');
+        $query->execute(['task' => $taskId, 'project' => $projectId]);
+        if ($query->fetchColumn() === false) throw new GenesisSharedAccessException('TASK_NOT_FOUND', 404);
+        $values = ['user' => $userId, 'project' => $projectId, 'task' => $taskId];
+        $commentFilter = '';
+        if ($ids) {
+            $placeholders = [];
+            foreach (array_values(array_unique($ids)) as $index => $id) {
+                $placeholders[] = ':comment' . $index; $values['comment' . $index] = $id;
+            }
+            $commentFilter = ' OR (e.action = \'comment.created\' AND e.task_id = :task
+                AND e.object_id IN (' . implode(',', $placeholders) . ')
+                AND EXISTS (SELECT 1 FROM shared_comments_read c WHERE c.id = e.object_id AND c.task_id = :task))';
+        }
+        $query = $db->prepare('INSERT OR IGNORE INTO shared_notification_reads (event_id, user_id, read_at)
+            SELECT e.id, :user, :now FROM shared_audit_events_read e
+            WHERE e.project_id = :project AND e.actor_id IS NOT :user
+            AND ((e.action = \'task.created\' AND COALESCE(e.task_id, e.object_id) = :task)' . $commentFilter . ')');
+        $query->execute($values + ['now' => genesisNow()]);
+        $overview = genesisSharedOverview($userId);
+        $db->commit();
+        return ['ok' => true, 'overview' => $overview];
+    } catch (Throwable $error) { $db->rollBack(); throw $error; }
+}
