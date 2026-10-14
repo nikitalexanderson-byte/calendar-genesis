@@ -7,7 +7,7 @@ const source = await readFile(new URL("../public/sw.js", import.meta.url), "utf8
 const origin = "https://genesiscalendar.com/";
 const assetUrl = `${origin}assets/account.js`;
 
-function worker({ assetHtml = false, cachedHtml = false } = {}) {
+function worker({ assetHtml = false, cachedHtml = false, networkHtml = false } = {}) {
   const events = new Map();
   const records = new Map();
   let networkRequests = 0;
@@ -29,7 +29,7 @@ function worker({ assetHtml = false, cachedHtml = false } = {}) {
   };
   runInNewContext(source, {
     self, URL, Request, Response, importScripts() {}, caches: { open: async () => cache },
-    fetch: async () => { networkRequests += 1; return new Response("export const ready = true;", { headers: { "Content-Type": "application/javascript" } }); },
+    fetch: async () => { networkRequests += 1; return new Response(networkHtml ? "<html>fallback</html>" : "export const ready = true;", { headers: { "Content-Type": networkHtml ? "text/html" : "application/javascript" } }); },
   });
   return { events, records, networkRequests: () => networkRequests };
 }
@@ -61,4 +61,14 @@ test("valid precached modules remain available without a network request", async
   fixture.events.get("fetch")({ request: new Request(assetUrl), respondWith: promise => { responsePromise = promise; } });
   assert.equal((await responsePromise).headers.get("Content-Type"), "application/javascript");
   assert.equal(fixture.networkRequests(), 0);
+});
+
+test("a stale SPA rewrite cannot return or cache HTML as a module", async () => {
+  const fixture = worker({ networkHtml: true });
+  let responsePromise;
+  fixture.events.get("fetch")({ request: new Request(assetUrl), respondWith: promise => { responsePromise = promise; } });
+  const response = await responsePromise;
+  assert.equal(response.status, 404);
+  assert.equal(response.headers.get("Cache-Control"), "no-store");
+  assert.equal(fixture.records.has(assetUrl), false);
 });

@@ -31,6 +31,15 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Validate production destination
+        env:
+          GENESIS_DEPLOY_TARGET: ${{ vars.GENESIS_DEPLOY_TARGET }}
+        run: |
+          test "$GENESIS_DEPLOY_TARGET" = hostinger || {
+            echo 'GENESIS_DEPLOY_TARGET must explicitly select hostinger.' >&2
+            exit 1
+          }
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
@@ -57,6 +66,7 @@ jobs:
           php -l public/legacy-home.php
           php server/tests/legacy-home.php
           php server/tests/android-support.php
+          php server/tests/web-asset-retention.php
 
       - name: Test PHP backend with isolated SQLite
         env:
@@ -392,6 +402,8 @@ jobs:
             ROOT=/home/u531952483/domains/genesiscalendar.com
             test -f "$ROOT/server/config.php"
             php "$ROOT/ops/backup-runtime.php" --server-root="$ROOT/server" --backup-root="$ROOT/backups" --retain=20
+            # Remember the incumbent asset graph before replacing any public files.
+            php "$ROOT/ops/retain-web-assets.php" --root="$ROOT"
           SCRIPT_AFTER_REQUIRED: true
 
       - name: Deploy private Hostinger server code
@@ -408,6 +420,19 @@ jobs:
           ARGS: "-rlztvO --delete"
           EXCLUDE: "config.php, config.example.php, var/, .git/"
 
+      - name: Stage Hostinger immutable web assets
+        if: vars.GENESIS_DEPLOY_TARGET == 'hostinger'
+        uses: easingthemes/ssh-deploy@2cc5b27bf3029d0455dd5e09fe02633904031447 # v6
+        with:
+          SSH_PRIVATE_KEY: ${{ secrets.HOSTINGER_SSH_KEY }}
+          REMOTE_HOST: 82.198.232.224
+          REMOTE_USER: u531952483
+          REMOTE_PORT: 65002
+          SSH_CMD_ARGS: "-o StrictHostKeyChecking=yes, -o UserKnownHostsFile=${{ runner.temp }}/genesis-deploy-known-hosts, -o GlobalKnownHostsFile=/dev/null, -o UpdateHostKeys=no"
+          SOURCE: "dist-beget/public_html/assets/"
+          TARGET: "/home/u531952483/domains/genesiscalendar.com/public_html/assets/"
+          ARGS: "-rlztvO --delay-updates"
+
       - name: Deploy Hostinger public client and API
         if: vars.GENESIS_DEPLOY_TARGET == 'hostinger'
         uses: easingthemes/ssh-deploy@2cc5b27bf3029d0455dd5e09fe02633904031447 # v6
@@ -419,8 +444,13 @@ jobs:
           SSH_CMD_ARGS: "-o StrictHostKeyChecking=yes, -o UserKnownHostsFile=${{ runner.temp }}/genesis-deploy-known-hosts, -o GlobalKnownHostsFile=/dev/null, -o UpdateHostKeys=no"
           SOURCE: "dist-beget/public_html/"
           TARGET: "/home/u531952483/domains/genesiscalendar.com/public_html/"
-          ARGS: "-rlztvO --delete"
-          EXCLUDE: ${{ env.DEPLOY_ANDROID != 'true' && 'downloads/, android-update.json' || '' }}
+          ARGS: "-rlztvO --delete-delay --delay-updates"
+          EXCLUDE: ${{ env.DEPLOY_ANDROID != 'true' && 'assets/, downloads/, android-update.json' || 'assets/' }}
+          SCRIPT_AFTER: |
+            set -eu
+            php /home/u531952483/domains/genesiscalendar.com/ops/retain-web-assets.php \
+              --root=/home/u531952483/domains/genesiscalendar.com --prune
+          SCRIPT_AFTER_REQUIRED: true
 
       - name: Verify production health and deployed commit
         env:

@@ -168,7 +168,13 @@ self.addEventListener("fetch", (event) => {
         const cached = await cache.match(request);
         if (cached && !cached.headers.get("Content-Type")?.includes("text/html")) return cached;
         const response = await fetch(request);
-        if (response.ok && !response.headers.get("Content-Type")?.includes("text/html")) {
+        if (response.headers.get("Content-Type")?.includes("text/html")) {
+          // Also protect clients still behind a stale SPA rewrite configuration.
+          return new Response("Module unavailable", { status: 404, headers: {
+            "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store",
+          } });
+        }
+        if (response.ok) {
           void cache.put(request, response.clone());
         }
         return response;

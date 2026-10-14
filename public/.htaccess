@@ -18,6 +18,9 @@ RewriteCond %{REQUEST_FILENAME} !-f [OR]
 RewriteCond %{REQUEST_URI} \.html$ [NC]
 RewriteRule ^ https://genesiscalendar.com%{REQUEST_URI} [R=302,L,NE]
 RewriteRule ^api(?:/|$) - [L]
+# A missing immutable module is a real 404, never the SPA HTML document.
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^assets/ - [R=404,L]
 RewriteCond %{REQUEST_FILENAME}.html -f
 RewriteRule ^(privacy|terms|support|delete-account)$ $1.html [L]
 RewriteCond %{REQUEST_FILENAME} !-f
@@ -26,6 +29,7 @@ RewriteRule . index.html [L]
 
 <IfModule mod_headers.c>
   Header always set Cache-Control "no-store" "expr=%{REQUEST_STATUS} == 302"
+  Header always set Cache-Control "no-store" "expr=%{REQUEST_STATUS} == 404"
   Header always set X-Content-Type-Options "nosniff"
   Header always set X-Frame-Options "DENY"
   Header always set Referrer-Policy "strict-origin-when-cross-origin"
@@ -43,6 +47,12 @@ RewriteRule . index.html [L]
 <FilesMatch "^(?:sw|relocated-sw|precache-manifest)\.js$">
   <IfModule mod_headers.c>
     Header set Cache-Control "no-cache, no-store, must-revalidate"
+  </IfModule>
+</FilesMatch>
+
+<FilesMatch "^manifest(?:\.[a-z]{2})?\.webmanifest$">
+  <IfModule mod_headers.c>
+    Header set Cache-Control "no-cache, must-revalidate"
   </IfModule>
 </FilesMatch>
 

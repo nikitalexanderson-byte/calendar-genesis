@@ -2169,5 +2169,9 @@
   "Личные сообщения участников": "Mensagens privadas entre participantes",
   "Личные сообщения между двумя участниками пространства используют сквозное шифрование. Сервер хранит зашифрованный текст, публичные ключи и служебные данные диалога; закрытые ключи остаются на устройствах. Для другого устройства нужен файл ключа, защищённый паролем. Без ключа сервер не может восстановить сообщения. Уведомления не содержат текст переписки.": "As mensagens privadas entre dois participantes do espaço usam encriptação ponta a ponta. O servidor guarda texto encriptado, chaves públicas e metadados da conversa; as chaves privadas ficam nos dispositivos. Noutro dispositivo é necessário um ficheiro de chave protegido por palavra-passe. O servidor não recupera mensagens sem a chave. As notificações não incluem o texto das mensagens.",
   "14 октября 2026 года": "14 de outubro de 2026",
-  "Редакция от 14 октября 2026 года": "Versão de 14 de outubro de 2026"
+  "Редакция от 14 октября 2026 года": "Versão de 14 de outubro de 2026",
+  "Раздел не удалось отобразить": "Não foi possível apresentar esta secção",
+  "Не удалось загрузить раздел после повторной попытки. Проверьте соединение. Перед обновлением страницы сохраните открытые черновики.": "Não foi possível carregar esta secção após uma nova tentativa. Verifique a ligação. Guarde os rascunhos abertos antes de atualizar a página.",
+  "Остальные разделы продолжают работать. Перед обновлением страницы сохраните открытые черновики.": "As outras secções continuam disponíveis. Guarde os rascunhos abertos antes de atualizar a página.",
+  "Обновить страницу": "Atualizar página"
 }

@@ -2169,5 +2169,9 @@
   "Личные сообщения участников": "Private Nachrichten zwischen Mitgliedern",
   "Личные сообщения между двумя участниками пространства используют сквозное шифрование. Сервер хранит зашифрованный текст, публичные ключи и служебные данные диалога; закрытые ключи остаются на устройствах. Для другого устройства нужен файл ключа, защищённый паролем. Без ключа сервер не может восстановить сообщения. Уведомления не содержат текст переписки.": "Private Nachrichten zwischen zwei Mitgliedern eines Arbeitsbereichs sind Ende-zu-Ende-verschlüsselt. Der Server speichert verschlüsselten Text, öffentliche Schlüssel und Gesprächsmetadaten; private Schlüssel bleiben auf den Geräten. Ein anderes Gerät benötigt eine passwortgeschützte Schlüsseldatei. Der Server kann Nachrichten ohne Schlüssel nicht wiederherstellen. Benachrichtigungen enthalten keinen Nachrichtentext.",
   "14 октября 2026 года": "14. Oktober 2026",
-  "Редакция от 14 октября 2026 года": "Stand: 14. Oktober 2026"
+  "Редакция от 14 октября 2026 года": "Stand: 14. Oktober 2026",
+  "Раздел не удалось отобразить": "Dieser Bereich konnte nicht angezeigt werden",
+  "Не удалось загрузить раздел после повторной попытки. Проверьте соединение. Перед обновлением страницы сохраните открытые черновики.": "Dieser Bereich konnte auch nach einem erneuten Versuch nicht geladen werden. Prüfen Sie Ihre Verbindung. Speichern Sie offene Entwürfe, bevor Sie die Seite neu laden.",
+  "Остальные разделы продолжают работать. Перед обновлением страницы сохраните открытые черновики.": "Die anderen Bereiche sind weiterhin verfügbar. Speichern Sie offene Entwürfe, bevor Sie die Seite neu laden.",
+  "Обновить страницу": "Seite neu laden"
 }
