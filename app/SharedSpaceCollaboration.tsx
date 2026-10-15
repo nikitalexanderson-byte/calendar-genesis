@@ -1,4 +1,5 @@
 "use client";
+import { DialogCloseButton } from "./DialogCloseButton";
 import { useEffect,useRef,useState } from 'react';
 import { GenesisApiError } from './cloud-sync';
 import { createPortal } from 'react-dom';
@@ -8,6 +9,7 @@ import { collaborationText } from './collaboration-copy';
 import { spaceParticipants,messagingKey,openConversation,respondPrivateInvitation,privateMessages,privateInbox,savePrivateMessage,deletePrivateMessage,readPrivateMessages,clearPrivateConversation,uploadPrivateFileChunk,loadPrivateFileChunk,discardPrivateFile,type SpaceParticipant,type PrivateMessage,type PrivateNotice,type PrivateInvitation,type PrivateConversation } from './private-messages-api';
 import { createMessagingIdentity,keyFingerprint,conversationKey,encryptPrivateMessage,decryptPrivateMessage,securityCode,exportMessagingBackup,importMessagingBackup,encryptPrivateFile,decryptPrivateFile,decodePrivateContent,PRIVATE_FILE_LIMIT,type PrivateFile,type MessagingIdentity } from './private-message-crypto';
 import {loadMessagingIdentity,saveMessagingIdentity,claimMessagingIdentity,pinPeerKey} from './private-message-vault';
+import type { NoticeActivity } from './notification-dock-model';
 import './shared-space-collaboration.css';
 type Peer={spaceId:string;userId:string;displayName:string};
 
@@ -94,7 +96,7 @@ export function SharedPrivateMessages({userId,peer,language,onClose}:{userId:str
     <header className="shared-private-drag-bar" onPointerDown={event=>{
       if(event.button!==0||!window.matchMedia('(min-width: 768px)').matches||(event.target as HTMLElement).closest('button'))return;
       const rect=dialog.current!.getBoundingClientRect();drag.current={x:event.clientX,y:event.clientY,left:rect.left,top:rect.top};event.currentTarget.setPointerCapture(event.pointerId);event.preventDefault();
-    }} onPointerMove={event=>{if(drag.current)setPosition(clampPosition(drag.current.left+event.clientX-drag.current.x,drag.current.top+event.clientY-drag.current.y));}} onPointerUp={()=>{drag.current=null;}} onPointerCancel={()=>{drag.current=null;}}><h2 id="shared-private-title">{c('messages')} · {peer.displayName}</h2><button type="button" className="shared-projects-close" disabled={busy} aria-label={t('Закрыть')} onClick={()=>dialog.current?.close()}><ExperimentalIcon name="close"/></button></header><p>{c('encrypted')}</p>
+    }} onPointerMove={event=>{if(drag.current)setPosition(clampPosition(drag.current.left+event.clientX-drag.current.x,drag.current.top+event.clientY-drag.current.y));}} onPointerUp={()=>{drag.current=null;}} onPointerCancel={()=>{drag.current=null;}}><h2 id="shared-private-title">{c('messages')} · {peer.displayName}</h2><DialogCloseButton type="button" className="shared-projects-close" disabled={busy} aria-label={t('Закрыть')} onClick={()=>dialog.current?.close()} /></header><p>{c('encrypted')}</p>
     {loading?<p role="status">{t('Загрузка…')}</p>:<KeyRecovery userId={userId} identity={identity} missing={missing} language={language} onReady={key=>{setIdentity(key);setMissing(false);}}/>}{peerMissing?<p role="status">{c('peerMissing')}</p>:null}
     {conversation?.status==='pending' ? <section className="shared-private-invitation" aria-live="polite"><p>{c(conversation.initiatorId===userId?'invitationWaiting':'invitationReceived')}</p>
       {conversation.initiatorId!==userId ? <div className="shared-private-actions">{[true,false].map(accept=><button type="button" key={String(accept)} className={accept?'primary-button':'secondary-button'} disabled={busy||!identity} onClick={()=>void run(async()=>{await respondPrivateInvitation(conversation.id,accept);setConversation({...conversation,status:accept?'accepted':'declined'});setHandshake(value=>value+1);window.dispatchEvent(new Event('genesis:private-updates'));},false)}>{c(accept?'acceptInvitation':'declineInvitation')}</button>)}</div>:null}
@@ -122,27 +124,29 @@ export default function SharedSpaceCollaboration({userId,spaceId,language}:{user
     <button type="button" className="secondary-button" onClick={()=>{setKeysOpen(true);void identityFor(userId).then(setIdentity).catch(()=>setMissing(true));}}>{c('enable')}</button>{keysOpen?<KeyRecovery userId={userId} identity={identity} missing={missing} language={language} onReady={key=>{setIdentity(key);setMissing(false);}}/>:null}
     </details>{peer?<SharedPrivateMessages key={peer.userId} userId={userId} peer={peer} language={language} onClose={()=>setPeer(null)}/>:null}</section>;
 }
-export function SharedPrivateNotices({userId,language}:{userId:string;language:string}){
+export function SharedPrivateNotices({userId,language,embedded=false,onActivity,onNavigate}:{userId:string;language:string;embedded?:boolean;onActivity?:(activity:NoticeActivity)=>void;onNavigate?:()=>void}){
   const [items,setItems]=useState<PrivateNotice[]>([]),[invitations,setInvitations]=useState<PrivateInvitation[]>([]),[busy,setBusy]=useState(''),[failed,setFailed]=useState(''),[open,setOpen]=useState(false),[peer,setPeer]=useState<Peer|null>(null);const dialog=useRef<HTMLDialogElement>(null);
   useEffect(()=>{if(open)dialog.current?.showModal();else dialog.current?.close();},[open]);
   useEffect(()=>{const controller=new AbortController();let pending=false;const refresh=()=>{if(pending||document.visibilityState!=='visible'||!navigator.onLine)return;pending=true;void privateInbox(controller.signal).then(result=>{if(!controller.signal.aborted){setItems(result.conversations);setInvitations(result.invitations??[]);}}).catch(()=>{if(!controller.signal.aborted)setFailed('inbox');}).finally(()=>{pending=false;});};refresh();const timer=setInterval(refresh,5000);window.addEventListener('genesis:private-updates',refresh);window.addEventListener('focus',refresh);document.addEventListener('visibilitychange',refresh);return()=>{controller.abort();clearInterval(timer);window.removeEventListener('genesis:private-updates',refresh);window.removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',refresh);};},[userId]);
   const c=(key:Parameters<typeof collaborationText>[0])=>collaborationText(key,language);
   const respond=async(item:PrivateInvitation,accept:boolean)=>{
-    if(busy)return;setBusy(item.id);setFailed('');
+    if(busy)return false;setBusy(item.id);setFailed('');
     try {
       if(accept)await identityFor(userId,true);
       await respondPrivateInvitation(item.id,accept);
       setInvitations(current=>current.filter(invite=>invite.id!==item.id));window.dispatchEvent(new Event('genesis:private-updates'));
       if(accept)setPeer({spaceId:item.spaceId,userId:item.peerId,displayName:item.peerName});
-    } catch(error){setFailed(item.id);if(accept&&error instanceof Error&&error.message==='LOCAL_KEY_MISSING')setPeer({spaceId:item.spaceId,userId:item.peerId,displayName:item.peerName});}
+      return true;
+    } catch(error){setFailed(item.id);if(accept&&error instanceof Error&&error.message==='LOCAL_KEY_MISSING')setPeer({spaceId:item.spaceId,userId:item.peerId,displayName:item.peerName});return false;}
     finally{setBusy('');}
   };
   const count=items.reduce((total,item)=>total+item.unread,0);
-  return <><aside className="shared-private-notices" data-no-translate aria-live="polite">{invitations.map(item=><article className="shared-private-invitation-notice" key={item.id}>
+  useEffect(()=>{onActivity?.({count:count+invitations.length,tokens:[...invitations.map(item=>`private-invitation:${item.id}`),...items.filter(item=>item.unread>0).map(item=>`private:${item.id}:${item.latestSeq}`)],title:collaborationText('unread',language)});},[items,invitations,count,language,onActivity]);
+  return <><aside className={embedded?"notification-private-items":"shared-private-notices"} data-no-translate aria-live={embedded?undefined:"polite"}>{invitations.map(item=><article className="shared-private-invitation-notice" key={item.id}>
     <strong>{c('invitationTitle')}</strong><p>{item.peerName} · {item.spaceTitle}</p><p>{c('invitationReceived')}</p>
-    <div className="shared-private-actions"><button type="button" className="primary-button" disabled={Boolean(busy)} onClick={()=>void respond(item,true)}>{c('acceptInvitation')}</button><button type="button" className="secondary-button" disabled={Boolean(busy)} onClick={()=>void respond(item,false)}>{c('declineInvitation')}</button></div>
+    <div className="shared-private-actions"><button type="button" className="primary-button" disabled={Boolean(busy)} onClick={()=>void respond(item,true).then(accepted=>{if(embedded&&accepted)onNavigate?.();})}>{c('acceptInvitation')}</button><button type="button" className="secondary-button" disabled={Boolean(busy)} onClick={()=>void respond(item,false)}>{c('declineInvitation')}</button></div>
     {failed===item.id?<p role="alert">{c('failure')}</p>:null}
-  </article>)}{count?<button type="button" className="primary-button" onClick={()=>setOpen(true)}><ExperimentalIcon name="mail"/>{c('unread')} · {count}</button>:null}</aside>
-    <dialog ref={dialog} className="shared-projects-modal" data-no-translate onClose={()=>setOpen(false)} aria-label={collaborationText('messages',language)}><header><h2>{collaborationText('messages',language)}</h2><button type="button" className="shared-projects-close" aria-label={translateText('Закрыть')} onClick={()=>setOpen(false)}><ExperimentalIcon name="close"/></button></header>{items.map(item=><button type="button" className="shared-private-notice" key={item.id} onClick={()=>{setOpen(false);setPeer({spaceId:item.spaceId,userId:item.peerId,displayName:item.peerName});}}><strong>{item.peerName}</strong><span>{item.spaceTitle} · {item.unread}</span></button>)}</dialog>
+  </article>)}{embedded?items.filter(item=>item.unread>0).map(item=><button type="button" className="shared-private-notice" key={item.id} onClick={()=>{onNavigate?.();setPeer({spaceId:item.spaceId,userId:item.peerId,displayName:item.peerName});}}><span className="notification-item-heading"><ExperimentalIcon name="mail"/><strong>{item.peerName}</strong><span>{item.unread}</span></span><span>{item.spaceTitle}</span><span>{c('messages')}</span></button>):count?<button type="button" className="primary-button" onClick={()=>setOpen(true)}><ExperimentalIcon name="mail"/>{c('unread')} · {count}</button>:null}</aside>
+    <dialog ref={dialog} className="shared-projects-modal" data-no-translate onClose={()=>setOpen(false)} aria-label={collaborationText('messages',language)}><header><h2>{collaborationText('messages',language)}</h2><DialogCloseButton type="button" className="shared-projects-close" aria-label={translateText('Закрыть')} onClick={()=>setOpen(false)} /></header>{items.map(item=><button type="button" className="shared-private-notice" key={item.id} onClick={()=>{setOpen(false);setPeer({spaceId:item.spaceId,userId:item.peerId,displayName:item.peerName});}}><strong>{item.peerName}</strong><span>{item.spaceTitle} · {item.unread}</span></button>)}</dialog>
     {peer?<SharedPrivateMessages key={peer.spaceId+peer.userId} userId={userId} peer={peer} language={language} onClose={()=>setPeer(null)}/>:null}</>;
 }

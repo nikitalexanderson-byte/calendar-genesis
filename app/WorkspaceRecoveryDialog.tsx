@@ -1,4 +1,5 @@
 "use client";
+import { DialogCloseButton } from "./DialogCloseButton";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { Language } from "./i18n";
@@ -62,7 +63,7 @@ export function WorkspaceRecoveryDialog({ request, language, onRecovered, onCanc
       if (event.target === event.currentTarget && !submitting) onCancel();
     }}>
       <form ref={dialogRef} className="workspace-recovery-dialog" role="dialog" aria-modal="true" aria-labelledby="workspace-recovery-title" aria-describedby="workspace-recovery-description" tabIndex={-1} onSubmit={submit}>
-        <button type="button" className="modal-close" disabled={submitting} onClick={onCancel} aria-label={isEnglish ? "Cancel recovery" : "Отменить восстановление"}>×</button>
+        <DialogCloseButton type="button" className="modal-close" disabled={submitting} onClick={onCancel} aria-label={isEnglish ? "Cancel recovery" : "Отменить восстановление"} />
         <span className="workspace-recovery-mark" aria-hidden="true">
           <svg viewBox="0 0 64 64"><path d="M21 29v-8a11 11 0 0 1 22 0v8" /><rect x="13" y="28" width="38" height="28" rx="8" /><circle cx="32" cy="41" r="4" /><path d="M32 45v5M8 19l5 2M56 19l-5 2M32 3v5" /></svg>
         </span>

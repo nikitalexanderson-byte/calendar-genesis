@@ -1,4 +1,5 @@
 "use client";
+import { DialogCloseButton } from "./DialogCloseButton";
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { deleteAdminUser, type AdminStats, type AdminUserStats, loadAdminStats } from "./cloud-sync";
@@ -256,7 +257,7 @@ export function AdminPanel() {
       ) : null}
       {deleteTarget ? <div className="modal-backdrop admin-delete-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeDeleteDialog(); }}>
         <section ref={deleteDialogRef} className="admin-delete-dialog" role="dialog" aria-modal="true" aria-labelledby="admin-delete-title" tabIndex={-1}>
-          <header><div><span className="eyebrow">{copy.irreversible}</span><h2 id="admin-delete-title">{copy.deleteTitle}</h2></div><button type="button" className="modal-close" onClick={closeDeleteDialog} aria-label={isEnglish ? "Close" : "Закрыть"}>×</button></header>
+          <header><div><span className="eyebrow">{copy.irreversible}</span><h2 id="admin-delete-title">{copy.deleteTitle}</h2></div><DialogCloseButton type="button" className="modal-close" onClick={closeDeleteDialog} aria-label={isEnglish ? "Close" : "Закрыть"} /></header>
           <p>{copy.deleteLead} <strong>{deleteTarget.email}</strong>.</p>
           <label className="admin-blacklist-choice" htmlFor="admin-blacklist-user"><input id="admin-blacklist-user" type="checkbox" aria-label={copy.blacklistAria} checked={blacklist} onChange={(event) => setBlacklist(event.target.checked)} /><span><strong>{copy.blacklistTitle}</strong><small>{copy.blacklistHelp}</small></span></label>
           <label className="admin-delete-confirm" htmlFor="admin-delete-email"><span>{copy.confirmLabel}</span><input id="admin-delete-email" autoComplete="off" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} placeholder={deleteTarget.email} /></label>

@@ -306,7 +306,6 @@
     "У-ра-ни-ос": "Ou-ra-ni-os",
     "Возвышенный небесный.": "Wzniosły i niebiański.",
     "Три намерения Афины": "Trzy intencje Athena",
-    "Каждое утро записывать три главных дела и первым выбирать самое важное.": "Każdego ranka zapisuj trzy podstawowe zadania i zacznij od najważniejszego.",
     "Афина рождается из мысли Зевса уже вооружённой: ясный замысел предшествует точному действию.": "Athena rodzi się w pełni uzbrojony z myśli Zeus: jasna intencja poprzedza precyzyjne działanie.",
     "Вечерний совет Афины": "Wieczorna porada Athena",
     "Вечером коротко записать одно удачное решение и один урок дня.": "Wieczorem krótko zapisz jedną rozsądną decyzję i jedną lekcję z danego dnia.",
@@ -315,7 +314,6 @@
     "Гулять не менее 20 минут без телефона, замечая тело, воздух и живую природу.": "Spaceruj przez co najmniej 20 minut bez telefonu, obserwując ciało, powietrze i żywą naturę.",
     "Артемида хранит дикую природу и свободу движения вне городского шума.": "Artemis chroni dziką przyrodę i swobodę poruszania się poza miejskim zgiełkiem.",
     "Граница Артемиды": "Granica Artemis",
-    "Каждый день осознанно отказаться от одного лишнего требования или отвлечения.": "Świadomie odmawiaj każdego dnia jednego niepotrzebnego żądania lub jednego rozproszenia.",
     "Независимая богиня сохраняет неприкосновенным своё пространство и выбранный путь.": "Niezależna bogini utrzymuje swoją przestrzeń i wybraną ścieżkę w nienaruszonym stanie.",
     "Ясное послание Гермеса": "Jasny komunikat Hermes",
     "Отправить одно давно откладываемое короткое и ясное сообщение.": "Wyślij jedną krótką, jasną wiadomość, którą odkładałeś na później.",
@@ -406,7 +404,9 @@
     "Аполлон освещает меру: вынесите главное на свет и настройте день по ясному ритму.": "Apollo rozświetla miarę: wydobądź to, co ważne, na światło dzienne i dostosuj dzień do czystego rytmu.",
     "Ясность превратилась в жёсткость: верните гармонию через свет, музыку или спокойное чтение.": "Przejrzystość stwardniała w sztywność: przywróć harmonię za pomocą światła, muzyki lub cichego czytania.",
     "Дионис и Ариадна удерживают живую нить целого: отметьте жизнь творчеством и благодарностью.": "Dionysus i Ariadne podtrzymują żywą nić całości: afirmuj życie poprzez kreatywność i wdzięczność.",
-    "Нить центра потеряна: остановитесь, назовите своё состояние и сделайте одно свободное творческое действие.": "Wątek prowadzący do środka został utracony: zatrzymaj się, nazwij swój stan i wykonaj jeden swobodny twórczy gest."
+    "Нить центра потеряна: остановитесь, назовите своё состояние и сделайте одно свободное творческое действие.": "Wątek prowadzący do środka został utracony: zatrzymaj się, nazwij swój stan i wykonaj jeden swobodny twórczy gest.",
+    "Записать три главных дела и первым выбрать самое важное.": "Zapisać trzy najważniejsze zadania i zacząć od najważniejszego.",
+    "Осознанно отказаться от одного лишнего требования или отвлечения.": "Świadomie odmówić jednej zbędnej prośbie lub odrzucić rozpraszającą rzecz."
   },
   "theokyklosWords": {
     "Μῆτις": "Metis",

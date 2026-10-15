@@ -41,6 +41,8 @@ export function ExperimentalIcon({ name, className = "" }: { name: string; class
     {name === "chevron" ? <path d="m9 18 6-6-6-6"/> : null}
     {name === "search" ? <><circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/></> : null}
     {name === "close" ? <path d="m6 6 12 12M6 18 18 6"/> : null}
+    {name === "eye" ? <><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></> : null}
+    {name === "move" ? <path d="M12 3v18M3 12h18m-12-6 3-3 3 3m-6 12 3 3 3-3M6 9l-3 3 3 3m12-6 3 3-3 3"/> : null}
     {name === "flask" ? <path d="M9 3h6M10 3v6l-5.5 9a2 2 0 0 0 1.7 3h11.6a2 2 0 0 0 1.7-3L14 9V3M8 15h8"/> : null}
     {name === "lock" ? <><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></> : null}
     {name === "team" ? <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m20 0v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/><circle cx="9" cy="7" r="4"/></> : null}

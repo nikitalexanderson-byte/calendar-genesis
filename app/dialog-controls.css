@@ -1,0 +1,56 @@
+/* Dialogs and body portals share the existing Universal UI control tokens. */
+html[data-genesis-theme] { --ui-layer-dialog: 1600; }
+html[data-genesis-theme] :is(.modal-backdrop, .stoicheion-letter-dialog) { z-index: var(--ui-layer-dialog); }
+html[data-genesis-theme] button.dialog-close-button,
+html[data-genesis-theme] .genesis-app button.dialog-close-button,
+html[data-genesis-theme] :is([role="dialog"], dialog) button.dialog-close-button,
+html[data-genesis-theme] .genesis-app :is([role="dialog"], dialog) button.dialog-close-button {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 var(--ui-control-height, 44px);
+  width: var(--ui-control-height, 44px);
+  height: var(--ui-control-height, 44px);
+  min-width: var(--ui-control-height, 44px);
+  min-height: var(--ui-control-height, 44px);
+  padding: 0;
+  margin: 0;
+  margin-inline-start: auto;
+  justify-self: end;
+  inset-inline-end: 16px;
+  inset-block-start: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--ui-radius, 12px);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: none;
+  cursor: pointer;
+  transform: none;
+}
+html[data-genesis-theme] button.dialog-close-button > .experimental-icon { width: 20px; height: 20px; flex: none; }
+html[data-genesis-theme] button.dialog-close-button:hover:not(:disabled) { background: var(--exp-hover, var(--paper)); border-color: var(--ui-accent); filter: none; transform: none; }
+html[data-genesis-theme] button.dialog-close-button:focus-visible { outline: 3px solid var(--ui-accent); outline-offset: 3px; }
+html[data-genesis-theme] button.dialog-close-button:disabled { opacity: .55; cursor: default; }
+html[data-genesis-theme] .sacred-sector-modal > header { padding-inline-end: 0; }
+html[data-genesis-theme] .sacred-sector-modal > header > div { min-width: 0; }
+html[data-genesis-theme] .sacred-sector-modal-actions .experimental-icon { width: 20px; height: 20px; flex: none; }
+
+html[data-genesis-theme] .stoicheion-sector-habits { display: grid; gap: 12px; min-width: 0; }
+html[data-genesis-theme] .stoicheion-sector-habits > h3 { margin: 0; font: 400 22px/1.3 var(--font-heading); color: inherit; }
+html[data-genesis-theme] .stoicheion-sector-habits > p { margin: 0; font: 400 14px/1.5 var(--font-ui); }
+html[data-genesis-theme] button.stoicheion-practice-action {
+  display: grid; grid-template-columns: 36px minmax(0, 1fr) 20px; align-items: center; gap: 12px;
+  width: 100%; min-width: 0; min-height: var(--ui-control-height, 44px); padding: 16px;
+  border: 1px solid var(--line); border-radius: var(--ui-radius, 12px);
+  background: var(--surface); color: var(--ink); font: 400 16px/1.5 var(--font-ui); text-align: start; cursor: pointer;
+}
+html[data-genesis-theme] .stoicheion-practice-action > span:first-child { font-size: 24px; }
+html[data-genesis-theme] .stoicheion-practice-copy { display: grid; gap: 6px; min-width: 0; overflow-wrap: anywhere; }
+html[data-genesis-theme] .stoicheion-practice-copy > strong { font-weight: 600; }
+html[data-genesis-theme] .stoicheion-practice-copy > span { color: var(--ink-soft); font-size: 14px; }
+html[data-genesis-theme] .stoicheion-practice-action > svg { width: 20px; height: 20px; }
+html[data-genesis-theme] .stoicheion-practice-action:hover:not(:disabled) { border-color: var(--ui-accent); background: var(--exp-hover, var(--paper)); }
+html[data-genesis-theme] .stoicheion-practice-action:focus-visible { outline: 3px solid var(--ui-accent); outline-offset: 3px; }
+html[data-genesis-theme] .stoicheion-practice-action:disabled { opacity: .55; cursor: default; }
+html[data-genesis-theme] .stoicheion-recommended-practices { margin-block: 24px; padding-block: 24px; border-block: 1px solid var(--line); }
+html[data-genesis-theme] .stoicheion-sector-practice > .secondary-button { justify-self: start; }
+html[data-genesis-theme] .stoicheion-sector-practice > .secondary-button .experimental-icon { width: 20px; height: 20px; flex: none; }

@@ -50,4 +50,17 @@ class TheokyklosCatalogTest {
         assertEquals(practice.priority, habit.priority)
         assertTrue(HabitEngine(GenesisCalendar()).isScheduled(habit, LocalDate.now()))
     }
+
+    @Test fun everySacredPracticeDefaultsToOneDatedAction() {
+        val engine = HabitEngine(GenesisCalendar())
+        for (mode in CalendarMode.entries) for (practice in catalog.practices) {
+            val habit = practice.toHabit(mode)
+            assertFalse(habit.schedule.recurrence.enabled)
+            assertEquals(practice.id, habit.sacredPracticeId)
+            assertEquals(practice.sectorId, habit.sacredSectorId)
+            assertTrue(engine.isScheduled(habit, habit.createdDate))
+            assertFalse(engine.isScheduled(habit, habit.createdDate.minusDays(1)))
+            assertFalse(engine.isScheduled(habit, habit.createdDate.plusDays(1)))
+        }
+    }
 }

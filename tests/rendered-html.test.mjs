@@ -1987,8 +1987,8 @@ test("covers every Theokyklos sector with sacred habits while keeping Stoicheion
   assert.match(tracker, /Открыть описание/);
   assert.doesNotMatch(tracker, /Открыть в Теокиклосе/);
   assert.match(tracker, /TheokyklosDetailsDialog segment=\{describedSector\}/);
-  assert.match(tracker, /sacred-description-button/);
-  assert.match(tracker, /SacredDialogActionIcon/);
+  assert.match(tracker, /className="secondary-button"[\s\S]*ExperimentalIcon name="eye"/);
+  assert.match(tracker, /DialogCloseButton[\s\S]*sacred-sector-header-close/);
   assert.match(tracker, /Открыть полный набор эмодзи/);
   assert.match(tracker, /Без строгого времени/);
   assert.match(tracker, /Свой цвет/);
@@ -2426,8 +2426,12 @@ test("Experimental applies one design system across ordinary views and adds safe
   assert.match(habits, /experimental-habit-section-progress/);
   assert.match(habits, /<SleepEditor .* allowCalendarModeChange onSave=/);
   assert.match(habits, /<AddictionEditor .* allowCalendarModeChange onSave=/);
-  assert.match(habits, /<HabitTemplateSetup .* allowCalendarModeChange onSave=/);
-  assert.match(habits, /<HabitEditor .* allowCalendarModeChange onSave=/);
+  for (const component of ["HabitTemplateSetup", "HabitEditor"]) {
+    const props = habits.match(new RegExp(`<${component}\\b[^\\n]+`))?.[0];
+    assert.ok(props, `${component} is rendered`);
+    assert.match(props, /\ballowCalendarModeChange\b/);
+    assert.match(props, /\bonSave=/);
+  }
   assert.match(account, /data-exp-layout="view" data-exp-ui="dialog"/);
   assert.match(admin, /className="admin-view" data-exp-layout="view"/);
   assert.match(assistant, /data-exp-ui="dialog"/);

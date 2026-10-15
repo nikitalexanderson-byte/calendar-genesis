@@ -2761,5 +2761,19 @@
   "Действия со связью": "Connection actions",
   "Настроить связь": "Edit connection",
   "Удалить связь": "Delete connection",
-  "Связать с другой мыслью": "Link to another thought"
+  "Связать с другой мыслью": "Link to another thought",
+  "Рекомендуемые действия": "Recommended actions",
+  "Однократное действие": "One-time action",
+  "Выберите обычное действие и выполните его один раз в поддержку этого сектора.": "Choose a simple action and complete it once to support this sector.",
+  "Уведомления и сообщения": "Notifications and messages",
+  "Переместить уведомления": "Move notifications",
+  "Перетащите блок или используйте стрелки и Home": "Drag the panel or use the arrow keys and Home",
+  "Свернуть уведомления": "Collapse notifications",
+  "Убрать напоминание": "Dismiss reminder",
+  "Новые уведомления": "New notifications",
+  "Показать непрочитанное": "Show unread items",
+  "Скрыть уведомление": "Hide notification",
+  "Удалить мысль": "Delete thought",
+  "Дочерние мысли перейдут к родителю. Остальные мысли, задачи и проекты сохранятся. Изменение карты можно отменить.": "Child thoughts will move to the parent. Other thoughts, tasks and projects will be preserved. You can undo this change.",
+  "Ошибка": "Error"
 }

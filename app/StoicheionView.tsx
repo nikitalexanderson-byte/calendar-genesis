@@ -1,4 +1,5 @@
 "use client";
+import { DialogCloseButton } from "./DialogCloseButton";
 
 import {
   useEffect,
@@ -25,7 +26,8 @@ import {
   type StoicheionDrawKind,
   type StoicheionDrawRecord,
 } from "./cloud-sync";
-import { getRuntimeLanguage, runtimeLocale } from "./i18n";
+import { getRuntimeLanguage, runtimeLocale, translateText } from "./i18n";
+import { ExperimentalIcon } from "./ExperimentalIcon";
 import { THEOKYKLOS_SEGMENTS } from "./theokyklos-data";
 import {
   sacredPracticesForSector,
@@ -333,12 +335,16 @@ function LetterDetails({
   position,
   onClose,
   onOpenTheokyklosSector,
+  onChooseSacredPractice,
+  sacredPracticesEnabled,
 }: {
   letter: StoicheionLetter;
   reversed: boolean | null;
   position: SpreadPosition | null;
   onClose: () => void;
   onOpenTheokyklosSector?: (sectorId: StoicheionPracticeSectorId) => void;
+  onChooseSacredPractice?: (practiceId: string) => void;
+  sacredPracticesEnabled: boolean;
 }) {
   const language = getRuntimeLanguage();
   const sector = position ? THEOKYKLOS_SEGMENTS.find((segment) => segment.id === position.id) ?? null : null;
@@ -347,7 +353,8 @@ function LetterDetails({
   const sections = stoicheionReadingSections(formatGreekTerms(letter.content, getRuntimeLanguage()));
   const orientationSections = sections.filter((section) => /^(Парадное положение|Перев[её]рнутое положение|Upright position|Reversed position)/i.test(section.heading));
   const profileSections = sections.filter((section) => !orientationSections.includes(section));
-  const drawReading = reversed !== null && orientationSections.length > 0;
+  const drawReading = reversed !== null;
+  const [readingMoreOpen, setReadingMoreOpen] = useState(orientationSections.length === 0);
   const renderSection = (section: (typeof sections)[number], index: number) => {
     const selected = reversed !== null && (reversed
       ? /^(Перев[её]рнутое положение|Reversed position)/i.test(section.heading)
@@ -360,7 +367,17 @@ function LetterDetails({
       })}</div>
     </section>;
   };
-  const sectorPractice = position && sector && guidance && reversed !== null ? (
+  const practiceActions = (recommended = false) => <div className="stoicheion-sector-habits">
+    <h3>{translateText(recommended ? "Рекомендуемые действия" : "Сакральные привычки", language)}</h3>
+    <p>{translateText("Однократное действие", language)}</p>
+    {practices.map(practice => <button type="button" className="stoicheion-practice-action" key={practice.id}
+      disabled={!sacredPracticesEnabled || (!onChooseSacredPractice && !onOpenTheokyklosSector)}
+      onClick={() => { onClose(); if (onChooseSacredPractice) onChooseSacredPractice(practice.id); else if (position) onOpenTheokyklosSector?.(position.id); }}>
+      <span aria-hidden="true">{practice.emoji}</span><span className="stoicheion-practice-copy" data-no-translate><strong>{catalogText(practice.title, language)}</strong><span>{catalogText(practice.description, language)}</span></span><ExperimentalIcon name="chevron" />
+    </button>)}
+    {!sacredPracticesEnabled ? <p>{translateText("Трекинг привычек отключён в личном кабинете. Практики видны, но их нельзя начинать или отмечать.", language)}</p> : null}
+  </div>;
+  const sectorPractice = position && sector && guidance ? (
     <section className={`stoicheion-sector-practice${reversed ? " is-reversed" : ""}`}>
       <header>
         <span aria-hidden="true">{sector.symbol}</span>
@@ -371,11 +388,8 @@ function LetterDetails({
         <small>{language === "en" ? "Sacred words" : "Священные слова"}</small>
         <div>{sector.words.map((word) => <span key={word.greek} data-no-translate><b lang={language === "el" ? "grc" : language}>{sacredWordCopy(word.greek, language, word.pronunciation.ru)}</b><em>{catalogText(word.pronunciation, language)}</em></span>)}</div>
       </div>
-      <div className="stoicheion-sector-habits">
-        <small>{language === "en" ? "Suggested embodied practices" : "Предлагаемые воплощённые практики"}</small>
-        {practices.map((practice) => <article key={practice.id}><span aria-hidden="true">{practice.emoji}</span><div data-no-translate><strong>{catalogText(practice.title, language)}</strong><p>{catalogText(practice.description, language)}</p></div></article>)}
-      </div>
-      {onOpenTheokyklosSector ? <button type="button" onClick={() => { onClose(); onOpenTheokyklosSector(position.id); }}>{language === "en" ? "Open the Theokyklos sector" : "Открыть сектор Теокиклоса"} →</button> : null}
+      {practiceActions()}
+      {onOpenTheokyklosSector ? <button type="button" className="secondary-button" onClick={() => { onClose(); onOpenTheokyklosSector(position.id); }}>{language === "en" ? "Open the Theokyklos sector" : "Открыть сектор Теокиклоса"}<ExperimentalIcon name="chevron" /></button> : null}
     </section>
   ) : null;
   const dialogRef = useDialogAccessibility<HTMLDivElement>(onClose);
@@ -397,7 +411,7 @@ function LetterDetails({
       tabIndex={-1}
     >
       <article>
-        <button type="button" className="stoicheion-dialog-close" onClick={onClose} aria-label="Закрыть описание буквы">×</button>
+        <DialogCloseButton type="button" className="stoicheion-dialog-close" onClick={onClose} aria-label="Закрыть описание буквы" />
         <header>
           <StoicheionCardFace letter={letter} reversed={Boolean(reversed)} variant="dialog" />
           <div>
@@ -421,8 +435,9 @@ function LetterDetails({
           </section> : null}
           {drawReading ? <>
             <div className="stoicheion-orientation-readings">{orientationSections.map(renderSection)}</div>
-            <details className="stoicheion-reading-more">
-              <summary>{language === "en" ? "Full card information" : "Полная информация о карте"}</summary>
+            {reversed && position ? <section className="stoicheion-recommended-practices">{practiceActions(true)}</section> : null}
+            <details className="stoicheion-reading-more" open={readingMoreOpen} onToggle={event => setReadingMoreOpen(event.currentTarget.open)}>
+              <summary>{translateText("Полная информация о карте", language)}</summary>
               <div>{profileSections.map(renderSection)}{sectorPractice}</div>
             </details>
           </> : <>{sections.map(renderSection)}{sectorPractice}</>}
@@ -436,6 +451,8 @@ function LetterDetails({
 type StoicheionViewProps = {
   divinationDisabled?: boolean;
   onOpenTheokyklosSector?: (sectorId: StoicheionPracticeSectorId) => void;
+  onChooseSacredPractice?: (practiceId: string) => void;
+  sacredPracticesEnabled?: boolean;
   initialCardId?: string | null;
   onInitialCardOpened?: () => void;
   voiceDrawKind?: "daily" | "spread" | null;
@@ -443,6 +460,7 @@ type StoicheionViewProps = {
 };
 
 export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSector,
+  onChooseSacredPractice, sacredPracticesEnabled = true,
   initialCardId = null, onInitialCardOpened, voiceDrawKind = null, onVoiceDrawHandled }: StoicheionViewProps) {
   const locale = runtimeLocale();
   const language = getRuntimeLanguage();
@@ -912,7 +930,7 @@ export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSec
             onPointerMove={moveThroughField}
             onKeyDown={moveWithKeyboard}
           />
-          <button type="button" className="stoicheion-motion-cancel" onClick={cancelMotion} aria-label="Отменить выбор">×</button>
+          <DialogCloseButton type="button" className="stoicheion-motion-cancel" onClick={cancelMotion} aria-label="Отменить выбор" />
           <div className="stoicheion-motion-stars" aria-hidden="true">
             {letters.slice(0, 12).map((letter, index) => (
               <i key={letter.id} style={{ "--motion-index": index } as CSSProperties}>{letter.symbol}</i>
@@ -939,6 +957,8 @@ export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSec
           position={selectedReading.position}
           onClose={() => setSelectedReading(null)}
           onOpenTheokyklosSector={onOpenTheokyklosSector}
+          onChooseSacredPractice={onChooseSacredPractice}
+          sacredPracticesEnabled={sacredPracticesEnabled}
         />
       ) : null}
     </section>

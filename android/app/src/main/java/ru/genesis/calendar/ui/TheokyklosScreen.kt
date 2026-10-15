@@ -342,7 +342,8 @@ private fun TheokyklosDetail(sector: TheokyklosSector, practices: List<Theokyklo
 
 internal fun TheokyklosPractice.toHabit(mode: CalendarMode, english: Boolean = false): Habit {
     val today = LocalDate.now()
-    val schedule = HabitEngine(GenesisCalendar()).defaultSchedule(today, mode)
+    val baseSchedule = HabitEngine(GenesisCalendar()).defaultSchedule(today, mode)
+    val schedule = baseSchedule.copy(recurrence = baseSchedule.recurrence.copy(enabled = false))
     return Habit(TrackerEntity.create("habit"), if (english) title.en else title.ru, today, schedule,
         description = if (english) description.en else description.ru, emoji = emoji, priority = priority,
         color = color, sacredPracticeId = id, sacredSectorId = sectorId,

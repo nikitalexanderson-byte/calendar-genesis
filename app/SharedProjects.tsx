@@ -1,5 +1,6 @@
 /* eslint-disable @next/next/no-img-element -- User-provided board pictures remain native img elements. */
 "use client";
+import { DialogCloseButton } from "./DialogCloseButton";
 
 import { type ReactNode, type CSSProperties, type FormEvent, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { SharedArchivedTasks } from "./SharedArchivedTasks";
@@ -1117,7 +1118,8 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
     {renderTaskActions(task, snapshot)}
   </article> : null;
 
-  if (sharedMindmapsEnabled && mapsOpen && selectedSpace && uiReadySpace === spaceId) return <Suspense fallback={<p role="status">Открываем зашифрованные карты…</p>}><SharedSpaceCollaboration key={spaceId} userId={userId} spaceId={spaceId} language={language}/><SharedMindmaps
+  if (sharedMindmapsEnabled && mapsOpen && selectedSpace && uiReadySpace === spaceId) return <Suspense fallback={<p role="status">Открываем зашифрованные карты…</p>}><SharedMindmaps
+    afterWorkspace={<SharedSpaceCollaboration key={spaceId} userId={userId} spaceId={spaceId} language={language}/>}
     userId={userId} space={selectedSpace} projects={projects} projectId={projectId} language={language} enabledCalendars={enabledCalendars} timeFormat={timeFormat}
     onClose={() => { setMapsOpen(false); const url=new URL(location.href); url.searchParams.delete("mindmap"); history.replaceState(history.state,"",url); }}
     onTask={(task,context)=>{setMapsOpen(false);openTask(task,context);}}
@@ -1517,7 +1519,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       onPointerDown={(event) => { if (window.innerWidth > 760 && event.target === event.currentTarget) { const r = event.currentTarget.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) event.currentTarget.close(); } }}
       onClose={closeTask} onCancel={(event) => { if (busy) event.preventDefault(); }}>
       {selectedTask && taskSnapshot ? <>
-        <header><h2 id="shared-task-title">{selectedTask.title}</h2><button type="button" className="shared-projects-close" disabled={busy} onClick={closeTask} aria-label={english ? "Close task" : "Закрыть задачу"}><ExperimentalIcon name="close" /></button></header>
+        <header><h2 id="shared-task-title">{selectedTask.title}</h2><DialogCloseButton type="button" className="shared-projects-close" disabled={busy} onClick={closeTask} aria-label={english ? "Close task" : "Закрыть задачу"} /></header>
         {message ? <p className="shared-task-feedback" role="status">{message}</p> : null}
         <div className="shared-task-sections" role="tablist" tabIndex={-1} aria-label={english ? "Task details" : "Карточка задачи"} onKeyDown={event => {
           if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
@@ -1625,7 +1627,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       onClose={() => setCalendarAgendaProjectId(null)}>
       {calendarAgendaOpen ? <>
         <header><h2 id="shared-calendar-day-title">{formatCalendarDate(new Date(`${calendarDay}T12:00:00`), calendarMode, true)}</h2>
-          <button type="button" className="shared-projects-close" aria-label={english ? "Close" : "Закрыть"} onClick={() => setCalendarAgendaProjectId(null)}><ExperimentalIcon name="close" /></button>
+          <DialogCloseButton type="button" className="shared-projects-close" aria-label={english ? "Close" : "Закрыть"} onClick={() => setCalendarAgendaProjectId(null)} />
         </header>
         <div className="shared-calendar-day-actions">
           {canWrite && snapshot ? <button type="button" className="primary-button" disabled={busy} onClick={() => { setCalendarAgendaProjectId(null); openCreateTask(snapshot.project, undefined, "task", true); setNewTaskDueDate(calendarDay); setNewPlan({ ...emptySharedPlan(), startDate: calendarDay }); }}><ExperimentalIcon name="plus" />{english ? "Create task" : "Создать задачу"}</button> : null}
@@ -1664,8 +1666,8 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
           team: english ? "Team" : "Команда",
           board: english ? "Board settings" : "Настройки доски",
         })[createModal]}</h2>
-          <button type="button" className="shared-projects-close" onClick={() => setCreateModal(null)}
-            aria-label={english ? "Close" : "Закрыть"}><ExperimentalIcon name="close" /></button>
+          <DialogCloseButton type="button" className="shared-projects-close" onClick={() => setCreateModal(null)}
+            aria-label={english ? "Close" : "Закрыть"} />
         </header>
         {message ? <p className="shared-task-feedback" role="status">{message}</p> : null}
         {newTaskDestination && (createModal === "task" || createModal === "project" && createKind === "task-list") ? <div className="task-composer-tabs" role="group" aria-label={english ? "Create type" : "Тип дела"}>
