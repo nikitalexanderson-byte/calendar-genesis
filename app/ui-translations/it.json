@@ -2298,5 +2298,19 @@
   "Действия со связью": "Azioni del collegamento",
   "Настроить связь": "Modifica collegamento",
   "Удалить связь": "Elimina collegamento",
-  "Связать с другой мыслью": "Collega a un altro pensiero"
+  "Связать с другой мыслью": "Collega a un altro pensiero",
+  "Рекомендуемые действия": "Azioni consigliate",
+  "Однократное действие": "Azione singola",
+  "Выберите обычное действие и выполните его один раз в поддержку этого сектора.": "Scegli un’azione semplice e completala una volta per sostenere questo settore.",
+  "Уведомления и сообщения": "Notifiche e messaggi",
+  "Переместить уведомления": "Sposta notifiche",
+  "Перетащите блок или используйте стрелки и Home": "Trascina il pannello oppure usa le frecce e il tasto Home",
+  "Свернуть уведомления": "Comprimi notifiche",
+  "Убрать напоминание": "Rimuovi promemoria",
+  "Новые уведомления": "Nuove notifiche",
+  "Показать непрочитанное": "Mostra elementi non letti",
+  "Скрыть уведомление": "Nascondi notifica",
+  "Удалить мысль": "Elimina pensiero",
+  "Дочерние мысли перейдут к родителю. Остальные мысли, задачи и проекты сохранятся. Изменение карты можно отменить.": "I pensieri figli saranno spostati al genitore. Gli altri pensieri, attività e progetti saranno conservati. Puoi annullare questa modifica.",
+  "Ошибка": "Errore"
 }

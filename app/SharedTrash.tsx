@@ -1,7 +1,7 @@
 "use client";
+import { DialogCloseButton } from "./DialogCloseButton";
 import {useCallback,useEffect,useRef,useState} from "react";
 import {listSharedTrash,restoreSharedTrash,purgeSharedTask,type SharedTrashEntry} from "./cloud-sync";
-import {ExperimentalIcon} from "./ExperimentalIcon";
 import {useDialogAccessibility} from "./use-dialog-accessibility";
 import "./shared-review.css";
 import {translateText as t} from "./i18n";
@@ -10,7 +10,7 @@ export function SharedTrash({spaceId,onClose,onChanged}:{spaceId:string;onClose:
  const refresh=useCallback(async()=>{setItems(await listSharedTrash(spaceId));setLoaded(true);},[spaceId]);
  useEffect(()=>{let active=true;void listSharedTrash(spaceId).then(value=>{if(active){setItems(value);setLoaded(true);}}).catch(e=>{if(active)setError(String(e));});return()=>{active=false;};},[spaceId]);
  return <div className="modal-backdrop"><div className="editor-modal shared-trash-dialog" role="dialog" aria-modal="true" aria-label="Корзина" ref={ref} tabIndex={-1}>
- <header><h2>Корзина</h2><button type="button" aria-label="Закрыть" onClick={onClose}><ExperimentalIcon name="close"/></button></header>
+ <header><h2>Корзина</h2><DialogCloseButton type="button" aria-label="Закрыть" onClick={onClose} /></header>
  <p>Удалённые задачи и проекты можно восстановить до окончания срока хранения. Максимальный срок — 30 дней.</p>
  {!loaded?<p role="status">Загрузка…</p>:!items.length?<p>Корзина пуста.</p>:items.map(item=><article className="shared-trash-item" key={`${item.kind}:${item.id}`}><h3 data-no-translate>{item.title}</h3><p>{item.kind==="task"?"Задача":"Проект"} · <time dateTime={item.expiresAt}>{new Date(item.expiresAt).toLocaleDateString(document.documentElement.lang)}</time></p>
  <div><label>Срок хранения, дней<input type="number" min={1} max={30} defaultValue={item.retentionDays} disabled={busy||!item.canRestore} onBlur={async event=>{const value=Number(event.target.value);if(value===item.retentionDays)return;setBusy(true);setError("");try{await restoreSharedTrash(spaceId,item,value);await refresh();}catch(e){setError(String(e));event.target.value=String(item.retentionDays);}finally{setBusy(false);}}}/></label><button type="button" disabled={busy||!item.canRestore} onClick={async()=>{setBusy(true);setError("");try{await restoreSharedTrash(spaceId,item);await refresh();await onChanged();}catch(e){setError(String(e));}finally{setBusy(false);}}}>Восстановить</button>{item.kind==="task" && item.canPurge ? <button type="button" className="danger-button" disabled={busy} onClick={async()=>{
@@ -25,7 +25,7 @@ export function SharedTrashConfirmation({title,onClose,onConfirm}:{title:string;
  const ref=useCallback((element:HTMLDialogElement|null)=>{dialogRef.current=element;focusRef(element);},[focusRef]);
  useEffect(()=>{const dialog=dialogRef.current;dialog?.showModal();return()=>dialog?.close();},[]);
  return <dialog className="editor-modal shared-trash-confirmation" aria-label="Переместить в корзину" ref={ref} tabIndex={-1} onCancel={event=>{event.preventDefault();if(!busy)onClose();}}>
- <header><h2>Переместить в корзину</h2><button type="button" aria-label="Закрыть" disabled={busy} onClick={onClose}><ExperimentalIcon name="close"/></button></header><p data-no-translate>{title}</p>
+ <header><h2>Переместить в корзину</h2><DialogCloseButton type="button" aria-label="Закрыть" disabled={busy} onClick={onClose} /></header><p data-no-translate>{title}</p>
  <p>До окончания срока хранения объект можно восстановить. Затем он будет удалён автоматически.</p><p>{t("Подзадачи перемещаются вместе с родителем. Ранее удалённые подзадачи сохраняют свой срок хранения.")}</p><label>Срок хранения, дней<input type="number" min={1} max={30} value={days} disabled={busy} onChange={event=>setDays(Number(event.target.value))}/></label>
  <button type="button" disabled={busy} onClick={onClose}>Отмена</button><button type="button" className="danger-button" disabled={busy||!Number.isInteger(days)||days<1||days>30} onClick={async()=>{setBusy(true);try{await onConfirm(days);onClose();}catch(e){setError(String(e));}finally{setBusy(false);}}}>В корзину</button>{error?<p role="alert">{error}</p>:null}</dialog>;
 }

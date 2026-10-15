@@ -1,4 +1,5 @@
 "use client";
+import { DialogCloseButton } from "./DialogCloseButton";
 
 import { createContext, useContext, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { formatTimeValue, hourFromTwelveHour, twelveHourParts, type TimeFormat } from "./time-format";
@@ -111,7 +112,7 @@ export function TimeClockPicker({ id, value, onChange, disabled = false, timeFor
       {open ? (
         <div className="modal-backdrop time-clock-picker-backdrop" role="presentation" data-genesis-preserve={`custom-time-picker-${timeFormat}-dialog`} onMouseDown={handleBackdropMouseDown}>
           <div ref={dialogRef} className="time-clock-picker-panel" role="dialog" aria-modal="true" aria-label="Выбор времени" tabIndex={-1}>
-            <button type="button" className="modal-close" onClick={() => setOpen(false)} aria-label="Закрыть">×</button>
+            <DialogCloseButton type="button" className="modal-close" onClick={() => setOpen(false)} aria-label="Закрыть" />
             <div className="time-clock-picker-legend">
               <span className="time-clock-legend-item hour"><i aria-hidden="true" /> Часы</span>
               <span className="time-clock-legend-item minute"><i aria-hidden="true" /> Минуты</span>

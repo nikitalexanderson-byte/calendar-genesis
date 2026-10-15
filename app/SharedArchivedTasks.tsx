@@ -1,7 +1,7 @@
 "use client";
+import { DialogCloseButton } from "./DialogCloseButton";
 import { useState } from "react";
 import { useDialogAccessibility } from "./use-dialog-accessibility";
-import { ExperimentalIcon } from "./ExperimentalIcon";
 import { useSharedTaskPage } from "./use-shared-task-page";
 import { SharedTaskPageControls } from "./SharedTaskPageControls";
 import { setSharedTaskArchived, type SharedProject, type SharedTask } from "./cloud-sync";
@@ -13,7 +13,7 @@ export function SharedArchivedTasks({spaceId,projects,onClose,onChanged,onTrash,
   const ref=useDialogAccessibility<HTMLDivElement>(onClose);
   const result=useSharedTaskPage({spaceId,archived:true,q:search},"updatedAt");
   return <div className="modal-backdrop"><div className="editor-modal shared-trash-dialog" role="dialog" aria-modal="true" aria-label={t("Архив задач")} ref={ref} tabIndex={-1}>
-    <header><h2>{t("Архив задач")}</h2><button type="button" aria-label={t("Закрыть")} onClick={onClose}><ExperimentalIcon name="close"/></button></header>
+    <header><h2>{t("Архив задач")}</h2><DialogCloseButton type="button" aria-label={t("Закрыть")} onClick={onClose} /></header>
     <p>{t("Архив скрывает задачу и её подзадачи из активных списков. Завершение и сроки не меняются.")}</p>
     <label>{t("Поиск задач")}<input value={search} onChange={event=>setSearch(event.target.value)} maxLength={200}/></label>
     {result.page?.tasks.map(task=><article className="shared-trash-item" key={task.id}>

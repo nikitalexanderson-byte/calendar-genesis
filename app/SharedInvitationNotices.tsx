@@ -1,15 +1,18 @@
 "use client";
+import { DialogCloseButton } from "./DialogCloseButton";
 
 import { useEffect, useRef, useState } from "react";
 import { acceptSharedInvitation, rejectSharedInvitation, listSharedInvitations, type SharedInvitation } from "./cloud-sync";
+import type { NoticeActivity } from "./notification-dock-model";
 import "./shared-invitation-notices.css";
 
 export type SharedInvitationDestination = { spaceId: string; projectId: string };
 
 /** Mounted per account so a late response cannot appear in another account. */
-export function SharedInvitationNotices({userId, english, onAccepted, persistent = false}: {
+export function SharedInvitationNotices({userId, english, onAccepted, persistent = false, onActivity}: {
   userId: string; english: boolean; onAccepted: (destination: SharedInvitationDestination) => void;
   persistent?: boolean;
+  onActivity?: (activity: NoticeActivity) => void;
 }) {
   const storageKey = `genesis-hidden-invitations:${userId}`;
   const [hidden, setHidden] = useState(() => {
@@ -24,6 +27,7 @@ export function SharedInvitationNotices({userId, english, onAccepted, persistent
   const [pending, setPending] = useState("");
   const [errorId, setErrorId] = useState("");
   const accepting = useRef(false);
+  useEffect(() => { onActivity?.({ count: invitations.length, tokens: invitations.map(item => `invitation:${item.id}`), title: english ? "Workspace invitations" : "Приглашения в пространства" }); }, [invitations, english, onActivity]);
 
   useEffect(() => {
     alive.current = true;
@@ -74,9 +78,7 @@ export function SharedInvitationNotices({userId, english, onAccepted, persistent
     {!persistent && invitations.some(item=>hidden.has(item.id)) ? <button type="button" className="secondary-button shared-invitation-reopen" onClick={()=>{setHidden(new Set());try{localStorage.removeItem(storageKey);}catch{/* Restore invitations in this session. */}}}>{english ? "Workspace invitations" : "Приглашения в пространства"} · {invitations.length}</button> : null}
     {invitations.filter(item=>persistent||!hidden.has(item.id)).map(invitation => <section className="shared-invitation-notice" key={invitation.id}>
       <header><h2>{english ? "Workspace invitation" : "Приглашение в пространство"}</h2>
-        {!persistent ? <button type="button" className="shared-invitation-close" disabled={pending===invitation.id} onClick={() => hide(invitation.id)} aria-label={english ? "Hide invitation" : "Скрыть приглашение"}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
-        </button> : null}</header>
+        {!persistent ? <DialogCloseButton type="button" className="shared-invitation-close" disabled={pending===invitation.id} onClick={() => hide(invitation.id)} aria-label={english ? "Hide invitation" : "Скрыть приглашение"} /> : null}</header>
       <strong className="shared-invitation-title" data-no-translate>{invitation.spaceTitle}</strong>
       <p><span data-no-translate>{invitation.inviterName}</span> · {english ? "invites you to join" : "приглашает присоединиться"}</p>
       {invitation.projectTitle ? <p data-no-translate>{invitation.projectTitle}</p> : null}

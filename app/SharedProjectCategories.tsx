@@ -1,4 +1,5 @@
 "use client";
+import { DialogCloseButton } from "./DialogCloseButton";
 import { type CSSProperties, type FormEvent, useEffect, useId, useRef, useState } from "react";
 import { deleteSharedProjectCategory, saveSharedProjectCategory, type SharedCategory, type SharedProject } from "./cloud-sync";
 import { translateText, getRuntimeLanguage } from "./i18n";
@@ -78,7 +79,7 @@ export function SharedProjectCategories({ spaceId, categories, projects, canMana
       onClose={() => { setFormOpen(false); setEditing(null); }}>
       {formOpen ? <>
         <header><h2 id={dialogTitleId}>{editing ? (english ? "Edit category" : "Редактировать категорию") : (english ? "New category" : "Новая категория")}</h2>
-          <button type="button" className="shared-projects-close" disabled={busy} aria-label={english ? "Close" : "Закрыть"} onClick={() => setFormOpen(false)}><ExperimentalIcon name="close" /></button>
+          <DialogCloseButton type="button" className="shared-projects-close" disabled={busy} aria-label={english ? "Close" : "Закрыть"} onClick={() => setFormOpen(false)} />
         </header>
         <form className="shared-category-form" onSubmit={submit}>
           <label>{english ? "Category name" : "Название категории"}<input maxLength={80} required value={title} disabled={busy} onChange={event => setTitle(event.target.value)} /></label>

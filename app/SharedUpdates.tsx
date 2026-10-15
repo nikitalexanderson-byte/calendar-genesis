@@ -1,4 +1,5 @@
 "use client";
+import { DialogCloseButton } from "./DialogCloseButton";
 import { useEffect, useRef, useState } from "react";
 import { loadSharedInbox, loadSharedOverview, type SharedOverview, type SharedNotification } from "./cloud-sync";
 import { useSharedUpdates } from "./SharedUpdatesProvider";
@@ -75,7 +76,7 @@ export function SharedWorkspaceSummary({ userId, english, spaceId, onOpen }: { u
     <dialog className="shared-projects-modal shared-updates-dialog" ref={dialog} onCancel={() => setOpen(false)}
       aria-labelledby="shared-updates-title" onPointerDown={event => { if (event.target === event.currentTarget) { const box = event.currentTarget.getBoundingClientRect(); if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) setOpen(false); } }}>
       <header><h2 id="shared-updates-title">{english ? "New in shared affairs" : "Новое в общих делах"}</h2>
-        <button type="button" className="shared-updates-close" aria-label={english ? "Close updates" : "Закрыть обновления"} onClick={() => setOpen(false)}><ExperimentalIcon name="close" /></button></header>
+        <DialogCloseButton type="button" className="shared-updates-close" aria-label={english ? "Close updates" : "Закрыть обновления"} onClick={() => setOpen(false)} /></header>
       <div className="shared-updates-toolbar"><div className="shared-updates-filter" role="group" aria-label={english ? "Updates filter" : "Фильтр обновлений"}>
         <button type="button" aria-pressed={unread} onClick={() => setUnread(true)}>{english ? "Unread" : "Непрочитанные"}</button>
         <button type="button" aria-pressed={!unread} onClick={() => setUnread(false)}>{english ? "All" : "Все"}</button></div>
@@ -110,7 +111,7 @@ export function SharedCommentNotices({ userId, english, onOpen }: { userId: stri
         {item.commentBody ? <span className="shared-comment-preview" data-no-translate>{item.commentBody}</span> : null}
         <span className="shared-comment-notice-action"><ExperimentalIcon name="open" />{english ? "Open task" : "Открыть задачу"}</span>
       </button>
-      <button type="button" className="shared-comment-notice-dismiss" aria-label={english ? "Hide comment notification" : "Скрыть уведомление о комментарии"} onClick={() => dismiss(item.id)}><ExperimentalIcon name="close" /></button>
+      <DialogCloseButton type="button" className="shared-comment-notice-dismiss" aria-label={english ? "Hide comment notification" : "Скрыть уведомление о комментарии"} onClick={() => dismiss(item.id)} />
     </article>)}
   </aside>;
 }

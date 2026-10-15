@@ -1,8 +1,8 @@
 "use client";
+import { DialogCloseButton } from "./DialogCloseButton";
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { deleteSharedLabel, saveSharedLabel, type SharedLabel } from "./cloud-sync";
-import { ExperimentalIcon } from "./ExperimentalIcon";
 
 function labelStyle(color: string): CSSProperties {
   const rgb = [1,3,5].map(offset => parseInt(color.slice(offset,offset+2),16) / 255).map(value => value <= .04045 ? value / 12.92 : ((value+.055)/1.055)**2.4);
@@ -40,7 +40,7 @@ export function SharedLabelsDialog({spaceId,labels,english,onClose,onChanged}:{s
   };
   return <dialog ref={dialog} className="shared-projects-modal shared-labels-modal" aria-labelledby="shared-labels-title" onClose={onClose}
     onPointerDown={event=>{if(innerWidth>760 && event.target===event.currentTarget){const r=event.currentTarget.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom) event.currentTarget.close();}}}>
-    <header><h2 id="shared-labels-title">{english ? "Workspace labels" : "Метки пространства"}</h2><button type="button" className="shared-projects-close" disabled={busy} aria-label={english ? "Close" : "Закрыть"} onClick={()=>dialog.current?.close()}><ExperimentalIcon name="close"/></button></header>
+    <header><h2 id="shared-labels-title">{english ? "Workspace labels" : "Метки пространства"}</h2><DialogCloseButton type="button" className="shared-projects-close" disabled={busy} aria-label={english ? "Close" : "Закрыть"} onClick={()=>dialog.current?.close()} /></header>
     <p>{english ? "Use several labels to mark types, priorities or departments. Everyone in the workspace shares this set." : "Назначайте несколько меток по типам, приоритетам или отделам. Набор меток общий для участников пространства."}</p>
     {error ? <p role="alert">{error}</p> : null}
     <div className="shared-label-manager-list">{labels.map(label=><div key={label.id}><SharedLabelBadges labels={[label]} ids={[label.id]}/>

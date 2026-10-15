@@ -1,4 +1,5 @@
 "use client";
+import { DialogCloseButton } from "./DialogCloseButton";
 /* eslint-disable @next/next/no-img-element -- Hero Path WebP artwork is pre-optimized for both deployment targets. */
 
 import { Fragment, useEffect, useRef, useState, type CSSProperties } from "react";
@@ -153,7 +154,7 @@ export function HeroPathPanel({ workspace, language, onClaimCheckpoint, onReveal
       <section ref={dialogRef} className="hero-path-panel" role="dialog" aria-modal="true" aria-labelledby="hero-path-title" tabIndex={-1}>
         <header className="hero-path-header">
           <div><span className="eyebrow">{isEnglish ? "Lifetime progress" : "Пожизненный прогресс"}</span><h2 id="hero-path-title">{isEnglish ? "Path of the Hero" : "Путь Героя"}</h2><p>{isEnglish ? "Every point records a real completion. XP is never spent and ranks are never lost." : "Каждый балл сохраняет реальное выполнение. XP не тратится, а достигнутые ранги не теряются."}</p></div>
-          <button type="button" className="modal-close" onClick={onClose} aria-label={isEnglish ? "Close" : "Закрыть"}>×</button>
+          <DialogCloseButton type="button" className="modal-close" onClick={onClose} aria-label={isEnglish ? "Close" : "Закрыть"} />
         </header>
 
         <div className="hero-path-summary" style={{ "--rank-color": rank.color } as CSSProperties}>

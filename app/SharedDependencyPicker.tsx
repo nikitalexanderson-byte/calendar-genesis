@@ -1,7 +1,7 @@
 "use client";
+import { DialogCloseButton } from "./DialogCloseButton";
 import { useEffect, useState } from "react";
 import { useDialogAccessibility } from "./use-dialog-accessibility";
-import { ExperimentalIcon } from "./ExperimentalIcon";
 import { querySharedTasks, type SharedTask } from "./cloud-sync";
 import { useSharedTaskPage } from "./use-shared-task-page";
 import { SharedTaskPageControls } from "./SharedTaskPageControls";
@@ -41,7 +41,7 @@ export function SharedDependencyDialog({task,onClose,onOpen}:{task:SharedTask;on
   const ref=useDialogAccessibility<HTMLDivElement>(onClose);
   const result=useSharedTaskPage({projectIds:[task.projectId],ids:task.dependsOnIds ?? []});
   return <div className="modal-backdrop"><div className="editor-modal" role="dialog" aria-modal="true" aria-label={t("Предшествующие задачи")} ref={ref} tabIndex={-1}>
-    <header><h2>{t("Предшествующие задачи")}</h2><button type="button" aria-label={t("Закрыть")} onClick={onClose}><ExperimentalIcon name="close"/></button></header>
+    <header><h2>{t("Предшествующие задачи")}</h2><DialogCloseButton type="button" aria-label={t("Закрыть")} onClick={onClose} /></header>
     <ul>{task.dependsOnIds?.map(id=>{const dependency=result.page?.tasks.find(row=>row.id===id);return <li key={id}>{dependency ? <button type="button" onClick={()=>onOpen(dependency)}><span data-no-translate>{dependency.title}</span></button> : <span>{t("Недоступно")}</span>}</li>;})}</ul>
     <SharedTaskPageControls page={result.page} loaded={result.page?.tasks.length ?? 0} busy={result.busy} onMore={()=>void result.more()} onRefresh={()=>void result.refresh()} error={result.error}/>
   </div></div>;

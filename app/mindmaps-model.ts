@@ -138,6 +138,13 @@ export function removeBranch(map: Mindmap, id: string): Mindmap {
   const removed = descendants(map, id);
   return validateMindmap({ ...map, nodes: map.nodes.filter(n => !removed.has(n.id)), links: map.links.filter(l => !removed.has(l.from) && !removed.has(l.to)) });
 }
+export function removeThought(map: Mindmap, id: string): Mindmap {
+  const thought = map.nodes.find(node => node.id === id);
+  if (!thought || thought.kind !== "idea" || thought.parentId === null) throw new Error("Корень нельзя убрать. Архивируйте карту из каталога.");
+  const children = map.nodes.filter(node => node.parentId === id).map(node => ({ ...node, parentId: thought.parentId }));
+  const nodes = map.nodes.flatMap(node => node.id === id ? children : node.parentId === id ? [] : [node]);
+  return validateMindmap({ ...map, nodes, links: map.links.filter(link => link.from !== id && link.to !== id) });
+}
 export function moveNode(map: Mindmap, id: string, parentId: string, before?: string): Mindmap {
   const node = map.nodes.find(n => n.id === id);
   if (!node || node.parentId === null || descendants(map, id).has(parentId)) throw new Error("Нельзя перенести корень или создать цикл.");

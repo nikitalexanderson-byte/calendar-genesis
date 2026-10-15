@@ -1,4 +1,5 @@
 "use client";
+import { DialogCloseButton } from "./DialogCloseButton";
 
 import { useEffect, useRef, useState } from "react";
 import { CalendarDatePicker } from "./CalendarDatePicker";
@@ -212,7 +213,7 @@ export function TaskReminderPicker({
       {customOpen ? (
         <div className="modal-backdrop custom-reminder-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setCustomOpen(false); }}>
           <section ref={customDialogRef} className="custom-reminder-modal" role="dialog" aria-modal="true" aria-labelledby="custom-reminder-title" tabIndex={-1}>
-            <button type="button" className="modal-close" onClick={() => setCustomOpen(false)} aria-label="Закрыть">×</button>
+            <DialogCloseButton type="button" className="modal-close" onClick={() => setCustomOpen(false)} aria-label="Закрыть" />
             <span className="eyebrow">Точная настройка</span>
             <h2 id="custom-reminder-title">Пользовательское напоминание</h2>
             <div className="custom-reminder-modes" role="tablist" aria-label="Способ настройки напоминания">

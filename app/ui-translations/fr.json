@@ -2293,5 +2293,19 @@
   "Серия не сохранена. Черновик оставлен на экране; повторите после подключения.": "La série n’a pas été enregistrée. Le brouillon reste à l’écran ; réessayez après reconnexion.",
   "Закрыть карточку без сохранения настроек серии?": "Fermer la fiche sans enregistrer les paramètres de la série ?",
   "Введите действительный часовой пояс IANA, например Europe/Moscow. Черновик сохранён.": "Saisissez un fuseau horaire IANA valide, par exemple Europe/Moscow. Votre brouillon est conservé.",
-  "Ваш тариф: {plan}": "Votre forfait : {plan}"
+  "Ваш тариф: {plan}": "Votre forfait : {plan}",
+  "Рекомендуемые действия": "Actions recommandées",
+  "Однократное действие": "Action ponctuelle",
+  "Выберите обычное действие и выполните его один раз в поддержку этого сектора.": "Choisissez une action simple et accomplissez-la une fois pour soutenir ce secteur.",
+  "Уведомления и сообщения": "Notifications et messages",
+  "Переместить уведомления": "Déplacer les notifications",
+  "Перетащите блок или используйте стрелки и Home": "Faites glisser le panneau ou utilisez les flèches et la touche Début",
+  "Свернуть уведомления": "Réduire les notifications",
+  "Убрать напоминание": "Fermer le rappel",
+  "Новые уведомления": "Nouvelles notifications",
+  "Показать непрочитанное": "Afficher les éléments non lus",
+  "Скрыть уведомление": "Masquer la notification",
+  "Удалить мысль": "Supprimer la pensée",
+  "Дочерние мысли перейдут к родителю. Остальные мысли, задачи и проекты сохранятся. Изменение карты можно отменить.": "Les pensées enfants seront déplacées vers le parent. Les autres pensées, tâches et projets seront conservés. Vous pouvez annuler cette modification.",
+  "Ошибка": "Erreur"
 }

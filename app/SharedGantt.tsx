@@ -1,4 +1,5 @@
 "use client";
+import { DialogCloseButton } from "./DialogCloseButton";
 import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import { CalendarDatePicker } from "./CalendarDatePicker";
 import { formatCalendarDate, type CalendarMode } from "./calendar-data";
@@ -142,7 +143,7 @@ export function SharedGantt({snapshot,english,calendarMode,timeFormat,initialDay
     <p className="shared-gantt-period">{formatDate(serialDate(range.start))}{scale!=="day" ? ` — ${formatDate(serialDate(range.end-1))}` : ""}</p>
     {helpOpen ? <div className="modal-backdrop shared-gantt-help-backdrop" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget)setHelpOpen(false);}}>
       <div ref={helpRef} className="shared-projects-modal shared-gantt-help-dialog" role="dialog" aria-modal="true" aria-labelledby={helpTitle} tabIndex={-1}>
-        <header><h2 id={helpTitle} data-no-translate>{ganttCopy("helpTitle")}</h2><button type="button" className="shared-projects-close" onClick={()=>setHelpOpen(false)} aria-label={english ? "Close" : "Закрыть"}><ExperimentalIcon name="close"/></button></header>
+        <header><h2 id={helpTitle} data-no-translate>{ganttCopy("helpTitle")}</h2><DialogCloseButton type="button" className="shared-projects-close" onClick={()=>setHelpOpen(false)} aria-label={english ? "Close" : "Закрыть"} /></header>
         {canCreate ? <section><h3 data-no-translate>{ganttCopy("create")}</h3><p data-no-translate>{translateText("Нажмите на свободное место шкалы, чтобы создать задачу на эту дату. В режиме «Внутри дня» задача создаётся на сегодня с выбранным временем.").replace(/«Внутри дня»/u,`«${ganttCopy("time")}»`)}</p></section> : null}
         <section><h3 data-no-translate>{ganttCopy("schedule")}</h3><p>{english ? "Drag unscheduled tasks onto a period. Move a bar to reschedule it; drag its edges to change its duration. Steps: 15 minutes within a day, one day on other scales. Dates and times are saved in the task; dependent tasks change separately." : "Перетащите неразмеченную задачу на нужный период. Перемещайте плашку для переноса сроков, тяните за её края для изменения длительности. Шаг: 15 минут внутри дня, один день в остальных режимах. Даты и время сохраняются в карточке; зависимые задачи меняются отдельно."}</p></section>
         {canEdit ? <section><h3 data-no-translate>{ganttCopy("return")}</h3><p>Перетащите плашку обратно в нижний список, хаос-бокс или на кнопку «Список» / «Доски», чтобы снять её со шкалы.</p></section> : null}

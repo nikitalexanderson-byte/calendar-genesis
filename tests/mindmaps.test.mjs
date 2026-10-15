@@ -18,10 +18,54 @@ function loadTs(path) {
  },loaded,loaded.exports);
  modules.set(path,loaded.exports);return loaded.exports;
 }
-const {newMindmap, validateMindmap, removeBranch, moveNode, attachTask, nodeTitle, nodeDateLabel, mapProgress, mapCatalogStats, mapHomeView, parseOutline, exportMindmap, importMindmap, mapSvg, mapMarkdown, layoutMap, resolveMapTask, mapNodeBox, mapConnection, MAP_IMAGE_LIMIT} = loadTs(resolve('app/mindmaps-model.ts'));
+const {newMindmap, validateMindmap, removeBranch, removeThought, moveNode, attachTask, nodeTitle, nodeDateLabel, mapProgress, mapCatalogStats, mapHomeView, parseOutline, exportMindmap, importMindmap, mapSvg, mapMarkdown, layoutMap, resolveMapTask, mapNodeBox, mapConnection, MAP_IMAGE_LIMIT} = loadTs(resolve('app/mindmaps-model.ts'));
 
 const task = {id:'real-task',title:'Source title',done:false,projectId:'project-a',dependsOnIds:['other'],dueDate:'2026-10-12',recurrenceMode:'none',recurrenceExcludedDates:[]};
 const view={mode:'map',collapsed:[],focus:null,zoom:1};
+
+test('workspace save acknowledges the encrypted journal before network, and refuses a failed device write',async()=>{
+ const source=readFileSync(resolve('app/cloud-sync.ts'),'utf8');
+ const start=source.indexOf('export async function saveWorkspaceStructure('),end=source.indexOf('export async function createGoogleTaskList(',start);
+ const code=ts.transpileModule(source.slice(start,end),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+ const loaded={exports:{}},events=[];let networkResolve,failWrite=false;
+ new Function('module','exports','withWorkspaceMutationLock','encryptWorkspace','queueMutation','sendWorkspaceMutation','workspaceVersion','adoptSavedWorkspace','clearMutation',code)(
+  loaded,loaded.exports,fn=>fn(),async()=>({envelope:{ciphertext:'encrypted',iv:'iv',version:1,expectedVersion:0},structure:{},metadata:{}}),
+  mutation=>{if(failWrite)throw Error('Quota exceeded');assert.equal(JSON.parse(mutation.body).ciphertext,'encrypted');assert.equal(mutation.body.includes('secret title'),false);events.push('journal');},
+  ()=>{events.push('network');return new Promise(resolve=>{networkResolve=resolve;});},0,()=>events.push('adopt'),()=>events.push('clear'));
+ const save=loaded.exports.saveWorkspaceStructure([],[],[],{}, {habits:[{title:'secret title'}]},undefined,()=>events.push('acknowledged'));
+ await new Promise(resolve=>setImmediate(resolve));assert.deepEqual(events,['journal','acknowledged','network']);
+ networkResolve({workspace:{version:1}});await save;assert.deepEqual(events,['journal','acknowledged','network','adopt','clear']);
+ events.length=0;failWrite=true;await assert.rejects(loaded.exports.saveWorkspaceStructure([],[],[],{},undefined,undefined,()=>events.push('acknowledged')),/Quota exceeded/);assert.deepEqual(events,[]);
+});
+
+test('deleting one thought preserves child branches, sibling order and live task references',()=>{
+ const base=newMindmap('Single deletion',null,'idea'),root=base.nodes[0].id,target=base.nodes[1].id;
+ const child={id:'child-kept',parentId:target,kind:'idea',text:'Keep child',note:'Keep note'};
+ const taskNode={id:'task-kept',parentId:target,kind:'task',refId:task.id,note:''};
+ const grandchild={id:'grandchild-kept',parentId:child.id,kind:'idea',text:'Keep grandchild',note:''};
+ const map=validateMindmap({...base,nodes:[...base.nodes,child,taskNode,grandchild],links:[{id:'removed-link',from:target,to:base.nodes[2].id,label:'Removed'},{id:'kept-link',from:child.id,to:taskNode.id,label:'Kept'}]});
+ const result=removeThought(map,target);
+ assert.equal(result.nodes.length,map.nodes.length-1);assert.equal(result.nodes.some(node=>node.id===target),false);
+ assert.deepEqual(result.nodes.filter(node=>node.parentId===root).map(node=>node.id),[child.id,taskNode.id,...base.nodes.slice(2).map(node=>node.id)]);
+ assert.equal(result.nodes.find(node=>node.id===grandchild.id).parentId,child.id);
+ assert.equal(resolveMapTask(result.nodes.find(node=>node.id===taskNode.id),[task]),task);
+ assert.deepEqual(result.links,[map.links[1]]);assert.equal(map.nodes.find(node=>node.id===child.id).parentId,target);
+ assert.throws(()=>removeThought(map,root));assert.throws(()=>removeThought(map,taskNode.id));
+ assert.deepEqual(importMindmap(exportMindmap(result)),result);
+});
+
+test('notification dock stays within its work area and returns home after collapse',()=>{
+ const {clampDockPosition,dockHome,newestUnseenToken,NOTIFICATION_PREVIEW_MS}=loadTs(resolve('app/notification-dock-model.ts'));
+ const bounds={left:300,top:12,right:1428,bottom:988};
+ assert.deepEqual(clampDockPosition({x:-500,y:4000},bounds,360,560),{x:300,y:428});
+ assert.deepEqual(dockHome(bounds,56,56,false),{x:300,y:932});
+ assert.deepEqual(dockHome({left:12,top:12,right:348,bottom:904},56,56,true),{x:292,y:848});
+ assert.deepEqual(clampDockPosition({x:400,y:900},{left:12,top:12,right:300,bottom:500},360,560),{x:12,y:12});
+ const seen=new Set();assert.equal(newestUnseenToken(['comment:a','task:b'],seen),'comment:a');
+ assert.equal(newestUnseenToken(['comment:a','task:b'],seen),null);
+ assert.equal(newestUnseenToken(['comment:new','comment:a','task:b'],seen),'comment:new');
+ assert.equal(NOTIFICATION_PREVIEW_MS,5000);
+});
 
 test('home reveals a moved root from a focused branch without altering saved node positions',()=>{
  const map=newMindmap('Moved root',null,'idea'),root=map.nodes[0].id;

@@ -2415,12 +2415,14 @@ export async function saveWorkspaceStructure(
   metrics: GenesisMetrics,
   habitWorkspace?: HabitWorkspace,
   taskLists?: GoogleTaskList[],
+  onQueued?: () => void,
 ) {
   return withWorkspaceMutationLock(async () => {
     const encrypted = await encryptWorkspace(projects, categories, taskListLinks, habitWorkspace, taskLists);
     const request: WorkspaceEnvelopeRequest = { ...encrypted.envelope, metrics };
     const body = JSON.stringify(request);
     queueMutation({ key: "workspace", path: "/workspace", method: "PUT", body });
+    onQueued?.();
     const result = await sendWorkspaceMutation(request);
     if (workspaceVersion < result.workspace.version) {
       adoptSavedWorkspace(encrypted.structure, encrypted.metadata, result.workspace);

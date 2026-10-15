@@ -21,6 +21,32 @@ function load(path){
 const habits=load(resolve(root,"app/habits.ts"));
 const intervals=load(resolve(root,"app/habit-interval.ts"));
 const reminderTimes=load(resolve(root,"app/habit-reminder-time.ts"));
+const sacred=load(resolve(root,"app/sacred-practices.ts"));
+
+test("every sacred practice starts as one dated action and keeps its calendar anchor",()=>{
+  const start="2026-10-15";
+  for(const mode of ["profane","sacred","lunar"]) for(const practice of sacred.SACRED_PRACTICES){
+    const habit=habits.createHabitFromSacredPractice(practice,start,mode);
+    assert.equal(habit.schedule.recurrence.enabled,false);
+    assert.equal(habit.sacredSectorId,practice.sectorId);
+    assert.equal(habit.schedule.startDate,start);
+    for(const display of ["profane","sacred","lunar"]){
+      assert.equal(habits.isHabitScheduledForDate(habit,start,display),true);
+      assert.equal(habits.isHabitScheduledForDate(habit,"2026-10-16",display),false);
+      assert.equal(habits.isHabitScheduledForDate(habit,"2026-10-14",display),false);
+    }
+  }
+});
+
+test("normalization preserves an existing recurring sacred practice and its completion history",()=>{
+  const habit=habits.createHabitFromSacredPractice(sacred.SACRED_PRACTICES[0],"2026-10-15","profane");
+  habit.schedule.recurrence.enabled=true;
+  const workspace=habits.normalizeHabitWorkspace({habits:[habit],habitCompletions:[{id:"saved-completion",habitId:habit.id,date:"2026-10-15",completed:true,xpAwarded:10}]},"profane");
+  assert.equal(workspace.habits[0].schedule.recurrence.enabled,true);
+  assert.equal(workspace.habits[0].id,habit.id);
+  assert.equal(workspace.habitCompletions[0].id,"saved-completion");
+  assert.equal(workspace.habitCompletions[0].xpAwarded,10);
+});
 
 test("intraday intervals respect both window limits, do not overshoot, and reject invalid input",()=>{
   const config={intervalMinutes:30,startTime:"09:00",endTime:"18:00",completionMode:"each"};

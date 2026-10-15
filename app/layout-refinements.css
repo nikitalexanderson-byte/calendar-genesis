@@ -691,6 +691,12 @@ html[data-genesis-theme] .genesis-app .shared-projects .shared-projects-board>.s
 html[data-genesis-theme] .genesis-app .shared-projects-board .shared-board-header { display:grid; grid-template-columns:minmax(0,1fr) auto; }
 html[data-genesis-theme] .genesis-app .shared-projects-board .shared-board-header h2 { margin:0; }
 html[data-genesis-theme] .genesis-app .shared-projects-board .shared-board-create-actions { grid-column:1/-1; grid-row:2; justify-self:end; flex-wrap:nowrap; margin:0; }
+@media(min-width:761px) {
+  html[data-genesis-theme] .genesis-app .shared-projects-board .shared-board-create-actions { justify-self:stretch; width:100%; }
+  html[data-genesis-theme] .genesis-app .shared-projects-board :is(.shared-board-create-work,.shared-board-create-events) { display:contents; }
+  html[data-genesis-theme] .genesis-app .shared-projects-board .shared-board-create-actions button { order:1; }
+  html[data-genesis-theme] .genesis-app .shared-projects-board .shared-board-create-actions .shared-board-create-project { order:0; margin-inline-end:auto; }
+}
 @media(max-width:1099px) {
   html[data-genesis-theme] .genesis-app .shared-projects .shared-projects-board>.shared-projects-column { flex-basis:min(320px,calc(100vw - 40px)); }
   html[data-genesis-theme] .genesis-app :is(.shared-board-create-actions,.shared-board-create-events,.shared-board-create-work) { gap:4px; }

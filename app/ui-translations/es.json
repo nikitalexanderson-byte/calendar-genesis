@@ -2298,5 +2298,19 @@
   "Действия со связью": "Acciones del vínculo",
   "Настроить связь": "Editar vínculo",
   "Удалить связь": "Eliminar vínculo",
-  "Связать с другой мыслью": "Vincular con otro pensamiento"
+  "Связать с другой мыслью": "Vincular con otro pensamiento",
+  "Рекомендуемые действия": "Acciones recomendadas",
+  "Однократное действие": "Acción única",
+  "Выберите обычное действие и выполните его один раз в поддержку этого сектора.": "Elige una acción sencilla y complétala una vez para apoyar este sector.",
+  "Уведомления и сообщения": "Notificaciones y mensajes",
+  "Переместить уведомления": "Mover notificaciones",
+  "Перетащите блок или используйте стрелки и Home": "Arrastra el panel o usa las flechas y la tecla Inicio",
+  "Свернуть уведомления": "Contraer notificaciones",
+  "Убрать напоминание": "Descartar recordatorio",
+  "Новые уведомления": "Nuevas notificaciones",
+  "Показать непрочитанное": "Mostrar elementos no leídos",
+  "Скрыть уведомление": "Ocultar notificación",
+  "Удалить мысль": "Eliminar idea",
+  "Дочерние мысли перейдут к родителю. Остальные мысли, задачи и проекты сохранятся. Изменение карты можно отменить.": "Las ideas secundarias pasarán a la idea principal. Las demás ideas, tareas y proyectos se conservarán. Puedes deshacer este cambio.",
+  "Ошибка": "Error"
 }

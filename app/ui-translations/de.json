@@ -2293,5 +2293,19 @@
   "Серия не сохранена. Черновик оставлен на экране; повторите после подключения.": "Die Serie wurde nicht gespeichert. Dein Entwurf bleibt auf dem Bildschirm; versuche es nach dem Verbinden erneut.",
   "Закрыть карточку без сохранения настроек серии?": "Karte ohne Speichern der Serieneinstellungen schließen?",
   "Введите действительный часовой пояс IANA, например Europe/Moscow. Черновик сохранён.": "Geben Sie eine gültige IANA-Zeitzone ein, zum Beispiel Europe/Moscow. Ihr Entwurf bleibt erhalten.",
-  "Ваш тариф: {plan}": "Ihr Tarif: {plan}"
+  "Ваш тариф: {plan}": "Ihr Tarif: {plan}",
+  "Рекомендуемые действия": "Empfohlene Aktionen",
+  "Однократное действие": "Einmalige Aktion",
+  "Выберите обычное действие и выполните его один раз в поддержку этого сектора.": "Wählen Sie eine einfache Aktion und führen Sie sie einmal aus, um diesen Bereich zu unterstützen.",
+  "Уведомления и сообщения": "Benachrichtigungen und Nachrichten",
+  "Переместить уведомления": "Benachrichtigungen verschieben",
+  "Перетащите блок или используйте стрелки и Home": "Panel ziehen oder Pfeiltasten und Home verwenden",
+  "Свернуть уведомления": "Benachrichtigungen einklappen",
+  "Убрать напоминание": "Erinnerung verwerfen",
+  "Новые уведомления": "Neue Benachrichtigungen",
+  "Показать непрочитанное": "Ungelesene Einträge anzeigen",
+  "Скрыть уведомление": "Benachrichtigung ausblenden",
+  "Удалить мысль": "Gedanken löschen",
+  "Дочерние мысли перейдут к родителю. Остальные мысли, задачи и проекты сохранятся. Изменение карты можно отменить.": "Untergeordnete Gedanken werden zum übergeordneten Gedanken verschoben. Andere Gedanken, Aufgaben und Projekte bleiben erhalten. Diese Änderung kann rückgängig gemacht werden.",
+  "Ошибка": "Fehler"
 }

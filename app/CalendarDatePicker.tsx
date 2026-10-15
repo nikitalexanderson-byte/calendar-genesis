@@ -1,4 +1,5 @@
 "use client";
+import { DialogCloseButton } from "./DialogCloseButton";
 import { civilDateCarrier, isCivilDate, type CalendarContext } from "./calendar-context";
 
 import { useMemo, useState } from "react";
@@ -105,7 +106,7 @@ export function CalendarDatePicker({ id, value, mode, calculationContext, min, m
       {open ? (
         <div className="modal-backdrop calendar-picker-backdrop" role="presentation" data-genesis-preserve={`${mode}-date-picker`} onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
           <section ref={dialogRef} className={`calendar-picker mode-${mode}`} role="dialog" aria-modal="true" aria-label={mode === "sacred" ? "Выбор сакральной даты" : "Выбор лунной даты"} tabIndex={-1}>
-            <button type="button" className="modal-close" onClick={() => setOpen(false)} aria-label="Закрыть">×</button>
+            <DialogCloseButton type="button" className="modal-close" onClick={() => setOpen(false)} aria-label="Закрыть" />
             <span className="eyebrow">{mode === "sacred" ? "Сакральный календарь" : "Лунный календарь"}</span>
             <h2>{mode === "sacred" ? "Выберите день круга" : "Выберите лунный день"}</h2>
             {mode === "sacred" ? (

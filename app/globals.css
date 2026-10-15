@@ -12563,32 +12563,7 @@ html[data-genesis-theme^="standart"] .mood-summary:focus-visible { outline: 2px 
 .sacred-sector-modal > header .eyebrow { color:#d8b96e; }
 .sacred-sector-modal > header h2 { margin:0; font:500 clamp(26px,4vw,38px)/1.05 Georgia,serif; }
 .sacred-sector-modal .modal-close { color:#f0e5cf; border-color:rgba(213,182,110,.28); background:rgba(255,255,255,.04); }
-.sacred-sector-header-close { display:grid; place-items:center; }
-.sacred-sector-header-close .sacred-dialog-action-icon { width:22px; height:22px; }
 .sacred-sector-modal-actions { display:flex; justify-content:flex-end; gap:8px; }
-.sacred-sector-modal-actions button {
-  display:inline-flex;
-  min-height:48px;
-  align-items:center;
-  justify-content:center;
-  gap:10px;
-  padding:10px 17px;
-  border-radius:999px;
-  cursor:pointer;
-  font-size:13px;
-  font-weight:850;
-  transition:color 180ms ease,background 180ms ease,border-color 180ms ease,box-shadow 180ms ease,transform 180ms ease;
-}
-.sacred-dialog-action-icon { width:28px; height:28px; overflow:visible; fill:none; stroke:currentColor; stroke-width:1.55; stroke-linecap:round; stroke-linejoin:round; }
-.sacred-dialog-action-icon circle:first-child { fill:rgba(255,255,255,.055); }
-.sacred-dialog-action-ray { opacity:.52; transition:opacity 180ms ease,transform 180ms ease; transform-box:fill-box; transform-origin:center; }
-.sacred-description-button { color:#102a2c; border-color:#e4c779; background:linear-gradient(145deg,#f0d994,#d9b966); box-shadow:0 10px 24px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.54); }
-.sacred-description-button:hover { color:#07191d; border-color:#f3df9f; background:linear-gradient(145deg,#f5e2a7,#e1c475); box-shadow:0 14px 30px rgba(0,0,0,.26),inset 0 1px 0 rgba(255,255,255,.68); transform:translateY(-2px); }
-.sacred-description-button:hover .sacred-dialog-action-ray { opacity:1; transform:rotate(45deg); }
-.sacred-sector-close-button { color:#e8d6aa; border-color:rgba(213,182,110,.3); background:rgba(255,255,255,.035); }
-.sacred-sector-close-button:hover { color:#fff3d5; border-color:rgba(235,207,142,.62); background:rgba(213,182,110,.11); transform:translateY(-1px); }
-.sacred-sector-modal-actions button:focus-visible,
-.sacred-sector-header-close:focus-visible { outline:3px solid rgba(238,207,132,.48); outline-offset:3px; }
 
 .habit-editor-backdrop { z-index: 150; align-items: flex-start; padding: 28px; overflow-y: auto; }
 .habit-editor {

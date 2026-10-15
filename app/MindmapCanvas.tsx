@@ -14,7 +14,7 @@ export default function MindmapCanvas({ map, view, selected, selectedLink, title
   onLink:(from:string,to:string)=>void; onSelectLink:(id:string,from:string)=>void; onEditNode:(id:string)=>void; onDeleteSelection:()=>void;
   onEditLink: (id:string)=>void; onRemoveLink: (id:string)=>void;
   inlineNodeId: string | null; onCommitTitle:(id:string,text:string)=>void; onCancelTitle:()=>void;
-  onContextAction:(action:"child"|"sibling"|"affair"|"remove"|"rename",nodeId?:string)=>void; readOnly?:boolean;
+  onContextAction:(action:"child"|"sibling"|"affair"|"remove"|"remove-thought"|"rename",nodeId?:string)=>void; readOnly?:boolean;
 }) {
   const [moving, setMoving] = useState<{id:string;x:number;y:number} | null>(null);
   const rows = useMemo(() => layoutMap(map, view).map(row => moving?.id===row.node.id ? {...row,x:moving.x,y:moving.y} : row), [map, view, moving]);
@@ -193,6 +193,7 @@ export default function MindmapCanvas({ map, view, selected, selectedLink, title
       <button type="button" role="menuitem" onClick={()=>{onHome({...view,focus:view.focus?null:menu.nodeId!});setMenu(null);}}><ExperimentalIcon name={view.focus?"map-mode":"thought-focus"}/><span>{view.focus?"Вся карта":"Фокус на ветке"}</span></button>
       <button type="button" role="menuitem" onClick={()=>{onHome({...view,collapsed:view.collapsed.includes(menu.nodeId!)?view.collapsed.filter(id=>id!==menu.nodeId):[...view.collapsed,menu.nodeId!]});setMenu(null);}}><ExperimentalIcon name="thought-fold"/><span>{view.collapsed.includes(menu.nodeId!)?"Развернуть ветку":"Свернуть ветку"}</span></button>
       <hr/>
+      {map.nodes.find(node=>node.id===menu.nodeId)?.kind==="idea" ? <button type="button" role="menuitem" className="danger" disabled={readOnly||!map.nodes.find(node=>node.id===menu.nodeId)?.parentId} onClick={()=>{onContextAction("remove-thought",menu.nodeId);setMenu(null);}}><ExperimentalIcon name="delete"/><span>Удалить мысль</span></button> : null}
       <button type="button" role="menuitem" className="danger" disabled={readOnly||!map.nodes.find(node=>node.id===menu.nodeId)?.parentId} onClick={()=>{onContextAction("remove",menu.nodeId);setMenu(null);}}><ExperimentalIcon name="thought-unlink"/><span>Убрать ветку с карты</span></button>
       </> : null}
     </> : <>

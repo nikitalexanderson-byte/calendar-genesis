@@ -1,8 +1,9 @@
 "use client";
+import { DialogCloseButton } from "./DialogCloseButton";
 
 import { useEffect, type CSSProperties } from "react";
 import type { CalendarMode } from "./calendar-data";
-import type { Language } from "./i18n";
+import { translateText, type Language } from "./i18n";
 import { catalogText, sacredWordCopy } from "./catalog-i18n";
 import {
   createHabitFromSacredPractice,
@@ -68,11 +69,7 @@ export function TheokyklosDetailsDialog({ segment, language, workspace, date, ca
   return (
     <div className="modal-backdrop theokyklos-details-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <aside ref={detailsDialogRef} id="theokyklos-details" className={`theokyklos-details segment-${segment.id}`} role="dialog" aria-modal="true" aria-labelledby="theokyklos-details-title" tabIndex={-1}>
-        <button className="theokyklos-details-close" type="button" onClick={onClose} aria-label={language === "en" ? "Close segment description" : "Закрыть описание сегмента"}>
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M6 6l12 12M18 6L6 18" />
-          </svg>
-        </button>
+        <DialogCloseButton className="theokyklos-details-close" type="button" onClick={onClose} aria-label={language === "en" ? "Close segment description" : "Закрыть описание сегмента"} />
         <header>
           <span className="theokyklos-details-symbol" aria-hidden="true">
             {/* eslint-disable-next-line @next/next/no-img-element -- Shared static PNG is pre-optimized for both deployment targets. */}
@@ -128,7 +125,7 @@ export function TheokyklosDetailsDialog({ segment, language, workspace, date, ca
               ? (language === "en" ? "Your chosen practice is active in this sector and can be marked here." : "В этом секторе уже действует выбранная вами практика — её можно отметить прямо здесь.")
               : sectorHabits.length
               ? (language === "en" ? "The chosen practice is disabled. You can enable it again here." : "Выбранная практика отключена. Здесь её можно включить снова.")
-              : (language === "en" ? "Choose an ordinary action and begin it as a daily offering to the patron deity." : "Выберите обычное действие и начните его как ежедневное приношение божеству-покровителю.")}</p>
+              : translateText("Выберите обычное действие и выполните его один раз в поддержку этого сектора.", language)}</p>
             <div>
               {(sectorHabits.length
                 ? sectorHabits.map((habit) => ({ habit, practice: sectorPractices.find((practice) => practice.id === habit.sacredPracticeId) }))

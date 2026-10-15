@@ -1,4 +1,5 @@
 "use client";
+import { DialogCloseButton } from "./DialogCloseButton";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import type { GenesisProject, GenesisTask } from "./cloud-sync";
 import { GenesisApiError, LOCAL_SESSION_ENDED_EVENT } from "./cloud-sync";
@@ -7,7 +8,7 @@ import { ExperimentalIcon } from "./ExperimentalIcon";
 import { mindmapCopy } from "./mindmap-copy";
 import { translateText } from "./i18n";
 import { attachTask, descendants, exportMindmap, importMindmap, mapId, mapMarkdown, mapProgress, mapCatalogStats, mapSvg,
-  moveNode, newMindmap, nodeColors, nodeTitle, nodeDateLabel, parseOutline, removeBranch, resolveMapTask, validateMindmap, visibleNodes, type MapNode, type Mindmap, type MapView } from "./mindmaps-model";
+  moveNode, newMindmap, nodeColors, nodeTitle, nodeDateLabel, parseOutline, removeBranch, removeThought, resolveMapTask, validateMindmap, visibleNodes, type MapNode, type Mindmap, type MapView } from "./mindmaps-model";
 import { MindmapRepository, type Conversion, type MapRecord, type SaveState } from "./mindmaps-storage";
 import "./mindmaps.css";
 import { printMindmap } from "./mindmaps-pdf";
@@ -23,6 +24,7 @@ const mobileSnapshot = () => mobileQuery().matches;
 const serverSnapshot = () => false;
 export type MindmapTaskRequest = Conversion & { title: string; projectId: string | null; repository: MindmapRepository };
 type Props = { spaceId?: string; readOnly?: boolean; userId: string; tasks: GenesisTask[]; projects: GenesisProject[]; projectId: string | null;
+  afterWorkspace?: ReactNode;
   taskCanEdit?: (task: GenesisTask) => boolean;
   onResolveTaskIds?: (ids: string[]) => void;
   onTaskSearch?: (query: string, inboxOnly: boolean, open: boolean) => void;
@@ -34,7 +36,7 @@ type Props = { spaceId?: string; readOnly?: boolean; userId: string; tasks: Gene
 function Dialog({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   const ref = useDialogAccessibility<HTMLDivElement>(onClose);
   return <div className="modal-backdrop mindmap-dialog-backdrop"><div className="editor-modal mindmap-dialog" role="dialog" aria-modal="true" aria-label={title} ref={ref} tabIndex={-1}>
-    <header><h2>{title}</h2><button type="button" aria-label="Закрыть окно карты" onClick={onClose}><ExperimentalIcon name="close" /></button></header>{children}
+    <header><h2>{title}</h2><DialogCloseButton type="button" aria-label="Закрыть окно карты" onClick={onClose} /></header>{children}
   </div></div>;
 }
 const statuses: Record<SaveState, string> = { saving: "Сохраняем защищённый черновик…", device: "Сохранено на устройстве", pending: "Ожидает синхронизации", synced: "Синхронизировано с сервером", conflict: "Конфликт: оба варианта сохранены", error: "Сохранение требует внимания" };
@@ -75,7 +77,7 @@ export default function Mindmaps(props: Props) {
   const [search, setSearch] = useState("");
   const [archived, setArchived] = useState(false);
   const [context, setContext] = useState(props.projectId ?? "");
-  const [dialog, setDialog] = useState<"create" | "node" | "link" | "add" | "paste" | "import" | "export" | "history" | "delete" | "delete-map" | null>(null);
+  const [dialog, setDialog] = useState<"create" | "node" | "link" | "add" | "paste" | "import" | "export" | "history" | "delete" | "remove-thought" | "delete-map" | null>(null);
   const [deleteRecord, setDeleteRecord] = useState<MapRecord | null>(null);
   const [title, setTitle] = useState("");
   const [template, setTemplate] = useState("empty");
@@ -375,7 +377,7 @@ export default function Mindmaps(props: Props) {
         {view.mode === "map" ? <Suspense fallback={<p>Открываем полотно…</p>}><Canvas inlineNodeId={inlineNodeId} onCommitTitle={finishInlineTitle} onCancelTitle={() => { cancelIdeaDraft(); setInlineNodeId(null); }} onEditLink={editLink} onRemoveLink={removeLink} onLink={(from,to) => { if (!map.links.some(l => l.from===from && l.to===to || l.from===to && l.to===from)) change({...map,links:[...map.links,{id:mapId(),from,to,label:"Связано с"}]}); }} onSelectLink={selectLink} onEditNode={id => { selectNode(id); setDialog("node"); }} onDeleteSelection={deleteSelection} onPosition={(id,position) => changeView({ ...view, positions: {...view.positions,[id]:position} })} readOnly={props.readOnly} onContextAction={(action,id) => {
           const target=id??map.nodes.find(item=>item.parentId===null)!.id;
           if(action==="child"||action==="sibling")addIdea(action==="sibling",undefined,target);
-          else { selectNode(target); if(action==="affair"){setPickerQuery("");setPickerTask(null);setDialog("add");}else if(action==="rename")setInlineNodeId(target);else setDialog("delete"); }
+          else { selectNode(target); if(action==="affair"){setPickerQuery("");setPickerTask(null);setDialog("add");}else if(action==="rename")setInlineNodeId(target);else setDialog(action==="remove-thought"?"remove-thought":"delete"); }
         }} onCreateAt={position => addIdea(false,position,view.focus ?? map.nodes.find(item=>item.parentId===null)!.id)} map={inlineNodeId ? map : ideaDraft?.previous ?? map} view={view} selected={selected} selectedLink={selectedLink} title={titleFor} onSelect={selectNode} onHome={changeView} onZoom={zoom => changeView({ ...view, zoom })} onViewport={viewport => changeView({ ...latestView.current, viewport })} /></Suspense>
           : <ol className="mindmap-structure" aria-label="Структура карты">{rows.map(r => <li key={r.node.id} style={{ paddingInlineStart: Math.min(r.depth,3)*16 }}>
             <button type="button" className="mindmap-collapse" aria-expanded={r.children ? !view.collapsed.includes(r.node.id) : undefined} aria-label={`${translateText(view.collapsed.includes(r.node.id) ? "Развернуть" : "Свернуть")}: ${titleFor(r.node)}`} disabled={!r.children} onClick={() => changeView({ ...view, collapsed: view.collapsed.includes(r.node.id) ? view.collapsed.filter(id => id !== r.node.id) : [...view.collapsed,r.node.id] })}><ExperimentalIcon name="chevron" /></button>
@@ -385,7 +387,8 @@ export default function Mindmaps(props: Props) {
         {isMobile && node ? <button type="button" className="mindmap-mobile-inspector primary-button" onClick={() => setDialog("node")}>Действия с выбранным узлом</button> : null}
       </div></div>
     </>}
-    {dialog ? <Dialog title={dialog === "node" && ideaDraft ? mindmapCopy("createTitle") : ({ create:"Новая карта", node:"Редактор узла", link:"Настроить связь", add:props.spaceId ? "Добавить из общих дел" : "Добавить из личных дел", paste:"Мысли из текста", import:"Импорт карты GENESIS", export:"Экспорт карты", history:"История карты", delete:"Убрать ветку", "delete-map":"Удалить карту" })[dialog]} onClose={saveDialog}>
+    {props.afterWorkspace}
+    {dialog ? <Dialog title={dialog === "node" && ideaDraft ? mindmapCopy("createTitle") : ({ create:"Новая карта", node:"Редактор узла", link:"Настроить связь", add:props.spaceId ? "Добавить из общих дел" : "Добавить из личных дел", paste:"Мысли из текста", import:"Импорт карты GENESIS", export:"Экспорт карты", history:"История карты", delete:"Убрать ветку", "remove-thought":"Удалить мысль", "delete-map":"Удалить карту" })[dialog]} onClose={saveDialog}>
       {error ? <p role="alert">{error}</p> : null}
       {dialog === "create" ? <form onSubmit={e => { e.preventDefault(); try { const created = newMindmap(title,context || null,template,source => translateText(source)); setDialog(null); void open({document:created,revision:0,updatedAt:""}); change(created,false); } catch(e) { fail(e); } }}><label>Название карты<input required value={title} maxLength={2000} onChange={e => setTitle(e.target.value)} data-dialog-initial-focus /></label><label>Начать с<select value={template} onChange={e => setTemplate(e.target.value)}><option value="empty">Одна мысль</option><option value="idea">Разобрать идею</option><option value="project">План проекта</option><option value="decision">Выбрать решение</option></select></label><p>Шаблон создаёт только мысли.</p><button type="submit" className="primary-button">Создать карту</button></form> : null}
       {dialog === "node" ? inspector : null}
@@ -403,6 +406,12 @@ export default function Mindmaps(props: Props) {
         finally { setBusy(false); }
       }}>Удалить карту</button></div></> : null}
       {dialog === "delete" && map && node ? <><p>Убрать {descendants(map,node.id).size} узлов? Настоящие задачи и проекты останутся. Изменение карты можно отменить.</p><button type="button" className="danger-button" onClick={() => { change(removeBranch(map,node.id)); setSelected(map.nodes.find(n => n.parentId === null)!.id); setDialog(null); }}>Убрать только с карты</button></> : null}
+      {dialog === "remove-thought" && map && node ? <><strong data-no-translate>{titleFor(node)}</strong><p>Дочерние мысли перейдут к родителю. Остальные мысли, задачи и проекты сохранятся. Изменение карты можно отменить.</p><div className="mindmap-actions"><button type="button" className="secondary-button" onClick={saveDialog}>Отмена</button><button type="button" className="danger-button" disabled={props.readOnly || !node.parentId} onClick={() => {
+        if (props.readOnly || !node.parentId) return;
+        const parentId = node.parentId; change(removeThought(map,node.id)); setSelected(parentId); setDialog(null);
+        if (view.focus === node.id) changeView({ ...view, focus: parentId });
+        requestAnimationFrame(() => document.querySelector<HTMLElement>(".mindmap-canvas")?.focus({ preventScroll: true }));
+      }}>Удалить мысль</button></div></> : null}
       {dialog === "add" && map && node ? <><label>{props.spaceId ? "Поиск общих дел" : "Поиск личных дел"}<input value={pickerQuery} onChange={e => setPickerQuery(e.target.value)} /></label><label><input type="checkbox" checked={chaosOnly} onChange={e => setChaosOnly(e.target.checked)} />Только «Хаос»</label><p>Добавляется ссылка. Проект задачи и её зависимости сохраняются. Для повторяющейся задачи выберите конкретный день перед привязкой.</p>
         {pickerTask ? <div className="mindmap-occurrence-picker"><h3>{pickerTask.title}</h3><label>День повторения<select value={pickerDate} onChange={e => setPickerDate(e.target.value)}>{recurrenceDatesForTask(pickerTask).map(date => <option key={date} value={date}>{date}</option>)}</select></label><p>На карте будет только выбранный экземпляр.</p><button type="button" className="primary-button" disabled={!pickerDate} onClick={() => addTaskReference(pickerTask, pickerDate)}>Привязать этот день</button></div> : null}
         <div className="mindmap-picker">{(props.taskSearch?.tasks ?? props.tasks).filter(t => (!chaosOnly || !props.projectForTask(t)) && t.title.toLowerCase().includes(pickerQuery.toLowerCase())).map(t => <button type="button" key={t.id} onClick={() => { if (t.recurrenceMode !== "none") { setPickerTask(t); setPickerDate(recurrenceDatesForTask(t)[0] || ""); } else addTaskReference(t); }}><strong>{t.title}</strong><span>{t.done ? "Выполнено" : "В работе"} · {t.dueDate || "Без срока"} · {props.projects.find(p=>p.id===props.projectForTask(t))?.title || "Хаос"}</span></button>)}

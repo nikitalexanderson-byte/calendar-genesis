@@ -1,4 +1,5 @@
 "use client";
+import { DialogCloseButton } from "./DialogCloseButton";
 /* eslint-disable @next/next/no-img-element -- Google profile pictures are remote OAuth assets. */
 
 import { useEffect, useRef, useState } from "react";
@@ -524,7 +525,7 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
         data-settings-active={settingsTab} role="dialog" aria-modal="true" aria-labelledby="account-title" tabIndex={-1}
         onTouchStart={(event) => { settingsTouch.current = { x: event.touches[0].clientX, y: event.touches[0].clientY }; }}
         onTouchEnd={onSettingsTouchEnd}>
-        <button type="button" className="modal-close" onClick={onClose} aria-label="Закрыть">×</button>
+        <DialogCloseButton type="button" className="modal-close" onClick={onClose} aria-label="Закрыть" />
         <span className="eyebrow">Личный кабинет</span>
         <h2 id="account-title">{user.displayName || "Аккаунт GENESIS"}</h2>
         <div className="account-profile-details">

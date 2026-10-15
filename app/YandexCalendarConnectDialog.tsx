@@ -1,4 +1,5 @@
 "use client";
+import { DialogCloseButton } from "./DialogCloseButton";
 
 import { useState } from "react";
 import { connectYandexCalendar, type GenesisUser } from "./cloud-sync";
@@ -35,7 +36,7 @@ export function YandexCalendarConnectDialog({ user, onClose, onConnected }: Prop
 
   return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (!busy && event.target === event.currentTarget) onClose(); }}>
     <section ref={dialogRef} className="yandex-connect-dialog" role="dialog" aria-modal="true" aria-labelledby="yandex-connect-title" aria-describedby="yandex-connect-description" tabIndex={-1}>
-      <button type="button" className="modal-close" onClick={onClose} disabled={busy} aria-label={t("Закрыть")}>×</button>
+      <DialogCloseButton type="button" className="modal-close" onClick={onClose} disabled={busy} aria-label={t("Закрыть")} />
       <span className="eyebrow">Яндекс ID</span>
       <h2 id="yandex-connect-title">{t("Подключить Яндекс.Календарь")}</h2>
       <p id="yandex-connect-description">{t("В Яндекс ID откройте «Пароли приложений» → «Календарь». Название можно придумать, а сам пароль выдаёт Яндекс. Скопируйте его сюда.")}</p>

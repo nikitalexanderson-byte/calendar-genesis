@@ -1222,8 +1222,10 @@ export function createHabitFromSacredPractice(
   calendarMode: CalendarMode,
   language: Language = "ru",
 ): Habit {
+  const habit = defaultHabit(startDate, calendarMode);
   return {
-    ...defaultHabit(startDate, calendarMode),
+    ...habit,
+    schedule: { ...habit.schedule, recurrence: { ...habit.schedule.recurrence, enabled: false } },
     sacredPracticeId: practice.id,
     sacredSectorId: practice.sectorId,
     emoji: normalizeHabitEmoji(practice.emoji),

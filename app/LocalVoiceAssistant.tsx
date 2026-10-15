@@ -1,4 +1,5 @@
 "use client";
+import { DialogCloseButton } from "./DialogCloseButton";
 
 import { useEffect, useRef, useState } from "react";
 import {
@@ -350,7 +351,7 @@ export function LocalVoiceAssistant({ language, context, neuralAvailable, neural
             <span className="eyebrow">{labels.eyebrow}</span>
             <h2 id="local-voice-assistant-title">{labels.title}</h2>
           </div>
-          <button type="button" className="modal-close" onClick={onClose} disabled={busy} aria-label={labels.close}>×</button>
+          <DialogCloseButton type="button" className="modal-close" onClick={onClose} disabled={busy} aria-label={labels.close} />
         </header>
 
         <p className="gemini-intro">{labels.intro}</p>

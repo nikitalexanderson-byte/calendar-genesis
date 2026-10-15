@@ -2298,5 +2298,19 @@
   "Действия со связью": "Bağlantı işlemleri",
   "Настроить связь": "Bağlantıyı düzenle",
   "Удалить связь": "Bağlantıyı sil",
-  "Связать с другой мыслью": "Başka bir düşünceye bağla"
+  "Связать с другой мыслью": "Başka bir düşünceye bağla",
+  "Рекомендуемые действия": "Önerilen eylemler",
+  "Однократное действие": "Tek seferlik eylem",
+  "Выберите обычное действие и выполните его один раз в поддержку этого сектора.": "Bu alanı desteklemek için basit bir eylem seçin ve bir kez tamamlayın.",
+  "Уведомления и сообщения": "Bildirimler ve mesajlar",
+  "Переместить уведомления": "Bildirimleri taşı",
+  "Перетащите блок или используйте стрелки и Home": "Paneli sürükleyin veya ok tuşlarını ve Home tuşunu kullanın",
+  "Свернуть уведомления": "Bildirimleri daralt",
+  "Убрать напоминание": "Hatırlatıcıyı kaldır",
+  "Новые уведомления": "Yeni bildirimler",
+  "Показать непрочитанное": "Okunmamışları göster",
+  "Скрыть уведомление": "Bildirimi gizle",
+  "Удалить мысль": "Düşünceyi sil",
+  "Дочерние мысли перейдут к родителю. Остальные мысли, задачи и проекты сохранятся. Изменение карты можно отменить.": "Alt düşünceler üst düşünceye taşınacak. Diğer düşünceler, görevler ve projeler korunacak. Bu değişikliği geri alabilirsiniz.",
+  "Ошибка": "Hata"
 }

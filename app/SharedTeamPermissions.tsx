@@ -1,4 +1,5 @@
 "use client";
+import { DialogCloseButton } from "./DialogCloseButton";
 import {useEffect, useId, useRef, useState} from "react";
 import {assignSharedMemberPermissions, changeSharedSpaceRole, listSharedMemberCategories, loadSharedSpaceSettings, saveSharedMemberCategory,
   type SharedMemberCategory, type SharedPermissions, type SharedSpace, type SharedSpaceSettings} from "./cloud-sync";
@@ -45,7 +46,7 @@ export function SharedTeamPermissions({spaceId,english,onChanged}: {spaceId:stri
     </>}
     <dialog ref={dialog} className="shared-projects-modal shared-member-category-modal" aria-labelledby={titleId} onCancel={event=>{event.stopPropagation();if(busy)event.preventDefault();}} onClose={event=>{event.stopPropagation();setEditor(null);}}>
       {editor?<><header><h2 id={titleId}>{editor==="new"?(english?"New participant category":"Новая категория участников"):(english?"Category permissions":"Права категории")}</h2>
-        <button type="button" className="shared-projects-close" aria-label={english?"Close":"Закрыть"} disabled={busy} onClick={()=>setEditor(null)}><ExperimentalIcon name="close"/></button></header>
+        <DialogCloseButton type="button" className="shared-projects-close" aria-label={english?"Close":"Закрыть"} disabled={busy} onClick={()=>setEditor(null)} /></header>
         <form onSubmit={event=>{event.preventDefault();const current=editor;if(!current)return;void run(async()=>{await saveSharedMemberCategory(spaceId,{title:title.trim(),permissions,...(current!=="new"?{expectedRevision:current.revision}:{})},current!=="new"?current.id:undefined);setEditor(null);});}}>
           <label>{english?"Category name":"Название категории"}<input value={title} maxLength={80} required disabled={busy} onChange={event=>setTitle(event.target.value)}/></label>
           <PermissionChecks language={english?"en":"ru"} value={permissions} disabled={busy} onChange={setPermissions}/>

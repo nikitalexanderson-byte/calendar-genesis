@@ -1,7 +1,7 @@
+import { DialogCloseButton } from "./DialogCloseButton";
 import { useLayoutEffect, useRef, type Dispatch, type SetStateAction, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { sharedCalendarProjection, type SharedCalendarTask, type GenesisTask } from "./cloud-sync";
-import { ExperimentalIcon } from "./ExperimentalIcon";
 import { translateText, type Language } from "./i18n";
 import { CalendarDayTaskCounts } from "./CalendarTaskCounts";
 import { entryTypeLabel, type EntryType } from "./EntryTypeChoice";
@@ -97,9 +97,7 @@ function CalendarTaskControl<T extends PopoverTask>({ tasks, total = tasks.lengt
       onPointerEnter={openPopover} onPointerLeave={event => {if(event.pointerType === "mouse")closePopoverSoon();}}
       id={id} role="dialog" aria-label={`${title} · ${dateLabel}`}>
       <header><strong>{title} · {total}</strong>
-        <button type="button" onClick={() => onOpenKey("")} aria-label={english ? "Close task list" : "Закрыть список задач"}>
-          <ExperimentalIcon name="close" />
-        </button>
+        <DialogCloseButton type="button" onClick={() => onOpenKey("")} aria-label={english ? "Close task list" : "Закрыть список задач"} />
       </header>
       <ul>{tasks.map(task => <li className={task.completedAt || task.done ? "done" : ""} key={task.id}>
         <input type="checkbox" className="calendar-popover-task-check" checked={Boolean(task.completedAt || task.done)} disabled={busyTaskId === task.id}

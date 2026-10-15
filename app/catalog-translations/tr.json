@@ -306,7 +306,6 @@
     "У-ра-ни-ос": "Ou-ra-ni-os",
     "Возвышенный небесный.": "Yüce ve göksel.",
     "Три намерения Афины": "Athena'nin üç niyeti",
-    "Каждое утро записывать три главных дела и первым выбирать самое важное.": "Her sabah üç önemli görevi yazın ve en önemlisiyle başlayın.",
     "Афина рождается из мысли Зевса уже вооружённой: ясный замысел предшествует точному действию.": "Athena, Zeus'nin düşüncesiyle tamamen silahlı olarak doğdu: açık niyet kesin eylemden önce gelir.",
     "Вечерний совет Афины": "Athena'nin akşam nasihati",
     "Вечером коротко записать одно удачное решение и один урок дня.": "Geceleri, sağlam bir kararı ve günün bir dersini kısaca kaydedin.",
@@ -315,7 +314,6 @@
     "Гулять не менее 20 минут без телефона, замечая тело, воздух и живую природу.": "Bedeni, havayı ve canlı doğayı fark ederek en az 20 dakika telefonsuz yürüyün.",
     "Артемида хранит дикую природу и свободу движения вне городского шума.": "Artemis şehrin gürültüsünün ötesinde vahşi doğayı ve hareket özgürlüğünü korur.",
     "Граница Артемиды": "Artemis'nin sınırı",
-    "Каждый день осознанно отказаться от одного лишнего требования или отвлечения.": "Her gün bir gereksiz talebi veya dikkat dağıtıcı şeyi bilinçli olarak reddedin.",
     "Независимая богиня сохраняет неприкосновенным своё пространство и выбранный путь.": "Bağımsız tanrıça, alanını ve seçtiği yolu dokunulmaz tutar.",
     "Ясное послание Гермеса": "Hermes'in net mesajı",
     "Отправить одно давно откладываемое короткое и ясное сообщение.": "Ertelediğiniz kısa ve net bir mesajı gönderin.",
@@ -406,7 +404,9 @@
     "Аполлон освещает меру: вынесите главное на свет и настройте день по ясному ритму.": "Apollo ölçüyü aydınlatır: önemli olanı gün ışığına çıkarın ve günü net bir ritimle ayarlayın.",
     "Ясность превратилась в жёсткость: верните гармонию через свет, музыку или спокойное чтение.": "Netlik sertleşerek katılığa dönüştü: ışık, müzik veya sessiz okuma yoluyla uyumu yeniden sağlayın.",
     "Дионис и Ариадна удерживают живую нить целого: отметьте жизнь творчеством и благодарностью.": "Dionysus ve Ariadne bütünün canlı ipini tutar: yaşamı yaratıcılık ve minnettarlıkla onaylar.",
-    "Нить центра потеряна: остановитесь, назовите своё состояние и сделайте одно свободное творческое действие.": "Merkeze giden yol kayboldu: Duraklatın, durumunuzu adlandırın ve ücretsiz bir yaratıcı jest yapın."
+    "Нить центра потеряна: остановитесь, назовите своё состояние и сделайте одно свободное творческое действие.": "Merkeze giden yol kayboldu: Duraklatın, durumunuzu adlandırın ve ücretsiz bir yaratıcı jest yapın.",
+    "Записать три главных дела и первым выбрать самое важное.": "Üç önemli işi yazın ve en önemlisiyle başlayın.",
+    "Осознанно отказаться от одного лишнего требования или отвлечения.": "Gereksiz bir talebi veya dikkat dağıtıcı unsuru bilinçli olarak reddedin."
   },
   "theokyklosWords": {
     "Μῆτις": "Metis",

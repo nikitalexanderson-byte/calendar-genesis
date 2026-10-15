@@ -1,8 +1,8 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { DialogCloseButton } from "./DialogCloseButton";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Mindmaps, { type MindmapTaskRequest } from "./Mindmaps";
 import { SharedTaskCreate } from "./SharedTaskCreate";
-import { ExperimentalIcon } from "./ExperimentalIcon";
 import { useDialogAccessibility } from "./use-dialog-accessibility";
 import { loadSharedProject, loadSharedTask, querySharedTasks, approveSharedTask, updateSharedTask, captureAccountSessionGuard,
   type GenesisProject, type GenesisTask, type SharedProject, type SharedProjectSnapshot, type SharedSpace, type SharedTask } from "./cloud-sync";
@@ -12,6 +12,7 @@ import type { CalendarMode } from "./calendar-data";
 import type { TimeFormat } from "./time-format";
 
 type Props = {userId:string;space:SharedSpace;projects:SharedProject[];projectId:string;language:string;enabledCalendars:CalendarMode[];timeFormat:TimeFormat;
+  afterWorkspace?:ReactNode;
   onClose:()=>void;onTask:(task:SharedTask,snapshot:SharedProjectSnapshot)=>void;onProject:(id:string,calendar?:boolean)=>void};
 
 function mapTask(task:SharedTask, snapshot:SharedProjectSnapshot):GenesisTask {
@@ -28,7 +29,7 @@ function mapTask(task:SharedTask, snapshot:SharedProjectSnapshot):GenesisTask {
 function ConversionDialog({request,language,enabledCalendars,timeFormat,space,projectId,onClose,onSaved}:Props & {request:MindmapTaskRequest;onSaved:(task:SharedTask)=>Promise<void>}) {
   const ref=useDialogAccessibility<HTMLDivElement>(onClose);
   return <div className="modal-backdrop"><div className="editor-modal task-composer-modal" role="dialog" aria-modal="true" aria-label="Создать общую задачу" ref={ref} tabIndex={-1}>
-    <header><h2>Создать общую задачу</h2><button type="button" aria-label="Закрыть" onClick={onClose}><ExperimentalIcon name="close"/></button></header>
+    <header><h2>Создать общую задачу</h2><DialogCloseButton type="button" aria-label="Закрыть" onClick={onClose} /></header>
     <SharedTaskCreate language={language} enabledCalendars={enabledCalendars} timeFormat={timeFormat}
       initialSpaceId={space.id} fixedSpaceId={space.id} initialProjectId={request.projectId??projectId}
       initialTitle={request.title} mindmapSource={{mapId:request.mapId,nodeId:request.nodeId}} onSaved={onSaved}/>
@@ -63,6 +64,7 @@ export default function SharedMindmaps(props:Props) {
   return <div className="shared-mindmaps-workspace" data-space-id={props.space.id}>
     {error ? <p role="alert">{error}</p> : null}
     <Mindmaps key={props.space.id} userId={props.userId} spaceId={props.space.id} readOnly={!(props.space.permissions?.editTasks??props.space.role!=="guest")}
+      afterWorkspace={props.afterWorkspace}
       onResolveTaskIds={setReferenceIds} onTaskSearch={onTaskSearch}
       taskSearch={{tasks:(searchPage.page?.tasks ?? []).filter(task=>snapshots.some(row=>row.project.id===task.projectId)).map(mapKnown),footer:<SharedTaskPageControls page={searchPage.page} loaded={searchPage.page?.tasks.length ?? 0} busy={searchPage.busy} onMore={()=>void searchPage.more()} onRefresh={()=>void searchPage.refresh()} error={searchPage.error}/>}}
       tasks={tasks} projects={projects} projectId={null} projectForTask={task=>snapshots.find(row=>row.project.id===task.projectId)?.project.isInbox ? null : task.projectId}

@@ -1,4 +1,5 @@
 "use client";
+import { DialogCloseButton } from "./DialogCloseButton";
 
 import { useEffect, useState } from "react";
 import {
@@ -117,7 +118,7 @@ export function PersonalTaskTransfer({ task, language, personalCalendarConnected
   }}>
     <section ref={dialogRef} className="editor-modal personal-task-transfer" role="dialog" aria-modal="true"
       aria-labelledby="personal-task-transfer-title" tabIndex={-1}>
-      <button type="button" className="modal-close" disabled={busy} onClick={onClose} aria-label={english ? "Close" : "Закрыть"}>×</button>
+      <DialogCloseButton type="button" className="modal-close" disabled={busy} onClick={onClose} aria-label={english ? "Close" : "Закрыть"} />
       <span className="eyebrow">{english ? "Private → shared" : "Личное → общее"}</span>
       <h2 id="personal-task-transfer-title">{english ? "Move to shared projects" : "Переместить в общие"}</h2>
       <p>{english
