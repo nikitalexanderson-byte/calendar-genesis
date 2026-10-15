@@ -43,11 +43,10 @@ function genesisSharedQueryScope(string $userId, array $filter): array
 /** All text predicates execute in SQLite, before pagination, on the encrypted-content read view. */
 function genesisSharedTaskPredicate(string $userId, array $filter, array $scope): array
 {
-    $known = ['spaceId','projectIds','statusIds','assigneeIds','createdBy','priority','labelIds','tags','q','from','to','dueFrom','dueTo','undated','unscheduled','scheduled','completion','approvalPending','archived','includeArchived','parentTaskId','ids'];
+    $known = ['spaceId','projectIds','statusIds','assigneeIds','createdBy','priority','labelIds','tags','q','from','to','dueFrom','dueTo','undated','unscheduled','scheduled','completion','approvalPending','archived','includeArchived','parentTaskId','ids','overdueDate','overdueTime'];
     if (array_diff(array_keys($filter), $known)) throw new InvalidArgumentException('INVALID_TASK_FILTER');
-    $where = ['t.project_id IN (' . implode(',', array_fill(0, count($scope), '?')) . ')'];
+    $where = $scope ? ['t.project_id IN (' . implode(',', array_fill(0, count($scope), '?')) . ')'] : ['0=1'];
     $values = array_column($scope, 'id');
-    if (!$scope) return ['0=1', []];
     if (empty($filter['includeArchived'])) $where[] = !empty($filter['archived']) ? 't.archived_at IS NOT NULL' : 't.archived_at IS NULL';
     foreach (['statusIds'=>'t.status_id', 'assigneeIds'=>'t.assignee_id', 'ids'=>'t.id'] as $field=>$column) if (isset($filter[$field])) {
         $ids = genesisSharedQueryIds($filter[$field]);
@@ -91,6 +90,12 @@ function genesisSharedTaskPredicate(string $userId, array $filter, array $scope)
             'from' => 'COALESCE(t.due_date,t.start_date)>=?', 'to' => 'COALESCE(t.start_date,t.due_date)<=?',
             'dueFrom' => 't.due_date>=?', 'dueTo' => 't.due_date<=?'
         }; $values[] = $date;
+    }
+    if (isset($filter['overdueDate']) || isset($filter['overdueTime'])) {
+        $date=genesisSharedTaskDate($filter['overdueDate']??null);$time=$filter['overdueTime']??null;
+        if (!$date || !is_string($time) || !preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/',$time)) throw new InvalidArgumentException('INVALID_TASK_FILTER');
+        $where[]='t.completed_at IS NULL AND (t.due_date < ? OR (t.due_date = ? AND COALESCE(t.end_time,t.start_time) <= ?))';
+        array_push($values,$date,$date,$time);
     }
     if (isset($filter['q'])) {
         if (!is_string($filter['q']) || mb_strlen($filter['q']) > 200) throw new InvalidArgumentException('INVALID_SEARCH');
@@ -162,12 +167,13 @@ function genesisSharedQueryTasks(string $userId, array $filter = [], ?string $cu
     if ($limit < 1 || $limit > 100) throw new InvalidArgumentException('INVALID_TASK_PAGE');
     $sorts = ['position'=>['t.position','ASC'],'dueDate'=>["COALESCE(t.due_date,'9999-12-31')",'ASC'],
         'priority'=>['t.priority','DESC'],'updatedAt'=>['t.updated_at','DESC'],'title'=>['genesis_fold(t.title)','ASC']];
-    if (!isset($sorts[$sort])) throw new InvalidArgumentException('INVALID_TASK_FILTER');
     $db = genesisDb(); $owns = !$db->inTransaction(); if ($owns) $db->beginTransaction();
     try {
+        [$filter,$sort,$viewSignature]=genesisSharedViewQuery($userId,$filter,$sort);
+        if (!isset($sorts[$sort])) throw new InvalidArgumentException('INVALID_TASK_FILTER');
         $scope = genesisSharedQueryScope($userId, $filter);
         [$where, $values] = genesisSharedTaskPredicate($userId, $filter, $scope);
-        $signature = hash('sha256', json_encode([$userId, $filter, $sort, $scope], JSON_THROW_ON_ERROR));
+        $signature = hash('sha256', json_encode([$userId, $filter, $sort, $scope,$viewSignature], JSON_THROW_ON_ERROR));
         $seek = ''; $seekValues = []; [$column,$direction] = $sorts[$sort];
         if ($cursor !== null && $cursor !== '') {
             $decoded = strlen($cursor)<16000 ? genesisDecrypt($cursor) : null;

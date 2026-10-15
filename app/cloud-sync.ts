@@ -663,7 +663,7 @@ function isDeletedTaskResponse(error: unknown): boolean {
   return error instanceof GenesisApiError && error.status === 409 && error.payload?.error === "TASK_DELETED";
 }
 
-class GenesisNetworkTimeoutError extends Error {}
+export class GenesisNetworkTimeoutError extends Error {}
 
 export class GenesisApiError extends Error {
   readonly status: number;
@@ -1651,10 +1651,36 @@ export type SharedMember = { userId: string; role: string; spaceRole: string;
   canOrganizeTasks: number; displayName: string };
 export type SharedProjectSnapshot = { project: SharedProject; statuses: SharedStatus[]; categories: SharedCategory[];
   tasks: SharedTask[]; members: SharedMember[]; taskPage?: Omit<SharedTaskPage, "tasks"> };
-export type SharedTaskFilter = { spaceId?: string; projectIds?: string[]; statusIds?: string[]; assigneeIds?: string[];
+export type SharedTaskCriteria = { spaceId?: string; projectIds?: string[]; statusIds?: string[]; assigneeIds?: string[];
   createdBy?: string; priority?: number[]; labelIds?: string[]; tags?: string[]; q?: string; from?: string; to?: string;
   dueFrom?: string; dueTo?: string; undated?: boolean; unscheduled?: "date" | "time"; scheduled?: "date" | "time"; completion?: "any" | "open" | "completed";
   approvalPending?: boolean; archived?: boolean; includeArchived?: boolean; parentTaskId?: string | null; ids?: string[] };
+export type SharedTaskFilter = SharedTaskCriteria & { savedViewId?: string; viewDefinition?: SharedSavedViewDefinition };
+export type SharedSavedViewDefinition = { version: 1; title: string; filter: SharedTaskCriteria; sort: SharedTaskSort;
+  relative: "none" | "overdue" | "this-week" | "this-month"; calendarMode: import("./calendar-data").CalendarMode; calendarContext: import("./calendar-context").CalendarContext };
+export type SharedSavedView = { id: string; spaceId: string | null; visibility: "personal" | "shared"; revision: number;
+  updatedAt: string; canEdit: boolean; invalid: boolean; definition: SharedSavedViewDefinition | null };
+export type SharedSavedViewPage = { views: SharedSavedView[]; total: number; hasMore: boolean; nextCursor: string | null };
+export type SharedViewOptionKind = "projects" | "statuses" | "assignees" | "labels";
+export type SharedViewOptionsPage = { options: {id:string;title:string;groupId?:string}[]; hasMore:boolean; nextCursor:string|null };
+export function listSharedSavedViews(cursor?: string | null, signal?: AbortSignal) {
+  return api<SharedSavedViewPage>(`/shared/views${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`, { signal });
+}
+export async function loadSharedSavedView(id: string, signal?: AbortSignal) {
+  return (await api<{view:SharedSavedView}>(`/shared/views/${encodeURIComponent(id)}`, { signal })).view;
+}
+export function loadSharedViewOptions(kind: SharedViewOptionKind, filter: Pick<SharedTaskCriteria,"spaceId"|"projectIds">, cursor?: string | null, signal?: AbortSignal) {
+  return api<SharedViewOptionsPage>(`/shared/views/options?kind=${kind}&filter=${encodeURIComponent(JSON.stringify(filter))}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`, { signal });
+}
+export async function saveSharedSavedView(input: { requestId:string; spaceId:string|null; visibility:"personal"|"shared";
+  definition:SharedSavedViewDefinition; expectedRevision?:number }, id?:string) {
+  const result=await api<{view:SharedSavedView}>(`/shared/views${id ? `/${encodeURIComponent(id)}` : ""}`, { method:id ? "PATCH" : "POST", body:JSON.stringify(input) });
+  window.dispatchEvent(new Event("genesis:shared-updates"));return result.view;
+}
+export async function deleteSharedSavedView(view:SharedSavedView, requestId:string) {
+  await api(`/shared/views/${encodeURIComponent(view.id)}`, { method:"DELETE",body:JSON.stringify({requestId,expectedRevision:view.revision}) });
+  window.dispatchEvent(new Event("genesis:shared-updates"));
+}
 export type SharedTaskPage = { tasks: SharedTask[]; total: number; hasMore: boolean; nextCursor: string | null;
   statusCounts: Record<string, number>; dateCounts: Record<string, number>; consistency: "restart-on-change"; queryVersion: string; bounds?: {first: string | null; last: string | null} };
 export type SharedTaskSort = "position" | "dueDate" | "priority" | "updatedAt" | "title";

@@ -2,7 +2,8 @@
 "use client";
 import { DialogCloseButton } from "./DialogCloseButton";
 
-import { type ReactNode, type CSSProperties, type FormEvent, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { type ReactNode, type CSSProperties, type FormEvent, Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { lazyWithRecovery as lazy } from "./DeferredViews";
 import { SharedArchivedTasks } from "./SharedArchivedTasks";
 import { setSharedTaskArchived, restoreSharedTrash, type SharedTrashEntry } from "./cloud-sync";
 import { SharedTaskDetailsEditor, SharedTaskReadOnlyMetadata, taskDetailsDraft } from "./SharedTaskDetailsEditor";
@@ -30,6 +31,7 @@ import {
 } from "./cloud-sync";
 import "./shared-projects.css";
 import "./shared-projects-layout.css";
+const SharedSavedViews = lazy(() => import("./SharedSavedViews").then(module => ({default:module.SharedSavedViews})));
 import "./shared-collaboration.css";
 import { ProjectsHeroMark } from "./ProjectsHeroMark";
 import { WorkspaceHeader } from "./WorkspaceHeader";
@@ -1185,6 +1187,9 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       </div> : null}
       {sharedMindmapsEnabled && selectedSpace ? <button type="button" className="primary-button shared-mindmaps-open" onClick={()=>{closeTask();setSearchQuery("");setMapsOpen(true);}}><ExperimentalIcon name="map-mode"/><span>Майндмепы</span></button> : null}
     </section> : null}
+    <Suspense fallback={<p role="status">{translateText("Загружаем данные…")}</p>}><SharedSavedViews key={userId} userId={userId} spaces={spaces} mode={calendarMode} onOpen={task=>void run(async()=>{
+      const [context,found]=await Promise.all([loadSharedProject(task.projectId),loadSharedTask(task.projectId,task.id,Boolean(task.archivedAt))]);openTask(found,context);
+    })}/></Suspense>
     {taskArchiveOpen && selectedSpace ? <SharedArchivedTasks spaceId={spaceId} projects={projects} onOpen={task=>void run(async()=>{const context=await loadSharedProject(task.projectId);setTaskArchiveOpen(false);openTask(task,context);})} onClose={()=>setTaskArchiveOpen(false)} onChanged={async()=>{await refreshProjects(spaceId);if(projectId)await refreshProject(projectId);window.dispatchEvent(new Event("genesis:shared-updates"));}} onTrash={task=>void run(async()=>{const context=await loadSharedProject(task.projectId);setTaskArchiveOpen(false);setTrashTarget({kind:"task",task,context});})}/> : null}
     {undoTaskAction ? <div className="shared-detail-actions" role="status"><span>{translateText("Действие выполнено. Вы можете его отменить.")}</span><button type="button" disabled={busy} onClick={()=>void run(async()=>{
       if(undoTaskAction.trash)await restoreSharedTrash(undoTaskAction.task.spaceId ?? spaceId,undoTaskAction.trash);else await setSharedTaskArchived(undoTaskAction.task,false);
