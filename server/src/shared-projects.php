@@ -21,6 +21,7 @@ require_once __DIR__ . '/shared-task-lifecycle.php';
 require_once __DIR__ . '/shared-task-query.php';
 require_once __DIR__ . '/shared-series.php';
 require_once __DIR__ . '/shared-views.php';
+require_once __DIR__ . '/shared-bulk.php';
 
 final class GenesisSharedAccessException extends RuntimeException
 {
@@ -1346,7 +1347,8 @@ function genesisSharedMoveTask(string $userId, string $sourceProjectId, string $
         throw new InvalidArgumentException('INVALID_TASK_MOVE');
     }
     $db = genesisDb();
-    genesisBeginWriteTransaction($db);
+    $ownsTransaction = !$db->inTransaction();
+    if ($ownsTransaction) genesisBeginWriteTransaction($db);
     try {
         $source = genesisSharedProjectAccess($sourceProjectId, $userId, 'organize');
         $destination = genesisSharedProjectAccess($destinationId, $userId, 'organize');
@@ -1355,7 +1357,7 @@ function genesisSharedMoveTask(string $userId, string $sourceProjectId, string $
         }
         $receipt = genesisSharedMutationReceipt($db, $userId, $requestId, 'task.move', $taskId);
         if ($receipt !== null) {
-            $db->commit();
+            if ($ownsTransaction) $db->commit();
             return $receipt;
         }
         $query = $db->prepare('SELECT * FROM shared_tasks_read WHERE id = :id AND project_id = :project');
@@ -1481,10 +1483,10 @@ function genesisSharedMoveTask(string $userId, string $sourceProjectId, string $
         $response['approvals'] = genesisSharedTaskApprovals($taskId);
         $response['approvalRequired'] = count($response['approvals']) > 0;
         genesisSharedSaveMutationReceipt($db, $userId, $requestId, 'task.move', $taskId, $response);
-        $db->commit();
+        if ($ownsTransaction) $db->commit();
         return $response;
     } catch (Throwable $error) {
-        $db->rollBack();
+        if ($ownsTransaction && $db->inTransaction()) $db->rollBack();
         throw $error;
     }
 }

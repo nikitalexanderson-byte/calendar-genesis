@@ -1684,6 +1684,44 @@ export async function deleteSharedSavedView(view:SharedSavedView, requestId:stri
 export type SharedTaskPage = { tasks: SharedTask[]; total: number; hasMore: boolean; nextCursor: string | null;
   statusCounts: Record<string, number>; dateCounts: Record<string, number>; consistency: "restart-on-change"; queryVersion: string; bounds?: {first: string | null; last: string | null} };
 export type SharedTaskSort = "position" | "dueDate" | "priority" | "updatedAt" | "title";
+export type SharedBulkSelection = {mode:"page";items:{id:string;projectId:string;revision:number}[]}
+  | {mode:"all";filter:SharedTaskFilter;sort:SharedTaskSort;queryVersion:string};
+export type SharedBulkAction = {kind:"priority";priority:number}|{kind:"assignee";assigneeId:string|null}
+  | {kind:"status";statusIds:Record<string,string>}|{kind:"labels";mode:"add"|"remove";labelIds:string[]}
+  | {kind:"due";mode:"set";date:string}|{kind:"due";mode:"shift";days:number}|{kind:"due";mode:"clear"}
+  | {kind:"move";projectId:string;statusId:string}|{kind:"archive"}|{kind:"trash";retentionDays:number};
+export type SharedBulkState = "preview"|"running"|"done"|"cancelled"|"failed";
+export type SharedBulkCounts = {selected:number;affected:number;pending:number;succeeded:number;skipped:number;failed:number;cancelled:number};
+export type SharedBulkItem = {cursor:number;selected:boolean;state:"pending"|"succeeded"|"skipped"|"failed"|"cancelled";
+  code:string|null;id?:string;projectId?:string;projectTitle?:string;title?:string;available?:boolean;trashed?:boolean};
+export type SharedBulkReport = {id:string;state:SharedBulkState;mode:"page"|"all";action:SharedBulkAction;expiresAt:string;
+  errorCode:string|null;retryAt:string|null;actionInfo:{unavailable:boolean;projectTitle?:string;statusTitle?:string|null;assigneeName?:string|null;
+    labels?:{id:string;title:string;spaceTitle:string}[];statuses?:{id:string;projectId:string;projectTitle:string;statusTitle:string}[]};
+  counts:SharedBulkCounts;items:SharedBulkItem[];hasMore:boolean;nextCursor:number|null};
+export type SharedBulkScope = {total:number;projects:{id:string;spaceId:string;title:string;taskCount:number;
+  statuses:{id:string;title:string;isDone:boolean}[]}[];hasMore:boolean;nextCursor:string|null};
+export type SharedBulkOperations = {operations:{id:string;state:SharedBulkState;createdAt:string;errorCode:string|null;
+  action:SharedBulkAction|null;mode:"page"|"all"|null;counts:SharedBulkCounts}[];hasMore:boolean;nextCursor:string|null};
+export function loadSharedBulkScope(selection:SharedBulkSelection,cursor?:string|null,signal?:AbortSignal) {
+  return api<SharedBulkScope>("/shared/bulk/scope",{method:"POST",body:JSON.stringify({selection,cursor}),signal});
+}
+export function listSharedBulkOperations(cursor?:string|null,signal?:AbortSignal) {
+  return api<SharedBulkOperations>(`/shared/bulk${cursor?`?cursor=${encodeURIComponent(cursor)}`:""}`,{signal});
+}
+export function previewSharedBulk(input:{requestId:string;selection:SharedBulkSelection;action:SharedBulkAction},signal?:AbortSignal) {
+  return api<SharedBulkReport>("/shared/bulk/preview",{method:"POST",body:JSON.stringify(input),signal});
+}
+export function loadSharedBulkReport(id:string,after=0,signal?:AbortSignal) {
+  return api<SharedBulkReport>(`/shared/bulk/${encodeURIComponent(id)}?after=${after}`,{signal});
+}
+export async function loadSharedBulkTask(projectId:string,taskId:string,signal?:AbortSignal) {
+  return (await api<{task:SharedTask}>(`/shared/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}?archived=true`,{signal})).task;
+}
+export async function commandSharedBulk(id:string,command:"confirm"|"cancel"|"advance"|"resume",signal?:AbortSignal,after=0) {
+  const report=await api<SharedBulkReport>(`/shared/bulk/${encodeURIComponent(id)}/${command}`,{method:"POST",body:JSON.stringify({after}),signal});
+  if(command!=="confirm"&&typeof window!=="undefined")window.dispatchEvent(new Event("genesis:shared-updates"));
+  return report;
+}
 export function querySharedTasks(filter: SharedTaskFilter, cursor?: string | null, sort: SharedTaskSort = "position", signal?: AbortSignal) {
   return sharedCachedRequest<SharedTaskPage>(`/shared/tasks?filter=${encodeURIComponent(JSON.stringify(filter))}&sort=${sort}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`, signal);
 }
