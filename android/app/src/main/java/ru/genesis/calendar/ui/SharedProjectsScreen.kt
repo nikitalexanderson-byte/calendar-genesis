@@ -68,6 +68,14 @@ private fun sharedStatusLabel(title: String, en: Boolean): String = if (!en) tit
 @Composable
 internal fun SharedProjectsScreen(controller: SharedWorkspaceGateway, language: String,
     destination: SharedInvitationDestination? = null) {
+    // Keep Compose's optional-argument mask out of the large workspace method.
+    // R8 9.4.14 emits an invalid >255 register reference for that mask in release DEX.
+    SharedProjectsContent(controller, language, destination)
+}
+
+@Composable
+private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: String,
+    destination: SharedInvitationDestination?) {
     val en = language == "en"
     val scope = rememberCoroutineScope()
     var spaces by remember { mutableStateOf(emptyList<JSONObject>()) }
