@@ -22,6 +22,14 @@ const errors: Record<string, string> = {
   INVALID_TASK_FILTER: "Условия выборки недействительны. Исправьте или сбросьте фильтр.",
   INVALID_TASK_PAGE: "Страница выборки устарела. Начните загрузку заново.",
   SHARED_QUERY_CHANGED: "Задачи или права изменились. Обновите выборку перед продолжением.",
+  VIEW_INVALID: "Условия представления недействительны. Исправьте их или сбросьте фильтры.",
+  VIEW_FILTER_UNAVAILABLE: "Часть условий больше недоступна. Исправьте представление перед открытием.",
+  VIEW_CONFLICT: "Представление изменено в другом окне. Черновик сохранён; обновите данные перед сохранением.",
+  VIEW_SCOPE_IMMUTABLE: "Чтобы изменить пространство или доступ, сохраните новое представление.",
+  VIEW_REQUEST_REQUIRED: "Не удалось сохранить представление. Повторите попытку.",
+  VIEW_LIMIT: "Достигнут лимит: 100 личных представлений или 100 общих в пространстве.",
+  VIEW_PAGE_INVALID: "Страница представлений устарела. Обновите список.",
+  VIEW_LIST_CHANGED: "Представления или права изменились. Обновите список.",
 };
 export function sharedTaskDetailsError(error: unknown): string | null {
   return error instanceof Error && errors[error.message] ? translateText(errors[error.message]) : null;

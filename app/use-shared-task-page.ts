@@ -28,7 +28,7 @@ export function useSharedTaskPage(filter: SharedTaskFilter | null, sort: SharedT
       setFailure(null);
     } catch (error) {
       if (current === request.current && !signal?.aborted) { setFailure({key,message:sharedTaskDetailsError(error) ?? translateText(error instanceof Error ? error.message : "Не удалось загрузить данные")});
-        if (error && typeof error === "object" && "status" in error && [401,403,404].includes(Number(error.status))) setState(null);
+        if ((error instanceof Error && error.message.startsWith("VIEW_")) || (error && typeof error === "object" && "status" in error && [401,403,404].includes(Number(error.status)))) setState(null);
       }
     } finally { if (current === request.current) refreshing.current = false; }
   }, [key, filterKey, sort]);
@@ -53,7 +53,7 @@ export function useSharedTaskPage(filter: SharedTaskFilter | null, sort: SharedT
     } catch (error) {
       if (current !== request.current) return;
       if (error instanceof Error && error.message === "SHARED_QUERY_CHANGED") { loadingMore.current = false; setBusy(false); await refresh(); }
-      if (error && typeof error === "object" && "status" in error && [401,403,404].includes(Number(error.status))) setState(null);
+      if ((error instanceof Error && error.message.startsWith("VIEW_")) || (error && typeof error === "object" && "status" in error && [401,403,404].includes(Number(error.status)))) setState(null);
       setFailure({key,message:sharedTaskDetailsError(error) ?? translateText(error instanceof Error ? error.message : "Не удалось загрузить данные")});
     } finally { if (current === request.current) {loadingMore.current = false; setBusy(false);} }
   };

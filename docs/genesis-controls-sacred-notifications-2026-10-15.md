@@ -1,6 +1,6 @@
 # GENESIS: полотно, сакральные действия и уведомления
 
-Подготовленный выпуск от `63b13cc0eb8f6ef23b8f824c45b749828c7113e1`, ветка `codex/mindmap-floating-zoom`; текущие изменения ожидают публикации через существующий GitHub Actions → Hostinger. Предыдущий [PR #171](https://github.com/nikitalexanderson-byte/calendar-genesis/pull/171) опубликован с этим SHA, [Actions 38620177917](https://github.com/nikitalexanderson-byte/calendar-genesis/actions/runs/38620177917) успешен.
+Выпуск от `63b13cc0eb8f6ef23b8f824c45b749828c7113e1`, ветка `codex/mindmap-floating-zoom`, опубликован через существующий GitHub Actions → Hostinger: [PR #172](https://github.com/nikitalexanderson-byte/calendar-genesis/pull/172), master/production `435798848cfbaa7e0dcadf27cadc54ab543abd0c`.
 
 ## Поведение
 
@@ -47,7 +47,7 @@
 
 Не проверены физический Android, Safari/Firefox, screen reader и авторизованные production-сценарии. Полная визуальная матрица 14 языков не снята: проведены статические аудиты переводов, матрица интерфейса — RU. Локальные напоминания находятся в памяти текущей вкладки; серверное непрочитанное сохраняется при reload.
 
-Это расширение текущего STANDART; независимая проверка и документирование данного среза завершены. Публикация, GitHub Actions, SHA `/deploy-meta.json` и `/api/health` для текущих изменений ожидаются. SSH в этом выпуске не использовался; production-БД вручную не менялась.
+Это расширение текущего STANDART; независимая проверка и документирование данного среза завершены. [Actions 38665603432](https://github.com/nikitalexanderson-byte/calendar-genesis/actions/runs/38665603432) успешен. `/deploy-meta.json` подтвердил master `435798848cfbaa7e0dcadf27cadc54ab543abd0c`, `/api/health` — `ok:true`. Android metadata содержит 2.8.3 / 83, `/api/android/download` возвращает 302 на новый APK; workflow проверил публичные APK и AAB. Из-за квоты GitHub artifacts AAB сохранён на предусмотренном публичном зеркале GENESIS. После выпуска `GENESIS_DEPLOY_ANDROID` возвращён в `false` для следующих web-срезов. Защитная страница Hostinger завершилась штатно; гостевая страница с Google-only входом проверена в Chrome. SSH в этом выпуске не использовался; production-БД вручную не менялась.
 
 ## Остаток основного промпта
 

@@ -30,4 +30,4 @@
 
 Публикация выполняется существующим deploy.yml после merge в master. Автоматическая копия server-only данных остаётся в прежнем workflow. Откат кода — git revert с повторным CI-деплоем; добавленная таблица сохраняется. Восстановление БД автоматически не выполняется. Возврат старого кода также возвращает прежнее поведение создания диалога без приглашения.
 
-SSH не использовался; ручных изменений production-БД не было. Выпуск готов к публикации. B5 и полный комплекс улучшений остаются незавершёнными; checkpoint B5: `00fa7a22fc4fc4ea075fb36af7c7ed347c9ced06`.
+SSH не использовался; ручных изменений production-БД не было. PR [#171](https://github.com/nikitalexanderson-byte/calendar-genesis/pull/171) опубликован: master/production `63b13cc0eb8f6ef23b8f824c45b749828c7113e1`, Actions `38620177917` success. `/deploy-meta.json` подтвердил этот SHA; `/api/health` — `ok:true`, `privacyModel:2`. B5 и полный комплекс улучшений остаются незавершёнными; checkpoint B5: `00fa7a22fc4fc4ea075fb36af7c7ed347c9ced06`.

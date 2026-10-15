@@ -141,6 +141,8 @@ jobs:
           php server/tests/shared-task-lifecycle.php
           php server/tests/shared-series.php
           php server/tests/shared-series-migration.php
+          php server/tests/shared-views.php
+          php server/tests/shared-views-migration.php
           php server/tests/shared-ui.php
           php server/tests/shared-space-settings.php
           php server/tests/private-invitations-migration.php

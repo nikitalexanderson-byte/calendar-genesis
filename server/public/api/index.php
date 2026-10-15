@@ -775,6 +775,16 @@ try {
         if ($method === 'POST' && count($segments) === 6 && $segments[1] === 'projects' && $segments[3] === 'tasks' && $segments[5] === 'convert-checklist') {
             genesisJson(genesisSharedConvertChecklistItem($userId,$segments[2],$segments[4],genesisReadJson()));
         }
+        if ($path === 'shared/views') {
+            if($method==='GET')genesisJson(genesisSharedViews($userId,isset($_GET['spaceId'])&&$_GET['spaceId']!==''?(string)$_GET['spaceId']:null,$_GET['cursor']??null));
+            if($method==='POST')genesisJson(['view'=>genesisSharedViewSave($userId,genesisReadJson())],201);
+        }
+        if($path==='shared/views/options' && $method==='GET')genesisJson(genesisSharedViewOptions($userId,(string)($_GET['kind']??''),genesisSharedReadTaskFilter($_GET['filter']??null),$_GET['cursor']??null));
+        if(count($segments)===3 && $segments[1]==='views' && $segments[2]!=='options') {
+            if($method==='GET')genesisJson(['view'=>genesisSharedViewRead(genesisSharedViewAccess($userId,$segments[2]),$userId)]);
+            if($method==='PATCH')genesisJson(['view'=>genesisSharedViewSave($userId,genesisReadJson(),$segments[2])]);
+            if($method==='DELETE')genesisJson(genesisSharedViewDelete($userId,$segments[2],genesisReadJson()));
+        }
         if (count($segments)===6 && $segments[1]==='projects' && $segments[3]==='tasks' && $segments[5]==='series') {
             if($method==='GET')genesisJson(['series'=>genesisSharedSeriesForTask($userId,$segments[2],$segments[4])]);
             if($method==='POST'){

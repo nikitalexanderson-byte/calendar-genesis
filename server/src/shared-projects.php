@@ -20,6 +20,7 @@ require_once __DIR__ . '/shared-task-details.php';
 require_once __DIR__ . '/shared-task-lifecycle.php';
 require_once __DIR__ . '/shared-task-query.php';
 require_once __DIR__ . '/shared-series.php';
+require_once __DIR__ . '/shared-views.php';
 
 final class GenesisSharedAccessException extends RuntimeException
 {
