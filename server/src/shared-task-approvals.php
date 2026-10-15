@@ -57,6 +57,7 @@ function genesisSharedConfigureTaskApprovals(string $userId, string $projectId, 
     genesisDb()->prepare('DELETE FROM shared_task_approvals WHERE task_id = :task')->execute(['task' => $taskId]);
     $insert = genesisDb()->prepare('INSERT INTO shared_task_approvals (id, task_id, user_id) VALUES (:id, :task, :user)');
     foreach ($ids as $id) $insert->execute(['id' => genesisUuid(), 'task' => $taskId, 'user' => $id]);
+    if ($ids) genesisSharedAudit($projectId,$userId,'task.approval_requested',$taskId);
 }
 
 function genesisSharedApproveTask(string $userId, string $projectId, string $taskId): array

@@ -4,6 +4,8 @@ import type { Language } from "./i18n";
 import type { SharedChecklist, SharedTaskDetailsDraft } from "./shared-task-details";
 import { legacyReminderMinutes, normalizeTaskReminders, type TaskReminder } from "./task-reminders";
 import type { TimeFormat } from "./time-format";
+import type { SharedNotificationPreferences, SharedNotificationSettings } from "./notification-settings-model";
+import { sharedPushDeviceKey } from "./shared-push-device";
 import { ThemeConflictError, type GenesisTheme } from "./theme-controller";
 import { cleanTaskDescription } from "./task-description";
 import { cleanGenesisAppUrl } from "./app-url";
@@ -1507,6 +1509,8 @@ export function consumeGoogleAuthError() {
 export async function signOutFromGoogle() {
   // Block the device immediately, including other tabs and restoration from an old cookie.
   const logoutCsrf = csrfToken;
+  let sharedPushId="";try{if(workspaceUserId)sharedPushId=localStorage.getItem(sharedPushDeviceKey(workspaceUserId))??"";}catch{/* Continue the immediate local sign-out. */}
+  if(sharedPushId)void fetch(`${API_BASE}/shared/push-subscriptions/${encodeURIComponent(sharedPushId)}`,{method:"DELETE",body:"{}",credentials:"include",keepalive:true,headers:{"Content-Type":"application/json","X-CSRF-Token":logoutCsrf}}).catch(()=>undefined);
   let localCleared = true;
   try { markLocalSignOut(localStorage); } catch { localCleared = false; }
   endLocalSession();
@@ -1526,7 +1530,9 @@ export async function signOutFromGoogle() {
     const registration = await navigator.serviceWorker.getRegistration().catch(() => undefined);
     const notifications = await registration?.getNotifications().catch(() => []);
     notifications?.forEach((notification) => notification.close());
+    void registration?.pushManager?.getSubscription().then(subscription=>subscription?.unsubscribe()).catch(()=>undefined);
   }
+  if("caches"in window)await caches.delete("genesis-shared-push-receipts-v1").catch(()=>undefined);
   const remoteRevoked = await remoteLogout;
   if (!localCleared) throw new Error("Очистка браузера не подтверждена. Закройте вкладки GENESIS и удалите данные сайта в настройках браузера перед передачей устройства.");
   const destination = new URL(cleanGenesisAppUrl(window.location.href));
@@ -2196,9 +2202,10 @@ export type SharedNotification = {
   id: string; action: string; objectId: string; createdAt: string;
   projectId: string; projectTitle: string; spaceId: string;
   actorName: string; taskTitle: string | null; commentBody?: string | null; commentId?: string | null; isRead: number;
+  kind?: string; previewAllowed?: boolean; dueDate?: string | null; archivedAt?: string | null; timeZone?: string; timeFormat?:TimeFormat; gregorianYearStart?:"january"|"march";
 };
 export type SharedOverview = { projects: number; rootProjects: number; subprojects: number;
-  tasks: number; openTasks: number; completedTasks: number; newTasks: number; newProjects: number; newComments: number };
+  tasks: number; openTasks: number; completedTasks: number; newTasks: number; newProjects: number; newComments: number; newNotifications?: number };
 export async function loadSharedOverview(signal?: AbortSignal, spaceId?: string) {
   return (await api<{ overview: SharedOverview }>(`/shared/overview${spaceId ? `?spaceId=${encodeURIComponent(spaceId)}` : ""}`, { signal })).overview;
 }
@@ -2210,6 +2217,36 @@ export async function readSharedInbox(eventIds: string[], all = false) {
   const result = await api<{ ok: boolean }>("/shared/inbox/read", { method: "POST", body: JSON.stringify({ eventIds, all }) });
   window.dispatchEvent(new Event("genesis:shared-inbox-read"));
   return result;
+}
+export async function unreadSharedInbox(eventIds:string[]) {
+  const result=await api<{ok:boolean}>("/shared/inbox/read",{method:"POST",body:JSON.stringify({eventIds,read:false})});
+  window.dispatchEvent(new Event("genesis:shared-inbox-read"));return result;
+}
+export function resolveSharedNotification(eventId:string,signal?:AbortSignal) {
+  return api<{spaceId:string;projectId:string;taskId?:string;taskAction?:"comments";commentId?:string}>(`/shared/notifications/${encodeURIComponent(eventId)}/destination`,{signal});
+}
+export function loadSharedTaskWatch(projectId:string,taskId:string,signal?:AbortSignal) {
+  return api<{watching:boolean}>(`/shared/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}/watch`,{signal});
+}
+export function updateSharedTaskWatch(projectId:string,taskId:string,watching:boolean,signal?:AbortSignal) {
+  return api<{watching:boolean}>(`/shared/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}/watch`,{method:"PUT",body:JSON.stringify({watching}),signal});
+}
+export function loadSharedNotificationSettings(signal?:AbortSignal) { return api<SharedNotificationSettings>("/shared/notification-settings",{signal}); }
+export function saveSharedNotificationSettings(settings:SharedNotificationPreferences,expectedRevision:number,signal?:AbortSignal) {
+  return api<SharedNotificationSettings>("/shared/notification-settings",{method:"PUT",body:JSON.stringify({settings,expectedRevision}),signal});
+}
+export function updateSharedNotificationDeviceContext(timeZone:string,signal?:AbortSignal) {
+  return api<{ok:boolean}>("/shared/notification-context",{method:"PUT",body:JSON.stringify({timeZone}),signal});
+}
+export function registerSharedPushSubscription(subscription:PushSubscriptionJSON,signal?:AbortSignal) {
+  return api<{id:string}>("/shared/push-subscriptions",{method:"POST",body:JSON.stringify(subscription),signal});
+}
+export function deleteSharedPushSubscription(id:string,signal?:AbortSignal) {
+  return api<{ok:boolean}>(`/shared/push-subscriptions/${encodeURIComponent(id)}`,{method:"DELETE",body:"{}",signal});
+}
+export function retrySharedNotificationDeliveries(signal?:AbortSignal) { return api<{resumed:number}>("/shared/notification-settings/retry",{method:"POST",body:"{}",signal}); }
+export function loadSharedPushDelivery(id:string,signal?:AbortSignal) {
+  return api<{message:{deliveryId:string;title:string;body:string;url:string;lang:string;count:number};destination:{spaceId:string;projectId:string;taskId?:string;taskAction?:"comments";commentId?:string};displayAllowed:boolean}>(`/shared/push-deliveries/${encodeURIComponent(id)}`,{signal});
 }
 export async function readSharedTaskUpdates(projectId: string, taskId: string, commentIds: string[], signal?: AbortSignal) {
   return api<{ ok: boolean; overview: SharedOverview }>(`/shared/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}/read`, {

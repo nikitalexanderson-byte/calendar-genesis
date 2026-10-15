@@ -22,6 +22,7 @@ require_once __DIR__ . '/shared-task-query.php';
 require_once __DIR__ . '/shared-series.php';
 require_once __DIR__ . '/shared-views.php';
 require_once __DIR__ . '/shared-bulk.php';
+require_once __DIR__ . '/shared-notifications.php';
 
 final class GenesisSharedAccessException extends RuntimeException
 {
@@ -123,17 +124,25 @@ function genesisSharedProjectAccess(string $projectId, string $userId, string $p
     return $project;
 }
 
-function genesisSharedAudit(string $projectId, string $actorId, string $action, string $objectId, array $details = []): void
+function genesisSharedAudit(string $projectId, string $actorId, string $action, string $objectId, array $details = []): string
 {
+    $db=genesisDb();$ownsTransaction=!$db->inTransaction();if($ownsTransaction)genesisBeginWriteTransaction($db);
+    try {
     $details = genesisSharedEventContext($projectId, $action, $objectId, $details);
+    $notificationDetails = $details;
     $details = genesisSharedReadableChanges($details);
+    $eventId = genesisUuid();
     genesisDb()->prepare('INSERT INTO shared_audit_events (id, project_id, actor_id, action, object_id, created_at, task_id, board_id, details_json)
         VALUES (:id, :project, :actor, :action, :object, :created, :task, :board, :details)')->execute([
-        'id' => genesisUuid(), 'project' => $projectId, 'actor' => $actorId,
+        'id' => $eventId, 'project' => $projectId, 'actor' => $actorId,
         'action' => $action, 'object' => $objectId, 'created' => genesisNow(),
         'task' => $details['taskId'] ?? null, 'board' => $details['boardId'] ?? null,
         'details' => json_encode($details, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
     ]);
+    genesisNotificationCapture($eventId,$projectId,$actorId,$action,$objectId,$notificationDetails);
+    if($ownsTransaction)$db->commit();
+    return $eventId;
+    } catch(Throwable $error) { if($ownsTransaction&&$db->inTransaction())$db->rollBack();throw$error; }
 }
 
 function genesisSharedSpaces(string $userId): array
@@ -760,6 +769,7 @@ function genesisSharedImportProjectTree(string $userId, string $spaceId, array $
                 'due' => $task['due'], 'entry' => $task['entryType'], 'user' => $userId,
                 'completed_by' => $task['done'] ? $userId : null,
                 'completed_at' => $task['done'] ? $now : null, 'now' => $now]);
+            $db->prepare('INSERT INTO shared_notification_task_state(task_id,due_date,completed,imported) VALUES(?,?,?,1)')->execute([$id,$task['due'],$task['done']?1:0]);
             if ($mode === 'move') {
                 $db->prepare('INSERT INTO shared_task_transfers
                     (source_user_id, source_task_id, target_project_id, target_task_id, created_at)
@@ -1238,46 +1248,13 @@ function genesisSharedCalendarTasks(string $userId, string $from, string $to): a
 /** Team activity is visible only while the user retains membership in each project. */
 function genesisSharedNotifications(string $userId): array
 {
-    genesisSharedRequireEnabled($userId);
-    $query = genesisDb()->prepare('SELECT e.id,
-        CASE WHEN e.action = \'comment.created\' AND EXISTS (SELECT 1 FROM shared_comment_mentions cm WHERE cm.comment_id = e.object_id AND cm.user_id = :mentioned) THEN \'comment.mentioned\' ELSE e.action END AS action,
-        COALESCE(e.task_id, e.object_id) AS objectId,
-        e.created_at AS createdAt, p.id AS projectId, p.title AS projectTitle,
-        p.space_id AS spaceId, COALESCE(NULLIF(u.display_name, \'\'), u.email, \'Участник GENESIS\') AS actorName,
-        COALESCE(t.title, json_extract(e.details_json, \'$.objectTitle\')) AS taskTitle,
-        CASE WHEN r.event_id IS NULL THEN 0 ELSE 1 END AS isRead
-        FROM shared_audit_events_read e
-        JOIN shared_projects p ON p.id = e.project_id AND p.archived_at IS NULL
-        JOIN shared_project_members m ON m.project_id = p.id AND m.user_id = :member
-        JOIN shared_space_members sm ON sm.space_id = p.space_id AND sm.user_id = m.user_id
-        LEFT JOIN users u ON u.id = e.actor_id
-        LEFT JOIN shared_tasks_read t ON t.id = COALESCE(e.task_id, e.object_id) AND t.project_id = p.id
-        LEFT JOIN shared_notification_reads r ON r.event_id = e.id AND r.user_id = :reader
-        WHERE e.actor_id IS NOT :actor AND e.action IN
-            (\'task.created\', \'task.updated\', \'task.moved_in\', \'task.moved_out\',
-             \'comment.created\', \'project.created\', \'project.updated\',
-             \'invitation.accepted\', \'member.role_changed\')
-        ORDER BY e.created_at DESC, e.id DESC LIMIT 100');
-    $query->execute(['member' => $userId, 'reader' => $userId, 'actor' => $userId, 'mentioned' => $userId]);
-    return $query->fetchAll();
+    $items=genesisNotificationInbox($userId,'',false,100)['notifications'];
+    return array_map(static function($item){if($item['kind']==='mentions')$item['action']='comment.mentioned';elseif(in_array($item['kind'],['dueSoon','overdue','approvalRequest','approvalResult'],true))$item['action']='task.updated';return$item;},$items);
 }
 
 function genesisSharedReadNotifications(string $userId, array $input): void
 {
-    genesisSharedRequireEnabled($userId);
-    $ids = $input['eventIds'] ?? null;
-    if (!is_array($ids) || !array_is_list($ids) || count($ids) > 100 ||
-        array_filter($ids, static fn(mixed $id): bool => !is_string($id) ||
-            !preg_match('/\A[a-f0-9-]{36}\z/', $id))) {
-        throw new InvalidArgumentException('INVALID_NOTIFICATION_IDS');
-    }
-    $visible = array_column(genesisSharedNotifications($userId), 'id');
-    $save = genesisDb()->prepare('INSERT OR IGNORE INTO shared_notification_reads (event_id, user_id, read_at)
-        VALUES (:event, :user, :now)');
-    foreach (array_unique($ids) as $id) {
-        if (!in_array($id, $visible, true)) throw new GenesisSharedAccessException();
-        $save->execute(['event' => $id, 'user' => $userId, 'now' => genesisNow()]);
-    }
+    genesisNotificationRead($userId,$input);
 }
 
 function genesisSharedAcceptInvite(string $userId, array $input): array

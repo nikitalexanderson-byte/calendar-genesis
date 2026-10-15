@@ -14,10 +14,11 @@ function genesisBackgroundClaim(?string $now=null,?string $uniqueKey=null): ?arr
     $db=genesisDb(); $now??=genesisNow(); genesisBeginWriteTransaction($db);
     try {
         $scope=$uniqueKey===null?'':' AND unique_key=?';$keyValues=$uniqueKey===null?[]:[$uniqueKey];
-        $q=$db->prepare("SELECT kind,unique_key FROM background_jobs WHERE state='running' AND lease_until<=? AND attempts>=5".$scope);
+        $q=$db->prepare("SELECT kind,unique_key,payload FROM background_jobs WHERE state='running' AND lease_until<=? AND attempts>=5".$scope);
         $q->execute([$now,...$keyValues]);$expired=$q->fetchAll();$q->closeCursor();
         $db->prepare("UPDATE background_jobs SET state='failed',lease_token=NULL,lease_until=NULL,error_code='BACKGROUND_LEASE_EXPIRED',updated_at=? WHERE state='running' AND lease_until<=? AND attempts>=5".$scope)->execute([$now,$now,...$keyValues]);
         foreach($expired as$ended)if($ended['kind']==='shared-bulk')genesisSharedBulkJobFailed($ended,'BACKGROUND_LEASE_EXPIRED');
+        foreach($expired as$ended)if($ended['kind']==='shared-notification')genesisNotificationJobFailed($ended,'BACKGROUND_LEASE_EXPIRED');
         $q=$db->prepare("SELECT * FROM background_jobs WHERE ((state='pending' AND available_at<=?) OR (state='running' AND lease_until<=?))".$scope." ORDER BY available_at,id LIMIT 1");
         $q->execute([$now,$now,...$keyValues]);$job=$q->fetch();$q->closeCursor();
         if(!$job){$db->commit();return null;}
@@ -30,6 +31,7 @@ function genesisBackgroundClaim(?string $now=null,?string $uniqueKey=null): ?arr
 /** A result and its acknowledgement share one transaction; an expired lease is safely retried. */
 function genesisBackgroundPerform(array $job,?callable $handler=null): string
 {
+    if($job['kind']==='shared-notification'&&$handler===null)return genesisNotificationPerformLeased($job);
     $db=genesisDb();genesisBeginWriteTransaction($db);
     try {
         $q=$db->prepare("SELECT state,lease_token FROM background_jobs WHERE id=?");$q->execute([$job['id']]);$current=$q->fetch();$q->closeCursor();
@@ -38,8 +40,13 @@ function genesisBackgroundPerform(array $job,?callable $handler=null): string
         $state=$handler ? $handler($job['kind'],$payload) : match($job['kind']) {
             'shared-series'=>genesisSharedSeriesGenerate($payload),
             'shared-bulk'=>genesisSharedBulkBatch($payload),
+            'shared-notification'=>genesisNotificationDeliver($payload),
             default=>throw new RuntimeException('BACKGROUND_KIND_UNSUPPORTED'),
         };
+        if($state==='deferred'&&$job['kind']==='shared-notification'){
+            $q=$db->prepare('SELECT available_at FROM shared_notification_outbox WHERE id=?');$q->execute([$payload['deliveryId']]);$available=$q->fetchColumn();$q->closeCursor();
+            $db->prepare("UPDATE background_jobs SET state='pending',attempts=MAX(0,attempts-1),available_at=?,lease_until=NULL,lease_token=NULL,updated_at=? WHERE id=?")->execute([$available,genesisNow(),$job['id']]);$db->commit();return'pending';
+        }
         $state=$state==='cancelled'?'cancelled':'succeeded';
         $db->prepare('UPDATE background_jobs SET state=?,lease_until=NULL,lease_token=NULL,error_code=NULL,updated_at=? WHERE id=?')
             ->execute([$state,genesisNow(),$job['id']]);
@@ -56,6 +63,7 @@ function genesisBackgroundPerform(array $job,?callable $handler=null): string
             if(!$update->rowCount()){$db->commit();return 'superseded';}
             if($job['kind']==='shared-series' && isset($payload['seriesId'],$payload['revision'])) $db->prepare('UPDATE shared_task_series SET last_error=? WHERE id=? AND revision=?')->execute([$code,$payload['seriesId'],$payload['revision']]);
             if($job['kind']==='shared-bulk'&&$state==='failed')genesisSharedBulkJobFailed($job,$code);
+            if($job['kind']==='shared-notification'&&$state==='failed')genesisNotificationJobFailed($job,$code);
             $db->commit();return $state;
         }catch(Throwable $failure){if($db->inTransaction())$db->rollBack();throw $failure;}
     }
@@ -65,6 +73,7 @@ function genesisBackgroundRun(int $limit=20): array
 {
     $db=genesisDb();$db->exec("UPDATE background_worker_state SET started_at=strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id=1");
     genesisSharedSeriesEnqueue();
+    genesisNotificationScan();
     $counts=['succeeded'=>0,'cancelled'=>0,'pending'=>0,'failed'=>0,'superseded'=>0];$deadline=microtime(true)+25;
     for($i=0;$i<max(1,min(50,$limit))&&microtime(true)<$deadline;$i++){
         $job=genesisBackgroundClaim();if(!$job)break;$counts[genesisBackgroundPerform($job)]++;

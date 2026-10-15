@@ -145,6 +145,9 @@ jobs:
           php server/tests/shared-views-migration.php
           php server/tests/shared-bulk.php
           php server/tests/shared-bulk-migration.php
+          php server/tests/shared-notifications.php
+          php server/tests/shared-notifications-migration.php
+          php server/tests/web-push.php
           php server/tests/shared-bulk-large.php
           php server/tests/shared-ui.php
           php server/tests/shared-space-settings.php

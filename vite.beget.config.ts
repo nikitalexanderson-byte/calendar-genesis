@@ -127,6 +127,7 @@ export default defineConfig({
               priority: 50,
             },
             { name: "view-recovery", test: /app[\\/]DeferredViews\.tsx$/, priority: 14 },
+            { name: "shared-updates-state", test: /app[\\/]SharedUpdatesProvider\.tsx$/, priority: 14 },
             {
               name: "shared-task-controls",
               test: /app[\\/](?:SharedTaskPageControls|SharedDependencyPicker|SharedArchivedTasks|SharedTaskDetailsEditor|SharedEntityPreview|SharedEntityComments)\.tsx$/,
