@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 /** Relationships remain within a project; a branch is archived/restored together. */
 function genesisSharedTaskBranch(PDO $db,string $projectId,string $taskId):array {
- $q=$db->prepare('WITH RECURSIVE branch AS (SELECT id FROM shared_tasks WHERE id=? AND project_id=? UNION SELECT t.id FROM shared_tasks t JOIN branch b ON t.parent_task_id=b.id WHERE t.project_id=?) SELECT t.* FROM shared_tasks t JOIN branch b ON b.id=t.id');
+ $q=$db->prepare('WITH RECURSIVE branch AS (SELECT id FROM shared_tasks WHERE id=? AND project_id=? UNION SELECT t.id FROM branch b CROSS JOIN shared_tasks t ON t.parent_task_id=b.id WHERE t.project_id=?) SELECT t.id,t.archived_at FROM branch b CROSS JOIN shared_tasks t ON b.id=t.id');
  $q->execute([$taskId,$projectId,$projectId]);return $q->fetchAll();
 }
 function genesisSharedArchiveTask(string $userId,string $projectId,string $taskId,array $input):array {

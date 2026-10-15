@@ -775,6 +775,31 @@ try {
         if ($method === 'POST' && count($segments) === 6 && $segments[1] === 'projects' && $segments[3] === 'tasks' && $segments[5] === 'convert-checklist') {
             genesisJson(genesisSharedConvertChecklistItem($userId,$segments[2],$segments[4],genesisReadJson()));
         }
+        if($path==='shared/bulk'&&$method==='GET')genesisJson(genesisSharedBulkOperations($userId,$_GET['cursor']??null));
+        if($path==='shared/bulk/scope'&&$method==='POST'){
+            genesisRequireCsrf();$input=genesisReadJson();
+            if(!is_array($input['selection']??null)||isset($input['cursor'])&&!is_string($input['cursor']))throw new InvalidArgumentException('BULK_INVALID');
+            genesisJson(genesisSharedBulkScope($userId,$input['selection'],$input['cursor']??null));
+        }
+        if($path==='shared/bulk/preview'&&$method==='POST'){
+            genesisRequireCsrf();genesisJson(genesisSharedBulkPreview($userId,genesisReadJson()),201);
+        }
+        if(count($segments)===3&&$segments[1]==='bulk'&&$method==='GET'){
+            $after=$_GET['after']??'0';
+            if(!is_string($after)||!ctype_digit($after)||strlen($after)>16)throw new InvalidArgumentException('BULK_PAGE_INVALID');
+            genesisJson(genesisSharedBulkReport($userId,$segments[2],(int)$after));
+        }
+        if(count($segments)===4&&$segments[1]==='bulk'&&$method==='POST'){
+            genesisRequireCsrf();
+            $input=genesisReadJson();$after=$input['after']??0;
+            if(!is_int($after)||$after<0)throw new InvalidArgumentException('BULK_PAGE_INVALID');
+            $report=match($segments[3]){
+                'confirm'=>genesisSharedBulkConfirm($userId,$segments[2]),'cancel'=>genesisSharedBulkCancel($userId,$segments[2]),
+                'advance'=>genesisSharedBulkAdvance($userId,$segments[2]),'resume'=>genesisSharedBulkResume($userId,$segments[2]),
+                default=>throw new InvalidArgumentException('BULK_INVALID'),
+            };
+            genesisJson($after>0?genesisSharedBulkReport($userId,$segments[2],$after):$report);
+        }
         if ($path === 'shared/views') {
             if($method==='GET')genesisJson(genesisSharedViews($userId,isset($_GET['spaceId'])&&$_GET['spaceId']!==''?(string)$_GET['spaceId']:null,$_GET['cursor']??null));
             if($method==='POST')genesisJson(['view'=>genesisSharedViewSave($userId,genesisReadJson())],201);

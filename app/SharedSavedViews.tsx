@@ -4,7 +4,7 @@ import { CalendarDatePicker } from "./CalendarDatePicker";
 import { calendarContext, type CalendarContext } from "./calendar-context";
 import { type CalendarMode } from "./calendar-data";
 import { ExperimentalIcon } from "./ExperimentalIcon";
-import { SharedTaskPageControls } from "./SharedTaskPageControls";
+import { SharedBulkActions } from "./SharedBulkActions";
 import { useSharedTaskPage } from "./use-shared-task-page";
 import { sharedPriorityLabel, sharedTaskDetailsError } from "./shared-task-details";
 import { editableSharedViewDefinition, repairSharedViewContext } from "./shared-saved-view-model";
@@ -224,10 +224,7 @@ export function SharedSavedViews({userId,spaces,mode,onOpen}:{userId:string;spac
         </div>
       </fieldset></form>:null}
       </div>
-      {filter?<section className="saved-view-results" aria-label={t("Задачи")}><SharedTaskPageControls page={tasks.page} loaded={tasks.page?.tasks.length??0} busy={tasks.busy} onMore={()=>void tasks.more()} onRefresh={()=>void tasks.refresh()} error={tasks.error}/>
-        <div className="saved-view-task-list">{tasks.page?.tasks.map(task=><button type="button" className="secondary-button" key={task.id} onClick={()=>onOpen(task)}><small data-no-translate>{task.projectTitle}</small><strong data-no-translate>{task.title}</strong><span>{sharedPriorityLabel(task.priority??0)}</span></button>)}</div>
-        {tasks.page&&tasks.page.total===0?<p>{t("Совпадений нет")}</p>:null}
-      </section>:null}
+      <SharedBulkActions key={userId} userId={userId} filter={filter} page={tasks.page} sort={definition?.sort??"position"} mode={mode} online={online} loading={tasks.busy} queryError={tasks.error} onMore={()=>void tasks.more()} onRefresh={()=>void tasks.refresh()} onOpen={onOpen}/>
     </div>:null}
   </details>;
 }

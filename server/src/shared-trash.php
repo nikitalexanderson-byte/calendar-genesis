@@ -16,11 +16,11 @@ function genesisSharedTrashGoogleCleanup(PDO $db,string $taskId):void {
 function genesisSharedTrashTask(string $userId,string $projectId,string $taskId,array $input):array {
  $days=genesisSharedTrashDays($input['retentionDays']??30);$expected=$input['expectedRevision']??null;
  if(!is_int($expected)||$expected<1)throw new InvalidArgumentException('INVALID_TASK_REVISION');
- $db=genesisDb();genesisBeginWriteTransaction($db);try{
+ $db=genesisDb();$ownsTransaction=!$db->inTransaction();if($ownsTransaction)genesisBeginWriteTransaction($db);try{
   $project=genesisSharedTrashProjectAccess($userId,$projectId,'organizeTasks');
   $requestId=genesisSharedRequestId($input);
-  $receipt=genesisSharedMutationReceipt($db,$userId,$requestId,'task.trash',$taskId);if($receipt!==null){$db->commit();return $receipt;}
-  $q=$db->prepare("SELECT 1 FROM shared_trash WHERE kind='task' AND object_id=? AND project_id=?");$q->execute([$taskId,$projectId]);if($q->fetchColumn()){$db->commit();return ['ok'=>true,'id'=>$taskId,'trashed'=>true];}
+  $receipt=genesisSharedMutationReceipt($db,$userId,$requestId,'task.trash',$taskId);if($receipt!==null){if($ownsTransaction)$db->commit();return $receipt;}
+  $q=$db->prepare("SELECT 1 FROM shared_trash WHERE kind='task' AND object_id=? AND project_id=?");$q->execute([$taskId,$projectId]);if($q->fetchColumn()){if($ownsTransaction)$db->commit();return ['ok'=>true,'id'=>$taskId,'trashed'=>true];}
   genesisSharedProjectAccess($projectId,$userId,'organize');
   // The normal reader excludes expired or deleted objects and rejects stale cached writes.
   $q=$db->prepare('SELECT revision FROM shared_tasks_history_read WHERE id=? AND project_id=?');$q->execute([$taskId,$projectId]);$revision=$q->fetchColumn();if($revision===false)throw new GenesisSharedAccessException();if((int)$revision!==$expected)throw new GenesisSharedAccessException('SHARED_TASK_CONFLICT',409);
@@ -30,8 +30,8 @@ function genesisSharedTrashTask(string $userId,string $projectId,string $taskId,
    if($q->rowCount()){$affected++;genesisSharedTrashGoogleCleanup($db,$row['id']);genesisSharedAudit($projectId,$userId,'task.deleted',$row['id'],['retentionDays'=>$days,'rootId'=>$taskId]);}
   }
   $result=['ok'=>true,'id'=>$taskId,'projectId'=>$projectId,'trashed'=>true,'affected'=>$affected,'expiresAt'=>$expires];
-  genesisSharedSaveMutationReceipt($db,$userId,$requestId,'task.trash',$taskId,$result);$db->commit();return $result;
- }catch(Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
+  genesisSharedSaveMutationReceipt($db,$userId,$requestId,'task.trash',$taskId,$result);if($ownsTransaction)$db->commit();return $result;
+ }catch(Throwable $e){if($ownsTransaction&&$db->inTransaction())$db->rollBack();throw $e;}
 }
 function genesisSharedTrashProject(string $userId,string $projectId,array $input):array {
  $days=genesisSharedTrashDays($input['retentionDays']??30);$db=genesisDb();genesisBeginWriteTransaction($db);try{

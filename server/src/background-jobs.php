@@ -9,13 +9,17 @@ function genesisBackgroundEnqueue(string $kind,string $key,array $payload,?strin
         ->execute([genesisUuid(),$kind,$key,genesisSharedContentEncrypt(json_encode($payload,JSON_THROW_ON_ERROR)),$availableAt??$now,$now,$now]);
 }
 
-function genesisBackgroundClaim(?string $now=null): ?array
+function genesisBackgroundClaim(?string $now=null,?string $uniqueKey=null): ?array
 {
     $db=genesisDb(); $now??=genesisNow(); genesisBeginWriteTransaction($db);
     try {
-        $db->prepare("UPDATE background_jobs SET state='failed',lease_token=NULL,lease_until=NULL,error_code='BACKGROUND_LEASE_EXPIRED',updated_at=? WHERE state='running' AND lease_until<=? AND attempts>=5")->execute([$now,$now]);
-        $q=$db->prepare("SELECT * FROM background_jobs WHERE (state='pending' AND available_at<=?) OR (state='running' AND lease_until<=?) ORDER BY available_at,id LIMIT 1");
-        $q->execute([$now,$now]);$job=$q->fetch();$q->closeCursor();
+        $scope=$uniqueKey===null?'':' AND unique_key=?';$keyValues=$uniqueKey===null?[]:[$uniqueKey];
+        $q=$db->prepare("SELECT kind,unique_key FROM background_jobs WHERE state='running' AND lease_until<=? AND attempts>=5".$scope);
+        $q->execute([$now,...$keyValues]);$expired=$q->fetchAll();$q->closeCursor();
+        $db->prepare("UPDATE background_jobs SET state='failed',lease_token=NULL,lease_until=NULL,error_code='BACKGROUND_LEASE_EXPIRED',updated_at=? WHERE state='running' AND lease_until<=? AND attempts>=5".$scope)->execute([$now,$now,...$keyValues]);
+        foreach($expired as$ended)if($ended['kind']==='shared-bulk')genesisSharedBulkJobFailed($ended,'BACKGROUND_LEASE_EXPIRED');
+        $q=$db->prepare("SELECT * FROM background_jobs WHERE ((state='pending' AND available_at<=?) OR (state='running' AND lease_until<=?))".$scope." ORDER BY available_at,id LIMIT 1");
+        $q->execute([$now,$now,...$keyValues]);$job=$q->fetch();$q->closeCursor();
         if(!$job){$db->commit();return null;}
         $token=genesisUuid();$lease=gmdate('Y-m-d\TH:i:s\Z',strtotime($now)+120);
         $db->prepare("UPDATE background_jobs SET state='running',attempts=attempts+1,lease_token=?,lease_until=?,updated_at=? WHERE id=?")->execute([$token,$lease,$now,$job['id']]);
@@ -33,6 +37,7 @@ function genesisBackgroundPerform(array $job,?callable $handler=null): string
         $payload=json_decode(genesisSharedContentDecrypt($job['payload']),true,32,JSON_THROW_ON_ERROR);
         $state=$handler ? $handler($job['kind'],$payload) : match($job['kind']) {
             'shared-series'=>genesisSharedSeriesGenerate($payload),
+            'shared-bulk'=>genesisSharedBulkBatch($payload),
             default=>throw new RuntimeException('BACKGROUND_KIND_UNSUPPORTED'),
         };
         $state=$state==='cancelled'?'cancelled':'succeeded';
@@ -44,10 +49,15 @@ function genesisBackgroundPerform(array $job,?callable $handler=null): string
         $code=in_array($e->getMessage(),['SHARED_PROJECT_NOT_FOUND','SHARED_PROJECT_FORBIDDEN','INVALID_ASSIGNEE','INVALID_TASK_APPROVER','SERIES_SOURCE_UNAVAILABLE','SERIES_INVALID','SERIES_TEMPLATE_UNAVAILABLE','BACKGROUND_KIND_UNSUPPORTED'],true)?$e->getMessage():'BACKGROUND_RETRY';
         $state=(int)$job['attempts']>=5?'failed':'pending';
         $delay=min(3600,30*(2**min(7,(int)$job['attempts'])));
-        $db->prepare('UPDATE background_jobs SET state=?,available_at=?,lease_until=NULL,lease_token=NULL,error_code=?,updated_at=? WHERE id=? AND lease_token=?')
-            ->execute([$state,gmdate('Y-m-d\TH:i:s\Z',time()+$delay),$code,genesisNow(),$job['id'],$job['lease_token']]);
-        if(($job['kind']??'')==='shared-series' && isset($payload['seriesId'],$payload['revision'])) $db->prepare('UPDATE shared_task_series SET last_error=? WHERE id=? AND revision=?')->execute([$code,$payload['seriesId'],$payload['revision']]);
-        return $state;
+        genesisBeginWriteTransaction($db);
+        try{
+            $update=$db->prepare("UPDATE background_jobs SET state=?,available_at=?,lease_until=NULL,lease_token=NULL,error_code=?,updated_at=? WHERE id=? AND state='running' AND lease_token=?");
+            $update->execute([$state,gmdate('Y-m-d\TH:i:s\Z',time()+$delay),$code,genesisNow(),$job['id'],$job['lease_token']]);
+            if(!$update->rowCount()){$db->commit();return 'superseded';}
+            if($job['kind']==='shared-series' && isset($payload['seriesId'],$payload['revision'])) $db->prepare('UPDATE shared_task_series SET last_error=? WHERE id=? AND revision=?')->execute([$code,$payload['seriesId'],$payload['revision']]);
+            if($job['kind']==='shared-bulk'&&$state==='failed')genesisSharedBulkJobFailed($job,$code);
+            $db->commit();return $state;
+        }catch(Throwable $failure){if($db->inTransaction())$db->rollBack();throw $failure;}
     }
 }
 
