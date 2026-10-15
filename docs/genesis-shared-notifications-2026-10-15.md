@@ -1,6 +1,6 @@
 # B7 — наблюдение и уведомления, 15 октября 2026
 
-Статус: web-реализация и локальная приёмка завершены в описанных ниже границах. Commit/push/merge и публикация B7 через текущий `.github/workflows/deploy.yml` ещё ожидаются; production B7 не подтверждён. B5 опубликован в PR #174, B6 — в PR #175. Android 2.8.4 / 84 с исправлением DEX VerifyError сохранён.
+Статус: web-реализация и локальная приёмка завершены в описанных ниже границах. Выпуск оформлен в [PR #176](https://github.com/nikitalexanderson-byte/calendar-genesis/pull/176); публикация выполняется текущим `.github/workflows/deploy.yml` после merge. Результат проверяется по Actions, совпадению `/deploy-meta.json` с master, `/api/health` и естественному heartbeat фонового обработчика. B5 опубликован в PR #174, B6 — в PR #175. Android 2.8.4 / 84 с исправлением DEX VerifyError сохранён.
 
 ## Поведение
 
