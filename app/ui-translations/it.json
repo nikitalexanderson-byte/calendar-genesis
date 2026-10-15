@@ -2421,5 +2421,7 @@
   "Исполнитель недоступен в этом проекте.": "Assegnatario non disponibile in questo progetto.",
   "Статус больше недоступен в этом проекте.": "Lo stato non è più disponibile in questo progetto.",
   "Метка недоступна в этом пространстве.": "Etichetta non disponibile in questo spazio.",
-  "Сначала требуется утверждение результата.": "Il risultato deve prima essere approvato."
+  "Сначала требуется утверждение результата.": "Il risultato deve prima essere approvato.",
+  "Всего в операции": "Totale nell’operazione",
+  "Операция продолжится в фоне. Отчёт можно открыть в истории.": "L’operazione continua in background. Apri il rapporto dalla cronologia."
 }

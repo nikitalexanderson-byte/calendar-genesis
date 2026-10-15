@@ -2416,5 +2416,7 @@
   "Исполнитель недоступен в этом проекте.": "Verantwortliche Person in diesem Projekt nicht verfügbar.",
   "Статус больше недоступен в этом проекте.": "Status in diesem Projekt nicht mehr verfügbar.",
   "Метка недоступна в этом пространстве.": "Label in diesem Bereich nicht verfügbar.",
-  "Сначала требуется утверждение результата.": "Das Ergebnis muss zuerst freigegeben werden."
+  "Сначала требуется утверждение результата.": "Das Ergebnis muss zuerst freigegeben werden.",
+  "Всего в операции": "In der Aktion",
+  "Операция продолжится в фоне. Отчёт можно открыть в истории.": "Die Aktion läuft im Hintergrund weiter. Der Bericht ist im Verlauf verfügbar."
 }

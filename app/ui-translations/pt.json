@@ -2421,5 +2421,7 @@
   "Исполнитель недоступен в этом проекте.": "Responsável indisponível neste projeto.",
   "Статус больше недоступен в этом проекте.": "O estado já não está disponível neste projeto.",
   "Метка недоступна в этом пространстве.": "Etiqueta indisponível neste espaço.",
-  "Сначала требуется утверждение результата.": "O resultado tem de ser aprovado primeiro."
+  "Сначала требуется утверждение результата.": "O resultado tem de ser aprovado primeiro.",
+  "Всего в операции": "Total da operação",
+  "Операция продолжится в фоне. Отчёт можно открыть в истории.": "A operação continua em segundo plano. Abra o relatório no histórico."
 }

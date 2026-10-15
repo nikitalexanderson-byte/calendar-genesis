@@ -1,6 +1,6 @@
 # B6 — массовые действия, 15 октября 2026
 
-Статус: локальная реализация, до браузерной приёмки и публикации. Production остаётся на B5 / `134200a893ba331d3a13602b18cfe10af8a24463`, Android 2.8.4 / 84.
+Статус: реализация и локальная приёмка завершены, reviewer disposition — `ship`, документирование завершено. Финальные pnpm-проверки, 14 языков × три календаря, logout и metadata/pagination race прошли. CI и публикация B6 ожидаются; текущий production — B5 / `134200a893ba331d3a13602b18cfe10af8a24463`, Android 2.8.4 / 84.
 
 ## Область
 
@@ -23,13 +23,47 @@
 
 Существующий CI перед deploy сохраняет только server-only config и runtime SQLite. Code rollback — git revert с повторным workflow; добавленные таблицы и индекс остаются, данные не удаляются. Автоматического восстановления production-БД нет. В этом этапе SSH не использовался, production-БД вручную не менялась.
 
-## Доказательства на checkpoint
+## Принятые локальные доказательства
 
-- `output/b6-final-shared-bulk.log`: 121 результат all, все действия, ACL/revision, потомки, completion/reopen, retry/cancel, атомарность, stale/concurrent/expired leases, terminal failure/resume, текущие имена в отчёте, revoked reports, шифрование.
-- `output/b6-migration-test.log`: миграции 062/063, backup и совместимость.
-- Первоначальный large-прогон подтвердил 10001 selected, 10000 изменений, один конфликт и точную пагинацию, но был остановлен на медленной ветке 6000. Он не считается полным успешным прогоном.
-- `output/b6-recover-large.log`: после исправления плана recursive join и индекса прерванная операция завершила ровно 6000 задач за 3,45 с, peak 12 MiB. Удалены только её синтетический actor и точное пространство fixture. Полный повтор large ожидается.
-- Frozen install, i18n:audit, начальный build:beget прошли; max JS 349895 байт. Новые 65 строк переведены на все 13 нерусских локалей; русская использует исходные строки. Unit tests проверяют повтор receipt, восстановление, очистку logout и параметры всех локалей.
-- Scoped ESLint прошёл. Полный tsc всё ещё выдаёт девять прежних ошибок в других модулях; он не объявляется зелёным.
+| Проверка | Результат и источник |
+| --- | --- |
+| Массовые операции | `output/b6-final-shared-bulk.log`: 121 результат all, все действия, ACL/revision, потомки, completion/reopen, retry/cancel, атомарность result+ack, stale/concurrent/expired leases, terminal failure/resume, revoked reports и шифрование — passed. |
+| Полный large-прогон | `output/b6-large-final.log`: 10001 server-selected задач в двух проектах, 10000 изменений и один конфликт за 90,4 с. Ветка из 6000 узлов с сохранёнными payloads — 15,8 с. Точная ограниченная пагинация отчёта и peak memory 14 MiB — passed. Ранний прерванный прогон и отдельное recovery не используются как доказательство полного успеха. |
+| Миграции и регрессии | `output/b6-migration-test.log`: согласованный backup, исторические данные, encrypted snapshots, legacy writes, additive code rollback и account cleanup — passed. `output/b6-lifecycle-final.log`, `output/b6-series-final.log`, `output/b6-views-final.log`: lifecycle, серии и сохранённые представления — passed. |
+| Все результаты и отчёт | `output/playwright/b6-all-lifecycle.log`: preview выбранных 121, первая страница 100; завершено 121; вторая страница 21. UI-переходы: 100 → 21 → refresh21 → 100. |
+| Потеря ответа и повтор | `output/playwright/b6-lost-response.log`: receipt пережил reload, повтор preview вернул ту же операцию; потеря confirm-response и повтор confirm безопасны. Все 121 сроки проверены: дата 2026-10-22, повторного сдвига нет. |
+| Отмена остатка | `output/playwright/b6-cancel-reload.log`: 100 succeeded, 21 cancelled; отчёт восстановлен после reload. |
+| Потомки и пустой фильтр | `output/playwright/b6-branch-browser.log`: 1 selected, 3 affected, 2 дополнительных потомка; отчёт сохранился после опустошения выдачи. |
+| Права и открытие | `output/playwright/b6-viewer-open.log`: viewer — 1 skipped, 0 изменений. `b6-viewer-revoked.log`: автоматическое скрытие названий, 0 активных ссылок, точное число skipped. `b6-open-archived.log`: архивная карточка открылась с двумя свежими проверками доступа. |
+| Формы и календари | `output/playwright/b6-form-coverage.log`: status, assignee, labels, move, due, archive, trash; по 121 selected в preview, все preview отменены без изменений. Григорианский, лунный и сакральный ввод не изменили календарь отображения; переключение сохранило civil date 2026-11-15. Это не полный прогон 14 локалей. |
+| Конфликт дерева | `output/playwright/b6-conflict-ui-capture-valid.log`: 3 skipped, 0 изменений; понятное сообщение о сменившемся составе подзадач. `b6-recapture-revoked-valid.log`: в финальном revoked-состоянии privateTitles=0. |
 
-Ещё не проверены: HTTP/browser жизненный цикл, lost response/logout race в браузере, полный новый large-прогон, новая визуальная матрица обеих схем × 360/390/768/1440, 14 языков в UI, финальный reviewer/documenter, авторизованные production-сценарии. Нативный интерфейс B6, Safari/Firefox и screen reader в эту веб-фазу не входят.
+Во всех строках таблицы браузерные логи находятся в `output/playwright/`; сокращённые имена в одной строке относятся к тому же каталогу. Проверки использовали локальные синтетические данные.
+
+Сравнение ключей с `origin/master` подтвердило по 67 новых строк в каждом из 13 нерусских каталогов: en, de, es, fr, it, ja, pl, pt, sr, tr, uk, zh в `app/ui-translations/` и el в `app/translations.el.b.json`. Русский использует исходный текст. Промежуточные `output/b6-i18n.log` и `output/b6-model-tests.log` содержат успешные аудит переводов и 5/5 unit tests для receipt, recovery, logout cleanup и совпадающих placeholders; они не заменяют финальный pnpm-прогон после последних правок.
+
+Промежуточные frozen install, scoped ESLint и build:beget были успешны. Последний отдельный `output/b6-types.log` содержит девять ошибок вне B6; полный tsc не объявляется зелёным.
+
+## Визуальная приёмка и сохранение системы
+
+`output/b6-finish-review.md` — disposition `ship`, material fixes отсутствуют. Documenter отдельно открыл все 26 финальных снимков `.impeccable/review/bulk/` и сравнил их с `.impeccable/review/saved-views/results-standart-1440.png` и `results-standart-dark-390.png`:
+
+- date-form и preview: светлая/тёмная схемы на 360, 390, 768 и 1440 px — 16 снимков;
+- conflict и revoked: обе схемы на 390 и 1440 px — 8 снимков;
+- `desktop.png` и `mobile.png`: контекст всей страницы — 2 снимка.
+
+Сохранены бумажная/зелёная и тёмная/золотая палитры, serif-заголовки, sans UI, существующие кнопки, календарные окна, ассеты и навигация. Узкая форма складывается в один столбец, кнопки переносятся, статусы отчёта идут под полноширинным названием задачи. Положение fixed navigation в сшитом whole-page mobile — известный артефакт снимка; авторитетные B6-crops используют высокий viewport и не перекрыты навигацией.
+
+Новая визуальная система, библиотека или shipping raster не создавались. `PRODUCT.md`, `DESIGN.md` и `.impeccable/design.json` сохранены байт в байт; SHA-256 и детали проверки — `output/b6-documentation-review.md`. Ранее существовавшие ссылки на старый домен в PRODUCT и отдельное семейство Experimental в sidecar только зафиксированы; их исправление не входило в B6.
+
+## Ожидающие и непроверенные состояния
+
+Финальные `pnpm install --frozen-lockfile`, `pnpm lint` (0 errors / два прежних img warnings), `pnpm test` с i18n:audit (224/224) и `pnpm build:beget` с `GENESIS_MINDMAPS=true` прошли после последних изменений: `output/b6-ship-{install,lint,test,build}.log`; максимальный JS — 349895 байт.
+
+`output/playwright/b6-locale-calendars.log` подтверждает все 14 локалей при 390 px: переведены форма и отчёт, пользовательское название не изменено, Gregorian/lunar/sacred не меняют гражданскую дату 2026-12-15, overflow — 0. Предпросмотры отменены без изменения задач. `b6-metadata-race.log` подтверждает, что прерванная следующая страница scope/options не оставляет форму заблокированной после изменения выборки/условия.
+
+`b6-logout-race.log` задерживает уже выполненный сервером preview и проводит настоящий выход через интерфейс. CLI возвращает управление на confirm; обработчик принимает его. Последующий `b6-logout-after-reload.log` независимо подтверждает до и после reload: logout marker есть, bulk storage keys — 0, закрытого названия и bulk-поверхностей нет. Старый ответ не восстановил данные. Затем обновлены только сессии четырёх синтетических аккаунтов.
+
+Публикация, GitHub Actions, `/deploy-meta.json`, `/api/health` и авторизованные production-сценарии B6 этим документом пока не подтверждены.
+
+Нативный B6, Safari, Firefox и screen reader не проверялись. SSH не использовался; production-БД вручную не менялась.

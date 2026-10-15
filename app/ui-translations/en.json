@@ -2890,5 +2890,7 @@
   "Исполнитель недоступен в этом проекте.": "Assignee unavailable in this project.",
   "Статус больше недоступен в этом проекте.": "Status no longer available in this project.",
   "Метка недоступна в этом пространстве.": "Label unavailable in this space.",
-  "Сначала требуется утверждение результата.": "The result must be approved first."
+  "Сначала требуется утверждение результата.": "The result must be approved first.",
+  "Всего в операции": "Total in operation",
+  "Операция продолжится в фоне. Отчёт можно открыть в истории.": "The operation continues in the background. Open its report from history."
 }

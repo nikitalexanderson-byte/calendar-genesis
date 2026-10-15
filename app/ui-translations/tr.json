@@ -2421,5 +2421,7 @@
   "Исполнитель недоступен в этом проекте.": "Atanan kişi bu projede kullanılamıyor.",
   "Статус больше недоступен в этом проекте.": "Durum artık bu projede kullanılamıyor.",
   "Метка недоступна в этом пространстве.": "Etiket bu alanda kullanılamıyor.",
-  "Сначала требуется утверждение результата.": "Önce sonucun onaylanması gerekir."
+  "Сначала требуется утверждение результата.": "Önce sonucun onaylanması gerekir.",
+  "Всего в операции": "İşlemdeki toplam",
+  "Операция продолжится в фоне. Отчёт можно открыть в истории.": "İşlem arka planda devam eder. Raporu geçmişten açabilirsiniz."
 }

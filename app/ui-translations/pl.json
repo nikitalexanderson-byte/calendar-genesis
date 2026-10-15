@@ -2421,5 +2421,7 @@
   "Исполнитель недоступен в этом проекте.": "Wykonawca niedostępny w tym projekcie.",
   "Статус больше недоступен в этом проекте.": "Status nie jest już dostępny w tym projekcie.",
   "Метка недоступна в этом пространстве.": "Etykieta niedostępna w tej przestrzeni.",
-  "Сначала требуется утверждение результата.": "Najpierw wymagane jest zatwierdzenie wyniku."
+  "Сначала требуется утверждение результата.": "Najpierw wymagane jest zatwierdzenie wyniku.",
+  "Всего в операции": "Łącznie w operacji",
+  "Операция продолжится в фоне. Отчёт можно открыть в истории.": "Operacja będzie kontynuowana w tle. Raport można otworzyć w historii."
 }

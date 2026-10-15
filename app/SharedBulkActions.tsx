@@ -27,8 +27,8 @@ function BulkChoice({kind,filter,label,value,onChange,multiple=false,online}:{ki
   useEffect(()=>{
     const current=++generation.current;if(!online)return;
     const abort=new AbortController();controller.current=abort;
-    void loadSharedViewOptions(kind,filter,null,abort.signal).then(page=>{if(current===generation.current&&!abort.signal.aborted){setState({key,page});setFailure("");}})
-      .catch(error=>{if(current===generation.current&&!abort.signal.aborted)setFailure(errorText(error));});
+    void loadSharedViewOptions(kind,filter,null,abort.signal).then(page=>{if(current===generation.current&&!abort.signal.aborted){setState({key,page});setFailure("");setBusy(false);}})
+      .catch(error=>{if(current===generation.current&&!abort.signal.aborted){setFailure(errorText(error));setBusy(false);}});
     return()=>{abort.abort();controller.current?.abort();};
   // The serialized key includes the complete option predicate.
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -56,8 +56,8 @@ function BulkActionForm({selection,mode,online,busy,onPreview}:{selection:Shared
   const generation=useRef(0),moreController=useRef<AbortController|null>(null);
   useEffect(()=>{
     const current=++generation.current;if(!online)return;const controller=new AbortController();
-    void loadSharedBulkScope(JSON.parse(selectionKey),null,controller.signal).then(data=>{if(current===generation.current&&!controller.signal.aborted){setScope({key:selectionKey,data});setError("");}})
-      .catch(error=>{if(current===generation.current&&!controller.signal.aborted)setError(errorText(error));});
+    void loadSharedBulkScope(JSON.parse(selectionKey),null,controller.signal).then(data=>{if(current===generation.current&&!controller.signal.aborted){setScope({key:selectionKey,data});setError("");setLoading(false);}})
+      .catch(error=>{if(current===generation.current&&!controller.signal.aborted){setError(errorText(error));setLoading(false);}});
     return()=>{controller.abort();moreController.current?.abort();};
   },[selectionKey,online]);
   const data=scope?.key===selectionKey?scope.data:null;
@@ -134,18 +134,27 @@ export function SharedBulkActions({userId,filter,page,sort,mode,online,loading,q
   },[userId,canAccept]);
   useEffect(()=>{
     if(!view?.id||!online||busy)return;
-    const id=view.id,key=viewKey,current=++generation.current,controller=new AbortController();watchController.current=controller;let timer:number|undefined;
+    const id=view.id,key=viewKey,current=++generation.current,controller=new AbortController();watchController.current=controller;let timer:number|undefined,fetching=false,observedState:string|undefined;
     const poll=async(advance=false)=>{
+      if(fetching||controller.signal.aborted)return;
+      if(document.visibilityState!=="visible"){timer=window.setTimeout(()=>void poll(),5000);return;}
+      fetching=true;window.clearTimeout(timer);
       try{
         const next=advance?await commandSharedBulk(id,"advance",controller.signal,after):await loadSharedBulkReport(id,after,controller.signal);
         if(current!==generation.current||controller.signal.aborted||!canAccept())return;
         setResult({key,report:next});setError("");
-        if(next.state==="running")timer=window.setTimeout(()=>void poll(true),next.retryAt?Math.max(2000,Math.min(60000,new Date(next.retryAt).getTime()-Date.now())):1500);
-        else setHistoryVersion(previous=>previous+1);
-      }catch(error){if(current===generation.current&&!controller.signal.aborted&&canAccept())setError(errorText(error));}
+        if(next.state!==observedState){observedState=next.state;setHistoryVersion(previous=>previous+1);}
+        timer=window.setTimeout(()=>void poll(next.state==="running"),next.state==="running"?(next.retryAt?Math.max(2000,Math.min(60000,new Date(next.retryAt).getTime()-Date.now())):1500):5000);
+      }catch(error){if(current===generation.current&&!controller.signal.aborted&&canAccept()){
+        setError(errorText(error));
+        if(error&&typeof error==="object"&&"status"in error&&[401,403,404].includes(Number(error.status)))setResult(null);
+        else timer=window.setTimeout(()=>void poll(),5000);
+      }}finally{fetching=false;}
     };
     timer=window.setTimeout(()=>void poll(),0);
-    return()=>{controller.abort();window.clearTimeout(timer);};
+    const refresh=()=>{if(document.visibilityState==="visible")void poll();};
+    window.addEventListener("focus",refresh);document.addEventListener("visibilitychange",refresh);
+    return()=>{controller.abort();window.clearTimeout(timer);window.removeEventListener("focus",refresh);document.removeEventListener("visibilitychange",refresh);};
   },[view?.id,viewKey,after,online,busy,viewReload,canAccept]);
   const historyCursor=historyTrail.at(-1);
   useEffect(()=>{
@@ -199,9 +208,10 @@ export function SharedBulkActions({userId,filter,page,sort,mode,online,loading,q
     {error?<div role="alert"><p>{error}</p>{view?<button type="button" className="secondary-button" disabled={busy||!online} onClick={()=>setViewReload(previous=>previous+1)}>{t("Обновить отчёт")}</button>:null}</div>:null}{!online&&view?<p role="status">{t("Операция сохранена на сервере. Подключитесь к интернету, чтобы получить отчёт.")}</p>:null}
     {view?<section className="bulk-report" aria-label={t("Отчёт о массовом действии")}><header><h3>{t(report?.state==="preview"?"Предварительный просмотр":"Отчёт о массовом действии")}</h3><DialogCloseButton aria-label={t("Закрыть отчёт")} disabled={busy} onClick={closeReport}/></header>
       {!report?<p role="status">{t("Загрузка…")}</p>:<><p className="bulk-state" role="status">{stateLabel(report)}</p><p>{t(report.mode==="all"?"Все результаты фильтра":"Выбрано среди показанных")}</p><ActionSummary report={report}/>
-        <dl className="bulk-counts">{([["selected","Выбрано"],["affected","Будут затронуты"],["succeeded","Выполнено"],["skipped","Пропущено"],["failed","Ошибки"],["pending","Ожидает"],["cancelled","Отменено"]]as const).map(([key,label])=><div key={key}><dt>{t(label)}</dt><dd>{number(report.counts[key])}</dd></div>)}</dl>
+        <dl className="bulk-counts">{([["selected","Выбрано"],["affected","Всего в операции"],["succeeded","Выполнено"],["skipped","Пропущено"],["failed","Ошибки"],["pending","Ожидает"],["cancelled","Отменено"]]as const).map(([key,label])=><div key={key}><dt>{t(label)}</dt><dd>{number(report.counts[key])}</dd></div>)}</dl>
         {report.state==="preview"?<><p>{t("Выборка зафиксирована. Архив и корзина включают подзадачи; их число учтено в отчёте.")}</p><p>{t("Подтверждение доступно до {time}.").replace("{time}",new Date(report.expiresAt).toLocaleTimeString(runtimeLocale()))}</p></>:null}
         {report.retryAt||report.state==="failed"?<p role="status">{t("Обработка прервана. Выполненные изменения сохранены; повтор затронет только остаток.")}</p>:null}
+        {report.state==="running"?<p>{t("Операция продолжится в фоне. Отчёт можно открыть в истории.")}</p>:null}
         {report.state==="cancelled"?<p>{t("Оставшиеся задачи отменены. Выполненные изменения сохранены.")}</p>:null}
         <div className="bulk-buttons">
           {report.state==="preview"?<button type="button" className="primary-button" disabled={busy||!online||!report.counts.affected} onClick={()=>void command("confirm")}>{t("Подтвердить действие")}</button>:null}
