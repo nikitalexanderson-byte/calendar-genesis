@@ -137,7 +137,8 @@ try {
     genesisEnforceApiBudget($method, $path, genesisCurrentUserId());
     if ($method === 'GET' && $path === 'health') {
         $worker=genesisDb()->query('SELECT started_at AS startedAt,completed_at AS completedAt FROM background_worker_state WHERE id=1')->fetch();
-        genesisJson(['ok' => true, 'service' => 'GENESIS', 'privacyModel' => 2, 'time' => genesisNow(), 'backgroundWorker'=>$worker]);
+        $channels=array_map(static fn($channel)=>array_intersect_key($channel,array_flip(['available','blocker'])),genesisNotificationCapabilities());
+        genesisJson(['ok' => true, 'service' => 'GENESIS', 'privacyModel' => 2, 'time' => genesisNow(), 'backgroundWorker'=>$worker,'notificationChannels'=>$channels]);
     }
 
     if ($method === 'GET' && $path === 'auth/providers') {
@@ -664,6 +665,20 @@ try {
             if ($segments[3] === 'files' && count($segments) === 5 && $method === 'DELETE') { genesisSharedPrivateDiscardFile($userId,$conversationId,$segments[4]); genesisJson(['ok'=>true]); }
         }
         if ($method === 'GET' && $path === 'shared/overview') genesisJson(['overview' => genesisSharedOverview($userId, isset($_GET['spaceId']) ? (string)$_GET['spaceId'] : null)]);
+        if ($path === 'shared/notification-settings') {
+            if ($method === 'GET') genesisJson(genesisNotificationSettings($userId));
+            if ($method === 'PUT') genesisJson(genesisNotificationSavePreferences($userId,genesisReadJson()));
+        }
+        if ($method === 'PUT' && $path === 'shared/notification-context') genesisJson(genesisNotificationDeviceContext($userId,genesisReadJson()));
+        if ($method === 'POST' && $path === 'shared/notification-settings/retry') genesisJson(genesisNotificationRetry($userId));
+        if ($method === 'POST' && $path === 'shared/push-subscriptions') genesisJson(genesisNotificationPushRegister($userId,genesisReadJson()),201);
+        if (count($segments) === 3 && $segments[1] === 'push-subscriptions' && $method === 'DELETE') { genesisNotificationPushDelete($userId,$segments[2]); genesisJson(['ok'=>true]); }
+        if (count($segments) === 3 && $segments[1] === 'push-deliveries' && $method === 'GET') genesisJson(genesisNotificationDeliveryAccess($userId,$segments[2]));
+        if (count($segments) === 4 && $segments[1] === 'notifications' && $segments[3] === 'destination' && $method === 'GET') genesisJson(genesisNotificationDestination($userId,$segments[2]));
+        if (count($segments) === 6 && $segments[1] === 'projects' && $segments[3] === 'tasks' && $segments[5] === 'watch') {
+            if ($method === 'GET') genesisJson(genesisSharedTaskWatch($userId,$segments[2],$segments[4]));
+            if ($method === 'PUT') genesisJson(genesisSharedTaskWatch($userId,$segments[2],$segments[4],genesisReadJson()));
+        }
         if (count($segments)===4 && $segments[1]==='projects' && $segments[3]==='comments') {
             if ($method==='GET') genesisJson(['comments'=>genesisSharedProjectComments($userId,$segments[2],null,isset($_GET['board'])?(string)$_GET['board']:null)]);
             if ($method==='POST') genesisJson(['comments'=>genesisSharedProjectComments($userId,$segments[2],genesisReadJson())],201);

@@ -69,6 +69,9 @@ try {
     $task = genesisSharedTask($owner, $project['id'], ['title' => $task['title'], 'expectedRevision' => $task['revision']], $task['id']);
     webExpect(count(genesisSharedActivity($owner, $project['id'], $task['id'], null)['events']) === $historyBefore, 'Saving unchanged fields duplicated task history.');
     webExpect(genesisSharedOverview($outsider)['tasks'] === 0 && genesisSharedInbox($outsider)['notifications'] === [], 'Inbox leaks another workspace.');
+    // B7 comments require an explicit watch; membership alone is not a subscription.
+    genesisSharedTaskWatch($member,$project['id'],$task['id'],['watching'=>true]);
+    genesisSharedTaskWatch($member,$project['id'],$boundary['id'],['watching'=>true]);
     for ($i = 0; $i < 55; $i++) genesisSharedAddComment($owner, $project['id'], $task['id'], ['body' => 'Comment ' . $i]);
     $first = genesisSharedInbox($member, '', true); $second = genesisSharedInbox($member, $first['nextCursor'], true);
     $commentNotice = array_values(array_filter($first['notifications'], static fn($event) => $event['action'] === 'comment.created'))[0];

@@ -55,12 +55,15 @@ test('deleting one thought preserves child branches, sibling order and live task
 });
 
 test('notification dock stays within its work area and returns home after collapse',()=>{
- const {clampDockPosition,dockHome,newestUnseenToken,NOTIFICATION_PREVIEW_MS}=loadTs(resolve('app/notification-dock-model.ts'));
+ const {clampDockPosition,clampDockSize,dockHome,newestUnseenToken,NOTIFICATION_PREVIEW_MS}=loadTs(resolve('app/notification-dock-model.ts'));
  const bounds={left:300,top:12,right:1428,bottom:988};
  assert.deepEqual(clampDockPosition({x:-500,y:4000},bounds,360,560),{x:300,y:428});
  assert.deepEqual(dockHome(bounds,56,56,false),{x:300,y:932});
  assert.deepEqual(dockHome({left:12,top:12,right:348,bottom:904},56,56,true),{x:292,y:848});
  assert.deepEqual(clampDockPosition({x:400,y:900},{left:12,top:12,right:300,bottom:500},360,560),{x:12,y:12});
+ assert.deepEqual(clampDockSize({width:1,height:1},bounds),{width:320,height:240});
+ assert.deepEqual(clampDockSize({width:4000,height:4000},bounds),{width:760,height:820});
+ assert.deepEqual(clampDockSize({width:4000,height:4000},{left:12,top:12,right:300,bottom:180}),{width:288,height:168});
  const seen=new Set();assert.equal(newestUnseenToken(['comment:a','task:b'],seen),'comment:a');
  assert.equal(newestUnseenToken(['comment:a','task:b'],seen),null);
  assert.equal(newestUnseenToken(['comment:new','comment:a','task:b'],seen),'comment:new');

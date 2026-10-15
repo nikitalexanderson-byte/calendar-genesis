@@ -1,5 +1,7 @@
 "use client";
 import { DialogCloseButton } from "./DialogCloseButton";
+import { SharedNotificationPreferencesDialog } from "./SharedNotificationPreferences";
+import { sharedNotificationLabel } from "./notification-settings-model";
 /* eslint-disable @next/next/no-img-element -- Google profile pictures are remote OAuth assets. */
 
 import { useEffect, useRef, useState } from "react";
@@ -129,6 +131,7 @@ function createHabitResetChallenge(): HabitResetChallenge {
 }
 
 export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onConnectAdditionalGoogle, onLanguageChange, onUserChange, themeState, onThemeChange, habitTrackingEnabled, onHabitTrackingChange, habitNotificationSettings, notificationPermission, onHabitNotificationSettingsChange, habitFeedbackSettings, onHabitFeedbackSettingsChange, onRequestHabitNotifications, hiddenHabitTemplateCount, onRestoreHabitTemplates, onResetHabitTracking, categories }: AccountPanelProps) {
+  const [sharedNotificationSettingsOpen,setSharedNotificationSettingsOpen]=useState(false);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [preferenceBusy, setPreferenceBusy] = useState(false);
@@ -994,6 +997,7 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
               onChange={(event) => void changeSharedProjectsPreference(event.target.checked)} />
             <i aria-hidden="true" />
           </label>
+        {user.sharedProjectsEnabled?<div className="notification-preference-buttons"><button type="button" className="secondary-button" onClick={()=>setSharedNotificationSettingsOpen(true)}>{translateText("Настройки уведомлений")}</button><button type="button" className="secondary-button" onClick={()=>{onClose();window.dispatchEvent(new Event("genesis:notification-inbox-open"));}}>{translateText("История уведомлений")}</button></div>:null}
         {user.sharedProjectsEligible ? <div className="shared-settings-subsection" role="group" aria-labelledby="shared-invitations-title">
           <div>
             <h4 id="shared-invitations-title">{user.language === "en" ? "Invitations" : "Приглашения"}</h4>
@@ -1024,7 +1028,7 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
           </button> : null}
           {teamNotifications.slice(0, 12).map((item) => <div key={item.id}
             className={`shared-invitation-card${item.isRead ? "" : " unread"}`} data-exp-ui="row">
-            <p><strong data-no-translate>{item.actorName}</strong> · {item.action.startsWith("task.")
+            <p><strong data-no-translate>{item.actorName}</strong> · {item.kind ? sharedNotificationLabel(item) : item.action.startsWith("task.")
               ? (user.language === "en" ? "updated a task" : "изменил(а) задачу")
               : item.action === "comment.mentioned" ? (user.language === "en" ? "mentioned you in a comment" : "упомянул(а) вас в комментарии")
               : item.action === "comment.created" ? (user.language === "en" ? "added a comment" : "добавил(а) комментарий")
@@ -1231,6 +1235,7 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
           </form>
         </div>
       ) : null}
+      {sharedNotificationSettingsOpen?<SharedNotificationPreferencesDialog userId={user.uid} onClose={()=>setSharedNotificationSettingsOpen(false)}/>:null}
     </div>
   );
 }

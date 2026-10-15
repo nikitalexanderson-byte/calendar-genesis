@@ -1,6 +1,6 @@
 # B6 — массовые действия, 15 октября 2026
 
-Статус: реализация и локальная приёмка завершены, reviewer disposition — `ship`, документирование завершено. Финальные pnpm-проверки, 14 языков × три календаря, logout и metadata/pagination race прошли. CI и публикация B6 ожидаются; текущий production — B5 / `134200a893ba331d3a13602b18cfe10af8a24463`, Android 2.8.4 / 84.
+Статус: опубликовано через [PR #175](https://github.com/nikitalexanderson-byte/calendar-genesis/pull/175). Master/production — `17ff4011d0b5f47dc579f66b34018cf3791cbe40`, [Actions 38780156926](https://github.com/nikitalexanderson-byte/calendar-genesis/actions/runs/38780156926) — success. SHA, health и естественный cron heartbeat подтверждены. Reviewer disposition — `ship`; финальные pnpm-проверки, 14 языков × три календаря, logout и metadata/pagination race прошли. Android 2.8.4 / 84 сохранён.
 
 ## Область
 
@@ -64,6 +64,6 @@
 
 `b6-logout-race.log` задерживает уже выполненный сервером preview и проводит настоящий выход через интерфейс. CLI возвращает управление на confirm; обработчик принимает его. Последующий `b6-logout-after-reload.log` независимо подтверждает до и после reload: logout marker есть, bulk storage keys — 0, закрытого названия и bulk-поверхностей нет. Старый ответ не восстановил данные. Затем обновлены только сессии четырёх синтетических аккаунтов.
 
-Публикация, GitHub Actions, `/deploy-meta.json`, `/api/health` и авторизованные production-сценарии B6 этим документом пока не подтверждены.
+Публикация подтверждена workflow, совпадением `/deploy-meta.json` с master и успешным `/api/health`; проверен естественный heartbeat фонового обработчика. Авторизованные production-сценарии с настоящими пользовательскими задачами не выполнялись.
 
 Нативный B6, Safari, Firefox и screen reader не проверялись. SSH не использовался; production-БД вручную не менялась.

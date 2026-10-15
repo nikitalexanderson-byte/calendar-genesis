@@ -209,6 +209,38 @@ self.addEventListener("fetch", (event) => {
   );
 });
 
+const SHARED_PUSH_RECEIPTS = "genesis-shared-push-receipts-v1";
+let sharedPushChain = Promise.resolve();
+let sharedPushReceived = 0;
+self.addEventListener("push", (event) => {
+  let id;
+  try { id = event.data?.json()?.deliveryId; } catch { return; }
+  if (typeof id !== "string" || !/^[a-f0-9-]{36}$/.test(id)) return;
+  const receive = async () => {
+    const receipts = await caches.open(SHARED_PUSH_RECEIPTS);
+    const receiptUrl = new URL(`./__shared-push-receipt/${id}`, SCOPE).href;
+    if (await receipts.match(receiptUrl)) return;
+    // Cookies and current access are required even when the browser receives a valid encrypted push.
+    const response = await fetch(new URL(`./api/shared/push-deliveries/${encodeURIComponent(id)}`, SCOPE).href, { credentials: "include", cache: "no-store" });
+    if (!response.ok) return;
+    const result = await response.json(), message = result.message;
+    if (!result.displayAllowed || !message || message.deliveryId !== id || typeof message.body !== "string") return;
+    const target = new URL(message.url, SCOPE);
+    if (target.origin !== new URL(SCOPE).origin || !target.pathname.startsWith(new URL(SCOPE).pathname)) return;
+    await self.registration.showNotification("GENESIS", { body: message.body, lang: message.lang, tag: `genesis-shared-${id}`, renotify: false,
+      data: { url: target.href, sharedDeliveryId: id } });
+    await receipts.put(receiptUrl, new Response(JSON.stringify({ receivedAt: Date.now() }), { headers: { "Content-Type": "application/json" } }));
+    // Keep receipts beyond the provider TTL. Only old opaque IDs are removed, never current unread content.
+    if (++sharedPushReceived % 50 === 0) for (const key of await receipts.keys()) {
+      const old = await receipts.match(key); let receivedAt;
+      try { receivedAt = (await old.json()).receivedAt; } catch { continue; }
+      if (typeof receivedAt === "number" && receivedAt < Date.now() - 172800000) await receipts.delete(key);
+    }
+  };
+  sharedPushChain = sharedPushChain.catch(() => undefined).then(receive).catch(() => undefined);
+  event.waitUntil(sharedPushChain);
+});
+
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const data = event.notification.data || {};

@@ -35,5 +35,21 @@ return [
     'session_path' => __DIR__ . '/var/sessions',
     'cookie_secure' => true,
     'timezone' => 'Europe/Moscow',
+    // Optional external channels. Keep disabled until genuine server transport
+    // is configured. Neither configuration nor task watching subscribes users.
+    'notifications' => [
+        'web_push' => [
+            // Stable P-256 (prime256v1) VAPID private key, PEM format.
+            // Keep only in private server/config.php; never commit the key.
+            'private_key' => '',
+            'subject' => 'https://genesiscalendar.com',
+        ],
+        'email' => [
+            // Set to 'mail' only with a working PHP mail transport and an
+            // authorized sender configured by the domain administrator.
+            'transport' => '',
+            'from' => '',
+        ],
+    ],
     'admin_email' => 'nikitalexanderson@gmail.com',
 ];

@@ -6512,7 +6512,7 @@ export function GenesisCalendar() {
     >
       {experimentalProjectFormOpen ? <div className="modal-backdrop experimental-project-composer-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setExperimentalProjectFormOpen(false); }}>{renderProjectCreateForm()}</div> : null}
       <ActionNotice message={layoutError || (view === "projects" && activeProjectsArea === "shared" ? "" : notice)}/>
-      <Suspense fallback={null}><NotificationDock key={cloudUser?.uid ?? "guest"} userId={cloudUser?.uid ?? ""} language={language} appBase={APP_BASE}
+      <Suspense fallback={null}><NotificationDock key={cloudUser?.uid ?? "guest"} userId={cloudUser?.uid ?? ""} language={language} mode={activeCalendarMode} appBase={APP_BASE}
         sharedEnabled={Boolean(cloudUser?.sharedProjectsEnabled)} invitationsEnabled={Boolean(cloudUser?.sharedProjectsEligible)}
         onOpen={place => { setProjectsArea("shared"); navigateTo("projects", false, place); }} onAccepted={destination => {
         const uid=cloudUser?.uid; if(!uid)return;

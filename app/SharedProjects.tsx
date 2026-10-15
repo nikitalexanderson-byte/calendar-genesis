@@ -5,6 +5,7 @@ import { DialogCloseButton } from "./DialogCloseButton";
 import { type ReactNode, type CSSProperties, type FormEvent, Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { lazyWithRecovery as lazy } from "./DeferredViews";
 import { SharedArchivedTasks } from "./SharedArchivedTasks";
+import { SharedTaskWatch } from "./SharedNotificationPreferences";
 import { setSharedTaskArchived, restoreSharedTrash, type SharedTrashEntry } from "./cloud-sync";
 import { SharedTaskDetailsEditor, SharedTaskReadOnlyMetadata, taskDetailsDraft } from "./SharedTaskDetailsEditor";
 import { sharedTaskDetailsError, sharedPriorityLabel, type SharedTaskDetailsDraft } from "./shared-task-details";
@@ -1525,6 +1526,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       onClose={closeTask} onCancel={(event) => { if (busy) event.preventDefault(); }}>
       {selectedTask && taskSnapshot ? <>
         <header><h2 id="shared-task-title">{selectedTask.title}</h2><DialogCloseButton type="button" className="shared-projects-close" disabled={busy} onClick={closeTask} aria-label={english ? "Close task" : "Закрыть задачу"} /></header>
+        <SharedTaskWatch key={`${taskSnapshot.project.id}:${selectedTask.id}`} userId={userId} projectId={taskSnapshot.project.id} taskId={selectedTask.id}/>
         {message ? <p className="shared-task-feedback" role="status">{message}</p> : null}
         <div className="shared-task-sections" role="tablist" tabIndex={-1} aria-label={english ? "Task details" : "Карточка задачи"} onKeyDown={event => {
           if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;

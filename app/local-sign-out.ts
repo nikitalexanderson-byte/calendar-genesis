@@ -5,6 +5,7 @@ const PRIVATE_PREFIXES = [
   "genesis-calendar-v2:", "genesis-workspace-device-key-v2:",
   "genesis-workspace-device-id-v1:", "genesis-workspace-sync-state-v1:",
   "genesis-pending-mutations-v2", "genesis-shared-offline-v1:", "genesis.shared-views.draft.", "genesis.shared-bulk.",
+  "genesis.shared-push.",
   "genesis-moon-reminders-v1:", "genesis-moon-reminders-sent-v1:",
   "genesis-stoicheion-draws-v2:", "genesis-shared-place-v1:", "genesis-affairs-area-v1:",
   "genesis-hidden-invitations:", "genesis-comment-notices:", "genesis-project-import:", "genesis-today-ad:",
