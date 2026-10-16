@@ -665,7 +665,7 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
                 <i aria-hidden="true" />
               </label>)}
             </fieldset>
-            <fieldset><legend>{user.language === "en" ? "Available calendars" : "Доступные календари"}</legend>
+            {visibility.sacredFeaturesEnabled ? <fieldset><legend>{user.language === "en" ? "Available calendars" : "Доступные календари"}</legend>
               {(["profane", "sacred", "lunar"] as CalendarMode[]).filter(mode=>visibility.sacredFeaturesEnabled||mode!=="sacred").map((mode) => <label key={mode} className="account-switch-row" data-exp-ui="row">
                 <span>{mode === "profane" ? (user.language === "en" ? "Gregorian" : "Григорианский")
                   : mode === "sacred" ? (user.language === "en" ? "Sacred" : "Сакральный")
@@ -677,7 +677,7 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
                       : visibility.enabledCalendars.filter((item) => item !== mode) })} />
                 <i aria-hidden="true" />
               </label>)}
-            </fieldset>
+            </fieldset> : null}
           </div>
           </details>
           </div>
@@ -735,7 +735,7 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
           </div>
         </section>
 
-        <section className="account-preferences appearance-nested-preference calendar-mode-preference" aria-labelledby="calendar-mode-title" data-exp-ui="panel">
+        {visibility.sacredFeaturesEnabled ? <section className="account-preferences appearance-nested-preference calendar-mode-preference" aria-labelledby="calendar-mode-title" data-exp-ui="panel">
           <div>
             <span className="eyebrow">Основной календарь</span>
             <h3 id="calendar-mode-title">Полное отображение и система дат</h3>
@@ -757,9 +757,9 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
               </button>
             ))}
           </div>
-        </section>
+        </section> : null}
 
-        {(user.calendarMode ?? "sacred") === "profane" ? (
+        {visibleCalendarMode(user.calendarMode ?? "sacred", visibility) === "profane" ? (
           <section className="account-preferences appearance-nested-preference gregorian-year-preference" aria-labelledby="gregorian-year-start-title" data-exp-ui="panel">
             <div>
               <span className="eyebrow">Григорианский календарь</span>
@@ -781,7 +781,7 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
           </section>
         ) : null}
 
-        {(user.calendarMode ?? "sacred") === "profane" ? (
+        {visibleCalendarMode(user.calendarMode ?? "sacred", visibility) === "profane" ? (
           <section className="account-preferences appearance-nested-preference week-start-preference" aria-labelledby="week-start-title" data-exp-ui="panel">
             <div>
               <span className="eyebrow">Григорианский календарь</span>
@@ -807,7 +807,7 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
           </section>
         ) : null}
 
-        <section className="account-preferences appearance-nested-preference task-calendar-mode-preference" aria-labelledby="task-calendar-mode-title" data-exp-ui="panel">
+        {visibility.sacredFeaturesEnabled ? <section className="account-preferences appearance-nested-preference task-calendar-mode-preference" aria-labelledby="task-calendar-mode-title" data-exp-ui="panel">
           <div>
             <span className="eyebrow">Календарь задач</span>
             <h3 id="task-calendar-mode-title">По какой системе выставлять даты</h3>
@@ -829,7 +829,7 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
               </button>
             ))}
           </div>
-        </section>
+        </section> : null}
 
           </div>
         </div>
@@ -931,7 +931,7 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
               : habitNotificationSettings.enabled && notificationPermission === "granted"
                 ? (user.language === "en" ? "Notifications are enabled" : "Уведомления включены")
                 : (user.language === "en" ? "Notifications are disabled" : "Уведомления отключены")}</p>
-          <fieldset className="habit-notification-settings" disabled={!habitNotificationSettings.enabled || notificationPermission !== "granted"}>
+          <fieldset className="habit-notification-settings" disabled={notificationBusy}>
             <legend>{user.language === "en" ? "Notification behavior" : "Поведение уведомлений"}</legend>
             <div className="habit-notification-tone" role="radiogroup" aria-label={user.language === "en" ? "Notification tone" : "Тон уведомлений"}>
               {([
@@ -1061,7 +1061,7 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
 
         </section>
 
-        <MoonReminderSettings key={user.uid} accountId={user.uid} english={user.language === "en"} permission={notificationPermission} requestPermission={onRequestHabitNotifications} />
+        {visibility.sacredFeaturesEnabled ? <MoonReminderSettings key={user.uid} accountId={user.uid} english={user.language === "en"} permission={notificationPermission} requestPermission={onRequestHabitNotifications} /> : null}
         <section className="account-preferences settings-reminders-panel" data-settings-group="reminders">
           <div><span className="eyebrow">GENESIS</span><h3>{user.language === "en" ? "System reminders" : "Системные напоминания"}</h3>
             <p>{user.language === "en" ? "Browser notifications depend on your browser permission. Task reminders in Google Calendar and Tasks use the connected Google account." : "Уведомления браузера зависят от его разрешения. Напоминания задач в Google Calendar и Tasks работают через подключённый Google-аккаунт."}</p></div>

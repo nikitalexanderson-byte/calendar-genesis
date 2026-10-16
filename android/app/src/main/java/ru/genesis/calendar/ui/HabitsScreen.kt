@@ -591,6 +591,7 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
             PriorityControl(priority) { if(!busy) priority=it }
             }
             EditorSection("Календарь и срок") {
+            if (LocalSacredFeaturesEnabled.current) {
             Text("Календарь привычки", style=MaterialTheme.typography.titleSmall)
             Text("Определяет повторение и вид дат этой привычки.",
                 style=MaterialTheme.typography.bodySmall,
@@ -606,6 +607,7 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
                     },modifier=Modifier.testTag("habit-calendar-${option.wireValue}"),label={Text(label)})
                 }
             }
+            }
             Text("Начало")
             if(existing==null) AuthorDatePicker(start,formCalendarMode,minDate=LocalDate.now()) {
                 if(!busy && LocalDate.parse(it)>=LocalDate.now()) {
@@ -614,7 +616,8 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
                     config=config.copy(rangeStart=start)
                 }
             } else {
-                Text(engineCalendar.formatDate(existing.schedule.startDate,formCalendarMode),
+                Text(engineCalendar.formatDate(existing.schedule.startDate,
+                    if (LocalSacredFeaturesEnabled.current) formCalendarMode else CalendarMode.PROFANE),
                     modifier=Modifier.testTag("habit-start-locked"))
                 Text("🔒 Дата начала зафиксирована при создании.",style=MaterialTheme.typography.bodySmall)
             }

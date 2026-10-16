@@ -125,6 +125,7 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
     sharedTasks: List<SharedCalendarEntry> = emptyList(),
     sharedCounts: Map<String,Int> = emptyMap(),
     onOpenSharedProjects: () -> Unit = {}) {
+    val mode = if (LocalSacredFeaturesEnabled.current) mode else CalendarMode.PROFANE
     val calendar = remember { GenesisCalendar() }
     var shown by rememberSaveable(mode, date) { mutableStateOf(date.toString()) }
     var selected by rememberSaveable(mode, date) { mutableStateOf(date.toString()) }
@@ -700,6 +701,7 @@ private fun CalendarDay(calendar: GenesisCalendar, date: LocalDate, number: Int,
     completedTaskCount: Int = 0) {
     val patron = patron.takeIf { LocalSacredFeaturesEnabled.current }
     val crossDate = crossDate.takeIf { LocalSacredFeaturesEnabled.current }
+    val moon = moon.takeIf { LocalSacredFeaturesEnabled.current }
     val today = !adjacent && date == LocalDate.now()
     val locale = Locale.forLanguageTag(LocalGenesisLanguage.current)
     val solarLabels = solarLocation?.let { solarTimeLabels(date, it, calendar) }
@@ -995,12 +997,26 @@ private fun SelectedDayCard(calendar: GenesisCalendar, date: LocalDate, mode: Ca
 @Composable
 private fun ExperimentalSelectedDayCard(calendar: GenesisCalendar, date: LocalDate, mode: CalendarMode,
     solarLocation: SolarLocation) {
+    if (!LocalSacredFeaturesEnabled.current) {
+        val locale = Locale.forLanguageTag(LocalGenesisLanguage.current)
+        Card(Modifier.fillMaxWidth().testTag("calendar-selected-day"), shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
+            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("ГРИГОРИАНСКИЙ ДЕНЬ", style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary)
+                Text(date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy", locale))
+                    .replaceFirstChar { it.titlecase(locale) }, style = MaterialTheme.typography.headlineSmall,
+                    modifier = Modifier.testTag("calendar-selected-primary-date"))
+            }
+        }
+        return
+    }
     val sacred = calendar.sacredDate(date)
     val month = SacredCatalog.months[sacred.monthIndex]
     val day = month.days[sacred.day - 1]
     val lunar = calendar.lunarDate(date)
     val locale = Locale.forLanguageTag(LocalGenesisLanguage.current)
-    val weekday = if (mode == CalendarMode.PROFANE && LocalSacredFeaturesEnabled.current) todayHeroCopy(date, mode, calendar,
+    val weekday = if (mode == CalendarMode.PROFANE) todayHeroCopy(date, mode, calendar,
         LocalGenesisLanguage.current) else null
     val primaryDate = when (mode) {
         CalendarMode.PROFANE -> date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy", locale))

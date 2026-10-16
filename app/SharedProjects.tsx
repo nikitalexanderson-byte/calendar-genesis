@@ -1333,7 +1333,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
               : item === "gantt" ? (english ? "Gantt" : "Гант") : (english ? "Calendar" : "Календарь")}</button>)}
       </div>
       </div>
-      {!experimentalTheme ? <div className="shared-planning-dates">
+      {!experimentalTheme && enabledCalendars.length > 1 ? <div className="shared-planning-dates">
       <p className="shared-projects-calendar-mode-label">{english ? "Calendar for project view and task dates" : "Календарь проекта и дат задач"}</p>
       <div className="shared-projects-calendar-mode display-calendar-choice" role="group" aria-label={english ? "Calendar for project view and task dates" : "Календарь проекта и дат задач"}>
         {(["profane", "sacred", "lunar"] as const).filter((mode) => enabledCalendars.includes(mode)).map((mode) => <button key={mode} type="button"

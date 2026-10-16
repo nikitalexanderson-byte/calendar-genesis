@@ -1141,7 +1141,62 @@ html[data-genesis-theme] .genesis-app .account-panel .appearance-language-detail
 html[data-genesis-theme] .genesis-app .sacred-features-setting { display:grid; gap:12px; }
 html[data-genesis-theme] .genesis-app .sacred-features-setting p { margin:0; max-width:70ch; color:var(--ink-soft); font:14px/1.6 var(--font-ui); }
 html[data-genesis-theme] .genesis-app[data-sacred-features="false"] :is(.calendar-mode-description,.day-details-art,.selected-day-symbol,.calendar-month-art) { display:none; }
-html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .day-details-introduction { grid-template-columns:minmax(0,1fr); }
+.genesis-app .personal-action-hint { position: relative; overflow: visible; }
+.genesis-app .personal-action-hint::after {
+  content: attr(data-action-hint);
+  position: absolute;
+  z-index: 40;
+  right: 0;
+  bottom: calc(100% + 8px);
+  width: max-content;
+  max-width: min(260px, calc(100vw - 48px));
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--ink);
+  color: var(--surface);
+  font: 500 12px/1.5 var(--font-ui, Inter, sans-serif);
+  text-align: left;
+  white-space: normal;
+  visibility: hidden;
+  pointer-events: none;
+}
+.genesis-app .personal-action-hint:is(:hover, :focus-visible)::after { visibility: visible; }
+
+/* Without the sacred layer, the date and clock form one compact, readable header. */
+html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .hero-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 24px;
+  min-height: 0;
+  padding: 24px 32px;
+  background: var(--night-2);
+}
+html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .hero-copy { width: auto; min-width: 0; max-width: none; padding: 0; }
+html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .hero-copy h1 { max-width: none; margin: 12px 0 0; font-size: clamp(30px, 3vw, 44px); line-height: 1.15; }
+html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .hero-day-title-translation { font-size: clamp(18px, 2.5vw, 28px) !important; line-height: 1.35; }
+html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .hero-month { margin: 12px 0 0; }
+html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .hero-actions { margin-top: 20px; }
+html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .hero-day-clock { position: static; display: grid; align-items: center; justify-items: end; gap: 12px; max-width: 220px; }
+html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .hero-number { position: static; margin: 0; font-size: 64px; }
+html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .hero-day-clock > .device-clock { position: static; inset: auto; width: auto; margin: 0; }
+html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .day-details-hero { grid-template-columns: minmax(0, 1fr); gap: 0; }
+html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .day-details-introduction { min-height: 0; padding: 0; background: transparent; }
+html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .day-details-heading { grid-template-columns: minmax(0, 1fr); gap: 0; padding: 24px; background: var(--ui-surface-group, var(--paper)); color: var(--ink); }
+html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .day-details-heading :is(h2, .eyebrow) { color: var(--ink); }
+html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .day-details-heading .selected-day-copy { min-width: 0; }
+html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .day-details-heading h2 { margin-bottom: 0; overflow-wrap: normal; }
+html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .year-month-top b { color: var(--ink); }
+@media (min-width: 761px) {
+  html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .topbar { grid-template-columns: minmax(0, 1fr) auto; }
+}
+@media (max-width: 760px) {
+  html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .hero-card { grid-template-columns: minmax(0, 1fr); gap: 20px; padding: 24px 20px; }
+  html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .hero-day-clock { grid-template-columns: auto minmax(0, 1fr); width: 100%; max-width: none; }
+  html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .hero-number { justify-self: start; }
+  html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .day-details-heading { padding: 20px; }
+}
 @media (max-width:600px) {
   html[data-genesis-theme] .genesis-app .account-panel .appearance-language-details { padding:16px; }
   html[data-genesis-theme] .genesis-app .account-panel .appearance-menu-subsection { padding:16px; }

@@ -17,6 +17,7 @@ import ru.genesis.calendar.domain.CalendarMode
 @Composable
 internal fun EditorCalendarModePicker(mode: CalendarMode, onModeChange: (CalendarMode) -> Unit,
     enabled: Boolean = true, compact: Boolean = false, preferredMode: CalendarMode = mode, tag: String) {
+    if (!LocalSacredFeaturesEnabled.current) return
     Text("Отображение дат в этой форме", style = MaterialTheme.typography.titleSmall)
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
         modifier = Modifier.horizontalScroll(rememberScrollState())) {

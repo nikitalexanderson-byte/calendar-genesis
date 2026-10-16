@@ -156,7 +156,7 @@ import {
   normalizeHabitCollapsedSections,
   normalizeHabitSectionOrder,
 } from "../app/habit-section-state.ts";
-import { gregorianWeekdayOffset } from "../app/calendar-layout.ts";
+import { gregorianMonthNumber, gregorianWeekdayOffset } from "../app/calendar-layout.ts";
 
 test("Gregorian calendar offsets support Sunday-first and Monday-first weeks", () => {
   const thursday = new Date(2026, 0, 1, 12);
@@ -164,6 +164,14 @@ test("Gregorian calendar offsets support Sunday-first and Monday-first weeks", (
   assert.equal(gregorianWeekdayOffset(thursday, "monday"), 3);
   assert.equal(gregorianWeekdayOffset(new Date(2026, 0, 4, 12), "sunday"), 0);
   assert.equal(gregorianWeekdayOffset(new Date(2026, 0, 4, 12), "monday"), 6);
+});
+
+test("Gregorian month numbers follow the configured year start through January and February", () => {
+  const dates = Array.from({length:12}, (_, month) => new Date(2026, month, 1, 12));
+  assert.deepEqual(dates.map(date => gregorianMonthNumber(date, "january")), [1,2,3,4,5,6,7,8,9,10,11,12]);
+  assert.deepEqual(dates.map(date => gregorianMonthNumber(date, "march")), [11,12,1,2,3,4,5,6,7,8,9,10]);
+  assert.equal(gregorianMonthNumber(new Date(2027, 0, 1, 12), "march"), 11);
+  assert.equal(gregorianMonthNumber(new Date(2027, 1, 28, 12), "march"), 12);
 });
 
 function syncClock(version, updatedAt, deviceId) {
@@ -2938,7 +2946,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /gregorianWeekdayOffset\(month\.dates\[0\], activeWeekStart\)/);
   assert.match(calendar, /activeWeekStart === "monday" \? 8 : 7/);
   assert.match(accountPanel, /changeWeekStart/);
-  assert.match(accountPanel, /user\.calendarMode \?\? "sacred"\) === "profane"/);
+  assert.match(accountPanel, /visibleCalendarMode\(user\.calendarMode \?\? "sacred", visibility\) === "profane"/);
   assert.match(cloudSync, /weekStart\?: "sunday" \| "monday"/);
   assert.match(repository, /week_start = :week_start/);
   assert.match(calendar, /<CalendarModeIcon mode=\{mode\} size=\{35\}/);

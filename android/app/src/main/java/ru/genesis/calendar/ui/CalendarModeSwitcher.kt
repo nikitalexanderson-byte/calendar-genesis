@@ -63,6 +63,7 @@ internal fun nextAvailableCalendarMode(mode: CalendarMode, enabled: Set<Calendar
 internal fun CalendarModeSwitcher(mode: CalendarMode, onNext: () -> Unit,
     modifier: Modifier = Modifier, size: Dp = 54.dp,
     interactive: Boolean = true, animationTrigger: Int = 0) {
+    if (!LocalSacredFeaturesEnabled.current) return
     val scope = rememberCoroutineScope()
     val click = remember { Animatable(0f) }
     var running by remember { mutableStateOf(false) }

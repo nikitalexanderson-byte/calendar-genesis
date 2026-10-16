@@ -101,6 +101,7 @@ internal fun TaskRecurrenceEditor(value: RecurrenceConfig, startDate: String, in
             }, modifier = Modifier.testTag("recurrence-enabled"))
         }
         if (!value.enabled || start == null) return@Column
+        if (LocalSacredFeaturesEnabled.current) {
         Text("Календарь повторения", style = MaterialTheme.typography.titleSmall)
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             listOf("genesis" to "Сакральный", "classic" to "Григорианский", "lunar" to "Лунный")
@@ -110,6 +111,7 @@ internal fun TaskRecurrenceEditor(value: RecurrenceConfig, startDate: String, in
                         onChange(defaultTaskRecurrence(startDate, nextMode, context).copy(enabled = true, rangeEnd = end))
                     }, label = { Text(name) }, modifier = Modifier.testTag("recurrence-mode-$mode"))
                 }
+        }
         }
         Text("С какого · $startDate", style = MaterialTheme.typography.bodyMedium)
         Text("По какое", style = MaterialTheme.typography.titleSmall)

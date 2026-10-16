@@ -1367,14 +1367,14 @@ private fun DayHeader(date: LocalDate, mode: CalendarMode, detailsExpanded: Bool
         tween(220, easing = CubicBezierEasing(.16f, 1f, .3f, 1f)), label = "day-details-arrow")
     Card(Modifier.fillMaxWidth().testTag("today-hero"), shape = RoundedCornerShape(20.dp),
         border = BorderStroke(1.dp, Color(0x66dfc17e))) {
-        Box(Modifier.fillMaxWidth().heightIn(min = if (!sacredFeaturesEnabled) 320.dp else if(mode==CalendarMode.PROFANE) 540.dp else 390.dp)) {
+        Box(Modifier.fillMaxWidth().heightIn(min = if (!sacredFeaturesEnabled) 220.dp else if(mode==CalendarMode.PROFANE) 540.dp else 390.dp)) {
             if (sacredFeaturesEnabled) OriginalImage(if (mode == CalendarMode.LUNAR) "genesis-hero.png" else copy.imagePath,
                 copy.title, Modifier.matchParentSize().testTag(
                     if (mode == CalendarMode.LUNAR) "today-lunar-standard-image" else "today-calendar-image"))
             Box(Modifier.matchParentSize().background(Brush.verticalGradient(0f to Color(0x22040e10),
                 .32f to Color(0x44040e10), .62f to Color(0xc6071d20),
                 1f to Color(0xfa071d20))))
-            Surface(onClick = {
+            if (sacredFeaturesEnabled) Surface(onClick = {
                 switchCount++
                 onModeChange(nextAvailableCalendarMode(mode, enabledCalendars))
             }, modifier = Modifier.align(Alignment.TopStart).padding(14.dp)
@@ -1406,7 +1406,7 @@ private fun DayHeader(date: LocalDate, mode: CalendarMode, detailsExpanded: Bool
                 }
             }
             Column(Modifier.align(Alignment.BottomStart).fillMaxWidth()
-                .padding(start = 18.dp, end = 18.dp, top = if (sacredFeaturesEnabled) 148.dp else 96.dp, bottom = 20.dp)
+                .padding(start = 18.dp, end = 18.dp, top = if (sacredFeaturesEnabled) 148.dp else 24.dp, bottom = 20.dp)
                 .testTag("today-hero-copy"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(copy.eyebrow,
                     color = Color(0xffdfc17e), style = MaterialTheme.typography.labelMedium)
@@ -1942,7 +1942,7 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sectionId:
         }
         "habits" -> HabitSettingsPanel(app, prefs.use24)
         "reminders" -> {
-        MoonReminderSettings(app, prefs, onSetLocal)
+        if (LocalSacredFeaturesEnabled.current) MoonReminderSettings(app, prefs, onSetLocal)
         SettingsSection("◷", "Системные напоминания", "Проверка разрешений и точности Android",
             Color(0xfffff1cf)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -2126,6 +2126,7 @@ private fun CalendarTimeSettings(prefs: UiPreferences,
     onSet: (String, String) -> Unit, onSetLocal: (String, String) -> Unit,
     onOpenReference: (String) -> Unit) {
     SettingsSubsection("Календари и время", Modifier.testTag("calendar-settings-section")) {
+            if (visibility.sacredFeaturesEnabled) {
             Text("Справочная информация", style = MaterialTheme.typography.titleSmall)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf(CalendarMode.PROFANE to "Григорианский", CalendarMode.SACRED to "Сакральный",
@@ -2158,6 +2159,7 @@ private fun CalendarTimeSettings(prefs: UiPreferences,
                             .testTag("$key-calendar-${mode.wireValue}"),
                         label={CompactChoiceLabel(when(mode){CalendarMode.SACRED->"Сакральный";CalendarMode.LUNAR->"Лунный";else->"Григорианский"})})
                 } }
+            }
             }
             AnimatedVisibility(prefs.display == CalendarMode.PROFANE) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -2419,6 +2421,7 @@ private fun MenuVisibilitySettings(prefs: UiPreferences,
                             modifier = Modifier.testTag("today-visibility-$id"))
                     }
                 }
+            if (visibility.sacredFeaturesEnabled) {
             Text(if (prefs.language == "en") "Available calendars" else "Доступные календари",
                 style = MaterialTheme.typography.titleSmall)
             listOf(CalendarMode.PROFANE to "Григорианский", CalendarMode.SACRED to "Сакральный",
@@ -2433,6 +2436,7 @@ private fun MenuVisibilitySettings(prefs: UiPreferences,
                                 else visibility.enabledCalendars - mode.wireValue)) },
                         modifier = Modifier.testTag("calendar-visibility-${mode.wireValue}"))
                 }
+            }
             }
 
                 }

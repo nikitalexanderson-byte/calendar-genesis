@@ -82,7 +82,8 @@ export function uiVisibility(value?: Partial<UiVisibility> | null): UiVisibility
 
 /** Hiding the sacred layer never rewrites the account's calendar preferences. */
 export function visibleCalendarModes(settings: UiVisibility): CalendarMode[] {
-  const modes = settings.enabledCalendars.filter(mode => settings.sacredFeaturesEnabled || mode !== "sacred");
+  if (!settings.sacredFeaturesEnabled) return ["profane"];
+  const modes = settings.enabledCalendars;
   return modes.length ? modes : ["profane"];
 }
 
