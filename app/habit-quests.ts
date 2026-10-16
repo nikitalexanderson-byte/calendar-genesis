@@ -89,11 +89,11 @@ function scheduledOccurrences(
   habits: readonly QuestHabit[],
   dates: readonly string[],
   calendarMode: CalendarMode,
-  isScheduledForDate: (schedule: TrackerSchedule, date: string, calendarMode: CalendarMode) => boolean,
+  isScheduledForDate: (schedule: TrackerSchedule, date: string, calendarMode: CalendarMode, habit?: QuestHabit) => boolean,
   habitId: string | null = null,
 ) {
   return habits.reduce((total, habit) => total + dates.filter((date) => (
-    habit.active && (!habitId || habit.id === habitId) && isScheduledForDate(habit.schedule, date, calendarMode)
+    habit.active && (!habitId || habit.id === habitId) && isScheduledForDate(habit.schedule, date, calendarMode, habit)
   )).length, 0);
 }
 
@@ -107,12 +107,12 @@ function attainableCompletions(input: {
   dates: readonly string[];
   today: string;
   calendarMode: CalendarMode;
-  isScheduledForDate: (schedule: TrackerSchedule, date: string, calendarMode: CalendarMode) => boolean;
+  isScheduledForDate: (schedule: TrackerSchedule, date: string, calendarMode: CalendarMode, habit?: QuestHabit) => boolean;
   habitId?: string | null;
 }) {
   const completed = completionKeys(input.completions);
   return input.habits.reduce((total, habit) => total + input.dates.filter((date) => {
-    if (!habit.active || (input.habitId && habit.id !== input.habitId) || !input.isScheduledForDate(habit.schedule, date, input.calendarMode)) return false;
+    if (!habit.active || (input.habitId && habit.id !== input.habitId) || !input.isScheduledForDate(habit.schedule, date, input.calendarMode, habit)) return false;
     return date >= input.today || completed.has(`${habit.id}:${date}`);
   }).length, 0);
 }
@@ -123,7 +123,7 @@ function attainableGoalDays(
   dailyGoalRecords: readonly DailyGoalRecord[],
   habits: readonly QuestHabit[],
   calendarMode: CalendarMode,
-  isScheduledForDate: (schedule: TrackerSchedule, date: string, calendarMode: CalendarMode) => boolean,
+  isScheduledForDate: (schedule: TrackerSchedule, date: string, calendarMode: CalendarMode, habit?: QuestHabit) => boolean,
   perfectOnly = false,
 ) {
   return dates.filter((date) => {
@@ -244,7 +244,7 @@ export function reconcileHabitQuests(input: {
   dailyGoalRecords: readonly DailyGoalRecord[];
   today: string;
   calendarMode: CalendarMode;
-  isScheduledForDate: (schedule: TrackerSchedule, date: string, calendarMode: CalendarMode) => boolean;
+  isScheduledForDate: (schedule: TrackerSchedule, date: string, calendarMode: CalendarMode, habit?: QuestHabit) => boolean;
   timestamp?: string;
 }) {
   const timestamp = input.timestamp ?? new Date().toISOString();

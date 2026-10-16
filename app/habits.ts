@@ -2,9 +2,12 @@ import type { CalendarMode } from "./calendar-data";
 import { catalogText } from "./catalog-i18n";
 import type { Language } from "./i18n";
 import { habitIntervalTimes, habitIntervalMarks, normalizeHabitInterval, normalizeHabitCompletedTimes, type HabitIntervalSchedule } from "./habit-interval";
-import { habitMeasurementProgress, habitRuleForDate, mergeHabitMeasurementEvents, newHabitMeasurementEvent,
+import { effectiveHabitMeasurement, habitMeasurementProgress, habitRuleForDate, mergeHabitMeasurementEvents, newHabitMeasurementEvent,
   normalizeHabitMeasurement, normalizeHabitRuleHistory,
   type HabitMeasurement, type HabitMeasurementEvent, type HabitRuleVersion } from "./habit-measurement";
+import { normalizeHabitPeriodGoal, type HabitPeriodGoal } from "./habit-period-goal";
+import { habitPeriodSettlement, habitQuestCompletions } from "./habit-period-progress";
+import { resolveCalendarWallTime } from "./calendar-context";
 import {
   normalizeAddictionEntry,
   normalizeAddictionTracker,
@@ -97,6 +100,8 @@ import {
 } from "./sacred-practices";
 import {
   normalizeHabitQuests,
+  habitQuestWeek,
+  habitQuestMonth,
   reconcileHabitQuestRewards,
   reconcileHabitQuests,
   type HabitQuest,
@@ -200,6 +205,7 @@ export type Habit = TrackerEntity & {
   intervalSchedule?: HabitIntervalSchedule | null;
   measurement?: HabitMeasurement | null;
   ruleHistory?: HabitRuleVersion[];
+  periodGoal?: HabitPeriodGoal | null;
   schedule: TrackerSchedule;
   scoringMode: HabitScoringMode;
   qualityScale: HabitQualityScale;
@@ -281,6 +287,7 @@ type LegacyHabit = Partial<TrackerEntity> & {
   intervalSchedule?: HabitIntervalSchedule | null;
   measurement?: HabitMeasurement | null;
   ruleHistory?: HabitRuleVersion[];
+  periodGoal?: HabitPeriodGoal | null;
   scoringEnabled?: boolean;
   completionPoints?: number;
   failurePoints?: number;
@@ -457,6 +464,9 @@ function normalizeHabit(value: LegacyHabit, fallbackDate: string, calendarMode: 
   const sacredPracticeId = isSacredPracticeId(value.sacredPracticeId) ? value.sacredPracticeId : null;
   const sacredSectorId = sacredPracticeId ? SACRED_PRACTICES.find((practice) => practice.id === sacredPracticeId)?.sectorId ?? null : null;
   const templateEmoji = STARTER_HABIT_TEMPLATES.find((template) => template.id === sourceTemplateId)?.icon;
+  const measurement = normalizeHabitMeasurement(value.measurement);
+  const periodGoal = normalizeHabitPeriodGoal(value.periodGoal);
+  if (periodGoal?.metric === "sum" && !measurement) throw new RangeError("HABIT_PERIOD_MEASUREMENT_REQUIRED");
   const schedule: TrackerSchedule = {
     ...normalizedSchedule,
     startDate: createdDate,
@@ -479,7 +489,8 @@ function normalizeHabit(value: LegacyHabit, fallbackDate: string, calendarMode: 
     sacredSectorId,
     preferredTime: TIME_PATTERN.test(value.preferredTime ?? "") ? value.preferredTime! : "",
     intervalSchedule: normalizeHabitInterval(value.intervalSchedule),
-    measurement: normalizeHabitMeasurement(value.measurement),
+    measurement,
+    periodGoal,
     ruleHistory: normalizeHabitRuleHistory(value.ruleHistory),
     schedule,
     scoringMode,
@@ -503,7 +514,7 @@ export function updateHabitCompletion(
   const current = workspace.habitCompletions.find((entry) => entry.habitId === habit.id && entry.date === date);
   const base: HabitCompletion = current ?? {
     ...newTrackerEntity("habit-completion"),
-    ...(habitRuleForDate(habit, date).measurement ? { id: `habit-completion:${habit.id}:${date}` } : {}),
+    ...(effectiveHabitMeasurement(habitRuleForDate(habit, date)) ? { id: `habit-completion:${habit.id}:${date}` } : {}),
     habitId: habit.id,
     date,
     completed: false,
@@ -518,14 +529,15 @@ export function updateHabitCompletion(
         : patch.completed ? habitIntervalTimes(habit.intervalSchedule) : [],
     } : {}),
     ...(base.qualityConfirmedAt ? { qualityValue: base.qualityValue, qualityConfirmedAt: base.qualityConfirmedAt } : {}) });
-  if (habitRuleForDate(habit, date).measurement) {
+  if (effectiveHabitMeasurement(habitRuleForDate(habit, date))) {
     const progress = habitMeasurementProgress(habit, date, workspace.habitMeasurements ?? []);
     patched.completed = progress.completed && (habit.qualityScale === "none" || Boolean(patched.qualityConfirmedAt));
   }
   const score = scoreHabitCompletion(habit, patched);
-  const measured = habitRuleForDate(habit, date).measurement;
+  const measured = effectiveHabitMeasurement(habitRuleForDate(habit, date));
+  const measuredProgress = measured ? habitMeasurementProgress(habit, date, workspace.habitMeasurements ?? []) : null;
   const rewardEligible = !measured || date === today
-    && habitMeasurementProgress(habit, date, workspace.habitMeasurements ?? []).rewardTotal >= measured.target;
+    && measuredProgress!.rewardTotal >= measuredProgress!.target;
   const entry = { ...patched, score, xpAwarded: rewardEligible
     ? completionXpAward(base.xpAwarded, score, MAX_HABIT_XP_PER_COMPLETION) : base.xpAwarded };
   return {
@@ -543,7 +555,9 @@ export function recordHabitMeasurement(workspace: HabitWorkspace, habit: Habit, 
   today = habitDateKey(new Date())): HabitWorkspace {
   if (!canRecordHabitOnDate(habit.createdDate, date, today) || !isHabitScheduledForDate(habit, date))
     throw new RangeError("HABIT_MEASUREMENT_DATE_UNAVAILABLE");
-  if (!habitRuleForDate(habit, date).measurement) throw new RangeError("HABIT_MEASUREMENT_NOT_ENABLED");
+  if (!effectiveHabitMeasurement(habitRuleForDate(habit, date))) throw new RangeError("HABIT_MEASUREMENT_NOT_ENABLED");
+  if (!habitRuleForDate(habit, date).measurement && value !== null && value !== 1000)
+    throw new RangeError("INVALID_HABIT_MEASUREMENT_EVENT");
   const replay = options.id && workspace.habitMeasurements?.find(event => event.id === options.id);
   if (replay) {
     if (replay.habitId !== habit.id || replay.date !== date || replay.value !== value
@@ -758,7 +772,7 @@ export function normalizeHabitWorkspace(
   const measurementDays = new Map(habitMeasurements.map(event => [`${event.habitId}:${event.date}`, event]));
   for (const event of measurementDays.values()) {
     const habit = habitMap.get(event.habitId);
-    if (!habit || !habitRuleForDate(habit, event.date).measurement) continue;
+    if (!habit || !effectiveHabitMeasurement(habitRuleForDate(habit, event.date))) continue;
     const progress = habitMeasurementProgress(habit, event.date, habitMeasurements);
     const prior = habitCompletions.find(entry => entry.habitId === habit.id && entry.date === event.date);
     const completed = progress.completed && (habit.qualityScale === "none" || Boolean(prior?.qualityConfirmedAt));
@@ -857,13 +871,25 @@ export function calculateHabitTotal(workspace: HabitWorkspace) {
   return workspace.userProgress.lifetimeXp;
 }
 
-function dailyGoalCounts(workspace: HabitWorkspace, date: string, calendarMode: CalendarMode) {
-  const scheduledHabits = workspace.habits.filter((habit) => isHabitScheduledForDate(habit, date, calendarMode));
-  const scheduledIds = new Set(scheduledHabits.map((habit) => habit.id));
-  const completedCount = new Set(workspace.habitCompletions
-    .filter((entry) => entry.date === date && entry.completed && scheduledIds.has(entry.habitId))
-    .map((entry) => entry.habitId)).size;
-  return { scheduledCount: scheduledHabits.length, completedCount };
+function dailyGoalCounts(workspace: HabitWorkspace, date: string, calendarMode: CalendarMode, today: string) {
+  let scheduledCount = 0, completedCount = 0, rewardCompletedCount = 0;
+  for (const habit of workspace.habits) {
+    if (!habit.active) continue;
+    const goal = habitRuleForDate(habit, date).periodGoal;
+    if (goal) {
+      const settlement = habitPeriodSettlement(habit, date, workspace, resolveCalendarWallTime(today, "12:00", goal.context.timeZone).instant);
+      if (!settlement) continue;
+      scheduledCount++;
+      if (settlement.completed) completedCount++;
+      if (settlement.rewardEligible) rewardCompletedCount++;
+    } else if (isHabitScheduledForDate(habit, date, calendarMode)) {
+      scheduledCount++;
+      if (workspace.habitCompletions.some(entry => entry.habitId === habit.id && entry.date === date && entry.completed)) {
+        completedCount++; rewardCompletedCount++;
+      }
+    }
+  }
+  return { scheduledCount, completedCount, rewardCompletedCount };
 }
 
 export function dailyGoalForDate(
@@ -876,7 +902,7 @@ export function dailyGoalForDate(
   const mode = existing && date < today
     ? existing.mode
     : dailyGoalModeForDate(workspace.habitSettings.dailyGoalModeChanges, date);
-  const counts = dailyGoalCounts(workspace, date, calendarMode);
+  const counts = dailyGoalCounts(workspace, date, calendarMode, today);
   const next = buildDailyGoalRecord({
     date,
     mode,
@@ -917,18 +943,44 @@ function withDailyGoalStreak(
     streakFreezeTransactions: protection.transactions,
   };
   const streak = calculateGlobalStreak(protectedWorkspace.dailyGoalRecords, today);
-  const earnedTransactions = reconcileDailyGoalRewards(protectedWorkspace.dailyGoalRecords, protectedWorkspace.rewardTransactions, today);
-  const milestoneTransactions = reconcileStreakMilestoneRewards(protectedWorkspace.dailyGoalRecords, earnedTransactions);
-  const comebackTransactions = reconcileComebackRewards(protectedWorkspace.dailyGoalRecords, milestoneTransactions, today, timestamp);
+  const hasPeriods = workspace.habits.some(habit => habit.periodGoal || habit.ruleHistory?.some(rule => rule.periodGoal));
+  const rewardRecords = hasPeriods ? protectedWorkspace.dailyGoalRecords.map(record => {
+    const counts = dailyGoalCounts(protectedWorkspace, record.date, calendarMode, today);
+    const ineligible = counts.completedCount - counts.rewardCompletedCount;
+    if (!ineligible) return record;
+    return buildDailyGoalRecord({ ...record, today, completedCount: Math.max(0, record.completedCount - ineligible),
+      isRestDay: record.status === "rest", isTimezoneShift: record.status === "timezone-shift", isStreakProtected: record.status === "protected" });
+  }) : protectedWorkspace.dailyGoalRecords;
+  const questStart = [habitQuestWeek(today).startDate, habitQuestMonth(today).startDate,
+    ...protectedWorkspace.quests.map(quest => quest.startDate), ...protectedWorkspace.habits.map(habit => habit.createdDate)].sort()[0];
+  const questClock = new Date(`${today}T12:00:00Z`);
+  const questCompletions = hasPeriods ? [
+    ...protectedWorkspace.habitCompletions.filter(entry => {
+      const habit = workspace.habits.find(habit => habit.id === entry.habitId);
+      return !habit || !habitRuleForDate(habit, entry.date).periodGoal;
+    }),
+    ...habitQuestCompletions(workspace.habits, workspace, questStart, today, questClock).filter(entry => {
+      const habit = workspace.habits.find(habit => habit.id === entry.habitId);
+      return habit && habitRuleForDate(habit, entry.date).periodGoal && habitPeriodSettlement(habit, entry.date, workspace, questClock)?.rewardEligible;
+    }),
+  ] : protectedWorkspace.habitCompletions;
+  const earnedTransactions = reconcileDailyGoalRewards(rewardRecords, protectedWorkspace.rewardTransactions, today);
+  const milestoneTransactions = reconcileStreakMilestoneRewards(rewardRecords, earnedTransactions);
+  const comebackTransactions = reconcileComebackRewards(rewardRecords, milestoneTransactions, today, timestamp);
   const quests = protectedWorkspace.habitSettings.feedback.questsEnabled
     ? reconcileHabitQuests({
       quests: protectedWorkspace.quests,
       habits: protectedWorkspace.habits,
-      completions: protectedWorkspace.habitCompletions,
-      dailyGoalRecords: protectedWorkspace.dailyGoalRecords,
+      completions: questCompletions,
+      dailyGoalRecords: rewardRecords,
       today,
       calendarMode,
-      isScheduledForDate: isTrackerScheduledForDate,
+      isScheduledForDate: (schedule, date, mode, questHabit) => {
+        const habit = questHabit && workspace.habits.find(habit => habit.id === questHabit.id);
+        if (!habit) return isTrackerScheduledForDate(schedule, date, mode);
+        return habitRuleForDate(habit, date).periodGoal
+          ? Boolean(habitPeriodSettlement(habit, date, workspace, questClock)) : isHabitScheduledForDate(habit, date, mode);
+      },
       timestamp,
     })
     : protectedWorkspace.quests;
@@ -937,7 +989,7 @@ function withDailyGoalStreak(
     : comebackTransactions;
   const achievementUnlocks = reconcileAchievementUnlocks({
     unlocks: protectedWorkspace.achievementUnlocks,
-    habitCompletions: protectedWorkspace.habitCompletions,
+    habitCompletions: hasPeriods ? questCompletions : protectedWorkspace.habitCompletions,
     dailyGoalRecords: protectedWorkspace.dailyGoalRecords,
     longestStreak: Math.max(streak.longestStreak, workspace.userProgress.longestStreak),
     rewardTransactions,

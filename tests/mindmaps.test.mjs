@@ -14,7 +14,7 @@ function loadTs(path) {
    if(id === './i18n') return {runtimeLocale:()=> 'ru-RU',getRuntimeLanguage:()=> 'ru',translateText:v=>v};
    if(id.endsWith('?raw')) return readFileSync(resolve(path,'..',id.slice(0,-4)),'utf8');
    if(id.endsWith('.json')) return JSON.parse(readFileSync(resolve(path,'..',id),'utf8'));
-   return id.startsWith('.') ? loadTs(resolve(path,'..',id+'.ts')) : require(id);
+   return id.startsWith('.') ? loadTs(resolve(path,'..',id.endsWith('.ts') ? id : id+'.ts')) : require(id);
  },loaded,loaded.exports);
  modules.set(path,loaded.exports);return loaded.exports;
 }

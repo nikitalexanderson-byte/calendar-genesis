@@ -28,7 +28,9 @@ import { CalendarDatePicker } from "./CalendarDatePicker";
 import { TimeClockPicker } from "./TimeClockPicker";
 import { HabitIntervalFields } from "./HabitIntervalFields";
 import { HabitMeasurementControl, HabitMeasurementFields } from "./HabitMeasurementControls";
-import { habitMeasurementProgress, habitRuleForDate } from "./habit-measurement";
+import { effectiveHabitMeasurement, habitMeasurementProgress, habitRuleForDate } from "./habit-measurement";
+import { HabitPeriodGoalFields, HabitPeriodGoalProgress } from "./HabitPeriodGoalControls";
+import { habitPeriodStreak } from "./habit-period-progress";
 import { habitIntervalTimes, habitIntervalMarks, normalizeHabitInterval } from "./habit-interval";
 import { RecurrenceBuilder } from "./RecurrenceBuilder";
 import { calendarModeForRecurrence } from "./task-recurrence";
@@ -440,6 +442,7 @@ function formatClockMinutes(minutes: number) {
 }
 
 function habitStreak(workspace: HabitWorkspace, habit: Habit, today: string, calendarMode: CalendarMode) {
+  if (habitRuleForDate(habit, today).periodGoal) return habitPeriodStreak(habit, today, workspace);
   let cursor = today;
   let streak = 0;
   for (let scanned = 0; scanned < 20_000 && cursor >= habit.schedule.startDate; scanned += 1) {
@@ -836,7 +839,7 @@ export function HabitDailyPanel({ workspace, date, language, timeFormat, calenda
   const [qualityDrafts,setQualityDrafts]=useState<Record<string,boolean>>({});
   const today = habitDateKey(new Date());
   const dueHabits = workspace.habits
-    .filter((habit) => isHabitScheduledForDate(habit, date, calendarMode))
+    .filter((habit) => isHabitScheduledForDate(habit, date, calendarMode) || habit.active && date >= habit.createdDate && Boolean(habitRuleForDate(habit, date).periodGoal))
     .sort((left, right) => Number(right.isKeyHabit) - Number(left.isKeyHabit) || right.priority - left.priority || left.title.localeCompare(right.title));
   const ritualGroups = groupHabitsByRitual(dueHabits, isEnglish);
   const dueSleepPlans = workspace.sleepPlans.filter((plan) => plan.active && isTrackerScheduledForDate(plan.schedule, date, calendarMode));
@@ -910,10 +913,10 @@ export function HabitDailyPanel({ workspace, date, language, timeFormat, calenda
           {group.habits.map((habit) => {
             const entry = completionFor(workspace, habit.id, date);
             const score = entry ? scoreHabitCompletion(habit, entry) : 0;
-            const canRecord = canRecordHabitOnDate(habit.createdDate, date, today);
+            const canRecord = canRecordHabitOnDate(habit.createdDate, date, today) && isHabitScheduledForDate(habit, date, calendarMode);
             const draftKey=`${date}:${habit.id}`;
             const choosingQuality=Boolean(qualityDrafts[draftKey]);
-            const measured = habitRuleForDate(habit, date).measurement;
+            const measured = effectiveHabitMeasurement(habitRuleForDate(habit, date));
             const measurementReady = measured && habitMeasurementProgress(habit, date, workspace.habitMeasurements ?? []).completed;
             return (
               <article className={`${entry?.completed ? "done" : ""}${canRecord ? "" : " read-only"}${habit.isKeyHabit ? " key-habit" : ""}${measured ? " measured-habit" : ""}`} style={{ "--habit-color": habit.color } as CSSProperties} key={habit.id}>
@@ -942,6 +945,7 @@ export function HabitDailyPanel({ workspace, date, language, timeFormat, calenda
                 </div>
                 {measured ? <HabitMeasurementControl habit={habit} workspace={workspace} date={date} language={language}
                   timeFormat={timeFormat} calendarMode={calendarMode} canRecord={canRecord} onChange={onSave ?? onChange} /> : null}
+                <HabitPeriodGoalProgress habit={habit} workspace={workspace} date={date} language={language}/>
                 {(entry?.completed||choosingQuality||measurementReady||!measured && habit.intervalSchedule?.completionMode==="each" && habitIntervalTimes(habit.intervalSchedule).length===habitIntervalMarks(habit.intervalSchedule,entry).length) && habit.qualityScale!=="none" ? <HabitQualityControl key={draftKey} habit={habit} value={entry?.qualityValue??null} confirmed={Boolean(entry?.qualityConfirmedAt)} canRecord={canRecord} isEnglish={isEnglish} language={language} onApply={async quality=>{await (onSave ?? onChange)(updateHabitCompletion(workspace,habit,date,{completed:true,qualityValue:quality,qualityConfirmedAt:trackerTimestamp()}));setQualityDrafts(value=>({...value,[draftKey]:false}));}}/> : null}
                 {habit.scoringMode !== "none" ? <output aria-label={isEnglish ? `${score} XP for this completion` : `${score} XP за это выполнение`}>{score > 0 ? "+" : ""}{score}</output> : <output className="monitor" aria-label={isEnglish ? "Monitoring only, without points" : "Только наблюдение, без баллов"}>{isEnglish ? "log" : "учёт"}</output>}
               </article>
@@ -1044,6 +1048,7 @@ function HabitEditor({ habit, isExisting, language, calendarMode, googleTasksRea
   const isEnglish = language === "en";
   const [draft, setDraft] = useState(habit);
   const [measurementValid, setMeasurementValid] = useState(true);
+  const [periodValid, setPeriodValid] = useState(true);
   const [forever, setForever] = useState(habit.schedule.endDate === null);
   const dialogRef = useDialogAccessibility<HTMLFormElement>(onClose);
   const earliestStart = habitDateKey(new Date());
@@ -1054,13 +1059,14 @@ function HabitEditor({ habit, isExisting, language, calendarMode, googleTasksRea
   };
   return (
     <div className="modal-backdrop habit-editor-backdrop" role="presentation">
-      <form ref={dialogRef} className="habit-editor" data-exp-ui="dialog" role="dialog" aria-modal="true" aria-labelledby="habit-editor-title" tabIndex={-1} onSubmit={(event) => { event.preventDefault(); if (!measurementValid) return; const candidate = markTrackerEntityChanged({ ...draft, createdDate: isExisting ? habit.createdDate : draft.createdDate, color: normalizeHabitColor(draft.color, HABIT_COLORS[0]), emoji: normalizeHabitEmoji(draft.emoji), priority: normalizeHabitPriority(draft.priority), schedule: { ...draft.schedule, startDate: isExisting ? habit.createdDate : draft.createdDate, recurrence: { ...draft.schedule.recurrence, rangeStart: isExisting ? habit.createdDate : draft.createdDate } } }); onSave(candidate); }}>
+      <form ref={dialogRef} className="habit-editor" data-exp-ui="dialog" role="dialog" aria-modal="true" aria-labelledby="habit-editor-title" tabIndex={-1} onSubmit={(event) => { event.preventDefault(); if (!measurementValid || !periodValid) return; const candidate = markTrackerEntityChanged({ ...draft, createdDate: isExisting ? habit.createdDate : draft.createdDate, color: normalizeHabitColor(draft.color, HABIT_COLORS[0]), emoji: normalizeHabitEmoji(draft.emoji), priority: normalizeHabitPriority(draft.priority), schedule: { ...draft.schedule, startDate: isExisting ? habit.createdDate : draft.createdDate, recurrence: { ...draft.schedule.recurrence, rangeStart: isExisting ? habit.createdDate : draft.createdDate } } }); onSave(candidate); }}>
         <header><div><span className="eyebrow">{isEnglish ? "Habit core" : "Ядро привычек"}</span><h2 id="habit-editor-title">{isExisting ? (isEnglish ? "Edit habit" : "Редактирование привычки") : (isEnglish ? "New habit" : "Новая привычка")}</h2></div><DialogCloseButton type="button" className="modal-close" disabled={saving} onClick={onClose} aria-label={isEnglish ? "Close" : "Закрыть"} /></header>
         {saveError ? <p role="alert">{saveError}</p> : null}
         <div className="habit-editor-grid">
           <label className="wide"><span>{isEnglish ? "Name" : "Название"}</span><input required maxLength={100} value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} /></label>
           <label className="wide"><span>{isEnglish ? "Description" : "Описание"}</span><textarea maxLength={500} value={draft.description} onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} /></label>
-          <HabitMeasurementFields habit={draft} language={language} isExisting={isExisting} onChange={setDraft} onValidity={setMeasurementValid} />
+          <HabitMeasurementFields habit={draft} language={language} isExisting={isExisting} hadPeriodGoal={Boolean(habit.periodGoal || habit.ruleHistory?.some(rule=>rule.periodGoal))} onChange={setDraft} onValidity={setMeasurementValid} />
+          <HabitPeriodGoalFields habit={draft} language={language} calendarMode={calendarMode} isExisting={isExisting} hadPeriodGoal={Boolean(habit.periodGoal || habit.ruleHistory?.some(rule=>rule.periodGoal))} onChange={setDraft} onValidity={setPeriodValid}/>
           <HabitIntervalFields habit={draft} onChange={setDraft}/>
           {!draft.intervalSchedule ? <HabitStrictTimeField value={draft.preferredTime} fallbackTime={draft.reminder.time} language={language} onChange={(preferredTime) => setDraft((current) => ({ ...current, preferredTime }))} /> : null}
           <HabitColorField value={draft.color} language={language} onChange={(color) => setDraft((current) => ({ ...current, color }))} />
@@ -1108,7 +1114,7 @@ function HabitEditor({ habit, isExisting, language, calendarMode, googleTasksRea
             </div>
           </fieldset>
         </fieldset>
-        <footer><button type="button" className="secondary-button" disabled={saving} onClick={onClose}>{isEnglish ? "Cancel" : "Отмена"}</button><button type="submit" className="primary-button" disabled={saving || !measurementValid || !draft.title.trim() || Boolean(draft.intervalSchedule && !normalizeHabitInterval(draft.intervalSchedule))}>{saving ? translateText("Сохраняем…",language) : isExisting ? (isEnglish ? "Save changes" : "Сохранить изменения") : (isEnglish ? "Save habit" : "Сохранить привычку")}</button></footer>
+        <footer><button type="button" className="secondary-button" disabled={saving} onClick={onClose}>{isEnglish ? "Cancel" : "Отмена"}</button><button type="submit" className="primary-button" disabled={saving || !measurementValid || !periodValid || !draft.title.trim() || Boolean(draft.intervalSchedule && !normalizeHabitInterval(draft.intervalSchedule))}>{saving ? translateText("Сохраняем…",language) : isExisting ? (isEnglish ? "Save changes" : "Сохранить изменения") : (isEnglish ? "Save habit" : "Сохранить привычку")}</button></footer>
       </form>
     </div>
   );
@@ -1251,7 +1257,7 @@ function HabitStatistics({ workspace, date, language, calendarMode, experimental
         <article className="mood-distribution"><header><span className="eyebrow">{isEnglish ? "Mood" : "Настроение"}</span><h3>{isEnglish ? "Distribution" : "Распределение"}</h3></header><div>{moodDistribution.map((count, index) => <i style={{ "--mood-color": moodColor(index - 5), height: `${Math.max(5, moodCount ? count / Math.max(...moodDistribution, 1) * 100 : 5)}%` } as CSSProperties} title={`${index - 5}: ${count}`} key={index}><span>{index - 5 > 0 ? `+${index - 5}` : index - 5}</span></i>)}</div></article>
         <article><header><span className="eyebrow">{isEnglish ? "Abstinence" : "Воздержание"}</span><h3>{isEnglish ? "Craving load" : "Динамика тяги"}</h3></header><strong className="tracker-insight-value">{cravingCount ? (cravingTotal / cravingCount).toFixed(1) : "—"}<small>/10</small></strong><p>{isEnglish ? `${cleanDays} clean days · ${relapses} relapses` : `${cleanDays} чистых дней · ${relapses} срывов`}</p></article>
       </div>
-      {workspace.habits.length ? <div className="habit-ranking-list"><header><span className="eyebrow">{isEnglish ? "Habits" : "Привычки"}</span><h3>{isEnglish ? "Current streaks" : "Текущие серии"}</h3></header>{workspace.habits.map((habit) => { const completions = workspace.habitCompletions.filter((entry) => entry.habitId === habit.id && entry.date >= range.start && entry.date <= range.end && entry.completed); const qualities = completions.filter((entry) => entry.qualityValue !== null); return <article style={{ "--habit-color": habit.color } as CSSProperties} key={habit.id}><i /><div><strong data-no-translate>{habit.title}</strong><small>{completions.length} {isEnglish ? "completions" : "выполнений"}{qualities.length ? ` · ${isEnglish ? "quality" : "качество"} ${(qualities.reduce((sum, entry) => sum + (entry.qualityValue ?? 0), 0) / qualities.length).toFixed(1)}` : ""}</small></div><span>{habitStreak(workspace, habit, date, calendarMode)} {isEnglish ? "days" : "дней"}</span></article>; })}</div> : null}
+      {workspace.habits.length ? <div className="habit-ranking-list"><header><span className="eyebrow">{isEnglish ? "Habits" : "Привычки"}</span><h3>{isEnglish ? "Current streaks" : "Текущие серии"}</h3></header>{workspace.habits.map((habit) => { const completions = workspace.habitCompletions.filter((entry) => entry.habitId === habit.id && entry.date >= range.start && entry.date <= range.end && entry.completed); const qualities = completions.filter((entry) => entry.qualityValue !== null); return <article style={{ "--habit-color": habit.color } as CSSProperties} key={habit.id}><i /><div><strong data-no-translate>{habit.title}</strong><small>{completions.length} {isEnglish ? "completions" : "выполнений"}{qualities.length ? ` · ${isEnglish ? "quality" : "качество"} ${(qualities.reduce((sum, entry) => sum + (entry.qualityValue ?? 0), 0) / qualities.length).toFixed(1)}` : ""}</small></div><span>{habitStreak(workspace, habit, date, calendarMode)} {habitRuleForDate(habit,date).periodGoal ? translateText("периодов",language) : isEnglish ? "days" : "дней"}</span></article>; })}</div> : null}
       {workspace.addictionTrackers.length ? <div className="habit-ranking-list"><header><span className="eyebrow">{isEnglish ? "Abstinence" : "Воздержание"}</span><h3>{isEnglish ? "Current clean streaks" : "Текущие чистые серии"}</h3></header>{workspace.addictionTrackers.map((tracker) => <article style={{ "--habit-color": "#8f6951" } as CSSProperties} key={tracker.id}><i /><div><strong data-no-translate>{tracker.trackedBehavior}</strong><small>{isEnglish ? "Relapse never removes earned points" : "Срыв не отнимает заработанные баллы"}</small></div><span>{addictionStreak(workspace.addictionEntries, tracker.id, date)} {isEnglish ? "days" : "дней"}</span></article>)}</div> : null}
     </section>
   );

@@ -2,6 +2,8 @@ import type { CalendarMode } from "./calendar-data";
 import type { DailyGoalRecord } from "./daily-goal";
 import type { Habit, HabitCompletion, HabitWorkspace } from "./habits";
 
+type InsightCompletion = Pick<HabitCompletion, "habitId" | "date" | "completed">;
+
 export const HABIT_MASTERY_MILESTONES = [7, 30, 50, 100, 365, 500, 1_000] as const;
 
 export type HabitWeeklySummary = {
@@ -19,6 +21,7 @@ export type HabitWeeklySummary = {
 };
 
 export type HabitPersonalRecord = {
+  periodUnit?: "week" | "month";
   habitId: string;
   currentStreak: number;
   longestStreak: number;
@@ -106,13 +109,13 @@ export function buildWeeklyHabitSummary(workspace: HabitWorkspace, today: string
   return { ...current, startDate, endDate, previousCompleted: previous.completed, changePercent };
 }
 
-function completionSet(completions: readonly HabitCompletion[], habitId: string) {
+function completionSet(completions: readonly InsightCompletion[], habitId: string) {
   return new Set(completions.filter((entry) => entry.habitId === habitId && entry.completed).map((entry) => entry.date));
 }
 
 export function buildHabitPersonalRecord(
   habit: Habit,
-  completions: readonly HabitCompletion[],
+  completions: readonly InsightCompletion[],
   today: string,
   calendarMode: CalendarMode,
   isScheduledForDate: (habit: Habit, date: string, calendarMode: CalendarMode) => boolean,

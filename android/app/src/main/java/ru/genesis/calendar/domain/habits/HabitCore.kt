@@ -2,6 +2,7 @@ package ru.genesis.calendar.domain.habits
 
 import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.util.UUID
 import kotlin.math.floor
 import ru.genesis.calendar.domain.GenesisCalendar
@@ -37,7 +38,11 @@ data class Habit(
     val scoringMode: String = "binary", val qualityScale: String = "none", val reminder: HabitReminder = HabitReminder(),
     val intervalSchedule: HabitIntervalSchedule? = null,
     val measurement: HabitMeasurement? = null, val ruleHistory: List<HabitRuleVersion> = emptyList(),
-) { val id: String get() = entity.id }
+    val periodGoal: HabitPeriodGoal? = null,
+) {
+    init { require(periodGoal?.metric != "sum" || measurement != null) { "HABIT_PERIOD_MEASUREMENT_REQUIRED" } }
+    val id: String get() = entity.id
+}
 
 /** The first tracking date and XP formula become immutable after the first save. */
 fun preserveHabitCreationSettings(candidate: Habit, previous: Habit?, today: LocalDate,
@@ -48,10 +53,13 @@ fun preserveHabitCreationSettings(candidate: Habit, previous: Habit?, today: Loc
     }
     val schedule = candidate.schedule.copy(startDate = previous.schedule.startDate,
         recurrence = candidate.schedule.recurrence.copy(rangeStart = previous.schedule.recurrence.rangeStart))
-    val rules = if (candidate.measurement != previous.measurement || schedule != previous.schedule) {
+    require(candidate.periodGoal?.metric != "sum" || candidate.measurement != null) { "HABIT_PERIOD_MEASUREMENT_REQUIRED" }
+    val transitionGoal = HabitMeasurements.rule(previous,today).periodGoal ?: candidate.periodGoal
+    val effective = transitionGoal?.let { HabitPeriodGoals.period(it,today).end } ?: today.plusDays(1)
+    val rules = if (candidate.measurement != previous.measurement || schedule != previous.schedule || candidate.periodGoal != previous.periodGoal) {
         (previous.ruleHistory.ifEmpty { listOf(HabitMeasurements.rule(previous, previous.createdDate)) }
             + HabitRuleVersion("rule:${UUID.randomUUID()}",
-                today.plusDays(1), timestamp, candidate.measurement, schedule))
+                effective, timestamp, candidate.measurement, schedule, candidate.periodGoal))
             .distinctBy { it.id }.sortedWith(compareBy<HabitRuleVersion> { it.effectiveDate }.thenBy { it.recordedAt }.thenBy { it.id })
     } else previous.ruleHistory
     return candidate.copy(
@@ -120,7 +128,7 @@ class HabitEngine(private val calendar: GenesisCalendar) {
         measurementRewardEligible: Boolean = false): List<HabitCompletion> {
         if (date != today || date < habit.createdDate) return entries
         val current = entries.firstOrNull { it.habitId == habit.id && it.date == date }
-        val measured = HabitMeasurements.rule(habit, date).measurement != null
+        val measured = HabitMeasurements.effective(HabitMeasurements.rule(habit, date)) != null
         val base = current ?: HabitCompletion(TrackerEntity.create("habit-completion",timestamp,
             if(measured) "habit-completion:${habit.id}:$date" else newId),habit.id,date)
         val preservedQuality = if (base.qualityConfirmedAt != null) base.qualityValue else qualityValue
@@ -148,19 +156,30 @@ class HabitEngine(private val calendar: GenesisCalendar) {
             current?.note.orEmpty(), completedTimes = marks.sorted())
     }
 
-    fun dailyCounts(habits: List<Habit>, entries: List<HabitCompletion>, date: LocalDate): Pair<Int,Int> {
-        val scheduled = habits.filter { isScheduled(it,date) }
-        val ids = scheduled.map { it.id }.toSet()
-        val completed = entries.filter { it.date == date && it.completed && it.habitId in ids }.map { it.habitId }.toSet().size
-        return scheduled.size to completed
+    fun dailyCounts(habits: List<Habit>, entries: List<HabitCompletion>, date: LocalDate,
+        measurements: List<HabitMeasurementEvent> = emptyList(), today: LocalDate = LocalDate.now(), rewardsOnly: Boolean = false): Pair<Int,Int> {
+        var scheduled = 0; var completed = 0
+        habits.filter { it.active }.forEach { habit ->
+            val goal = HabitMeasurements.rule(habit,date).periodGoal
+            if(goal != null) {
+                val now = today.atTime(12,0).atZone(ZoneId.of(goal.context.timeZone)).toInstant()
+                val settlement = HabitPeriodGoals.settlement(habit,date,measurements,entries,now) ?: return@forEach
+                scheduled++
+                if(settlement.completed && (!rewardsOnly || settlement.rewardEligible)) completed++
+            } else if(isScheduled(habit,date)) {
+                scheduled++
+                if(entries.any { it.habitId==habit.id && it.date==date && it.completed }) completed++
+            }
+        }
+        return scheduled to completed
     }
 
     fun dailyGoalForDate(habits: List<Habit>, entries: List<HabitCompletion>, records: List<DailyGoalRecord>,
         modeChanges: List<DailyGoalModeChange>, restDays: Set<LocalDate>, date: LocalDate, today: LocalDate,
-        timestamp: String): DailyGoalRecord {
+        timestamp: String, measurements: List<HabitMeasurementEvent> = emptyList(), rewardsOnly: Boolean = false): DailyGoalRecord {
         val existing=records.firstOrNull { it.date == date }
         val mode=if(existing != null && date < today) existing.mode else DailyGoals.modeForDate(modeChanges,date)
-        val (scheduled,completed)=dailyCounts(habits,entries,date)
+        val (scheduled,completed)=dailyCounts(habits,entries,date,measurements,today,rewardsOnly)
         val next=DailyGoals.build(date,mode,existing?.timezone ?: calendar.zoneId.id,scheduled.toDouble(),completed.toDouble(),
             today,timestamp,isRestDay=date in restDays,isStreakProtected=existing?.status == "protected")
         return if(existing != null && existing.copy(updatedAt=timestamp) == next) existing else next

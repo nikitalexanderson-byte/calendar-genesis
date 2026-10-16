@@ -1,14 +1,15 @@
 import { useId, useRef, useState } from "react";
 import type { Habit, HabitWorkspace } from "./habits";
 import { recordHabitMeasurement } from "./habits";
-import { formatHabitValue, habitMeasurementProgress, parseHabitValue, type HabitMeasurement } from "./habit-measurement";
+import { effectiveHabitMeasurement, formatHabitValue, habitMeasurementProgress, parseHabitValue, type HabitMeasurement } from "./habit-measurement";
 import { translateText, type Language } from "./i18n";
 import { formatTimeValue, type TimeFormat } from "./time-format";
 import { formatCalendarDateValue, type CalendarMode } from "./calendar-data";
 import "./habit-measurement.css";
 
-export function HabitMeasurementFields({ habit, language, isExisting, onChange, onValidity }: {
+export function HabitMeasurementFields({ habit, language, isExisting, hadPeriodGoal = false, onChange, onValidity }: {
   habit: Habit; language: Language; isExisting: boolean;
+  hadPeriodGoal?: boolean;
   onChange: (habit: Habit) => void; onValidity: (valid: boolean) => void;
 }) {
   const t = (text: string) => translateText(text, language);
@@ -33,23 +34,23 @@ export function HabitMeasurementFields({ habit, language, isExisting, onChange, 
           const nextUnit = kind === "duration" ? "min" : unit;
           setUnit(nextUnit); change(kind, target, step, nextUnit);
         }}>
-        <option value="binary">{t("Выполнено / не выполнено")}</option>
+        <option value="binary" disabled={habit.periodGoal?.metric === "sum"}>{t("Выполнено / не выполнено")}</option>
         <option value="quantity">{t("Количество")}</option><option value="duration">{t("Длительность")}</option>
       </select></label>
       {habit.measurement ? <>
         <label><span>{t("Единица")}</span><input value={habit.measurement.kind === "duration" ? t("мин") : unit} maxLength={40} required
           disabled={habit.measurement.kind === "duration"} data-no-translate
           onChange={event => { setUnit(event.target.value); change(habit.measurement!.kind, target, step, event.target.value); }}/></label>
-        <label><span>{t("Цель за день")}</span><input inputMode="decimal" value={target} required maxLength={16}
+        {!habit.periodGoal || habit.periodGoal.metric === "days" ? <label><span>{t("Цель за день")}</span><input inputMode="decimal" value={target} required maxLength={16}
           aria-invalid={invalid && !parseHabitValue(target)}
-          onChange={event => { setTarget(event.target.value); change(habit.measurement!.kind, event.target.value); }}/></label>
+          onChange={event => { setTarget(event.target.value); change(habit.measurement!.kind, event.target.value); }}/></label> : null}
         <label><span>{t("Быстрое добавление")}</span><input inputMode="decimal" value={step} required maxLength={16}
           aria-invalid={invalid && !parseHabitValue(step)}
           onChange={event => { setStep(event.target.value); change(habit.measurement!.kind, target, event.target.value); }}/></label>
       </> : null}
     </div>
     {invalid ? <p role="alert">{t("Укажите единицу и положительные значения с точностью до трёх знаков после запятой.")}</p> : null}
-    {isExisting ? <p>{t("Изменения цели и расписания действуют со следующего дня. История сохраняется.")}</p> : null}
+    {isExisting && !habit.periodGoal && !hadPeriodGoal ? <p>{t("Изменения цели и расписания действуют со следующего дня. История сохраняется.")}</p> : null}
   </fieldset>;
 }
 
@@ -61,7 +62,9 @@ export function HabitMeasurementControl({ habit, workspace, date, language, time
   const t = (text: string) => translateText(text, language);
   const id = useId();
   const progress = habitMeasurementProgress(habit, date, workspace.habitMeasurements ?? []);
-  const definition = progress.rule.measurement;
+  const definition = effectiveHabitMeasurement(progress.rule);
+  const countOnly = !progress.rule.measurement;
+  const periodicVolume = progress.rule.periodGoal && progress.rule.periodGoal.metric !== "days";
   const [value, setValue] = useState("");
   const [note, setNote] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -70,6 +73,7 @@ export function HabitMeasurementControl({ habit, workspace, date, language, time
   const pending = useRef(false);
   if (!definition) return null;
   const format = (amount: number, ruleId = progress.rule.id) => {
+    if (countOnly) return formatHabitValue(amount, language);
     const original = ruleId === progress.rule.id ? definition : habit.ruleHistory?.find(rule => rule.id === ruleId)?.measurement ?? definition;
     return `${formatHabitValue(amount, language)} ${original.kind === "duration" ? t("мин") : original.unit}`;
   };
@@ -94,20 +98,20 @@ export function HabitMeasurementControl({ habit, workspace, date, language, time
   };
   return <div className="habit-measurement-control" role="group" aria-label={`${t("Учёт выполнения")}: ${habit.title}`}>
     <div className="habit-measurement-summary" aria-live="polite">
-      <strong>{format(progress.total)} / {format(progress.target)}</strong>
-      <span>{progress.completed ? t("Цель достигнута") : `${t("Осталось")}: ${format(progress.remaining)}`}</span>
+      <strong>{periodicVolume ? `${t("Записано сегодня")}: ${format(progress.total)}` : `${format(progress.total)} / ${format(progress.target)}`}</strong>
+      {!periodicVolume ? <span>{progress.completed ? t("Цель достигнута") : `${t("Осталось")}: ${format(progress.remaining)}`}</span> : null}
     </div>
     {canRecord ? <div className="habit-measurement-add">
       {!editingId ? <button type="button" className="secondary-button" disabled={busy} onClick={() => submit(definition.quickAdd)}
-        aria-label={`${t("Быстрое добавление")}: ${format(definition.quickAdd)}`}>+ {format(definition.quickAdd)}</button> : null}
-      <label htmlFor={`${id}-value`}><span>{t("Значение")}</span><input id={`${id}-value`} inputMode="decimal"
+        aria-label={countOnly ? t("Добавить выполнение") : `${t("Быстрое добавление")}: ${format(definition.quickAdd)}`}>{countOnly ? t("Добавить выполнение") : `+ ${format(definition.quickAdd)}`}</button> : null}
+      {!countOnly ? <label htmlFor={`${id}-value`}><span>{t("Значение")}</span><input id={`${id}-value`} inputMode="decimal"
         value={value} disabled={busy} maxLength={16} aria-invalid={Boolean(value && !parseHabitValue(value))}
-        onChange={event => setValue(event.target.value)} /></label>
+        onChange={event => setValue(event.target.value)} /></label> : null}
       <label htmlFor={`${id}-note`}><span>{t("Заметка")}</span><input id={`${id}-note`} value={note} disabled={busy} maxLength={2000}
         onChange={event => setNote(event.target.value)} /></label>
-      <button type="button" className="primary-button" disabled={busy || !parseHabitValue(value)} onClick={() => submit(parseHabitValue(value)!,
+      {!countOnly || editingId ? <button type="button" className="primary-button" disabled={busy || !countOnly && !parseHabitValue(value)} onClick={() => submit(countOnly ? 1000 : parseHabitValue(value)!,
         editingId ?? undefined, editingId ? progress.entries.find(entry => entry.id === editingId)?.heads.map(head => head.id) : undefined)}>
-        {t(editingId ? "Сохранить" : "Добавить значение")}</button>
+        {t(editingId ? "Сохранить" : "Добавить значение")}</button> : null}
       {editingId ? <button type="button" className="secondary-button" disabled={busy} onClick={() => { setEditingId(null); setValue(""); setNote(""); }}>{t("Отмена")}</button> : null}
     </div> : null}
     {error ? <p role="alert">{error}</p> : null}

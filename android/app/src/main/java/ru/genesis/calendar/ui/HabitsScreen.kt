@@ -245,7 +245,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
             AdaptiveCardGrid(current.habits.sortedByDescending { it.priority }, { it.id }) { habit ->
                 val entry=current.completions.firstOrNull { it.habitId==habit.id && it.date==today }
                 val scheduled=runCatching { engine.isScheduled(habit,today) }.getOrDefault(false)
-                val measured=HabitMeasurements.rule(habit,today).measurement!=null
+                val measured=HabitMeasurements.effective(HabitMeasurements.rule(habit,today))!=null
                 if (experimental) ExperimentalHabitCard(habit, entry, scheduled, busy || storageError,
                     animate = current.settings.feedback.animations,
                     onComplete={checked,quality -> scope.launch { runAction {
@@ -287,6 +287,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                 if(measured) HabitMeasurementInputs(habit,current.measurements,today,entry,scheduled&&!busy&&!storageError,
                     onRecord={amount,entryId,replaces,note -> repository.recordMeasurement(habit.id,today,amount,entryId,replaces,note);Unit},
                     onQuality={quality -> recordCompletion(habit.id,true,quality,current.settings.feedback)})
+                HabitPeriodGoalProgress(habit,current.measurements,current.completions,today)
             }
             if (experimental && current.settings.feedback.gamificationWidgets) {
                 val motionEnabled = current.settings.feedback.animations
@@ -422,7 +423,7 @@ private fun ExperimentalHabitCard(habit: Habit, entry: HabitCompletion?, schedul
     animate: Boolean, onComplete: (Boolean, Double?) -> Unit, onEdit: () -> Unit,
     onIntervalComplete: (String,Boolean) -> Unit,
     onToggle: () -> Unit, onDelete: () -> Unit) {
-    val measured = HabitMeasurements.rule(habit,LocalDate.now()).measurement!=null
+    val measured = HabitMeasurements.effective(HabitMeasurements.rule(habit,LocalDate.now()))!=null
     val status = if (!habit.active) "На паузе" else if (scheduled) "Запланировано сегодня" else "Сегодня свободно"
     val calendar = when (habit.schedule.recurrence.mode) {
         "classic" -> "Григорианский ритм"
@@ -531,6 +532,8 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
     var intervalSchedule by remember(initial.id) { mutableStateOf(initial.intervalSchedule) }
     var measurement by remember(initial.id) { mutableStateOf(initial.measurement) }
     var measurementValid by remember(initial.id) { mutableStateOf(true) }
+    var periodGoal by remember(initial.id) { mutableStateOf(initial.periodGoal) }
+    var periodValid by remember(initial.id) { mutableStateOf(true) }
     var priority by rememberSaveable(initial.id) { mutableIntStateOf(initial.priority) }
     var scoring by rememberSaveable(initial.id) { mutableStateOf(initial.scoringMode) }
     var start by rememberSaveable(initial.id) { mutableStateOf(initial.schedule.startDate.toString()) }
@@ -564,7 +567,10 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
             EditorSection("Основное") {
             OutlinedTextField(title,{title=it},label={Text("Название")},modifier=Modifier.fillMaxWidth(),enabled=!busy)
             OutlinedTextField(description,{description=it},label={Text("Описание")},modifier=Modifier.fillMaxWidth(),enabled=!busy)
-            HabitMeasurementFields(measurement,existing!=null,onChange={measurement=it},onValidity={measurementValid=it})
+            HabitMeasurementFields(measurement,existing!=null,onChange={measurement=it},onValidity={measurementValid=it},periodGoal=periodGoal,
+                hadPeriodGoal=initial.periodGoal!=null||initial.ruleHistory.any { it.periodGoal!=null })
+            HabitPeriodGoalFields(periodGoal,measurement,mode,initial.schedule.timezone,existing!=null,
+                onChange={periodGoal=it},onValidity={periodValid=it},hadPeriodGoal=initial.periodGoal!=null||initial.ruleHistory.any { it.periodGoal!=null })
             HabitPersonalizationFields(emoji,color,isKeyHabit,ritualId,ritualName,!busy,
                 onEmoji={ emoji=it.take(32) },onColor={ color=it.take(7) },
                 onKeyHabit={ isKeyHabit=it },
@@ -728,15 +734,15 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
             error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 TextButton(enabled=!busy,onClick=onDismiss) { Text("Отмена") }
-                Button(enabled=!busy&&measurementValid&&title.isNotBlank()&&normalizedHabitColor(color)!=null&&normalizedHabitEmoji(emoji)!=null&&
+                Button(enabled=!busy&&measurementValid&&periodValid&&title.isNotBlank()&&normalizedHabitColor(color)!=null&&normalizedHabitEmoji(emoji)!=null&&
                     (ritualId!="custom"||ritualName.isNotBlank())&&
                     (limit==0||config.days.isNotEmpty())&&(end.isEmpty()||end>=start)&&intervalSchedule?.valid()!=false,onClick={
                     onSave(initial.copy(title=title.trim(),description=description,priority=priority,scoringMode=scoring,
                         createdDate=if(existing==null) LocalDate.parse(start) else initial.createdDate,
                         emoji=requireNotNull(normalizedHabitEmoji(emoji)),color=requireNotNull(normalizedHabitColor(color)),
                         isKeyHabit=isKeyHabit,ritualId=ritualId,ritualName=if(ritualId=="custom") ritualName.trim() else "",
-                        preferredTime=preferredTime,reminder=reminder,measurement=measurement,
-                        intervalSchedule=if(measurement!=null) intervalSchedule?.copy(completionMode="day") else intervalSchedule,
+                        preferredTime=preferredTime,reminder=reminder,measurement=measurement,periodGoal=periodGoal,
+                        intervalSchedule=if(measurement!=null||periodGoal!=null) intervalSchedule?.copy(completionMode="day") else intervalSchedule,
                         qualityScale=when(scoring){"quality-ten"->"ten";"quality-bipolar"->"bipolar";else->"none"},
                         schedule=initial.schedule.copy(startDate=LocalDate.parse(start),endDate=end.takeIf(String::isNotEmpty)?.let(LocalDate::parse),recurrence=config)))
                 }) { Text(if(busy) "Сохранение…" else "Сохранить") }

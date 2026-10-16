@@ -771,8 +771,8 @@ function genesisSaveWorkspaceEnvelope(string $userId, array $payload): array
     }
     $hasExpectedVersion = array_key_exists('expectedVersion', $payload);
     $expectedVersion = genesisClampInt($payload['expectedVersion'] ?? 0, 0, 9_000_000_000_000_000, 0);
-    $writerProtocol = genesisClampInt($payload['writerProtocol'] ?? 1, 1, 2, 1);
-    $requiredProtocol = genesisClampInt($payload['minimumWriterProtocol'] ?? 1, 1, 2, 1);
+    $writerProtocol = genesisClampInt($payload['writerProtocol'] ?? 1, 1, 3, 1);
+    $requiredProtocol = genesisClampInt($payload['minimumWriterProtocol'] ?? 1, 1, 3, 1);
     if ($writerProtocol < $requiredProtocol) throw new DomainException('WORKSPACE_UPGRADE_REQUIRED');
     $db = genesisDb();
     $ownsTransaction = !$db->inTransaction();

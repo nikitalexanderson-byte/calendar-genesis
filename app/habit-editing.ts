@@ -2,6 +2,7 @@ import type { Habit, HabitWorkspace } from "./habits";
 import type { TrackerSyncState } from "./tracker-core";
 import { addCivilDays, momentCivilDate } from "./calendar-context.ts";
 import { normalizeHabitMeasurement, habitRuleForDate, normalizeHabitRuleHistory } from "./habit-measurement.ts";
+import { habitGoalPeriod, normalizeHabitPeriodGoal } from "./habit-period-goal.ts";
 
 /** Selects the first tracking day before the habit is saved for the first time. */
 export function setNewHabitStartDate(habit: Habit, startDate: string, earliestDate: string): Habit {
@@ -32,21 +33,28 @@ export function setNewHabitStartDate(habit: Habit, startDate: string, earliestDa
  */
 export function applyEditableHabitUpdate(previous: Habit, candidate: Habit): Habit {
   const measurement = normalizeHabitMeasurement(candidate.measurement);
+  const periodGoal = normalizeHabitPeriodGoal(candidate.periodGoal);
+  if (periodGoal?.metric === "sum" && !measurement) throw new RangeError("HABIT_PERIOD_MEASUREMENT_REQUIRED");
   const ruleChanged = JSON.stringify(previous.measurement ?? null) !== JSON.stringify(measurement)
-    || JSON.stringify(previous.schedule) !== JSON.stringify(candidate.schedule);
+    || JSON.stringify(previous.schedule) !== JSON.stringify(candidate.schedule)
+    || JSON.stringify(previous.periodGoal ?? null) !== JSON.stringify(periodGoal);
   const previousRules = previous.ruleHistory ?? [];
   const baseline = habitRuleForDate(previous, previous.createdDate);
   const schedule = { ...candidate.schedule, startDate: previous.schedule.startDate,
     recurrence: { ...candidate.schedule.recurrence, rangeStart: previous.schedule.recurrence.rangeStart } };
+  const transitionGoal = habitRuleForDate(previous, momentCivilDate(new Date(), previous.schedule.timezone)).periodGoal ?? periodGoal;
+  const effectiveDate = transitionGoal
+    ? habitGoalPeriod(transitionGoal, momentCivilDate(new Date(), transitionGoal.context.timeZone)).end
+    : addCivilDays(momentCivilDate(new Date(), previous.schedule.timezone), 1);
   const ruleHistory = ruleChanged ? normalizeHabitRuleHistory([
     ...(previousRules.length ? previousRules : [baseline]),
     { id: `rule:${crypto.randomUUID()}`,
-      effectiveDate: addCivilDays(momentCivilDate(new Date(), previous.schedule.timezone), 1),
-      recordedAt: candidate.updatedAt, schedule, measurement },
+      effectiveDate, recordedAt: candidate.updatedAt, schedule, measurement, ...(periodGoal ? { periodGoal } : {}) },
   ]) : previousRules;
   return {
     ...candidate,
     measurement,
+    periodGoal,
     ruleHistory,
     id: previous.id,
     createdAt: previous.createdAt,
