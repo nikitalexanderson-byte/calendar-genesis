@@ -5607,7 +5607,7 @@ export function GenesisCalendar() {
             <span className="eyebrow">{monthEyebrow}</span>
             <h1>{monthTitle}</h1>
             <p className="calendar-title">{monthSubtitle}</p>
-            <p>{monthDescription}</p>
+            {sacredFeaturesEnabled ? <p>{monthDescription}</p> : null}
             <div className={`calendar-solar-control status-${solarLocationStatus}`} aria-live="polite">
               <div><span aria-hidden="true">☀</span><strong>{solarLocationStatus === "ready" ? `Рассвет и закат · ${solarLocationSource === "selected-city" ? "время выбранного города" : "время устройства"}` : "Синхронизируем рассвет и закат…"}</strong></div>
               <small>{solarLocationStatus === "ready" ? `${solarTimeZone} · ${solarLocationSource === "selected-city" ? "координаты выбранного города" : "приблизительный расчёт для региона устройства"}` : "Определяем регион автоматически, без запроса геопозиции"}</small>

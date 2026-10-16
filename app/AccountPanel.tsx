@@ -739,7 +739,7 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
           <div>
             <span className="eyebrow">Основной календарь</span>
             <h3 id="calendar-mode-title">Полное отображение и система дат</h3>
-            <p>Выбор полностью переключает разделы «Месяц» и «Круг года». Сакральный календарь используется по умолчанию; систему постановки задач можно выбрать отдельно для любого режима.</p>
+            {visibility.sacredFeaturesEnabled ? <p>Выбор полностью переключает разделы «Месяц» и «Круг года». Сакральный календарь используется по умолчанию; систему постановки задач можно выбрать отдельно для любого режима.</p> : null}
           </div>
           <div className="calendar-mode-segment" role="radiogroup" aria-label="Система дат">
             {CALENDAR_MODES.filter((mode) => visibleCalendarModes(visibility).includes(mode.id)).map((mode) => (
