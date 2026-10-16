@@ -22,7 +22,9 @@ internal fun allowedSharedRoute(method: String, path: String): Boolean {
     if (path in setOf("/shared/spaces", "/shared/invitations", "/shared/invitations/accept",
             "/shared/notifications", "/shared/notifications/read")) return method in setOf("GET", "POST")
     if (method == "GET" && path.matches(Regex("/shared/calendar/tasks\\?from=\\d{4}-\\d{2}-\\d{2}&to=\\d{4}-\\d{2}-\\d{2}"))) return true
-    if (method == "GET" && path.matches(Regex("/shared/tasks\\?filter=[A-Za-z0-9%+_.~-]+(?:&cursor=[A-Za-z0-9%+_.~-]+)?"))) return true
+    if (method == "GET" && path.matches(Regex("/shared/tasks\\?filter=[A-Za-z0-9%+_.~-]+(?:&cursor=[A-Za-z0-9%+_.~-]+)?(?:&sort=(?:position|createdAt|createdAtAsc|dueDate|updatedAt|title|priority))?"))) return true
+    if (path == "/shared/notification-settings") return method in setOf("GET", "PUT")
+    if (path == "/shared/notification-settings/retry") return method == "POST"
     if (path.matches(Regex("/shared/invitations/[a-f0-9-]{36}"))) return method == "POST"
     if (path == "/shared/task-lists") return method == "GET"
     if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/ui"))) return method in setOf("GET", "PATCH")
@@ -43,6 +45,7 @@ internal fun allowedSharedRoute(method: String, path: String): Boolean {
     if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/(tasks|invitations)"))) return method == "POST"
     if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/tasks/[a-f0-9-]{36}"))) return method in setOf("GET", "POST")
     if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/tasks/[a-f0-9-]{36}/move"))) return method == "POST"
+    if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/tasks/[a-f0-9-]{36}/read"))) return method == "POST"
     if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/tasks/[a-f0-9-]{36}/comments"))) return method in setOf("GET", "POST")
     return false
 }
@@ -204,11 +207,16 @@ internal class AuthSessionClient(context: Context) {
         request(expected, "/shared/spaces/$spaceId/projects", body)
     fun importSharedProject(expected: Long, spaceId: String, body: JSONObject): JSONObject =
         request(expected, "/shared/spaces/$spaceId/import-project", body)
-    fun querySharedTasks(expected: Long, filter: JSONObject, cursor: String?): JSONObject {
+    fun querySharedTasks(expected: Long, filter: JSONObject, cursor: String?,sort:String="position"): JSONObject {
         val query = java.net.URLEncoder.encode(filter.toString(), "UTF-8")
         val continuation = cursor?.let { "&cursor=" + java.net.URLEncoder.encode(it, "UTF-8") } ?: ""
-        return request(expected, "/shared/tasks?filter=$query$continuation", null)
+        return request(expected, "/shared/tasks?filter=$query$continuation&sort=${java.net.URLEncoder.encode(sort,"UTF-8")}", null)
     }
+    fun readSharedTaskUpdates(expected:Long,projectId:String,taskId:String,commentIds:List<String>):JSONObject=
+        request(expected,"/shared/projects/$projectId/tasks/$taskId/read",JSONObject().put("commentIds",org.json.JSONArray(commentIds)))
+    fun notificationSettings(expected:Long):JSONObject=request(expected,"/shared/notification-settings",null)
+    fun saveNotificationSettings(expected:Long,settings:JSONObject,revision:Int):JSONObject=
+        request(expected,"/shared/notification-settings",JSONObject().put("settings",settings).put("expectedRevision",revision),method="PUT")
     fun sharedTask(expected: Long, projectId: String, taskId: String): JSONObject =
         request(expected, "/shared/projects/$projectId/tasks/$taskId", null)
     fun sharedProject(expected: Long, projectId: String): JSONObject =

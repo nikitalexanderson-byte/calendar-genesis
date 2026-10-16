@@ -53,9 +53,11 @@ function genesisNotificationRecipient(string $eventId,string $userId,string $kin
 
 function genesisNotificationEnqueue(string $eventId,string $userId,string $kind): void
 {
-    $settings=genesisNotificationPreferences($userId)['settings'];if(empty($settings['types'][$kind]))return;$capabilities=genesisNotificationCapabilities();$db=genesisDb();$available=genesisNotificationScheduleAt($settings);$now=genesisNow();
+    $settings=genesisNotificationPreferences($userId)['settings'];$capabilities=genesisNotificationCapabilities();$db=genesisDb();$available=genesisNotificationScheduleAt($settings);$now=genesisNow();
     foreach(['push','email']as$channel){
         if(!$settings['channels'][$channel]||!$capabilities[$channel]['available'])continue;
+        if($channel==='push'&&empty($settings['types'][$kind]))continue;
+        if($channel==='email'&&empty($settings['emailTypes'][$kind]))continue;
         if($channel==='push'){$q=$db->prepare('SELECT id FROM shared_push_subscriptions WHERE user_id=?');$q->execute([$userId]);$targets=$q->fetchAll(PDO::FETCH_COLUMN);$q->closeCursor();}else$targets=['email'];
         foreach($targets as$target){
             $bucket=$settings['frequency']==='immediate'?'event:'.$eventId:$settings['frequency'].':'.$available;

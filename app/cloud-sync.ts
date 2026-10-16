@@ -1658,6 +1658,7 @@ export type SharedReviewSettingsData = {rootProjectId:string;rootTitle:string;re
 export type SharedTaskReviewData = {enabled:boolean;allowed:Record<SharedReviewKind,boolean>;entries:{kind:SharedReviewKind;userId:string;displayName:string;reviewedAt:string}[]};
 export type SharedTrashEntry = {kind:"task"|"project";id:string;title:string;deletedAt:string;expiresAt:string;retentionDays:number;canRestore:boolean;canPurge?:boolean;projectId?:string};
 export type SharedTask = { review?:SharedTaskReviewData; id: string; projectId: string; statusId: string; title: string;
+  unreadCommentCount?: number;
   seriesId?: string; seriesProjectId?: string; seriesOriginalDate?: string;
   priority?: number; parentTaskId?: string | null; checklists?: SharedChecklist[]; archivedAt?: string | null;
   childCount?: number; completedChildCount?: number; projectTitle?: string; spaceId?: string; isInbox?: number;
@@ -1706,7 +1707,7 @@ export async function deleteSharedSavedView(view:SharedSavedView, requestId:stri
 }
 export type SharedTaskPage = { tasks: SharedTask[]; total: number; hasMore: boolean; nextCursor: string | null;
   statusCounts: Record<string, number>; dateCounts: Record<string, number>; consistency: "restart-on-change"; queryVersion: string; bounds?: {first: string | null; last: string | null} };
-export type SharedTaskSort = "position" | "dueDate" | "priority" | "updatedAt" | "title";
+export type SharedTaskSort = "position" | "dueDate" | "priority" | "updatedAt" | "title" | "createdAt" | "createdAtAsc";
 export type SharedBulkSelection = {mode:"page";items:{id:string;projectId:string;revision:number}[]}
   | {mode:"all";filter:SharedTaskFilter;sort:SharedTaskSort;queryVersion:string};
 export type SharedBulkAction = {kind:"priority";priority:number}|{kind:"assignee";assigneeId:string|null}

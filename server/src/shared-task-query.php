@@ -120,6 +120,11 @@ function genesisSharedHydrateTasks(string $userId, array $rows, array $projects 
     $childQuery = $db->prepare('SELECT parent_task_id AS id,COUNT(*) AS total,SUM(completed_at IS NOT NULL) AS done FROM shared_tasks_history_read
         WHERE parent_task_id IN (' . $page . ') GROUP BY parent_task_id'); $childQuery->execute($ids);
     $childCounts = array_column($childQuery->fetchAll(), null, 'id');
+    $unreadQuery=$db->prepare("SELECT c.task_id AS id,COUNT(DISTINCT c.id) AS total FROM shared_comments_read c
+        JOIN shared_audit_events_read e ON e.object_id=c.id AND e.action='comment.created'
+        LEFT JOIN shared_notification_reads r ON r.event_id=e.id AND r.user_id=?
+        WHERE c.task_id IN ($page) AND c.author_id<>? AND r.event_id IS NULL GROUP BY c.task_id");
+    $unreadQuery->execute([$userId,...$ids,$userId]);$unreadComments=array_column($unreadQuery->fetchAll(),'total','id');$unreadQuery->closeCursor();
     foreach ($rows as $row) {
         $projectId = $row['project_id'];
         $project = $projects[$projectId] ??= genesisSharedProjectAccess($projectId, $userId);
@@ -128,7 +133,7 @@ function genesisSharedHydrateTasks(string $userId, array $rows, array $projects 
             'statusId'=>$row['status_id'],'categoryId'=>$row['category_id'],'assigneeId'=>$row['assignee_id'],
             'createdBy'=>$row['created_by'],'updatedBy'=>$row['updated_by'],'completedBy'=>$row['completed_by'],'completedAt'=>$row['completed_at'],
             'dueDate'=>$row['due_date'],'startDate'=>$row['start_date'],'startTime'=>$row['start_time'],'endTime'=>$row['end_time'],
-            'position'=>(int)$row['position'],'revision'=>(int)$row['revision'],'createdAt'=>$row['created_at'],'updatedAt'=>$row['updated_at'],
+            'position'=>(int)$row['position'],'revision'=>(int)$row['revision'],'createdAt'=>$row['created_at'],'updatedAt'=>$row['updated_at'],'unreadCommentCount'=>(int)($unreadComments[$row['id']]??0),
             'priority'=>(int)$row['priority'],'parentTaskId'=>$row['parent_task_id'],'archivedAt'=>$row['archived_at'],
             'checklists'=>json_decode($row['checklists_json'],true),'childCount'=>(int)($childCounts[$row['id']]['total']??0),'completedChildCount'=>(int)($childCounts[$row['id']]['done']??0)];
         $task['dependsOnIds'] = genesisSharedDependencyIds($row['id']);
@@ -166,7 +171,7 @@ function genesisSharedQueryTasks(string $userId, array $filter = [], ?string $cu
     genesisSharedRequireEnabled($userId);
     if ($limit < 1 || $limit > 100) throw new InvalidArgumentException('INVALID_TASK_PAGE');
     $sorts = ['position'=>['t.position','ASC'],'dueDate'=>["COALESCE(t.due_date,'9999-12-31')",'ASC'],
-        'priority'=>['t.priority','DESC'],'updatedAt'=>['t.updated_at','DESC'],'title'=>['genesis_fold(t.title)','ASC']];
+        'priority'=>['t.priority','DESC'],'updatedAt'=>['t.updated_at','DESC'],'createdAt'=>['t.created_at','DESC'],'createdAtAsc'=>['t.created_at','ASC'],'title'=>['genesis_fold(t.title)','ASC']];
     $db = genesisDb(); $owns = !$db->inTransaction(); if ($owns) $db->beginTransaction();
     try {
         [$filter,$sort,$viewSignature]=genesisSharedViewQuery($userId,$filter,$sort);

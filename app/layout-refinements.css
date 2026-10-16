@@ -1126,6 +1126,16 @@ html[data-genesis-theme] .genesis-app .shared-board-display-settings p { margin:
 }
 
 html[data-genesis-theme] .genesis-app .account-panel .appearance-menu-subsection { display:grid; gap:16px; padding:24px; }
+html[data-genesis-theme] .genesis-app .account-panel .appearance-settings-stack { margin-top: 20px; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+html[data-genesis-theme] .genesis-app .account-panel .settings-section-nav { display: flex; flex-wrap: nowrap; gap: 6px; overflow: visible; }
+html[data-genesis-theme] .genesis-app .account-panel .settings-section-nav button { display: grid; place-items: center; flex: 0 1 48px; width: 48px; min-width: 0; height: 48px; min-height: 48px; padding: 0; }
+html[data-genesis-theme] .genesis-app .account-panel .settings-section-nav svg { width: 24px; height: 24px; }
+html[data-genesis-theme] .genesis-app .account-panel .settings-section-nav button:first-child::after { left: 0; right: auto; transform: none; }
+html[data-genesis-theme] .genesis-app .account-panel .settings-section-nav button:last-child::after { left: auto; right: 0; transform: none; }
+html[data-genesis-theme] .genesis-app .brand-mark .brand-motto { display: grid; gap: 1px; font-style: normal; font-size: clamp(10px, 1cqw, 12px); line-height: 1.35; min-width: 0; }
+html[data-genesis-theme] .genesis-app .brand-motto > span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html[data-genesis-theme] .genesis-app[data-sidebar-compact="true"][data-sidebar-collapsed="false"] .brand-mark:has(.brand-motto) .brand-icon { grid-row:1; }
+html[data-genesis-theme] .genesis-app[data-sidebar-compact="true"][data-sidebar-collapsed="false"] .brand-mark .brand-motto { grid-column:1/-1; margin-top:6px; font-size:11px; letter-spacing:.015em; }
 html[data-genesis-theme] .genesis-app .account-panel .appearance-menu-controls { margin:0; padding:0; border:0; background:transparent; }
 html[data-genesis-theme] .genesis-app .account-panel .appearance-menu-controls h4 { margin:0; padding:0; border:0; border-radius:0; background:transparent; font:600 20px/1.3 var(--font-ui); color:var(--ink); }
 html[data-genesis-theme] .genesis-app .account-panel .sidebar-auto-collapse-setting { display:grid; grid-template-columns:minmax(0,1fr) minmax(160px,220px); gap:16px; align-items:center; margin:0; font:14px/1.5 var(--font-ui); }
@@ -1162,6 +1172,10 @@ html[data-genesis-theme] .genesis-app[data-sacred-features="false"] :is(.calenda
   pointer-events: none;
 }
 .genesis-app .personal-action-hint:is(:hover, :focus-visible)::after { visibility: visible; }
+.genesis-app .task-order-choice { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font: 500 13px/1.5 var(--font-ui); }
+.genesis-app .task-order-choice select { min-height: 44px; max-width: 100%; }
+.genesis-app .unread-comment-badge { display: inline-flex; width: fit-content; align-items: center; padding: 3px 8px; border: 1px solid var(--gold); border-radius: 6px; color: var(--ink); background: var(--exp-accent-wash); font: 600 12px/1.5 var(--font-ui); }
+.genesis-app :is(.has-unread-comments, [data-unread-comments]:not([data-unread-comments="0"])) :is(.task-preview-open, .shared-board-task-title, .shared-task-open, strong[title]) { font-weight: 750; }
 
 /* Without the sacred layer, the date and clock form one compact, readable header. */
 html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .hero-card {

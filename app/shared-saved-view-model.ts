@@ -6,7 +6,7 @@ const record = (value: unknown): value is Record<string, unknown> => Boolean(val
 /** Shape checks only: keep invalid dates/zones editable and let the server validate their meaning. */
 export function editableSharedViewDefinition(value: unknown): value is SharedSavedViewDefinition {
   if (!record(value) || value.version !== 1 || typeof value.title !== "string"
-    || !["position", "priority", "dueDate", "title", "updatedAt"].includes(String(value.sort))
+    || !["position", "priority", "dueDate", "title", "updatedAt", "createdAt", "createdAtAsc"].includes(String(value.sort))
     || !["none", "overdue", "this-week", "this-month"].includes(String(value.relative))
     || !["profane", "sacred", "lunar"].includes(String(value.calendarMode))) return false;
   const context = value.calendarContext;

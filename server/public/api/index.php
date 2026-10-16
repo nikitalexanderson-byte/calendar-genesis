@@ -27,6 +27,7 @@ $path = trim((string)($_GET['path'] ?? $_SERVER['PATH_INFO'] ?? ''), '/');
 $segments = $path === '' ? [] : explode('/', $path);
 // Parallel public discovery must not replace the cookie of a new login session.
 define('GENESIS_STATELESS_REQUEST', $method === 'OPTIONS'
+    || $path === 'email/confirm'
     || ($method === 'GET' && in_array($path, ['health', 'auth/providers'], true)));
 require $serverRoot . '/src/bootstrap.php';
 require $serverRoot . '/src/repository.php';
@@ -51,6 +52,21 @@ header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
 if ($method === 'OPTIONS') {
     http_response_code(204);
     exit;
+}
+
+if($path==='email/confirm'&&in_array($method,['GET','POST'],true)){
+    header('Content-Type: text/html; charset=UTF-8');header('Cache-Control: no-store');header('Referrer-Policy: no-referrer');
+    header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
+    $token=$method==='POST'?($_POST['token']??''):($_GET['token']??'');$token=is_string($token)?$token:'';$language='ru';
+    try{$valid=genesisEmailConfirmRegistration($token,$method==='POST');$language=genesisEmailRegistrationLanguage($token);}catch(Throwable){$valid=false;}
+    $escape=static fn(string $value):string=>htmlspecialchars($value,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
+    $copy=static fn(string $key):string=>$escape(genesisNotificationCopy($key,$language));
+    http_response_code($valid?200:410);
+    $heading=$copy(!$valid?'Ссылка недействительна или срок её действия истёк':($method==='POST'?'Регистрация подтверждена':'Подтверждение регистрации'));
+    echo '<!doctype html><html lang="'.$escape($language).'"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>GENESIS — '.$heading.'</title><style>body{margin:0;background:#eee9dc;color:#132426;font:16px/1.6 sans-serif}main{max-width:540px;margin:8vh auto;padding:28px;background:#fffdf8;border-radius:12px}button{font:inherit;cursor:pointer;padding:12px 20px;background:#255b59;color:#fff;border:0;border-radius:8px}a{color:inherit}h1{line-height:1.3;overflow-wrap:anywhere}@media(prefers-color-scheme:dark){body{background:#132426;color:#eee9dc}main{background:#203537}button{background:#b8d6cf;color:#132426}}@media(max-width:600px){main{margin:24px 12px}}</style></head><body><main><p>GENESIS</p><h1>'.$heading.'</h1>';
+    if($valid&&$method==='GET')echo '<p>'.$copy('Ваш аккаунт создан через Google. Подтвердите регистрацию. Ссылка действует 48 часов.').'</p><form method="post" action="/api/email/confirm"><input type="hidden" name="token" value="'.$escape($token).'"><button type="submit">'.$copy('Подтвердить регистрацию').'</button></form>';
+    else echo '<p><a href="/">'.$copy('Открыть GENESIS').'</a></p>';
+    echo '</main></body></html>';exit;
 }
 
 function genesisFinishSession(array $payload = ['ok' => true]): never
@@ -600,7 +616,7 @@ try {
                     $_SESSION['user_id'] = $requestUserId;
                     session_regenerate_id(true);
                 } else {
-                    $user = genesisUpsertGoogleUser($profile, $tokens, true);
+                    $user = genesisUpsertGoogleUser($profile, $tokens, true, true);
                     genesisEstablishGoogleSession($user, (string)$profile['sub']);
                     session_regenerate_id(true);
                     try {
@@ -610,7 +626,7 @@ try {
                     }
                 }
             } else {
-                $user = genesisUpsertGoogleUser($profile, $tokens, false);
+                $user = genesisUpsertGoogleUser($profile, $tokens, false, true);
                 genesisEstablishGoogleSession($user, (string)$profile['sub']);
                 session_regenerate_id(true);
             }
@@ -642,6 +658,7 @@ try {
             if ($method === 'POST') genesisJson(genesisSharedMessagingKey($userId,genesisReadJson()));
         }
         if ($method === 'GET' && $path === 'shared/messaging/inbox') genesisJson(genesisSharedPrivateInbox($userId));
+        if (count($segments) === 3 && $segments[1] === 'private-conversations' && $method === 'GET') genesisJson(genesisSharedPrivateDestination($userId,$segments[2]));
         if (count($segments) === 4 && $segments[1] === 'spaces' && $segments[3] === 'private-conversations' && $method === 'POST') {
             genesisJson(genesisSharedPrivateConversation($userId,$segments[2],genesisReadJson()));
         }

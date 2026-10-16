@@ -45,7 +45,7 @@ function genesisNotificationScan(int $limit=200,?string $now=null): int
 
 function genesisNotificationDeliveryItems(array $delivery): array
 {
-    $sql=genesisNotificationInboxSql($delivery['user_id'],null,true);
+    $sql=genesisNotificationInboxSql($delivery['user_id'],null,true,false,$delivery['channel']);
     $q=genesisDb()->prepare('SELECT COUNT(*) AS count,MAX(e.id) AS anyEvent'.$sql['from'].$sql['where'].' AND EXISTS(SELECT 1 FROM shared_notification_delivery_items di WHERE di.delivery_id=:delivery AND di.event_id=e.id AND di.user_id=:user)');
     $q->execute($sql['values']+['delivery'=>$delivery['id']]);$result=$q->fetch();$q->closeCursor();return['count'=>(int)$result['count'],'eventId'=>$result['anyEvent']];
 }
@@ -66,7 +66,7 @@ function genesisNotificationDeliveryAccess(string $userId,string $deliveryId): a
     $settings=genesisNotificationPreferences($userId)['settings'];if(!$settings['channels'][$delivery['channel']])throw new GenesisSharedAccessException();
     $items=genesisNotificationDeliveryItems($delivery);if(!$items['count'])throw new GenesisSharedAccessException();
     // Destination is resolved under the same live membership and type checks, even with inbox disabled.
-    $sql=genesisNotificationInboxSql($userId,null,true);$q=genesisDb()->prepare('SELECT p.space_id AS spaceId,p.id AS projectId,t.id AS taskId,c.id AS commentId'.$sql['from'].$sql['where'].' AND e.id=:event');$q->execute($sql['values']+['event'=>$items['eventId']]);$destination=$q->fetch();$q->closeCursor();
+    $sql=genesisNotificationInboxSql($userId,null,true,false,$delivery['channel']);$q=genesisDb()->prepare('SELECT p.space_id AS spaceId,p.id AS projectId,t.id AS taskId,c.id AS commentId'.$sql['from'].$sql['where'].' AND e.id=:event');$q->execute($sql['values']+['event'=>$items['eventId']]);$destination=$q->fetch();$q->closeCursor();
     if(!$destination)throw new GenesisSharedAccessException();if(!$destination['taskId'])unset($destination['taskId']);if($destination['commentId'])$destination['taskAction']='comments';else unset($destination['commentId']);
     return['message'=>genesisNotificationDeliveryMessage($delivery,$items['count']),'destination'=>$destination,'displayAllowed'=>genesisNotificationQuietUntil($settings)===null];
 }
@@ -97,10 +97,10 @@ function genesisNotificationDeliver(array $payload,?callable $transport=null,?st
 function genesisNotificationSend(string $channel,mixed $target,array $message): string
 {
     if($channel==='push')return genesisPushSend($target,['deliveryId'=>$message['deliveryId']]);
-    $from=genesisConfig()['notifications']['email']['from'];$subject='=?UTF-8?B?'.base64_encode($message['body']).'?=';
-    $host=preg_replace('/[^A-Za-z0-9.-]/','-',(string)parse_url(genesisConfig()['app_url'],PHP_URL_HOST))?:'localhost.invalid';
-    $accepted=mail($target,$subject,genesisNotificationCopy('Откройте GENESIS, чтобы посмотреть обновления.',$message['lang'])."\n\n".$message['url'],['From'=>$from,'MIME-Version'=>'1.0','Content-Type'=>'text/plain; charset=UTF-8','Message-ID'=>'<genesis-'.$message['deliveryId'].'@'.$host.'>']);
-    if(!$accepted)throw new RuntimeException('EMAIL_RETRY');return'accepted';
+    $text=genesisNotificationCopy('Откройте GENESIS, чтобы посмотреть обновления.',$message['lang']);
+    $footer=genesisNotificationCopy('Настройки писем доступны в личном кабинете GENESIS.',$message['lang']);
+    return genesisEmailSend($target,'GENESIS — '.$message['body'],$text."\n\n".$message['url']."\n\n".$footer,$message['deliveryId'],
+        genesisEmailHtml($message['body'],$text,$message['url'],genesisNotificationCopy('Открыть GENESIS',$message['lang']),$footer));
 }
 
 /** Network waits never hold SQLite's writer. A fresh lease gates the result/ack transaction. */
@@ -141,7 +141,7 @@ function genesisNotificationJobFailed(array $job,string $code): void
 
 function genesisNotificationRetry(string $userId,?array $testCapabilities=null): array
 {
-    genesisSharedRequireEnabled($userId);$db=genesisDb();genesisBeginWriteTransaction($db);
+    if(!genesisFindUser($userId))throw new GenesisSharedAccessException();$db=genesisDb();genesisBeginWriteTransaction($db);
     try{
         $q=$db->prepare("SELECT id FROM shared_notification_outbox WHERE user_id=? AND state='failed' ORDER BY created_at,id LIMIT 20");$q->execute([$userId]);$ids=$q->fetchAll(PDO::FETCH_COLUMN);$q->closeCursor();$resumed=0;$settings=genesisNotificationPreferences($userId)['settings'];$capabilities=$testCapabilities??genesisNotificationCapabilities();
         foreach($ids as$id){
@@ -149,6 +149,13 @@ function genesisNotificationRetry(string $userId,?array $testCapabilities=null):
             if(!$settings['channels'][$delivery['channel']]||!$capabilities[$delivery['channel']]['available']||!genesisNotificationDeliveryItems($delivery)['count'])continue;
             $available=genesisNotificationScheduleAt($settings);$db->prepare("UPDATE shared_notification_outbox SET state='pending',error_code=NULL,available_at=?,updated_at=? WHERE id=?")->execute([$available,genesisNow(),$id]);
             $db->prepare("UPDATE background_jobs SET state='pending',attempts=0,error_code=NULL,available_at=?,lease_until=NULL,lease_token=NULL,updated_at=? WHERE unique_key=? AND state IN ('failed','succeeded','cancelled')")->execute([$available,genesisNow(),'notification:'.$id]);$resumed++;
+        }
+        if($capabilities['email']['available']){
+            $q=$db->prepare("SELECT * FROM account_email_outbox WHERE user_id=? AND state='failed' ORDER BY created_at,id LIMIT 20");$q->execute([$userId]);$jobs=$q->fetchAll();$q->closeCursor();
+            foreach($jobs as$job)if(genesisAccountEmailMessage($job)!==null){
+                $available=$job['kind']==='registration'?genesisNow():genesisNotificationScheduleAt($settings);
+                $db->prepare("UPDATE account_email_outbox SET state='pending',attempts=0,error_code=NULL,lease_token=NULL,lease_until=NULL,available_at=?,updated_at=? WHERE id=? AND user_id=? AND state='failed'")->execute([$available,genesisNow(),$job['id'],$userId]);$resumed++;
+            }
         }
         $db->commit();return['resumed'=>$resumed];
     }catch(Throwable$e){if($db->inTransaction())$db->rollBack();throw$e;}

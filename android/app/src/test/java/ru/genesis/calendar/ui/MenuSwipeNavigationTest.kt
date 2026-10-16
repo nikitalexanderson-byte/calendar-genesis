@@ -1,6 +1,7 @@
 package ru.genesis.calendar.ui
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -35,6 +36,18 @@ class MenuSwipeNavigationTest {
         val pages = menuSwipeSequence(true, false)
         assertEquals(SwipeDestination("Сакральное", "stoicheion"),
             nextMenuSwipeDestination(pages, "Календарь", "year", 1))
+    }
+
+    @Test fun disabledSacredFeaturesExcludeOracleFromEverySwipeMode() {
+        for (submenus in listOf(false, true)) for (habits in listOf(false, true)) {
+            val pages = menuSwipeSequence(submenus, habits, sacredFeaturesEnabled = false)
+            assertTrue(pages.none { it.page == "Сакральное" })
+            val calendar = pages.last { it.page == "Календарь" }
+            val next = nextMenuSwipeDestination(pages, calendar.page, calendar.section, 1)
+            assertEquals(if (habits) "Привычки" else "Настройки", next?.page)
+            assertEquals(calendar, nextMenuSwipeDestination(pages, next!!.page, next.section, -1))
+        }
+        assertTrue(menuSwipeSequence(true, true, sacredFeaturesEnabled = true).any { it.page == "Сакральное" })
     }
 
     @Test fun sharedProjectsAreAdjacentSwipeDestinationsWhenAvailable() {

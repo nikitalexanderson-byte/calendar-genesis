@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-function genesisNotificationInboxSql(string $userId,?string $spaceId=null,bool $delivery=false,bool $includeHiddenInbox=false): array
+function genesisNotificationInboxSql(string $userId,?string $spaceId=null,bool $delivery=false,bool $includeHiddenInbox=false,string $channel='inbox'): array
 {
     $db=genesisDb();$today=[];
     $db->sqliteCreateFunction('genesis_notification_day',static function(?string $zone)use(&$today):string{
@@ -23,10 +23,11 @@ function genesisNotificationInboxSql(string $userId,?string $spaceId=null,bool $
         LEFT JOIN shared_notification_preferences pref ON pref.user_id=:user
         LEFT JOIN shared_notification_task_state ns ON ns.task_id=t.id";
     // Creation history stays discoverable for newly added members; this does not enqueue past external deliveries.
+    $typeFilter=$channel==='all'?'1=1':($channel==='email'?"COALESCE(json_extract(pref.settings_json,'$.emailTypes.'||($kind)),json_extract(pref.settings_json,'$.types.'||($kind)),1)=1":"COALESCE(json_extract(pref.settings_json,'$.types.'||($kind)),1)=1");
     $where=" WHERE (n.user_id IS NOT NULL OR (e.actor_id IS NOT :user AND (e.action IN ('project.created','task.created') OR (captured.event_id IS NULL AND e.action IN ('project.updated','invitation.accepted','member.role_changed','task.updated','task.moved_in','task.moved_out','comment.created')))))
         AND (e.action IN ('project.created','project.updated','invitation.accepted','member.role_changed') OR t.id IS NOT NULL OR e.task_id IS NOT NULL)
         AND NOT EXISTS(SELECT 1 FROM shared_trash tr WHERE (tr.kind='project' AND tr.object_id=p.id) OR (tr.kind='task' AND tr.object_id=COALESCE(n.task_id,e.task_id,t.id)))
-        AND COALESCE(json_extract(pref.settings_json,'$.types.'||($kind)),1)=1
+        AND ($typeFilter)
         AND (COALESCE(n.kind,'')<>'approvalRequest' OR (n.approval_version=ns.approval_version AND EXISTS(SELECT 1 FROM shared_task_approvals a WHERE a.task_id=t.id AND a.user_id=:user AND a.approved_at IS NULL)))
         AND (COALESCE(n.kind,'') NOT IN ('dueSoon','overdue') OR (
             t.completed_at IS NULL AND t.archived_at IS NULL AND t.due_date IS NOT NULL AND n.due_version=ns.due_version

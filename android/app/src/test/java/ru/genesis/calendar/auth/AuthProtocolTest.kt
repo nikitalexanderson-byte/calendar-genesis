@@ -12,6 +12,15 @@ class AuthProtocolTest {
     @Test fun sharedRoutesAllowInvitationsCalendarMovesAndGoogleSettings() {
         val id = "01234567-89ab-cdef-0123-456789abcdef"
         assertTrue(allowedSharedRoute("GET", "/shared/tasks?filter=%7B%7D"))
+        for (sort in listOf("position", "createdAt", "createdAtAsc", "dueDate", "updatedAt", "title", "priority")) {
+            assertTrue(allowedSharedRoute("GET", "/shared/tasks?filter=%7B%7D&cursor=opaque&sort=$sort"))
+        }
+        assertFalse(allowedSharedRoute("GET", "/shared/tasks?filter=%7B%7D&sort=untrusted"))
+        assertTrue(allowedSharedRoute("GET", "/shared/notification-settings"))
+        assertTrue(allowedSharedRoute("PUT", "/shared/notification-settings"))
+        assertFalse(allowedSharedRoute("DELETE", "/shared/notification-settings"))
+        assertTrue(allowedSharedRoute("POST", "/shared/projects/$id/tasks/$id/read"))
+        assertFalse(allowedSharedRoute("GET", "/shared/projects/$id/tasks/$id/read"))
         assertTrue(allowedSharedRoute("GET", "/shared/projects/$id/tasks/$id"))
         assertFalse(allowedSharedRoute("POST", "/shared/tasks?filter=%7B%7D"))
         assertFalse(allowedSharedRoute("GET", "/shared/tasks?filter=%7B%7D&untrusted=1"))

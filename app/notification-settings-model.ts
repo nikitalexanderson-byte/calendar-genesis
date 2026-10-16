@@ -11,6 +11,7 @@ export const notificationKindLabels = {
 export type NotificationKind = keyof typeof notificationKindLabels;
 export type SharedNotificationPreferences = {
   types:Record<NotificationKind,boolean>; channels:{inbox:boolean;push:boolean;email:boolean};
+  emailTypes?:Record<NotificationKind|"messages",boolean>;
   frequency:"immediate"|"hourly"|"daily"; digestTime:string; quiet:{enabled:boolean;start:string;end:string};
   timeZone:string; timeZoneMode:"device"|"fixed"; reminderDays:number;
 };
