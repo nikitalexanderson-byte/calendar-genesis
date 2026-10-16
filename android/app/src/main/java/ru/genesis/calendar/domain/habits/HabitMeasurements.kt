@@ -94,7 +94,8 @@ object HabitMeasurements {
 
     fun append(habit: Habit, date: LocalDate, value: Long?, events: List<HabitMeasurementEvent>,
         entryId: String? = null, replaces: List<String> = emptyList(), note: String = "",
-        operationId: String = "habit-value-${UUID.randomUUID()}", timestamp: String = Instant.now().toString()): List<HabitMeasurementEvent> {
+        operationId: String = "habit-value-${UUID.randomUUID()}", timestamp: String = Instant.now().toString(),
+        source: String? = null, historical: Boolean = false): List<HabitMeasurementEvent> {
         val rule = rule(habit, date); require(effective(rule) != null)
         require(HabitRuleHistory.state(habit,date).conflicts.isEmpty()) { "HABIT_RULE_CONFLICT" }
         require(rule.measurement != null || value == null || value == 1000L) { "INVALID_HABIT_MEASUREMENT_EVENT" }
@@ -109,7 +110,7 @@ object HabitMeasurements {
         } else require(value != null && replaces.isEmpty())
         val next = events + HabitMeasurementEvent(TrackerEntity.create("habit-value", timestamp, operationId),
             habit.id, date, entryId ?: operationId, rule.id, replaces.sorted(), value, note.take(2000),
-            if (entryId == null) "manual" else "correction")
+            source ?: if (entryId == null) "manual" else "correction", historical)
         progress(habit, date, next)
         return next
     }
@@ -127,7 +128,10 @@ object HabitMeasurements {
                     "habit-completion:${habit.id}:$date"), habit.id, date)
             val completed = state.completed && (habit.qualityScale == "none" || base.qualityConfirmedAt != null)
             val score = scoreHabitFormula(habit.scoringMode, completed, base.qualityValue)
-            val eligible = date == today && state.rewardTotal >= state.target
+            val timerDay = events.any { it.habitId == habit.id && it.date == date && it.source == "timer" }
+            val eligibleToday = if (timerDay) Instant.parse(timestamp).atZone(ZoneId.of(
+                state.rule.periodGoal?.context?.timeZone ?: state.rule.schedule.timezone)).toLocalDate() else today
+            val eligible = date == eligibleToday && state.rewardTotal >= state.target
             output.removeAll { it.habitId == habit.id && it.date == date }
             output.add(base.copy(completed = completed, score = score,
                 xpAwarded = if (eligible) completionXpAward(base.xpAwarded.toDouble(), score.toDouble()) else base.xpAwarded))

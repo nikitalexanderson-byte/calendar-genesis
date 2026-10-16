@@ -91,6 +91,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
     var voiceDraftTitle by remember { mutableStateOf("") }
     var catalogueOpen by rememberSaveable { mutableStateOf(false) }
     var heroPathOpen by rememberSaveable { mutableStateOf(false) }
+    var timerHabitId by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(openHeroPath) {
         if (openHeroPath) { heroPathOpen=true;onHeroPathOpened() }
     }
@@ -245,6 +246,9 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                 } }
             }
             Text("Мои привычки",style=MaterialTheme.typography.titleLarge)
+            HabitTimerShelf(current, repository.timerOwner, timerHabitId, { timerHabitId = null }, !busy && !storageError) {
+                repository.applyTimer(it); Unit
+            }
             if(current.habits.isEmpty()) Text("Здесь появятся ваши практики. Выберите идею из подборки или создайте свою.",
                 style=MaterialTheme.typography.bodyMedium)
             AdaptiveCardGrid(current.habits.sortedByDescending { it.priority }, { it.id }) { habit ->
@@ -293,6 +297,8 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                     onRecord={amount,entryId,replaces,note -> repository.recordMeasurement(habit.id,today,amount,entryId,replaces,note);Unit},
                     onQuality={quality -> recordCompletion(habit.id,true,quality,current.settings.feedback)})
                 HabitPeriodGoalProgress(habit,current.measurements,current.completions,today)
+                TextButton(onClick = { timerHabitId = habit.id }, enabled = scheduled && !busy && !storageError,
+                    modifier = Modifier.testTag("habit-timer-open-${habit.id}")) { Text("Таймер") }
             }
             if (experimental && current.settings.feedback.gamificationWidgets) {
                 val motionEnabled = current.settings.feedback.animations

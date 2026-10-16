@@ -181,8 +181,9 @@ export function habitMeasurementProgress(habit: MeasurableHabit, date: string, e
 
 export function newHabitMeasurementEvent(habit: MeasurableHabit, date: string, value: number | null,
   options: { id?: string; entryId?: string; replaces?: string[]; note?: string;
-    source?: HabitMeasurementEvent["source"]; historical?: boolean } = {}): HabitMeasurementEvent {
-  const timestamp = new Date().toISOString();
+    source?: HabitMeasurementEvent["source"]; historical?: boolean; recordedAt?: string } = {}): HabitMeasurementEvent {
+  const timestamp = options.recordedAt ?? new Date().toISOString();
+  if (!Number.isFinite(Date.parse(timestamp))) throw new RangeError("INVALID_HABIT_MEASUREMENT_EVENT");
   const id = options.id ?? `habit-value-${crypto.randomUUID()}`;
   const entity: TrackerEntity = { id, createdAt: timestamp, updatedAt: timestamp, version: 1, syncState: "local" };
   return { ...entity, id, habitId: habit.id, date, entryId: options.entryId ?? id,

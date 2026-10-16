@@ -919,6 +919,8 @@ function workspaceDocument(structure: EncryptedWorkspaceStructure, metadata = wo
     habits: structure.habits,
     habitCompletions: structure.habitCompletions,
     habitMeasurements: structure.habitMeasurements,
+    habitTimers: structure.habitTimers,
+    habitTimerEpoch: structure.habitTimerEpoch,
     sleepPlans: structure.sleepPlans,
     sleepEntries: structure.sleepEntries,
     moodEntries: structure.moodEntries,
@@ -1151,6 +1153,7 @@ async function decryptWorkspace(envelope: WorkspaceEnvelope | null): Promise<Enc
 }
 
 function workspaceMinimumWriterProtocol(structure: EncryptedWorkspaceStructure) {
+  if (structure.habitTimers.length || structure.habitTimerEpoch) return 5;
   if (structure.habits.some(habit => habit.ruleHistory?.some(rule => rule.supersedes !== undefined || rule.selectedRuleId))) return 4;
   if (structure.habits.some(habit => habit.periodGoal || habit.ruleHistory?.some(rule => rule.periodGoal))) return 3;
   return structure.habitMeasurements.length || structure.habits.some(habit => habit.measurement || habit.ruleHistory?.length) ? 2 : 1;
@@ -1189,7 +1192,7 @@ async function encryptWorkspace(
       iv: bytesToBase64(iv),
       version: workspaceVersion + 1,
       expectedVersion: workspaceVersion,
-      writerProtocol: 4,
+      writerProtocol: 5,
       minimumWriterProtocol: workspaceMinimumWriterProtocol(structure),
     },
     structure,
@@ -1214,7 +1217,7 @@ async function encryptWorkspaceDocument(
     iv: bytesToBase64(iv),
     version: expectedVersion + 1,
     expectedVersion,
-    writerProtocol: 4,
+    writerProtocol: 5,
     minimumWriterProtocol: workspaceMinimumWriterProtocol(structure),
   };
 }
@@ -1331,6 +1334,8 @@ export async function loadGenesisWorkspace(): Promise<GenesisWorkspace> {
     habits: structure.habits,
     habitCompletions: structure.habitCompletions,
     habitMeasurements: structure.habitMeasurements,
+    habitTimers: structure.habitTimers,
+    habitTimerEpoch: structure.habitTimerEpoch,
     sleepPlans: structure.sleepPlans,
     sleepEntries: structure.sleepEntries,
     moodEntries: structure.moodEntries,

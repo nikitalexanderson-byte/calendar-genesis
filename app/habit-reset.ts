@@ -1,4 +1,5 @@
 import type { HabitWorkspace } from "./habits";
+import { nextHabitTimerEpoch } from "./habit-timer.ts";
 
 export function resetHabitWorkspace(
   workspace: HabitWorkspace,
@@ -22,6 +23,8 @@ export function resetHabitWorkspace(
     habits: [],
     habitCompletions: [],
     habitMeasurements: [],
+    habitTimers: [],
+    habitTimerEpoch: nextHabitTimerEpoch(workspace.habitTimerEpoch),
     sleepPlans: [],
     sleepEntries: [],
     moodEntries: [],

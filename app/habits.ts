@@ -7,7 +7,8 @@ import { effectiveHabitMeasurement, habitMeasurementProgress, habitRuleForDate, 
   type HabitMeasurement, type HabitMeasurementEvent, type HabitRuleVersion } from "./habit-measurement";
 import { normalizeHabitPeriodGoal, type HabitPeriodGoal } from "./habit-period-goal";
 import { habitPeriodSettlement, habitQuestCompletions } from "./habit-period-progress";
-import { resolveCalendarWallTime } from "./calendar-context";
+import { isCivilDate, momentCivilDate, resolveCalendarWallTime } from "./calendar-context";
+import { mergeHabitTimerOperations, habitTimerEpoch, habitTimerMeasurementIds, habitTimerSessions, type HabitTimerOperation } from "./habit-timer";
 import { habitRuleState } from "./habit-rule-history";
 import {
   normalizeAddictionEntry,
@@ -244,6 +245,8 @@ export type HabitWorkspace = {
   habits: Habit[];
   habitCompletions: HabitCompletion[];
   habitMeasurements: HabitMeasurementEvent[];
+  habitTimers: HabitTimerOperation[];
+  habitTimerEpoch: string;
   sleepPlans: SleepPlan[];
   sleepEntries: SleepEntry[];
   moodEntries: MoodEntry[];
@@ -351,6 +354,8 @@ export const EMPTY_HABIT_WORKSPACE: HabitWorkspace = {
   habits: [],
   habitCompletions: [],
   habitMeasurements: [],
+  habitTimers: [],
+  habitTimerEpoch: "",
   sleepPlans: [],
   sleepEntries: [],
   moodEntries: [],
@@ -555,7 +560,8 @@ export function updateHabitCompletion(
 export function recordHabitMeasurement(workspace: HabitWorkspace, habit: Habit, date: string,
   value: number | null, options: Parameters<typeof newHabitMeasurementEvent>[3] = {},
   today = habitDateKey(new Date())): HabitWorkspace {
-  if (!canRecordHabitOnDate(habit.createdDate, date, today) || !isHabitScheduledForDate(habit, date))
+  const timerHistory = options.source === "timer" && isCivilDate(date) && date >= habit.createdDate && date <= today;
+  if ((!canRecordHabitOnDate(habit.createdDate, date, today) && !timerHistory) || !isHabitScheduledForDate(habit, date))
     throw new RangeError("HABIT_MEASUREMENT_DATE_UNAVAILABLE");
   if (!effectiveHabitMeasurement(habitRuleForDate(habit, date))) throw new RangeError("HABIT_MEASUREMENT_NOT_ENABLED");
   if (!habitRuleForDate(habit, date).measurement && value !== null && value !== 1000)
@@ -764,7 +770,11 @@ export function normalizeHabitWorkspace(
     .map((habit) => normalizeHabit(habit, fallbackDate, calendarMode))
     .filter((habit): habit is Habit => habit !== null));
   const habitMap = new Map(habits.map((habit) => [habit.id, habit]));
-  const habitMeasurements = mergeHabitMeasurementEvents(value.habitMeasurements ?? []);
+  const timerEpoch = habitTimerEpoch(value.habitTimerEpoch);
+  const habitTimers = mergeHabitTimerOperations(value.habitTimers ?? []).filter(op => op.epoch === timerEpoch);
+  const timerMeasurementIds = habitTimerMeasurementIds(habitTimerSessions(habitTimers));
+  const habitMeasurements = mergeHabitMeasurementEvents(value.habitMeasurements ?? []).filter(event =>
+    !event.entryId.startsWith("timer-value:") || timerMeasurementIds.has(event.entryId));
   const rawEntries = Array.isArray(value.habitCompletions)
     ? value.habitCompletions as LegacyHabitEntry[]
     : Array.isArray(value.habitEntries) ? value.habitEntries : [];
@@ -782,7 +792,10 @@ export function normalizeHabitWorkspace(
       id: `habit-completion:${habit.id}:${event.date}`, habitId: habit.id, date: event.date,
       completed: false, qualityValue: null, score: 0, xpAwarded: 0, note: "" };
     const score = scoreHabitCompletion(habit, { ...base, completed });
-    const eligible = event.date === fallbackDate && progress.rewardTotal >= progress.target;
+    const timerDay = habitMeasurements.some(item => item.habitId === habit.id && item.date === event.date && item.source === "timer");
+    const eligible = event.date === (timerDay ? momentCivilDate(new Date(),
+      progress.rule.periodGoal?.context.timeZone ?? progress.rule.schedule.timezone) : fallbackDate)
+      && progress.rewardTotal >= progress.target;
     const projection = { ...base, completed, score,
       xpAwarded: eligible ? completionXpAward(base.xpAwarded, score, MAX_HABIT_XP_PER_COMPLETION) : base.xpAwarded };
     const index = habitCompletions.indexOf(base);
@@ -843,6 +856,8 @@ export function normalizeHabitWorkspace(
     habits,
     habitCompletions,
     habitMeasurements,
+    habitTimers,
+    habitTimerEpoch: timerEpoch,
     sleepPlans,
     sleepEntries: [...explicitSleepEntries, ...migratedSleepEntries],
     moodEntries: normalizeMoodEntries(value.moodEntries),

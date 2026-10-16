@@ -28,6 +28,8 @@ import { CalendarDatePicker } from "./CalendarDatePicker";
 import { TimeClockPicker } from "./TimeClockPicker";
 import { HabitIntervalFields } from "./HabitIntervalFields";
 import { HabitMeasurementControl, HabitMeasurementFields } from "./HabitMeasurementControls";
+import { HabitTimerIcon, HabitTimerPanel } from "./HabitTimerPanel";
+import type { HabitTimerCommand } from "./habit-timer-workspace";
 import { HabitRuleHistory } from "./HabitRuleHistory";
 import { habitRuleFrontier } from "./habit-rule-history";
 import { effectiveHabitMeasurement, habitMeasurementProgress, habitRuleForDate } from "./habit-measurement";
@@ -152,6 +154,7 @@ type DailyPanelProps = {
   reportContext?: CalendarContext;
   onChange: (workspace: HabitWorkspace) => void;
   onSave?: (workspace: HabitWorkspace) => Promise<void>;
+  onTimerCommand?: (command: HabitTimerCommand) => Promise<void>;
   onOpenHabits?: () => void;
   onCreateHabit?: () => void;
   compact?: boolean;
@@ -837,9 +840,10 @@ function HabitQualityControl({habit,value,confirmed,canRecord,isEnglish,language
   </label><button type="button" className="primary-button" disabled={busy} onClick={apply}>{isEnglish ? "Apply" : "Применить"}</button>{error ? <p role="alert">{translateText("Не удалось сохранить запись. Проверьте значение и повторите.",language)}</p> : null}</div>;
 }
 
-export function HabitDailyPanel({ workspace, date, language, timeFormat, calendarMode, onChange, onSave, onOpenHabits, onCreateHabit, compact = false, showGoalSettings = false, experimentalThemeActive = false }: DailyPanelProps) {
+export function HabitDailyPanel({ workspace, date, language, timeFormat, calendarMode, onChange, onSave, onTimerCommand, onOpenHabits, onCreateHabit, compact = false, showGoalSettings = false, experimentalThemeActive = false }: DailyPanelProps) {
   const isEnglish = language === "en";
   const [qualityDrafts,setQualityDrafts]=useState<Record<string,boolean>>({});
+  const [timerHabit, setTimerHabit] = useState<string | null>(null);
   const today = habitDateKey(new Date());
   const dueHabits = workspace.habits
     .filter((habit) => isHabitScheduledForDate(habit, date, calendarMode) || habit.active && date >= habit.createdDate && Boolean(habitRuleForDate(habit, date).periodGoal))
@@ -893,6 +897,8 @@ export function HabitDailyPanel({ workspace, date, language, timeFormat, calenda
         </div>
       ) : null}
       {showGoalSettings ? <DailyGoalSettings workspace={workspace} today={today} language={language} calendarMode={calendarMode} onChange={onChange} /> : null}
+      {onTimerCommand ? <HabitTimerPanel workspace={workspace} language={language} calendarMode={calendarMode} timeFormat={timeFormat}
+        requestedHabitId={timerHabit} onClose={() => setTimerHabit(null)} onCommand={onTimerCommand} /> : null}
 
       {dueHabits.length > 0 && date !== today ? <p className="habit-history-lock" role="note">🔒 {isEnglish ? "History is read-only. Habit marks can only be changed today." : "История доступна только для просмотра. Отметки привычек можно менять лишь сегодня."}</p> : null}
 
@@ -939,6 +945,8 @@ export function HabitDailyPanel({ workspace, date, language, timeFormat, calenda
                 <div className={`habit-check-copy${habit.intervalSchedule ? " has-interval" : ""}`} id={`habit-copy-${habit.id}-${date}`}>
                   <span><b className="habit-emoji" aria-hidden="true">{habit.emoji}</b><strong data-no-translate>{habit.title}</strong>{habit.isKeyHabit ? <mark>{isEnglish ? "Key habit" : "Главная"}</mark> : null}<em>{isEnglish ? `Priority ${habit.priority}` : `Приоритет ${habit.priority}`}</em></span>
                   {habit.description ? <small data-no-translate>{habit.description}</small> : null}
+                  {onTimerCommand ? <button type="button" className="secondary-button habit-timer-launch" disabled={date !== today || !habit.active}
+                    onClick={() => setTimerHabit(habit.id)} aria-expanded={timerHabit === habit.id}><HabitTimerIcon/>{translateText("Таймер", language)}</button> : null}
                   {habit.preferredTime ? <small className="habit-preferred-time">{isEnglish ? "Strict time" : "Строгое время"}: {formatTimeValue(habit.preferredTime, timeFormat)}</small> : null}
                   {habit.intervalSchedule ? <small className="habit-preferred-time"><span>Интервал, минут:</span> {habit.intervalSchedule.intervalMinutes} · {formatTimeValue(habit.intervalSchedule.startTime, timeFormat)}–{formatTimeValue(habit.intervalSchedule.endTime, timeFormat)}</small> : null}
                   {!measured && habit.intervalSchedule?.completionMode === "each" ? <details className="habit-interval-marks">
@@ -1406,7 +1414,7 @@ function SacredHabitLibrary({
   );
 }
 
-export function HabitTrackerPage({ workspace, date, language, timeFormat, calendarMode, reportContext, googleTasksReady, googleCalendarReady, experimentalThemeActive = false, sacredFeaturesEnabled = true, voiceRequest, onVoiceRequestConsumed, onChange, onSave, onReminderRequested, onReminderRemoved }: HabitTrackerPageProps) {
+export function HabitTrackerPage({ workspace, date, language, timeFormat, calendarMode, reportContext, googleTasksReady, googleCalendarReady, experimentalThemeActive = false, sacredFeaturesEnabled = true, voiceRequest, onVoiceRequestConsumed, onChange, onSave, onTimerCommand, onReminderRequested, onReminderRemoved }: HabitTrackerPageProps) {
   const isEnglish = language === "en";
   const workspaceRef = useRef(workspace);
   useEffect(() => {
@@ -1437,7 +1445,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
   const activeTemplateIds = new Set(workspace.habits.flatMap((habit) => habit.sourceTemplateId ? [habit.sourceTemplateId] : []));
   const visibleStarterTemplates = STARTER_HABIT_TEMPLATES.filter((template) => !activeTemplateIds.has(template.id));
   const starterCollapsed = workspace.habitSettings.collapsedSections.includes("starter-habits");
-  const dailyPanel = <HabitDailyPanel workspace={workspace} date={date} language={language} timeFormat={timeFormat} calendarMode={calendarMode} onChange={onChange} onSave={onSave} onCreateHabit={openNewHabit} experimentalThemeActive={experimentalThemeActive} showGoalSettings />;
+  const dailyPanel = <HabitDailyPanel workspace={workspace} date={date} language={language} timeFormat={timeFormat} calendarMode={calendarMode} onChange={onChange} onSave={onSave} onTimerCommand={onTimerCommand} onCreateHabit={openNewHabit} experimentalThemeActive={experimentalThemeActive} showGoalSettings />;
 
   const saveHabit = async (candidate: Habit) => {
     if (habitSavePending.current) return;
