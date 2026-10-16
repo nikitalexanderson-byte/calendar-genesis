@@ -1,5 +1,7 @@
 import type { Habit, HabitWorkspace } from "./habits";
 import type { TrackerSyncState } from "./tracker-core";
+import { addCivilDays, momentCivilDate } from "./calendar-context.ts";
+import { normalizeHabitMeasurement, habitRuleForDate, normalizeHabitRuleHistory } from "./habit-measurement.ts";
 
 /** Selects the first tracking day before the habit is saved for the first time. */
 export function setNewHabitStartDate(habit: Habit, startDate: string, earliestDate: string): Habit {
@@ -29,8 +31,23 @@ export function setNewHabitStartDate(habit: Habit, startDate: string, earliestDa
  * cannot silently change the XP formula after a habit has been created.
  */
 export function applyEditableHabitUpdate(previous: Habit, candidate: Habit): Habit {
+  const measurement = normalizeHabitMeasurement(candidate.measurement);
+  const ruleChanged = JSON.stringify(previous.measurement ?? null) !== JSON.stringify(measurement)
+    || JSON.stringify(previous.schedule) !== JSON.stringify(candidate.schedule);
+  const previousRules = previous.ruleHistory ?? [];
+  const baseline = habitRuleForDate(previous, previous.createdDate);
+  const schedule = { ...candidate.schedule, startDate: previous.schedule.startDate,
+    recurrence: { ...candidate.schedule.recurrence, rangeStart: previous.schedule.recurrence.rangeStart } };
+  const ruleHistory = ruleChanged ? normalizeHabitRuleHistory([
+    ...(previousRules.length ? previousRules : [baseline]),
+    { id: `rule:${crypto.randomUUID()}`,
+      effectiveDate: addCivilDays(momentCivilDate(new Date(), previous.schedule.timezone), 1),
+      recordedAt: candidate.updatedAt, schedule, measurement },
+  ]) : previousRules;
   return {
     ...candidate,
+    measurement,
+    ruleHistory,
     id: previous.id,
     createdAt: previous.createdAt,
     createdDate: previous.createdDate,
@@ -39,14 +56,7 @@ export function applyEditableHabitUpdate(previous: Habit, candidate: Habit): Hab
     sacredSectorId: previous.sacredSectorId,
     scoringMode: previous.scoringMode,
     qualityScale: previous.qualityScale,
-    schedule: {
-      ...candidate.schedule,
-      startDate: previous.schedule.startDate,
-      recurrence: {
-        ...candidate.schedule.recurrence,
-        rangeStart: previous.schedule.recurrence.rangeStart,
-      },
-    },
+    schedule,
   };
 }
 

@@ -25,6 +25,7 @@ import ru.genesis.calendar.domain.GenesisCalendar
 import ru.genesis.calendar.domain.habits.Habit
 import ru.genesis.calendar.domain.habits.HabitEngine
 import ru.genesis.calendar.domain.habits.habitIntervalMarks
+import ru.genesis.calendar.domain.habits.HabitMeasurements
 
 /** Uses each habit's saved schedule, independently of the display calendar. */
 @Composable
@@ -126,7 +127,7 @@ internal fun TodayHabitsContent(app: GenesisApplication, date: LocalDate,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                 Column(Modifier.padding(6.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = entry?.completed == true, enabled = !busy && date == LocalDate.now(),
+                    Checkbox(checked = entry?.completed == true, enabled = !busy && date == LocalDate.now() && HabitMeasurements.rule(habit,date).measurement==null,
                         modifier = Modifier.testTag("today-habit-check-${habit.id}"),
                         onCheckedChange = { checked ->
                             if (checked && habit.scoringMode.startsWith("quality")) ratingHabit = habit
@@ -139,6 +140,10 @@ internal fun TodayHabitsContent(app: GenesisApplication, date: LocalDate,
                     }
                 }
                 HabitIntervalMarks(habit,entry,!busy&&date==LocalDate.now()) { time,checked -> markInterval(habit,time,checked) }
+                if(HabitMeasurements.rule(habit,date).measurement!=null) HabitMeasurementInputs(habit,workspace.measurements,date,entry,
+                    !busy&&date==LocalDate.now(),onRecord={amount,entryId,replaces,note ->
+                        repository.recordMeasurement(habit.id,date,amount,entryId,replaces,note);Unit
+                    },onQuality={quality -> repository.complete(habit.id,true,quality,date);Unit})
                 }
             }
         }

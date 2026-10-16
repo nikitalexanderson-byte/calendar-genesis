@@ -36,20 +36,30 @@ data class Habit(
     val sacredSectorId: String? = null, val preferredTime: String = "",
     val scoringMode: String = "binary", val qualityScale: String = "none", val reminder: HabitReminder = HabitReminder(),
     val intervalSchedule: HabitIntervalSchedule? = null,
+    val measurement: HabitMeasurement? = null, val ruleHistory: List<HabitRuleVersion> = emptyList(),
 ) { val id: String get() = entity.id }
 
 /** The first tracking date and XP formula become immutable after the first save. */
-fun preserveHabitCreationSettings(candidate: Habit, previous: Habit?, today: LocalDate): Habit {
+fun preserveHabitCreationSettings(candidate: Habit, previous: Habit?, today: LocalDate,
+    timestamp: String = Instant.now().toString()): Habit {
     if (previous == null) {
         require(candidate.schedule.startDate >= today) { "Начало привычки не может быть в прошлом." }
         return candidate.copy(createdDate = candidate.schedule.startDate)
     }
+    val schedule = candidate.schedule.copy(startDate = previous.schedule.startDate,
+        recurrence = candidate.schedule.recurrence.copy(rangeStart = previous.schedule.recurrence.rangeStart))
+    val rules = if (candidate.measurement != previous.measurement || schedule != previous.schedule) {
+        (previous.ruleHistory.ifEmpty { listOf(HabitMeasurements.rule(previous, previous.createdDate)) }
+            + HabitRuleVersion("rule:${UUID.randomUUID()}",
+                today.plusDays(1), timestamp, candidate.measurement, schedule))
+            .distinctBy { it.id }.sortedWith(compareBy<HabitRuleVersion> { it.effectiveDate }.thenBy { it.recordedAt }.thenBy { it.id })
+    } else previous.ruleHistory
     return candidate.copy(
+        ruleHistory = rules,
         createdDate = previous.createdDate,
         scoringMode = previous.scoringMode,
         qualityScale = previous.qualityScale,
-        schedule = candidate.schedule.copy(startDate = previous.schedule.startDate,
-            recurrence = candidate.schedule.recurrence.copy(rangeStart = previous.schedule.recurrence.rangeStart)),
+        schedule = schedule,
     )
 }
 data class HabitCompletion(val entity: TrackerEntity, val habitId: String, val date: LocalDate,
@@ -88,7 +98,7 @@ class HabitEngine(private val calendar: GenesisCalendar) {
 
     /** Saved schedule owns its mode. The account display calendar is intentionally absent. */
     fun isScheduled(habit: Habit, date: LocalDate): Boolean {
-        val schedule = habit.schedule
+        val schedule = HabitMeasurements.rule(habit, date).schedule
         if (!habit.active || date < schedule.startDate || schedule.endDate?.let { date > it } == true) return false
         return recurrence.matches(schedule.startDate.toString(),schedule.recurrence.copy(
             calendarContext=schedule.recurrence.calendarContext ?: ru.genesis.calendar.domain.CalendarContext(version=1,timeZone=schedule.timezone.ifEmpty { calendar.zoneId.id }),
@@ -106,14 +116,20 @@ class HabitEngine(private val calendar: GenesisCalendar) {
     fun updateCompletion(entries: List<HabitCompletion>, habit: Habit, date: LocalDate, today: LocalDate,
         completed: Boolean, qualityValue: Double?, note: String,
         timestamp: String = Instant.now().toString(), newId: String = "habit-completion-${UUID.randomUUID()}",
-        completedTimes: List<String>? = null): List<HabitCompletion> {
+        completedTimes: List<String>? = null, measurementCompleted: Boolean? = null,
+        measurementRewardEligible: Boolean = false): List<HabitCompletion> {
         if (date != today || date < habit.createdDate) return entries
         val current = entries.firstOrNull { it.habitId == habit.id && it.date == date }
-        val base = current ?: HabitCompletion(TrackerEntity.create("habit-completion",timestamp,newId),habit.id,date)
+        val measured = HabitMeasurements.rule(habit, date).measurement != null
+        val base = current ?: HabitCompletion(TrackerEntity.create("habit-completion",timestamp,
+            if(measured) "habit-completion:${habit.id}:$date" else newId),habit.id,date)
         val preservedQuality = if (base.qualityConfirmedAt != null) base.qualityValue else qualityValue
-        val score = scoreHabitFormula(habit.scoringMode,completed,preservedQuality)
-        val next = base.copy(entity=base.entity.changed(timestamp),completed=completed,qualityValue=preservedQuality,
-            note=note,score=score,xpAwarded=completionXpAward(base.xpAwarded.toDouble(),score.toDouble()),
+        val confirmedAt = base.qualityConfirmedAt ?: if(measured && qualityValue != null) timestamp else null
+        val actual = if(measured) measurementCompleted == true && (habit.qualityScale == "none" || confirmedAt != null) else completed
+        val score = scoreHabitFormula(habit.scoringMode,actual,preservedQuality)
+        val next = base.copy(entity=base.entity.changed(timestamp),completed=actual,qualityValue=preservedQuality,qualityConfirmedAt=confirmedAt,
+            note=note,score=score,xpAwarded=if(!measured || measurementRewardEligible)
+                completionXpAward(base.xpAwarded.toDouble(),score.toDouble()) else base.xpAwarded,
             completedTimes=completedTimes ?: if(habit.intervalSchedule?.completionMode=="each")
                 if(completed) habit.intervalSchedule.times() else emptyList() else base.completedTimes)
         return entries.filterNot { it.habitId == habit.id && it.date == date } + next

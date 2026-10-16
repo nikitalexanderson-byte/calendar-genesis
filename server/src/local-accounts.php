@@ -185,9 +185,10 @@ function genesisCommitLocalLink(string $ownerId, array $payload): array
     $ownsTransaction = !$db->inTransaction();
     if ($ownsTransaction) $db->exec('BEGIN IMMEDIATE');
     try {
-        $sourceQuery = $db->prepare('SELECT version FROM workspace_blobs WHERE user_id = :id');
+        $sourceQuery = $db->prepare('SELECT version, minimum_writer_protocol FROM workspace_blobs WHERE user_id = :id');
         $sourceQuery->execute(['id' => $sourceId]);
-        $actualSource = $sourceQuery->fetchColumn();
+        $sourceBlob = $sourceQuery->fetch();
+        $actualSource = $sourceBlob === false ? false : $sourceBlob['version'];
         if (($actualSource === false ? 0 : (int)$actualSource) !== $sourceVersion) {
             throw new GenesisWorkspaceConflictException($actualSource === false ? 0 : (int)$actualSource);
         }
@@ -195,7 +196,9 @@ function genesisCommitLocalLink(string $ownerId, array $payload): array
             if (!is_array($payload['mergedWorkspace'] ?? null)) {
                 throw new InvalidArgumentException('Подтвердите перенос зашифрованного пространства.');
             }
-            genesisSaveWorkspaceEnvelope($ownerId, $payload['mergedWorkspace']);
+            $mergedPayload = $payload['mergedWorkspace'];
+            $mergedPayload['minimumWriterProtocol'] = max((int)($mergedPayload['minimumWriterProtocol'] ?? 1), (int)($sourceBlob['minimum_writer_protocol'] ?? 1));
+            genesisSaveWorkspaceEnvelope($ownerId, $mergedPayload);
         }
         $member = genesisFindUser($sourceId) ?? throw new RuntimeException('Source account disappeared.');
         genesisAttachLocalMember($ownerId, $member, $pending['provider'],

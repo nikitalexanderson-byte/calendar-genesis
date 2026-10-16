@@ -56,7 +56,7 @@ const FLAG_COUNTRIES: Record<Language, string> = {
 const MENU_SETTINGS = [
   ["projects", "Дела", "Affairs"],
   ["calendar", "Календарь", "Calendar"], ["habits", "Привычки", "Habits"],
-  ["sacred", "Сакральное", "Sacred"],
+  ["sacred", "Оракул", "Oracle"],
 ] as const;
 const SUBMENU_SETTINGS = [
   ["projects.personal", "Личные проекты", "Personal projects"], ["projects.shared", "Общие дела", "Shared affairs"],
@@ -90,6 +90,8 @@ type AccountPanelProps = {
   hiddenHabitTemplateCount: number;
   onRestoreHabitTemplates: () => void;
   onResetHabitTracking: () => Promise<void>;
+  onExportCalendar: () => void;
+  calendarExportAvailable: boolean;
   categories: GenesisCategory[];
 };
 
@@ -130,7 +132,7 @@ function createHabitResetChallenge(): HabitResetChallenge {
   };
 }
 
-export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onConnectAdditionalGoogle, onLanguageChange, onUserChange, themeState, onThemeChange, habitTrackingEnabled, onHabitTrackingChange, habitNotificationSettings, notificationPermission, onHabitNotificationSettingsChange, habitFeedbackSettings, onHabitFeedbackSettingsChange, onRequestHabitNotifications, hiddenHabitTemplateCount, onRestoreHabitTemplates, onResetHabitTracking, categories }: AccountPanelProps) {
+export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onConnectAdditionalGoogle, onLanguageChange, onUserChange, themeState, onThemeChange, habitTrackingEnabled, onHabitTrackingChange, habitNotificationSettings, notificationPermission, onHabitNotificationSettingsChange, habitFeedbackSettings, onHabitFeedbackSettingsChange, onRequestHabitNotifications, hiddenHabitTemplateCount, onRestoreHabitTemplates, onResetHabitTracking, onExportCalendar, calendarExportAvailable, categories }: AccountPanelProps) {
   const [sharedNotificationSettingsOpen,setSharedNotificationSettingsOpen]=useState(false);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -557,6 +559,16 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
           <article><span>Личные данные</span><strong>Зашифрованы</strong><small>AES-GCM в браузере; ключ хранится на сервере отдельно и зашифрован для автоматического входа.</small></article>
           <article><span>Офлайн-копия</span><strong>На устройстве</strong><small>Доступна без сети после входа на этом устройстве.</small></article>
         </div>
+
+        <section className="account-preferences" data-settings-group="account" aria-labelledby="calendar-export-title" data-exp-ui="panel">
+          <h3 id="calendar-export-title">{translateText("Экспорт календаря .ics", user.language)}</h3>
+          <p>{translateText("Скачайте задачи и встречи для переноса в другой календарь.", user.language)}</p>
+          <button type="button" className="secondary-button" disabled={!calendarExportAvailable} onClick={onExportCalendar}>
+            <span className="ux-calendar-icon" aria-hidden="true" />
+            {translateText("Экспортировать календарь .ics", user.language)}
+          </button>
+          {!calendarExportAvailable ? <small>{translateText("Добавьте задачу для экспорта", user.language)}</small> : null}
+        </section>
 
         {user.authProvider === "google" && !user.googleTasksImportReady ? (
           <section className="account-sync-upgrade" aria-label="Синхронизация Google Tasks" data-settings-group="account">

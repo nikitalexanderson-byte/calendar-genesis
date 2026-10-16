@@ -1199,7 +1199,7 @@ private fun PrimaryNavigation(selectedPage: String, pages: List<String>, vertica
 @Composable
 private fun PrimaryNavigationItem(page: String, selectedPage: Boolean, fillWidth: Boolean,
     showLabels: Boolean, compact: Boolean, loopCopy: Boolean = false, onSelect: () -> Unit) {
-    val visibleTitle = if (page == "Проекты") "Дела" else page
+    val visibleTitle = when(page) { "Проекты" -> "Дела"; "Сакральное" -> "Оракул"; else -> page }
     val accessiblePage = genesisTranslate(visibleTitle)
     val glowPhase = LocalNavigationGlowPhase.current?.value ?: -1f
     val glow = if (!showLabels && selectedPage && glowPhase >= 0f)

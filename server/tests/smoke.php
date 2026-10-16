@@ -118,13 +118,15 @@ try {
         'sharedInboxWidth' => 420, 'sharedCategoriesExpanded' => true,
         'personalCategoriesExpanded' => true, 'personalCategoriesView' => 'list', 'sharedCategoriesView' => 'cards',
         'sharedTasksCompact' => false,
+        'notificationDockPinned' => true, 'notificationDockX' => 1250, 'notificationDockY' => 2500,
     ];
     $user = genesisUpdateAccountPreferences($userId, ['uiVisibility' => $visibility]);
     expect(genesisUserForClient($user)['uiVisibility'] === $visibility, 'Navigation visibility did not round-trip.');
     $legacyVisibility = $visibility;
     foreach (['sidebarAutoCollapseSeconds', 'sidebarWidth', 'personalInboxPosition', 'personalInboxHidden',
         'personalInboxCompact', 'sharedInboxPosition', 'sharedInboxHidden', 'sharedInboxCompact',
-        'personalInboxWidth', 'sharedInboxWidth', 'sharedCategoriesExpanded', 'personalCategoriesExpanded', 'personalCategoriesView', 'sharedCategoriesView', 'sharedTasksCompact'] as $field) unset($legacyVisibility[$field]);
+        'personalInboxWidth', 'sharedInboxWidth', 'sharedCategoriesExpanded', 'personalCategoriesExpanded', 'personalCategoriesView', 'sharedCategoriesView', 'sharedTasksCompact',
+        'notificationDockPinned', 'notificationDockX', 'notificationDockY'] as $field) unset($legacyVisibility[$field]);
     $user = genesisUpdateAccountPreferences($userId, ['uiVisibility' => $legacyVisibility]);
     expect(genesisUserForClient($user)['uiVisibility']['sidebarAutoCollapseSeconds'] === 30,
         'An older client reset the sidebar delay.');
@@ -147,6 +149,7 @@ try {
         ['sharedCategoriesExpanded' => 1],
         ['personalCategoriesExpanded'=>1], ['sharedCategoriesView'=>'table'], ['personalCategoriesView'=>true],
         ['sharedTasksCompact'=>1],
+        ['notificationDockPinned'=>1], ['notificationDockX'=>10001], ['notificationDockY'=>'0'],
         ['sharedInboxHidden' => 1], ['personalInboxPosition' => 'floating'], ['sharedInboxCompact' => 'true']] as $invalid) {
         try {
             genesisUpdateAccountPreferences($userId, ['uiVisibility' => [...$visibility, ...$invalid]]);

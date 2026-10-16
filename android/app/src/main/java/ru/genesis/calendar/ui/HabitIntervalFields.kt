@@ -80,7 +80,7 @@ internal fun HabitIntervalMarks(habit: Habit, entry: HabitCompletion?, enabled: 
     var expanded by remember(habit.id) { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(8.dp)) {
         Text("Интервал, минут: ${interval.intervalMinutes} · ${intervalTimeLabel(interval.startTime,prefs.use24)}–${intervalTimeLabel(interval.endTime,prefs.use24)}",style=MaterialTheme.typography.bodySmall)
-        if(interval.completionMode=="each") {
+        if(interval.completionMode=="each" && habit.measurement==null) {
             TextButton(onClick={expanded=!expanded},modifier=Modifier.testTag("habit-interval-marks-toggle")) {
                 Text("Отметки повторений:"); Text(" ${marks.size} / ${times.size}")
             }

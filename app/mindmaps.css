@@ -8,6 +8,11 @@
 .mindmaps button[aria-pressed="true"] { border-color: var(--gold); background: var(--exp-accent-wash); }
 .mindmap-toolbar, .mindmap-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .mindmap-toolbar { margin-bottom: 16px; }
+.mindmap-edit-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:0 0 16px; }
+.mindmap-edit-actions > strong { margin-right:4px; color:var(--ink-soft); font:500 13px/1.4 var(--font-ui); }
+.mindmap-edit-actions > button { display:flex; align-items:center; gap:8px; min-height:44px; font:500 14px/1.4 var(--font-ui); }
+.mindmap-edit-actions kbd { color:var(--ink-soft); font:400 12px/1.4 var(--font-ui); }
+@media(max-width:640px) { .mindmap-edit-actions kbd { display:none; } .mindmap-edit-actions > button { gap:6px; padding-inline:10px; } }
 .mindmap-toolbar > [role="group"] { display: flex; gap: 4px; padding: 3px; background: var(--paper); border: 1px solid var(--exp-border); border-radius: 12px; }
 .mindmap-toolbar > label { flex: 1; min-width: 180px; }
 .mindmaps label, .mindmap-dialog label { display: flex; flex-direction: column; gap: 8px; font-size: 14px; }

@@ -5,6 +5,7 @@ import { calendarContext } from "./calendar-context";
 import { useSharedTaskPage } from "./use-shared-task-page";
 import { SharedTaskPageControls } from "./SharedTaskPageControls";
 import { DeferredViewFallback, DeferredDialogFallback, DeferredHabitFallback, ViewErrorBoundary, lazyWithRecovery as lazy } from "./DeferredViews";
+import { readProtectedWorkspace, writeProtectedWorkspace, assertWorkspaceWritable } from "./workspace-storage";
 import { habitReminderTime, habitReminderTimes } from "./habit-reminder-time";
 import { habitIntervalMarks } from "./habit-interval";
 const PersonalEntityPreview=lazy(()=>import("./PersonalEntityPreview"));
@@ -360,7 +361,7 @@ const NAVIGATION: Array<{ id: ViewName; label: string; symbol: string }> = [
   { id: "projects", label: "Дела", symbol: "◇" },
   { id: "habits", label: "Привычки", symbol: "✦" },
   { id: "calendar", label: "Календарь", symbol: "◫" },
-  { id: "stoicheion", label: "Сакральное", symbol: "ϟ" },
+  { id: "stoicheion", label: "Оракул", symbol: "ϟ" },
 ];
 
 const CALENDAR_MODE_META: Record<CalendarMode, { label: string }> = {
@@ -554,10 +555,8 @@ function viewFromHash(): ViewName {
 }
 
 function readStoredState(key: string): StoredState {
-  try {
-    const saved = localStorage.getItem(key);
-    if (!saved) return { tasks: [], projects: [], categories: DEFAULT_CATEGORIES, taskLists: [], taskListLinks: [], ...normalizeHabitWorkspace(null) };
-    const parsed = JSON.parse(saved) as Partial<StoredState>;
+  return readProtectedWorkspace(localStorage, key, (source) => {
+    const parsed = source as Partial<StoredState>;
     const storedTasks = Array.isArray(parsed.tasks) ? parsed.tasks : [];
     const storedProjects = Array.isArray(parsed.projects) ? parsed.projects : [];
     return {
@@ -652,9 +651,7 @@ function readStoredState(key: string): StoredState {
       taskListLinks: Array.isArray(parsed.taskListLinks) ? parsed.taskListLinks : [],
       ...normalizeHabitWorkspace(parsed),
     };
-  } catch {
-    return { tasks: [], projects: [], categories: DEFAULT_CATEGORIES, taskLists: [], taskListLinks: [], ...normalizeHabitWorkspace(null) };
-  }
+  }, () => ({ tasks: [], projects: [], categories: DEFAULT_CATEGORIES, taskLists: [], taskListLinks: [], ...normalizeHabitWorkspace(null) }));
 }
 
 const DEFAULT_CATEGORIES: GenesisCategory[] = [
@@ -1271,6 +1268,12 @@ export function GenesisCalendar() {
   const [legalPage] = useState<ReturnType<typeof currentLegalPage>>(() => currentLegalPage());
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("loading");
   const [syncError, setSyncError] = useState("");
+  const [workspaceRecoveryKey, setWorkspaceRecoveryKey] = useState<string | null>(null);
+  const [notificationHeaderTarget, setNotificationHeaderTarget] = useState<HTMLDivElement | null>(null);
+  const loadLocalWorkspace = (key: string) => {
+    try { return readStoredState(key); }
+    catch { setWorkspaceRecoveryKey(key); return null; }
+  };
   const [authError, setAuthError] = useState("");
   const [taskTitle, setTaskTitle] = useState("");
   const [taskDescription, setTaskDescription] = useState("");
@@ -2056,11 +2059,12 @@ export function GenesisCalendar() {
   }, [openDayTaskPopover]);
 
   useEffect(() => {
+    const timer = window.setTimeout(() => {
     const initialState = isGoogleSyncConfigured
       ? { tasks: [], projects: [], categories: DEFAULT_CATEGORIES, taskLists: [], taskListLinks: [], ...normalizeHabitWorkspace(null) }
-      : readStoredState(GENESIS_LEGACY_WORKSPACE_STORAGE_KEY);
+      : loadLocalWorkspace(GENESIS_LEGACY_WORKSPACE_STORAGE_KEY);
+    if (!initialState) return;
 
-    const timer = window.setTimeout(() => {
       tasksRef.current = initialState.tasks;
       projectsRef.current = initialState.projects;
       categoriesRef.current = initialState.categories;
@@ -2081,7 +2085,7 @@ export function GenesisCalendar() {
   }, []);
 
   useEffect(() => {
-    if (!hydrated || privateDeviceAccessBlocked() || (isGoogleSyncConfigured && !cloudUser)) return;
+    if (!hydrated || workspaceRecoveryKey || privateDeviceAccessBlocked() || (isGoogleSyncConfigured && !cloudUser)) return;
     tasksRef.current = tasks;
     taskListsRef.current = taskLists;
     projectsRef.current = projects;
@@ -2089,8 +2093,14 @@ export function GenesisCalendar() {
     taskListLinksRef.current = taskListLinks;
     habitWorkspaceRef.current = habitWorkspace;
     const key = cloudUser ? `${GENESIS_USER_WORKSPACE_STORAGE_PREFIX}${cloudUser.uid}` : GENESIS_LEGACY_WORKSPACE_STORAGE_KEY;
-    localStorage.setItem(key, JSON.stringify({ tasks, projects, categories, taskLists, taskListLinks, ...habitWorkspace }));
-  }, [hydrated, cloudUser, tasks, projects, categories, taskLists, taskListLinks, habitWorkspace]);
+    try { writeProtectedWorkspace(localStorage, key, { tasks, projects, categories, taskLists, taskListLinks, ...habitWorkspace }); }
+    catch {
+      const timer = window.setTimeout(() => {
+        setSyncError("Не удалось сохранить запись. Проверьте значение и повторите."); setSyncStatus("error");
+      }, 0);
+      return () => window.clearTimeout(timer);
+    }
+  }, [hydrated, cloudUser, tasks, projects, categories, taskLists, taskListLinks, habitWorkspace, workspaceRecoveryKey]);
 
   useEffect(() => {
     if (!hydrated || !authResolved || !cloudUser || cloudUser.authProvider !== "yandex" || cloudUser.calendarConnected || !navigator.onLine) return;
@@ -2221,7 +2231,8 @@ export function GenesisCalendar() {
       loadedCalendarConnected = user.calendarConnected;
 
       const userKey = `${GENESIS_USER_WORKSPACE_STORAGE_PREFIX}${user.uid}`;
-      const local = readStoredState(localStorage.getItem(userKey) ? userKey : GENESIS_LEGACY_WORKSPACE_STORAGE_KEY);
+      const local = loadLocalWorkspace(localStorage.getItem(userKey) ? userKey : GENESIS_LEGACY_WORKSPACE_STORAGE_KEY);
+      if (!local) return;
       tasksRef.current = local.tasks;
       projectsRef.current = local.projects;
       categoriesRef.current = local.categories;
@@ -2304,7 +2315,8 @@ export function GenesisCalendar() {
           restoreOfflineWorkspaceSession(cached.uid,
             cached.authProvider === "yandex" ? "yandex" : "google");
           const cachedLanguage = normalizeLanguage(cached.language);
-          const local = readStoredState(`${GENESIS_USER_WORKSPACE_STORAGE_PREFIX}${cached.uid}`);
+          const local = loadLocalWorkspace(`${GENESIS_USER_WORKSPACE_STORAGE_PREFIX}${cached.uid}`);
+          if (!local) return;
           tasksRef.current = local.tasks;
           projectsRef.current = local.projects;
           categoriesRef.current = local.categories;
@@ -2871,7 +2883,7 @@ export function GenesisCalendar() {
         guard();
         const localKey = `${GENESIS_USER_WORKSPACE_STORAGE_PREFIX}${cloudUser.uid}`;
         const local = readStoredState(localKey);
-        localStorage.setItem(localKey, JSON.stringify({ ...local, tasks: [...local.tasks.filter(item => item.id !== saved.id), saved] }));
+        writeProtectedWorkspace(localStorage, localKey, { ...local, tasks: [...local.tasks.filter(item => item.id !== saved.id), saved] });
         tasksRef.current = [...tasksRef.current.filter(item => item.id !== saved.id), saved];
         setTasks(current => [...current.filter(item => item.id !== saved.id), saved]);
         setMindmapConversion(null);
@@ -3318,6 +3330,8 @@ export function GenesisCalendar() {
   };
 
   const updateHabitWorkspace = (nextWorkspace: HabitWorkspace, persistBeforeClosing = false) => {
+    const localKey = cloudUser ? `${GENESIS_USER_WORKSPACE_STORAGE_PREFIX}${cloudUser.uid}` : GENESIS_LEGACY_WORKSPACE_STORAGE_KEY;
+    assertWorkspaceWritable(localStorage, localKey);
     const normalizedBase = normalizeHabitWorkspace(nextWorkspace, activeTaskCalendarMode);
     const changedDates = changedTrackerDates(habitWorkspace, normalizedBase);
     const trackerDefinitionsChanged = JSON.stringify([
@@ -3349,6 +3363,7 @@ export function GenesisCalendar() {
       && !habitWorkspace.habitCompletions.some((current) => current.id === entry.id && current.completed)
     ));
     const latestCompletion = newlyCompletedEntries[newlyCompletedEntries.length - 1];
+    const showSavedFeedback = () => {
     if (latestCompletion) {
       const habit = normalized.habits.find((item) => item.id === latestCompletion.habitId);
       if (habit) {
@@ -3391,8 +3406,10 @@ export function GenesisCalendar() {
         habitFeedbackTimerRef.current = window.setTimeout(() => setHabitFeedback(null), 2600);
       }
     }
+    };
     const commit = () => { habitWorkspaceRef.current = normalized;
     setHabitWorkspace(normalized);
+    showSavedFeedback();
     if (!cloudUser) return;
     newlyCompletedEntries.forEach((entry) => {
       const habit = normalized.habits.find((item) => item.id === entry.habitId);
@@ -3404,6 +3421,11 @@ export function GenesisCalendar() {
     });
     };
     if (habitSaveTimerRef.current !== null) window.clearTimeout(habitSaveTimerRef.current);
+    if (persistBeforeClosing && !cloudUser) {
+      writeProtectedWorkspace(localStorage, localKey, { tasks: tasksRef.current, projects: projectsRef.current,
+        categories: categoriesRef.current, taskLists: taskListsRef.current, taskListLinks: taskListLinksRef.current, ...normalized });
+      commit(); return;
+    }
     if (persistBeforeClosing && cloudUser) {
       const guard = captureAccountSessionGuard(); setSyncStatus("syncing");
       return new Promise<void>((resolve, reject) => {
@@ -5018,6 +5040,7 @@ export function GenesisCalendar() {
               calendarMode={activeTaskCalendarMode}
               experimentalThemeActive={false}
               onChange={updateHabitWorkspace}
+              onSave={(next) => updateHabitWorkspace(next, true) ?? Promise.resolve()}
               onOpenHabits={() => navigateTo("habits")}
               onCreateHabit={() => { setVoiceHabitRequest({ token: Date.now(), kind: "create" }); navigateTo("habits"); }}
             />
@@ -6463,6 +6486,21 @@ export function GenesisCalendar() {
     return <LegalPage page={legalPage} />;
   }
 
+  if (workspaceRecoveryKey) {
+    return <main className="welcome-shell"><section className="welcome-card" role="alert">
+      <h1>{translateText("Локальные данные требуют восстановления", language)}</h1>
+      <p>{translateText("Исходные данные сохранены. Автосохранение остановлено, чтобы не заменить их пустыми. Скачайте копию для восстановления.", language)}</p>
+      <button type="button" className="primary-button" onClick={() => {
+        const raw = localStorage.getItem(workspaceRecoveryKey);
+        if (raw === null) return;
+        const url = URL.createObjectURL(new Blob([raw], { type: "application/json" }));
+        const anchor = document.createElement("a"); anchor.href = url; anchor.download = "genesis-recovery.json"; anchor.click();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }}>{translateText("Скачать исходные данные", language)}</button>
+      <button type="button" onClick={() => window.location.reload()}>{translateText("Повторить", language)}</button>
+    </section></main>;
+  }
+
   if (isGoogleSyncConfigured && !authResolved && cloudUser) {
     return (
       <main className="auth-loading" role="status" aria-live="polite">
@@ -6513,6 +6551,7 @@ export function GenesisCalendar() {
       {experimentalProjectFormOpen ? <div className="modal-backdrop experimental-project-composer-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setExperimentalProjectFormOpen(false); }}>{renderProjectCreateForm()}</div> : null}
       <ActionNotice message={layoutError || (view === "projects" && activeProjectsArea === "shared" ? "" : notice)}/>
       <Suspense fallback={null}><NotificationDock key={cloudUser?.uid ?? "guest"} userId={cloudUser?.uid ?? ""} language={language} mode={activeCalendarMode} appBase={APP_BASE}
+        layout={accountLayout} onLayoutChange={saveLayout} headerTarget={notificationHeaderTarget}
         sharedEnabled={Boolean(cloudUser?.sharedProjectsEnabled)} invitationsEnabled={Boolean(cloudUser?.sharedProjectsEligible)}
         onOpen={place => { setProjectsArea("shared"); navigateTo("projects", false, place); }} onAccepted={destination => {
         const uid=cloudUser?.uid; if(!uid)return;
@@ -6579,29 +6618,11 @@ export function GenesisCalendar() {
         </header>
         <header className="topbar" data-exp-ui="topbar">
           <div className="topbar-date">
-            <span className="topbar-kicker">{view === "theokyklos" ? "Теокиклос" : view === "habits" ? (language === "en" ? "Habit tracker" : "Трекер привычек") : CALENDAR_MODE_META[activeCalendarMode].label}</span>
+            <span className="topbar-kicker">{view === "stoicheion" || view === "theokyklos" ? "Оракул" : view === "habits" ? (language === "en" ? "Habit tracker" : "Трекер привычек") : CALENDAR_MODE_META[activeCalendarMode].label}</span>
             <strong>{formatCalendarDate(today, activeCalendarMode, activeCalendarMode !== "sacred")}</strong>
           </div>
           {experimentalThemeActive ? renderDisplayCalendarChoice(language === "en" ? "Display calendar" : "Календарь отображения", "topbar-calendar-choice") : null}
           <div className="topbar-actions">
-            {nativeAndroidApkUrl ? (
-              <a className="icon-button ux-action-button android-native-icon-button" href={nativeAndroidApkUrl} data-tooltip={language === "en" ? "Native Android app · remove the old TWA first" : "Нативное приложение · сначала удалите прежнюю TWA"} title={language === "en" ? "Native GENESIS APK; old TWA must be removed first" : "Нативный GENESIS APK; прежнюю TWA необходимо сначала удалить"} aria-label={language === "en" ? "Download native GENESIS for Android; remove the old TWA first" : "Скачать нативный GENESIS для Android; сначала удалите старую TWA"}>
-                <svg className="ux-android-robot" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M5.5 9h13v8.5a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2V9ZM5.5 9a6.5 6.5 0 0 1 13 0M4 11v5M20 11v5M9 19.5V22M15 19.5V22M7 3 5.5 1M17 3 18.5 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><circle cx="9.3" cy="7" r=".8" fill="currentColor"/><circle cx="14.7" cy="7" r=".8" fill="currentColor"/></svg>
-              </a>
-            ) : null}
-            {!nativeAndroidApkUrl && !isStandalone && canInstall ? (
-              <button type="button" className="icon-button ux-action-button" data-tooltip="Установить приложение" title="Установить GENESIS" aria-label="Установить GENESIS" onClick={() => void install()}>
-                <span className="ux-install-icon" aria-hidden="true" />
-              </button>
-            ) : null}
-            {voiceLanguageEnabled ? <button type="button" className={`voice-open-button${voiceLaunchAnimating ? " is-activating" : ""}`} onClick={openVoiceAssistant} title={language === "en" ? "Open the free GENESIS Voice assistant" : "Открыть бесплатного голосового помощника GENESIS Voice"} aria-label={language === "en" ? "Open the free GENESIS Voice assistant" : "Открыть бесплатного голосового помощника GENESIS Voice"} aria-busy={voiceLaunchAnimating}>
-              <svg className="voice-microphone-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
-                <rect className="voice-microphone-capsule" x="8.7" y="2.8" width="6.6" height="11.2" rx="3.3" />
-                <path className="voice-microphone-grille" d="M10.55 6.2h2.9M10.55 8.45h2.9" />
-                <path className="voice-microphone-capture" d="M5.9 10.4v.9a6.1 6.1 0 0 0 12.2 0v-.9" />
-                <path className="voice-microphone-stand" d="M12 17.4v3.35M8.9 20.75h6.2" />
-              </svg>
-            </button> : null}
             {cloudUser ? (
               <div className={`account-chip${accountIdentityExpanded ? " is-expanded" : " is-compact"}`} ref={accountMenuRef}>
                 <button
@@ -6611,14 +6632,7 @@ export function GenesisCalendar() {
                   aria-label={language === "en" ? "Open account settings" : "Открыть личный кабинет и настройки"}
                   aria-haspopup="dialog"
                 >
-                  <span
-                    className="account-avatar"
-                    data-genesis-preserve="account-avatar"
-                    style={cloudUser.photoURL ? { backgroundImage: `url(${cloudUser.photoURL})` } : undefined}
-                    aria-hidden="true"
-                  >
-                    {cloudUser.photoURL ? "" : cloudUser.authProvider === "yandex" ? "Y" : "G"}
-                  </span>
+                  <ExperimentalIcon name="account" />
                   {accountIdentityExpanded ? <span>
                     <strong>{cloudUser.displayName || (cloudUser.authProvider === "yandex" ? "Яндекс" : "Google")}</strong>
                     <small>{cloudUser.calendarConnected
@@ -6639,9 +6653,27 @@ export function GenesisCalendar() {
                 <img src={`${APP_BASE}/google-signin-light-square.svg`} alt="" aria-hidden="true" data-genesis-preserve="google-signin-icon" />
               </button>
             )}
-            <button type="button" className="icon-button ux-action-button" data-tooltip={tasks.length ? "Экспортировать календарь .ics" : "Добавьте задачу для экспорта"} title={tasks.length ? "Экспортировать календарь .ics" : "Добавьте задачу для экспорта"} onClick={exportCalendar} disabled={!tasks.length} aria-label="Экспортировать задачи в календарь .ics">
-              <span className="ux-calendar-icon" aria-hidden="true" />
-            </button>
+            {nativeAndroidApkUrl ? (
+              <a className="icon-button ux-action-button android-native-icon-button" href={nativeAndroidApkUrl} data-tooltip={language === "en" ? "Native Android app · remove the old TWA first" : "Нативное приложение · сначала удалите прежнюю TWA"} title={language === "en" ? "Native GENESIS APK; old TWA must be removed first" : "Нативный GENESIS APK; прежнюю TWA необходимо сначала удалить"} aria-label={language === "en" ? "Download native GENESIS for Android; remove the old TWA first" : "Скачать нативный GENESIS для Android; сначала удалите старую TWA"}>
+                <svg className="ux-android-robot" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M5.5 9h13v8.5a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2V9ZM5.5 9a6.5 6.5 0 0 1 13 0M4 11v5M20 11v5M9 19.5V22M15 19.5V22M7 3 5.5 1M17 3 18.5 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><circle cx="9.3" cy="7" r=".8" fill="currentColor"/><circle cx="14.7" cy="7" r=".8" fill="currentColor"/></svg>
+              </a>
+            ) : null}
+            {!nativeAndroidApkUrl && !isStandalone && canInstall ? (
+              <button type="button" className="icon-button ux-action-button" data-tooltip="Установить приложение" title="Установить GENESIS" aria-label="Установить GENESIS" onClick={() => void install()}>
+                <span className="ux-install-icon" aria-hidden="true" />
+              </button>
+            ) : null}
+            {voiceLanguageEnabled ? <button type="button" className={`voice-open-button${voiceLaunchAnimating ? " is-activating" : ""}`} onClick={openVoiceAssistant} title={language === "en" ? "Open the free GENESIS Voice assistant" : "Открыть бесплатного голосового помощника GENESIS Voice"} aria-label={language === "en" ? "Open the free GENESIS Voice assistant" : "Открыть бесплатного голосового помощника GENESIS Voice"} aria-busy={voiceLaunchAnimating}>
+              <svg className="voice-microphone-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+                <rect className="voice-microphone-capsule" x="8.7" y="2.8" width="6.6" height="11.2" rx="3.3" />
+                <path className="voice-microphone-grille" d="M10.55 6.2h2.9M10.55 8.45h2.9" />
+                <path className="voice-microphone-capture" d="M5.9 10.4v.9a6.1 6.1 0 0 0 12.2 0v-.9" />
+                <path className="voice-microphone-stand" d="M12 17.4v3.35M8.9 20.75h6.2" />
+              </svg>
+            </button> : null}
+
+            <div className="notification-header-slot" ref={setNotificationHeaderTarget} />
+
           </div>
         </header>
 
@@ -6936,6 +6968,7 @@ export function GenesisCalendar() {
                   calendarMode={activeTaskCalendarMode}
                   experimentalThemeActive={false}
                   onChange={updateHabitWorkspace}
+                  onSave={(next) => updateHabitWorkspace(next, true) ?? Promise.resolve()}
                   onOpenHabits={() => {
                     setDayDetailsOpen(false);
                     navigateTo("habits");
@@ -7397,6 +7430,8 @@ export function GenesisCalendar() {
         <Suspense fallback={<DeferredDialogFallback label={language === "en" ? "Opening account…" : "Открываем личный кабинет…"} />}>
           <AccountPanel
             user={cloudUser}
+            onExportCalendar={exportCalendar}
+            calendarExportAvailable={tasks.length > 0}
             onClose={() => setAccountOpen(false)}
             onSignOut={handleGoogleSignOut}
             onReconnectGoogle={() => {

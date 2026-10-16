@@ -13,6 +13,9 @@ export function ExperimentalIcon({ name, className = "" }: { name: string; class
     {name === "stoicheion" || name === "theokyklos" ? <><path d="m12 3 2 7 7 2-7 2-2 7-2-7-7-2 7-2Z"/><path d="M20 2v4m2-2h-4M3 18v4m2-2H1"/></> : null}
     {name === "admin" ? <><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1Z"/><path d="m9 12 2 2 4-4"/></> : null}
     {name === "plus" ? <path d="M5 12h14M12 5v14"/> : null}
+    {name === "account" ? <><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v2"/></> : null}
+    {name === "undo" ? <><path d="M3 10h11a7 7 0 0 1 7 7v3M3 10l6-6m-6 6 6 6"/></> : null}
+    {name === "redo" ? <><path d="M21 10H10a7 7 0 0 0-7 7v3m18-10-6-6m6 6-6 6"/></> : null}
     {name === "help" ? <><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 4.3 1.7c-1.1.8-1.8 1.3-1.8 2.8M12 17h.01"/></> : null}
     {name === "thought-new" ? <><path d="M9 18h6m-5 3h4M8 14a6 6 0 1 1 8-1c-1.2 1-1.5 2-1.5 3h-5c0-1-.3-1.7-1.5-2Z"/><path d="M19 3v6m-3-3h6"/></> : null}
     {name === "thought-link" ? <path d="M10 13a5 5 0 0 0 7 .2l3-3a5 5 0 0 0-7-7l-2 2m3 6a5 5 0 0 0-7-.2l-3 3a5 5 0 0 0 7 7l2-2"/> : null}

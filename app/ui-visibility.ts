@@ -16,6 +16,9 @@ export type AccountLayout = {
   personalCategoriesView: "cards" | "list";
   sharedCategoriesView: "cards" | "list";
   sharedTasksCompact: boolean;
+  notificationDockPinned: boolean;
+  notificationDockX: number;
+  notificationDockY: number;
 };
 export const DEFAULT_ACCOUNT_LAYOUT: AccountLayout = {
   sidebarWidth: 240, personalInboxPosition: "right", personalInboxHidden: false, personalInboxCompact: false,
@@ -24,6 +27,7 @@ export const DEFAULT_ACCOUNT_LAYOUT: AccountLayout = {
   personalCategoriesExpanded: false, personalCategoriesView: "cards", sharedCategoriesView: "list",
   sharedTasksCompact: true,
   personalInboxWidth: 300, sharedInboxWidth: 300,
+  notificationDockPinned: false, notificationDockX: -1, notificationDockY: -1,
 };
 export function accountLayout(value?: Partial<AccountLayout> | null): AccountLayout {
   const position = (input?: InboxPosition): InboxPosition => input && ["top", "right", "left", "bottom"].includes(input) ? input : "right";
@@ -40,6 +44,9 @@ export function accountLayout(value?: Partial<AccountLayout> | null): AccountLay
     sharedTasksCompact: value?.sharedTasksCompact !== false,
     personalInboxWidth: Number.isInteger(value?.personalInboxWidth) ? Math.max(300, Math.min(5000, value!.personalInboxWidth!)) : 300,
     sharedInboxWidth: Number.isInteger(value?.sharedInboxWidth) ? Math.max(300, Math.min(5000, value!.sharedInboxWidth!)) : 300,
+    notificationDockPinned: value?.notificationDockPinned === true,
+    notificationDockX: Number.isInteger(value?.notificationDockX) ? Math.max(-1, Math.min(10000, value!.notificationDockX!)) : -1,
+    notificationDockY: Number.isInteger(value?.notificationDockY) ? Math.max(-1, Math.min(10000, value!.notificationDockY!)) : -1,
   };
 }
 

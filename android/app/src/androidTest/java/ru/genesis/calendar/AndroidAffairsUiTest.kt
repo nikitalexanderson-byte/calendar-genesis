@@ -18,6 +18,7 @@ class AndroidAffairsUiTest {
 
     @Test fun regionalAffairsCopyIsAvailableOfflineInTheApk() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
+        assertEquals("мин", ru.genesis.calendar.ui.translateGenesisText(context, "мин", "ru"))
         for ((language, expected) in mapOf("fr" to "Paramètres du tableau", "de" to "Board-Einstellungen",
             "ja" to "ボード設定", "el" to "Ρυθμίσεις πίνακα", "uk" to "Налаштування дошки")) {
             assertEquals(expected, ru.genesis.calendar.ui.translateGenesisText(context, "Настройки доски", language))

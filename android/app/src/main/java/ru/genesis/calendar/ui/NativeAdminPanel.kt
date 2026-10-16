@@ -169,7 +169,7 @@ private fun adminFeatureName(id: String): String = when (id) {
     "menu.projects" -> "Проекты"
     "menu.calendar" -> "Календарь"
     "menu.habits" -> "Привычки"
-    "menu.sacred" -> "Сакральное"
+    "menu.sacred" -> "Оракул"
     "menu.settings" -> "Настройки"
     "calendar.profane" -> "Григорианский календарь"
     "calendar.sacred" -> "Сакральный календарь"

@@ -53,7 +53,10 @@
     "editHelp": "Изменения сохраняются автоматически.",
     "createTitle": "Создание мысли",
     "childShort": "+ дочернюю мысль",
-    "siblingShort": "+ соседнюю мысль"
+    "siblingShort": "+ соседнюю мысль",
+    "edits": "Правки",
+    "undo": "Отменить",
+    "redo": "Повторить"
   },
   "en": {
     "icon": "Card icon",
@@ -109,7 +112,10 @@
     "editHelp": "Changes are saved automatically.",
     "createTitle": "Create a thought",
     "childShort": "+ child thought",
-    "siblingShort": "+ sibling thought"
+    "siblingShort": "+ sibling thought",
+    "edits": "Edits",
+    "undo": "Undo",
+    "redo": "Redo"
   },
   "de": {
     "icon": "Kartensymbol",
@@ -165,7 +171,10 @@
     "editHelp": "Änderungen werden automatisch gespeichert.",
     "createTitle": "Gedanken erstellen",
     "childShort": "+ Untergedanke",
-    "siblingShort": "+ Nebengedanke"
+    "siblingShort": "+ Nebengedanke",
+    "edits": "Bearbeiten",
+    "undo": "Rückgängig",
+    "redo": "Wiederholen"
   },
   "fr": {
     "icon": "Icône de la carte",
@@ -221,7 +230,10 @@
     "editHelp": "Les modifications sont enregistrées automatiquement.",
     "createTitle": "Créer une pensée",
     "childShort": "+ pensée enfant",
-    "siblingShort": "+ pensée voisine"
+    "siblingShort": "+ pensée voisine",
+    "edits": "Modifications",
+    "undo": "Annuler",
+    "redo": "Rétablir"
   },
   "es": {
     "icon": "Icono de la tarjeta",
@@ -277,7 +289,10 @@
     "editHelp": "Los cambios se guardan automáticamente.",
     "createTitle": "Crear un pensamiento",
     "childShort": "+ pensamiento hijo",
-    "siblingShort": "+ pensamiento hermano"
+    "siblingShort": "+ pensamiento hermano",
+    "edits": "Edición",
+    "undo": "Deshacer",
+    "redo": "Rehacer"
   },
   "it": {
     "icon": "Icona della scheda",
@@ -333,7 +348,10 @@
     "editHelp": "Le modifiche vengono salvate automaticamente.",
     "createTitle": "Crea un pensiero",
     "childShort": "+ pensiero figlio",
-    "siblingShort": "+ pensiero fratello"
+    "siblingShort": "+ pensiero fratello",
+    "edits": "Modifiche",
+    "undo": "Annulla",
+    "redo": "Ripeti"
   },
   "pt": {
     "icon": "Ícone do cartão",
@@ -389,7 +407,10 @@
     "editHelp": "As alterações são guardadas automaticamente.",
     "createTitle": "Criar um pensamento",
     "childShort": "+ pensamento filho",
-    "siblingShort": "+ pensamento irmão"
+    "siblingShort": "+ pensamento irmão",
+    "edits": "Edição",
+    "undo": "Desfazer",
+    "redo": "Refazer"
   },
   "pl": {
     "icon": "Ikona karty",
@@ -445,7 +466,10 @@
     "editHelp": "Zmiany są zapisywane automatycznie.",
     "createTitle": "Utwórz myśl",
     "childShort": "+ myśl podrzędną",
-    "siblingShort": "+ myśl równorzędną"
+    "siblingShort": "+ myśl równorzędną",
+    "edits": "Edycja",
+    "undo": "Cofnij",
+    "redo": "Ponów"
   },
   "el": {
     "icon": "Εικονίδιο κάρτας",
@@ -501,7 +525,10 @@
     "editHelp": "Οι αλλαγές αποθηκεύονται αυτόματα.",
     "createTitle": "Δημιουργία σκέψης",
     "childShort": "+ θυγατρική σκέψη",
-    "siblingShort": "+ παράλληλη σκέψη"
+    "siblingShort": "+ παράλληλη σκέψη",
+    "edits": "Αλλαγές",
+    "undo": "Αναίρεση",
+    "redo": "Επανάληψη"
   },
   "sr": {
     "icon": "Икона картице",
@@ -557,7 +584,10 @@
     "editHelp": "Промене се чувају аутоматски.",
     "createTitle": "Креирање мисли",
     "childShort": "+ подређену мисао",
-    "siblingShort": "+ суседну мисао"
+    "siblingShort": "+ суседну мисао",
+    "edits": "Измене",
+    "undo": "Опозови",
+    "redo": "Понови"
   },
   "uk": {
     "icon": "Іконка картки",
@@ -613,7 +643,10 @@
     "editHelp": "Зміни зберігаються автоматично.",
     "createTitle": "Створення думки",
     "childShort": "+ дочірню думку",
-    "siblingShort": "+ сусідню думку"
+    "siblingShort": "+ сусідню думку",
+    "edits": "Правки",
+    "undo": "Скасувати",
+    "redo": "Повторити"
   },
   "zh": {
     "icon": "卡片图标",
@@ -669,7 +702,10 @@
     "editHelp": "更改会自动保存。",
     "createTitle": "创建想法",
     "childShort": "+ 子想法",
-    "siblingShort": "+ 同级想法"
+    "siblingShort": "+ 同级想法",
+    "edits": "编辑",
+    "undo": "撤销",
+    "redo": "重做"
   },
   "tr": {
     "icon": "Kart simgesi",
@@ -725,7 +761,10 @@
     "editHelp": "Değişiklikler otomatik olarak kaydedilir.",
     "createTitle": "Düşünce oluştur",
     "childShort": "+ alt düşünce",
-    "siblingShort": "+ eş düzey düşünce"
+    "siblingShort": "+ eş düzey düşünce",
+    "edits": "Düzenleme",
+    "undo": "Geri al",
+    "redo": "Yinele"
   },
   "ja": {
     "icon": "カードのアイコン",
@@ -781,6 +820,9 @@
     "editHelp": "変更は自動的に保存されます。",
     "createTitle": "思考を作成",
     "childShort": "+ 子の思考",
-    "siblingShort": "+ 同階層の思考"
+    "siblingShort": "+ 同階層の思考",
+    "edits": "編集",
+    "undo": "元に戻す",
+    "redo": "やり直す"
   }
 }

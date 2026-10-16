@@ -111,7 +111,7 @@ fun StoicheionScreen(app: GenesisApplication, divinationDisabled: Boolean,
         contentPadding = PaddingValues(12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item(span = { GridItemSpan(maxLineSpan) }) {
-            GenesisPageHeader(if (english) "Sacred - Stoicheion" else "Сакральное - Стойхейон",
+            GenesisPageHeader(if (english) "Oracle - Stoicheion" else "Оракул - Стойхейон",
                 if (divinationDisabled) {
                     if (english) "Twenty-four Greek letters and their meanings"
                     else "Двадцать четыре буквенных образа и их значения"

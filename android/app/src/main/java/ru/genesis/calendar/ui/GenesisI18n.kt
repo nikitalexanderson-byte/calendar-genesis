@@ -1542,7 +1542,7 @@ private object TranslationCatalog {
 }
 
 internal fun translateGenesisText(context: android.content.Context, source: String, language: String): String =
-    TranslationCatalog.translate(context, source, language)
+    if (language == "ru") source else TranslationCatalog.translate(context, source, language)
 
 @Composable
 fun genesisTranslate(source: String): String {

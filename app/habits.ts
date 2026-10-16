@@ -2,6 +2,9 @@ import type { CalendarMode } from "./calendar-data";
 import { catalogText } from "./catalog-i18n";
 import type { Language } from "./i18n";
 import { habitIntervalTimes, habitIntervalMarks, normalizeHabitInterval, normalizeHabitCompletedTimes, type HabitIntervalSchedule } from "./habit-interval";
+import { habitMeasurementProgress, habitRuleForDate, mergeHabitMeasurementEvents, newHabitMeasurementEvent,
+  normalizeHabitMeasurement, normalizeHabitRuleHistory,
+  type HabitMeasurement, type HabitMeasurementEvent, type HabitRuleVersion } from "./habit-measurement";
 import {
   normalizeAddictionEntry,
   normalizeAddictionTracker,
@@ -195,6 +198,8 @@ export type Habit = TrackerEntity & {
   sacredSectorId: SacredPracticeSectorId | null;
   preferredTime: string;
   intervalSchedule?: HabitIntervalSchedule | null;
+  measurement?: HabitMeasurement | null;
+  ruleHistory?: HabitRuleVersion[];
   schedule: TrackerSchedule;
   scoringMode: HabitScoringMode;
   qualityScale: HabitQualityScale;
@@ -231,6 +236,7 @@ export type HabitWorkspace = {
   userProgress: UserProgress;
   habits: Habit[];
   habitCompletions: HabitCompletion[];
+  habitMeasurements: HabitMeasurementEvent[];
   sleepPlans: SleepPlan[];
   sleepEntries: SleepEntry[];
   moodEntries: MoodEntry[];
@@ -273,6 +279,8 @@ type LegacyHabit = Partial<TrackerEntity> & {
   sacredSectorId?: SacredPracticeSectorId | null;
   preferredTime?: string;
   intervalSchedule?: HabitIntervalSchedule | null;
+  measurement?: HabitMeasurement | null;
+  ruleHistory?: HabitRuleVersion[];
   scoringEnabled?: boolean;
   completionPoints?: number;
   failurePoints?: number;
@@ -334,6 +342,7 @@ export const EMPTY_HABIT_WORKSPACE: HabitWorkspace = {
   },
   habits: [],
   habitCompletions: [],
+  habitMeasurements: [],
   sleepPlans: [],
   sleepEntries: [],
   moodEntries: [],
@@ -470,6 +479,8 @@ function normalizeHabit(value: LegacyHabit, fallbackDate: string, calendarMode: 
     sacredSectorId,
     preferredTime: TIME_PATTERN.test(value.preferredTime ?? "") ? value.preferredTime! : "",
     intervalSchedule: normalizeHabitInterval(value.intervalSchedule),
+    measurement: normalizeHabitMeasurement(value.measurement),
+    ruleHistory: normalizeHabitRuleHistory(value.ruleHistory),
     schedule,
     scoringMode,
     qualityScale,
@@ -492,6 +503,7 @@ export function updateHabitCompletion(
   const current = workspace.habitCompletions.find((entry) => entry.habitId === habit.id && entry.date === date);
   const base: HabitCompletion = current ?? {
     ...newTrackerEntity("habit-completion"),
+    ...(habitRuleForDate(habit, date).measurement ? { id: `habit-completion:${habit.id}:${date}` } : {}),
     habitId: habit.id,
     date,
     completed: false,
@@ -506,8 +518,16 @@ export function updateHabitCompletion(
         : patch.completed ? habitIntervalTimes(habit.intervalSchedule) : [],
     } : {}),
     ...(base.qualityConfirmedAt ? { qualityValue: base.qualityValue, qualityConfirmedAt: base.qualityConfirmedAt } : {}) });
+  if (habitRuleForDate(habit, date).measurement) {
+    const progress = habitMeasurementProgress(habit, date, workspace.habitMeasurements ?? []);
+    patched.completed = progress.completed && (habit.qualityScale === "none" || Boolean(patched.qualityConfirmedAt));
+  }
   const score = scoreHabitCompletion(habit, patched);
-  const entry = { ...patched, score, xpAwarded: completionXpAward(base.xpAwarded, score, MAX_HABIT_XP_PER_COMPLETION) };
+  const measured = habitRuleForDate(habit, date).measurement;
+  const rewardEligible = !measured || date === today
+    && habitMeasurementProgress(habit, date, workspace.habitMeasurements ?? []).rewardTotal >= measured.target;
+  const entry = { ...patched, score, xpAwarded: rewardEligible
+    ? completionXpAward(base.xpAwarded, score, MAX_HABIT_XP_PER_COMPLETION) : base.xpAwarded };
   return {
     ...workspace,
     habitCompletions: [
@@ -515,6 +535,35 @@ export function updateHabitCompletion(
       entry,
     ],
   };
+}
+
+/** Append-only corrections keep both conflicting edits until the user resolves their heads. */
+export function recordHabitMeasurement(workspace: HabitWorkspace, habit: Habit, date: string,
+  value: number | null, options: Parameters<typeof newHabitMeasurementEvent>[3] = {},
+  today = habitDateKey(new Date())): HabitWorkspace {
+  if (!canRecordHabitOnDate(habit.createdDate, date, today) || !isHabitScheduledForDate(habit, date))
+    throw new RangeError("HABIT_MEASUREMENT_DATE_UNAVAILABLE");
+  if (!habitRuleForDate(habit, date).measurement) throw new RangeError("HABIT_MEASUREMENT_NOT_ENABLED");
+  const replay = options.id && workspace.habitMeasurements?.find(event => event.id === options.id);
+  if (replay) {
+    if (replay.habitId !== habit.id || replay.date !== date || replay.value !== value
+      || replay.entryId !== (options.entryId ?? options.id)
+      || JSON.stringify(replay.replaces) !== JSON.stringify([...(options.replaces ?? [])].sort()))
+      throw new RangeError("HABIT_MEASUREMENT_ID_CONFLICT");
+    return workspace;
+  }
+  const event = newHabitMeasurementEvent(habit, date, value, { ...options, historical: date < today || options.historical });
+  const current = habitMeasurementProgress(habit, date, workspace.habitMeasurements ?? []);
+  if (options.entryId) {
+    const entry = current.entries.find(item => item.id === options.entryId);
+    const expected = entry?.heads.map(item => item.id).sort() ?? [];
+    if (!entry || JSON.stringify(expected) !== JSON.stringify([...new Set(options.replaces ?? [])].sort()))
+      throw new RangeError("HABIT_MEASUREMENT_EDIT_CONFLICT");
+  } else if (value === null || options.replaces?.length) throw new RangeError("INVALID_HABIT_MEASUREMENT_EVENT");
+  const habitMeasurements = mergeHabitMeasurementEvents(workspace.habitMeasurements ?? [], [event]);
+  // Validate overflow before writing anything; partial history is never committed.
+  habitMeasurementProgress(habit, date, habitMeasurements);
+  return updateHabitCompletion({ ...workspace, habitMeasurements }, habit, date, {}, today);
 }
 
 export function updateHabitIntervalCompletion(workspace: HabitWorkspace, habit: Habit, date: string,
@@ -699,12 +748,30 @@ export function normalizeHabitWorkspace(
     .map((habit) => normalizeHabit(habit, fallbackDate, calendarMode))
     .filter((habit): habit is Habit => habit !== null));
   const habitMap = new Map(habits.map((habit) => [habit.id, habit]));
+  const habitMeasurements = mergeHabitMeasurementEvents(value.habitMeasurements ?? []);
   const rawEntries = Array.isArray(value.habitCompletions)
     ? value.habitCompletions as LegacyHabitEntry[]
     : Array.isArray(value.habitEntries) ? value.habitEntries : [];
   const habitCompletions = rawEntries
     .map((entry) => normalizeHabitCompletion(entry, habitMap))
     .filter((entry): entry is HabitCompletion => entry !== null);
+  const measurementDays = new Map(habitMeasurements.map(event => [`${event.habitId}:${event.date}`, event]));
+  for (const event of measurementDays.values()) {
+    const habit = habitMap.get(event.habitId);
+    if (!habit || !habitRuleForDate(habit, event.date).measurement) continue;
+    const progress = habitMeasurementProgress(habit, event.date, habitMeasurements);
+    const prior = habitCompletions.find(entry => entry.habitId === habit.id && entry.date === event.date);
+    const completed = progress.completed && (habit.qualityScale === "none" || Boolean(prior?.qualityConfirmedAt));
+    const base: HabitCompletion = prior ?? { ...newTrackerEntity("habit-completion"),
+      id: `habit-completion:${habit.id}:${event.date}`, habitId: habit.id, date: event.date,
+      completed: false, qualityValue: null, score: 0, xpAwarded: 0, note: "" };
+    const score = scoreHabitCompletion(habit, { ...base, completed });
+    const eligible = event.date === fallbackDate && progress.rewardTotal >= progress.target;
+    const projection = { ...base, completed, score,
+      xpAwarded: eligible ? completionXpAward(base.xpAwarded, score, MAX_HABIT_XP_PER_COMPLETION) : base.xpAwarded };
+    const index = habitCompletions.indexOf(base);
+    if (index < 0) habitCompletions.push(projection); else habitCompletions[index] = projection;
+  }
   const rewardTransactions = reconcileOrphanedHabitLaurels(
     habits.length,
     normalizeRewardTransactions(value.rewardTransactions),
@@ -759,6 +826,7 @@ export function normalizeHabitWorkspace(
     userProgress,
     habits,
     habitCompletions,
+    habitMeasurements,
     sleepPlans,
     sleepEntries: [...explicitSleepEntries, ...migratedSleepEntries],
     moodEntries: normalizeMoodEntries(value.moodEntries),
@@ -777,7 +845,7 @@ export function normalizeHabitWorkspace(
 }
 
 export function isHabitScheduledForDate(habit: Habit, value: string, calendarMode: CalendarMode = "sacred") {
-  return habit.active && isTrackerScheduledForDate(habit.schedule, value, calendarMode);
+  return habit.active && isTrackerScheduledForDate(habitRuleForDate(habit, value).schedule, value, calendarMode);
 }
 
 export function habitScore(habit: Habit, entry: HabitCompletion | undefined, value: string, _today?: string, calendarMode: CalendarMode = "sacred") {
@@ -1059,6 +1127,7 @@ export function removeHabitFromWorkspace(
     ...workspace,
     habits: workspace.habits.filter((item) => item.id !== habitId),
     habitCompletions,
+    habitMeasurements: (workspace.habitMeasurements ?? []).filter(event => event.habitId !== habitId),
     rewardTransactions,
     userProgress: reconcileUserProgress(
       workspace.userProgress,
