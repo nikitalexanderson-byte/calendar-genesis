@@ -104,11 +104,13 @@ try {
     expect(($user['language'] ?? '') === 'en', 'Language preference was not stored.');
     expect((genesisUserForClient($user)['language'] ?? '') === 'en', 'Language preference was not exposed to the client.');
     $defaults = genesisUserForClient($user)['uiVisibility'];
+    expect($defaults['sacredFeaturesEnabled'] === true, 'Sacred features must remain enabled by default.');
     expect($defaults['personalInboxWidth'] === 300 && $defaults['sharedInboxWidth'] === 300,
         'Inbox widths must default to 300.');
     expect($defaults['sharedCategoriesExpanded'] === false, 'Shared categories must default to collapsed.');
     expect($defaults['sharedTasksCompact'] === true, 'Shared project tasks must keep their existing compact default.');
     $visibility = [
+        'sacredFeaturesEnabled' => false,
         'hiddenMenuItems' => ['tasks', 'stoicheion'], 'hiddenSubmenus' => ['calendar.year'],
         'hiddenTodayBlocks' => ['rhythm', 'tasks'], 'enabledCalendars' => ['profane'],
         'sidebarAutoCollapseSeconds' => 30,
@@ -123,7 +125,7 @@ try {
     $user = genesisUpdateAccountPreferences($userId, ['uiVisibility' => $visibility]);
     expect(genesisUserForClient($user)['uiVisibility'] === $visibility, 'Navigation visibility did not round-trip.');
     $legacyVisibility = $visibility;
-    foreach (['sidebarAutoCollapseSeconds', 'sidebarWidth', 'personalInboxPosition', 'personalInboxHidden',
+    foreach (['sacredFeaturesEnabled', 'sidebarAutoCollapseSeconds', 'sidebarWidth', 'personalInboxPosition', 'personalInboxHidden',
         'personalInboxCompact', 'sharedInboxPosition', 'sharedInboxHidden', 'sharedInboxCompact',
         'personalInboxWidth', 'sharedInboxWidth', 'sharedCategoriesExpanded', 'personalCategoriesExpanded', 'personalCategoriesView', 'sharedCategoriesView', 'sharedTasksCompact',
         'notificationDockPinned', 'notificationDockX', 'notificationDockY'] as $field) unset($legacyVisibility[$field]);
