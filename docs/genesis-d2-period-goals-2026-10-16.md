@@ -32,6 +32,8 @@
 
 ## Ограничения и следующий этап
 
+Выпуск завершён через [PR #178](https://github.com/nikitalexanderson-byte/calendar-genesis/pull/178). Master и production — `f05a4b129f93f48b08682214809773a20ea2f2db`; [Actions 38883383125](https://github.com/nikitalexanderson-byte/calendar-genesis/actions/runs/38883383125) — success. Публичные `/deploy-meta.json`, `/api/health` и Android 2.8.6/86 проверены. Скачанный APK (161281902 байта) совпадает с опубликованным SHA-256 `9c4c5746bcd842ac766d1845fe4d636891a136aa794a5c2cff11bd08e8665916`; download route возвращает 302 на этот файл. Свидетельство — `output/d2-production-accepted.json`.
+
 Не проверены: Realme, Safari/Firefox, screen reader, Android tablet/font scale/IME Back, полный нативный редактор и вся навигация, все состояния каждого языка во всей матрице, production Google-вход/синхронизация подписанного APK. Полный `tsc --noEmit` сохраняет восемь прежних ошибок незатронутых модулей; новых ошибок изменённых модулей не найдено. Нельзя объявлять его успешным общим gate.
 
 Далее — полный D3: история действующих правил и явное разрешение их конфликтов; затем E1–E5, F1–F3, C1–C6, G1–G4 и оставшаяся сквозная приёмка. D2 не закрывает весь исходный промпт. Публикация и production SHA/health/APK проверяются существующим workflow после merge в master.

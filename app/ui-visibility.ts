@@ -51,6 +51,7 @@ export function accountLayout(value?: Partial<AccountLayout> | null): AccountLay
 }
 
 export type UiVisibility = AccountLayout & {
+  sacredFeaturesEnabled: boolean;
   hiddenMenuItems: string[];
   hiddenSubmenus: string[];
   hiddenTodayBlocks: string[];
@@ -60,6 +61,7 @@ export type UiVisibility = AccountLayout & {
 
 export const DEFAULT_UI_VISIBILITY: UiVisibility = {
   ...DEFAULT_ACCOUNT_LAYOUT,
+  sacredFeaturesEnabled: true,
   hiddenMenuItems: [], hiddenSubmenus: [], hiddenTodayBlocks: [],
   enabledCalendars: ["profane", "sacred", "lunar"],
   sidebarAutoCollapseSeconds: 0,
@@ -68,6 +70,7 @@ export const DEFAULT_UI_VISIBILITY: UiVisibility = {
 export function uiVisibility(value?: Partial<UiVisibility> | null): UiVisibility {
   return {
     ...accountLayout(value),
+    sacredFeaturesEnabled: value?.sacredFeaturesEnabled !== false,
     hiddenMenuItems: value?.hiddenMenuItems ?? [],
     hiddenSubmenus: value?.hiddenSubmenus ?? [],
     hiddenTodayBlocks: value?.hiddenTodayBlocks ?? [],
@@ -77,9 +80,20 @@ export function uiVisibility(value?: Partial<UiVisibility> | null): UiVisibility
   };
 }
 
+/** Hiding the sacred layer never rewrites the account's calendar preferences. */
+export function visibleCalendarModes(settings: UiVisibility): CalendarMode[] {
+  const modes = settings.enabledCalendars.filter(mode => settings.sacredFeaturesEnabled || mode !== "sacred");
+  return modes.length ? modes : ["profane"];
+}
+
+export function visibleCalendarMode(mode: CalendarMode, settings: UiVisibility): CalendarMode {
+  const modes = visibleCalendarModes(settings);
+  return modes.includes(mode) ? mode : modes[0];
+}
+
 export function viewIsVisible(view: string, settings: UiVisibility): boolean {
   if (view === "today" || view === "admin") return true;
-  if ((view === "stoicheion" || view === "theokyklos") && settings.hiddenMenuItems.includes("sacred")) return false;
+  if ((view === "stoicheion" || view === "theokyklos") && (!settings.sacredFeaturesEnabled || settings.hiddenMenuItems.includes("sacred"))) return false;
   const parent = view === "all-tasks" ? "tasks" : view === "year" ? "calendar" : view;
   if (settings.hiddenMenuItems.includes(parent)) return false;
   if (view === "calendar" && settings.hiddenSubmenus.includes("calendar.month")) return false;

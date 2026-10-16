@@ -6,6 +6,16 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class AccountSettingsTest {
+    @Test fun sacredVisibilityRoundTripsWithoutRewritingCalendarPreferences() {
+        val saved = UiVisibility(enabledCalendars=setOf("sacred"), sacredFeaturesEnabled=false)
+        val parsed = UiVisibility.fromJson(saved.toJson())
+        assertFalse(parsed.sacredFeaturesEnabled)
+        assertEquals(setOf("sacred"), parsed.enabledCalendars)
+        assertEquals(setOf("profane"), parsed.visibleCalendars)
+        assertEquals(setOf("sacred"), parsed.copy(sacredFeaturesEnabled=true).visibleCalendars)
+        assertTrue(UiVisibility.fromJson(JSONObject()).sacredFeaturesEnabled)
+    }
+
     private val response = JSONObject("""{
       "user": {
         "googleAccounts": [

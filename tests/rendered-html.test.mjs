@@ -2752,7 +2752,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(accountPanel, /Календарь постановки задач/);
   assert.match(accountPanel, /систему постановки задач можно выбрать отдельно для любого режима/);
   assert.doesNotMatch(accountPanel, /\(user\.calendarMode \?\? "sacred"\) === "sacred" \? \(/);
-  assert.match(calendar, /const activeTaskCalendarMode: CalendarMode = cloudUser\?\.taskCalendarMode \?\? "sacred"/);
+  assert.match(calendar, /visibleCalendarMode\(cloudUser\?\.taskCalendarMode \?\? "sacred", storedVisibility\)/);
   assert.doesNotMatch(calendar, /activeCalendarMode === "sacred"\s*\? cloudUser\?\.taskCalendarMode/);
   assert.match(cloudSync, /taskCalendarMode: CalendarMode/);
   assert.match(repository, /'taskCalendarMode' => \$taskCalendarMode/);

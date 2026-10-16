@@ -6,6 +6,18 @@ const period = calendarModule("app/habit-period-goal.ts"), progress = calendarMo
 const editing = calendarModule("app/habit-editing.ts");
 const context = { version: 2, timeZone: "Europe/Moscow", gregorianYearStart: "january" };
 const now = new Date("2026-05-10T12:00:00Z");
+
+test("conflicting period rules are neutral and a late choice cannot create retroactive rewards", () => {
+  const f=fixture("entries",1),root=m.habitRuleForDate(f.habit,"2026-05-04");
+  const left={...root,id:"left",supersedes:[root.id]},right={...root,id:"right",supersedes:[root.id],periodGoal:{...root.periodGoal,target:2}};
+  const habit={...f.habit,ruleHistory:m.normalizeHabitRuleHistory([root,left,right])};
+  const one={...habit,ruleHistory:[root,left]};
+  const workspace=h.recordHabitMeasurement({...f.workspace,habits:[one]},one,"2026-05-04",1000,{id:"owned-entry"},"2026-05-04");
+  assert.equal(progress.habitPeriodProgress(habit,"2026-05-10",workspace,now).status,"neutral");
+  const chosen=editing.resolveHabitRuleConflict(habit,"left",["left","right"],"late","2026-05-20T12:00:00Z");
+  const settled=progress.habitPeriodProgress(chosen,"2026-05-10",workspace,new Date("2026-05-20T12:00:00Z"));
+  assert.equal(settled.completed,true);assert.equal(settled.rewardEligible,false);
+});
 function fixture(metric = "days", target = 3, extra = {}) {
   const habit = { ...h.defaultHabit("2026-05-04", "profane"), id: "period-habit", title: "Synthetic period goal",
     periodGoal: { version: 1, period: "week", metric, target, calendar: "profane", context, ...extra } };

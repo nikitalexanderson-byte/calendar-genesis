@@ -28,6 +28,8 @@ import { CalendarDatePicker } from "./CalendarDatePicker";
 import { TimeClockPicker } from "./TimeClockPicker";
 import { HabitIntervalFields } from "./HabitIntervalFields";
 import { HabitMeasurementControl, HabitMeasurementFields } from "./HabitMeasurementControls";
+import { HabitRuleHistory } from "./HabitRuleHistory";
+import { habitRuleFrontier } from "./habit-rule-history";
 import { effectiveHabitMeasurement, habitMeasurementProgress, habitRuleForDate } from "./habit-measurement";
 import { HabitPeriodGoalFields, HabitPeriodGoalProgress } from "./HabitPeriodGoalControls";
 import { habitPeriodStreak } from "./habit-period-progress";
@@ -136,7 +138,7 @@ import {
   trackerTimestamp,
 } from "./tracker-core";
 import { trackerSnapshot } from "./tracker-analytics";
-import { applyEditableHabitUpdate, applyHabitReminderSyncResult, setNewHabitStartDate } from "./habit-editing";
+import { applyEditableHabitUpdate, applyHabitReminderSyncResult, resolveHabitRuleConflict, setNewHabitStartDate } from "./habit-editing";
 import { HabitInsightsPanel } from "./HabitInsightsPanel";
 import { TheokyklosDetailsDialog } from "./TheokyklosDetailsDialog";
 import { ExperimentalIcon } from "./ExperimentalIcon";
@@ -162,6 +164,7 @@ type HabitTrackerPageProps = DailyPanelProps & {
   googleCalendarReady: boolean;
   experimentalThemeActive?: boolean;
   hiddenSubmenus?: string[];
+  sacredFeaturesEnabled?: boolean;
   voiceRequest?: { token: number; kind: "create" | "edit" | "delete" | "section" | "sacred-practice"; id?: string; section?: string } | null;
   onVoiceRequestConsumed?: () => void;
   onReminderRequested?: (habit: Habit) => Promise<{ googleTaskId: string | null; googleEventId: string | null }>;
@@ -1044,7 +1047,7 @@ function HabitTemplateSetup({ template, date, language, calendarMode, googleTask
   );
 }
 
-function HabitEditor({ habit, isExisting, language, calendarMode, googleTasksReady, googleCalendarReady, allowCalendarModeChange = false, onSave, onClose, saving = false, saveError = "" }: { habit: Habit; isExisting: boolean; language: Language; calendarMode: CalendarMode; googleTasksReady: boolean; googleCalendarReady: boolean; allowCalendarModeChange?: boolean; onSave: (habit: Habit) => void; onClose: () => void; saving?: boolean; saveError?: string }) {
+function HabitEditor({ habit, isExisting, language, calendarMode, timeFormat, googleTasksReady, googleCalendarReady, allowCalendarModeChange = false, onSave, onChooseRule, onClose, saving = false, saveError = "" }: { habit: Habit; isExisting: boolean; language: Language; calendarMode: CalendarMode; timeFormat: TimeFormat; googleTasksReady: boolean; googleCalendarReady: boolean; allowCalendarModeChange?: boolean; onSave: (habit: Habit) => void; onChooseRule: (chosenId: string, heads: string[], operationId: string) => Promise<void>; onClose: () => void; saving?: boolean; saveError?: string }) {
   const isEnglish = language === "en";
   const [draft, setDraft] = useState(habit);
   const [measurementValid, setMeasurementValid] = useState(true);
@@ -1067,6 +1070,7 @@ function HabitEditor({ habit, isExisting, language, calendarMode, googleTasksRea
           <label className="wide"><span>{isEnglish ? "Description" : "Описание"}</span><textarea maxLength={500} value={draft.description} onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} /></label>
           <HabitMeasurementFields habit={draft} language={language} isExisting={isExisting} hadPeriodGoal={Boolean(habit.periodGoal || habit.ruleHistory?.some(rule=>rule.periodGoal))} onChange={setDraft} onValidity={setMeasurementValid} />
           <HabitPeriodGoalFields habit={draft} language={language} calendarMode={calendarMode} isExisting={isExisting} hadPeriodGoal={Boolean(habit.periodGoal || habit.ruleHistory?.some(rule=>rule.periodGoal))} onChange={setDraft} onValidity={setPeriodValid}/>
+          {isExisting ? <HabitRuleHistory habit={habit} date={habitDateKey(new Date())} language={language} timeFormat={timeFormat} saving={saving} onChoose={onChooseRule}/> : null}
           <HabitIntervalFields habit={draft} onChange={setDraft}/>
           {!draft.intervalSchedule ? <HabitStrictTimeField value={draft.preferredTime} fallbackTime={draft.reminder.time} language={language} onChange={(preferredTime) => setDraft((current) => ({ ...current, preferredTime }))} /> : null}
           <HabitColorField value={draft.color} language={language} onChange={(color) => setDraft((current) => ({ ...current, color }))} />
@@ -1114,7 +1118,7 @@ function HabitEditor({ habit, isExisting, language, calendarMode, googleTasksRea
             </div>
           </fieldset>
         </fieldset>
-        <footer><button type="button" className="secondary-button" disabled={saving} onClick={onClose}>{isEnglish ? "Cancel" : "Отмена"}</button><button type="submit" className="primary-button" disabled={saving || !measurementValid || !periodValid || !draft.title.trim() || Boolean(draft.intervalSchedule && !normalizeHabitInterval(draft.intervalSchedule))}>{saving ? translateText("Сохраняем…",language) : isExisting ? (isEnglish ? "Save changes" : "Сохранить изменения") : (isEnglish ? "Save habit" : "Сохранить привычку")}</button></footer>
+        <footer><button type="button" className="secondary-button" disabled={saving} onClick={onClose}>{isEnglish ? "Cancel" : "Отмена"}</button><button type="submit" className="primary-button" disabled={saving || habitRuleFrontier(habit).length > 1 || !measurementValid || !periodValid || !draft.title.trim() || Boolean(draft.intervalSchedule && !normalizeHabitInterval(draft.intervalSchedule))}>{saving ? translateText("Сохраняем…",language) : isExisting ? (isEnglish ? "Save changes" : "Сохранить изменения") : (isEnglish ? "Save habit" : "Сохранить привычку")}</button></footer>
       </form>
     </div>
   );
@@ -1402,7 +1406,7 @@ function SacredHabitLibrary({
   );
 }
 
-export function HabitTrackerPage({ workspace, date, language, timeFormat, calendarMode, reportContext, googleTasksReady, googleCalendarReady, experimentalThemeActive = false, voiceRequest, onVoiceRequestConsumed, onChange, onSave, onReminderRequested, onReminderRemoved }: HabitTrackerPageProps) {
+export function HabitTrackerPage({ workspace, date, language, timeFormat, calendarMode, reportContext, googleTasksReady, googleCalendarReady, experimentalThemeActive = false, sacredFeaturesEnabled = true, voiceRequest, onVoiceRequestConsumed, onChange, onSave, onReminderRequested, onReminderRemoved }: HabitTrackerPageProps) {
   const isEnglish = language === "en";
   const workspaceRef = useRef(workspace);
   useEffect(() => {
@@ -1439,7 +1443,9 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
     if (habitSavePending.current) return;
     if (candidate.intervalSchedule && !normalizeHabitInterval(candidate.intervalSchedule)) return;
     const previous = workspace.habits.find((item) => item.id === candidate.id);
-    const habit = previous ? applyEditableHabitUpdate(previous, candidate) : candidate;
+    let habit: Habit;
+    try { habit = previous ? applyEditableHabitUpdate(previous, candidate) : candidate; }
+    catch { setHabitSaveError(translateText("Правила изменены на нескольких устройствах. Выберите действующий вариант.",language)); return; }
     const populatedWorkspace = {
       ...workspace,
       habits: previous
@@ -1469,6 +1475,20 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
       onChange(workspaceWithReminder);
       setMessage(wantsExternal ? (isEnglish ? "External reminder synchronized." : "Внешнее напоминание синхронизировано.") : (isEnglish ? "External reminder removed." : "Внешнее напоминание удалено."));
     })().catch((error: Error) => setMessage(error.message));
+  };
+
+  const chooseRule = async (habitId: string,chosenId: string,heads: string[],operationId: string) => {
+    if (habitSavePending.current) return;
+    habitSavePending.current=true;setHabitSaving(true);setHabitSaveError("");
+    try {
+      const current=workspaceRef.current, habit=current.habits.find(item=>item.id===habitId);
+      if(!habit) throw new Error("HABIT_NOT_FOUND");
+      const selected=resolveHabitRuleConflict(habit,chosenId,heads,operationId);
+      const next={...current,habits:current.habits.map(item=>item.id===habitId?selected:item)};
+      if(onSave) await onSave(next);else onChange(next);
+      workspaceRef.current=next;setEditingHabit(null);setMessage(translateText("Выбор сохранён",language));
+    } catch { setHabitSaveError(translateText("Не удалось сохранить выбор. Обновите данные и повторите.",language)); }
+    finally { habitSavePending.current=false;setHabitSaving(false); }
   };
 
   const removeHabit = (habit: Habit) => {
@@ -1557,6 +1577,11 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
         </div>
       </header>
       <div className="habit-workspace-frame">
+      {workspace.habits.some(habit=>habitRuleFrontier(habit).length>1) ? <section className="habit-rule-notice" aria-label={translateText("Конфликт правил",language)}>
+        <strong>{translateText("Конфликт правил",language)}</strong><p>{translateText("Правила изменены на нескольких устройствах. Выберите действующий вариант.",language)}</p>
+        {workspace.habits.filter(habit=>habitRuleFrontier(habit).length>1).map(habit=><div key={habit.id}><span data-no-translate>{habit.title}</span>
+          <button type="button" className="secondary-button" onClick={()=>{setHabitSaveError("");setEditingHabit(habit);}}>{translateText("Открыть историю",language)}</button></div>)}
+      </section> : null}
       {<div ref={experimentalHabitTabsRef} className="experimental-habit-tabs" role="tablist" tabIndex={-1} aria-label={isEnglish ? "Habit workspace" : "Рабочая зона привычек"} onKeyDown={(event) => {
         const tabs = habitTabs;
         if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
@@ -1630,7 +1655,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
         </div> : <small>{formatCalendarDateValue(range.start, calendarMode)} — {formatCalendarDateValue(range.end, calendarMode)}</small>}
       </section>} />
       </HabitSectionBlock>
-      <HabitSectionBlock className="experimental-habit-section experimental-habit-section-library" label={isEnglish ? "Sacred habits" : "Сакральные привычки"} language={language} {...sectionProps("sacred-habits")}><SacredHabitLibrary
+      {sacredFeaturesEnabled ? <HabitSectionBlock className="experimental-habit-section experimental-habit-section-library" label={isEnglish ? "Sacred habits" : "Сакральные привычки"} language={language} {...sectionProps("sacred-habits")}><SacredHabitLibrary
           workspace={workspace}
           date={date}
           language={language}
@@ -1638,12 +1663,12 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
           onChange={onChange}
           onStart={(practice) => saveHabit(createHabitFromSacredPractice(practice, creationDate, calendarMode, language))}
           onEdit={setEditingHabit}
-        /></HabitSectionBlock>
+        /></HabitSectionBlock> : null}
       </div>
       </div>
       {heroPathOpen ? <HeroPathPanel workspace={workspace} language={language} onClaimCheckpoint={(rankId) => { const next = claimHeroPathAmphora(workspace, rankId); onChange(next); if (next !== workspace) setMessage(isEnglish ? "The amphora is open. Laurels were added to your ledger." : "Амфора открыта. Лавры добавлены в журнал наград."); }} onRevealHiddenPath={() => { const next = revealHiddenHeroicPath(workspace); onChange(next); if (next !== workspace) setMessage(isEnglish ? "The second path has been revealed." : "Второй путь открыт."); }} onClose={() => setHeroPathOpen(false)} /> : null}
       {activatingTemplate ? <HabitTemplateSetup template={activatingTemplate} date={creationDate} language={language} calendarMode={calendarMode} googleTasksReady={googleTasksReady} googleCalendarReady={googleCalendarReady} allowCalendarModeChange saving={habitSaving} saveError={habitSaveError} onSave={saveHabit} onClose={() => { if(!habitSavePending.current){setHabitSaveError("");setActivatingTemplate(null);} }} /> : null}
-      {editingHabit ? <HabitEditor habit={editingHabit} isExisting={workspace.habits.some((habit) => habit.id === editingHabit.id)} language={language} calendarMode={calendarMode} googleTasksReady={googleTasksReady} googleCalendarReady={googleCalendarReady} allowCalendarModeChange saving={habitSaving} saveError={habitSaveError} onSave={saveHabit} onClose={() => { if(!habitSavePending.current){setHabitSaveError("");setEditingHabit(null);} }} /> : null}
+      {editingHabit ? <HabitEditor habit={editingHabit} isExisting={workspace.habits.some((habit) => habit.id === editingHabit.id)} language={language} calendarMode={calendarMode} timeFormat={timeFormat} googleTasksReady={googleTasksReady} googleCalendarReady={googleCalendarReady} allowCalendarModeChange saving={habitSaving} saveError={habitSaveError} onSave={saveHabit} onChooseRule={(chosen,heads,operation)=>chooseRule(editingHabit.id,chosen,heads,operation)} onClose={() => { if(!habitSavePending.current){setHabitSaveError("");setEditingHabit(null);} }} /> : null}
       {editingSleep ? <SleepEditor plan={editingSleep} language={language} calendarMode={calendarMode} allowCalendarModeChange onSave={(plan) => { onChange({ ...workspace, sleepPlans: workspace.sleepPlans.some((item) => item.id === plan.id) ? workspace.sleepPlans.map((item) => item.id === plan.id ? plan : item) : [...workspace.sleepPlans, plan] }); setEditingSleep(null); }} onClose={() => setEditingSleep(null)} /> : null}
       {editingAddiction ? <AddictionEditor tracker={editingAddiction} language={language} calendarMode={calendarMode} allowCalendarModeChange onSave={(tracker) => { onChange({ ...workspace, addictionTrackers: workspace.addictionTrackers.some((item) => item.id === tracker.id) ? workspace.addictionTrackers.map((item) => item.id === tracker.id ? tracker : item) : [...workspace.addictionTrackers, tracker] }); setEditingAddiction(null); }} onClose={() => setEditingAddiction(null)} /> : null}
     </div>

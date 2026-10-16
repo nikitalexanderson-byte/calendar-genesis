@@ -215,6 +215,11 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                 }
             }} else null)
         error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
+        current?.habits?.filter { HabitRuleHistory.state(it,LocalDate.MAX).conflicts.isNotEmpty() }?.forEach { habit ->
+            Text("Правила изменены на нескольких устройствах. Выберите действующий вариант.",color=MaterialTheme.colorScheme.error)
+            Text(habit.title)
+            TextButton(onClick={edit=habit;editorOpen=true}) { Text("Открыть историю") }
+        }
         if(current==null) {
             if(!storageError) CircularProgressIndicator()
         } else {
@@ -362,7 +367,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                     }
                 }
             }
-            SacredHabitsBlock(current,today,displayCalendarMode,busy || storageError,openSacredHabits,
+            if (LocalSacredFeaturesEnabled.current) SacredHabitsBlock(current,today,displayCalendarMode,busy || storageError,openSacredHabits,
                 experimental = experimental,
                 onRequestedOpenConsumed=onSacredHabitsOpened,
                 onStart={ practice -> scope.launch { runAction { repository.save(practice.toHabit(displayCalendarMode,english)) } } },
@@ -381,6 +386,11 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
         }
     }
     if(editorOpen) HabitEditor(edit,busy,error,inputCalendarMode,accountSettings,voiceDraftTitle,
+        onChooseRule={chosen,heads,operation -> scope.launch { runAction {
+            try { repository.resolveRule(requireNotNull(edit).id,chosen,heads,operation);editorOpen=false }
+            catch(e: CancellationException) { throw e }
+            catch(_: Exception) { throw IllegalStateException("Не удалось сохранить выбор. Обновите данные и повторите.") }
+        } }},
         onDismiss={if(!busy) { editorOpen=false;voiceDraftTitle="" }},onSave={ habit ->
         scope.launch { runAction {
             val previous=edit
@@ -516,7 +526,8 @@ private fun sacredHabitCadence(config: ru.genesis.calendar.domain.RecurrenceConf
 private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCalendarMode: CalendarMode,
     accountSettings: AccountSettings?,
     initialTitle: String = "",
-    onDismiss: () -> Unit, onSave: (Habit) -> Unit) {
+    onDismiss: () -> Unit, onSave: (Habit) -> Unit,
+    onChooseRule: (String,List<String>,String)->Unit) {
     val engineCalendar=remember { GenesisCalendar() }
     val engine=remember(engineCalendar) { HabitEngine(engineCalendar) }
     val initial=remember(existing,initialTitle) { existing ?: Habit(TrackerEntity.create("habit"),initialTitle,LocalDate.now(),engine.defaultSchedule(LocalDate.now(),inputCalendarMode)) }
@@ -571,6 +582,7 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
                 hadPeriodGoal=initial.periodGoal!=null||initial.ruleHistory.any { it.periodGoal!=null })
             HabitPeriodGoalFields(periodGoal,measurement,mode,initial.schedule.timezone,existing!=null,
                 onChange={periodGoal=it},onValidity={periodValid=it},hadPeriodGoal=initial.periodGoal!=null||initial.ruleHistory.any { it.periodGoal!=null })
+            if(existing!=null) HabitRuleHistoryPanel(existing,LocalDate.now(),busy,onChooseRule)
             HabitPersonalizationFields(emoji,color,isKeyHabit,ritualId,ritualName,!busy,
                 onEmoji={ emoji=it.take(32) },onColor={ color=it.take(7) },
                 onKeyHabit={ isKeyHabit=it },
@@ -585,7 +597,7 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
                 color=MaterialTheme.colorScheme.onSurfaceVariant)
             Row(Modifier.horizontalScroll(rememberScrollState())) {
                 (listOf(inputCalendarMode) + listOf(CalendarMode.SACRED,CalendarMode.PROFANE,CalendarMode.LUNAR)
-                    .filterNot { it==inputCalendarMode }).forEach { option ->
+                    .filterNot { it==inputCalendarMode }).filter { LocalSacredFeaturesEnabled.current || it!=CalendarMode.SACRED || mode==CalendarMode.SACRED }.forEach { option ->
                     val label=when(option) {CalendarMode.SACRED->"Сакральный";CalendarMode.PROFANE->"Григорианский";CalendarMode.LUNAR->"Лунный"}
                     FilterChip(selected=mode==option,enabled=!busy,onClick={
                         config=engine.defaultSchedule(LocalDate.parse(start),option).recurrence
@@ -734,7 +746,7 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
             error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 TextButton(enabled=!busy,onClick=onDismiss) { Text("Отмена") }
-                Button(enabled=!busy&&measurementValid&&periodValid&&title.isNotBlank()&&normalizedHabitColor(color)!=null&&normalizedHabitEmoji(emoji)!=null&&
+                Button(enabled=!busy&&HabitRuleHistory.state(initial,LocalDate.MAX).conflicts.isEmpty()&&measurementValid&&periodValid&&title.isNotBlank()&&normalizedHabitColor(color)!=null&&normalizedHabitEmoji(emoji)!=null&&
                     (ritualId!="custom"||ritualName.isNotBlank())&&
                     (limit==0||config.days.isNotEmpty())&&(end.isEmpty()||end>=start)&&intervalSchedule?.valid()!=false,onClick={
                     onSave(initial.copy(title=title.trim(),description=description,priority=priority,scoringMode=scoring,

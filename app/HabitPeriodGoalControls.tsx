@@ -7,6 +7,7 @@ import { habitPeriodProgress } from "./habit-period-progress";
 import { habitGoalPeriod, type HabitPeriodGoal } from "./habit-period-goal";
 import { translateText, type Language } from "./i18n";
 import "./habit-period-goal.css";
+import { useCalendarModeAvailable } from "./sacred-features";
 
 export function HabitPeriodGoalFields({ habit, language, calendarMode, isExisting, hadPeriodGoal = false, onChange, onValidity }: {
   habit: Habit; language: Language; calendarMode: CalendarMode; isExisting: boolean;
@@ -15,6 +16,7 @@ export function HabitPeriodGoalFields({ habit, language, calendarMode, isExistin
 }) {
   const t = (text: string) => translateText(text, language);
   const goal = habit.periodGoal;
+  const calendarAvailable = useCalendarModeAvailable(goal?.calendar);
   const [target, setTarget] = useState(String(goal ? goal.target / (goal.metric === "sum" ? 1000 : 1) : 3));
   const [invalid, setInvalid] = useState(false);
   const change = (next: HabitPeriodGoal | null, text = target) => {
@@ -46,7 +48,7 @@ export function HabitPeriodGoalFields({ habit, language, calendarMode, isExistin
         <label><span>{t("Цель за период")}</span><input inputMode={goal.metric === "sum" ? "decimal" : "numeric"}
           required maxLength={16} value={target} aria-invalid={invalid} onChange={event => { setTarget(event.target.value); change(goal, event.target.value); }}/></label>
         <label><span>{t("Календарь цели")}</span><select value={goal.calendar} onChange={event => change({ ...goal, calendar: event.target.value as CalendarMode })}>
-          <option value="profane">{t("Григорианский")}</option><option value="sacred">{t("Сакральный")}</option><option value="lunar">{t("Лунный")}</option>
+          <option value="profane">{t("Григорианский")}</option>{calendarAvailable("sacred") ? <option value="sacred">{t("Сакральный")}</option> : null}<option value="lunar">{t("Лунный")}</option>
         </select></label>
       </> : null}
     </div>

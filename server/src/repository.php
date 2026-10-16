@@ -185,7 +185,9 @@ function genesisUiVisibility(mixed $value): array
         'hiddenTodayBlocks' => ['rhythm', 'quickCreate', 'tasks', 'habits', 'details'],
         'enabledCalendars' => ['profane', 'sacred', 'lunar'],
     ];
-    $result = [];
+    $sacred = $decoded['sacredFeaturesEnabled'] ?? true;
+    if (!is_bool($sacred)) throw new InvalidArgumentException('INVALID_UI_VISIBILITY');
+    $result = ['sacredFeaturesEnabled' => $sacred];
     foreach ($allowed as $name => $options) {
         $items = $decoded[$name] ?? ($name === 'enabledCalendars' ? $options : []);
         if (!is_array($items) || !array_is_list($items) ||
@@ -356,6 +358,41 @@ function genesisFindUserByEmail(string $email): ?array
     $statement->execute(['email' => trim($email)]);
     $user = $statement->fetch();
     return is_array($user) ? $user : null;
+}
+
+/** A reported client category is descriptive metadata, never an authentication signal. */
+function genesisRequestClientKind(array $server): ?string
+{
+    if (preg_match('/\A\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?\z/', (string)($server['HTTP_X_GENESIS_APP_VERSION'] ?? ''))) return 'android_app';
+    $agent = (string)($server['HTTP_USER_AGENT'] ?? '');
+    if (preg_match('/Android|iPhone|iPad|iPod|Mobile/i', $agent)) return 'mobile_browser';
+    if (preg_match('/Windows NT|Macintosh|X11|CrOS/i', $agent)) return 'desktop_browser';
+    return null;
+}
+
+function genesisRecordClientActivity(string $userId, bool $login = false): void
+{
+    $kind = genesisRequestClientKind($_SERVER);
+    if ($kind === null) return; // Cron and old unidentifiable requests do not become desktop activity.
+    $now = genesisNow();
+    $statement = genesisDb()->prepare('INSERT INTO user_client_activity(user_id, client_kind, last_seen_at, last_login_at)
+        VALUES(:user, :kind, :now, :login) ON CONFLICT(user_id, client_kind) DO UPDATE SET
+        last_seen_at = excluded.last_seen_at, last_login_at = COALESCE(excluded.last_login_at, user_client_activity.last_login_at)');
+    $statement->execute(['user' => $userId, 'kind' => $kind, 'now' => $now, 'login' => $login ? $now : null]);
+}
+
+function genesisObserveClientActivity(string $userId, bool $login = false): void
+{
+    $kind = genesisRequestClientKind($_SERVER);
+    if ($kind === null) return;
+    $key = $userId . ':' . $kind;
+    if (!$login && time() - (int)($_SESSION['client_activity_observed'][$key] ?? 0) < 60) return;
+    try {
+        genesisRecordClientActivity($userId, $login);
+        $_SESSION['client_activity_observed'][$key] = time();
+    } catch (Throwable $error) {
+        genesisLogError('Client activity observation failed.', $error);
+    }
 }
 
 function genesisTouchUser(string $userId, bool $login = false): void
@@ -771,8 +808,8 @@ function genesisSaveWorkspaceEnvelope(string $userId, array $payload): array
     }
     $hasExpectedVersion = array_key_exists('expectedVersion', $payload);
     $expectedVersion = genesisClampInt($payload['expectedVersion'] ?? 0, 0, 9_000_000_000_000_000, 0);
-    $writerProtocol = genesisClampInt($payload['writerProtocol'] ?? 1, 1, 3, 1);
-    $requiredProtocol = genesisClampInt($payload['minimumWriterProtocol'] ?? 1, 1, 3, 1);
+    $writerProtocol = genesisClampInt($payload['writerProtocol'] ?? 1, 1, 4, 1);
+    $requiredProtocol = genesisClampInt($payload['minimumWriterProtocol'] ?? 1, 1, 4, 1);
     if ($writerProtocol < $requiredProtocol) throw new DomainException('WORKSPACE_UPGRADE_REQUIRED');
     $db = genesisDb();
     $ownsTransaction = !$db->inTransaction();
@@ -968,6 +1005,10 @@ function genesisAdminFeatureUsage(int $userCount): array
 
 function genesisAdminStats(): array
 {
+    $clientActivity = [];
+    foreach (genesisDb()->query('SELECT user_id, client_kind, last_seen_at, last_login_at FROM user_client_activity ORDER BY client_kind') as $client) {
+        $clientActivity[$client['user_id']][] = ['kind' => $client['client_kind'], 'lastSeenAt' => $client['last_seen_at'], 'lastLoginAt' => $client['last_login_at'] ?: null];
+    }
     $rows = genesisDb()->query('SELECT u.id, u.auth_provider, u.email, u.display_name, u.subscription_plan, u.created_at, u.last_login_at, u.last_seen_at, u.login_count, u.password_hash IS NOT NULL AS password_enabled, u.refresh_token_enc IS NOT NULL AS google_auth_connected, u.refresh_token_enc IS NOT NULL AND u.google_calendar_id IS NOT NULL AS calendar_connected, u.last_calendar_sync_at, COALESCE(m.project_count, 0) AS project_count, COALESCE(m.task_count, 0) AS task_count, COALESCE(m.open_task_count, 0) AS open_task_count, COALESCE(m.completed_task_count, 0) AS completed_task_count, COALESCE(m.google_synced_count, 0) AS google_synced_count, COALESCE(m.habit_count, 0) AS habit_count, m.updated_at AS metrics_updated_at, COALESCE(d.request_count, 0) AS android_download_count, d.first_requested_at AS android_first_download_at, d.last_requested_at AS android_last_download_at, d.last_requested_version AS android_last_download_version, (SELECT COUNT(*) FROM android_client_reports r WHERE r.user_id = u.id) AS android_device_count, (SELECT r.app_version FROM android_client_reports r WHERE r.user_id = u.id ORDER BY r.last_seen_at DESC LIMIT 1) AS android_reported_version, (SELECT r.last_seen_at FROM android_client_reports r WHERE r.user_id = u.id ORDER BY r.last_seen_at DESC LIMIT 1) AS android_last_seen_at, (SELECT r.last_server_sync_at FROM android_client_reports r WHERE r.user_id = u.id AND r.last_server_sync_at IS NOT NULL ORDER BY r.last_server_sync_at DESC LIMIT 1) AS android_last_server_sync_at, (SELECT r.server_sync_status FROM android_client_reports r WHERE r.user_id = u.id AND r.last_server_sync_at IS NOT NULL ORDER BY r.last_server_sync_at DESC LIMIT 1) AS android_server_sync_status, (SELECT r.google_sync_status FROM android_client_reports r WHERE r.user_id = u.id AND r.last_server_sync_at IS NOT NULL ORDER BY r.last_server_sync_at DESC LIMIT 1) AS android_google_sync_status FROM users u LEFT JOIN user_metrics m ON m.user_id = u.id LEFT JOIN android_download_activity d ON d.user_id = u.id ORDER BY COALESCE(u.last_seen_at, u.created_at) DESC')->fetchAll();
     $linkedAuthIds = array_fill_keys(genesisDb()->query('SELECT DISTINCT owner_user_id FROM linked_google_accounts WHERE refresh_token_enc IS NOT NULL')->fetchAll(PDO::FETCH_COLUMN), true);
     $linkedCalendarIds = array_fill_keys(genesisDb()->query('SELECT DISTINCT owner_user_id FROM linked_google_accounts WHERE refresh_token_enc IS NOT NULL AND google_calendar_id IS NOT NULL')->fetchAll(PDO::FETCH_COLUMN), true);
@@ -988,6 +1029,7 @@ function genesisAdminStats(): array
             'createdAt' => (string)$row['created_at'],
             'lastLoginAt' => $row['last_login_at'] ?: null,
             'lastSeenAt' => $row['last_seen_at'] ?: null,
+            'clientActivity' => $clientActivity[$row['id']] ?? [],
             'loginCount' => (int)$row['login_count'],
             'passwordEnabled' => (bool)$row['password_enabled'],
             'calendarConnected' => (bool)$row['calendar_connected'] || isset($linkedCalendarIds[$row['id']]),
@@ -1171,7 +1213,7 @@ function genesisUpdateAccountPreferences(string $userId, array $payload): array
     $layoutFields = ['sidebarWidth', 'personalInboxPosition', 'personalInboxHidden', 'personalInboxCompact', 'sharedInboxPosition', 'sharedInboxHidden', 'sharedInboxCompact', 'sharedCategoriesExpanded', 'personalCategoriesExpanded', 'personalCategoriesView', 'sharedCategoriesView', 'sharedTasksCompact', 'personalInboxWidth', 'sharedInboxWidth', 'notificationDockPinned', 'notificationDockX', 'notificationDockY'];
     // Older web/native clients must not reset account layout preferences.
     if (is_array($visibilityInput)) {
-        foreach (['sidebarAutoCollapseSeconds', ...$layoutFields] as $field) {
+        foreach (['sacredFeaturesEnabled', 'sidebarAutoCollapseSeconds', ...$layoutFields] as $field) {
             if (!array_key_exists($field, $visibilityInput)) $visibilityInput[$field] = $savedVisibility[$field];
         }
     }

@@ -153,8 +153,16 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     val taskListsRepo = remember(app, activeScope) { TaskListsRepository(app) }
     val cachedTaskLists by taskListsRepo.lists.collectAsStateWithLifecycle(emptyList())
     val taskLists = remember(cachedTaskLists,tasks) { taskListsForTasks(cachedTaskLists,tasks) }
+    val authController = remember(app) { ru.genesis.calendar.auth.AuthController.get(app) }
+    val authState by authController.state.collectAsStateWithLifecycle()
     val prefsStore=remember(app, activeScope) { LocalPreferences(app,activeScope) }
-    val prefs by prefsStore.values.collectAsStateWithLifecycle(UiPreferences())
+    val savedPrefs by prefsStore.values.collectAsStateWithLifecycle(UiPreferences())
+    val sacredFeaturesEnabled = authState.accountSettings?.uiVisibility?.sacredFeaturesEnabled != false
+    val visibleCalendarChoices = authState.accountSettings?.uiVisibility?.visibleCalendars ?: setOf("profane", "lunar")
+    val fallbackCalendar = CalendarMode.entries.firstOrNull { it.wireValue in visibleCalendarChoices } ?: CalendarMode.PROFANE
+    val prefs = if (sacredFeaturesEnabled) savedPrefs else savedPrefs.copy(
+        display = savedPrefs.display.takeIf { it.wireValue in visibleCalendarChoices } ?: fallbackCalendar,
+        input = savedPrefs.input.takeIf { it.wireValue in visibleCalendarChoices } ?: fallbackCalendar)
     val pendingPreferences by prefsStore.pending.collectAsStateWithLifecycle(emptyMap())
     val menuSwipeState = remember(activeScope) { MenuSwipeState() }
     val settingsScrollStates = remember(activeScope) { mutableMapOf<String, ScrollState>() }
@@ -166,8 +174,6 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     val welcomePrefsStore=remember(app) { LocalPreferences(app,"welcome") }
     val welcomePrefs by welcomePrefsStore.values.collectAsStateWithLifecycle(
         UiPreferences(language = regionalLanguageForDevice()))
-    val authController = remember(app) { ru.genesis.calendar.auth.AuthController.get(app) }
-    val authState by authController.state.collectAsStateWithLifecycle()
     val taskSync by authController.taskSync.collectAsStateWithLifecycle()
     val accountTaskSync = taskSync.takeIf { it.scope == activeScope }
     val scope=rememberCoroutineScope()
@@ -334,8 +340,8 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     }
     val visiblePages = listOf("Сегодня", "Проекты", "Календарь", "Привычки", "Сакральное", "Настройки")
         .filter { (habitTrackingEnabled || it != "Привычки") && menuVisibilityId(it) !in uiVisibility.hiddenMenuItems &&
-            (it != "Сакральное" || !("stoicheion" in uiVisibility.hiddenMenuItems &&
-                "theokyklos" in uiVisibility.hiddenMenuItems)) }
+            (it != "Сакральное" || (uiVisibility.sacredFeaturesEnabled && !("stoicheion" in uiVisibility.hiddenMenuItems &&
+                "theokyklos" in uiVisibility.hiddenMenuItems))) }
     LaunchedEffect(sharedProjectsEnabled) {
         if (!sharedProjectsEnabled) menuSwipeState.projectArea = "personal"
     }
@@ -690,7 +696,8 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
       CompositionLocalProvider(LocalGenesisLanguage provides
           (if(testWorkspace || activeScope.startsWith("account-")) prefs.language else welcomePrefs.language),
           LocalEnabledCalendars provides CalendarMode.entries
-              .filter { it.wireValue in uiVisibility.enabledCalendars }.toSet()) {
+              .filter { it.wireValue in uiVisibility.visibleCalendars }.toSet(),
+          LocalSacredFeaturesEnabled provides uiVisibility.sacredFeaturesEnabled) {
         Surface(Modifier.fillMaxSize().testTag(if (eveningTheme) "app-theme-Evening" else "app-theme-Standart"),color=MaterialTheme.colorScheme.background) {
             if (accountGate) {
                 if (authState.busy && authState.user != null) AuthTransitionScreen(authState.message)
@@ -1347,7 +1354,11 @@ private fun DayHeader(date: LocalDate, mode: CalendarMode, detailsExpanded: Bool
     val calendar=remember { GenesisCalendar() }
     val solarLocation by rememberAutomaticSolarLocation(calendar.zoneId)
     val language = LocalGenesisLanguage.current
-    val copy = remember(date,mode,language) { todayHeroCopy(date,mode,calendar,language) }
+    val sacredFeaturesEnabled = LocalSacredFeaturesEnabled.current
+    val copy = remember(date,mode,language,sacredFeaturesEnabled) { todayHeroCopy(date,mode,calendar,language).let {
+        if (sacredFeaturesEnabled) it else it.copy(description = "", details = emptyList(), badge = null,
+            footerDate = date.format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.forLanguageTag(language))))
+    } }
     val todayLabel = genesisTranslate("Сегодня").uppercase(Locale.forLanguageTag(language))
     val calendarSwitchHint = mobileCalendarCopy(language).switchHint
     val enabledCalendars = LocalEnabledCalendars.current
@@ -1356,8 +1367,8 @@ private fun DayHeader(date: LocalDate, mode: CalendarMode, detailsExpanded: Bool
         tween(220, easing = CubicBezierEasing(.16f, 1f, .3f, 1f)), label = "day-details-arrow")
     Card(Modifier.fillMaxWidth().testTag("today-hero"), shape = RoundedCornerShape(20.dp),
         border = BorderStroke(1.dp, Color(0x66dfc17e))) {
-        Box(Modifier.fillMaxWidth().heightIn(min = if(mode==CalendarMode.PROFANE) 540.dp else 390.dp)) {
-            OriginalImage(if (mode == CalendarMode.LUNAR) "genesis-hero.png" else copy.imagePath,
+        Box(Modifier.fillMaxWidth().heightIn(min = if (!sacredFeaturesEnabled) 320.dp else if(mode==CalendarMode.PROFANE) 540.dp else 390.dp)) {
+            if (sacredFeaturesEnabled) OriginalImage(if (mode == CalendarMode.LUNAR) "genesis-hero.png" else copy.imagePath,
                 copy.title, Modifier.matchParentSize().testTag(
                     if (mode == CalendarMode.LUNAR) "today-lunar-standard-image" else "today-calendar-image"))
             Box(Modifier.matchParentSize().background(Brush.verticalGradient(0f to Color(0x22040e10),
@@ -1395,7 +1406,7 @@ private fun DayHeader(date: LocalDate, mode: CalendarMode, detailsExpanded: Bool
                 }
             }
             Column(Modifier.align(Alignment.BottomStart).fillMaxWidth()
-                .padding(start = 18.dp, end = 18.dp, top = 148.dp, bottom = 20.dp)
+                .padding(start = 18.dp, end = 18.dp, top = if (sacredFeaturesEnabled) 148.dp else 96.dp, bottom = 20.dp)
                 .testTag("today-hero-copy"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(copy.eyebrow,
                     color = Color(0xffdfc17e), style = MaterialTheme.typography.labelMedium)
@@ -2118,7 +2129,7 @@ private fun CalendarTimeSettings(prefs: UiPreferences,
             Text("Справочная информация", style = MaterialTheme.typography.titleSmall)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf(CalendarMode.PROFANE to "Григорианский", CalendarMode.SACRED to "Сакральный",
-                    CalendarMode.LUNAR to "Лунный").filter { it.first.wireValue in visibility.enabledCalendars }.forEach { (mode, label) ->
+                    CalendarMode.LUNAR to "Лунный").filter { it.first.wireValue in visibility.visibleCalendars }.forEach { (mode, label) ->
                     val accent = when (mode) {
                         CalendarMode.PROFANE -> if (LocalEveningTheme.current) Color(0xff73b8aa) else Color(0xff2d7065)
                         CalendarMode.SACRED -> if (LocalEveningTheme.current) Color(0xffe4bd64) else Color(0xff92621d)
@@ -2140,7 +2151,7 @@ private fun CalendarTimeSettings(prefs: UiPreferences,
                 Text(label, style = MaterialTheme.typography.titleSmall)
                 Row(Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)) { CalendarMode.entries
-                        .filter { it.wireValue in visibility.enabledCalendars }.forEach { mode->
+                        .filter { it.wireValue in visibility.visibleCalendars }.forEach { mode->
                     FilterChip(selected=(if(key=="display") prefs.display else prefs.input)==mode,onClick={onSet(key,mode.wireValue)},
                         enabled=!sharedBusy,
                         modifier = Modifier.weight(1f).heightIn(min = 48.dp)
@@ -2326,6 +2337,14 @@ private fun MenuVisibilitySettings(prefs: UiPreferences,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(genesisTranslate("Сакральные функции"), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                Switch(checked = visibility.sacredFeaturesEnabled, enabled = accountSettings != null,
+                    onCheckedChange = { onSetVisibility(visibility.copy(sacredFeaturesEnabled = it)) },
+                    modifier = Modifier.testTag("sacred-features-toggle"))
+            }
+            Text(genesisTranslate("Оракул, сакральный календарь и практики. Отключение скрывает эти функции, сохраняя ваши задачи, привычки и настройки."),
+                style = MaterialTheme.typography.bodySmall)
             Text(if (prefs.language == "en") "Menu item display" else "Отображение элементов меню",
                 style = MaterialTheme.typography.titleMedium)
             OutlinedButton(onClick = { onExpandedChange(!expanded) },

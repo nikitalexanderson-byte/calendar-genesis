@@ -25,6 +25,7 @@ const h = load(resolve(root, "app/habits.ts")), m = load(resolve(root, "app/habi
 const sync = load(resolve(root, "app/workspace-sync-state.ts"));
 const editing = load(resolve(root, "app/habit-editing.ts"));
 const storageGuard = load(resolve(root, "app/workspace-storage.ts"));
+const rules = load(resolve(root, "app/habit-rule-history.ts"));
 test("web-to-native measurement vector retains exact values and saved calendar context", () => {
   const vector = JSON.parse(readFileSync(resolve(root, "android/app/src/test/resources/habit-measurements-web.json"), "utf8"));
   const restored = h.normalizeHabitWorkspace(vector);
@@ -182,4 +183,93 @@ test("failed local validation preserves original bytes and blocks autosave until
   storageGuard.readProtectedWorkspace(storage, "mine", h.normalizeHabitWorkspace, () => h.EMPTY_HABIT_WORKSPACE);
   storageGuard.writeProtectedWorkspace(storage, "mine", workspace);
   assert.equal(JSON.parse(storage.getItem("mine")).habits[0].measurement.target, 100_000);
+});
+
+function ruleConflictFixture() {
+  const { habit, workspace } = fixture();
+  const initial = m.habitRuleForDate(habit, today);
+  const left = { ...initial, id: "rule-left", recordedAt: new Date().toISOString(), supersedes: [initial.id],
+    measurement: { ...habit.measurement, target: 150_000 } };
+  const right = { ...left, id: "rule-right", measurement: { ...habit.measurement, target: 200_000 } };
+  return { habit, workspace, initial, left, right,
+    conflicted: { ...habit, ruleHistory: m.normalizeHabitRuleHistory([initial, left, right]) } };
+}
+
+test("causal rule history distinguishes sequential edits from two offline branches", () => {
+  const f = ruleConflictFixture();
+  assert.equal(rules.habitRuleState(f.conflicted, today).conflicts.length, 2);
+  assert.equal(m.habitRuleForDate(f.conflicted, today).id, f.initial.id);
+  assert.equal(h.isHabitScheduledForDate(f.conflicted, today), false);
+  assert.throws(() => editing.applyEditableHabitUpdate(f.conflicted, f.conflicted), /HABIT_RULE_CONFLICT/);
+  const sequential = { ...f.conflicted, ruleHistory: m.normalizeHabitRuleHistory([f.initial, f.left,
+    { ...f.right, supersedes: [f.left.id] }]) };
+  assert.equal(rules.habitRuleState(sequential, today).conflicts.length, 0);
+  assert.equal(m.habitRuleForDate(sequential, today).measurement.target, 200_000);
+});
+
+test("new edits supersede known pending versions while legacy histories keep their meaning", () => {
+  const f = ruleConflictFixture();
+  const old = { ...f.habit, ruleHistory: m.normalizeHabitRuleHistory([f.initial,
+    { ...f.left, supersedes: undefined }, { ...f.right, supersedes: undefined }]) };
+  assert.equal(m.habitRuleForDate(old, today).id, f.right.id);
+  assert.equal(rules.habitRuleState(old, today).conflicts.length, 0);
+  const first = editing.applyEditableHabitUpdate(f.habit, { ...f.habit, measurement: f.left.measurement });
+  const second = editing.applyEditableHabitUpdate(first, { ...first, measurement: f.right.measurement });
+  assert.equal(rules.habitRuleFrontier(second).length, 1);
+  assert.equal(rules.habitRuleFrontier(second)[0].supersedes[0], first.ruleHistory.at(-1).id);
+  assert.equal(m.habitRuleForDate(second, today).id, f.initial.id);
+});
+
+test("choosing a rule retains alternatives and original measurement identities without repeated XP", () => {
+  const f = ruleConflictFixture(), leftHabit = { ...f.habit, ruleHistory: [f.initial, f.left] };
+  const before = h.recordHabitMeasurement({ ...f.workspace, habits: [leftHabit] }, leftHabit, today, 150_000, { id: "rule-owned-value" });
+  const blocked = h.normalizeHabitWorkspace({ ...before, habits: [f.conflicted] }, "profane");
+  assert.equal(blocked.habitCompletions[0].xpAwarded, 10);
+  assert.equal(progress(f.conflicted, blocked).completed, false);
+  const choice = editing.resolveHabitRuleConflict(f.conflicted, f.left.id, [f.left.id, f.right.id], "choice-one");
+  assert.equal(choice.ruleHistory.length, 4);
+  assert.equal(m.habitRuleForDate(choice, today).id, f.left.id);
+  assert.equal(progress(choice, blocked).total, 150_000);
+  assert.equal(progress(choice, blocked).completed, true);
+  assert.equal(editing.resolveHabitRuleConflict(choice, f.left.id, [f.left.id, f.right.id], "choice-one"), choice);
+  assert.throws(() => editing.resolveHabitRuleConflict(choice, f.right.id, [f.left.id, f.right.id], "choice-one"), /ID_CONFLICT/);
+  const normalized = h.normalizeHabitWorkspace({ ...blocked, habits: [choice] }, "profane");
+  assert.equal(h.normalizeHabitWorkspace(normalized, "profane").habitCompletions[0].xpAwarded, 10);
+  assert.equal(normalized.habitMeasurements[0].ruleId, f.left.id);
+});
+
+test("concurrent choices remain conflicts and a stale choice cannot erase a third branch", () => {
+  const f = ruleConflictFixture(), heads = [f.left.id, f.right.id];
+  const one = editing.resolveHabitRuleConflict(f.conflicted, f.left.id, heads, "choice-left");
+  const two = editing.resolveHabitRuleConflict(f.conflicted, f.right.id, heads, "choice-right");
+  const merged = { ...f.conflicted, ruleHistory: m.normalizeHabitRuleHistory([...one.ruleHistory, ...two.ruleHistory]) };
+  assert.equal(rules.habitRuleState(merged, today).conflicts.length, 2);
+  const extra = { ...f.right, id: "third-rule" };
+  const changed = { ...f.conflicted, ruleHistory: m.normalizeHabitRuleHistory([...f.conflicted.ruleHistory, extra]) };
+  assert.throws(() => editing.resolveHabitRuleConflict(changed, f.left.id, heads), /EDIT_CONFLICT/);
+});
+
+test("rule graphs reject cycles, missing predecessors, invented choices and divergent immutable IDs", () => {
+  const f = ruleConflictFixture();
+  for (const invalid of [
+    [f.initial, { ...f.left, supersedes: ["missing"] }],
+    [f.initial, { ...f.left, supersedes: [f.right.id] }, { ...f.right, supersedes: [f.left.id] }],
+    [f.initial, { ...f.left, selectedRuleId: f.initial.id }],
+    [f.initial, f.left, { ...f.left, supersedes: [] }],
+  ]) assert.throws(() => m.normalizeHabitRuleHistory(invalid), /HISTORY|ID_CONFLICT/);
+});
+
+test("workspace merge keeps causal alternatives and restores the selected period snapshot", () => {
+  const f = ruleConflictFixture(), goal = { version: 1, period: "month", metric: "sum", target: 120_000,
+    calendar: "lunar", context: { version: 2, timeZone: "UTC", gregorianYearStart: "january" } };
+  const left = { ...f.workspace, habits: [{ ...f.habit, ruleHistory: [f.initial, { ...f.left, periodGoal: goal }] }] };
+  const right = { ...f.workspace, habits: [{ ...f.habit, ruleHistory: [f.initial, f.right] }] };
+  const clock = { version: 2, updatedAt: new Date().toISOString(), deviceId: "one" };
+  const merged = sync.mergeWorkspaceDocuments({ left, right, leftFallback: clock, rightFallback: { ...clock, deviceId: "two" } }).document;
+  const habit = merged.habits[0];
+  assert.equal(rules.habitRuleState(habit, today).conflicts.length, 2);
+  const chosen = editing.resolveHabitRuleConflict(habit, f.left.id, [f.left.id, f.right.id], "choose-period");
+  const again = sync.mergeWorkspaceDocuments({ left: { ...merged, habits: [chosen] }, right, leftFallback: { ...clock, version: 3 }, rightFallback: clock }).document;
+  assert.equal(again.habits[0].periodGoal.calendar, "lunar");
+  assert.equal(again.habits[0].periodGoal.target, 120_000);
 });

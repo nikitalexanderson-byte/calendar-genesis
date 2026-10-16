@@ -190,7 +190,10 @@ try {
         if ($userId && $user === null) {
             unset($_SESSION['user_id']);
         }
-        if ($user !== null) genesisObserveAndroid(static fn() => genesisReportAndroidClient((string)$user['id']));
+        if ($user !== null) {
+            genesisObserveAndroid(static fn() => genesisReportAndroidClient((string)$user['id']));
+            genesisObserveClientActivity((string)$user['id']);
+        }
         genesisJson([
             'user' => $user ? genesisUserForClient($user) : null,
             'csrf' => (string)$_SESSION['csrf'],

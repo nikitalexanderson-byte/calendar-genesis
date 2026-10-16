@@ -39,6 +39,18 @@ try{
  noticeExpect(in_array($historical,array_column(noticeKind($watcher,'changes',$id),'id'),true),'Pre-migration task history disappeared from legacy/common inbox');
  $trashed=genesisSharedTask($owner,$pid,['title'=>'Trash notification fixture','statusId'=>$open,'assigneeId'=>$assignee]);$trashEvent=noticeKind($assignee,'assignment',$trashed['id'])[0]['id'];genesisSharedTrashTask($owner,$pid,$trashed['id'],['expectedRevision'=>$trashed['revision']]);
  noticeExpect(!noticeRows($assignee,$trashed['id']),'Deleted task remained visible through notification history');noticeReject(fn()=>genesisNotificationDestination($assignee,$trashEvent));
+ $destination=genesisSharedCreateProject($owner,$space['id'],['title'=>'Moved notification destination']);
+ $db->prepare("INSERT INTO shared_project_members(project_id,user_id,role,joined_at) VALUES(?,?,'member',?)")->execute([$destination['id'],$watcher,genesisNow()]);
+ $movedTask=genesisSharedTask($owner,$pid,['title'=>'Moved unread fixture','statusId'=>$open,'assigneeId'=>$watcher]);
+ $shownComment=genesisSharedAddComment($owner,$pid,$movedTask['id'],['body'=>'@Synthetic visible before move','mentionIds'=>[$watcher]]);
+ $shownEvent=noticeKind($watcher,'mentions',$movedTask['id'])[0]['id'];
+ $destinationStatus=genesisSharedProjectSnapshot($owner,$destination['id'])['statuses'][0]['id'];
+ genesisSharedMoveTask($owner,$pid,$movedTask['id'],['requestId'=>genesisUuid(),'destinationProjectId'=>$destination['id'],'statusId'=>$destinationStatus,'position'=>0,'expectedRevision'=>$movedTask['revision']]);
+ $unshownComment=genesisSharedAddComment($owner,$destination['id'],$movedTask['id'],['body'=>'@Synthetic not displayed yet','mentionIds'=>[$watcher]]);
+ genesisSharedReadTaskUpdates($watcher,$destination['id'],$movedTask['id'],['commentIds'=>[$shownComment['id']]]);
+ $unread=genesisNotificationInbox($watcher,'',true)['notifications'];
+ noticeExpect(!in_array($shownEvent,array_column($unread,'id'),true),'Read comment from the previous project reappeared after move');
+ noticeExpect(in_array($unshownComment['id'],array_column($unread,'commentId'),true),'Reading moved task acknowledged an unseen comment');
  $preferences=genesisNotificationPreferences($watcher);$settings=$preferences['settings'];$settings['types']['mentions']=false;genesisNotificationSavePreferences($watcher,['settings'=>$settings,'expectedRevision'=>$preferences['revision']]);noticeExpect(!noticeKind($watcher,'mentions',$id),'Type opt-out was ignored');
  noticeReject(fn()=>genesisNotificationSavePreferences($watcher,['settings'=>$settings,'expectedRevision'=>0]));$settings['types']['mentions']=true;
  genesisNotificationSavePreferences($watcher,['settings'=>$settings,'expectedRevision'=>1]);
@@ -83,7 +95,7 @@ try{
  $result=genesisNotificationPerformLeased($oldLease,static function($channel,$target,$message)use($db,$oldLease,&$transportIds){$transportIds[]=$message['deliveryId'];$db->prepare('UPDATE background_jobs SET lease_token=?,attempts=attempts+1 WHERE id=?')->execute([genesisUuid(),$oldLease['id']]);return'accepted';});
  noticeExpect($result==='superseded','Late network result acknowledged a replaced lease');$currentLease=$readJob($lateDelivery);noticeExpect(genesisNotificationPerformLeased($currentLease,static function($channel,$target,$message)use(&$transportIds){$transportIds[]=$message['deliveryId'];return'accepted';})==='succeeded','Replacement lease did not recover');noticeExpect(count(array_unique($transportIds))===1,'Lost acknowledgement changed browser deduplication identity');
  $expiredDelivery=$newDelivery();$expiredLease=genesisBackgroundClaim(null,'notification:'.$expiredDelivery['id']);$db->prepare("UPDATE background_jobs SET attempts=5,lease_until='2000-01-01T00:00:00Z' WHERE id=?")->execute([$expiredLease['id']]);noticeExpect(genesisBackgroundClaim(null,'notification:'.$expiredDelivery['id'])===null,'Exhausted expired lease reclaimed');$q=$db->prepare('SELECT state FROM shared_notification_outbox WHERE id=?');$q->execute([$expiredDelivery['id']]);noticeExpect($q->fetchColumn()==='failed','Expired final lease left notification pending forever');$q->closeCursor();
- $delivery=noticeDelivery($watcher,$mention[0]['id'],$subscription);$db->prepare('DELETE FROM shared_project_members WHERE project_id=? AND user_id=?')->execute([$pid,$watcher]);
+ $delivery=noticeDelivery($watcher,$mention[0]['id'],$subscription);$db->prepare('DELETE FROM shared_project_members WHERE project_id IN (?,?) AND user_id=?')->execute([$pid,$destination['id'],$watcher]);
  $job=genesisBackgroundClaim(null,'notification:'.$delivery['id']);$result=genesisBackgroundPerform($job,static function($kind,$payload){return genesisNotificationDeliver($payload,static function(){throw new RuntimeException('Revoked recipient reached transport');});});
  noticeExpect($result==='cancelled'&&!noticeRows($watcher),'Revoked membership left readable/deliverable events');noticeReject(fn()=>genesisNotificationDestination($watcher,$event));noticeReject(fn()=>genesisNotificationDeliveryAccess($watcher,$delivery['id']));
  noticeExpect(!str_contains($db->query("SELECT payload FROM shared_push_subscriptions WHERE id=".$db->quote($subscription))->fetchColumn(),'fcm.googleapis.com'),'Push endpoint stored in plaintext');

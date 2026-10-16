@@ -8,6 +8,7 @@ import { effectiveHabitMeasurement, habitMeasurementProgress, habitRuleForDate, 
 import { normalizeHabitPeriodGoal, type HabitPeriodGoal } from "./habit-period-goal";
 import { habitPeriodSettlement, habitQuestCompletions } from "./habit-period-progress";
 import { resolveCalendarWallTime } from "./calendar-context";
+import { habitRuleState } from "./habit-rule-history";
 import {
   normalizeAddictionEntry,
   normalizeAddictionTracker,
@@ -511,6 +512,7 @@ export function updateHabitCompletion(
   today = habitDateKey(new Date()),
 ) {
   if (!canRecordHabitOnDate(habit.createdDate, date, today)) return workspace;
+  if (habitRuleState(habit, date).conflicts.length) throw new RangeError("HABIT_RULE_CONFLICT");
   const current = workspace.habitCompletions.find((entry) => entry.habitId === habit.id && entry.date === date);
   const base: HabitCompletion = current ?? {
     ...newTrackerEntity("habit-completion"),
@@ -859,7 +861,8 @@ export function normalizeHabitWorkspace(
 }
 
 export function isHabitScheduledForDate(habit: Habit, value: string, calendarMode: CalendarMode = "sacred") {
-  return habit.active && isTrackerScheduledForDate(habitRuleForDate(habit, value).schedule, value, calendarMode);
+  const state = habitRuleState(habit, value);
+  return habit.active && !state.conflicts.length && isTrackerScheduledForDate(state.rule.schedule, value, calendarMode);
 }
 
 export function habitScore(habit: Habit, entry: HabitCompletion | undefined, value: string, _today?: string, calendarMode: CalendarMode = "sacred") {

@@ -18,7 +18,7 @@ import { useDialogAccessibility } from "./use-dialog-accessibility";
 import { MoonReminderSettings } from "./MoonReminderSettings";
 import { SolarPlaceSettings } from "./SolarPlaceSettings";
 import { SETTINGS_SECTIONS, SettingsSectionIcon, type SettingsSectionId } from "./SettingsSectionIcon";
-import { uiVisibility, type UiVisibility } from "./ui-visibility";
+import { uiVisibility, visibleCalendarMode, visibleCalendarModes, type UiVisibility } from "./ui-visibility";
 import {
   type GenesisTheme,
   type ThemeControllerState,
@@ -232,7 +232,7 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
       const result = await updateAccountPreferences({ uiVisibility: next });
       const saved = uiVisibility(result.user.uiVisibility);
       const fields = ["hiddenMenuItems", "hiddenSubmenus", "hiddenTodayBlocks", "enabledCalendars"] as const;
-      const scalarFields = ["sidebarAutoCollapseSeconds", "sidebarWidth", "personalInboxPosition", "personalInboxHidden", "personalInboxCompact", "sharedInboxPosition", "sharedInboxHidden", "sharedInboxCompact"] as const;
+      const scalarFields = ["sacredFeaturesEnabled", "sidebarAutoCollapseSeconds", "sidebarWidth", "personalInboxPosition", "personalInboxHidden", "personalInboxCompact", "sharedInboxPosition", "sharedInboxHidden", "sharedInboxCompact"] as const;
       if (scalarFields.some(field => next[field] !== saved[field]) || fields.some((field) => next[field].length !== saved[field].length ||
         next[field].some((item) => !(saved[field] as string[]).includes(item)))) {
         throw new Error(user.language === "en"
@@ -581,6 +581,13 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
         ) : null}
 
         <div className="appearance-settings-stack" data-settings-group="appearance">
+          <section className="appearance-settings-subsection sacred-features-setting" aria-labelledby="sacred-features-title">
+            <label className="account-switch-row" data-exp-ui="row"><span id="sacred-features-title">{translateText("Сакральные функции",user.language)}</span>
+              <input type="checkbox" role="switch" aria-label={translateText("Сакральные функции",user.language)} checked={visibility.sacredFeaturesEnabled} disabled={preferenceBusy}
+                onChange={event=>void updateVisibility({...visibility,sacredFeaturesEnabled:event.target.checked})}/><i aria-hidden="true"/>
+            </label>
+            <p>{translateText("Оракул, сакральный календарь и практики. Отключение скрывает эти функции, сохраняя ваши задачи, привычки и настройки.",user.language)}</p>
+          </section>
           <div className="appearance-settings-subsection" role="group"
             aria-label={COLOR_MODE_NAMES[user.language].group}>
             <h4>{COLOR_MODE_NAMES[user.language].group}</h4>
@@ -628,7 +635,7 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
             <p>{user.language === "en" ? "Menu items, submenus, Today and calendars" : "Пункты меню, подменю, экран «Сегодня» и календари"}</p>
           <div className="navigation-preference-grid">
             <fieldset><legend>{user.language === "en" ? "Main menu" : "Главное меню"}</legend>
-              {MENU_SETTINGS.map(([id, ru, en]) => <label key={id} className="account-switch-row" data-exp-ui="row">
+              {MENU_SETTINGS.filter(([id])=>visibility.sacredFeaturesEnabled||id!=="sacred").map(([id, ru, en]) => <label key={id} className="account-switch-row" data-exp-ui="row">
                 <span>{user.language === "en" ? en : ru}</span>
                 <input type="checkbox" role="switch" checked={!visibility.hiddenMenuItems.includes(id)} disabled={preferenceBusy}
                   onChange={(event) => toggleVisibilityItem("hiddenMenuItems", id, event.target.checked)} />
@@ -636,7 +643,7 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
               </label>)}
             </fieldset>
             <fieldset><legend>{user.language === "en" ? "Submenus" : "Подменю"}</legend>
-              {SUBMENU_SETTINGS.map(([id, ru, en]) => {
+              {SUBMENU_SETTINGS.filter(([id])=>visibility.sacredFeaturesEnabled||!id.startsWith("sacred.")).map(([id, ru, en]) => {
                 const group = id.split(".")[0];
                 const visibleSiblings = SUBMENU_SETTINGS.filter(([candidate]) => candidate.startsWith(`${group}.`) && !visibility.hiddenSubmenus.includes(candidate));
                 const lastVisible = !visibility.hiddenSubmenus.includes(id) && visibleSiblings.length === 1;
@@ -659,7 +666,7 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
               </label>)}
             </fieldset>
             <fieldset><legend>{user.language === "en" ? "Available calendars" : "Доступные календари"}</legend>
-              {(["profane", "sacred", "lunar"] as CalendarMode[]).map((mode) => <label key={mode} className="account-switch-row" data-exp-ui="row">
+              {(["profane", "sacred", "lunar"] as CalendarMode[]).filter(mode=>visibility.sacredFeaturesEnabled||mode!=="sacred").map((mode) => <label key={mode} className="account-switch-row" data-exp-ui="row">
                 <span>{mode === "profane" ? (user.language === "en" ? "Gregorian" : "Григорианский")
                   : mode === "sacred" ? (user.language === "en" ? "Sacred" : "Сакральный")
                     : (user.language === "en" ? "Lunar" : "Лунный")}</span>
@@ -674,7 +681,7 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
           </div>
           </details>
           </div>
-          <details className="appearance-menu-details appearance-language-details">
+          <details className="appearance-menu-details appearance-language-details appearance-settings-subsection">
             <summary><span>{user.language === "en" ? "Interface language" : "Язык интерфейса"}</span>
               <span className="appearance-summary-action appearance-summary-closed">{user.language === "en" ? "Choose language" : "Выбрать язык"}</span>
               <span className="appearance-summary-action appearance-summary-open">{user.language === "en" ? "Collapse" : "Свернуть"}</span>
@@ -732,15 +739,15 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
           <div>
             <span className="eyebrow">Основной календарь</span>
             <h3 id="calendar-mode-title">Полное отображение и система дат</h3>
-            <p>Выбор полностью переключает разделы «Месяц» и «Круг года». Сакральный календарь используется по умолчанию; систему постановки задач можно выбрать отдельно для любого режима.</p>
+            {visibility.sacredFeaturesEnabled ? <p>Выбор полностью переключает разделы «Месяц» и «Круг года». Сакральный календарь используется по умолчанию; систему постановки задач можно выбрать отдельно для любого режима.</p> : null}
           </div>
           <div className="calendar-mode-segment" role="radiogroup" aria-label="Система дат">
-            {CALENDAR_MODES.filter((mode) => visibility.enabledCalendars.includes(mode.id)).map((mode) => (
+            {CALENDAR_MODES.filter((mode) => visibleCalendarModes(visibility).includes(mode.id)).map((mode) => (
               <button
                 type="button"
                 role="radio"
-                aria-checked={(user.calendarMode ?? "sacred") === mode.id}
-                className={(user.calendarMode ?? "sacred") === mode.id ? "active" : ""}
+                aria-checked={visibleCalendarMode(user.calendarMode ?? "sacred",visibility) === mode.id}
+                className={visibleCalendarMode(user.calendarMode ?? "sacred",visibility) === mode.id ? "active" : ""}
                 disabled={preferenceBusy}
                 onClick={() => void changeCalendarMode(mode.id)}
                 key={mode.id}
@@ -807,12 +814,12 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
             <p>Основной календарь не изменится; выбор дат, повторений и календарные подписи новых задач будут работать по выбранной системе.</p>
           </div>
           <div className="calendar-mode-segment" role="radiogroup" aria-label="Календарь постановки задач">
-            {CALENDAR_MODES.filter((mode) => visibility.enabledCalendars.includes(mode.id)).map((mode) => (
+            {CALENDAR_MODES.filter((mode) => visibleCalendarModes(visibility).includes(mode.id)).map((mode) => (
               <button
                 type="button"
                 role="radio"
-                aria-checked={(user.taskCalendarMode ?? "sacred") === mode.id}
-                className={(user.taskCalendarMode ?? "sacred") === mode.id ? "active" : ""}
+                aria-checked={visibleCalendarMode(user.taskCalendarMode ?? "sacred",visibility) === mode.id}
+                className={visibleCalendarMode(user.taskCalendarMode ?? "sacred",visibility) === mode.id ? "active" : ""}
                 disabled={preferenceBusy}
                 onClick={() => void changeTaskCalendarMode(mode.id)}
                 key={mode.id}
@@ -827,7 +834,7 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
           </div>
         </div>
 
-        <section className="account-preferences" aria-labelledby="account-preferences-title" data-settings-group="appearance">
+        {visibility.sacredFeaturesEnabled ? <section className="account-preferences" aria-labelledby="account-preferences-title" data-settings-group="appearance">
           <div>
             <span className="eyebrow">Самоограничение</span>
             <h3 id="account-preferences-title">Гадания в Стойхейоне</h3>
@@ -850,7 +857,7 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
           <p className="account-preference-status" aria-live="polite">
             {user.stoicheionDivinationDisabled ? "Гадания выключены" : "Гадания доступны"}
           </p>
-        </section>
+        </section> : null}
 
         <section className="account-preferences" aria-labelledby="account-habits-title" data-settings-group="habits">
           <div>

@@ -1,6 +1,7 @@
 import { isCivilDate } from "./calendar-context.ts";
 import type { TrackerEntity, TrackerSchedule } from "./tracker-core";
 import { normalizeHabitPeriodGoal, type HabitPeriodGoal } from "./habit-period-goal.ts";
+import { habitRuleState, validateHabitRuleHistory } from "./habit-rule-history.ts";
 
 /** Values are integer thousandths; user input is never accumulated as binary floats. */
 export const HABIT_VALUE_SCALE = 1000;
@@ -18,6 +19,8 @@ export type HabitRuleVersion = {
   measurement: HabitMeasurement | null;
   schedule: TrackerSchedule;
   periodGoal?: HabitPeriodGoal | null;
+  supersedes?: string[];
+  selectedRuleId?: string;
 };
 export type HabitMeasurementEvent = TrackerEntity & {
   habitId: string;
@@ -75,8 +78,15 @@ export function normalizeHabitRuleHistory(input: unknown): HabitRuleVersion[] {
       || (item.measurement != null && !normalizeHabitMeasurement(item.measurement)))
       throw new RangeError("INVALID_HABIT_RULE_HISTORY");
     const periodGoal = normalizeHabitPeriodGoal(item.periodGoal);
+    if (item.supersedes !== undefined && (!Array.isArray(item.supersedes)
+      || item.supersedes.some((id: unknown) => typeof id !== "string" || !id || id === item.id)
+      || new Set(item.supersedes).size !== item.supersedes.length)
+      || item.selectedRuleId !== undefined && (typeof item.selectedRuleId !== "string" || !item.selectedRuleId || !item.supersedes))
+      throw new RangeError("INVALID_HABIT_RULE_HISTORY");
     const rule: HabitRuleVersion = { id: item.id, effectiveDate: item.effectiveDate, recordedAt: item.recordedAt,
       schedule: item.schedule, measurement: normalizeHabitMeasurement(item.measurement), ...(periodGoal ? { periodGoal } : {}) };
+    if (item.supersedes !== undefined) rule.supersedes = [...item.supersedes].sort();
+    if (item.selectedRuleId !== undefined) rule.selectedRuleId = item.selectedRuleId;
     if (periodGoal?.metric === "sum" && !rule.measurement) throw new RangeError("HABIT_PERIOD_MEASUREMENT_REQUIRED");
     try { new Intl.DateTimeFormat("en", { timeZone: rule.schedule.timezone }); }
     catch { throw new RangeError("INVALID_HABIT_RULE_HISTORY"); }
@@ -84,17 +94,14 @@ export function normalizeHabitRuleHistory(input: unknown): HabitRuleVersion[] {
     if (prior && canonical(prior) !== canonical(rule)) throw new RangeError("HABIT_RULE_ID_CONFLICT");
     byId.set(item.id, rule);
   }
-  return [...byId.values()].sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate)
+  const rules = [...byId.values()].sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate)
     || a.recordedAt.localeCompare(b.recordedAt) || a.id.localeCompare(b.id));
+  validateHabitRuleHistory(rules);
+  return rules;
 }
 
 export function habitRuleForDate(habit: MeasurableHabit, date: string): HabitRuleVersion {
-  const rules = habit.ruleHistory ?? [];
-  return [...rules].reverse().find(rule => rule.effectiveDate <= date) ?? {
-    id: `initial:${habit.id}`, effectiveDate: habit.createdDate, recordedAt: "1970-01-01T00:00:00.000Z",
-    schedule: habit.schedule, measurement: habit.measurement ?? null,
-    ...(habit.periodGoal ? { periodGoal: habit.periodGoal } : {}),
-  };
+  return habitRuleState(habit, date).rule;
 }
 
 export function effectiveHabitMeasurement(rule: Pick<HabitRuleVersion, "measurement" | "periodGoal">): HabitMeasurement | null {
@@ -130,6 +137,7 @@ export function mergeHabitMeasurementEvents(...sources: unknown[]): HabitMeasure
 
 export function habitMeasurementProgress(habit: MeasurableHabit, date: string, events: readonly HabitMeasurementEvent[]) {
   const rule = habitRuleForDate(habit, date);
+  const ruleConflicts = habitRuleState(habit, date).conflicts;
   const relevant = events.filter(event => event.habitId === habit.id && event.date === date);
   const grouped = new Map<string, HabitMeasurementEvent[]>();
   for (const event of relevant) grouped.set(event.entryId, [...(grouped.get(event.entryId) ?? []), event]);
@@ -166,9 +174,9 @@ export function habitMeasurementProgress(habit: MeasurableHabit, date: string, e
     return sum + (root && !root.historical && root.source !== "import" && current && !current.historical
       && current.source !== "import" && current.ruleId === rule.id ? current.value ?? 0 : 0);
   }, 0);
-  return { rule, entries, conflicts, incompatible, total, target, rewardTotal,
+  return { rule, entries, conflicts, ruleConflicts, incompatible, total, target, rewardTotal,
     remaining: Math.max(0, target - total),
-    completed: Boolean(target > 0 && total >= target && !conflicts.length && !incompatible) };
+    completed: Boolean(target > 0 && total >= target && !conflicts.length && !ruleConflicts.length && !incompatible) };
 }
 
 export function newHabitMeasurementEvent(habit: MeasurableHabit, date: string, value: number | null,

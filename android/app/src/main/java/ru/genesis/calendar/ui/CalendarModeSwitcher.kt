@@ -47,6 +47,7 @@ internal fun nextCalendarMode(mode: CalendarMode): CalendarMode = when (mode) {
     CalendarMode.LUNAR -> CalendarMode.PROFANE
 }
 internal val LocalEnabledCalendars = staticCompositionLocalOf { CalendarMode.entries.toSet() }
+internal val LocalSacredFeaturesEnabled = staticCompositionLocalOf { true }
 
 internal fun nextAvailableCalendarMode(mode: CalendarMode, enabled: Set<CalendarMode>): CalendarMode {
     var candidate = mode

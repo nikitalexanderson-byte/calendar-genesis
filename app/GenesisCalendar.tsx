@@ -37,7 +37,8 @@ import { TodayAdBlock } from "./TodayAdBlock";
 import { ActionNotice, useActionNotice } from "./ActionNotice";
 import type { SharedInvitationDestination } from "./SharedInvitationNotices";
 import { ProjectCompletionDialog } from "./ProjectCompletionDialog";
-import { uiVisibility, viewIsVisible } from "./ui-visibility";
+import { uiVisibility, viewIsVisible, visibleCalendarMode, visibleCalendarModes } from "./ui-visibility";
+import { SacredFeaturesContext } from "./sacred-features";
 import { useSidebarCollapse } from "./use-sidebar-collapse";
 import { useAccountLayout } from "./use-account-layout";
 import { InboxToolbar, InboxRestore, InboxResizeBoundary } from "./InboxToolbar";
@@ -1647,11 +1648,14 @@ export function GenesisCalendar() {
   }, []);
 
   const todayInfo = useMemo(() => getSacredDate(today), [today]);
-  const activeCalendarMode: CalendarMode = cloudUser?.calendarMode ?? "sacred";
-  const activeTaskCalendarMode: CalendarMode = cloudUser?.taskCalendarMode ?? "sacred";
-  const taskFormCalendarMode = taskFormCalendar ?? activeTaskCalendarMode;
+  const storedVisibility = useMemo(() => uiVisibility(cloudUser?.uiVisibility), [cloudUser?.uiVisibility]);
+  const sacredFeaturesEnabled = storedVisibility.sacredFeaturesEnabled;
+  const visibility = { ...storedVisibility, enabledCalendars: visibleCalendarModes(storedVisibility),
+    hiddenMenuItems: sacredFeaturesEnabled ? storedVisibility.hiddenMenuItems : [...storedVisibility.hiddenMenuItems,"sacred"] };
+  const activeCalendarMode = useMemo(() => visibleCalendarMode(cloudUser?.calendarMode ?? "sacred", storedVisibility), [cloudUser?.calendarMode, storedVisibility]);
+  const activeTaskCalendarMode = useMemo(() => visibleCalendarMode(cloudUser?.taskCalendarMode ?? "sacred", storedVisibility), [cloudUser?.taskCalendarMode, storedVisibility]);
+  const taskFormCalendarMode = visibleCalendarMode(taskFormCalendar ?? activeTaskCalendarMode, storedVisibility);
   const editTaskCalendarMode = editingTask?.calendarMode ?? activeTaskCalendarMode;
-  const visibility = uiVisibility(cloudUser?.uiVisibility);
   const applyLayoutUser = useCallback((user: GenesisUser) => {
     setCloudUser(current => current?.uid === user.uid ? user : current);
     try {
@@ -4959,18 +4963,18 @@ export function GenesisCalendar() {
                 <span className="hero-day-title-translation" style={{ fontSize: dayTitleTranslationSize }}>{heroTitleTranslation}</span>
               ) : null}
             </h1>
-            {activeCalendarMode === "profane" ? (
+            {activeCalendarMode === "profane" ? sacredFeaturesEnabled ? (
               <div className="hero-description profane-hero-description">
                 <strong>{weekdayPatron.patronage}</strong>
                 <span>{weekdayPatron.deity}</span>
                 <span><b>{isEnglish ? "Body parts:" : "Части тела:"}</b> {weekdayPatron.bodyParts}</span>
               </div>
-            ) : <p className="hero-description">{heroDescription}</p>}
+            ) : null : <p className="hero-description">{heroDescription}</p>}
             <div className="hero-actions">
               <button className="primary-button" type="button" onClick={openTodayInCalendar}>
                 Открыть день <span aria-hidden="true">↗</span>
               </button>
-              <span className="hero-date">{activeCalendarMode === "profane" ? formatCalendarDate(gregorian, "sacred") : formatGregorian(gregorian, true)}</span>
+              <span className="hero-date">{activeCalendarMode === "profane" && sacredFeaturesEnabled ? formatCalendarDate(gregorian, "sacred") : formatGregorian(gregorian, true)}</span>
             </div>
           </div>
           <div className="hero-day-clock">
@@ -4988,7 +4992,7 @@ export function GenesisCalendar() {
 
         {cloudUser ? <TodayAdBlock key={`${cloudUser.uid}:${language}`} language={language} userId={cloudUser.uid} /> : null}
 
-        {showToday("rhythm") ? <DayRhythmPanel timeFormat={activeTimeFormat} /> : null}
+        {sacredFeaturesEnabled && showToday("rhythm") ? <DayRhythmPanel timeFormat={activeTimeFormat} /> : null}
 
         {showToday("tasks") || showToday("quickCreate") ? <section className="today-tasks-panel" aria-labelledby="today-tasks-title" data-exp-ui="panel">
           <header>
@@ -5116,7 +5120,7 @@ export function GenesisCalendar() {
                     <span className="meaning-symbol" aria-hidden="true"><CalendarModeIcon mode="profane" size={34} /></span>
                     <span className="meaning-label">{isEnglish ? "Day of the week" : "День недели"}</span>
                     <strong>{weekdayPatron.weekday}</strong>
-                    <p>{weekdayPatron.patronage}</p>
+                    {sacredFeaturesEnabled ? <p>{weekdayPatron.patronage}</p> : null}
                   </article>
                   <article className="meaning-card">
                     <span className="meaning-symbol" aria-hidden="true">{gregorian.getDate()}</span>
@@ -5218,7 +5222,7 @@ export function GenesisCalendar() {
             className="calendar-day-open"
             onClick={() => openCalendarDate(date, "calendar")}
             aria-pressed={isSelected}
-            aria-label={`${formatCalendarDate(date, mode, true)}${mode === "profane" ? ` — ${weekdayPatron.weekday}, ${weekdayPatron.guidanceTitle}, ${weekdayPatron.patronage}` : ""} — ${sacredDay.name} — ${moon.day} ${translateText("лунный день", language)}${solarEvent ? ` — ${solarEvent.name}, ${formatSolarEventTime(solarEvent.date)}` : ""}${taskCount ? ` — ${formatTaskCount(taskCount, language)}` : ""}`}
+            aria-label={`${formatCalendarDate(date, mode, true)}${sacredFeaturesEnabled ? `${mode === "profane" ? ` — ${weekdayPatron.weekday}, ${weekdayPatron.guidanceTitle}, ${weekdayPatron.patronage}` : ""} — ${sacredDay.name}` : ""} — ${moon.day} ${translateText("лунный день", language)}${solarEvent ? ` — ${solarEvent.name}, ${formatSolarEventTime(solarEvent.date)}` : ""}${taskCount ? ` — ${formatTaskCount(taskCount, language)}` : ""}`}
           />
         )}
         {isAdjacentMonth ? (
@@ -5232,7 +5236,7 @@ export function GenesisCalendar() {
           <strong>{mode === "lunar" ? moon.day : date.getDate()}</strong>
           <small>{mode === "lunar" && lunar.isThreshold ? "Рубеж" : mode === "lunar" ? moon.phase : weekday}</small>
         </span>
-        {mode === "profane" ? (
+        {mode === "profane" && sacredFeaturesEnabled ? (
           <span className="profane-weekday-patron">
             <strong><WeekdaySymbol weekday={date.getDay()} /><span className="profane-weekday-name">{weekdayPatron.weekday}</span></strong>
           </span>
@@ -5240,9 +5244,9 @@ export function GenesisCalendar() {
         <span className="calendar-cross-date profane-date">
           <CalendarModeIcon mode="profane" size={12} />{mode === "profane" ? `${profaneDate} · ${date.getFullYear()}` : profaneDate}
         </span>
-        <span className="calendar-cross-date sacred-date" title={sacredDay.name}>
+        {sacredFeaturesEnabled ? <span className="calendar-cross-date sacred-date" title={sacredDay.name}>
           <b aria-hidden="true">✦</b>{formatCalendarDate(date, "sacred")}
-        </span>
+        </span> : null}
         {mode === "profane" ? (
           <span className="calendar-cross-date lunar-date" title={moon.phase}>
             <MoonPhaseIcon phaseStep={moon.phaseStep} size={15} />
@@ -5603,7 +5607,7 @@ export function GenesisCalendar() {
             <span className="eyebrow">{monthEyebrow}</span>
             <h1>{monthTitle}</h1>
             <p className="calendar-title">{monthSubtitle}</p>
-            <p>{monthDescription}</p>
+            {sacredFeaturesEnabled ? <p>{monthDescription}</p> : null}
             <div className={`calendar-solar-control status-${solarLocationStatus}`} aria-live="polite">
               <div><span aria-hidden="true">☀</span><strong>{solarLocationStatus === "ready" ? `Рассвет и закат · ${solarLocationSource === "selected-city" ? "время выбранного города" : "время устройства"}` : "Синхронизируем рассвет и закат…"}</strong></div>
               <small>{solarLocationStatus === "ready" ? `${solarTimeZone} · ${solarLocationSource === "selected-city" ? "координаты выбранного города" : "приблизительный расчёт для региона устройства"}` : "Определяем регион автоматически, без запроса геопозиции"}</small>
@@ -6406,8 +6410,8 @@ export function GenesisCalendar() {
                         className={`mini-day${dayTasks ? " has-task" : ""}${dateValue === todayDateValue ? " today" : ""}${solar ? " solar" : ""}${isSaturday ? " saturday" : ""}`}
                         key={dateValue}
                         onClick={() => openCalendarDate(date, "year")}
-                        aria-label={`${formatCalendarDate(date, mode, true)}${mode === "profane" ? `; ${weekdayPatron.weekday}, ${weekdayPatron.patronage}` : ""}; ${sacredDay.name}; ${moon.day} ${translateText("лунный день", language)}${dayTasks ? `; ${formatTaskCount(dayTasks, language)}` : ""}`}
-                        title={`${formatGregorian(date, true)}${mode === "profane" ? ` · ${weekdayPatron.patronage}` : ""} · ${formatCalendarDate(date, "sacred")} · ${moon.day} ${translateText("лунный день", language)}`}
+                        aria-label={`${formatCalendarDate(date, mode, true)}${sacredFeaturesEnabled ? `${mode === "profane" ? `; ${weekdayPatron.weekday}, ${weekdayPatron.patronage}` : ""}; ${sacredDay.name}` : ""}; ${moon.day} ${translateText("лунный день", language)}${dayTasks ? `; ${formatTaskCount(dayTasks, language)}` : ""}`}
+                        title={`${formatGregorian(date, true)}${sacredFeaturesEnabled ? `${mode === "profane" ? ` · ${weekdayPatron.patronage}` : ""} · ${formatCalendarDate(date, "sacred")}` : ""} · ${moon.day} ${translateText("лунный день", language)}`}
                       >
                         <span className="mini-day-number">{date.getDate()}</span>
                         <CalendarYearTaskCounts tasks={cellTasks} />
@@ -6533,14 +6537,16 @@ export function GenesisCalendar() {
   return (
     <TimeClockFormatContext.Provider value={activeTimeFormat}>
     <SharedUpdatesProvider key={cloudUser?.uid || "anonymous"} userId={cloudUser?.uid || ""} enabled={Boolean(cloudUser?.sharedProjectsEnabled)}>
+    <SacredFeaturesContext value={sacredFeaturesEnabled}>
     <main
       className={`genesis-app mode-${activeCalendarMode}${habitWorkspace.habitSettings.feedback.animations ? "" : " habit-animations-off"}`}
       data-exp-layout="app-shell"
+      data-sacred-features={sacredFeaturesEnabled}
       data-sidebar-collapsed={sidebarCollapsed}
       data-sidebar-resizing={sidebarResizing}
       style={{
         "--sidebar-current-width": `${sidebarWidth}px`,
-        "--genesis-hero-image": activeCalendarMode === "sacred"
+        "--genesis-hero-image": !sacredFeaturesEnabled ? "none" : activeCalendarMode === "sacred"
           ? `url("${dayArtUrl(todayInfo.monthIndex, todayInfo.day)}")`
           : activeCalendarMode === "lunar"
             ? `url("${APP_BASE}/genesis-hero.png")`
@@ -6628,6 +6634,7 @@ export function GenesisCalendar() {
                 <button
                   type="button"
                   className="account-open"
+                  data-tooltip={translateText("Личный кабинет и настройки",language)}
                   onClick={() => { setAccountMenuOpen(false); setAccountOpen(true); }}
                   aria-label={language === "en" ? "Open account settings" : "Открыть личный кабинет и настройки"}
                   aria-haspopup="dialog"
@@ -6659,11 +6666,11 @@ export function GenesisCalendar() {
               </a>
             ) : null}
             {!nativeAndroidApkUrl && !isStandalone && canInstall ? (
-              <button type="button" className="icon-button ux-action-button" data-tooltip="Установить приложение" title="Установить GENESIS" aria-label="Установить GENESIS" onClick={() => void install()}>
+              <button type="button" className="icon-button ux-action-button" data-tooltip={language === "en" ? "Install app" : "Установить приложение"} aria-label="Установить GENESIS" onClick={() => void install()}>
                 <span className="ux-install-icon" aria-hidden="true" />
               </button>
             ) : null}
-            {voiceLanguageEnabled ? <button type="button" className={`voice-open-button${voiceLaunchAnimating ? " is-activating" : ""}`} onClick={openVoiceAssistant} title={language === "en" ? "Open the free GENESIS Voice assistant" : "Открыть бесплатного голосового помощника GENESIS Voice"} aria-label={language === "en" ? "Open the free GENESIS Voice assistant" : "Открыть бесплатного голосового помощника GENESIS Voice"} aria-busy={voiceLaunchAnimating}>
+            {voiceLanguageEnabled ? <button type="button" className={`voice-open-button${voiceLaunchAnimating ? " is-activating" : ""}`} onClick={openVoiceAssistant} data-tooltip={language === "en" ? "Open the free GENESIS Voice assistant" : "Открыть бесплатного голосового помощника GENESIS Voice"} aria-label={language === "en" ? "Open the free GENESIS Voice assistant" : "Открыть бесплатного голосового помощника GENESIS Voice"} aria-busy={voiceLaunchAnimating}>
               <svg className="voice-microphone-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
                 <rect className="voice-microphone-capsule" x="8.7" y="2.8" width="6.6" height="11.2" rx="3.3" />
                 <path className="voice-microphone-grille" d="M10.55 6.2h2.9M10.55 8.45h2.9" />
@@ -6742,6 +6749,7 @@ export function GenesisCalendar() {
                     googleCalendarReady={Boolean(cloudUser?.authProvider === "google" && cloudUser.calendarConnected)}
                     experimentalThemeActive={false}
                     hiddenSubmenus={visibility.hiddenSubmenus}
+                    sacredFeaturesEnabled={sacredFeaturesEnabled}
                     voiceRequest={voiceHabitRequest}
                     onVoiceRequestConsumed={() => setVoiceHabitRequest(null)}
                     onChange={updateHabitWorkspace}
@@ -6757,11 +6765,11 @@ export function GenesisCalendar() {
                   />
                 </Suspense>
               ) : null}
-              {view === "stoicheion" || view === "theokyklos" ? <nav className="shared-projects-switch sacred-area-switch" aria-label={language === "en" ? "Sacred sections" : "Разделы сакрального"}>
+              {sacredFeaturesEnabled && (view === "stoicheion" || view === "theokyklos") ? <nav className="shared-projects-switch sacred-area-switch" aria-label={language === "en" ? "Sacred sections" : "Разделы сакрального"}>
                 {viewIsVisible("stoicheion", visibility) ? <button type="button" aria-current={view === "stoicheion" ? "page" : undefined} onClick={() => navigateTo("stoicheion")}>Стойхейон</button> : null}
                 {viewIsVisible("theokyklos", visibility) ? <button type="button" aria-current={view === "theokyklos" ? "page" : undefined} onClick={() => navigateTo("theokyklos")}>Теокиклос</button> : null}
               </nav> : null}
-              {view === "stoicheion" ? (
+              {sacredFeaturesEnabled && view === "stoicheion" ? (
                 <Suspense fallback={<DeferredViewFallback label={language === "en" ? "Opening Stoicheion…" : "Открываем Стойхейон…"} />}>
                   <StoicheionView
                     key={cloudUser?.stoicheionDivinationDisabled ? "divination-disabled" : "divination-enabled"}
@@ -6776,7 +6784,7 @@ export function GenesisCalendar() {
                   />
                 </Suspense>
               ) : null}
-              {view === "theokyklos" ? (
+              {sacredFeaturesEnabled && view === "theokyklos" ? (
                 <Suspense fallback={<DeferredViewFallback label={language === "en" ? "Opening Theokyklos…" : "Открываем Теокиклос…"} />}>
                   <TheokyklosView
                     language={language}
@@ -6892,7 +6900,7 @@ export function GenesisCalendar() {
             <div className="day-details-heading">
               <div className="selected-day-symbol" aria-hidden="true">{selectedSolarEvent?.symbol ?? (activeCalendarMode === "lunar" ? "☾" : activeCalendarMode === "profane" ? <WeekdaySymbol weekday={selectedDate.getDay()} /> : selectedElement.symbol)}</div>
               <div className="selected-day-copy">
-                <span className="eyebrow">{activeCalendarMode === "profane"
+                <span className="eyebrow">{!sacredFeaturesEnabled ? formatGregorian(selectedDate,true) : activeCalendarMode === "profane"
                   ? `${formatCalendarDate(selectedDate, "sacred")} · ${selectedMoon.day} ${language === "en" ? "lunar day" : "лунный день"}`
                   : activeCalendarMode === "lunar"
                     ? `${formatGregorian(selectedDate, true)} · ${formatCalendarDate(selectedDate, "sacred")}`
@@ -6902,7 +6910,7 @@ export function GenesisCalendar() {
                   : activeCalendarMode === "lunar"
                     ? `${selectedLunarDate.month.name} · ${selectedMoon.day} ${language === "en" ? "lunar day" : "лунный день"}`
                     : selectedSacredDay.name}</h2>
-                <p id="selected-day-description">{activeCalendarMode === "lunar"
+                <p id="selected-day-description">{!sacredFeaturesEnabled ? `${selectedMoon.phase} · ${selectedMoon.illumination}%` : activeCalendarMode === "lunar"
                   ? (language === "en"
                       ? `${selectedLunarDate.isThreshold ? "Threshold" : selectedLunarDate.decade.name} · ${selectedMoon.phase} · ${selectedMoon.illumination}% illuminated. ${selectedLunarDate.month.description} Sacred meaning of the day: ${selectedSacredDay.name} — ${selectedSacredDay.description}`
                       : `${selectedLunarDate.isThreshold ? "Рубеж" : selectedLunarDate.decade.name} · ${selectedMoon.phase} · освещённость ${selectedMoon.illumination}%. ${selectedLunarDate.month.description} Сакральный смысл дня: ${selectedSacredDay.name} — ${selectedSacredDay.description}`)
@@ -6915,18 +6923,18 @@ export function GenesisCalendar() {
             </div>
               <dl className="selected-day-facts">
                 {selectedSolarEvent ? <div className="solar-fact"><dt>Солнечная точка</dt><dd>{selectedSolarEvent.name} · {formatSolarEventTime(selectedSolarEvent.date)}</dd></div> : null}
-                {activeCalendarMode === "profane" ? <div><dt>{language === "en" ? "Sacralization of the day" : "Сакрализация дня"}</dt><dd>{selectedWeekdayPatron.weekday} · {selectedWeekdayPatron.guidanceTitle}</dd></div> : null}
+                {sacredFeaturesEnabled && activeCalendarMode === "profane" ? <div><dt>{language === "en" ? "Sacralization of the day" : "Сакрализация дня"}</dt><dd>{selectedWeekdayPatron.weekday} · {selectedWeekdayPatron.guidanceTitle}</dd></div> : null}
                 <div><dt>Григорианская дата</dt><dd>{formatGregorian(selectedDate, true)}</dd></div>
-                <div><dt>Сакральная дата</dt><dd>{formatCalendarDate(selectedDate, "sacred")}</dd></div>
+                {sacredFeaturesEnabled ? <div><dt>Сакральная дата</dt><dd>{formatCalendarDate(selectedDate, "sacred")}</dd></div> : null}
                 <div><dt>Лунный месяц</dt><dd>{selectedLunarDate.month.name} · {selectedLunarDate.month.title}</dd></div>
                 <div><dt>Лунные сутки</dt><dd>{selectedMoon.day} · {selectedMoon.phase}</dd></div>
                 <div><dt>{language === "en" ? "Lunar decade" : "Лунная декада"}</dt><dd>{selectedLunarDate.isThreshold ? "Рубеж" : selectedLunarDate.decade.name}</dd></div>
-                <div><dt>Стихия</dt><dd>{selectedElement.name}</dd></div>
+                {sacredFeaturesEnabled ? <><div><dt>Стихия</dt><dd>{selectedElement.name}</dd></div>
                 <div><dt>Пята</dt><dd>{selectedSacredDay.pyataTitle || "Апейрон"}</dd></div>
-                <div><dt>Число</dt><dd>{selectedPythagorean?.name || "Безграничное"}</dd></div>
+                <div><dt>Число</dt><dd>{selectedPythagorean?.name || "Безграничное"}</dd></div></> : null}
               </dl>
             </header>
-            {activeCalendarMode === "profane" ? (
+            {activeCalendarMode === "profane" && sacredFeaturesEnabled ? (
               <article className={`profane-day-guidance weekday-${selectedDate.getDay()}`} aria-labelledby="profane-day-guidance-title">
                 <header>
                   <span className="profane-day-guidance-symbol" aria-hidden="true"><WeekdaySymbol weekday={selectedDate.getDay()} /></span>
@@ -7548,6 +7556,7 @@ export function GenesisCalendar() {
       ) : null}
       {voiceLanguageEnabled && voiceControlActive ? <Suspense fallback={null}><WebVoiceControl language={language} onCommand={executeWebVoiceCommand} onStop={() => setVoiceControlActive(false)} /></Suspense> : null}
     </main>
+    </SacredFeaturesContext>
     </SharedUpdatesProvider>
     </TimeClockFormatContext.Provider>
   );

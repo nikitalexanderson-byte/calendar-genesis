@@ -1,4 +1,5 @@
 import { mergeHabitMeasurementEvents, normalizeHabitRuleHistory } from "./habit-measurement.ts";
+import { habitRuleState } from "./habit-rule-history.ts";
 
 export const WORKSPACE_SYNC_SCHEMA_VERSION = 1 as const;
 
@@ -363,11 +364,11 @@ export function mergeWorkspaceDocuments(input: {
           ...(Array.isArray(leftItem.ruleHistory) ? leftItem.ruleHistory : []),
           ...(Array.isArray(rightItem.ruleHistory) ? rightItem.ruleHistory : []),
         ]);
-        const latestRule = ruleHistory.at(-1);
+        const latestRule = ruleHistory.length ? habitRuleState({ ...winner, ruleHistory } as Parameters<typeof habitRuleState>[0], "9999-12-31").rule : null;
         winner = { ...winner, ruleHistory,
           // An old draft has neither the definition nor its history. Recover it without erasing remote values.
           measurement: latestRule ? latestRule.measurement : winner.measurement ?? leftItem.measurement ?? rightItem.measurement ?? null,
-          ...(latestRule ? { schedule: latestRule.schedule } : {}),
+          ...(latestRule ? { schedule: latestRule.schedule, periodGoal: latestRule.periodGoal ?? null } : {}),
         };
       }
       const tombstone = tombstones.get(id);

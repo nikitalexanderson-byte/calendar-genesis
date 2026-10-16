@@ -3,7 +3,8 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import { CalendarDatePicker } from "./CalendarDatePicker";
 import { calendarContext, type CalendarContext } from "./calendar-context";
 import { type CalendarMode } from "./calendar-data";
-import { ExperimentalIcon } from "./ExperimentalIcon";
+import { DialogCloseButton } from "./DialogCloseButton";
+import { useCalendarModeAvailable } from "./sacred-features";
 import { SharedBulkActions } from "./SharedBulkActions";
 import { useSharedTaskPage } from "./use-shared-task-page";
 import { sharedPriorityLabel, sharedTaskDetailsError } from "./shared-task-details";
@@ -75,10 +76,16 @@ function ViewChoice({kind,label,filter,value,onChange,online}:{kind:SharedViewOp
   </div>;
 }
 
-export function SharedSavedViews({userId,spaces,mode,onOpen}:{userId:string;spaces:SharedSpace[];mode:CalendarMode;onOpen:(task:SharedTask)=>void}) {
+export function SharedSavedViews({userId,spaces,mode,opened,onClose,onOpen}:{userId:string;spaces:SharedSpace[];mode:CalendarMode;opened:boolean;onClose:()=>void;onOpen:(task:SharedTask)=>void}) {
   const storageKey=`genesis.shared-views.draft.${userId}`;
   const [draft,setDraft]=useState<Draft>(()=>restoreDraft(storageKey,mode));
-  const [opened,setOpened]=useState(false),[editor,setEditor]=useState(draft.dirty),[list,setList]=useState<SharedSavedViewPage|null>(null),[error,setError]=useState(""),[busy,setBusy]=useState(false),[listLoading,setListLoading]=useState(false),[listError,setListError]=useState("");
+  const [editor,setEditor]=useState(draft.dirty),[list,setList]=useState<SharedSavedViewPage|null>(null),[error,setError]=useState(""),[busy,setBusy]=useState(false),[listLoading,setListLoading]=useState(false),[listError,setListError]=useState("");
+  const dialog=useRef<HTMLDialogElement>(null);
+  const calendarAvailable=useCalendarModeAvailable(draft.id?draft.definition?.calendarMode:undefined);
+  // Keep an unsaved hidden draft intact for re-enabling; display and submit the same visible mode.
+  const effectiveDraft = !draft.id && draft.definition?.calendarMode === "sacred" && !calendarAvailable("sacred")
+    ? {...draft,definition:{...draft.definition,calendarMode:mode === "sacred" ? "profane" as const : mode}} : draft;
+  useEffect(()=>{const element=dialog.current;if(opened&&!element?.open)element?.showModal();else if(!opened&&element?.open)element.close();},[opened]);
   const [metadata,setMetadata]=useState<SharedSavedView|null>(null),[filter,setFilter]=useState<SharedTaskFilter|null>(null),[optionsVersion,setOptionsVersion]=useState(0);
   const rolesKey=spaces.map(space=>`${space.id}:${space.role}`).sort().join("|");
   const requestKey=`${storageKey}.request`;
@@ -120,7 +127,7 @@ export function SharedSavedViews({userId,spaces,mode,onOpen}:{userId:string;spac
     return()=>{controller.abort();window.removeEventListener("genesis:shared-updates",refreshMetadata);window.removeEventListener("focus",refreshMetadata);document.removeEventListener("visibilitychange",refreshMetadata);};
   },[draft.id,online,rolesKey]);
   const tasks=useSharedTaskPage(opened?filter:null);
-  const definition=draft.definition;
+  const definition=effectiveDraft.definition;
   const editDraft=(edit:(previous:Draft)=>Draft)=>{setFilter(null);setDraft(edit);};
   const update=(patch:Partial<SharedSavedViewDefinition>)=>editDraft(previous=>previous.definition?({...previous,dirty:true,definition:{...previous.definition,...patch}}):previous);
   const criteria=(patch:Partial<SharedTaskCriteria>)=>{if(definition)update({filter:{...definition.filter,...patch}});};
@@ -138,7 +145,7 @@ export function SharedSavedViews({userId,spaces,mode,onOpen}:{userId:string;spac
   };
   const save=async(copy=false)=>{
     if(operation.current)return;operation.current=true;setBusy(true);
-    try{if(!draft.definition?.title.trim())throw new Error("VIEW_INVALID");const definition=payload(draft),id=copy?undefined:draft.id,visibility=copy&&!canShare?"personal":draft.visibility;
+    try{if(!draft.definition?.title.trim())throw new Error("VIEW_INVALID");const definition=payload(effectiveDraft),id=copy?undefined:draft.id,visibility=copy&&!canShare?"personal":draft.visibility;
       const body=JSON.stringify({spaceId:draft.spaceId,visibility,definition,expectedRevision:id?draft.revision:undefined,id});
       const view=await saveSharedSavedView({requestId:mutationId(body),spaceId:draft.spaceId,visibility,definition,expectedRevision:id?draft.revision:undefined},id);
       if(!mounted.current)return;
@@ -169,8 +176,11 @@ export function SharedSavedViews({userId,spaces,mode,onOpen}:{userId:string;spac
   const scopeChanged=Boolean(draft.id&&metadata?.id===draft.id&&(metadata.spaceId!==draft.spaceId||metadata.visibility!==draft.visibility));
   const repairedContext=!definition?repairSharedViewContext(draft.damagedDefinition,calendarContext()):null;
   const sortOptions=[["position","Порядок на доске"],["priority","Приоритет"],["dueDate","Срок"],["title","Название"],["updatedAt","Последнее изменение"]]as const;
-  return <details className="shared-saved-views" open={opened} onToggle={event=>setOpened(event.currentTarget.open)}><summary><ExperimentalIcon name="list"/>{t("Сохранённые представления")}<span className="saved-view-disclosure"><ExperimentalIcon name="chevron"/></span></summary>
+  return <dialog ref={dialog} className="shared-projects-modal shared-saved-views" aria-labelledby="saved-views-title" aria-describedby="saved-views-help" onCancel={event=>{event.preventDefault();onClose();}} onClose={onClose}>
+    <header><h2 id="saved-views-title">{t("Сохранённые представления")}</h2><DialogCloseButton aria-label={t("Закрыть")} onClick={onClose}/></header>
     {opened?<div className="saved-views-content">
+      <p id="saved-views-help" className="saved-view-intro">{t("Собирайте задачи из доступных проектов по нужным условиям. Представление сохраняет фильтры, а задачи остаются в своих проектах.")}</p>
+      <div className="saved-view-library"><section aria-labelledby="saved-view-presets-title"><h3 id="saved-view-presets-title">{t("Быстрые подборки")}</h3>
       <div className="saved-view-presets" role="group" aria-label={t("Представления")}>
         <button type="button" className="secondary-button" disabled={busy||!online} onClick={()=>preset("Назначено мне",{assigneeIds:["me"]})}>{t("Назначено мне")}</button>
         <button type="button" className="secondary-button" disabled={busy||!online} onClick={()=>preset("Создано мной",{createdBy:"me"})}>{t("Создано мной")}</button>
@@ -179,12 +189,15 @@ export function SharedSavedViews({userId,spaces,mode,onOpen}:{userId:string;spac
         <button type="button" className="secondary-button" disabled={busy||!online} onClick={()=>preset("Без исполнителя",{assigneeIds:["unassigned"]})}>{t("Без исполнителя")}</button>
         <button type="button" className="secondary-button" disabled={busy||!online} onClick={()=>preset("Ожидает утверждения",{approvalPending:true})}>{t("Ожидает утверждения")}</button>
       </div>
+      </section><section aria-labelledby="saved-view-library-title"><h3 id="saved-view-library-title">{t("Ваши подборки")}</h3>
+      <p className="saved-view-hint">{t("Личное представление видно только вам. Общим представлением могут пользоваться участники пространства с доступом к выбранным проектам.")}</p>
       {listLoading&&online?<p role="status">{t("Загружаем данные…")}</p>:null}
       {list&&!list.total&&!listLoading?<p>{t("Сохранённых представлений пока нет")}</p>:null}
       {listError?<p role="alert">{listError}</p>:null}
       <div className="saved-view-list">{list?.views.map(view=><button type="button" className="secondary-button" disabled={busy} key={view.id} onClick={()=>openView(view)} aria-pressed={filter?.savedViewId===view.id}><span data-no-translate>{typeof view.definition?.title==="string"?view.definition.title:t("Представление")}</span><small>{t(view.visibility==="shared"?"Общее":"Личное")}{view.invalid?` · ${t("Условия недоступны")}`:""}</small></button>)}</div>
       {list?.hasMore?<button type="button" className="secondary-button" disabled={busy||listLoading||!online} onClick={()=>void moreViews()}>{t("Показать ещё")}</button>:null}
       <div className="saved-view-actions"><button type="button" className="secondary-button" disabled={busy} onClick={()=>{if(replace()){setDraft(fresh(mode));setMetadata(null);setEditor(true);setFilter(null);setError("");}}}>{t("Новое представление")}</button><button type="button" className="secondary-button" disabled={busy} onClick={()=>{setFilter(null);setError("");}}>{t("Сбросить")}</button><button type="button" className="secondary-button" disabled={busy||listLoading||!online} onClick={()=>{void refresh();setOptionsVersion(previous=>previous+1);}}>{t("Обновить")}</button></div>
+      </section></div>
       {error?<p role="alert">{error}</p>:null}{!online?<p role="status">{t("Для сохранения нужно подключение к интернету")}</p>:null}
       {definition||draft.damagedDefinition?<button type="button" className="secondary-button" disabled={busy} aria-expanded={editor} aria-controls="saved-view-conditions" onClick={()=>setEditor(previous=>!previous)}>{t(editor?"Свернуть":"Изменить условия")}</button>:null}
       <div id="saved-view-conditions" hidden={!editor}>
@@ -210,13 +223,13 @@ export function SharedSavedViews({userId,spaces,mode,onOpen}:{userId:string;spac
           <label>{t("Выполнение")}<select value={definition.filter.completion??"any"} onChange={event=>criteria({completion:event.target.value as SharedTaskCriteria["completion"]})}><option value="any">{t("Все задачи")}</option><option value="open">{t("Текущие")}</option><option value="completed">{t("Завершённые")}</option></select></label>
           <label>{t("Сортировка")}<select value={definition.sort} onChange={event=>update({sort:event.target.value as SharedSavedViewDefinition["sort"]})}>{sortOptions.map(([value,label])=><option key={value} value={value}>{t(label)}</option>)}</select></label>
           <label>{t("Период")}<select value={definition.relative} onChange={event=>update({relative:event.target.value as SharedSavedViewDefinition["relative"]})}>{([ ["none","Фиксированный диапазон"],["overdue","Просрочено"],["this-week","На этой неделе"],["this-month","В этом месяце"]]as const).map(([value,label])=><option key={value} value={value}>{t(label)}</option>)}</select></label>
-          <label>{t("Календарь")}<select value={definition.calendarMode} onChange={event=>update({calendarMode:event.target.value as CalendarMode})}>{([ ["profane","Григорианский"],["sacred","Сакральный"],["lunar","Лунный"]]as const).map(([value,label])=><option key={value} value={value}>{t(label)}</option>)}</select></label>
+          <label>{t("Календарь")}<select value={definition.calendarMode} onChange={event=>update({calendarMode:event.target.value as CalendarMode})}>{([ ["profane","Григорианский"],["sacred","Сакральный"],["lunar","Лунный"]]as const).filter(([value])=>calendarAvailable(value)).map(([value,label])=><option key={value} value={value}>{t(label)}</option>)}</select></label>
           <label>{t("Начало года")}<select value={definition.calendarContext.gregorianYearStart} onChange={event=>update({calendarContext:{...definition.calendarContext,gregorianYearStart:event.target.value as CalendarContext["gregorianYearStart"]}})}><option value="january">{t("Январь")}</option><option value="march">{t("Март")}</option></select></label>
           <label>{t("Часовой пояс")}<input value={definition.calendarContext.timeZone} aria-invalid={Boolean(zoneError)} aria-describedby={zoneError?"saved-view-zone-error":undefined} onChange={event=>update({calendarContext:{...definition.calendarContext,timeZone:event.target.value}})}/></label>
         </div>
         {zoneError?<p id="saved-view-zone-error" role="alert">{zoneError}</p>:null}
         {definition.relative==="none"&&!zoneError?<div className="saved-view-dates">{([ ["dueFrom","Начало"],["dueTo","Окончание"]]as const).map(([key,label])=><label key={key}>{t(label)}<CalendarDatePicker mode={definition.calendarMode} calculationContext={context} value={definition.filter[key]??""} ariaLabel={t(label)} onChange={value=>{const filter={...definition.filter};if(value)filter[key]=value;else delete filter[key];update({filter});}}/></label>)}</div>:null}
-        <div className="saved-view-actions"><button type="button" className="secondary-button" disabled={busy||!online||Boolean(zoneError)} onClick={()=>{setFilter({viewDefinition:payload(draft)});setEditor(false);setError("");}}>{t("Показать задачи")}</button>
+        <div className="saved-view-actions"><button type="button" className="secondary-button" disabled={busy||!online||Boolean(zoneError)} onClick={()=>{setFilter({viewDefinition:payload(effectiveDraft)});setEditor(false);setError("");}}>{t("Показать задачи")}</button>
           <button type="submit" className="primary-button" disabled={busy||!online||!canEdit||scopeChanged||Boolean(zoneError)||Boolean(draft.id&&!draft.dirty)}>{t("Сохранить")}</button>
           {draft.id?<button type="button" className="secondary-button" disabled={busy||!online||Boolean(zoneError)} onClick={()=>void save(true)}>{t("Сохранить как новое")}</button>:null}
           <button type="button" className="secondary-button" onClick={()=>{update({filter:{},relative:"none"});setDraft(previous=>({...previous,tagsInput:undefined}));}}>{t("Сбросить условия")}</button>
@@ -226,5 +239,5 @@ export function SharedSavedViews({userId,spaces,mode,onOpen}:{userId:string;spac
       </div>
       <SharedBulkActions key={userId} userId={userId} filter={filter} page={tasks.page} sort={definition?.sort??"position"} mode={mode} online={online} loading={tasks.busy} queryError={tasks.error} onMore={()=>void tasks.more()} onRefresh={()=>void tasks.refresh()} onOpen={onOpen}/>
     </div>:null}
-  </details>;
+  </dialog>;
 }

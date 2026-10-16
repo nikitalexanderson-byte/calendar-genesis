@@ -54,12 +54,15 @@ fun preserveHabitCreationSettings(candidate: Habit, previous: Habit?, today: Loc
     val schedule = candidate.schedule.copy(startDate = previous.schedule.startDate,
         recurrence = candidate.schedule.recurrence.copy(rangeStart = previous.schedule.recurrence.rangeStart))
     require(candidate.periodGoal?.metric != "sum" || candidate.measurement != null) { "HABIT_PERIOD_MEASUREMENT_REQUIRED" }
+    val heads=HabitRuleHistory.state(previous,LocalDate.MAX).frontier
+    require(heads.size<=1) { "HABIT_RULE_CONFLICT" }
     val transitionGoal = HabitMeasurements.rule(previous,today).periodGoal ?: candidate.periodGoal
     val effective = transitionGoal?.let { HabitPeriodGoals.period(it,today).end } ?: today.plusDays(1)
     val rules = if (candidate.measurement != previous.measurement || schedule != previous.schedule || candidate.periodGoal != previous.periodGoal) {
         (previous.ruleHistory.ifEmpty { listOf(HabitMeasurements.rule(previous, previous.createdDate)) }
             + HabitRuleVersion("rule:${UUID.randomUUID()}",
-                effective, timestamp, candidate.measurement, schedule, candidate.periodGoal))
+                effective, timestamp, candidate.measurement, schedule, candidate.periodGoal,
+                (heads.ifEmpty { listOf(HabitMeasurements.rule(previous,previous.createdDate)) }).map { it.id }))
             .distinctBy { it.id }.sortedWith(compareBy<HabitRuleVersion> { it.effectiveDate }.thenBy { it.recordedAt }.thenBy { it.id })
     } else previous.ruleHistory
     return candidate.copy(
@@ -106,6 +109,7 @@ class HabitEngine(private val calendar: GenesisCalendar) {
 
     /** Saved schedule owns its mode. The account display calendar is intentionally absent. */
     fun isScheduled(habit: Habit, date: LocalDate): Boolean {
+        if(HabitRuleHistory.state(habit,date).conflicts.isNotEmpty()) return false
         val schedule = HabitMeasurements.rule(habit, date).schedule
         if (!habit.active || date < schedule.startDate || schedule.endDate?.let { date > it } == true) return false
         return recurrence.matches(schedule.startDate.toString(),schedule.recurrence.copy(

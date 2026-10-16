@@ -10,6 +10,25 @@ import ru.genesis.calendar.domain.habits.*
 import ru.genesis.calendar.auth.WorkspacePatch
 
 class HabitDocumentTest {
+    @Test fun actualWebConflictSurvivesNativeChoiceAndThreeWaySyncWithoutRebindingEvents() {
+        val web=JSONObject(javaClass.getResource("/habit-rule-history-web.json")!!.readText())
+        val imported=HabitDocument.decode(CloudAccountImporter.habitsDocument(web),1)
+        val day=LocalDate.parse("2026-05-04");val original=imported.habits.single()
+        assertEquals(2,HabitRuleHistory.state(original,day).conflicts.size)
+        val selected=HabitRuleHistory.resolve(original,"web-rule-left",listOf("web-rule-left","web-rule-right"),
+            "native-choice","2026-05-04T13:00:00Z")
+        val local=WorkspacePatch.localDocument(web,null,JSONObject(HabitDocument.encode(imported.copy(habits=listOf(selected)))),null)
+        val patched=WorkspacePatch.apply(web,local,web,setOf("habits"),2,"2026-05-04T13:00:00Z","history-interop")
+        val returned=HabitDocument.decode(CloudAccountImporter.habitsDocument(patched.document),2)
+        val rule=HabitMeasurements.rule(returned.habits.single(),day)
+        assertEquals("web-rule-left",rule.id);assertEquals(150_000L,rule.periodGoal!!.target)
+        assertEquals("web-rule-left",returned.measurements.single().ruleId)
+        assertEquals(150_125L,HabitMeasurements.progress(returned.habits.single(),day,returned.measurements).total)
+        assertEquals(10,returned.completions.single().xpAwarded)
+        assertEquals(returned,HabitDocument.decode(HabitDocument.encode(returned),2))
+        java.io.File("build/test-results/habit-rule-history-native.json").apply { parentFile.mkdirs();writeText(patched.document.toString(2)) }
+    }
+
     @Test fun utcDeviceCalendarContextsUseTheWebCompatibleUtcSpelling() {
         val context=CalendarContext(timeZone="GMT")
         val encoded=calendarContextJson(context) as JSONObject

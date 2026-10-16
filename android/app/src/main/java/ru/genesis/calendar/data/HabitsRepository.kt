@@ -126,6 +126,12 @@ class HabitsRepository(private val app: GenesisApplication) {
         workspace.copy(habits=others+saved)
     }
 
+    suspend fun resolveRule(id: String,chosenId: String,heads: List<String>,operationId: String) = mutate { workspace ->
+        val habit=workspace.habits.firstOrNull { it.id==id } ?: error("Привычка не найдена")
+        val resolved=HabitRuleHistory.resolve(habit,chosenId,heads,operationId)
+        workspace.copy(habits=workspace.habits.map { if(it.id==id) resolved else it })
+    }
+
     suspend fun delete(id: String) {
         mutate { workspace -> deleteHabitFromWorkspace(workspace, id, Instant.now().toString()) }
         app.scheduler.restore()
@@ -285,7 +291,7 @@ internal object HabitDocument {
     }
     private fun optionalRules(value: JSONObject): List<HabitRuleVersion> =
         if(value.isNull("ruleHistory")) emptyList() else value.getJSONArray("ruleHistory").objects().map(::rule).also { rules ->
-            require(rules.map { it.id }.distinct().size == rules.size) { "HABIT_RULE_ID_CONFLICT" }
+            HabitRuleHistory.validate(rules)
         }
     private fun schedule(value: TrackerSchedule) = JSONObject().put("startDate",value.startDate.toString())
         .put("endDate",value.endDate?.toString() ?: JSONObject.NULL).put("timezone",value.timezone).put("recurrence",recurrence(value.recurrence))
@@ -293,9 +299,16 @@ internal object HabitDocument {
         value.nullable("endDate")?.let(LocalDate::parse),value.getString("timezone"),recurrence(value.getJSONObject("recurrence")))
     private fun rule(value: HabitRuleVersion) = JSONObject().put("id",value.id).put("effectiveDate",value.effectiveDate.toString())
         .put("recordedAt",value.recordedAt).put("measurement",value.measurement?.let(::measurement) ?: JSONObject.NULL)
-        .put("schedule",schedule(value.schedule)).apply { value.periodGoal?.let { put("periodGoal",periodGoal(it)) } }
+        .put("schedule",schedule(value.schedule)).apply {
+            value.periodGoal?.let { put("periodGoal",periodGoal(it)) }
+            value.supersedes?.let { put("supersedes",JSONArray(it)) }
+            value.selectedRuleId?.let { put("selectedRuleId",it) }
+        }
     private fun rule(value: JSONObject) = HabitRuleVersion(value.getString("id"),LocalDate.parse(value.getString("effectiveDate")),
-        value.getString("recordedAt"),optionalMeasurement(value),schedule(value.getJSONObject("schedule")),optionalPeriodGoal(value))
+        value.getString("recordedAt"),optionalMeasurement(value),schedule(value.getJSONObject("schedule")),optionalPeriodGoal(value),
+        if(value.has("supersedes")) value.getJSONArray("supersedes").let { rows -> (0 until rows.length()).map {
+            (rows.get(it) as? String) ?: error("INVALID_HABIT_RULE_HISTORY") } }.sorted() else null,
+        if(value.has("selectedRuleId")) (value.get("selectedRuleId") as? String) ?: error("INVALID_HABIT_RULE_HISTORY") else null)
     private fun measurementEvent(value: HabitMeasurementEvent) = entity(value.entity).put("habitId",value.habitId)
         .put("date",value.date.toString()).put("entryId",value.entryId).put("ruleId",value.ruleId)
         .put("replaces",JSONArray(value.replaces)).put("value",value.value ?: JSONObject.NULL).put("note",value.note)
