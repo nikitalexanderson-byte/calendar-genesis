@@ -748,7 +748,9 @@ button:disabled {
   transform: translateY(-1px);
 }
 
-.ux-action-button::after {
+.topbar-actions [data-tooltip] { position:relative; }
+.ux-action-button::after,
+.topbar-actions [data-tooltip]::after {
   position: absolute;
   z-index: 120;
   top: calc(100% + 9px);
@@ -773,7 +775,8 @@ button:disabled {
 }
 
 .ux-action-button:hover::after,
-.ux-action-button:focus-visible::after {
+.ux-action-button:focus-visible::after,
+.topbar-actions [data-tooltip]:is(:hover,:focus-visible)::after {
   opacity: 1;
   transform: translateY(0);
 }

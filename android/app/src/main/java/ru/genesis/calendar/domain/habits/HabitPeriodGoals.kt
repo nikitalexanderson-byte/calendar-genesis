@@ -22,10 +22,11 @@ data class HabitGoalPeriod(val start: LocalDate, val end: LocalDate)
 data class HabitPeriodProgress(val goal: HabitPeriodGoal, val rule: HabitRuleVersion,
     val period: HabitGoalPeriod, val effectiveStart: LocalDate, val deadline: LocalDate?,
     val allowedDays: List<LocalDate>, val value: Long, val qualifiedValue: Long, val rewardValue: Long,
-    val conflicts: Boolean, val partial: Boolean, val unattainable: Boolean, val status: String) {
+    val conflicts: Boolean, val partial: Boolean, val unattainable: Boolean, val status: String,
+    val historicalResolution: Boolean = false) {
     val remaining get() = (goal.target - value).coerceAtLeast(0)
     val completed get() = qualifiedValue >= goal.target && !conflicts
-    val rewardEligible get() = rewardValue >= goal.target && !conflicts
+    val rewardEligible get() = rewardValue >= goal.target && !conflicts && !historicalResolution
     val qualityPending get() = value >= goal.target && qualifiedValue < goal.target
 }
 
@@ -48,17 +49,19 @@ object HabitPeriodGoals {
 
     fun progress(habit: Habit, date: LocalDate, events: List<HabitMeasurementEvent>,
         completions: List<HabitCompletion>, now: Instant = Instant.now()): HabitPeriodProgress? {
-        val rule = HabitMeasurements.rule(habit,date)
+        val ruleState=HabitRuleHistory.state(habit,date)
+        val rule = ruleState.rule
         val goal = rule.periodGoal ?: return null
         val period = period(goal,date)
         val today = now.atZone(ZoneId.of(goal.context.timeZone)).toLocalDate()
         val first = maxOf(period.start,habit.createdDate,rule.effectiveDate)
         val engine = HabitEngine(GenesisCalendar(ZoneId.of(goal.context.timeZone),goal.context.version,goal.context.gregorianYearStart))
+        val scheduledHabit=habit.copy(active=true,ruleHistory=emptyList(),schedule=rule.schedule)
         val allowed = mutableListOf<LocalDate>()
-        var value = 0L; var qualified = 0L; var reward = 0L; var conflicts = false
+        var value = 0L; var qualified = 0L; var reward = 0L; var conflicts = ruleState.conflicts.isNotEmpty()
         var day = first
         while (day < period.end) {
-            if (HabitMeasurements.rule(habit,day).id == rule.id && engine.isScheduled(habit.copy(active=true),day)) {
+            if (HabitMeasurements.rule(habit,day).id == rule.id && engine.isScheduled(scheduledHabit,day)) {
                 allowed += day
                 if (day <= today) {
                     val entry = completions.firstOrNull { it.habitId == habit.id && it.date == day }
@@ -98,12 +101,14 @@ object HabitPeriodGoals {
         val unattainable = goal.metric == "days" && allowed.size < goal.target
         val completed = qualified >= goal.target && !conflicts
         val status = when {
-            !habit.active || (partial || unattainable) && !completed || deadline == null -> "neutral"
+            !habit.active || ruleState.conflicts.isNotEmpty() || (partial || unattainable) && !completed || deadline == null -> "neutral"
             completed -> "completed"
             today > deadline -> "missed"
             else -> "open"
         }
-        return HabitPeriodProgress(goal,rule,period,first,deadline,allowed,value,qualified,reward,conflicts,partial,unattainable,status)
+        val historicalResolution=ruleState.appliedVersion.selectedRuleId!=null&&deadline!=null&&
+            Instant.parse(ruleState.appliedVersion.recordedAt).atZone(ZoneId.of(goal.context.timeZone)).toLocalDate()>deadline
+        return HabitPeriodProgress(goal,rule,period,first,deadline,allowed,value,qualified,reward,conflicts,partial,unattainable,status,historicalResolution)
     }
 
     fun settlement(habit: Habit, date: LocalDate, events: List<HabitMeasurementEvent>, completions: List<HabitCompletion>,

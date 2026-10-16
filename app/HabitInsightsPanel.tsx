@@ -12,6 +12,7 @@ import {
   type CalendarMode,
 } from "./calendar-data";
 import { translateText, type Language } from "./i18n";
+import { useSacredFeaturesEnabled } from "./sacred-features";
 import { dateValuesBetween, isHabitScheduledForDate, type HabitWorkspace } from "./habits";
 import { habitRuleForDate } from "./habit-measurement";
 import { habitPeriodSettlement, habitPeriodStreak, habitQuestCompletions } from "./habit-period-progress";
@@ -48,7 +49,9 @@ function comparisonCopy(current: number, previous: number, change: number, isEng
 export function HabitInsightsPanel({ workspace, date, language, calendarMode, reportContext, showCompletionCalendar = false }: HabitInsightsPanelProps) {
   const isEnglish = language === "en";
   const [mosaicOpen, setMosaicOpen] = useState(false);
-  const [completionCalendarMode, setCompletionCalendarMode] = useState<CalendarMode>(calendarMode);
+  const sacredFeaturesEnabled = useSacredFeaturesEnabled();
+  const [savedCompletionCalendarMode, setCompletionCalendarMode] = useState<CalendarMode>(calendarMode);
+  const completionCalendarMode = !sacredFeaturesEnabled && savedCompletionCalendarMode === "sacred" ? "profane" : savedCompletionCalendarMode;
   const mosaicBodyId = useId();
   const weekly = useMemo(() => buildWeeklyHabitSummary(workspace, date), [date, workspace]);
   const mosaicRange = useMemo(() => calendarYearRange(date, calendarMode, reportContext), [calendarMode, date, reportContext]);
@@ -87,7 +90,7 @@ export function HabitInsightsPanel({ workspace, date, language, calendarMode, re
         <header>
           <div><span className="eyebrow">{localized("Наблюдение привычек")}</span><h3 id="habit-completion-calendar-title">{localized("Календарь выполнения привычек")}</h3><p>{formatCalendarDateValue(completionRange.start, completionCalendarMode)} — {formatCalendarDateValue(completionRange.end, completionCalendarMode)}</p></div>
           <div className="habit-completion-modes" role="group" aria-label={localized("Календарь просмотра")}>
-            {completionCalendarOptions.map((option) => <button type="button" key={option.mode} className={completionCalendarMode === option.mode ? "active" : ""} aria-pressed={completionCalendarMode === option.mode} onClick={() => setCompletionCalendarMode(option.mode)}>{localized(option.ru)}</button>)}
+            {completionCalendarOptions.filter(option=>sacredFeaturesEnabled||option.mode!=="sacred").map((option) => <button type="button" key={option.mode} className={completionCalendarMode === option.mode ? "active" : ""} aria-pressed={completionCalendarMode === option.mode} onClick={() => setCompletionCalendarMode(option.mode)}>{localized(option.ru)}</button>)}
           </div>
         </header>
         {workspace.habits.length ? <div className="habit-completion-list">{workspace.habits.map((habit) => {

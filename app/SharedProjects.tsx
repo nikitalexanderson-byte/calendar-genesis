@@ -144,6 +144,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   const initialRoute = useRef(true);
   const [trashOpen, setTrashOpen] = useState(false);
   const [taskArchiveOpen,setTaskArchiveOpen]=useState(false);
+  const [savedViewsOpen,setSavedViewsOpen]=useState(false);
   const [undoTaskAction,setUndoTaskAction]=useState<{task:SharedTask;trash?:SharedTrashEntry}|null>(null);
   const [trashTarget,setTrashTarget]=useState<{kind:"task";task:SharedTask;context:SharedProjectSnapshot}|{kind:"project";project:SharedProject}|null>(null);
   const [mapsOpen, setMapsOpen] = useState(() => typeof window !== "undefined" && Boolean(new URL(location.href).searchParams.get("mindmap")));
@@ -1157,6 +1158,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
         {spaces.map(space => <option key={space.id} value={space.id}>{space.title}</option>)}
       </select>
       <div className="shared-workspace-tools">
+      <button type="button" className="secondary-button" title={translateText("Сохранённые представления")} aria-label={translateText("Сохранённые представления")} aria-haspopup="dialog" onClick={()=>setSavedViewsOpen(true)}><ExperimentalIcon name="list"/></button>
       {["owner", "admin"].includes(selectedSpace?.role ?? "") ? <button type="button" className="secondary-button" title={english ? "Workspace settings" : "Настройки пространства"} aria-label={english ? "Workspace settings" : "Настройки пространства"}
         onClick={() => { setEditingSpaceId(spaceId); setCreateModal("space-settings"); }}><ExperimentalIcon name="gear" /></button> : null}
       {canManageLabels ? <button type="button" className="secondary-button" title={english ? "Labels" : "Метки"} aria-label={english ? "Labels" : "Метки"} onClick={() => setLabelsOpen(true)}><ExperimentalIcon name="tag" /></button> : null}
@@ -1188,8 +1190,8 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       </div> : null}
       {sharedMindmapsEnabled && selectedSpace ? <button type="button" className="primary-button shared-mindmaps-open" onClick={()=>{closeTask();setSearchQuery("");setMapsOpen(true);}}><ExperimentalIcon name="map-mode"/><span>Майндмепы</span></button> : null}
     </section> : null}
-    <Suspense fallback={<p role="status">{translateText("Загружаем данные…")}</p>}><SharedSavedViews key={userId} userId={userId} spaces={spaces} mode={calendarMode} onOpen={task=>void run(async()=>{
-      const [context,found]=await Promise.all([loadSharedProject(task.projectId),loadSharedTask(task.projectId,task.id,Boolean(task.archivedAt))]);openTask(found,context);
+    <Suspense fallback={<p role="status">{translateText("Загружаем данные…")}</p>}><SharedSavedViews key={userId} userId={userId} spaces={spaces} mode={calendarMode} opened={savedViewsOpen} onClose={()=>setSavedViewsOpen(false)} onOpen={task=>void run(async()=>{
+      const [context,found]=await Promise.all([loadSharedProject(task.projectId),loadSharedTask(task.projectId,task.id,Boolean(task.archivedAt))]);setSavedViewsOpen(false);openTask(found,context);
     })}/></Suspense>
     {taskArchiveOpen && selectedSpace ? <SharedArchivedTasks spaceId={spaceId} projects={projects} onOpen={task=>void run(async()=>{const context=await loadSharedProject(task.projectId);setTaskArchiveOpen(false);openTask(task,context);})} onClose={()=>setTaskArchiveOpen(false)} onChanged={async()=>{await refreshProjects(spaceId);if(projectId)await refreshProject(projectId);window.dispatchEvent(new Event("genesis:shared-updates"));}} onTrash={task=>void run(async()=>{const context=await loadSharedProject(task.projectId);setTaskArchiveOpen(false);setTrashTarget({kind:"task",task,context});})}/> : null}
     {undoTaskAction ? <div className="shared-detail-actions" role="status"><span>{translateText("Действие выполнено. Вы можете его отменить.")}</span><button type="button" disabled={busy} onClick={()=>void run(async()=>{

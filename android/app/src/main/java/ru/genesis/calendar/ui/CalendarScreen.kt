@@ -698,6 +698,8 @@ private fun CalendarDay(calendar: GenesisCalendar, date: LocalDate, number: Int,
     patron: WeekdayPatronMark? = null, adjacent: Boolean = false,
     onTaskBadgeClick: (LocalDate) -> Unit = {}, solarLocation: SolarLocation? = null,
     completedTaskCount: Int = 0) {
+    val patron = patron.takeIf { LocalSacredFeaturesEnabled.current }
+    val crossDate = crossDate.takeIf { LocalSacredFeaturesEnabled.current }
     val today = !adjacent && date == LocalDate.now()
     val locale = Locale.forLanguageTag(LocalGenesisLanguage.current)
     val solarLabels = solarLocation?.let { solarTimeLabels(date, it, calendar) }
@@ -946,7 +948,7 @@ private fun SelectedDayCard(calendar: GenesisCalendar, date: LocalDate, mode: Ca
     val month = SacredCatalog.months[sacred.monthIndex]
     val day = month.days[sacred.day - 1]
     val locale = Locale.forLanguageTag(LocalGenesisLanguage.current)
-    val weekday = if (mode == CalendarMode.PROFANE) todayHeroCopy(date, mode, calendar,
+    val weekday = if (mode == CalendarMode.PROFANE && LocalSacredFeaturesEnabled.current) todayHeroCopy(date, mode, calendar,
         LocalGenesisLanguage.current) else null
     Card(Modifier.fillMaxWidth().testTag("calendar-selected-day")) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -965,7 +967,7 @@ private fun SelectedDayCard(calendar: GenesisCalendar, date: LocalDate, mode: Ca
                 CalendarMode.LUNAR -> calendar.lunarDate(date).let { "${it.day} · ${it.month.name}" }
                 CalendarMode.SACRED -> "${sacred.day} · ${month.name}"
             }, style = MaterialTheme.typography.titleLarge, modifier = Modifier.testTag("calendar-selected-primary-date"))
-            if (mode == CalendarMode.PROFANE) {
+            if (mode == CalendarMode.PROFANE && LocalSacredFeaturesEnabled.current) {
                 val patron = weekdayPatronMark(date)
                 Row(verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -998,7 +1000,7 @@ private fun ExperimentalSelectedDayCard(calendar: GenesisCalendar, date: LocalDa
     val day = month.days[sacred.day - 1]
     val lunar = calendar.lunarDate(date)
     val locale = Locale.forLanguageTag(LocalGenesisLanguage.current)
-    val weekday = if (mode == CalendarMode.PROFANE) todayHeroCopy(date, mode, calendar,
+    val weekday = if (mode == CalendarMode.PROFANE && LocalSacredFeaturesEnabled.current) todayHeroCopy(date, mode, calendar,
         LocalGenesisLanguage.current) else null
     val primaryDate = when (mode) {
         CalendarMode.PROFANE -> date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy", locale))
@@ -1050,7 +1052,7 @@ private fun ExperimentalSelectedDayCard(calendar: GenesisCalendar, date: LocalDa
                 }
             }
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (mode == CalendarMode.PROFANE) {
+                if (mode == CalendarMode.PROFANE && LocalSacredFeaturesEnabled.current) {
                     val patron = weekdayPatronMark(date)
                     Surface(color = MaterialTheme.colorScheme.primaryContainer,
                         shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()

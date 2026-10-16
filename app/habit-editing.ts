@@ -3,6 +3,7 @@ import type { TrackerSyncState } from "./tracker-core";
 import { addCivilDays, momentCivilDate } from "./calendar-context.ts";
 import { normalizeHabitMeasurement, habitRuleForDate, normalizeHabitRuleHistory } from "./habit-measurement.ts";
 import { habitGoalPeriod, normalizeHabitPeriodGoal } from "./habit-period-goal.ts";
+import { habitRuleFrontier } from "./habit-rule-history.ts";
 
 /** Selects the first tracking day before the habit is saved for the first time. */
 export function setNewHabitStartDate(habit: Habit, startDate: string, earliestDate: string): Habit {
@@ -32,6 +33,8 @@ export function setNewHabitStartDate(habit: Habit, startDate: string, earliestDa
  * cannot silently change the XP formula after a habit has been created.
  */
 export function applyEditableHabitUpdate(previous: Habit, candidate: Habit): Habit {
+  const frontier = habitRuleFrontier(previous);
+  if (frontier.length > 1) throw new RangeError("HABIT_RULE_CONFLICT");
   const measurement = normalizeHabitMeasurement(candidate.measurement);
   const periodGoal = normalizeHabitPeriodGoal(candidate.periodGoal);
   if (periodGoal?.metric === "sum" && !measurement) throw new RangeError("HABIT_PERIOD_MEASUREMENT_REQUIRED");
@@ -49,7 +52,8 @@ export function applyEditableHabitUpdate(previous: Habit, candidate: Habit): Hab
   const ruleHistory = ruleChanged ? normalizeHabitRuleHistory([
     ...(previousRules.length ? previousRules : [baseline]),
     { id: `rule:${crypto.randomUUID()}`,
-      effectiveDate, recordedAt: candidate.updatedAt, schedule, measurement, ...(periodGoal ? { periodGoal } : {}) },
+      effectiveDate, recordedAt: candidate.updatedAt, schedule, measurement,
+      supersedes: (frontier.length ? frontier : [baseline]).map(rule => rule.id), ...(periodGoal ? { periodGoal } : {}) },
   ]) : previousRules;
   return {
     ...candidate,
@@ -66,6 +70,26 @@ export function applyEditableHabitUpdate(previous: Habit, candidate: Habit): Hab
     qualityScale: previous.qualityScale,
     schedule,
   };
+}
+
+/** An explicit causal choice retains both alternatives and the selected event rule IDs. */
+export function resolveHabitRuleConflict(previous: Habit, chosenId: string, expectedHeads: readonly string[],
+  operationId = `rule-choice:${crypto.randomUUID()}`, timestamp = new Date().toISOString()): Habit {
+  const replay = previous.ruleHistory?.find(rule => rule.id === operationId);
+  if (replay) {
+    if (replay.selectedRuleId !== chosenId || JSON.stringify(replay.supersedes) !== JSON.stringify([...expectedHeads].sort()))
+      throw new RangeError("HABIT_RULE_ID_CONFLICT");
+    return previous;
+  }
+  const frontier = habitRuleFrontier(previous), chosen = frontier.find(rule => rule.id === chosenId);
+  if (frontier.length < 2 || !chosen || JSON.stringify(frontier.map(rule => rule.id).sort()) !== JSON.stringify([...expectedHeads].sort()))
+    throw new RangeError("HABIT_RULE_EDIT_CONFLICT");
+  const selected = { ...chosen, id: operationId, recordedAt: timestamp,
+    effectiveDate: frontier.map(rule => rule.effectiveDate).sort().at(-1)!,
+    supersedes: frontier.map(rule => rule.id).sort(), selectedRuleId: chosen.id };
+  return { ...previous, measurement: chosen.measurement, schedule: chosen.schedule, periodGoal: chosen.periodGoal ?? null,
+    ruleHistory: normalizeHabitRuleHistory([...(previous.ruleHistory ?? []), selected]),
+    updatedAt: timestamp, version: previous.version + 1, syncState: "pending" };
 }
 
 export function applyHabitReminderSyncResult(

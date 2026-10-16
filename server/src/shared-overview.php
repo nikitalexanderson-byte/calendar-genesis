@@ -57,8 +57,10 @@ function genesisSharedReadTaskUpdates(string $userId, string $projectId, string 
         if ($query->fetchColumn() === false) throw new GenesisSharedAccessException('TASK_NOT_FOUND', 404);
         $sql=genesisNotificationInboxSql($userId,null,false,true);$commentCondition='';
         if($ids){$keys=[];foreach(array_values(array_unique($ids))as$i=>$id){$keys[]=':shown'.$i;$sql['values']['shown'.$i]=$id;}$commentCondition=' OR e.object_id IN ('.implode(',',$keys).')';}
-        $query=$db->prepare('INSERT OR IGNORE INTO shared_notification_reads(event_id,user_id,read_at) SELECT e.id,:user,:now'.$sql['from'].$sql['where']." AND t.id=:task AND p.id=:project AND (e.action<>'comment.created'".$commentCondition.')');
-        $query->execute($sql['values']+['task'=>$taskId,'project'=>$projectId,'now'=>genesisNow()]);
+        // A viewed task also acknowledges its visible events from previous projects after a move.
+        // Comment IDs still describe exactly which discussion entries the client displayed.
+        $query=$db->prepare('INSERT OR IGNORE INTO shared_notification_reads(event_id,user_id,read_at) SELECT e.id,:user,:now'.$sql['from'].$sql['where']." AND COALESCE(n.task_id,e.task_id,t.id,CASE WHEN e.action LIKE 'task.%' THEN e.object_id END)=:task AND (e.action<>'comment.created'".$commentCondition.')');
+        $query->execute($sql['values']+['task'=>$taskId,'now'=>genesisNow()]);
         $overview = genesisSharedOverview($userId);
         $db->commit();
         return ['ok' => true, 'overview' => $overview];

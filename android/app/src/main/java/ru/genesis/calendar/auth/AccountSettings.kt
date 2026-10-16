@@ -38,12 +38,16 @@ data class UiVisibility(
     val hiddenSubmenus: Set<String> = emptySet(),
     val hiddenTodayBlocks: Set<String> = emptySet(),
     val enabledCalendars: Set<String> = setOf("profane", "sacred", "lunar"),
+    val sacredFeaturesEnabled: Boolean = true,
 ) {
+    val visibleCalendars: Set<String> get() = enabledCalendars
+        .filter { sacredFeaturesEnabled || it != "sacred" }.toSet().ifEmpty { setOf("profane") }
     fun toJson(): JSONObject = JSONObject()
         .put("hiddenMenuItems", JSONArray(hiddenMenuItems.toList()))
         .put("hiddenSubmenus", JSONArray(hiddenSubmenus.toList()))
         .put("hiddenTodayBlocks", JSONArray(hiddenTodayBlocks.toList()))
         .put("enabledCalendars", JSONArray(enabledCalendars.toList()))
+        .put("sacredFeaturesEnabled", sacredFeaturesEnabled)
 
     companion object {
         fun fromJson(value: JSONObject?): UiVisibility {
@@ -51,7 +55,8 @@ data class UiVisibility(
             fun entries(key: String): Set<String> = value.optJSONArray(key)?.strings()?.toSet() ?: emptySet()
             return UiVisibility(entries("hiddenMenuItems"), entries("hiddenSubmenus"),
                 entries("hiddenTodayBlocks"), value.optJSONArray("enabledCalendars")?.strings()?.toSet()
-                    ?.takeIf { it.isNotEmpty() } ?: setOf("profane", "sacred", "lunar"))
+                    ?.takeIf { it.isNotEmpty() } ?: setOf("profane", "sacred", "lunar"),
+                value.optBoolean("sacredFeaturesEnabled", true))
         }
     }
 }

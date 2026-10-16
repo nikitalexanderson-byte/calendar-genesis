@@ -193,6 +193,7 @@ export function AdminPanel() {
           </div>
         </div>
         <div className="admin-users-heading"><h2 id="admin-users-title" data-no-translate>{userCopy("users")}</h2><span aria-live="polite" data-no-translate>{mobileUsers&&stats.users.length ? `${(currentUserPage-1)*10+1}–${Math.min(currentUserPage*10,stats.users.length)} / ${stats.users.length}` : stats.users.length}</span></div>
+        <p className="admin-activity-help" data-no-translate>{userCopy("activityHelp")} {userCopy("deviceHistoryHelp")}</p>
         {userPagination}
         {!stats.users.length ? <p data-no-translate>{userCopy("empty")}</p> : null}
         <div className="admin-table-wrap">
@@ -202,7 +203,12 @@ export function AdminPanel() {
               <tr key={user.id}>
                 <td data-label={copy.user}><strong>{user.email}</strong><small>{user.displayName}{user.isAdmin ? ` · ${copy.admin}` : ""}</small></td>
                 <td className="admin-subscription-cell" data-label={userCopy("plan")}><SubscriptionControl user={user} onRefresh={refresh} onSaved={subscriptionPlan=>setStats(current=>current ? {...current,users:current.users.map(item=>item.id===user.id ? {...item,subscriptionPlan} : item)} : current)}/></td>
-                <td data-label={copy.activity}>{formatActivity(user.lastSeenAt)}<small>{isEnglish ? "Registered" : "Регистрация"}: {formatActivity(user.createdAt)}<br />{isEnglish ? "Last sign-in" : "Последний вход"}: {formatActivity(user.lastLoginAt)}</small></td>
+                <td className="admin-activity-cell" data-label={copy.activity} data-no-translate>
+                  <div><strong>{userCopy("serverActivity")}</strong><time>{formatActivity(user.lastSeenAt)}</time></div>
+                  <div><strong>{userCopy("newSignIn")}</strong><time>{formatActivity(user.lastLoginAt)}</time></div>
+                  {(user.clientActivity ?? []).map(client => <div key={client.kind} className="admin-client-activity"><strong>{userCopy(client.kind)}</strong><small>{userCopy("serverContact")}: {formatActivity(client.lastSeenAt)}<br />{userCopy("newSignIn")}: {formatActivity(client.lastLoginAt)}</small></div>)}
+                  <small>{isEnglish ? "Registered" : "Регистрация"}: {formatActivity(user.createdAt)}</small>
+                </td>
                 <td data-label={copy.logins}>{user.loginCount}</td>
                 <td data-label={copy.habits}><strong>{user.habitCount}</strong><small>{copy.aggregate}</small></td>
                 <td data-label={copy.projects}>{user.projectCount}</td>

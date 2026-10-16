@@ -241,6 +241,7 @@ function genesisEstablishGoogleSession(array $user, string $verifiedSub): void
     $_SESSION['authenticated_at'] = time();
     $_SESSION['auth_login_id'] = bin2hex(random_bytes(16));
     $_SESSION['csrf'] = bin2hex(random_bytes(24));
+    genesisObserveClientActivity((string)$user['id'], true);
 }
 
 function genesisSessionIsPrimaryGoogleUser(array $user): bool
@@ -256,6 +257,7 @@ function genesisRequireUserId(): string
     if ($id === null) {
         genesisJson(['error' => 'AUTH_REQUIRED'], 401);
     }
+    genesisObserveClientActivity($id);
     return $id;
 }
 

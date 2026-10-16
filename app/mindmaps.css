@@ -8,12 +8,11 @@
 .mindmaps button[aria-pressed="true"] { border-color: var(--gold); background: var(--exp-accent-wash); }
 .mindmap-toolbar, .mindmap-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .mindmap-toolbar { margin-bottom: 16px; }
-.mindmap-edit-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:0 0 16px; }
-.mindmap-edit-actions > strong { margin-right:4px; color:var(--ink-soft); font:500 13px/1.4 var(--font-ui); }
-.mindmap-edit-actions > button { display:flex; align-items:center; gap:8px; min-height:44px; font:500 14px/1.4 var(--font-ui); }
-.mindmap-edit-actions kbd { color:var(--ink-soft); font:400 12px/1.4 var(--font-ui); }
-@media(max-width:640px) { .mindmap-edit-actions kbd { display:none; } .mindmap-edit-actions > button { gap:6px; padding-inline:10px; } }
-.mindmap-toolbar > [role="group"] { display: flex; gap: 4px; padding: 3px; background: var(--paper); border: 1px solid var(--exp-border); border-radius: 12px; }
+.mindmap-history-actions { display:flex; align-items:center; gap:8px; flex:0 0 auto; }
+.mindmaps .mindmap-history-actions > button { position:relative; display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; min-width:44px; padding:10px; }
+.mindmap-history-actions > button > svg { width:22px; height:22px; }
+.mindmap-history-actions > button:is(:hover,:focus-visible) .mindmap-action-tooltip { visibility:visible; opacity:1; }
+.mindmap-toolbar > .mindmap-view-modes { display: flex; gap: 4px; padding: 3px; background: var(--paper); border: 1px solid var(--exp-border); border-radius: 12px; }
 .mindmap-toolbar > label { flex: 1; min-width: 180px; }
 .mindmaps label, .mindmap-dialog label { display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
 .mindmaps :is(input,textarea,select), .mindmap-dialog :is(input,textarea,select) { width: 100%; font: inherit; }
@@ -246,8 +245,8 @@ html[data-genesis-theme] .genesis-app .mindmap-header .mindmap-back-link { grid-
   html[data-genesis-theme] .genesis-app .mindmap-header:has(.mindmap-save-state) .mindmap-back-link { grid-row: 3; }
   html[data-genesis-theme] .genesis-app .mindmap-header:has(.mindmap-catalog-statistics) .mindmap-back-link { grid-row: 3; }
   .mindmap-workspace { display: block; }
-  .mindmap-primary-toolbar > [role="group"] { flex: 0 0 100%; }
-  .mindmaps .mindmap-primary-toolbar > [role="group"] > .mindmap-icon-action { flex: 1 1 0; }
+  .mindmap-primary-toolbar > .mindmap-view-modes { flex: 0 0 100%; }
+  .mindmaps .mindmap-primary-toolbar > .mindmap-view-modes > .mindmap-icon-action { flex: 1 1 0; }
   .mindmap-toolbar > label { flex-basis: 100%; }
   .mindmap-primary-toolbar > .mindmap-node-search { flex-basis: 100%; min-width: 0; }
   .mindmap-save-state { max-width: none; padding: 0; }
@@ -301,12 +300,14 @@ html[data-genesis-theme] .genesis-app .mindmap-header .mindmap-back-link { grid-
   .mindmap-canvas-search .mindmap-node-search { min-width: 0; }
 }
 @media (max-width: 760px) {
-  .mindmap-primary-toolbar { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; }
-  .mindmap-primary-toolbar > [role="group"] { grid-column: 1 / -1; }
+  .mindmap-primary-toolbar { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 8px; }
+  .mindmap-primary-toolbar > .mindmap-view-modes { grid-column: 1 / -1; }
   .mindmap-primary-toolbar > :is(.mindmap-add-thought,.mindmap-add-affair,.mindmap-more-toggle) { grid-row: 2; height: 56px; min-height: 56px; min-width: 0; margin: 0; padding: 6px; font: 600 13px/1.3 var(--font-ui); }
   .mindmap-primary-toolbar > .mindmap-add-thought { grid-column: 1; }
   .mindmap-primary-toolbar > .mindmap-add-affair { grid-column: 2; }
-  .mindmaps .mindmap-primary-toolbar > .mindmap-more-toggle { grid-column: 3; gap: 4px; justify-content: center; margin: 0; }
+  .mindmap-primary-toolbar > .mindmap-history-actions { grid-column:3 / span 2; grid-row:2; justify-content:space-between; }
+  .mindmaps .mindmap-history-actions > button { flex:1 1 44px; height:56px; }
+  .mindmaps .mindmap-primary-toolbar > .mindmap-more-toggle { grid-column: 5; gap: 4px; justify-content: center; margin: 0; }
   .mindmap-primary-toolbar > .mindmap-more-toggle > svg { flex: 0 0 16px; width: 16px; height: 16px; }
   .mindmap-primary-toolbar > .mindmap-more-toggle > svg:last-child { display: none; }
   .mindmap-primary-toolbar > .mindmap-all-map { grid-column: 1 / -1; }
@@ -331,9 +332,13 @@ html[data-genesis-theme] .genesis-app .mindmap-header .mindmap-back-link { grid-
 .mindmap-primary-toolbar > :is(.mindmap-add-thought,.mindmap-add-affair) { display: flex; align-items: center; justify-content: center; gap: 8px; }
 .mindmap-primary-toolbar > :is(.mindmap-add-thought,.mindmap-add-affair) > svg { width: 20px; height: 20px; flex-shrink: 0; }
 @media(max-width:430px) {
+  .mindmaps .mindmap-history-actions > button { height:48px; }
   .mindmaps .mindmap-primary-toolbar > :is(.mindmap-add-thought,.mindmap-add-affair,.mindmap-more-toggle) { display: flex; align-items: center; justify-content: center; height: 48px; min-height: 48px; gap: 0; }
   .mindmaps .mindmap-primary-toolbar > :is(.mindmap-add-thought,.mindmap-add-affair,.mindmap-more-toggle) > span { display: none; }
   .mindmaps .mindmap-primary-toolbar > :is(.mindmap-add-thought,.mindmap-add-affair,.mindmap-more-toggle) > svg:first-child { width: 24px; height: 24px; flex: 0 0 24px; }
+}
+@media(hover:hover) {
+  .mindmaps .mindmap-history-actions .mindmap-action-tooltip { display:block; }
 }
 
 /* Keep the catalog's mobile overview below its title, including lazy CSS loads. */

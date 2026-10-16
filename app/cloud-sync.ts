@@ -288,6 +288,7 @@ export type AdminUserStats = {
   createdAt: string;
   lastLoginAt: string | null;
   lastSeenAt: string | null;
+  clientActivity?: { kind: "android_app" | "mobile_browser" | "desktop_browser"; lastSeenAt: string; lastLoginAt: string | null }[];
   loginCount: number;
   passwordEnabled: boolean;
   calendarConnected: boolean;
@@ -1150,6 +1151,7 @@ async function decryptWorkspace(envelope: WorkspaceEnvelope | null): Promise<Enc
 }
 
 function workspaceMinimumWriterProtocol(structure: EncryptedWorkspaceStructure) {
+  if (structure.habits.some(habit => habit.ruleHistory?.some(rule => rule.supersedes !== undefined || rule.selectedRuleId))) return 4;
   if (structure.habits.some(habit => habit.periodGoal || habit.ruleHistory?.some(rule => rule.periodGoal))) return 3;
   return structure.habitMeasurements.length || structure.habits.some(habit => habit.measurement || habit.ruleHistory?.length) ? 2 : 1;
 }
@@ -1187,7 +1189,7 @@ async function encryptWorkspace(
       iv: bytesToBase64(iv),
       version: workspaceVersion + 1,
       expectedVersion: workspaceVersion,
-      writerProtocol: 3,
+      writerProtocol: 4,
       minimumWriterProtocol: workspaceMinimumWriterProtocol(structure),
     },
     structure,
@@ -1212,7 +1214,7 @@ async function encryptWorkspaceDocument(
     iv: bytesToBase64(iv),
     version: expectedVersion + 1,
     expectedVersion,
-    writerProtocol: 3,
+    writerProtocol: 4,
     minimumWriterProtocol: workspaceMinimumWriterProtocol(structure),
   };
 }

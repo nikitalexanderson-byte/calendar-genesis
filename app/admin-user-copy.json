@@ -11,7 +11,15 @@
     "pages": "Страницы пользователей",
     "page": "Страница",
     "current": "Текущий тариф",
-    "empty": "Пользователей пока нет."
+    "empty": "Пользователей пока нет.",
+    "serverActivity": "Последняя операция / синхронизация",
+    "newSignIn": "Новая авторизация",
+    "android_app": "Android-приложение",
+    "mobile_browser": "Браузер на смартфоне / планшете",
+    "desktop_browser": "Браузер на компьютере",
+    "serverContact": "Связь с сервером",
+    "activityHelp": "Активность учитывает работу и синхронизацию, в том числе фоновую. Новая авторизация — повторный вход в аккаунт; открытие уже действующей сессии эту дату не меняет.",
+    "deviceHistoryHelp": "Разбивка по устройствам собирается после обновления. Устройство прежних входов не определено."
   },
   "en": {
     "plan": "Plan",
@@ -25,7 +33,15 @@
     "pages": "User pages",
     "page": "Page",
     "current": "Current plan",
-    "empty": "No users yet."
+    "empty": "No users yet.",
+    "serverActivity": "Last operation / sync",
+    "newSignIn": "New sign-in",
+    "android_app": "Android app",
+    "mobile_browser": "Phone / tablet browser",
+    "desktop_browser": "Desktop browser",
+    "serverContact": "Server contact",
+    "activityHelp": "Activity includes use and synchronization, including background sync. A new sign-in means authenticating again; opening an existing session does not change that date.",
+    "deviceHistoryHelp": "Device categories are recorded after this update. Devices used for earlier sign-ins are unknown."
   },
   "de": {
     "plan": "Tarif",
@@ -39,7 +55,15 @@
     "pages": "Benutzerseiten",
     "page": "Seite",
     "current": "Aktueller Tarif",
-    "empty": "Noch keine Benutzer."
+    "empty": "Noch keine Benutzer.",
+    "serverActivity": "Letzte Aktion / Synchronisierung",
+    "newSignIn": "Neue Anmeldung",
+    "android_app": "Android-App",
+    "mobile_browser": "Browser auf Smartphone / Tablet",
+    "desktop_browser": "Browser am Computer",
+    "serverContact": "Serverkontakt",
+    "activityHelp": "Aktivität umfasst Nutzung und Synchronisierung, auch im Hintergrund. Eine neue Anmeldung bedeutet erneute Authentifizierung; das Öffnen einer bestehenden Sitzung ändert dieses Datum nicht.",
+    "deviceHistoryHelp": "Gerätekategorien werden ab diesem Update erfasst. Geräte früherer Anmeldungen sind unbekannt."
   },
   "fr": {
     "plan": "Offre",
@@ -53,7 +77,15 @@
     "pages": "Pages des utilisateurs",
     "page": "Page",
     "current": "Offre actuelle",
-    "empty": "Aucun utilisateur pour le moment."
+    "empty": "Aucun utilisateur pour le moment.",
+    "serverActivity": "Dernière opération / synchronisation",
+    "newSignIn": "Nouvelle connexion",
+    "android_app": "Application Android",
+    "mobile_browser": "Navigateur sur téléphone / tablette",
+    "desktop_browser": "Navigateur sur ordinateur",
+    "serverContact": "Contact avec le serveur",
+    "activityHelp": "L’activité comprend l’utilisation et la synchronisation, y compris en arrière-plan. Une nouvelle connexion correspond à une nouvelle authentification ; ouvrir une session existante ne change pas cette date.",
+    "deviceHistoryHelp": "Les catégories d’appareils sont enregistrées après cette mise à jour. Les appareils des anciennes connexions sont inconnus."
   },
   "es": {
     "plan": "Plan",
@@ -67,7 +99,15 @@
     "pages": "Páginas de usuarios",
     "page": "Página",
     "current": "Plan actual",
-    "empty": "Todavía no hay usuarios."
+    "empty": "Todavía no hay usuarios.",
+    "serverActivity": "Última operación / sincronización",
+    "newSignIn": "Nuevo inicio de sesión",
+    "android_app": "Aplicación Android",
+    "mobile_browser": "Navegador de teléfono / tableta",
+    "desktop_browser": "Navegador de ordenador",
+    "serverContact": "Contacto con el servidor",
+    "activityHelp": "La actividad incluye el uso y la sincronización, también en segundo plano. Un nuevo inicio de sesión implica volver a autenticarse; abrir una sesión existente no cambia esa fecha.",
+    "deviceHistoryHelp": "Las categorías de dispositivos se registran desde esta actualización. Se desconocen los dispositivos de accesos anteriores."
   },
   "it": {
     "plan": "Piano",
@@ -81,7 +121,15 @@
     "pages": "Pagine degli utenti",
     "page": "Pagina",
     "current": "Piano attuale",
-    "empty": "Nessun utente per ora."
+    "empty": "Nessun utente per ora.",
+    "serverActivity": "Ultima operazione / sincronizzazione",
+    "newSignIn": "Nuovo accesso",
+    "android_app": "App Android",
+    "mobile_browser": "Browser su telefono / tablet",
+    "desktop_browser": "Browser su computer",
+    "serverContact": "Contatto con il server",
+    "activityHelp": "L’attività comprende utilizzo e sincronizzazione, anche in background. Un nuovo accesso indica una nuova autenticazione; aprire una sessione esistente non cambia questa data.",
+    "deviceHistoryHelp": "Le categorie di dispositivi sono registrate da questo aggiornamento. I dispositivi degli accessi precedenti sono sconosciuti."
   },
   "pt": {
     "plan": "Plano",
@@ -95,7 +143,15 @@
     "pages": "Páginas de utilizadores",
     "page": "Página",
     "current": "Plano atual",
-    "empty": "Ainda não há utilizadores."
+    "empty": "Ainda não há utilizadores.",
+    "serverActivity": "Última operação / sincronização",
+    "newSignIn": "Novo início de sessão",
+    "android_app": "Aplicativo Android",
+    "mobile_browser": "Navegador no telefone / tablet",
+    "desktop_browser": "Navegador no computador",
+    "serverContact": "Contacto com o servidor",
+    "activityHelp": "A atividade inclui utilização e sincronização, também em segundo plano. Um novo início de sessão implica nova autenticação; abrir uma sessão existente não altera essa data.",
+    "deviceHistoryHelp": "As categorias de dispositivos são registadas a partir desta atualização. Os dispositivos dos acessos anteriores são desconhecidos."
   },
   "pl": {
     "plan": "Plan",
@@ -109,7 +165,15 @@
     "pages": "Strony użytkowników",
     "page": "Strona",
     "current": "Aktualny plan",
-    "empty": "Brak użytkowników."
+    "empty": "Brak użytkowników.",
+    "serverActivity": "Ostatnia operacja / synchronizacja",
+    "newSignIn": "Nowe logowanie",
+    "android_app": "Aplikacja Android",
+    "mobile_browser": "Przeglądarka telefonu / tabletu",
+    "desktop_browser": "Przeglądarka komputera",
+    "serverContact": "Kontakt z serwerem",
+    "activityHelp": "Aktywność obejmuje używanie i synchronizację, również w tle. Nowe logowanie oznacza ponowne uwierzytelnienie; otwarcie istniejącej sesji nie zmienia tej daty.",
+    "deviceHistoryHelp": "Kategorie urządzeń są zapisywane od tej aktualizacji. Urządzenia wcześniejszych logowań są nieznane."
   },
   "el": {
     "plan": "Πρόγραμμα",
@@ -123,7 +187,15 @@
     "pages": "Σελίδες χρηστών",
     "page": "Σελίδα",
     "current": "Τρέχον πρόγραμμα",
-    "empty": "Δεν υπάρχουν χρήστες ακόμη."
+    "empty": "Δεν υπάρχουν χρήστες ακόμη.",
+    "serverActivity": "Τελευταία ενέργεια / συγχρονισμός",
+    "newSignIn": "Νέα σύνδεση",
+    "android_app": "Εφαρμογή Android",
+    "mobile_browser": "Πρόγραμμα περιήγησης κινητού / tablet",
+    "desktop_browser": "Πρόγραμμα περιήγησης υπολογιστή",
+    "serverContact": "Επικοινωνία με διακομιστή",
+    "activityHelp": "Η δραστηριότητα περιλαμβάνει χρήση και συγχρονισμό, ακόμη και στο παρασκήνιο. Νέα σύνδεση σημαίνει νέα ταυτοποίηση· το άνοιγμα υπάρχουσας συνεδρίας δεν αλλάζει την ημερομηνία.",
+    "deviceHistoryHelp": "Οι κατηγορίες συσκευών καταγράφονται μετά την ενημέρωση. Οι συσκευές παλαιότερων συνδέσεων είναι άγνωστες."
   },
   "sr": {
     "plan": "Тарифа",
@@ -137,7 +209,15 @@
     "pages": "Странице корисника",
     "page": "Страница",
     "current": "Тренутна тарифа",
-    "empty": "Још нема корисника."
+    "empty": "Још нема корисника.",
+    "serverActivity": "Последња радња / синхронизација",
+    "newSignIn": "Нова пријава",
+    "android_app": "Android апликација",
+    "mobile_browser": "Прегледач на телефону / таблету",
+    "desktop_browser": "Прегледач на рачунару",
+    "serverContact": "Веза са сервером",
+    "activityHelp": "Активност обухвата коришћење и синхронизацију, укључујући позадинску. Нова пријава значи поновну аутентификацију; отварање постојеће сесије не мења тај датум.",
+    "deviceHistoryHelp": "Категорије уређаја бележе се од овог ажурирања. Уређаји ранијих пријава нису познати."
   },
   "uk": {
     "plan": "Тариф",
@@ -151,7 +231,15 @@
     "pages": "Сторінки користувачів",
     "page": "Сторінка",
     "current": "Поточний тариф",
-    "empty": "Користувачів поки немає."
+    "empty": "Користувачів поки немає.",
+    "serverActivity": "Остання дія / синхронізація",
+    "newSignIn": "Нова авторизація",
+    "android_app": "Android-застосунок",
+    "mobile_browser": "Браузер на смартфоні / планшеті",
+    "desktop_browser": "Браузер на комп’ютері",
+    "serverContact": "Зв’язок із сервером",
+    "activityHelp": "Активність враховує роботу й синхронізацію, зокрема фонову. Нова авторизація — повторний вхід в акаунт; відкриття чинного сеансу цю дату не змінює.",
+    "deviceHistoryHelp": "Категорії пристроїв записуються після оновлення. Пристрої попередніх входів невідомі."
   },
   "zh": {
     "plan": "方案",
@@ -165,7 +253,15 @@
     "pages": "用户分页",
     "page": "第",
     "current": "当前方案",
-    "empty": "暂无用户。"
+    "empty": "暂无用户。",
+    "serverActivity": "最近操作 / 同步",
+    "newSignIn": "重新登录",
+    "android_app": "Android 应用",
+    "mobile_browser": "手机 / 平板浏览器",
+    "desktop_browser": "电脑浏览器",
+    "serverContact": "连接服务器",
+    "activityHelp": "活动包括使用和同步（含后台同步）。重新登录指再次身份验证；打开现有会话不会更改该日期。",
+    "deviceHistoryHelp": "设备类别从本次更新后开始记录。之前登录所用的设备未知。"
   },
   "tr": {
     "plan": "Plan",
@@ -179,7 +275,15 @@
     "pages": "Kullanıcı sayfaları",
     "page": "Sayfa",
     "current": "Mevcut plan",
-    "empty": "Henüz kullanıcı yok."
+    "empty": "Henüz kullanıcı yok.",
+    "serverActivity": "Son işlem / eşitleme",
+    "newSignIn": "Yeni oturum açma",
+    "android_app": "Android uygulaması",
+    "mobile_browser": "Telefon / tablet tarayıcısı",
+    "desktop_browser": "Bilgisayar tarayıcısı",
+    "serverContact": "Sunucu bağlantısı",
+    "activityHelp": "Etkinlik, arka plan eşitlemesi dahil kullanım ve eşitlemeyi kapsar. Yeni oturum açma, yeniden kimlik doğrulama demektir; mevcut oturumu açmak bu tarihi değiştirmez.",
+    "deviceHistoryHelp": "Cihaz kategorileri bu güncellemeden sonra kaydedilir. Önceki girişlerdeki cihazlar bilinmiyor."
   },
   "ja": {
     "plan": "プラン",
@@ -193,6 +297,14 @@
     "pages": "ユーザーページ",
     "page": "ページ",
     "current": "現在のプラン",
-    "empty": "ユーザーはまだいません。"
+    "empty": "ユーザーはまだいません。",
+    "serverActivity": "最後の操作 / 同期",
+    "newSignIn": "新しいログイン",
+    "android_app": "Android アプリ",
+    "mobile_browser": "スマートフォン / タブレットのブラウザー",
+    "desktop_browser": "パソコンのブラウザー",
+    "serverContact": "サーバーとの通信",
+    "activityHelp": "アクティビティには使用とバックグラウンド同期が含まれます。新しいログインは再認証を意味し、既存のセッションを開いてもこの日時は変わりません。",
+    "deviceHistoryHelp": "デバイスの種類は今回の更新後から記録されます。以前のログインに使われたデバイスは不明です。"
   }
 }

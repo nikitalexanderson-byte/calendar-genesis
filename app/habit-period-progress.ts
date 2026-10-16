@@ -3,12 +3,13 @@ import { habitGoalPeriod } from "./habit-period-goal.ts";
 import { effectiveHabitMeasurement, habitMeasurementProgress, habitRuleForDate } from "./habit-measurement.ts";
 import { isTrackerScheduledForDate } from "./tracker-core.ts";
 import type { Habit, HabitCompletion, HabitWorkspace } from "./habits";
+import { habitRuleState } from "./habit-rule-history.ts";
 
 type PeriodWorkspace = Pick<HabitWorkspace, "habitMeasurements" | "habitCompletions">;
 
 /** Projection only: never manufactures a completion, XP, or reward transaction. */
 export function habitPeriodProgress(habit: Habit, date: string, workspace: PeriodWorkspace, now = new Date()) {
-  const rule = habitRuleForDate(habit, date), goal = rule.periodGoal;
+  const ruleState = habitRuleState(habit, date), rule = ruleState.rule, goal = rule.periodGoal;
   if (!goal) return null;
   const period = habitGoalPeriod(goal, date);
   const today = momentCivilDate(now, goal.context.timeZone);
@@ -18,7 +19,7 @@ export function habitPeriodProgress(habit: Habit, date: string, workspace: Perio
     && event.date >= effectiveStart && event.date < period.end);
   const completions = workspace.habitCompletions.filter(entry => entry.habitId === habit.id
     && entry.date >= effectiveStart && entry.date < period.end);
-  let value = 0, qualifiedValue = 0, rewardValue = 0, conflicts = false;
+  let value = 0, qualifiedValue = 0, rewardValue = 0, conflicts = Boolean(ruleState.conflicts.length);
   for (let day = effectiveStart; day < period.end; day = addCivilDays(day, 1)) {
     const applied = habitRuleForDate(habit, day);
     if (applied.id !== rule.id || !isTrackerScheduledForDate(rule.schedule, day, goal.calendar)) continue;
@@ -59,9 +60,10 @@ export function habitPeriodProgress(habit: Habit, date: string, workspace: Perio
   return { goal, rule, ...period, effectiveStart, deadline, allowedDays, elapsedDays: days,
     value, qualifiedValue, rewardValue, remaining: Math.max(0, goal.target - value), completed,
     qualityPending: value >= goal.target && qualifiedValue < goal.target,
-    rewardEligible: rewardValue >= goal.target && !conflicts,
+    rewardEligible: rewardValue >= goal.target && !conflicts && (!ruleState.appliedVersion.selectedRuleId || !deadline
+      || momentCivilDate(new Date(ruleState.appliedVersion.recordedAt), goal.context.timeZone) <= deadline),
     conflicts, partial, unattainable,
-    status: !habit.active || partial && !completed || unattainable && !completed || !deadline ? "neutral" as const
+    status: !habit.active || ruleState.conflicts.length || partial && !completed || unattainable && !completed || !deadline ? "neutral" as const
       : completed ? "completed" as const : today > deadline ? "missed" as const : "open" as const };
 }
 

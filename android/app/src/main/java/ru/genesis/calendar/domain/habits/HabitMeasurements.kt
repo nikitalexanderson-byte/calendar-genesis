@@ -17,9 +17,12 @@ data class HabitMeasurement(val kind: String, val unit: String, val target: Long
     }
 }
 data class HabitRuleVersion(val id: String, val effectiveDate: LocalDate, val recordedAt: String,
-    val measurement: HabitMeasurement?, val schedule: TrackerSchedule, val periodGoal: HabitPeriodGoal? = null) {
+    val measurement: HabitMeasurement?, val schedule: TrackerSchedule, val periodGoal: HabitPeriodGoal? = null,
+    val supersedes: List<String>? = null,val selectedRuleId: String? = null) {
     init { require(id.isNotBlank()); Instant.parse(recordedAt); ZoneId.of(schedule.timezone)
-        require(periodGoal?.metric != "sum" || measurement != null) { "HABIT_PERIOD_MEASUREMENT_REQUIRED" } }
+        require(periodGoal?.metric != "sum" || measurement != null) { "HABIT_PERIOD_MEASUREMENT_REQUIRED" }
+        require(supersedes==null||supersedes.none { it.isBlank()||it==id }&&supersedes.distinct().size==supersedes.size)
+        require(selectedRuleId==null||selectedRuleId.isNotBlank()&&supersedes!=null) }
 }
 data class HabitMeasurementEvent(val entity: TrackerEntity, val habitId: String, val date: LocalDate,
     val entryId: String, val ruleId: String, val replaces: List<String>, val value: Long?,
@@ -37,10 +40,10 @@ data class HabitMeasurementEntry(val id: String, val revisions: List<HabitMeasur
     val conflict get() = heads.size != 1
 }
 data class HabitMeasurementProgress(val rule: HabitRuleVersion, val entries: List<HabitMeasurementEntry>,
-    val total: Long, val incompatible: Boolean, val rewardTotal: Long) {
+    val total: Long, val incompatible: Boolean, val rewardTotal: Long,val ruleConflicts: List<HabitRuleVersion> = emptyList()) {
     val target get() = if(rule.periodGoal?.metric?.let { it != "days" } == true) 1L else HabitMeasurements.effective(rule)?.target ?: 0L
     val remaining get() = (target - total).coerceAtLeast(0)
-    val completed get() = target > 0 && total >= target && !incompatible && entries.none { it.conflict }
+    val completed get() = target > 0 && total >= target && !incompatible && ruleConflicts.isEmpty() && entries.none { it.conflict }
 }
 
 object HabitMeasurements {
@@ -53,10 +56,7 @@ object HabitMeasurements {
     }
     fun format(value: Long, language: String): String = NumberFormat.getNumberInstance(Locale.forLanguageTag(language))
         .apply { maximumFractionDigits = 3 }.format(value / 1000.0)
-    fun rule(habit: Habit, date: LocalDate): HabitRuleVersion = habit.ruleHistory
-        .filter { it.effectiveDate <= date }.maxWithOrNull(compareBy<HabitRuleVersion> { it.effectiveDate }
-            .thenBy { it.recordedAt }.thenBy { it.id }) ?: HabitRuleVersion("initial:${habit.id}",
-            habit.createdDate, "1970-01-01T00:00:00.000Z", habit.measurement, habit.schedule, habit.periodGoal)
+    fun rule(habit: Habit, date: LocalDate): HabitRuleVersion = HabitRuleHistory.state(habit,date).rule
 
     fun effective(rule: HabitRuleVersion): HabitMeasurement? = rule.measurement
         ?: if(rule.periodGoal?.metric == "entries") HabitMeasurement("quantity","count",1000,1000) else null
@@ -89,13 +89,14 @@ object HabitMeasurements {
             if(root != null && !root.historical && root.source != "import" && current != null
                 && !current.historical && current.source != "import" && current.ruleId == rule.id) current.value ?: 0L else 0L
         }
-        return HabitMeasurementProgress(rule, entries, total, incompatible, rewardTotal)
+        return HabitMeasurementProgress(rule, entries, total, incompatible, rewardTotal,HabitRuleHistory.state(habit,date).conflicts)
     }
 
     fun append(habit: Habit, date: LocalDate, value: Long?, events: List<HabitMeasurementEvent>,
         entryId: String? = null, replaces: List<String> = emptyList(), note: String = "",
         operationId: String = "habit-value-${UUID.randomUUID()}", timestamp: String = Instant.now().toString()): List<HabitMeasurementEvent> {
         val rule = rule(habit, date); require(effective(rule) != null)
+        require(HabitRuleHistory.state(habit,date).conflicts.isEmpty()) { "HABIT_RULE_CONFLICT" }
         require(rule.measurement != null || value == null || value == 1000L) { "INVALID_HABIT_MEASUREMENT_EVENT" }
         events.firstOrNull { it.entity.id == operationId }?.let { existing ->
             require(existing.habitId == habit.id && existing.date == date && existing.value == value

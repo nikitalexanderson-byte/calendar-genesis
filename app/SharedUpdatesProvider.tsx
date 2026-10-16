@@ -20,6 +20,7 @@ export function SharedUpdatesProvider({ userId, enabled, children }: { userId: s
   const [revision, setRevision] = useState(0);
   const refresh = useCallback(() => setRevision(value => value + 1), []);
   const readGeneration = useRef(0);
+  const pendingReads = useRef(0);
   const contextPending=useRef<Promise<unknown>|null>(null);
   useEffect(()=>{
     if(!enabled||!userId)return;const abort=new AbortController();let reported="";
@@ -30,7 +31,7 @@ export function SharedUpdatesProvider({ userId, enabled, children }: { userId: s
     if (!enabled || !userId) return;
     const controller = new AbortController(); controllerRef.current = controller;
     const load = async () => {
-      if (refreshing.current && !refreshing.current.signal.aborted || paging.current && !paging.current.signal.aborted || document.visibilityState !== "visible" || !navigator.onLine) return;
+      if (pendingReads.current || refreshing.current && !refreshing.current.signal.aborted || paging.current && !paging.current.signal.aborted || document.visibilityState !== "visible" || !navigator.onLine) return;
       refreshing.current = controller; const generation = readGeneration.current;
       try {
         await contextPending.current;if(controller.signal.aborted)return;
@@ -59,7 +60,7 @@ export function SharedUpdatesProvider({ userId, enabled, children }: { userId: s
   }, [enabled, userId, revision, refresh,unreadOnly]);
   const loadMore = useCallback(async () => {
     const controller = controllerRef.current;
-    if (!enabled || !nextCursor || !controller || controller.signal.aborted || paging.current && !paging.current.signal.aborted || refreshing.current && !refreshing.current.signal.aborted) return;
+    if (!enabled || pendingReads.current || !nextCursor || !controller || controller.signal.aborted || paging.current && !paging.current.signal.aborted || refreshing.current && !refreshing.current.signal.aborted) return;
     const generation = readGeneration.current; paging.current = controller; setLoadingMore(true); setMoreError(false);
     try {
       const result = await loadSharedInbox({ unread: unreadOnly, before: nextCursor, signal: controller.signal });
@@ -72,20 +73,28 @@ export function SharedUpdatesProvider({ userId, enabled, children }: { userId: s
     finally { if (paging.current === controller) paging.current = null; if (!controller.signal.aborted) setLoadingMore(false); }
   }, [enabled, nextCursor,unreadOnly]);
   const markRead = useCallback(async (ids: string[], all = false) => {
-    ++readGeneration.current;
-    await readSharedInbox(ids, all); refresh();
-    setNotifications(items => unreadOnly?(all ? [] : items.filter(item => !ids.includes(item.id))):items.map(item=>all||ids.includes(item.id)?{...item,isRead:1}:item));
+    ++readGeneration.current; ++pendingReads.current;
+    try {
+      await readSharedInbox(ids, all);
+      setNotifications(items => unreadOnly?(all ? [] : items.filter(item => !ids.includes(item.id))):items.map(item=>all||ids.includes(item.id)?{...item,isRead:1}:item));
+    } finally { --pendingReads.current; ++readGeneration.current; refresh(); }
   }, [refresh,unreadOnly]);
-  const markUnread=useCallback(async(ids:string[])=>{++readGeneration.current;await unreadSharedInbox(ids);setNotifications(items=>items.map(item=>ids.includes(item.id)?{...item,isRead:0}:item));refresh();},[refresh]);
+  const markUnread=useCallback(async(ids:string[])=>{
+    ++readGeneration.current; ++pendingReads.current;
+    try{await unreadSharedInbox(ids);setNotifications(items=>items.map(item=>ids.includes(item.id)?{...item,isRead:0}:item));}
+    finally{--pendingReads.current;++readGeneration.current;refresh();}
+  },[refresh]);
   const markTaskRead = useCallback(async (projectId: string, taskId: string, commentIds: string[], signal?: AbortSignal) => {
     const generation = ++readGeneration.current;
+    ++pendingReads.current;
     try {
       const result = await readSharedTaskUpdates(projectId, taskId, commentIds, signal);
       if (signal?.aborted || generation !== readGeneration.current) return;
       setOverview(result.overview);
-      setNotifications(items => unreadOnly?items.filter(item => item.projectId !== projectId || item.objectId !== taskId || item.action === "comment.created" && !commentIds.includes(item.commentId ?? "")):items.map(item=>item.projectId===projectId&&item.objectId===taskId&&(!item.commentId||commentIds.includes(item.commentId))?{...item,isRead:1}:item));
-      setError(false); refresh();
+      setNotifications(items => unreadOnly?items.filter(item => item.objectId !== taskId || item.action === "comment.created" && !commentIds.includes(item.commentId ?? "")):items.map(item=>item.objectId===taskId&&(!item.commentId||commentIds.includes(item.commentId))?{...item,isRead:1}:item));
+      setError(false);
     } catch (error) { if (!signal?.aborted) setError(true); throw error; }
+    finally { --pendingReads.current; ++readGeneration.current; refresh(); }
   }, [refresh,unreadOnly]);
   const currentUser=responseIdentity?.userId===userId,currentMode=currentUser&&responseIdentity?.unreadOnly===unreadOnly;
   const comments = useMemo(() => notifications.filter(item => item.action === "comment.created"&&!item.isRead), [notifications]);

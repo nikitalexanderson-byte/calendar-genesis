@@ -46,6 +46,16 @@ try {
     if ($updated['version'] !== 5) throw new RuntimeException('Current period writer failed.');
     $stored = $db->query("SELECT minimum_writer_protocol FROM workspace_blobs WHERE user_id='test-workspace-writer-protocol'")->fetchColumn();
     if ((int)$stored !== 3) throw new RuntimeException('Period protection was downgraded.');
+    $history = genesisSaveWorkspaceEnvelope($userId,$body + ['expectedVersion'=>5,'writerProtocol'=>4,'minimumWriterProtocol'=>4]);
+    if ($history['version'] !== 6) throw new RuntimeException('Causal history activation failed.');
+    foreach ([1,2,3] as $oldProtocol) {
+        try { genesisSaveWorkspaceEnvelope($userId,$body + ['expectedVersion'=>6,'writerProtocol'=>$oldProtocol]);
+            throw new RuntimeException('Old client discarded causal history.'); }
+        catch (DomainException $error) { if ($error->getMessage() !== 'WORKSPACE_UPGRADE_REQUIRED') throw $error; }
+    }
+    genesisSaveWorkspaceEnvelope($userId,$body + ['expectedVersion'=>6,'writerProtocol'=>4]);
+    if ((int)$db->query("SELECT minimum_writer_protocol FROM workspace_blobs WHERE user_id='test-workspace-writer-protocol'")->fetchColumn() !== 4)
+        throw new RuntimeException('Causal history protection was downgraded.');
     echo "Workspace writer: legacy compatibility, activation, rejection, rollback guard and current writes passed.\n";
 } finally {
     $db->rollBack();

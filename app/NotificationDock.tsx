@@ -176,6 +176,7 @@ export default function NotificationDock({ userId, language, mode, appBase, shar
     : clampDockPosition(position ?? home,bounds,dimensions?.width??56,dimensions?.height??56);
   const dragProps = { onPointerDown: startDrag, onPointerMove: moveDrag, onPointerUp: endDrag, onPointerCancel: endDrag, onKeyDown: moveWithKeyboard };
   const toggleButton = <button ref={toggle} type="button" className={`notification-dock-toggle${docked?" is-pinned icon-button ux-action-button":""}`} hidden={!count&&!manual || !docked&&expanded} aria-expanded={expanded} aria-controls="notification-dock-panel" aria-label={`${t("Уведомления и сообщения")}: ${count}`}
+    data-tooltip={t("Уведомления и сообщения")}
     {...dragProps} onClick={() => { if (suppressClick.current) { suppressClick.current = false; return; } if(expanded)collapse();else show(); }}>
     <ExperimentalIcon name="mail" /><span className="notification-dock-count" aria-hidden="true">{count > 99 ? "99+" : count}</span>
   </button>;

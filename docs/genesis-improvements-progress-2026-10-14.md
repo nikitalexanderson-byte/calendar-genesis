@@ -64,8 +64,8 @@
 | C5 | Ожидает: перенос данных | Trello/CSV/JSON, mapping/preview/undo, round-trip и безопасность |
 | C6 | Ожидает: проектные разрешения | Ограниченные участники/наследование и единый ACL во всех каналах |
 | D1 | Опубликовано | PR #177, master/production `2750688`, Actions `38833466614` success; SHA/health и Android 2.8.5/85 подтверждены. Количество/длительность, тысячные, события/исправления/история правил, web+Android. 243 web/250 native tests, 42 language-calendar cases, 44 UI вида и finish verdict. [Отчёт](genesis-d1-measurements-2026-10-16.md); полный D3/F3 открыты |
-| D2 | Принят локально; публикация | Ветка `codex/habit-period-goals` от `2750688`, Android 2.8.6/86. Разные дни / отдельные выполнения / сумма за неделю и месяц; собственный календарный контекст, остаток, однократная проекция периода и writer protocol 3. 258 web/260 JVM tests, Samsung 2/2 и API28 1/1 UI tests, 36 UI-снимков и reviewer ship. [Отчёт](genesis-d2-period-goals-2026-10-16.md); production-проверка после merge |
-| D3 | Ожидает: события привычек | ID/версии цели, совместимость/offline/conflicts |
+| D2 | Опубликовано | PR #178, master/production `f05a4b1`, Actions `38883383125` success; SHA/health и hash Android 2.8.6/86 подтверждены. Разные дни / отдельные выполнения / сумма за неделю и месяц; собственный контекст и writer protocol 3. 258 web/260 JVM tests, Samsung 2/2 и API28 1/1 UI tests, 36 снимков, reviewer ship. [Отчёт](genesis-d2-period-goals-2026-10-16.md) |
+| D3 | В работе | Ветка `codex/habit-rule-history` от `f05a4b1`: причинные связи версий, явный выбор конфликтов, нейтральные спорные даты, история в редакторах web/native, writer protocol 4. Domain/i18n и первоначальные native/type checks выполнены; сквозная приёмка и выпуск ещё впереди |
 | E1 | Ожидает: таймеры | Stopwatch/Pomodoro, timestamps, сохранение/два окна/полночь |
 | E2 | Аудит: web setTimeout | Фоновые минимальные метаданные, действия конкретного дня, приватность/частота |
 | E3 | Ожидает: коррекция истории | Backfill без ретронаград; audit и влияние до сохранения |
