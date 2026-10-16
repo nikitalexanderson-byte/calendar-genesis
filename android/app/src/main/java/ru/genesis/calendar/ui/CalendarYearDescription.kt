@@ -43,6 +43,7 @@ private data class YearMetric(val value: String, val label: String)
 @Composable
 internal fun CalendarYearDescriptionCard(calendar: GenesisCalendar, shown: LocalDate, mode: CalendarMode,
     gregorianYearStartsInMarch: Boolean = false) {
+    if (!LocalSacredFeaturesEnabled.current) return
     val language = LocalGenesisLanguage.current
     val context = LocalContext.current
     fun copy(russian: String, englishText: String) = when (language) {

@@ -60,6 +60,7 @@ internal fun rhythmPalette(period: RhythmPeriod): RhythmPalette = when (period.s
 
 @Composable
 fun DayRhythmPanel(use24Hour: Boolean) {
+    if (!LocalSacredFeaturesEnabled.current) return
     val zone = remember { ZoneId.systemDefault() }
     var now by remember { mutableStateOf(LocalTime.now(zone)) }
     LaunchedEffect(zone) { while (true) { now = LocalTime.now(zone); delay(1_000) } }

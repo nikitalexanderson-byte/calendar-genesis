@@ -942,7 +942,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                                         Text(if (prefs.language == "en") "Create today's task" else "Создать задачу на сегодня")
                                     }
                             }
-                    }, rhythm = { if ("rhythm" !in uiVisibility.hiddenTodayBlocks) DayRhythmPanel(prefs.use24) }, tasks = {
+                    }, rhythm = { if (uiVisibility.sacredFeaturesEnabled && "rhythm" !in uiVisibility.hiddenTodayBlocks) DayRhythmPanel(prefs.use24) }, tasks = {
                         val todayDate=LocalDate.parse(todayPageDate)
                         val shown = tasks.filter { TaskOccurrences.occursOn(it, todayDate) }
                             val missed=if (prefs.showMissedTasksToday)
@@ -1350,13 +1350,14 @@ fun OriginalImage(path: String, description: String?, modifier: Modifier=Modifie
 }
 
 @Composable
-private fun DayHeader(date: LocalDate, mode: CalendarMode, detailsExpanded: Boolean,
+internal fun DayHeader(date: LocalDate, mode: CalendarMode, detailsExpanded: Boolean,
     onToggleDetails: () -> Unit, onModeChange: (CalendarMode) -> Unit, showDetails: Boolean = true) {
     val calendar=remember { GenesisCalendar() }
     val solarLocation by rememberAutomaticSolarLocation(calendar.zoneId)
     val language = LocalGenesisLanguage.current
     val sacredFeaturesEnabled = LocalSacredFeaturesEnabled.current
-    val copy = remember(date,mode,language,sacredFeaturesEnabled) { todayHeroCopy(date,mode,calendar,language).let {
+    val copy = remember(date,mode,language,sacredFeaturesEnabled) { todayHeroCopy(date,
+        if (sacredFeaturesEnabled) mode else CalendarMode.PROFANE,calendar,language).let {
         if (sacredFeaturesEnabled) it else it.copy(description = "", details = emptyList(), badge = null,
             footerDate = date.format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.forLanguageTag(language))))
     } }
@@ -1368,7 +1369,15 @@ private fun DayHeader(date: LocalDate, mode: CalendarMode, detailsExpanded: Bool
         tween(220, easing = CubicBezierEasing(.16f, 1f, .3f, 1f)), label = "day-details-arrow")
     Card(Modifier.fillMaxWidth().testTag("today-hero"), shape = RoundedCornerShape(20.dp),
         border = BorderStroke(1.dp, Color(0x66dfc17e))) {
-        Box(Modifier.fillMaxWidth().heightIn(min = if (!sacredFeaturesEnabled) 220.dp else if(mode==CalendarMode.PROFANE) 540.dp else 390.dp)) {
+        if (!sacredFeaturesEnabled) Column(Modifier.fillMaxWidth().padding(18.dp)
+            .testTag("today-hero-copy"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(copy.title, style = MaterialTheme.typography.headlineSmall)
+            copy.subtitle?.let { Text(it, style = MaterialTheme.typography.titleMedium) }
+            Text(gregorianYearPosition(date, language), Modifier.testTag("today-gregorian-year-position"),
+                color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+            SunriseSunsetLine(date, solarLocation, calendar,
+                accent = MaterialTheme.colorScheme.primary, textColor = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else Box(Modifier.fillMaxWidth().heightIn(min = if(mode==CalendarMode.PROFANE) 540.dp else 390.dp)) {
             if (sacredFeaturesEnabled) OriginalImage(if (mode == CalendarMode.LUNAR) "genesis-hero.png" else copy.imagePath,
                 copy.title, Modifier.matchParentSize().testTag(
                     if (mode == CalendarMode.LUNAR) "today-lunar-standard-image" else "today-calendar-image"))
