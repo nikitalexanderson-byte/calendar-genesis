@@ -364,6 +364,7 @@ export type WorkspaceEnvelope = {
   iv: string;
   version: number;
   updatedAt: string;
+  minimumWriterProtocol?: number;
 };
 
 export type EncryptedWorkspaceStructure = Pick<GenesisWorkspace, "projects" | "categories" | "taskListLinks"> & HabitWorkspace & {
@@ -382,6 +383,8 @@ type WorkspaceEnvelopeRequest = {
   version: number;
   expectedVersion: number;
   metrics: GenesisMetrics;
+  writerProtocol?: number;
+  minimumWriterProtocol?: number;
 };
 
 type BootstrapPayload = {
@@ -914,6 +917,7 @@ function workspaceDocument(structure: EncryptedWorkspaceStructure, metadata = wo
     userProgress: structure.userProgress,
     habits: structure.habits,
     habitCompletions: structure.habitCompletions,
+    habitMeasurements: structure.habitMeasurements,
     sleepPlans: structure.sleepPlans,
     sleepEntries: structure.sleepEntries,
     moodEntries: structure.moodEntries,
@@ -1145,6 +1149,10 @@ async function decryptWorkspace(envelope: WorkspaceEnvelope | null): Promise<Enc
   return decrypted.structure;
 }
 
+function workspaceMinimumWriterProtocol(structure: EncryptedWorkspaceStructure) {
+  return structure.habitMeasurements.length || structure.habits.some(habit => habit.measurement || habit.ruleHistory?.length) ? 2 : 1;
+}
+
 async function encryptWorkspace(
   projects: GenesisProject[],
   categories: GenesisCategory[],
@@ -1178,6 +1186,8 @@ async function encryptWorkspace(
       iv: bytesToBase64(iv),
       version: workspaceVersion + 1,
       expectedVersion: workspaceVersion,
+      writerProtocol: 2,
+      minimumWriterProtocol: workspaceMinimumWriterProtocol(structure),
     },
     structure,
     metadata: prepared.metadata,
@@ -1201,6 +1211,8 @@ async function encryptWorkspaceDocument(
     iv: bytesToBase64(iv),
     version: expectedVersion + 1,
     expectedVersion,
+    writerProtocol: 2,
+    minimumWriterProtocol: workspaceMinimumWriterProtocol(structure),
   };
 }
 
@@ -1255,7 +1267,8 @@ async function sendWorkspaceMutation(body: WorkspaceEnvelopeRequest) {
     const response = await api<WorkspaceSaveResponse>("/workspace", { method: "PUT", body: JSON.stringify(body) });
     return response;
   } catch (error) {
-    if (error instanceof GenesisApiError && error.status === 409) return resolveWorkspaceConflict(body);
+    if (error instanceof GenesisApiError && error.status === 409
+      && ["WORKSPACE_VERSION_CONFLICT", "WORKSPACE_UPGRADE_REQUIRED"].includes(String(error.payload?.error))) return resolveWorkspaceConflict(body);
     throw error;
   }
 }
@@ -1314,6 +1327,7 @@ export async function loadGenesisWorkspace(): Promise<GenesisWorkspace> {
     userProgress: structure.userProgress,
     habits: structure.habits,
     habitCompletions: structure.habitCompletions,
+    habitMeasurements: structure.habitMeasurements,
     sleepPlans: structure.sleepPlans,
     sleepEntries: structure.sleepEntries,
     moodEntries: structure.moodEntries,

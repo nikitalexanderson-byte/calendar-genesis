@@ -6,6 +6,15 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class WorkspacePatchTest {
+    @Test fun concurrentHabitRuleEditsRetainBothImmutableHistories() {
+        fun rule(id:String)=JSONObject().put("id",id).put("effectiveDate","2026-10-17").put("recordedAt","2026-10-16T10:00:00Z")
+        val old=base().put("habits",JSONArray().put(JSONObject().put("id","habit").put("title","Water").put("ruleHistory",JSONArray())))
+        val local=JSONObject(old.toString()).apply { getJSONArray("habits").getJSONObject(0).put("ruleHistory",JSONArray().put(rule("local"))) }
+        val remote=JSONObject(old.toString()).apply { getJSONArray("habits").getJSONObject(0).put("ruleHistory",JSONArray().put(rule("remote"))) }
+        val merged=WorkspacePatch.apply(old,local,remote,setOf("habits"),2,stamp(),"native")
+        val history=merged.document.getJSONArray("habits").getJSONObject(0).getJSONArray("ruleHistory")
+        assertEquals(listOf("local","remote"),(0 until history.length()).map { history.getJSONObject(it).getString("id") })
+    }
     private fun base() = JSONObject().put("trackerSchemaVersion", 16)
         .put("projects", JSONArray().put(JSONObject().put("id", "p1").put("title", "Old")
             .put("webOnly", "do not lose")))

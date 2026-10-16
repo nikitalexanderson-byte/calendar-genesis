@@ -20,7 +20,7 @@ javac --release 17 -cp "$platform" -d "$work/classes" "$root/scripts/android/Gen
 "$build_tools/d8" --lib "$platform" --min-api 26 --output "$work/dex" "$work/classes/GenesisDexVerifier.class"
 
 classes=()
-for source in GenesisAppKt SharedProjectsScreenKt ProjectsScreenKt CalendarScreenKt; do
+for source in GenesisAppKt SharedProjectsScreenKt ProjectsScreenKt CalendarScreenKt HabitsScreenKt HabitMeasurementControlsKt TodayHabitsContentKt; do
   renamed="$(awk -v source="ru.genesis.calendar.ui.$source" '$1 == source && $2 == "->" { sub(/:$/, "", $3); print $3 }' "$mapping")"
   [[ "$renamed" =~ ^[A-Za-z_][A-Za-z0-9_.]*$ ]] || { echo "Missing release screen mapping: $source" >&2; exit 1; }
   classes+=("$renamed")

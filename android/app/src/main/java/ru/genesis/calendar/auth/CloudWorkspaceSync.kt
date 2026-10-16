@@ -2,6 +2,7 @@ package ru.genesis.calendar.auth
 
 import androidx.room.withTransaction
 import java.time.Instant
+import java.time.LocalDate
 import org.json.JSONObject
 import ru.genesis.calendar.data.CloudAccountImporter
 import ru.genesis.calendar.data.DocumentRecord
@@ -11,6 +12,8 @@ import ru.genesis.calendar.data.LocalCipher
 import ru.genesis.calendar.data.TrackersDocument
 import ru.genesis.calendar.data.WorkspaceStructureCodec
 import ru.genesis.calendar.security.WorkspaceCipher
+import ru.genesis.calendar.domain.habits.HabitMeasurements
+import ru.genesis.calendar.domain.habits.HeroProgress
 
 internal interface CloudWorkspaceTransport {
     fun get(): JSONObject
@@ -45,19 +48,39 @@ internal class CloudWorkspaceSync(private val db: GenesisDatabase, private val t
                 }
                 val patch = WorkspacePatch.apply(base, local, remote.document,
                     pending.map { it.entityId }.toSet(), remote.version, timestamp, deviceId, conflictPolicy)
-                val version = if (!patch.changed) remote.version else {
-                    val encrypted = WorkspaceCipher.encrypt(patch.document.toString().toByteArray(), remote.key)
+                val document = projectMeasurements(patch.document,timestamp)
+                val changed = patch.changed || document.toString() != patch.document.toString()
+                val version = if (!changed) remote.version else {
+                    val encrypted = WorkspaceCipher.encrypt(document.toString().toByteArray(), remote.key)
                     val response = transport.put(JSONObject().put("ciphertext", encrypted.ciphertext)
-                        .put("iv", encrypted.iv).put("expectedVersion", remote.version))
+                        .put("iv", encrypted.iv).put("expectedVersion", remote.version)
+                        .put("writerProtocol",2).put("minimumWriterProtocol",minimumWriterProtocol(document)))
                     val saved = response.getJSONObject("workspace")
                     saved.getLong("version").also { require(it == remote.version + 1) }
                 }
-                return cacheConfirmed(scope, patch.document, version, pending, cipher)
+                return cacheConfirmed(scope, document, version, pending, cipher)
             } catch (error: AuthFailure) {
                 if (error.kind != AuthFailure.Kind.CONFLICT || attempt == 2) throw error
             } finally { remote.key.fill(0) }
         }
         error("Workspace CAS retry exhausted")
+    }
+
+    private fun minimumWriterProtocol(document: JSONObject): Int {
+        val habits=document.optJSONArray("habits")
+        return if((document.optJSONArray("habitMeasurements")?.length() ?: 0)>0 ||
+            (0 until (habits?.length() ?: 0)).any { index -> habits!!.getJSONObject(index).let {
+                it.optJSONObject("measurement")!=null || (it.optJSONArray("ruleHistory")?.length() ?: 0)>0 } }) 2 else 1
+    }
+
+    private fun projectMeasurements(document: JSONObject,timestamp: String): JSONObject {
+        if((document.optJSONArray("habitMeasurements")?.length() ?: 0)==0) return document
+        val local=HabitDocument.decode(CloudAccountImporter.habitsDocument(document),0)
+        val completions=HabitMeasurements.project(local.habits,local.measurements,local.completions,LocalDate.now(),timestamp)
+        val updated=local.copy(completions=completions,progress=HeroProgress.reconcile(local.progress,completions.map { it.xpAwarded },timestamp))
+        val encoded=JSONObject(HabitDocument.encode(updated))
+        return JSONObject(document.toString()).put("habitCompletions",encoded.getJSONArray("completions"))
+            .put("userProgress",encoded.getJSONObject("progress"))
     }
 
     private data class Remote(val version: Long, val document: JSONObject, val key: ByteArray)

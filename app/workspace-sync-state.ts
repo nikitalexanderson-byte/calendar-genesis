@@ -1,3 +1,5 @@
+import { mergeHabitMeasurementEvents, normalizeHabitRuleHistory } from "./habit-measurement.ts";
+
 export const WORKSPACE_SYNC_SCHEMA_VERSION = 1 as const;
 
 export const WORKSPACE_SYNC_COLLECTIONS = [
@@ -7,6 +9,7 @@ export const WORKSPACE_SYNC_COLLECTIONS = [
   "taskLists",
   "habits",
   "habitCompletions",
+  "habitMeasurements",
   "sleepPlans",
   "sleepEntries",
   "moodEntries",
@@ -351,6 +354,22 @@ export function mergeWorkspaceDocuments(input: {
         winnerRevision = rightRevision;
       }
       if (!winner) return;
+      if (collection === "habitMeasurements") {
+        const events = mergeHabitMeasurementEvents(leftItem ? [leftItem] : [], rightItem ? [rightItem] : []);
+        winner = events[0] as unknown as Record<string, unknown>;
+      }
+      if (collection === "habits" && leftItem && rightItem) {
+        const ruleHistory = normalizeHabitRuleHistory([
+          ...(Array.isArray(leftItem.ruleHistory) ? leftItem.ruleHistory : []),
+          ...(Array.isArray(rightItem.ruleHistory) ? rightItem.ruleHistory : []),
+        ]);
+        const latestRule = ruleHistory.at(-1);
+        winner = { ...winner, ruleHistory,
+          // An old draft has neither the definition nor its history. Recover it without erasing remote values.
+          measurement: latestRule ? latestRule.measurement : winner.measurement ?? leftItem.measurement ?? rightItem.measurement ?? null,
+          ...(latestRule ? { schedule: latestRule.schedule } : {}),
+        };
+      }
       const tombstone = tombstones.get(id);
       if (tombstone && revisionOrder(tombstone, normalizeRevision(winnerRevision, input.leftFallback)) >= 0) {
         delete mergedMetadata.entities[collection]?.[id];

@@ -42,7 +42,7 @@ data class LocalHabitWorkspace(val habits: List<Habit> = emptyList(), val comple
     val achievementUnlocks: List<AchievementUnlock> = emptyList(),
     val streakFreezeTransactions: List<StreakFreezeTransaction> = emptyList(),
     val quests: List<HabitQuest> = emptyList(), val settings: HabitSettings = HabitSettings(),
-    val hiddenDefaultTemplates: List<String> = emptyList())
+    val hiddenDefaultTemplates: List<String> = emptyList(), val measurements: List<HabitMeasurementEvent> = emptyList())
 
 internal const val HABIT_LAUREL_RETENTION_COMPLETIONS = 50
 
@@ -57,7 +57,8 @@ internal fun deleteHabitFromWorkspace(workspace: LocalHabitWorkspace, habitId: S
         else Rewards.reset(workspace.rewards, "habit-deleted-reset", habitId,
             "habit-deleted:self:$habitId", timestamp)
     return workspace.copy(habits = workspace.habits.filterNot { it.id == habitId },
-        completions = workspace.completions.filterNot { it.habitId == habitId }, rewards = rewards)
+        completions = workspace.completions.filterNot { it.habitId == habitId },
+        measurements = workspace.measurements.filterNot { it.habitId == habitId }, rewards = rewards)
 }
 
 /** Local draft scope only. This document is not a cloud schema-16 import/sync adapter. */
@@ -117,7 +118,7 @@ class HabitsRepository(private val app: GenesisApplication) {
             "Начисление XP фиксируется при создании привычки. Для другой формулы создайте новую привычку."
         }
         val now=Instant.now().toString()
-        val guarded=preserveHabitCreationSettings(habit,previous,LocalDate.now())
+        val guarded=preserveHabitCreationSettings(habit,previous,LocalDate.now(),now)
         val saved=guarded.copy(entity=guarded.entity.changed(now),schedule=engine().normalizeSchedule(guarded.schedule))
         val others=workspace.habits.filterNot { it.id==habit.id }.map { other ->
             if(saved.isKeyHabit && other.isKeyHabit) other.copy(isKeyHabit=false,entity=other.entity.changed(now)) else other
@@ -138,8 +139,12 @@ class HabitsRepository(private val app: GenesisApplication) {
             require(date == today) { "Отметьте привычку в день выполнения." }
             require(engine().isScheduled(habit,date)) { "На этот день привычка не запланирована." }
             val existing=workspace.completions.firstOrNull { it.habitId==id && it.date==date }
+            val measurementState = if(HabitMeasurements.rule(habit,date).measurement != null)
+                HabitMeasurements.progress(habit,date,workspace.measurements) else null
             val entries=if(existing!=null && existing.completed==completed && existing.qualityValue==quality) workspace.completions else
-                engine().updateCompletion(workspace.completions,habit,date,today,completed,quality,existing?.note ?: "")
+                engine().updateCompletion(workspace.completions,habit,date,today,completed,quality,existing?.note ?: "",
+                    measurementCompleted = measurementState?.completed,
+                    measurementRewardEligible = measurementState?.let { it.rewardTotal >= it.target } ?: false)
             workspace.copy(completions=entries)
         }
         val known = before.achievementUnlocks.mapTo(hashSetOf()) { it.achievementId }
@@ -150,6 +155,7 @@ class HabitsRepository(private val app: GenesisApplication) {
         date: LocalDate = LocalDate.now()): HabitCompletionResult {
         val (before, after) = mutate { workspace ->
             val habit = workspace.habits.firstOrNull { it.id == id } ?: error("Привычка не найдена")
+            require(HabitMeasurements.rule(habit,date).measurement == null)
             require(date == LocalDate.now()) { "Отметьте привычку в день выполнения." }
             require(engine().isScheduled(habit,date)) { "На этот день привычка не запланирована." }
             workspace.copy(completions = engine().updateIntervalCompletion(workspace.completions,
@@ -157,6 +163,15 @@ class HabitsRepository(private val app: GenesisApplication) {
         }
         val known = before.achievementUnlocks.mapTo(hashSetOf()) { it.achievementId }
         return HabitCompletionResult(after.achievementUnlocks.count { it.achievementId !in known })
+    }
+
+    suspend fun recordMeasurement(id: String, date: LocalDate, value: Long?, entryId: String? = null,
+        replaces: List<String> = emptyList(), note: String = "", operationId: String = "habit-value-${UUID.randomUUID()}") = mutate { workspace ->
+        val habit = workspace.habits.firstOrNull { it.id == id } ?: error("Привычка не найдена")
+        require(date == LocalDate.now() && engine().isScheduled(habit,date)) { "На этот день привычка не запланирована." }
+        val measurements = HabitMeasurements.append(habit,date,value,workspace.measurements,entryId,replaces,note,operationId)
+        workspace.copy(measurements = measurements, completions = HabitMeasurements.project(workspace.habits,
+            measurements,workspace.completions,LocalDate.now(),Instant.now().toString()))
     }
 
     suspend fun claimHeroPathAmphora(rankId: String) = mutate { workspace ->
@@ -177,7 +192,12 @@ class HabitsRepository(private val app: GenesisApplication) {
             progress = current.copy(hiddenHeroicPathRevealedAt = Instant.now().toString()))
     }
 
-    private fun reconcile(workspace: LocalHabitWorkspace) = reconcileHabitWorkspace(workspace,LocalDate.now(),ZoneId.systemDefault().id,Instant.now().toString())
+    private fun reconcile(workspace: LocalHabitWorkspace): LocalHabitWorkspace {
+        val now = Instant.now().toString()
+        val projected = workspace.copy(completions = HabitMeasurements.project(workspace.habits,workspace.measurements,
+            workspace.completions,LocalDate.now(),now))
+        return reconcileHabitWorkspace(projected,LocalDate.now(),ZoneId.systemDefault().id,now)
+    }
 }
 
     /** Local day closing, automatic protection and deterministic reward reconciliation. */
@@ -235,7 +255,39 @@ internal object HabitDocument {
         .put("interval",c.interval).put("rangeStart",c.rangeStart).put("rangeEnd",c.rangeEnd).put("months",JSONArray(c.months)).put("pyatas",JSONArray(c.pyatas)).put("calendarContext",calendarContextJson(c.calendarContext)).put("invalidDayPolicy","skip")
     private fun recurrence(c: JSONObject)=RecurrenceConfig(c.getBoolean("enabled"),c.getString("mode"),c.getString("pattern"),ints(c.getJSONArray("days")),
         c.getInt("interval"),c.getString("rangeStart"),c.getString("rangeEnd"),ints(c.getJSONArray("months")),ints(c.getJSONArray("pyatas")),calendarContextFromJson(c.optJSONObject("calendarContext")))
+    private fun measurement(value: HabitMeasurement) = JSONObject().put("kind",value.kind).put("unit",value.unit)
+        .put("target",value.target).put("quickAdd",value.quickAdd)
+    private fun measurement(value: JSONObject) = HabitMeasurement(value.getString("kind"),value.getString("unit"),
+        value.getLong("target").also { require(value.getDouble("target") == it.toDouble()) },
+        value.getLong("quickAdd").also { require(value.getDouble("quickAdd") == it.toDouble()) })
+    private fun optionalMeasurement(value: JSONObject): HabitMeasurement? =
+        if(value.isNull("measurement")) null else measurement(value.getJSONObject("measurement"))
+    private fun optionalRules(value: JSONObject): List<HabitRuleVersion> =
+        if(value.isNull("ruleHistory")) emptyList() else value.getJSONArray("ruleHistory").objects().map(::rule).also { rules ->
+            require(rules.map { it.id }.distinct().size == rules.size) { "HABIT_RULE_ID_CONFLICT" }
+        }
+    private fun schedule(value: TrackerSchedule) = JSONObject().put("startDate",value.startDate.toString())
+        .put("endDate",value.endDate?.toString() ?: JSONObject.NULL).put("timezone",value.timezone).put("recurrence",recurrence(value.recurrence))
+    private fun schedule(value: JSONObject) = TrackerSchedule(LocalDate.parse(value.getString("startDate")),
+        value.nullable("endDate")?.let(LocalDate::parse),value.getString("timezone"),recurrence(value.getJSONObject("recurrence")))
+    private fun rule(value: HabitRuleVersion) = JSONObject().put("id",value.id).put("effectiveDate",value.effectiveDate.toString())
+        .put("recordedAt",value.recordedAt).put("measurement",value.measurement?.let(::measurement) ?: JSONObject.NULL)
+        .put("schedule",schedule(value.schedule))
+    private fun rule(value: JSONObject) = HabitRuleVersion(value.getString("id"),LocalDate.parse(value.getString("effectiveDate")),
+        value.getString("recordedAt"),optionalMeasurement(value),schedule(value.getJSONObject("schedule")))
+    private fun measurementEvent(value: HabitMeasurementEvent) = entity(value.entity).put("habitId",value.habitId)
+        .put("date",value.date.toString()).put("entryId",value.entryId).put("ruleId",value.ruleId)
+        .put("replaces",JSONArray(value.replaces)).put("value",value.value ?: JSONObject.NULL).put("note",value.note)
+        .put("source",value.source).put("historical",value.historical)
+    private fun measurementEvent(value: JSONObject): HabitMeasurementEvent {
+        require(value.has("value"))
+        val amount = if(value.isNull("value")) null else value.getLong("value").also { require(it.toDouble() == value.getDouble("value")) }
+        return HabitMeasurementEvent(entity(value),value.getString("habitId"),LocalDate.parse(value.getString("date")),
+            value.getString("entryId"),value.getString("ruleId"),value.getJSONArray("replaces").let { ids ->
+                (0 until ids.length()).map { ids.getString(it) } },amount,value.optString("note"),value.getString("source"),value.optBoolean("historical"))
+    }
     private fun habit(h: Habit): JSONObject = entity(h.entity).put("title",h.title).put("description",h.description).put("createdDate",h.createdDate.toString())
+        .put("measurement",h.measurement?.let(::measurement) ?: JSONObject.NULL).put("ruleHistory",JSONArray(h.ruleHistory.map(::rule)))
         .put("emoji",h.emoji).put("priority",h.priority).put("isKeyHabit",h.isKeyHabit).put("ritualId",h.ritualId).put("ritualName",h.ritualName).put("color",h.color)
         .put("active",h.active).put("sourceTemplateId",h.sourceTemplateId ?: JSONObject.NULL).put("sacredPracticeId",h.sacredPracticeId ?: JSONObject.NULL)
         .put("sacredSectorId",h.sacredSectorId ?: JSONObject.NULL).put("preferredTime",h.preferredTime).put("scoringMode",h.scoringMode).put("qualityScale",h.qualityScale)
@@ -257,13 +309,15 @@ internal object HabitDocument {
                 r.optString("timing").takeIf { it in setOf("habit", "custom") } ?: if (v.getString("preferredTime").isNotBlank() &&
                     r.getString("time") != v.getString("preferredTime")) "custom" else "habit",
                 r.optInt("minutesBefore",0).coerceIn(0,1440),r.optBoolean("allowDuringQuietHours",false)))
-            .copy(intervalSchedule = v.optJSONObject("intervalSchedule")?.let { interval ->
+            .copy(measurement = optionalMeasurement(v), ruleHistory = optionalRules(v),
+                intervalSchedule = v.optJSONObject("intervalSchedule")?.let { interval ->
                 HabitIntervalSchedule(interval.optInt("intervalMinutes"),interval.optString("startTime"),
                     interval.optString("endTime"),if(interval.optString("completionMode")=="day") "day" else "each").takeIf { it.valid() } })
     }
     fun encode(w: LocalHabitWorkspace): String {
         val p=w.progress
         return JSONObject().put("localSchema",1).put("habits",JSONArray(w.habits.map(::habit)))
+            .put("measurements",JSONArray(w.measurements.map(::measurementEvent)))
             .put("completions",JSONArray(w.completions.map { c -> entity(c.entity).put("habitId",c.habitId).put("date",c.date.toString()).put("completed",c.completed)
                 .put("qualityConfirmedAt",c.qualityConfirmedAt ?: JSONObject.NULL).put("qualityValue",c.qualityValue ?: JSONObject.NULL).put("score",c.score).put("xpAwarded",c.xpAwarded).put("note",c.note)
                 .put("completedTimes",JSONArray(c.completedTimes)) }))
@@ -309,7 +363,7 @@ internal object HabitDocument {
             } ?: emptyList()), settings(v.optJSONObject("settings")),
             v.optJSONArray("hiddenDefaultTemplates")?.let { array ->
                 (0 until array.length()).mapNotNull { array.optString(it).takeIf(String::isNotBlank) }
-            } ?: emptyList())
+            } ?: emptyList(), if(v.isNull("measurements")) emptyList() else v.getJSONArray("measurements").objects().map(::measurementEvent))
     }
 
     private fun settings(value: HabitSettings): JSONObject {

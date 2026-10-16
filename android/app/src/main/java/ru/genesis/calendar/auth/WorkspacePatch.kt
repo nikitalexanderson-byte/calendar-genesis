@@ -11,14 +11,14 @@ internal object WorkspacePatch {
 
     private val collectionIds = mapOf(
         "projects" to "id", "categories" to "id", "taskListLinks" to "taskListId", "taskLists" to "id",
-        "habits" to "id", "habitCompletions" to "id", "sleepPlans" to "id",
+        "habits" to "id", "habitCompletions" to "id", "habitMeasurements" to "id", "sleepPlans" to "id",
         "sleepEntries" to "id", "moodEntries" to "id", "dailyGoalRecords" to "date",
         "quests" to "id", "achievementUnlocks" to "achievementId",
         "rewardTransactions" to "idempotencyKey", "streakFreezeTransactions" to "idempotencyKey",
     )
     private val kinds = mapOf(
         "workspace-structure" to listOf("projects", "categories", "taskListLinks", "taskLists"),
-        "habits" to listOf("habits", "habitCompletions", "dailyGoalRecords", "quests",
+        "habits" to listOf("habits", "habitCompletions", "habitMeasurements", "dailyGoalRecords", "quests",
             "achievementUnlocks", "rewardTransactions", "streakFreezeTransactions", "userProgress",
             "habitSettings", "hiddenDefaultTemplates"),
         "trackers" to listOf("sleepPlans", "sleepEntries", "moodEntries"),
@@ -26,7 +26,7 @@ internal object WorkspacePatch {
 
     fun emptyDocument(): JSONObject = JSONObject().put("trackerSchemaVersion", 16)
         .put("projects", JSONArray()).put("categories", JSONArray()).put("taskListLinks", JSONArray()).put("taskLists", JSONArray())
-        .put("habits", JSONArray()).put("habitCompletions", JSONArray())
+        .put("habits", JSONArray()).put("habitCompletions", JSONArray()).put("habitMeasurements", JSONArray())
         .put("sleepPlans", JSONArray()).put("sleepEntries", JSONArray()).put("moodEntries", JSONArray())
         .put("addictionTrackers", JSONArray()).put("addictionEntries", JSONArray())
         .put("analyticsSnapshots", JSONArray()).put("dailyGoalRecords", JSONArray())
@@ -66,7 +66,21 @@ internal object WorkspacePatch {
                     val edited = localRows[id]
                     if (sameKnown(old, edited)) continue
                     val current = remoteRows[id]
+                    if(key == "habitMeasurements" && edited != null && current != null)
+                        require(same(edited,current)) { "HABIT_MEASUREMENT_ID_CONFLICT" }
                     val merged = when {
+                        key=="habitCompletions" && id.startsWith("habit-completion:") && edited!=null && current!=null -> {
+                            val localQuality=edited.opt("qualityValue");val remoteQuality=current.opt("qualityValue")
+                            val localConfirmed=edited.optString("qualityConfirmedAt").let { it.isNotBlank() && it!="null" }
+                            val remoteConfirmed=current.optString("qualityConfirmedAt").let { it.isNotBlank() && it!="null" }
+                            if(localConfirmed && remoteConfirmed && !same(localQuality,remoteQuality) && conflictPolicy==ConflictPolicy.STOP)
+                                throw Conflict("$key/$id/qualityValue")
+                            JSONObject(edited.toString()).put("xpAwarded",maxOf(edited.optInt("xpAwarded"),current.optInt("xpAwarded"))).apply {
+                                if(remoteConfirmed && (!localConfirmed || conflictPolicy==ConflictPolicy.KEEP_REMOTE)) {
+                                    put("qualityValue",remoteQuality);put("qualityConfirmedAt",current.opt("qualityConfirmedAt"))
+                                }
+                            }
+                        }
                         edited == null -> {
                             if (current != null && !same(current, old) && conflictPolicy == ConflictPolicy.STOP)
                                 throw Conflict("$key/$id")
@@ -122,11 +136,12 @@ internal object WorkspacePatch {
         val output = JSONObject(base.toString())
         structure?.let { part -> listOf("projects", "categories", "taskListLinks", "taskLists").forEach { output.put(it, part.getJSONArray(it)) } }
         habits?.let { part ->
-            mapOf("habits" to "habits", "completions" to "habitCompletions", "goals" to "dailyGoalRecords",
+            mapOf("habits" to "habits", "completions" to "habitCompletions", "measurements" to "habitMeasurements", "goals" to "dailyGoalRecords",
                 "rewards" to "rewardTransactions", "achievementUnlocks" to "achievementUnlocks",
                 "streakFreezeTransactions" to "streakFreezeTransactions", "quests" to "quests",
                 "progress" to "userProgress", "settings" to "habitSettings",
-                "hiddenDefaultTemplates" to "hiddenDefaultTemplates").forEach { (source, target) -> output.put(target, part.get(source)) }
+                "hiddenDefaultTemplates" to "hiddenDefaultTemplates").forEach { (source, target) ->
+                    if(part.has(source)) output.put(target, part.get(source)) }
         }
         trackers?.let { part -> listOf("sleepPlans", "sleepEntries", "moodEntries").forEach { output.put(it, part.getJSONArray(it)) } }
         return output
@@ -153,7 +168,18 @@ internal object WorkspacePatch {
             val edited = local.opt(key)
             if (sameKnown(old, edited)) continue
             val current = remote.opt(key)
-            val merged = if (old is JSONObject && edited is JSONObject && current is JSONObject)
+            val merged = if (key == "ruleHistory" && edited is JSONArray && current is JSONArray) {
+                val versions = linkedMapOf<String, JSONObject>()
+                listOf(current, edited).forEach { rows -> for(index in 0 until rows.length()) {
+                    val rule = rows.getJSONObject(index)
+                    val id = rule.getString("id")
+                    val prior = versions[id]
+                    require(prior == null || same(prior,rule)) { "HABIT_RULE_ID_CONFLICT" }
+                    versions[id] = rule
+                } }
+                JSONArray(versions.values.sortedWith(compareBy<JSONObject> { it.getString("effectiveDate") }
+                    .thenBy { it.getString("recordedAt") }.thenBy { it.getString("id") }))
+            } else if (old is JSONObject && edited is JSONObject && current is JSONObject)
                 patchObject(old, edited, current, "$path/$key", conflictPolicy)
             else {
                 if (!same(old, current) && !same(edited, current) && conflictPolicy == ConflictPolicy.STOP)

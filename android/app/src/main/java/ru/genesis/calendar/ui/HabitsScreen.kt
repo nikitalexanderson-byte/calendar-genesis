@@ -245,6 +245,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
             AdaptiveCardGrid(current.habits.sortedByDescending { it.priority }, { it.id }) { habit ->
                 val entry=current.completions.firstOrNull { it.habitId==habit.id && it.date==today }
                 val scheduled=runCatching { engine.isScheduled(habit,today) }.getOrDefault(false)
+                val measured=HabitMeasurements.rule(habit,today).measurement!=null
                 if (experimental) ExperimentalHabitCard(habit, entry, scheduled, busy || storageError,
                     animate = current.settings.feedback.animations,
                     onComplete={checked,quality -> scope.launch { runAction {
@@ -258,7 +259,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                     Text("${habit.emoji} ${habit.title}",style=MaterialTheme.typography.titleMedium)
                     if(habit.description.isNotEmpty()) Text(habit.description)
                     Text(if(!habit.active) "На паузе" else if(scheduled) "Запланировано сегодня" else "Сегодня не запланировано",style=MaterialTheme.typography.bodySmall)
-                    if(habit.scoringMode.startsWith("quality") && scheduled) {
+                    if(habit.scoringMode.startsWith("quality") && scheduled && !measured) {
                         var quality by remember(habit.id,entry?.qualityValue) { mutableFloatStateOf((entry?.qualityValue ?: if(habit.scoringMode=="quality-ten") 5.0 else 0.0).toFloat()) }
                         Text("Качество: ${quality.toInt()}")
                         Slider(value=quality,onValueChange={quality=it},enabled=!busy&&!storageError,valueRange=if(habit.scoringMode=="quality-ten") 1f..10f else -5f..5f,
@@ -268,7 +269,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                         } }}) { Text(if(entry?.completed==true) "Обновить оценку" else "Выполнено") }
                         if(entry?.completed==true) TextButton(enabled=!busy&&!storageError,onClick={scope.launch { runAction { repository.complete(habit.id,false,entry.qualityValue) } }}) { Text("Снять отметку") }
                     } else Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                        Checkbox(checked=entry?.completed==true,enabled=scheduled&&!busy&&!storageError,
+                        Checkbox(checked=entry?.completed==true,enabled=scheduled&&!busy&&!storageError&&!measured,
                             onCheckedChange={ checked -> scope.launch { runAction {
                                 recordCompletion(habit.id,checked,null,current.settings.feedback)
                             } } })
@@ -283,6 +284,9 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                             modifier=Modifier.testTag("delete-habit-${habit.id}")) { Text("Удалить") }
                     }
                 } }
+                if(measured) HabitMeasurementInputs(habit,current.measurements,today,entry,scheduled&&!busy&&!storageError,
+                    onRecord={amount,entryId,replaces,note -> repository.recordMeasurement(habit.id,today,amount,entryId,replaces,note);Unit},
+                    onQuality={quality -> recordCompletion(habit.id,true,quality,current.settings.feedback)})
             }
             if (experimental && current.settings.feedback.gamificationWidgets) {
                 val motionEnabled = current.settings.feedback.animations
@@ -418,6 +422,7 @@ private fun ExperimentalHabitCard(habit: Habit, entry: HabitCompletion?, schedul
     animate: Boolean, onComplete: (Boolean, Double?) -> Unit, onEdit: () -> Unit,
     onIntervalComplete: (String,Boolean) -> Unit,
     onToggle: () -> Unit, onDelete: () -> Unit) {
+    val measured = HabitMeasurements.rule(habit,LocalDate.now()).measurement!=null
     val status = if (!habit.active) "На паузе" else if (scheduled) "Запланировано сегодня" else "Сегодня свободно"
     val calendar = when (habit.schedule.recurrence.mode) {
         "classic" -> "Григорианский ритм"
@@ -461,7 +466,7 @@ private fun ExperimentalHabitCard(habit: Habit, entry: HabitCompletion?, schedul
                 color = if (entry?.completed == true) Color(0xffcfe1d8) else Color(0xffeee7d8)) {
                 Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    if (habit.scoringMode.startsWith("quality") && scheduled) {
+                    if (habit.scoringMode.startsWith("quality") && scheduled && !measured) {
                         var quality by remember(habit.id, entry?.qualityValue) {
                             mutableFloatStateOf((entry?.qualityValue ?: if(habit.scoringMode=="quality-ten") 5.0 else 0.0).toFloat())
                         }
@@ -477,7 +482,7 @@ private fun ExperimentalHabitCard(habit: Habit, entry: HabitCompletion?, schedul
                                 onClick={onComplete(false,entry.qualityValue)}) { Text("Снять отметку") }
                         }
                     } else Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(checked=entry?.completed==true,enabled=scheduled&&!disabled,
+                        Checkbox(checked=entry?.completed==true,enabled=scheduled&&!disabled&&!measured,
                             onCheckedChange={ checked -> onComplete(checked,null) })
                         Text(if(entry?.completed==true) "Выполнено · ${entry.score} баллов" else
                             if(scheduled) if(habit.intervalSchedule?.completionMode=="each") "Отметить все повторения" else "Отметить выполнение" else "Сегодня не запланировано",
@@ -524,6 +529,8 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
     var preferredTime by rememberSaveable(initial.id) { mutableStateOf(initial.preferredTime) }
     var reminder by remember(initial.id) { mutableStateOf(initial.reminder) }
     var intervalSchedule by remember(initial.id) { mutableStateOf(initial.intervalSchedule) }
+    var measurement by remember(initial.id) { mutableStateOf(initial.measurement) }
+    var measurementValid by remember(initial.id) { mutableStateOf(true) }
     var priority by rememberSaveable(initial.id) { mutableIntStateOf(initial.priority) }
     var scoring by rememberSaveable(initial.id) { mutableStateOf(initial.scoringMode) }
     var start by rememberSaveable(initial.id) { mutableStateOf(initial.schedule.startDate.toString()) }
@@ -557,6 +564,7 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
             EditorSection("Основное") {
             OutlinedTextField(title,{title=it},label={Text("Название")},modifier=Modifier.fillMaxWidth(),enabled=!busy)
             OutlinedTextField(description,{description=it},label={Text("Описание")},modifier=Modifier.fillMaxWidth(),enabled=!busy)
+            HabitMeasurementFields(measurement,existing!=null,onChange={measurement=it},onValidity={measurementValid=it})
             HabitPersonalizationFields(emoji,color,isKeyHabit,ritualId,ritualName,!busy,
                 onEmoji={ emoji=it.take(32) },onColor={ color=it.take(7) },
                 onKeyHabit={ isKeyHabit=it },
@@ -720,14 +728,15 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
             error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 TextButton(enabled=!busy,onClick=onDismiss) { Text("Отмена") }
-                Button(enabled=!busy&&title.isNotBlank()&&normalizedHabitColor(color)!=null&&normalizedHabitEmoji(emoji)!=null&&
+                Button(enabled=!busy&&measurementValid&&title.isNotBlank()&&normalizedHabitColor(color)!=null&&normalizedHabitEmoji(emoji)!=null&&
                     (ritualId!="custom"||ritualName.isNotBlank())&&
                     (limit==0||config.days.isNotEmpty())&&(end.isEmpty()||end>=start)&&intervalSchedule?.valid()!=false,onClick={
                     onSave(initial.copy(title=title.trim(),description=description,priority=priority,scoringMode=scoring,
                         createdDate=if(existing==null) LocalDate.parse(start) else initial.createdDate,
                         emoji=requireNotNull(normalizedHabitEmoji(emoji)),color=requireNotNull(normalizedHabitColor(color)),
                         isKeyHabit=isKeyHabit,ritualId=ritualId,ritualName=if(ritualId=="custom") ritualName.trim() else "",
-                        preferredTime=preferredTime,reminder=reminder,intervalSchedule=intervalSchedule,
+                        preferredTime=preferredTime,reminder=reminder,measurement=measurement,
+                        intervalSchedule=if(measurement!=null) intervalSchedule?.copy(completionMode="day") else intervalSchedule,
                         qualityScale=when(scoring){"quality-ten"->"ten";"quality-bipolar"->"bipolar";else->"none"},
                         schedule=initial.schedule.copy(startDate=LocalDate.parse(start),endDate=end.takeIf(String::isNotEmpty)?.let(LocalDate::parse),recurrence=config)))
                 }) { Text(if(busy) "Сохранение…" else "Сохранить") }

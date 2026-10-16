@@ -23,6 +23,39 @@ const {newMindmap, validateMindmap, removeBranch, removeThought, moveNode, attac
 const task = {id:'real-task',title:'Source title',done:false,projectId:'project-a',dependsOnIds:['other'],dueDate:'2026-10-12',recurrenceMode:'none',recurrenceExcludedDates:[]};
 const view={mode:'map',collapsed:[],focus:null,zoom:1};
 
+test('map edit history restores content and positions, groups typing, and clears redo after a new edit',()=>{
+ const {MindmapEditHistory}=loadTs(resolve('app/mindmap-edit-history.ts'));
+ const history=new MindmapEditHistory(),document=newMindmap('History',null,'idea');
+ const id=document.nodes[1].id;
+ const first={document,positions:undefined,selected:id};
+ const moved={...first,positions:{[id]:{x:500,y:300}}};
+ history.record(first,moved);
+ assert.deepEqual(history.take('undo',moved),first);
+ assert.deepEqual(history.take('redo',first),moved);
+ const renamed={...moved,document:{...document,nodes:document.nodes.map(node=>node.id===id?{...node,text:'A'}:node)}};
+ const typed={...renamed,document:{...renamed.document,nodes:renamed.document.nodes.map(node=>node.id===id?{...node,text:'AB'}:node)}};
+ history.record(moved,renamed,'title',1000);history.record(renamed,typed,'title',1100);
+ assert.deepEqual(history.take('undo',typed),moved);
+ assert.equal(history.canRedo,true);
+ const removed={...moved,document:removeThought(document,id)};
+ history.record(moved,removed);
+ assert.equal(history.canRedo,false);
+ assert.deepEqual(history.take('undo',removed),moved);
+ history.clear();assert.equal(history.canUndo,false);assert.equal(history.canRedo,false);
+});
+
+test('notification positions survive viewport changes and account layout keeps pin settings',()=>{
+ const {dockPositionToLayout,dockSavedPosition}=loadTs(resolve('app/notification-dock-model.ts'));
+ const {accountLayout}=loadTs(resolve('app/ui-visibility.ts'));
+ const bounds={left:300,top:12,right:1428,bottom:988};
+ const saved=dockPositionToLayout({x:836,y:472},bounds);
+ assert.deepEqual(saved,{notificationDockX:5000,notificationDockY:5000});
+ assert.deepEqual(dockSavedPosition(saved.notificationDockX,saved.notificationDockY,{left:12,top:12,right:348,bottom:904}),{x:152,y:430});
+ const settings=accountLayout({...saved,notificationDockPinned:true});
+ assert.equal(settings.notificationDockPinned,true);assert.equal(settings.notificationDockX,5000);
+ assert.equal(accountLayout().notificationDockPinned,false);assert.equal(accountLayout().notificationDockX,-1);
+});
+
 test('workspace save acknowledges the encrypted journal before network, and refuses a failed device write',async()=>{
  const source=readFileSync(resolve('app/cloud-sync.ts'),'utf8');
  const start=source.indexOf('export async function saveWorkspaceStructure('),end=source.indexOf('export async function createGoogleTaskList(',start);
@@ -58,8 +91,8 @@ test('notification dock stays within its work area and returns home after collap
  const {clampDockPosition,clampDockSize,dockHome,newestUnseenToken,NOTIFICATION_PREVIEW_MS}=loadTs(resolve('app/notification-dock-model.ts'));
  const bounds={left:300,top:12,right:1428,bottom:988};
  assert.deepEqual(clampDockPosition({x:-500,y:4000},bounds,360,560),{x:300,y:428});
- assert.deepEqual(dockHome(bounds,56,56,false),{x:300,y:932});
- assert.deepEqual(dockHome({left:12,top:12,right:348,bottom:904},56,56,true),{x:292,y:848});
+ assert.deepEqual(dockHome(bounds,56,56),{x:1372,y:932});
+ assert.deepEqual(dockHome({left:12,top:12,right:348,bottom:904},56,56),{x:292,y:848});
  assert.deepEqual(clampDockPosition({x:400,y:900},{left:12,top:12,right:300,bottom:500},360,560),{x:12,y:12});
  assert.deepEqual(clampDockSize({width:1,height:1},bounds),{width:320,height:240});
  assert.deepEqual(clampDockSize({width:4000,height:4000},bounds),{width:760,height:820});

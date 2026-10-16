@@ -68,7 +68,7 @@ internal object CloudWorkspaceMigration {
             .put("streakFreezeTransactions", arrayOrEmpty(document, "streakFreezeTransactions"))
             .put("userProgress", normalizeProgress(document.optJSONObject("userProgress"), completions))
 
-        listOf("addictionTrackers", "addictionEntries", "analyticsSnapshots", "hiddenDefaultTemplates").forEach {
+        listOf("habitMeasurements", "addictionTrackers", "addictionEntries", "analyticsSnapshots", "hiddenDefaultTemplates").forEach {
             if (document.optJSONArray(it) == null) document.put(it, JSONArray())
         }
         if (document.optJSONObject("habitSettings") == null) document.put("habitSettings", JSONObject())

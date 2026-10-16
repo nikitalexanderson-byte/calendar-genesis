@@ -1,5 +1,7 @@
 "use client";
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent, type KeyboardEvent } from "react";
+import { createPortal } from "react-dom";
+import type { AccountLayout } from "./ui-visibility";
 import { DialogCloseButton } from "./DialogCloseButton";
 import { ExperimentalIcon } from "./ExperimentalIcon";
 import { useSharedUpdates } from "./SharedUpdatesProvider";
@@ -13,14 +15,15 @@ import { privateDeviceAccessBlocked } from "./local-sign-out";
 import { SharedInvitationNotices, type SharedInvitationDestination } from "./SharedInvitationNotices";
 import { useReminderNotices } from "./ReminderNotices";
 import { translateText, type Language } from "./i18n";
-import { clampDockPosition, clampDockSize, dockHome, newestUnseenToken, NOTIFICATION_PREVIEW_MS, type DockBounds, type DockPosition, type DockSize, type NoticeActivity } from "./notification-dock-model";
+import { clampDockPosition, clampDockSize, dockHome, dockSavedPosition, dockPositionToLayout, newestUnseenToken, NOTIFICATION_PREVIEW_MS, type DockBounds, type DockPosition, type DockSize, type NoticeActivity } from "./notification-dock-model";
 import "./notification-dock.css";
 const PrivateNotices = lazy(() => import("./SharedSpaceCollaboration").then(module => ({ default: module.SharedPrivateNotices })));
 const emptyActivity: NoticeActivity = { count: 0, tokens: [], title: "" };
 type Props = { userId: string; language: Language; mode:CalendarMode; appBase: string; sharedEnabled: boolean; invitationsEnabled: boolean;
+  layout: AccountLayout; onLayoutChange: (patch: Partial<AccountLayout>) => void; headerTarget: HTMLElement | null;
   onOpen: (destination: SharedTaskDestination) => void; onAccepted: (destination: SharedInvitationDestination) => void };
 
-export default function NotificationDock({ userId, language, mode, appBase, sharedEnabled, invitationsEnabled, onOpen, onAccepted }: Props) {
+export default function NotificationDock({ userId, language, mode, appBase, sharedEnabled, invitationsEnabled, layout, onLayoutChange, headerTarget, onOpen, onAccepted }: Props) {
   const { notifications, overview, nextCursor, loadingMore, moreError, error, refresh, loadMore, markRead,markUnread,unreadOnly,setUnreadOnly,loading } = useSharedUpdates();
   const { notes, dismiss } = useReminderNotices(appBase);
   const [privateActivity, setPrivateActivity] = useState(emptyActivity), [invitationActivity, setInvitationActivity] = useState(emptyActivity);
@@ -29,11 +32,13 @@ export default function NotificationDock({ userId, language, mode, appBase, shar
   const [bounds, setBounds] = useState<DockBounds>({ left: 12, top: 12, right: 372, bottom: 720 });
   const [size, setSize] = useState({ width: 56, height: 56 }), [mobile, setMobile] = useState(false);
   const [panelSize,setPanelSize]=useState<DockSize>({width:360,height:560});
+  const [dragPreview,setDragPreview]=useState<DockPosition|null>(null);
+  const docked = layout.notificationDockPinned && Boolean(headerTarget);
   const [preview, setPreview] = useState<{ token: string; title: string } | null>(null), [busy, setBusy] = useState(""), [readFailed, setReadFailed] = useState(false);
   const root = useRef<HTMLElement>(null), toggle = useRef<HTMLButtonElement>(null), panel = useRef<HTMLDivElement>(null), toast = useRef<HTMLDivElement>(null);
   const seen = useRef(new Set<string>()), suppressClick = useRef(false);
   const openDestination=useRef(onOpen),actionController=useRef<AbortController|null>(null),alive=useRef(false);
-  const drag = useRef<{ pointerId: number; startX: number; startY: number; origin: DockPosition; moved: boolean } | null>(null);
+  const drag = useRef<{ pointerId: number; startX: number; startY: number; origin: DockPosition; moved: boolean; end?: DockPosition } | null>(null);
   const resize = useRef<{pointerId:number;startX:number;startY:number;origin:DockPosition;size:DockSize}|null>(null);
   const t = (text: string) => translateText(text, language);
   const sharedCount = sharedEnabled ? overview ? overview.newTasks + overview.newProjects + overview.newComments+(overview.newNotifications??0) : notifications.filter(item=>!item.isRead).length : 0;
@@ -56,8 +61,8 @@ export default function NotificationDock({ userId, language, mode, appBase, shar
     };
     measure(); const observer = new ResizeObserver(measure), content = document.getElementById("main-content");
     if (content) observer.observe(content);
-    window.addEventListener("resize", measure); window.visualViewport?.addEventListener("resize", measure);
-    return () => { observer.disconnect(); window.removeEventListener("resize", measure); window.visualViewport?.removeEventListener("resize", measure); };
+    window.addEventListener("resize", measure); window.addEventListener("scroll", measure, true); window.visualViewport?.addEventListener("resize", measure);
+    return () => { observer.disconnect(); window.removeEventListener("resize", measure); window.removeEventListener("scroll", measure, true); window.visualViewport?.removeEventListener("resize", measure); };
   }, []);
   useLayoutEffect(() => {
     if ((!count&&!manual) || !root.current) return;
@@ -112,7 +117,7 @@ export default function NotificationDock({ userId, language, mode, appBase, shar
   const startDrag = (event: PointerEvent<HTMLElement>) => {
     if (mobile || event.button !== 0 || !root.current || (event.currentTarget.tagName==="HEADER" && event.target instanceof Element && event.target.closest("button,a,input,select,textarea"))) return;
     if(event.currentTarget.tagName==="HEADER")event.preventDefault();
-    const box = root.current.getBoundingClientRect();
+    const box = docked && event.currentTarget === toggle.current ? event.currentTarget.getBoundingClientRect() : root.current.getBoundingClientRect();
     drag.current = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, origin: { x: box.left, y: box.top }, moved: false };
     suppressClick.current = false; event.currentTarget.setPointerCapture(event.pointerId);
   };
@@ -120,23 +125,34 @@ export default function NotificationDock({ userId, language, mode, appBase, shar
     const current = drag.current; if (!current || current.pointerId !== event.pointerId) return;
     const dx = event.clientX - current.startX, dy = event.clientY - current.startY;
     if (!current.moved && Math.hypot(dx, dy) < 5) return;
-    current.moved = true; setPosition(clampDockPosition({ x: current.origin.x + dx, y: current.origin.y + dy }, bounds, size.width, size.height));
+    current.moved = true;
+    current.end = clampDockPosition({ x: current.origin.x + dx, y: current.origin.y + dy }, bounds, docked ? 56 : size.width, docked ? 56 : size.height);
+    if(docked) setDragPreview(current.end); else setPosition(current.end);
   };
   const endDrag = (event: PointerEvent<HTMLElement>) => {
-    if (drag.current?.pointerId !== event.pointerId) return;
-    suppressClick.current = Boolean(drag.current?.moved); drag.current = null;
+    const current = drag.current;
+    if (!current || current.pointerId !== event.pointerId) return;
+    suppressClick.current = Boolean(current.moved); drag.current = null;
+    if(current.moved && current.end && event.type !== "pointercancel") {
+      const target = headerTarget?.closest(".topbar")?.getBoundingClientRect();
+      const pin = Boolean(target && event.clientX >= target.left && event.clientX <= target.right
+        && event.clientY >= target.top && event.clientY <= target.bottom);
+      onLayoutChange({ notificationDockPinned: pin, ...(pin ? {} : dockPositionToLayout(current.end,bounds)) });
+    }
+    setPosition(null);setDragPreview(null);
     window.setTimeout(() => { suppressClick.current = false; }, 0);
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
   };
   const moveWithKeyboard = (event: KeyboardEvent<HTMLElement>) => {
     if (mobile || event.target!==event.currentTarget) return;
-    if (event.key === "Home") { event.preventDefault(); setPosition(null); return; }
+    if (event.key === "Home") { event.preventDefault(); setPosition(null); onLayoutChange({notificationDockPinned:false,notificationDockX:-1,notificationDockY:-1}); return; }
     const directions: Record<string, DockPosition> = { ArrowLeft: { x: -1, y: 0 }, ArrowRight: { x: 1, y: 0 }, ArrowUp: { x: 0, y: -1 }, ArrowDown: { x: 0, y: 1 } };
     const direction = directions[event.key]; if (!direction) return;
-    event.preventDefault(); const box = root.current!.getBoundingClientRect(), step = event.shiftKey ? 96 : 24;
-    setPosition(clampDockPosition({ x: box.left + direction.x * step, y: box.top + direction.y * step }, bounds, size.width, size.height));
+    event.preventDefault(); const box = docked ? toggle.current!.getBoundingClientRect() : root.current!.getBoundingClientRect(), step = event.shiftKey ? 96 : 24;
+    const next = clampDockPosition({ x: box.left + direction.x * step, y: box.top + direction.y * step }, bounds, docked ? 56 : size.width, docked ? 56 : size.height);
+    onLayoutChange({notificationDockPinned:false,...dockPositionToLayout(next,bounds)});setPosition(null);
   };
-  const resizeTo=(next:DockSize,origin:DockPosition)=>{const constrained=clampDockSize(next,bounds);setPanelSize(constrained);setPosition(clampDockPosition(origin,bounds,constrained.width,constrained.height));};
+  const resizeTo=(next:DockSize,origin:DockPosition)=>{const constrained=clampDockSize(next,bounds);setPanelSize(constrained);if(!docked)setPosition(clampDockPosition(origin,bounds,constrained.width,constrained.height));};
   const startResize=(event:PointerEvent<HTMLButtonElement>)=>{
     if(mobile||event.button!==0||!root.current)return;event.preventDefault();const box=root.current.getBoundingClientRect();
     resize.current={pointerId:event.pointerId,startX:event.clientX,startY:event.clientY,origin:{x:box.left,y:box.top},size:{width:box.width,height:box.height}};event.currentTarget.setPointerCapture(event.pointerId);
@@ -152,21 +168,31 @@ export default function NotificationDock({ userId, language, mode, appBase, shar
     try { if(unread)await markUnread([id]);else await markRead([id]); } catch { setReadFailed(true); } finally { setBusy(""); }
   };
   const openItem=async(id:string)=>{if(busy)return;const abort=new AbortController();actionController.current=abort;setBusy(id);setReadFailed(false);try{const destination=await resolveSharedNotification(id,abort.signal);if(!alive.current||abort.signal.aborted||privateDeviceAccessBlocked())return;collapse();openDestination.current(destination);if(!destination.taskId)await markRead([id]);}catch{if(alive.current&&!abort.signal.aborted)setReadFailed(true);}finally{if(alive.current)setBusy("");}};
-  const home = dockHome(bounds, size.width, size.height, mobile), place = position ? clampDockPosition(position, bounds, size.width, size.height) : home;
+  const anchor = docked ? headerTarget?.getBoundingClientRect() : null;
+  const panelBounds = anchor ? {...bounds,top:Math.min(bounds.bottom,Math.max(bounds.top,anchor.bottom+8))} : bounds;
+  const dimensions=expanded?clampDockSize(mobile?{width:360,height:560}:panelSize,panelBounds):null;
+  const home = mobile ? dockHome(bounds,56,56) : dockSavedPosition(layout.notificationDockX,layout.notificationDockY,bounds);
+  const place = anchor ? clampDockPosition({x:anchor.right-(dimensions?.width??56),y:anchor.bottom+8},panelBounds,dimensions?.width??56,dimensions?.height??56)
+    : clampDockPosition(position ?? home,bounds,dimensions?.width??56,dimensions?.height??56);
   const dragProps = { onPointerDown: startDrag, onPointerMove: moveDrag, onPointerUp: endDrag, onPointerCancel: endDrag, onKeyDown: moveWithKeyboard };
-  const dimensions=expanded?clampDockSize(mobile?{width:360,height:560}:panelSize,bounds):null;
+  const toggleButton = <button ref={toggle} type="button" className={`notification-dock-toggle${docked?" is-pinned icon-button ux-action-button":""}`} hidden={!count&&!manual || !docked&&expanded} aria-expanded={expanded} aria-controls="notification-dock-panel" aria-label={`${t("Уведомления и сообщения")}: ${count}`}
+    {...dragProps} onClick={() => { if (suppressClick.current) { suppressClick.current = false; return; } if(expanded)collapse();else show(); }}>
+    <ExperimentalIcon name="mail" /><span className="notification-dock-count" aria-hidden="true">{count > 99 ? "99+" : count}</span>
+  </button>;
 
   return <>
-    <aside ref={root} className="notification-dock" data-expanded={expanded} hidden={!count&&!manual} aria-label={t("Уведомления и сообщения")}
+    {docked && headerTarget ? createPortal(toggleButton,headerTarget) : null}
+    {dragPreview ? <div className="notification-dock-drag-preview" aria-hidden="true" style={{left:dragPreview.x,top:dragPreview.y}}><ExperimentalIcon name="mail"/></div> : null}
+    <aside ref={root} className="notification-dock" data-expanded={expanded} data-pinned={docked} hidden={!count&&!manual || docked&&!expanded} aria-label={t("Уведомления и сообщения")}
       style={{ left: place.x, top: place.y, width:dimensions?.width, height:dimensions?.height, maxWidth: bounds.right - bounds.left, maxHeight:expanded?dimensions?.height:bounds.bottom-bounds.top }}>
-      <button ref={toggle} type="button" className="notification-dock-toggle" hidden={expanded} aria-expanded={expanded} aria-controls="notification-dock-panel" aria-label={`${t("Уведомления и сообщения")}: ${count}`}
-        {...dragProps} onClick={() => { if (suppressClick.current) { suppressClick.current = false; return; } show(); }}>
-        <ExperimentalIcon name="mail" /><span className="notification-dock-count" aria-hidden="true">{count > 99 ? "99+" : count}</span>
-      </button>
+      {!docked ? toggleButton : null}
       <div ref={panel} id="notification-dock-panel" className="notification-dock-panel" hidden={!expanded} tabIndex={-1}>
         <header className="notification-dock-header" tabIndex={mobile?undefined:0} aria-label={mobile?undefined:t("Переместить уведомления")} title={mobile?undefined:t("Перетащите блок или используйте стрелки и Home")} {...dragProps}><h2>{t(unreadOnly?"Непрочитанные":"Уведомления")}</h2>
+          <div className="notification-dock-header-actions"><button type="button" className="notification-drag-handle" aria-label={t(docked?"Открепить от верхней панели":"Закрепить на верхней панели")} title={t(docked?"Открепить от верхней панели":"Закрепить на верхней панели")} onClick={() => {
+            onLayoutChange({notificationDockPinned:!docked,...(docked?dockPositionToLayout(place,bounds):{})});setPosition(null);
+          }}><ExperimentalIcon name="map-pin"/></button>
           {sharedEnabled?<button type="button" className="notification-drag-handle" aria-label={t("Настройки уведомлений")} title={t("Настройки уведомлений")} onClick={()=>setSettingsOpen(true)}><ExperimentalIcon name="settings"/></button>:null}
-          <DialogCloseButton aria-label={t("Свернуть уведомления")} onClick={() => { collapse(); requestAnimationFrame(() => toggle.current?.focus({ preventScroll: true })); }} /></header>
+          <DialogCloseButton aria-label={t("Свернуть уведомления")} onClick={() => { collapse(); requestAnimationFrame(() => toggle.current?.focus({ preventScroll: true })); }} /></div></header>
         <div className="notification-dock-list">
           {sharedEnabled?<div className="notification-inbox-filter" role="group" aria-label={t("Фильтр обновлений")}><button type="button" className="secondary-button" aria-pressed={unreadOnly} disabled={Boolean(busy)} onClick={()=>setUnreadOnly(true)}>{t("Непрочитанные")}</button><button type="button" className="secondary-button" aria-pressed={!unreadOnly} disabled={Boolean(busy)} onClick={()=>{setManual(true);setUnreadOnly(false);}}>{t("Все")}</button></div>:null}
           {readFailed || sharedEnabled && (error || moreError) ? <p role="alert">{t("Не удалось обновить уведомления. Повторите попытку.")} <button type="button" className="secondary-button" onClick={refresh}>{t("Обновить")}</button></p> : null}

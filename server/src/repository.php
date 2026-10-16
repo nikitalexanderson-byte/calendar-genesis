@@ -237,6 +237,15 @@ function genesisUiVisibility(mixed $value): array
     $tasksCompact = $decoded['sharedTasksCompact'] ?? true;
     if (!is_bool($tasksCompact)) throw new InvalidArgumentException('INVALID_TASK_LAYOUT');
     $result['sharedTasksCompact'] = $tasksCompact;
+    $pinned = $decoded['notificationDockPinned'] ?? false;
+    if (!is_bool($pinned)) throw new InvalidArgumentException('INVALID_NOTIFICATION_DOCK_LAYOUT');
+    $result['notificationDockPinned'] = $pinned;
+    foreach (['notificationDockX', 'notificationDockY'] as $field) {
+        $coordinate = $decoded[$field] ?? -1;
+        if (!is_int($coordinate) || $coordinate < -1 || $coordinate > 10000)
+            throw new InvalidArgumentException('INVALID_NOTIFICATION_DOCK_LAYOUT');
+        $result[$field] = $coordinate;
+    }
     return $result;
 }
 
@@ -704,7 +713,7 @@ function genesisWorkspaceForClient(array $user): array
             throw new RuntimeException('Workspace encryption key is unavailable.');
         }
     }
-    $statement = genesisDb()->prepare('SELECT ciphertext, iv, version, updated_at FROM workspace_blobs WHERE user_id = :user_id LIMIT 1');
+    $statement = genesisDb()->prepare('SELECT ciphertext, iv, version, updated_at, minimum_writer_protocol FROM workspace_blobs WHERE user_id = :user_id LIMIT 1');
     $statement->execute(['user_id' => (string)$user['id']]);
     $blob = $statement->fetch();
     return [
@@ -717,6 +726,7 @@ function genesisWorkspaceForClient(array $user): array
             'iv' => (string)$blob['iv'],
             'version' => (int)$blob['version'],
             'updatedAt' => (string)$blob['updated_at'],
+            'minimumWriterProtocol' => (int)$blob['minimum_writer_protocol'],
         ] : null,
     ];
 }
@@ -761,27 +771,34 @@ function genesisSaveWorkspaceEnvelope(string $userId, array $payload): array
     }
     $hasExpectedVersion = array_key_exists('expectedVersion', $payload);
     $expectedVersion = genesisClampInt($payload['expectedVersion'] ?? 0, 0, 9_000_000_000_000_000, 0);
+    $writerProtocol = genesisClampInt($payload['writerProtocol'] ?? 1, 1, 2, 1);
+    $requiredProtocol = genesisClampInt($payload['minimumWriterProtocol'] ?? 1, 1, 2, 1);
+    if ($writerProtocol < $requiredProtocol) throw new DomainException('WORKSPACE_UPGRADE_REQUIRED');
     $db = genesisDb();
     $ownsTransaction = !$db->inTransaction();
     if ($ownsTransaction) {
         $db->exec('BEGIN IMMEDIATE');
     }
     try {
-        $statement = $db->prepare('SELECT version FROM workspace_blobs WHERE user_id = :user_id LIMIT 1');
+        $statement = $db->prepare('SELECT version, minimum_writer_protocol FROM workspace_blobs WHERE user_id = :user_id LIMIT 1');
         $statement->execute(['user_id' => $userId]);
-        $storedVersion = $statement->fetchColumn();
-        $currentVersion = $storedVersion === false ? 0 : (int)$storedVersion;
+        $stored = $statement->fetch();
+        $currentVersion = $stored === false ? 0 : (int)$stored['version'];
+        $requiredProtocol = max($requiredProtocol, $stored === false ? 1 : (int)$stored['minimum_writer_protocol']);
+        if ($writerProtocol < $requiredProtocol) throw new DomainException('WORKSPACE_UPGRADE_REQUIRED');
         if ($hasExpectedVersion && $expectedVersion !== $currentVersion) {
             throw new GenesisWorkspaceConflictException($currentVersion);
         }
         $version = $currentVersion + 1;
         $now = genesisNow();
-        $db->prepare('INSERT INTO workspace_blobs (user_id, ciphertext, iv, version, updated_at) VALUES (:user_id, :ciphertext, :iv, :version, :updated_at) ON CONFLICT(user_id) DO UPDATE SET ciphertext = excluded.ciphertext, iv = excluded.iv, version = excluded.version, updated_at = excluded.updated_at')->execute([
+        $db->prepare('INSERT INTO workspace_blobs (user_id, ciphertext, iv, version, updated_at, minimum_writer_protocol, writer_protocol_version) VALUES (:user_id, :ciphertext, :iv, :version, :updated_at, :minimum_writer_protocol, :writer_protocol_version) ON CONFLICT(user_id) DO UPDATE SET ciphertext = excluded.ciphertext, iv = excluded.iv, version = excluded.version, updated_at = excluded.updated_at, minimum_writer_protocol = excluded.minimum_writer_protocol, writer_protocol_version = excluded.writer_protocol_version')->execute([
             'user_id' => $userId,
             'ciphertext' => $ciphertext,
             'iv' => $iv,
             'version' => $version,
             'updated_at' => $now,
+            'minimum_writer_protocol' => $requiredProtocol,
+            'writer_protocol_version' => $version,
         ]);
         if ($ownsTransaction) {
             $db->exec('COMMIT');
@@ -1151,7 +1168,7 @@ function genesisUpdateAccountPreferences(string $userId, array $payload): array
     }
     $visibilityInput = $payload['uiVisibility'] ?? ($user['ui_visibility_json'] ?? '{}');
     $savedVisibility = genesisUiVisibility($user['ui_visibility_json'] ?? '{}');
-    $layoutFields = ['sidebarWidth', 'personalInboxPosition', 'personalInboxHidden', 'personalInboxCompact', 'sharedInboxPosition', 'sharedInboxHidden', 'sharedInboxCompact', 'sharedCategoriesExpanded', 'personalCategoriesExpanded', 'personalCategoriesView', 'sharedCategoriesView', 'sharedTasksCompact', 'personalInboxWidth', 'sharedInboxWidth'];
+    $layoutFields = ['sidebarWidth', 'personalInboxPosition', 'personalInboxHidden', 'personalInboxCompact', 'sharedInboxPosition', 'sharedInboxHidden', 'sharedInboxCompact', 'sharedCategoriesExpanded', 'personalCategoriesExpanded', 'personalCategoriesView', 'sharedCategoriesView', 'sharedTasksCompact', 'personalInboxWidth', 'sharedInboxWidth', 'notificationDockPinned', 'notificationDockX', 'notificationDockY'];
     // Older web/native clients must not reset account layout preferences.
     if (is_array($visibilityInput)) {
         foreach (['sidebarAutoCollapseSeconds', ...$layoutFields] as $field) {

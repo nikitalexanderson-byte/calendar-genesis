@@ -1861,7 +1861,7 @@ test("ships the complete interactive bilingual Theokyklos", async () => {
     ...segment.words.flatMap((word) => [word.pronunciation.en, word.meaning.en]),
   ]).join("\n");
   assert.doesNotMatch(englishCopy, /[А-Яа-яЁё]/u);
-  assert.match(calendar, /id: "stoicheion", label: "Сакральное", symbol: "ϟ"/);
+  assert.match(calendar, /id: "stoicheion", label: "Оракул", symbol: "ϟ"/);
   assert.match(calendar, /<TheokyklosView/);
   assert.match(component, /theokyklos-mandala/);
   assert.match(component, /Круг божественных сил/);
@@ -3356,7 +3356,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(styles, /overflow-x: hidden/);
   assert.match(styles, /overscroll-behavior-x: none/);
   assert.match(calendar, /ux-install-icon/);
-  assert.match(calendar, /ux-calendar-icon/);
+  assert.match(accountPanel, /ux-calendar-icon/);
+  assert.match(calendar, /onExportCalendar=\{exportCalendar\}/);
   assert.doesNotMatch(calendar, />↓</);
   assert.doesNotMatch(calendar, />↥</);
   assert.doesNotMatch(styles, /background-size: 100% 100%, 1300% 100%/);

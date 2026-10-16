@@ -16,8 +16,21 @@ export function clampDockPosition(position: DockPosition, bounds: DockBounds, wi
   };
 }
 
-export function dockHome(bounds: DockBounds, width: number, height: number, mobile: boolean): DockPosition {
-  return clampDockPosition({ x: mobile ? bounds.right - width : bounds.left, y: bounds.bottom - height }, bounds, width, height);
+export function dockHome(bounds: DockBounds, width: number, height: number): DockPosition {
+  return clampDockPosition({ x: bounds.right - width, y: bounds.bottom - height }, bounds, width, height);
+}
+
+export function dockSavedPosition(x: number, y: number, bounds: DockBounds, width = 56, height = 56): DockPosition {
+  if (x < 0 || y < 0) return dockHome(bounds, width, height);
+  return clampDockPosition({ x: bounds.left + Math.max(0, bounds.right - bounds.left - width) * x / 10000,
+    y: bounds.top + Math.max(0, bounds.bottom - bounds.top - height) * y / 10000 }, bounds, width, height);
+}
+
+export function dockPositionToLayout(position: DockPosition, bounds: DockBounds) {
+  const fraction = (value: number, start: number, end: number) => Math.max(0, Math.min(10000,
+    Math.round((value - start) / Math.max(1, end - start - 56) * 10000)));
+  return { notificationDockX: fraction(position.x, bounds.left, bounds.right),
+    notificationDockY: fraction(position.y, bounds.top, bounds.bottom) };
 }
 
 /** Each unread event previews once per mounted account; collapsing never reads it. */
