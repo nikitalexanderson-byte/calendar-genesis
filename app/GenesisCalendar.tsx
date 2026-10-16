@@ -169,7 +169,7 @@ import {
   lunarMonthIndex,
   normalizeCalendarDateNote,
 } from "./calendar-data";
-import { gregorianWeekdayOffset } from "./calendar-layout";
+import { gregorianMonthNumber, gregorianWeekdayOffset } from "./calendar-layout";
 import {
   type AutomaticSolarLocation,
   type DeviceLocation,
@@ -5616,7 +5616,7 @@ export function GenesisCalendar() {
           </div>
           <div className="month-switcher" aria-label={mode === "profane" ? "Переключение календарных месяцев" : "Переключение лунных месяцев"}>
             <button type="button" onClick={() => moveMonth(-1)} aria-label={mode === "profane" ? "Предыдущий календарный месяц" : "Предыдущий лунный месяц"}>←</button>
-            <span aria-hidden="true"><CalendarModeIcon mode={mode} size={35} /></span>
+            <span aria-hidden="true">{sacredFeaturesEnabled ? <CalendarModeIcon mode={mode} size={35} /> : gregorianMonthNumber(firstDate, gregorianYearStartsInMarch ? "march" : "january")}</span>
             <button type="button" onClick={() => moveMonth(1)} aria-label={mode === "profane" ? "Следующий календарный месяц" : "Следующий лунный месяц"}>→</button>
           </div>
         </header>
@@ -6373,7 +6373,7 @@ export function GenesisCalendar() {
                   "--month-art": month.artUrl ? `url("${month.artUrl}")` : undefined,
                 } as CSSProperties}
               >
-                <span className="year-month-top"><i>{month.ordinal}</i><b>{mode === "profane" ? <CalendarModeIcon mode="profane" size={27} /> : month.symbol}</b></span>
+                <span className="year-month-top">{sacredFeaturesEnabled ? <i>{month.ordinal}</i> : null}<b>{mode === "profane" ? sacredFeaturesEnabled ? <CalendarModeIcon mode="profane" size={27} /> : Number(month.ordinal) : month.symbol}</b></span>
                 <strong id={`year-month-${month.id}`}>{month.title}</strong>
                 <small>{month.subtitle}</small>
                 <div className={`civil-mini-calendar mode-${mode}`}>
