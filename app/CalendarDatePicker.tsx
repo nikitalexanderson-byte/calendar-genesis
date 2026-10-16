@@ -19,6 +19,7 @@ import {
 import { MoonPhaseIcon } from "./MoonPhaseIcon";
 import { getRuntimeLanguage, runtimeLocale } from "./i18n";
 import { useDialogAccessibility } from "./use-dialog-accessibility";
+import { useSacredFeaturesEnabled } from "./sacred-features";
 
 type CalendarDatePickerProps = {
   id?: string;
@@ -63,7 +64,8 @@ function formatCompactGregorian(date: Date) {
   return `${dateLabel} ${capitalizedWeekday}`;
 }
 
-export function CalendarDatePicker({ id, value, mode, calculationContext, min, max, required, ariaLabel, showGregorianReference = true, triggerText, referencePlacement = "below", onChange }: CalendarDatePickerProps) {
+export function CalendarDatePicker({ id, value, mode: savedMode, calculationContext, min, max, required, ariaLabel, showGregorianReference = true, triggerText, referencePlacement = "below", onChange }: CalendarDatePickerProps) {
+  const mode = useSacredFeaturesEnabled() ? savedMode : "profane";
   const isEnglish = getRuntimeLanguage() === "en";
   const [open, setOpen] = useState(false);
   const selectedDate = useMemo(() => parseDate(value), [value]);

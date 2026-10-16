@@ -6,6 +6,17 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class AccountSettingsTest {
+    @Test fun disablingSacredFeaturesUsesOnlyGregorianAndRestoresEverySavedCalendarCombination() {
+        listOf(setOf("profane", "sacred", "lunar"), setOf("lunar"), setOf("sacred", "lunar"))
+            .forEach { calendars ->
+                val saved = UiVisibility(enabledCalendars = calendars, sacredFeaturesEnabled = false)
+                val parsed = UiVisibility.fromJson(saved.toJson())
+                assertEquals(setOf("profane"), parsed.visibleCalendars)
+                assertEquals(calendars, parsed.enabledCalendars)
+                assertEquals(calendars, parsed.copy(sacredFeaturesEnabled = true).visibleCalendars)
+            }
+    }
+
     @Test fun sacredVisibilityRoundTripsWithoutRewritingCalendarPreferences() {
         val saved = UiVisibility(enabledCalendars=setOf("sacred"), sacredFeaturesEnabled=false)
         val parsed = UiVisibility.fromJson(saved.toJson())

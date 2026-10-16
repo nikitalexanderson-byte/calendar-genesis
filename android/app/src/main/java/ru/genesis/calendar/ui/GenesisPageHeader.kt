@@ -53,7 +53,8 @@ internal fun GenesisPageHeader(title: String, description: String, symbol: Strin
     val localizedTitle = genesisTranslate(title)
     val localizedDescription = genesisTranslate(description)
     var switchCount by remember { mutableIntStateOf(0) }
-    val canSwitch = calendarMode != null && onCalendarModeClick != null
+    val canSwitch = calendarMode != null && onCalendarModeClick != null &&
+        LocalSacredFeaturesEnabled.current && LocalEnabledCalendars.current.size > 1
     val switchCalendar = {
         switchCount++
         onCalendarModeClick?.invoke()

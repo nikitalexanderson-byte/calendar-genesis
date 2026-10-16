@@ -367,6 +367,7 @@ private fun SleepPlanEditor(plan: SleepPlan,use24: Boolean,busy: Boolean,error: 
                 }
             }
             OutlinedTextField(title,{title=it},label={Text("Название")},enabled=!busy,modifier=Modifier.fillMaxWidth())
+            if (LocalSacredFeaturesEnabled.current) {
             Text(if(english) "Plan calendar" else "Календарь плана",style=MaterialTheme.typography.titleSmall)
             Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 listOf(CalendarMode.SACRED,CalendarMode.PROFANE,CalendarMode.LUNAR).forEach { option ->
@@ -375,6 +376,7 @@ private fun SleepPlanEditor(plan: SleepPlan,use24: Boolean,busy: Boolean,error: 
                         schedule=schedule.copy(recurrence=next.recurrence.copy(rangeEnd=schedule.endDate?.toString() ?: ""))
                     },label={Text(when(option) {CalendarMode.SACRED->"Сакральный";CalendarMode.PROFANE->"Григорианский";CalendarMode.LUNAR->"Лунный"})})
                 }
+            }
             }
             Text("Начало")
             AuthorDatePicker(schedule.startDate.toString(),mode) { value -> if(!busy) {

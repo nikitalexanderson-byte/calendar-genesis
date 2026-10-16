@@ -1141,6 +1141,7 @@ function DisplayCalendarChoice({ label, className, enabledCalendars, mode, langu
   label: string; className: string; enabledCalendars: CalendarMode[]; mode: CalendarMode;
   language: string; onChange: (mode: CalendarMode) => Promise<void>;
 }) {
+  if (enabledCalendars.length < 2) return null;
   return <div className={`display-calendar-choice ${className}`} role="group" aria-label={label}>
     {(["profane", "sacred", "lunar"] as CalendarMode[]).filter((item) => enabledCalendars.includes(item)).map((item) => {
       const name = item === "profane" ? (language === "en" ? "Gregorian" : "Григорианский")
@@ -4952,9 +4953,9 @@ export function GenesisCalendar() {
           <div className="hero-copy">
             <div className="eyebrow-row">
               <span className="eyebrow">{heroEyebrow}</span>
-              {activeCalendarMode === "lunar" ? (
+              {sacredFeaturesEnabled && activeCalendarMode === "lunar" ? (
                 <span className="event-badge lunar-event-badge"><MoonPhaseIcon phaseStep={moon.phaseStep} size={14} /> {moon.event || moon.epithet}</span>
-              ) : solarEvent ? <span className="event-badge solar-event-badge"><b aria-hidden="true">{solarEvent.symbol}</b> {solarEvent.name}</span> : null}
+              ) : sacredFeaturesEnabled && solarEvent ? <span className="event-badge solar-event-badge"><b aria-hidden="true">{solarEvent.symbol}</b> {solarEvent.name}</span> : null}
             </div>
             <p className="hero-month">{heroMonth}</p>
             <h1 id="today-title">
@@ -5051,7 +5052,7 @@ export function GenesisCalendar() {
           </Suspense>
         ) : null}
 
-        {moon.event || solarEvent ? (
+        {sacredFeaturesEnabled && (moon.event || solarEvent) ? (
           <section className="today-event-notices" aria-label="Особая сила сегодняшнего дня" aria-live="polite">
             {moon.event ? (
               <article className="today-event-notice moon-practice-notice">
@@ -5222,7 +5223,7 @@ export function GenesisCalendar() {
             className="calendar-day-open"
             onClick={() => openCalendarDate(date, "calendar")}
             aria-pressed={isSelected}
-            aria-label={`${formatCalendarDate(date, mode, true)}${sacredFeaturesEnabled ? `${mode === "profane" ? ` — ${weekdayPatron.weekday}, ${weekdayPatron.guidanceTitle}, ${weekdayPatron.patronage}` : ""} — ${sacredDay.name}` : ""} — ${moon.day} ${translateText("лунный день", language)}${solarEvent ? ` — ${solarEvent.name}, ${formatSolarEventTime(solarEvent.date)}` : ""}${taskCount ? ` — ${formatTaskCount(taskCount, language)}` : ""}`}
+            aria-label={`${formatCalendarDate(date, mode, true)}${sacredFeaturesEnabled ? `${mode === "profane" ? ` — ${weekdayPatron.weekday}, ${weekdayPatron.guidanceTitle}, ${weekdayPatron.patronage}` : ""} — ${sacredDay.name} — ${moon.day} ${translateText("лунный день", language)}` : ""}${solarEvent ? ` — ${solarEvent.name}, ${formatSolarEventTime(solarEvent.date)}` : ""}${taskCount ? ` — ${formatTaskCount(taskCount, language)}` : ""}`}
           />
         )}
         {isAdjacentMonth ? (
@@ -5247,14 +5248,14 @@ export function GenesisCalendar() {
         {sacredFeaturesEnabled ? <span className="calendar-cross-date sacred-date" title={sacredDay.name}>
           <b aria-hidden="true">✦</b>{formatCalendarDate(date, "sacred")}
         </span> : null}
-        {mode === "profane" ? (
+        {sacredFeaturesEnabled ? mode === "profane" ? (
           <span className="calendar-cross-date lunar-date" title={moon.phase}>
             <MoonPhaseIcon phaseStep={moon.phaseStep} size={15} />
             <span className="calendar-lunar-day-label">{moon.day} {translateText("лунный день", language)}</span>
           </span>
         ) : (
           <span className="calendar-cross-date lunar-date"><b aria-hidden="true">☾</b>{moon.epithet} · {moon.illumination}%</span>
-        )}
+        ) : null}
         <span
           className="calendar-sun-times"
           aria-label={`${translateText("Рассвет", language)} ${sunrise}, ${translateText("закат", language)} ${sunset}`}
@@ -5912,14 +5913,14 @@ export function GenesisCalendar() {
                         ? <svg className="project-restore-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1.7 7.3M4 4v6h6"/></svg>
                         : <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="m7 12 3 3 7-7"/></svg>}
                     </button>
-                    {experimentalThemeActive ? <button type="button" className="experimental-add-subproject" aria-label={`${translateText("Новый подпроект", language)}: ${project.title}`}
+                    {experimentalThemeActive ? <button type="button" className="experimental-add-subproject personal-action-hint" data-action-hint={translateText("Новый подпроект", language)} aria-label={`${translateText("Новый подпроект", language)}: ${project.title}`}
                       onClick={() => { setNewProjectParent(project.id); setExperimentalProjectFormOpen(true); }}><ExperimentalIcon name="plus" /></button> : null}
-                    <button type="button" className="project-edit" onClick={() => openProjectEditor(project)} aria-label={namedAction("Редактировать проект", project.title, language)}>{experimentalThemeActive ? <ExperimentalIcon name="edit" /> : "✎"}</button>
-                    {cloudUser?.sharedProjectsEnabled ? <button type="button" className="project-transfer"
+                    <button type="button" className="project-edit personal-action-hint" data-action-hint={translateText("Редактировать проект", language)} onClick={() => openProjectEditor(project)} aria-label={namedAction("Редактировать проект", project.title, language)}>{experimentalThemeActive ? <ExperimentalIcon name="edit" /> : "✎"}</button>
+                    {cloudUser?.sharedProjectsEnabled ? <button type="button" className="project-transfer personal-action-hint" data-action-hint={translateText("Переместить в общие", language)}
                       onClick={() => setTransferProject(project)}
                       aria-label={`${translateText("Переместить в общие", language)}: ${project.title}`}>
                       {experimentalThemeActive ? <ExperimentalIcon name="open" /> : "↗"}</button> : null}
-                    <button type="button" className="project-delete" onClick={() => void deleteProject(project.id)} aria-label={namedAction("Удалить проект", project.title, language)}>{experimentalThemeActive ? <ExperimentalIcon name="delete" /> : "×"}</button>
+                    <button type="button" className="project-delete personal-action-hint" data-action-hint={translateText("Удалить проект", language)} onClick={() => void deleteProject(project.id)} aria-label={namedAction("Удалить проект", project.title, language)}>{experimentalThemeActive ? <ExperimentalIcon name="delete" /> : "×"}</button>
                     <div className="project-drop-field">
                       <div className="project-drop-heading">
                         <span>Пространство проекта</span>
@@ -6043,7 +6044,7 @@ export function GenesisCalendar() {
                     title="Редактировать задачу"
                     aria-label={namedAction("Редактировать задачу", task.title, language)}
                   >{experimentalThemeActive ? <ExperimentalIcon name="edit" /> : "✎"}</button>
-                  <button type="button" className="task-delete" onClick={() => deleteTask(task.id)} aria-label={namedAction("Удалить задачу", task.title, language)}>{experimentalThemeActive ? <ExperimentalIcon name="delete" /> : "×"}</button>
+                  <button type="button" className="task-delete personal-action-hint" data-action-hint={translateText("Удалить задачу", language)} onClick={() => deleteTask(task.id)} aria-label={namedAction("Удалить задачу", task.title, language)}>{experimentalThemeActive ? <ExperimentalIcon name="delete" /> : "×"}</button>
                 </div>
                   <label className="task-project-move"><span>{language === "en" ? "Move to" : "Переместить в"}</span>
                     <select aria-label={namedAction("Переместить задачу", task.title, language)} value={resolvedTaskProjectId(task) ?? ""} onChange={(event) => moveProjectItemToProject({ kind: "task", id: task.id, title: task.title }, event.target.value || TASK_INBOX_PROJECT_ID)}>
@@ -6271,7 +6272,9 @@ export function GenesisCalendar() {
       ? Math.round((Date.UTC(profaneYear + 1, profaneStartMonth, 1) - Date.UTC(profaneYear, profaneStartMonth, 1)) / 86_400_000)
       : Math.round((Date.UTC(lunarYear.endDate.getFullYear(), lunarYear.endDate.getMonth(), lunarYear.endDate.getDate()) - Date.UTC(lunarYear.startDate.getFullYear(), lunarYear.startDate.getMonth(), lunarYear.startDate.getDate())) / 86_400_000);
     const yearTitle = mode === "profane"
-      ? (language === "en" ? `Gregorian year ${profaneYearLabel}` : `Григорианский год ${profaneYearLabel}`)
+      ? (sacredFeaturesEnabled
+          ? (language === "en" ? `Gregorian year ${profaneYearLabel}` : `Григорианский год ${profaneYearLabel}`)
+          : (language === "en" ? `Year ${profaneYearLabel}` : `Год ${profaneYearLabel}`))
       : (language === "en" ? `Lunar year ${lunarYear.sacredYear}–${lunarYear.sacredYear + 1}` : `Лунный год ${lunarYear.sacredYear}–${lunarYear.sacredYear + 1}`);
     const yearDescription = mode === "profane"
       ? "Современный григорианский календарь — профанская гражданская система с многослойной историей. Его месяцы и счёт года унаследованы от Рима. Предпосылки семидневной недели восходят к Древнему Вавилону: вавилонская астрология придала особое значение семи видимым небесным светилам. В Рим семидневный ритм пришёл по двум линиям — иудейской субботней и греко-римской планетарной. В античном мире дни недели получили небесных покровителей — Солнце, Луну, Марс, Меркурий, Юпитер, Венеру и Сатурн, — и так ещё в древности сложился сакральный образ каждого дня. Традиция отмечать Новый год 1 января тоже пришла из Рима и не была изобретена одним человеком. Январь связывали с Янусом, богом дверей, переходов и начал. В 153 году до н. э. вступление консулов в должность перенесли на этот день, чтобы они раньше отправились на войну в Испании; поскольку годы называли именами консулов, 1 января стало гражданским началом года, а реформа Юлия Цезаря закрепила эту традицию. В 1582 году папа Григорий XIII ввёл названную его именем реформу, чтобы исправить накопившееся смещение юлианского календаря и вернуть весеннее равноденствие к церковному расчёту Пасхи. Поэтому современный календарь соединяет вавилонско-иудейское, греко-римское, римское гражданское и христианско-церковное наследие. В символической системе GENESIS покровителем этого летоисчисления выступает Кронос — образ времени, меры, предела и неумолимого хода циклов. Суббота здесь понимается как сакральный день обязательного покоя: время прекращать обычный труд, восстанавливать тело и возвращаться к внутренней тишине. Эта практика созвучна иудейскому Шаббату — седьмому дню, когда предписано воздерживаться от работы и посвящать день Богу."
@@ -6410,8 +6413,8 @@ export function GenesisCalendar() {
                         className={`mini-day${dayTasks ? " has-task" : ""}${dateValue === todayDateValue ? " today" : ""}${solar ? " solar" : ""}${isSaturday ? " saturday" : ""}`}
                         key={dateValue}
                         onClick={() => openCalendarDate(date, "year")}
-                        aria-label={`${formatCalendarDate(date, mode, true)}${sacredFeaturesEnabled ? `${mode === "profane" ? `; ${weekdayPatron.weekday}, ${weekdayPatron.patronage}` : ""}; ${sacredDay.name}` : ""}; ${moon.day} ${translateText("лунный день", language)}${dayTasks ? `; ${formatTaskCount(dayTasks, language)}` : ""}`}
-                        title={`${formatGregorian(date, true)}${sacredFeaturesEnabled ? `${mode === "profane" ? ` · ${weekdayPatron.patronage}` : ""} · ${formatCalendarDate(date, "sacred")}` : ""} · ${moon.day} ${translateText("лунный день", language)}`}
+                        aria-label={`${formatCalendarDate(date, mode, true)}${sacredFeaturesEnabled ? `${mode === "profane" ? `; ${weekdayPatron.weekday}, ${weekdayPatron.patronage}` : ""}; ${sacredDay.name}; ${moon.day} ${translateText("лунный день", language)}` : ""}${dayTasks ? `; ${formatTaskCount(dayTasks, language)}` : ""}`}
+                        title={`${formatGregorian(date, true)}${sacredFeaturesEnabled ? `${mode === "profane" ? ` · ${weekdayPatron.patronage}` : ""} · ${formatCalendarDate(date, "sacred")} · ${moon.day} ${translateText("лунный день", language)}` : ""}`}
                       >
                         <span className="mini-day-number">{date.getDate()}</span>
                         <CalendarYearTaskCounts tasks={cellTasks} />
@@ -6624,7 +6627,7 @@ export function GenesisCalendar() {
         </header>
         <header className="topbar" data-exp-ui="topbar">
           <div className="topbar-date">
-            <span className="topbar-kicker">{view === "stoicheion" || view === "theokyklos" ? "Оракул" : view === "habits" ? (language === "en" ? "Habit tracker" : "Трекер привычек") : CALENDAR_MODE_META[activeCalendarMode].label}</span>
+            {sacredFeaturesEnabled ? <span className="topbar-kicker">{view === "stoicheion" || view === "theokyklos" ? "Оракул" : view === "habits" ? (language === "en" ? "Habit tracker" : "Трекер привычек") : CALENDAR_MODE_META[activeCalendarMode].label}</span> : null}
             <strong>{formatCalendarDate(today, activeCalendarMode, activeCalendarMode !== "sacred")}</strong>
           </div>
           {experimentalThemeActive ? renderDisplayCalendarChoice(language === "en" ? "Display calendar" : "Календарь отображения", "topbar-calendar-choice") : null}
@@ -6890,7 +6893,7 @@ export function GenesisCalendar() {
       ) : null}
       {dayDetailsOpen ? (
         <div className="modal-backdrop day-details-backdrop" role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) setDayDetailsOpen(false); }}>
-          <section ref={dayDetailsDialogRef} className={`day-details-modal mode-${activeCalendarMode}${selectedSolarEvent ? " solar-selected-day" : ""}`} role="dialog" aria-modal="true" aria-labelledby="selected-day-title" aria-describedby="selected-day-description" tabIndex={-1}>
+          <section ref={dayDetailsDialogRef} className={`day-details-modal mode-${activeCalendarMode}${selectedSolarEvent ? " solar-selected-day" : ""}`} role="dialog" aria-modal="true" aria-labelledby="selected-day-title" aria-describedby={sacredFeaturesEnabled ? "selected-day-description" : undefined} tabIndex={-1}>
             <DialogCloseButton type="button" className="modal-close" onClick={() => setDayDetailsOpen(false)} aria-label="Закрыть сведения о дне" />
             <header className="day-details-hero">
             <div className="day-details-introduction">
@@ -6900,7 +6903,7 @@ export function GenesisCalendar() {
             <div className="day-details-heading">
               <div className="selected-day-symbol" aria-hidden="true">{selectedSolarEvent?.symbol ?? (activeCalendarMode === "lunar" ? "☾" : activeCalendarMode === "profane" ? <WeekdaySymbol weekday={selectedDate.getDay()} /> : selectedElement.symbol)}</div>
               <div className="selected-day-copy">
-                <span className="eyebrow">{!sacredFeaturesEnabled ? formatGregorian(selectedDate,true) : activeCalendarMode === "profane"
+                <span className="eyebrow">{!sacredFeaturesEnabled ? (language === "en" ? "Day plan" : "План дня") : activeCalendarMode === "profane"
                   ? `${formatCalendarDate(selectedDate, "sacred")} · ${selectedMoon.day} ${language === "en" ? "lunar day" : "лунный день"}`
                   : activeCalendarMode === "lunar"
                     ? `${formatGregorian(selectedDate, true)} · ${formatCalendarDate(selectedDate, "sacred")}`
@@ -6910,18 +6913,18 @@ export function GenesisCalendar() {
                   : activeCalendarMode === "lunar"
                     ? `${selectedLunarDate.month.name} · ${selectedMoon.day} ${language === "en" ? "lunar day" : "лунный день"}`
                     : selectedSacredDay.name}</h2>
-                <p id="selected-day-description">{!sacredFeaturesEnabled ? `${selectedMoon.phase} · ${selectedMoon.illumination}%` : activeCalendarMode === "lunar"
+                {sacredFeaturesEnabled ? <p id="selected-day-description">{activeCalendarMode === "lunar"
                   ? (language === "en"
                       ? `${selectedLunarDate.isThreshold ? "Threshold" : selectedLunarDate.decade.name} · ${selectedMoon.phase} · ${selectedMoon.illumination}% illuminated. ${selectedLunarDate.month.description} Sacred meaning of the day: ${selectedSacredDay.name} — ${selectedSacredDay.description}`
                       : `${selectedLunarDate.isThreshold ? "Рубеж" : selectedLunarDate.decade.name} · ${selectedMoon.phase} · освещённость ${selectedMoon.illumination}%. ${selectedLunarDate.month.description} Сакральный смысл дня: ${selectedSacredDay.name} — ${selectedSacredDay.description}`)
                   : activeCalendarMode === "profane"
                     ? `${selectedWeekdayPatron.patronage}. ${selectedWeekdayPatron.deity} ${language === "en" ? "Body parts:" : "Части тела:"} ${selectedWeekdayPatron.bodyParts}`
-                    : selectedSacredDay.description}</p>
-                {selectedSolarEvent ? <strong className="selected-solar-event">{selectedSolarEvent.name} · {formatSolarEventTime(selectedSolarEvent.date)} · День Солнца</strong> : null}
+                    : selectedSacredDay.description}</p> : null}
+                {sacredFeaturesEnabled && selectedSolarEvent ? <strong className="selected-solar-event">{selectedSolarEvent.name} · {formatSolarEventTime(selectedSolarEvent.date)} · День Солнца</strong> : null}
               </div>
             </div>
             </div>
-              <dl className="selected-day-facts">
+              {sacredFeaturesEnabled ? <dl className="selected-day-facts">
                 {selectedSolarEvent ? <div className="solar-fact"><dt>Солнечная точка</dt><dd>{selectedSolarEvent.name} · {formatSolarEventTime(selectedSolarEvent.date)}</dd></div> : null}
                 {sacredFeaturesEnabled && activeCalendarMode === "profane" ? <div><dt>{language === "en" ? "Sacralization of the day" : "Сакрализация дня"}</dt><dd>{selectedWeekdayPatron.weekday} · {selectedWeekdayPatron.guidanceTitle}</dd></div> : null}
                 <div><dt>Григорианская дата</dt><dd>{formatGregorian(selectedDate, true)}</dd></div>
@@ -6932,7 +6935,7 @@ export function GenesisCalendar() {
                 {sacredFeaturesEnabled ? <><div><dt>Стихия</dt><dd>{selectedElement.name}</dd></div>
                 <div><dt>Пята</dt><dd>{selectedSacredDay.pyataTitle || "Апейрон"}</dd></div>
                 <div><dt>Число</dt><dd>{selectedPythagorean?.name || "Безграничное"}</dd></div></> : null}
-              </dl>
+              </dl> : null}
             </header>
             {activeCalendarMode === "profane" && sacredFeaturesEnabled ? (
               <article className={`profane-day-guidance weekday-${selectedDate.getDay()}`} aria-labelledby="profane-day-guidance-title">
@@ -7037,7 +7040,7 @@ export function GenesisCalendar() {
                 </div>
               </section>
             ) : null}
-            <details className="day-details-celestial" open={activeCalendarMode !== "sacred" ? true : undefined}>
+            {sacredFeaturesEnabled ? <details className="day-details-celestial" open={activeCalendarMode !== "sacred" ? true : undefined}>
               <summary>
                 <span><i aria-hidden="true">☾</i> Луна и Солнце</span>
                 <small>Фаза Луны, рассвет и закат</small>
@@ -7068,7 +7071,7 @@ export function GenesisCalendar() {
                   </div>
                 </article>
               </div>
-            </details>
+            </details> : null}
             {dayDetailsOrigin === "year" ? (
               <div className="day-details-actions">
                 <button type="button" className="primary-button" onClick={() => {

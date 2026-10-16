@@ -317,6 +317,7 @@ private fun RhythmFactCard(fact: DayRhythmFact) {
 @Composable
 internal fun CalendarSelectedDayFacts(date: LocalDate, calendar: GenesisCalendar, solarLocation: SolarLocation,
     primaryMode: CalendarMode = CalendarMode.SACRED) {
+    if (!LocalSacredFeaturesEnabled.current) return
     val sacred = calendar.sacredDate(date)
     val month = SacredCatalog.months[sacred.monthIndex]
     val day = month.days[sacred.day - 1]

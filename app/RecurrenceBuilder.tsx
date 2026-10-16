@@ -18,6 +18,7 @@ import {
 } from "./task-recurrence";
 import { CalendarDatePicker } from "./CalendarDatePicker";
 import { RecordCalendarChoice } from "./RecordCalendarChoice";
+import { useSacredFeaturesEnabled } from "./sacred-features";
 import { getRuntimeLanguage, translateText } from "./i18n";
 
 const PYATA_DAY_LABELS = ["I", "II", "III", "IIII", "V"];
@@ -85,8 +86,9 @@ export function RecurrenceBuilder({
   const value = destination === "tracker"
     ? normalizeRecurrenceConfig(rawValue)
     : normalizeRecurrenceConfig(alignRecurrenceConfigWithCalendar(rawValue, calendarMode, startDate));
+  const sacredFeaturesEnabled = useSacredFeaturesEnabled();
   const shortDate = (date: string, mode: CalendarMode, includeYear = false) =>
-    formatCalendarDateValue(date, mode, includeYear, value.calendarContext);
+    formatCalendarDateValue(date, sacredFeaturesEnabled ? mode : "profane", includeYear, value.calendarContext);
   const displayCalendarMode = destination === "tracker"
     ? calendarModeForRecurrence(value.mode)
     : calendarMode;

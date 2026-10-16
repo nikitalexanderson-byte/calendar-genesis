@@ -40,8 +40,8 @@ data class UiVisibility(
     val enabledCalendars: Set<String> = setOf("profane", "sacred", "lunar"),
     val sacredFeaturesEnabled: Boolean = true,
 ) {
-    val visibleCalendars: Set<String> get() = enabledCalendars
-        .filter { sacredFeaturesEnabled || it != "sacred" }.toSet().ifEmpty { setOf("profane") }
+    val visibleCalendars: Set<String> get() = if (!sacredFeaturesEnabled) setOf("profane")
+        else enabledCalendars.ifEmpty { setOf("profane") }
     fun toJson(): JSONObject = JSONObject()
         .put("hiddenMenuItems", JSONArray(hiddenMenuItems.toList()))
         .put("hiddenSubmenus", JSONArray(hiddenSubmenus.toList()))

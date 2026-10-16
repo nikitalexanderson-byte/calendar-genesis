@@ -2938,7 +2938,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /gregorianWeekdayOffset\(month\.dates\[0\], activeWeekStart\)/);
   assert.match(calendar, /activeWeekStart === "monday" \? 8 : 7/);
   assert.match(accountPanel, /changeWeekStart/);
-  assert.match(accountPanel, /user\.calendarMode \?\? "sacred"\) === "profane"/);
+  assert.match(accountPanel, /visibleCalendarMode\(user\.calendarMode \?\? "sacred", visibility\) === "profane"/);
   assert.match(cloudSync, /weekStart\?: "sunday" \| "monday"/);
   assert.match(repository, /week_start = :week_start/);
   assert.match(calendar, /<CalendarModeIcon mode=\{mode\} size=\{35\}/);

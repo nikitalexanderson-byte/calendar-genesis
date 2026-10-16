@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent" android:layout_height="wrap_content"
     android:orientation="vertical">
     <LinearLayout android:id="@+id/reminder_type_badge"
@@ -7,7 +8,8 @@
         android:orientation="horizontal" android:gravity="center_vertical"
         android:paddingHorizontal="8dp" android:paddingVertical="4dp"
         android:background="@drawable/notification_task_badge">
-        <ImageView android:id="@+id/reminder_type_icon"
+        <!-- RemoteViews inflates framework ImageView, so its tint must use the Android namespace. -->
+        <ImageView android:id="@+id/reminder_type_icon" tools:ignore="UseAppTint"
             android:layout_width="18dp" android:layout_height="18dp"
             android:layout_marginEnd="6dp" android:src="@drawable/ic_notification_task"
             android:tint="#FFFFFF" android:importantForAccessibility="no" />

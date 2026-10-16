@@ -93,10 +93,6 @@ class HabitSettingsFlowTest {
             assertTrue(toneBounds.first().left >= cardBounds.left)
             assertTrue(toneBounds.last().right <= cardBounds.right)
             assertTrue(toneBounds.zipWithNext().all { (left, right) -> left.right <= right.left })
-            compose.onNodeWithText("При выборе стиля сразу появится тестовое уведомление с примером формулировки.")
-                .performScrollTo()
-            assertTrue(UiDevice.getInstance(instrumentation).takeScreenshot(
-                java.io.File(app.getExternalFilesDir(null), "habit-tone-settings.png")))
             if (!app.scheduler.notificationsAllowed()) {
                 compose.onNodeWithTag("habit-notifications-enabled")
                     .performScrollTo().assertIsEnabled().performClick()
@@ -112,6 +108,10 @@ class HabitSettingsFlowTest {
                 }
                 compose.waitForIdle()
             }
+            compose.onNodeWithText("При выборе стиля сразу появится тестовое уведомление с примером формулировки.")
+                .performScrollTo()
+            assertTrue(UiDevice.getInstance(instrumentation).takeScreenshot(
+                java.io.File(app.getExternalFilesDir(null), "habit-tone-settings.png")))
             val targetTone = if (runBlocking { repository.workspace.first().settings.notifications.tone } == "heroic")
                 "ironic" else "heroic"
             compose.onNodeWithTag("habit-notification-tone-$targetTone")

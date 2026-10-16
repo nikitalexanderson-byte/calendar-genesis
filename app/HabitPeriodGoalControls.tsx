@@ -7,7 +7,7 @@ import { habitPeriodProgress } from "./habit-period-progress";
 import { habitGoalPeriod, type HabitPeriodGoal } from "./habit-period-goal";
 import { translateText, type Language } from "./i18n";
 import "./habit-period-goal.css";
-import { useCalendarModeAvailable } from "./sacred-features";
+import { useSacredFeaturesEnabled } from "./sacred-features";
 
 export function HabitPeriodGoalFields({ habit, language, calendarMode, isExisting, hadPeriodGoal = false, onChange, onValidity }: {
   habit: Habit; language: Language; calendarMode: CalendarMode; isExisting: boolean;
@@ -16,7 +16,7 @@ export function HabitPeriodGoalFields({ habit, language, calendarMode, isExistin
 }) {
   const t = (text: string) => translateText(text, language);
   const goal = habit.periodGoal;
-  const calendarAvailable = useCalendarModeAvailable(goal?.calendar);
+  const sacredFeaturesEnabled = useSacredFeaturesEnabled();
   const [target, setTarget] = useState(String(goal ? goal.target / (goal.metric === "sum" ? 1000 : 1) : 3));
   const [invalid, setInvalid] = useState(false);
   const change = (next: HabitPeriodGoal | null, text = target) => {
@@ -47,9 +47,9 @@ export function HabitPeriodGoalFields({ habit, language, calendarMode, isExistin
           <option value="sum" disabled={!habit.measurement}>{t("Сумма значений")}</option></select></label>
         <label><span>{t("Цель за период")}</span><input inputMode={goal.metric === "sum" ? "decimal" : "numeric"}
           required maxLength={16} value={target} aria-invalid={invalid} onChange={event => { setTarget(event.target.value); change(goal, event.target.value); }}/></label>
-        <label><span>{t("Календарь цели")}</span><select value={goal.calendar} onChange={event => change({ ...goal, calendar: event.target.value as CalendarMode })}>
-          <option value="profane">{t("Григорианский")}</option>{calendarAvailable("sacred") ? <option value="sacred">{t("Сакральный")}</option> : null}<option value="lunar">{t("Лунный")}</option>
-        </select></label>
+        {sacredFeaturesEnabled ? <label><span>{t("Календарь цели")}</span><select value={goal.calendar} onChange={event => change({ ...goal, calendar: event.target.value as CalendarMode })}>
+          <option value="profane">{t("Григорианский")}</option><option value="sacred">{t("Сакральный")}</option><option value="lunar">{t("Лунный")}</option>
+        </select></label> : null}
       </> : null}
     </div>
     {invalid ? <p role="alert">{t("Укажите положительную цель: целое число дней или выполнений, либо сумму с точностью до трёх знаков.")}</p> : null}
@@ -57,7 +57,7 @@ export function HabitPeriodGoalFields({ habit, language, calendarMode, isExistin
       <p>{t(goal.metric === "days" ? "Один день считается один раз после достижения порога дня." : goal.metric === "entries"
         ? "Каждая отдельная запись считается одним выполнением, даже в один день." : "Все значения разрешённых дней складываются за период.")}</p>
       <p>{t("Разрешённые дни задаются в расписании. Дни отдыха не прерывают серию.")}</p>
-      <p>{goal.context.timeZone}{boundary ? ` · ${formatCalendarDateValue(boundary.start, goal.calendar, true, goal.context)} — ${formatCalendarDateValue(addCivilDays(boundary.end, -1), goal.calendar, true, goal.context)}` : ""}</p>
+      <p>{goal.context.timeZone}{boundary ? ` · ${formatCalendarDateValue(boundary.start, sacredFeaturesEnabled ? goal.calendar : "profane", true, goal.context)} — ${formatCalendarDateValue(addCivilDays(boundary.end, -1), sacredFeaturesEnabled ? goal.calendar : "profane", true, goal.context)}` : ""}</p>
     </> : null}
     {isExisting && (goal || hadPeriodGoal) ? <p>{t("Изменения периодической цели и расписания действуют со следующей границы периода. История сохраняется.")}</p> : null}
   </fieldset>;
@@ -66,6 +66,7 @@ export function HabitPeriodGoalFields({ habit, language, calendarMode, isExistin
 export function HabitPeriodGoalProgress({ habit, workspace, date, language }: {
   habit: Habit; workspace: HabitWorkspace; date: string; language: Language;
 }) {
+  const sacredFeaturesEnabled = useSacredFeaturesEnabled();
   const state = habitPeriodProgress(habit, date, workspace);
   if (!state) return null;
   const t = (text: string) => translateText(text, language);
@@ -75,7 +76,7 @@ export function HabitPeriodGoalProgress({ habit, workspace, date, language }: {
     <div className="habit-measurement-summary"><strong>{t(state.goal.period === "week" ? "За неделю" : "За месяц")}: {format(state.value)} / {format(state.goal.target)}</strong>
       <span>{state.completed ? t("Цель достигнута") : `${t("Осталось")}: ${format(state.remaining)}`}</span></div>
     <p>{t(state.goal.metric === "days" ? "Разные дни" : state.goal.metric === "entries" ? "Отдельные выполнения" : "Сумма значений")}
-      {` · ${formatCalendarDateValue(state.start, state.goal.calendar, true, state.goal.context)} — ${formatCalendarDateValue(addCivilDays(state.end, -1), state.goal.calendar, true, state.goal.context)} · ${state.goal.context.timeZone}`}</p>
+      {` · ${formatCalendarDateValue(state.start, sacredFeaturesEnabled ? state.goal.calendar : "profane", true, state.goal.context)} — ${formatCalendarDateValue(addCivilDays(state.end, -1), sacredFeaturesEnabled ? state.goal.calendar : "profane", true, state.goal.context)} · ${state.goal.context.timeZone}`}</p>
     <p>{t("Период засчитывается в серии, дневной цели и квестах в последний разрешённый день.")}</p>
     {state.qualityPending ? <p>{t("Для завершения подтвердите качество выполнения.")}</p> : null}
     {state.conflicts ? <p role="alert">{t("Одновременные исправления. Выберите правильное значение.")}</p> : null}

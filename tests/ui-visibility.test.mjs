@@ -9,11 +9,22 @@ test('the sacred layer hides its entry points without changing saved calendar or
   assert.equal(viewIsVisible('theokyklos',hidden),false);
   assert.equal(viewIsVisible('calendar',hidden),true);
   assert.equal(viewIsVisible('habits',hidden),true);
-  assert.deepEqual(visibleCalendarModes(hidden),['lunar']);
-  assert.equal(visibleCalendarMode('sacred',hidden),'lunar');
+  assert.deepEqual(visibleCalendarModes(hidden),['profane']);
+  assert.equal(visibleCalendarMode('sacred',hidden),'profane');
+  assert.equal(visibleCalendarMode('lunar',hidden),'profane');
   assert.deepEqual(hidden.enabledCalendars,original.enabledCalendars);
   assert.deepEqual(hidden.hiddenMenuItems,original.hiddenMenuItems);
   assert.deepEqual(uiVisibility({...hidden,sacredFeaturesEnabled:true}),original);
+});
+
+test('disabling sacred features temporarily uses Gregorian for every saved calendar combination', () => {
+  for (const enabledCalendars of [['profane','sacred','lunar'],['lunar'],['sacred','lunar'],['profane']]) {
+    const saved = uiVisibility({enabledCalendars,sacredFeaturesEnabled:false});
+    assert.deepEqual(visibleCalendarModes(saved),['profane']);
+    for (const mode of ['profane','sacred','lunar']) assert.equal(visibleCalendarMode(mode,saved),'profane');
+    assert.deepEqual(saved.enabledCalendars,enabledCalendars);
+    assert.deepEqual(visibleCalendarModes({...saved,sacredFeaturesEnabled:true}),enabledCalendars);
+  }
 });
 
 test('a sacred-only account gets a temporary civil display and recovers its original calendar', () => {

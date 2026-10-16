@@ -109,33 +109,33 @@ internal fun HabitSettingsPanel(app: GenesisApplication, use24: Boolean) {
                     FilterChip(selected = settings.notifications.tone == value,
                         onClick = {
                             save(settings.copy(notifications = settings.notifications.copy(tone = value))) {
-                                if (!app.scheduler.showHabitTonePreview(value, language))
+                                if (notificationsAllowed && !app.scheduler.showHabitTonePreview(value, language))
                                     error = "Android не разрешил показать пример уведомления."
                             }
                         },
-                        enabled = notificationsAllowed && !busy,
+                        enabled = !busy,
                         label = { CompactChoiceLabel(label) }, modifier = Modifier.weight(1f).heightIn(min = 48.dp)
                             .testTag("habit-notification-tone-$value"))
                 }
             }
-            Text("При выборе стиля сразу появится тестовое уведомление с примером формулировки.",
+            if (notificationsAllowed) Text("При выборе стиля сразу появится тестовое уведомление с примером формулировки.",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             TimePreference("Напоминание о дневной цели", settings.notifications.dailyGoalTime,
-                use24, notificationsAllowed && !busy) {
+                use24, !busy) {
                 save(settings.copy(notifications = settings.notifications.copy(dailyGoalTime = it)))
             }
             TimePreference("Начало тихих часов", settings.notifications.quietHoursStart,
-                use24, notificationsAllowed && !busy) {
+                use24, !busy) {
                 save(settings.copy(notifications = settings.notifications.copy(quietHoursStart = it)))
             }
             TimePreference("Конец тихих часов", settings.notifications.quietHoursEnd,
-                use24, notificationsAllowed && !busy) {
+                use24, !busy) {
                 save(settings.copy(notifications = settings.notifications.copy(quietHoursEnd = it)))
             }
             PreferenceSwitchRow("Напоминания о цели и серии",
                 "Показываются только пока цель достижима; не стыдят и не отнимают прогресс.",
-                settings.notifications.motivational, settings.notifications.enabled && notificationsAllowed && !busy,
+                settings.notifications.motivational, !busy,
                 "habit-notifications-motivational") {
                 save(settings.copy(notifications = settings.notifications.copy(motivational = it)))
             }

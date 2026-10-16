@@ -4,7 +4,7 @@ import { CalendarDatePicker } from "./CalendarDatePicker";
 import { calendarContext, type CalendarContext } from "./calendar-context";
 import { type CalendarMode } from "./calendar-data";
 import { DialogCloseButton } from "./DialogCloseButton";
-import { useCalendarModeAvailable } from "./sacred-features";
+import { useSacredFeaturesEnabled } from "./sacred-features";
 import { SharedBulkActions } from "./SharedBulkActions";
 import { useSharedTaskPage } from "./use-shared-task-page";
 import { sharedPriorityLabel, sharedTaskDetailsError } from "./shared-task-details";
@@ -81,10 +81,10 @@ export function SharedSavedViews({userId,spaces,mode,opened,onClose,onOpen}:{use
   const [draft,setDraft]=useState<Draft>(()=>restoreDraft(storageKey,mode));
   const [editor,setEditor]=useState(draft.dirty),[list,setList]=useState<SharedSavedViewPage|null>(null),[error,setError]=useState(""),[busy,setBusy]=useState(false),[listLoading,setListLoading]=useState(false),[listError,setListError]=useState("");
   const dialog=useRef<HTMLDialogElement>(null);
-  const calendarAvailable=useCalendarModeAvailable(draft.id?draft.definition?.calendarMode:undefined);
+  const sacredFeaturesEnabled=useSacredFeaturesEnabled();
   // Keep an unsaved hidden draft intact for re-enabling; display and submit the same visible mode.
-  const effectiveDraft = !draft.id && draft.definition?.calendarMode === "sacred" && !calendarAvailable("sacred")
-    ? {...draft,definition:{...draft.definition,calendarMode:mode === "sacred" ? "profane" as const : mode}} : draft;
+  const effectiveDraft = !draft.id && draft.definition && !sacredFeaturesEnabled
+    ? {...draft,definition:{...draft.definition,calendarMode:"profane" as const}} : draft;
   useEffect(()=>{const element=dialog.current;if(opened&&!element?.open)element?.showModal();else if(!opened&&element?.open)element.close();},[opened]);
   const [metadata,setMetadata]=useState<SharedSavedView|null>(null),[filter,setFilter]=useState<SharedTaskFilter|null>(null),[optionsVersion,setOptionsVersion]=useState(0);
   const rolesKey=spaces.map(space=>`${space.id}:${space.role}`).sort().join("|");
@@ -223,7 +223,7 @@ export function SharedSavedViews({userId,spaces,mode,opened,onClose,onOpen}:{use
           <label>{t("Выполнение")}<select value={definition.filter.completion??"any"} onChange={event=>criteria({completion:event.target.value as SharedTaskCriteria["completion"]})}><option value="any">{t("Все задачи")}</option><option value="open">{t("Текущие")}</option><option value="completed">{t("Завершённые")}</option></select></label>
           <label>{t("Сортировка")}<select value={definition.sort} onChange={event=>update({sort:event.target.value as SharedSavedViewDefinition["sort"]})}>{sortOptions.map(([value,label])=><option key={value} value={value}>{t(label)}</option>)}</select></label>
           <label>{t("Период")}<select value={definition.relative} onChange={event=>update({relative:event.target.value as SharedSavedViewDefinition["relative"]})}>{([ ["none","Фиксированный диапазон"],["overdue","Просрочено"],["this-week","На этой неделе"],["this-month","В этом месяце"]]as const).map(([value,label])=><option key={value} value={value}>{t(label)}</option>)}</select></label>
-          <label>{t("Календарь")}<select value={definition.calendarMode} onChange={event=>update({calendarMode:event.target.value as CalendarMode})}>{([ ["profane","Григорианский"],["sacred","Сакральный"],["lunar","Лунный"]]as const).filter(([value])=>calendarAvailable(value)).map(([value,label])=><option key={value} value={value}>{t(label)}</option>)}</select></label>
+          {sacredFeaturesEnabled ? <label>{t("Календарь")}<select value={definition.calendarMode} onChange={event=>update({calendarMode:event.target.value as CalendarMode})}>{([ ["profane","Григорианский"],["sacred","Сакральный"],["lunar","Лунный"]]as const).map(([value,label])=><option key={value} value={value}>{t(label)}</option>)}</select></label> : null}
           <label>{t("Начало года")}<select value={definition.calendarContext.gregorianYearStart} onChange={event=>update({calendarContext:{...definition.calendarContext,gregorianYearStart:event.target.value as CalendarContext["gregorianYearStart"]}})}><option value="january">{t("Январь")}</option><option value="march">{t("Март")}</option></select></label>
           <label>{t("Часовой пояс")}<input value={definition.calendarContext.timeZone} aria-invalid={Boolean(zoneError)} aria-describedby={zoneError?"saved-view-zone-error":undefined} onChange={event=>update({calendarContext:{...definition.calendarContext,timeZone:event.target.value}})}/></label>
         </div>
