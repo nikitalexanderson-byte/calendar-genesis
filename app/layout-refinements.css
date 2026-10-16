@@ -1187,6 +1187,7 @@ html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .day-details
 html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .day-details-heading :is(h2, .eyebrow) { color: var(--ink); }
 html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .day-details-heading .selected-day-copy { min-width: 0; }
 html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .day-details-heading h2 { margin-bottom: 0; overflow-wrap: normal; }
+html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .year-month-top b { color: var(--ink); }
 @media (min-width: 761px) {
   html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .topbar { grid-template-columns: minmax(0, 1fr) auto; }
 }
