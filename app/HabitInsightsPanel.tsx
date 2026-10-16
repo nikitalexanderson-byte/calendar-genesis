@@ -13,6 +13,8 @@ import {
 } from "./calendar-data";
 import { translateText, type Language } from "./i18n";
 import { dateValuesBetween, isHabitScheduledForDate, type HabitWorkspace } from "./habits";
+import { habitRuleForDate } from "./habit-measurement";
+import { habitPeriodSettlement, habitPeriodStreak, habitQuestCompletions } from "./habit-period-progress";
 import {
   buildHabitPersonalRecord,
   buildHabitYearMosaic,
@@ -53,13 +55,18 @@ export function HabitInsightsPanel({ workspace, date, language, calendarMode, re
   const mosaic = useMemo(() => buildHabitYearMosaic(workspace.dailyGoalRecords, date, mosaicRange), [date, mosaicRange, workspace.dailyGoalRecords]);
   const records = useMemo(() => [...workspace.habits]
     .sort((left, right) => right.priority - left.priority || left.title.localeCompare(right.title))
-    .map((habit) => ({
-      habit,
-      record: buildHabitPersonalRecord(habit, workspace.habitCompletions, date, calendarMode, isHabitScheduledForDate, (value) => ({
+    .map((habit) => {
+      const goal = habitRuleForDate(habit,date).periodGoal;
+      const now = new Date();
+      const completions = goal ? habitQuestCompletions([habit],workspace,habit.createdDate,date,now,false) : workspace.habitCompletions;
+      const record = buildHabitPersonalRecord(habit, completions, date, calendarMode,
+        goal ? (value,day) => Boolean(habitPeriodSettlement(value,day,workspace,now)) : isHabitScheduledForDate, (value) => ({
         key: calendarMonthKey(value, calendarMode, reportContext),
         label: formatCalendarMonthValue(value, calendarMode, reportContext),
-      })),
-    })), [calendarMode, date, reportContext, workspace.habitCompletions, workspace.habits]);
+      }));
+      const streak = goal ? habitPeriodStreak(habit,date,workspace,now) : record.currentStreak;
+      return { habit, record: { ...record, periodUnit: goal?.period, currentStreak: streak, longestStreak: Math.max(record.longestStreak,streak) } };
+    }), [calendarMode, date, reportContext, workspace]);
   const rhythm = workspace.userProgress.rhythmScore;
   const perfectDays = mosaic.filter((cell) => cell.status === "perfect").length;
   const qualifiedDays = mosaic.filter((cell) => cell.status === "qualified" || cell.status === "perfect").length;
@@ -143,7 +150,7 @@ export function HabitInsightsPanel({ workspace, date, language, calendarMode, re
         <div className="habit-personal-record-grid">{records.map(({ habit, record }) => (
           <article style={{ "--habit-color": habit.color, "--mastery-progress": record.milestoneProgress } as CSSProperties} key={habit.id}>
             <header><span aria-hidden="true">{habit.emoji}</span><div><h4 data-no-translate>{habit.title}</h4><small>{isEnglish ? "Started" : "Начало"} {formatCalendarDateValue(record.startedAt, calendarMode, true)}</small></div><div className="habit-mastery-ring"><strong>{record.totalCompletions}</strong><small>{isEnglish ? "done" : "всего"}</small></div></header>
-            <div className="habit-record-metrics"><div><span>{isEnglish ? "Current streak" : "Текущая серия"}</span><strong>{record.currentStreak}</strong></div><div><span>{isEnglish ? "Best streak" : "Лучшая серия"}</span><strong>{record.longestStreak}</strong></div><div><span>{isEnglish ? "Completion" : "Выполнение"}</span><strong>{record.completionRate}%</strong></div><div><span>{isEnglish ? "Best month" : "Лучший месяц"}</span><strong>{record.bestMonth ?? "—"}</strong><small>{record.bestMonthCompletions || ""}</small></div></div>
+            <div className="habit-record-metrics"><div><span>{isEnglish ? "Current streak" : "Текущая серия"}</span><strong>{record.currentStreak}{record.periodUnit ? ` ${translateText("периодов",language)}` : ""}</strong></div><div><span>{isEnglish ? "Best streak" : "Лучшая серия"}</span><strong>{record.longestStreak}{record.periodUnit ? ` ${translateText("периодов",language)}` : ""}</strong></div><div><span>{isEnglish ? "Completion" : "Выполнение"}</span><strong>{record.completionRate}%</strong></div><div><span>{isEnglish ? "Best month" : "Лучший месяц"}</span><strong>{record.bestMonth ?? "—"}</strong><small>{record.bestMonthCompletions || ""}</small></div></div>
             <footer><div><span>{record.reachedMilestone ? (isEnglish ? `Milestone ${record.reachedMilestone}` : `Рубеж ${record.reachedMilestone}`) : (isEnglish ? "First milestone" : "Первый рубеж")}</span><div><i /></div></div><strong>{record.nextMilestone ? (isEnglish ? `${record.nextMilestone - record.totalCompletions} to ${record.nextMilestone}` : `${record.nextMilestone - record.totalCompletions} до ${record.nextMilestone}`) : (isEnglish ? "Highest milestone reached" : "Высший рубеж достигнут")}</strong></footer>
           </article>
         ))}</div>

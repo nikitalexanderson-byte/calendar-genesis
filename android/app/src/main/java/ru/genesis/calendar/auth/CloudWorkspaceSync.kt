@@ -54,7 +54,7 @@ internal class CloudWorkspaceSync(private val db: GenesisDatabase, private val t
                     val encrypted = WorkspaceCipher.encrypt(document.toString().toByteArray(), remote.key)
                     val response = transport.put(JSONObject().put("ciphertext", encrypted.ciphertext)
                         .put("iv", encrypted.iv).put("expectedVersion", remote.version)
-                        .put("writerProtocol",2).put("minimumWriterProtocol",minimumWriterProtocol(document)))
+                        .put("writerProtocol",3).put("minimumWriterProtocol",minimumWriterProtocol(document)))
                     val saved = response.getJSONObject("workspace")
                     saved.getLong("version").also { require(it == remote.version + 1) }
                 }
@@ -68,6 +68,10 @@ internal class CloudWorkspaceSync(private val db: GenesisDatabase, private val t
 
     private fun minimumWriterProtocol(document: JSONObject): Int {
         val habits=document.optJSONArray("habits")
+        if ((0 until (habits?.length() ?: 0)).any { index -> habits!!.getJSONObject(index).let { habit ->
+            habit.optJSONObject("periodGoal") != null || habit.optJSONArray("ruleHistory")?.let { rules ->
+                (0 until rules.length()).any { rules.getJSONObject(it).optJSONObject("periodGoal") != null }
+            } == true } }) return 3
         return if((document.optJSONArray("habitMeasurements")?.length() ?: 0)>0 ||
             (0 until (habits?.length() ?: 0)).any { index -> habits!!.getJSONObject(index).let {
                 it.optJSONObject("measurement")!=null || (it.optJSONArray("ruleHistory")?.length() ?: 0)>0 } }) 2 else 1

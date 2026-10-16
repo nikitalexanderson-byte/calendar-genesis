@@ -35,6 +35,17 @@ try {
     $stored = $db->query("SELECT version, minimum_writer_protocol, writer_protocol_version FROM workspace_blobs WHERE user_id='test-workspace-writer-protocol'")->fetch();
     if ((int)$stored['minimum_writer_protocol'] !== 2 || (int)$stored['writer_protocol_version'] !== 3)
         throw new RuntimeException('Protection was downgraded.');
+    $periodic = genesisSaveWorkspaceEnvelope($userId, $body + ['expectedVersion'=>3, 'writerProtocol'=>3, 'minimumWriterProtocol'=>3]);
+    if ($periodic['version'] !== 4) throw new RuntimeException('Periodic activation failed.');
+    foreach ([1,2] as $oldProtocol) {
+        try { genesisSaveWorkspaceEnvelope($userId,$body + ['expectedVersion'=>4,'writerProtocol'=>$oldProtocol]);
+            throw new RuntimeException('Pre-period client discarded period fields.'); }
+        catch (DomainException $error) { if ($error->getMessage() !== 'WORKSPACE_UPGRADE_REQUIRED') throw $error; }
+    }
+    $updated = genesisSaveWorkspaceEnvelope($userId,$body + ['expectedVersion'=>4,'writerProtocol'=>3]);
+    if ($updated['version'] !== 5) throw new RuntimeException('Current period writer failed.');
+    $stored = $db->query("SELECT minimum_writer_protocol FROM workspace_blobs WHERE user_id='test-workspace-writer-protocol'")->fetchColumn();
+    if ((int)$stored !== 3) throw new RuntimeException('Period protection was downgraded.');
     echo "Workspace writer: legacy compatibility, activation, rejection, rollback guard and current writes passed.\n";
 } finally {
     $db->rollBack();

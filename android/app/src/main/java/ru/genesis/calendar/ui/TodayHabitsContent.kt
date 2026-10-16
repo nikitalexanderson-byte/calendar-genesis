@@ -34,7 +34,8 @@ internal fun TodayHabitsContent(app: GenesisApplication, date: LocalDate,
     showTopDivider: Boolean = true) {
     val repository = remember(app) { HabitsRepository(app) }
     val engine = remember { HabitEngine(GenesisCalendar()) }
-    val scheduled = remember(workspace.habits, date) { workspace.habits.filter { engine.isScheduled(it, date) } }
+    val scheduled = remember(workspace.habits, date) { workspace.habits.filter { engine.isScheduled(it, date)
+        || it.active&&date>=it.createdDate&&HabitMeasurements.rule(it,date).periodGoal!=null } }
     val entries = workspace.completions.filter { it.date == date }.associateBy { it.habitId }
     val completed = scheduled.count { entries[it.id]?.completed == true }
     val scope = rememberCoroutineScope()
@@ -127,7 +128,7 @@ internal fun TodayHabitsContent(app: GenesisApplication, date: LocalDate,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                 Column(Modifier.padding(6.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = entry?.completed == true, enabled = !busy && date == LocalDate.now() && HabitMeasurements.rule(habit,date).measurement==null,
+                    Checkbox(checked = entry?.completed == true, enabled = !busy && date == LocalDate.now() && engine.isScheduled(habit,date) && HabitMeasurements.effective(HabitMeasurements.rule(habit,date))==null,
                         modifier = Modifier.testTag("today-habit-check-${habit.id}"),
                         onCheckedChange = { checked ->
                             if (checked && habit.scoringMode.startsWith("quality")) ratingHabit = habit
@@ -140,10 +141,11 @@ internal fun TodayHabitsContent(app: GenesisApplication, date: LocalDate,
                     }
                 }
                 HabitIntervalMarks(habit,entry,!busy&&date==LocalDate.now()) { time,checked -> markInterval(habit,time,checked) }
-                if(HabitMeasurements.rule(habit,date).measurement!=null) HabitMeasurementInputs(habit,workspace.measurements,date,entry,
-                    !busy&&date==LocalDate.now(),onRecord={amount,entryId,replaces,note ->
+                if(HabitMeasurements.effective(HabitMeasurements.rule(habit,date))!=null) HabitMeasurementInputs(habit,workspace.measurements,date,entry,
+                    !busy&&date==LocalDate.now()&&engine.isScheduled(habit,date),onRecord={amount,entryId,replaces,note ->
                         repository.recordMeasurement(habit.id,date,amount,entryId,replaces,note);Unit
                     },onQuality={quality -> repository.complete(habit.id,true,quality,date);Unit})
+                HabitPeriodGoalProgress(habit,workspace.measurements,workspace.completions,date)
                 }
             }
         }

@@ -26,7 +26,7 @@ import ru.genesis.calendar.domain.habits.*
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun HabitMeasurementFields(value: HabitMeasurement?, existing: Boolean, onChange: (HabitMeasurement?) -> Unit,
-    onValidity: (Boolean) -> Unit) {
+    onValidity: (Boolean) -> Unit, periodGoal: HabitPeriodGoal? = null, hadPeriodGoal: Boolean = false) {
     val context = LocalContext.current
     val language = LocalGenesisLanguage.current
     var target by remember { mutableStateOf(HabitMeasurements.editValue(value?.target ?: 1000)) }
@@ -45,19 +45,19 @@ internal fun HabitMeasurementFields(value: HabitMeasurement?, existing: Boolean,
         Text("Учёт выполнения",style=MaterialTheme.typography.titleMedium)
         FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             listOf(null to "Выполнено / не выполнено", "quantity" to "Количество", "duration" to "Длительность").forEach { (key,label) ->
-                FilterChip(selected=kind==key,onClick={kind=key;if(key=="duration") unit="min";change(key)},label={Text(label)})
+                FilterChip(selected=kind==key,enabled=key!=null||periodGoal?.metric!="sum",onClick={kind=key;if(key=="duration") unit="min";change(key)},label={Text(label)})
             }
         }
         if(kind != null) {
             OutlinedTextField(value=if(kind=="duration") translateGenesisText(context,"мин",language) else unit,
                 onValueChange={unit=it.take(40);change(kind)},enabled=kind!="duration",label={Text("Единица")},modifier=Modifier.fillMaxWidth())
-            OutlinedTextField(value=target,onValueChange={target=it.take(16);change(kind)},label={Text("Цель за день")},
+            if(periodGoal==null||periodGoal.metric=="days") OutlinedTextField(value=target,onValueChange={target=it.take(16);change(kind)},label={Text("Цель за день")},
                 keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal),isError=invalid&&HabitMeasurements.parse(target)==null,modifier=Modifier.fillMaxWidth())
             OutlinedTextField(value=step,onValueChange={step=it.take(16);change(kind)},label={Text("Быстрое добавление")},
                 keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal),isError=invalid&&HabitMeasurements.parse(step)==null,modifier=Modifier.fillMaxWidth())
         }
         if(invalid) Text("Укажите единицу и положительные значения с точностью до трёх знаков после запятой.",color=MaterialTheme.colorScheme.error)
-        if(existing) Text("Изменения цели и расписания действуют со следующего дня. История сохраняется.",style=MaterialTheme.typography.bodySmall)
+        if(existing&&periodGoal==null&&!hadPeriodGoal) Text("Изменения цели и расписания действуют со следующего дня. История сохраняется.",style=MaterialTheme.typography.bodySmall)
     }
 }
 
@@ -67,7 +67,9 @@ internal fun HabitMeasurementInputs(habit: Habit, events: List<HabitMeasurementE
     completion: HabitCompletion?, enabled: Boolean,
     onRecord: suspend (Long?,String?,List<String>,String) -> Unit, onQuality: suspend (Double) -> Unit) {
     val state = remember(habit,events,date) { HabitMeasurements.progress(habit,date,events) }
-    val definition = state.rule.measurement ?: return
+    val definition = HabitMeasurements.effective(state.rule) ?: return
+    val countOnly = state.rule.measurement==null
+    val periodicVolume = state.rule.periodGoal?.metric?.let { it!="days" }==true
     val language = LocalGenesisLanguage.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -84,8 +86,8 @@ internal fun HabitMeasurementInputs(habit: Habit, events: List<HabitMeasurementE
     val clock = remember(language,prefs.use24,state.rule.schedule.timezone) { DateTimeFormatter.ofPattern(if(prefs.use24) "HH:mm" else "hh:mm a",Locale.ROOT)
         .withLocale(Locale.forLanguageTag(language)).withZone(ZoneId.of(state.rule.schedule.timezone)) }
     fun formatFor(amount: Long,measurement: HabitMeasurement) = "${HabitMeasurements.format(amount,language)} ${if(measurement.kind=="duration") translateGenesisText(context,"мин",language) else measurement.unit}"
-    fun format(amount: Long) = formatFor(amount,definition)
-    fun formatEntry(event: HabitMeasurementEvent) = event.value?.let { amount -> formatFor(amount,
+    fun format(amount: Long) = if(countOnly) HabitMeasurements.format(amount,language) else formatFor(amount,definition)
+    fun formatEntry(event: HabitMeasurementEvent) = event.value?.let { amount -> if(countOnly) format(amount) else formatFor(amount,
         habit.ruleHistory.firstOrNull { it.id==event.ruleId }?.measurement ?: definition) }
         ?: translateGenesisText(context,"Запись удалена",language)
     fun save(amount: Long?, entry: HabitMeasurementEntry? = null) {
@@ -100,15 +102,15 @@ internal fun HabitMeasurementInputs(habit: Habit, events: List<HabitMeasurementE
         }
     }
     Column(Modifier.fillMaxWidth().padding(12.dp).testTag("habit-measurement-${habit.id}"),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-        Text("${format(state.total)} / ${format(state.target)}",style=MaterialTheme.typography.titleMedium)
-        Text(if(state.completed) "Цель достигнута" else "${translateGenesisText(context,"Осталось",language)}: ${format(state.remaining)}",style=MaterialTheme.typography.bodySmall)
+        Text(if(periodicVolume) "${translateGenesisText(context,"Записано сегодня",language)}: ${format(state.total)}" else "${format(state.total)} / ${format(state.target)}",style=MaterialTheme.typography.titleMedium)
+        if(!periodicVolume) Text(if(state.completed) "Цель достигнута" else "${translateGenesisText(context,"Осталось",language)}: ${format(state.remaining)}",style=MaterialTheme.typography.bodySmall)
         if(enabled) {
-            if(editing==null) OutlinedButton(enabled=!busy,onClick={save(definition.quickAdd)}) { Text("+ ${format(definition.quickAdd)}") }
-            OutlinedTextField(value=value,onValueChange={value=it.take(16)},label={Text("Значение")},enabled=!busy,
+            if(editing==null) OutlinedButton(enabled=!busy,onClick={save(definition.quickAdd)}) { Text(if(countOnly) "Добавить выполнение" else "+ ${format(definition.quickAdd)}") }
+            if(!countOnly) OutlinedTextField(value=value,onValueChange={value=it.take(16)},label={Text("Значение")},enabled=!busy,
                 keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal),modifier=Modifier.fillMaxWidth())
             OutlinedTextField(value=note,onValueChange={note=it.take(2000)},label={Text("Заметка")},enabled=!busy,modifier=Modifier.fillMaxWidth())
             FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                Button(enabled=!busy&&HabitMeasurements.parse(value)!=null,onClick={save(HabitMeasurements.parse(value),state.entries.firstOrNull { it.id==editing })}) {
+                if(!countOnly||editing!=null) Button(enabled=!busy&&(countOnly||HabitMeasurements.parse(value)!=null),onClick={save(if(countOnly) 1000L else HabitMeasurements.parse(value),state.entries.firstOrNull { it.id==editing })}) {
                     Text(if(editing==null) "Добавить значение" else "Сохранить")
                 }
                 if(editing!=null) TextButton(onClick={editing=null;value="";note=""}) { Text("Отмена") }

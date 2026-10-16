@@ -2,7 +2,7 @@ import { SearchMoonPhase, Seasons } from "astronomy-engine";
 import {
   addCivilDays, calendarContext, calendarContextKey, civilDayNumber, momentCivilDate,
   ASTRONOMY_FIRST_YEAR, ASTRONOMY_LAST_YEAR, CIVIL_DAY_MS, type CalendarContext,
-} from "./calendar-context";
+} from "./calendar-context.ts";
 
 export const MOON_CYCLE_DAYS = 29.53058867;
 export const MOON_REFERENCE_MOMENT = Date.UTC(2000, 0, 6, 18, 14);

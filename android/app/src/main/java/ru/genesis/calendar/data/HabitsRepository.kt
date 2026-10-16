@@ -139,7 +139,7 @@ class HabitsRepository(private val app: GenesisApplication) {
             require(date == today) { "Отметьте привычку в день выполнения." }
             require(engine().isScheduled(habit,date)) { "На этот день привычка не запланирована." }
             val existing=workspace.completions.firstOrNull { it.habitId==id && it.date==date }
-            val measurementState = if(HabitMeasurements.rule(habit,date).measurement != null)
+            val measurementState = if(HabitMeasurements.effective(HabitMeasurements.rule(habit,date)) != null)
                 HabitMeasurements.progress(habit,date,workspace.measurements) else null
             val entries=if(existing!=null && existing.completed==completed && existing.qualityValue==quality) workspace.completions else
                 engine().updateCompletion(workspace.completions,habit,date,today,completed,quality,existing?.note ?: "",
@@ -155,7 +155,7 @@ class HabitsRepository(private val app: GenesisApplication) {
         date: LocalDate = LocalDate.now()): HabitCompletionResult {
         val (before, after) = mutate { workspace ->
             val habit = workspace.habits.firstOrNull { it.id == id } ?: error("Привычка не найдена")
-            require(HabitMeasurements.rule(habit,date).measurement == null)
+            require(HabitMeasurements.effective(HabitMeasurements.rule(habit,date)) == null)
             require(date == LocalDate.now()) { "Отметьте привычку в день выполнения." }
             require(engine().isScheduled(habit,date)) { "На этот день привычка не запланирована." }
             workspace.copy(completions = engine().updateIntervalCompletion(workspace.completions,
@@ -217,13 +217,13 @@ class HabitsRepository(private val app: GenesisApplication) {
         val earliest=(workspace.habits.filter { it.active }.map { it.schedule.startDate }+workspace.completions.map { it.date }).minOrNull()
         var cursor=latest?.plusDays(1) ?: earliest?.coerceAtLeast(today.minusDays(3699)) ?: today
         while(cursor<=today) {
-            var record=engine().dailyGoalForDate(workspace.habits,workspace.completions,goals,emptyList(),emptySet(),cursor,today,timestamp)
+            var record=engine().dailyGoalForDate(workspace.habits,workspace.completions,goals,emptyList(),emptySet(),cursor,today,timestamp,workspace.measurements)
             if(cursor==timezoneBoundary) record=record.copy(timezone=zone,status="timezone-shift")
             if(record.status=="missed") protectableDates += record.date
             goals=DailyGoals.normalize(goals+record)
             cursor=cursor.plusDays(1)
         }
-        val current=engine().dailyGoalForDate(workspace.habits,workspace.completions,goals,emptyList(),emptySet(),today,today,timestamp)
+        val current=engine().dailyGoalForDate(workspace.habits,workspace.completions,goals,emptyList(),emptySet(),today,today,timestamp,workspace.measurements)
         goals=DailyGoals.normalize(goals.filterNot { it.date==today }+current)
         val (protectedGoals, freezes)=StreakProtection.protect(goals,workspace.streakFreezeTransactions,
             protectableDates,today,timestamp)
@@ -231,15 +231,27 @@ class HabitsRepository(private val app: GenesisApplication) {
         // The website retired per-missed-habit Laurel resets. Normalization also repairs old
         // local ledgers by ignoring those entries without discarding legitimate awards.
         val questsEnabled = workspace.settings.feedback.questsEnabled
-        val quests=if (questsEnabled) HabitQuests.reconcile(workspace.quests,workspace.habits,workspace.completions,
-            goals,today,timestamp) { habit,date -> engine().isScheduled(habit,date) } else workspace.quests
-        val nonQuestLedger=StreakProtection.reconcileComeback(goals,
-            StreakRewards.reconcile(goals,Rewards.reconcileDailyGoals(goals,workspace.rewards,today)),today)
+        val hasPeriods=workspace.habits.any { it.periodGoal!=null || it.ruleHistory.any { rule -> rule.periodGoal!=null } }
+        val rewardGoals=if(hasPeriods) goals.map { record ->
+            val (scheduled,completed)=engine().dailyCounts(workspace.habits,workspace.completions,record.date,workspace.measurements,today,true)
+            DailyGoals.build(record.date,record.mode,record.timezone,scheduled.toDouble(),completed.toDouble(),today,record.updatedAt,
+                isRestDay=record.status=="rest",isTimezoneShift=record.status=="timezone-shift",isStreakProtected=record.status=="protected")
+        } else goals
+        val projected=if(hasPeriods) HabitPeriodGoals.goalCompletions(workspace.habits,workspace.measurements,workspace.completions,
+            (workspace.quests.map { it.startDate }+workspace.habits.map { it.createdDate }).minOrNull() ?: today,today,Instant.parse(timestamp)) else workspace.completions
+        val quests=if (questsEnabled) HabitQuests.reconcile(workspace.quests,workspace.habits,projected,
+            rewardGoals,today,timestamp) { habit,date ->
+                val goal=HabitMeasurements.rule(habit,date).periodGoal
+                if(goal!=null) HabitPeriodGoals.settlement(habit,date,workspace.measurements,workspace.completions,
+                    today.atTime(12,0).atZone(ZoneId.of(goal.context.timeZone)).toInstant())!=null else engine().isScheduled(habit,date)
+            } else workspace.quests
+        val nonQuestLedger=StreakProtection.reconcileComeback(rewardGoals,
+            StreakRewards.reconcile(rewardGoals,Rewards.reconcileDailyGoals(rewardGoals,workspace.rewards,today)),today)
         val ledger=if (questsEnabled) HabitQuests.reconcileRewards(quests,nonQuestLedger) else nonQuestLedger
         val progress=HeroProgress.reconcile(workspace.progress,workspace.completions.map { it.xpAwarded },timestamp,
             DailyGoals.streak(goals,today),Rewards.balance(ledger),streakFreezeCount=StreakProtection.count(freezes),
             rhythmScore=DailyGoals.rhythmScore(goals,today))
-        val unlocks=Achievements.reconcile(workspace.achievementUnlocks,workspace.completions,goals,
+        val unlocks=Achievements.reconcile(workspace.achievementUnlocks,projected,rewardGoals,
             progress.longestStreak,ledger,timestamp)
         return workspace.copy(goals=goals,rewards=ledger,progress=progress,achievementUnlocks=unlocks,
             streakFreezeTransactions=freezes,quests=quests)
@@ -262,6 +274,15 @@ internal object HabitDocument {
         value.getLong("quickAdd").also { require(value.getDouble("quickAdd") == it.toDouble()) })
     private fun optionalMeasurement(value: JSONObject): HabitMeasurement? =
         if(value.isNull("measurement")) null else measurement(value.getJSONObject("measurement"))
+    private fun periodGoal(value: HabitPeriodGoal) = JSONObject().put("version",value.version).put("period",value.period)
+        .put("metric",value.metric).put("target",value.target).put("calendar",value.calendar).put("context",calendarContextJson(value.context))
+    private fun optionalPeriodGoal(value: JSONObject): HabitPeriodGoal? = if(value.isNull("periodGoal")) null else {
+        val goal = value.getJSONObject("periodGoal")
+        require(goal.get("target") is Number && goal.getDouble("version")==1.0) { "INVALID_HABIT_PERIOD_GOAL" }
+        HabitPeriodGoal(goal.getInt("version"),goal.getString("period"),goal.getString("metric"),
+            goal.getLong("target").also { require(goal.getDouble("target") == it.toDouble()) },goal.getString("calendar"),
+            requireNotNull(calendarContextFromJson(goal.getJSONObject("context"))))
+    }
     private fun optionalRules(value: JSONObject): List<HabitRuleVersion> =
         if(value.isNull("ruleHistory")) emptyList() else value.getJSONArray("ruleHistory").objects().map(::rule).also { rules ->
             require(rules.map { it.id }.distinct().size == rules.size) { "HABIT_RULE_ID_CONFLICT" }
@@ -272,9 +293,9 @@ internal object HabitDocument {
         value.nullable("endDate")?.let(LocalDate::parse),value.getString("timezone"),recurrence(value.getJSONObject("recurrence")))
     private fun rule(value: HabitRuleVersion) = JSONObject().put("id",value.id).put("effectiveDate",value.effectiveDate.toString())
         .put("recordedAt",value.recordedAt).put("measurement",value.measurement?.let(::measurement) ?: JSONObject.NULL)
-        .put("schedule",schedule(value.schedule))
+        .put("schedule",schedule(value.schedule)).apply { value.periodGoal?.let { put("periodGoal",periodGoal(it)) } }
     private fun rule(value: JSONObject) = HabitRuleVersion(value.getString("id"),LocalDate.parse(value.getString("effectiveDate")),
-        value.getString("recordedAt"),optionalMeasurement(value),schedule(value.getJSONObject("schedule")))
+        value.getString("recordedAt"),optionalMeasurement(value),schedule(value.getJSONObject("schedule")),optionalPeriodGoal(value))
     private fun measurementEvent(value: HabitMeasurementEvent) = entity(value.entity).put("habitId",value.habitId)
         .put("date",value.date.toString()).put("entryId",value.entryId).put("ruleId",value.ruleId)
         .put("replaces",JSONArray(value.replaces)).put("value",value.value ?: JSONObject.NULL).put("note",value.note)
@@ -288,6 +309,7 @@ internal object HabitDocument {
     }
     private fun habit(h: Habit): JSONObject = entity(h.entity).put("title",h.title).put("description",h.description).put("createdDate",h.createdDate.toString())
         .put("measurement",h.measurement?.let(::measurement) ?: JSONObject.NULL).put("ruleHistory",JSONArray(h.ruleHistory.map(::rule)))
+        .apply { h.periodGoal?.let { put("periodGoal",periodGoal(it)) } }
         .put("emoji",h.emoji).put("priority",h.priority).put("isKeyHabit",h.isKeyHabit).put("ritualId",h.ritualId).put("ritualName",h.ritualName).put("color",h.color)
         .put("active",h.active).put("sourceTemplateId",h.sourceTemplateId ?: JSONObject.NULL).put("sacredPracticeId",h.sacredPracticeId ?: JSONObject.NULL)
         .put("sacredSectorId",h.sacredSectorId ?: JSONObject.NULL).put("preferredTime",h.preferredTime).put("scoringMode",h.scoringMode).put("qualityScale",h.qualityScale)
@@ -309,7 +331,7 @@ internal object HabitDocument {
                 r.optString("timing").takeIf { it in setOf("habit", "custom") } ?: if (v.getString("preferredTime").isNotBlank() &&
                     r.getString("time") != v.getString("preferredTime")) "custom" else "habit",
                 r.optInt("minutesBefore",0).coerceIn(0,1440),r.optBoolean("allowDuringQuietHours",false)))
-            .copy(measurement = optionalMeasurement(v), ruleHistory = optionalRules(v),
+            .copy(measurement = optionalMeasurement(v), ruleHistory = optionalRules(v), periodGoal = optionalPeriodGoal(v),
                 intervalSchedule = v.optJSONObject("intervalSchedule")?.let { interval ->
                 HabitIntervalSchedule(interval.optInt("intervalMinutes"),interval.optString("startTime"),
                     interval.optString("endTime"),if(interval.optString("completionMode")=="day") "day" else "each").takeIf { it.valid() } })

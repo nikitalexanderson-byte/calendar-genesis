@@ -1,5 +1,6 @@
 import { isCivilDate } from "./calendar-context.ts";
 import type { TrackerEntity, TrackerSchedule } from "./tracker-core";
+import { normalizeHabitPeriodGoal, type HabitPeriodGoal } from "./habit-period-goal.ts";
 
 /** Values are integer thousandths; user input is never accumulated as binary floats. */
 export const HABIT_VALUE_SCALE = 1000;
@@ -16,6 +17,7 @@ export type HabitRuleVersion = {
   recordedAt: string;
   measurement: HabitMeasurement | null;
   schedule: TrackerSchedule;
+  periodGoal?: HabitPeriodGoal | null;
 };
 export type HabitMeasurementEvent = TrackerEntity & {
   habitId: string;
@@ -30,7 +32,7 @@ export type HabitMeasurementEvent = TrackerEntity & {
   historical: boolean;
 };
 type MeasurableHabit = { id: string; createdDate: string; schedule: TrackerSchedule;
-  measurement?: HabitMeasurement | null; ruleHistory?: HabitRuleVersion[] };
+  measurement?: HabitMeasurement | null; ruleHistory?: HabitRuleVersion[]; periodGoal?: HabitPeriodGoal | null };
 const canonical = (value: unknown): string => value && typeof value === "object"
   ? Array.isArray(value) ? `[${value.map(canonical).join(",")}]`
     : `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${canonical((value as Record<string, unknown>)[key])}`).join(",")}}`
@@ -72,8 +74,10 @@ export function normalizeHabitRuleHistory(input: unknown): HabitRuleVersion[] {
       || !item.schedule || !isCivilDate(item.schedule.startDate) || !item.schedule.recurrence
       || (item.measurement != null && !normalizeHabitMeasurement(item.measurement)))
       throw new RangeError("INVALID_HABIT_RULE_HISTORY");
-    const rule = { id: item.id, effectiveDate: item.effectiveDate, recordedAt: item.recordedAt,
-      schedule: item.schedule, measurement: normalizeHabitMeasurement(item.measurement) };
+    const periodGoal = normalizeHabitPeriodGoal(item.periodGoal);
+    const rule: HabitRuleVersion = { id: item.id, effectiveDate: item.effectiveDate, recordedAt: item.recordedAt,
+      schedule: item.schedule, measurement: normalizeHabitMeasurement(item.measurement), ...(periodGoal ? { periodGoal } : {}) };
+    if (periodGoal?.metric === "sum" && !rule.measurement) throw new RangeError("HABIT_PERIOD_MEASUREMENT_REQUIRED");
     try { new Intl.DateTimeFormat("en", { timeZone: rule.schedule.timezone }); }
     catch { throw new RangeError("INVALID_HABIT_RULE_HISTORY"); }
     const prior = byId.get(item.id);
@@ -89,7 +93,13 @@ export function habitRuleForDate(habit: MeasurableHabit, date: string): HabitRul
   return [...rules].reverse().find(rule => rule.effectiveDate <= date) ?? {
     id: `initial:${habit.id}`, effectiveDate: habit.createdDate, recordedAt: "1970-01-01T00:00:00.000Z",
     schedule: habit.schedule, measurement: habit.measurement ?? null,
+    ...(habit.periodGoal ? { periodGoal: habit.periodGoal } : {}),
   };
+}
+
+export function effectiveHabitMeasurement(rule: Pick<HabitRuleVersion, "measurement" | "periodGoal">): HabitMeasurement | null {
+  return rule.measurement ?? (rule.periodGoal?.metric === "entries"
+    ? { kind: "quantity", unit: "count", target: 1000, quickAdd: 1000 } : null);
 }
 
 /** An operation ID is immutable. Divergent reuse fails instead of silently doubling or replacing data. */
@@ -148,7 +158,8 @@ export function habitMeasurementProgress(habit: MeasurableHabit, date: string, e
   const incompatible = entries.some(entry => entry.current?.value != null && entry.current.ruleId !== rule.id);
   const total = entries.reduce((sum, entry) => sum + (entry.current?.ruleId === rule.id ? entry.current.value ?? 0 : 0), 0);
   if (!Number.isSafeInteger(total) || total > MAX_HABIT_VALUE) throw new RangeError("HABIT_MEASUREMENT_TOTAL_TOO_LARGE");
-  const target = rule.measurement?.target ?? 0;
+  const definition = effectiveHabitMeasurement(rule);
+  const target = rule.periodGoal && rule.periodGoal.metric !== "days" ? 1 : definition?.target ?? 0;
   const rewardTotal = entries.reduce((sum, entry) => {
     const root = entry.revisions.find(event => event.id === entry.id && !event.replaces.length);
     const current = entry.current;

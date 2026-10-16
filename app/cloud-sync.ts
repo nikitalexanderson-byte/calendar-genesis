@@ -1150,6 +1150,7 @@ async function decryptWorkspace(envelope: WorkspaceEnvelope | null): Promise<Enc
 }
 
 function workspaceMinimumWriterProtocol(structure: EncryptedWorkspaceStructure) {
+  if (structure.habits.some(habit => habit.periodGoal || habit.ruleHistory?.some(rule => rule.periodGoal))) return 3;
   return structure.habitMeasurements.length || structure.habits.some(habit => habit.measurement || habit.ruleHistory?.length) ? 2 : 1;
 }
 
@@ -1186,7 +1187,7 @@ async function encryptWorkspace(
       iv: bytesToBase64(iv),
       version: workspaceVersion + 1,
       expectedVersion: workspaceVersion,
-      writerProtocol: 2,
+      writerProtocol: 3,
       minimumWriterProtocol: workspaceMinimumWriterProtocol(structure),
     },
     structure,
@@ -1211,7 +1212,7 @@ async function encryptWorkspaceDocument(
     iv: bytesToBase64(iv),
     version: expectedVersion + 1,
     expectedVersion,
-    writerProtocol: 2,
+    writerProtocol: 3,
     minimumWriterProtocol: workspaceMinimumWriterProtocol(structure),
   };
 }
