@@ -1238,8 +1238,9 @@ html[data-genesis-theme] .genesis-app :is(.personal-search-actions,.shared-task-
 html[data-genesis-theme] .genesis-app :is(.personal-search-actions,.shared-task-view-controls)>.task-order-choice>span { white-space:nowrap; }
 html[data-genesis-theme] .genesis-app :is(.personal-search-actions,.shared-task-view-controls)>.task-order-choice>select { width:clamp(140px,15vw,220px); min-width:0; }
 html[data-genesis-theme] .genesis-app :is(.personal-search-actions,.shared-task-view-controls)>.tag-search { flex:1 1 160px; min-width:0; width:auto; margin:0; }
-html[data-genesis-theme] .genesis-app .shared-task-view-controls { grid-column:1/-1; flex-basis:100%; }
-html[data-genesis-theme] .genesis-app .shared-workspace-toolbar:has(>.shared-task-view-controls) { flex-wrap:wrap; }
+@media (max-width:1279px) {
+  html[data-genesis-theme] .genesis-app .shared-task-view-controls { grid-column:1/-1; flex-basis:100%; }
+}
 html[data-genesis-theme] .genesis-app .personal-mindmaps-entry { display: flex; align-items: center; justify-content: center; gap: 8px; flex:0 0 auto; min-height:44px; white-space: nowrap; }
 @media (max-width:760px) {
   html[data-genesis-theme] .genesis-app .project-toolbar { display:flex; flex-direction:column; align-items:stretch; }
@@ -1682,18 +1683,26 @@ html[data-genesis-theme] .genesis-app .account-profile-details { display:grid; g
 html[data-genesis-theme] .genesis-app .account-profile-details > .account-email { margin:0; overflow-wrap:anywhere; }
 html[data-genesis-theme] .genesis-app .account-plan { margin:0; color:var(--ink); font:400 var(--type-body)/1.5 var(--font-ui); }
 @media(min-width:1280px) {
-  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar { flex-wrap:nowrap; align-items:end; gap:12px; }
-  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar-group { display:grid; grid-template-columns:minmax(90px,180px) auto; gap:8px; flex:0 1 440px; }
+  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar { display:flex; flex-wrap:nowrap; align-items:end; gap:12px; }
+  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar-group { display:grid; grid-template-columns:minmax(76px,1fr) auto; gap:4px; flex:1 1 360px; }
   html[data-genesis-theme] .genesis-app .shared-workspace-toolbar-group > select { grid-column:1; grid-row:2; width:100%; }
-  html[data-genesis-theme] .genesis-app .shared-workspace-tools { display:flex; flex-wrap:nowrap; gap:8px; }
-  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar .shared-project-toolbar-group { grid-template-columns:minmax(90px,1fr) repeat(3,44px); flex:1 1 440px; padding-inline-start:16px; margin:0; }
-  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar .shared-project-toolbar-group:has(> .shared-create-first-project) { grid-template-columns:minmax(90px,1fr) auto repeat(2,44px); }
+  html[data-genesis-theme] .genesis-app .shared-workspace-tools { display:flex; flex-wrap:nowrap; gap:4px; }
+  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar .shared-project-toolbar-group { grid-template-columns:minmax(76px,1fr) repeat(3,44px); flex:1 1 280px; padding-inline-start:12px; margin:0; gap:4px; }
+  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar .shared-project-toolbar-group:has(> .shared-create-first-project) { grid-template-columns:auto repeat(2,44px); }
   html[data-genesis-theme] .genesis-app .shared-project-toolbar-group > select { grid-column:1; grid-row:2; }
-  html[data-genesis-theme] .genesis-app .shared-project-toolbar-group > .shared-workspace-search { grid-column:2; grid-row:2; }
-  html[data-genesis-theme] .genesis-app .shared-project-toolbar-group:has(> .shared-create-first-project) > .shared-workspace-search { grid-column:1; }
-  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar .shared-workspace-search { flex:1 1 180px; min-width:90px; min-height:44px; height:44px; }
+  html[data-genesis-theme] .genesis-app .shared-task-view-controls { align-items:end; flex:1.4 1 400px; width:auto; gap:8px; }
+  html[data-genesis-theme] .genesis-app .shared-task-view-controls > .task-order-choice { display:grid; gap:4px; flex:0 1 132px; min-width:100px; }
+  html[data-genesis-theme] .genesis-app .shared-task-view-controls > .task-order-choice > select { width:100%; }
+  html[data-genesis-theme] .genesis-app .shared-task-view-controls > .task-order-choice > span { font-size:11px; }
+  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar .shared-workspace-search { flex:1 1 160px; min-width:76px; min-height:44px; height:44px; }
   html[data-genesis-theme] .genesis-app .shared-workspace-toolbar .shared-workspace-search > input { min-height:44px; height:44px; }
   html[data-genesis-theme] .genesis-app .shared-workspace-toolbar :is(select,input,.shared-mindmaps-open) { min-height:44px; height:44px; }
+}
+@media (min-width:1280px) and (max-width:1599px) and (pointer:fine) {
+  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar { --shared-toolbar-action-size:36px; gap:8px; padding-inline:12px; }
+  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar button.secondary-button { width:var(--shared-toolbar-action-size); min-width:var(--shared-toolbar-action-size); flex-basis:var(--shared-toolbar-action-size); padding:8px; }
+  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar .shared-project-toolbar-group { grid-template-columns:minmax(76px,1fr) repeat(3,var(--shared-toolbar-action-size)); }
+  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar .shared-project-toolbar-group:has(> .shared-create-first-project) { grid-template-columns:auto repeat(2,var(--shared-toolbar-action-size)); }
 }
 @media(max-width:1279px) {
   html[data-genesis-theme] .genesis-app .shared-workspace-toolbar .shared-project-toolbar-group:has(> .shared-create-first-project) { grid-template-columns:minmax(0,1fr) repeat(2,44px); }

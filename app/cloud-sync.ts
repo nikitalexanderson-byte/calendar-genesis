@@ -2582,6 +2582,10 @@ async function habitReminderProjection(structure: HabitWorkspace): Promise<{ hab
     return { habitReminderPlan: buildHabitReminderPlan(structure) };
   } catch { return {}; }
 }
+export async function loadSharedCalendarPreviews(from: string, to: string, signal?: AbortSignal) {
+  return api<{tasks:SharedCalendarTask[];dateCounts:Record<string,number>}>(
+    `/shared/calendar/previews?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, {signal});
+}
 
 export async function loadHabitReminderStatus(userId: string) {
   const status = await api<HabitReminderStatus>(`/habit-reminders/status?deviceKey=${encodeURIComponent(habitReminderDeviceKey(userId))}`);
