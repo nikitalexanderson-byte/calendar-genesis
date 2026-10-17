@@ -13,9 +13,19 @@ import org.junit.Test
 import androidx.compose.foundation.layout.Column
 import ru.genesis.calendar.domain.CalendarMode
 import ru.genesis.calendar.ui.*
+import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.uiautomator.UiDevice
+import java.io.File
 
 class CalendarSacredVisibilityTest {
     @get:Rule val compose = createAndroidComposeRule<StoicheionGestureActivity>()
+
+    private fun capture(name: String) {
+        compose.waitForIdle()
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        check(UiDevice.getInstance(instrumentation).takeScreenshot(
+            File(instrumentation.targetContext.cacheDir, "ui214-$name.png")))
+    }
 
     @Test fun calendarRendersWithoutSacredDataInBothThemesAndRestoresItsArtwork() {
         var sacred by mutableStateOf(false)
@@ -26,7 +36,7 @@ class CalendarSacredVisibilityTest {
                 LocalEveningTheme provides dark) {
                 MaterialTheme(colorScheme = if (dark) evening else standart) {
                     Surface(Modifier.fillMaxSize()) {
-                        CalendarScreen(LocalDate.of(2026, 10, 17), CalendarMode.PROFANE,
+                        CalendarScreen(LocalDate.of(2026, 3, 20), CalendarMode.PROFANE,
                             onSelect = {}, experimental = true)
                     }
                 }
@@ -40,6 +50,8 @@ class CalendarSacredVisibilityTest {
             compose.onNodeWithTag("calendar-selected-patron").assertDoesNotExist()
             compose.onNodeWithTag("calendar-mode-icon-profane", useUnmergedTree = true).assertDoesNotExist()
             compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
+            compose.onAllNodesWithContentDescription("равноденствие", substring = true,
+                ignoreCase = true).assertCountEquals(0)
             compose.runOnIdle { sacred = true }
             compose.onNodeWithTag("calendar-weekday-art").assertExists()
             compose.onNodeWithTag("calendar-selected-fact-blocks").assertExists()
@@ -49,6 +61,16 @@ class CalendarSacredVisibilityTest {
         compose.onNodeWithTag("calendar-year-panel").assertExists()
         compose.onNodeWithTag("calendar-mode-icon-profane", useUnmergedTree = true).assertDoesNotExist()
         compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
+        for (eveningMode in listOf(false, true)) {
+            compose.runOnIdle { dark = eveningMode; sacred = false }
+            compose.onNodeWithTag("calendar-year").performScrollToIndex(0)
+            compose.onNodeWithTag("calendar-year-solar-card").assertDoesNotExist()
+            capture("native-year-plain-${if (eveningMode) "dark" else "light"}")
+            compose.runOnIdle { sacred = true }
+            compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag("calendar-year-solar-card"))
+            compose.onNodeWithTag("calendar-year-solar-card").assertIsDisplayed()
+            capture("native-year-sacred-${if (eveningMode) "dark" else "light"}")
+        }
     }
 
     @Test fun plainYearNumbersFollowJanuaryOrMarchInBothThemes() {

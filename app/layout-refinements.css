@@ -1142,12 +1142,21 @@ html[data-genesis-theme] .genesis-app .account-panel .sidebar-auto-collapse-sett
 html[data-genesis-theme] .genesis-app .account-panel .sidebar-auto-collapse-setting select { width:100%; min-height:44px; margin:0; }
 html[data-genesis-theme] .genesis-app .account-panel .sidebar-auto-collapse-hint { margin:-4px 0 0; max-width:70ch; color:var(--ink-soft); font:13px/1.6 var(--font-ui); }
 html[data-genesis-theme] .genesis-app .account-panel .appearance-menu-details { padding:0; margin:4px 0 0; border:0; border-top:1px solid var(--line); border-radius:0; background:transparent; }
-html[data-genesis-theme] .genesis-app .account-panel .appearance-menu-details > summary { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:20px 0 0; font:600 14px/1.5 var(--font-ui); }
-html[data-genesis-theme] .genesis-app .account-panel .appearance-menu-details .appearance-summary-action { padding:10px 16px; font:600 13px/1.5 var(--font-ui); border-radius:var(--ui-radius); }
+html[data-genesis-theme] .genesis-app .account-panel .appearance-menu-details > summary { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:20px 0 0; font:600 16px/1.4 var(--font-ui); text-align:left; list-style:none; }
+html[data-genesis-theme] .genesis-app .account-panel .appearance-menu-details > summary::before { content:none; }
+html[data-genesis-theme] .genesis-app .account-panel .appearance-menu-details > summary::marker { content:""; }
+html[data-genesis-theme] .genesis-app .account-panel .appearance-summary-title { flex:1; min-width:0; margin:0; font:600 16px/1.4 var(--font-ui); text-align:left; }
+html[data-genesis-theme] .genesis-app .account-panel .appearance-menu-details .appearance-summary-action { justify-content:space-between; gap:12px; min-width:min(100%,180px); margin:0; padding:10px 16px; font:600 13px/1.5 var(--font-ui); border-radius:var(--ui-radius); text-align:left; }
+html[data-genesis-theme] .genesis-app .account-panel .appearance-summary-chevron { width:16px; height:16px; flex:none; transition:transform 180ms ease-out; }
+html[data-genesis-theme] .genesis-app .account-panel .appearance-menu-details[open] > summary .appearance-summary-chevron { transform:rotate(180deg); }
 html[data-genesis-theme] .genesis-app .account-panel .appearance-menu-details[open] > p { margin:16px 0; font:13px/1.6 var(--font-ui); }
 html[data-genesis-theme] .genesis-app .account-panel .appearance-language-details { margin-top:16px; padding:24px; border:1px solid var(--exp-border); border-radius:12px; background:var(--paper); }
-html[data-genesis-theme] .genesis-app .account-panel .appearance-language-details > summary { padding:0; font:600 18px/1.4 var(--font-ui); }
+html[data-genesis-theme] .genesis-app .account-panel .appearance-language-details > summary { padding:0; font:600 16px/1.4 var(--font-ui); }
 html[data-genesis-theme] .genesis-app .account-panel .appearance-language-details .language-preference { margin-top:16px; padding:16px 0 0; background:transparent; }
+html[data-genesis-theme] .genesis-app .account-panel .account-team-activity > summary { min-height:44px; cursor:pointer; font:600 16px/1.4 var(--font-ui); text-align:left; }
+html[data-genesis-theme] .genesis-app .account-panel .account-team-activity > summary h4 { display:inline; margin:0; font:inherit; }
+html[data-genesis-theme] .genesis-app .account-panel .account-team-activity > summary:focus-visible { outline:2px solid var(--ui-accent); outline-offset:3px; }
+@media(prefers-reduced-motion:reduce) { html[data-genesis-theme] .genesis-app .account-panel .appearance-summary-chevron { transition:none; } }
 html[data-genesis-theme] .genesis-app .sacred-features-setting { display:grid; gap:12px; }
 html[data-genesis-theme] .genesis-app .sacred-features-setting p { margin:0; max-width:70ch; color:var(--ink-soft); font:14px/1.6 var(--font-ui); }
 html[data-genesis-theme] .genesis-app[data-sacred-features="false"] :is(.calendar-mode-description,.day-details-art,.selected-day-symbol,.calendar-month-art) { display:none; }
@@ -1224,13 +1233,20 @@ html[data-genesis-theme] .genesis-app .project-toolbar .tag-search.personal-affa
 html[data-genesis-theme] .genesis-app .personal-affairs-search > span { position:absolute; right:16px; top:50%; transform:translateY(-50%); display:flex; pointer-events:none; z-index:1; }
 html[data-genesis-theme] .genesis-app .personal-affairs-search > button { position:absolute; right:40px; top:50%; transform:translateY(-50%); width:40px; height:44px; }
 html[data-genesis-theme] .genesis-app .project-toolbar { grid-template-columns: minmax(0, 1fr); }
-html[data-genesis-theme] .genesis-app .personal-search-actions { display:flex; align-items:center; gap:12px; min-width:0; width:100%; }
+html[data-genesis-theme] .genesis-app :is(.personal-search-actions,.shared-task-view-controls) { display:flex; align-items:center; gap:12px; min-width:0; width:100%; }
+html[data-genesis-theme] .genesis-app :is(.personal-search-actions,.shared-task-view-controls)>.task-order-choice { flex:0 0 auto; flex-wrap:nowrap; }
+html[data-genesis-theme] .genesis-app :is(.personal-search-actions,.shared-task-view-controls)>.task-order-choice>span { white-space:nowrap; }
+html[data-genesis-theme] .genesis-app :is(.personal-search-actions,.shared-task-view-controls)>.task-order-choice>select { width:clamp(140px,15vw,220px); min-width:0; }
+html[data-genesis-theme] .genesis-app :is(.personal-search-actions,.shared-task-view-controls)>.tag-search { flex:1 1 160px; min-width:0; width:auto; margin:0; }
+html[data-genesis-theme] .genesis-app .shared-task-view-controls { grid-column:1/-1; flex-basis:100%; }
+html[data-genesis-theme] .genesis-app .shared-workspace-toolbar:has(>.shared-task-view-controls) { flex-wrap:wrap; }
 html[data-genesis-theme] .genesis-app .personal-mindmaps-entry { display: flex; align-items: center; justify-content: center; gap: 8px; flex:0 0 auto; min-height:44px; white-space: nowrap; }
 @media (max-width:760px) {
   html[data-genesis-theme] .genesis-app .project-toolbar { display:flex; flex-direction:column; align-items:stretch; }
-  html[data-genesis-theme] .genesis-app .personal-search-actions { display:contents; }
-  html[data-genesis-theme] .genesis-app .personal-mindmaps-entry { width: 100%; }
-  html[data-genesis-theme] .genesis-app .project-toolbar .personal-mindmaps-entry { order:1; }
+  html[data-genesis-theme] .genesis-app :is(.personal-search-actions,.shared-task-view-controls):has(>.task-order-choice) { display:grid; grid-template-columns:auto minmax(0,1fr); align-items:end; }
+  html[data-genesis-theme] .genesis-app :is(.personal-search-actions,.shared-task-view-controls)>.task-order-choice { display:grid; gap:4px; min-width:0; }
+  html[data-genesis-theme] .genesis-app :is(.personal-search-actions,.shared-task-view-controls)>.task-order-choice>select { width:100%; }
+  html[data-genesis-theme] .genesis-app :is(.personal-search-actions,.shared-task-view-controls):has(>.task-order-choice)>.tag-search { grid-column:1/-1; grid-row:2; width:100%; }
   html[data-genesis-theme] .genesis-app .project-toolbar>.affairs-actions { order:2; width:100%; }
   html[data-genesis-theme] .genesis-app .project-toolbar .tag-search { order:3; width:100%; }
   html[data-genesis-theme] .genesis-app .project-completion-tabs { display:flex; width:100%; }
@@ -1670,7 +1686,7 @@ html[data-genesis-theme] .genesis-app .account-plan { margin:0; color:var(--ink)
   html[data-genesis-theme] .genesis-app .shared-workspace-toolbar-group { display:grid; grid-template-columns:minmax(90px,180px) auto; gap:8px; flex:0 1 440px; }
   html[data-genesis-theme] .genesis-app .shared-workspace-toolbar-group > select { grid-column:1; grid-row:2; width:100%; }
   html[data-genesis-theme] .genesis-app .shared-workspace-tools { display:flex; flex-wrap:nowrap; gap:8px; }
-  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar .shared-project-toolbar-group { grid-template-columns:minmax(90px,180px) minmax(90px,1fr) repeat(3,44px); flex:1 1 520px; padding-inline-start:16px; margin:0; }
+  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar .shared-project-toolbar-group { grid-template-columns:minmax(90px,1fr) repeat(3,44px); flex:1 1 440px; padding-inline-start:16px; margin:0; }
   html[data-genesis-theme] .genesis-app .shared-workspace-toolbar .shared-project-toolbar-group:has(> .shared-create-first-project) { grid-template-columns:minmax(90px,1fr) auto repeat(2,44px); }
   html[data-genesis-theme] .genesis-app .shared-project-toolbar-group > select { grid-column:1; grid-row:2; }
   html[data-genesis-theme] .genesis-app .shared-project-toolbar-group > .shared-workspace-search { grid-column:2; grid-row:2; }

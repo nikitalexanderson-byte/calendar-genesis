@@ -1758,7 +1758,7 @@ export function GenesisCalendar() {
   const selectedWeekdayPatron = localizeWeekdayPatron(PROFANE_WEEKDAY_PATRONS[selectedDate.getDay()], language);
   const selectedElement = getDayElement(monthIndex, selectedDay);
   const selectedPythagorean = getPythagorean(monthIndex, selectedDay);
-  const selectedSolarEvent = getSolarEvent(sacredYear, monthIndex, selectedDay);
+  const selectedSolarEvent = sacredFeaturesEnabled ? getSolarEvent(sacredYear, monthIndex, selectedDay) : null;
   const selectedDisplayMonthName = activeCalendarMode === "sacred"
     ? selectedMonth.name
     : activeCalendarMode === "profane"
@@ -4966,7 +4966,7 @@ export function GenesisCalendar() {
     })();
     const element = getDayElement(info.monthIndex, info.day);
     const pythagorean = getPythagorean(info.monthIndex, info.day);
-    const solarEvent = getSolarEvent(info.sacredYear, info.monthIndex, info.day);
+    const solarEvent = sacredFeaturesEnabled ? getSolarEvent(info.sacredYear, info.monthIndex, info.day) : null;
     const solarCopy = solarEvent ? SOLAR_EVENT_COPY[solarEvent.id] : null;
     const isNewMoonDay = moon.event.toLocaleLowerCase().includes("новолуние");
     const dayTitleMatch = day.name.match(/^(.*?)\s*(\([^()]+\))$/u);
@@ -5232,7 +5232,7 @@ export function GenesisCalendar() {
     const sacredDay = getSacredDay(sacred.monthIndex, sacred.day);
     const moon = getMoon(date);
     const lunar = getLunarDate(date);
-    const solarEvent = getSolarEvent(sacred.sacredYear, sacred.monthIndex, sacred.day);
+    const solarEvent = sacredFeaturesEnabled ? getSolarEvent(sacred.sacredYear, sacred.monthIndex, sacred.day) : null;
     const cellTasks = isAdjacentMonth ? [] : [...(calendarTasksByDate.get(dateValue) ?? [])]
       .sort((a, b) => a.time.localeCompare(b.time));
     const taskCount = cellTasks.length;
@@ -5427,7 +5427,7 @@ export function GenesisCalendar() {
                     const profaneWeekday = new Intl.DateTimeFormat(runtimeLocale(), { weekday: "long" }).format(gregorian);
                     const profaneWeekdayShort = new Intl.DateTimeFormat(runtimeLocale(), { weekday: "short" }).format(gregorian).replace(/\.$/, "");
                     const profaneDate = new Intl.DateTimeFormat(runtimeLocale(), { day: "2-digit", month: "short" }).format(gregorian);
-                    const solarEvent = getSolarEvent(sacredYear, monthIndex, dayNumber);
+                    const solarEvent = sacredFeaturesEnabled ? getSolarEvent(sacredYear, monthIndex, dayNumber) : null;
                     const sunriseSunset = deviceLocation ? getSunriseSunset(gregorian, deviceLocation) : null;
                     const solarTimePlaceholder = solarLocationStatus === "ready" ? "нет" : "…";
                     const sunrise = sunriseSunset ? displaySolarTime(sunriseSunset.sunrise) : solarTimePlaceholder;
@@ -5846,7 +5846,6 @@ export function GenesisCalendar() {
           </div>
         </WorkspaceHeader>
         <div className="project-toolbar" data-has-completed={completedCount > 0}>
-        {personalMindmapsEnabled ? <MindmapLaunchButton label={translateText("Майндмепы",language)} className="personal-mindmaps-entry" onClick={() => { mindmapsReturnScroll.current = window.scrollY; setMindmapsProjectId(null); setMindmapsOpen(true); }} /> : null}
         {completedCount > 0 ? <div className="affairs-actions">
           <div className="project-completion-tabs" role="group" aria-label={language === "en" ? "Project status" : "Статус проектов"}>
             <button type="button" aria-pressed={!completedView} onClick={() => setCompletedProjectsOpen(false)}>{language === "en" ? "Current" : "Текущие"} · {projects.length - completedCount}</button>
@@ -5855,6 +5854,7 @@ export function GenesisCalendar() {
         </div> : null}
 
         <div className="personal-search-actions">
+        {personalMindmapsEnabled ? <MindmapLaunchButton label={translateText("Майндмепы",language)} className="personal-mindmaps-entry" onClick={() => { mindmapsReturnScroll.current = window.scrollY; setMindmapsProjectId(null); setMindmapsOpen(true); }} /> : null}
         <label className="task-order-choice"><span>{language==="en"?"Sort tasks":"Сортировка задач"}</span><select value={personalTaskDisplay.sort} onChange={event=>personalTaskDisplay.setSort(event.target.value as TaskListOrder)}>{taskListOrders.map(order=><option key={order.value} value={order.value}>{language==="en"?order.en:order.ru}</option>)}</select></label>
         <label className="tag-search personal-affairs-search">
           <span aria-hidden="true">{experimentalThemeActive ? <ExperimentalIcon name="search" /> : "⌕"}</span>
@@ -6128,7 +6128,7 @@ export function GenesisCalendar() {
           <button type="button" disabled={sacredYear >= 2100} onClick={() => changeSacredYear(sacredYear + 1)} aria-label="Следующий год">→</button>
         </div>
       </header>
-      <section className="solar-year-strip" aria-label="Солнцестояния и равноденствия года">
+      {sacredFeaturesEnabled ? <section className="solar-year-strip" aria-label="Солнцестояния и равноденствия года">
         {solarEvents.map((event) => {
           const weekday = new Intl.DateTimeFormat(runtimeLocale(), { weekday: "long" }).format(event.date);
           const date = new Intl.DateTimeFormat(runtimeLocale(), { day: "numeric", month: "long", year: "numeric" }).format(event.date);
@@ -6150,7 +6150,7 @@ export function GenesisCalendar() {
             </button>
           );
         })}
-      </section>
+      </section> : null}
       <section className="year-grid" aria-label="Все месяцы года">
         {MONTHS.map((month) => {
           const availableDays = month.index === 12 ? apeironLength(sacredYear) : 30;
@@ -6364,7 +6364,7 @@ export function GenesisCalendar() {
             <button type="button" disabled={selectedDate.getFullYear() >= 2100} onClick={() => changeYear(1)} aria-label="Следующий год">→</button>
           </div>
         </header>
-        <section className="solar-year-strip" aria-label="Солнцестояния и равноденствия года">
+        {sacredFeaturesEnabled ? <section className="solar-year-strip" aria-label="Солнцестояния и равноденствия года">
           {yearSolarEvents.map((event) => {
             const weekday = new Intl.DateTimeFormat(runtimeLocale(), { weekday: "long" }).format(event.date);
             const date = new Intl.DateTimeFormat(runtimeLocale(), { day: "numeric", month: "long", year: "numeric" }).format(event.date);
@@ -6375,7 +6375,7 @@ export function GenesisCalendar() {
               </button>
             );
           })}
-        </section>
+        </section> : null}
         {mode === "profane" && !gregorianYearStartsInMarch && !springYearSuggestionDismissed ? (
           <aside className="spring-year-suggestion" aria-label={translateText("Начните год весной", language)}>
             <div>
@@ -6442,7 +6442,7 @@ export function GenesisCalendar() {
                     const moon = getMoon(date);
                     const sacred = getSacredDate(date);
                     const sacredDay = getSacredDay(sacred.monthIndex, sacred.day);
-                    const solar = getSolarEvent(sacred.sacredYear, sacred.monthIndex, sacred.day);
+                    const solar = sacredFeaturesEnabled ? getSolarEvent(sacred.sacredYear, sacred.monthIndex, sacred.day) : null;
                     const isSaturday = mode === "profane" && date.getDay() === 6;
                     const weekdayPatron = localizeWeekdayPatron(PROFANE_WEEKDAY_PATRONS[date.getDay()], language);
                     if (mode === "lunar") return (

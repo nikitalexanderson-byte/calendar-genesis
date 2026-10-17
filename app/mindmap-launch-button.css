@@ -1,42 +1,53 @@
-html[data-genesis-theme] .genesis-app :is(.project-toolbar,.shared-workspace-toolbar) > button.mindmap-launch {
-  --map-color:#123e38; --map-background:#edb749; --map-hover:#f5c65e;
+html[data-genesis-theme] .genesis-app :is(.personal-search-actions,.shared-task-view-controls) > button.mindmap-launch {
+  --map-color:#e2c37b; --map-background:#092725;
+  --map-fill:linear-gradient(135deg,#071f20 0%,#0d3532 52%,#092725 100%);
+  position:relative; isolation:isolate; overflow:hidden;
   display:inline-flex; align-items:center; justify-content:center; gap:10px;
   width:max-content; min-width:0; min-height:44px; height:44px; flex:0 0 auto;
-  padding:6px 16px 6px 12px; margin:0; border:1px solid transparent; border-radius:12px;
-  background:var(--map-background); color:var(--map-color); box-shadow:none;
+  padding:6px 16px 6px 12px; margin:0; border:1px solid rgba(207,174,101,.42); border-radius:12px;
+  background:var(--map-fill); color:var(--map-color);
+  box-shadow:inset 0 1px 0 rgba(235,207,141,.11),0 9px 24px rgba(2,24,24,.34);
   font:650 15px/1.2 var(--font-ui); white-space:nowrap;
-  transition:background-color 180ms ease-out,border-color 180ms ease-out;
+  animation:hero-path-button-glow 3.6s ease-in-out infinite;
+  transition:transform 150ms ease,box-shadow 180ms ease,filter 180ms ease;
 }
-html[data-genesis-theme="standart-dark"] .genesis-app :is(.project-toolbar,.shared-workspace-toolbar) > button.mindmap-launch {
-  --map-color:#102c28; --map-background:#efbb56; --map-hover:#f9cd76;
+html[data-genesis-theme] .genesis-app :is(.personal-search-actions,.shared-task-view-controls) > button.mindmap-launch::before {
+  position:absolute; z-index:-1; top:-70%; bottom:-70%; left:-38%; width:28%; content:"";
+  background:linear-gradient(90deg,transparent,rgba(235,203,128,.22),transparent);
+  transform:rotate(17deg); animation:hero-path-button-shimmer 4.8s ease-in-out infinite;
 }
-html[data-genesis-theme] .genesis-app :is(.project-toolbar,.shared-workspace-toolbar) > button.mindmap-launch:is(:hover,:focus-visible):not(:disabled) {
-  background:var(--map-hover); color:var(--map-color); border-color:currentColor;
+html[data-genesis-theme] .genesis-app :is(.personal-search-actions,.shared-task-view-controls) > button.mindmap-launch:is(:hover,:focus-visible):not(:disabled) {
+  background:var(--map-fill); color:var(--map-color); border-color:currentColor; filter:saturate(1.03) brightness(1.05); transform:translateY(-1px);
 }
-html[data-genesis-theme] .genesis-app :is(.project-toolbar,.shared-workspace-toolbar) > button.mindmap-launch:focus-visible { outline:2px solid var(--ink); outline-offset:3px; }
-html[data-genesis-theme] .genesis-app :is(.project-toolbar,.shared-workspace-toolbar) > button.mindmap-launch:active { background:var(--map-background); }
+html[data-genesis-theme] .genesis-app :is(.personal-search-actions,.shared-task-view-controls) > button.mindmap-launch:focus-visible { outline:2px solid var(--ui-accent); outline-offset:3px; }
+html[data-genesis-theme] .genesis-app :is(.personal-search-actions,.shared-task-view-controls) > button.mindmap-launch:active { transform:translateY(0); }
 .mindmap-launch-network { display:block; width:30px; height:30px; flex:0 0 30px; overflow:visible; transition:transform 280ms cubic-bezier(.16,1,.3,1); }
-html[data-genesis-theme] .genesis-app :is(.project-toolbar,.shared-workspace-toolbar) > button.mindmap-launch > svg { width:30px; height:30px; }
+html[data-genesis-theme] .genesis-app :is(.personal-search-actions,.shared-task-view-controls) > button.mindmap-launch > svg { width:30px; height:30px; }
 .mindmap-launch-links { opacity:.55; }
-.mindmap-launch-flow { stroke-dasharray:3 12; animation:mindmap-link-travel 4.8s linear infinite; }
-.mindmap-launch-nodes circle { fill:var(--map-background); transform-box:fill-box; transform-origin:center; animation:mindmap-node-breathe 4.8s ease-in-out infinite; }
-.mindmap-launch-nodes circle:nth-child(2) { animation-delay:-1.2s; }
-.mindmap-launch-nodes circle:nth-child(3) { animation-delay:-2.4s; }
-.mindmap-launch-nodes circle:nth-child(4) { animation-delay:-3.6s; }
+.mindmap-launch-flow { stroke-dasharray:3 12; animation:mindmap-link-travel 2.8s linear infinite; }
+.mindmap-launch-pulse { fill:none; opacity:0; transform-origin:16px 16px; animation:mindmap-network-pulse 2.8s ease-out infinite; }
+.mindmap-launch-nodes circle { fill:var(--map-background); transform-box:fill-box; transform-origin:center; animation:mindmap-node-breathe 2.8s ease-in-out infinite; }
+.mindmap-launch-nodes circle:nth-child(2) { animation-delay:-.7s; }
+.mindmap-launch-nodes circle:nth-child(3) { animation-delay:-1.4s; }
+.mindmap-launch-nodes circle:nth-child(4) { animation-delay:-2.1s; }
 .mindmap-launch-core { fill:currentColor; transform-origin:16px 16px; transition:transform 280ms cubic-bezier(.16,1,.3,1); }
 .mindmap-launch:is(:hover,:focus-visible) .mindmap-launch-network { transform:translate(var(--map-pointer-x,0px),var(--map-pointer-y,0px)) scale(1.09) rotate(7deg); }
 .mindmap-launch:is(:hover,:focus-visible) .mindmap-launch-core { transform:rotate(-14deg); }
 .mindmap-launch:is(:hover,:focus-visible) .mindmap-launch-flow { animation-duration:1.6s; }
-.mindmap-launch[data-animating="false"] :is(.mindmap-launch-flow,.mindmap-launch-nodes circle) { animation-play-state:paused; }
-html[data-genesis-theme] .genesis-app .shared-workspace-toolbar > button.mindmap-launch.shared-mindmaps-open { order:-1; align-self:end; grid-column:1/-1; grid-row:auto; justify-self:start; width:max-content; margin:0; }
-html[data-genesis-theme] .genesis-app .project-toolbar > button.mindmap-launch.personal-mindmaps-entry { order:-1; align-self:center; width:max-content; }
+.mindmap-launch:is(:hover,:focus-visible) :is(.mindmap-launch-pulse,.mindmap-launch-nodes circle) { animation-duration:1.8s; }
+html[data-genesis-theme] .genesis-app :is(.personal-search-actions,.shared-task-view-controls) > button.mindmap-launch[data-animating="false"],
+html[data-genesis-theme] .genesis-app :is(.personal-search-actions,.shared-task-view-controls) > button.mindmap-launch[data-animating="false"]::before,
+.mindmap-launch[data-animating="false"] :is(.mindmap-launch-flow,.mindmap-launch-pulse,.mindmap-launch-nodes circle) { animation-play-state:paused; }
+html[data-genesis-theme] .genesis-app :is(.personal-search-actions,.shared-task-view-controls) > button.mindmap-launch { order:0; align-self:center; width:max-content; margin:0; }
 html[data-genesis-theme] .genesis-app .project-toolbar > .personal-search-actions { flex:1 1 auto; }
-@media(max-width:1279px) { html[data-genesis-theme] .genesis-app .shared-workspace-toolbar > button.mindmap-launch.shared-mindmaps-open { grid-row:1; } }
-@media(max-width:760px) { html[data-genesis-theme] .genesis-app .project-toolbar > button.mindmap-launch.personal-mindmaps-entry { align-self:flex-start; } }
 @keyframes mindmap-link-travel { to { stroke-dashoffset:-30; } }
-@keyframes mindmap-node-breathe { 0%,55%,100% { transform:scale(1); } 25% { transform:scale(1.2); } }
+@keyframes mindmap-node-breathe { 0%,55%,100% { transform:scale(1); opacity:.7; } 25% { transform:scale(1.38); opacity:1; } }
+@keyframes mindmap-network-pulse { 0% { opacity:0; transform:scale(.65); } 15% { opacity:.6; } 75%,100% { opacity:0; transform:scale(1.85); } }
 @media(prefers-reduced-motion:reduce) {
-  .mindmap-launch :is(.mindmap-launch-flow,.mindmap-launch-nodes circle) { animation:none; }
+  html[data-genesis-theme] .genesis-app :is(.personal-search-actions,.shared-task-view-controls) > button.mindmap-launch,
+  html[data-genesis-theme] .genesis-app :is(.personal-search-actions,.shared-task-view-controls) > button.mindmap-launch::before,
+  .mindmap-launch :is(.mindmap-launch-flow,.mindmap-launch-pulse,.mindmap-launch-nodes circle) { animation:none; }
+  html[data-genesis-theme] .genesis-app :is(.personal-search-actions,.shared-task-view-controls) > button.mindmap-launch:is(:hover,:focus-visible) { transform:none; }
   .mindmap-launch:is(:hover,:focus-visible) :is(.mindmap-launch-network,.mindmap-launch-core) { transform:none; }
   .mindmap-launch-network,.mindmap-launch-core { transition:none; }
 }

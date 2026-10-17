@@ -489,7 +489,7 @@ private fun SacredDayGrid(calendar: GenesisCalendar, range: CalendarRange, selec
                     if (experimental) calendar.moonInfo(date) else null,
                     if (experimental) "${date.dayOfMonth}.${date.monthValue}" else null,
                     if (experimental) tasksByDate[date.toString()].orEmpty().size else 0,
-                    if (experimental) calendar.solarEvent(date) else null,
+                    if (experimental && LocalSacredFeaturesEnabled.current) calendar.solarEvent(date) else null,
                     onTaskBadgeClick = onOpenTaskList,
                     solarLocation = if (experimental) solarLocation else null,
                     completedTaskCount = if (experimental) tasksByDate[date.toString()].orEmpty().count { it.done } else 0)
@@ -540,7 +540,7 @@ private fun SevenDayGrid(calendar: GenesisCalendar, range: CalendarRange, mode: 
                     if (experimental) calendar.moonInfo(date) else null,
                     if (experimental) calendar.sacredDate(date).let { "${it.day} · ${SacredCatalog.months[it.monthIndex].name}" } else null,
                     if (experimental && date in range.start..range.end) tasksByDate[date.toString()].orEmpty().size else 0,
-                    if (experimental) calendar.solarEvent(date) else null,
+                    if (experimental && LocalSacredFeaturesEnabled.current) calendar.solarEvent(date) else null,
                     patron = if (mode == CalendarMode.PROFANE) weekdayPatronMark(date) else null,
                     adjacent = mode == CalendarMode.PROFANE && date !in range.start..range.end,
                     onTaskBadgeClick = onOpenTaskList,
@@ -1228,7 +1228,7 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
                         CalendarPeriodNavigation(yearLabel, true, onPrevious, onNext)
                     }
                 }
-        if (experimental) {
+        if (experimental && sacredFeaturesEnabled) {
             item(key = "year-solar-points") {
             val events = remember(shown, mode, sacredYear) {
                 calendar.solarEvents(if (mode == CalendarMode.PROFANE) shown.year else sacredYear)
