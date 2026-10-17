@@ -1,5 +1,8 @@
 "use client";
 import { DialogCloseButton } from "./DialogCloseButton";
+import {orderPersonalTasks,taskListOrders,unreadPersonalCommentIds,type TaskListOrder} from "./task-list-order";
+import {usePersonalTaskDisplay} from "./use-personal-task-display";
+import {MindmapLaunchButton} from "./MindmapLaunchButton";
 
 import { calendarContext } from "./calendar-context";
 import { useSharedTaskPage } from "./use-shared-task-page";
@@ -1185,6 +1188,7 @@ export function GenesisCalendar() {
   const voiceLanguageEnabled = hydrated && (language === "ru" || language === "en");
   const [authResolved, setAuthResolved] = useState(!isGoogleSyncConfigured);
   const [cloudUser, setCloudUser] = useState<GenesisUser | null>(null);
+  const personalTaskDisplay=usePersonalTaskDisplay(cloudUser?.uid??"local");
   const [sharedCalendarCounts, setSharedCalendarCounts] = useState<Record<string,number>>({});
   const [calendarCompletionBusy, setCalendarCompletionBusy] = useState("");
   const [locatedPersonalTaskId, setLocatedPersonalTaskId] = useState("");
@@ -4476,11 +4480,12 @@ export function GenesisCalendar() {
                   <h3>Существующие списки</h3>
                 </div>
                 <small>Перетаскивайте задачи между колонками или выбирайте список в меню задачи.</small>
+                <label className="task-order-choice"><span>{translateText("Сортировка задач",language)}</span><select value={personalTaskDisplay.sort} onChange={event=>personalTaskDisplay.setSort(event.target.value as TaskListOrder)}>{taskListOrders.map(order=><option key={order.value} value={order.value}>{translateText(order.ru,language)}</option>)}</select></label>
               </header>
               <div className="task-list-board">
                 {taskListsForWorkspace.map((taskList) => {
                   const projectId = taskListLinks.find((link) => link.taskListId === taskList.id)?.projectId ?? "";
-                  const listTasks = tasks.filter((task) => task.googleTaskListId === taskList.id);
+                  const listTasks = orderPersonalTasks(tasks.filter((task) => task.googleTaskListId === taskList.id),personalTaskDisplay.sort);
                   return (
                     <section
                       className={`task-list-column${taskListDropTargetId === taskList.id ? " drop-target" : ""}`}
@@ -4523,9 +4528,11 @@ export function GenesisCalendar() {
                         </label>
                       </header>
                       <div className="task-list-column-items">
-                        {listTasks.map((task) => (
+                        {listTasks.map((task) => {
+                          const unread=unreadPersonalCommentIds(task.comments??[],cloudUser?.uid??"local",personalTaskDisplay.reads[task.id]??[]).length;
+                          return (
                           <article
-                            className={task.done ? "done" : ""}
+                            className={`${task.done ? "done" : ""}${unread ? " has-unread-comments" : ""}`}
                             key={task.id}
                           >
                             <button
@@ -4542,6 +4549,7 @@ export function GenesisCalendar() {
                             <button type="button" className="task-check" onClick={() => toggleTask(task.id)} aria-label={namedAction(task.done ? "Вернуть задачу" : "Завершить задачу", task.title, language)}>{task.done ? "✓" : ""}</button>
                             <button type="button" className="task-list-item-open" onClick={() => setPersonalPreview({kind:"task",id:task.id})}>
                               <strong data-no-translate>{task.title}</strong>
+                              {unread?<span className="unread-comment-badge">{translateText("Новые комментарии",language)}: {unread}</span>:null}
                               {renderOverdueBadge(task)}
                               <small>{taskRangeLabel(task, activeCalendarMode, activeTimeFormat)}</small>
                             </button>
@@ -4553,7 +4561,7 @@ export function GenesisCalendar() {
                             </label>
                             <button type="button" className="task-list-item-delete" onClick={() => deleteTask(task.id)} aria-label={`Удалить задачу «${task.title}»`}>{experimentalThemeActive ? <ExperimentalIcon name="close" /> : "×"}</button>
                           </article>
-                        ))}
+                        );})}
                         {!listTasks.length ? <p>Перетащите сюда задачу или добавьте несколько ниже.</p> : null}
                       </div>
                       <form className="task-list-batch-form" onSubmit={(event) => addTasksToExistingList(event, taskList)}>
@@ -4951,12 +4959,12 @@ export function GenesisCalendar() {
         {!experimentalThemeActive ? renderDisplayCalendarChoice(isEnglish ? "Today's calendar" : "Календарь сегодня", "today-calendar-choice") : null}
         <section className={`hero-card mode-${activeCalendarMode}${activeCalendarMode === "profane" ? ` weekday-${gregorian.getDay()}` : ""}`} aria-labelledby="today-title" data-genesis-preserve="today-hero-art">
           <div className="hero-copy">
-            <div className="eyebrow-row">
+            {sacredFeaturesEnabled ? <div className="eyebrow-row">
               <span className="eyebrow">{heroEyebrow}</span>
               {sacredFeaturesEnabled && activeCalendarMode === "lunar" ? (
                 <span className="event-badge lunar-event-badge"><MoonPhaseIcon phaseStep={moon.phaseStep} size={14} /> {moon.event || moon.epithet}</span>
               ) : sacredFeaturesEnabled && solarEvent ? <span className="event-badge solar-event-badge"><b aria-hidden="true">{solarEvent.symbol}</b> {solarEvent.name}</span> : null}
-            </div>
+            </div> : null}
             <p className="hero-month">{heroMonth}</p>
             <h1 id="today-title">
               <span className="hero-day-title-primary">{heroTitlePrimary}</span>
@@ -4975,7 +4983,7 @@ export function GenesisCalendar() {
               <button className="primary-button" type="button" onClick={openTodayInCalendar}>
                 Открыть день <span aria-hidden="true">↗</span>
               </button>
-              <span className="hero-date">{activeCalendarMode === "profane" && sacredFeaturesEnabled ? formatCalendarDate(gregorian, "sacred") : formatGregorian(gregorian, true)}</span>
+              {sacredFeaturesEnabled ? <span className="hero-date">{activeCalendarMode === "profane" ? formatCalendarDate(gregorian, "sacred") : formatGregorian(gregorian, true)}</span> : null}
             </div>
           </div>
           <div className="hero-day-clock">
@@ -5794,6 +5802,7 @@ export function GenesisCalendar() {
           </div>
         </WorkspaceHeader>
         <div className="project-toolbar" data-has-completed={completedCount > 0}>
+        {personalMindmapsEnabled ? <MindmapLaunchButton label={translateText("Майндмепы",language)} className="personal-mindmaps-entry" onClick={() => { mindmapsReturnScroll.current = window.scrollY; setMindmapsProjectId(null); setMindmapsOpen(true); }} /> : null}
         {completedCount > 0 ? <div className="affairs-actions">
           <div className="project-completion-tabs" role="group" aria-label={language === "en" ? "Project status" : "Статус проектов"}>
             <button type="button" aria-pressed={!completedView} onClick={() => setCompletedProjectsOpen(false)}>{language === "en" ? "Current" : "Текущие"} · {projects.length - completedCount}</button>
@@ -5802,12 +5811,12 @@ export function GenesisCalendar() {
         </div> : null}
 
         <div className="personal-search-actions">
+        <label className="task-order-choice"><span>{language==="en"?"Sort tasks":"Сортировка задач"}</span><select value={personalTaskDisplay.sort} onChange={event=>personalTaskDisplay.setSort(event.target.value as TaskListOrder)}>{taskListOrders.map(order=><option key={order.value} value={order.value}>{language==="en"?order.en:order.ru}</option>)}</select></label>
         <label className="tag-search personal-affairs-search">
           <span aria-hidden="true">{experimentalThemeActive ? <ExperimentalIcon name="search" /> : "⌕"}</span>
           <input aria-label="Поиск задач и проектов по названию или #тегу" value={tagSearch} onChange={(event) => setTagSearch(event.target.value)} placeholder="Поиск задач и проектов по названию или #тегу" />
           {tagSearch ? <button type="button" onClick={() => setTagSearch("")} aria-label="Очистить поиск">{experimentalThemeActive ? <ExperimentalIcon name="close" /> : "×"}</button> : null}
         </label>
-        {personalMindmapsEnabled ? <button type="button" className="primary-button personal-mindmaps-entry" onClick={() => { mindmapsReturnScroll.current = window.scrollY; setMindmapsProjectId(null); setMindmapsOpen(true); }}><ExperimentalIcon name="map-mode" /><span>Майндмепы</span></button> : null}
         </div>
         </div>
 
@@ -5996,7 +6005,8 @@ export function GenesisCalendar() {
   };
 
   const renderTaskRows = (items: Task[]) => <div className="all-tasks-list" aria-live="polite">
-    {items.map((task) => {
+    {orderPersonalTasks(items,personalTaskDisplay.sort).map((task) => {
+            const unread=unreadPersonalCommentIds(task.comments??[],cloudUser?.uid??"local",personalTaskDisplay.reads[task.id]??[]).length;
             const project = resolvedTaskProject(task);
             const category = categories.find((item) => item.id === project?.categoryId);
             const overdue = isTaskOverdue(task, today, overdueDeadline(task));
@@ -6007,7 +6017,7 @@ export function GenesisCalendar() {
               .map((dependencyId) => tasks.find((item) => item.id === dependencyId)?.title)
               .filter((title): title is string => Boolean(title));
             return (
-              <div className={`all-task-row project-task-card project-draggable-item${task.done ? " done" : ""}${overdue ? " past" : ""}${locatedPersonalTaskId === task.id ? " task-location-highlight" : ""}`} data-personal-task-id={task.id} key={task.id} role="button" tabIndex={0} onKeyDown={event=>{if(event.target===event.currentTarget&&(event.key==="Enter"||event.key===" ")){event.preventDefault();setPersonalPreview({kind:"task",id:task.id});}}} onClick={event=>{if(!(event.target as Element).closest("button,input,select,textarea,a,summary,label,details"))setPersonalPreview({kind:"task",id:task.id});}} {...projectDragProps({ kind: "task", id: task.id, title: task.title })}>
+              <div className={`all-task-row project-task-card project-draggable-item${unread ? " has-unread-comments" : ""}${task.done ? " done" : ""}${overdue ? " past" : ""}${locatedPersonalTaskId === task.id ? " task-location-highlight" : ""}`} data-personal-task-id={task.id} key={task.id} role="button" tabIndex={0} onKeyDown={event=>{if(event.target===event.currentTarget&&(event.key==="Enter"||event.key===" ")){event.preventDefault();setPersonalPreview({kind:"task",id:task.id});}}} onClick={event=>{if(!(event.target as Element).closest("button,input,select,textarea,a,summary,label,details"))setPersonalPreview({kind:"task",id:task.id});}} {...projectDragProps({ kind: "task", id: task.id, title: task.title })}>
                 <button type="button" className="task-check" onClick={() => toggleTask(task.id)} aria-label={namedAction(task.done ? "Вернуть задачу" : "Завершить задачу", task.title, language)}>
                   {task.done ? "✓" : ""}
                 </button>
@@ -6016,6 +6026,7 @@ export function GenesisCalendar() {
                     <button type="button" className="task-preview-open" data-affair-drag-surface data-no-translate title={task.title} onClick={()=>setPersonalPreview({kind:"task",id:task.id})}>{task.title}</button>
                     <span className="all-task-priority" title="Приоритет">⚑{task.priority}</span>
                   </div>
+                  {unread?<span className="unread-comment-badge">{translateText("Новые комментарии",language)}: {unread}</span>:null}
                   <div className="all-task-meta">
                     {task.entryType && task.entryType !== "task" ? <span className="entry-type-badge">{entryTypeLabel(task.entryType, language === "en")}</span> : null}
                     <span>{taskRangeLabel(task, activeCalendarMode, activeTimeFormat)}</span>
@@ -6546,6 +6557,7 @@ export function GenesisCalendar() {
       data-exp-layout="app-shell"
       data-sacred-features={sacredFeaturesEnabled}
       data-sidebar-collapsed={sidebarCollapsed}
+      data-sidebar-compact={sidebarWidth < 208}
       data-sidebar-resizing={sidebarResizing}
       style={{
         "--sidebar-current-width": `${sidebarWidth}px`,
@@ -6568,7 +6580,7 @@ export function GenesisCalendar() {
         setInvitationDestination(current=>({...destination,userId:uid,request:(current?.request??0)+1}));
         setProjectsArea("shared"); navigateTo("projects",false,destination,true);
       }}/></Suspense>
-      {previewEntity&&personalPreview?<Suspense fallback={<DeferredDialogFallback label={translateText("Загрузка…",language)}/>}><PersonalEntityPreview key={personalPreview.kind+personalPreview.id} task={previewTask??undefined} project={previewProject??undefined} list={previewList??undefined} schedule={previewTask?taskRangeLabel(previewTask,activeCalendarMode,activeTimeFormat):""} projectTitle={previewTask?resolvedTaskProjectTitle(previewTask):""} taskCount={tasks.filter(task=>previewProject?resolvedTaskProject(task)?.id===previewProject.id:task.googleTaskListId===previewList?.id).length} language={language} onClose={()=>setPersonalPreview(null)} onComment={addPersonalComment} onEdit={()=>{setPersonalPreview(null);if(previewTask)openTaskEditor(previewTask,personalPreview.date);else if(previewProject)openProjectEditor(previewProject);else if(previewList)setEditingTaskList(previewList);}}/></Suspense>:null}
+      {previewEntity&&personalPreview?<Suspense fallback={<DeferredDialogFallback label={translateText("Загрузка…",language)}/>}><PersonalEntityPreview key={personalPreview.kind+personalPreview.id} task={previewTask??undefined} project={previewProject??undefined} list={previewList??undefined} schedule={previewTask?taskRangeLabel(previewTask,activeCalendarMode,activeTimeFormat):""} projectTitle={previewTask?resolvedTaskProjectTitle(previewTask):""} taskCount={tasks.filter(task=>previewProject?resolvedTaskProject(task)?.id===previewProject.id:task.googleTaskListId===previewList?.id).length} language={language} onClose={()=>setPersonalPreview(null)} onComment={addPersonalComment} onCommentsRead={ids=>{if(previewTask)personalTaskDisplay.markRead(previewTask.id,ids);}} onEdit={()=>{setPersonalPreview(null);if(previewTask)openTaskEditor(previewTask,personalPreview.date);else if(previewProject)openProjectEditor(previewProject);else if(previewList)setEditingTaskList(previewList);}}/></Suspense>:null}
       {projectToComplete ? <ProjectCompletionDialog title={projectToComplete.title}
         onCancel={() => setProjectToComplete(null)} onConfirm={() => {
           const project = projects.find((item) => item.id === projectToComplete.id);
@@ -6585,7 +6597,8 @@ export function GenesisCalendar() {
             aria-hidden="true"
           />
           <strong>GENESIS</strong>
-          <small data-no-translate>{language === "el" ? "ἡμερολόγιον" : language === "uk" ? "Гемерологіон" : language === "ru" || language === "sr" ? "Гемерологион" : "Hemerologion"}</small>
+          {sacredFeaturesEnabled ? <small data-no-translate>{language === "el" ? "ἡμερολόγιον" : language === "uk" ? "Гемерологіон" : language === "ru" || language === "sr" ? "Гемерологион" : "Hemerologion"}</small>
+            : <small className="brand-motto" data-no-translate><span>{translateText("Порядок в делах",language)}</span><span>{translateText("Порядок в разуме",language)}</span></small>}
         </button>
         <nav className="main-nav">
           {navigation.map((item) => (

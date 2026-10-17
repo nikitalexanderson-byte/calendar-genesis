@@ -87,6 +87,10 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     var googleSettings by remember { mutableStateOf<JSONObject?>(null) }
     var googleMessage by remember { mutableStateOf("") }
     var comments by remember { mutableStateOf(emptyList<JSONObject>()) }
+    val (taskSort,setTaskSort)=rememberTaskListSort("shared")
+    var inboxTaskPage by remember { mutableStateOf<JSONObject?>(null) }
+    var discussionVisible by remember { mutableStateOf(false) }
+    val discussionWindowHeight=androidx.compose.ui.platform.LocalContext.current.resources.displayMetrics.heightPixels
     var spaceId by remember { mutableStateOf(destination?.spaceId.orEmpty()) }
     var expandedIds by remember { mutableStateOf(emptySet<String>()) }
     var uiReadySpace by remember { mutableStateOf("") }
@@ -304,7 +308,23 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     val categories = snapshot?.optJSONArray("categories")?.rows().orEmpty()
     val tasks = taskPage?.optJSONArray("tasks")?.rows().orEmpty()
     val inboxProject = projects.firstOrNull { it.optInt("isInbox") == 1 }
-    val inboxTasks = inboxPreview?.optJSONArray("tasks")?.rows().orEmpty()
+    val inboxId=inboxProject?.optString("id").orEmpty()
+    val inboxTasks = inboxTaskPage?.optJSONArray("tasks")?.rows().orEmpty()
+    LaunchedEffect(inboxId,taskSort,inboxExpanded) {
+        inboxTaskPage=null
+        if(inboxId.isBlank()||!inboxExpanded)return@LaunchedEffect
+        val filter=JSONObject().put("projectIds",JSONArray().put(inboxId))
+        while(isActive){
+            try{
+                val loaded=inboxTaskPage?.optJSONArray("tasks")?.length()?:0
+                var next=controller.sortedSharedTasks(filter,sort=taskSort.wire)
+                while(next.optBoolean("hasMore")&&(next.optJSONArray("tasks")?.length()?:0)<loaded)
+                    next=mergeSharedTaskPage(next,controller.sortedSharedTasks(filter,next.optString("nextCursor"),taskSort.wire),true)
+                inboxTaskPage=next
+            }catch(error:Exception){message=error.message?:"Не удалось загрузить задачи"}
+            delay(5_000)
+        }
+    }
     LaunchedEffect(inboxExpanded, inboxProject?.optString("id")) {
         val inboxId = inboxProject?.optString("id") ?: return@LaunchedEffect
         inboxPreview = null
@@ -324,6 +344,12 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     val canComment = role in setOf("owner", "manager", "member", "commenter")
     val canInvite = role in setOf("owner", "manager")
     val selectedTask = openedTask?.takeIf { it.optString("id") == taskId && it.optString("projectId") == projectId } ?: tasks.firstOrNull { it.optString("id") == taskId }
+    LaunchedEffect(projectId,taskId,comments,discussionVisible) {
+        if(discussionVisible&&taskId.isNotBlank()&&comments.isNotEmpty())runCatching {
+            controller.readSharedTaskUpdates(projectId,taskId,comments.map { it.getString("id") })
+            taskPage=taskPage?.let { page->JSONObject(page.toString()).put("tasks",JSONArray(page.optJSONArray("tasks")?.rows().orEmpty().map { if(it.optString("id")==taskId)JSONObject(it.toString()).put("unreadCommentCount",0) else it })) }
+        }
+    }
     val activeView = viewOverride ?: project?.optString("layout") ?: "list"
     val taskFilter = JSONObject().put("projectIds", JSONArray().put(projectId)).put("q", taskSearch)
     if (activeView == "calendar") {
@@ -331,14 +357,17 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         else taskFilter.put("dueFrom", calendarDay.toString()).put("dueTo", calendarDay.toString())
     }
     val taskFilterKey = taskFilter.toString()
-    LaunchedEffect(taskFilterKey) {
+    LaunchedEffect(taskFilterKey,taskSort) {
         taskPage = null
         if (projectId.isBlank()) return@LaunchedEffect
         while (isActive) {
             try {
-                val next = controller.querySharedTasks(JSONObject(taskFilterKey))
-                taskPage = mergeSharedTaskPage(taskPage, next, false)
-            } catch(error: Exception) { message = error.message ?: "Не удалось загрузить данные"; taskPage = null }
+                val loaded=taskPage?.optJSONArray("tasks")?.length()?:0
+                var next = controller.sortedSharedTasks(JSONObject(taskFilterKey),sort=taskSort.wire)
+                while(next.optBoolean("hasMore")&&(next.optJSONArray("tasks")?.length()?:0)<loaded)
+                    next=mergeSharedTaskPage(next,controller.sortedSharedTasks(JSONObject(taskFilterKey),next.optString("nextCursor"),taskSort.wire),true)
+                taskPage = next
+            } catch(error: Exception) { message = error.message ?: "Не удалось загрузить данные" }
             delay(5_000)
         }
     }
@@ -977,6 +1006,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                 } }
             }
         }
+        TaskListSortChoice(taskSort,setTaskSort)
         if (inboxProject != null) Surface(Modifier.fillMaxWidth().testTag("shared-project-inbox"),
             shape = MaterialTheme.shapes.medium, color = Color(0xff103632)) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1001,7 +1031,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                     else "Собирайте общие задачи здесь, затем распределяйте их по проектам команды.",
                     color = Color(0xffb8ccc5), style = MaterialTheme.typography.bodySmall)
                 if (inboxExpanded) {
-                    if (inboxPreview == null) LinearProgressIndicator(Modifier.fillMaxWidth())
+                    if (inboxPreview == null||inboxTaskPage==null) LinearProgressIndicator(Modifier.fillMaxWidth())
                     else if (inboxTasks.isEmpty()) Text(if (en) "No unsorted tasks yet." else "Задач без проекта пока нет.",
                         color = Color(0xffb8ccc5), style = MaterialTheme.typography.bodyMedium)
                     inboxTasks.forEach { task ->
@@ -1011,9 +1041,16 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                             taskId = task.optString("id")
                         }, modifier = Modifier.fillMaxWidth().testTag("shared-inbox-task-${task.optString("id")}"),
                             colors = ButtonDefaults.textButtonColors(contentColor = Color(0xfff8f3e8))) {
-                            Text(task.optString("title"), modifier = Modifier.fillMaxWidth(), maxLines = 2)
+                            Column(Modifier.fillMaxWidth()) {
+                                Text(task.optString("title"), maxLines = 2,fontWeight=if(task.optInt("unreadCommentCount")>0)androidx.compose.ui.text.font.FontWeight.Bold else null)
+                                UnreadCommentBadge(task.optInt("unreadCommentCount"))
+                            }
                         }
                     }
+                    if(inboxTaskPage?.optBoolean("hasMore")==true)TextButton(onClick={run {
+                        val filter=JSONObject().put("projectIds",JSONArray().put(inboxId))
+                        inboxTaskPage=mergeSharedTaskPage(inboxTaskPage,controller.sortedSharedTasks(filter,inboxTaskPage?.optString("nextCursor"),taskSort.wire),true)
+                    }},enabled=!busy){Text(if(en)"Load more tasks" else "Ещё задачи")}
                     if (inboxProject.optString("role") in setOf("owner", "manager", "member")) {
                         TextButton(onClick = { run {
                             val inboxId = inboxProject.optString("id")
@@ -1291,8 +1328,8 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
             taskPage?.let { page ->
                 Text(genesisTranslate("Показано: {loaded} из {total}").replace("{loaded}", tasks.size.toString()).replace("{total}", page.optInt("total").toString()))
                 if (page.optBoolean("hasMore")) TextButton(enabled = !busy, onClick = { run {
-                    try { taskPage = mergeSharedTaskPage(taskPage, controller.querySharedTasks(JSONObject(taskFilterKey), page.optString("nextCursor")), true) }
-                    catch(error: Exception) { taskPage = controller.querySharedTasks(JSONObject(taskFilterKey)); message = error.message ?: "SHARED_QUERY_CHANGED" }
+                    try { taskPage = mergeSharedTaskPage(taskPage, controller.sortedSharedTasks(JSONObject(taskFilterKey), page.optString("nextCursor"),taskSort.wire), true) }
+                    catch(error: Exception) { taskPage = controller.sortedSharedTasks(JSONObject(taskFilterKey),sort=taskSort.wire); message = error.message ?: "SHARED_QUERY_CHANGED" }
                 } }) { Text("Показать ещё") }
             }
             if (selectedTask != null) ElevatedCard(Modifier.fillMaxWidth()) {
@@ -1378,7 +1415,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                         }
                     }
                     Text(if (en) "Discussion" else "Обсуждение", style = MaterialTheme.typography.titleMedium)
-                    comments.forEach { comment -> Text("${comment.optString("authorName")}: ${comment.getString("body")}") }
+                    Column(Modifier.onGloballyPositioned { val bounds=it.boundsInWindow();discussionVisible=bounds.top<discussionWindowHeight&&bounds.bottom>0 }) { comments.forEach { comment -> Text("${comment.optString("authorName")}: ${comment.getString("body")}") } }
                     if (canComment) {
                         OutlinedTextField(commentBody, { commentBody = it }, label = { Text(if (en) "Comment" else "Комментарий") },
                             modifier = Modifier.fillMaxWidth())
@@ -1469,7 +1506,8 @@ private fun SharedTaskCard(task: JSONObject, statuses: List<JSONObject>, canOrga
                 onDrag = { change, amount -> change.consume(); onDragMove?.invoke(amount) })
         } else Modifier
     ElevatedCard(Modifier.fillMaxWidth().then(dragModifier)) { Column(Modifier.padding(8.dp)) {
-        TextButton(onClick = onOpen) { Text(task.getString("title")) }
+        TextButton(onClick = onOpen) { Text(task.getString("title"),fontWeight=if(task.optInt("unreadCommentCount")>0)androidx.compose.ui.text.font.FontWeight.Bold else null) }
+        UnreadCommentBadge(task.optInt("unreadCommentCount"))
         if (category != null) Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("●", color = runCatching { Color(android.graphics.Color.parseColor(category.optString("color"))) }
                 .getOrDefault(MaterialTheme.colorScheme.secondary))

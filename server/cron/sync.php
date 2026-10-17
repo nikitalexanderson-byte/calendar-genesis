@@ -18,12 +18,14 @@ $statement = genesisDb()->prepare('DELETE FROM user_metrics WHERE user_id IN (SE
 $statement->execute(['inactive_before' => $inactiveBefore]);
 $maintenance = genesisSharedMaintenance();
 $background = genesisBackgroundRun();
+$email = genesisAccountEmailRun();
 $sharedGoogle = genesisSharedSyncGoogleCron();
 
 echo json_encode([
     'ok' => true,
     'maintenance' => $maintenance,
     'background' => $background,
+    'email' => $email,
     'prunedMetrics' => $statement->rowCount(),
     'sharedGoogle' => $sharedGoogle,
     'time' => genesisNow(),

@@ -60,10 +60,11 @@ class MenuSwipeState {
 internal fun menuSwipeSequence(includeSubmenus: Boolean, habitsEnabled: Boolean,
     sharedProjectsEnabled: Boolean = false, hiddenMenuItems: Set<String> = emptySet(),
     hiddenSubmenus: Set<String> = emptySet(),
-    settingsSubmenuEnabled: Boolean = true): List<SwipeDestination> {
+    settingsSubmenuEnabled: Boolean = true,
+    sacredFeaturesEnabled: Boolean = true): List<SwipeDestination> {
     val pages = listOf("Сегодня", "Проекты", "Календарь", "Привычки", "Сакральное", "Настройки")
         .filter { (habitsEnabled || it != "Привычки") && menuVisibilityId(it) !in hiddenMenuItems &&
-            (it != "Сакральное" || !("stoicheion" in hiddenMenuItems && "theokyklos" in hiddenMenuItems)) }
+            (it != "Сакральное" || (sacredFeaturesEnabled && !("stoicheion" in hiddenMenuItems && "theokyklos" in hiddenMenuItems))) }
     if (!includeSubmenus) return pages.map { SwipeDestination(it) }
     return pages.flatMap { page -> when (page) {
         "Задачи" -> listOf("tasks", "lists").filter { "tasks.$it" !in hiddenSubmenus }

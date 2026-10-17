@@ -33,6 +33,7 @@ data class LocalTask(
 ) {
     fun json(): String {
         val source = JSONObject(sourceFieldsJson)
+        if(source.optString("createdAt").isBlank())source.put("createdAt",Instant.now().toString())
         val previousDone = source.optBoolean("done")
         val oldDate = runCatching { LocalDate.parse(source.optString("dueDate")) }.getOrNull()
         val oldEnd = runCatching { LocalDate.parse(source.optString("endDate")) }.getOrNull()

@@ -32,10 +32,12 @@ internal fun TaskTitle(task: LocalTask, modifier: Modifier = Modifier,
     label: String = task.title, occurrenceDate: LocalDate? = null) {
     val now by produceState(Instant.now()) { while(true) { value=Instant.now();delay(30_000) } }
     val overdue=remember(task,now,occurrenceDate) { isTaskOverdue(task,now,occurrenceDate) }
+    val unread=personalUnreadComments(task)
     Column(verticalArrangement=Arrangement.spacedBy(4.dp)) {
-    Text(label, modifier = modifier, style = style,
+    Text(label, modifier = modifier, style = if(unread>0)style.copy(fontWeight=androidx.compose.ui.text.font.FontWeight.Bold) else style,
         color = if (task.done) completedColor else color, maxLines = maxLines,
         textDecoration = if (task.done) TextDecoration.LineThrough else TextDecoration.None)
+    UnreadCommentBadge(unread)
     if(overdue) {
         val dark=LocalEveningTheme.current
         androidx.compose.material3.Surface(shape=RoundedCornerShape(8.dp),

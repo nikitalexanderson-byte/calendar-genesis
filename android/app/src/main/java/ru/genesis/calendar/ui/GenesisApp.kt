@@ -363,10 +363,10 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     }
     val swipeSequence = remember(prefs.menuSwipeSubmenus, prefs.settingsSubmenuEnabled,
         habitTrackingEnabled, sharedProjectsEnabled,
-        uiVisibility.hiddenMenuItems, uiVisibility.hiddenSubmenus) {
+        uiVisibility.hiddenMenuItems, uiVisibility.hiddenSubmenus, uiVisibility.sacredFeaturesEnabled) {
         menuSwipeSequence(prefs.menuSwipeSubmenus, habitTrackingEnabled, sharedProjectsEnabled,
             uiVisibility.hiddenMenuItems, uiVisibility.hiddenSubmenus,
-            prefs.settingsSubmenuEnabled)
+            prefs.settingsSubmenuEnabled, uiVisibility.sacredFeaturesEnabled)
     }
     val swipeSection = if (prefs.menuSwipeSubmenus &&
         (tab != "Настройки" || prefs.settingsSubmenuEnabled))
@@ -697,7 +697,8 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
           (if(testWorkspace || activeScope.startsWith("account-")) prefs.language else welcomePrefs.language),
           LocalEnabledCalendars provides CalendarMode.entries
               .filter { it.wireValue in uiVisibility.visibleCalendars }.toSet(),
-          LocalSacredFeaturesEnabled provides uiVisibility.sacredFeaturesEnabled) {
+          LocalSacredFeaturesEnabled provides uiVisibility.sacredFeaturesEnabled,
+          LocalGenesisUserId provides (authState.user?.uid?:"local")) {
         Surface(Modifier.fillMaxSize().testTag(if (eveningTheme) "app-theme-Evening" else "app-theme-Standart"),color=MaterialTheme.colorScheme.background) {
             if (accountGate) {
                 if (authState.busy && authState.user != null) AuthTransitionScreen(authState.message)
@@ -1551,6 +1552,7 @@ internal fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,stru
                         modifier=Modifier.testTag("create-shared-task-switch"))
                 }
                 EditorSection("Основное") {
+                    task?.let { PersonalTaskDiscussion(it) }
                     OutlinedTextField(title,{title=it},label={Text("Название")},modifier=Modifier.fillMaxWidth().testTag("task-title"))
                     OutlinedTextField(description,{description=it},label={Text("Описание")},modifier=Modifier.fillMaxWidth())
                     if (yandex) {
@@ -1943,6 +1945,7 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sectionId:
         "habits" -> HabitSettingsPanel(app, prefs.use24)
         "reminders" -> {
         if (LocalSacredFeaturesEnabled.current) MoonReminderSettings(app, prefs, onSetLocal)
+        sharedController?.let { EmailNotificationSettings(it,prefs.use24) }
         SettingsSection("◷", "Системные напоминания", "Проверка разрешений и точности Android",
             Color(0xfffff1cf)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

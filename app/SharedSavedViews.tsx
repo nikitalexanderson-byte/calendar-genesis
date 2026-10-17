@@ -175,7 +175,7 @@ export function SharedSavedViews({userId,spaces,mode,opened,onClose,onOpen}:{use
   const canShare=spaces.some(space=>space.id===draft.spaceId&&["owner","admin"].includes(space.role)),canEdit=!draft.id||(metadata?.id===draft.id&&metadata.canEdit);
   const scopeChanged=Boolean(draft.id&&metadata?.id===draft.id&&(metadata.spaceId!==draft.spaceId||metadata.visibility!==draft.visibility));
   const repairedContext=!definition?repairSharedViewContext(draft.damagedDefinition,calendarContext()):null;
-  const sortOptions=[["position","Порядок на доске"],["priority","Приоритет"],["dueDate","Срок"],["title","Название"],["updatedAt","Последнее изменение"]]as const;
+  const sortOptions=[["position","Порядок на доске"],["createdAt","Новые вверху"],["createdAtAsc","Старые вверху"],["priority","Приоритет"],["dueDate","Срок"],["title","Название"],["updatedAt","Последнее изменение"]]as const;
   return <dialog ref={dialog} className="shared-projects-modal shared-saved-views" aria-labelledby="saved-views-title" aria-describedby="saved-views-help" onCancel={event=>{event.preventDefault();onClose();}} onClose={onClose}>
     <header><h2 id="saved-views-title">{t("Сохранённые представления")}</h2><DialogCloseButton aria-label={t("Закрыть")} onClick={onClose}/></header>
     {opened?<div className="saved-views-content">

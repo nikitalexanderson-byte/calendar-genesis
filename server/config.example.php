@@ -45,10 +45,16 @@ return [
             'subject' => 'https://genesiscalendar.com',
         ],
         'email' => [
-            // Set to 'mail' only with a working PHP mail transport and an
-            // authorized sender configured by the domain administrator.
+            // Keep credentials only in the private server/config.php.
+            // Hostinger: smtp.hostinger.com:465 (ssl), or 587 (starttls).
             'transport' => '',
-            'from' => '',
+            'from' => 'noreply@genesiscalendar.com',
+            'from_name' => 'GENESIS',
+            'host' => 'smtp.hostinger.com',
+            'port' => 465,
+            'encryption' => 'ssl',
+            'username' => 'noreply@genesiscalendar.com',
+            'password' => '',
         ],
     ],
     'admin_email' => 'nikitalexanderson@gmail.com',

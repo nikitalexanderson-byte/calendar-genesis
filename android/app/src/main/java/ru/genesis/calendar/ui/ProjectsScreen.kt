@@ -168,6 +168,8 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
         return
     }
     val structure = loadedStructure!!
+    val (taskSort,setTaskSort)=rememberTaskListSort("personal")
+    val orderedTasks=remember(tasks,taskSort){orderPersonalTasks(tasks,taskSort)}
     val scope = rememberCoroutineScope()
     var localSelectedCategory by remember { mutableStateOf<String?>(null) }
     val selectedCategory = if (menuSwipeState == null) localSelectedCategory
@@ -239,7 +241,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
         .firstOrNull { it.taskListId == list.id }?.projectId
         ?.takeIf { id -> structure.projects.any { it.id == id } }
     val inboxLists = knownLists.filter { listProjectId(it) == null }
-    val tasksByProject = remember(tasks, structure) { tasks.groupBy { personalTaskProjectId(it, structure) } }
+    val tasksByProject = remember(orderedTasks, structure) { orderedTasks.groupBy { personalTaskProjectId(it, structure) } }
     val inbox = tasksByProject[null].orEmpty().filterNot { task -> inboxLists.any { task.belongsToList(it) } }
     LaunchedEffect(initialProjectId,structure) {
         val target=structure.projects.firstOrNull {it.id==initialProjectId} ?: return@LaunchedEffect
@@ -292,7 +294,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
         }
     }
     val listCard: @Composable (GoogleTaskList) -> Unit = { list ->
-        PersonalTaskListCard(list, tasks.filter { it.belongsToList(list) &&
+        PersonalTaskListCard(list, orderedTasks.filter { it.belongsToList(list) &&
             personalTaskProjectId(it, structure) == listProjectId(list) }, structure, use24,
             onCreateListTask, onCompleteTask, onOpenTask, onUpdateList, onDeleteList,
             initialExpanded = openedListId == list.id,
@@ -404,6 +406,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
                     OutlinedButton(onClick = onCreateList, modifier = Modifier.weight(1f)
                         .heightIn(min = 48.dp).testTag("personal-create-list")) { Text("Создать список") }
                 }
+                TaskListSortChoice(taskSort,setTaskSort)
             }
         }
         if (!wide) item {

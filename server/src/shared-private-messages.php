@@ -40,6 +40,15 @@ function genesisSharedPrivateAccess(string $userId, string $id, bool $requireAcc
     return $row;
 }
 
+/** Email links remain useful after a message was read on another device. */
+function genesisSharedPrivateDestination(string $userId,string $id): array
+{
+    $conversation=genesisSharedPrivateAccess($userId,$id);
+    $peer=$conversation['user_a']===$userId?$conversation['user_b']:$conversation['user_a'];
+    $user=genesisFindUser($peer);
+    return ['id'=>$id,'spaceId'=>$conversation['space_id'],'peerId'=>$peer,'peerName'=>$user['display_name']?:'GENESIS'];
+}
+
 function genesisSharedPrivateConversation(string $userId, string $spaceId, array $input): array
 {
     genesisSharedRequireEnabled($userId); genesisSharedSpaceAccess($spaceId,$userId);
@@ -171,6 +180,7 @@ function genesisSharedPrivateSave(string $userId, string $conversationId, array 
             if((int)$q->fetchColumn()>=100000)throw new GenesisSharedAccessException('MESSAGE_STORAGE_LIMIT',409);
             $db->prepare('INSERT INTO shared_private_messages(id,conversation_id,sender_id,payload_json,created_at,updated_at) VALUES(?,?,?,?,?,?)')
                 ->execute([$id,$conversationId,$userId,$payload,genesisNow(),genesisNow()]);
+            genesisEmailQueuePrivateMessage($conversation,$userId,$id);
         } else {
             $db->prepare('UPDATE shared_private_messages SET payload_json=?,revision=revision+1,updated_at=?,deleted_at=? WHERE id=?')
                 ->execute([$payload,genesisNow(),$method==='DELETE' ? genesisNow() : null,$id]);

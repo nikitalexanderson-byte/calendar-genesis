@@ -542,10 +542,11 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
           aria-label={user.language === "en" ? "Settings sections" : "Разделы настроек"}>
           {SETTINGS_SECTIONS.map((item) => <button key={item.id} type="button"
             data-settings-tab={item.id} aria-current={settingsTab === item.id ? "page" : undefined}
-            className={settingsTab === item.id ? "active" : ""} onClick={() => setSettingsTab(item.id)}
+            className={`personal-action-hint${settingsTab === item.id ? " active" : ""}`} onClick={() => setSettingsTab(item.id)}
+            data-action-hint={user.language === "en" ? item.en : item.ru}
+            title={user.language === "en" ? item.en : item.ru}
             aria-label={user.language === "en" ? item.en : item.ru}>
             <SettingsSectionIcon section={item.id} />
-            <span>{user.language === "en" ? item.en : item.ru}</span>
           </button>)}
         </nav>
         <div className="settings-section-hero" data-settings-hero={settingsTab}>
@@ -1063,6 +1064,7 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
 
         {visibility.sacredFeaturesEnabled ? <MoonReminderSettings key={user.uid} accountId={user.uid} english={user.language === "en"} permission={notificationPermission} requestPermission={onRequestHabitNotifications} /> : null}
         <section className="account-preferences settings-reminders-panel" data-settings-group="reminders">
+          <div className="account-email-preferences"><h3>{user.language==="en"?"Email notifications":"Уведомления по email"}</h3><p>{user.language==="en"?"Choose emails about messages, comments and tasks, and set their frequency and quiet hours.":"Выберите письма о сообщениях, комментариях и задачах, настройте частоту и тихие часы."}</p><button type="button" className="secondary-button" onClick={()=>setSharedNotificationSettingsOpen(true)}>{user.language==="en"?"Configure email notifications":"Настроить email-уведомления"}</button></div>
           <div><span className="eyebrow">GENESIS</span><h3>{user.language === "en" ? "System reminders" : "Системные напоминания"}</h3>
             <p>{user.language === "en" ? "Browser notifications depend on your browser permission. Task reminders in Google Calendar and Tasks use the connected Google account." : "Уведомления браузера зависят от его разрешения. Напоминания задач в Google Calendar и Tasks работают через подключённый Google-аккаунт."}</p></div>
           <p>Уведомления задач и привычек используют разные звуки и значки. Звуковые сигналы сайта доступны после взаимодействия со страницей; браузер определяет вид системных уведомлений.</p>

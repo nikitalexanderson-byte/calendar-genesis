@@ -55,12 +55,20 @@ function genesisSharedReadTaskUpdates(string $userId, string $projectId, string 
         $query = $db->prepare('SELECT id FROM shared_tasks_history_read WHERE id = :task AND project_id = :project');
         $query->execute(['task' => $taskId, 'project' => $projectId]);
         if ($query->fetchColumn() === false) throw new GenesisSharedAccessException('TASK_NOT_FOUND', 404);
-        $sql=genesisNotificationInboxSql($userId,null,false,true);$commentCondition='';
+        $sql=genesisNotificationInboxSql($userId,null,false,true,'all');$commentCondition='';
         if($ids){$keys=[];foreach(array_values(array_unique($ids))as$i=>$id){$keys[]=':shown'.$i;$sql['values']['shown'.$i]=$id;}$commentCondition=' OR e.object_id IN ('.implode(',',$keys).')';}
         // A viewed task also acknowledges its visible events from previous projects after a move.
         // Comment IDs still describe exactly which discussion entries the client displayed.
         $query=$db->prepare('INSERT OR IGNORE INTO shared_notification_reads(event_id,user_id,read_at) SELECT e.id,:user,:now'.$sql['from'].$sql['where']." AND COALESCE(n.task_id,e.task_id,t.id,CASE WHEN e.action LIKE 'task.%' THEN e.object_id END)=:task AND (e.action<>'comment.created'".$commentCondition.')');
         $query->execute($sql['values']+['task'=>$taskId,'now'=>genesisNow()]);
+        // Discussion read state is independent of notification channel/type opt-outs.
+        if($ids){
+            $shown=implode(',',array_fill(0,count($ids),'?'));
+            $ack=$db->prepare("INSERT OR IGNORE INTO shared_notification_reads(event_id,user_id,read_at)
+                SELECT e.id,?,? FROM shared_audit_events_read e JOIN shared_comments_read c ON c.id=e.object_id
+                WHERE e.action='comment.created' AND c.task_id=? AND c.id IN ($shown)");
+            $ack->execute([$userId,genesisNow(),$taskId,...$ids]);
+        }
         $overview = genesisSharedOverview($userId);
         $db->commit();
         return ['ok' => true, 'overview' => $overview];

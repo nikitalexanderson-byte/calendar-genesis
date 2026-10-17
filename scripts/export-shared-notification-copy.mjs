@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
-const keys=['Есть новые уведомления в общих делах GENESIS.','Откройте GENESIS, чтобы посмотреть обновления.'];
+const keys=["Есть новые уведомления в общих делах GENESIS.","Откройте GENESIS, чтобы посмотреть обновления.","Подтвердите регистрацию в GENESIS","Ваш аккаунт создан через Google. Подтвердите регистрацию. Ссылка действует 48 часов.","Подтвердить регистрацию","Это письмо отправляется один раз при регистрации на сайте.","Новые личные сообщения в GENESIS","Откройте GENESIS, чтобы прочитать сообщения. Переписка остаётся зашифрованной.","Открыть сообщения","Настройки писем доступны в личном кабинете GENESIS.","Открыть GENESIS","Регистрация подтверждена","Подтверждение регистрации","Ссылка недействительна или срок её действия истёк"];
 const result={ru:Object.fromEntries(keys.map(key=>[key,key]))};
 for(const locale of['en','el','de','fr','es','it','pt','pl','sr','uk','zh','tr','ja']){
  const catalog={};for(const relative of[`app/translations.${locale}.json`,`app/translations.${locale}.a.json`,`app/translations.${locale}.b.json`,`app/ui-translations/${locale}.json`]){const file=path.join(root,relative);if(fs.existsSync(file))Object.assign(catalog,JSON.parse(fs.readFileSync(file,'utf8')));}

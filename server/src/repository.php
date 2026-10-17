@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__.'/account-email.php';
 
 const GENESIS_ADMIN_EMAIL = 'nikitalexanderson@gmail.com';
 
@@ -411,7 +412,7 @@ function genesisTouchUser(string $userId, bool $login = false): void
     ]);
 }
 
-function genesisUpsertGoogleUser(array $profile, array $tokens, bool $persistGoogleTokens = true): array
+function genesisUpsertGoogleUser(array $profile, array $tokens, bool $persistGoogleTokens = true, bool $websiteRegistrationEmail = false): array
 {
     $email = mb_strtolower(trim((string)($profile['email'] ?? '')));
     $googleSub = trim((string)($profile['sub'] ?? ''));
@@ -510,7 +511,12 @@ function genesisUpsertGoogleUser(array $profile, array $tokens, bool $persistGoo
             'updated_at' => $values['updated_at'],
         ]);
     } else {
-        $db->prepare("INSERT INTO users (id, google_sub, email, display_name, avatar_url, access_token_enc, refresh_token_enc, token_expires_at, granted_scopes, workspace_key_enc, workspace_key_mode, calendar_mode, task_calendar_mode, week_start, login_count, last_login_at, last_seen_at, created_at, updated_at) VALUES (:id, :sub, :email, :display_name, :avatar_url, :access_token_enc, :refresh_token_enc, :token_expires_at, :granted_scopes, :workspace_key_enc, :workspace_key_mode, 'profane', 'profane', 'monday', 1, :last_login_at, :last_seen_at, :created_at, :updated_at)")->execute($values);
+        $owns=!$db->inTransaction();if($owns)$db->beginTransaction();
+        try{
+            $db->prepare("INSERT INTO users (id, google_sub, email, display_name, avatar_url, access_token_enc, refresh_token_enc, token_expires_at, granted_scopes, workspace_key_enc, workspace_key_mode, calendar_mode, task_calendar_mode, week_start, login_count, last_login_at, last_seen_at, created_at, updated_at) VALUES (:id, :sub, :email, :display_name, :avatar_url, :access_token_enc, :refresh_token_enc, :token_expires_at, :granted_scopes, :workspace_key_enc, :workspace_key_mode, 'profane', 'profane', 'monday', 1, :last_login_at, :last_seen_at, :created_at, :updated_at)")->execute($values);
+            if($websiteRegistrationEmail)genesisEmailQueueRegistration($id);
+            if($owns)$db->commit();
+        }catch(Throwable $error){if($owns&&$db->inTransaction())$db->rollBack();throw $error;}
     }
 
     $user = genesisFindUser($id);

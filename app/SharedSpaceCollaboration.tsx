@@ -6,7 +6,7 @@ import { createPortal } from 'react-dom';
 import { ExperimentalIcon } from './ExperimentalIcon';
 import { translateText } from './i18n';
 import { collaborationText } from './collaboration-copy';
-import { spaceParticipants,messagingKey,openConversation,respondPrivateInvitation,privateMessages,privateInbox,savePrivateMessage,deletePrivateMessage,readPrivateMessages,clearPrivateConversation,uploadPrivateFileChunk,loadPrivateFileChunk,discardPrivateFile,type SpaceParticipant,type PrivateMessage,type PrivateNotice,type PrivateInvitation,type PrivateConversation } from './private-messages-api';
+import { spaceParticipants,messagingKey,openConversation,respondPrivateInvitation,privateMessages,privateInbox,privateConversationDestination,savePrivateMessage,deletePrivateMessage,readPrivateMessages,clearPrivateConversation,uploadPrivateFileChunk,loadPrivateFileChunk,discardPrivateFile,type SpaceParticipant,type PrivateMessage,type PrivateNotice,type PrivateInvitation,type PrivateConversation } from './private-messages-api';
 import { createMessagingIdentity,keyFingerprint,conversationKey,encryptPrivateMessage,decryptPrivateMessage,securityCode,exportMessagingBackup,importMessagingBackup,encryptPrivateFile,decryptPrivateFile,decodePrivateContent,PRIVATE_FILE_LIMIT,type PrivateFile,type MessagingIdentity } from './private-message-crypto';
 import {loadMessagingIdentity,saveMessagingIdentity,claimMessagingIdentity,pinPeerKey} from './private-message-vault';
 import type { NoticeActivity } from './notification-dock-model';
@@ -127,7 +127,22 @@ export default function SharedSpaceCollaboration({userId,spaceId,language}:{user
 export function SharedPrivateNotices({userId,language,embedded=false,onActivity,onNavigate}:{userId:string;language:string;embedded?:boolean;onActivity?:(activity:NoticeActivity)=>void;onNavigate?:()=>void}){
   const [items,setItems]=useState<PrivateNotice[]>([]),[invitations,setInvitations]=useState<PrivateInvitation[]>([]),[busy,setBusy]=useState(''),[failed,setFailed]=useState(''),[open,setOpen]=useState(false),[peer,setPeer]=useState<Peer|null>(null);const dialog=useRef<HTMLDialogElement>(null);
   useEffect(()=>{if(open)dialog.current?.showModal();else dialog.current?.close();},[open]);
-  useEffect(()=>{const controller=new AbortController();let pending=false;const refresh=()=>{if(pending||document.visibilityState!=='visible'||!navigator.onLine)return;pending=true;void privateInbox(controller.signal).then(result=>{if(!controller.signal.aborted){setItems(result.conversations);setInvitations(result.invitations??[]);}}).catch(()=>{if(!controller.signal.aborted)setFailed('inbox');}).finally(()=>{pending=false;});};refresh();const timer=setInterval(refresh,5000);window.addEventListener('genesis:private-updates',refresh);window.addEventListener('focus',refresh);document.addEventListener('visibilitychange',refresh);return()=>{controller.abort();clearInterval(timer);window.removeEventListener('genesis:private-updates',refresh);window.removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',refresh);};},[userId]);
+  useEffect(()=>{const controller=new AbortController();let pending=false;const refresh=()=>{if(pending||document.visibilityState!=='visible'||!navigator.onLine)return;pending=true;void privateInbox(controller.signal).then(result=>{if(!controller.signal.aborted){setItems(result.conversations);setInvitations(result.invitations??[]);
+
+    }}).catch(()=>{if(!controller.signal.aborted)setFailed('inbox');}).finally(()=>{pending=false;});};refresh();const timer=setInterval(refresh,5000);window.addEventListener('genesis:private-updates',refresh);window.addEventListener('focus',refresh);document.addEventListener('visibilitychange',refresh);return()=>{controller.abort();clearInterval(timer);window.removeEventListener('genesis:private-updates',refresh);window.removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',refresh);};},[userId]);
+  useEffect(()=>{
+    const requested=new URL(window.location.href).searchParams.get("conversation");
+    if(!requested||!/^[-a-f0-9]{36}$/.test(requested))return;
+    const controller=new AbortController();
+    void privateConversationDestination(requested,controller.signal).then(target=>{
+      if(controller.signal.aborted)return;
+      const url=new URL(window.location.href);if(url.searchParams.get("conversation")!==requested)return;
+      url.searchParams.delete("conversation");window.history.replaceState(window.history.state,"",url);
+      window.dispatchEvent(new Event("genesis:notification-inbox-open"));
+      setPeer({spaceId:target.spaceId,userId:target.peerId,displayName:target.peerName});
+    }).catch(()=>{if(!controller.signal.aborted){setFailed('inbox');window.dispatchEvent(new Event("genesis:notification-inbox-open"));}});
+    return()=>controller.abort();
+  },[userId]);
   const c=(key:Parameters<typeof collaborationText>[0])=>collaborationText(key,language);
   const respond=async(item:PrivateInvitation,accept:boolean)=>{
     if(busy)return false;setBusy(item.id);setFailed('');
@@ -142,7 +157,7 @@ export function SharedPrivateNotices({userId,language,embedded=false,onActivity,
   };
   const count=items.reduce((total,item)=>total+item.unread,0);
   useEffect(()=>{onActivity?.({count:count+invitations.length,tokens:[...invitations.map(item=>`private-invitation:${item.id}`),...items.filter(item=>item.unread>0).map(item=>`private:${item.id}:${item.latestSeq}`)],title:collaborationText('unread',language)});},[items,invitations,count,language,onActivity]);
-  return <><aside className={embedded?"notification-private-items":"shared-private-notices"} data-no-translate aria-live={embedded?undefined:"polite"}>{invitations.map(item=><article className="shared-private-invitation-notice" key={item.id}>
+  return <><aside className={embedded?"notification-private-items":"shared-private-notices"} data-no-translate aria-live={embedded?undefined:"polite"}>{failed==='inbox'?<p role="alert">{c('failure')}</p>:null}{invitations.map(item=><article className="shared-private-invitation-notice" key={item.id}>
     <strong>{c('invitationTitle')}</strong><p>{item.peerName} · {item.spaceTitle}</p><p>{c('invitationReceived')}</p>
     <div className="shared-private-actions"><button type="button" className="primary-button" disabled={Boolean(busy)} onClick={()=>void respond(item,true).then(accepted=>{if(embedded&&accepted)onNavigate?.();})}>{c('acceptInvitation')}</button><button type="button" className="secondary-button" disabled={Boolean(busy)} onClick={()=>void respond(item,false)}>{c('declineInvitation')}</button></div>
     {failed===item.id?<p role="alert">{c('failure')}</p>:null}
