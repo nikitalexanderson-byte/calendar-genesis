@@ -697,7 +697,7 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(tracker, /Статистика моих привычек/);
   assert.doesNotMatch(tracker, /Клиентская аналитика/);
   assert.match(tracker, /<HabitInsightsPanel/);
-  assert.match(habitInsightsPanel, /Итоги недели/);
+  assert.match(habitInsightsPanel, /Итоги периода/);
   assert.match(habitInsightsPanel, /Индекс Ритма/);
   assert.match(habitInsightsPanel, /Мозаика года/);
   assert.match(habitInsightsPanel, /className="habit-year-mosaic-toggle"/);

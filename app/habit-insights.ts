@@ -1,6 +1,8 @@
 import type { CalendarMode } from "./calendar-data";
 import type { DailyGoalRecord } from "./daily-goal";
 import type { Habit, HabitCompletion, HabitWorkspace } from "./habits";
+import { addCivilDays, calendarContext, civilDayNumber, momentCivilDate, type CalendarContext } from "./calendar-context.ts";
+import { habitGoalPeriod } from "./habit-period-goal.ts";
 
 type InsightCompletion = Pick<HabitCompletion, "habitId" | "date" | "completed">;
 
@@ -17,7 +19,13 @@ export type HabitWeeklySummary = {
   bestHabitTitle: string | null;
   bestHabitCompleted: number;
   previousCompleted: number;
-  changePercent: number;
+  changePercent: number | null;
+  absoluteChange: number;
+  currentComparableCompleted: number;
+  previousStartDate: string;
+  previousEndDate: string;
+  comparedDays: number;
+  previousHasData: boolean;
 };
 
 export type HabitPersonalRecord = {
@@ -66,47 +74,54 @@ function datesBetween(start: string, end: string, maximum = 20_000) {
   return values;
 }
 
-function startOfWeek(value: string) {
-  const date = localDate(value);
-  date.setDate(date.getDate() - ((date.getDay() + 6) % 7));
-  return dateKey(date);
-}
-
-function rewardDate(transaction: HabitWorkspace["rewardTransactions"][number]) {
+function rewardDate(transaction: HabitWorkspace["rewardTransactions"][number], timeZone: string) {
   if (/^\d{4}-\d{2}-\d{2}$/.test(transaction.sourceId)) return transaction.sourceId;
-  return transaction.createdAt.slice(0, 10);
+  return Number.isFinite(Date.parse(transaction.createdAt)) ? momentCivilDate(new Date(transaction.createdAt), timeZone) : "";
 }
 
-function weekMetrics(workspace: HabitWorkspace, startDate: string, endDate: string) {
-  const completions = workspace.habitCompletions.filter((entry) => entry.completed && entry.date >= startDate && entry.date <= endDate);
+function weekMetrics(workspace: HabitWorkspace, startDate: string, endDate: string, timeZone: string) {
+  const entries = workspace.habitCompletions.filter(entry => entry.date >= startDate && entry.date <= endDate);
+  const unique = new Map<string, HabitCompletion>();
+  for (const entry of entries) {
+    const key = `${entry.habitId}:${entry.date}`, previous = unique.get(key);
+    if (!previous || entry.completed && !previous.completed || entry.completed === previous.completed && entry.xpAwarded > previous.xpAwarded) unique.set(key, entry);
+  }
+  const completions = [...unique.values()].filter(entry => entry.completed);
   const perHabit = new Map<string, number>();
   completions.forEach((entry) => perHabit.set(entry.habitId, (perHabit.get(entry.habitId) ?? 0) + 1));
   const best = Array.from(perHabit.entries()).sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))[0];
   const records = workspace.dailyGoalRecords.filter((record) => record.date >= startDate && record.date <= endDate);
   return {
     completed: completions.length,
+    hasData: entries.length > 0 || records.length > 0 || (workspace.habitMeasurements ?? []).some(entry => entry.date >= startDate && entry.date <= endDate),
     dailyGoals: records.filter((record) => record.status === "qualified" || record.status === "perfect").length,
     perfectDays: records.filter((record) => record.status === "perfect").length,
     xp: completions.reduce((total, entry) => total + Math.max(0, entry.xpAwarded), 0),
     laurels: workspace.rewardTransactions
-      .filter((transaction) => transaction.amount > 0 && rewardDate(transaction) >= startDate && rewardDate(transaction) <= endDate)
+      .filter((transaction) => transaction.amount > 0 && rewardDate(transaction, timeZone) >= startDate && rewardDate(transaction, timeZone) <= endDate)
       .reduce((total, transaction) => total + transaction.amount, 0),
     bestHabitTitle: best ? workspace.habits.find((habit) => habit.id === best[0])?.title ?? null : null,
     bestHabitCompleted: best?.[1] ?? 0,
   };
 }
 
-export function buildWeeklyHabitSummary(workspace: HabitWorkspace, today: string): HabitWeeklySummary {
-  const startDate = startOfWeek(today);
+export function buildWeeklyHabitSummary(workspace: HabitWorkspace, today: string, mode: CalendarMode = "profane", context?: CalendarContext): HabitWeeklySummary {
+  const savedContext = calendarContext(context);
+  const definition = { version: 1 as const, period: "week" as const, metric: "days" as const, target: 1, calendar: mode, context: savedContext };
+  const period = habitGoalPeriod(definition, today);
+  const startDate = period.start;
   const endDate = today;
-  const previousStart = addDays(startDate, -7);
-  const previousEnd = addDays(startDate, -1);
-  const current = weekMetrics(workspace, startDate, endDate);
-  const previous = weekMetrics(workspace, previousStart, previousEnd);
-  const changePercent = previous.completed
-    ? Math.round((current.completed - previous.completed) / previous.completed * 100)
-    : current.completed ? 100 : 0;
-  return { ...current, startDate, endDate, previousCompleted: previous.completed, changePercent };
+  const previousPeriod = habitGoalPeriod(definition, addCivilDays(startDate, -1));
+  const comparedDays = Math.min(civilDayNumber(today) - civilDayNumber(startDate) + 1,
+    civilDayNumber(previousPeriod.end) - civilDayNumber(previousPeriod.start));
+  const previousStartDate = previousPeriod.start, previousEndDate = addCivilDays(previousStartDate, comparedDays - 1);
+  const current = weekMetrics(workspace, startDate, endDate, savedContext.timeZone);
+  const comparable = weekMetrics(workspace, startDate, addCivilDays(startDate, comparedDays - 1), savedContext.timeZone);
+  const previous = weekMetrics(workspace, previousStartDate, previousEndDate, savedContext.timeZone);
+  const absoluteChange = comparable.completed - previous.completed;
+  const changePercent = previous.completed ? Math.round(absoluteChange / previous.completed * 100) : null;
+  return { ...current, startDate, endDate, previousCompleted: previous.completed, changePercent,
+    absoluteChange, currentComparableCompleted: comparable.completed, previousStartDate, previousEndDate, comparedDays, previousHasData: previous.hasData };
 }
 
 function completionSet(completions: readonly InsightCompletion[], habitId: string) {
