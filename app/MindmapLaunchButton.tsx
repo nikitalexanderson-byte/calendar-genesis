@@ -25,6 +25,7 @@ export function MindmapLaunchButton({label,onClick,className=""}:{label:string;o
     <svg className="mindmap-launch-network" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true" focusable="false">
       <g className="mindmap-launch-links"><path d="M14 14 7 7M18 14l7-7M14 18l-7 7M18 18l7 7"/></g>
       <g className="mindmap-launch-flow"><path d="M14 14 7 7M18 14l7-7M14 18l-7 7M18 18l7 7"/></g>
+      <circle className="mindmap-launch-pulse" cx="16" cy="16" r="7" strokeWidth="1"/>
       <g className="mindmap-launch-nodes"><circle cx="6" cy="6" r="2.5"/><circle cx="26" cy="6" r="2.5"/><circle cx="6" cy="26" r="2.5"/><circle cx="26" cy="26" r="2.5"/></g>
       <rect className="mindmap-launch-core" x="12" y="12" width="8" height="8" rx="2.5"/>
     </svg><span>{label}</span>

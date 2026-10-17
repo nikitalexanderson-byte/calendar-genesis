@@ -630,9 +630,9 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
               ? "The timer starts when you leave the sidebar. Drag its edge to adjust the width at any time."
               : "Отсчёт начинается, когда вы уходите с панели. Перетаскивайте её границу, чтобы менять ширину меню в любой момент."}</p>
           <details className="appearance-menu-details">
-            <summary><span>{user.language === "en" ? "Menu item display" : "Отображение элементов меню"}</span>
-              <span className="appearance-summary-action appearance-summary-closed">{user.language === "en" ? "Customize menu items" : "Настроить элементы"}</span>
-              <span className="appearance-summary-action appearance-summary-open">{user.language === "en" ? "Collapse" : "Свернуть"}</span>
+            <summary><span className="appearance-summary-title">{user.language === "en" ? "Menu item display" : "Отображение элементов меню"}</span>
+              <span className="appearance-summary-action appearance-summary-closed">{user.language === "en" ? "Customize menu items" : "Настроить элементы"}<SettingsDisclosureChevron /></span>
+              <span className="appearance-summary-action appearance-summary-open">{user.language === "en" ? "Collapse" : "Свернуть"}<SettingsDisclosureChevron /></span>
             </summary>
             <p>{user.language === "en" ? "Menu items, submenus, Today and calendars" : "Пункты меню, подменю, экран «Сегодня» и календари"}</p>
           <div className="navigation-preference-grid">
@@ -684,9 +684,9 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
           </details>
           </div>
           <details className="appearance-menu-details appearance-language-details appearance-settings-subsection">
-            <summary><span>{user.language === "en" ? "Interface language" : "Язык интерфейса"}</span>
-              <span className="appearance-summary-action appearance-summary-closed">{user.language === "en" ? "Choose language" : "Выбрать язык"}</span>
-              <span className="appearance-summary-action appearance-summary-open">{user.language === "en" ? "Collapse" : "Свернуть"}</span>
+            <summary><span className="appearance-summary-title">{user.language === "en" ? "Interface language" : "Язык интерфейса"}</span>
+              <span className="appearance-summary-action appearance-summary-closed">{user.language === "en" ? "Choose language" : "Выбрать язык"}<SettingsDisclosureChevron /></span>
+              <span className="appearance-summary-action appearance-summary-open">{user.language === "en" ? "Collapse" : "Свернуть"}<SettingsDisclosureChevron /></span>
             </summary>
         <section className="account-preferences language-preference appearance-nested-preference" aria-labelledby="language-title" data-exp-ui="panel">
           <div>
@@ -1039,11 +1039,9 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
           {invitationMessage ? <p role="status" className="account-preference-status">{invitationMessage}</p> : null}
         </div> : null}
 
-        {user.sharedProjectsEnabled ? <div className="shared-settings-subsection" role="group" aria-labelledby="shared-team-activity-title">
-          <div>
-            <h4 id="shared-team-activity-title">{user.language === "en" ? "Team updates" : "События команды"}</h4>
+        {user.sharedProjectsEnabled ? <details className="shared-settings-subsection account-team-activity">
+          <summary><h4 id="shared-team-activity-title">{user.language === "en" ? "Team updates" : "События команды"}</h4></summary>
             {!teamNotifications.length ? <p>{user.language === "en" ? "No team updates yet." : "Новых событий команды пока нет."}</p> : null}
-          </div>
           {teamNotifications.some((item) => !item.isRead) ? <button type="button" className="text-button"
             disabled={teamReadBusy} onClick={() => void markTeamRead(teamNotifications.filter((item) => !item.isRead).map((item) => item.id))}>
             {user.language === "en" ? "Mark all as read" : "Отметить всё прочитанным"}
@@ -1060,7 +1058,7 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
             {!item.isRead ? <button type="button" disabled={teamReadBusy} onClick={() => void markTeamRead([item.id])}>
               {user.language === "en" ? "Read" : "Прочитано"}</button> : null}
           </div>)}
-        </div> : null}
+        </details> : null}
 
         </section>
 
@@ -1261,4 +1259,8 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
       {sharedNotificationSettingsOpen?<SharedNotificationPreferencesDialog userId={user.uid} onClose={()=>setSharedNotificationSettingsOpen(false)}/>:null}
     </div>
   );
+}
+
+function SettingsDisclosureChevron() {
+  return <svg className="appearance-summary-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d="m4 6 4 4 4-4" /></svg>;
 }
