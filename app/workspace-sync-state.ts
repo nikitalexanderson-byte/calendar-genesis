@@ -1,6 +1,7 @@
 import { mergeHabitMeasurementEvents, normalizeHabitRuleHistory } from "./habit-measurement.ts";
 import { habitRuleState } from "./habit-rule-history.ts";
-import { habitTimerEpoch, mergeHabitTimerOperations } from "./habit-timer.ts";
+import { habitTimerEpoch, habitWorkspaceEpoch, mergeHabitTimerOperations } from "./habit-timer.ts";
+import { mergeHabitHistoryEdits } from "./habit-history.ts";
 
 export const WORKSPACE_SYNC_SCHEMA_VERSION = 1 as const;
 
@@ -13,6 +14,7 @@ export const WORKSPACE_SYNC_COLLECTIONS = [
   "habitCompletions",
   "habitMeasurements",
   "habitTimers",
+  "habitHistory",
   "sleepPlans",
   "sleepEntries",
   "moodEntries",
@@ -332,6 +334,7 @@ export function mergeWorkspaceDocuments(input: {
   WORKSPACE_SYNC_COLLECTIONS.forEach((collection) => {
     const leftItems = collectionMap(input.left, collection);
     const rightItems = collectionMap(input.right, collection);
+    const historyRows = collection === "habitHistory" ? new Map(mergeHabitHistoryEdits([...leftItems.values()], [...rightItems.values()]).map(row => [row.id, row])) : null;
     const ids = new Set([...leftItems.keys(), ...rightItems.keys()]);
     const tombstones = new Map(mergedMetadata.tombstones
       .filter((item) => item.collection === collection)
@@ -358,6 +361,7 @@ export function mergeWorkspaceDocuments(input: {
         winnerRevision = rightRevision;
       }
       if (!winner) return;
+      if (historyRows) winner = historyRows.get(id) as unknown as Record<string, unknown>;
       if (collection === "habitMeasurements") {
         const events = mergeHabitMeasurementEvents(leftItem ? [leftItem] : [], rightItem ? [rightItem] : []);
         winner = events[0] as unknown as Record<string, unknown>;
@@ -404,6 +408,9 @@ export function mergeWorkspaceDocuments(input: {
     else if (order < 0) merged[field] = input.right[field];
     else merged[field] = canonical(input.left[field]) >= canonical(input.right[field]) ? input.left[field] : input.right[field];
   });
+  const history = Array.isArray(merged.habitHistory) ? merged.habitHistory : [];
+  const epoch = habitTimerEpoch(merged.habitTimerEpoch);
+  merged.habitTimerEpoch = habitWorkspaceEpoch(epoch, history.some(row => row && row.epoch === epoch));
   merged.syncMetadata = mergedMetadata;
   return { document: merged, metadata: mergedMetadata };
 }

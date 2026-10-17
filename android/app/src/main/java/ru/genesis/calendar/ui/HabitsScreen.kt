@@ -387,10 +387,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                 onToggle={ habit -> scope.launch { runAction { repository.save(habit.copy(active=!habit.active)) } } })
             if(current.completions.isNotEmpty()) {
                 Text("История отметок",style=MaterialTheme.typography.titleMedium)
-                current.completions.sortedByDescending { it.date }.take(30).forEach { c ->
-                    val title=current.habits.firstOrNull { it.id==c.habitId }?.title ?: "Привычка"
-                    Text("${c.date} · $title · ${if(c.completed) "выполнено" else "отметка снята"} · XP ${c.xpAwarded}",style=MaterialTheme.typography.bodySmall)
-                }
+                HabitHistoryPanel(current,repository,displayCalendarMode)
             }
         }
     }

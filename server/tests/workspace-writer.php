@@ -66,7 +66,17 @@ try {
     genesisSaveWorkspaceEnvelope($userId,$body + ['expectedVersion'=>8,'writerProtocol'=>5]);
     if ((int)$db->query("SELECT minimum_writer_protocol FROM workspace_blobs WHERE user_id='test-workspace-writer-protocol'")->fetchColumn() !== 5)
         throw new RuntimeException('Timer writer protection was downgraded.');
-    echo "Workspace writer: legacy compatibility, activation, rejection, rollback guard, timers and current writes passed.\n";
+    $corrections = genesisSaveWorkspaceEnvelope($userId,$body + ['expectedVersion'=>9,'writerProtocol'=>6,'minimumWriterProtocol'=>6]);
+    if ($corrections['version'] !== 10) throw new RuntimeException('History correction writer activation failed.');
+    foreach ([1,2,3,4,5] as $oldProtocol) {
+        try { genesisSaveWorkspaceEnvelope($userId,$body + ['expectedVersion'=>10,'writerProtocol'=>$oldProtocol]);
+            throw new RuntimeException('Old client discarded history corrections.'); }
+        catch (DomainException $error) { if ($error->getMessage() !== 'WORKSPACE_UPGRADE_REQUIRED') throw $error; }
+    }
+    genesisSaveWorkspaceEnvelope($userId,$body + ['expectedVersion'=>10,'writerProtocol'=>6]);
+    if ((int)$db->query("SELECT minimum_writer_protocol FROM workspace_blobs WHERE user_id='test-workspace-writer-protocol'")->fetchColumn() !== 6)
+        throw new RuntimeException('History correction protection was downgraded.');
+    echo "Workspace writer: legacy compatibility, activation, rejection, rollback guard, timers, history corrections and current writes passed.\n";
 } finally {
     $db->rollBack();
 }

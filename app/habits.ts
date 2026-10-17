@@ -8,8 +8,9 @@ import { effectiveHabitMeasurement, habitMeasurementProgress, habitRuleForDate, 
 import { normalizeHabitPeriodGoal, type HabitPeriodGoal } from "./habit-period-goal";
 import { habitPeriodSettlement, habitQuestCompletions } from "./habit-period-progress";
 import { isCivilDate, momentCivilDate, resolveCalendarWallTime } from "./calendar-context";
-import { mergeHabitTimerOperations, habitTimerEpoch, habitTimerMeasurementIds, habitTimerSessions, type HabitTimerOperation } from "./habit-timer";
+import { mergeHabitTimerOperations, habitTimerEpoch, habitWorkspaceEpoch, habitTimerMeasurementIds, habitTimerSessions, type HabitTimerOperation } from "./habit-timer";
 import { habitRuleState } from "./habit-rule-history";
+import { habitEconomyHistory, mergeHabitHistoryEdits, projectHabitHistory, type HabitHistoryEdit } from "./habit-history";
 import {
   normalizeAddictionEntry,
   normalizeAddictionTracker,
@@ -246,6 +247,7 @@ export type HabitWorkspace = {
   habitCompletions: HabitCompletion[];
   habitMeasurements: HabitMeasurementEvent[];
   habitTimers: HabitTimerOperation[];
+  habitHistory: HabitHistoryEdit[];
   habitTimerEpoch: string;
   sleepPlans: SleepPlan[];
   sleepEntries: SleepEntry[];
@@ -355,6 +357,7 @@ export const EMPTY_HABIT_WORKSPACE: HabitWorkspace = {
   habitCompletions: [],
   habitMeasurements: [],
   habitTimers: [],
+  habitHistory: [],
   habitTimerEpoch: "",
   sleepPlans: [],
   sleepEntries: [],
@@ -772,13 +775,14 @@ export function normalizeHabitWorkspace(
   const habitMap = new Map(habits.map((habit) => [habit.id, habit]));
   const timerEpoch = habitTimerEpoch(value.habitTimerEpoch);
   const habitTimers = mergeHabitTimerOperations(value.habitTimers ?? []).filter(op => op.epoch === timerEpoch);
+  const habitHistory = mergeHabitHistoryEdits(value.habitHistory ?? []).filter(row => row.epoch === timerEpoch);
   const timerMeasurementIds = habitTimerMeasurementIds(habitTimerSessions(habitTimers));
   const habitMeasurements = mergeHabitMeasurementEvents(value.habitMeasurements ?? []).filter(event =>
     !event.entryId.startsWith("timer-value:") || timerMeasurementIds.has(event.entryId));
   const rawEntries = Array.isArray(value.habitCompletions)
     ? value.habitCompletions as LegacyHabitEntry[]
     : Array.isArray(value.habitEntries) ? value.habitEntries : [];
-  const habitCompletions = rawEntries
+  let habitCompletions = rawEntries
     .map((entry) => normalizeHabitCompletion(entry, habitMap))
     .filter((entry): entry is HabitCompletion => entry !== null);
   const measurementDays = new Map(habitMeasurements.map(event => [`${event.habitId}:${event.date}`, event]));
@@ -801,6 +805,7 @@ export function normalizeHabitWorkspace(
     const index = habitCompletions.indexOf(base);
     if (index < 0) habitCompletions.push(projection); else habitCompletions[index] = projection;
   }
+  habitCompletions = projectHabitHistory(habits, habitHistory, habitCompletions, habitMeasurements);
   const rewardTransactions = reconcileOrphanedHabitLaurels(
     habits.length,
     normalizeRewardTransactions(value.rewardTransactions),
@@ -857,7 +862,8 @@ export function normalizeHabitWorkspace(
     habitCompletions,
     habitMeasurements,
     habitTimers,
-    habitTimerEpoch: timerEpoch,
+    habitHistory,
+    habitTimerEpoch: habitWorkspaceEpoch(timerEpoch, habitHistory.length > 0),
     sleepPlans,
     sleepEntries: [...explicitSleepEntries, ...migratedSleepEntries],
     moodEntries: normalizeMoodEntries(value.moodEntries),
@@ -951,7 +957,7 @@ function withDailyGoalStreak(
   const protection = applyAutomaticStreakProtection({
     records: workspace.dailyGoalRecords,
     transactions: workspace.streakFreezeTransactions,
-    protectableDates,
+    protectableDates: new Set([...protectableDates].filter(date => !workspace.habitHistory?.some(row => row.date === date))),
     today,
     timestamp,
   });
@@ -962,26 +968,28 @@ function withDailyGoalStreak(
   };
   const streak = calculateGlobalStreak(protectedWorkspace.dailyGoalRecords, today);
   const hasPeriods = workspace.habits.some(habit => habit.periodGoal || habit.ruleHistory?.some(rule => rule.periodGoal));
-  const rewardRecords = hasPeriods ? protectedWorkspace.dailyGoalRecords.map(record => {
-    const counts = dailyGoalCounts(protectedWorkspace, record.date, calendarMode, today);
+  const economyWorkspace = habitEconomyHistory(protectedWorkspace);
+  const hasHistory = Boolean(workspace.habitHistory?.length);
+  const rewardRecords = hasPeriods || hasHistory ? protectedWorkspace.dailyGoalRecords.map(record => {
+    const counts = dailyGoalCounts(economyWorkspace, record.date, calendarMode, today);
     const ineligible = counts.completedCount - counts.rewardCompletedCount;
-    if (!ineligible) return record;
-    return buildDailyGoalRecord({ ...record, today, completedCount: Math.max(0, record.completedCount - ineligible),
+    if (!ineligible && !hasHistory) return record;
+    return buildDailyGoalRecord({ ...record, today, completedCount: hasHistory ? counts.rewardCompletedCount : Math.max(0, record.completedCount - ineligible),
       isRestDay: record.status === "rest", isTimezoneShift: record.status === "timezone-shift", isStreakProtected: record.status === "protected" });
   }) : protectedWorkspace.dailyGoalRecords;
   const questStart = [habitQuestWeek(today).startDate, habitQuestMonth(today).startDate,
     ...protectedWorkspace.quests.map(quest => quest.startDate), ...protectedWorkspace.habits.map(habit => habit.createdDate)].sort()[0];
   const questClock = new Date(`${today}T12:00:00Z`);
   const questCompletions = hasPeriods ? [
-    ...protectedWorkspace.habitCompletions.filter(entry => {
+    ...economyWorkspace.habitCompletions.filter(entry => {
       const habit = workspace.habits.find(habit => habit.id === entry.habitId);
       return !habit || !habitRuleForDate(habit, entry.date).periodGoal;
     }),
-    ...habitQuestCompletions(workspace.habits, workspace, questStart, today, questClock).filter(entry => {
+    ...habitQuestCompletions(workspace.habits, economyWorkspace, questStart, today, questClock).filter(entry => {
       const habit = workspace.habits.find(habit => habit.id === entry.habitId);
-      return habit && habitRuleForDate(habit, entry.date).periodGoal && habitPeriodSettlement(habit, entry.date, workspace, questClock)?.rewardEligible;
+      return habit && habitRuleForDate(habit, entry.date).periodGoal && habitPeriodSettlement(habit, entry.date, economyWorkspace, questClock)?.rewardEligible;
     }),
-  ] : protectedWorkspace.habitCompletions;
+  ] : economyWorkspace.habitCompletions;
   const earnedTransactions = reconcileDailyGoalRewards(rewardRecords, protectedWorkspace.rewardTransactions, today);
   const milestoneTransactions = reconcileStreakMilestoneRewards(rewardRecords, earnedTransactions);
   const comebackTransactions = reconcileComebackRewards(rewardRecords, milestoneTransactions, today, timestamp);
@@ -997,7 +1005,7 @@ function withDailyGoalStreak(
         const habit = questHabit && workspace.habits.find(habit => habit.id === questHabit.id);
         if (!habit) return isTrackerScheduledForDate(schedule, date, mode);
         return habitRuleForDate(habit, date).periodGoal
-          ? Boolean(habitPeriodSettlement(habit, date, workspace, questClock)) : isHabitScheduledForDate(habit, date, mode);
+          ? Boolean(habitPeriodSettlement(habit, date, economyWorkspace, questClock)) : isHabitScheduledForDate(habit, date, mode);
       },
       timestamp,
     })
@@ -1007,9 +1015,9 @@ function withDailyGoalStreak(
     : comebackTransactions;
   const achievementUnlocks = reconcileAchievementUnlocks({
     unlocks: protectedWorkspace.achievementUnlocks,
-    habitCompletions: hasPeriods ? questCompletions : protectedWorkspace.habitCompletions,
-    dailyGoalRecords: protectedWorkspace.dailyGoalRecords,
-    longestStreak: Math.max(streak.longestStreak, workspace.userProgress.longestStreak),
+    habitCompletions: questCompletions,
+    dailyGoalRecords: rewardRecords,
+    longestStreak: hasHistory ? calculateGlobalStreak(rewardRecords, today).longestStreak : Math.max(streak.longestStreak, workspace.userProgress.longestStreak),
     rewardTransactions,
     timestamp,
   });
@@ -1093,6 +1101,9 @@ export function ensureDailyGoalProgress(
       if (record.status === "missed") protectableDates.add(date);
       records = upsertDailyGoalRecord(records, record);
     });
+  }
+  for (const date of new Set(workspace.habitHistory?.map(row => row.date) ?? [])) {
+    if (date < today) records = upsertDailyGoalRecord(records, dailyGoalForDate({ ...workspace, dailyGoalRecords: records }, date, calendarMode, today));
   }
   if (records.some((record) => record.date === today)) {
     const current = dailyGoalForDate({ ...workspace, dailyGoalRecords: records }, today, calendarMode, today);

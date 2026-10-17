@@ -2636,5 +2636,16 @@
   "Фоновые напоминания выключены на этом устройстве.": "Los recordatorios en segundo plano están desactivados en este dispositivo.",
   "Доставка зависит от браузера и ОС. В iOS установите сайт на главный экран. Регулярно открывайте GENESIS для продления расписания.": "La entrega depende del navegador y del sistema. En iOS, añade el sitio a la pantalla de inicio. Abre GENESIS regularmente para ampliar el horario.",
   "Максимум напоминаний за день": "Máximo de recordatorios por día",
-  "Отложить на, минут": "Posponer, minutos"
+  "Отложить на, минут": "Posponer, minutos",
+  "Исправить историю": "Corregir el historial",
+  "Прошлая дата": "Fecha pasada",
+  "Историческая корректировка меняет статистику и серии. XP и Лавры не начисляются; выданные награды и потраченная защита сохраняются.": "Las correcciones del historial actualizan las estadísticas y las rachas. No se otorgan XP ni Laureles; se conservan las recompensas existentes y la protección utilizada.",
+  "В этот день запись недоступна. Проверьте дату, значение и действующее правило.": "No se puede registrar ese día. Comprueba la fecha, el valor y la regla vigente.",
+  "Не удалось исправить историю. Обновите данные и повторите.": "No se pudo corregir el historial. Actualiza los datos e inténtalo de nuevo.",
+  "Предпросмотр изменений": "Vista previa de los cambios",
+  "Цели и статистика будут пересчитаны. Квесты и достижения задним числом не выдаются.": "Se recalcularán los objetivos y las estadísticas. Las misiones y los logros no se conceden retroactivamente.",
+  "Запись исправлена.": "Registro corregido.",
+  "Исправления прошлых дней доступны в разделе «Прогресс».": "Puedes corregir días anteriores en Progreso.",
+  "Отметка снята": "Marca eliminada",
+  "Цель периода": "Objetivo del período"
 }

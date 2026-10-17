@@ -12,6 +12,8 @@ import { readProtectedWorkspace, writeProtectedWorkspace, assertWorkspaceWritabl
 import { habitTimerDeviceOwner, preserveHabitTimerRecords, withHabitTimerLock } from "./habit-timer-storage";
 import { applyHabitTimerCommand, type HabitTimerCommand } from "./habit-timer-workspace";
 import type { HabitReminderTarget, HabitReminderInput } from "./habit-reminder-plan";
+import type { HabitHistoryCommand } from "./habit-history-workspace";
+import { habitTimerEpoch } from "./habit-timer";
 import { habitReminderTime } from "./habit-reminder-time";
 const HabitReminderBridge = lazy(() => import("./HabitReminderBridge"));
 const PersonalEntityPreview=lazy(()=>import("./PersonalEntityPreview"));
@@ -1265,6 +1267,7 @@ export function GenesisCalendar() {
   const [voiceControlActive, setVoiceControlActive] = useState(false);
   const [voiceHabitRequest, setVoiceHabitRequest] = useState<{ token: number; kind: "create" | "edit" | "delete" | "section" | "sacred-practice"; id?: string; section?: string } | null>(null);
   const [habitReminderFocus, setHabitReminderFocus] = useState<(HabitReminderTarget & {token:number}) | null>(null);
+  const [habitHistoryRequest,setHabitHistoryRequest]=useState<{date:string;token:number}|null>(null);
   const [voiceLaunchAnimating, setVoiceLaunchAnimating] = useState(false);
   const [geminiOpen, setGeminiOpen] = useState(false);
   const [assistantStatus, setAssistantStatus] = useState<{ available: boolean; provider: AssistantProvider; audioAvailable: boolean }>({
@@ -2077,8 +2080,8 @@ export function GenesisCalendar() {
       try {
         const saved = normalizeHabitWorkspace(JSON.parse(event.newValue), activeTaskCalendarMode);
         const current = habitWorkspaceRef.current;
-        if (saved.habitTimerEpoch < current.habitTimerEpoch) return;
-        const merged = saved.habitTimerEpoch > current.habitTimerEpoch ? saved
+        if (habitTimerEpoch(saved.habitTimerEpoch) < habitTimerEpoch(current.habitTimerEpoch)) return;
+        const merged = habitTimerEpoch(saved.habitTimerEpoch) > habitTimerEpoch(current.habitTimerEpoch) ? saved
           : normalizeHabitWorkspace(preserveHabitTimerRecords(current, saved), activeTaskCalendarMode);
         if (JSON.stringify([current.habitTimers, current.habitMeasurements, current.habitCompletions, current.rewardTransactions, current.habitTimerEpoch])
           === JSON.stringify([merged.habitTimers, merged.habitMeasurements, merged.habitCompletions, merged.rewardTransactions, merged.habitTimerEpoch])) return;
@@ -3316,7 +3319,7 @@ export function GenesisCalendar() {
     setPendingTaskDeletion(null);
   };
 
-  const updateHabitWorkspace = (nextWorkspace: HabitWorkspace, persistBeforeClosing = false) => {
+  const updateHabitWorkspace = (nextWorkspace: HabitWorkspace, persistBeforeClosing = false, historyCorrection = false) => {
     const localKey = cloudUser ? `${GENESIS_USER_WORKSPACE_STORAGE_PREFIX}${cloudUser.uid}` : GENESIS_LEGACY_WORKSPACE_STORAGE_KEY;
     assertWorkspaceWritable(localStorage, localKey);
     const normalizedBase = normalizeHabitWorkspace(preserveHabitTimerRecords(nextWorkspace, habitWorkspaceRef.current), activeTaskCalendarMode);
@@ -3345,7 +3348,7 @@ export function GenesisCalendar() {
       refreshTrackerAnalytics(dailyGoalWorkspace, changedDates, activeTaskCalendarMode),
       activeTaskCalendarMode,
     );
-    const newlyCompletedEntries = normalized.habitCompletions.filter((entry) => (
+    const newlyCompletedEntries = historyCorrection ? [] : normalized.habitCompletions.filter((entry) => (
       entry.completed
       && !habitWorkspace.habitCompletions.some((current) => current.id === entry.id && current.completed)
     ));
@@ -3460,7 +3463,7 @@ export function GenesisCalendar() {
         raw => normalizeHabitWorkspace(raw as Parameters<typeof normalizeHabitWorkspace>[0], activeTaskCalendarMode),
         () => habitWorkspaceRef.current);
       const live = habitWorkspaceRef.current;
-      const base = saved.habitTimerEpoch < live.habitTimerEpoch ? live : preserveHabitTimerRecords(saved, live);
+      const base = habitTimerEpoch(saved.habitTimerEpoch) < habitTimerEpoch(live.habitTimerEpoch) ? live : preserveHabitTimerRecords(saved, live);
       const next = applyHabitTimerCommand(base, command);
       await updateHabitWorkspace(next, true);
       guard();
@@ -3489,6 +3492,20 @@ export function GenesisCalendar() {
       if(next===base)return;
       await updateHabitWorkspace(next, true);guard();
       writeProtectedWorkspace(localStorage, key, {tasks:tasksRef.current,projects:projectsRef.current,categories:categoriesRef.current,
+        taskLists:taskListsRef.current,taskListLinks:taskListLinksRef.current,...habitWorkspaceRef.current});
+    });
+  };
+
+  const runHabitHistoryCommand = async (command:HabitHistoryCommand) => {
+    const key=cloudUser?`${GENESIS_USER_WORKSPACE_STORAGE_PREFIX}${cloudUser.uid}`:GENESIS_LEGACY_WORKSPACE_STORAGE_KEY;
+    const guard=cloudUser?captureAccountSessionGuard():()=>{if(privateDeviceAccessBlocked())throw Error("LOCAL_WORKSPACE_RECOVERY_REQUIRED");};
+    await withHabitTimerLock(key,async()=>{
+      guard();const {applyHabitHistoryCommand}=await import("./habit-history-workspace");
+      const stored=readProtectedWorkspace(localStorage,key,raw=>normalizeHabitWorkspace(raw as Parameters<typeof normalizeHabitWorkspace>[0]),()=>habitWorkspaceRef.current);
+      const base=normalizeHabitWorkspace(preserveHabitTimerRecords(stored,habitWorkspaceRef.current),activeTaskCalendarMode);
+      const next=applyHabitHistoryCommand(base,command,activeTaskCalendarMode);
+      await updateHabitWorkspace(next,true,true);guard();
+      writeProtectedWorkspace(localStorage,key,{tasks:tasksRef.current,projects:projectsRef.current,categories:categoriesRef.current,
         taskLists:taskListsRef.current,taskListLinks:taskListLinksRef.current,...habitWorkspaceRef.current});
     });
   };
@@ -6797,10 +6814,12 @@ export function GenesisCalendar() {
                     sacredFeaturesEnabled={sacredFeaturesEnabled}
                     voiceRequest={voiceHabitRequest}
                     reminderFocus={habitReminderFocus}
+                    historyRequest={habitHistoryRequest}
                     onVoiceRequestConsumed={() => setVoiceHabitRequest(null)}
                     onChange={updateHabitWorkspace}
                     onSave={(next) => updateHabitWorkspace(next, true) ?? Promise.resolve()}
                     onTimerCommand={runHabitTimerCommand}
+                    onHistoryCommand={runHabitHistoryCommand}
                     onReminderRequested={createHabitGoogleReminder}
                     onReminderRemoved={async (habit) => {
                       if (!cloudUser) return;
@@ -7029,6 +7048,7 @@ export function GenesisCalendar() {
                     setDayDetailsOpen(false);
                     navigateTo("habits");
                   }}
+                  onOpenHistory={date=>{setDayDetailsOpen(false);setHabitReminderFocus(null);setHabitHistoryRequest(previous=>({date,token:(previous?.token??0)+1}));navigateTo("habits");}}
                   onCreateHabit={() => { setDayDetailsOpen(false); setVoiceHabitRequest({ token: Date.now(), kind: "create" }); navigateTo("habits"); }}
                   compact
                 />

@@ -165,14 +165,14 @@ fun timeLabel(value: String, use24: Boolean): String {
 
 @Composable
 fun AuthorDatePicker(value: String, mode: CalendarMode, minDate: LocalDate? = null,
-    calculationContext: ru.genesis.calendar.domain.CalendarContext? = null, onChange: (String) -> Unit) {
+    calculationContext: ru.genesis.calendar.domain.CalendarContext? = null, maxDate: LocalDate? = null, onChange: (String) -> Unit) {
     val mode = if (LocalSacredFeaturesEnabled.current) mode else CalendarMode.PROFANE
     var open by rememberSaveable { mutableStateOf(false) }
     val context = calculationContext ?: ru.genesis.calendar.domain.CalendarContext()
     val calendar = remember(context) { GenesisCalendar(ZoneId.of(context.timeZone), context.version, context.gregorianYearStart) }
     val date = LocalDate.parse(value)
     val firstDate = LocalDate.of(1900, 1, 1)
-    val lastDate = LocalDate.of(2100, 12, 31)
+    val lastDate = minOf(LocalDate.of(2100, 12, 31), maxDate ?: LocalDate.of(2100, 12, 31))
     OutlinedButton(onClick = { open=true }) { Text(runCatching { calendar.formatDate(date,mode) }.getOrDefault(value)) }
     if (!open) return
     var shown by remember { mutableStateOf(date.coerceIn(firstDate, lastDate)) }

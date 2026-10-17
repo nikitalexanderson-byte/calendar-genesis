@@ -2814,5 +2814,16 @@
   "Фоновые напоминания выключены на этом устройстве.": "Bu cihazda arka plan hatırlatmaları kapalı.",
   "Доставка зависит от браузера и ОС. В iOS установите сайт на главный экран. Регулярно открывайте GENESIS для продления расписания.": "Teslimat tarayıcıya ve işletim sistemine bağlıdır. iOS’ta siteyi ana ekrana ekleyin. Programı uzatmak için GENESIS’i düzenli olarak açın.",
   "Максимум напоминаний за день": "Günlük en fazla hatırlatma",
-  "Отложить на, минут": "Erteleme süresi, dakika"
+  "Отложить на, минут": "Erteleme süresi, dakika",
+  "Исправить историю": "Geçmişi düzelt",
+  "Прошлая дата": "Geçmiş tarih",
+  "Историческая корректировка меняет статистику и серии. XP и Лавры не начисляются; выданные награды и потраченная защита сохраняются.": "Geçmiş düzeltmeleri istatistikleri ve serileri günceller. XP veya Defne verilmez; mevcut ödüller ve kullanılmış koruma korunur.",
+  "В этот день запись недоступна. Проверьте дату, значение и действующее правило.": "Bu gün için kayıt yapılamıyor. Tarihi, değeri ve geçerli kuralı kontrol edin.",
+  "Не удалось исправить историю. Обновите данные и повторите.": "Geçmiş düzeltilemedi. Verileri yenileyip tekrar deneyin.",
+  "Предпросмотр изменений": "Değişiklikleri önizle",
+  "Цели и статистика будут пересчитаны. Квесты и достижения задним числом не выдаются.": "Hedefler ve istatistikler yeniden hesaplanır. Görevler ve başarımlar geriye dönük verilmez.",
+  "Запись исправлена.": "Kayıt düzeltildi.",
+  "Исправления прошлых дней доступны в разделе «Прогресс».": "Geçmiş günler İlerleme bölümünde düzeltilebilir.",
+  "Отметка снята": "İşaret kaldırıldı",
+  "Цель периода": "Dönem hedefi"
 }

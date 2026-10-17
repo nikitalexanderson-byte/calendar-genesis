@@ -65,9 +65,14 @@ const instant = (value: unknown) => {
   return new Date(value).toISOString();
 };
 export function habitTimerEpoch(value: unknown): string {
+  if (typeof value === "string" && value.startsWith("history6:")) value = value.slice(9);
   if (value == null || value === "") return "";
   if (typeof value !== "string" || !/^\d{12}-[a-zA-Z0-9-]{1,64}$/.test(value)) return fail();
   return value;
+}
+/** Earlier clients reject this envelope marker instead of erasing an offline history journal. */
+export function habitWorkspaceEpoch(value: unknown, hasHistory: boolean) {
+  return `${hasHistory ? "history6:" : ""}${habitTimerEpoch(value)}`;
 }
 export function nextHabitTimerEpoch(previous: string) {
   const generation = Number(habitTimerEpoch(previous).slice(0, 12) || 0) + 1;

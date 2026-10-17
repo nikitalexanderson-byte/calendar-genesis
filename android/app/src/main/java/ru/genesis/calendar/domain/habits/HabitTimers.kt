@@ -40,9 +40,10 @@ data class HabitTimerDay(val date: LocalDate, val workMs: Long, val value: Long)
 
 /** Wire-compatible timestamp accounting. A session is controlled by its originating installation. */
 object HabitTimers {
-    fun epoch(value: String?): String = (value ?: "").also {
+    fun epoch(value: String?): String = (value ?: "").removePrefix("history6:").also {
         require(it.isEmpty() || Regex("\\d{12}-[a-zA-Z0-9-]{1,64}").matches(it)) { "INVALID_HABIT_TIMER" }
     }
+    fun workspaceEpoch(value: String, hasHistory: Boolean) = (if(hasHistory) "history6:" else "") + epoch(value)
     fun nextEpoch(previous: String): String {
         val generation = (epoch(previous).take(12).toLongOrNull() ?: 0) + 1
         require(generation <= 999_999_999_999L)

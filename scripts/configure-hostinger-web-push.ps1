@@ -29,11 +29,13 @@ try{
             if(!rename($temporary,$path))throw new RuntimeException('Cannot apply runtime configuration.');$created=true;
         }finally{if(is_file($temporary))unlink($temporary);}
     }
-    require $root.'/server/src/bootstrap.php';require $root.'/server/src/web-push.php';$readiness=genesisPushConfiguration();
+    define('GENESIS_STATELESS_REQUEST',true);
+    require_once $root.'/server/src/bootstrap.php';require_once $root.'/server/src/web-push.php';$readiness=genesisPushConfiguration();
     if(empty($readiness['available']))throw new RuntimeException('Web Push readiness verification failed.');
     echo json_encode(['ok'=>true,'created'=>$created,'available'=>true,'keyFingerprint'=>hash('sha256',$readiness['publicKey']),
         'externalMessagesSent'=>false,'databaseModified'=>false]),PHP_EOL;
-}finally{flock($lock,LOCK_UN);fclose($lock);}
+}catch(Throwable $error){fwrite(STDERR,'Web Push setup verification failed: '.get_class($error).' at '.basename($error->getFile()).':'.$error->getLine().PHP_EOL);exit(1);}
+finally{flock($lock,LOCK_UN);fclose($lock);}
 '@
 $pushSetupKey=Join-Path $env:USERPROFILE '.ssh/id_ed25519_genesis_hostinger'
 $pushSetupPhp | ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 -p 65002 -i $pushSetupKey u531952483@82.198.232.224 php

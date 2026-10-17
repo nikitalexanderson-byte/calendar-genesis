@@ -13,6 +13,7 @@ import ru.genesis.calendar.data.TrackersDocument
 import ru.genesis.calendar.data.WorkspaceStructureCodec
 import ru.genesis.calendar.security.WorkspaceCipher
 import ru.genesis.calendar.domain.habits.HabitMeasurements
+import ru.genesis.calendar.domain.habits.HabitHistory
 import ru.genesis.calendar.domain.habits.HeroProgress
 
 internal interface CloudWorkspaceTransport {
@@ -57,7 +58,7 @@ internal class CloudWorkspaceSync(private val db: GenesisDatabase, private val t
                     val encrypted = WorkspaceCipher.encrypt(document.toString().toByteArray(), remote.key)
                     val request = JSONObject().put("ciphertext", encrypted.ciphertext)
                         .put("iv", encrypted.iv).put("expectedVersion", remote.version)
-                        .put("writerProtocol",5).put("minimumWriterProtocol",minimumWriterProtocol(document))
+                        .put("writerProtocol",6).put("minimumWriterProtocol",minimumWriterProtocol(document))
                     if(reminderConsent)runCatching {
                         val habits=HabitDocument.decode(CloudAccountImporter.habitsDocument(document),remote.version)
                         request.put("habitReminderPlan",ru.genesis.calendar.reminders.habitReminderProjection(habits))
@@ -75,6 +76,7 @@ internal class CloudWorkspaceSync(private val db: GenesisDatabase, private val t
     }
 
     private fun minimumWriterProtocol(document: JSONObject): Int {
+        if ((document.optJSONArray("habitHistory")?.length() ?: 0) > 0) return 6
         if ((document.optJSONArray("habitTimers")?.length() ?: 0) > 0 || document.optString("habitTimerEpoch").isNotEmpty()) return 5
         val habits=document.optJSONArray("habits")
         if ((0 until (habits?.length() ?: 0)).any { index -> habits!!.getJSONObject(index).optJSONArray("ruleHistory")?.let { rules ->
@@ -90,9 +92,10 @@ internal class CloudWorkspaceSync(private val db: GenesisDatabase, private val t
     }
 
     private fun projectMeasurements(document: JSONObject,timestamp: String): JSONObject {
-        if((document.optJSONArray("habitMeasurements")?.length() ?: 0)==0) return document
+        if((document.optJSONArray("habitMeasurements")?.length() ?: 0)==0 && (document.optJSONArray("habitHistory")?.length() ?: 0)==0) return document
         val local=HabitDocument.decode(CloudAccountImporter.habitsDocument(document),0)
-        val completions=HabitMeasurements.project(local.habits,local.measurements,local.completions,LocalDate.now(),timestamp)
+        val completions=HabitHistory.project(local.habits,local.history,
+            HabitMeasurements.project(local.habits,local.measurements,local.completions,LocalDate.now(),timestamp),local.measurements)
         val updated=local.copy(completions=completions,progress=HeroProgress.reconcile(local.progress,completions.map { it.xpAwarded },timestamp))
         val encoded=JSONObject(HabitDocument.encode(updated))
         return JSONObject(document.toString()).put("habitCompletions",encoded.getJSONArray("completions"))
