@@ -3171,5 +3171,17 @@
   "Свернуть подпроекты": "Collapse subprojects",
   "Показать подпроекты": "Show subprojects",
   "Очистить поиск": "Clear search",
-  "Вернуть в работу": "Reopen task"
+  "Вернуть в работу": "Reopen task",
+  "Пауза выключает расписание и напоминания. Архив сохраняет историю и награды.": "Pause turns off scheduling and reminders. Archive keeps history and rewards.",
+  "Восстановление вернёт привычку на паузу. Награды и прежний штраф не изменятся.": "Restore returns the habit to paused. Rewards and any earlier penalty stay unchanged.",
+  "Удаление до 50 уникальных дней выполнения обнуляет весь баланс Лавров. История останется доступной для восстановления.": "Deleting before 50 distinct completion days resets the entire Laurels balance. History remains available for restoration.",
+  "Рубеж 50 дней достигнут: Лавры сохранятся. История останется доступной для восстановления.": "The 50-day milestone is reached: Laurels are retained. History remains available for restoration.",
+  "Есть изменения с другого устройства. Выберите состояние.": "There are changes from another device. Choose a state.",
+  "Не удалось сохранить. Проверьте синхронизацию и повторите.": "Could not save. Check synchronization and try again.",
+  "Состояние сохранено.": "State saved.",
+  "Состояние привычки": "Habit state",
+  "Выполнено дней": "Completion days",
+  "Удалить привычку": "Delete habit",
+  "Активные": "Active",
+  "Удалённые": "Deleted"
 }

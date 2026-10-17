@@ -264,7 +264,7 @@
   "Проведите по доске, чтобы увидеть все статусы.": "Faites glisser votre doigt sur le tableau pour afficher tous les statuts.",
   "Архивировать проект?": "Projet d'archive ?",
   "Задачи сохранятся, проект можно восстановить.": "Les tâches seront conservées et le projet pourra être restauré.",
-  "В архив": "Archives",
+  "В архив": "Archiver",
   "Архив проектов": "Projets archivés",
   "Восстановить": "Restaurer",
   "Архивировать проект": "Projet d'archive",
@@ -2596,5 +2596,17 @@
   "Открыть GENESIS": "Ouvrir GENESIS",
   "Регистрация подтверждена": "Inscription confirmée",
   "Подтверждение регистрации": "Confirmation d’inscription",
-  "Ссылка недействительна или срок её действия истёк": "Ce lien est invalide ou a expiré"
+  "Ссылка недействительна или срок её действия истёк": "Ce lien est invalide ou a expiré",
+  "Пауза выключает расписание и напоминания. Архив сохраняет историю и награды.": "La pause désactive le planning et les rappels. L’archivage conserve l’historique et les récompenses.",
+  "Восстановление вернёт привычку на паузу. Награды и прежний штраф не изменятся.": "La restauration remet l’habitude en pause. Les récompenses et les pénalités antérieures restent inchangées.",
+  "Удаление до 50 уникальных дней выполнения обнуляет весь баланс Лавров. История останется доступной для восстановления.": "La suppression avant 50 jours distincts d’accomplissement remet tous les Lauriers à zéro. L’historique reste restaurable.",
+  "Рубеж 50 дней достигнут: Лавры сохранятся. История останется доступной для восстановления.": "Le seuil de 50 jours est atteint : les Lauriers sont conservés. L’historique reste restaurable.",
+  "Есть изменения с другого устройства. Выберите состояние.": "Un autre appareil a apporté des modifications. Choisissez un état.",
+  "Не удалось сохранить. Проверьте синхронизацию и повторите.": "Enregistrement impossible. Vérifiez la synchronisation et réessayez.",
+  "Состояние сохранено.": "État enregistré.",
+  "Состояние привычки": "État de l’habitude",
+  "Выполнено дней": "Jours accomplis",
+  "Удалить привычку": "Supprimer l’habitude",
+  "Активные": "Actives",
+  "Удалённые": "Supprimées"
 }

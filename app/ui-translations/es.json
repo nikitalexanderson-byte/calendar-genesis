@@ -264,7 +264,7 @@
   "Проведите по доске, чтобы увидеть все статусы.": "Desliza el dedo por el tablero para ver todos los estados.",
   "Архивировать проект?": "¿Proyecto de archivo?",
   "Задачи сохранятся, проект можно восстановить.": "Las tareas se mantendrán y el proyecto podrá restaurarse.",
-  "В архив": "Archivo",
+  "В архив": "Archivar",
   "Архив проектов": "Proyectos archivados",
   "Восстановить": "Restaurar",
   "Архивировать проект": "Proyecto de archivo",
@@ -2647,5 +2647,17 @@
   "Запись исправлена.": "Registro corregido.",
   "Исправления прошлых дней доступны в разделе «Прогресс».": "Puedes corregir días anteriores en Progreso.",
   "Отметка снята": "Marca eliminada",
-  "Цель периода": "Objetivo del período"
+  "Цель периода": "Objetivo del período",
+  "Пауза выключает расписание и напоминания. Архив сохраняет историю и награды.": "La pausa desactiva el calendario y los recordatorios. El archivo conserva el historial y las recompensas.",
+  "Восстановление вернёт привычку на паузу. Награды и прежний штраф не изменятся.": "La restauración deja el hábito en pausa. Las recompensas y penalizaciones anteriores no cambian.",
+  "Удаление до 50 уникальных дней выполнения обнуляет весь баланс Лавров. История останется доступной для восстановления.": "Eliminar antes de completar 50 días distintos pone a cero todos los Laureles. El historial se puede restaurar.",
+  "Рубеж 50 дней достигнут: Лавры сохранятся. История останется доступной для восстановления.": "Se alcanzaron 50 días: se conservan los Laureles. El historial se puede restaurar.",
+  "Есть изменения с другого устройства. Выберите состояние.": "Hay cambios de otro dispositivo. Elige un estado.",
+  "Не удалось сохранить. Проверьте синхронизацию и повторите.": "No se pudo guardar. Revisa la sincronización e inténtalo de nuevo.",
+  "Состояние сохранено.": "Estado guardado.",
+  "Состояние привычки": "Estado del hábito",
+  "Выполнено дней": "Días completados",
+  "Удалить привычку": "Eliminar hábito",
+  "Активные": "Activos",
+  "Удалённые": "Eliminados"
 }

@@ -264,7 +264,7 @@
   "Проведите по доске, чтобы увидеть все статусы.": "Scorri sul tabellone per visualizzare tutti gli stati.",
   "Архивировать проект?": "Progetto di archivio?",
   "Задачи сохранятся, проект можно восстановить.": "Le attività verranno mantenute e il progetto potrà essere ripristinato.",
-  "В архив": "Archivio",
+  "В архив": "Archivia",
   "Архив проектов": "Progetti archiviati",
   "Восстановить": "Ripristina",
   "Архивировать проект": "Progetto di archivio",
@@ -2647,5 +2647,17 @@
   "Запись исправлена.": "Voce corretta.",
   "Исправления прошлых дней доступны в разделе «Прогресс».": "Puoi correggere i giorni passati in Progressi.",
   "Отметка снята": "Segno rimosso",
-  "Цель периода": "Obiettivo del periodo"
+  "Цель периода": "Obiettivo del periodo",
+  "Пауза выключает расписание и напоминания. Архив сохраняет историю и награды.": "La pausa disattiva programma e promemoria. L’archivio conserva cronologia e ricompense.",
+  "Восстановление вернёт привычку на паузу. Награды и прежний штраф не изменятся.": "Il ripristino mette l’abitudine in pausa. Ricompense e penalità precedenti restano invariate.",
+  "Удаление до 50 уникальных дней выполнения обнуляет весь баланс Лавров. История останется доступной для восстановления.": "L’eliminazione prima di 50 giorni distinti di completamento azzera tutti gli Allori. La cronologia resta ripristinabile.",
+  "Рубеж 50 дней достигнут: Лавры сохранятся. История останется доступной для восстановления.": "Raggiunti 50 giorni: gli Allori vengono conservati. La cronologia resta ripristinabile.",
+  "Есть изменения с другого устройства. Выберите состояние.": "Ci sono modifiche da un altro dispositivo. Scegli uno stato.",
+  "Не удалось сохранить. Проверьте синхронизацию и повторите.": "Salvataggio non riuscito. Controlla la sincronizzazione e riprova.",
+  "Состояние сохранено.": "Stato salvato.",
+  "Состояние привычки": "Stato dell’abitudine",
+  "Выполнено дней": "Giorni completati",
+  "Удалить привычку": "Elimina abitudine",
+  "Активные": "Attive",
+  "Удалённые": "Eliminate"
 }

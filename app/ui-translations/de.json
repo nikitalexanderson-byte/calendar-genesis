@@ -264,7 +264,7 @@
   "Проведите по доске, чтобы увидеть все статусы.": "Wischen Sie über die Tafel, um alle Status anzuzeigen.",
   "Архивировать проект?": "Archivprojekt?",
   "Задачи сохранятся, проект можно восстановить.": "Aufgaben bleiben erhalten und das Projekt kann wiederhergestellt werden.",
-  "В архив": "Archiv",
+  "В архив": "Archivieren",
   "Архив проектов": "Archivierte Projekte",
   "Восстановить": "Wiederherstellen",
   "Архивировать проект": "Archivprojekt",
@@ -2596,5 +2596,17 @@
   "Открыть GENESIS": "GENESIS öffnen",
   "Регистрация подтверждена": "Registrierung bestätigt",
   "Подтверждение регистрации": "Registrierungsbestätigung",
-  "Ссылка недействительна или срок её действия истёк": "Dieser Link ist ungültig oder abgelaufen"
+  "Ссылка недействительна или срок её действия истёк": "Dieser Link ist ungültig oder abgelaufen",
+  "Пауза выключает расписание и напоминания. Архив сохраняет историю и награды.": "Eine Pause deaktiviert Zeitplan und Erinnerungen. Das Archiv bewahrt Verlauf und Belohnungen.",
+  "Восстановление вернёт привычку на паузу. Награды и прежний штраф не изменятся.": "Die Wiederherstellung pausiert die Gewohnheit. Belohnungen und frühere Abzüge bleiben unverändert.",
+  "Удаление до 50 уникальных дней выполнения обнуляет весь баланс Лавров. История останется доступной для восстановления.": "Das Löschen vor 50 verschiedenen Abschlusstagen setzt alle Lorbeeren zurück. Der Verlauf bleibt wiederherstellbar.",
+  "Рубеж 50 дней достигнут: Лавры сохранятся. История останется доступной для восстановления.": "50 Tage sind erreicht: Lorbeeren bleiben erhalten. Der Verlauf bleibt wiederherstellbar.",
+  "Есть изменения с другого устройства. Выберите состояние.": "Es gibt Änderungen von einem anderen Gerät. Wähle einen Zustand.",
+  "Не удалось сохранить. Проверьте синхронизацию и повторите.": "Speichern fehlgeschlagen. Prüfe die Synchronisierung und versuche es erneut.",
+  "Состояние сохранено.": "Zustand gespeichert.",
+  "Состояние привычки": "Gewohnheitszustand",
+  "Выполнено дней": "Abschlusstage",
+  "Удалить привычку": "Gewohnheit löschen",
+  "Активные": "Aktiv",
+  "Удалённые": "Gelöscht"
 }

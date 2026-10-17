@@ -264,7 +264,7 @@
   "Проведите по доске, чтобы увидеть все статусы.": "Deslize pelo quadro para ver todos os status.",
   "Архивировать проект?": "Arquivar projeto?",
   "Задачи сохранятся, проект можно восстановить.": "As tarefas serão mantidas e o projeto poderá ser restaurado.",
-  "В архив": "Arquivo",
+  "В архив": "Arquivar",
   "Архив проектов": "Projetos arquivados",
   "Восстановить": "Restaurar",
   "Архивировать проект": "Arquivar projeto",
@@ -2647,5 +2647,17 @@
   "Запись исправлена.": "Registo corrigido.",
   "Исправления прошлых дней доступны в разделе «Прогресс».": "Pode corrigir dias anteriores em Progresso.",
   "Отметка снята": "Marcação removida",
-  "Цель периода": "Objetivo do período"
+  "Цель периода": "Objetivo do período",
+  "Пауза выключает расписание и напоминания. Архив сохраняет историю и награды.": "A pausa desativa o agendamento e os lembretes. O arquivo preserva o histórico e as recompensas.",
+  "Восстановление вернёт привычку на паузу. Награды и прежний штраф не изменятся.": "A restauração deixa o hábito em pausa. As recompensas e penalizações anteriores não mudam.",
+  "Удаление до 50 уникальных дней выполнения обнуляет весь баланс Лавров. История останется доступной для восстановления.": "Eliminar antes de completar 50 dias distintos zera todos os Louros. O histórico pode ser restaurado.",
+  "Рубеж 50 дней достигнут: Лавры сохранятся. История останется доступной для восстановления.": "Atingiu 50 dias: os Louros são preservados. O histórico pode ser restaurado.",
+  "Есть изменения с другого устройства. Выберите состояние.": "Há alterações de outro dispositivo. Escolha um estado.",
+  "Не удалось сохранить. Проверьте синхронизацию и повторите.": "Não foi possível guardar. Verifique a sincronização e tente novamente.",
+  "Состояние сохранено.": "Estado guardado.",
+  "Состояние привычки": "Estado do hábito",
+  "Выполнено дней": "Dias concluídos",
+  "Удалить привычку": "Eliminar hábito",
+  "Активные": "Ativos",
+  "Удалённые": "Eliminados"
 }

@@ -264,7 +264,7 @@
   "Проведите по доске, чтобы увидеть все статусы.": "Przesuń palcem po planszy, aby wyświetlić wszystkie statusy.",
   "Архивировать проект?": "Archiwum projektu?",
   "Задачи сохранятся, проект можно восстановить.": "Zadania zostaną zachowane, a projekt będzie można przywrócić.",
-  "В архив": "Archiwum",
+  "В архив": "Archiwizuj",
   "Архив проектов": "Projekty archiwalne",
   "Восстановить": "Przywróć",
   "Архивировать проект": "Projekt archiwalny",
@@ -2601,5 +2601,17 @@
   "Открыть GENESIS": "Otwórz GENESIS",
   "Регистрация подтверждена": "Rejestracja potwierdzona",
   "Подтверждение регистрации": "Potwierdzenie rejestracji",
-  "Ссылка недействительна или срок её действия истёк": "Link jest nieprawidłowy lub wygasł"
+  "Ссылка недействительна или срок её действия истёк": "Link jest nieprawidłowy lub wygasł",
+  "Пауза выключает расписание и напоминания. Архив сохраняет историю и награды.": "Pauza wyłącza harmonogram i przypomnienia. Archiwum zachowuje historię i nagrody.",
+  "Восстановление вернёт привычку на паузу. Награды и прежний штраф не изменятся.": "Przywrócenie wstrzyma nawyk. Nagrody i wcześniejsze kary nie zmienią się.",
+  "Удаление до 50 уникальных дней выполнения обнуляет весь баланс Лавров. История останется доступной для восстановления.": "Usunięcie przed 50 różnymi dniami wykonania zeruje całe saldo Laurów. Historię można przywrócić.",
+  "Рубеж 50 дней достигнут: Лавры сохранятся. История останется доступной для восстановления.": "Osiągnięto 50 dni: Laury zostaną zachowane. Historię można przywrócić.",
+  "Есть изменения с другого устройства. Выберите состояние.": "Są zmiany z innego urządzenia. Wybierz stan.",
+  "Не удалось сохранить. Проверьте синхронизацию и повторите.": "Nie udało się zapisać. Sprawdź synchronizację i spróbuj ponownie.",
+  "Состояние сохранено.": "Stan zapisany.",
+  "Состояние привычки": "Stan nawyku",
+  "Выполнено дней": "Dni wykonania",
+  "Удалить привычку": "Usuń nawyk",
+  "Активные": "Aktywne",
+  "Удалённые": "Usunięte"
 }

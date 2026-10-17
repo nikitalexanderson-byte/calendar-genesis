@@ -264,7 +264,7 @@
   "Проведите по доске, чтобы увидеть все статусы.": "Tüm durumları görüntülemek için panoyu kaydırın.",
   "Архивировать проект?": "Arşiv projesi?",
   "Задачи сохранятся, проект можно восстановить.": "Görevler tutulacak ve proje geri yüklenebilir.",
-  "В архив": "Arşiv",
+  "В архив": "Arşivle",
   "Архив проектов": "Arşivlenen projeler",
   "Восстановить": "Geri Yükle",
   "Архивировать проект": "Arşiv projesi",
@@ -2601,5 +2601,17 @@
   "Открыть GENESIS": "GENESIS’i aç",
   "Регистрация подтверждена": "Kayıt onaylandı",
   "Подтверждение регистрации": "Kayıt onayı",
-  "Ссылка недействительна или срок её действия истёк": "Bağlantı geçersiz veya süresi dolmuş"
+  "Ссылка недействительна или срок её действия истёк": "Bağlantı geçersiz veya süresi dolmuş",
+  "Пауза выключает расписание и напоминания. Архив сохраняет историю и награды.": "Duraklatma, programı ve hatırlatıcıları kapatır. Arşiv, geçmişi ve ödülleri korur.",
+  "Восстановление вернёт привычку на паузу. Награды и прежний штраф не изменятся.": "Geri yükleme alışkanlığı duraklatır. Ödüller ve önceki cezalar değişmez.",
+  "Удаление до 50 уникальных дней выполнения обнуляет весь баланс Лавров. История останется доступной для восстановления.": "50 farklı tamamlanma gününden önce silmek tüm Defne bakiyesini sıfırlar. Geçmiş geri yüklenebilir.",
+  "Рубеж 50 дней достигнут: Лавры сохранятся. История останется доступной для восстановления.": "50 gün eşiğine ulaşıldı: Defneler korunur. Geçmiş geri yüklenebilir.",
+  "Есть изменения с другого устройства. Выберите состояние.": "Başka bir cihazda değişiklikler var. Bir durum seçin.",
+  "Не удалось сохранить. Проверьте синхронизацию и повторите.": "Kaydedilemedi. Eşitlemeyi kontrol edip tekrar deneyin.",
+  "Состояние сохранено.": "Durum kaydedildi.",
+  "Состояние привычки": "Alışkanlık durumu",
+  "Выполнено дней": "Tamamlanma günleri",
+  "Удалить привычку": "Alışkanlığı sil",
+  "Активные": "Etkin",
+  "Удалённые": "Silinenler"
 }

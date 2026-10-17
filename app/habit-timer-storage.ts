@@ -1,8 +1,9 @@
 import { habitTimerEpoch, habitWorkspaceEpoch, mergeHabitTimerOperations } from "./habit-timer.ts";
 import { mergeHabitMeasurementEvents } from "./habit-measurement.ts";
 import { normalizeRewardTransactions } from "./rewards.ts";
-import type { HabitCompletion } from "./habits";
+import type { Habit, HabitCompletion } from "./habits";
 import { mergeHabitHistoryEdits } from "./habit-history.ts";
+import { mergeHabitLifecycleEvents, projectHabitLifecycle } from "./habit-lifecycle.ts";
 
 const record = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === "object" && !Array.isArray(value);
 
@@ -14,13 +15,23 @@ export function preserveHabitTimerRecords<T>(incoming: T, saved: unknown): T {
   if (epoch > previousEpoch) return incoming;
   const habitTimers = mergeHabitTimerOperations(incoming.habitTimers, saved.habitTimers ?? []).filter(op => op.epoch === epoch);
   const habitHistory = mergeHabitHistoryEdits(incoming.habitHistory ?? [], saved.habitHistory ?? []).filter(row => row.epoch === epoch);
-  if (!habitTimers.length && !habitHistory.length) return incoming;
+  const habits = new Map((Array.isArray(incoming.habits) ? incoming.habits : []).map(habit => [(habit as Habit).id, habit as Habit]));
+  const lifecycleIds = new Set<string>();
+  for (const habit of (Array.isArray(saved.habits) ? saved.habits : []) as Habit[]) {
+    const current = habits.get(habit.id);
+    const lifecycleHistory = mergeHabitLifecycleEvents(current?.lifecycleHistory, habit.lifecycleHistory);
+    if (!lifecycleHistory.length) continue;
+    lifecycleIds.add(habit.id);
+    habits.set(habit.id, projectHabitLifecycle({ ...(current ?? habit), lifecycleHistory }));
+  }
+  for (const habit of habits.values()) if (habit.lifecycleHistory?.length) lifecycleIds.add(habit.id);
+  if (!habitTimers.length && !habitHistory.length && !lifecycleIds.size) return incoming;
   const currentEvents = mergeHabitMeasurementEvents(incoming.habitMeasurements ?? []);
   const savedEvents = mergeHabitMeasurementEvents(saved.habitMeasurements ?? []);
-  const habitIds = new Set((Array.isArray(incoming.habits) ? incoming.habits : []).flatMap(habit => record(habit) && typeof habit.id === "string" ? [habit.id] : []));
+  const habitIds = new Set(habits.keys());
   const timerEntries = new Set([...currentEvents, ...savedEvents].filter(event => event.source === "timer" && event.entryId.startsWith("timer-value:")).map(event => event.entryId));
   const historyDays = new Set(habitHistory.map(row => `${row.habitId}:${row.date}`));
-  const retained = savedEvents.filter(event => habitIds.has(event.habitId) && (timerEntries.has(event.entryId) || historyDays.has(`${event.habitId}:${event.date}`)));
+  const retained = savedEvents.filter(event => habitIds.has(event.habitId) && (lifecycleIds.has(event.habitId) || timerEntries.has(event.entryId) || historyDays.has(`${event.habitId}:${event.date}`)));
   const habitMeasurements = mergeHabitMeasurementEvents(currentEvents, retained);
   const timedDays = new Set(habitMeasurements.filter(event => timerEntries.has(event.entryId)).map(event => `${event.habitId}:${event.date}`));
   historyDays.forEach(day => timedDays.add(day));
@@ -29,11 +40,13 @@ export function preserveHabitTimerRecords<T>(incoming: T, saved: unknown): T {
     completions.set(`${row.habitId}:${row.date}`, row);
   for (const row of (Array.isArray(saved.habitCompletions) ? saved.habitCompletions : []) as HabitCompletion[]) {
     const id = `${row.habitId}:${row.date}`;
-    if (!habitIds.has(row.habitId) || !timedDays.has(id)) continue;
+    if (!habitIds.has(row.habitId) || !lifecycleIds.has(row.habitId) && !timedDays.has(id)) continue;
     const current = completions.get(id);
-    completions.set(id, current ? { ...current, xpAwarded: Math.max(current.xpAwarded, row.xpAwarded) } : row);
+    completions.set(id, current ? { ...(lifecycleIds.has(row.habitId) && row.updatedAt > current.updatedAt ? row : current),
+      xpAwarded: Math.max(current.xpAwarded, row.xpAwarded) } : row);
   }
-  return { ...incoming, habitTimers, habitHistory, habitTimerEpoch: habitWorkspaceEpoch(epoch, habitHistory.length > 0), habitMeasurements, habitCompletions: [...completions.values()],
+  return { ...incoming, habits: [...habits.values()], habitTimers, habitHistory,
+    habitTimerEpoch: habitWorkspaceEpoch(epoch, habitHistory.length > 0, lifecycleIds.size > 0), habitMeasurements, habitCompletions: [...completions.values()],
     rewardTransactions: normalizeRewardTransactions([...(Array.isArray(incoming.rewardTransactions) ? incoming.rewardTransactions : []),
       ...(Array.isArray(saved.rewardTransactions) ? saved.rewardTransactions : [])]) } as T;
 }
