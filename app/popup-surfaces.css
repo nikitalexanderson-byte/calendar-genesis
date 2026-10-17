@@ -1,0 +1,19 @@
+/* Shared by page dialogs, native dialogs and popovers rendered through body portals. */
+html[data-genesis-theme] { --ui-popup-border: var(--gold); --ui-popup-border-width: 2px; }
+
+html[data-genesis-theme] :is(body, .genesis-app) :is(
+  dialog,
+  [role="dialog"],
+  [role="alertdialog"],
+  [role="menu"],
+  [role="tooltip"],
+  .reminder-menu[role="listbox"],
+  .notification-dock-panel,
+  .notification-preview,
+  .notification-link-error,
+  .solar-place-popover,
+  .deferred-dialog-backdrop > div,
+  .stoicheion-letter-dialog > article
+):not(.modal-backdrop, .stoicheion-letter-dialog, .stoicheion-motion-veil) {
+  border: var(--ui-popup-border-width) solid var(--ui-popup-border);
+}

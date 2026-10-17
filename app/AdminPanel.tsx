@@ -93,6 +93,8 @@ export function AdminPanel() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<AdminUserStats | null>(null);
+  const [activityTargetId, setActivityTargetId] = useState<string | null>(null);
+  const activityTarget = stats?.users.find(user => user.id === activityTargetId) ?? null;
   const [confirmation, setConfirmation] = useState("");
   const [blacklist, setBlacklist] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -161,6 +163,8 @@ export function AdminPanel() {
     }
   };
   const deleteDialogRef = useDialogAccessibility<HTMLElement>(closeDeleteDialog, Boolean(deleteTarget));
+  const closeActivityDialog = () => setActivityTargetId(null);
+  const activityDialogRef = useDialogAccessibility<HTMLElement>(closeActivityDialog, Boolean(activityTarget));
 
   if (!stats && !error) return <section className="admin-view" data-exp-layout="view"><p>{copy.loading}</p></section>;
 
@@ -204,10 +208,7 @@ export function AdminPanel() {
                 <td data-label={copy.user}><strong>{user.email}</strong><small>{user.displayName}{user.isAdmin ? ` · ${copy.admin}` : ""}</small></td>
                 <td className="admin-subscription-cell" data-label={userCopy("plan")}><SubscriptionControl user={user} onRefresh={refresh} onSaved={subscriptionPlan=>setStats(current=>current ? {...current,users:current.users.map(item=>item.id===user.id ? {...item,subscriptionPlan} : item)} : current)}/></td>
                 <td className="admin-activity-cell" data-label={copy.activity} data-no-translate>
-                  <div><strong>{userCopy("serverActivity")}</strong><time>{formatActivity(user.lastSeenAt)}</time></div>
-                  <div><strong>{userCopy("newSignIn")}</strong><time>{formatActivity(user.lastLoginAt)}</time></div>
-                  {(user.clientActivity ?? []).map(client => <div key={client.kind} className="admin-client-activity"><strong>{userCopy(client.kind)}</strong><small>{userCopy("serverContact")}: {formatActivity(client.lastSeenAt)}<br />{userCopy("newSignIn")}: {formatActivity(client.lastLoginAt)}</small></div>)}
-                  <small>{isEnglish ? "Registered" : "Регистрация"}: {formatActivity(user.createdAt)}</small>
+                  <button type="button" className="secondary-button admin-activity-open" aria-haspopup="dialog" aria-label={`${userCopy("activityDetails")}: ${user.email}`} onClick={() => setActivityTargetId(user.id)}>{userCopy("activityDetails")}</button>
                 </td>
                 <td data-label={copy.logins}>{user.loginCount}</td>
                 <td data-label={copy.habits}><strong>{user.habitCount}</strong><small>{copy.aggregate}</small></td>
@@ -261,6 +262,24 @@ export function AdminPanel() {
           </div>
         </section>
       ) : null}
+      {activityTarget ? <div className="modal-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) closeActivityDialog(); }}>
+        <section ref={activityDialogRef} className="admin-activity-dialog" role="dialog" aria-modal="true" aria-labelledby="admin-activity-title" aria-describedby="admin-activity-user" tabIndex={-1}>
+          <header><h2 id="admin-activity-title">{copy.activity}</h2><DialogCloseButton aria-label={isEnglish ? "Close" : "Закрыть"} onClick={closeActivityDialog} /></header>
+          <p id="admin-activity-user" data-no-translate>{activityTarget.email}</p>
+          <dl className="admin-activity-summary" data-no-translate>
+            <div><dt>{userCopy("serverActivity")}</dt><dd><time dateTime={activityTarget.lastSeenAt ?? undefined}>{formatActivity(activityTarget.lastSeenAt)}</time></dd></div>
+            <div><dt>{userCopy("newSignIn")}</dt><dd><time dateTime={activityTarget.lastLoginAt ?? undefined}>{formatActivity(activityTarget.lastLoginAt)}</time></dd></div>
+            <div><dt>{userCopy("registered")}</dt><dd><time dateTime={activityTarget.createdAt}>{formatActivity(activityTarget.createdAt)}</time></dd></div>
+          </dl>
+          {(activityTarget.clientActivity ?? []).map(client => <section key={client.kind} className="admin-client-activity" data-no-translate>
+            <h3>{userCopy(client.kind)}</h3>
+            <dl className="admin-activity-summary">
+              <div><dt>{userCopy("serverContact")}</dt><dd><time dateTime={client.lastSeenAt}>{formatActivity(client.lastSeenAt)}</time></dd></div>
+              <div><dt>{userCopy("newSignIn")}</dt><dd><time dateTime={client.lastLoginAt ?? undefined}>{formatActivity(client.lastLoginAt)}</time></dd></div>
+            </dl>
+          </section>)}
+        </section>
+      </div> : null}
       {deleteTarget ? <div className="modal-backdrop admin-delete-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeDeleteDialog(); }}>
         <section ref={deleteDialogRef} className="admin-delete-dialog" role="dialog" aria-modal="true" aria-labelledby="admin-delete-title" tabIndex={-1}>
           <header><div><span className="eyebrow">{copy.irreversible}</span><h2 id="admin-delete-title">{copy.deleteTitle}</h2></div><DialogCloseButton type="button" className="modal-close" onClick={closeDeleteDialog} aria-label={isEnglish ? "Close" : "Закрыть"} /></header>
