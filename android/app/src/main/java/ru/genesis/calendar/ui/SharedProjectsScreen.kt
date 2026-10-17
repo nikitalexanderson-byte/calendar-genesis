@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.currentStateAsState
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -218,6 +219,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         if (taskId.isNotBlank()) {
             val currentId = taskId
             try { val found = controller.sharedTask(id, currentId).getJSONObject("task"); if (taskId == currentId) openedTask = found }
+            catch (error: CancellationException) { throw error }
             catch (error: Exception) { message = error.message ?: "TASK_NOT_FOUND"; openedTask = null }
         }
     }
@@ -228,6 +230,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         expandedIds = next.toSet()
         scope.launch {
             try { expansionWrites.withLock { controller.saveSharedSpaceUi(targetSpace, next) } }
+            catch (error: CancellationException) { throw error }
             catch (error: Exception) { if (spaceId == targetSpace) message = error.message ?: "Не удалось сохранить вид пространства." }
         }
     }
@@ -248,7 +251,9 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         if (busy) return
         busy = true; message = ""; messageIsError = false
         scope.launch {
-            try { action() } catch (error: Exception) { messageIsError = true; message = when (error.message) {
+            try { action() }
+            catch (error: CancellationException) { throw error }
+            catch (error: Exception) { messageIsError = true; message = when (error.message) {
                 "INVITEE_ACCOUNT_UNSUPPORTED" -> if (en) "This account cannot use shared projects." else "Этот аккаунт не может использовать общие проекты."
                 "INVITEE_ACCOUNT_NOT_FOUND" -> if (en) "No GENESIS account was found for this email." else "Аккаунт GENESIS с такой почтой не найден."
                 else -> error.message ?: "Ошибка сервера"
@@ -262,20 +267,23 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
             val parent = controller.sharedProject(parentId)
             parentProjectSnapshot = parent
             if (parent.optJSONArray("statuses")?.rows()?.none { it.optString("id") == parentBoardId } == true) parentBoardId = ""
-        } catch (cause: kotlinx.coroutines.CancellationException) { throw cause }
+        } catch (cause: CancellationException) { throw cause }
         catch (cause: Exception) { message = cause.message ?: "Не удалось открыть родительский проект." }
     }
     LaunchedEffect(createModal) {
         if (createModal == "join") {
             loadingInvitations = true
             try { invitations = controller.sharedInvitations().getJSONArray("invitations").rows() }
+            catch (error: CancellationException) { throw error }
             catch (error: Exception) { message = error.message ?: "Не удалось загрузить приглашения." }
             finally { loadingInvitations = false }
         }
     }
     LaunchedEffect(pageActive) {
         if (!pageActive) return@LaunchedEffect
-        try { refreshSpaces() } catch (error: Exception) { message = error.message ?: "Ошибка сервера" }
+        try { refreshSpaces() }
+        catch (error: CancellationException) { throw error }
+        catch (error: Exception) { message = error.message ?: "Ошибка сервера" }
     }
     LaunchedEffect(spaceId, pageActive) {
         if (!pageActive) return@LaunchedEffect
@@ -292,7 +300,8 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                 projectId = destination?.takeIf { it.spaceId == targetSpace && projects.any { project -> project.optString("id") == it.projectId } }?.projectId
                     ?: restoredProjectId.takeIf { id -> projects.any { it.optString("id") == id } }.orEmpty()
             }
-        } catch (error: Exception) { message = error.message ?: "Ошибка сервера" }
+        } catch (error: CancellationException) { throw error }
+        catch (error: Exception) { message = error.message ?: "Ошибка сервера" }
         else { projects = emptyList(); archivedProjects = emptyList() }
     }
     LaunchedEffect(projectId, pageActive) {
@@ -304,14 +313,16 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                 pendingTasks = controller.queuedSharedTasks(projectId)
                 refreshProject(projectId)
                 if (spaceId.isNotBlank()) refreshProjects(spaceId)
-            } catch (error: Exception) { message = error.message ?: "Ошибка сервера" }
+            } catch (error: CancellationException) { throw error }
+            catch (error: Exception) { message = error.message ?: "Ошибка сервера" }
             delay(5_000)
         }
     }
     LaunchedEffect(projectId, taskId) {
         comments = if (projectId.isNotBlank() && taskId.isNotBlank()) try {
             controller.sharedComments(projectId, taskId).getJSONArray("comments").rows()
-        } catch (error: Exception) { message = error.message ?: "Ошибка сервера"; emptyList() }
+        } catch (error: CancellationException) { throw error }
+        catch (error: Exception) { message = error.message ?: "Ошибка сервера"; emptyList() }
         else emptyList()
     }
 
@@ -328,10 +339,11 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     val canInvite = role in setOf("owner", "manager")
     val selectedTask = openedTask?.takeIf { it.optString("id") == taskId && it.optString("projectId") == projectId } ?: tasks.firstOrNull { it.optString("id") == taskId }
     LaunchedEffect(projectId,taskId,comments,discussionVisible,pageActive) {
-        if(pageActive&&discussionVisible&&taskId.isNotBlank()&&comments.isNotEmpty())runCatching {
+        if(pageActive&&discussionVisible&&taskId.isNotBlank()&&comments.isNotEmpty())try {
             controller.readSharedTaskUpdates(projectId,taskId,comments.map { it.getString("id") })
             taskPage=taskPage?.let { page->JSONObject(page.toString()).put("tasks",JSONArray(page.optJSONArray("tasks")?.rows().orEmpty().map { if(it.optString("id")==taskId)JSONObject(it.toString()).put("unreadCommentCount",0) else it })) }
-        }
+        } catch (error: CancellationException) { throw error }
+        catch (_: Exception) { /* Keep unread updates available for the next refresh. */ }
     }
     val activeView = viewOverride ?: project?.optString("layout") ?: "list"
     val taskFilter = JSONObject().put("projectIds", JSONArray().put(projectId)).put("q", taskSearch)
@@ -357,7 +369,8 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                 while(next.optBoolean("hasMore")&&(next.optJSONArray("tasks")?.length()?:0)<loaded)
                     next=mergeSharedTaskPage(next,controller.sortedSharedTasks(JSONObject(taskFilterKey),next.optString("nextCursor"),taskSort.wire),true)
                 taskPage = next
-            } catch(error: Exception) { message = error.message ?: "Не удалось загрузить данные" }
+            } catch (error: CancellationException) { throw error }
+            catch(error: Exception) { message = error.message ?: "Не удалось загрузить данные" }
             delay(5_000)
         }
     }
@@ -441,12 +454,14 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         googleSettings = null; googleMessage = ""
         if (projectId.isBlank()) return@LaunchedEffect
         try { googleSettings = controller.sharedGoogleSettings(projectId).getJSONObject("settings") }
+        catch (error: CancellationException) { throw error }
         catch (error: Exception) { googleMessage = error.message ?: "Ошибка Google" }
         while (isActive) {
             delay(30_000)
             val settings = googleSettings
             if (settings?.optBoolean("tasksEnabled") == true || settings?.optBoolean("calendarEnabled") == true) {
                 try { controller.syncSharedGoogle(projectId) }
+                catch (error: CancellationException) { throw error }
                 catch (_: Exception) { /* The explicit update button reports failures. */ }
             }
         }
@@ -456,6 +471,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         if (taskId.isBlank()) { openedTask = null; return@LaunchedEffect }
         val targetProject = projectId; val targetTask = taskId
         val current = try { controller.sharedTask(targetProject, targetTask).getJSONObject("task") }
+            catch (error: CancellationException) { throw error }
             catch(error: Exception) { message = error.message ?: "TASK_NOT_FOUND"; return@LaunchedEffect }
         if (projectId != targetProject || taskId != targetTask) return@LaunchedEffect
         openedTask = current
@@ -768,7 +784,8 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                     value
                 }
                 if (projectId == target.first && boardDraft?.optString("id") == target.second) boardImage = selectedImage
-            } catch (error: Exception) { message = error.message ?: "Не удалось загрузить изображение." }
+            } catch (error: CancellationException) { throw error }
+            catch (error: Exception) { message = error.message ?: "Не удалось загрузить изображение." }
         }
     }
     boardDraft?.let { board ->
