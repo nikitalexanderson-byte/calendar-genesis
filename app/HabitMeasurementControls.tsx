@@ -1,3 +1,5 @@
+
+import { habitDisplayText } from "./habit-display-text";
 import { useId, useRef, useState } from "react";
 import type { Habit, HabitWorkspace } from "./habits";
 import { recordHabitMeasurement } from "./habits";
@@ -96,7 +98,7 @@ export function HabitMeasurementControl({ habit, workspace, date, language, time
     } catch { setError(t("Не удалось сохранить запись. Проверьте значение и повторите.")); }
     finally { pending.current = false; setBusy(false); }
   };
-  return <div className="habit-measurement-control" role="group" aria-label={`${t("Учёт выполнения")}: ${habit.title}`}>
+  return <div className="habit-measurement-control" role="group" aria-label={`${t("Учёт выполнения")}: ${habitDisplayText(habit, language).title}`}>
     <div className="habit-measurement-summary" aria-live="polite">
       <strong>{periodicVolume ? `${t("Записано сегодня")}: ${format(progress.total)}` : `${format(progress.total)} / ${format(progress.target)}`}</strong>
       {!periodicVolume ? <span>{progress.completed ? t("Цель достигнута") : `${t("Осталось")}: ${format(progress.remaining)}`}</span> : null}

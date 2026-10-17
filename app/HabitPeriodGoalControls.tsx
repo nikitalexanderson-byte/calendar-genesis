@@ -1,3 +1,5 @@
+
+import { habitDisplayText } from "./habit-display-text";
 import { useState } from "react";
 import type { Habit, HabitWorkspace } from "./habits";
 import { addCivilDays, calendarContext, momentCivilDate } from "./calendar-context";
@@ -72,7 +74,7 @@ export function HabitPeriodGoalProgress({ habit, workspace, date, language }: {
   const t = (text: string) => translateText(text, language);
   const format = (value: number) => state.goal.metric === "sum" ? `${formatHabitValue(value, language)} ${state.rule.measurement?.kind === "duration" ? t("мин") : state.rule.measurement?.unit ?? ""}`
     : new Intl.NumberFormat(language).format(value);
-  return <div className="habit-period-progress" role="group" aria-label={`${t("Цель за период")}: ${habit.title}`}>
+  return <div className="habit-period-progress" role="group" aria-label={`${t("Цель за период")}: ${habitDisplayText(habit, language).title}`}>
     <div className="habit-measurement-summary"><strong>{t(state.goal.period === "week" ? "За неделю" : "За месяц")}: {format(state.value)} / {format(state.goal.target)}</strong>
       <span>{state.completed ? t("Цель достигнута") : `${t("Осталось")}: ${format(state.remaining)}`}</span></div>
     <p>{t(state.goal.metric === "days" ? "Разные дни" : state.goal.metric === "entries" ? "Отдельные выполнения" : "Сумма значений")}

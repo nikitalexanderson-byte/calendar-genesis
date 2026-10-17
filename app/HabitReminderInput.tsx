@@ -1,3 +1,5 @@
+
+import { habitDisplayText } from "./habit-display-text";
 import { useRef, useState } from "react";
 import { habitReminderAction, type HabitReminderTarget, type HabitReminderInput } from "./habit-reminder-plan";
 import { effectiveHabitMeasurement, formatHabitValue, habitMeasurementProgress, habitRuleForDate, parseHabitValue } from "./habit-measurement";
@@ -31,7 +33,7 @@ export function HabitReminderInputPanel({workspace,target,language,calendarMode,
     finally{saving.current=false;setBusy(false);}
   };
   return <div className="habit-reminder-input">
-    <h3 data-no-translate>{habit.title}</h3><p>{formatCalendarDateValue(target.date,calendarMode,true)}</p>
+    <h3 data-no-translate>{habitDisplayText(habit, language).title}</h3><p>{formatCalendarDateValue(target.date,calendarMode,true)}</p>
     {!available?<p>{t(action==="completed"?"Результат уже записан.":"Уведомление устарело. Сегодняшние отметки не изменены.")}</p>:<>
       {measurement?<form onSubmit={event=>{event.preventDefault();const amount=parseHabitValue(value);if(!amount)return;
         operation.current??=crypto.randomUUID();void save({kind:"measurement",id:operation.current,value:amount,note});}}>

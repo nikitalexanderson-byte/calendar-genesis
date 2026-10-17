@@ -120,6 +120,7 @@ import { WeekdaySymbol } from "./WeekdaySymbol";
 import { RecurrenceBuilder } from "./RecurrenceBuilder";
 import { YandexCalendarConnectDialog } from "./YandexCalendarConnectDialog";
 import { HabitCompletionFeedback } from "./HabitCompletionFeedback";
+import { habitDisplayText } from "./habit-display-text";
 import { WorkspaceRecoveryDialog } from "./WorkspaceRecoveryDialog";
 import { useMoonReminders } from "./MoonReminderSettings";
 import { useDialogAccessibility } from "./use-dialog-accessibility";
@@ -3401,7 +3402,7 @@ export function GenesisCalendar() {
         const feedback: HabitFeedbackEvent = {
           id: `${latestCompletion.id}:${latestCompletion.updatedAt}`,
           habitId: habit.id,
-          habitTitle: habit.title,
+          habitTitle: habitDisplayText(habit, language).title,
           habitEmoji: habit.emoji,
           kind,
           xp: Math.max(0, latestCompletion.xpAwarded),
