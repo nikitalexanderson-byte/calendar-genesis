@@ -3,6 +3,10 @@ import { DialogCloseButton } from "./DialogCloseButton";
 import {orderPersonalTasks,taskListOrders,unreadPersonalCommentIds,type TaskListOrder} from "./task-list-order";
 import {usePersonalTaskDisplay} from "./use-personal-task-display";
 import {MindmapLaunchButton} from "./MindmapLaunchButton";
+import { CalendarCellTasks } from "./CalendarCellTasks";
+import { useCalendarTaskPreviews } from "./use-calendar-task-previews";
+import "./calendar-cell-tasks.css";
+const CalendarDayTasksDialog = lazy(() => import("./CalendarDayTasksDialog"));
 
 import { calendarContext } from "./calendar-context";
 import { useSharedTaskPage } from "./use-shared-task-page";
@@ -1192,6 +1196,7 @@ export function GenesisCalendar() {
   const [cloudUser, setCloudUser] = useState<GenesisUser | null>(null);
   const personalTaskDisplay=usePersonalTaskDisplay(cloudUser?.uid??"local");
   const [sharedCalendarCounts, setSharedCalendarCounts] = useState<Record<string,number>>({});
+  const [calendarTaskListDate, setCalendarTaskListDate] = useState("");
   const [calendarCompletionBusy, setCalendarCompletionBusy] = useState("");
   const [locatedPersonalTaskId, setLocatedPersonalTaskId] = useState("");
   const [springYearSuggestionDismissed, setSpringYearSuggestionDismissed] = useState(false);
@@ -1729,6 +1734,15 @@ export function GenesisCalendar() {
     ? <span className="task-overdue-badge" data-no-translate>{translateText("Просрочено")}</span> : null;
   const selectedDateValue = inputDate(selectedDate);
   const selectedGregorianYear = selectedDate.getFullYear();
+  const monthPreviewFrom = inputDate(new Date(selectedGregorianYear, selectedDate.getMonth(), 1, 12));
+  const monthPreviewTo = inputDate(new Date(selectedGregorianYear, selectedDate.getMonth() + 1, 0, 12));
+  const sharedMonthPreview = useCalendarTaskPreviews(cloudUser?.uid, monthPreviewFrom, monthPreviewTo,
+    Boolean(cloudUser?.sharedProjectsEnabled && view === "calendar" && activeCalendarMode === "profane" && !sacredFeaturesEnabled));
+  const sharedMonthTasksByDate = useMemo(() => {
+    const dates = new Map<string, SharedCalendarTask[]>();
+    for (const task of sharedMonthPreview?.tasks ?? []) dates.set(task.dueDate, [...(dates.get(task.dueDate) ?? []), task]);
+    return dates;
+  }, [sharedMonthPreview]);
   useEffect(() => {
     if (!cloudUser?.sharedProjectsEnabled) {
       const timer = window.setTimeout(() => setSharedCalendarCounts({}), 0);
@@ -1908,6 +1922,13 @@ export function GenesisCalendar() {
     setDayDetailsOpen(false);
     setProjectsArea("shared");
     navigateTo("projects", false, { spaceId: task.spaceId, projectId: task.projectId, taskId: task.id, taskAction: "locate" });
+  };
+  const openSharedCalendarTaskDetails = (task: SharedCalendarTask) => {
+    setCalendarTaskListDate(""); setDayDetailsOpen(false); setProjectsArea("shared");
+    navigateTo("projects", false, {spaceId:task.spaceId, projectId:task.projectId, taskId:task.id});
+  };
+  const openPersonalCalendarTaskDetails = (task: Task, date: string) => {
+    setCalendarTaskListDate(""); setPersonalPreview({kind:"task", id:task.id, date});
   };
   const openPersonalCalendarTask = (task: Task) => {
     setDayDetailsOpen(false); setProjectsArea("personal"); setTagSearch("");
@@ -5268,6 +5289,7 @@ export function GenesisCalendar() {
           ? `${formatGregorian(date, true)} — ${localizedAdjacentMonth.toLocaleLowerCase(runtimeLocale())}, ${translateText("Только для просмотра", language).toLocaleLowerCase(runtimeLocale())}`
           : undefined}
         key={`${adjacentMonth ?? "current"}-${dateValue}`}
+        data-calendar-date={dateValue}
       >
         {isAdjacentMonth ? null : (
           <button
@@ -5316,6 +5338,10 @@ export function GenesisCalendar() {
           <span><i aria-hidden="true">↗</i>{sunrise}</span>
           <span><i aria-hidden="true">↘</i>{sunset}</span>
         </span>
+        {!sacredFeaturesEnabled && mode === "profane" && !isAdjacentMonth ? <CalendarCellTasks personal={cellTasks}
+          shared={sharedMonthTasksByDate.get(dateValue) ?? []} sharedTotal={sharedMonthPreview ? sharedMonthPreview.dateCounts[dateValue] ?? 0 : sharedCount}
+          dateLabel={formatGregorian(date, true)} language={language} onPersonal={task => openPersonalCalendarTaskDetails(task, dateValue)}
+          onShared={openSharedCalendarTaskDetails} onMore={() => { setOpenDayTaskPopover(""); setCalendarTaskListDate(dateValue); }} /> : null}
         <Suspense fallback={null}><CalendarSharedTaskControl tasks={[]} total={sharedCount} date={dateValue} dateLabel={formatGregorian(date, true)} language={language}
           popoverKey={sharedPopoverKey} alignment={popoverAlignment} openKey={openDayTaskPopover}
           onOpenKey={setOpenDayTaskPopover} onOpenTask={openSharedCalendarTask} onCompleteTask={completeSharedCalendarTask} busyTaskId={calendarCompletionBusy} />
@@ -5657,7 +5683,7 @@ export function GenesisCalendar() {
         <header className="calendar-header calendar-mode-header">
           {mode === "lunar" ? <span className="calendar-month-art" aria-hidden="true" /> : null}
           <div>
-            <span className="eyebrow">{monthEyebrow}</span>
+            {sacredFeaturesEnabled ? <span className="eyebrow">{monthEyebrow}</span> : null}
             <h1>{monthTitle}</h1>
             <p className="calendar-title">{monthSubtitle}</p>
             {sacredFeaturesEnabled ? <p>{monthDescription}</p> : null}
@@ -6954,6 +6980,11 @@ export function GenesisCalendar() {
           </section>
         </div>
       ) : null}
+      {calendarTaskListDate ? <Suspense fallback={<DeferredDialogFallback label={translateText("Загрузка…",language)}/>}><CalendarDayTasksDialog
+        key={calendarTaskListDate} date={calendarTaskListDate} dateLabel={formatGregorian(new Date(`${calendarTaskListDate}T12:00:00`), true)}
+        personal={[...(calendarTasksByDate.get(calendarTaskListDate) ?? [])].sort((a,b) => a.time.localeCompare(b.time))}
+        sharedEnabled={Boolean(cloudUser?.sharedProjectsEnabled)} language={language} formatTime={time => formatTimeValue(time, activeTimeFormat)}
+        onClose={() => setCalendarTaskListDate("")} onPersonal={task => openPersonalCalendarTaskDetails(task, calendarTaskListDate)} onShared={openSharedCalendarTaskDetails}/></Suspense> : null}
       {dayDetailsOpen ? (
         <div className="modal-backdrop day-details-backdrop" role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) setDayDetailsOpen(false); }}>
           <section ref={dayDetailsDialogRef} className={`day-details-modal mode-${activeCalendarMode}${selectedSolarEvent ? " solar-selected-day" : ""}`} role="dialog" aria-modal="true" aria-labelledby="selected-day-title" aria-describedby={sacredFeaturesEnabled ? "selected-day-description" : undefined} tabIndex={-1}>

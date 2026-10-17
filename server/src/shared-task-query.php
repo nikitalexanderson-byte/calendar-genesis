@@ -112,6 +112,44 @@ function genesisSharedTaskPredicate(string $userId, array $filter, array $scope)
     return [implode(' AND ', $where), $values];
 }
 
+/** A bounded month preview for every date, including days beyond a dense first page. */
+function genesisSharedCalendarPreviews(string $userId, string $from, string $to): array
+{
+    genesisSharedRequireEnabled($userId);
+    try { $valid = genesisSharedTaskDate($from) === $from && genesisSharedTaskDate($to) === $to; }
+    catch (InvalidArgumentException) { $valid = false; }
+    if (!$valid || $from > $to
+        || (new DateTimeImmutable($from))->diff(new DateTimeImmutable($to))->days > 41) {
+        throw new InvalidArgumentException('INVALID_SHARED_CALENDAR_RANGE');
+    }
+    $db = genesisDb(); $owns = !$db->inTransaction();
+    if ($owns) $db->beginTransaction();
+    try {
+        $filter = ['dueFrom'=>$from, 'dueTo'=>$to, 'completion'=>'open'];
+        $scope = genesisSharedQueryScope($userId, $filter);
+        [$where, $values] = genesisSharedTaskPredicate($userId, $filter, $scope);
+        $q = $db->prepare('SELECT t.due_date,COUNT(*) AS n FROM shared_tasks_history_read t WHERE ' . $where . ' GROUP BY t.due_date');
+        $q->execute($values);
+        $dateCounts = array_map('intval', array_column($q->fetchAll(), 'n', 'due_date'));
+        $q = $db->prepare("SELECT * FROM (SELECT t.id,t.project_id,t.title,t.due_date,t.entry_type,
+            ROW_NUMBER() OVER (PARTITION BY t.due_date ORDER BY COALESCE(t.start_time,'24:00'),t.position,t.id) AS day_rank
+            FROM shared_tasks_history_read t WHERE $where) WHERE day_rank<=3 ORDER BY due_date,day_rank");
+        $q->execute($values);
+        $rows = $q->fetchAll(); $projects = []; $tasks = [];
+        foreach ($rows as $row) {
+            $project = $projects[$row['project_id']] ??= genesisSharedProjectAccess($row['project_id'], $userId);
+            $tasks[] = ['id'=>$row['id'], 'title'=>$row['title'], 'dueDate'=>$row['due_date'], 'completedAt'=>null,
+                'entryType'=>$row['entry_type'], 'projectId'=>$row['project_id'], 'projectTitle'=>$project['title'],
+                'spaceId'=>$project['space_id'], 'isInbox'=>(int)$project['is_inbox']];
+        }
+        if ($owns) $db->commit();
+        return ['tasks'=>$tasks, 'dateCounts'=>$dateCounts];
+    } catch (Throwable $error) {
+        if ($owns && $db->inTransaction()) $db->rollBack();
+        throw $error;
+    }
+}
+
 function genesisSharedHydrateTasks(string $userId, array $rows, array $projects = []): array
 {
     if (!$rows) return [];
