@@ -170,12 +170,13 @@ internal enum class AffairsAction { BACK, MORE, CLOSE, SEARCH, FILTER, EXPAND, C
                     androidx.compose.material3.Text(title, style = MaterialTheme.typography.titleSmall,
                         fontWeight = if (unreadComments > 0) FontWeight.Bold else FontWeight.Medium,
                         color = if (completed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
-                    if (metadata.isNotEmpty()) androidx.compose.material3.Text(metadata.filter(String::isNotBlank).joinToString(" · "),
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    UnreadCommentBadge(unreadComments)
                 }
                 actions?.invoke()
             }
+            if (metadata.isNotEmpty()) androidx.compose.material3.Text(metadata.filter(String::isNotBlank).joinToString(" · "),
+                modifier = Modifier.padding(horizontal = 8.dp), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (unreadComments > 0) Box(Modifier.padding(horizontal = 8.dp)) { UnreadCommentBadge(unreadComments) }
             extra?.invoke()
         }
     }

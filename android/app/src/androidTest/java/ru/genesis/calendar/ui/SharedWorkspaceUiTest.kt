@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -137,7 +138,7 @@ class SharedWorkspaceUiTest {
         compose.setContent {
             CompositionLocalProvider(LocalGenesisLanguage provides "ru", LocalEveningTheme provides dark) {
                 MaterialTheme(colorScheme = if (dark) evening else standart) {
-                    androidx.compose.material3.Surface(Modifier.fillMaxSize()) {
+                    androidx.compose.material3.Surface(Modifier.fillMaxSize().safeDrawingPadding()) {
                         key(dark) { SharedProjectsScreen(remember { WorkspaceFixture(withTasks = true) }, "ru") }
                     }
                 }

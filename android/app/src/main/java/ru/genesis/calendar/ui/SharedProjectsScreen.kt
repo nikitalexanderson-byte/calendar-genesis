@@ -90,13 +90,10 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     var projects by remember { mutableStateOf(emptyList<JSONObject>()) }
     var archivedProjects by remember { mutableStateOf(emptyList<JSONObject>()) }
     var snapshot by remember { mutableStateOf<JSONObject?>(null) }
-    var inboxExpanded by rememberSaveable { mutableStateOf(false) }
-    var inboxPreview by remember { mutableStateOf<JSONObject?>(null) }
     var googleSettings by remember { mutableStateOf<JSONObject?>(null) }
     var googleMessage by remember { mutableStateOf("") }
     var comments by remember { mutableStateOf(emptyList<JSONObject>()) }
     val (taskSort,setTaskSort)=rememberTaskListSort("shared")
-    var inboxTaskPage by remember { mutableStateOf<JSONObject?>(null) }
     var discussionVisible by remember { mutableStateOf(false) }
     val discussionWindowHeight=androidx.compose.ui.platform.LocalContext.current.resources.displayMetrics.heightPixels
     var spaceId by rememberSaveable { mutableStateOf(destination?.spaceId.orEmpty()) }
@@ -284,7 +281,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         if (!pageActive) return@LaunchedEffect
         val targetSpace = spaceId
         val restoredProjectId = projectId
-        uiReadySpace = ""; expandedIds = emptySet(); projectId = ""; snapshot = null; inboxExpanded = false
+        uiReadySpace = ""; expandedIds = emptySet(); projectId = ""; snapshot = null
         if (targetSpace.isNotBlank()) try {
             refreshProjects(targetSpace)
             val state = controller.sharedSpaceUi(targetSpace)
@@ -292,7 +289,6 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                 val ids = state.optJSONArray("expandedIds") ?: JSONArray()
                 expandedIds = (0 until ids.length()).map(ids::getString).toSet()
                 uiReadySpace = targetSpace
-                inboxExpanded = projects.any { it.optInt("isInbox") == 1 && it.optString("id") in expandedIds }
                 projectId = destination?.takeIf { it.spaceId == targetSpace && projects.any { project -> project.optString("id") == it.projectId } }?.projectId
                     ?: restoredProjectId.takeIf { id -> projects.any { it.optString("id") == id } }.orEmpty()
             }
@@ -324,35 +320,6 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     val categories = snapshot?.optJSONArray("categories")?.rows().orEmpty()
     val tasks = taskPage?.optJSONArray("tasks")?.rows().orEmpty()
     val inboxProject = projects.firstOrNull { it.optInt("isInbox") == 1 }
-    val inboxId=inboxProject?.optString("id").orEmpty()
-    val inboxTasks = inboxTaskPage?.optJSONArray("tasks")?.rows().orEmpty()
-    LaunchedEffect(inboxId,taskSort,inboxExpanded) {
-        inboxTaskPage=null
-        if(inboxId.isBlank()||!inboxExpanded)return@LaunchedEffect
-        val filter=JSONObject().put("projectIds",JSONArray().put(inboxId))
-        while(isActive){
-            try{
-                val loaded=inboxTaskPage?.optJSONArray("tasks")?.length()?:0
-                var next=controller.sortedSharedTasks(filter,sort=taskSort.wire)
-                while(next.optBoolean("hasMore")&&(next.optJSONArray("tasks")?.length()?:0)<loaded)
-                    next=mergeSharedTaskPage(next,controller.sortedSharedTasks(filter,next.optString("nextCursor"),taskSort.wire),true)
-                inboxTaskPage=next
-            }catch(error:Exception){message=error.message?:"Не удалось загрузить задачи"}
-            delay(5_000)
-        }
-    }
-    LaunchedEffect(inboxExpanded, inboxProject?.optString("id")) {
-        val inboxId = inboxProject?.optString("id") ?: return@LaunchedEffect
-        inboxPreview = null
-        if (!inboxExpanded) return@LaunchedEffect
-        while (isActive) {
-            try { inboxPreview = controller.sharedProject(inboxId) }
-            catch (error: Exception) {
-                message = error.message ?: if (en) "Could not open shared inbox." else "Не удалось открыть хаос-бокс."
-            }
-            delay(5_000)
-        }
-    }
     val members = snapshot?.getJSONArray("members")?.rows().orEmpty()
     val role = project?.optString("role") ?: ""
     val canWrite = role in setOf("owner", "manager", "member")
@@ -422,8 +389,6 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
             refreshProjects(spaceId)
             projectId = destinationProjectId
             refreshProject(destinationProjectId)
-            if (inboxProject?.optString("id") == destinationProjectId && inboxExpanded)
-                inboxPreview = controller.sharedProject(destinationProjectId)
         }
     }
     fun moveTaskStatus(task: JSONObject, destination: String) {
@@ -1270,11 +1235,11 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                     if (priorityFilter >= 0) InputChip(true, { priorityFilter = -1 }, label = {
                         Text(listOf("Без приоритета", "Низкий приоритет", "Средний приоритет", "Высокий приоритет")[priorityFilter]) })
                 }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("list", "board", "calendar").forEach { view ->
                         FilterChip(selected = activeView == view, onClick = { viewOverride = view },
-                            modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("shared-view-$view"),
-                            label = { Text(when (view) { "board" -> "Доска"; "calendar" -> "Календарь"; else -> "Список" }) })
+                            modifier = Modifier.heightIn(min = 48.dp).testTag("shared-view-$view"),
+                            label = { Text(when (view) { "board" -> "Доска"; "calendar" -> "Календарь"; else -> "Список" }, maxLines = 1, softWrap = false) })
                     }
                 }
                 if (activeView == "calendar" && enabledCalendars.size > 1) Row(
@@ -1352,7 +1317,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                 val due = tasks.filter { it.optString("dueDate") == calendarDay.toString() }
                 if (due.isEmpty()) Text(if (en) "No team tasks due this day." else "На этот день нет общих задач со сроком.",
                     style = MaterialTheme.typography.bodySmall)
-                due.forEach { task -> SharedTaskCard(task, statuses, canOrganize, busy, taskId == task.getString("id"), en, calendarMode,
+                due.forEach { task -> SharedTaskCard(task, statuses, canOrganize, busy, en, calendarMode,
                     category = categories.firstOrNull { it.optString("id") == task.optString("categoryId") },
                     completedBy = members.firstOrNull { it.optString("userId") == task.optString("completedBy") }?.optString("displayName"),
                     assignedTo = members.firstOrNull { it.optString("userId") == task.optString("assigneeId") }?.optString("displayName"),
@@ -1397,7 +1362,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                             } }
                         }
                         tasks.filter { it.getString("statusId") == status.getString("id") }.forEach { task ->
-                            SharedTaskCard(task, statuses, canOrganize, busy, taskId == task.getString("id"), en, calendarMode,
+                            SharedTaskCard(task, statuses, canOrganize, busy, en, calendarMode,
                                 category = categories.firstOrNull { it.optString("id") == task.optString("categoryId") },
                                 completedBy = members.firstOrNull { it.optString("userId") == task.optString("completedBy") }?.optString("displayName"),
                     assignedTo = members.firstOrNull { it.optString("userId") == task.optString("assigneeId") }?.optString("displayName"),
@@ -1429,7 +1394,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                             } }
                         }
                 tasks.filter { it.getString("statusId") == status.getString("id") }.forEach { task ->
-                    SharedTaskCard(task, statuses, canOrganize, busy, taskId == task.getString("id"), en, calendarMode,
+                    SharedTaskCard(task, statuses, canOrganize, busy, en, calendarMode,
                         category = categories.firstOrNull { it.optString("id") == task.optString("categoryId") },
                         completedBy = members.firstOrNull { it.optString("userId") == task.optString("completedBy") }?.optString("displayName"),
                     assignedTo = members.firstOrNull { it.optString("userId") == task.optString("assigneeId") }?.optString("displayName"),
@@ -1602,7 +1567,7 @@ private fun SharedBlock(title: String, content: @Composable ColumnScope.() -> Un
 
 @Composable
 private fun SharedTaskCard(task: JSONObject, statuses: List<JSONObject>, canOrganize: Boolean, busy: Boolean,
-    selected: Boolean, en: Boolean, calendarMode: CalendarMode, category: JSONObject?, completedBy: String?,
+    en: Boolean, calendarMode: CalendarMode, category: JSONObject?, completedBy: String?,
     onOpen: () -> Unit, onMove: (String) -> Unit, assignedTo: String? = null,
     onDragStart: ((Offset) -> Unit)? = null, onDragMove: ((Offset) -> Unit)? = null,
     onDragEnd: (() -> Unit)? = null, onDragCancel: (() -> Unit)? = null) {
@@ -1618,7 +1583,11 @@ private fun SharedTaskCard(task: JSONObject, statuses: List<JSONObject>, canOrga
     }.getOrDefault(it) }
     val priority = task.optInt("priority").takeIf { it in 1..3 }?.let {
         genesisTranslate(listOf("", "Низкий приоритет", "Средний приоритет", "Высокий приоритет")[it]) }
-    val metadata = listOfNotNull(currentStatus?.optString("title")?.let { sharedStatusLabel(it, en) },
+    val statusTitle = currentStatus?.optString("title")
+    val statusLabel = statusTitle?.let {
+        if (it in setOf("К выполнению", "В работе", "Готово")) genesisTranslate(sharedStatusLabel(it, en)) else it
+    }
+    val metadata = listOfNotNull(statusLabel,
         dueLabel, assignedTo?.takeIf(String::isNotBlank), priority,
         completedBy?.takeIf { completed }?.let { genesisTranslate("Выполнил(а): ") + it })
     val dragModifier = if (canOrganize && !busy && onDragStart != null) Modifier
