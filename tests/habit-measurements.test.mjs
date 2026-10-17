@@ -119,7 +119,10 @@ test("invalid values, future dates, pauses and overflow cannot mutate the worksp
   for (const value of [-1, 0, 1.2, NaN, Infinity, m.MAX_HABIT_VALUE + 1])
     assert.throws(() => h.recordHabitMeasurement(workspace, habit, today, value), /INVALID/);
   assert.throws(() => h.recordHabitMeasurement(workspace, habit, h.addHabitDays(today, 1), 1000), /DATE_UNAVAILABLE/);
-  assert.throws(() => h.recordHabitMeasurement(workspace, { ...habit, active: false }, today, 1000), /DATE_UNAVAILABLE/);
+  const pausedHabit = { ...habit, active: false };
+  const pausedWorkspace = { ...workspace, habits: [pausedHabit] };
+  assert.throws(() => h.recordHabitMeasurement(pausedWorkspace, habit, today, 1000), /DATE_UNAVAILABLE/);
+  assert.throws(() => h.recordHabitMeasurement(pausedWorkspace, pausedHabit, today, 1000), /DATE_UNAVAILABLE/);
   const maximum = h.recordHabitMeasurement(workspace, habit, today, m.MAX_HABIT_VALUE);
   assert.throws(() => h.recordHabitMeasurement(maximum, habit, today, 1), /TOTAL_TOO_LARGE/);
   assert.equal(workspace.habitMeasurements.length, 0);
