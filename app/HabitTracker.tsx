@@ -163,6 +163,7 @@ type DailyPanelProps = {
 };
 
 type HabitTrackerPageProps = DailyPanelProps & {
+  reminderFocus?: {habitId:string;date:string;token:number} | null;
   googleTasksReady: boolean;
   googleCalendarReady: boolean;
   experimentalThemeActive?: boolean;
@@ -928,7 +929,7 @@ export function HabitDailyPanel({ workspace, date, language, timeFormat, calenda
             const measured = effectiveHabitMeasurement(habitRuleForDate(habit, date));
             const measurementReady = measured && habitMeasurementProgress(habit, date, workspace.habitMeasurements ?? []).completed;
             return (
-              <article className={`${entry?.completed ? "done" : ""}${canRecord ? "" : " read-only"}${habit.isKeyHabit ? " key-habit" : ""}${measured ? " measured-habit" : ""}`} style={{ "--habit-color": habit.color } as CSSProperties} key={habit.id}>
+              <article data-habit-reminder={habit.id} tabIndex={-1} className={`${entry?.completed ? "done" : ""}${canRecord ? "" : " read-only"}${habit.isKeyHabit ? " key-habit" : ""}${measured ? " measured-habit" : ""}`} style={{ "--habit-color": habit.color } as CSSProperties} key={habit.id}>
                 <button
                   type="button"
                   className="habit-check"
@@ -1414,7 +1415,7 @@ function SacredHabitLibrary({
   );
 }
 
-export function HabitTrackerPage({ workspace, date, language, timeFormat, calendarMode, reportContext, googleTasksReady, googleCalendarReady, experimentalThemeActive = false, sacredFeaturesEnabled = true, voiceRequest, onVoiceRequestConsumed, onChange, onSave, onTimerCommand, onReminderRequested, onReminderRemoved }: HabitTrackerPageProps) {
+export function HabitTrackerPage({ workspace, date, language, timeFormat, calendarMode, reportContext, googleTasksReady, googleCalendarReady, experimentalThemeActive = false, sacredFeaturesEnabled = true, voiceRequest, reminderFocus, onVoiceRequestConsumed, onChange, onSave, onTimerCommand, onReminderRequested, onReminderRemoved }: HabitTrackerPageProps) {
   const isEnglish = language === "en";
   const workspaceRef = useRef(workspace);
   useEffect(() => {
@@ -1429,6 +1430,21 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
   const [message, setMessage] = useState("");
   const [heroPathOpen, setHeroPathOpen] = useState(false);
   const [experimentalHabitTab, setExperimentalHabitTab] = useState<"today" | "library" | "modules" | "progress">("today");
+  useEffect(()=>{
+    if(!reminderFocus)return;
+    let frame=0,cancelled=false,attempts=0;
+    const focus=()=>{
+      if(cancelled)return;
+      const card=Array.from(document.querySelectorAll<HTMLElement>("[data-habit-reminder]")).find(item=>item.dataset.habitReminder===reminderFocus.habitId);
+      if(!card&&attempts++<30){frame=requestAnimationFrame(focus);return;}
+      if(!card)return;
+      card.scrollIntoView({block:"center",behavior:"instant"});card.focus({preventScroll:true});
+      if(reminderFocus.date!==date)return;
+      card.querySelectorAll("details.habit-interval-marks").forEach(item=>item.setAttribute("open",""));
+      card.querySelector<HTMLInputElement>(".habit-measurement-add input")?.focus({preventScroll:true});
+    };
+    frame=requestAnimationFrame(()=>{setExperimentalHabitTab("today");frame=requestAnimationFrame(focus);});return()=>{cancelled=true;cancelAnimationFrame(frame);};
+  },[reminderFocus,date]);
   const habitTabs = ["today", "library", "modules", "progress"] as const;
   const activeHabitTab = habitTabs.includes(experimentalHabitTab) ? experimentalHabitTab : habitTabs[0] ?? "today";
   const experimentalHabitTabsRef = useRef<HTMLDivElement>(null);

@@ -19,6 +19,7 @@ function genesisBackgroundClaim(?string $now=null,?string $uniqueKey=null): ?arr
         $db->prepare("UPDATE background_jobs SET state='failed',lease_token=NULL,lease_until=NULL,error_code='BACKGROUND_LEASE_EXPIRED',updated_at=? WHERE state='running' AND lease_until<=? AND attempts>=5".$scope)->execute([$now,$now,...$keyValues]);
         foreach($expired as$ended)if($ended['kind']==='shared-bulk')genesisSharedBulkJobFailed($ended,'BACKGROUND_LEASE_EXPIRED');
         foreach($expired as$ended)if($ended['kind']==='shared-notification')genesisNotificationJobFailed($ended,'BACKGROUND_LEASE_EXPIRED');
+        foreach($expired as$ended)if($ended['kind']==='habit-notification')genesisHabitReminderJobFailed($ended,'BACKGROUND_LEASE_EXPIRED');
         $q=$db->prepare("SELECT * FROM background_jobs WHERE ((state='pending' AND available_at<=?) OR (state='running' AND lease_until<=?))".$scope." ORDER BY available_at,id LIMIT 1");
         $q->execute([$now,$now,...$keyValues]);$job=$q->fetch();$q->closeCursor();
         if(!$job){$db->commit();return null;}
@@ -32,6 +33,7 @@ function genesisBackgroundClaim(?string $now=null,?string $uniqueKey=null): ?arr
 function genesisBackgroundPerform(array $job,?callable $handler=null): string
 {
     if($job['kind']==='shared-notification'&&$handler===null)return genesisNotificationPerformLeased($job);
+    if($job['kind']==='habit-notification'&&$handler===null)return genesisHabitReminderPerformLeased($job);
     $db=genesisDb();genesisBeginWriteTransaction($db);
     try {
         $q=$db->prepare("SELECT state,lease_token FROM background_jobs WHERE id=?");$q->execute([$job['id']]);$current=$q->fetch();$q->closeCursor();
@@ -73,6 +75,7 @@ function genesisBackgroundRun(int $limit=20): array
 {
     $db=genesisDb();$db->exec("UPDATE background_worker_state SET started_at=strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id=1");
     genesisSharedSeriesEnqueue();
+    genesisHabitReminderMaintenance();
     genesisNotificationScan();
     $counts=['succeeded'=>0,'cancelled'=>0,'pending'=>0,'failed'=>0,'superseded'=>0];$deadline=microtime(true)+25;
     for($i=0;$i<max(1,min(50,$limit))&&microtime(true)<$deadline;$i++){

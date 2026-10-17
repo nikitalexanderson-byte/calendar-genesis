@@ -103,6 +103,32 @@ internal fun HabitSettingsPanel(app: GenesisApplication, use24: Boolean) {
                 color = if (settings.notifications.enabled && notificationsAllowed) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.onSurfaceVariant)
             Text("Поведение уведомлений", style = MaterialTheme.typography.titleSmall)
+            var frequency by remember(app.workspaceScope) { mutableStateOf(
+                ru.genesis.calendar.reminders.habitReminderFrequency(app, app.workspaceScope)) }
+            fun changeFrequency(value: ru.genesis.calendar.reminders.HabitReminderFrequency) {
+                scope.launch {
+                    busy = true
+                    try {
+                        ru.genesis.calendar.reminders.saveHabitReminderFrequency(app, app.workspaceScope, value)
+                        frequency = value; app.scheduler.restoreHabitNotifications(); error = null
+                    } catch (_: Exception) { error = "Не удалось сохранить настройки привычек." }
+                    finally { busy = false }
+                }
+            }
+            Text("Лимит напоминаний в день на этом устройстве", style = MaterialTheme.typography.bodyMedium)
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(4, 12, 24, 64, 128).forEach { limit ->
+                    FilterChip(frequency.maxPerDay == limit, { changeFrequency(frequency.copy(maxPerDay = limit)) },
+                        enabled = !busy, label = { Text(limit.toString()) })
+                }
+            }
+            Text("Отложить напоминание, минут", style = MaterialTheme.typography.bodyMedium)
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(5, 10, 15, 30, 60).forEach { minutes ->
+                    FilterChip(frequency.snoozeMinutes == minutes, { changeFrequency(frequency.copy(snoozeMinutes = minutes)) },
+                        enabled = !busy, label = { Text(minutes.toString()) })
+                }
+            }
             Row(Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf("calm" to "Спокойный", "heroic" to "Героический", "ironic" to "С иронией").forEach { (value, label) ->

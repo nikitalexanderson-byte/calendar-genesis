@@ -661,7 +661,7 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(account, /Уведомления привычек/);
   assert.match(account, /Тихих часов|тихих часов/);
   assert.doesNotMatch(calendar, /--mobile-nav-count/);
-  assert.match(calendar, /buildHabitNotificationPlan/);
+  assert.match(calendar, /<HabitReminderBridge/);
   assert.match(styles, /\.habits-hero[\s\S]*grid-template-areas:[\s\S]*"copy status"[\s\S]*"copy actions"/);
   assert.match(styles, /\.habits-hero-status \{[\s\S]*position:relative;[\s\S]*grid-area:status;/);
   assert.match(styles, /\.daily-goal-ring/);

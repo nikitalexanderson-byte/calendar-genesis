@@ -936,6 +936,7 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
                     CloudWorkspaceSync(app.database, object : CloudWorkspaceTransport {
                         override fun get() = client.workspace(generation)
                         override fun put(body: JSONObject) = client.putWorkspace(generation, body)
+                        override fun habitReminderConsent() = client.habitReminderStatus(generation).optBoolean("hasDevices",false)
                     }).flush(accountScope, conflictPolicy)
                 }
             } catch (error: CancellationException) { throw error }

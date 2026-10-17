@@ -60,6 +60,7 @@
 
         <receiver android:name=".reminders.ReminderReceiver" android:exported="false" />
         <receiver android:name=".reminders.HabitNotificationReceiver" android:exported="false" />
+        <receiver android:name=".reminders.HabitReminderActionReceiver" android:exported="false" />
         <receiver android:name=".reminders.MoonReminderReceiver" android:exported="false" />
         <receiver android:name=".reminders.SleepReminderReceiver" android:exported="false" />
         <receiver android:name=".reminders.DiagnosticNotificationReceiver" android:exported="false" />

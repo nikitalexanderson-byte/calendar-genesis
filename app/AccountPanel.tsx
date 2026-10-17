@@ -1,6 +1,7 @@
 "use client";
 import { DialogCloseButton } from "./DialogCloseButton";
 import { SharedNotificationPreferencesDialog } from "./SharedNotificationPreferences";
+import { HabitReminderSettings } from "./HabitReminderSettings";
 import { sharedNotificationLabel } from "./notification-settings-model";
 /* eslint-disable @next/next/no-img-element -- Google profile pictures are remote OAuth assets. */
 
@@ -912,7 +913,7 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
           </div>
           <label className="account-switch-row">
             <span>
-              <strong>{user.language === "en" ? "Enable notifications on this device" : "Включить уведомления на этом устройстве"}</strong>
+              <strong>{user.language === "en" ? "Daily goal reminder" : "Напоминание о дневной цели"}</strong>
               <small>{user.language === "en" ? "Permission is requested only after this switch is enabled." : "Разрешение браузера запрашивается только после включения этого переключателя."}</small>
             </span>
             <input
@@ -921,7 +922,7 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
               checked={habitNotificationSettings.enabled && notificationPermission === "granted"}
               disabled={notificationBusy || notificationPermission === "unsupported"}
               onChange={(event) => void toggleHabitNotifications(event.target.checked)}
-              aria-label={user.language === "en" ? "Enable habit notifications" : "Включить уведомления привычек"}
+              aria-label={user.language === "en" ? "Daily goal reminder" : "Напоминание о дневной цели"}
             />
             <i aria-hidden="true" />
           </label>
@@ -930,8 +931,8 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
             : notificationPermission === "denied"
               ? (user.language === "en" ? "Permission is blocked in the browser" : "Разрешение заблокировано в браузере")
               : habitNotificationSettings.enabled && notificationPermission === "granted"
-                ? (user.language === "en" ? "Notifications are enabled" : "Уведомления включены")
-                : (user.language === "en" ? "Notifications are disabled" : "Уведомления отключены")}</p>
+                ? `${translateText("Напоминание о дневной цели",user.language)}: ${translateText("Включено",user.language)}`
+                : `${translateText("Напоминание о дневной цели",user.language)}: ${translateText("Выключено",user.language)}`}</p>
           <fieldset className="habit-notification-settings" disabled={notificationBusy}>
             <legend>{user.language === "en" ? "Notification behavior" : "Поведение уведомлений"}</legend>
             <div className="habit-notification-tone" role="radiogroup" aria-label={user.language === "en" ? "Notification tone" : "Тон уведомлений"}>
@@ -955,6 +956,7 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
           <small className="habit-notification-privacy">{user.language === "en"
             ? "Notification analytics contain no habit titles and remain only on this device. Notification settings are stored inside your encrypted workspace."
             : "Аналитика уведомлений не содержит названий привычек и остаётся только на этом устройстве. Настройки уведомлений хранятся внутри зашифрованного пространства."}</small>
+          <HabitReminderSettings key={user.uid} userId={user.uid} language={user.language}/>
         </section>
 
         <section className="account-preferences habit-feedback-preference" aria-labelledby="habit-feedback-title" data-settings-group="habits">

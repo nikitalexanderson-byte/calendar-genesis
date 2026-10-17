@@ -176,7 +176,7 @@ function deliveredIds() {
   }
 }
 
-function hasNotificationFatigue() {
+export function hasNotificationFatigue() {
   const metrics = readTelemetry();
   const opened = new Set(metrics.filter((entry) => entry.event === "opened").map((entry) => entry.notificationId));
   const ignored = metrics.filter((entry) => entry.event === "delivered" && !opened.has(entry.notificationId));
@@ -246,6 +246,10 @@ export function observeHabitNotificationClicks() {
 
 export function recordHabitNotificationsDisabled() {
   recordTelemetry({ id: `notification-disabled:${new Date().toISOString().slice(0, 10)}`, kind: "daily-goal", variant: "concise" }, "disabled");
+}
+
+export function recordHabitReminderTelemetry(event:"delivered"|"opened",id:string,goal=false) {
+  recordTelemetry({id,kind:goal?"daily-goal":"habit",variant:"concise"},event);
 }
 
 export function suggestHabitReminderTime(completions: readonly { completed: boolean; updatedAt: string }[], currentTime: string) {

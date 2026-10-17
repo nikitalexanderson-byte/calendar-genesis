@@ -11,8 +11,9 @@ import { DeferredViewFallback, DeferredDialogFallback, DeferredHabitFallback, Vi
 import { readProtectedWorkspace, writeProtectedWorkspace, assertWorkspaceWritable } from "./workspace-storage";
 import { habitTimerDeviceOwner, preserveHabitTimerRecords, withHabitTimerLock } from "./habit-timer-storage";
 import { applyHabitTimerCommand, type HabitTimerCommand } from "./habit-timer-workspace";
-import { habitReminderTime, habitReminderTimes } from "./habit-reminder-time";
-import { habitIntervalMarks } from "./habit-interval";
+import type { HabitReminderTarget, HabitReminderInput } from "./habit-reminder-plan";
+import { habitReminderTime } from "./habit-reminder-time";
+const HabitReminderBridge = lazy(() => import("./HabitReminderBridge"));
 const PersonalEntityPreview=lazy(()=>import("./PersonalEntityPreview"));
 import type { MindmapTaskRequest } from "./Mindmaps";
 import { captureAccountSessionGuard, createCloudTaskOnce } from "./cloud-sync";
@@ -128,15 +129,12 @@ import {
   type Habit,
   type HabitWorkspace,
 } from "./habits";
-import { nextHeroicRankForProgress } from "./habit-progress";
 import { deliverHabitFeedback, type HabitFeedbackEvent } from "./habit-feedback";
 import {
-  buildHabitNotificationPlan,
   habitNotificationPermission,
   observeHabitNotificationClicks,
   recordHabitNotificationsDisabled,
   requestHabitNotificationPermission,
-  scheduleHabitNotifications,
   type HabitNotificationPermission,
 } from "./habit-notifications";
 
@@ -1266,6 +1264,7 @@ export function GenesisCalendar() {
   const [voiceAssistantOpen, setVoiceAssistantOpen] = useState(false);
   const [voiceControlActive, setVoiceControlActive] = useState(false);
   const [voiceHabitRequest, setVoiceHabitRequest] = useState<{ token: number; kind: "create" | "edit" | "delete" | "section" | "sacred-practice"; id?: string; section?: string } | null>(null);
+  const [habitReminderFocus, setHabitReminderFocus] = useState<(HabitReminderTarget & {token:number}) | null>(null);
   const [voiceLaunchAnimating, setVoiceLaunchAnimating] = useState(false);
   const [geminiOpen, setGeminiOpen] = useState(false);
   const [assistantStatus, setAssistantStatus] = useState<{ available: boolean; provider: AssistantProvider; audioAvailable: boolean }>({
@@ -1781,48 +1780,6 @@ export function GenesisCalendar() {
     .sort((left, right) => Number(left.done) - Number(right.done)
       || (left.time || "24:00").localeCompare(right.time || "24:00")
       || right.priority - left.priority);
-  const todayHabitNotificationPlan = useMemo(() => {
-    const nextDate = new Date(today);
-    nextDate.setDate(nextDate.getDate() + 1);
-    const dates = [todayDateValue, inputDate(nextDate)];
-    const habits = dates.flatMap((date) => {
-      const completedHabitIds = new Set(habitWorkspace.habitCompletions
-        .filter((entry) => entry.date === date && entry.completed).map((entry) => entry.habitId));
-      return habitWorkspace.habits
-      .filter((habit) => habit.active
-        && habit.reminder.enabled
-        && !completedHabitIds.has(habit.id)
-        && isHabitScheduledForDate(habit, date, activeTaskCalendarMode))
-      .flatMap((habit) => habitReminderTimes(habit).filter(time => habit.reminder.timing === "custom" || habit.intervalSchedule?.completionMode !== "each"
-        || !habitIntervalMarks(habit.intervalSchedule, habitWorkspace.habitCompletions.find(entry => entry.habitId === habit.id && entry.date === date)).includes(time)).map(time => ({
-        id: habit.id,
-        title: habit.title,
-        emoji: habit.emoji,
-        priority: habit.priority,
-        reminderTime: time,
-        minutesBefore: habit.reminder.minutesBefore,
-        allowDuringQuietHours: habit.reminder.allowDuringQuietHours,
-        date,
-      })));
-    });
-    const dailyGoal = dailyGoalForDate(habitWorkspace, todayDateValue, activeTaskCalendarMode, todayDateValue);
-    const nextRank = nextHeroicRankForProgress(habitWorkspace.userProgress);
-    return buildHabitNotificationPlan({
-      date: todayDateValue,
-      now: today,
-      language: language === "ru" ? "ru" : "en",
-      settings: habitWorkspace.habitSettings.notifications,
-      habits,
-      dailyGoal: {
-        scheduled: dailyGoal.scheduledCount,
-        completed: dailyGoal.completedCount,
-        target: dailyGoal.targetCount,
-        currentStreak: habitWorkspace.userProgress.currentStreak,
-      },
-      xpToNextRank: nextRank ? Math.max(0, nextRank.threshold - habitWorkspace.userProgress.lifetimeXp) : null,
-    });
-  }, [activeTaskCalendarMode, habitWorkspace, language, today, todayDateValue]);
-
   useEffect(() => {
     const permissionTimer = window.setTimeout(() => setHabitNotificationPermissionState(habitNotificationPermission()), 0);
     const stopObserving = observeHabitNotificationClicks();
@@ -1832,7 +1789,6 @@ export function GenesisCalendar() {
     };
   }, []);
 
-  useEffect(() => scheduleHabitNotifications(todayHabitNotificationPlan, APP_BASE), [todayHabitNotificationPlan]);
   useEffect(() => {
     if (!cloudUser?.uid || typeof Notification === "undefined" || Notification.permission !== "granted") return;
     let active = true;
@@ -3511,6 +3467,29 @@ export function GenesisCalendar() {
       writeProtectedWorkspace(localStorage, key, { tasks: tasksRef.current, projects: projectsRef.current,
         categories: categoriesRef.current, taskLists: taskListsRef.current, taskListLinks: taskListLinksRef.current,
         ...habitWorkspaceRef.current });
+    });
+  };
+
+  const applyHabitReminder = async (target: HabitReminderTarget, input?:HabitReminderInput) => {
+    const key = cloudUser ? `${GENESIS_USER_WORKSPACE_STORAGE_PREFIX}${cloudUser.uid}` : GENESIS_LEGACY_WORKSPACE_STORAGE_KEY;
+    const guard = captureAccountSessionGuard();
+    await withHabitTimerLock(key, async () => {
+      guard();
+      const { completeHabitReminder, applyHabitReminderInput } = await import("./habit-reminder-plan");
+      const stored = readProtectedWorkspace(localStorage, key, raw => normalizeHabitWorkspace(raw as Parameters<typeof normalizeHabitWorkspace>[0]), () => habitWorkspaceRef.current);
+      const live = habitWorkspaceRef.current;
+      // A freshly saved local tab wins; newer unsaved definitions still prevent stale quick actions.
+      const savedHabit=stored.habits.find(item=>item.id===target.habitId),liveHabit=live.habits.find(item=>item.id===target.habitId);
+      const savedCompletion=stored.habitCompletions.find(item=>item.habitId===target.habitId&&item.date===target.date);
+      const liveCompletion=live.habitCompletions.find(item=>item.habitId===target.habitId&&item.date===target.date);
+      const base = !savedHabit || savedHabit && liveHabit && savedHabit.updatedAt > liveHabit.updatedAt
+        || savedCompletion && (!liveCompletion || savedCompletion.updatedAt>liveCompletion.updatedAt) ? stored : live;
+      if (stored.habitCompletions.some(item=>item.habitId===target.habitId&&item.date===target.date&&item.completed)) return;
+      const next = input ? applyHabitReminderInput(base,target,input,new Date()) : completeHabitReminder(base, target, new Date());
+      if(next===base)return;
+      await updateHabitWorkspace(next, true);guard();
+      writeProtectedWorkspace(localStorage, key, {tasks:tasksRef.current,projects:projectsRef.current,categories:categoriesRef.current,
+        taskLists:taskListsRef.current,taskListLinks:taskListLinksRef.current,...habitWorkspaceRef.current});
     });
   };
 
@@ -6749,6 +6728,8 @@ export function GenesisCalendar() {
         </header>
 
         <div className={`workspace workspace-full${view === "today" ? " today-workspace" : ""}`} id="main-content" data-exp-layout="content">
+          {cloudUser ? <Suspense fallback={null}><HabitReminderBridge key={cloudUser.uid} userId={cloudUser.uid} workspace={habitWorkspace}
+            language={language} appBase={APP_BASE} calendarMode={activeCalendarMode} timeFormat={activeTimeFormat} onApply={applyHabitReminder} onOpen={target=>{navigateTo("habits",false);setHabitReminderFocus(previous=>target?{...target,token:(previous?.token??0)+1}:null);}}/></Suspense> : null}
           <div className="content-column" data-exp-layout="stack">
             {authError ? <p className="oauth-callback-error" role="alert">{authError}</p> : null}
             {cloudUser && cloudUser.authProvider !== "yandex" && (!cloudUser.calendarConnected || !cloudUser.googleTasksImportReady) ? (
@@ -6815,6 +6796,7 @@ export function GenesisCalendar() {
                     hiddenSubmenus={visibility.hiddenSubmenus}
                     sacredFeaturesEnabled={sacredFeaturesEnabled}
                     voiceRequest={voiceHabitRequest}
+                    reminderFocus={habitReminderFocus}
                     onVoiceRequestConsumed={() => setVoiceHabitRequest(null)}
                     onChange={updateHabitWorkspace}
                     onSave={(next) => updateHabitWorkspace(next, true) ?? Promise.resolve()}

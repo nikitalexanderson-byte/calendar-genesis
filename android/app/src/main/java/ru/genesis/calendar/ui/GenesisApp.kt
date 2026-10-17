@@ -135,16 +135,16 @@ private fun HeaderActionButton(kind: String, description: String, enabled: Boole
 
 @Composable
 fun GenesisApp(app: GenesisApplication, openedTask: String?, openedSection: String? = null,
-    testWorkspace: Boolean = false) {
+    testWorkspace: Boolean = false, openedHabit: ru.genesis.calendar.reminders.HabitReminderOpenRequest? = null) {
     require(!testWorkspace || BuildConfig.DEBUG)
     val activeScope by app.scopeFlow.collectAsStateWithLifecycle()
-    key(activeScope) { GenesisWorkspaceContent(app, openedTask, openedSection, activeScope, testWorkspace) }
+    key(activeScope) { GenesisWorkspaceContent(app, openedTask, openedSection, activeScope, testWorkspace, openedHabit) }
 }
 
 @OptIn(FlowPreview::class)
 @Composable
 private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?, openedSection: String?,
-    activeScope: String, testWorkspace: Boolean) {
+    activeScope: String, testWorkspace: Boolean, openedHabit: ru.genesis.calendar.reminders.HabitReminderOpenRequest?) {
     val model: GenesisViewModel = viewModel(key = "genesis-$activeScope")
     val tasks by model.tasks.collectAsStateWithLifecycle()
     val error by model.error.collectAsStateWithLifecycle()
@@ -263,7 +263,9 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     }
     LaunchedEffect(openedTask) { if(openedTask!=null) { editId=openedTask; creating=false; openPersonalTasks() } }
     LaunchedEffect(openedSection) {
-        if (openedSection?.substringBefore('#') == "habits" && habitTrackingEnabled) tab = "Привычки"
+        if (openedSection?.substringBefore('#') == "habits" && habitTrackingEnabled) {
+            menuSwipeState.habits = "Привычки"; tab = "Привычки"
+        }
         if (openedSection?.substringBefore('#') == "sleep" && habitTrackingEnabled) {
             menuSwipeState.habits = "Сон и настроение"
             tab = "Привычки"
@@ -824,7 +826,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                                 it is NativeVoiceAction.DeleteHabit || it is NativeVoiceAction.SetHabitDone
                         },
                         onVoiceRequestConsumed={voiceScreenRequest=null},
-                        hiddenSubmenus=uiVisibility.hiddenSubmenus)
+                        hiddenSubmenus=uiVisibility.hiddenSubmenus, reminderRequest=openedHabit)
                     "Сакральное" -> Column(Modifier.fillMaxSize()) {
                         val sacredSubmenus = listOf(
                             SubmenuItem("stoicheion", if (prefs.language == "en") "Stoicheion" else "Стойхейон"),

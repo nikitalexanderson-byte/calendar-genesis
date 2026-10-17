@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/account-email.php';
+require_once __DIR__.'/habit-reminders.php';
 
 const GENESIS_ADMIN_EMAIL = 'nikitalexanderson@gmail.com';
 
@@ -843,6 +844,7 @@ function genesisSaveWorkspaceEnvelope(string $userId, array $payload): array
             'minimum_writer_protocol' => $requiredProtocol,
             'writer_protocol_version' => $version,
         ]);
+        genesisHabitReminderWorkspaceSaved($userId,$version,$payload);
         if ($ownsTransaction) {
             $db->exec('COMMIT');
         }

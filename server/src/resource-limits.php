@@ -20,7 +20,8 @@ function genesisBeginWriteTransaction(PDO $db): void
 function genesisJsonBodyLimit(string $path): int
 {
     // Include base64 overhead and metadata; decoded files retain their existing limits.
-    if ($path === 'workspace') return 10_100_000;
+    if ($path === 'workspace') return 11_600_000;
+    if ($path === 'habit-reminders/plan') return 1_500_000;
     if (preg_match('~^shared/private-conversations/[^/]+/files/[^/]+/[0-9]+$~D', $path)) return 350000;
     if (preg_match('~^mindmaps/[a-zA-Z0-9_-]+$~D', $path)) return 2_810_000;
     if (preg_match('~^shared/projects/[^/]+/tasks(?:/[^/]+)?$~D', $path)) return 19 * 1024 * 1024;

@@ -54,7 +54,8 @@ internal fun HabitsScreen(app: GenesisApplication, experimental: Boolean, inputC
     menuSwipeState: MenuSwipeState? = null, openSacredHabits: Boolean = false,
     onSacredHabitsOpened: () -> Unit = {}, voiceRequest: NativeVoiceAction? = null,
     onVoiceRequestConsumed: () -> Unit = {}, openHeroPath: Boolean = false,
-    onHeroPathOpened: () -> Unit = {}, hiddenSubmenus: Set<String> = emptySet()) {
+    onHeroPathOpened: () -> Unit = {}, hiddenSubmenus: Set<String> = emptySet(),
+    reminderRequest: ru.genesis.calendar.reminders.HabitReminderOpenRequest? = null) {
     var localSection by rememberSaveable { mutableStateOf("Привычки") }
     val section = (menuSwipeState?.habits ?: localSection).takeIf {
         (if (it == "Привычки") "habits.habits" else "habits.sleep") !in hiddenSubmenus
@@ -68,7 +69,7 @@ internal fun HabitsScreen(app: GenesisApplication, experimental: Boolean, inputC
             if (section == "Привычки") HabitWorkspaceContent(app, experimental, inputCalendarMode, displayCalendarMode,
                 accountSettings,taskLists,
                 openSacredHabits,onSacredHabitsOpened,voiceRequest,onVoiceRequestConsumed,
-                openHeroPath,onHeroPathOpened) else TrackersScreen(app, experimental)
+                openHeroPath,onHeroPathOpened,reminderRequest) else TrackersScreen(app, experimental)
         }
     }
 }
@@ -78,7 +79,8 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
     displayCalendarMode: CalendarMode, accountSettings: AccountSettings?, taskLists: List<GoogleTaskList>,
     openSacredHabits: Boolean, onSacredHabitsOpened: () -> Unit,
     voiceRequest: NativeVoiceAction?, onVoiceRequestConsumed: () -> Unit,
-    openHeroPath: Boolean, onHeroPathOpened: () -> Unit) {
+    openHeroPath: Boolean, onHeroPathOpened: () -> Unit,
+    reminderRequest: ru.genesis.calendar.reminders.HabitReminderOpenRequest?) {
     val repository=remember(app) { HabitsRepository(app) }
     val externalSync=remember(app) { HabitExternalSync(app,AuthController.get(app)) }
     val scope=rememberCoroutineScope()
@@ -224,6 +226,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
         if(current==null) {
             if(!storageError) CircularProgressIndicator()
         } else {
+            HabitReminderFocus(app, current, repository, reminderRequest)
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 Button(enabled=!busy&&!storageError,onClick={edit=null;editorOpen=true},modifier=Modifier.weight(1f)) { Text("Новая привычка") }
                 OutlinedButton(enabled=!busy&&!storageError,onClick={catalogueOpen=!catalogueOpen},modifier=Modifier.weight(1f)) {
