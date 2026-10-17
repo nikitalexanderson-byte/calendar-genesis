@@ -159,21 +159,13 @@ import ru.genesis.calendar.data.*
 
 @Composable internal fun NativeTaskCard(task: LocalTask, use24: Boolean, structure: WorkspaceStructure,
     onComplete: (LocalTask) -> Unit, onOpen: (String) -> Unit) {
-    Card(Modifier.fillMaxWidth().testTag("task-${task.id}"), shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = if(task.done) completedTaskSurface else MaterialTheme.colorScheme.surfaceContainerLowest,
-            contentColor = if(task.done) completedTaskInk else MaterialTheme.colorScheme.onSurface),
-        border = BorderStroke(1.dp,MaterialTheme.colorScheme.outlineVariant)) {
-        Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(task.done, { onComplete(task) },colors=CheckboxDefaults.colors(checkedColor=completedTaskInk))
-            Column(Modifier.weight(1f).clickable { onOpen(task.id) }.padding(8.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                TaskTitle(task,Modifier.testTag("task-title-${task.id}"),style=MaterialTheme.typography.titleMedium)
-                Text("${task.date} ${timeLabel(task.time,use24)} · Приоритет ${task.priority}" + if(task.recurrence.enabled) " · Повторяется" else "",
-                    style=MaterialTheme.typography.bodySmall)
-                task.projectId?.let { id -> Text(structure.projects.firstOrNull { it.id == id }?.title ?: task.project.ifBlank { "Проект" },
-                    style=MaterialTheme.typography.labelSmall, color=if(task.done) completedTaskInk else MaterialTheme.colorScheme.primary) }
-            }
-        }
-    }
+    val metadata = listOf("${task.date} ${timeLabel(task.time,use24)} · ${genesisTranslate("Приоритет")} ${task.priority}" +
+        if(task.recurrence.enabled) " · ${genesisTranslate("Повторяется")}" else "") + listOfNotNull(task.projectId?.let { id ->
+        structure.projects.firstOrNull { it.id == id }?.title ?: task.project.ifBlank { genesisTranslate("Проект") } })
+    AffairsTaskRow(task.title, task.done, { onOpen(task.id) }, Modifier.testTag("task-${task.id}"),
+        metadata = metadata, unreadComments = personalUnreadComments(task), onComplete = { onComplete(task) },
+        titleContent = { TaskTitle(task, Modifier.testTag("task-title-${task.id}"), style = MaterialTheme.typography.titleSmall,
+            completedColor = if (LocalEveningTheme.current) MaterialTheme.colorScheme.onSurfaceVariant else completedTaskInk) })
 }
 
 @Composable internal fun TaskListEditor(structure: WorkspaceStructure, accounts: AccountSettings?, prefs: UiPreferences,

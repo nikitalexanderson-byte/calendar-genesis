@@ -116,7 +116,6 @@ class ProjectsFlowTest {
             }
             compose.onNodeWithTag("navigation-Проекты").performClick()
             compose.onNodeWithTag("project-inbox").assertExists()
-            compose.onNodeWithText("Открыть").performClick()
             compose.onNodeWithTag("drag-task-$taskId", useUnmergedTree = true)
                 .performScrollTo().assertIsDisplayed()
             compose.onNodeWithTag("move-task-$taskId").performClick()
@@ -149,7 +148,6 @@ class ProjectsFlowTest {
                 compose.onAllNodes(hasTestTag("app-theme-Standart") or hasTestTag("app-theme-Evening")).fetchSemanticsNodes().isNotEmpty()
             }
             compose.onNodeWithTag("navigation-Проекты").performClick()
-            compose.onNodeWithText("Открыть").performClick()
             val source = compose.onNodeWithTag("drag-task-$taskId", useUnmergedTree = true)
             source.performScrollTo()
             source.assertIsDisplayed()
@@ -221,7 +219,7 @@ class ProjectsFlowTest {
             compose.onNodeWithTag("projects-screen").performScrollToNode(hasTestTag("project-drop-$destinationId"))
             compose.onNodeWithTag("project-drop-$destinationId").performClick()
             dragTo("__genesis_inbox__")
-            compose.waitUntil(10_000) { runBlocking { app.repository.get(taskId)?.projectId == null } }
+            compose.waitUntil(10_000) { runBlocking { app.repository.get(taskId)?.projectId == "__genesis_inbox__" } }
     }
 
     @Test fun draggingNearBottomAutoScrollsProjectDestinations() {

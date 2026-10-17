@@ -42,8 +42,10 @@ class LandscapeNavigationTest {
             val account = compose.onNodeWithTag("app-account-status").fetchSemanticsNode().boundsInRoot
             assertTrue(device.takeScreenshot(File(app.cacheDir,
                 "landscape-navigation-left-2.3.10.png")))
-            assertTrue("Landscape account status must share the compact header row: header=$header account=$account",
-                account.top >= header.top && account.bottom <= header.bottom)
+            compose.onNodeWithTag("genesis-round-logo").assertIsDisplayed()
+            compose.onNodeWithTag("genesis-brand-name").assertIsDisplayed()
+            assertTrue("Account status belongs below the workspace: header=$header content=$content account=$account",
+                account.top >= content.bottom && account.top >= header.bottom)
 
             compose.onNodeWithTag("navigation-Настройки").performScrollTo().performClick()
             compose.waitUntil(5_000) {

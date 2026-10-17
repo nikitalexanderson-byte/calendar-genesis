@@ -20,6 +20,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
 /** Native extension of STANDART: Material roles come from the existing green/paper/gold themes. */
@@ -36,7 +37,7 @@ internal enum class AffairsAction { BACK, MORE, CLOSE, SEARCH, FILTER, EXPAND, C
 @Composable internal fun GenesisAccountFooter(status: String) {
     Text(status, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
         .testTag("app-account-status"), style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant)
+        color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
 }
 
 /** The same 24-unit, rounded line geometry as GenesisVectorIcon. */
@@ -153,7 +154,8 @@ internal enum class AffairsAction { BACK, MORE, CLOSE, SEARCH, FILTER, EXPAND, C
 @Composable internal fun AffairsTaskRow(title: String, completed: Boolean, onOpen: () -> Unit,
     modifier: Modifier = Modifier, metadata: List<String> = emptyList(), unreadComments: Int = 0,
     onComplete: (() -> Unit)? = null, enabled: Boolean = true,
-    actions: @Composable (() -> Unit)? = null, extra: @Composable (() -> Unit)? = null) {
+    actions: @Composable (() -> Unit)? = null, extra: @Composable (() -> Unit)? = null,
+    titleContent: @Composable (() -> Unit)? = null) {
     OutlinedCard(onClick = onOpen, modifier = modifier.fillMaxWidth(), shape = AffairsLayout.shape,
         colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.dp, if (unreadComments > 0) MaterialTheme.colorScheme.secondary
@@ -167,7 +169,7 @@ internal enum class AffairsAction { BACK, MORE, CLOSE, SEARCH, FILTER, EXPAND, C
                 }
                 Column(Modifier.weight(1f).padding(start = if (onComplete == null) 8.dp else 0.dp,
                     top = 9.dp, bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    androidx.compose.material3.Text(title, style = MaterialTheme.typography.titleSmall,
+                    if (titleContent != null) titleContent() else androidx.compose.material3.Text(title, style = MaterialTheme.typography.titleSmall,
                         fontWeight = if (unreadComments > 0) FontWeight.Bold else FontWeight.Medium,
                         color = if (completed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
                 }
@@ -176,7 +178,7 @@ internal enum class AffairsAction { BACK, MORE, CLOSE, SEARCH, FILTER, EXPAND, C
             if (metadata.isNotEmpty()) androidx.compose.material3.Text(metadata.filter(String::isNotBlank).joinToString(" · "),
                 modifier = Modifier.padding(horizontal = 8.dp), style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (unreadComments > 0) Box(Modifier.padding(horizontal = 8.dp)) { UnreadCommentBadge(unreadComments) }
+            if (unreadComments > 0 && titleContent == null) Box(Modifier.padding(horizontal = 8.dp)) { UnreadCommentBadge(unreadComments) }
             extra?.invoke()
         }
     }

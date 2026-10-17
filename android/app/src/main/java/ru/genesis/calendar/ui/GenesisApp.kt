@@ -721,25 +721,16 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     "Аккаунт GENESIS · защищённая локальная копия"
                 else if(BuildConfig.DEBUG) "Изолированное тестовое пространство · только на этом устройстве"
                 else "Локальные черновики · аккаунт не подключён"
-                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = if (compactHeader) 4.dp else 10.dp)
+                Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 12.dp, vertical = 4.dp)
                     .testTag("app-header"),
                     verticalAlignment=Alignment.CenterVertically) {
-                    Box(Modifier.size(if (compactHeader) 30.dp else 42.dp).shadow(3.dp, CircleShape).clip(CircleShape)
+                    Box(Modifier.size(36.dp).shadow(3.dp, CircleShape).clip(CircleShape)
                         .background(Color(0xff172624)).testTag("genesis-round-logo")) {
-                        OriginalImage("icons/icon-192.png","GENESIS",Modifier.fillMaxSize()
-                            .graphicsLayer { scaleX = 1.20f; scaleY = 1.20f })
+                        GenesisBrandLogo(Modifier.fillMaxSize().graphicsLayer { scaleX = 1.20f; scaleY = 1.20f })
                     }
-                    if (compactHeader) {
-                        Text("GENESIS", Modifier.padding(start = 8.dp), style = MaterialTheme.typography.titleMedium)
-                        Text(BuildConfig.VERSION_NAME, Modifier.padding(start = 7.dp),
-                            style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(Modifier.weight(1f))
-                    } else {
-                        Text("GENESIS",Modifier.padding(start=10.dp),style=MaterialTheme.typography.titleLarge)
-                        Text(BuildConfig.VERSION_NAME,Modifier.padding(start=8.dp),
-                            style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(Modifier.weight(1f))
-                    }
+                    Text("GENESIS", Modifier.weight(1f).padding(start = 10.dp).testTag("genesis-brand-name"),
+                        style = if (compactHeader) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
+                        maxLines = 1, softWrap = false)
                     if (!testWorkspace) {
                         val refreshBusy = authState.busy || accountTaskSync?.loading == true
                         val refreshDescription = genesisTranslate(if (refreshBusy)
@@ -1032,7 +1023,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     }
                     workspacePager(Modifier.fillMaxWidth().weight(1f).testTag("main-content"))
                 }
-                GenesisAccountFooter(accountStatus)
+                GenesisAccountFooter("$accountStatus · ${BuildConfig.VERSION_NAME}")
             }
             if (!testWorkspace && authState.ready && !authState.requiresSignIn &&
                 authState.user != null && authState.accountSettings?.sharedProjectsEligible == true) {
@@ -1323,6 +1314,16 @@ private fun TodayTasksPanel(tasks: List<LocalTask>, missedTasks: List<LocalTask>
             habits()
         }
     }
+}
+
+@Composable
+internal fun GenesisBrandLogo(modifier: Modifier = Modifier) {
+    val assets = LocalContext.current.assets
+    // The fixed 192px identity mark is tiny: decode once without a transient empty async slot.
+    val bitmap = remember(assets) { assets.open("originals/icons/icon-192.png").use {
+        android.graphics.BitmapFactory.decodeStream(it)
+    }.asImageBitmap() }
+    Image(bitmap, "GENESIS", modifier, contentScale = ContentScale.Crop)
 }
 
 @Composable

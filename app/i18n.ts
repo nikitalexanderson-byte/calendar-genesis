@@ -2,6 +2,7 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 import englishTranslations from "./translations.en.json";
+import affairsTranslations from "./native-affairs-translations.json";
 import ui_en from "./ui-translations/en.json";
 import ui_el from "./ui-translations/el.json";
 import ui_de from "./ui-translations/de.json";
@@ -924,6 +925,11 @@ const rawCatalogs: Record<Exclude<Language, "ru">, Record<string, string>> = {
   uk: { ...ukrainianTranslationsA, ...ukrainianTranslationsB, ...ui_uk, ...ukrainianYear },
   zh: { ...chineseTranslations, ...ui_zh, ...chineseYear }, tr: { ...turkishTranslations, ...ui_tr, ...turkishYear }, ja: { ...japaneseTranslations, ...japaneseYandexTranslations, ...ui_ja, ...japaneseYear },
 };
+for (const language of Object.keys(rawCatalogs) as Exclude<Language, "ru">[]) {
+  for (const [source, translated] of Object.entries(affairsTranslations[language])) {
+    if (source in ui_en && !(source in rawCatalogs[language])) rawCatalogs[language][source] = translated;
+  }
+}
 const catalogs = Object.fromEntries(Object.entries(rawCatalogs).map(([language, catalog]) => [language, Object.fromEntries(Object.entries(catalog).map(([key,value]) => [normalizedText(key),value]))])) as typeof rawCatalogs;
 const yearCatalogs: Record<Exclude<Language, "ru">, Record<string, string>> = {
   en: englishYear, el: greekYear, de: germanYear, fr: frenchYear, es: spanishYear,

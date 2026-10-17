@@ -414,10 +414,10 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
                 }
                 Button(onClick = { onCreateTask(null) }, modifier = Modifier.fillMaxWidth()
                     .heightIn(min = 48.dp).testTag("personal-create-task")) { Text("Создать задачу") }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilledTonalButton(onClick = { onMindmaps(null) }, modifier = Modifier.weight(1f)
-                        .heightIn(min = 48.dp).testTag("personal-mindmaps")) { Text("Майндмепы") }
-                    TaskListSortChoice(taskSort, setTaskSort, Modifier.weight(1.25f), compact = true)
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilledTonalButton(onClick = { onMindmaps(null) }, modifier = Modifier.widthIn(min = 140.dp)
+                        .heightIn(min = 48.dp).testTag("personal-mindmaps")) { Text("Майндмепы", maxLines = 1, softWrap = false) }
+                    TaskListSortChoice(taskSort, setTaskSort, Modifier.widthIn(min = 172.dp), compact = true)
                 }
                 AffairsSearchField(searchQuery, { searchQuery = it.take(200) }, "Поиск задач",
                     Modifier.testTag("personal-task-search"))
