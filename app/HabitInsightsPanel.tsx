@@ -1,4 +1,6 @@
 "use client";
+
+import { habitDisplayText } from "./habit-display-text";
 import type { CalendarContext } from "./calendar-context";
 
 import { useId, useMemo, useState, type CSSProperties } from "react";
@@ -99,7 +101,7 @@ export function HabitInsightsPanel({ workspace, date, language, calendarMode, re
           const scheduled = completionDates.filter((value) => value <= date && habit.active && isHabitScheduledForDate(habit, value, completionCalendarMode)).length;
           const completed = completionDates.filter((value) => value <= date && marks.has(value)).length;
           return <article key={habit.id} style={{ "--habit-color": habit.color } as CSSProperties}>
-            <div><strong data-no-translate>{habit.emoji} {habit.title}</strong><small>{completed}/{scheduled} · {scheduled ? Math.round(completed / scheduled * 100) : 0}%</small></div>
+            <div><strong data-no-translate>{habit.emoji} {habitDisplayText(habit, language).title}</strong><small>{completed}/{scheduled} · {scheduled ? Math.round(completed / scheduled * 100) : 0}%</small></div>
             <div className="habit-completion-days" style={{ "--habit-day-columns": completionCalendarMode === "sacred" ? 5 : 7 } as CSSProperties}>
               {completionDates.map((value) => { const done = marks.has(value); const planned = value <= date && habit.active && isHabitScheduledForDate(habit, value, completionCalendarMode); const status = localized(done ? "Выполнено" : planned ? "Запланировано" : "Отдых"); return <span key={value} className={done ? "done" : planned ? "planned" : "rest"} title={`${formatCalendarDateValue(value, completionCalendarMode, true)} · ${status}`} aria-label={`${formatCalendarDateValue(value, completionCalendarMode, true)}: ${status}`} />; })}
             </div>
@@ -157,7 +159,7 @@ export function HabitInsightsPanel({ workspace, date, language, calendarMode, re
         <header><div><span className="eyebrow">{isEnglish ? "Compete with yourself" : "Соревнование с собой"}</span><h3 id="habit-personal-records-title">{isEnglish ? "Personal records and mastery" : "Личные рекорды и мастерство"}</h3><p>{isEnglish ? "Progress for each habit is separate from your overall heroic rank." : "Прогресс каждой привычки существует отдельно от общего героического ранга."}</p></div></header>
         <div className="habit-personal-record-grid">{records.map(({ habit, record }) => (
           <article style={{ "--habit-color": habit.color, "--mastery-progress": record.milestoneProgress } as CSSProperties} key={habit.id}>
-            <header><span aria-hidden="true">{habit.emoji}</span><div><h4 data-no-translate>{habit.title}</h4><small>{isEnglish ? "Started" : "Начало"} {formatCalendarDateValue(record.startedAt, calendarMode, true)}</small></div><div className="habit-mastery-ring"><strong>{record.totalCompletions}</strong><small>{isEnglish ? "done" : "всего"}</small></div></header>
+            <header><span aria-hidden="true">{habit.emoji}</span><div><h4 data-no-translate>{habitDisplayText(habit, language).title}</h4><small>{isEnglish ? "Started" : "Начало"} {formatCalendarDateValue(record.startedAt, calendarMode, true)}</small></div><div className="habit-mastery-ring"><strong>{record.totalCompletions}</strong><small>{isEnglish ? "done" : "всего"}</small></div></header>
             <div className="habit-record-metrics"><div><span>{isEnglish ? "Current streak" : "Текущая серия"}</span><strong>{record.currentStreak}{record.periodUnit ? ` ${translateText("периодов",language)}` : ""}</strong></div><div><span>{isEnglish ? "Best streak" : "Лучшая серия"}</span><strong>{record.longestStreak}{record.periodUnit ? ` ${translateText("периодов",language)}` : ""}</strong></div><div><span>{isEnglish ? "Completion" : "Выполнение"}</span><strong>{record.completionRate}%</strong></div><div><span>{isEnglish ? "Best month" : "Лучший месяц"}</span><strong>{record.bestMonth ?? "—"}</strong><small>{record.bestMonthCompletions || ""}</small></div></div>
             <footer><div><span>{record.reachedMilestone ? (isEnglish ? `Milestone ${record.reachedMilestone}` : `Рубеж ${record.reachedMilestone}`) : (isEnglish ? "First milestone" : "Первый рубеж")}</span><div><i /></div></div><strong>{record.nextMilestone ? (isEnglish ? `${record.nextMilestone - record.totalCompletions} to ${record.nextMilestone}` : `${record.nextMilestone - record.totalCompletions} до ${record.nextMilestone}`) : (isEnglish ? "Highest milestone reached" : "Высший рубеж достигнут")}</strong></footer>
           </article>

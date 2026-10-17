@@ -1,4 +1,6 @@
 "use client";
+
+import { habitDisplayText } from "./habit-display-text";
 import { DialogCloseButton } from "./DialogCloseButton";
 
 import { useEffect, type CSSProperties } from "react";
@@ -137,7 +139,7 @@ export function TheokyklosDetailsDialog({ segment, language, workspace, date, ca
                   return (
                     <article className={`${habit ? "started" : "suggested"}${habit && !habit.active ? " paused" : ""}`} style={{ "--practice-color": habit?.color ?? practice!.color } as CSSProperties} key={habit?.id ?? practice!.id}>
                       <span aria-hidden="true">{habit?.emoji ?? practice!.emoji}</span>
-                      <div><small>{habit ? (habit.active ? (language === "en" ? "Active practice" : "Активная практика") : (language === "en" ? "Paused" : "На паузе")) : (language === "en" ? "Suggested practice" : "Предлагаемая практика")}</small><strong data-no-translate>{habit?.title ?? catalogText(practice!.title, language)}</strong><p data-no-translate>{habit?.description ?? catalogText(practice!.description, language)}</p><blockquote data-no-translate>{catalogText(practice!.myth, language)}</blockquote></div>
+                      <div><small>{habit ? (habit.active ? (language === "en" ? "Active practice" : "Активная практика") : (language === "en" ? "Paused" : "На паузе")) : (language === "en" ? "Suggested practice" : "Предлагаемая практика")}</small><strong data-no-translate>{habit ? habitDisplayText(habit, language).title : catalogText(practice!.title, language)}</strong><p data-no-translate>{habit ? habitDisplayText(habit, language).description : catalogText(practice!.description, language)}</p><blockquote data-no-translate>{catalogText(practice!.myth, language)}</blockquote></div>
                       {habit ? (
                         habit.active ? <div className="theokyklos-practice-actions"><button type="button" className={completion?.completed ? "completed" : ""} disabled={!canTrack} onClick={() => onChange(updateHabitCompletion(workspace, habit, date, { completed: !completion?.completed }))}>{completion?.completed ? `✓ ${language === "en" ? "Done" : "Выполнено"}` : (language === "en" ? "Mark today" : "Отметить сегодня")}</button><button type="button" className="disable" onClick={() => onChange({ ...workspace, habits: workspace.habits.map((item) => item.id === habit.id ? markTrackerEntityChanged({ ...item, active: false }) : item) })}>{language === "en" ? "Disable" : "Отключить"}</button></div>
                           : <button type="button" disabled={!workspace.habitSettings.enabled} onClick={() => onChange({ ...workspace, habits: workspace.habits.map((item) => item.id === habit.id ? markTrackerEntityChanged({ ...item, active: true }) : item) })}>{language === "en" ? "Enable again" : "Включить снова"}</button>

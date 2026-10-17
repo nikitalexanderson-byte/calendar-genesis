@@ -1,3 +1,5 @@
+
+import { habitDisplayText } from "./habit-display-text";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { addCivilDays } from "./calendar-context";
 import { formatCalendarDateValue, type CalendarMode } from "./calendar-data";
@@ -49,6 +51,10 @@ export function HabitTimerPanel({ workspace, language, calendarMode, timeFormat,
   const [retryCommand, setRetryCommand] = useState<HabitTimerCommand | null>(null);
   const inFlight = useRef(false);
   const habit = workspace.habits.find(item => item.id === requestedHabitId);
+  const timerTitle = (habitId: string, title: string) => {
+    const definition = workspace.habits.find(item => item.id === habitId);
+    return definition ? habitDisplayText({ ...definition, title }, language).title : title;
+  };
   const unfinished = sessions.filter(session => !session.state || !["saved", "discarded"].includes(session.state.status));
   const hasRunning = sessions.some(session => session.heads.some(head => head.status === "running"));
   useEffect(() => {
@@ -96,7 +102,7 @@ export function HabitTimerPanel({ workspace, language, calendarMode, timeFormat,
   return <section ref={panel} className="habit-timer-panel" aria-labelledby={titleId} data-testid="habit-timer-panel">
     <header><h3 id={titleId}><HabitTimerIcon/>{t("Таймер")}</h3>{requestedHabitId ? <button type="button" className="secondary-button" onClick={onClose}>{t("Закрыть")}</button> : null}</header>
     {habit ? <div className="habit-timer-start" data-testid="habit-timer-start">
-      <strong data-no-translate>{habit.title}</strong>
+      <strong data-no-translate>{habitDisplayText(habit, language).title}</strong>
       <div className="habit-timer-config">
         <div className="segmented-control" role="group" aria-label={t("Таймер")}>
           <button type="button" disabled={busy} aria-pressed={mode === "stopwatch"} onClick={() => setMode("stopwatch")}>{t("Секундомер")}</button>
@@ -116,7 +122,7 @@ export function HabitTimerPanel({ workspace, language, calendarMode, timeFormat,
       const state = session.state, plan = session.root.plan!, own = session.root.owner === owner;
       const reading = state ? habitTimerReading(state, Math.max(now, Date.parse(state.head.at))) : null;
       return <article className="habit-timer-session" key={session.id} data-testid="habit-timer-session" data-status={state?.status ?? "conflict"}>
-        <div className="habit-timer-session-head"><strong data-no-translate>{workspace.habits.find(item => item.id === session.root.habitId)?.title ?? plan.habitTitle}</strong>
+        <div className="habit-timer-session-head"><strong data-no-translate>{timerTitle(session.root.habitId, workspace.habits.find(item => item.id === session.root.habitId)?.title ?? plan.habitTitle)}</strong>
           <span>{!own ? t("Таймер на другом устройстве") : state ? stateLabel(state) : t("Обнаружены разные состояния сессии. Выберите нужное.")}</span></div>
         <small>{instantLabel(session.root.at, plan.timeZone)} · {plan.timeZone}</small>
         {!own ? <p>{t("Управляйте этой сессией на устройстве, где она запущена.")}</p> : null}
@@ -159,7 +165,7 @@ export function HabitTimerPanel({ workspace, language, calendarMode, timeFormat,
     })}
     {error ? <div role="alert"><p>{t(error)}</p>{retryCommand ? <button className="secondary-button" type="button" disabled={busy} onClick={() => execute(retryCommand)}>{t("Повторить")}</button> : null}</div> : null}
     {history.length ? <details className="habit-timer-history"><summary>{t("История сессий")} · {history.length}</summary>
-      <ol>{history.slice(0, historyCount).map(session => <li key={session.id}><strong data-no-translate>{session.root.plan!.habitTitle}</strong>
+      <ol>{history.slice(0, historyCount).map(session => <li key={session.id}><strong data-no-translate>{timerTitle(session.root.habitId, session.root.plan!.habitTitle)}</strong>
         <time dateTime={session.root.at}>{instantLabel(session.root.at, session.root.plan!.timeZone)}</time><span>{habitTimerDuration(habitTimerReading(session.state!, now).workMs, true)}</span>
         {session.state!.timeOnly || session.state!.allocations?.every(row => row.reason !== "duration") ? <small>{t("Для этой привычки время сохраняется в истории. Значения и отметки добавляются отдельно.")}</small> : null}</li>)}</ol>
       {history.length > historyCount ? <button className="secondary-button" type="button" onClick={() => setHistoryCount(count => count + 10)}>{t("Показать ещё")}</button> : null}

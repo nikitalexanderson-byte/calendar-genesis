@@ -1,3 +1,5 @@
+
+import { habitDisplayText } from "./habit-display-text";
 import { useId, useState } from "react";
 import { CalendarDatePicker } from "./CalendarDatePicker";
 import { addCivilDays, momentCivilDate, type CalendarContext } from "./calendar-context";
@@ -28,7 +30,7 @@ export function HabitHistoryPanel(props:Props){
     <p>{t("Историческая корректировка меняет статистику и серии. XP и Лавры не начисляются; выданные награды и потраченная защита сохраняются.")}</p>
     <div className="habit-history-fields">
       <label htmlFor={`${id}-habit`}><span>{t("Привычка")}</span><select id={`${id}-habit`} value={habit.id} onChange={event=>{setHabitId(event.target.value);setSelected("");}}>
-        {workspace.habits.map(row=><option key={row.id} value={row.id} data-no-translate>{row.title}</option>)}
+        {workspace.habits.map(row=><option key={row.id} value={row.id} data-no-translate>{habitDisplayText(row, language).title}</option>)}
       </select></label>
       <div><span id={`${id}-date-label`}>{t("Прошлая дата")}</span><CalendarDatePicker ariaLabel={t("Прошлая дата")} value={date}
         mode={calendarMode} calculationContext={reportContext} min={habit.createdDate} max={yesterday} showGregorianReference={false} onChange={setSelected}/></div>
@@ -82,7 +84,7 @@ function HabitHistoryForm({workspace,habit,date,language,calendarMode,timeFormat
     return `${new Intl.DateTimeFormat(language,{dateStyle:"medium",timeZone:rule.schedule.timezone}).format(at)} · ${formatTimeValue(`${part("hour")}:${part("minute")}`,timeFormat)}`;
   };
   return <div className="habit-history-form">
-    <h3 data-no-translate>{habit.title}</h3><p>{formatCalendarDateValue(date,calendarMode)} · {rule.schedule.timezone}</p>
+    <h3 data-no-translate>{habitDisplayText(habit, language).title}</h3><p>{formatCalendarDateValue(date,calendarMode)} · {rule.schedule.timezone}</p>
     {history.conflict||progress?.conflicts.length?<p role="alert">{t("Одновременные исправления. Выберите правильное значение.")}</p>:null}
     <fieldset disabled={busy}><legend>{t("Учёт выполнения")}</legend>
       {definition?<div className="habit-history-fields">
