@@ -10,6 +10,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import java.time.LocalDate
 import org.junit.Rule
 import org.junit.Test
+import androidx.compose.foundation.layout.Column
 import ru.genesis.calendar.domain.CalendarMode
 import ru.genesis.calendar.ui.*
 
@@ -38,6 +39,7 @@ class CalendarSacredVisibilityTest {
             compose.onNodeWithTag("calendar-selected-fact-blocks").assertDoesNotExist()
             compose.onNodeWithTag("calendar-selected-patron").assertDoesNotExist()
             compose.onNodeWithTag("calendar-mode-icon-profane", useUnmergedTree = true).assertDoesNotExist()
+            compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
             compose.runOnIdle { sacred = true }
             compose.onNodeWithTag("calendar-weekday-art").assertExists()
             compose.onNodeWithTag("calendar-selected-fact-blocks").assertExists()
@@ -46,5 +48,36 @@ class CalendarSacredVisibilityTest {
         compose.onNodeWithText("Год").performClick()
         compose.onNodeWithTag("calendar-year-panel").assertExists()
         compose.onNodeWithTag("calendar-mode-icon-profane", useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
+    }
+
+    @Test fun plainYearNumbersFollowJanuaryOrMarchInBothThemes() {
+        var march by mutableStateOf(false)
+        var dark by mutableStateOf(false)
+        compose.setContent {
+            CompositionLocalProvider(LocalSacredFeaturesEnabled provides false,
+                LocalEnabledCalendars provides setOf(CalendarMode.PROFANE), LocalEveningTheme provides dark) {
+                MaterialTheme(colorScheme = if (dark) evening else standart) {
+                    Surface(Modifier.fillMaxSize()) {
+                        Column {
+                            CalendarYearDescriptionCard(ru.genesis.calendar.domain.GenesisCalendar(),
+                                LocalDate.of(2026, 10, 17), CalendarMode.PROFANE, march)
+                            CalendarScreen(LocalDate.of(2026, 10, 17), CalendarMode.PROFANE,
+                                onSelect = {}, experimental = true, gregorianYearStartsInMarch = march,
+                                hiddenSubmenus = setOf("calendar.month"))
+                        }
+                    }
+                }
+            }
+        }
+        for (eveningMode in listOf(false, true)) for (fromMarch in listOf(false, true)) {
+            compose.runOnIdle { dark = eveningMode; march = fromMarch }
+            compose.onNodeWithTag("calendar-year-description-profane").assertDoesNotExist()
+            compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
+            val firstMonth = if (fromMarch) "2026-03-01" else "2026-01-01"
+            compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag("calendar-year-month-$firstMonth"))
+            compose.onNode(hasTestTag("gregorian-year-number-1") and hasAnyAncestor(hasTestTag("calendar-year-month-$firstMonth")),
+                useUnmergedTree = true).assertTextEquals("1")
+        }
     }
 }

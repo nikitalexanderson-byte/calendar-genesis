@@ -296,6 +296,7 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
 @Composable
 private fun CalendarPageHeader(yearView: Boolean, mode: CalendarMode,
     onModeChange: (CalendarMode) -> Unit, modifier: Modifier = Modifier) {
+    if (!LocalSacredFeaturesEnabled.current) return
     val copy = mobileCalendarCopy(LocalGenesisLanguage.current)
     val enabledCalendars = LocalEnabledCalendars.current
     GenesisPageHeader(if (yearView) "Календарь - год" else "Календарь - месяц",
@@ -1136,6 +1137,7 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
     onPrevious: () -> Unit, onNext: () -> Unit,
     voiceScrollToken: Int, voiceScrollDirection: String, activePage: Boolean) {
     val locale = Locale.forLanguageTag(LocalGenesisLanguage.current)
+    val sacredFeaturesEnabled = LocalSacredFeaturesEnabled.current
     val sacredYear = if (mode == CalendarMode.LUNAR) calendar.lunarDate(shown).year.sacredYear else calendar.sacredDate(shown).sacredYear
     val yearLabel = if (mode == CalendarMode.PROFANE && gregorianYearStartsInMarch)
         "${shown.year}–${shown.year + 1}" else if (mode == CalendarMode.PROFANE) shown.year.toString() else sacredYear.toString()
@@ -1325,7 +1327,9 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
                             group.months.forEachIndexed { index, (start, name, title) ->
                                 if (index > 0) HorizontalDivider(color = accent.copy(alpha = .28f))
                                 CalendarYearMonthCard(calendar, start, mode,
-                                    if (mode == CalendarMode.SACRED) group.firstOrdinal + index + 1 else start.monthValue,
+                                    if (mode == CalendarMode.SACRED) group.firstOrdinal + index + 1
+                                    else if (!sacredFeaturesEnabled && gregorianYearStartsInMarch) (start.monthValue + 9) % 12 + 1
+                                    else start.monthValue,
                                     name, title,
                                     taskCounts[start] ?: YearTaskCount(0, 0), onMonth, locale)
                             }
