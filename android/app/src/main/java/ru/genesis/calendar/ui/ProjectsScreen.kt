@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -170,6 +171,8 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
     val structure = loadedStructure!!
     val (taskSort,setTaskSort)=rememberTaskListSort("personal")
     val orderedTasks=remember(tasks,taskSort){orderPersonalTasks(tasks,taskSort)}
+    var searchQuery by rememberSaveable(app.workspaceScope) { mutableStateOf("") }
+    var createActionsOpen by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     var localSelectedCategory by remember { mutableStateOf<String?>(null) }
     val selectedCategory = if (menuSwipeState == null) localSelectedCategory
@@ -243,8 +246,13 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
     val inboxLists = knownLists.filter { listProjectId(it) == null }
     val tasksByProject = remember(orderedTasks, structure) { orderedTasks.groupBy { personalTaskProjectId(it, structure) } }
     val inbox = tasksByProject[null].orEmpty().filterNot { task -> inboxLists.any { task.belongsToList(it) } }
+    val searchResults = remember(orderedTasks, structure, knownLists, searchQuery, selectedCategory) {
+        if (searchQuery.isBlank()) emptyList()
+        else searchPersonalAffairs(orderedTasks, structure, knownLists, searchQuery, selectedCategory)
+    }
     LaunchedEffect(initialProjectId,structure) {
         val target=structure.projects.firstOrNull {it.id==initialProjectId} ?: return@LaunchedEffect
+        searchQuery = ""
         selectCategory(null);selectedProject=target.id
         val index=ordered.indexOfFirst {it.first.id==target.id}
         if(index>=0)listState.scrollToItem(index+3)
@@ -252,6 +260,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
     }
     LaunchedEffect(initialListId, knownLists, structure) {
         val list = knownLists.firstOrNull { it.id == initialListId } ?: return@LaunchedEffect
+        searchQuery = ""
         openedListId = list.id
         selectCategory(null)
         selectedProject = listProjectId(list)
@@ -266,6 +275,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
             else -> null
         } ?: return@LaunchedEffect
         knownLists.firstOrNull { it.id == id }?.let { list ->
+            searchQuery = ""
             selectCategory(null); selectedProject = listProjectId(list)
         }
     }
@@ -386,29 +396,50 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
     Row(Modifier.fillMaxSize()) {
     LazyColumn(state = listState, modifier = Modifier.weight(if (wide) 1.4f else 1f).fillMaxHeight().testTag("projects-screen"), contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item {
+        item(key = "personal-controls") {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                GenesisPageHeader(if (language == "en") "Affairs - personal" else "Дела - личные",
-                    if (language == "en") "Categories, projects and their tasks"
-                    else "Категории, проекты и задачи внутри них", "▦", icon = GenesisPageIcon.PROJECTS)
-                Button(onClick={onMindmaps(null)},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("personal-mindmaps")) {Text("Майндмепы")}
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically) {
-                    androidx.compose.material3.Text(projectSummary, Modifier.weight(1f).padding(end = 8.dp),
-                        style = MaterialTheme.typography.labelLarge)
-                    Button(onClick = { creating = true; editing = null; error = null }, modifier = Modifier.testTag("create-project")) {
-                        Text("Проект")
+                AffairsPageHeader("Личные дела", projectSummary, contextIsUserContent = true) {
+                    Box {
+                        AffairsIconButton("Дополнительные действия", AffairsAction.MORE,
+                            { createActionsOpen = true }, Modifier.testTag("personal-actions"))
+                        DropdownMenu(createActionsOpen, { createActionsOpen = false }) {
+                            DropdownMenuItem(text = { Text("Создать проект") }, onClick = {
+                                createActionsOpen = false; creating = true; editing = null; error = null
+                            }, modifier = Modifier.testTag("create-project"))
+                            DropdownMenuItem(text = { Text("Создать список") }, onClick = {
+                                createActionsOpen = false; onCreateList()
+                            }, modifier = Modifier.testTag("personal-create-list"))
+                        }
                     }
                 }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { onCreateTask(null) }, modifier = Modifier.weight(1f)
-                        .heightIn(min = 48.dp).testTag("personal-create-task")) { Text("Создать задачу") }
-                    OutlinedButton(onClick = onCreateList, modifier = Modifier.weight(1f)
-                        .heightIn(min = 48.dp).testTag("personal-create-list")) { Text("Создать список") }
+                Button(onClick = { onCreateTask(null) }, modifier = Modifier.fillMaxWidth()
+                    .heightIn(min = 48.dp).testTag("personal-create-task")) { Text("Создать задачу") }
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilledTonalButton(onClick = { onMindmaps(null) }, modifier = Modifier.widthIn(min = 140.dp)
+                        .heightIn(min = 48.dp).testTag("personal-mindmaps")) { Text("Майндмепы", maxLines = 1, softWrap = false) }
+                    TaskListSortChoice(taskSort, setTaskSort, Modifier.widthIn(min = 172.dp), compact = true)
                 }
-                TaskListSortChoice(taskSort,setTaskSort)
+                AffairsSearchField(searchQuery, { searchQuery = it.take(200) }, "Поиск задач",
+                    Modifier.testTag("personal-task-search"))
+                structure.categories.firstOrNull { it.id == selectedCategory }?.let { category ->
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.material3.Text(category.name, Modifier.weight(1f),
+                            style = MaterialTheme.typography.labelLarge)
+                        TextButton(onClick = { selectCategory(null) }, modifier = Modifier.heightIn(min = 48.dp)
+                            .testTag("personal-reset-category")) { Text("Сбросить") }
+                    }
+                }
             }
         }
+        if (searchQuery.isNotBlank()) {
+            if (searchResults.isEmpty()) item {
+                Text("Ничего не найдено. Измените запрос.", Modifier.testTag("personal-search-empty"),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            items(searchResults, key = { "search-${it.id}" }) { task ->
+                NativeTaskCard(task, use24, structure, onCompleteTask, onOpenTask)
+            }
+        } else {
         if (!wide) item {
             InboxProjectCard(inbox, structure.projects, experimental, pickup?.id,
                 onPickup, onDrag, onRelease, onOpenTask, onCreateTask, moveTask,
@@ -492,6 +523,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
                 }
             }
         }
+        }
         error?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.error) } }
         moveAnnouncement?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.testTag("project-move-announcement")) } }
@@ -501,7 +533,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
         }
     }
 
-    if (wide) Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())
+    if (wide && searchQuery.isBlank()) Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())
         .padding(top = 16.dp, end = 16.dp, bottom = 16.dp).testTag("project-tools-pane"),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         InboxProjectCard(inbox, structure.projects, experimental, pickup?.id,

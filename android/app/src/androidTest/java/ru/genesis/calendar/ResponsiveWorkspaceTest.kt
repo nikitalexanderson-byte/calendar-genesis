@@ -36,6 +36,10 @@ class ResponsiveWorkspaceTest {
                     compose.waitForIdle()
                     val content = compose.onNodeWithTag("main-content").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
                     val header = compose.onNodeWithTag("app-header").fetchSemanticsNode().boundsInRoot
+                    compose.onNodeWithTag("genesis-brand-name").assertIsDisplayed()
+                    compose.onNodeWithTag("genesis-round-logo").assertIsDisplayed()
+                    val footer = compose.onNodeWithTag("app-account-status").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+                    assertTrue("Account status overlaps the workspace", footer.top >= content.bottom)
                     val density = compose.activity.resources.displayMetrics.density
                     assertTrue("Header consumes too much height: $header", header.height <= 68 * density)
                     assertTrue("No working height left: $content", content.height >= 140 * density)
@@ -47,8 +51,7 @@ class ResponsiveWorkspaceTest {
                 val tasks = compose.onNodeWithTag("navigation-Проекты")
                 if (!tasks.isDisplayed()) tasks.performScrollTo()
                 tasks.performClick()
-                compose.onNodeWithTag("submenu-tasks").performClick()
-                compose.onNodeWithTag("create-task").performClick()
+                compose.onNodeWithTag("personal-create-task").performClick()
                 compose.onNodeWithTag("task-title").performTextInput("Проверка адаптивной формы")
                 compose.onNodeWithTag("close-task-editor").assertIsDisplayed()
                 assertTrue(device.takeScreenshot(File(app.getExternalFilesDir(null), "responsive-$orientation-keyboard.png")))

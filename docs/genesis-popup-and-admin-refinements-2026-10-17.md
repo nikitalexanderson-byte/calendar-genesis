@@ -29,6 +29,8 @@
 
 Публикация выполняется существующим `.github/workflows/deploy.yml` после merge в `master`, с `GENESIS_DEPLOY_TARGET=hostinger` и `GENESIS_DEPLOY_ANDROID=false`. После workflow проверяются публичный SHA, health и неизменность дескриптора Android.
 
+Опубликовано: [PR #189](https://github.com/nikitalexanderson-byte/calendar-genesis/pull/189), master/production `eeb755eeb440166dca3efbd29fc375feb5342ccf`, [Actions 39013088865](https://github.com/nikitalexanderson-byte/calendar-genesis/actions/runs/39013088865) — success, 07:17:38–07:22:16 UTC. Runtime backup и проверка SHA/health успешны; все три этапа подготовки/сборки Android пропущены. Независимая проверка в 07:23:20 UTC подтвердила публичный SHA, `health.ok=true`, готовность email/push, публикацию общего CSS и защиту admin API от неавторизованного запроса. Дескриптор Android и SHA-256 APK побайтно совпадают с состоянием до выпуска: 2.8.13 / 93. Доказательство: `output/ui216-production-verification.json`.
+
 Вручную SSH и production-БД не использовались. Откат кода — обычный `git revert` с повторным workflow.
 
 В этой правке не проверены Safari/Firefox, браузер на физическом Samsung, экранный диктор и все редкие/вложенные варианты окон. Локальная проверка окна активности не считается проверкой административного аккаунта в production. Нативные APK не собирались и не устанавливались.

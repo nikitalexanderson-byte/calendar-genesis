@@ -7,6 +7,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import org.json.JSONObject
 import ru.genesis.calendar.GenesisApplication
@@ -41,17 +43,25 @@ internal fun orderPersonalTasks(tasks:List<LocalTask>,sort:TaskListSort):List<Lo
     var value by remember(key) { mutableStateOf(TaskListSort.entries.firstOrNull { it.wire==prefs.getString(key,null) }?:TaskListSort.DEFAULT) }
     return value to { next->value=next;prefs.edit().putString(key,next.wire).apply() }
 }
-@Composable internal fun TaskListSortChoice(value:TaskListSort,onChange:(TaskListSort)->Unit) {
+@Composable internal fun TaskListSortChoice(value:TaskListSort,onChange:(TaskListSort)->Unit,
+    modifier:Modifier,compact:Boolean) {
     var open by remember { mutableStateOf(false) };val en=LocalGenesisLanguage.current=="en"
-    Box {
-        OutlinedButton(onClick={open=true},modifier=Modifier.heightIn(min=48.dp).testTag("task-sort-control")) {
-            Text((if(en) "Sort tasks: " else "Сортировка задач: ")+(if(en)value.en else value.ru))
+    val label=(if(en) "Sort tasks: " else "Сортировка задач: ")+(if(en)value.en else value.ru)
+    val description=genesisTranslate(label)
+    Box(modifier) {
+        OutlinedButton(onClick={open=true},modifier=Modifier.heightIn(min=48.dp)
+            .then(if(compact)Modifier.fillMaxWidth() else Modifier).testTag("task-sort-control")
+            .semantics { contentDescription=description }) {
+            Text(if(compact)(if(en)value.en else value.ru) else label)
         }
         DropdownMenu(expanded=open,onDismissRequest={open=false}) {
             TaskListSort.entries.forEach { order->DropdownMenuItem(text={Text(if(en)order.en else order.ru)},
                 onClick={onChange(order);open=false},modifier=Modifier.testTag("task-sort-${order.wire}")) }
         }
     }
+}
+@Composable internal fun TaskListSortChoice(value:TaskListSort,onChange:(TaskListSort)->Unit) {
+    TaskListSortChoice(value,onChange,Modifier,false)
 }
 internal fun personalTaskComments(task:LocalTask):List<JSONObject> = runCatching {
     val rows=JSONObject(task.sourceFieldsJson).optJSONArray("comments")

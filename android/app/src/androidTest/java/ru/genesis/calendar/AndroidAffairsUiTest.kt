@@ -38,6 +38,7 @@ class AndroidAffairsUiTest {
         compose.onNodeWithTag("personal-create-task").performClick()
         compose.onNodeWithTag("task-title").assertExists()
         compose.onNodeWithText("Отмена").performScrollTo().performClick()
+        compose.onNodeWithTag("personal-actions").performClick()
         compose.onNodeWithTag("personal-create-list").performClick()
         compose.onNodeWithTag("task-list-title").assertExists()
         compose.onNodeWithTag("close-task-list-editor").performClick()

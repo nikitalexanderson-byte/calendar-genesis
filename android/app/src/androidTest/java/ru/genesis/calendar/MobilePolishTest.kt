@@ -68,12 +68,12 @@ class MobilePolishTest {
         }
         try {
             compose.onNodeWithTag("navigation-Проекты").performClick()
-            compose.onNodeWithTag("submenu-tasks").performClick()
-            compose.onNodeWithTag("tasks-screen").performScrollToNode(hasTestTag("task-$taskId"))
+            compose.onNodeWithTag("personal-task-search").performTextInput("Проверить выполненную задачу")
+            compose.onNodeWithTag("projects-screen").performScrollToNode(hasTestTag("task-$taskId"))
             val checkbox = compose.onNode(isToggleable() and hasAnyAncestor(hasTestTag("task-$taskId")), useUnmergedTree = true)
             checkbox.assertIsOff().performClick()
             compose.waitUntil(10_000) { runBlocking { app.repository.get(taskId)?.done == true } }
-            compose.onNodeWithTag("tasks-screen").performScrollToNode(hasTestTag("task-$taskId"))
+            compose.onNodeWithTag("projects-screen").performScrollToNode(hasTestTag("task-$taskId"))
             checkbox.assertIsDisplayed().assertIsOn()
             val layouts = mutableListOf<TextLayoutResult>()
             compose.onNodeWithTag("task-title-$taskId", useUnmergedTree = true)
@@ -87,7 +87,7 @@ class MobilePolishTest {
             capture("completed-task")
             checkbox.performClick()
             compose.waitUntil(10_000) { runBlocking { app.repository.get(taskId)?.done == false } }
-            compose.onNodeWithTag("tasks-screen").performScrollToNode(hasTestTag("task-$taskId"))
+            compose.onNodeWithTag("projects-screen").performScrollToNode(hasTestTag("task-$taskId"))
             layouts.clear()
             compose.onNodeWithTag("task-title-$taskId", useUnmergedTree = true)
                 .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
@@ -98,8 +98,7 @@ class MobilePolishTest {
     @Test fun taskCloseRemainsAtTopRightAfterScrollingAndDoesNotSaveDraft() {
         val draft = "Несохранённая задача полировки"
         compose.onNodeWithTag("navigation-Проекты").performClick()
-            compose.onNodeWithTag("submenu-tasks").performClick()
-        compose.onNodeWithTag("create-task").performClick()
+        compose.onNodeWithTag("personal-create-task").performClick()
         compose.onNodeWithTag("task-title").performTextInput(draft)
         UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
         val close = compose.onNodeWithTag("close-task-editor")
@@ -123,6 +122,7 @@ class MobilePolishTest {
         runBlocking { WorkspaceStructureRepository(app).saveProject(
             GenesisProject(projectId, null, null, projectTitle, "Описание раскрытого проекта", emptyList(), "active", 0)) }
         compose.onNodeWithTag("navigation-Проекты").performClick()
+        compose.onNodeWithTag("personal-actions").performClick()
         compose.onNodeWithTag("create-project").performClick()
         compose.onNodeWithTag("project-title").performTextInput("Несохранённый проект полировки")
         UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()

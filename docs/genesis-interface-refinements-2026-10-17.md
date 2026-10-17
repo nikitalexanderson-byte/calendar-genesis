@@ -24,6 +24,8 @@
 
 Только существующий `.github/workflows/deploy.yml`: commit → push рабочей ветки → PR/merge в master → Actions → публичные SHA/health и официальные Android-артефакты → обновление Realme без удаления данных. Номера Android и имена артефактов согласованы: 2.8.14 / 94. Схема workflow не заменяется.
 
+Последующее уточнение пользователя изменило выпуск: attempt 1 workflow `39007483889` отменён до backup/deploy, затем пользователь разрешил небольшие веб-деплои без Android до 2.9.0. `GENESIS_DEPLOY_ANDROID=false` установлен и проверен. **Сайт опубликован** через attempt 2: success, 17.10.2026 05:59:26–06:06:37 UTC (7 мин 11 с), PR #187, master/production `b388d9e58ae525a630a6fd07c6699c380cda3fb0`, SHA и health подтверждены, email/push available. Android build skipped; публичный descriptor сохранил 2.8.13/93 и SHA `2563c8e6f29f6320db0f7e7ce684427f318c598cd73b3da12aeed7406671153a`. APK 2.8.14/94 не опубликован и на production-Realme не устанавливался; его нативные исправления будут включены в 2.9.0. Доказательство: `output/ui214-web-production-verification.json`.
+
 Изменения не требуют SQL-миграции, ручных правок production-БД или новой настройки SMTP/VAPID. Code rollback — revert merge в master с повторным CI. Данные и сохранённые настройки не преобразуются. Ручной SSH в этом выпуске не используется.
 
 Выпуск E3 перед этой публикацией подтверждён: PR #186, Actions `39004416472` success, production `d0e2f593e0a76d169f8914c4f3d2557285d3b526`, health и готовность email/push успешны. Официальные APK 2.8.13/93 и AAB проверены по SHA-256; APK также по сертификату/package/version. Официальный APK установлен поверх 2.8.12 на Realme. Полнота физической внешней push-доставки этим не доказывается.

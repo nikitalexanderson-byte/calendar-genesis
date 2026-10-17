@@ -101,6 +101,9 @@ for (const language of languages) {
   const catalog = Object.assign({}, ...await Promise.all(files.map(async (name) =>
     JSON.parse(await readFile(new URL(`../app/translations.${name}.json`, import.meta.url), "utf8")))));
   Object.assign(catalog, JSON.parse(await readFile(new URL(`../app/ui-translations/${language}.json`, import.meta.url), "utf8")));
+  const affairs = JSON.parse(await readFile(new URL("../app/native-affairs-translations.json", import.meta.url), "utf8"))[language];
+  const englishUi = JSON.parse(await readFile(new URL("../app/ui-translations/en.json", import.meta.url), "utf8"));
+  for (const [source, translated] of Object.entries(affairs)) if (source in englishUi && !(source in catalog)) catalog[source] = translated;
   for (const key of Object.keys(english)) {
     if (typeof catalog[key] !== "string" || !catalog[key].trim()) missing.push(`${language}: missing ${key}`);
   }

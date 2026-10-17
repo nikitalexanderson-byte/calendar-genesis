@@ -5,6 +5,9 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { build } from "vite";
 
 const languages = ["en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja"];
+const affairsRaw = JSON.parse(await readFile(new URL("../app/native-affairs-translations.json", import.meta.url), "utf8"));
+const englishUi = JSON.parse(await readFile(new URL("../app/ui-translations/en.json", import.meta.url), "utf8"));
+const affairs = Object.fromEntries(Object.entries(affairsRaw).map(([language, copy]) => [language, Object.fromEntries(Object.entries(copy).filter(([source]) => source in englishUi))]));
 const ui = lang => readFile(new URL(`../app/ui-translations/${lang}.json`, import.meta.url), "utf8").then(JSON.parse);
 const read = name => readFile(new URL(`../app/translations.${name}.json`, import.meta.url), "utf8").then(JSON.parse);
 const curatedEnglish = JSON.parse(await readFile(new URL("../app/curated-translations.en.json", import.meta.url), "utf8"));
@@ -12,7 +15,7 @@ test("all web/Android UI additions have exact copy in every language", async () 
   const en = { ...await read("en"), ...await ui("en"), ...curatedEnglish };
   for (const lang of languages) {
     const names = ["el", "sr", "uk"].includes(lang) ? [`${lang}.a`, `${lang}.b`] : ["de", "fr", "ja"].includes(lang) ? [lang, `${lang}.b`] : [lang];
-    const catalog = Object.assign({}, ...await Promise.all(names.map(read)), await ui(lang), lang === "en" ? curatedEnglish : {});
+    const catalog = Object.assign({}, affairs[lang], ...await Promise.all(names.map(read)), await ui(lang), lang === "en" ? curatedEnglish : {});
     for (const key of Object.keys(en)) assert.ok(catalog[key]?.trim(), `${lang}: ${key}`);
   }
   const gradle = await readFile(new URL("../android/app/build.gradle.kts", import.meta.url), "utf8");
@@ -33,7 +36,7 @@ test("runtime translations and PDF keep Unicode, colors, full copy and saved geo
     const { translateText, setRuntimeLanguage, newMindmap, mindmapPrintHtml } = await import(pathToFileURL(fileURLToPath(path)).href);
     for (const lang of languages) {
       const names = ["el", "sr", "uk"].includes(lang) ? [`${lang}.a`, `${lang}.b`] : ["de", "fr", "ja"].includes(lang) ? [lang, `${lang}.b`] : [lang];
-      const catalog = Object.assign({}, ...await Promise.all(names.map(read)), await ui(lang), lang === "en" ? curatedEnglish : {});
+      const catalog = Object.assign({}, affairs[lang], ...await Promise.all(names.map(read)), await ui(lang), lang === "en" ? curatedEnglish : {});
       assert.equal(translateText("Майндмепы", lang), catalog["Майндмепы"]);
       assert.equal(translateText("Ширина хаос-бокса", lang), catalog["Ширина хаос-бокса"]);
       assert.equal(translateText("Экспорт PDF", lang), catalog["Экспорт PDF"]);
