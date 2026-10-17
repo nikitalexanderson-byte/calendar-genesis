@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -45,7 +46,8 @@ internal fun SharedInvitationInbox(controller: AuthController, language: String,
                     val team = controller.sharedNotifications().getJSONArray("notifications")
                     notifications = (0 until team.length()).map { team.getJSONObject(it) }
                 } else notifications = emptyList()
-            } catch (error: Exception) {
+            } catch (error: CancellationException) { throw error }
+            catch (error: Exception) {
                 message = error.message ?: if (en) "Could not load invitations." else "Не удалось загрузить приглашения."
             }
             delay(30_000)
@@ -76,7 +78,8 @@ internal fun SharedInvitationInbox(controller: AuthController, language: String,
                                     invitations = invitations.filterNot { it.optString("id") == id }
                                     controller.refresh()
                                     message = if (en) "Invitation accepted." else "Приглашение принято."
-                                } catch (error: Exception) { message = error.message ?: "Ошибка сервера" }
+                                } catch (error: CancellationException) { throw error }
+                                catch (error: Exception) { message = error.message ?: "Ошибка сервера" }
                                 finally { pendingId = "" }
                             }
                         }, enabled = pendingId.isEmpty(), modifier = Modifier.testTag("shared-invitation-accept-$id")) {
@@ -89,7 +92,8 @@ internal fun SharedInvitationInbox(controller: AuthController, language: String,
                                     controller.rejectSharedInvitation(id)
                                     invitations = invitations.filterNot { it.optString("id") == id }
                                     message = if (en) "Invitation declined." else "Приглашение отклонено."
-                                } catch (error: Exception) { message = error.message ?: "Ошибка сервера" }
+                                } catch (error: CancellationException) { throw error }
+                                catch (error: Exception) { message = error.message ?: "Ошибка сервера" }
                                 finally { pendingId = "" }
                             }
                         }, enabled = pendingId.isEmpty(), modifier = Modifier.testTag("shared-invitation-decline-$id")) {
@@ -115,7 +119,8 @@ internal fun SharedInvitationInbox(controller: AuthController, language: String,
                 try {
                     controller.readSharedNotifications(ids)
                     notifications = notifications.map { row -> JSONObject(row.toString()).put("isRead", 1) }
-                } catch (error: Exception) { message = error.message ?: "Ошибка сервера" }
+                } catch (error: CancellationException) { throw error }
+                catch (error: Exception) { message = error.message ?: "Ошибка сервера" }
                 finally { pendingId = "" }
             } }, enabled = pendingId.isEmpty()) {
                 Text(if (en) "Mark all as read" else "Отметить всё прочитанным")

@@ -21,6 +21,8 @@ import org.junit.Test
 import ru.genesis.calendar.PagerTestActivity
 import ru.genesis.calendar.auth.SharedWorkspaceGateway
 import java.io.File
+import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.awaitCancellation
 
 private const val spaceFixture = "10000000-0000-4000-8000-000000000001"
 private const val projectFixture = "10000000-0000-4000-8000-000000000002"
@@ -131,6 +133,59 @@ private class WorkspaceFixture(val available: Boolean = true, val withTasks: Boo
 
 class SharedWorkspaceUiTest {
     @get:Rule val compose = createAndroidComposeRule<PagerTestActivity>()
+
+    @Test fun cancelledWorkspaceLoadIsSilentInLightTheme() = cancelledWorkspaceLoadIsSilent(false)
+    @Test fun cancelledWorkspaceLoadIsSilentInDarkTheme() = cancelledWorkspaceLoadIsSilent(true)
+
+    private fun cancelledWorkspaceLoadIsSilent(dark: Boolean) {
+        var active by mutableStateOf(true)
+        val fixture = WorkspaceFixture()
+        val calls = AtomicInteger()
+        val cancelled = AtomicInteger()
+        val gateway = object : SharedWorkspaceGateway by fixture {
+            override suspend fun sharedSpaces(): JSONObject {
+                if (calls.incrementAndGet() == 1) {
+                    try { awaitCancellation() } finally { cancelled.incrementAndGet() }
+                }
+                return fixture.sharedSpaces()
+            }
+        }
+        compose.setContent {
+            CompositionLocalProvider(LocalGenesisLanguage provides "en",
+                LocalEveningTheme provides dark,
+                LocalNavigationPageContext provides NavigationPageContext("affairs", active)) {
+                MaterialTheme(colorScheme = if (dark) evening else standart) {
+                    SharedProjectsScreen(gateway, "en")
+                }
+            }
+        }
+        compose.waitUntil(5_000) { calls.get() == 1 }
+        compose.runOnIdle { active = false }
+        compose.waitUntil(5_000) { cancelled.get() == 1 }
+        compose.waitForIdle()
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val phase = InstrumentationRegistry.getArguments().getString("genesisCapturePhase") ?: "after"
+        androidx.test.uiautomator.UiDevice.getInstance(instrumentation).takeScreenshot(File(
+            instrumentation.targetContext.getExternalFilesDir(null),
+            "android-shared-cancellation-$phase-${if (dark) "dark" else "light"}.png"))
+        compose.onNodeWithTag("shared-feedback").assertDoesNotExist()
+        compose.runOnIdle { active = true }
+        compose.waitUntil(5_000) { calls.get() >= 2 }
+        compose.onNodeWithTag("shared-space-$spaceFixture").assertExists()
+        compose.onNodeWithTag("shared-feedback").assertDoesNotExist()
+    }
+
+    @Test fun actualWorkspaceLoadFailureIsStillVisible() {
+        val gateway = object : SharedWorkspaceGateway {
+            override suspend fun sharedSpaces(): JSONObject = error("Network request failed")
+        }
+        compose.setContent {
+            CompositionLocalProvider(LocalGenesisLanguage provides "en") {
+                MaterialTheme(colorScheme = standart) { SharedProjectsScreen(gateway, "en") }
+            }
+        }
+        compose.onNodeWithTag("shared-feedback").assertTextEquals("Network request failed")
+    }
 
     @Test fun captureAffairsEntryProjectAndTaskInBothThemes() {
         var dark by mutableStateOf(false)
