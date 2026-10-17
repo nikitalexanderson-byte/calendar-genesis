@@ -5881,7 +5881,7 @@ export function GenesisCalendar() {
 
         <div className="personal-search-actions">
         {personalMindmapsEnabled ? <MindmapLaunchButton label={translateText("Майндмепы",language)} className="personal-mindmaps-entry" onClick={() => { mindmapsReturnScroll.current = window.scrollY; setMindmapsProjectId(null); setMindmapsOpen(true); }} /> : null}
-        <label className="task-order-choice"><span>{language==="en"?"Sort tasks":"Сортировка задач"}</span><select value={personalTaskDisplay.sort} onChange={event=>personalTaskDisplay.setSort(event.target.value as TaskListOrder)}>{taskListOrders.map(order=><option key={order.value} value={order.value}>{language==="en"?order.en:order.ru}</option>)}</select></label>
+        <label className="task-order-choice"><select aria-label={language==="en"?"Sort tasks":"Сортировка задач"} value={personalTaskDisplay.sort} onChange={event=>personalTaskDisplay.setSort(event.target.value as TaskListOrder)}>{taskListOrders.map(order=><option key={order.value} value={order.value}>{language==="en"?order.en:order.ru}</option>)}</select></label>
         <label className="tag-search personal-affairs-search">
           <span aria-hidden="true">{experimentalThemeActive ? <ExperimentalIcon name="search" /> : "⌕"}</span>
           <input aria-label="Поиск задач и проектов по названию или #тегу" value={tagSearch} onChange={(event) => setTagSearch(event.target.value)} placeholder="Поиск задач и проектов по названию или #тегу" />

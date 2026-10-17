@@ -2350,9 +2350,9 @@ test("ships account-owned Standart colour schemes while preserving authored cont
   ]);
 
   assert.doesNotMatch(account, /Тема Experimental/);
-  assert.match(account, /Текущая тема/);
+  assert.doesNotMatch(account, /Текущая тема|CURRENT_THEME_LABEL/);
   assert.match(account, /role="switch"/);
-  assert.match(account, /STANDART/);
+  assert.match(account, /COLOR_MODE_NAMES\[user.language\]\.light/);
   assert.match(account, /COLOR_MODE_NAMES\[user.language\]\.group/);
   assert.match(calendar, /aria-haspopup="dialog"/);
   assert.match(calendar, /setAccountOpen\(true\)/);

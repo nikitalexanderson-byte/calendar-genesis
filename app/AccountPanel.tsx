@@ -43,12 +43,6 @@ const COLOR_MODE_NAMES: Record<Language, { light: string; dark: string; group: s
   tr: { light: "Açık", dark: "Koyu", group: "Web sitesi renk teması" },
   ja: { light: "ライト", dark: "ダーク", group: "サイトの配色" },
 };
-const CURRENT_THEME_LABEL: Record<Language, string> = {
-  ru: "Текущая тема", en: "Current theme", el: "Τρέχον θέμα", de: "Aktuelles Design",
-  fr: "Thème actuel", es: "Tema actual", it: "Tema attuale", pt: "Tema atual",
-  pl: "Bieżący motyw", sr: "Тренутна тема", uk: "Поточна тема",
-  zh: "当前主题", tr: "Geçerli tema", ja: "現在のテーマ",
-};
 const APP_BASE = (process.env.NEXT_PUBLIC_GENESIS_BASE_PATH?.trim() || "").replace(/\/$/, "");
 const FLAG_COUNTRIES: Record<Language, string> = {
   ru: "ru", en: "gb", el: "gr", de: "de", fr: "fr", es: "es", it: "it", pt: "pt",
@@ -402,7 +396,7 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
           ? (user.language === "en" ? "The account theme could not be loaded. Standart remains active." : "Не удалось загрузить тему аккаунта. Продолжает работать Standart.")
         : themeState.status === "loading"
             ? (user.language === "en" ? "Loading the account preference…" : "Загружаем настройку аккаунта…")
-        : `${CURRENT_THEME_LABEL[user.language]}: STANDART.`;
+        : "";
 
   const toggleHabitNotifications = async (enabled: boolean) => {
     if (!enabled) {
@@ -607,9 +601,9 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
                 <span aria-hidden="true">☾</span><strong data-no-translate>{COLOR_MODE_NAMES[user.language].dark}</strong>
               </button>
             </div>
-          <p className="account-preference-status" role="status" aria-live="polite" data-exp-ui="notice" data-exp-tone={themeState.status === "error" || themeState.status === "load-error" ? "error" : undefined}>
+          {themeStatusMessage ? <p className="account-preference-status" role="status" aria-live="polite" data-exp-ui="notice" data-exp-tone={themeState.status === "error" || themeState.status === "load-error" ? "error" : undefined}>
             {translateText(themeStatusMessage, user.language)}
-          </p>
+          </p> : null}
           </div>
           <div className="appearance-settings-subsection appearance-menu-subsection" role="group"
             aria-label={user.language === "en" ? "Menu display" : "Отображение меню"}>

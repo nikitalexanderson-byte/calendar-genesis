@@ -1238,6 +1238,9 @@ html[data-genesis-theme] .genesis-app :is(.personal-search-actions,.shared-task-
 html[data-genesis-theme] .genesis-app :is(.personal-search-actions,.shared-task-view-controls)>.task-order-choice>span { white-space:nowrap; }
 html[data-genesis-theme] .genesis-app :is(.personal-search-actions,.shared-task-view-controls)>.task-order-choice>select { width:clamp(140px,15vw,220px); min-width:0; }
 html[data-genesis-theme] .genesis-app :is(.personal-search-actions,.shared-task-view-controls)>.tag-search { flex:1 1 160px; min-width:0; width:auto; margin:0; }
+html[data-genesis-theme] .genesis-app .shared-task-view-controls { align-items:end; }
+/* The responsive component now owns the visual and keyboard order. */
+html[data-genesis-theme] .genesis-app .shared-workspace-toolbar .shared-task-view-controls > .shared-workspace-search { order:0; }
 @media (max-width:1279px) {
   html[data-genesis-theme] .genesis-app .shared-task-view-controls { grid-column:1/-1; flex-basis:100%; }
 }
@@ -1714,15 +1717,19 @@ html[data-genesis-theme] .genesis-app .account-plan { margin:0; color:var(--ink)
   html[data-genesis-theme] .genesis-app .shared-task-delete-footer > .shared-task-save { grid-column:1/-1; }
 }
 
-.admin-activity-help { color: var(--ink-soft); line-height: 1.6; max-width: 90ch; }
-.admin-activity-cell > div { display: grid; gap: 4px; margin-block-end: 12px; }
-.admin-activity-cell time, .admin-activity-cell strong { display: block; }
-.admin-client-activity { border-top: 1px solid var(--line); padding-block-start: 12px; }
-.admin-users-table .admin-activity-cell { min-width: 220px; max-width: 280px; }
-@media (max-width: 760px) { .admin-users-table .admin-activity-cell { min-width: 0; max-width: none; } }
+.admin-activity-help { color: var(--ink-soft); line-height: 1.6; width: 100%; max-width: none; }
+.admin-users-table .admin-activity-cell { min-width: 120px; }
+.admin-activity-dialog { width: min(640px, 100%); max-height: calc(100dvh - 48px); padding: clamp(16px, 3vw, 24px); border-radius: 16px; background: var(--surface); color: var(--ink); overflow: auto; }
+.admin-activity-dialog > header { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
+.admin-activity-dialog h2 { margin: 0; font: 400 26px/1.25 var(--font-heading); }
+.admin-activity-dialog > p { margin: 12px 0 24px; overflow-wrap: anywhere; color: var(--ink-soft); }
+.admin-activity-summary { display: grid; gap: 16px; margin: 0; }
+.admin-activity-summary > div { display: grid; gap: 4px; }
+.admin-activity-summary dt { color: var(--ink-soft); font: 400 14px/1.5 var(--font-ui); }
+.admin-activity-summary dd { margin: 0; font: 500 15px/1.5 var(--font-ui); }
+.admin-client-activity { margin-block-start: 24px; padding-block-start: 24px; border-top: 1px solid var(--line); }
+.admin-client-activity h3 { margin: 0 0 16px; font: 600 16px/1.4 var(--font-ui); }
 @media (max-width: 760px) {
-  html[data-genesis-theme] .genesis-app .admin-users-table .admin-activity-cell { display: block; }
+  html[data-genesis-theme] .genesis-app .admin-users-table .admin-activity-cell { display: block; min-width: 0; }
   html[data-genesis-theme] .genesis-app .admin-users-table .admin-activity-cell::before { display: block; margin-block-end: 12px; }
-  html[data-genesis-theme] .genesis-app .admin-users-table .admin-activity-cell > div { display: block; }
-  html[data-genesis-theme] .genesis-app .admin-users-table .admin-activity-cell :is(strong, small, time) { grid-column: auto; }
 }
