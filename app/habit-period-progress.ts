@@ -4,6 +4,7 @@ import { effectiveHabitMeasurement, habitMeasurementProgress, habitRuleForDate }
 import { isTrackerScheduledForDate } from "./tracker-core.ts";
 import type { Habit, HabitCompletion, HabitWorkspace } from "./habits";
 import { habitRuleState } from "./habit-rule-history.ts";
+import { habitLifecycleState } from "./habit-lifecycle.ts";
 
 type PeriodWorkspace = Pick<HabitWorkspace, "habitMeasurements" | "habitCompletions">;
 
@@ -22,7 +23,8 @@ export function habitPeriodProgress(habit: Habit, date: string, workspace: Perio
   let value = 0, qualifiedValue = 0, rewardValue = 0, conflicts = Boolean(ruleState.conflicts.length);
   for (let day = effectiveStart; day < period.end; day = addCivilDays(day, 1)) {
     const applied = habitRuleForDate(habit, day);
-    if (applied.id !== rule.id || !isTrackerScheduledForDate(rule.schedule, day, goal.calendar)) continue;
+    const lifecycle = habitLifecycleState(habit, day);
+    if (applied.id !== rule.id || lifecycle.status !== "active" || lifecycle.conflict || !isTrackerScheduledForDate(rule.schedule, day, goal.calendar)) continue;
     allowedDays.push(day);
     if (day > today) continue;
     days.push(day);
@@ -63,7 +65,7 @@ export function habitPeriodProgress(habit: Habit, date: string, workspace: Perio
     rewardEligible: rewardValue >= goal.target && !conflicts && (!ruleState.appliedVersion.selectedRuleId || !deadline
       || momentCivilDate(new Date(ruleState.appliedVersion.recordedAt), goal.context.timeZone) <= deadline),
     conflicts, partial, unattainable,
-    status: !habit.active || ruleState.conflicts.length || partial && !completed || unattainable && !completed || !deadline ? "neutral" as const
+    status: habitLifecycleState(habit, date).status !== "active" || ruleState.conflicts.length || partial && !completed || unattainable && !completed || !deadline ? "neutral" as const
       : completed ? "completed" as const : today > deadline ? "missed" as const : "open" as const };
 }
 

@@ -1158,6 +1158,7 @@ async function decryptWorkspace(envelope: WorkspaceEnvelope | null): Promise<Enc
 }
 
 function workspaceMinimumWriterProtocol(structure: EncryptedWorkspaceStructure) {
+  if (structure.habits.some(habit => habit.lifecycleHistory?.length)) return 7;
   if (structure.habitHistory.length) return 6;
   if (structure.habitTimers.length || structure.habitTimerEpoch) return 5;
   if (structure.habits.some(habit => habit.ruleHistory?.some(rule => rule.supersedes !== undefined || rule.selectedRuleId))) return 4;
@@ -1198,7 +1199,7 @@ async function encryptWorkspace(
       iv: bytesToBase64(iv),
       version: workspaceVersion + 1,
       expectedVersion: workspaceVersion,
-      writerProtocol: 6,
+      writerProtocol: 7,
       minimumWriterProtocol: workspaceMinimumWriterProtocol(structure),
       ...await habitReminderProjection(structure),
     },
@@ -1224,7 +1225,7 @@ async function encryptWorkspaceDocument(
     iv: bytesToBase64(iv),
     version: expectedVersion + 1,
     expectedVersion,
-    writerProtocol: 6,
+    writerProtocol: 7,
     minimumWriterProtocol: workspaceMinimumWriterProtocol(structure),
     ...await habitReminderProjection(structure),
   };

@@ -2,6 +2,7 @@ import { mergeHabitMeasurementEvents, normalizeHabitRuleHistory } from "./habit-
 import { habitRuleState } from "./habit-rule-history.ts";
 import { habitTimerEpoch, habitWorkspaceEpoch, mergeHabitTimerOperations } from "./habit-timer.ts";
 import { mergeHabitHistoryEdits } from "./habit-history.ts";
+import { mergeHabitLifecycleEvents, projectHabitLifecycle } from "./habit-lifecycle.ts";
 
 export const WORKSPACE_SYNC_SCHEMA_VERSION = 1 as const;
 
@@ -375,11 +376,13 @@ export function mergeWorkspaceDocuments(input: {
           ...(Array.isArray(rightItem.ruleHistory) ? rightItem.ruleHistory : []),
         ]);
         const latestRule = ruleHistory.length ? habitRuleState({ ...winner, ruleHistory } as Parameters<typeof habitRuleState>[0], "9999-12-31").rule : null;
-        winner = { ...winner, ruleHistory,
+          const lifecycleHistory = mergeHabitLifecycleEvents(leftItem.lifecycleHistory, rightItem.lifecycleHistory);
+          winner = { ...winner, ruleHistory, lifecycleHistory,
           // An old draft has neither the definition nor its history. Recover it without erasing remote values.
           measurement: latestRule ? latestRule.measurement : winner.measurement ?? leftItem.measurement ?? rightItem.measurement ?? null,
           ...(latestRule ? { schedule: latestRule.schedule, periodGoal: latestRule.periodGoal ?? null } : {}),
-        };
+          };
+          if (lifecycleHistory.length) winner = projectHabitLifecycle(winner as Parameters<typeof projectHabitLifecycle>[0]) as unknown as Record<string, unknown>;
       }
       const tombstone = tombstones.get(id);
       if (tombstone && revisionOrder(tombstone, normalizeRevision(winnerRevision, input.leftFallback)) >= 0) {
@@ -410,7 +413,8 @@ export function mergeWorkspaceDocuments(input: {
   });
   const history = Array.isArray(merged.habitHistory) ? merged.habitHistory : [];
   const epoch = habitTimerEpoch(merged.habitTimerEpoch);
-  merged.habitTimerEpoch = habitWorkspaceEpoch(epoch, history.some(row => row && row.epoch === epoch));
+  merged.habitTimerEpoch = habitWorkspaceEpoch(epoch, history.some(row => row && row.epoch === epoch),
+    Array.isArray(merged.habits) && merged.habits.some(row => Array.isArray(row.lifecycleHistory) && row.lifecycleHistory.length > 0));
   merged.syncMetadata = mergedMetadata;
   return { document: merged, metadata: mergedMetadata };
 }

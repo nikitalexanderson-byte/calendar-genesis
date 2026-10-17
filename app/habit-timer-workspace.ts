@@ -42,6 +42,8 @@ export function applyHabitTimerCommand(workspace: HabitWorkspace, command: Habit
   if (!session || session.root.owner !== command.owner) throw new RangeError("HABIT_TIMER_OTHER_DEVICE");
   if (!session.state && command.action !== "resolve") throw new RangeError("HABIT_TIMER_CONFLICT");
   const state = session.state;
+  if (command.action === "resume" && !workspace.habits.find(habit => habit.id === session.root.habitId)?.active)
+    throw new RangeError("HABIT_TIMER_DATE_UNAVAILABLE");
   if (command.action === "finish") {
     if (state?.status === "finished" || state?.status === "saved") return workspace;
     const habit = workspace.habits.find(item => item.id === session.root.habitId);
