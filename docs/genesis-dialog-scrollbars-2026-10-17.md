@@ -19,4 +19,8 @@
 
 ## Выпуск
 
-Выпуск только сайта через существующий deploy.yml, `GENESIS_DEPLOY_ANDROID=false`, Hostinger. Официальный Android остаётся 2.8.13 / 93. Результат CI и публичные SHA/health фиксируются после публикации. Ручные SSH и изменения production-БД не выполнялись. Откат — git revert и обычный workflow.
+Опубликовано через [PR #190](https://github.com/nikitalexanderson-byte/calendar-genesis/pull/190): source `6a4ca145858f6ffcec3ef147f258fe7b66b21607`, master/production `cf22dc6f3917aa52d1c59f1cc4d9e37d891d5844`. [Actions 39016660940](https://github.com/nikitalexanderson-byte/calendar-genesis/actions/runs/39016660940) success, 08:15:11–08:22:38 UTC. Backup Hostinger runtime успешен, Android setup/build skipped.
+
+Независимая публичная проверка в 08:23:34 UTC подтвердила SHA, health, email/push readiness и опубликованные стили. Android descriptor и SHA-256 APK побайтно совпали с состоянием до выпуска: 2.8.13 / 93. Доказательство: `output/ui217-production-verification.json`.
+
+Выпуск только сайта через существующий deploy.yml, `GENESIS_DEPLOY_ANDROID=false`, Hostinger. Ручные SSH и изменения production-БД не выполнялись. Откат — git revert и обычный workflow.

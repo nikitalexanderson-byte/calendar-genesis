@@ -123,6 +123,7 @@ class MobilePolishTest {
         runBlocking { WorkspaceStructureRepository(app).saveProject(
             GenesisProject(projectId, null, null, projectTitle, "Описание раскрытого проекта", emptyList(), "active", 0)) }
         compose.onNodeWithTag("navigation-Проекты").performClick()
+        compose.onNodeWithTag("personal-actions").performClick()
         compose.onNodeWithTag("create-project").performClick()
         compose.onNodeWithTag("project-title").performTextInput("Несохранённый проект полировки")
         UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()

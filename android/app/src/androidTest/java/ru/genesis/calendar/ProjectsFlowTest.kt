@@ -69,6 +69,7 @@ class ProjectsFlowTest {
         compose.onNodeWithTag("navigation-Проекты").performClick()
         compose.waitUntil(10_000) { compose.onAllNodesWithTag("projects-screen").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("projects-screen").assertExists()
+        compose.onNodeWithTag("personal-actions").performClick()
         compose.onNodeWithTag("create-project").performClick()
         if (alreadyCreated) {
             compose.onNodeWithTag("project-title").assertExists()
