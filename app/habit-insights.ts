@@ -1,7 +1,7 @@
 import type { CalendarMode } from "./calendar-data";
 import type { DailyGoalRecord } from "./daily-goal";
 import type { Habit, HabitCompletion, HabitWorkspace } from "./habits";
-import { addCivilDays, calendarContext, civilDayNumber, momentCivilDate, type CalendarContext } from "./calendar-context.ts";
+import { addCivilDays, calendarContext, civilDayNumber, isCivilDate, momentCivilDate, type CalendarContext } from "./calendar-context.ts";
 import { habitGoalPeriod } from "./habit-period-goal.ts";
 
 type InsightCompletion = Pick<HabitCompletion, "habitId" | "date" | "completed">;
@@ -17,6 +17,7 @@ export type HabitWeeklySummary = {
   xp: number;
   laurels: number;
   bestHabitTitle: string | null;
+  bestHabitId: string | null;
   bestHabitCompleted: number;
   previousCompleted: number;
   changePercent: number | null;
@@ -35,7 +36,9 @@ export type HabitPersonalRecord = {
   longestStreak: number;
   totalCompletions: number;
   scheduledCount: number;
-  completionRate: number;
+  scheduledCompletedCount: number;
+  unscheduledCompletions: number;
+  completionRate: number | null;
   bestMonth: string | null;
   bestMonthCompletions: number;
   startedAt: string;
@@ -101,6 +104,7 @@ function weekMetrics(workspace: HabitWorkspace, startDate: string, endDate: stri
       .filter((transaction) => transaction.amount > 0 && rewardDate(transaction, timeZone) >= startDate && rewardDate(transaction, timeZone) <= endDate)
       .reduce((total, transaction) => total + transaction.amount, 0),
     bestHabitTitle: best ? workspace.habits.find((habit) => habit.id === best[0])?.title ?? null : null,
+    bestHabitId: best?.[0] ?? null,
     bestHabitCompleted: best?.[1] ?? 0,
   };
 }
@@ -138,8 +142,10 @@ export function buildHabitPersonalRecord(
 ): HabitPersonalRecord {
   const endDate = habit.schedule.endDate && habit.schedule.endDate < today ? habit.schedule.endDate : today;
   const dates = endDate >= habit.createdDate ? datesBetween(habit.createdDate, endDate) : [];
-  const completedDates = completionSet(completions, habit.id);
+  const completedDates = completionSet(completions.filter(entry => entry.habitId === habit.id && isCivilDate(entry.date)
+    && entry.date >= habit.createdDate && entry.date <= today), habit.id);
   const scheduledDates = dates.filter((date) => isScheduledForDate(habit, date, calendarMode));
+  const scheduledCompletedCount = scheduledDates.filter(date => completedDates.has(date)).length;
   let currentStreak = 0;
   let longestStreak = 0;
   let run = 0;
@@ -153,10 +159,9 @@ export function buildHabitPersonalRecord(
       currentStreak = 0;
     }
   });
-  const completed = completions.filter((entry) => entry.habitId === habit.id && entry.completed && entry.date <= today);
   const byMonth = new Map<string, { count: number; label: string }>();
-  completed.forEach((entry) => {
-    const presentation = monthPresentation(entry.date);
+  completedDates.forEach((date) => {
+    const presentation = monthPresentation(date);
     const key = presentation.key;
     const current = byMonth.get(key);
     byMonth.set(key, {
@@ -165,7 +170,7 @@ export function buildHabitPersonalRecord(
     });
   });
   const bestMonth = Array.from(byMonth.entries()).sort((left, right) => right[1].count - left[1].count || right[0].localeCompare(left[0]))[0];
-  const totalCompletions = completed.length;
+  const totalCompletions = completedDates.size;
   const reachedMilestone = [...HABIT_MASTERY_MILESTONES].reverse().find((milestone) => totalCompletions >= milestone) ?? 0;
   const nextMilestone = HABIT_MASTERY_MILESTONES.find((milestone) => totalCompletions < milestone) ?? null;
   const milestoneSpan = nextMilestone ? nextMilestone - reachedMilestone : 1;
@@ -178,7 +183,9 @@ export function buildHabitPersonalRecord(
     longestStreak,
     totalCompletions,
     scheduledCount: scheduledDates.length,
-    completionRate: scheduledDates.length ? Math.min(100, Math.round(totalCompletions / scheduledDates.length * 100)) : 0,
+    scheduledCompletedCount,
+    unscheduledCompletions: totalCompletions - scheduledCompletedCount,
+    completionRate: scheduledDates.length ? Math.round(scheduledCompletedCount / scheduledDates.length * 100) : null,
     bestMonth: bestMonth?.[1].label ?? null,
     bestMonthCompletions: bestMonth?.[1].count ?? 0,
     startedAt: habit.createdDate,

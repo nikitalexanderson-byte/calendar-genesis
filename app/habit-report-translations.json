@@ -31,7 +31,9 @@
     "Резервная копия JSON": "JSON backup",
     "Включает всю историю, независимо от выбранного периода отчёта.": "Includes the full history, regardless of the selected report period.",
     "Подключения Google не переносятся.": "Google connections are not transferred.",
-    "Не удалось создать файл. Повторите попытку.": "Could not create the file. Please try again."
+    "Не удалось создать файл. Повторите попытку.": "Could not create the file. Please try again.",
+    "Выполнено по расписанию": "Completed as scheduled",
+    "Вне расписания": "Outside schedule"
   },
   "el": {
     "Итоги периода": "Σύνοψη περιόδου",
@@ -65,7 +67,9 @@
     "Резервная копия JSON": "Αντίγραφο ασφαλείας JSON",
     "Включает всю историю, независимо от выбранного периода отчёта.": "Περιλαμβάνει όλο το ιστορικό, ανεξάρτητα από την επιλεγμένη περίοδο αναφοράς.",
     "Подключения Google не переносятся.": "Οι συνδέσεις Google δεν μεταφέρονται.",
-    "Не удалось создать файл. Повторите попытку.": "Δεν ήταν δυνατή η δημιουργία του αρχείου. Δοκιμάστε ξανά."
+    "Не удалось создать файл. Повторите попытку.": "Δεν ήταν δυνατή η δημιουργία του αρχείου. Δοκιμάστε ξανά.",
+    "Выполнено по расписанию": "Ολοκληρώθηκαν σύμφωνα με το πρόγραμμα",
+    "Вне расписания": "Εκτός προγράμματος"
   },
   "de": {
     "Итоги периода": "Zeitraumübersicht",
@@ -99,7 +103,9 @@
     "Резервная копия JSON": "JSON-Sicherung",
     "Включает всю историю, независимо от выбранного периода отчёта.": "Enthält den gesamten Verlauf, unabhängig vom ausgewählten Berichtszeitraum.",
     "Подключения Google не переносятся.": "Google-Verbindungen werden nicht übertragen.",
-    "Не удалось создать файл. Повторите попытку.": "Die Datei konnte nicht erstellt werden. Bitte erneut versuchen."
+    "Не удалось создать файл. Повторите попытку.": "Die Datei konnte nicht erstellt werden. Bitte erneut versuchen.",
+    "Выполнено по расписанию": "Planmäßig erledigt",
+    "Вне расписания": "Außerhalb des Zeitplans"
   },
   "fr": {
     "Итоги периода": "Bilan de la période",
@@ -133,7 +139,9 @@
     "Резервная копия JSON": "Sauvegarde JSON",
     "Включает всю историю, независимо от выбранного периода отчёта.": "Inclut tout l’historique, quelle que soit la période sélectionnée pour le rapport.",
     "Подключения Google не переносятся.": "Les connexions Google ne sont pas transférées.",
-    "Не удалось создать файл. Повторите попытку.": "Impossible de créer le fichier. Réessayez."
+    "Не удалось создать файл. Повторите попытку.": "Impossible de créer le fichier. Réessayez.",
+    "Выполнено по расписанию": "Réalisé selon le planning",
+    "Вне расписания": "Hors planning"
   },
   "es": {
     "Итоги периода": "Resumen del período",
@@ -167,7 +175,9 @@
     "Резервная копия JSON": "Copia de seguridad JSON",
     "Включает всю историю, независимо от выбранного периода отчёта.": "Incluye todo el historial, independientemente del período seleccionado para el informe.",
     "Подключения Google не переносятся.": "Las conexiones con Google no se transfieren.",
-    "Не удалось создать файл. Повторите попытку.": "No se pudo crear el archivo. Inténtalo de nuevo."
+    "Не удалось создать файл. Повторите попытку.": "No se pudo crear el archivo. Inténtalo de nuevo.",
+    "Выполнено по расписанию": "Completado según lo previsto",
+    "Вне расписания": "Fuera de horario"
   },
   "it": {
     "Итоги периода": "Riepilogo del periodo",
@@ -201,7 +211,9 @@
     "Резервная копия JSON": "Backup JSON",
     "Включает всю историю, независимо от выбранного периода отчёта.": "Include tutta la cronologia, indipendentemente dal periodo selezionato nel rapporto.",
     "Подключения Google не переносятся.": "I collegamenti Google non vengono trasferiti.",
-    "Не удалось создать файл. Повторите попытку.": "Impossibile creare il file. Riprova."
+    "Не удалось создать файл. Повторите попытку.": "Impossibile creare il file. Riprova.",
+    "Выполнено по расписанию": "Completato come previsto",
+    "Вне расписания": "Fuori programma"
   },
   "pt": {
     "Итоги периода": "Resumo do período",
@@ -235,7 +247,9 @@
     "Резервная копия JSON": "Cópia de segurança JSON",
     "Включает всю историю, независимо от выбранного периода отчёта.": "Inclui todo o histórico, independentemente do período selecionado no relatório.",
     "Подключения Google не переносятся.": "As ligações ao Google não são transferidas.",
-    "Не удалось создать файл. Повторите попытку.": "Não foi possível criar o ficheiro. Tente novamente."
+    "Не удалось создать файл. Повторите попытку.": "Não foi possível criar o ficheiro. Tente novamente.",
+    "Выполнено по расписанию": "Concluído conforme o planejado",
+    "Вне расписания": "Fora do planejamento"
   },
   "pl": {
     "Итоги периода": "Podsumowanie okresu",
@@ -269,7 +283,9 @@
     "Резервная копия JSON": "Kopia zapasowa JSON",
     "Включает всю историю, независимо от выбранного периода отчёта.": "Obejmuje całą historię niezależnie od wybranego okresu raportu.",
     "Подключения Google не переносятся.": "Połączenia z Google nie są przenoszone.",
-    "Не удалось создать файл. Повторите попытку.": "Nie udało się utworzyć pliku. Spróbuj ponownie."
+    "Не удалось создать файл. Повторите попытку.": "Nie udało się utworzyć pliku. Spróbuj ponownie.",
+    "Выполнено по расписанию": "Wykonano zgodnie z harmonogramem",
+    "Вне расписания": "Poza harmonogramem"
   },
   "sr": {
     "Итоги периода": "Преглед периода",
@@ -303,7 +319,9 @@
     "Резервная копия JSON": "Резервна копија JSON",
     "Включает всю историю, независимо от выбранного периода отчёта.": "Обухвата целу историју, без обзира на изабрани период извештаја.",
     "Подключения Google не переносятся.": "Везе са Google се не преносе.",
-    "Не удалось создать файл. Повторите попытку.": "Датотека није направљена. Покушајте поново."
+    "Не удалось создать файл. Повторите попытку.": "Датотека није направљена. Покушајте поново.",
+    "Выполнено по расписанию": "Завршено по распореду",
+    "Вне расписания": "Ван распореда"
   },
   "uk": {
     "Итоги периода": "Підсумки періоду",
@@ -337,7 +355,9 @@
     "Резервная копия JSON": "Резервна копія JSON",
     "Включает всю историю, независимо от выбранного периода отчёта.": "Містить усю історію, незалежно від вибраного періоду звіту.",
     "Подключения Google не переносятся.": "Підключення Google не переносяться.",
-    "Не удалось создать файл. Повторите попытку.": "Не вдалося створити файл. Спробуйте ще раз."
+    "Не удалось создать файл. Повторите попытку.": "Не вдалося створити файл. Спробуйте ще раз.",
+    "Выполнено по расписанию": "Виконано за розкладом",
+    "Вне расписания": "Поза розкладом"
   },
   "zh": {
     "Итоги периода": "时段总结",
@@ -371,7 +391,9 @@
     "Резервная копия JSON": "JSON 备份",
     "Включает всю историю, независимо от выбранного периода отчёта.": "包括全部历史记录，不受所选报告时段限制。",
     "Подключения Google не переносятся.": "不会转移 Google 连接。",
-    "Не удалось создать файл. Повторите попытку.": "无法创建文件，请重试。"
+    "Не удалось создать файл. Повторите попытку.": "无法创建文件，请重试。",
+    "Выполнено по расписанию": "按计划完成",
+    "Вне расписания": "计划之外"
   },
   "tr": {
     "Итоги периода": "Dönem özeti",
@@ -405,7 +427,9 @@
     "Резервная копия JSON": "JSON yedeği",
     "Включает всю историю, независимо от выбранного периода отчёта.": "Seçilen rapor döneminden bağımsız olarak tüm geçmişi içerir.",
     "Подключения Google не переносятся.": "Google bağlantıları aktarılmaz.",
-    "Не удалось создать файл. Повторите попытку.": "Dosya oluşturulamadı. Lütfen tekrar deneyin."
+    "Не удалось создать файл. Повторите попытку.": "Dosya oluşturulamadı. Lütfen tekrar deneyin.",
+    "Выполнено по расписанию": "Planlandığı gibi tamamlandı",
+    "Вне расписания": "Program dışında"
   },
   "ja": {
     "Итоги периода": "期間のまとめ",
@@ -439,6 +463,8 @@
     "Резервная копия JSON": "JSON バックアップ",
     "Включает всю историю, независимо от выбранного периода отчёта.": "選択したレポート期間に関係なく、全履歴を含みます。",
     "Подключения Google не переносятся.": "Google の接続は引き継がれません。",
-    "Не удалось создать файл. Повторите попытку.": "ファイルを作成できませんでした。もう一度お試しください。"
+    "Не удалось создать файл. Повторите попытку.": "ファイルを作成できませんでした。もう一度お試しください。",
+    "Выполнено по расписанию": "予定どおり完了",
+    "Вне расписания": "予定外"
   }
 }
