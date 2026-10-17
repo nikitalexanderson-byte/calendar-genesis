@@ -733,9 +733,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         Text("GENESIS", Modifier.padding(start = 8.dp), style = MaterialTheme.typography.titleMedium)
                         Text(BuildConfig.VERSION_NAME, Modifier.padding(start = 7.dp),
                             style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(accountStatus, Modifier.padding(start = 10.dp).weight(1f).testTag("app-account-status"),
-                            style = MaterialTheme.typography.labelSmall, maxLines = 1,
-                            overflow = TextOverflow.Ellipsis)
+                        Spacer(Modifier.weight(1f))
                     } else {
                         Text("GENESIS",Modifier.padding(start=10.dp),style=MaterialTheme.typography.titleLarge)
                         Text(BuildConfig.VERSION_NAME,Modifier.padding(start=8.dp),
@@ -754,8 +752,6 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                 }
                 if (voiceLanguageEnabled && voiceControlActive) VoiceControlBar(prefs.language=="en",
                     onCommand=::executeVoiceCommand,onStop={voiceControlActive=false})
-                if (!compactHeader) Text(accountStatus,Modifier.padding(horizontal=16.dp).testTag("app-account-status"),
-                    style=MaterialTheme.typography.bodySmall)
                 if(!testWorkspace && authState.requiresSignIn) {
                     Text("Для синхронизации повторите вход. Данные и напоминания доступны на устройстве.",
                         Modifier.padding(horizontal=16.dp),style=MaterialTheme.typography.bodySmall)
@@ -1036,6 +1032,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     }
                     workspacePager(Modifier.fillMaxWidth().weight(1f).testTag("main-content"))
                 }
+                GenesisAccountFooter(accountStatus)
             }
             if (!testWorkspace && authState.ready && !authState.requiresSignIn &&
                 authState.user != null && authState.accountSettings?.sharedProjectsEligible == true) {

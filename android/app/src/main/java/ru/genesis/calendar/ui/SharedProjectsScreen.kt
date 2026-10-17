@@ -6,15 +6,18 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.BackHandler
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -29,6 +32,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.currentStateAsState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -78,6 +84,8 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     destination: SharedInvitationDestination?) {
     val en = language == "en"
     val scope = rememberCoroutineScope()
+    val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
+    val pageActive = LocalNavigationPageContext.current?.active != false && lifecycleState.isAtLeast(Lifecycle.State.STARTED)
     var spaces by remember { mutableStateOf(emptyList<JSONObject>()) }
     var projects by remember { mutableStateOf(emptyList<JSONObject>()) }
     var archivedProjects by remember { mutableStateOf(emptyList<JSONObject>()) }
@@ -91,7 +99,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     var inboxTaskPage by remember { mutableStateOf<JSONObject?>(null) }
     var discussionVisible by remember { mutableStateOf(false) }
     val discussionWindowHeight=androidx.compose.ui.platform.LocalContext.current.resources.displayMetrics.heightPixels
-    var spaceId by remember { mutableStateOf(destination?.spaceId.orEmpty()) }
+    var spaceId by rememberSaveable { mutableStateOf(destination?.spaceId.orEmpty()) }
     var expandedIds by remember { mutableStateOf(emptySet<String>()) }
     var uiReadySpace by remember { mutableStateOf("") }
     val expansionWrites = remember { Mutex() }
@@ -106,7 +114,17 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     var boardImage by remember { mutableStateOf("") }
     var pendingImageBoard by remember { mutableStateOf<Pair<String, String>?>(null) }
     var boardDone by remember { mutableStateOf(false) }
-    var projectId by remember { mutableStateOf("") }
+    var projectId by rememberSaveable { mutableStateOf("") }
+    var projectTrail by rememberSaveable { mutableStateOf(emptyList<String>()) }
+    var taskId by rememberSaveable { mutableStateOf("") }
+    var actionsOpen by remember { mutableStateOf(false) }
+    var showArchived by rememberSaveable { mutableStateOf(false) }
+    var filtersOpen by rememberSaveable { mutableStateOf(false) }
+    var statusFilter by rememberSaveable(projectId) { mutableStateOf("") }
+    var completionFilter by rememberSaveable(projectId) { mutableStateOf("any") }
+    var assigneeFilter by rememberSaveable(projectId) { mutableStateOf("") }
+    var priorityFilter by rememberSaveable(projectId) { mutableIntStateOf(-1) }
+    var discardTaskDraft by remember { mutableStateOf(false) }
     var viewOverride by remember { mutableStateOf<String?>(null) }
     val calendarEngine = remember { GenesisCalendar() }
     val enabledCalendars = LocalEnabledCalendars.current
@@ -126,50 +144,52 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     var calendarDay by remember { mutableStateOf(LocalDate.now()) }
     var showUndated by remember { mutableStateOf(false) }
     var taskPage by remember { mutableStateOf<JSONObject?>(null) }
-    var taskSearch by remember { mutableStateOf("") }
+    var taskSearch by rememberSaveable(projectId) { mutableStateOf("") }
     var openedTask by remember { mutableStateOf<JSONObject?>(null) }
-    var editTaskDetails by remember { mutableStateOf(JSONObject()) }
-    var taskId by remember { mutableStateOf("") }
-    var createModal by remember { mutableStateOf<String?>(null) }
+    var editTaskDetails by rememberSaveable(stateSaver = Saver<JSONObject, String>(
+        save = { it.toString() }, restore = { JSONObject(it) })) { mutableStateOf(JSONObject()) }
+    var draftTaskKey by rememberSaveable { mutableStateOf("") }
+    var createModal by rememberSaveable { mutableStateOf<String?>(null) }
     var showManagement by remember { mutableStateOf(false) }
-    var spaceTitle by remember { mutableStateOf("") }
-    var projectTitle by remember { mutableStateOf("") }
-    var projectDescription by remember { mutableStateOf("") }
-    var boardLayout by remember { mutableStateOf(false) }
-    var parentId by remember { mutableStateOf("") }
+    var spaceTitle by rememberSaveable { mutableStateOf("") }
+    var projectTitle by rememberSaveable { mutableStateOf("") }
+    var projectDescription by rememberSaveable { mutableStateOf("") }
+    var boardLayout by rememberSaveable { mutableStateOf(false) }
+    var parentId by rememberSaveable { mutableStateOf("") }
     var editTitle by remember { mutableStateOf("") }
     var editDescription by remember { mutableStateOf("") }
     var editBoardLayout by remember { mutableStateOf(false) }
     var editParentId by remember { mutableStateOf("") }
     var memberToRemove by remember { mutableStateOf<String?>(null) }
     var projectToArchive by remember { mutableStateOf<String?>(null) }
-    var newStatusTitle by remember { mutableStateOf("") }
-    var newStatusDone by remember { mutableStateOf(false) }
+    var newStatusTitle by rememberSaveable { mutableStateOf("") }
+    var newStatusDone by rememberSaveable { mutableStateOf(false) }
     var editingStatusId by remember { mutableStateOf("") }
     var statusTitleDraft by remember { mutableStateOf("") }
     var statusDestinations by remember { mutableStateOf(emptyMap<String, String>()) }
     var statusToDelete by remember { mutableStateOf<JSONObject?>(null) }
-    var newCategoryTitle by remember { mutableStateOf("") }
-    var newCategoryColor by remember { mutableStateOf("#2d6c68") }
+    var newCategoryTitle by rememberSaveable { mutableStateOf("") }
+    var newCategoryColor by rememberSaveable { mutableStateOf("#2d6c68") }
     var editingCategoryId by remember { mutableStateOf("") }
     var categoryTitleDraft by remember { mutableStateOf("") }
     var categoryColorDraft by remember { mutableStateOf("#2d6c68") }
     var categoryToDelete by remember { mutableStateOf<JSONObject?>(null) }
-    var newTaskCategoryId by remember { mutableStateOf("") }
-    var newTaskStatusId by remember { mutableStateOf("") }
-    var newTaskAssigneeId by remember { mutableStateOf("") }
-    var newTaskDescription by remember { mutableStateOf("") }
-    var newTaskDueDate by remember { mutableStateOf("") }
-    var editTaskCategoryId by remember { mutableStateOf("") }
-    var taskTitle by remember { mutableStateOf("") }
-    var inviteEmail by remember { mutableStateOf("") }
-    var inviteRole by remember { mutableStateOf("member") }
-    var commentBody by remember { mutableStateOf("") }
-    var editTaskTitle by remember { mutableStateOf("") }
-    var editTaskDescription by remember { mutableStateOf("") }
-    var editTaskDueDate by remember { mutableStateOf("") }
-    var editTaskRevision by remember { mutableIntStateOf(0) }
+    var newTaskCategoryId by rememberSaveable { mutableStateOf("") }
+    var newTaskStatusId by rememberSaveable { mutableStateOf("") }
+    var newTaskAssigneeId by rememberSaveable { mutableStateOf("") }
+    var newTaskDescription by rememberSaveable { mutableStateOf("") }
+    var newTaskDueDate by rememberSaveable { mutableStateOf("") }
+    var editTaskCategoryId by rememberSaveable { mutableStateOf("") }
+    var taskTitle by rememberSaveable { mutableStateOf("") }
+    var inviteEmail by rememberSaveable { mutableStateOf("") }
+    var inviteRole by rememberSaveable { mutableStateOf("member") }
+    var commentBody by rememberSaveable { mutableStateOf("") }
+    var editTaskTitle by rememberSaveable { mutableStateOf("") }
+    var editTaskDescription by rememberSaveable { mutableStateOf("") }
+    var editTaskDueDate by rememberSaveable { mutableStateOf("") }
+    var editTaskRevision by rememberSaveable { mutableIntStateOf(0) }
     var message by remember { mutableStateOf("") }
+    var messageIsError by remember { mutableStateOf(true) }
     var offlineSnapshot by remember { mutableStateOf(false) }
     var pendingTasks by remember { mutableStateOf(emptyList<JSONObject>()) }
     var failedDraft by remember { mutableStateOf<JSONObject?>(null) }
@@ -215,9 +235,9 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         }
     }
     fun selectProject(id: String) {
-        val collapse = projectId == id && id in expandedIds
-        persistExpansion(if (collapse) expandedIds - id else expandedIds + id)
-        projectId = if (collapse) "" else id
+        if (projectId.isNotBlank() && projectId != id) projectTrail = projectTrail + projectId
+        persistExpansion(expandedIds + id)
+        taskId = ""; projectId = id
         snapshot = null; viewOverride = null
     }
     fun openBoard(status: JSONObject) {
@@ -228,9 +248,10 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         boardDone = status.optInt("isDone") == 1
     }
     fun run(action: suspend () -> Unit) {
+        if (busy) return
+        busy = true; message = ""; messageIsError = false
         scope.launch {
-            busy = true; message = ""
-            try { action() } catch (error: Exception) { message = when (error.message) {
+            try { action() } catch (error: Exception) { messageIsError = true; message = when (error.message) {
                 "INVITEE_ACCOUNT_UNSUPPORTED" -> if (en) "This account cannot use shared projects." else "Этот аккаунт не может использовать общие проекты."
                 "INVITEE_ACCOUNT_NOT_FOUND" -> if (en) "No GENESIS account was found for this email." else "Аккаунт GENESIS с такой почтой не найден."
                 else -> error.message ?: "Ошибка сервера"
@@ -255,11 +276,14 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
             finally { loadingInvitations = false }
         }
     }
-    LaunchedEffect(Unit) {
+    LaunchedEffect(pageActive) {
+        if (!pageActive) return@LaunchedEffect
         try { refreshSpaces() } catch (error: Exception) { message = error.message ?: "Ошибка сервера" }
     }
-    LaunchedEffect(spaceId) {
+    LaunchedEffect(spaceId, pageActive) {
+        if (!pageActive) return@LaunchedEffect
         val targetSpace = spaceId
+        val restoredProjectId = projectId
         uiReadySpace = ""; expandedIds = emptySet(); projectId = ""; snapshot = null; inboxExpanded = false
         if (targetSpace.isNotBlank()) try {
             refreshProjects(targetSpace)
@@ -269,22 +293,14 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                 expandedIds = (0 until ids.length()).map(ids::getString).toSet()
                 uiReadySpace = targetSpace
                 inboxExpanded = projects.any { it.optInt("isInbox") == 1 && it.optString("id") in expandedIds }
-                projectId = destination?.takeIf { it.spaceId == targetSpace && projects.any { project -> project.optString("id") == it.projectId } }?.projectId ?: expandedIds.lastOrNull { id ->
-                    val item = projects.firstOrNull { it.optString("id") == id && it.optInt("isInbox") == 0 }
-                    var parent = item?.optString("parentId").orEmpty()
-                    val visited = mutableSetOf(id)
-                    var visible = item != null
-                    while (parent.isNotBlank() && parent != "null" && visited.add(parent)) {
-                        if (parent !in expandedIds) { visible = false; break }
-                        parent = projects.firstOrNull { it.optString("id") == parent }?.optString("parentId").orEmpty()
-                    }
-                    visible
-                }.orEmpty()
+                projectId = destination?.takeIf { it.spaceId == targetSpace && projects.any { project -> project.optString("id") == it.projectId } }?.projectId
+                    ?: restoredProjectId.takeIf { id -> projects.any { it.optString("id") == id } }.orEmpty()
             }
         } catch (error: Exception) { message = error.message ?: "Ошибка сервера" }
         else { projects = emptyList(); archivedProjects = emptyList() }
     }
-    LaunchedEffect(projectId) {
+    LaunchedEffect(projectId, pageActive) {
+        if (!pageActive) return@LaunchedEffect
         if (projectId.isBlank()) { snapshot = null; return@LaunchedEffect }
         while (isActive) {
             try {
@@ -344,21 +360,28 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     val canComment = role in setOf("owner", "manager", "member", "commenter")
     val canInvite = role in setOf("owner", "manager")
     val selectedTask = openedTask?.takeIf { it.optString("id") == taskId && it.optString("projectId") == projectId } ?: tasks.firstOrNull { it.optString("id") == taskId }
-    LaunchedEffect(projectId,taskId,comments,discussionVisible) {
-        if(discussionVisible&&taskId.isNotBlank()&&comments.isNotEmpty())runCatching {
+    LaunchedEffect(projectId,taskId,comments,discussionVisible,pageActive) {
+        if(pageActive&&discussionVisible&&taskId.isNotBlank()&&comments.isNotEmpty())runCatching {
             controller.readSharedTaskUpdates(projectId,taskId,comments.map { it.getString("id") })
             taskPage=taskPage?.let { page->JSONObject(page.toString()).put("tasks",JSONArray(page.optJSONArray("tasks")?.rows().orEmpty().map { if(it.optString("id")==taskId)JSONObject(it.toString()).put("unreadCommentCount",0) else it })) }
         }
     }
     val activeView = viewOverride ?: project?.optString("layout") ?: "list"
     val taskFilter = JSONObject().put("projectIds", JSONArray().put(projectId)).put("q", taskSearch)
+    if (statusFilter.isNotBlank()) taskFilter.put("statusIds", JSONArray().put(statusFilter))
+    if (completionFilter != "any") taskFilter.put("completion", completionFilter)
+    if (assigneeFilter.isNotBlank()) taskFilter.put("assigneeIds", JSONArray().put(assigneeFilter))
+    if (priorityFilter >= 0) taskFilter.put("priority", JSONArray().put(priorityFilter))
     if (activeView == "calendar") {
         if (showUndated) taskFilter.put("undated", true)
         else taskFilter.put("dueFrom", calendarDay.toString()).put("dueTo", calendarDay.toString())
     }
     val taskFilterKey = taskFilter.toString()
-    LaunchedEffect(taskFilterKey,taskSort) {
-        taskPage = null
+    var taskQueryIdentity by remember { mutableStateOf("") }
+    LaunchedEffect(taskFilterKey,taskSort,pageActive) {
+        if (!pageActive) return@LaunchedEffect
+        val identity = taskFilterKey + ":" + taskSort.wire
+        if (taskQueryIdentity != identity) { taskPage = null; taskQueryIdentity = identity }
         if (projectId.isBlank()) return@LaunchedEffect
         while (isActive) {
             try {
@@ -418,15 +441,38 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         }
     }
     val categoryColors = listOf("#2d6c68", "#a5543f", "#b18b48", "#665c88", "#54718a")
-    val pageScroll = rememberScrollState()
-    LaunchedEffect(spaceId, projectId) { pageScroll.scrollTo(0) }
-    LaunchedEffect(taskId, selectedTask?.optInt("revision")) {
-        if (selectedTask != null) {
-            withFrameNanos { }
-            pageScroll.animateScrollTo(pageScroll.maxValue)
+    val scrollPositions = remember { mutableMapOf<String, ScrollState>() }
+    val pageKey = if (taskId.isNotBlank()) "task:$projectId:$taskId" else if (projectId.isNotBlank())
+        "project:$projectId" else "space:$spaceId"
+    val pageScroll = scrollPositions.getOrPut(pageKey) { ScrollState(0) }
+    val taskDraftChanged = selectedTask != null && draftTaskKey == "$projectId:$taskId" && ((canWrite && (
+        editTaskTitle != selectedTask.optString("title") ||
+        editTaskDescription != selectedTask.optString("description") ||
+        editTaskDueDate != selectedTask.optString("dueDate").takeUnless { it == "null" }.orEmpty() ||
+        editTaskCategoryId != selectedTask.optString("categoryId").takeUnless { it == "null" }.orEmpty() ||
+        editTaskDetails.toString() != sharedTaskDetailDraft(selectedTask).toString())) || (canComment && commentBody.isNotBlank()))
+    fun navigateBack() {
+        if (busy) return
+        actionsOpen = false
+        when {
+            taskId.isNotBlank() -> if (taskDraftChanged) discardTaskDraft = true else { draftTaskKey = ""; taskId = ""; openedTask = null }
+            projectId.isNotBlank() -> {
+                projectId = projectTrail.lastOrNull().orEmpty(); projectTrail = projectTrail.dropLast(1)
+                snapshot = null; viewOverride = null
+            }
+            else -> { spaceId = ""; projectTrail = emptyList() }
         }
     }
-    LaunchedEffect(projectId) {
+    BackHandler(enabled = pageActive && (taskId.isNotBlank() || projectId.isNotBlank() || spaceId.isNotBlank()) &&
+        createModal == null && !showManagement && boardDraft == null && !filtersOpen && !discardTaskDraft) { navigateBack() }
+    if (discardTaskDraft) AlertDialog(onDismissRequest = { discardTaskDraft = false },
+        title = { Text("Несохранённые изменения") },
+        text = { Text("Вернуться без сохранения изменений?") },
+        confirmButton = { TextButton(onClick = { discardTaskDraft = false; draftTaskKey = ""; commentBody = ""; taskId = ""; openedTask = null }) {
+            Text("Не сохранять") } },
+        dismissButton = { TextButton(onClick = { discardTaskDraft = false }) { Text("Продолжить редактирование") } })
+    LaunchedEffect(projectId, pageActive) {
+        if (!pageActive) return@LaunchedEffect
         googleSettings = null; googleMessage = ""
         if (projectId.isBlank()) return@LaunchedEffect
         try { googleSettings = controller.sharedGoogleSettings(projectId).getJSONObject("settings") }
@@ -440,17 +486,23 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
             }
         }
     }
-    LaunchedEffect(projectId, taskId) {
+    LaunchedEffect(projectId, taskId, pageActive) {
+        if (!pageActive) return@LaunchedEffect
         if (taskId.isBlank()) { openedTask = null; return@LaunchedEffect }
-        val current = try { controller.sharedTask(projectId, taskId).getJSONObject("task") }
+        val targetProject = projectId; val targetTask = taskId
+        val current = try { controller.sharedTask(targetProject, targetTask).getJSONObject("task") }
             catch(error: Exception) { message = error.message ?: "TASK_NOT_FOUND"; return@LaunchedEffect }
+        if (projectId != targetProject || taskId != targetTask) return@LaunchedEffect
         openedTask = current
-        editTaskDetails = sharedTaskDetailDraft(current)
-        editTaskTitle = current?.optString("title") ?: ""
-        editTaskDescription = current?.optString("description") ?: ""
-        editTaskDueDate = current?.optString("dueDate")?.takeUnless { it == "null" } ?: ""
-        editTaskCategoryId = current?.optString("categoryId")?.takeUnless { it == "null" } ?: ""
-        editTaskRevision = current?.optInt("revision") ?: 0
+        if (draftTaskKey != "$projectId:$taskId") {
+            editTaskDetails = sharedTaskDetailDraft(current)
+            editTaskTitle = current.optString("title")
+            editTaskDescription = current.optString("description")
+            editTaskDueDate = current.optString("dueDate").takeUnless { it == "null" }.orEmpty()
+            editTaskCategoryId = current.optString("categoryId").takeUnless { it == "null" }.orEmpty()
+            editTaskRevision = current.optInt("revision")
+            commentBody = ""; draftTaskKey = "$projectId:$taskId"
+        }
     }
     LaunchedEffect(projectId, project?.optInt("revision")) {
         editTitle = project?.optString("title") ?: ""
@@ -585,9 +637,10 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                     }
                     "task" -> {
                         OutlinedTextField(taskTitle, { taskTitle = it },
-                            label = { Text(if (en) "Name" else "Название") }, modifier = Modifier.fillMaxWidth())
+                            label = { Text(if (en) "Name" else "Название") }, enabled = !busy,
+                            modifier = Modifier.fillMaxWidth().testTag("shared-new-task-title"))
                         OutlinedTextField(newTaskDescription, { newTaskDescription = it },
-                            label = { Text(if (en) "Description" else "Описание") }, modifier = Modifier.fillMaxWidth())
+                            label = { Text(if (en) "Description" else "Описание") }, enabled = !busy, modifier = Modifier.fillMaxWidth())
                         Text(if (en) "Due date" else "Срок", style = MaterialTheme.typography.titleSmall)
                         if (newTaskDueDate.isBlank()) TextButton(onClick = { newTaskDueDate = LocalDate.now().toString() }) {
                             Text(if (en) "Set due date" else "Установить срок")
@@ -602,6 +655,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                                 onClick = { newTaskStatusId = status.optString("id") },
                                 label = { Text(sharedStatusLabel(status.optString("title"), en)) }) }
                         }
+                        AffairsDisclosure("Дополнительные параметры задачи") {
                         Text(if (en) "Category" else "Категория", style = MaterialTheme.typography.titleSmall)
                         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             (listOf<JSONObject?>(null) + categories).forEach { category ->
@@ -617,6 +671,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                                 FilterChip(selected = newTaskAssigneeId == id, onClick = { newTaskAssigneeId = id },
                                     label = { Text(member?.optString("displayName") ?: if (en) "Unassigned" else "Не назначен") })
                             }
+                        }
                         }
                     }
                     "status" -> {
@@ -690,14 +745,21 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                     }
                 }
                 createModal = null
-            } }, enabled = !busy && when (modal) {
+            } }, modifier = Modifier.heightIn(min = 48.dp).testTag("shared-create-confirm"), enabled = !busy && when (modal) {
                 "space" -> spaceTitle.isNotBlank()
                 "project" -> projectTitle.isNotBlank()
                 "task" -> taskTitle.isNotBlank() && statuses.isNotEmpty() && validDate
                 "status" -> newStatusTitle.isNotBlank() && statuses.size < 30
                 "category" -> newCategoryTitle.isNotBlank() && categories.size < 50
                 else -> inviteEmail.trim().lowercase(Locale.ROOT).let { it.endsWith("@gmail.com") || it.endsWith("@googlemail.com") }
-            }) { Text(if (en) "Create" else "Создать") } },
+            }) { Text(when (modal) {
+                "task" -> "Добавить задачу"
+                "project" -> "Создать проект"
+                "space" -> "Создать пространство"
+                "invite" -> "Пригласить"
+                "status" -> "Создать список задач"
+                else -> "Создать категорию"
+            }) } },
             dismissButton = { TextButton(onClick = { createModal = null }, enabled = !busy) {
                 Text(if (en) "Cancel" else "Отмена")
             } })
@@ -980,186 +1042,254 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
             }
         } },
         confirmButton = { TextButton(onClick = { showManagement = false }) { Text(if (en) "Close" else "Закрыть") } })
+    if (filtersOpen) {
+        var draftStatus by rememberSaveable { mutableStateOf(statusFilter) }
+        var draftCompletion by rememberSaveable { mutableStateOf(completionFilter) }
+        var draftAssignee by rememberSaveable { mutableStateOf(assigneeFilter) }
+        var draftPriority by rememberSaveable { mutableIntStateOf(priorityFilter) }
+        AffairsFilterDialog(onDismiss = { filtersOpen = false }, onApply = {
+            statusFilter = draftStatus; completionFilter = draftCompletion
+            assigneeFilter = draftAssignee; priorityFilter = draftPriority; filtersOpen = false
+        }, onReset = { draftStatus = ""; draftCompletion = "any"; draftAssignee = ""; draftPriority = -1 }) {
+            Text("Выполнение", style = MaterialTheme.typography.titleSmall)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("any" to "Все задачи", "open" to "Незавершённые", "completed" to "Завершённые").forEach { (id, label) ->
+                    FilterChip(draftCompletion == id, { draftCompletion = id }, label = { Text(label) },
+                        modifier = Modifier.heightIn(min = 48.dp).testTag("shared-filter-completion-$id"))
+                }
+            }
+            Text("Статус", style = MaterialTheme.typography.titleSmall)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(draftStatus.isBlank(), { draftStatus = "" }, label = { Text("Все") })
+                statuses.forEach { status -> FilterChip(draftStatus == status.optString("id"),
+                    { draftStatus = status.optString("id") }, label = { Text(sharedStatusLabel(status.optString("title"), en)) },
+                    modifier = Modifier.heightIn(min = 48.dp)) }
+            }
+            Text("Исполнитель", style = MaterialTheme.typography.titleSmall)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("" to "Все", "me" to "Назначено мне", "unassigned" to "Без исполнителя").forEach { (id, label) ->
+                    FilterChip(draftAssignee == id, { draftAssignee = id }, label = { Text(label) },
+                        modifier = Modifier.heightIn(min = 48.dp))
+                }
+                members.forEach { member -> FilterChip(draftAssignee == member.optString("userId"),
+                    { draftAssignee = member.optString("userId") }, label = { Text(member.optString("displayName")) },
+                    modifier = Modifier.heightIn(min = 48.dp)) }
+            }
+            Text("Приоритет", style = MaterialTheme.typography.titleSmall)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("Все", "Без приоритета", "Низкий приоритет", "Средний приоритет", "Высокий приоритет").forEachIndexed { index, label ->
+                    FilterChip(draftPriority == index - 1, { draftPriority = index - 1 }, label = { Text(label) },
+                        modifier = Modifier.heightIn(min = 48.dp).testTag("shared-filter-priority-${index - 1}"))
+                }
+            }
+        }
+    }
+    val currentSpace = spaces.firstOrNull { it.optString("id") == spaceId }
+    val spaceCanCreate = currentSpace?.optString("role") in setOf("owner", "admin", "member")
+    val filterCount = listOf(statusFilter.isNotBlank(), completionFilter != "any",
+        assigneeFilter.isNotBlank(), priorityFilter >= 0).count { it }
+    val dateValid = editTaskDueDate.isBlank() || runCatching { LocalDate.parse(editTaskDueDate) }.isSuccess
+    val saveTask: () -> Unit = { run {
+        val changed = controller.updateSharedTask(projectId, taskId, JSONObject(editTaskDetails.toString())
+            .put("title", editTaskTitle.trim()).put("description", editTaskDescription.trim())
+            .put("dueDate", editTaskDueDate.ifBlank { null } ?: JSONObject.NULL)
+            .put("categoryId", editTaskCategoryId.ifBlank { null } ?: JSONObject.NULL)
+            .put("expectedRevision", editTaskRevision)).getJSONObject("task")
+        editTaskRevision = changed.getInt("revision"); editTaskDetails = sharedTaskDetailDraft(changed)
+        editTaskTitle = changed.optString("title"); editTaskDescription = changed.optString("description")
+        editTaskDueDate = changed.optString("dueDate").takeUnless { it == "null" }.orEmpty()
+        editTaskCategoryId = changed.optString("categoryId").takeUnless { it == "null" }.orEmpty()
+        openedTask = changed; pendingTasks = controller.queuedSharedTasks(projectId)
+        if (changed.optBoolean("pending")) message = if (en)
+            "Change saved on this device. It will sync when connected."
+            else "Изменение сохранено на устройстве и синхронизируется после подключения."
+        else { refreshProject(projectId); message = if (en) "Task saved." else "Задача сохранена." }
+    } }
     Box(Modifier.fillMaxSize().onGloballyPositioned { rootPosition = it.boundsInWindow().topLeft }) {
-    Column(Modifier.fillMaxSize().verticalScroll(pageScroll).padding(16.dp)
+    Column(Modifier.fillMaxSize().imePadding()) {
+    Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(pageScroll).padding(AffairsLayout.gutter)
         .testTag("shared-projects-screen"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        GenesisPageHeader(if (en) "Affairs - shared" else "Дела - общие",
-            if (en) "Team projects, tasks and people in one place."
-            else "Проекты, задачи и участники команды в одном месте.",
-            "",
-            icon = GenesisPageIcon.PROJECTS_SHARED)
+        AffairsPageHeader(
+            title = when {
+                taskId.isNotBlank() -> if (en) "Task" else "Задача"
+                projectId.isNotBlank() -> project?.optString("title").orEmpty()
+                spaceId.isNotBlank() -> currentSpace?.optString("title").orEmpty()
+                else -> if (en) "Shared affairs" else "Общие дела"
+            },
+            context = when {
+                taskId.isNotBlank() -> project?.optString("title").orEmpty()
+                projectId.isNotBlank() -> currentSpace?.optString("title").orEmpty() + " · " + genesisTranslate(sharedRoleLabel(role, en))
+                spaceId.isNotBlank() -> if (en) "Projects" else "Проекты"
+                else -> if (en) "Workspaces and projects" else "Пространства и проекты"
+            }, icon = GenesisPageIcon.PROJECTS_SHARED,
+            onBack = if (spaceId.isNotBlank()) ({ navigateBack() }) else null, backEnabled = !busy,
+            titleIsUserContent = taskId.isBlank() && spaceId.isNotBlank(), contextIsUserContent = projectId.isNotBlank(),
+            actions = {
+                if (taskId.isBlank()) Box {
+                    AffairsIconButton("Дополнительные действия", AffairsAction.MORE, { actionsOpen = true },
+                        Modifier.testTag("shared-actions"))
+                    DropdownMenu(actionsOpen, { actionsOpen = false }) {
+                        if (projectId.isNotBlank()) {
+                            DropdownMenuItem(text = { Text("Настройки проекта") }, onClick = {
+                                actionsOpen = false; managementPage = "project"; showManagement = true })
+                            DropdownMenuItem(text = { Text("Участники и роли") }, onClick = {
+                                actionsOpen = false; managementPage = "team"; showManagement = true })
+                            if (canWrite) {
+                                DropdownMenuItem(text = { Text("Создать список задач") }, enabled = !busy && statuses.size < 30,
+                                    onClick = { actionsOpen = false; createModal = "status" })
+                                DropdownMenuItem(text = { Text("Добавить проект") }, enabled = !busy, onClick = {
+                                    actionsOpen = false; createKind = "project"; parentId = projectId
+                                    parentBoardId = ""; createModal = "project" })
+                            }
+                        } else {
+                            DropdownMenuItem(text = { Text("Создать пространство") }, enabled = !busy,
+                                onClick = { actionsOpen = false; createModal = "space" })
+                            DropdownMenuItem(text = { Text("Присоединиться к пространству") }, enabled = !busy,
+                                modifier = Modifier.testTag("shared-join-space"),
+                                onClick = { actionsOpen = false; createModal = "join" })
+                            if (spaceId.isNotBlank()) {
+                                if (currentSpace?.optString("role") in setOf("owner", "admin"))
+                                    DropdownMenuItem(text = { Text("Пригласить через Gmail") }, enabled = !busy,
+                                        modifier = Modifier.testTag("shared-invite-space"),
+                                        onClick = { actionsOpen = false; createModal = "invite" })
+                                DropdownMenuItem(text = { Text("Архив проектов") }, onClick = {
+                                    actionsOpen = false; showArchived = !showArchived })
+                            }
+                        }
+                    }
+                }
+            })
         if (offlineSnapshot) Text(if (en) "Offline: showing the last protected team snapshot."
             else "Нет связи: показана последняя защищённая копия команды.",
             modifier = Modifier.fillMaxWidth().testTag("shared-offline-status"),
             color = MaterialTheme.colorScheme.secondary)
         if (pendingTasks.isNotEmpty()) Surface(Modifier.fillMaxWidth().testTag("shared-pending-tasks"),
-            shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceVariant) {
+            shape = AffairsLayout.shape, color = MaterialTheme.colorScheme.surfaceVariant) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(if (en) "Waiting to send · ${pendingTasks.size}" else "Ожидают отправки · ${pendingTasks.size}",
                     style = MaterialTheme.typography.titleSmall)
                 pendingTasks.forEach { item -> Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                     Text(item.optString("title") + if (item.optString("error").isBlank()) "" else
                         if (en) " · Needs attention" else " · Нужна проверка", Modifier.weight(1f))
-                    if (item.optString("error").isNotBlank()) TextButton(onClick = { failedDraft = item }) {
-                        Text(if (en) "Details" else "Подробнее")
-                    }
+                    if (item.optString("error").isNotBlank()) TextButton(onClick = { failedDraft = item }) { Text("Подробнее") }
                 } }
             }
         }
-        TaskListSortChoice(taskSort,setTaskSort)
-        if (inboxProject != null) Surface(Modifier.fillMaxWidth().testTag("shared-project-inbox"),
-            shape = MaterialTheme.shapes.medium, color = Color(0xff103632)) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(if (en) "Shared inbox" else "Хаос-бокс", color = Color(0xfff8f3e8),
-                            style = MaterialTheme.typography.titleMedium)
-                        Text(if (en) "${inboxProject.optInt("taskCount")} tasks" else "${inboxProject.optInt("taskCount")} задач",
-                            color = Color(0xffb8ccc5), style = MaterialTheme.typography.bodySmall)
+        if (message.isNotBlank() && taskId.isBlank()) Text(message, modifier = Modifier.testTag("shared-feedback"),
+            color = if (messageIsError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+        if (projectId.isBlank()) {
+            if (spaceId.isBlank()) {
+                if (spaces.isEmpty()) {
+                    Text("В этом разделе пока нет проектов.", style = MaterialTheme.typography.bodyMedium)
+                    Button(onClick = { createModal = "space" }, enabled = !busy,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("shared-create-space")) {
+                        Text("Создать пространство")
                     }
-                    TextButton(onClick = {
-                        inboxExpanded = !inboxExpanded
-                        persistExpansion(if (inboxExpanded) expandedIds + inboxProject.optString("id") else expandedIds - inboxProject.optString("id"))
-                    },
-                        modifier = Modifier.testTag("shared-inbox-expand"),
-                        colors = ButtonDefaults.textButtonColors(contentColor = Color(0xfff8f3e8))) {
-                        Text(if (inboxExpanded) (if (en) "Collapse" else "Свернуть")
-                            else (if (en) "Open" else "Открыть"))
+                    OutlinedButton(onClick = { createModal = "join" }, enabled = !busy,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("shared-join-space-empty")) {
+                        Text("Присоединиться к пространству")
                     }
                 }
-                Text(if (en) "Keep new team tasks here, then place them in a project."
-                    else "Собирайте общие задачи здесь, затем распределяйте их по проектам команды.",
-                    color = Color(0xffb8ccc5), style = MaterialTheme.typography.bodySmall)
-                if (inboxExpanded) {
-                    if (inboxPreview == null||inboxTaskPage==null) LinearProgressIndicator(Modifier.fillMaxWidth())
-                    else if (inboxTasks.isEmpty()) Text(if (en) "No unsorted tasks yet." else "Задач без проекта пока нет.",
-                        color = Color(0xffb8ccc5), style = MaterialTheme.typography.bodyMedium)
-                    inboxTasks.forEach { task ->
-                        TextButton(onClick = {
-                            projectId = inboxProject.optString("id")
-                            snapshot = inboxPreview
-                            taskId = task.optString("id")
-                        }, modifier = Modifier.fillMaxWidth().testTag("shared-inbox-task-${task.optString("id")}"),
-                            colors = ButtonDefaults.textButtonColors(contentColor = Color(0xfff8f3e8))) {
-                            Column(Modifier.fillMaxWidth()) {
-                                Text(task.optString("title"), maxLines = 2,fontWeight=if(task.optInt("unreadCommentCount")>0)androidx.compose.ui.text.font.FontWeight.Bold else null)
-                                UnreadCommentBadge(task.optInt("unreadCommentCount"))
-                            }
-                        }
-                    }
-                    if(inboxTaskPage?.optBoolean("hasMore")==true)TextButton(onClick={run {
-                        val filter=JSONObject().put("projectIds",JSONArray().put(inboxId))
-                        inboxTaskPage=mergeSharedTaskPage(inboxTaskPage,controller.sortedSharedTasks(filter,inboxTaskPage?.optString("nextCursor"),taskSort.wire),true)
-                    }},enabled=!busy){Text(if(en)"Load more tasks" else "Ещё задачи")}
-                    if (inboxProject.optString("role") in setOf("owner", "manager", "member")) {
-                        TextButton(onClick = { run {
-                            val inboxId = inboxProject.optString("id")
-                            val opened = controller.sharedProject(inboxId)
-                            projectId = inboxId; snapshot = opened; inboxPreview = opened
-                            newTaskStatusId = opened.optJSONArray("statuses")?.optJSONObject(0)?.optString("id").orEmpty()
-                            createModal = "task"
-                        } }, enabled = !busy, modifier = Modifier.testTag("shared-inbox-create-task"),
-                            colors = ButtonDefaults.textButtonColors(contentColor = Color(0xfff8f3e8))) {
-                            Text(if (en) "Create task" else "Создать задачу")
+                spaces.forEach { item ->
+                    OutlinedCard(onClick = { spaceId = item.getString("id"); projectTrail = emptyList(); showArchived = false },
+                        modifier = Modifier.fillMaxWidth().testTag("shared-space-${item.optString("id")}"),
+                        shape = AffairsLayout.shape) {
+                        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            androidx.compose.material3.Text(item.getString("title"), style = MaterialTheme.typography.titleMedium)
+                            Text(sharedRoleLabel(item.optString("role"), en), style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
-            }
-        }
-        if (message.isNotBlank()) Text(message, color = MaterialTheme.colorScheme.error)
-
-
-        SharedBlock(if (en) "Workspaces and projects" else "Пространства и проекты") {
-        Button(onClick = { createModal = "space" }, enabled = !busy, modifier = Modifier.fillMaxWidth().testTag("shared-create-space")) {
-            Text(if (en) "Create workspace" else "Создать пространство")
-        }
-        OutlinedButton(onClick = { createModal = "join" }, enabled = !busy, modifier = Modifier.fillMaxWidth().testTag("shared-join-space")) {
-            Text(if (en) "Join workspace" else "Присоединиться к пространству")
-        }
-        spaces.forEach { item ->
-            OutlinedButton(onClick = { spaceId = item.getString("id"); projectId = ""; snapshot = null },
-                modifier = Modifier.fillMaxWidth().testTag("shared-space-${item.optString("id")}")) {
-                Text(item.getString("title"), modifier = Modifier.fillMaxWidth())
-            }
-        }
-        if (spaceId.isNotBlank()) {
-            HorizontalDivider()
-            Text(if (en) "Projects" else "Проекты", style = MaterialTheme.typography.titleMedium)
-            SharedProjectTree(projects, expandedIds, projectId, ::selectProject)
-            TextButton(onClick = { createKind = "project"; parentId = ""; parentBoardId = ""; createModal = "project" }, modifier = Modifier.fillMaxWidth()) {
-                Text(if (en) "Create shared project" else "Создать общий проект")
-            }
-            if (spaces.firstOrNull { it.optString("id") == spaceId }?.optString("role") in setOf("owner", "admin")) {
-                OutlinedButton(onClick = { createModal = "invite" }, enabled = !busy,
-                    modifier = Modifier.fillMaxWidth().testTag("shared-invite-space")) {
-                    Text(if (en) "Invite via Gmail" else "Пригласить через Gmail")
+            } else {
+                if (spaceCanCreate) Button(onClick = {
+                    createKind = "project"; parentId = ""; parentBoardId = ""; createModal = "project"
+                }, enabled = !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("shared-create-project")) {
+                    Text("Создать общий проект")
                 }
-            }
-            if (archivedProjects.isNotEmpty()) {
-                Text(if (en) "Archived projects" else "Архив проектов", style = MaterialTheme.typography.titleMedium)
-                archivedProjects.forEach { item -> Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                    Text(item.optString("title"), modifier = Modifier.weight(1f))
-                    if (item.optString("role") == "owner") TextButton(onClick = { run {
-                        controller.setSharedProjectArchived(item.getString("id"), false)
-                        refreshProjects(spaceId); projectId = item.getString("id")
-                    } }, enabled = !busy) { Text(if (en) "Restore" else "Восстановить") }
-                } }
+                if (inboxProject != null) Card(onClick = { selectProject(inboxProject.optString("id")) },
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                    shape = AffairsLayout.shape, modifier = Modifier.fillMaxWidth().testTag("shared-project-inbox")) {
+                    Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Хаос-бокс", style = MaterialTheme.typography.titleMedium)
+                            Text("${inboxProject.optInt("taskCount")} задач", style = MaterialTheme.typography.bodySmall)
+                        }
+                        AffairsActionIcon(AffairsAction.EXPAND)
+                    }
+                }
+                if (showArchived) {
+                    Text("Архив проектов", style = MaterialTheme.typography.titleMedium)
+                    archivedProjects.forEach { item -> Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Text(item.optString("title"), modifier = Modifier.weight(1f))
+                        if (item.optString("role") == "owner") TextButton(onClick = { run {
+                            controller.setSharedProjectArchived(item.getString("id"), false)
+                            refreshProjects(spaceId); selectProject(item.getString("id"))
+                        } }, enabled = !busy) { Text("Восстановить") }
+                    } }
+                } else {
+                    SharedProjectTree(projects, expandedIds, projectId, ::selectProject,
+                        onToggle = { id -> persistExpansion(if (id in expandedIds) expandedIds - id else expandedIds + id) })
+                    if (uiReadySpace == spaceId && projects.none { it.optInt("isInbox") == 0 })
+                        Text("В этом разделе пока нет проектов.", style = MaterialTheme.typography.bodyMedium)
+                }
+                if (uiReadySpace != spaceId) LinearProgressIndicator(Modifier.fillMaxWidth())
             }
         }
-        }
+        if (projectId.isNotBlank() && project == null) LinearProgressIndicator(Modifier.fillMaxWidth())
         if (project != null) {
-            SharedBlock(if (en) "Project and team" else "Проект и команда") {
-            if (project.optInt("isInbox") == 0) Text(project.optString("title"),
-                style = MaterialTheme.typography.titleMedium)
-            Text((if (en) "Your role: " else "Ваша роль: ") + sharedRoleLabel(role, en), style = MaterialTheme.typography.bodySmall)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { managementPage = "project"; showManagement = true }, modifier = Modifier.weight(1f)) {
-                    Text(if (en) "Settings" else "Настройки")
-                }
-                OutlinedButton(onClick = { managementPage = "team"; showManagement = true }, modifier = Modifier.weight(1f)) {
-                    Text(if (en) "Team" else "Команда")
-                }
-            }
-
-            }
-            SharedBlock(if (en) "Project tasks" else "Задачи проекта") {
-            if (canWrite && statuses.isNotEmpty()) {
-                Button(onClick = {
+            if (taskId.isBlank()) {
+                if (canWrite && statuses.isNotEmpty()) Button(onClick = {
                     newTaskStatusId = statuses.first().optString("id")
                     newTaskCategoryId = ""; newTaskAssigneeId = ""; createModal = "task"
-                }, enabled = !busy) {
-                    Text(if (en) "Create team task" else "Создать задачу команды")
+                }, enabled = !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("shared-create-task")) {
+                    Text("Добавить задачу")
                 }
-                Button(onClick = { createModal = "status" }, enabled = !busy && statuses.size < 30) {
-                    Text(if (en) "Create task list" else "Создать список задач")
+                AffairsSearchField(taskSearch, { taskSearch = it.take(200) }, "Поиск задач",
+                    Modifier.testTag("shared-task-search"))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    TaskListSortChoice(taskSort, setTaskSort, Modifier.weight(1f), compact = true)
+                    OutlinedButton(onClick = { filtersOpen = true }, modifier = Modifier.heightIn(min = 48.dp)
+                        .testTag("shared-filters")) { Text("Фильтры" + if (filterCount > 0) " · $filterCount" else "") }
                 }
-            }
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("list", "board", "calendar").forEach { view ->
-                    FilterChip(selected = activeView == view, onClick = { viewOverride = view },
-                        label = { Text(when (view) {
-                            "board" -> if (en) "Board" else "Доска"
-                            "calendar" -> if (en) "Calendar" else "Календарь"
-                            else -> if (en) "List" else "Список"
+                if (filterCount > 0 || taskSearch.isNotBlank()) Row(Modifier.fillMaxWidth(),
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Text(taskPage?.optInt("total")?.toString().orEmpty(), Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
+                    TextButton(onClick = { statusFilter = ""; completionFilter = "any"; assigneeFilter = "";
+                    priorityFilter = -1; taskSearch = "" }, modifier = Modifier.testTag("shared-reset-filters")) { Text("Сбросить фильтры") }
+                }
+                if (filterCount > 0) FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (statusFilter.isNotBlank()) InputChip(true, { statusFilter = "" }, label = {
+                        Text(statuses.firstOrNull { it.optString("id") == statusFilter }?.optString("title") ?: "Статус") })
+                    if (completionFilter != "any") InputChip(true, { completionFilter = "any" }, label = {
+                        Text(if (completionFilter == "open") "Незавершённые" else "Завершённые") })
+                    if (assigneeFilter.isNotBlank()) InputChip(true, { assigneeFilter = "" }, label = {
+                        Text(when (assigneeFilter) { "me" -> "Назначено мне"; "unassigned" -> "Без исполнителя"
+                            else -> members.firstOrNull { it.optString("userId") == assigneeFilter }?.optString("displayName") ?: "Исполнитель" }) })
+                    if (priorityFilter >= 0) InputChip(true, { priorityFilter = -1 }, label = {
+                        Text(listOf("Без приоритета", "Низкий приоритет", "Средний приоритет", "Высокий приоритет")[priorityFilter]) })
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("list", "board", "calendar").forEach { view ->
+                        FilterChip(selected = activeView == view, onClick = { viewOverride = view },
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("shared-view-$view"),
+                            label = { Text(when (view) { "board" -> "Доска"; "calendar" -> "Календарь"; else -> "Список" }) })
+                    }
+                }
+                if (activeView == "calendar" && enabledCalendars.size > 1) Row(
+                    Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    CalendarMode.entries.filter { it in enabledCalendars }.forEach { mode ->
+                        FilterChip(selected = calendarMode == mode, onClick = {
+                            calendarMode = mode; calendarAnchor = calendarDay
+                            calendarPreferences.edit().putString("calendarMode", mode.wireValue).apply()
+                        }, label = { Text(when (mode) {
+                            CalendarMode.PROFANE -> "Григорианский"; CalendarMode.SACRED -> "Сакральный"; CalendarMode.LUNAR -> "Лунный"
                         }) })
+                    }
                 }
-            }
-            Text(if (en) "Calendar for project view and task dates" else "Календарь проекта и дат задач",
-                style = MaterialTheme.typography.labelMedium)
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                listOf(CalendarMode.PROFANE, CalendarMode.SACRED, CalendarMode.LUNAR)
-                    .filter { it in enabledCalendars }.forEach { mode ->
-                    FilterChip(selected = calendarMode == mode, onClick = {
-                        calendarMode = mode; calendarAnchor = calendarDay
-                        calendarPreferences.edit().putString("calendarMode", mode.wireValue).apply()
-                    }, label = { Text(when (mode) {
-                        CalendarMode.PROFANE -> if (en) "Gregorian" else "Григорианский"
-                        CalendarMode.SACRED -> if (en) "Sacred" else "Сакральный"
-                        CalendarMode.LUNAR -> if (en) "Lunar" else "Лунный"
-                    }) })
-                }
-            }
-            }
+                if (taskPage == null) LinearProgressIndicator(Modifier.fillMaxWidth())
+                else if (tasks.isEmpty()) Text("По вашему запросу ничего не найдено.", style = MaterialTheme.typography.bodyMedium)
             if (activeView == "calendar") {
                 val locale = if (en) Locale.US else Locale.forLanguageTag("ru-RU")
                 val range = calendarEngine.monthRange(calendarAnchor, calendarMode)
@@ -1225,6 +1355,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                 due.forEach { task -> SharedTaskCard(task, statuses, canOrganize, busy, taskId == task.getString("id"), en, calendarMode,
                     category = categories.firstOrNull { it.optString("id") == task.optString("categoryId") },
                     completedBy = members.firstOrNull { it.optString("userId") == task.optString("completedBy") }?.optString("displayName"),
+                    assignedTo = members.firstOrNull { it.optString("userId") == task.optString("assigneeId") }?.optString("displayName"),
                     onOpen = { taskId = task.getString("id") },
                     onMove = { destination -> moveTaskStatus(task, destination) },
                     onDragStart = { position -> draggingTask = task; draggingAt = position; dropBounds.clear() },
@@ -1248,12 +1379,10 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                         .background(runCatching { Color(android.graphics.Color.parseColor(status.optString("color"))) }
                             .getOrDefault(MaterialTheme.colorScheme.primary).copy(alpha = .12f), RoundedCornerShape(14.dp))
                         .padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                            Text(sharedStatusLabel(status.getString("title"), en), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-                            if (canInvite) TextButton(onClick = { openBoard(status) }, modifier = Modifier.testTag("shared-board-settings-${status.optString("id")}")) {
-                                Text(if (en) "Settings" else "Настройки")
-                            }
-                        }
+                        SharedStatusHeader(status, en, canInvite, canWrite, busy,
+                            onSettings = { openBoard(status) },
+                            onCreateList = { createKind = "task-list"; parentId = projectId; parentBoardId = status.getString("id"); createModal = "project" },
+                            onCreateProject = { createKind = "project"; parentId = projectId; parentBoardId = status.getString("id"); createModal = "project" })
                         SharedBoardImage(status.optString("imageUrl"))
                         projects.filter { it.optString("parentId") == projectId && (it.optString("boardStatusId") == status.optString("id") ||
                             it.optString("boardStatusId").let { value -> value.isBlank() || value == "null" } && status == statuses.firstOrNull()) }.forEach { child ->
@@ -1267,16 +1396,11 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                                 refreshProjects(spaceId)
                             } }
                         }
-                        if (canWrite) TextButton(onClick = { createKind = "task-list"; parentId = projectId; parentBoardId = status.getString("id"); createModal = "project" }) {
-                            Text(if (en) "Add task list" else "Добавить список задач")
-                        }
-                        if (canWrite) TextButton(onClick = { createKind = "project"; parentId = projectId; parentBoardId = status.getString("id"); createModal = "project" }) {
-                            Text(if (en) "Add project" else "Добавить проект")
-                        }
                         tasks.filter { it.getString("statusId") == status.getString("id") }.forEach { task ->
                             SharedTaskCard(task, statuses, canOrganize, busy, taskId == task.getString("id"), en, calendarMode,
                                 category = categories.firstOrNull { it.optString("id") == task.optString("categoryId") },
                                 completedBy = members.firstOrNull { it.optString("userId") == task.optString("completedBy") }?.optString("displayName"),
+                    assignedTo = members.firstOrNull { it.optString("userId") == task.optString("assigneeId") }?.optString("displayName"),
                                 onOpen = { taskId = task.getString("id") },
                                 onMove = { destination -> moveTaskStatus(task, destination) },
                     onDragStart = { position -> draggingTask = task; draggingAt = position; dropBounds.clear() },
@@ -1287,12 +1411,10 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                     } }
                 }
             } else statuses.forEach { status ->
-                Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                            Text(sharedStatusLabel(status.getString("title"), en), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-                            if (canInvite) TextButton(onClick = { openBoard(status) }, modifier = Modifier.testTag("shared-board-settings-${status.optString("id")}")) {
-                                Text(if (en) "Settings" else "Настройки")
-                            }
-                        }
+                SharedStatusHeader(status, en, canInvite, canWrite, busy,
+                            onSettings = { openBoard(status) },
+                            onCreateList = { createKind = "task-list"; parentId = projectId; parentBoardId = status.getString("id"); createModal = "project" },
+                            onCreateProject = { createKind = "project"; parentId = projectId; parentBoardId = status.getString("id"); createModal = "project" })
                         SharedBoardImage(status.optString("imageUrl"))
                         projects.filter { it.optString("parentId") == projectId && (it.optString("boardStatusId") == status.optString("id") ||
                             it.optString("boardStatusId").let { value -> value.isBlank() || value == "null" } && status == statuses.firstOrNull()) }.forEach { child ->
@@ -1306,16 +1428,11 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                                 refreshProjects(spaceId)
                             } }
                         }
-                        if (canWrite) TextButton(onClick = { createKind = "task-list"; parentId = projectId; parentBoardId = status.getString("id"); createModal = "project" }) {
-                            Text(if (en) "Add task list" else "Добавить список задач")
-                        }
-                        if (canWrite) TextButton(onClick = { createKind = "project"; parentId = projectId; parentBoardId = status.getString("id"); createModal = "project" }) {
-                            Text(if (en) "Add project" else "Добавить проект")
-                        }
                 tasks.filter { it.getString("statusId") == status.getString("id") }.forEach { task ->
                     SharedTaskCard(task, statuses, canOrganize, busy, taskId == task.getString("id"), en, calendarMode,
                         category = categories.firstOrNull { it.optString("id") == task.optString("categoryId") },
                         completedBy = members.firstOrNull { it.optString("userId") == task.optString("completedBy") }?.optString("displayName"),
+                    assignedTo = members.firstOrNull { it.optString("userId") == task.optString("assigneeId") }?.optString("displayName"),
                         onOpen = { taskId = task.getString("id") },
                         onMove = { destination -> moveTaskStatus(task, destination) },
                     onDragStart = { position -> draggingTask = task; draggingAt = position; dropBounds.clear() },
@@ -1324,7 +1441,6 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                     onDragCancel = { draggingTask = null; draggingAt = null; dropBounds.clear() })
                 }
             }
-            OutlinedTextField(taskSearch, { taskSearch = it }, label = { Text("Поиск задач") }, modifier = Modifier.fillMaxWidth())
             taskPage?.let { page ->
                 Text(genesisTranslate("Показано: {loaded} из {total}").replace("{loaded}", tasks.size.toString()).replace("{total}", page.optInt("total").toString()))
                 if (page.optBoolean("hasMore")) TextButton(enabled = !busy, onClick = { run {
@@ -1332,18 +1448,22 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                     catch(error: Exception) { taskPage = controller.sortedSharedTasks(JSONObject(taskFilterKey),sort=taskSort.wire); message = error.message ?: "SHARED_QUERY_CHANGED" }
                 } }) { Text("Показать ещё") }
             }
-            if (selectedTask != null) ElevatedCard(Modifier.fillMaxWidth()) {
+            }
+            if (taskId.isNotBlank() && (selectedTask == null || draftTaskKey != "$projectId:$taskId")) LinearProgressIndicator(Modifier.fillMaxWidth())
+            if (selectedTask != null && draftTaskKey == "$projectId:$taskId") Column(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(selectedTask.getString("title"), style = MaterialTheme.typography.titleLarge)
+                    if (!canWrite) androidx.compose.material3.Text(selectedTask.getString("title"), style = MaterialTheme.typography.titleLarge)
                     if (selectedTask.optString("seriesId").let { it.isNotBlank() && it != "null" }) {
                         Text(genesisTranslate("Серия общих задач"), style = MaterialTheme.typography.titleSmall)
                         Text(genesisTranslate("Изменения задачи относятся к этому повтору. Настройки серии действуют только на ещё не созданные задачи."), style = MaterialTheme.typography.bodySmall)
                     }
                     if (canWrite) {
                         OutlinedTextField(editTaskTitle, { editTaskTitle = it },
-                            label = { Text(if (en) "Name" else "Название") }, modifier = Modifier.fillMaxWidth())
+                            label = { Text(if (en) "Name" else "Название") }, enabled = !busy, isError = editTaskTitle.isBlank(),
+                            supportingText = if (editTaskTitle.isBlank()) ({ Text("Введите название задачи.") }) else null,
+                            modifier = Modifier.fillMaxWidth().testTag("shared-task-title-input"))
                         OutlinedTextField(editTaskDescription, { editTaskDescription = it },
-                            label = { Text(if (en) "Description" else "Описание") }, modifier = Modifier.fillMaxWidth())
+                            label = { Text(if (en) "Description" else "Описание") }, enabled = !busy, modifier = Modifier.fillMaxWidth())
                         Text(if (en) "Due date" else "Срок", style = MaterialTheme.typography.titleSmall)
                         if (editTaskDueDate.isBlank()) TextButton(onClick = { editTaskDueDate = LocalDate.now().toString() }) {
                             Text(if (en) "Set due date" else "Установить срок")
@@ -1351,6 +1471,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                             AuthorDatePicker(editTaskDueDate, calendarMode) { editTaskDueDate = it }
                             TextButton(onClick = { editTaskDueDate = "" }) { Text(if (en) "Clear" else "Убрать срок") }
                         }
+                        AffairsDisclosure("Дополнительные параметры задачи") {
                         Text(if (en) "Category" else "Категория", style = MaterialTheme.typography.bodySmall)
                         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             (listOf<JSONObject?>(null) + categories).forEach { category ->
@@ -1361,40 +1482,6 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                             }
                         }
                         SharedTaskDetailsFields(selectedTask, editTaskDetails, { editTaskDetails = it }, busy)
-                        if (selectedTask.optInt("revision") != editTaskRevision) {
-                            Text(if (en) "Changed elsewhere. Your draft is kept." else "Изменено другим участником. Черновик сохранён.",
-                                color = MaterialTheme.colorScheme.error)
-                            TextButton(onClick = {
-                                editTaskDetails = sharedTaskDetailDraft(selectedTask)
-                                editTaskTitle = selectedTask.optString("title")
-                                editTaskDescription = selectedTask.optString("description")
-                                editTaskDueDate = selectedTask.optString("dueDate").takeUnless { it == "null" } ?: ""
-                                editTaskCategoryId = selectedTask.optString("categoryId").takeUnless { it == "null" } ?: ""
-                                editTaskRevision = selectedTask.optInt("revision")
-                            }) { Text(if (en) "Reload fields" else "Обновить поля") }
-                        }
-                        val dateValid = editTaskDueDate.isBlank() || runCatching { LocalDate.parse(editTaskDueDate) }.isSuccess
-                        Button(onClick = { run {
-                            val changed = controller.updateSharedTask(projectId, taskId, JSONObject(editTaskDetails.toString())
-                                .put("title", editTaskTitle.trim()).put("description", editTaskDescription.trim())
-                                .put("dueDate", editTaskDueDate.ifBlank { null } ?: JSONObject.NULL)
-                                .put("categoryId", editTaskCategoryId.ifBlank { null } ?: JSONObject.NULL)
-                                .put("expectedRevision", editTaskRevision)).getJSONObject("task")
-                            editTaskRevision = changed.getInt("revision")
-                            editTaskDetails = sharedTaskDetailDraft(changed)
-                            pendingTasks = controller.queuedSharedTasks(projectId)
-                            if (changed.optBoolean("pending")) message = if (en)
-                                "Change saved on this device. It will sync when connected."
-                                else "Изменение сохранено на устройстве и синхронизируется после подключения."
-                            else refreshProject(projectId)
-                        } }, enabled = !busy && editTaskTitle.isNotBlank() && dateValid &&
-                            selectedTask.optInt("revision") == editTaskRevision) {
-                            Text(if (en) "Save task" else "Сохранить задачу")
-                        }
-                    } else {
-                        if (selectedTask.optString("description").isNotBlank()) Text(selectedTask.getString("description"))
-                        SharedTaskDetailsFields(selectedTask, sharedTaskDetailDraft(selectedTask), {}, true)
-                    }
                     if (canWrite) {
                         Text(if (en) "Assigned to" else "Исполнитель")
                         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -1414,6 +1501,23 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                             }
                         }
                     }
+                        }
+                        if (selectedTask.optInt("revision") != editTaskRevision) {
+                            Text(if (en) "Changed elsewhere. Your draft is kept." else "Изменено другим участником. Черновик сохранён.",
+                                color = MaterialTheme.colorScheme.error)
+                            TextButton(onClick = {
+                                editTaskDetails = sharedTaskDetailDraft(selectedTask)
+                                editTaskTitle = selectedTask.optString("title")
+                                editTaskDescription = selectedTask.optString("description")
+                                editTaskDueDate = selectedTask.optString("dueDate").takeUnless { it == "null" } ?: ""
+                                editTaskCategoryId = selectedTask.optString("categoryId").takeUnless { it == "null" } ?: ""
+                                editTaskRevision = selectedTask.optInt("revision")
+                            }) { Text(if (en) "Reload fields" else "Обновить поля") }
+                        }
+                    } else {
+                        if (selectedTask.optString("description").isNotBlank()) androidx.compose.material3.Text(selectedTask.getString("description"))
+                        SharedTaskDetailsFields(selectedTask, sharedTaskDetailDraft(selectedTask), {}, true)
+                    }
                     Text(if (en) "Discussion" else "Обсуждение", style = MaterialTheme.typography.titleMedium)
                     Column(Modifier.onGloballyPositioned { val bounds=it.boundsInWindow();discussionVisible=bounds.top<discussionWindowHeight&&bounds.bottom>0 }) { comments.forEach { comment -> Text("${comment.optString("authorName")}: ${comment.getString("body")}") } }
                     if (canComment) {
@@ -1427,6 +1531,13 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                 }
             }
         }
+    }
+    if (taskId.isNotBlank() && message.isNotBlank()) Text(message,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).testTag("shared-feedback"),
+        color = if (messageIsError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+    if (taskId.isNotBlank() && selectedTask != null && canWrite) AffairsSaveBar(saveTask,
+        enabled = editTaskTitle.isNotBlank() && dateValid && selectedTask.optInt("revision") == editTaskRevision &&
+            draftTaskKey == "$projectId:$taskId", busy = busy)
     }
     if (draggingTask != null && draggingAt != null) {
         val drag = draggingTask!!
@@ -1492,10 +1603,24 @@ private fun SharedBlock(title: String, content: @Composable ColumnScope.() -> Un
 @Composable
 private fun SharedTaskCard(task: JSONObject, statuses: List<JSONObject>, canOrganize: Boolean, busy: Boolean,
     selected: Boolean, en: Boolean, calendarMode: CalendarMode, category: JSONObject?, completedBy: String?,
-    onOpen: () -> Unit, onMove: (String) -> Unit,
+    onOpen: () -> Unit, onMove: (String) -> Unit, assignedTo: String? = null,
     onDragStart: ((Offset) -> Unit)? = null, onDragMove: ((Offset) -> Unit)? = null,
     onDragEnd: (() -> Unit)? = null, onDragCancel: (() -> Unit)? = null) {
     var topLeft by remember { mutableStateOf(Offset.Zero) }
+    var actionsOpen by remember { mutableStateOf(false) }
+    val currentStatus = statuses.firstOrNull { it.optString("id") == task.optString("statusId") }
+    val completed = currentStatus?.optInt("isDone") == 1 ||
+        task.optString("completedAt").let { it.isNotBlank() && it != "null" }
+    val toggleStatus = statuses.firstOrNull { (it.optInt("isDone") == 1) != completed }
+    val dueDate = task.optString("dueDate").takeUnless { it.isBlank() || it == "null" }
+    val dueLabel = dueDate?.let { runCatching {
+        GenesisCalendar().formatDate(LocalDate.parse(it), calendarMode)
+    }.getOrDefault(it) }
+    val priority = task.optInt("priority").takeIf { it in 1..3 }?.let {
+        genesisTranslate(listOf("", "Низкий приоритет", "Средний приоритет", "Высокий приоритет")[it]) }
+    val metadata = listOfNotNull(currentStatus?.optString("title")?.let { sharedStatusLabel(it, en) },
+        dueLabel, assignedTo?.takeIf(String::isNotBlank), priority,
+        completedBy?.takeIf { completed }?.let { genesisTranslate("Выполнил(а): ") + it })
     val dragModifier = if (canOrganize && !busy && onDragStart != null) Modifier
         .onGloballyPositioned { topLeft = it.boundsInWindow().topLeft }
         .pointerInput(task.optString("id"), task.optInt("revision")) {
@@ -1505,55 +1630,73 @@ private fun SharedTaskCard(task: JSONObject, statuses: List<JSONObject>, canOrga
                 onDragCancel = { onDragCancel?.invoke() },
                 onDrag = { change, amount -> change.consume(); onDragMove?.invoke(amount) })
         } else Modifier
-    ElevatedCard(Modifier.fillMaxWidth().then(dragModifier)) { Column(Modifier.padding(8.dp)) {
-        TextButton(onClick = onOpen) { Text(task.getString("title"),fontWeight=if(task.optInt("unreadCommentCount")>0)androidx.compose.ui.text.font.FontWeight.Bold else null) }
-        UnreadCommentBadge(task.optInt("unreadCommentCount"))
-        if (category != null) Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("●", color = runCatching { Color(android.graphics.Color.parseColor(category.optString("color"))) }
-                .getOrDefault(MaterialTheme.colorScheme.secondary))
-            Text(category.optString("title"), style = MaterialTheme.typography.bodySmall)
-        }
-        if (task.has("completedBy") && !task.isNull("completedBy")) Text(
-            (if (en) "Completed by: " else "Выполнил(а): ") +
-                (completedBy ?: if (en) "Former member" else "Бывший участник"),
-            style = MaterialTheme.typography.bodySmall)
-        if (selected) {
-            val dueDate = task.optString("dueDate").takeUnless { it.isBlank() || it == "null" }
-            val label = dueDate?.let { runCatching {
-                GenesisCalendar().formatDate(LocalDate.parse(it), calendarMode)
-            }.getOrDefault(it) } ?: (if (en) "No due date" else "Без срока")
-            Text(label, style = MaterialTheme.typography.bodySmall)
-        }
-        if (canOrganize) Row(Modifier.horizontalScroll(rememberScrollState())) {
-            statuses.forEach { status ->
-                FilterChip(selected = task.getString("statusId") == status.getString("id"),
-                    onClick = { onMove(status.getString("id")) }, enabled = !busy,
-                    label = { Text(sharedStatusLabel(status.getString("title"), en)) })
+    AffairsTaskRow(task.getString("title"), completed, onOpen,
+        modifier = Modifier.then(dragModifier).testTag("shared-task-${task.optString("id")}"),
+        metadata = metadata, unreadComments = task.optInt("unreadCommentCount"), enabled = !busy,
+        onComplete = if (canOrganize && toggleStatus != null) ({ onMove(toggleStatus.getString("id")) }) else null,
+        actions = if (canOrganize) ({ Box {
+            AffairsIconButton("Изменить статус", AffairsAction.MORE, { actionsOpen = true }, enabled = !busy)
+            DropdownMenu(actionsOpen, { actionsOpen = false }) {
+                statuses.forEach { status -> DropdownMenuItem(text = { Text(sharedStatusLabel(status.getString("title"), en)) },
+                    enabled = !busy && task.optString("statusId") != status.optString("id"),
+                    onClick = { actionsOpen = false; onMove(status.getString("id")) }) }
             }
-        }
-    } }
+        } }) else null,
+        extra = if (category != null) ({ Text(category.optString("title"),
+            Modifier.padding(horizontal = 8.dp, vertical = 4.dp), style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.secondary) }) else null)
 }
 
+@Composable
+private fun SharedStatusHeader(status: JSONObject, en: Boolean, canManage: Boolean, canCreate: Boolean,
+    busy: Boolean, onSettings: () -> Unit, onCreateList: () -> Unit, onCreateProject: () -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        Text(sharedStatusLabel(status.getString("title"), en), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+        if (canManage || canCreate) Box {
+            AffairsIconButton("Действия со списком задач", AffairsAction.MORE, { open = true },
+                Modifier.testTag("shared-status-actions-${status.optString("id")}"), enabled = !busy)
+            DropdownMenu(open, { open = false }) {
+                if (canManage) DropdownMenuItem(text = { Text("Настройки") },
+                    modifier = Modifier.testTag("shared-board-settings-${status.optString("id")}"),
+                    onClick = { open = false; onSettings() })
+                if (canCreate) {
+                    DropdownMenuItem(text = { Text("Добавить список задач") }, onClick = { open = false; onCreateList() })
+                    DropdownMenuItem(text = { Text("Добавить проект") }, onClick = { open = false; onCreateProject() })
+                }
+            }
+        }
+    }
+}
 
 @Composable
 private fun SharedProjectTree(projects: List<JSONObject>, expanded: Set<String>, selected: String,
-    onSelect: (String) -> Unit, parent: String? = null, ancestors: Set<String> = emptySet()) {
+    onSelect: (String) -> Unit, onToggle: (String) -> Unit,
+    parent: String? = null, ancestors: Set<String> = emptySet()) {
     projects.filter { item -> item.optInt("isInbox") == 0 &&
         item.optString("parentId").takeUnless { it.isBlank() || it == "null" } == parent && item.optString("id") !in ancestors
     }.forEach { item ->
         val id = item.getString("id")
-        OutlinedButton(onClick = { onSelect(id) }, modifier = Modifier.fillMaxWidth()
-            .padding(start = (minOf(ancestors.size, 8) * 12).dp).testTag("shared-project-$id")) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(if (id in expanded) "⌄" else "›")
-                Column(Modifier.weight(1f)) {
-                    Text(item.optString("title"), style = MaterialTheme.typography.titleMedium)
+        val hasChildren = projects.any { it.optString("parentId") == id }
+        OutlinedCard(onClick = { onSelect(id) }, modifier = Modifier.fillMaxWidth()
+            .padding(start = (minOf(ancestors.size, 4) * 12).dp).testTag("shared-project-$id"),
+            shape = AffairsLayout.shape) {
+            Row(Modifier.fillMaxWidth().padding(start = 12.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                GenesisVectorIcon(if (item.optString("kind") == "task-list") GenesisPageIcon.TASK_LISTS
+                    else GenesisPageIcon.PROJECTS, Modifier.size(24.dp), MaterialTheme.colorScheme.primary)
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    androidx.compose.material3.Text(item.optString("title"), style = MaterialTheme.typography.titleMedium)
                     Text(if (item.optString("kind") == "task-list") "Список задач" else if (item.optString("layout") == "board") "Доски" else "Проект",
-                        style = MaterialTheme.typography.bodySmall)
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+                if (hasChildren) AffairsIconButton(if (id in expanded) "Свернуть подпроекты" else "Показать подпроекты",
+                    if (id in expanded) AffairsAction.COLLAPSE else AffairsAction.EXPAND, { onToggle(id) },
+                    Modifier.testTag("shared-project-expand-$id"))
             }
         }
-        if (id in expanded) SharedProjectTree(projects, expanded, selected, onSelect, id, ancestors + id)
+        if (id in expanded) SharedProjectTree(projects, expanded, selected, onSelect, onToggle, id, ancestors + id)
     }
 }
 
