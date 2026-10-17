@@ -2,7 +2,7 @@
 
 ## Состояние
 
-Подготовлен выпуск 2.8.12/92 от master `9907e7e`. E1 опубликован в PR #184, 2.8.11/91. E3–E5/F/C/G и остаточные B/K/U/L остаются обязательными. Публикация E2 и production-проверки ещё впереди; результаты добавляются после штатного CI.
+Выпущен 2.8.12/92: [PR #185](https://github.com/nikitalexanderson-byte/calendar-genesis/pull/185), master/production `d4b517b794876820ae02ea94b04756f71c52e124`. E1 опубликован в PR #184, 2.8.11/91. E3–E5/F/C/G и остаточные B/K/U/L остаются обязательными. Штатный [CI 39000474521](https://github.com/nikitalexanderson-byte/calendar-genesis/actions/runs/39000474521) завершён успешно; SHA/health, официальные APK/AAB и Realme проверены.
 
 Аудит: старый web `window.setTimeout` работал только при открытом приложении. Service worker сам по себе не сохранял расписание. Native AlarmManager уже переживал закрытие UI, но быстрое действие не адресовало точную привычку/день.
 
@@ -51,3 +51,9 @@ Native current captures — portrait RemoteViews/Compose harness, не full prod
 Production Web Push до E2 не настроен. После CI запускается scripts/configure-hostinger-web-push.ps1 через SSH: server-only P-256, сохранение валидного ключа, закрытая config backup, atomic 0600 replacement и readiness. Приватный ключ не покидает сервер; скрипт не меняет БД/не отправляет сообщений. SMTP 2.8.9 сохраняется. Затем health и естественный cron подтверждают runtime.
 
 CI перед миграцией сохраняет config и согласованную SQLite backup. Изолированный migration test проверил старые envelope/history/protocol и отсутствие auto-subscriptions. Code rollback — revert выпуска в master и CI; аддитивные таблицы остаются инертными. Database restore не выполняется автоматически, требует отдельного плана/согласования. Production-БД вручную не меняется.
+
+## Результат публикации
+
+Source a48635eb550defcc4bc94e734715d2549fcaef3a. Production deploy-meta совпадает с master, API health успешен. Официальный APK c46e6aefb5173756c8d0876747ce7832530d92e16c2cef8138b92236003788cc проверен по SHA256, сертификату и package/version; AAB также проверен по SHA256. APK установлен install -r на Realme, версия 2.8.12/92 и запуск подтверждены; аккаунт, данные, вечерняя схема, сакральный режим и «Сегодня» сохранены. Внешняя provider-to-OS доставка и физический браузерный notification click не заявляются.
+
+SSH использован для закрытого VAPID runtime installer. Ключ создан только на сервере, config backup сохранена, private key не выводился; SMTP не менялся. Первая CLI readiness-проверка завершилась без вывода после настройки ключа из-за ненужного запуска HTTP-session bootstrap. Stateless проверка повторно сохранила уже действующий ключ и подтвердила available=true; исправление installer перенесено в текущую Git-ветку. Health подтверждает email/push available=true; GET личного статуса без сессии даёт401, worker JS опубликован с правильным MIME. Естественный cron 2026-10-17T04:30:01Z отработал после настройки. Ручных изменений production-БД и тестовых внешних отправок не было. Evidence: output/e2-production-verification.json, e2-production-push-confirm.log, e2-official-install.log, realme-2.8.12/.

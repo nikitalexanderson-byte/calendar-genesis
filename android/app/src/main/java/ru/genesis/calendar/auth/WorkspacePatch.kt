@@ -12,14 +12,14 @@ internal object WorkspacePatch {
 
     private val collectionIds = mapOf(
         "projects" to "id", "categories" to "id", "taskListLinks" to "taskListId", "taskLists" to "id",
-        "habits" to "id", "habitCompletions" to "id", "habitMeasurements" to "id", "habitTimers" to "id", "sleepPlans" to "id",
+        "habits" to "id", "habitCompletions" to "id", "habitMeasurements" to "id", "habitTimers" to "id", "habitHistory" to "id", "sleepPlans" to "id",
         "sleepEntries" to "id", "moodEntries" to "id", "dailyGoalRecords" to "date",
         "quests" to "id", "achievementUnlocks" to "achievementId",
         "rewardTransactions" to "idempotencyKey", "streakFreezeTransactions" to "idempotencyKey",
     )
     private val kinds = mapOf(
         "workspace-structure" to listOf("projects", "categories", "taskListLinks", "taskLists"),
-        "habits" to listOf("habits", "habitCompletions", "habitMeasurements", "habitTimers", "dailyGoalRecords", "quests",
+        "habits" to listOf("habits", "habitCompletions", "habitMeasurements", "habitTimers", "habitHistory", "dailyGoalRecords", "quests",
             "achievementUnlocks", "rewardTransactions", "streakFreezeTransactions", "userProgress",
             "habitSettings", "hiddenDefaultTemplates", "habitTimerEpoch"),
         "trackers" to listOf("sleepPlans", "sleepEntries", "moodEntries"),
@@ -29,6 +29,7 @@ internal object WorkspacePatch {
         .put("projects", JSONArray()).put("categories", JSONArray()).put("taskListLinks", JSONArray()).put("taskLists", JSONArray())
         .put("habits", JSONArray()).put("habitCompletions", JSONArray()).put("habitMeasurements", JSONArray())
         .put("habitTimers", JSONArray())
+        .put("habitHistory", JSONArray())
         .put("habitTimerEpoch", "")
         .put("sleepPlans", JSONArray()).put("sleepEntries", JSONArray()).put("moodEntries", JSONArray())
         .put("addictionTrackers", JSONArray()).put("addictionEntries", JSONArray())
@@ -76,8 +77,8 @@ internal object WorkspacePatch {
                     val edited = localRows[id]
                     if (sameKnown(old, edited)) continue
                     val current = remoteRows[id]
-                    if(key in setOf("habitMeasurements", "habitTimers") && edited != null && current != null)
-                        require(same(edited,current)) { if(key == "habitTimers") "HABIT_TIMER_ID_CONFLICT" else "HABIT_MEASUREMENT_ID_CONFLICT" }
+                    if(key in setOf("habitMeasurements", "habitTimers", "habitHistory") && edited != null && current != null)
+                        require(same(edited,current)) { when(key) { "habitTimers" -> "HABIT_TIMER_ID_CONFLICT"; "habitHistory" -> "HABIT_HISTORY_ID_CONFLICT"; else -> "HABIT_MEASUREMENT_ID_CONFLICT" } }
                     val merged = when {
                         key=="habitCompletions" && id.startsWith("habit-completion:") && edited!=null && current!=null -> {
                             val localQuality=edited.opt("qualityValue");val remoteQuality=current.opt("qualityValue")
@@ -137,6 +138,12 @@ internal object WorkspacePatch {
                 if (!same(current, merged)) fields.put(key, nextRevision(fields.optJSONObject(key), remoteVersion, timestamp, deviceId))
             }
         }
+        val epoch = HabitTimers.epoch(output.optString("habitTimerEpoch"))
+        val history = output.optJSONArray("habitHistory") ?: JSONArray()
+        val markedEpoch = HabitTimers.workspaceEpoch(epoch, (0 until history.length()).any { history.getJSONObject(it).getString("epoch") == epoch })
+        if(output.optString("habitTimerEpoch") != markedEpoch) {
+            output.put("habitTimerEpoch", markedEpoch); fields.put("habitTimerEpoch",nextRevision(fields.optJSONObject("habitTimerEpoch"),remoteVersion,timestamp,deviceId));changed=true
+        }
         if (changed) output.put("syncMetadata", metadata.put("entities", entities)
             .put("fields", fields).put("tombstones", tombstones))
         return Result(output, changed)
@@ -146,7 +153,7 @@ internal object WorkspacePatch {
         val output = JSONObject(base.toString())
         structure?.let { part -> listOf("projects", "categories", "taskListLinks", "taskLists").forEach { output.put(it, part.getJSONArray(it)) } }
         habits?.let { part ->
-            mapOf("habits" to "habits", "completions" to "habitCompletions", "measurements" to "habitMeasurements", "timers" to "habitTimers", "goals" to "dailyGoalRecords",
+            mapOf("habits" to "habits", "completions" to "habitCompletions", "measurements" to "habitMeasurements", "timers" to "habitTimers", "history" to "habitHistory", "goals" to "dailyGoalRecords",
                 "rewards" to "rewardTransactions", "achievementUnlocks" to "achievementUnlocks",
                 "streakFreezeTransactions" to "streakFreezeTransactions", "quests" to "quests",
                 "progress" to "userProgress", "settings" to "habitSettings",

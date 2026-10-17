@@ -1,7 +1,8 @@
-import { habitTimerEpoch, mergeHabitTimerOperations } from "./habit-timer.ts";
+import { habitTimerEpoch, habitWorkspaceEpoch, mergeHabitTimerOperations } from "./habit-timer.ts";
 import { mergeHabitMeasurementEvents } from "./habit-measurement.ts";
 import { normalizeRewardTransactions } from "./rewards.ts";
 import type { HabitCompletion } from "./habits";
+import { mergeHabitHistoryEdits } from "./habit-history.ts";
 
 const record = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === "object" && !Array.isArray(value);
 
@@ -12,14 +13,17 @@ export function preserveHabitTimerRecords<T>(incoming: T, saved: unknown): T {
   if (epoch < previousEpoch) throw new RangeError("HABIT_TIMER_RESET");
   if (epoch > previousEpoch) return incoming;
   const habitTimers = mergeHabitTimerOperations(incoming.habitTimers, saved.habitTimers ?? []).filter(op => op.epoch === epoch);
-  if (!habitTimers.length) return incoming;
+  const habitHistory = mergeHabitHistoryEdits(incoming.habitHistory ?? [], saved.habitHistory ?? []).filter(row => row.epoch === epoch);
+  if (!habitTimers.length && !habitHistory.length) return incoming;
   const currentEvents = mergeHabitMeasurementEvents(incoming.habitMeasurements ?? []);
   const savedEvents = mergeHabitMeasurementEvents(saved.habitMeasurements ?? []);
   const habitIds = new Set((Array.isArray(incoming.habits) ? incoming.habits : []).flatMap(habit => record(habit) && typeof habit.id === "string" ? [habit.id] : []));
   const timerEntries = new Set([...currentEvents, ...savedEvents].filter(event => event.source === "timer" && event.entryId.startsWith("timer-value:")).map(event => event.entryId));
-  const retained = savedEvents.filter(event => habitIds.has(event.habitId) && timerEntries.has(event.entryId));
+  const historyDays = new Set(habitHistory.map(row => `${row.habitId}:${row.date}`));
+  const retained = savedEvents.filter(event => habitIds.has(event.habitId) && (timerEntries.has(event.entryId) || historyDays.has(`${event.habitId}:${event.date}`)));
   const habitMeasurements = mergeHabitMeasurementEvents(currentEvents, retained);
   const timedDays = new Set(habitMeasurements.filter(event => timerEntries.has(event.entryId)).map(event => `${event.habitId}:${event.date}`));
+  historyDays.forEach(day => timedDays.add(day));
   const completions = new Map<string, HabitCompletion>();
   for (const row of (Array.isArray(incoming.habitCompletions) ? incoming.habitCompletions : []) as HabitCompletion[])
     completions.set(`${row.habitId}:${row.date}`, row);
@@ -29,7 +33,7 @@ export function preserveHabitTimerRecords<T>(incoming: T, saved: unknown): T {
     const current = completions.get(id);
     completions.set(id, current ? { ...current, xpAwarded: Math.max(current.xpAwarded, row.xpAwarded) } : row);
   }
-  return { ...incoming, habitTimers, habitMeasurements, habitCompletions: [...completions.values()],
+  return { ...incoming, habitTimers, habitHistory, habitTimerEpoch: habitWorkspaceEpoch(epoch, habitHistory.length > 0), habitMeasurements, habitCompletions: [...completions.values()],
     rewardTransactions: normalizeRewardTransactions([...(Array.isArray(incoming.rewardTransactions) ? incoming.rewardTransactions : []),
       ...(Array.isArray(saved.rewardTransactions) ? saved.rewardTransactions : [])]) } as T;
 }

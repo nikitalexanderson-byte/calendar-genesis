@@ -3142,5 +3142,16 @@
   "Фоновые напоминания выключены на этом устройстве.": "Background reminders are off on this device.",
   "Доставка зависит от браузера и ОС. В iOS установите сайт на главный экран. Регулярно открывайте GENESIS для продления расписания.": "Delivery depends on the browser and OS. On iOS, add the site to your home screen. Open GENESIS regularly to extend the schedule.",
   "Максимум напоминаний за день": "Maximum reminders per day",
-  "Отложить на, минут": "Snooze for, minutes"
+  "Отложить на, минут": "Snooze for, minutes",
+  "Исправить историю": "Correct history",
+  "Прошлая дата": "Past date",
+  "Историческая корректировка меняет статистику и серии. XP и Лавры не начисляются; выданные награды и потраченная защита сохраняются.": "Historical corrections update statistics and streaks. No XP or Laurels are awarded; existing rewards and spent protection are retained.",
+  "В этот день запись недоступна. Проверьте дату, значение и действующее правило.": "An entry is unavailable for this day. Check the date, value and applicable rule.",
+  "Не удалось исправить историю. Обновите данные и повторите.": "Could not correct history. Refresh the data and try again.",
+  "Предпросмотр изменений": "Preview changes",
+  "Цели и статистика будут пересчитаны. Квесты и достижения задним числом не выдаются.": "Goals and statistics will be recalculated. Quests and achievements are not awarded retroactively.",
+  "Запись исправлена.": "Entry corrected.",
+  "Исправления прошлых дней доступны в разделе «Прогресс».": "Past days can be corrected in Progress.",
+  "Отметка снята": "Mark removed",
+  "Цель периода": "Period goal"
 }

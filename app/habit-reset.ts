@@ -24,6 +24,7 @@ export function resetHabitWorkspace(
     habitCompletions: [],
     habitMeasurements: [],
     habitTimers: [],
+    habitHistory: [],
     habitTimerEpoch: nextHabitTimerEpoch(workspace.habitTimerEpoch),
     sleepPlans: [],
     sleepEntries: [],

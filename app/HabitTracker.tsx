@@ -144,6 +144,8 @@ import { applyEditableHabitUpdate, applyHabitReminderSyncResult, resolveHabitRul
 import { HabitInsightsPanel } from "./HabitInsightsPanel";
 import { TheokyklosDetailsDialog } from "./TheokyklosDetailsDialog";
 import { ExperimentalIcon } from "./ExperimentalIcon";
+import { HabitHistoryPanel } from "./HabitHistoryPanel";
+import type { HabitHistoryCommand } from "./habit-history-workspace";
 
 type DailyPanelProps = {
   workspace: HabitWorkspace;
@@ -156,6 +158,7 @@ type DailyPanelProps = {
   onSave?: (workspace: HabitWorkspace) => Promise<void>;
   onTimerCommand?: (command: HabitTimerCommand) => Promise<void>;
   onOpenHabits?: () => void;
+  onOpenHistory?: (date:string) => void;
   onCreateHabit?: () => void;
   compact?: boolean;
   showGoalSettings?: boolean;
@@ -163,6 +166,8 @@ type DailyPanelProps = {
 };
 
 type HabitTrackerPageProps = DailyPanelProps & {
+  onHistoryCommand?: (command:HabitHistoryCommand)=>Promise<void>;
+  historyRequest?: {date:string;token:number}|null;
   reminderFocus?: {habitId:string;date:string;token:number} | null;
   googleTasksReady: boolean;
   googleCalendarReady: boolean;
@@ -841,7 +846,7 @@ function HabitQualityControl({habit,value,confirmed,canRecord,isEnglish,language
   </label><button type="button" className="primary-button" disabled={busy} onClick={apply}>{isEnglish ? "Apply" : "Применить"}</button>{error ? <p role="alert">{translateText("Не удалось сохранить запись. Проверьте значение и повторите.",language)}</p> : null}</div>;
 }
 
-export function HabitDailyPanel({ workspace, date, language, timeFormat, calendarMode, onChange, onSave, onTimerCommand, onOpenHabits, onCreateHabit, compact = false, showGoalSettings = false, experimentalThemeActive = false }: DailyPanelProps) {
+export function HabitDailyPanel({ workspace, date, language, timeFormat, calendarMode, onChange, onSave, onTimerCommand, onOpenHabits, onOpenHistory, onCreateHabit, compact = false, showGoalSettings = false, experimentalThemeActive = false }: DailyPanelProps) {
   const isEnglish = language === "en";
   const [qualityDrafts,setQualityDrafts]=useState<Record<string,boolean>>({});
   const [timerHabit, setTimerHabit] = useState<string | null>(null);
@@ -901,7 +906,7 @@ export function HabitDailyPanel({ workspace, date, language, timeFormat, calenda
       {onTimerCommand ? <HabitTimerPanel workspace={workspace} language={language} calendarMode={calendarMode} timeFormat={timeFormat}
         requestedHabitId={timerHabit} onClose={() => setTimerHabit(null)} onCommand={onTimerCommand} /> : null}
 
-      {dueHabits.length > 0 && date !== today ? <p className="habit-history-lock" role="note">🔒 {isEnglish ? "History is read-only. Habit marks can only be changed today." : "История доступна только для просмотра. Отметки привычек можно менять лишь сегодня."}</p> : null}
+      {dueHabits.length > 0 && date < today ? <p className="habit-history-lock" role="note">{translateText("Исправления прошлых дней доступны в разделе «Прогресс».",language)} {onOpenHistory?<button type="button" className="text-button" onClick={()=>onOpenHistory(date)}>{translateText("Исправить историю",language)}</button>:null}</p> : null}
 
       {!hasTrackers ? (
         <button type="button" className="habit-empty-state" onClick={onCreateHabit ?? onOpenHabits} aria-haspopup="dialog">
@@ -1415,7 +1420,7 @@ function SacredHabitLibrary({
   );
 }
 
-export function HabitTrackerPage({ workspace, date, language, timeFormat, calendarMode, reportContext, googleTasksReady, googleCalendarReady, experimentalThemeActive = false, sacredFeaturesEnabled = true, voiceRequest, reminderFocus, onVoiceRequestConsumed, onChange, onSave, onTimerCommand, onReminderRequested, onReminderRemoved }: HabitTrackerPageProps) {
+export function HabitTrackerPage({ workspace, date, language, timeFormat, calendarMode, reportContext, googleTasksReady, googleCalendarReady, experimentalThemeActive = false, sacredFeaturesEnabled = true, voiceRequest, reminderFocus, historyRequest, onVoiceRequestConsumed, onChange, onSave, onTimerCommand, onHistoryCommand, onReminderRequested, onReminderRemoved }: HabitTrackerPageProps) {
   const isEnglish = language === "en";
   const workspaceRef = useRef(workspace);
   useEffect(() => {
@@ -1445,6 +1450,13 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
     };
     frame=requestAnimationFrame(()=>{setExperimentalHabitTab("today");frame=requestAnimationFrame(focus);});return()=>{cancelled=true;cancelAnimationFrame(frame);};
   },[reminderFocus,date]);
+  useEffect(()=>{
+    if(!historyRequest)return;let frame=0;
+    frame=requestAnimationFrame(()=>{setExperimentalHabitTab("progress");frame=requestAnimationFrame(()=>{
+      const panel=document.getElementById("habit-history-editor") as HTMLDetailsElement|null;
+      if(panel){panel.open=true;panel.scrollIntoView({block:"start",behavior:"instant"});}
+    });});return()=>cancelAnimationFrame(frame);
+  },[historyRequest]);
   const habitTabs = ["today", "library", "modules", "progress"] as const;
   const activeHabitTab = habitTabs.includes(experimentalHabitTab) ? experimentalHabitTab : habitTabs[0] ?? "today";
   const experimentalHabitTabsRef = useRef<HTMLDivElement>(null);
@@ -1678,6 +1690,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
           <CalendarDatePicker mode={calendarMode} value={workspace.habitSettings.customRangeEnd} min={workspace.habitSettings.customRangeStart} max={date} ariaLabel={isEnglish ? "Analytics period end" : "Конец периода аналитики"} showGregorianReference={false} onChange={(customRangeEnd) => onChange({ ...workspace, habitSettings: { ...workspace.habitSettings, customRangeEnd } })} />
         </div> : <small>{formatCalendarDateValue(range.start, calendarMode)} — {formatCalendarDateValue(range.end, calendarMode)}</small>}
       </section>} />
+      {onHistoryCommand?<HabitHistoryPanel key={historyRequest?.token??"history"} requestedDate={historyRequest?.date} workspace={workspace} language={language} calendarMode={calendarMode} timeFormat={timeFormat} reportContext={reportContext} onCommand={onHistoryCommand}/>:null}
       </HabitSectionBlock>
       {sacredFeaturesEnabled ? <HabitSectionBlock className="experimental-habit-section experimental-habit-section-library" label={isEnglish ? "Sacred habits" : "Сакральные привычки"} language={language} {...sectionProps("sacred-habits")}><SacredHabitLibrary
           workspace={workspace}

@@ -924,6 +924,7 @@ function workspaceDocument(structure: EncryptedWorkspaceStructure, metadata = wo
     habitCompletions: structure.habitCompletions,
     habitMeasurements: structure.habitMeasurements,
     habitTimers: structure.habitTimers,
+    habitHistory: structure.habitHistory,
     habitTimerEpoch: structure.habitTimerEpoch,
     sleepPlans: structure.sleepPlans,
     sleepEntries: structure.sleepEntries,
@@ -1157,6 +1158,7 @@ async function decryptWorkspace(envelope: WorkspaceEnvelope | null): Promise<Enc
 }
 
 function workspaceMinimumWriterProtocol(structure: EncryptedWorkspaceStructure) {
+  if (structure.habitHistory.length) return 6;
   if (structure.habitTimers.length || structure.habitTimerEpoch) return 5;
   if (structure.habits.some(habit => habit.ruleHistory?.some(rule => rule.supersedes !== undefined || rule.selectedRuleId))) return 4;
   if (structure.habits.some(habit => habit.periodGoal || habit.ruleHistory?.some(rule => rule.periodGoal))) return 3;
@@ -1196,7 +1198,7 @@ async function encryptWorkspace(
       iv: bytesToBase64(iv),
       version: workspaceVersion + 1,
       expectedVersion: workspaceVersion,
-      writerProtocol: 5,
+      writerProtocol: 6,
       minimumWriterProtocol: workspaceMinimumWriterProtocol(structure),
       ...await habitReminderProjection(structure),
     },
@@ -1222,7 +1224,7 @@ async function encryptWorkspaceDocument(
     iv: bytesToBase64(iv),
     version: expectedVersion + 1,
     expectedVersion,
-    writerProtocol: 5,
+    writerProtocol: 6,
     minimumWriterProtocol: workspaceMinimumWriterProtocol(structure),
     ...await habitReminderProjection(structure),
   };
@@ -1341,6 +1343,7 @@ export async function loadGenesisWorkspace(): Promise<GenesisWorkspace> {
     habitCompletions: structure.habitCompletions,
     habitMeasurements: structure.habitMeasurements,
     habitTimers: structure.habitTimers,
+    habitHistory: structure.habitHistory,
     habitTimerEpoch: structure.habitTimerEpoch,
     sleepPlans: structure.sleepPlans,
     sleepEntries: structure.sleepEntries,
