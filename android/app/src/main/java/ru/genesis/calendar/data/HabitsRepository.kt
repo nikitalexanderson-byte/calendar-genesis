@@ -163,6 +163,38 @@ class HabitsRepository(private val app: GenesisApplication) {
         return HabitCompletionResult(after.achievementUnlocks.count { it.achievementId !in known })
     }
 
+    suspend fun completeFromReminder(target: HabitReminderTarget, quality: Double? = null) = mutate { workspace ->
+        check(app.workspaceScope == scope) { "HABIT_REMINDER_SCOPE_CHANGED" }
+        val habit = workspace.habits.firstOrNull { it.id == target.habitId }
+        val action = habitReminderAction(habit, target, workspace.completions, workspace.measurements)
+        val measured = habit?.takeIf { HabitMeasurements.effective(HabitMeasurements.rule(it, target.date)) != null }
+            ?.let { HabitMeasurements.progress(it, target.date, workspace.measurements) }
+        val qualityInput = action == "input" && habit != null && quality != null && habit.qualityScale != "none"
+            && measured?.completed != false
+            && (habit.intervalSchedule?.completionMode != "each" || habit.intervalSchedule.times().all {
+                it in habitIntervalMarks(habit, workspace.completions.firstOrNull { entry -> entry.habitId == habit.id && entry.date == target.date }) })
+        require(action in setOf("complete", "interval", "completed") || qualityInput) { "HABIT_REMINDER_$action" }
+        if (action == "completed") workspace else {
+            val current = requireNotNull(habit)
+            val engine = HabitEngine(GenesisCalendar(ZoneId.of(HabitMeasurements.rule(current, target.date).schedule.timezone)))
+            val entries = if (action == "interval") engine.updateIntervalCompletion(workspace.completions,
+                current, target.date, target.date, requireNotNull(target.intervalTime), true)
+            else engine.updateCompletion(workspace.completions, current, target.date, target.date, true,
+                quality, workspace.completions.firstOrNull { it.habitId == current.id && it.date == target.date }?.note ?: "",
+                measurementCompleted = measured?.completed, measurementRewardEligible = measured?.let { it.rewardTotal >= it.target } ?: false)
+            workspace.copy(completions = entries)
+        }
+    }
+
+    suspend fun recordIntervalFromReminder(target: HabitReminderTarget, time: String, checked: Boolean) = mutate { workspace ->
+        check(app.workspaceScope == scope) { "HABIT_REMINDER_SCOPE_CHANGED" }
+        val habit = requireNotNull(workspace.habits.firstOrNull { it.id == target.habitId }) { "HABIT_REMINDER_unavailable" }
+        require(habitReminderAction(habit, target, workspace.completions, workspace.measurements) in setOf("input", "interval")) { "HABIT_REMINDER_stale" }
+        require(habit.intervalSchedule?.completionMode == "each" && time in habit.intervalSchedule.times())
+        val engine = HabitEngine(GenesisCalendar(ZoneId.of(HabitMeasurements.rule(habit, target.date).schedule.timezone)))
+        workspace.copy(completions = engine.updateIntervalCompletion(workspace.completions, habit, target.date, target.date, time, checked))
+    }
+
     suspend fun completeInterval(id: String, time: String, completed: Boolean,
         date: LocalDate = LocalDate.now()): HabitCompletionResult {
         val (before, after) = mutate { workspace ->
@@ -178,9 +210,14 @@ class HabitsRepository(private val app: GenesisApplication) {
     }
 
     suspend fun recordMeasurement(id: String, date: LocalDate, value: Long?, entryId: String? = null,
-        replaces: List<String> = emptyList(), note: String = "", operationId: String = "habit-value-${UUID.randomUUID()}") = mutate { workspace ->
+        replaces: List<String> = emptyList(), note: String = "", operationId: String = "habit-value-${UUID.randomUUID()}",
+        reminderTarget: HabitReminderTarget? = null) = mutate { workspace ->
         val habit = workspace.habits.firstOrNull { it.id == id } ?: error("Привычка не найдена")
-        require(date == LocalDate.now() && engine().isScheduled(habit,date)) { "На этот день привычка не запланирована." }
+        if (reminderTarget != null) {
+            check(app.workspaceScope == scope) { "HABIT_REMINDER_SCOPE_CHANGED" }
+            require(reminderTarget.habitId == id && reminderTarget.date == date &&
+                habitReminderAction(habit, reminderTarget, workspace.completions, workspace.measurements) == "input") { "HABIT_REMINDER_stale" }
+        } else require(date == LocalDate.now() && engine().isScheduled(habit,date)) { "На этот день привычка не запланирована." }
         val measurements = HabitMeasurements.append(habit,date,value,workspace.measurements,entryId,replaces,note,operationId)
         workspace.copy(measurements = measurements, completions = HabitMeasurements.project(workspace.habits,
             measurements,workspace.completions,LocalDate.now(),Instant.now().toString()))

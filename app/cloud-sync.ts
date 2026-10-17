@@ -6,6 +6,8 @@ import { legacyReminderMinutes, normalizeTaskReminders, type TaskReminder } from
 import type { TimeFormat } from "./time-format";
 import type { SharedNotificationPreferences, SharedNotificationSettings } from "./notification-settings-model";
 import { sharedPushDeviceKey } from "./shared-push-device";
+import { habitReminderDeviceKey, habitReminderDeviceStorageKey, type HabitReminderFrequency } from "./habit-reminder-device";
+import type { HabitReminderPlan, HabitReminderRow } from "./habit-reminder-plan";
 import { ThemeConflictError, type GenesisTheme } from "./theme-controller";
 import { cleanTaskDescription } from "./task-description";
 import { cleanGenesisAppUrl } from "./app-url";
@@ -386,6 +388,7 @@ type WorkspaceEnvelopeRequest = {
   metrics: GenesisMetrics;
   writerProtocol?: number;
   minimumWriterProtocol?: number;
+  habitReminderPlan?: HabitReminderPlan;
 };
 
 type BootstrapPayload = {
@@ -534,6 +537,7 @@ let csrfToken = "";
 let activeAuthProvider: "google" | "yandex" = "google";
 let workspaceKey = "";
 let workspaceUserId = "";
+let habitReminderProjectionWanted = false;
 let workspaceVersion = 0;
 let workspaceDeviceId = "";
 let workspaceBase: EncryptedWorkspaceStructure | null = null;
@@ -1194,6 +1198,7 @@ async function encryptWorkspace(
       expectedVersion: workspaceVersion,
       writerProtocol: 5,
       minimumWriterProtocol: workspaceMinimumWriterProtocol(structure),
+      ...await habitReminderProjection(structure),
     },
     structure,
     metadata: prepared.metadata,
@@ -1219,6 +1224,7 @@ async function encryptWorkspaceDocument(
     expectedVersion,
     writerProtocol: 5,
     minimumWriterProtocol: workspaceMinimumWriterProtocol(structure),
+    ...await habitReminderProjection(structure),
   };
 }
 
@@ -1531,6 +1537,9 @@ export function consumeGoogleAuthError() {
 export async function signOutFromGoogle() {
   // Block the device immediately, including other tabs and restoration from an old cookie.
   const logoutCsrf = csrfToken;
+  let habitReminderDevice = "";
+  try { habitReminderDevice = localStorage.getItem(habitReminderDeviceStorageKey(workspaceUserId)) || ""; } catch { /* Continue local logout. */ }
+  habitReminderProjectionWanted = false;
   let sharedPushId="";try{if(workspaceUserId)sharedPushId=localStorage.getItem(sharedPushDeviceKey(workspaceUserId))??"";}catch{/* Continue the immediate local sign-out. */}
   if(sharedPushId)void fetch(`${API_BASE}/shared/push-subscriptions/${encodeURIComponent(sharedPushId)}`,{method:"DELETE",body:"{}",credentials:"include",keepalive:true,headers:{"Content-Type":"application/json","X-CSRF-Token":logoutCsrf}}).catch(()=>undefined);
   let localCleared = true;
@@ -1539,7 +1548,7 @@ export async function signOutFromGoogle() {
   const logoutController = new AbortController();
   const logoutTimeout = globalThis.setTimeout(() => logoutController.abort(), 3000);
   const remoteLogout = fetch(`${API_BASE}/auth/logout`, {
-    method: "POST", body: "{}", credentials: "include", keepalive: true,
+    method: "POST", body: JSON.stringify({ habitReminderDeviceKey: habitReminderDevice }), credentials: "include", keepalive: true,
     headers: { "Content-Type": "application/json", "X-CSRF-Token": logoutCsrf },
     signal: logoutController.signal,
   }).then((response) => response.ok).catch(() => false).finally(() => globalThis.clearTimeout(logoutTimeout));
@@ -1555,6 +1564,7 @@ export async function signOutFromGoogle() {
     void registration?.pushManager?.getSubscription().then(subscription=>subscription?.unsubscribe()).catch(()=>undefined);
   }
   if("caches"in window)await caches.delete("genesis-shared-push-receipts-v1").catch(()=>undefined);
+  if("caches"in window)await caches.delete("genesis-habit-push-receipts-v1").catch(()=>undefined);
   const remoteRevoked = await remoteLogout;
   if (!localCleared) throw new Error("Очистка браузера не подтверждена. Закройте вкладки GENESIS и удалите данные сайта в настройках браузера перед передачей устройства.");
   const destination = new URL(cleanGenesisAppUrl(window.location.href));
@@ -2555,6 +2565,67 @@ export async function saveWorkspaceStructure(
     return result;
   });
 }
+
+export type HabitReminderStatus = {
+  capabilities: { available: boolean; publicKey?: string; blocker?: string };
+  hasDevices: boolean; workspaceVersion: number;
+  device: { id: string; revision: number; enabled: number; time_zone: string; max_per_day: number; snooze_minutes: number } | null;
+  profile: { revision: number; needsRefresh: boolean; expiresAt: string | null; workspaceVersion: number } | null;
+};
+
+async function habitReminderProjection(structure: HabitWorkspace): Promise<{ habitReminderPlan?: HabitReminderPlan }> {
+  if (!habitReminderProjectionWanted) return {};
+  try { const { buildHabitReminderPlan } = await import("./habit-reminder-plan");
+    return { habitReminderPlan: buildHabitReminderPlan(structure) };
+  } catch { return {}; }
+}
+
+export async function loadHabitReminderStatus(userId: string) {
+  const status = await api<HabitReminderStatus>(`/habit-reminders/status?deviceKey=${encodeURIComponent(habitReminderDeviceKey(userId))}`);
+  if (workspaceUserId === userId) habitReminderProjectionWanted = status.hasDevices;
+  return status;
+}
+
+export async function registerHabitReminderDevice(userId: string, subscription: PushSubscription, frequency: HabitReminderFrequency,
+  expectedRevision: number, requestId: string) {
+  const result = await api<{ id: string; revision: number }>("/habit-reminders/devices", { method: "POST", body: JSON.stringify({
+    deviceKey: habitReminderDeviceKey(userId), subscription: subscription.toJSON(), consent: true,
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, ...frequency, expectedRevision, requestId,
+  }) });
+  if (workspaceUserId === userId) habitReminderProjectionWanted = true;
+  return result;
+}
+
+export async function deleteHabitReminderDevice(device: NonNullable<HabitReminderStatus["device"]>) {
+  return api<{ ok: true }>(`/habit-reminders/devices/${encodeURIComponent(device.id)}`, {
+    method: "DELETE", body: JSON.stringify({ expectedRevision: Number(device.revision) }),
+  });
+}
+
+/** Use the final accepted/merged document under the encrypted workspace mutation lock. */
+export async function refreshHabitReminderPlan() {
+  return withWorkspaceMutationLock(async () => {
+    if (!habitReminderProjectionWanted || !workspaceBase || readPending().some(item => item.key === "workspace")) return false;
+    const generation = sessionGeneration;
+    const remote = await fetchWorkspaceEnvelope();
+    requireActiveLocalSession(generation);
+    if (remote && remote.version > workspaceVersion) {
+      const decoded = await decryptWorkspaceEnvelope(remote);
+      requireActiveLocalSession(generation);
+      adoptSavedWorkspace(decoded.structure, decoded.metadata, remote);
+      publishWorkspaceUpdate(decoded.structure);
+    }
+    const projection = await habitReminderProjection(workspaceBase);
+    if (!projection.habitReminderPlan) return false;
+    await api("/habit-reminders/plan", { method: "PUT", body: JSON.stringify({ workspaceVersion, plan: projection.habitReminderPlan }) });
+    return true;
+  });
+}
+
+export type HabitReminderAccess = { userId: string; deviceId: string; target: HabitReminderRow; displayAllowed: boolean;
+  message: { deliveryId: string; body: string; lang: string; url: string; kind: "habit" | "goal"; primaryLabel: string; snoozeLabel: string } };
+export const loadHabitReminderDelivery = (id: string) => api<HabitReminderAccess>(`/habit-reminders/deliveries/${encodeURIComponent(id)}`);
+export const snoozeHabitReminderDelivery = (id: string) => api<{ ok: true; scheduledAt: string }>(`/habit-reminders/deliveries/${encodeURIComponent(id)}/snooze`, { method: "POST", body: "{}" });
 
 export async function createGoogleTaskList(title: string, accountId?: string) {
   if (activeAuthProvider !== "google") return {

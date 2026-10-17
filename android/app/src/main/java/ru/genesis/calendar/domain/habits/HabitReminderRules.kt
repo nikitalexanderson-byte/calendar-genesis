@@ -16,9 +16,9 @@ fun habitReminderTimes(habit: Habit): List<LocalTime> = if(habit.reminder.timing
 
 fun habitReminderOccurrences(habit: Habit, date: LocalDate): List<Pair<LocalTime, ZonedDateTime>> =
     habitReminderTimes(habit).mapNotNull { time -> runCatching { time to date.atTime(time)
-        .atZone(ZoneId.of(habit.schedule.timezone)).minusMinutes(habit.reminder.minutesBefore.coerceIn(0,1440).toLong()) }.getOrNull() }
+        .atZone(ZoneId.of(HabitMeasurements.rule(habit, date).schedule.timezone)).minusMinutes(habit.reminder.minutesBefore.coerceIn(0,1440).toLong()) }.getOrNull() }
 
 fun habitReminderAt(habit: Habit, date: LocalDate): ZonedDateTime? = habitReminderTime(habit)?.let { time ->
-    runCatching { date.atTime(time).atZone(ZoneId.of(habit.schedule.timezone))
+    runCatching { date.atTime(time).atZone(ZoneId.of(HabitMeasurements.rule(habit, date).schedule.timezone))
         .minusMinutes(habit.reminder.minutesBefore.coerceIn(0, 1440).toLong()) }.getOrNull()
 }

@@ -18,11 +18,12 @@ import ru.genesis.calendar.ui.GenesisApp
 class MainActivity : ComponentActivity() {
     private val openedTask = mutableStateOf<String?>(null)
     private val openedSection = mutableStateOf<String?>(null)
+    private val openedHabit = mutableStateOf<ru.genesis.calendar.reminders.HabitReminderOpenRequest?>(null)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         acceptIntent(intent)
-        setContent { GenesisApp(application as GenesisApplication, openedTask.value, openedSection.value) }
+        setContent { GenesisApp(application as GenesisApplication, openedTask.value, openedSection.value, openedHabit = openedHabit.value) }
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 while (isActive) {
@@ -50,6 +51,7 @@ class MainActivity : ComponentActivity() {
     private fun acceptIntent(intent: Intent) {
         val app = application as GenesisApplication
         if (intent.getStringExtra("scope") == app.workspaceScope) {
+            openedHabit.value = ru.genesis.calendar.reminders.habitReminderRequest(intent, app.workspaceScope)
             openedTask.value = intent.getStringExtra("taskId")
             requestedSection(intent, app.workspaceScope)?.let { section ->
                 openedSection.value = "$section#${System.nanoTime()}"

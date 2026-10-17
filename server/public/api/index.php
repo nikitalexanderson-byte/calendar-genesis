@@ -647,7 +647,27 @@ try {
 
     if ($method === 'POST' && $path === 'auth/logout') {
         genesisRequireCsrf();
+        $body=genesisReadJson();
+        if (is_string($body['habitReminderDeviceKey']??null) && isset($_SESSION['user_id'])) {
+            $status=genesisHabitReminderStatus((string)$_SESSION['user_id'],$body['habitReminderDeviceKey']);
+            if($status['device'])genesisHabitReminderDelete((string)$_SESSION['user_id'],$status['device']['id']);
+        }
         genesisFinishSession();
+    }
+
+    if (($segments[0] ?? null) === 'habit-reminders') {
+        $userId=genesisRequireUserId();
+        if($method!=='GET')genesisRequireCsrf();
+        if($method==='GET'&&$path==='habit-reminders/status')genesisJson(genesisHabitReminderStatus($userId,isset($_GET['deviceKey'])?(string)$_GET['deviceKey']:null));
+        if($method==='POST'&&$path==='habit-reminders/devices')genesisJson(genesisHabitReminderRegister($userId,genesisReadJson()),201);
+        if($method==='DELETE'&&count($segments)===3&&$segments[1]==='devices'){
+            $body=genesisReadJson();
+            if(!is_int($body['expectedRevision']??null))throw new InvalidArgumentException('INVALID_HABIT_REMINDER_REVISION');
+            genesisHabitReminderDelete($userId,$segments[2],$body['expectedRevision']);genesisJson(['ok'=>true]);
+        }
+        if($method==='PUT'&&$path==='habit-reminders/plan')genesisJson(genesisHabitReminderRefresh($userId,genesisReadJson()));
+        if($method==='GET'&&count($segments)===3&&$segments[1]==='deliveries')genesisJson(genesisHabitReminderAccess($userId,$segments[2]));
+        if($method==='POST'&&count($segments)===4&&$segments[1]==='deliveries'&&$segments[3]==='snooze')genesisJson(genesisHabitReminderSnooze($userId,$segments[2]));
     }
 
     if (($segments[0] ?? null) === 'shared') {

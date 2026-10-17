@@ -1,4 +1,5 @@
 const SCOPE = self.registration.scope;
+importScripts(new URL("./habit-reminder-worker.js", SCOPE).href);
 const ASSETS_PATH = new URL("./assets/", SCOPE).pathname;
 try {
   importScripts(new URL("./precache-manifest.js", SCOPE).href);
@@ -214,7 +215,7 @@ let sharedPushChain = Promise.resolve();
 let sharedPushReceived = 0;
 self.addEventListener("push", (event) => {
   let id;
-  try { id = event.data?.json()?.deliveryId; } catch { return; }
+  try { const payload = event.data?.json(); if (payload?.channel === "habit") return; id = payload?.deliveryId; } catch { return; }
   if (typeof id !== "string" || !/^[a-f0-9-]{36}$/.test(id)) return;
   const receive = async () => {
     const receipts = await caches.open(SHARED_PUSH_RECEIPTS);
@@ -242,6 +243,7 @@ self.addEventListener("push", (event) => {
 });
 
 self.addEventListener("notificationclick", (event) => {
+  if (event.notification.data?.habitDeliveryId || event.notification.data?.habitTarget) return;
   event.notification.close();
   const data = event.notification.data || {};
   const targetUrl = new URL(data.url || "./#today", SCOPE).href;

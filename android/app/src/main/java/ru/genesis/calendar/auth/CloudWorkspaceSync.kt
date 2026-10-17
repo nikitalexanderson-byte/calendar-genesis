@@ -18,6 +18,7 @@ import ru.genesis.calendar.domain.habits.HeroProgress
 internal interface CloudWorkspaceTransport {
     fun get(): JSONObject
     fun put(body: JSONObject): JSONObject
+    fun habitReminderConsent(): Boolean = false
 }
 
 /** Encrypts a three-way merge with CAS; unrelated website sections are never replaced by native defaults. */
@@ -40,6 +41,8 @@ internal class CloudWorkspaceSync(private val db: GenesisDatabase, private val t
         val local = WorkspacePatch.localDocument(base, structure, habits, trackers)
         val timestamp = Instant.now().toString()
         val deviceId = "android-native"
+        // Failure to read optional notification state cannot prevent a personal encrypted save.
+        val reminderConsent = runCatching { transport.habitReminderConsent() }.getOrDefault(false)
         repeat(3) { attempt ->
             val remote = readRemote(transport.get())
             try {
@@ -52,9 +55,14 @@ internal class CloudWorkspaceSync(private val db: GenesisDatabase, private val t
                 val changed = patch.changed || document.toString() != patch.document.toString()
                 val version = if (!changed) remote.version else {
                     val encrypted = WorkspaceCipher.encrypt(document.toString().toByteArray(), remote.key)
-                    val response = transport.put(JSONObject().put("ciphertext", encrypted.ciphertext)
+                    val request = JSONObject().put("ciphertext", encrypted.ciphertext)
                         .put("iv", encrypted.iv).put("expectedVersion", remote.version)
-                        .put("writerProtocol",5).put("minimumWriterProtocol",minimumWriterProtocol(document)))
+                        .put("writerProtocol",5).put("minimumWriterProtocol",minimumWriterProtocol(document))
+                    if(reminderConsent)runCatching {
+                        val habits=HabitDocument.decode(CloudAccountImporter.habitsDocument(document),remote.version)
+                        request.put("habitReminderPlan",ru.genesis.calendar.reminders.habitReminderProjection(habits))
+                    }
+                    val response = transport.put(request)
                     val saved = response.getJSONObject("workspace")
                     saved.getLong("version").also { require(it == remote.version + 1) }
                 }

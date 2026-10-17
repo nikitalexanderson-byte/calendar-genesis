@@ -136,6 +136,7 @@ internal class AuthSessionClient(context: Context) {
     fun session(expected: Long): JSONObject = request(expected, "/session", null)
     fun providers(expected: Long): JSONObject = request(expected, "/auth/providers", null)
     fun workspace(expected: Long): JSONObject = request(expected, "/workspace", null)
+    fun habitReminderStatus(expected: Long): JSONObject = request(expected, "/habit-reminders/status", null)
     fun mindmaps(expected: Long, path:String, body:JSONObject?=null):JSONObject = request(expected,path,body,method=if(body==null)"GET" else "PUT")
     fun putWorkspace(expected: Long, envelope: JSONObject): JSONObject =
         request(expected, "/workspace", envelope, method = "PUT")

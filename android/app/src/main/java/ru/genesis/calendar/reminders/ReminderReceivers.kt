@@ -10,6 +10,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.flow.first
 import ru.genesis.calendar.GenesisApplication
 import ru.genesis.calendar.MainActivity
 import ru.genesis.calendar.R
@@ -69,6 +70,27 @@ class HabitNotificationReceiver : BroadcastReceiver() {
                 if (wakeLock.isHeld) wakeLock.release()
                 pending.finish()
             }
+        }
+    }
+}
+
+class HabitReminderActionReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action != "ru.genesis.calendar.HABIT_SNOOZE") return
+        val pending = goAsync(); val app = context.applicationContext as GenesisApplication
+        app.appScope.launch {
+            try { withTimeout(9_000) {
+                if (!app.scheduler.snoozeHabitNotification(intent)) {
+                    val language = ru.genesis.calendar.data.LocalPreferences(app, app.workspaceScope).values.first().language
+                    val text = ru.genesis.calendar.ui.translateGenesisText(context,
+                        "Напоминание не перенесено. Проверьте дату, тихие часы и лимит уведомлений.", language)
+                    android.os.Handler(android.os.Looper.getMainLooper()).post {
+                        android.widget.Toast.makeText(context, text, android.widget.Toast.LENGTH_LONG).show()
+                    }
+                }
+            } }
+            catch (_: Exception) { /* A failed or stale snooze does not change the original habit. */ }
+            finally { runCatching { app.scheduler.restoreHabitNotifications() }; pending.finish() }
         }
     }
 }
