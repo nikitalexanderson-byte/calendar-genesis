@@ -38,7 +38,7 @@ html[data-genesis-theme] .genesis-app :is(.personal-search-actions,.shared-task-
 html[data-genesis-theme] .genesis-app :is(.personal-search-actions,.shared-task-view-controls) > button.mindmap-launch[data-animating="false"],
 html[data-genesis-theme] .genesis-app :is(.personal-search-actions,.shared-task-view-controls) > button.mindmap-launch[data-animating="false"]::before,
 .mindmap-launch[data-animating="false"] :is(.mindmap-launch-flow,.mindmap-launch-pulse,.mindmap-launch-nodes circle) { animation-play-state:paused; }
-html[data-genesis-theme] .genesis-app :is(.personal-search-actions,.shared-task-view-controls) > button.mindmap-launch { order:0; align-self:center; width:max-content; margin:0; }
+html[data-genesis-theme] .genesis-app :is(.personal-search-actions,.shared-task-view-controls) > button.mindmap-launch { order:0; align-self:end; width:max-content; margin:0; }
 html[data-genesis-theme] .genesis-app .project-toolbar > .personal-search-actions { flex:1 1 auto; }
 @keyframes mindmap-link-travel { to { stroke-dashoffset:-30; } }
 @keyframes mindmap-node-breathe { 0%,55%,100% { transform:scale(1); opacity:.7; } 25% { transform:scale(1.38); opacity:1; } }

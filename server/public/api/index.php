@@ -810,6 +810,11 @@ try {
             genesisSharedReadNotifications($userId, genesisReadJson());
             genesisJson(['ok' => true]);
         }
+        if ($method === 'GET' && $path === 'shared/calendar/previews') {
+            $from=genesisSharedTaskDate($_GET['from']??null);$to=genesisSharedTaskDate($_GET['to']??null);
+            if (!$from || !$to) throw new InvalidArgumentException('INVALID_SHARED_CALENDAR_RANGE');
+            genesisJson(genesisSharedCalendarPreviews($userId,$from,$to));
+        }
         if ($method === 'GET' && $path === 'shared/calendar/tasks') {
             $from=genesisSharedTaskDate($_GET['from']??null);$to=genesisSharedTaskDate($_GET['to']??null);
             if (!$from || !$to || $from>$to) throw new InvalidArgumentException('INVALID_SHARED_CALENDAR_RANGE');
