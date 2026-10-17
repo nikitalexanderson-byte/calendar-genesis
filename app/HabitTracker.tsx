@@ -145,6 +145,7 @@ import { HabitInsightsPanel } from "./HabitInsightsPanel";
 import { TheokyklosDetailsDialog } from "./TheokyklosDetailsDialog";
 import { ExperimentalIcon } from "./ExperimentalIcon";
 import { HabitHistoryPanel } from "./HabitHistoryPanel";
+import { HabitDataExport } from "./HabitDataExport";
 import type { HabitHistoryCommand } from "./habit-history-workspace";
 
 type DailyPanelProps = {
@@ -1690,6 +1691,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
           <CalendarDatePicker mode={calendarMode} value={workspace.habitSettings.customRangeEnd} min={workspace.habitSettings.customRangeStart} max={date} ariaLabel={isEnglish ? "Analytics period end" : "Конец периода аналитики"} showGregorianReference={false} onChange={(customRangeEnd) => onChange({ ...workspace, habitSettings: { ...workspace.habitSettings, customRangeEnd } })} />
         </div> : <small>{formatCalendarDateValue(range.start, calendarMode)} — {formatCalendarDateValue(range.end, calendarMode)}</small>}
       </section>} />
+      <HabitDataExport workspace={workspace} language={language} />
       {onHistoryCommand?<HabitHistoryPanel key={historyRequest?.token??"history"} requestedDate={historyRequest?.date} workspace={workspace} language={language} calendarMode={calendarMode} timeFormat={timeFormat} reportContext={reportContext} onCommand={onHistoryCommand}/>:null}
       </HabitSectionBlock>
       {sacredFeaturesEnabled ? <HabitSectionBlock className="experimental-habit-section experimental-habit-section-library" label={isEnglish ? "Sacred habits" : "Сакральные привычки"} language={language} {...sectionProps("sacred-habits")}><SacredHabitLibrary
