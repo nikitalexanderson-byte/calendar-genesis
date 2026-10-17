@@ -66,7 +66,7 @@
 | D1 | Опубликовано | PR #177, master/production `2750688`, Actions `38833466614` success; SHA/health и Android 2.8.5/85 подтверждены. Количество/длительность, тысячные, события/исправления/история правил, web+Android. 243 web/250 native tests, 42 language-calendar cases, 44 UI вида и finish verdict. [Отчёт](genesis-d1-measurements-2026-10-16.md); полный D3/F3 открыты |
 | D2 | Опубликовано | PR #178, master/production `f05a4b1`, Actions `38883383125` success; SHA/health и hash Android 2.8.6/86 подтверждены. Разные дни / отдельные выполнения / сумма за неделю и месяц; собственный контекст и writer protocol 3. 258 web/260 JVM tests, Samsung 2/2 и API28 1/1 UI tests, 36 снимков, reviewer ship. [Отчёт](genesis-d2-period-goals-2026-10-16.md) |
 | D3 | Опубликовано | PR #179, Android 2.8.7/87, последующий master `d617d53` включает D3. История/конфликты правил и последние исправления UI проверены; см. docs/genesis-d3-history-and-ui-2026-10-16.md |
-| E1 | Ожидает: таймеры | Stopwatch/Pomodoro, timestamps, сохранение/два окна/полночь |
+| E1 | Реализовано и локально проверено; публикация ожидается | Stopwatch/Pomodoro, timestamps, durable review/save/retry, две вкладки/Web Locks/IDB, midnight/DST/четыре контекста, native/account round-trip; [доказательства и ограничения](genesis-habit-timers-2026-10-17.md) |
 | E2 | Аудит: web setTimeout | Фоновые минимальные метаданные, действия конкретного дня, приватность/частота |
 | E3 | Ожидает: коррекция истории | Backfill без ретронаград; audit и влияние до сохранения |
 | E4 | Аудит: 50 уникальных completed dates | Архив отдельно от паузы/удаления; сохранение ID/экономики |

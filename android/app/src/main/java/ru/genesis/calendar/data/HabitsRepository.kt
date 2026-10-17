@@ -42,7 +42,8 @@ data class LocalHabitWorkspace(val habits: List<Habit> = emptyList(), val comple
     val achievementUnlocks: List<AchievementUnlock> = emptyList(),
     val streakFreezeTransactions: List<StreakFreezeTransaction> = emptyList(),
     val quests: List<HabitQuest> = emptyList(), val settings: HabitSettings = HabitSettings(),
-    val hiddenDefaultTemplates: List<String> = emptyList(), val measurements: List<HabitMeasurementEvent> = emptyList())
+    val hiddenDefaultTemplates: List<String> = emptyList(), val measurements: List<HabitMeasurementEvent> = emptyList(),
+    val timers: List<HabitTimerOperation> = emptyList(), val timerEpoch: String = "")
 
 internal const val HABIT_LAUREL_RETENTION_COMPLETIONS = 50
 
@@ -63,6 +64,7 @@ internal fun deleteHabitFromWorkspace(workspace: LocalHabitWorkspace, habitId: S
 
 /** Local draft scope only. This document is not a cloud schema-16 import/sync adapter. */
 class HabitsRepository(private val app: GenesisApplication) {
+    val timerOwner: String by lazy { HabitTimerDevice.owner(app) }
     private val db=app.database
     private val dao=db.dao()
     private val cipher=LocalCipher()
@@ -87,6 +89,10 @@ class HabitsRepository(private val app: GenesisApplication) {
     }
 
     suspend fun refresh() { if(dao.document(scope,"habits") != null) mutate { it } }
+    suspend fun applyTimer(command: HabitTimerCommand) = mutate { workspace ->
+        require(command.owner == timerOwner) { "HABIT_TIMER_OTHER_DEVICE" }
+        HabitTimerWorkspace.apply(workspace, command)
+    }
 
     suspend fun updateSettings(settings: HabitSettings) = mutate { it.copy(settings = settings) }
     suspend fun updateAppearance(value: JSONObject) = mutate { workspace ->
@@ -97,7 +103,7 @@ class HabitsRepository(private val app: GenesisApplication) {
     suspend fun restoreDefaultTemplates() = mutate { it.copy(hiddenDefaultTemplates = emptyList()) }
 
     suspend fun resetTracking() = mutate { workspace ->
-        LocalHabitWorkspace(revision = workspace.revision, settings = workspace.settings.copy(
+        LocalHabitWorkspace(revision = workspace.revision, timerEpoch = HabitTimers.nextEpoch(workspace.timerEpoch), settings = workspace.settings.copy(
             rawJson = JSONObject(workspace.settings.rawJson).apply {
                 put("dailyGoalModeChanges", JSONArray())
                 put("plannedRestDays", JSONArray())
@@ -353,6 +359,8 @@ internal object HabitDocument {
         val p=w.progress
         return JSONObject().put("localSchema",1).put("habits",JSONArray(w.habits.map(::habit)))
             .put("measurements",JSONArray(w.measurements.map(::measurementEvent)))
+            .put("timers",HabitTimerCodec.encode(w.timers))
+            .put("timerEpoch",w.timerEpoch)
             .put("completions",JSONArray(w.completions.map { c -> entity(c.entity).put("habitId",c.habitId).put("date",c.date.toString()).put("completed",c.completed)
                 .put("qualityConfirmedAt",c.qualityConfirmedAt ?: JSONObject.NULL).put("qualityValue",c.qualityValue ?: JSONObject.NULL).put("score",c.score).put("xpAwarded",c.xpAwarded).put("note",c.note)
                 .put("completedTimes",JSONArray(c.completedTimes)) }))
@@ -398,7 +406,12 @@ internal object HabitDocument {
             } ?: emptyList()), settings(v.optJSONObject("settings")),
             v.optJSONArray("hiddenDefaultTemplates")?.let { array ->
                 (0 until array.length()).mapNotNull { array.optString(it).takeIf(String::isNotBlank) }
-            } ?: emptyList(), if(v.isNull("measurements")) emptyList() else v.getJSONArray("measurements").objects().map(::measurementEvent))
+            } ?: emptyList(), if(v.isNull("measurements")) emptyList() else v.getJSONArray("measurements").objects().map(::measurementEvent),
+            if(v.isNull("timers")) emptyList() else HabitTimerCodec.decode(v.getJSONArray("timers"), HabitTimers.epoch(v.optString("timerEpoch"))),
+            HabitTimers.epoch(v.optString("timerEpoch"))).let { workspace ->
+                val timerIds = HabitTimers.measurementIds(workspace.timers)
+                workspace.copy(measurements = workspace.measurements.filter { !it.entryId.startsWith("timer-value:") || it.entryId in timerIds })
+            }
     }
 
     private fun settings(value: HabitSettings): JSONObject {

@@ -45,6 +45,7 @@ internal fun TodayHabitsContent(app: GenesisApplication, date: LocalDate,
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var ratingHabit by remember(date) { mutableStateOf<Habit?>(null) }
+    var timerHabitId by remember { mutableStateOf<String?>(null) }
     fun complete(habit: Habit, checked: Boolean, quality: Double?) {
         if (busy || date != LocalDate.now()) return
         busy = true
@@ -118,6 +119,9 @@ internal fun TodayHabitsContent(app: GenesisApplication, date: LocalDate,
         if (scheduled.isNotEmpty()) LinearProgressIndicator(
             progress = { completed.toFloat() / scheduled.size }, modifier = Modifier.fillMaxWidth())
         Text("Привычки дня", style = MaterialTheme.typography.titleMedium)
+        HabitTimerShelf(workspace, repository.timerOwner, timerHabitId, { timerHabitId = null }, !busy) {
+            repository.applyTimer(it); Unit
+        }
         if (scheduled.isEmpty()) Text("На этот день привычек нет.",
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
@@ -146,6 +150,9 @@ internal fun TodayHabitsContent(app: GenesisApplication, date: LocalDate,
                         repository.recordMeasurement(habit.id,date,amount,entryId,replaces,note);Unit
                     },onQuality={quality -> repository.complete(habit.id,true,quality,date);Unit})
                 HabitPeriodGoalProgress(habit,workspace.measurements,workspace.completions,date)
+                TextButton(onClick = { timerHabitId = habit.id },
+                    enabled = !busy && date == LocalDate.now() && engine.isScheduled(habit, date),
+                    modifier = Modifier.testTag("habit-timer-open-${habit.id}")) { Text("Таймер") }
                 }
             }
         }

@@ -25,6 +25,8 @@ internal class CloudAccountImporter(private val db: GenesisDatabase, private val
             .put("habits", document.getJSONArray("habits"))
             .put("completions", document.getJSONArray("habitCompletions"))
             .put("measurements", if(document.isNull("habitMeasurements")) JSONArray() else document.getJSONArray("habitMeasurements"))
+            .put("timers", if(document.isNull("habitTimers")) JSONArray() else document.getJSONArray("habitTimers"))
+            .put("timerEpoch", if(document.isNull("habitTimerEpoch")) "" else document.getString("habitTimerEpoch"))
             .put("goals", document.getJSONArray("dailyGoalRecords"))
             .put("rewards", document.getJSONArray("rewardTransactions"))
             .put("achievementUnlocks", document.optJSONArray("achievementUnlocks") ?: JSONArray())

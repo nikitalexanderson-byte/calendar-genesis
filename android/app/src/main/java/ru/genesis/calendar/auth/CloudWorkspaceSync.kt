@@ -54,7 +54,7 @@ internal class CloudWorkspaceSync(private val db: GenesisDatabase, private val t
                     val encrypted = WorkspaceCipher.encrypt(document.toString().toByteArray(), remote.key)
                     val response = transport.put(JSONObject().put("ciphertext", encrypted.ciphertext)
                         .put("iv", encrypted.iv).put("expectedVersion", remote.version)
-                        .put("writerProtocol",4).put("minimumWriterProtocol",minimumWriterProtocol(document)))
+                        .put("writerProtocol",5).put("minimumWriterProtocol",minimumWriterProtocol(document)))
                     val saved = response.getJSONObject("workspace")
                     saved.getLong("version").also { require(it == remote.version + 1) }
                 }
@@ -67,6 +67,7 @@ internal class CloudWorkspaceSync(private val db: GenesisDatabase, private val t
     }
 
     private fun minimumWriterProtocol(document: JSONObject): Int {
+        if ((document.optJSONArray("habitTimers")?.length() ?: 0) > 0 || document.optString("habitTimerEpoch").isNotEmpty()) return 5
         val habits=document.optJSONArray("habits")
         if ((0 until (habits?.length() ?: 0)).any { index -> habits!!.getJSONObject(index).optJSONArray("ruleHistory")?.let { rules ->
             (0 until rules.length()).any { rules.getJSONObject(it).let { rule -> rule.has("supersedes") || rule.has("selectedRuleId") } }

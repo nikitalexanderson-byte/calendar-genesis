@@ -698,6 +698,8 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
           LocalEnabledCalendars provides CalendarMode.entries
               .filter { it.wireValue in uiVisibility.visibleCalendars }.toSet(),
           LocalSacredFeaturesEnabled provides uiVisibility.sacredFeaturesEnabled,
+          LocalTimerDisplayMode provides prefs.display,
+          LocalTimerUse24 provides prefs.use24,
           LocalGenesisUserId provides (authState.user?.uid?:"local")) {
         Surface(Modifier.fillMaxSize().testTag(if (eveningTheme) "app-theme-Evening" else "app-theme-Standart"),color=MaterialTheme.colorScheme.background) {
             if (accountGate) {

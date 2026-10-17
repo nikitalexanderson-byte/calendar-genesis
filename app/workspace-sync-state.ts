@@ -1,5 +1,6 @@
 import { mergeHabitMeasurementEvents, normalizeHabitRuleHistory } from "./habit-measurement.ts";
 import { habitRuleState } from "./habit-rule-history.ts";
+import { habitTimerEpoch, mergeHabitTimerOperations } from "./habit-timer.ts";
 
 export const WORKSPACE_SYNC_SCHEMA_VERSION = 1 as const;
 
@@ -11,6 +12,7 @@ export const WORKSPACE_SYNC_COLLECTIONS = [
   "habits",
   "habitCompletions",
   "habitMeasurements",
+  "habitTimers",
   "sleepPlans",
   "sleepEntries",
   "moodEntries",
@@ -29,6 +31,7 @@ export const WORKSPACE_SYNC_FIELDS = [
   "userProgress",
   "habitSettings",
   "hiddenDefaultTemplates",
+  "habitTimerEpoch",
 ] as const;
 
 export type WorkspaceSyncCollection = typeof WORKSPACE_SYNC_COLLECTIONS[number];
@@ -359,6 +362,9 @@ export function mergeWorkspaceDocuments(input: {
         const events = mergeHabitMeasurementEvents(leftItem ? [leftItem] : [], rightItem ? [rightItem] : []);
         winner = events[0] as unknown as Record<string, unknown>;
       }
+      if (collection === "habitTimers") {
+        winner = mergeHabitTimerOperations(leftItem ? [leftItem] : [], rightItem ? [rightItem] : [])[0] as unknown as Record<string, unknown>;
+      }
       if (collection === "habits" && leftItem && rightItem) {
         const ruleHistory = normalizeHabitRuleHistory([
           ...(Array.isArray(leftItem.ruleHistory) ? leftItem.ruleHistory : []),
@@ -385,6 +391,11 @@ export function mergeWorkspaceDocuments(input: {
   WORKSPACE_SYNC_FIELDS.forEach((field) => {
     const leftRevision = leftMetadata.fields[field];
     const rightRevision = rightMetadata.fields[field];
+    if (field === "habitTimerEpoch") {
+      const leftEpoch = habitTimerEpoch(input.left[field]), rightEpoch = habitTimerEpoch(input.right[field]);
+      merged[field] = leftEpoch >= rightEpoch ? leftEpoch : rightEpoch;
+      return;
+    }
     const order = revisionOrder(
       normalizeRevision(leftRevision, input.leftFallback),
       normalizeRevision(rightRevision, input.rightFallback),

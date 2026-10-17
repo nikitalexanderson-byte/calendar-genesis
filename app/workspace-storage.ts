@@ -1,3 +1,5 @@
+import { preserveHabitTimerRecords } from "./habit-timer-storage.ts";
+
 type WorkspaceStorage = Pick<Storage, "getItem" | "setItem">;
 const blocked = new WeakMap<WorkspaceStorage, Set<string>>();
 
@@ -25,5 +27,7 @@ export function assertWorkspaceWritable(storage: WorkspaceStorage, key: string) 
 
 export function writeProtectedWorkspace(storage: WorkspaceStorage, key: string, value: unknown) {
   assertWorkspaceWritable(storage, key);
-  storage.setItem(key, JSON.stringify(value));
+  const previous = storage.getItem(key);
+  const next = previous === null ? value : preserveHabitTimerRecords(value, JSON.parse(previous));
+  storage.setItem(key, JSON.stringify(next));
 }

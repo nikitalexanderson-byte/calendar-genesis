@@ -2,6 +2,7 @@ package ru.genesis.calendar.auth
 
 import org.json.JSONArray
 import org.json.JSONObject
+import ru.genesis.calendar.domain.habits.HabitTimers
 
 /** Conservative three-way patch for the web's encrypted schema-16 workspace. */
 internal object WorkspacePatch {
@@ -11,22 +12,24 @@ internal object WorkspacePatch {
 
     private val collectionIds = mapOf(
         "projects" to "id", "categories" to "id", "taskListLinks" to "taskListId", "taskLists" to "id",
-        "habits" to "id", "habitCompletions" to "id", "habitMeasurements" to "id", "sleepPlans" to "id",
+        "habits" to "id", "habitCompletions" to "id", "habitMeasurements" to "id", "habitTimers" to "id", "sleepPlans" to "id",
         "sleepEntries" to "id", "moodEntries" to "id", "dailyGoalRecords" to "date",
         "quests" to "id", "achievementUnlocks" to "achievementId",
         "rewardTransactions" to "idempotencyKey", "streakFreezeTransactions" to "idempotencyKey",
     )
     private val kinds = mapOf(
         "workspace-structure" to listOf("projects", "categories", "taskListLinks", "taskLists"),
-        "habits" to listOf("habits", "habitCompletions", "habitMeasurements", "dailyGoalRecords", "quests",
+        "habits" to listOf("habits", "habitCompletions", "habitMeasurements", "habitTimers", "dailyGoalRecords", "quests",
             "achievementUnlocks", "rewardTransactions", "streakFreezeTransactions", "userProgress",
-            "habitSettings", "hiddenDefaultTemplates"),
+            "habitSettings", "hiddenDefaultTemplates", "habitTimerEpoch"),
         "trackers" to listOf("sleepPlans", "sleepEntries", "moodEntries"),
     )
 
     fun emptyDocument(): JSONObject = JSONObject().put("trackerSchemaVersion", 16)
         .put("projects", JSONArray()).put("categories", JSONArray()).put("taskListLinks", JSONArray()).put("taskLists", JSONArray())
         .put("habits", JSONArray()).put("habitCompletions", JSONArray()).put("habitMeasurements", JSONArray())
+        .put("habitTimers", JSONArray())
+        .put("habitTimerEpoch", "")
         .put("sleepPlans", JSONArray()).put("sleepEntries", JSONArray()).put("moodEntries", JSONArray())
         .put("addictionTrackers", JSONArray()).put("addictionEntries", JSONArray())
         .put("analyticsSnapshots", JSONArray()).put("dailyGoalRecords", JSONArray())
@@ -52,6 +55,13 @@ internal object WorkspacePatch {
         val tombstones = JSONArray(metadata.optJSONArray("tombstones")?.toString() ?: "[]")
         var changed = false
         for (key in dirtyKinds.flatMap { kinds[it] ?: error("Unknown workspace outbox kind: $it") }.distinct()) {
+            if (key == "habitTimerEpoch") {
+                val epoch = maxOf(HabitTimers.epoch(local.optString(key)), HabitTimers.epoch(output.optString(key)))
+                if (epoch != output.optString(key)) {
+                    output.put(key, epoch); fields.put(key, nextRevision(fields.optJSONObject(key), remoteVersion, timestamp, deviceId)); changed = true
+                }
+                continue
+            }
             if (key in collectionIds) {
                 val idField = collectionIds.getValue(key)
                 val baseRows = indexed(base.optJSONArray(key) ?: JSONArray(), idField, key)
@@ -66,8 +76,8 @@ internal object WorkspacePatch {
                     val edited = localRows[id]
                     if (sameKnown(old, edited)) continue
                     val current = remoteRows[id]
-                    if(key == "habitMeasurements" && edited != null && current != null)
-                        require(same(edited,current)) { "HABIT_MEASUREMENT_ID_CONFLICT" }
+                    if(key in setOf("habitMeasurements", "habitTimers") && edited != null && current != null)
+                        require(same(edited,current)) { if(key == "habitTimers") "HABIT_TIMER_ID_CONFLICT" else "HABIT_MEASUREMENT_ID_CONFLICT" }
                     val merged = when {
                         key=="habitCompletions" && id.startsWith("habit-completion:") && edited!=null && current!=null -> {
                             val localQuality=edited.opt("qualityValue");val remoteQuality=current.opt("qualityValue")
@@ -136,11 +146,11 @@ internal object WorkspacePatch {
         val output = JSONObject(base.toString())
         structure?.let { part -> listOf("projects", "categories", "taskListLinks", "taskLists").forEach { output.put(it, part.getJSONArray(it)) } }
         habits?.let { part ->
-            mapOf("habits" to "habits", "completions" to "habitCompletions", "measurements" to "habitMeasurements", "goals" to "dailyGoalRecords",
+            mapOf("habits" to "habits", "completions" to "habitCompletions", "measurements" to "habitMeasurements", "timers" to "habitTimers", "goals" to "dailyGoalRecords",
                 "rewards" to "rewardTransactions", "achievementUnlocks" to "achievementUnlocks",
                 "streakFreezeTransactions" to "streakFreezeTransactions", "quests" to "quests",
                 "progress" to "userProgress", "settings" to "habitSettings",
-                "hiddenDefaultTemplates" to "hiddenDefaultTemplates").forEach { (source, target) ->
+                "hiddenDefaultTemplates" to "hiddenDefaultTemplates", "timerEpoch" to "habitTimerEpoch").forEach { (source, target) ->
                     if(part.has(source)) output.put(target, part.get(source)) }
         }
         trackers?.let { part -> listOf("sleepPlans", "sleepEntries", "moodEntries").forEach { output.put(it, part.getJSONArray(it)) } }

@@ -44,8 +44,8 @@ android {
         applicationId = "ru.genesis.calendar"
         minSdk = 26
         targetSdk = 37
-        versionCode = 90
-        versionName = "2.8.10"
+        versionCode = 91
+        versionName = "2.8.11"
         buildConfigField("boolean", "PLAY_DISTRIBUTION", "false")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
