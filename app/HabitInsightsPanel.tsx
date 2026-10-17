@@ -12,6 +12,7 @@ import {
   type CalendarMode,
 } from "./calendar-data";
 import { translateText, type Language } from "./i18n";
+import "./habit-report.css";
 import { useSacredFeaturesEnabled } from "./sacred-features";
 import { dateValuesBetween, isHabitScheduledForDate, type HabitWorkspace } from "./habits";
 import { habitRuleForDate } from "./habit-measurement";
@@ -20,6 +21,7 @@ import {
   buildHabitPersonalRecord,
   buildHabitYearMosaic,
   buildWeeklyHabitSummary,
+  type HabitWeeklySummary,
 } from "./habit-insights";
 
 type HabitInsightsPanelProps = {
@@ -38,12 +40,11 @@ function rhythmLabel(score: number, isEnglish: boolean) {
   return isEnglish ? "Beginning the rhythm" : "Начало ритма";
 }
 
-function comparisonCopy(current: number, previous: number, change: number, isEnglish: boolean) {
-  if (!previous && !current) return isEnglish ? "No completions in these two weeks yet" : "За эти две недели выполнений пока нет";
-  if (!previous) return isEnglish ? "First measured week" : "Первая измеренная неделя";
-  if (!change) return isEnglish ? "Same as last week" : "На уровне прошлой недели";
-  const value = `${change > 0 ? "+" : ""}${change}%`;
-  return isEnglish ? `${value} vs last week` : `${value} к прошлой неделе`;
+function comparisonCopy(summary: HabitWeeklySummary, language: Language) {
+  const t = (text: string) => translateText(text, language);
+  if (summary.changePercent === null) return `${summary.absoluteChange > 0 ? "+" : ""}${summary.absoluteChange}`;
+  if (!summary.absoluteChange) return t("Без изменений");
+  return `${summary.changePercent > 0 ? "+" : ""}${summary.changePercent}%`;
 }
 
 export function HabitInsightsPanel({ workspace, date, language, calendarMode, reportContext, showCompletionCalendar = false }: HabitInsightsPanelProps) {
@@ -53,7 +54,7 @@ export function HabitInsightsPanel({ workspace, date, language, calendarMode, re
   const [savedCompletionCalendarMode, setCompletionCalendarMode] = useState<CalendarMode>(calendarMode);
   const completionCalendarMode = !sacredFeaturesEnabled && savedCompletionCalendarMode === "sacred" ? "profane" : savedCompletionCalendarMode;
   const mosaicBodyId = useId();
-  const weekly = useMemo(() => buildWeeklyHabitSummary(workspace, date), [date, workspace]);
+  const weekly = useMemo(() => buildWeeklyHabitSummary(workspace, date, calendarMode, reportContext), [calendarMode, date, reportContext, workspace]);
   const mosaicRange = useMemo(() => calendarYearRange(date, calendarMode, reportContext), [calendarMode, date, reportContext]);
   const mosaic = useMemo(() => buildHabitYearMosaic(workspace.dailyGoalRecords, date, mosaicRange), [date, mosaicRange, workspace.dailyGoalRecords]);
   const records = useMemo(() => [...workspace.habits]
@@ -108,9 +109,13 @@ export function HabitInsightsPanel({ workspace, date, language, calendarMode, re
       </section> : null}
       <section className="habit-weekly-summary" aria-labelledby="habit-weekly-summary-title">
         <header>
-          <div><span className="eyebrow">{isEnglish ? "Seven-day perspective" : "Перспектива семи дней"}</span><h3 id="habit-weekly-summary-title">{isEnglish ? "Weekly summary" : "Итоги недели"}</h3><p>{formatCalendarDateValue(weekly.startDate, calendarMode)} — {formatCalendarDateValue(weekly.endDate, calendarMode)}</p></div>
-          <div className={`habit-weekly-change ${weekly.changePercent > 0 ? "positive" : weekly.changePercent < 0 ? "negative" : "neutral"}`}><strong>{comparisonCopy(weekly.completed, weekly.previousCompleted, weekly.changePercent, isEnglish)}</strong><small>{isEnglish ? `${weekly.previousCompleted} completions last week` : `${weekly.previousCompleted} выполнений на прошлой неделе`}</small></div>
+          <div><h3 id="habit-weekly-summary-title">{localized("Итоги периода")}</h3><p>{formatCalendarDateValue(weekly.startDate, calendarMode, false, reportContext)} — {formatCalendarDateValue(weekly.endDate, calendarMode, false, reportContext)}</p></div>
+          <div className={`habit-weekly-change ${weekly.absoluteChange > 0 ? "positive" : weekly.absoluteChange < 0 ? "negative" : "neutral"}`} aria-label={localized("Изменение числа выполнений")}>
+            <strong>{comparisonCopy(weekly, language)}</strong>
+            <small>{localized(!weekly.previousHasData ? "Нет данных предыдущего периода" : weekly.changePercent === null ? "Нет базы для процентного сравнения" : "Сравнение одинаковых промежутков")}</small>
+          </div>
         </header>
+        <p className="habit-comparison-explanation">{localized("Предыдущий промежуток")}: {formatCalendarDateValue(weekly.previousStartDate, calendarMode, false, reportContext)} — {formatCalendarDateValue(weekly.previousEndDate, calendarMode, false, reportContext)} · {weekly.previousCompleted}. {localized("Сравниваются только прошедшие дни обоих периодов.")}</p>
         <div className="habit-weekly-grid">
           <article><span>{isEnglish ? "Habits completed" : "Привычек выполнено"}</span><strong>{weekly.completed}</strong><small>{isEnglish ? "real completion marks" : "реальных отметок"}</small></article>
           <article><span>{isEnglish ? "Daily goals" : "Дневных целей"}</span><strong>{weekly.dailyGoals}</strong><small>{isEnglish ? "of the days elapsed" : "за прошедшие дни"}</small></article>

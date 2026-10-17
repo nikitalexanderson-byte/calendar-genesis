@@ -4,6 +4,8 @@ const languages = ["el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "
 const english = { ...JSON.parse(await readFile(new URL("../app/ui-translations/en.json", import.meta.url), "utf8")), ...JSON.parse(await readFile(new URL("../app/translations.en.json", import.meta.url), "utf8")),
   ...JSON.parse(await readFile(new URL("../app/curated-translations.en.json", import.meta.url), "utf8")) };
 const missing = [];
+const habitReportCopy = JSON.parse(await readFile(new URL("../app/habit-report-translations.json", import.meta.url), "utf8"));
+Object.assign(english, habitReportCopy.en);
 const welcomeParagraphs = [
   "GENESIS — приложение для планирования личных и рабочих задач, проектов, подпроектов, повторений и напоминаний. Календарь помогает составлять план дня, связывать действия и отмечать выполненное на компьютере или телефоне.",
   "Сначала Google передаёт только подтверждённый адрес, имя и изображение профиля для безопасного входа. Уже после входа вы сами решаете, подключать ли синхронизацию: GENESIS создаёт отдельный календарь GENESIS, а доступ к Google Tasks использует для показа и двустороннего изменения ваших списков и задач. Разрешения не применяются для рекламы, профилирования или обучения моделей.",
@@ -101,6 +103,7 @@ for (const language of languages) {
   const catalog = Object.assign({}, ...await Promise.all(files.map(async (name) =>
     JSON.parse(await readFile(new URL(`../app/translations.${name}.json`, import.meta.url), "utf8")))));
   Object.assign(catalog, JSON.parse(await readFile(new URL(`../app/ui-translations/${language}.json`, import.meta.url), "utf8")));
+  Object.assign(catalog, habitReportCopy[language]);
   const affairs = JSON.parse(await readFile(new URL("../app/native-affairs-translations.json", import.meta.url), "utf8"))[language];
   const englishUi = JSON.parse(await readFile(new URL("../app/ui-translations/en.json", import.meta.url), "utf8"));
   for (const [source, translated] of Object.entries(affairs)) if (source in englishUi && !(source in catalog)) catalog[source] = translated;

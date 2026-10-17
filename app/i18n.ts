@@ -3,6 +3,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 import englishTranslations from "./translations.en.json";
 import affairsTranslations from "./native-affairs-translations.json";
+import habitReportTranslations from "./habit-report-translations.json";
 import ui_en from "./ui-translations/en.json";
 import ui_el from "./ui-translations/el.json";
 import ui_de from "./ui-translations/de.json";
@@ -926,6 +927,7 @@ const rawCatalogs: Record<Exclude<Language, "ru">, Record<string, string>> = {
   zh: { ...chineseTranslations, ...ui_zh, ...chineseYear }, tr: { ...turkishTranslations, ...ui_tr, ...turkishYear }, ja: { ...japaneseTranslations, ...japaneseYandexTranslations, ...ui_ja, ...japaneseYear },
 };
 for (const language of Object.keys(rawCatalogs) as Exclude<Language, "ru">[]) {
+  Object.assign(rawCatalogs[language], habitReportTranslations[language]);
   for (const [source, translated] of Object.entries(affairsTranslations[language])) {
     if (source in ui_en && !(source in rawCatalogs[language])) rawCatalogs[language][source] = translated;
   }
