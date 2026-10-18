@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { ExperimentalIcon } from "./ExperimentalIcon";
 
 export function SharedWorkspaceIdentity({ title, selector, showDetails=true, owner, members, description, english }: {
   title: string; selector?: ReactNode; showDetails?: boolean; owner: string; members: number | undefined; description?: string; english: boolean;
@@ -16,9 +15,8 @@ export function SharedWorkspaceIdentity({ title, selector, showDetails=true, own
   }, [open]);
   return <div className="shared-space-identity" onPointerLeave={event => { if (event.pointerType === "mouse") setOpen(false); }}
     onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false); }}>
-    <div className="shared-space-name-row">{selector ?? <strong data-no-translate>{title}</strong>}
-    {showDetails ? <button type="button" className="shared-space-description-toggle" aria-expanded={open} aria-controls={id}
-      aria-label={english ? "Workspace description" : "Описание пространства"}
+    <div className="shared-space-name-row">{selector ?? <strong data-no-translate>{title}</strong>}</div>
+    {showDetails ? <button type="button" className="shared-space-info-trigger" aria-expanded={open} aria-controls={id}
       aria-describedby={open ? id : undefined}
       onPointerEnter={event => { if (event.pointerType === "mouse") setOpen(true); }}
       onFocus={event => { if (event.currentTarget.matches(":focus-visible")) setOpen(true); }}
@@ -29,12 +27,11 @@ export function SharedWorkspaceIdentity({ title, selector, showDetails=true, own
           popupRef.current?.scrollBy(0, event.key.endsWith("Up") ? -distance : distance);
         }
       }}>
-      <ExperimentalIcon name="list"/>
-    </button> : null}</div>
-    {showDetails ? [[english ? "Owner" : "Владелец", owner || "…"], [english ? "Participants" : "Участников", members ?? "…"]].map(([label, value]) => <div className="shared-space-info-row" key={label}>
+      {[[english ? "Owner" : "Владелец", owner || "…"], [english ? "Participants" : "Участников", members ?? "…"]].map(([label, value]) => <span className="shared-space-info-row" key={label}>
         <span className="shared-space-info-label">{label}:</span><span className="shared-space-info-leader" aria-hidden="true" />
         <span className="shared-space-info-value" data-no-translate>{value}</span>
-      </div>) : null}
+      </span>)}
+    </button> : null}
     {open ? <div ref={popupRef} id={id} className="shared-space-info-popup" role="tooltip"
       aria-label={english ? "Workspace description" : "Описание пространства"}>
       <span data-no-translate>{description || (english ? "No description yet." : "Описание пока не добавлено.")}</span>
