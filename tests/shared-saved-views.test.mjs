@@ -34,3 +34,14 @@ test('explicit context repair keeps the original filter and relative period and 
   assert.equal(repairSharedViewContext({...damaged,relative:undefined},source.calendarContext),null);
   assert.equal(repairSharedViewContext({...damaged,filter:null},source.calendarContext),null);
 });
+
+test('custom field conditions survive editing and calendar repair with explicit zero and false', () => {
+  const original={...definition(),sort:'custom:field-a:desc',filter:{customFields:[{fieldId:'field-a',op:'eq',value:0},{fieldId:'field-b',op:'eq',value:false},{fieldId:'field-c',op:'missing'}]}};
+  const serialized=JSON.stringify(original);
+  assert.equal(editableSharedViewDefinition(original),true);
+  assert.equal(JSON.stringify(original),serialized);
+  const repaired=repairSharedViewContext({...original,calendarContext:undefined},original.calendarContext);
+  assert.deepEqual(repaired.filter,original.filter);
+  assert.equal(repaired.sort,original.sort);
+  for(const customFields of [null,{},[{fieldId:'field-a',op:'run-code'}],[{fieldId:null,op:'eq'}]])assert.equal(editableSharedViewDefinition({...original,filter:{customFields}}),false);
+});

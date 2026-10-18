@@ -29,7 +29,7 @@ function genesisSharedViewDefinition(mixed $value, string $actor, ?string $space
         || (isset($filter['spaceId']) && $filter['spaceId']!==$space)) throw new InvalidArgumentException('VIEW_INVALID');
     if ($space !== null) $filter['spaceId']=$space; else unset($filter['spaceId']);
     $sort=$value['sort']??null; $relative=$value['relative']??null; $mode=$value['calendarMode']??null;
-    if (!in_array($sort,['position','priority','dueDate','title','updatedAt','createdAt','createdAtAsc'],true)
+    if (!is_string($sort)||!in_array($sort,['position','priority','dueDate','title','updatedAt','createdAt','createdAtAsc'],true)&&!str_starts_with($sort,'custom:')
         || !in_array($relative,['none','overdue','this-week','this-month'],true)
         || !in_array($mode,['profane','sacred','lunar'],true)) throw new InvalidArgumentException('VIEW_INVALID');
     // A saved view must keep its explicit calendar semantics, even if a stored payload is damaged.
@@ -43,6 +43,7 @@ function genesisSharedViewDefinition(mixed $value, string $actor, ?string $space
     if (isset($filter['dueFrom'],$filter['dueTo']) && $filter['dueFrom']>$filter['dueTo']) throw new InvalidArgumentException('VIEW_INVALID');
     // Validate syntax and explicit object references before committing a definition.
     $scope=genesisSharedQueryScope($actor,$filter); genesisSharedTaskPredicate($actor,$filter,$scope);
+    if(str_starts_with($sort,'custom:'))genesisSharedCustomFieldSort($actor,$sort);
     genesisSharedViewReferences($filter,$scope);
     return ['version'=>1,'title'=>$title,'filter'=>$filter,'sort'=>$sort,'relative'=>$relative,'calendarMode'=>$mode,'calendarContext'=>$context];
 }

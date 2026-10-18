@@ -47,6 +47,7 @@ function genesisSharedSeriesTemplate(string $actor,string $projectId,string $roo
             'title'=>$row['title'],'description'=>$row['description'],'tags'=>json_decode($row['tags_json'],true),
             'entryType'=>$row['entry_type'],'statusId'=>$done?$fallback:$row['status_id'],'categoryId'=>$row['category_id'],
             'assigneeId'=>$row['assignee_id'],'priority'=>(int)$row['priority'],'checklists'=>$lists,
+            'customFields'=>(object)genesisSharedCustomTaskValues($row['id']),
             'dueOffset'=>$row['id']===$rootId?0:$offset($row['due_date']),'startOffset'=>$offset($row['start_date']),
             'startTime'=>$row['start_time'],'endTime'=>$row['end_time'],'labelIds'=>genesisSharedLabelIds('task',$row['id']),
             'dependsOnSources'=>array_values(array_intersect(genesisSharedDependencyIds($row['id']),$ids)),
@@ -280,6 +281,7 @@ function genesisSharedSeriesMaterialize(array $series,array $settings,string $ke
         $input=['title'=>$node['title'],'description'=>$node['description'],'tags'=>$node['tags'],'entryType'=>$node['entryType'],
             'statusId'=>$node['statusId'],'categoryId'=>$node['categoryId'],'assigneeId'=>$node['assigneeId'],
             'priority'=>$node['priority'],'checklists'=>$lists,'parentTaskId'=>$ids[$node['parentSourceId']]??null,
+            'customFields'=>(array)($node['customFields']??[]),
             'dueDate'=>$offset($node['dueOffset']),'startDate'=>$offset($node['startOffset']),'startTime'=>$node['startTime'],'endTime'=>$node['endTime'],
             'labelIds'=>$node['labelIds'],'approvalRequired'=>(bool)$node['approverIds'],'approverIds'=>$node['approverIds']];
         // Permissions, members, status, approval configuration and all task validators run again.

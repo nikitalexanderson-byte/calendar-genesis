@@ -15,6 +15,11 @@ function genesisSharedChanges(array $before, array $after): array
 /** Save readable names with the event so later renames/deletions do not erase context. */
 function genesisSharedReadableChanges(array $details): array
 {
+    if(isset($details['changes']['customFields'])){
+        $ids=array_unique(array_merge(array_keys($details['changes']['customFields']['from']),array_keys($details['changes']['customFields']['to'])));
+        $definitions=[];foreach($ids as $id){$q=genesisDb()->prepare('SELECT * FROM shared_custom_fields WHERE id=?');$q->execute([$id]);if($row=$q->fetch())$definitions[]=genesisSharedCustomFieldRecord($row);}
+        $details['customFieldDefinitions']=$definitions;
+    }
     $queries = ['statusId' => 'SELECT title FROM shared_project_statuses WHERE id = :id',
         'boardStatusId' => 'SELECT title FROM shared_project_statuses WHERE id = :id',
         'categoryId' => 'SELECT title FROM shared_project_categories WHERE id = :id UNION ALL SELECT title FROM shared_space_project_categories WHERE id = :id LIMIT 1',

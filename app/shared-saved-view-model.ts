@@ -6,7 +6,7 @@ const record = (value: unknown): value is Record<string, unknown> => Boolean(val
 /** Shape checks only: keep invalid dates/zones editable and let the server validate their meaning. */
 export function editableSharedViewDefinition(value: unknown): value is SharedSavedViewDefinition {
   if (!record(value) || value.version !== 1 || typeof value.title !== "string"
-    || !["position", "priority", "dueDate", "title", "updatedAt", "createdAt", "createdAtAsc"].includes(String(value.sort))
+    || !["position", "priority", "dueDate", "title", "updatedAt", "createdAt", "createdAtAsc"].includes(String(value.sort))&&!/^custom:[a-zA-Z0-9_-]{1,100}:(asc|desc)$/.test(String(value.sort))
     || !["none", "overdue", "this-week", "this-month"].includes(String(value.relative))
     || !["profane", "sacred", "lunar"].includes(String(value.calendarMode))) return false;
   const context = value.calendarContext;
@@ -15,6 +15,7 @@ export function editableSharedViewDefinition(value: unknown): value is SharedSav
   // PHP serializes an empty associative filter as []; no nonempty list is a valid filter.
   const filter = value.filter;
   if (!record(filter)) return Array.isArray(filter) && filter.length === 0;
+  if(filter.customFields!==undefined&&(!Array.isArray(filter.customFields)||!filter.customFields.every(row=>record(row)&&typeof row.fieldId==='string'&&['eq','ne','exists','missing','contains','gt','gte','lt','lte'].includes(String(row.op)))))return false;
   for (const key of ["projectIds", "statusIds", "assigneeIds", "labelIds", "tags", "ids"]) {
     if (filter[key] !== undefined && (!Array.isArray(filter[key]) || !(filter[key] as unknown[]).every(item => typeof item === "string"))) return false;
   }

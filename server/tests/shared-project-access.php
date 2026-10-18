@@ -2,7 +2,10 @@
 declare(strict_types=1);
 if(PHP_SAPI!=='cli'||getenv('GENESIS_IMPROVEMENTS_TEST')!=='isolated')throw new RuntimeException('Explicit isolated test environment required.');
 require __DIR__.'/../src/bootstrap.php';
-if(genesisConfig()['app_url']!=='http://127.0.0.1:4338'||basename(genesisConfig()['db_path'])!=='improvements-test.sqlite')throw new RuntimeException('Non-fixture configuration refused.');
+$fixtureConfig=genesisConfig();
+$browserFixture=$fixtureConfig['app_url']==='http://127.0.0.1:4338'&&basename($fixtureConfig['db_path'])==='improvements-test.sqlite';
+$ciDirectory=getenv('GENESIS_LOCAL_CI_DIR')?:getenv('GENESIS_SMOKE_ROOT');$ciFixture=$fixtureConfig['app_url']==='https://localhost.invalid'&&is_string($ciDirectory)&&$ciDirectory!==''&&str_replace('\\','/',$fixtureConfig['db_path'])===str_replace('\\','/',$ciDirectory).'/genesis.sqlite';
+if(!$browserFixture&&!$ciFixture)throw new RuntimeException('Non-fixture configuration refused.');
 foreach(['repository','google','shared-projects','shared-google','mindmaps','shared-mindmaps'] as $module)require __DIR__.'/../src/'.$module.'.php';
 function accessCheck(bool $ok,string $message):void{if(!$ok)throw new RuntimeException($message);}
 function accessReject(callable $action,int $status):void{

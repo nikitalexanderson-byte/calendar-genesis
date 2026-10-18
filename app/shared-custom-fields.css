@@ -1,0 +1,32 @@
+.shared-custom-fields-inputs { border:0; padding:0; min-width:0; margin:24px 0; }
+.shared-custom-fields-inputs legend { font-weight:600; margin-bottom:12px; }
+.shared-custom-field-input { min-width:0; margin-block:16px; }
+.shared-custom-field-input :is(input,select) { width:100%; min-width:0; min-height:44px; }
+.shared-custom-field-input select[multiple] { min-height:120px; }
+.shared-custom-field-values { display:grid; gap:16px; margin-block:24px; }
+.shared-custom-field-values div { min-width:0; }
+.shared-custom-field-values dt { font-weight:600; }
+.shared-custom-field-values dd { margin:6px 0 0; white-space:pre-wrap; overflow-wrap:anywhere; }
+.shared-custom-field-list { margin:8px 0; font-size:.85rem; }
+.shared-custom-field-list div { display:flex; gap:8px; flex-wrap:wrap; }
+.shared-custom-field-list dd { margin:0; overflow-wrap:anywhere; }
+.shared-custom-field-manager { min-width:0; margin-block:24px; }
+.shared-custom-field-manager summary { font-weight:600; cursor:pointer; padding-block:12px; min-height:44px; }
+.shared-custom-field-manager :is(p,label,button,summary,strong) { overflow-wrap:anywhere; }
+.shared-custom-field-manager ul { padding:0; list-style:none; }
+.shared-custom-field-manager li { border-bottom:1px solid var(--line); padding-block:12px; }
+.shared-custom-field-manager > ul > li { display:flex; flex-wrap:wrap; align-items:center; gap:12px; }
+.shared-custom-field-manager fieldset { min-width:0; margin:24px 0 0; padding:0; border:0; display:grid; gap:16px; }
+.shared-custom-field-manager legend { font-weight:600; padding:0 0 16px; }
+.shared-custom-field-actions { display:flex; flex-wrap:wrap; align-items:center; gap:12px; }
+.shared-custom-field-filter-panel > ul > li { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin-block:12px; }
+.shared-custom-field-manager :is(input,select,button) { min-height:44px; }
+.shared-custom-field-options { display:grid; gap:12px; margin-block:16px; }
+.shared-custom-field-option { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:12px; }
+.shared-custom-field-option input { min-width:0; }
+.shared-custom-field-check { display:flex!important; align-items:center; gap:10px; }
+.shared-custom-field-check input { flex:none; }
+.shared-custom-field-preview { border-top:1px solid var(--line); margin-top:24px; padding-block:16px; }
+.shared-custom-field-filter { display:flex; align-items:end; flex-wrap:wrap; gap:12px; margin-block:16px; }
+.shared-custom-field-filter label { min-width:140px; flex:1; }
+@media(max-width:600px){ .shared-custom-field-option { grid-template-columns:minmax(0,1fr); } }
