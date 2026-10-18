@@ -131,6 +131,7 @@ val genesisAssets = tasks.register<GenesisAssetsTask>("genesisAssets") {
         into("i18n/catalog-translations")
     }
     from(rootProject.file("../app/ui-translations")) { include("*.json"); into("i18n/ui-translations") }
+    from(rootProject.file("../app/shared-work-translations")) { include("*.json"); into("i18n/shared-work-translations") }
     from(rootProject.file("../app/year-translations")) {
         include("*.json")
         into("i18n/year-translations")

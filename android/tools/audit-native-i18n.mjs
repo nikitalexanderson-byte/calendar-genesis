@@ -145,7 +145,8 @@ sacredRussian.forEach((match, index) => {
 });
 const supplemental=JSON.parse(await readFile(path.join(ROOT,"app/ui-translations/en.json"),"utf8"));
 const habitReports=JSON.parse(await readFile(path.join(ROOT,"app/habit-report-translations.json"),"utf8"));
-const translations = { ...web, ...curated, ...supplemental, ...sacred, ...native, ...habitReports.en };
+const workCopy=JSON.parse(await readFile(path.join(ROOT,"app/shared-work-translations/en.json"),"utf8"));
+const translations = { ...web, ...curated, ...supplemental, ...sacred, ...native, ...habitReports.en, ...workCopy };
 for(const language of ["en","el","de","fr","es","it","pt","pl","sr","uk","zh","tr","ja"])for(const key of Object.keys(habitReports.en)){
   const value=habitReports[language]?.[key];
   if(typeof value!=="string"||!value.trim()||(!["sr","uk"].includes(language)&&CYRILLIC.test(value)))throw Error(`Incomplete native habit report copy: ${language}: ${key}`);

@@ -4,6 +4,19 @@ import { useEffect, useSyncExternalStore } from "react";
 import englishTranslations from "./translations.en.json";
 import affairsTranslations from "./native-affairs-translations.json";
 import habitReportTranslations from "./habit-report-translations.json";
+import work_en from "./shared-work-translations/en.json";
+import work_el from "./shared-work-translations/el.json";
+import work_de from "./shared-work-translations/de.json";
+import work_fr from "./shared-work-translations/fr.json";
+import work_es from "./shared-work-translations/es.json";
+import work_it from "./shared-work-translations/it.json";
+import work_pt from "./shared-work-translations/pt.json";
+import work_pl from "./shared-work-translations/pl.json";
+import work_sr from "./shared-work-translations/sr.json";
+import work_uk from "./shared-work-translations/uk.json";
+import work_zh from "./shared-work-translations/zh.json";
+import work_tr from "./shared-work-translations/tr.json";
+import work_ja from "./shared-work-translations/ja.json";
 import ui_en from "./ui-translations/en.json";
 import ui_el from "./ui-translations/el.json";
 import ui_de from "./ui-translations/de.json";
@@ -926,8 +939,11 @@ const rawCatalogs: Record<Exclude<Language, "ru">, Record<string, string>> = {
   uk: { ...ukrainianTranslationsA, ...ukrainianTranslationsB, ...ui_uk, ...ukrainianYear },
   zh: { ...chineseTranslations, ...ui_zh, ...chineseYear }, tr: { ...turkishTranslations, ...ui_tr, ...turkishYear }, ja: { ...japaneseTranslations, ...japaneseYandexTranslations, ...ui_ja, ...japaneseYear },
 };
+const sharedWorkTranslations = { en:work_en, el:work_el, de:work_de, fr:work_fr, es:work_es, it:work_it, pt:work_pt,
+  pl:work_pl, sr:work_sr, uk:work_uk, zh:work_zh, tr:work_tr, ja:work_ja };
 for (const language of Object.keys(rawCatalogs) as Exclude<Language, "ru">[]) {
   Object.assign(rawCatalogs[language], habitReportTranslations[language]);
+  Object.assign(rawCatalogs[language], sharedWorkTranslations[language]);
   for (const [source, translated] of Object.entries(affairsTranslations[language])) {
     if (source in ui_en && !(source in rawCatalogs[language])) rawCatalogs[language][source] = translated;
   }

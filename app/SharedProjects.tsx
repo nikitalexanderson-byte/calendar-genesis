@@ -385,11 +385,23 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
     setProjectId((current) => items.some((item) => item.id === current) ? current : "");
   }, []);
   const refreshProject = useCallback(async (id: string) => {
-    const result = await loadSharedProject(id);
-    if (projectIdRef.current !== id) return;
-    if (sharedDataCameFromOfflineCache()) setOffline(true);
-    setSnapshot((current) => JSON.stringify(current) === JSON.stringify(result) ? current : result);
-    if (result.project.isInbox) setInboxPreview(result);
+    try {
+      const result = await loadSharedProject(id);
+      if (projectIdRef.current !== id) return;
+      if (sharedDataCameFromOfflineCache()) setOffline(true);
+      setSnapshot((current) => JSON.stringify(current) === JSON.stringify(result) ? current : result);
+      if (result.project.isInbox) setInboxPreview(result);
+    } catch(error) {
+      if(projectIdRef.current===id && error && typeof error==="object" && "status" in error && [401,403,404].includes(Number(error.status))){
+        setSnapshot(current=>current?.project.id===id?null:current);
+        setTaskSnapshot(current=>current?.project.id===id?null:current);
+        setTeamSnapshot(current=>current?.project.id===id?null:current);
+        setInboxPreview(current=>current?.project.id===id?null:current);
+        setProjects(current=>current.filter(project=>project.id!==id));
+        setProjectId(current=>current===id?"":current);
+      }
+      throw error;
+    }
   }, [setInboxPreview]);
   const refreshTaskProject = async (id: string) => {
     const [result, task] = await Promise.all([loadSharedProject(id), taskId ? loadSharedTask(id, taskId, true) : Promise.resolve(null)]);
@@ -916,7 +928,10 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
     const refresh = () => void loadSharedProject(inboxProjectId).then((result) => {
       if (live) setInboxPreview(result);
     }).catch((error: unknown) => {
-      if (live) setMessage(error instanceof Error ? error.message : String(error));
+      if (live) {
+        setMessage(error instanceof Error ? error.message : String(error));
+        if(error && typeof error==="object" && "status" in error && [401,403,404].includes(Number(error.status)))setInboxPreview(null);
+      }
     });
     refresh();
     const timer = window.setInterval(refresh, 5_000);
@@ -1729,7 +1744,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
 
 </> : null}
         {createModal === "team" && teamSnapshot ? <>
-          {["owner", "admin"].includes(teamSnapshot.project.spaceRole ?? "") ? <SharedTeamPermissions key={teamSnapshot.project.spaceId} spaceId={teamSnapshot.project.spaceId} english={english} onChanged={async () => { setTeamSnapshot(await loadSharedProject(teamSnapshot.project.id)); await refreshSpaces(); await refreshProjects(teamSnapshot.project.spaceId); if (projectId) await refreshProject(projectId); }} /> : null}
+          {["owner", "admin"].includes(teamSnapshot.project.spaceRole ?? "") ? <SharedTeamPermissions key={teamSnapshot.project.spaceId} spaceId={teamSnapshot.project.spaceId} english={english} language={language as import("./i18n").Language} onChanged={async () => { setTeamSnapshot(await loadSharedProject(teamSnapshot.project.id)); await refreshSpaces(); await refreshProjects(teamSnapshot.project.spaceId); if (projectId) await refreshProject(projectId); }} /> : null}
           <section className="shared-modal-section">
         <h3>{english ? "Participants and roles" : "Участники и роли"}</h3>
         <div className="shared-team-members">{teamSnapshot.members.map((member) => <article key={member.userId} className="shared-team-member">

@@ -12,6 +12,8 @@
 
 ## Подготовлено и проверено отдельно
 
+- C6, проектные права: `genesis-project-access-2026-10-18.md`. Серверный индекс и web preview/apply, CAS/replay, inheritance/exclusions, privacy history/maps и три browser-сессии проверены; обе темы ×4 ширины. Полная browser-локализация, нативный UI и будущие C/G-интеграции ещё открыты. Следующий этап C3: `genesis-custom-fields-2026-10-18.md`.
+
 - F1–F3, веб и нативные data-контракты: `genesis-habit-goal-analysis-2026-10-18.md`. Добавлены календарь выполнения и исходные записи, отдельные знаменатели количества/целей, честная неизвестная legacy-доступность, causal explicit skip и защита XP двух клиентов. 364 web и 296 native JVM tests; нативный UI/upgrade/device acceptance остаются открыты. Следующий основной этап — C6 как основание C1–C5, затем G и зависимые B.
 
 - Продолжение в общей непубликуемой ветке: `genesis-unpublished-acceptance-2026-10-18.md`. Включены подготовленные E4 и Android cancellation; добавлены нативные codecs/merge protocol7 и веб-предпросмотр/применение backup. Это рабочая ветка без merge в master. Полный нативный UI, F/C/G и общая приёмка ещё не завершены; запрет деплоя действует.
