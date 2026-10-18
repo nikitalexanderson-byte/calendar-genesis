@@ -53,7 +53,7 @@ function genesisAutomationScan(?string $at=null):void
                     $matching=genesisRecurrenceMatches($trigger['recurrence']['rangeStart'],$trigger['recurrence'],$slot);
                     if($matching&&$trigger['target']==='project')genesisAutomationQueue($rule,'slot:'.$rule['revision'].':'.$slot,null,['type'=>'schedule','scheduledDate'=>$slot]);
                     elseif($matching){
-                        $q=$db->prepare('SELECT id,revision FROM shared_tasks_read WHERE project_id=? AND archived_at IS NULL AND id>? ORDER BY id LIMIT 101');$q->execute([$rule['project_id'],$after]);$tasks=$q->fetchAll();
+                        $q=$db->prepare("SELECT t.id,t.revision FROM shared_tasks_read t WHERE t.project_id=? AND t.archived_at IS NULL AND t.id>? AND NOT EXISTS(SELECT 1 FROM shared_data_import_records ir WHERE ir.kind='task' AND ir.target_id=t.id AND ir.initial_revision>=t.revision) ORDER BY t.id LIMIT 101");$q->execute([$rule['project_id'],$after]);$tasks=$q->fetchAll();
                         foreach(array_slice($tasks,0,100) as $task)genesisAutomationQueue($rule,'slot:'.$rule['revision'].':'.$slot.':'.$task['id'],$task,['type'=>'schedule','scheduledDate'=>$slot]);
                         if(count($tasks)>100){$date=$slot;$after=$tasks[99]['id'];break;}
                     }
@@ -62,7 +62,7 @@ function genesisAutomationScan(?string $at=null):void
                 $db->prepare('UPDATE shared_automation_rules SET cursor_date=?,scan_after_id=? WHERE id=? AND revision=?')->execute([$date,$after,$rule['id'],$rule['revision']]);
             }elseif($through===$today){
                 $soon=$trigger['type']==='dueSoon';$bound=$soon?genesisCalendarAddDays($today,$trigger['leadDays']):$today;
-                $q=$db->prepare('SELECT t.id,t.revision,t.due_date,COALESCE(s.due_version,1) AS due_version FROM shared_tasks_read t LEFT JOIN shared_notification_task_state s ON s.task_id=t.id WHERE t.project_id=? AND t.archived_at IS NULL AND t.completed_at IS NULL AND t.due_date IS NOT NULL AND t.id>? AND t.due_date<=?'.($soon?' AND t.due_date>?':'').' ORDER BY t.id LIMIT 101');
+                $q=$db->prepare("SELECT t.id,t.revision,t.due_date,COALESCE(s.due_version,1) AS due_version FROM shared_tasks_read t LEFT JOIN shared_notification_task_state s ON s.task_id=t.id WHERE t.project_id=? AND t.archived_at IS NULL AND t.completed_at IS NULL AND t.due_date IS NOT NULL AND t.id>? AND t.due_date<=? AND NOT EXISTS(SELECT 1 FROM shared_data_import_records ir WHERE ir.kind='task' AND ir.target_id=t.id AND ir.initial_revision>=t.revision)".($soon?' AND t.due_date>?':'').' ORDER BY t.id LIMIT 101');
                 $values=[$rule['project_id'],$rule['scan_after_id'],$bound];if($soon)$values[]=$today;$q->execute($values);$tasks=$q->fetchAll();
                 foreach(array_slice($tasks,0,100) as $task)genesisAutomationQueue($rule,'due:'.$rule['revision'].':'.$task['id'].':'.$task['due_version'].':'.$task['due_date'],$task,['type'=>$trigger['type'],'scheduledDate'=>$today,'dueDate'=>$task['due_date']]);
                 $db->prepare('UPDATE shared_automation_rules SET scan_after_id=? WHERE id=? AND revision=?')->execute([count($tasks)>100?$tasks[99]['id']:'',$rule['id'],$rule['revision']]);

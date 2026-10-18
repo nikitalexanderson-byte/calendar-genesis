@@ -903,6 +903,14 @@ try {
         if (count($segments) === 5 && $segments[1] === 'spaces' && $segments[3] === 'member-categories' && $method === 'PATCH') {
             genesisJson(['category' => genesisSharedMemberCategory($userId, $segments[2], genesisReadJson(), $segments[4])]);
         }
+        if(count($segments)===3&&$segments[1]==='data'&&$method==='POST'){
+            if($segments[2]==='preview')genesisJson(genesisSharedDataPreview($userId,genesisReadJson()));
+            if($segments[2]==='apply')genesisJson(genesisSharedDataApply($userId,genesisReadJson()));
+        }
+        if(count($segments)===4&&$segments[1]==='spaces'&&$segments[3]==='data-export'&&$method==='POST')genesisJson(genesisSharedDataExport($userId,$segments[2],genesisReadJson()));
+        if(count($segments)===4&&$segments[1]==='spaces'&&$segments[3]==='data-imports'&&$method==='GET')genesisJson(genesisSharedDataImports($userId,$segments[2],$_GET['cursor']??null));
+        if(count($segments)===4&&$segments[1]==='data-imports'&&$segments[3]==='undo'&&$method==='POST')genesisJson(genesisSharedDataUndo($userId,$segments[2]));
+        if(count($segments)===4&&$segments[1]==='projects'&&$segments[3]==='data-history'&&$method==='GET')genesisJson(genesisSharedDataHistory($userId,$segments[2],isset($_GET['taskId'])?(string)$_GET['taskId']:null,$_GET['cursor']??null));
         if(count($segments)===4&&$segments[1]==='projects'&&$segments[3]==='automations'){
             if($method==='GET')genesisJson(genesisSharedAutomations($userId,$segments[2],($_GET['deleted']??'')==='true',$_GET['cursor']??null));
             if($method==='POST')genesisJson(['rule'=>genesisSharedSaveAutomation($userId,$segments[2],genesisReadJson())],201);

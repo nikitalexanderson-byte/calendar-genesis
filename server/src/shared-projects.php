@@ -27,6 +27,7 @@ require_once __DIR__ . '/shared-project-access.php';
 require_once __DIR__ . '/shared-custom-fields.php';
 require_once __DIR__ . '/template-apply.php';
 require_once __DIR__ . '/automation-worker.php';
+require_once __DIR__ . '/shared-data-apply.php';
 
 final class GenesisSharedAccessException extends RuntimeException
 {
@@ -130,6 +131,7 @@ function genesisSharedProjectAccess(string $projectId, string $userId, string $p
 
 function genesisSharedAudit(string $projectId, string $actorId, string $action, string $objectId, array $details = []): string
 {
+    if(GenesisDataHistoricalScope::active())return genesisUuid();
     $db=genesisDb();$ownsTransaction=!$db->inTransaction();if($ownsTransaction)genesisBeginWriteTransaction($db);
     try {
     $details = genesisSharedEventContext($projectId, $action, $objectId, $details);
@@ -1716,7 +1718,7 @@ function genesisSharedComments(string $userId, string $projectId, string $taskId
         WHERE t.id = :task AND t.project_id = :project ORDER BY c.created_at LIMIT 200');
     $query->execute(['task' => $taskId, 'project' => $projectId]);
     return array_map(static function ($row) { $row['mentionIds'] = $row['mentionIdsCsv'] ? explode(',', $row['mentionIdsCsv']) : [];
-        unset($row['mentionIdsCsv']); return $row; }, $query->fetchAll());
+        unset($row['mentionIdsCsv']); return genesisDataCommentProvenance($row); }, $query->fetchAll());
 }
 
 function genesisSharedProjectComments(string $userId,string $projectId,?array $input=null,?string $boardId=null): array
@@ -1741,7 +1743,7 @@ function genesisSharedProjectComments(string $userId,string $projectId,?array $i
         }catch(Throwable $error){$db->rollBack();throw $error;}
     }
     $q=$db->prepare('SELECT c.id,c.body,c.author_id AS authorId,COALESCE(u.display_name,\'GENESIS\') AS authorName,c.created_at AS createdAt,c.mention_ids_json FROM shared_project_comments c LEFT JOIN users u ON u.id=c.author_id WHERE c.project_id=? AND c.board_id IS ? ORDER BY c.created_at DESC,c.id DESC LIMIT 200');$q->execute([$projectId,$boardId]);
-    return array_reverse(array_map(static function($row){$row['mentionIds']=json_decode($row['mention_ids_json'],true);unset($row['mention_ids_json']);return $row;},$q->fetchAll()));
+    return array_reverse(array_map(static function($row){$row['mentionIds']=json_decode($row['mention_ids_json'],true);unset($row['mention_ids_json']);return genesisDataCommentProvenance($row);},$q->fetchAll()));
 }
 
 function genesisSharedAddComment(string $userId, string $projectId, string $taskId, array $input): array

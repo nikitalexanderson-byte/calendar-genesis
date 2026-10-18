@@ -43,6 +43,7 @@ const SharedSavedViews = lazy(() => import("./SharedSavedViews").then(module => 
 const SharedCustomFieldManager = lazy(() => import("./SharedCustomFieldManager").then(module => ({default:module.SharedCustomFieldManager})));
 const SharedTemplates = lazy(() => import("./SharedTemplates").then(module => ({default:module.SharedTemplates})));
 const SharedAutomations = lazy(() => import("./SharedAutomations").then(module => ({default:module.SharedAutomations})));
+const SharedDataExchange = lazy(() => import("./SharedDataExchange").then(module => ({default:module.SharedDataExchange})));
 import "./shared-collaboration.css";
 import { ProjectsHeroMark } from "./ProjectsHeroMark";
 import { WorkspaceHeader } from "./WorkspaceHeader";
@@ -236,6 +237,8 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   const templateAccessLost=useCallback(()=>{setTemplateScope(null);announce(translateText("Нет доступа"));},[announce]);
   const [automationScope,setAutomationScope]=useState<SharedProjectSnapshot|null>(null);
   const automationAccessLost=useCallback(()=>{setAutomationScope(null);announce(translateText("Нет доступа"));},[announce]);
+  const [dataScope,setDataScope]=useState<SharedProjectSnapshot|null>(null);
+  const dataAccessLost=useCallback(()=>{setDataScope(null);announce(translateText("Нет доступа"));},[announce]);
   const [customCriteria,setCustomCriteria]=useState<{projectId:string;criteria:CustomFieldCriterion[]}>({projectId:"",criteria:[]});
   const [customSort,setCustomSort]=useState<{projectId:string;sort:import("./cloud-sync").SharedTaskSort}>({projectId:"",sort:"position"});
   const [projectTitle, setProjectTitle] = useState("");
@@ -1243,6 +1246,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
     </section> : null}
     {templateScope?<Suspense fallback={<p role="status">{translateText("Загрузка…")}</p>}><SharedTemplates key={`${templateScope.context.project.id}:${templateScope.source?.taskId??"library"}`} spaceId={templateScope.context.project.spaceId} projectId={templateScope.context.project.id} language={language as import("./i18n").Language} mode={taskCalendarMode} timeFormat={timeFormat} canWrite={templateScope.context.project.permissions?.editTasks??["owner","manager","member"].includes(templateScope.context.project.role)} canCreateProjects={Boolean(templateScope.context.project.permissions?.createProjects)} canCaptureProject={!templateScope.context.project.isInbox} source={templateScope.source} projects={projects.map(project=>({id:project.id,title:project.title,canWrite:project.permissions?.editTasks??["owner","manager","member"].includes(project.role)}))} members={templateScope.context.members.map(member=>({id:member.userId,title:member.displayName}))} onClose={()=>setTemplateScope(null)} onAccessLost={templateAccessLost} onApplied={async receipt=>{await refreshProjects(templateScope.context.project.spaceId);await refreshProject(receipt.rootProjectId);setSpaceId(templateScope.context.project.spaceId);setProjectId(receipt.rootProjectId);setTemplateScope(null);}}/></Suspense>:null}
     {automationScope?<Suspense fallback={<p role="status">{translateText("Загрузка…")}</p>}><SharedAutomations key={automationScope.project.id} snapshot={snapshot?.project.id===automationScope.project.id?snapshot:automationScope} labels={labels} userId={userId} language={language as import("./i18n").Language} mode={taskCalendarMode} timeFormat={timeFormat} onClose={()=>setAutomationScope(null)} onAccessLost={automationAccessLost} onChanged={()=>refreshProject(automationScope.project.id)} onOpenTask={task=>openTask(task)}/></Suspense>:null}
+    {dataScope?<Suspense fallback={<p role="status">{translateText("Загрузка…")}</p>}><SharedDataExchange key={dataScope.project.id} snapshot={dataScope} language={language as import("./i18n").Language} mode={taskCalendarMode} onClose={()=>setDataScope(null)} onAccessLost={dataAccessLost} onChanged={async()=>{await refreshProjects(dataScope.project.spaceId);if(projectId)await refreshProject(projectId);}} onOpenProject={id=>{setDataScope(null);setSpaceId(dataScope.project.spaceId);setProjectId(id);void refreshProject(id);}}/></Suspense>:null}
     <Suspense fallback={<p role="status">{translateText("Загружаем данные…")}</p>}><SharedSavedViews key={userId} userId={userId} spaces={spaces} mode={calendarMode} opened={savedViewsOpen} onClose={()=>setSavedViewsOpen(false)} onOpen={task=>void run(async()=>{
       const [context,found]=await Promise.all([loadSharedProject(task.projectId),loadSharedTask(task.projectId,task.id,Boolean(task.archivedAt))]);setSavedViewsOpen(false);openTask(found,context);
     })}/></Suspense>
@@ -1359,6 +1363,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       <div className="shared-context-actions">
         <button type="button" className="secondary-button" data-template-trigger onClick={()=>setTemplateScope({context:snapshot})}><ExperimentalIcon name="copy"/>{translateText("Шаблоны")}</button>
         <button type="button" className="secondary-button" data-automation-trigger onClick={()=>setAutomationScope(snapshot)}><ExperimentalIcon name="gear"/>{translateText("Автоматизации")}</button>
+        <button type="button" className="secondary-button" data-exchange-trigger onClick={()=>setDataScope(snapshot)}><ExperimentalIcon name="copy"/>{translateText("Импорт и экспорт")}</button>
         {(canManage || canInvite) && !snapshot.project.isInbox ? <button type="button" className="secondary-button shared-project-settings-icon" title={english ? "Project settings" : "Настройки проекта"} aria-label={english ? "Project settings" : "Настройки проекта"} onClick={() => {setEditProjectLabelIds(snapshot.project.labelIds||[]);setCreateModal("settings");}}><ExperimentalIcon name="gear" /></button> : null}
       </div>
         <div className="shared-project-details">
