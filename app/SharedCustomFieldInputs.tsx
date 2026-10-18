@@ -1,13 +1,14 @@
 "use client";
 import { useId } from "react";
 import { CalendarDatePicker } from "./CalendarDatePicker";
+import type { CalendarContext } from "./calendar-context";
 import { formatCalendarDate, type CalendarMode } from "./calendar-data";
 import { translateText as t, type Language } from "./i18n";
 import { customFieldText, type CustomFieldValues, type SharedCustomField } from "./shared-custom-fields";
 import "./shared-custom-fields.css";
 
-export function SharedCustomFieldInputs({fields,values,onChange,language,mode,disabled=false}:{fields:SharedCustomField[];values:CustomFieldValues;
-  onChange:(values:CustomFieldValues)=>void;language:Language;mode:CalendarMode;disabled?:boolean}){
+export function SharedCustomFieldInputs({fields,values,onChange,language,mode,calculationContext,disabled=false}:{fields:SharedCustomField[];values:CustomFieldValues;
+  onChange:(values:CustomFieldValues)=>void;language:Language;mode:CalendarMode;calculationContext?:CalendarContext;disabled?:boolean}){
   const prefix=useId(),active=fields.filter(field=>!field.archived);
   if(!active.length)return null;
   const update=(id:string,value:CustomFieldValues[string])=>onChange({...values,[id]:value});
@@ -15,7 +16,7 @@ export function SharedCustomFieldInputs({fields,values,onChange,language,mode,di
     {active.map(field=>{const id=`${prefix}-${field.id}`,value=values[field.id],title=<span data-no-translate>{field.title}</span>,required=field.required;
       return <div className="shared-custom-field-input" data-custom-field-id={field.id} key={field.id}>
         <label htmlFor={id}>{title}{required?<span> · {t("Обязательное поле",language)}</span>:null}</label>
-        {field.type==="date"?<><CalendarDatePicker id={id} value={typeof value==="string"?value:""} mode={mode} required={required} ariaLabel={field.title} onChange={value=>update(field.id,value||null)}/>
+        {field.type==="date"?<><CalendarDatePicker id={id} value={typeof value==="string"?value:""} mode={mode} calculationContext={calculationContext} required={required} ariaLabel={field.title} onChange={value=>update(field.id,value||null)}/>
           {value?<button type="button" className="text-button" onClick={()=>update(field.id,null)}>{t("Очистить",language)}</button>:null}</>
         :field.type==="checkbox"?<select id={id} required={required} value={value===null||value===undefined?"":String(value)} onChange={event=>update(field.id,event.target.value===""?null:event.target.value==="true")}>
           <option value="">{t("Не задано",language)}</option><option value="true">{t("Да",language)}</option><option value="false">{t("Нет",language)}</option></select>

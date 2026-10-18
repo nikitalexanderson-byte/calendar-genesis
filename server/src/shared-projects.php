@@ -25,6 +25,7 @@ require_once __DIR__ . '/shared-bulk.php';
 require_once __DIR__ . '/shared-notifications.php';
 require_once __DIR__ . '/shared-project-access.php';
 require_once __DIR__ . '/shared-custom-fields.php';
+require_once __DIR__ . '/template-apply.php';
 
 final class GenesisSharedAccessException extends RuntimeException
 {
@@ -295,13 +296,13 @@ function genesisSharedCreateStatus(string $userId, string $projectId, array $inp
     $isDone = $input['isDone'] ?? false;
     if (!is_bool($isDone)) throw new InvalidArgumentException('INVALID_STATUS_KIND');
     $db = genesisDb();
-    genesisBeginWriteTransaction($db);
+    $ownsTransaction=!$db->inTransaction();if($ownsTransaction)genesisBeginWriteTransaction($db);
     try {
         $project = genesisSharedProjectAccess($projectId, $userId);
         genesisSharedProjectAccess($projectId, $userId, $project['space_permissions_json'] === null ? 'write' : 'manage');
         $receipt = genesisSharedMutationReceipt($db, $userId, $requestId, 'status.create', $projectId);
         if ($receipt !== null) {
-            $db->commit();
+            if($ownsTransaction)$db->commit();
             return $receipt;
         }
         $query = $db->prepare('SELECT COUNT(*) AS count, COALESCE(MAX(position), -1) AS lastPosition
@@ -320,10 +321,10 @@ function genesisSharedCreateStatus(string $userId, string $projectId, array $inp
         $response = ['id' => $id, 'title' => $title, 'position' => $position,
             'isDone' => $isDone ? 1 : 0, 'revision' => 1, 'taskTitleLines' => $isDone ? 2 : 0, 'visibleTaskCount' => $isDone ? 5 : 0];
         genesisSharedSaveMutationReceipt($db, $userId, $requestId, 'status.create', $projectId, $response);
-        $db->commit();
+        if($ownsTransaction)$db->commit();
         return $response;
     } catch (Throwable $error) {
-        $db->rollBack();
+        if($ownsTransaction&&$db->inTransaction())$db->rollBack();
         throw $error;
     }
 }
@@ -461,7 +462,7 @@ function genesisSharedCreateCategory(string $userId, string $projectId, array $i
     $title = genesisSharedTitle($input['title'] ?? null, 80);
     $color = genesisSharedCategoryColor($input['color'] ?? '#2d6c68');
     $db = genesisDb();
-    genesisBeginWriteTransaction($db);
+    $ownsTransaction=!$db->inTransaction();if($ownsTransaction)genesisBeginWriteTransaction($db);
     try {
         genesisSharedProjectAccess($projectId, $userId, 'manage');
         $query = $db->prepare('SELECT COUNT(*) AS count, COALESCE(MAX(position), -1) AS lastPosition
@@ -477,11 +478,11 @@ function genesisSharedCreateCategory(string $userId, string $projectId, array $i
                 'color' => $color, 'position' => $position,
             ]);
         genesisSharedAudit($projectId, $userId, 'category.created', $id);
-        $db->commit();
+        if($ownsTransaction)$db->commit();
         return ['id' => $id, 'title' => $title, 'color' => $color,
             'position' => $position, 'revision' => 1];
     } catch (Throwable $error) {
-        $db->rollBack();
+        if($ownsTransaction&&$db->inTransaction())$db->rollBack();
         throw $error;
     }
 }
@@ -560,10 +561,20 @@ function genesisSharedCreateProject(string $userId, string $spaceId, array $inpu
     if (!in_array($kind, ['project', 'task-list'], true)) throw new InvalidArgumentException('INVALID_PROJECT_KIND');
     $categoryId = genesisSharedValidateProjectCategory($spaceId, $input['categoryId'] ?? null, $kind);
     $boardStatusId = genesisSharedBoardPlacement($userId, $spaceId, $parentId, $input['boardStatusId'] ?? null);
+    $statusDefinitions=$input['statuses']??[['title'=>'К выполнению','isDone'=>false],['title'=>'В работе','isDone'=>false],['title'=>'Готово','isDone'=>true]];
+    if(!is_array($statusDefinitions)||!array_is_list($statusDefinitions)||!$statusDefinitions||count($statusDefinitions)>30)throw new InvalidArgumentException('INVALID_STATUS');
+    foreach($statusDefinitions as &$definition){
+        if(!is_array($definition)||!is_bool($definition['isDone']??null)||array_diff(array_keys($definition),['title','isDone','color','taskTitleLines','visibleTaskCount']))throw new InvalidArgumentException('INVALID_STATUS');
+        $definition['title']=genesisSharedTitle($definition['title']??null,80);
+        $definition['color']=genesisSharedCategoryColor($definition['color']??'#2d6c68');
+        $definition['taskTitleLines']=$definition['taskTitleLines']??($definition['isDone']?2:0);$definition['visibleTaskCount']=$definition['visibleTaskCount']??($definition['isDone']?5:0);
+        if(!is_int($definition['taskTitleLines'])||$definition['taskTitleLines']<0||$definition['taskTitleLines']>3||!is_int($definition['visibleTaskCount'])||$definition['visibleTaskCount']<0||$definition['visibleTaskCount']>1000)throw new InvalidArgumentException('INVALID_BOARD_DISPLAY');
+    }unset($definition);
+    if(count(array_unique(array_column($statusDefinitions,'isDone'),SORT_REGULAR))!==2)throw new InvalidArgumentException('INVALID_STATUS_KIND');
     $id = genesisUuid();
     $now = genesisNow();
     $db = genesisDb();
-    genesisBeginWriteTransaction($db);
+    $ownsTransaction=!$db->inTransaction();if($ownsTransaction)genesisBeginWriteTransaction($db);
     try {
         $space = genesisSharedSpaceAccess($spaceId, $userId);
         if (!genesisSharedSpacePermission($space, 'createProjects')) {
@@ -582,19 +593,16 @@ function genesisSharedCreateProject(string $userId, string $spaceId, array $inpu
             SELECT :project, sm.user_id, CASE sm.role WHEN 'owner' THEN 'manager' WHEN 'admin' THEN 'manager' WHEN 'member' THEN 'member' ELSE 'viewer' END, :now FROM shared_space_members sm
             WHERE sm.space_id = :space AND (sm.role IN ('owner', 'admin') OR sm.all_projects = 1)")->execute([
                 'project' => $id, 'space' => $spaceId, 'now' => $now]);
-        foreach ([['К выполнению', 0], ['В работе', 0], ['Готово', 1]] as $position => [$statusTitle, $done]) {
-            $db->prepare('INSERT INTO shared_project_statuses (id, project_id, title, position, is_done)
-                VALUES (:id, :project, :title, :position, :done)')->execute([
-                    'id' => genesisUuid(), 'project' => $id, 'title' => $statusTitle,
-                    'position' => $position, 'done' => $done,
-                ]);
+        foreach ($statusDefinitions as $position=>$definition) {
+            $db->prepare('INSERT INTO shared_project_statuses (id,project_id,title,position,is_done,color,task_title_lines,visible_task_count) VALUES(?,?,?,?,?,?,?,?)')
+                ->execute([genesisUuid(),$id,$definition['title'],$position,(int)$definition['isDone'],$definition['color'],$definition['taskTitleLines'],$definition['visibleTaskCount']]);
         }
         $labelIds = genesisSharedAssignLabels($spaceId, 'project', $id, $input);
         genesisSharedRefreshRestrictedProjectAccess($spaceId,$userId);
         genesisSharedAudit($id, $userId, 'project.created', $id, ['labelIds' => $labelIds]);
-        $db->commit();
+        if($ownsTransaction)$db->commit();
     } catch (Throwable $error) {
-        $db->rollBack();
+        if($ownsTransaction&&$db->inTransaction())$db->rollBack();
         throw $error;
     }
     return ['id' => $id, 'spaceId' => $spaceId, 'parentId' => $parentId, 'categoryId' => $categoryId, 'title' => $title,

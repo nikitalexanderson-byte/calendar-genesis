@@ -77,13 +77,13 @@ function genesisSharedSaveCustomField(string $actor,string $spaceId,array $input
 {
     genesisSharedCustomFieldManage($actor,$spaceId);$operation=$input['operationId']??null;
     if(!is_string($operation)||!preg_match('/^[a-zA-Z0-9:_-]{1,100}$/D',$operation))throw new InvalidArgumentException('CUSTOM_FIELD_INVALID');
-    $hash=hash('sha256',json_encode($input,JSON_THROW_ON_ERROR));$db=genesisDb();genesisBeginWriteTransaction($db);
+    $hash=hash('sha256',json_encode($input,JSON_THROW_ON_ERROR));$db=genesisDb();$ownsTransaction=!$db->inTransaction();if($ownsTransaction)genesisBeginWriteTransaction($db);
     try{
         genesisSharedCustomFieldManage($actor,$spaceId);
         $q=$db->prepare('SELECT * FROM shared_custom_field_receipts WHERE actor_id=? AND operation_id=?');$q->execute([$actor,$operation]);$receipt=$q->fetch();
         if($receipt){
             if($receipt['space_id']!==$spaceId||!hash_equals($receipt['payload_hash'],$hash))throw new GenesisSharedAccessException('CUSTOM_FIELD_OPERATION_REUSED',409);
-            $db->commit();return json_decode(genesisSharedContentDecrypt($receipt['receipt_json']),true,64,JSON_THROW_ON_ERROR);
+            if($ownsTransaction)$db->commit();return json_decode(genesisSharedContentDecrypt($receipt['receipt_json']),true,64,JSON_THROW_ON_ERROR);
         }
         $preview=genesisSharedPreviewCustomField($actor,$spaceId,$input);
         if(!is_string($input['fingerprint']??null)||!hash_equals($preview['fingerprint'],$input['fingerprint']))throw new GenesisSharedAccessException('CUSTOM_FIELD_CONFLICT',409);
@@ -108,8 +108,8 @@ function genesisSharedSaveCustomField(string $actor,string $spaceId,array $input
         $db->prepare('UPDATE shared_task_query_versions SET version=version+1 WHERE project_id IN (SELECT id FROM shared_projects WHERE space_id=?)')->execute([$spaceId]);
         $q=$db->prepare('SELECT * FROM shared_custom_fields WHERE id=?');$q->execute([$field['id']]);$result=['field'=>genesisSharedCustomFieldRecord($q->fetch()),'previousFieldId'=>$previous];
         $db->prepare('INSERT INTO shared_custom_field_receipts VALUES(?,?,?,?,?)')->execute([$actor,$operation,$spaceId,$hash,genesisSharedContentEncrypt(json_encode($result,JSON_THROW_ON_ERROR))]);
-        $db->commit();return $result;
-    }catch(Throwable $error){if($db->inTransaction())$db->rollBack();throw $error;}
+        if($ownsTransaction)$db->commit();return $result;
+    }catch(Throwable $error){if($ownsTransaction&&$db->inTransaction())$db->rollBack();throw $error;}
 }
 
 function genesisSharedCustomFieldVersion(string $id,string $actor):void

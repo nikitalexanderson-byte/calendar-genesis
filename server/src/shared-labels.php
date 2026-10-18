@@ -23,7 +23,7 @@ function genesisSharedSaveLabel(string $userId, string $spaceId, ?string $labelI
     genesisSharedLabelAccess($userId, $spaceId);
     $title = genesisSharedTitle($input['title'] ?? null, 40);
     $color = genesisSharedCategoryColor($input['color'] ?? '#2d6c68');
-    $db = genesisDb(); $db->beginTransaction();
+    $db = genesisDb();$ownsTransaction=!$db->inTransaction();if($ownsTransaction)genesisBeginWriteTransaction($db);
     try {
         genesisSharedLabelAccess($userId, $spaceId);
         if ($labelId !== null) {
@@ -44,9 +44,9 @@ function genesisSharedSaveLabel(string $userId, string $spaceId, ?string $labelI
                 'id' => $labelId, 'space' => $spaceId, 'title' => $title, 'color' => $color, 'position' => $position]);
         }
         genesisSharedLabelAudit($userId, $spaceId, isset($old) ? 'label.updated' : 'label.created', $labelId, ['objectTitle' => $title]);
-        $db->commit();
+        if($ownsTransaction)$db->commit();
         return ['id' => $labelId, 'title' => $title, 'color' => $color, 'position' => $position, 'revision' => $revision];
-    } catch (Throwable $error) { $db->rollBack(); throw $error; }
+    } catch (Throwable $error) {if($ownsTransaction&&$db->inTransaction())$db->rollBack();throw $error;}
 }
 
 function genesisSharedDeleteLabel(string $userId, string $spaceId, string $labelId, array $input): void

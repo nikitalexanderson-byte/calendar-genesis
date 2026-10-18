@@ -6,7 +6,8 @@ require_once __DIR__.'/calendar.php';
 function genesisTemplateDate(string $anchor,array $offset,string $mode,array $context):array
 {
     genesisCalendarDate($anchor);$amount=$offset['amount']??null;$unit=$offset['unit']??null;
-    if(array_diff(array_keys($offset),['amount','unit'])||!is_int($amount)||abs($amount)>1200||!in_array($unit,['day','month','year'],true)
+    $limit=match($unit){'day'=>74000,'month'=>2400,'year'=>200,default=>0};
+    if(array_diff(array_keys($offset),['amount','unit'])||!is_int($amount)||abs($amount)>$limit||!in_array($unit,['day','month','year'],true)
         ||!in_array($mode,['profane','sacred','lunar'],true))throw new InvalidArgumentException('TEMPLATE_DATE_INVALID');
     $context=genesisCalendarContext($context,'Europe/Moscow',2);$clamped=false;
     if($unit==='day')$date=genesisCalendarAddDays($anchor,$amount);

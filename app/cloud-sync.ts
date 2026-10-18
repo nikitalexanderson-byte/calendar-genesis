@@ -1821,6 +1821,24 @@ export function loadSharedProjectAccess(spaceId: string, userId: string, signal?
 export async function listSharedCustomFields(spaceId:string,projectId?:string,signal?:AbortSignal){
   return(await api<{fields:import("./shared-custom-fields").SharedCustomField[]}>(`/shared/spaces/${encodeURIComponent(spaceId)}/custom-fields?archived=true${projectId?`&projectId=${encodeURIComponent(projectId)}`:""}`,{signal})).fields;
 }
+export function listSharedTemplates(spaceId:string,language:import("./i18n").Language,options:{deleted?:boolean;cursor?:string|null}={},signal?:AbortSignal){
+ const query=new URLSearchParams({language,deleted:String(Boolean(options.deleted))});if(options.cursor)query.set("cursor",options.cursor);
+ return api<{templates:import("./shared-templates").SharedTemplateSummary[];systemTemplates:import("./shared-templates").SharedTemplateSummary[];total:number;hasMore:boolean;nextCursor:string|null}>(`/shared/spaces/${encodeURIComponent(spaceId)}/templates?${query}`,{signal});
+}
+export async function loadSharedTemplate(id:string,language:import("./i18n").Language,signal?:AbortSignal,deleted=false){
+ return (await api<{template:import("./shared-templates").SharedTemplate}>(`/shared/templates/${encodeURIComponent(id)}?language=${language}&deleted=${deleted}`,{signal})).template;
+}
+export async function saveSharedTemplate(spaceId:string,command:import("./shared-templates").TemplateSave,id?:string){
+ const receipt=await api<{id:string;revision:number;deleted:boolean}>(`/shared/spaces/${encodeURIComponent(spaceId)}/templates${id?`/${encodeURIComponent(id)}`:""}`,{method:id?"PATCH":"POST",body:JSON.stringify(command)});
+ window.dispatchEvent(new Event("genesis:shared-updates"));return receipt;
+}
+export function previewSharedTemplate(id:string,options:import("./shared-templates").TemplateApplyOptions,signal?:AbortSignal){
+ return api<import("./shared-templates").TemplatePreview>(`/shared/templates/${encodeURIComponent(id)}/preview`,{method:"POST",body:JSON.stringify(options),signal});
+}
+export async function applySharedTemplate(id:string,command:import("./shared-templates").TemplateApplyOptions&{operationId:string;fingerprint:string}){
+ const receipt=await api<import("./shared-templates").TemplateReceipt>(`/shared/templates/${encodeURIComponent(id)}/apply`,{method:"POST",body:JSON.stringify(command)});
+ window.dispatchEvent(new Event("genesis:shared-updates"));return receipt;
+}
 export function previewSharedCustomField(spaceId:string,draft:import("./shared-custom-fields").CustomFieldDraft,signal?:AbortSignal){
   return api<import("./shared-custom-fields").CustomFieldPreview>(`/shared/spaces/${encodeURIComponent(spaceId)}/custom-fields/preview`,{method:"POST",body:JSON.stringify(draft),signal});
 }
