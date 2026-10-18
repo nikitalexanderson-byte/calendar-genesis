@@ -72,6 +72,7 @@ try{
     $checks[]='maps-history-move-delete-scope';
     genesisSharedSetSpaceRole($owner,$spaceId,$member,['role'=>'admin']);
     accessCheck(genesisSharedProjectAccess($b['id'],$member,'write')['permissions']['editTasks'],'Explicit administrator promotion did not take effect.');
+    accessCheck(in_array($maps['space']['id'],array_column(genesisSharedMindmaps($member,$spaceId),'id'),true),'Administrator lost the space-wide map while the restriction flag is retained.');
     $adminProject=genesisSharedCreateProject($owner,$spaceId,['title'=>'C6 created during administrator role']);
     genesisSharedSetSpaceRole($owner,$spaceId,$member,['role'=>'member']);
     accessReject(fn()=>genesisSharedProjectAccess($adminProject['id'],$member),404);
@@ -105,6 +106,8 @@ try{
     accessReject(fn()=>genesisSharedSaveProjectAccess($owner,$spaceId,$member,['allProjects'=>false,'grants'=>[],'expectedFingerprint'=>$stale['fingerprint'],'operationId'=>'c6-stale']),409);
     $unrestricted=genesisSharedPreviewProjectAccess($owner,$spaceId,$member,['allProjects'=>true,'grants'=>[]]);
     genesisSharedSaveProjectAccess($owner,$spaceId,$member,['allProjects'=>true,'grants'=>[],'expectedFingerprint'=>$unrestricted['fingerprint'],'operationId'=>'c6-all']);
+    accessCheck(in_array($maps['space']['id'],array_column(genesisSharedMindmaps($member,$spaceId),'id'),true),'Unrestricted participant lost the space-wide map.');
+    accessCheck(count(genesisSharedMindmaps($member,$spaceId,$maps['space']['id']))===1,'Unrestricted participant lost space-wide map history.');
     $owned=genesisSharedCreateProject($member,$spaceId,['title'=>'C6 sole owner']);
     $blocked=genesisSharedPreviewProjectAccess($owner,$spaceId,$member,['allProjects'=>false,'grants'=>[]]);
     accessCheck(in_array($owned['id'],array_column($blocked['blockers'],'projectId'),true),'Preview lost the sole owner blocker.');

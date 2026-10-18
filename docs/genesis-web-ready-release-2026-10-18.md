@@ -23,3 +23,11 @@ Frozen install, lint (0 ошибок и два прежних img warnings),327/
 Только существующий .github/workflows/deploy.yml после merge в master. Проверены repository variables: GENESIS_DEPLOY_TARGET=hostinger, GENESIS_DEPLOY_ANDROID=false, GENESIS_MINDMAPS=true. Android APK/AAB не переиздаются. Миграции069–077 аддитивны; штатный workflow сохраняет server-only config и согласованную SQLite-копию. Откат кода — git revert выпущенного merge и новый workflow, без автоматического восстановления БД.
 
 После выпуска зафиксировать PR, master SHA, workflow и /deploy-meta.json+/api/health; проверить опубликованные assets и прежний Android descriptor. SSH и ручных изменений production-БД не было.
+
+## Остановка первого CI и исправление
+
+PR197 слит как34078425c9b9875f3eb3a168cc9ab1851d74b7f2. Workflow39160405193 прошёл обычные проверки и остановился в специализированном shared-mindmaps suite до build/deploy: карты без project_id исчезали из списка и истории обычного участника. Production сохранил прежнюю версию.
+
+Причина: PDO execute(array) связывает значение0 как строку; SQLite не приводит bare parameter в сравнении ?=0 к INTEGER. В общем предикате списка/истории добавлен CAST(? AS INTEGER)=0. Условия ограниченного проектного доступа не менялись. C6 regression дополнен проверками пространства для администратора с сохранённым restriction flag и обычного участника после снятия ограничения, включая историю. Существующие проверки скрытых проектов/карт остаются обязательными.
+
+Локально повторены C6/shared-projects/shared-ui и все7 специализированных mindmaps suites на отдельном точном output/mindmaps-test.sqlite: успешно. Для migration suite локальному CLI явно подключена установленная SQLite3 extension; runtime-конфиги не редактировались. Исходные fixture config/DB/session файлы восстановлены. Исправление не меняет клиент, миграции или CI/CD-схему; новый merge повторно выполняет штатный workflow.
