@@ -17,6 +17,7 @@ import { habitTimerDeviceOwner, preserveHabitTimerRecords, withHabitTimerLock } 
 import { applyHabitTimerCommand, type HabitTimerCommand } from "./habit-timer-workspace";
 import type { HabitReminderTarget, HabitReminderInput } from "./habit-reminder-plan";
 import type { HabitHistoryCommand } from "./habit-history-workspace";
+import type { HabitRestoreRequest } from "./habit-backup-restore";
 import { habitLifecycleState, type HabitLifecycleCommand } from "./habit-lifecycle";
 import { applyHabitLifecycleToWorkspace } from "./habits";
 import { habitTimerEpoch } from "./habit-timer";
@@ -3385,7 +3386,7 @@ export function GenesisCalendar() {
       refreshTrackerAnalytics(dailyGoalWorkspace, changedDates, activeTaskCalendarMode),
       activeTaskCalendarMode,
     );
-    if (lifecycleChanged) normalized = { ...normalized, rewardTransactions: normalizedBase.rewardTransactions,
+    if (lifecycleChanged || historyCorrection) normalized = { ...normalized, rewardTransactions: normalizedBase.rewardTransactions,
       streakFreezeTransactions: normalizedBase.streakFreezeTransactions, achievementUnlocks: normalizedBase.achievementUnlocks,
       quests: normalizedBase.quests, userProgress: { ...normalized.userProgress,
         lifetimeXp: normalizedBase.userProgress.lifetimeXp, laurelsBalance: normalizedBase.userProgress.laurelsBalance,
@@ -3574,6 +3575,26 @@ export function GenesisCalendar() {
       const base = normalizeHabitWorkspace(preserveHabitTimerRecords(stored, habitWorkspaceRef.current), activeTaskCalendarMode);
       const next = applyHabitLifecycleToWorkspace(base, command);
       await updateHabitWorkspace(next, true, true); guard();
+      writeProtectedWorkspace(localStorage, key, { tasks: tasksRef.current, projects: projectsRef.current,
+        categories: categoriesRef.current, taskLists: taskListsRef.current, taskListLinks: taskListLinksRef.current, ...habitWorkspaceRef.current });
+    });
+  };
+
+  const runHabitRestore = async (request: HabitRestoreRequest, scope: string) => {
+    const account = cloudUser?.uid ?? "local";
+    const guard = cloudUser ? captureAccountSessionGuard() : () => { if (privateDeviceAccessBlocked()) throw Error("LOCAL_WORKSPACE_RECOVERY_REQUIRED"); };
+    const check = () => { guard(); if ((cloudUserRef.current?.uid ?? "local") !== scope || scope !== account) throw Error("HABIT_RESTORE_STALE"); };
+    const key = cloudUser ? `${GENESIS_USER_WORKSPACE_STORAGE_PREFIX}${cloudUser.uid}` : GENESIS_LEGACY_WORKSPACE_STORAGE_KEY;
+    await withHabitTimerLock(key, async () => {
+      check();
+      const { applyHabitRestore } = await import("./habit-backup-restore");
+      const stored = readProtectedWorkspace(localStorage, key, raw => normalizeHabitWorkspace(raw as Parameters<typeof normalizeHabitWorkspace>[0]), () => habitWorkspaceRef.current);
+      const base = normalizeHabitWorkspace(preserveHabitTimerRecords(stored, habitWorkspaceRef.current), activeTaskCalendarMode);
+      const next = await applyHabitRestore(base, request);
+      check();
+      if (next === base) return;
+      await updateHabitWorkspace(next, true, true);
+      check();
       writeProtectedWorkspace(localStorage, key, { tasks: tasksRef.current, projects: projectsRef.current,
         categories: categoriesRef.current, taskLists: taskListsRef.current, taskListLinks: taskListLinksRef.current, ...habitWorkspaceRef.current });
     });
@@ -6895,6 +6916,8 @@ export function GenesisCalendar() {
                     onTimerCommand={runHabitTimerCommand}
                     onHistoryCommand={runHabitHistoryCommand}
                     onLifecycleCommand={runHabitLifecycleCommand}
+                    restoreScope={cloudUser?.uid ?? "local"}
+                    onRestoreHabits={runHabitRestore}
                     onReminderRequested={createHabitGoogleReminder}
                     onReminderRemoved={async (habit) => {
                       if (!cloudUser) return;

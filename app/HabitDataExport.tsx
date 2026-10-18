@@ -3,6 +3,9 @@ import { buildHabitHistoryCsv, createHabitBackup } from "./habit-backup";
 import { translateText, type Language } from "./i18n";
 import { ExperimentalIcon } from "./ExperimentalIcon";
 import type { HabitWorkspace } from "./habits";
+import { HabitDataRestore } from "./HabitDataRestore";
+import type { HabitRestoreRequest } from "./habit-backup-restore";
+import type { TimeFormat } from "./time-format";
 import "./habit-data-export.css";
 
 function downloadFile(body: string, filename: string, mime: string) {
@@ -12,7 +15,9 @@ function downloadFile(body: string, filename: string, mime: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export function HabitDataExport({ workspace, language }: { workspace: HabitWorkspace; language: Language }) {
+export function HabitDataExport({ workspace, language, restoreScope = "", timeFormat, timeZone, onRestore }: { workspace: HabitWorkspace; language: Language;
+  timeFormat?: TimeFormat; timeZone?: string;
+  restoreScope?: string; onRestore?: (request: HabitRestoreRequest, scope: string) => Promise<void> }) {
   const t = (text: string) => translateText(text, language), id = useId();
   const [busy, setBusy] = useState(false), [error, setError] = useState("");
   const save = async (format: "csv" | "json") => {
@@ -22,7 +27,7 @@ export function HabitDataExport({ workspace, language }: { workspace: HabitWorks
       const now = new Date().toISOString();
       if (format === "csv") downloadFile(buildHabitHistoryCsv(workspace, { label: t }), `GENESIS-habits-history-${now.slice(0, 10)}.csv`, "text/csv;charset=utf-8");
       else downloadFile(`${JSON.stringify(await createHabitBackup(workspace, now), null, 2)}\n`, `GENESIS-habits-backup-${now.slice(0, 10)}.json`, "application/json;charset=utf-8");
-    } catch { setError(t("Не удалось создать файл. Повторите попытку.")); }
+    } catch { setError("Не удалось создать файл. Повторите попытку."); }
     finally { setBusy(false); }
   };
   return <details className="habit-data-export">
@@ -33,7 +38,8 @@ export function HabitDataExport({ workspace, language }: { workspace: HabitWorks
         <button type="button" disabled={busy} onClick={() => void save("csv")}><ExperimentalIcon name="file" />{t("Экспорт всей истории CSV")}</button>
         <button type="button" disabled={busy} onClick={() => void save("json")}><ExperimentalIcon name="archive" />{t("Резервная копия JSON")}</button>
       </div>
-      {error ? <p role="alert">{error}</p> : null}
+      {error ? <p role="alert">{t(error)}</p> : null}
+      {onRestore ? <HabitDataRestore key={restoreScope} scope={restoreScope} workspace={workspace} language={language} timeFormat={timeFormat} timeZone={timeZone} onRestore={onRestore} /> : null}
     </div>
   </details>;
 }

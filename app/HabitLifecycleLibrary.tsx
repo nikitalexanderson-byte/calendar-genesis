@@ -2,6 +2,7 @@ import { useId, useState, type CSSProperties, type ReactNode } from "react";
 import { habitLifecycleState, type HabitLifecycleAction, type HabitLifecycleCommand, type HabitLifecycleStatus } from "./habit-lifecycle";
 import { habitCompletionCount } from "./habit-laurel-retention";
 import { habitEconomyHistory } from "./habit-history";
+import { habitDisplayText } from "./habit-display-text";
 import { translateText, type Language } from "./i18n";
 import { useDialogAccessibility } from "./use-dialog-accessibility";
 import { ExperimentalIcon } from "./ExperimentalIcon";
@@ -34,8 +35,12 @@ export function HabitLifecycleLibrary({ workspace, language, requestedDelete, on
   const save = async (command: HabitLifecycleCommand) => {
     if (!onCommand || busy) return;
     setBusy(true); setMessage("");
-    try { await onCommand(command); setPending(null); setMessage(t("Состояние сохранено.")); }
-    catch { setMessage(t("Не удалось сохранить. Проверьте синхронизацию и повторите.")); }
+    try { await onCommand(command); setPending(null); setMessage("Состояние сохранено."); }
+    catch (error) {
+      if (error instanceof Error && error.message === "HABIT_LIFECYCLE_EDIT_CONFLICT") {
+        setPending(null); setMessage("Есть изменения с другого устройства. Выберите состояние.");
+      } else setMessage("Не удалось сохранить. Проверьте синхронизацию и повторите.");
+    }
     finally { setBusy(false); }
   };
   const act = (habit: Habit, action: HabitLifecycleAction, selectedId?: string) => {
@@ -45,17 +50,18 @@ export function HabitLifecycleLibrary({ workspace, language, requestedDelete, on
   };
   return <section className="habit-library habit-lifecycle-library" aria-labelledby={`${id}-title`}>
     <header><h2 id={`${id}-title`}>{t("Ядро привычек")}</h2><button type="button" className="primary-button" onClick={onAdd}><ExperimentalIcon name="plus" />{t("Добавить")}</button></header>
+    <p className="habit-library-rule">{t("Можно изменять все настройки, кроме баллов и шкалы качества.")}</p>
     <p className="habit-library-rule">{t("Пауза выключает расписание и напоминания. Архив сохраняет историю и награды.")}</p>
     <div className="habit-lifecycle-filters" role="group" aria-label={t("Состояние привычки")}>
       {(Object.keys(labels) as HabitLifecycleStatus[]).map(status => <button type="button" key={status}
         aria-pressed={filter === status} onClick={() => setFilter(status)}>{t(labels[status])} <span>{counts[status]}</span></button>)}
     </div>
-    <p className="habit-lifecycle-message" role="status">{message}</p>
+    <p className="habit-lifecycle-message" role="status">{message ? t(message) : ""}</p>
     {rows.length ? <div className="habit-lifecycle-rows">{rows.map(habit => {
       const state = habitLifecycleState(habit);
       return <article key={habit.id} className={`${!habit.active ? "paused" : ""}${habit.isKeyHabit ? " key-habit" : ""}`}
         data-habit-id={habit.id} style={{ "--habit-color": habit.color } as CSSProperties}>
-        <i /><div><span><b className="habit-emoji" aria-hidden="true">{habit.emoji}</b><strong data-no-translate>{habit.title}</strong>
+        <i /><div><span><b className="habit-emoji" aria-hidden="true">{habit.emoji}</b><strong data-no-translate>{habitDisplayText(habit, language).title}</strong>
           {habit.isKeyHabit ? <mark>{t("Главная")}</mark> : null}<em>{t("Приоритет")} {habit.priority}</em></span>
           <small>{details(habit)} · {t("Выполнено дней")} {habitCompletionCount(economy.habitCompletions, habit.id)}/50</small></div>
         <div className="habit-library-actions" aria-busy={busy}>
@@ -76,10 +82,10 @@ export function HabitLifecycleLibrary({ workspace, language, requestedDelete, on
     {filter === "archived" || filter === "deleted" ? <p>{t("Восстановление вернёт привычку на паузу. Награды и прежний штраф не изменятся.")}</p> : null}
     {pending && pendingHabit ? <div className="modal-backdrop habit-editor-backdrop">
       <section ref={dialogRef} className="habit-editor habit-lifecycle-confirm" data-exp-ui="dialog" role="dialog" aria-modal="true" aria-labelledby={`${id}-delete`} tabIndex={-1}>
-        <h2 id={`${id}-delete`}>{t("Удалить привычку")}</h2><strong data-no-translate>{pendingHabit.title}</strong>
+        <h2 id={`${id}-delete`}>{t("Удалить привычку")}</h2><strong data-no-translate>{habitDisplayText(pendingHabit, language).title}</strong>
         <p>{t(retained ? "Рубеж 50 дней достигнут: Лавры сохранятся. История останется доступной для восстановления."
           : "Удаление до 50 уникальных дней выполнения обнуляет весь баланс Лавров. История останется доступной для восстановления.")}</p>
-        {message ? <p role="alert">{message}</p> : null}
+        {message ? <p role="alert">{t(message)}</p> : null}
         <footer><button type="button" disabled={busy} onClick={close}>{t("Отмена")}</button>
           <button type="button" className="danger" disabled={busy || !onCommand} onClick={() => void save(pending)}>{t(busy ? "Сохранение…" : "Удалить")}</button></footer>
       </section>

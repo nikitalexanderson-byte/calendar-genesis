@@ -90,8 +90,8 @@ async function fallbackLock<T>(scope: string, task: () => Promise<T>) {
 }
 
 /** HTTPS browsers use Web Locks; the fallback stores only a short-lived mutex, never habit content. */
-export function withHabitTimerLock<T>(scope: string, task: () => Promise<T>): Promise<T> {
+export async function withHabitTimerLock<T>(scope: string, task: () => Promise<T>): Promise<T> {
   if (typeof navigator !== "undefined" && navigator.locks)
-    return navigator.locks.request(`genesis-habit-timers:${scope}`, task);
+    return await navigator.locks.request(`genesis-habit-timers:${scope}`, task);
   return fallbackLock(scope, task);
 }

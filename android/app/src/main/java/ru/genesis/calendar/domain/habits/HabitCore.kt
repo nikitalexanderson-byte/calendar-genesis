@@ -39,6 +39,7 @@ data class Habit(
     val intervalSchedule: HabitIntervalSchedule? = null,
     val measurement: HabitMeasurement? = null, val ruleHistory: List<HabitRuleVersion> = emptyList(),
     val periodGoal: HabitPeriodGoal? = null,
+    val lifecycleHistory: List<HabitLifecycleEvent> = emptyList(),
 ) {
     init { require(periodGoal?.metric != "sum" || measurement != null) { "HABIT_PERIOD_MEASUREMENT_REQUIRED" } }
     val id: String get() = entity.id
@@ -70,6 +71,7 @@ fun preserveHabitCreationSettings(candidate: Habit, previous: Habit?, today: Loc
         createdDate = previous.createdDate,
         scoringMode = previous.scoringMode,
         qualityScale = previous.qualityScale,
+        lifecycleHistory = previous.lifecycleHistory,
         schedule = schedule,
     )
 }
@@ -111,7 +113,8 @@ class HabitEngine(private val calendar: GenesisCalendar) {
     fun isScheduled(habit: Habit, date: LocalDate): Boolean {
         if(HabitRuleHistory.state(habit,date).conflicts.isNotEmpty()) return false
         val schedule = HabitMeasurements.rule(habit, date).schedule
-        if (!habit.active || date < schedule.startDate || schedule.endDate?.let { date > it } == true) return false
+        val availability = HabitLifecycle.state(habit.id, habit.active, habit.lifecycleHistory, date)
+        if (availability.status != "active" || availability.conflict || date < schedule.startDate || schedule.endDate?.let { date > it } == true) return false
         return recurrence.matches(schedule.startDate.toString(),schedule.recurrence.copy(
             calendarContext=schedule.recurrence.calendarContext ?: ru.genesis.calendar.domain.CalendarContext(version=1,timeZone=schedule.timezone.ifEmpty { calendar.zoneId.id }),
             rangeStart=schedule.startDate.toString(),rangeEnd=schedule.endDate?.toString() ?: ""),

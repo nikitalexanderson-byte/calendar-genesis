@@ -14,3 +14,4 @@
 @media(max-width:600px) { .habit-lifecycle-library .habit-lifecycle-rows > article { grid-template-columns:4px minmax(0,1fr); }
   .habit-lifecycle-library .habit-library-actions { grid-column:2; width:100%; }
   .habit-lifecycle-library .habit-library-actions button { flex:1 1 110px; } }
+.habit-lifecycle-library .habit-lifecycle-rows > article.paused { opacity:1; }

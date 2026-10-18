@@ -277,6 +277,7 @@ type LegacyHabitSchedule = {
 };
 
 type LegacyHabit = Partial<TrackerEntity> & {
+  lifecycleHistory?: HabitLifecycleEvent[];
   id?: string;
   title?: string;
   description?: string;

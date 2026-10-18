@@ -144,6 +144,7 @@ import { TheokyklosDetailsDialog } from "./TheokyklosDetailsDialog";
 import { ExperimentalIcon } from "./ExperimentalIcon";
 import { HabitHistoryPanel } from "./HabitHistoryPanel";
 import { HabitDataExport } from "./HabitDataExport";
+import type { HabitRestoreRequest } from "./habit-backup-restore";
 import type { HabitHistoryCommand } from "./habit-history-workspace";
 import { habitLifecycleState, type HabitLifecycleCommand } from "./habit-lifecycle";
 import { applyHabitLifecycleToWorkspace } from "./habits";
@@ -170,6 +171,8 @@ type DailyPanelProps = {
 type HabitTrackerPageProps = DailyPanelProps & {
   onHistoryCommand?: (command:HabitHistoryCommand)=>Promise<void>;
   onLifecycleCommand?: (command:HabitLifecycleCommand)=>Promise<void>;
+  onRestoreHabits?: (request: HabitRestoreRequest, scope: string) => Promise<void>;
+  restoreScope?: string;
   historyRequest?: {date:string;token:number}|null;
   reminderFocus?: {habitId:string;date:string;token:number} | null;
   googleTasksReady: boolean;
@@ -1431,7 +1434,7 @@ function SacredHabitLibrary({
   );
 }
 
-export function HabitTrackerPage({ workspace, date, language, timeFormat, calendarMode, reportContext, googleTasksReady, googleCalendarReady, experimentalThemeActive = false, sacredFeaturesEnabled = true, voiceRequest, reminderFocus, historyRequest, onVoiceRequestConsumed, onChange, onSave, onTimerCommand, onHistoryCommand, onLifecycleCommand, onReminderRequested, onReminderRemoved }: HabitTrackerPageProps) {
+export function HabitTrackerPage({ workspace, date, language, timeFormat, calendarMode, reportContext, googleTasksReady, googleCalendarReady, experimentalThemeActive = false, sacredFeaturesEnabled = true, voiceRequest, reminderFocus, historyRequest, onVoiceRequestConsumed, onChange, onSave, onTimerCommand, onHistoryCommand, onLifecycleCommand, onRestoreHabits, restoreScope, onReminderRequested, onReminderRemoved }: HabitTrackerPageProps) {
   const isEnglish = language === "en";
   const workspaceRef = useRef(workspace);
   useEffect(() => {
@@ -1693,7 +1696,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
           <CalendarDatePicker mode={calendarMode} value={workspace.habitSettings.customRangeEnd} min={workspace.habitSettings.customRangeStart} max={date} ariaLabel={isEnglish ? "Analytics period end" : "Конец периода аналитики"} showGregorianReference={false} onChange={(customRangeEnd) => onChange({ ...workspace, habitSettings: { ...workspace.habitSettings, customRangeEnd } })} />
         </div> : <small>{formatCalendarDateValue(range.start, calendarMode)} — {formatCalendarDateValue(range.end, calendarMode)}</small>}
       </section>} />
-      <HabitDataExport workspace={workspace} language={language} />
+      <HabitDataExport workspace={workspace} language={language} timeFormat={timeFormat} timeZone={reportContext?.timeZone} restoreScope={restoreScope} onRestore={onRestoreHabits} />
       {onHistoryCommand?<HabitHistoryPanel key={historyRequest?.token??"history"} requestedDate={historyRequest?.date} workspace={workspace} language={language} calendarMode={calendarMode} timeFormat={timeFormat} reportContext={reportContext} onCommand={onHistoryCommand}/>:null}
       </HabitSectionBlock>
       {sacredFeaturesEnabled ? <HabitSectionBlock className="experimental-habit-section experimental-habit-section-library" label={isEnglish ? "Sacred habits" : "Сакральные привычки"} language={language} {...sectionProps("sacred-habits")}><SacredHabitLibrary

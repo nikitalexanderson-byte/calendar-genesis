@@ -3,6 +3,8 @@ package ru.genesis.calendar.auth
 import org.json.JSONArray
 import org.json.JSONObject
 import ru.genesis.calendar.domain.habits.HabitTimers
+import ru.genesis.calendar.domain.habits.HabitLifecycle
+import ru.genesis.calendar.data.HabitLifecycleCodec
 
 /** Conservative three-way patch for the web's encrypted schema-16 workspace. */
 internal object WorkspacePatch {
@@ -140,7 +142,9 @@ internal object WorkspacePatch {
         }
         val epoch = HabitTimers.epoch(output.optString("habitTimerEpoch"))
         val history = output.optJSONArray("habitHistory") ?: JSONArray()
-        val markedEpoch = HabitTimers.workspaceEpoch(epoch, (0 until history.length()).any { history.getJSONObject(it).getString("epoch") == epoch })
+        val lifecycleHabits=output.optJSONArray("habits") ?: JSONArray()
+        val markedEpoch = HabitTimers.workspaceEpoch(epoch, (0 until history.length()).any { history.getJSONObject(it).getString("epoch") == epoch },
+            (0 until lifecycleHabits.length()).any { (lifecycleHabits.getJSONObject(it).optJSONArray("lifecycleHistory")?.length() ?: 0)>0 })
         if(output.optString("habitTimerEpoch") != markedEpoch) {
             output.put("habitTimerEpoch", markedEpoch); fields.put("habitTimerEpoch",nextRevision(fields.optJSONObject("habitTimerEpoch"),remoteVersion,timestamp,deviceId));changed=true
         }
@@ -185,7 +189,10 @@ internal object WorkspacePatch {
             val edited = local.opt(key)
             if (sameKnown(old, edited)) continue
             val current = remote.opt(key)
-            val merged = if (key == "ruleHistory" && edited is JSONArray && current is JSONArray) {
+            val merged = if (key == "lifecycleHistory" && edited is JSONArray) {
+                HabitLifecycleCodec.encode(HabitLifecycle.merge(HabitLifecycleCodec.decode(edited),
+                    HabitLifecycleCodec.decode(current as? JSONArray ?: JSONArray())))
+            } else if (key == "ruleHistory" && edited is JSONArray && current is JSONArray) {
                 val versions = linkedMapOf<String, JSONObject>()
                 listOf(current, edited).forEach { rows -> for(index in 0 until rows.length()) {
                     val rule = rows.getJSONObject(index)
@@ -205,6 +212,10 @@ internal object WorkspacePatch {
                     current else edited
             }
             if (merged == null) output.remove(key) else output.put(key, merged)
+        }
+        if(output.has("lifecycleHistory") && output.has("active") && output.has("id")) {
+            val state=HabitLifecycle.state(output.getString("id"),output.getBoolean("active"),HabitLifecycleCodec.decode(output.getJSONArray("lifecycleHistory")))
+            output.put("active",state.status=="active" && !state.conflict)
         }
         return output
     }

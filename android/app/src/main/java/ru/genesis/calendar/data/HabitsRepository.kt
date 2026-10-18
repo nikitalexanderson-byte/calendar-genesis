@@ -52,14 +52,10 @@ internal fun habitCompletionCount(completions: List<HabitCompletion>, habitId: S
 
 internal fun deleteHabitFromWorkspace(workspace: LocalHabitWorkspace, habitId: String,
     timestamp: String): LocalHabitWorkspace {
-    if (workspace.habits.none { it.id == habitId }) return workspace
-    val retained = habitCompletionCount(workspace.completions, habitId) >= HABIT_LAUREL_RETENTION_COMPLETIONS
-    val rewards = if (retained) Rewards.retainMastery(workspace.rewards, habitId, timestamp)
-        else Rewards.reset(workspace.rewards, "habit-deleted-reset", habitId,
-            "habit-deleted:self:$habitId", timestamp)
-    return workspace.copy(habits = workspace.habits.filterNot { it.id == habitId },
-        completions = workspace.completions.filterNot { it.habitId == habitId },
-        measurements = workspace.measurements.filterNot { it.habitId == habitId }, rewards = rewards)
+    val habit=workspace.habits.firstOrNull { it.id==habitId } ?: return workspace
+    val state=HabitLifecycle.state(habit)
+    if(state.status=="deleted") return workspace
+    return HabitLifecycleWorkspace.apply(workspace,HabitLifecycleCommand("habit-delete:${UUID.randomUUID()}",habitId,timestamp,"delete",state.heads.map { it.id }))
 }
 
 /** Local draft scope only. This document is not a cloud schema-16 import/sync adapter. */
@@ -79,10 +75,13 @@ class HabitsRepository(private val app: GenesisApplication) {
         db.withTransaction {
             val record=dao.document(scope,"habits")
             val current=if(record==null) LocalHabitWorkspace() else HabitDocument.decode(cipher.decrypt(record.encrypted,"$scope/habits"),record.revision)
-            val projected=reconcile(change(current))
-            val next=(if(preserveEconomy) projected.copy(rewards=current.rewards,streakFreezeTransactions=current.streakFreezeTransactions,
-                achievementUnlocks=current.achievementUnlocks,quests=current.quests,progress=projected.progress.copy(lifetimeXp=current.progress.lifetimeXp,
-                    laurelsBalance=current.progress.laurelsBalance,streakFreezeCount=current.progress.streakFreezeCount)) else projected).copy(revision=current.revision+1)
+            val candidate=change(current)
+            val lifecycleChanged=candidate.habits.map { it.lifecycleHistory }!=current.habits.map { it.lifecycleHistory }
+            val economy=if(lifecycleChanged) candidate else current
+            val projected=reconcile(candidate)
+            val next=(if(preserveEconomy || lifecycleChanged) projected.copy(rewards=economy.rewards,streakFreezeTransactions=economy.streakFreezeTransactions,
+                achievementUnlocks=economy.achievementUnlocks,quests=economy.quests,progress=projected.progress.copy(lifetimeXp=economy.progress.lifetimeXp,
+                    laurelsBalance=economy.progress.laurelsBalance,streakFreezeCount=economy.progress.streakFreezeCount)) else projected).copy(revision=current.revision+1)
             dao.putDocument(DocumentRecord(scope,"habits",cipher.encrypt(HabitDocument.encode(next),"$scope/habits"),next.revision))
             if (scope.startsWith("account-")) dao.putOutbox(OutboxRecord(scope,"habits",next.revision,UUID.randomUUID().toString()))
             mutation = current to next
@@ -99,6 +98,7 @@ class HabitsRepository(private val app: GenesisApplication) {
 
     suspend fun updateSettings(settings: HabitSettings) = mutate { it.copy(settings = settings) }
     suspend fun correctHistory(command: HabitHistoryCommand) = mutate(preserveEconomy = true) { workspace -> HabitHistory.apply(workspace, command) }
+    suspend fun lifecycle(command: HabitLifecycleCommand) = mutate { workspace -> HabitLifecycleWorkspace.apply(workspace,command) }
     suspend fun updateAppearance(value: JSONObject) = mutate { workspace ->
         workspace.copy(settings = workspace.settings.copy(rawJson = JSONObject(workspace.settings.rawJson)
             .put("nativeAppearance", value).toString()))
@@ -133,7 +133,10 @@ class HabitsRepository(private val app: GenesisApplication) {
         val others=workspace.habits.filterNot { it.id==habit.id }.map { other ->
             if(saved.isKeyHabit && other.isKeyHabit) other.copy(isKeyHabit=false,entity=other.entity.changed(now)) else other
         }
-        workspace.copy(habits=others+saved)
+        val result=workspace.copy(habits=others+saved.copy(active=previous?.active ?: saved.active))
+        if(previous!=null && previous.active!=saved.active) HabitLifecycleWorkspace.apply(result,
+            HabitLifecycleCommand("habit-state:${UUID.randomUUID()}",saved.id,now,if(saved.active) "resume" else "pause",HabitLifecycle.state(previous).heads.map { it.id }))
+        else result
     }
 
     suspend fun resolveRule(id: String,chosenId: String,heads: List<String>,operationId: String) = mutate { workspace ->
@@ -375,7 +378,7 @@ internal object HabitDocument {
     }
     private fun habit(h: Habit): JSONObject = entity(h.entity).put("title",h.title).put("description",h.description).put("createdDate",h.createdDate.toString())
         .put("measurement",h.measurement?.let(::measurement) ?: JSONObject.NULL).put("ruleHistory",JSONArray(h.ruleHistory.map(::rule)))
-        .apply { h.periodGoal?.let { put("periodGoal",periodGoal(it)) } }
+        .apply { h.periodGoal?.let { put("periodGoal",periodGoal(it)) }; put("lifecycleHistory",HabitLifecycleCodec.encode(h.lifecycleHistory)) }
         .put("emoji",h.emoji).put("priority",h.priority).put("isKeyHabit",h.isKeyHabit).put("ritualId",h.ritualId).put("ritualName",h.ritualName).put("color",h.color)
         .put("active",h.active).put("sourceTemplateId",h.sourceTemplateId ?: JSONObject.NULL).put("sacredPracticeId",h.sacredPracticeId ?: JSONObject.NULL)
         .put("sacredSectorId",h.sacredSectorId ?: JSONObject.NULL).put("preferredTime",h.preferredTime).put("scoringMode",h.scoringMode).put("qualityScale",h.qualityScale)
@@ -389,7 +392,7 @@ internal object HabitDocument {
             .put("showInGoogleCalendar",h.reminder.showInGoogleCalendar).put("googleTaskId",h.reminder.googleTaskId ?: JSONObject.NULL).put("googleEventId",h.reminder.googleEventId ?: JSONObject.NULL))
     private fun habit(v: JSONObject): Habit {
         val s=v.getJSONObject("schedule"); val r=v.getJSONObject("reminder")
-        return Habit(entity(v),v.getString("title"),LocalDate.parse(v.getString("createdDate")),
+        return HabitLifecycle.project(Habit(entity(v),v.getString("title"),LocalDate.parse(v.getString("createdDate")),
             TrackerSchedule(LocalDate.parse(s.getString("startDate")),s.nullable("endDate")?.let(LocalDate::parse),s.getString("timezone"),recurrence(s.getJSONObject("recurrence"))),
             v.getString("description"),v.getString("emoji"),v.getInt("priority"),v.getBoolean("isKeyHabit"),v.getString("ritualId"),v.getString("ritualName"),v.getString("color"),
             v.getBoolean("active"),v.nullable("sourceTemplateId"),v.nullable("sacredPracticeId"),v.nullable("sacredSectorId"),v.getString("preferredTime"),v.getString("scoringMode"),v.getString("qualityScale"),
@@ -398,9 +401,10 @@ internal object HabitDocument {
                     r.getString("time") != v.getString("preferredTime")) "custom" else "habit",
                 r.optInt("minutesBefore",0).coerceIn(0,1440),r.optBoolean("allowDuringQuietHours",false)))
             .copy(measurement = optionalMeasurement(v), ruleHistory = optionalRules(v), periodGoal = optionalPeriodGoal(v),
+                lifecycleHistory = if(v.has("lifecycleHistory")) HabitLifecycleCodec.decode(v.getJSONArray("lifecycleHistory")) else emptyList(),
                 intervalSchedule = v.optJSONObject("intervalSchedule")?.let { interval ->
                 HabitIntervalSchedule(interval.optInt("intervalMinutes"),interval.optString("startTime"),
-                    interval.optString("endTime"),if(interval.optString("completionMode")=="day") "day" else "each").takeIf { it.valid() } })
+                    interval.optString("endTime"),if(interval.optString("completionMode")=="day") "day" else "each").takeIf { it.valid() } }))
     }
     fun encode(w: LocalHabitWorkspace): String {
         val p=w.progress
@@ -408,7 +412,7 @@ internal object HabitDocument {
             .put("measurements",JSONArray(w.measurements.map(::measurementEvent)))
             .put("timers",HabitTimerCodec.encode(w.timers))
             .put("history",HabitHistoryCodec.encode(w.history))
-            .put("timerEpoch",HabitTimers.workspaceEpoch(w.timerEpoch,w.history.isNotEmpty()))
+            .put("timerEpoch",HabitTimers.workspaceEpoch(w.timerEpoch,w.history.isNotEmpty(),w.habits.any { it.lifecycleHistory.isNotEmpty() }))
             .put("completions",JSONArray(w.completions.map { c -> entity(c.entity).put("habitId",c.habitId).put("date",c.date.toString()).put("completed",c.completed)
                 .put("qualityConfirmedAt",c.qualityConfirmedAt ?: JSONObject.NULL).put("qualityValue",c.qualityValue ?: JSONObject.NULL).put("score",c.score).put("xpAwarded",c.xpAwarded).put("note",c.note)
                 .put("completedTimes",JSONArray(c.completedTimes)) }))

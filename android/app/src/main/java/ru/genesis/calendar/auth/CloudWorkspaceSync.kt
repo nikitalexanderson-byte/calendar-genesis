@@ -58,7 +58,7 @@ internal class CloudWorkspaceSync(private val db: GenesisDatabase, private val t
                     val encrypted = WorkspaceCipher.encrypt(document.toString().toByteArray(), remote.key)
                     val request = JSONObject().put("ciphertext", encrypted.ciphertext)
                         .put("iv", encrypted.iv).put("expectedVersion", remote.version)
-                        .put("writerProtocol",6).put("minimumWriterProtocol",minimumWriterProtocol(document))
+                        .put("writerProtocol",7).put("minimumWriterProtocol",minimumWriterProtocol(document))
                     if(reminderConsent)runCatching {
                         val habits=HabitDocument.decode(CloudAccountImporter.habitsDocument(document),remote.version)
                         request.put("habitReminderPlan",ru.genesis.calendar.reminders.habitReminderProjection(habits))
@@ -76,6 +76,8 @@ internal class CloudWorkspaceSync(private val db: GenesisDatabase, private val t
     }
 
     private fun minimumWriterProtocol(document: JSONObject): Int {
+        val lifecycleHabits=document.optJSONArray("habits")
+        if ((0 until (lifecycleHabits?.length() ?: 0)).any { (lifecycleHabits!!.getJSONObject(it).optJSONArray("lifecycleHistory")?.length() ?: 0)>0 }) return 7
         if ((document.optJSONArray("habitHistory")?.length() ?: 0) > 0) return 6
         if ((document.optJSONArray("habitTimers")?.length() ?: 0) > 0 || document.optString("habitTimerEpoch").isNotEmpty()) return 5
         val habits=document.optJSONArray("habits")

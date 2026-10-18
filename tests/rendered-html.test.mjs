@@ -638,7 +638,7 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(tracker, /<HabitLifecycleLibrary/);
   const lifecycleLibrary = await readFile(new URL("../app/HabitLifecycleLibrary.tsx", import.meta.url), "utf8");
   assert.match(lifecycleLibrary, /act\(habit, habit\.active \? "pause" : "resume"\)/);
-  assert.match(tracker, /Можно изменять все настройки, кроме баллов и шкалы качества/);
+  assert.match(lifecycleLibrary, /Можно изменять все настройки, кроме баллов и шкалы качества/);
   assert.match(tracker, /applyEditableHabitUpdate/);
   assert.match(tracker, /MAX_HABIT_XP_PER_COMPLETION/);
   assert.match(tracker, /HabitPriorityControl/);
