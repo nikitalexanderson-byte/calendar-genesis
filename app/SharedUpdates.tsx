@@ -1,6 +1,6 @@
 "use client";
 import { DialogCloseButton } from "./DialogCloseButton";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { loadSharedInbox, loadSharedOverview, type SharedOverview, type SharedNotification } from "./cloud-sync";
 import { useSharedUpdates } from "./SharedUpdatesProvider";
 import { ExperimentalIcon } from "./ExperimentalIcon";
@@ -13,7 +13,7 @@ export const notificationDestination = (item: SharedNotification): SharedTaskDes
   ...(item.action === "comment.created" ? { taskAction: "comments", ...(item.commentId ? { commentId: item.commentId } : {}) } : {}),
 });
 
-export function SharedWorkspaceSummary({ userId, english, spaceId, onOpen }: { userId: string; english: boolean; spaceId?: string; onOpen: (place: SharedTaskDestination) => void }) {
+export function SharedWorkspaceSummary({ userId, english, spaceId, workspaceActions, onOpen }: { userId: string; english: boolean; spaceId?: string; workspaceActions?: ReactNode; onOpen: (place: SharedTaskDestination) => void }) {
   const { overview, error, refresh, markRead } = useSharedUpdates();
   const [scoped, setScoped] = useState<{spaceId: string; value: SharedOverview | null; error: boolean} | null>(null);
   useEffect(() => {
@@ -69,6 +69,7 @@ export function SharedWorkspaceSummary({ userId, english, spaceId, onOpen }: { u
     <div className="projects-summary shared-summary-counts" aria-label={english ? "Shared affairs summary" : "Сводка общих дел"}>
       {metrics.map(([value, label]) => <span key={String(label)}><strong>{value ?? "…"}</strong>{label}</span>)}
     </div>
+    {workspaceActions ? <div className="shared-header-actions" role="group" aria-label={english ? "Workspace controls" : "Управление пространством"}>{workspaceActions}</div> : null}
     <button type="button" className="shared-updates-open" onClick={() => setOpen(true)}>
       <ExperimentalIcon name="mail" />{english ? "Updates" : "Новое"}<strong>{newCount}</strong>
     </button>

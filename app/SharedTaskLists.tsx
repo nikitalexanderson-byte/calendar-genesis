@@ -12,6 +12,7 @@ import {
 import { type CalendarMode } from "./calendar-data";
 import { SharedTaskCreate } from "./SharedTaskCreate";
 import "./shared-task-lists.css";
+import "./task-list-entry.css";
 
 const SharedEntityPreview=lazy(()=>import("./SharedEntityPreview"));
 
@@ -146,9 +147,9 @@ export function SharedTaskLists({ language, enabledCalendars, onOpenProject, emb
     {message ? <p role="status" className="shared-task-lists-message">{message}</p> : null}
     {!spaces.length ? <p>{en ? "Create a shared workspace first." : "Сначала создайте общее пространство."}</p> : null}
     <div className="shared-task-lists-grid">{lists.map((row) => <article key={row.id}>
-      <button type="button" className="shared-task-lists-title" aria-expanded={openedId === row.id}
+      <button type="button" className="shared-task-lists-title task-list-entry-title" aria-expanded={openedId === row.id}
         onClick={() => { setPreview(row); setOpenedId((current) => current === row.id ? "" : row.id); }}>{row.title}</button>
-      <small>{row.spaceTitle} / {row.projectTitle} · {row.taskCount} {en ? "tasks" : "задач"}</small>
+      <small className="task-list-entry-meta">{row.spaceTitle} / {row.projectTitle} · {row.taskCount} {en ? "tasks" : "задач"}</small>
       {openedId === row.id ? <div className="shared-task-lists-body">
         {(tasksPage.page?.tasks ?? [])
           .map((task) => <p key={task.id}>{task.title}{task.dueDate ? ` · ${task.dueDate}` : ""}</p>)}

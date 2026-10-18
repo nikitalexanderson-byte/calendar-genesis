@@ -189,7 +189,7 @@ export default function NotificationDock({ userId, language, mode, appBase, shar
       {!docked ? toggleButton : null}
       <div ref={panel} id="notification-dock-panel" className="notification-dock-panel" hidden={!expanded} tabIndex={-1}>
         <header className="notification-dock-header" tabIndex={mobile?undefined:0} aria-label={mobile?undefined:t("Переместить уведомления")} title={mobile?undefined:t("Перетащите блок или используйте стрелки и Home")} {...dragProps}><h2>{t(unreadOnly?"Непрочитанные":"Уведомления")}</h2>
-          <div className="notification-dock-header-actions"><button type="button" className="notification-drag-handle" aria-label={t(docked?"Открепить от верхней панели":"Закрепить на верхней панели")} title={t(docked?"Открепить от верхней панели":"Закрепить на верхней панели")} onClick={() => {
+          <div className="notification-dock-header-actions"><button type="button" className="notification-drag-handle notification-pin-toggle" aria-pressed={docked} aria-label={t(docked?"Открепить от верхней панели":"Закрепить на верхней панели")} title={t(docked?"Открепить от верхней панели":"Закрепить на верхней панели")} onClick={() => {
             onLayoutChange({notificationDockPinned:!docked,...(docked?dockPositionToLayout(place,bounds):{})});setPosition(null);
           }}><ExperimentalIcon name="map-pin"/></button>
           {sharedEnabled?<button type="button" className="notification-drag-handle" aria-label={t("Настройки уведомлений")} title={t("Настройки уведомлений")} onClick={()=>setSettingsOpen(true)}><ExperimentalIcon name="settings"/></button>:null}
