@@ -451,6 +451,10 @@ html[data-genesis-theme] .genesis-app .workspace-header :is(.projects-hero-mark,
 html[data-genesis-theme] .genesis-app .workspace-header .projects-summary > span + span { border-color: #ffffff24; }
 html[data-genesis-theme] .genesis-app .workspace-header-copy { min-width: 0; }
 html[data-genesis-theme] .genesis-app .workspace-header h1 { margin: 0 0 8px; }
+@media (min-width:1100px) {
+  html[data-genesis-theme] .genesis-app .workspace-header-main { align-items:flex-start; }
+  html[data-genesis-theme] .genesis-app .workspace-header .projects-hero-mark { margin-block-start:8px; }
+}
 html[data-genesis-theme] .genesis-app .workspace-header p { margin: 0; }
 html[data-genesis-theme] .genesis-app .shared-projects-context { gap: 10px 16px; }
 html[data-genesis-theme] .genesis-app .shared-project-heading { justify-content: start; }

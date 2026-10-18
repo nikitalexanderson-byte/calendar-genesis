@@ -10,6 +10,7 @@ import "./calendar-cell-tasks.css";
 const CalendarDayTasksDialog = lazy(() => import("./CalendarDayTasksDialog"));
 
 import { calendarContext } from "./calendar-context";
+import { mergeInitialWorkspaceCollection } from './workspace-import-policy';
 import { useSharedTaskPage } from "./use-shared-task-page";
 import { SharedTaskPageControls } from "./SharedTaskPageControls";
 import { DeferredViewFallback, DeferredDialogFallback, DeferredHabitFallback, ViewErrorBoundary, lazyWithRecovery as lazy } from "./DeferredViews";
@@ -1349,6 +1350,7 @@ export function GenesisCalendar() {
   const [editingOccurrenceDate, setEditingOccurrenceDate] = useState("");
   const [pendingTaskDeletion, setPendingTaskDeletion] = useState<PendingTaskDeletion | null>(null);
   const [personalPreview,setPersonalPreview]=useState<{kind:"task"|"project"|"task-list";id:string;date?:string}|null>(null);
+  const [personalListReturn,setPersonalListReturn]=useState<{id:string;userId:string}|null>(null);
   const [editingTaskList, setEditingTaskList] = useState<GoogleTaskList | null>(null);
   const [workspaceRecoveryRequest, setWorkspaceRecoveryRequest] = useState<WorkspaceRecoveryRequest | null>(null);
   const [projectDragItem, setProjectDragItem] = useState<ProjectDragItem | null>(null);
@@ -2268,15 +2270,16 @@ export function GenesisCalendar() {
         ...normalizeHabitWorkspace(local, user.taskCalendarMode ?? "sacred"),
       })
         .then(async () => {
-          if (!active) return;
+          if (!active || loadedUserId !== user.uid) return;
           const workspace = await loadGenesisWorkspace();
-          if (!active) return;
+          if (!active || loadedUserId !== user.uid) return;
           const nextProjects = workspace.hasRemoteStructure ? workspace.projects : local.projects;
           const nextCategories = workspace.hasRemoteStructure ? workspace.categories : local.categories;
           const nextTaskListLinks = workspace.hasRemoteStructure ? workspace.taskListLinks : local.taskListLinks;
-          const reconciledWorkspaceTasks = reconcileGoogleTaskMetadata(workspace.tasks, local.tasks);
+          const currentTasks=tasksRef.current;
+          const reconciledWorkspaceTasks = mergeInitialWorkspaceCollection(local.tasks,currentTasks,reconcileGoogleTaskMetadata(workspace.tasks,currentTasks));
           const nextTasksById = new Map(reconciledWorkspaceTasks.map((task) => [task.id, task]));
-          local.tasks.forEach((task) => {
+          currentTasks.forEach((task) => {
             if (isCloudTaskDeleted(task.id)) return;
             const remoteTask = nextTasksById.get(task.id);
             if (!remoteTask && workspace.user.calendarConnected && (task.googleEventId || task.googleTaskId || Object.keys(task.googleLinks ?? {}).length)) return;
@@ -2284,15 +2287,16 @@ export function GenesisCalendar() {
               nextTasksById.set(task.id, task);
             }
           });
-          const nextTasks = Array.from(nextTasksById.values());
+          const nextTasks = Array.from(nextTasksById.values()).filter(task=>!isCloudTaskDeleted(task.id));
           tasksRef.current = nextTasks;
           projectsRef.current = nextProjects;
           categoriesRef.current = nextCategories;
           setTasks(nextTasks);
           setProjects(nextProjects);
           setCategories(nextCategories);
-          setTaskLists(workspace.taskLists);
-          taskListsRef.current = workspace.taskLists;
+          const nextTaskLists=mergeInitialWorkspaceCollection(local.taskLists,taskListsRef.current,workspace.taskLists);
+          setTaskLists(nextTaskLists);
+          taskListsRef.current = nextTaskLists;
           setTaskListLinks(nextTaskListLinks);
           setHabitWorkspace(ensureTrackerAnalytics(
             normalizeHabitWorkspace(workspace.hasRemoteStructure ? workspace : local, workspace.user.taskCalendarMode ?? "sacred"),
@@ -3652,7 +3656,7 @@ export function GenesisCalendar() {
     try {
       const { taskList } = await updateGoogleTaskList(editingTaskList.id, title, editingTaskList.accountId);
       setTaskLists((current) => current.map((item) => item.id === taskList.id
-        ? { ...taskList, isDefault: item.isDefault || taskList.isDefault }
+        ? { ...item, ...taskList, isDefault: item.isDefault || taskList.isDefault }
         : item));
       setTasks((current) => current.map((task) => task.googleTaskListId === taskList.id
         ? { ...task, googleTaskListTitle: taskList.title }
@@ -3660,7 +3664,7 @@ export function GenesisCalendar() {
       setEditingTaskList(null);
       if (cloudUser?.authProvider !== "google") {
         await persistStructure(projects, categories, taskListLinks,
-          taskLists.map((item) => item.id === taskList.id ? taskList : item));
+          taskLists.map((item) => item.id === taskList.id ? { ...item, ...taskList } : item));
       }
       setSyncStatus("synced");
     } catch (error) {
@@ -4212,7 +4216,7 @@ export function GenesisCalendar() {
       updateWorkspace: updateHabitWorkspace,
       openTask: openTaskEditor,
       confirmTaskDelete: (task) => setPendingTaskDeletion({ taskId: task.id, occurrenceDate: task.dueDate }),
-      openList: setEditingTaskList,
+      openList: list=>setPersonalPreview({kind:'task-list',id:list.id}),
       deleteList: deleteTaskList,
       openProject: openProjectEditor,
       deleteProject: (project) => deleteProject(project.id),
@@ -4495,6 +4499,15 @@ export function GenesisCalendar() {
     setTaskProject(""); setNewTaskListProject("");
     setTaskComposer(context);
   };
+  const openTaskComposerForList = (list: GoogleTaskList) => {
+    setPersonalListReturn({id:list.id,userId:cloudUser?.uid??'local'});
+    setPersonalPreview(null);
+    openTaskComposer('projects');
+    setTaskTitle('');setTaskDescription('');setTaskTags('');setTaskDependsOn([]);setTaskPriority('5');setTaskSyncAccountIds(null);
+    setTaskTaskListId(list.id);setTaskProject(linkedProjectId(list.id)??'');
+    setTaskTime('');setTaskReminders([]);
+    setTaskRecurrenceConfig(alignRecurrenceConfigWithCalendar(DEFAULT_RECURRENCE_CONFIG,activeTaskCalendarMode,todayDateValue));
+  };
   const chooseTaskScope = (scope: "personal" | "shared") => {
     setTaskScope(scope); setTaskListScope(scope);
     if (scope === "shared" && newEntryType === "birthday") { setNewEntryType("task"); setComposerTab("task"); }
@@ -4578,7 +4591,7 @@ export function GenesisCalendar() {
                         <div className="task-list-column-heading">
                           <span><button type="button" className="task-preview-open task-list-entry-title" onClick={()=>setPersonalPreview({kind:"task-list",id:taskList.id})} data-no-translate>{taskList.title}</button><small className="task-list-entry-meta">{listTasks.length} задач{taskList.accountEmail ? ` · ${taskList.accountEmail}` : ""}</small></span>
                           <span className="task-list-column-actions">
-                            <button type="button" onClick={() => setEditingTaskList(taskList)} aria-label={`Редактировать список «${taskList.title}»`}>{experimentalThemeActive ? <ExperimentalIcon name="edit" /> : "✎"}</button>
+                            <button type="button" onClick={() => setPersonalPreview({kind:'task-list',id:taskList.id})} aria-label={`Редактировать список «${taskList.title}»`}>{experimentalThemeActive ? <ExperimentalIcon name="edit" /> : "✎"}</button>
                             {!taskList.isDefault ? (
                               <button type="button" className="danger" onClick={() => void deleteTaskList(taskList)} aria-label={`Удалить список «${taskList.title}»`}>{experimentalThemeActive ? <ExperimentalIcon name="close" /> : "×"}</button>
                             ) : null}
@@ -4726,6 +4739,7 @@ export function GenesisCalendar() {
     return (<>
       {scopeSwitcher}
       <form className="task-form" data-exp-ui="form" onSubmit={addTask} aria-label="Создание задачи">
+        {personalListReturn&&selectedTaskList?<p className="task-list-composer-context"><span>{translateText('Список',language)}: </span><strong data-no-translate>{selectedTaskList.title}</strong></p>:null}
         <RecordCalendarChoice value={taskFormCalendarMode} language={language} onChange={(mode) => {
           setTaskFormCalendar(mode);
           setTaskRecurrenceConfig((current) => alignRecurrenceConfigWithCalendar(current, mode, newTaskDueDate));
@@ -5937,7 +5951,7 @@ export function GenesisCalendar() {
                       <article className="inbox-list-item project-draggable-item" key={taskList.id} aria-label={`Перетащить список «${taskList.title}»`} {...projectDragProps(item)}>
                         <button type="button" className="task-preview-open task-list-entry-open" data-affair-drag-surface onClick={()=>setPersonalPreview({kind:"task-list",id:taskList.id})}><strong className="task-list-entry-title" data-no-translate>{taskList.title}</strong><small className="task-list-entry-meta" data-no-translate>{formatTaskListCount(taskCount, language)}</small></button>
                         <span className="task-list-column-actions">
-                          <button type="button" onClick={() => setEditingTaskList(taskList)} aria-label={`Редактировать список «${taskList.title}»`}>{experimentalThemeActive ? <ExperimentalIcon name="edit" /> : "✎"}</button>
+                          <button type="button" onClick={() => setPersonalPreview({kind:'task-list',id:taskList.id})} aria-label={`Редактировать список «${taskList.title}»`}>{experimentalThemeActive ? <ExperimentalIcon name="edit" /> : "✎"}</button>
                           {!taskList.isDefault ? <button type="button" onClick={() => void deleteTaskList(taskList)} aria-label={`Удалить список «${taskList.title}»`}>{experimentalThemeActive ? <ExperimentalIcon name="close" /> : "×"}</button> : null}
                         </span>
                       </article>
@@ -6018,7 +6032,7 @@ export function GenesisCalendar() {
                             <div className="project-assigned-list project-draggable-item" key={taskList.id} aria-label={`Перетащить список «${taskList.title}»`} {...projectDragProps(item)}>
                               <button type="button" className="task-preview-open task-list-entry-open" data-affair-drag-surface onClick={()=>setPersonalPreview({kind:"task-list",id:taskList.id})}><strong className="task-list-entry-title" data-no-translate>{taskList.title}</strong><small className="task-list-entry-meta" data-no-translate>{formatTaskListCount(taskCount, language)}</small></button>
                               <span className="task-list-column-actions">
-                                <button type="button" onClick={() => setEditingTaskList(taskList)} aria-label={`Редактировать список «${taskList.title}»`}>{experimentalThemeActive ? <ExperimentalIcon name="edit" /> : "✎"}</button>
+                                <button type="button" onClick={() => setPersonalPreview({kind:'task-list',id:taskList.id})} aria-label={`Редактировать список «${taskList.title}»`}>{experimentalThemeActive ? <ExperimentalIcon name="edit" /> : "✎"}</button>
                                 {!taskList.isDefault ? <button type="button" onClick={() => void deleteTaskList(taskList)} aria-label={`Удалить список «${taskList.title}»`}>{experimentalThemeActive ? <ExperimentalIcon name="close" /> : "×"}</button> : null}
                               </span>
                             </div>
@@ -6066,12 +6080,16 @@ export function GenesisCalendar() {
     );
   };
 
-  const previewTask=personalPreview?.kind==='task'?tasks.find(task=>task.id===personalPreview.id):null;
-  const previewProject=personalPreview?.kind==='project'?projects.find(project=>project.id===personalPreview.id):null;
-  const previewList=personalPreview?.kind==='task-list'?taskLists.find(list=>list.id===personalPreview.id):null;
+  const activePersonalPreview:typeof personalPreview=personalPreview??(
+    personalListReturn&&personalListReturn.userId===(cloudUser?.uid??'local')&&!editingTask&&!editingTaskList&&!taskComposer&&!pendingTaskDeletion&&!transferTask
+      &&taskLists.some(list=>list.id===personalListReturn.id)?{kind:'task-list',id:personalListReturn.id}:null);
+  const previewTask=activePersonalPreview?.kind==='task'?tasks.find(task=>task.id===activePersonalPreview.id):null;
+  const previewProject=activePersonalPreview?.kind==='project'?projects.find(project=>project.id===activePersonalPreview.id):null;
+  const previewList=activePersonalPreview?.kind==='task-list'?taskLists.find(list=>list.id===activePersonalPreview.id):null;
+  const previewListTasks=previewList?orderPersonalTasks(tasks.filter(task=>task.googleTaskListId===previewList.id),personalTaskDisplay.sort):[];
   const previewEntity=previewTask??previewProject??previewList;
   const addPersonalComment=async(body:string)=>{
-    if(!personalPreview||!previewEntity)return;
+    if(!activePersonalPreview||!previewEntity)return;
     const comments=[...(previewEntity.comments??[]),{id:uid(),body,authorId:cloudUser?.uid??'local',authorName:cloudUser?.displayName??translateText('Вы',language),createdAt:new Date().toISOString()}].slice(-200);
     if(previewTask){const next={...previewTask,comments,updatedAt:timestamp()};setTasks(old=>old.map(task=>task.id===next.id?next:task));saveTask(next);}
     else if(previewProject){const next=projects.map(project=>project.id===previewProject.id?{...project,comments}:project);setProjects(next);await persistStructure(next,categories);}
@@ -6654,7 +6672,11 @@ export function GenesisCalendar() {
         setInvitationDestination(current=>({...destination,userId:uid,request:(current?.request??0)+1}));
         setProjectsArea("shared"); navigateTo("projects",false,destination,true);
       }}/></Suspense>
-      {previewEntity&&personalPreview?<Suspense fallback={<DeferredDialogFallback label={translateText("Загрузка…",language)}/>}><PersonalEntityPreview key={personalPreview.kind+personalPreview.id} task={previewTask??undefined} project={previewProject??undefined} list={previewList??undefined} schedule={previewTask?taskRangeLabel(previewTask,activeCalendarMode,activeTimeFormat):""} projectTitle={previewTask?resolvedTaskProjectTitle(previewTask):""} taskCount={tasks.filter(task=>previewProject?resolvedTaskProject(task)?.id===previewProject.id:task.googleTaskListId===previewList?.id).length} language={language} onClose={()=>setPersonalPreview(null)} onComment={addPersonalComment} onCommentsRead={ids=>{if(previewTask)personalTaskDisplay.markRead(previewTask.id,ids);}} onEdit={()=>{setPersonalPreview(null);if(previewTask)openTaskEditor(previewTask,personalPreview.date);else if(previewProject)openProjectEditor(previewProject);else if(previewList)setEditingTaskList(previewList);}}/></Suspense>:null}
+      {previewEntity&&activePersonalPreview?<Suspense fallback={<DeferredDialogFallback label={translateText("Загрузка…",language)}/>}><PersonalEntityPreview key={activePersonalPreview.kind+activePersonalPreview.id} task={previewTask??undefined} project={previewProject??undefined} list={previewList??undefined}
+        listContents={previewList?{tasks:previewListTasks,onCreate:()=>openTaskComposerForList(previewList),schedule:task=>taskRangeLabel(task,activeCalendarMode,activeTimeFormat),onToggle:task=>toggleTask(task.id),
+          onOpen:task=>{setPersonalListReturn({id:previewList.id,userId:cloudUser?.uid??'local'});setPersonalPreview({kind:'task',id:task.id});},
+          onEditTask:task=>{setPersonalListReturn({id:previewList.id,userId:cloudUser?.uid??'local'});setPersonalPreview(null);openTaskEditor(task);}}:undefined}
+        schedule={previewTask?taskRangeLabel(previewTask,activeCalendarMode,activeTimeFormat):""} projectTitle={previewTask?resolvedTaskProjectTitle(previewTask):""} taskCount={previewList?previewListTasks.length:tasks.filter(task=>previewProject&&resolvedTaskProject(task)?.id===previewProject.id).length} language={language} onClose={()=>{setPersonalPreview(null);if(previewList)setPersonalListReturn(null);}} onComment={addPersonalComment} onCommentsRead={ids=>{if(previewTask)personalTaskDisplay.markRead(previewTask.id,ids);}} onEdit={()=>{setPersonalPreview(null);if(previewTask)openTaskEditor(previewTask,activePersonalPreview.date);else if(previewProject)openProjectEditor(previewProject);else if(previewList){setPersonalListReturn({id:previewList.id,userId:cloudUser?.uid??'local'});setEditingTaskList(previewList);}}}/></Suspense>:null}
       {projectToComplete ? <ProjectCompletionDialog title={projectToComplete.title}
         onCancel={() => setProjectToComplete(null)} onConfirm={() => {
           const project = projects.find((item) => item.id === projectToComplete.id);
@@ -7475,8 +7497,7 @@ export function GenesisCalendar() {
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditingTaskList(null); }}>
           <form ref={taskListEditorDialogRef} className="editor-modal task-list-editor" data-exp-ui="dialog" role="dialog" aria-modal="true" aria-labelledby="task-list-editor-title" tabIndex={-1} onSubmit={saveTaskListEdit}>
             <DialogCloseButton type="button" className="modal-close" onClick={() => setEditingTaskList(null)} aria-label="Закрыть" />
-            <span className="eyebrow">Редактирование списка задач</span>
-            <h2 id="task-list-editor-title">Название списка</h2>
+            <h2 id="task-list-editor-title">Переименовать список</h2>
             <label>
               <span>Название списка</span>
               <input value={editingTaskList.title} onChange={(event) => setEditingTaskList((current) => current ? { ...current, title: event.target.value } : current)} required />
