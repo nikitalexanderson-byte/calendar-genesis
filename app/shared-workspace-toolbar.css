@@ -22,8 +22,13 @@ html[data-genesis-theme] .genesis-app .shared-workspace-toolbar.shared-toolbar-p
 html[data-genesis-theme] .genesis-app .shared-workspace-toolbar.shared-toolbar-projects-first .task-order-choice { flex:1 1 160px; min-width:0; }
 
 html[data-genesis-theme] .genesis-app .shared-projects > .workspace-header:has(.shared-workspace-summary) :is(.workspace-header-summary,.shared-workspace-summary) { display:contents; }
+html[data-genesis-theme] .genesis-app .shared-projects > .workspace-header {
+  --shared-workspace-tool-size:44px;
+  --shared-workspace-tool-gap:8px;
+  --shared-workspace-tools-width:calc(var(--shared-workspace-tool-count) * (var(--shared-workspace-tool-size) + var(--shared-workspace-tool-gap)) - var(--shared-workspace-tool-gap));
+}
 html[data-genesis-theme] .genesis-app .shared-projects > .workspace-header .shared-space-identity {
-  display:grid; gap:8px; width:min(100%,480px); min-width:0; max-width:100%; padding:12px;
+  display:grid; gap:8px; width:min(100%,var(--shared-workspace-tools-width)); min-width:0; max-width:100%; padding:12px;
   border:1px solid #ffffff20; border-radius:12px; background:#00000020;
 }
 html[data-genesis-theme] .genesis-app .shared-projects > .workspace-header .shared-space-name-row { display:flex; flex-wrap:nowrap; align-items:center; gap:8px; min-width:0; }
@@ -37,11 +42,17 @@ html[data-genesis-theme] .genesis-app .shared-projects > .workspace-header .shar
   border:1px solid #ffffff40; border-radius:8px; background:transparent; color:inherit;
 }
 html[data-genesis-theme] .genesis-app .shared-projects > .workspace-header .shared-space-info-row { display:flex; flex-wrap:nowrap; align-items:baseline; gap:8px; }
-html[data-genesis-theme] .genesis-app .shared-projects > .workspace-header .shared-space-info-value { flex:0 1 auto; min-width:0; font:500 14px/1.5 var(--font-ui); }
+html[data-genesis-theme] .genesis-app .shared-projects > .workspace-header .shared-space-info-value { flex:0 1 auto; min-width:0; font:500 14px/1.5 var(--font-ui); overflow-wrap:anywhere; }
 html[data-genesis-theme] .genesis-app .shared-projects > .workspace-header .shared-space-info-leader { display:block; }
 html[data-genesis-theme] .genesis-app .shared-projects > .workspace-header .shared-header-actions { min-width:0; align-self:center; color:inherit; }
-html[data-genesis-theme] .genesis-app .shared-projects > .workspace-header .shared-workspace-tools { display:flex; flex-wrap:wrap; justify-content:flex-start; gap:8px; padding:0; min-width:0; }
-html[data-genesis-theme] .genesis-app .shared-projects > .workspace-header .shared-workspace-tools > button { width:44px; height:44px; min-width:44px; min-height:44px; padding:10px; margin:0; background:transparent; color:inherit; border:1px solid #ffffff40; }
+html[data-genesis-theme] .genesis-app .shared-projects > .workspace-header .shared-workspace-tools { display:flex; flex-wrap:wrap; justify-content:flex-start; gap:var(--shared-workspace-tool-gap); width:min(100%,var(--shared-workspace-tools-width)); padding:0; min-width:0; }
+html[data-genesis-theme] .genesis-app .shared-projects > .workspace-header .shared-workspace-tools > button { width:var(--shared-workspace-tool-size); height:var(--shared-workspace-tool-size); min-width:var(--shared-workspace-tool-size); min-height:var(--shared-workspace-tool-size); padding:10px; margin:0; background:transparent; color:inherit; border:1px solid #ffffff40; }
+/* Wrapped controls and their summary share whole button columns on narrow screens. */
+@supports (width:round(down,100%,1px)) {
+  html[data-genesis-theme] .genesis-app .shared-projects > .workspace-header .shared-space-identity {
+    width:min(var(--shared-workspace-tools-width),calc(round(down,calc(100% + var(--shared-workspace-tool-gap)),calc(var(--shared-workspace-tool-size) + var(--shared-workspace-tool-gap))) - var(--shared-workspace-tool-gap)));
+  }
+}
 html[data-genesis-theme] .genesis-app .shared-projects > .workspace-header :is(.shared-workspace-tools > button,.shared-space-description-toggle):hover { background:#ffffff14; }
 html[data-genesis-theme] .genesis-app .shared-projects > .workspace-header :is(.shared-workspace-tools > button,.shared-space-picker,.shared-space-description-toggle):focus-visible { outline:2px solid #e4c78c; outline-offset:3px; }
 html[data-genesis-theme] .genesis-app .shared-projects > .workspace-header .shared-updates-open { min-height:52px; width:100%; margin:0; align-self:stretch; }

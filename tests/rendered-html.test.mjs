@@ -3097,7 +3097,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /taskListsForWorkspace/);
   assert.match(calendar, /Основной список Google · удалить нельзя/);
   assert.match(calendar, /Пока он пуст и не привязан к проекту, GENESIS скрывает его автоматически/);
-  assert.match(calendar, /Редактирование списка задач/);
+  assert.match(calendar, /Переименовать список/);
   assert.match(calendar, /Удалить список «\$\{taskList\.title\}»/);
   assert.match(calendar, /Список задач — это группа смежных задач/);
   assert.match(calendar, /renderTaskListCreateForm\("composer"\)/);

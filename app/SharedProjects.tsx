@@ -1214,7 +1214,9 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       <ExperimentalIcon name="plus" /><span className="shared-create-full">{english ? "Create task" : "Создать задачу"}</span><span className="shared-create-short">{english ? "Task" : "Задача"}</span>
     </button>
   </div> : null;
-  return <div className="shared-projects" data-exp-layout="view">
+  return <div className="shared-projects" data-exp-layout="view" style={{
+    "--shared-workspace-tool-count": 3 + Number(["owner", "admin"].includes(selectedSpace?.role ?? "")) + Number(canManageLabels) + Number(Boolean(spaceId)),
+  } as CSSProperties}>
     <WorkspaceHeader title={english ? "Affairs · shared" : "Дела · общие"}
       overviewLabel={english ? "Workspace overview" : "Обзор пространства"}
       context={spaces.length ? <SharedWorkspaceIdentity key={spaceId} title={selectedSpace?.title ?? ""} selector={spacePicker} showDetails={Boolean(selectedSpace)}
