@@ -13,7 +13,9 @@
 ## Подготовлено и проверено отдельно
 
 - C6, проектные права: checkpoint `50df33b`, `genesis-project-access-2026-10-18.md`. Серверный индекс и web preview/apply, CAS/replay, inheritance/exclusions, privacy history/maps, три browser-сессии и все14 языков проверены; обе темы ×4 ширины. Нативный UI и будущие C/G-интеграции ещё открыты.
-- C3, поля: checkpoint `4c8436c`, `genesis-custom-fields-2026-10-18.md`. API/редактор/карточка/список/типовые query и saved views, encrypted versions/values, архив/type successor, required и0/false проверены;365 web tests, чистый PHP regression suite,14 языков и16 viewport/theme cases. Открыты шаблоны/автоматизации/import/export, зависимые B/G и native. Следующий этап C1: `genesis-templates-2026-10-18.md`; календарные относительные даты уже подготовлены и протестированы, остальной C1 ещё не реализован.
+- C3, поля: checkpoint `4c8436c`, `genesis-custom-fields-2026-10-18.md`. API/редактор/карточка/список/типовые query и saved views, encrypted versions/values, архив/type successor, required и0/false проверены;365 web tests, чистый PHP regression suite,14 языков и16 viewport/theme cases. Открыты шаблоны/автоматизации/import/export, зависимые B/G и native. C1 теперь также подготовлен и проверен: `genesis-templates-2026-10-18.md`.
+
+- C1, сервер и web: encrypted библиотека/редактор, сохранение из задачи/проекта, четыре системных шаблона на14 языках, preview/maps/atomic apply, CAS/replay, удаление/восстановление и актуальные C6-права.365 web tests, PHP regression и C1/migrations,32 viewport/theme cases и28 языковых сценариев подтверждены; общий tsc имеет8 прежних ошибок без новых C1. Native и зависимые интеграции ещё открыты.
 
 - F1–F3, веб и нативные data-контракты: `genesis-habit-goal-analysis-2026-10-18.md`. Добавлены календарь выполнения и исходные записи, отдельные знаменатели количества/целей, честная неизвестная legacy-доступность, causal explicit skip и защита XP двух клиентов. 364 web и 296 native JVM tests; нативный UI/upgrade/device acceptance остаются открыты. Следующий основной этап — C6 как основание C1–C5, затем G и зависимые B.
 
@@ -32,8 +34,8 @@
 
 - E4/E5: веб/data-model pause/archive/delete/restore и backup preview/conflicts/apply, reset/CAS/replay уже проверены в непубликуемом checkpoint; остаются полная нативная UI, старый offline outbox upgrade и device/общая приёмка.
 - F1–F3: веб-аналитика новых типов и экономика/causal skip/merge проверены в `8276f8d`; остаётся полная native UI и сквозная экономика всех последующих C/G/B операций.
-- C: веб-основы C6/C3 проверены; нужны C1 шаблоны, C2 автоматизации, C4 отчёты, C5 import/export, связанные интеграции и native.
+- C: сервер/web C6/C3/C1 проверены; C2 в работе (definition/worker/CRUD/runs/constructor подготовлены, первичные synthetic tests прошли; UI/i18n/расширенная приёмка впереди). Нужны завершение C2, C4 отчёты, C5 import/export, связанные интеграции и native.
 - G1–G4: backlog/спринты, points/часы, workflow/WIP и отчётность по настоящим событиям.
 - Интеграции B1/B2/B4/B5/B7 и полная A4/K/U/L-приёмка; затем оставшийся нативный этап. Физическая внешняя push-доставка и live Google sync не объявлены подтверждёнными.
 
-Порядок продолжения: C1 → C2/C5/C4 → G1–G4 → зависимые B1/B2/B4/B5/B7 → полная native UI/protocol6/7/offline upgrade → общая приёмка и экономика. Все изменения остаются в рабочей ветке до полного завершения. Android также не публиковать. Ручной SSH и production DB edits в этом продолжении не использовались.
+Порядок продолжения: завершить C2 → C5/C4 → G1–G4 → зависимые B1/B2/B4/B5/B7 → полная native UI/protocol6/7/offline upgrade → общая приёмка и экономика. Все изменения остаются в рабочей ветке до полного завершения. Android также не публиковать. Ручной SSH и production DB edits в этом продолжении не использовались.

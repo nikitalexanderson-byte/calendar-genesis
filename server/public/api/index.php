@@ -903,6 +903,21 @@ try {
         if (count($segments) === 5 && $segments[1] === 'spaces' && $segments[3] === 'member-categories' && $method === 'PATCH') {
             genesisJson(['category' => genesisSharedMemberCategory($userId, $segments[2], genesisReadJson(), $segments[4])]);
         }
+        if(($segments[1]??'')==='templates'&&isset($segments[2]))$segments[2]=rawurldecode($segments[2]);
+        if(count($segments)===4&&$segments[1]==='spaces'&&$segments[3]==='templates'){
+            if($method==='GET')genesisJson(genesisSharedTemplates($userId,$segments[2],isset($_GET['projectId'])?(string)$_GET['projectId']:null,($_GET['deleted']??'')==='true',$_GET['cursor']??null)
+                +['systemTemplates'=>empty($_GET['cursor'])&&($_GET['deleted']??'')!=='true'?array_map(static function($record){unset($record['manifest'],$record['notices']);return $record;},genesisSharedStarterTemplates(genesisTemplateLanguage($_GET['language']??'ru'))):[]]);
+            if($method==='POST'){$input=genesisReadJson();$libraryProject=$input['projectId']??null;unset($input['projectId']);if(!is_string($libraryProject))throw new InvalidArgumentException('TEMPLATE_INVALID');genesisJson(genesisSharedSaveTemplate($userId,$segments[2],$libraryProject,$input),201);}
+        }
+        if(count($segments)===5&&$segments[1]==='spaces'&&$segments[3]==='templates'&&$method==='PATCH'){
+            $input=genesisReadJson();$libraryProject=$input['projectId']??null;unset($input['projectId']);if(!is_string($libraryProject))throw new InvalidArgumentException('TEMPLATE_INVALID');
+            genesisJson(genesisSharedSaveTemplate($userId,$segments[2],$libraryProject,$input,$segments[4]));
+        }
+        if(count($segments)===3&&$segments[1]==='templates'&&$method==='GET')genesisJson(['template'=>genesisSharedTemplateSource($userId,$segments[2],genesisTemplateLanguage($_GET['language']??'ru'),($_GET['deleted']??'')==='true')]);
+        if(count($segments)===4&&$segments[1]==='templates'&&$method==='POST'){
+            if($segments[3]==='preview')genesisJson(genesisSharedPreviewTemplate($userId,$segments[2],genesisReadJson()));
+            if($segments[3]==='apply')genesisJson(genesisSharedApplyTemplate($userId,$segments[2],genesisReadJson()));
+        }
         if(count($segments)===4&&$segments[1]==='spaces'&&$segments[3]==='custom-fields'&&$method==='GET')genesisJson(['fields'=>genesisSharedCustomFields($userId,$segments[2],isset($_GET['projectId'])?(string)$_GET['projectId']:null,($_GET['archived']??'')==='true')]);
         if(count($segments)===5&&$segments[1]==='spaces'&&$segments[3]==='custom-fields'&&$segments[4]==='preview'&&$method==='POST')genesisJson(genesisSharedPreviewCustomField($userId,$segments[2],genesisReadJson()));
         if(count($segments)===4&&$segments[1]==='spaces'&&$segments[3]==='custom-fields'&&$method==='PUT')genesisJson(genesisSharedSaveCustomField($userId,$segments[2],genesisReadJson()));

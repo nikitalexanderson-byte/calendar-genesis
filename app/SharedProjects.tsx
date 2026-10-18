@@ -41,6 +41,7 @@ import "./shared-projects-layout.css";
 import "./shared-workspace-toolbar.css";
 const SharedSavedViews = lazy(() => import("./SharedSavedViews").then(module => ({default:module.SharedSavedViews})));
 const SharedCustomFieldManager = lazy(() => import("./SharedCustomFieldManager").then(module => ({default:module.SharedCustomFieldManager})));
+const SharedTemplates = lazy(() => import("./SharedTemplates").then(module => ({default:module.SharedTemplates})));
 import "./shared-collaboration.css";
 import { ProjectsHeroMark } from "./ProjectsHeroMark";
 import { WorkspaceHeader } from "./WorkspaceHeader";
@@ -230,6 +231,8 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   const [editCustomFields,setEditCustomFields]=useState<CustomFieldValues>({});
   const [newCustomFields,setNewCustomFields]=useState<CustomFieldValues>({});
   const [customFieldDraftOpen,setCustomFieldDraftOpen]=useState(false);
+  const [templateScope,setTemplateScope]=useState<{context:SharedProjectSnapshot;source?:{taskId?:string;title:string}}|null>(null);
+  const templateAccessLost=useCallback(()=>{setTemplateScope(null);announce(translateText("Нет доступа"));},[announce]);
   const [customCriteria,setCustomCriteria]=useState<{projectId:string;criteria:CustomFieldCriterion[]}>({projectId:"",criteria:[]});
   const [customSort,setCustomSort]=useState<{projectId:string;sort:import("./cloud-sync").SharedTaskSort}>({projectId:"",sort:"position"});
   const [projectTitle, setProjectTitle] = useState("");
@@ -1235,6 +1238,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       <button type="button" className="secondary-button" title={english ? "Create workspace" : "Создать пространство"} aria-label={english ? "Create workspace" : "Создать пространство"} onClick={() => setCreateModal("space")}><ExperimentalIcon name="space-plus" /></button>
       </div></div>
     </section> : null}
+    {templateScope?<Suspense fallback={<p role="status">{translateText("Загрузка…")}</p>}><SharedTemplates key={`${templateScope.context.project.id}:${templateScope.source?.taskId??"library"}`} spaceId={templateScope.context.project.spaceId} projectId={templateScope.context.project.id} language={language as import("./i18n").Language} mode={taskCalendarMode} timeFormat={timeFormat} canWrite={templateScope.context.project.permissions?.editTasks??["owner","manager","member"].includes(templateScope.context.project.role)} canCreateProjects={Boolean(templateScope.context.project.permissions?.createProjects)} canCaptureProject={!templateScope.context.project.isInbox} source={templateScope.source} projects={projects.map(project=>({id:project.id,title:project.title,canWrite:project.permissions?.editTasks??["owner","manager","member"].includes(project.role)}))} members={templateScope.context.members.map(member=>({id:member.userId,title:member.displayName}))} onClose={()=>setTemplateScope(null)} onAccessLost={templateAccessLost} onApplied={async receipt=>{await refreshProjects(templateScope.context.project.spaceId);await refreshProject(receipt.rootProjectId);setSpaceId(templateScope.context.project.spaceId);setProjectId(receipt.rootProjectId);setTemplateScope(null);}}/></Suspense>:null}
     <Suspense fallback={<p role="status">{translateText("Загружаем данные…")}</p>}><SharedSavedViews key={userId} userId={userId} spaces={spaces} mode={calendarMode} opened={savedViewsOpen} onClose={()=>setSavedViewsOpen(false)} onOpen={task=>void run(async()=>{
       const [context,found]=await Promise.all([loadSharedProject(task.projectId),loadSharedTask(task.projectId,task.id,Boolean(task.archivedAt))]);setSavedViewsOpen(false);openTask(found,context);
     })}/></Suspense>
@@ -1349,6 +1353,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
           <h2>{snapshot.project.isInbox ? (english ? "Team tasks" : "Задачи команды") : snapshot.project.title}</h2>
         </div>
       <div className="shared-context-actions">
+        <button type="button" className="secondary-button" data-template-trigger onClick={()=>setTemplateScope({context:snapshot})}><ExperimentalIcon name="copy"/>{translateText("Шаблоны")}</button>
         {(canManage || canInvite) && !snapshot.project.isInbox ? <button type="button" className="secondary-button shared-project-settings-icon" title={english ? "Project settings" : "Настройки проекта"} aria-label={english ? "Project settings" : "Настройки проекта"} onClick={() => {setEditProjectLabelIds(snapshot.project.labelIds||[]);setCreateModal("settings");}}><ExperimentalIcon name="gear" /></button> : null}
       </div>
         <div className="shared-project-details">
@@ -1592,7 +1597,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
           <dl><div><dt>{english ? "Created by" : "Создатель"}</dt><dd data-no-translate>{taskSnapshot.members.find(member=>member.userId===selectedTask.createdBy)?.displayName || "—"}</dd></div>
           <div><dt>{english ? "Created" : "Создано"}</dt><dd>{selectedTask.createdAt ? new Intl.DateTimeFormat(language,{dateStyle:"medium",timeStyle:"short"}).format(new Date(selectedTask.createdAt)) : "—"}</dd></div>
           <div><dt>{english ? "Updated" : "Обновлено"}</dt><dd>{new Intl.DateTimeFormat(language,{dateStyle:"medium",timeStyle:"short"}).format(new Date(selectedTask.updatedAt))}</dd></div></dl>
-          {canEditTask ? <button type="button" className="secondary-button" onClick={()=>openTask(selectedTask,taskSnapshot,true)}><ExperimentalIcon name="edit"/>{english ? "Edit" : "Редактировать"}</button> : null}
+          {canEditTask ? <><button type="button" className="secondary-button" onClick={()=>openTask(selectedTask,taskSnapshot,true)}><ExperimentalIcon name="edit"/>{english ? "Edit" : "Редактировать"}</button><button type="button" className="secondary-button" disabled={selectedTask.pending} onClick={()=>{closeTask();setTemplateScope({context:taskSnapshot,source:{taskId:selectedTask.id,title:selectedTask.title}});}}><ExperimentalIcon name="copy"/>{translateText("Сохранить как шаблон")}</button></> : null}
         </section> : null}
         {selectedTask.archivedAt ? <p>{translateText("Архив задач")}</p> : <SharedTaskReview task={selectedTask} userId={userId} onChanged={async()=>{await refreshTaskProject(selectedTask.projectId);await refreshProject(selectedTask.projectId);}}/>}
         {selectedTask.approvalRequired ? <section className="shared-task-approval-status">
@@ -1769,6 +1774,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
         {snapshot.project.role === "owner" ? <button type="button" className="shared-projects-archive" disabled={busy||customFieldDraftOpen} onClick={archiveProject}>{english ? "Complete project" : "Завершить проект"}</button> : null}
       </section> : null}
 
+      {canWrite?<button type="button" className="secondary-button" disabled={customFieldDraftOpen} onClick={()=>{setCreateModal(null);setTemplateScope({context:snapshot,source:{title:snapshot.project.title}});}}><ExperimentalIcon name="copy"/>{translateText("Сохранить проект как шаблон")}</button>:null}
       {["owner","admin"].includes(snapshot.project.spaceRole??"")?<Suspense fallback={null}><SharedCustomFieldManager key={snapshot.project.id} spaceId={snapshot.project.spaceId} projectId={snapshot.project.id} language={language as import("./i18n").Language} onChanged={()=>refreshProject(snapshot.project.id)} onDirtyChange={setCustomFieldDraftOpen}/></Suspense>:null}
 </> : null}
         {createModal === "team" && teamSnapshot ? <>

@@ -15,7 +15,7 @@ export function customFieldDraft(field:SharedCustomField):CustomFieldDraft {
   return {id:field.id,title:field.title,type:field.type,projectId:field.projectId,options:structuredClone(field.options),position:field.position,
     required:field.required,showCard:field.showCard,showList:field.showList,archived:field.archived,expectedRevision:field.revision};
 }
-export function customFieldsError(error:unknown):string|null {
+export function customFieldsError(error:unknown,language?:Language):string|null {
   const code=error instanceof GenesisApiError?String(error.payload?.error??error.message):error instanceof Error?error.message:"";
   const copy:Record<string,string>={
     CUSTOM_FIELD_CONFLICT:"Поле или его значения изменились. Обновите предпросмотр; черновик сохранён.",
@@ -28,7 +28,7 @@ export function customFieldsError(error:unknown):string|null {
     CUSTOM_FIELD_INVALID:"Проверьте название, тип и настройки поля.",CUSTOM_FIELD_OPERATION_REUSED:"Эта операция уже использована. Обновите предпросмотр и повторите.",
     CUSTOM_FIELD_FILTER_INVALID:"Условия выборки недействительны. Исправьте или сбросьте фильтр.",CUSTOM_FIELD_SORT_INVALID:"Условия выборки недействительны. Исправьте или сбросьте фильтр.",
   };
-  return copy[code]?t(copy[code]):null;
+  return copy[code]?t(copy[code],language):null;
 }
 export function customFieldText(field:SharedCustomField,value:CustomFieldValue|null|undefined,language:Language):string {
   if(value===null||value===undefined)return t("Не задано",language);
