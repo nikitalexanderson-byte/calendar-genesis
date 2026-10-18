@@ -24,6 +24,7 @@ require_once __DIR__ . '/shared-views.php';
 require_once __DIR__ . '/shared-bulk.php';
 require_once __DIR__ . '/shared-notifications.php';
 require_once __DIR__ . '/shared-project-access.php';
+require_once __DIR__ . '/shared-custom-fields.php';
 
 final class GenesisSharedAccessException extends RuntimeException
 {
@@ -1134,6 +1135,7 @@ function genesisSharedProjectSnapshot(string $userId, string $projectId, array $
             'updatedAt' => $project['updated_at'], 'createdAt' => $project['created_at'], 'createdBy' => $project['created_by'],
         ],
         'statuses' => $statuses->fetchAll(), 'categories' => $categories->fetchAll(),
+        'customFieldDefinitions'=>genesisSharedCustomFields($userId,$project['space_id'],$projectId,true),
         'tasks' => $page['tasks'], 'taskPage'=>array_diff_key($page,['tasks'=>true]), 'members' => array_map(static function (array $member): array {
             $member['permissions'] = genesisSharedPermissions($member['spaceRole'], $member['permissionsJson'], (int)$member['canOrganizeTasks'] === 1, $member['role'], (bool)$member['projectAccessRestricted']);
             unset($member['permissionsJson']); return $member;
@@ -1373,6 +1375,7 @@ function genesisSharedMoveTask(string $userId, string $sourceProjectId, string $
             if ($parent->fetchColumn()) throw new GenesisSharedAccessException('TASK_PARENT_COMPLETED',409);
         }
         if ($changedProject) {
+            genesisSharedCustomFieldsRequireMove([$task],$destinationId);
             $children=$db->prepare('SELECT COUNT(*) FROM shared_tasks WHERE parent_task_id=?');$children->execute([$taskId]);
             if ($task['parent_task_id'] !== null || (int)$children->fetchColumn()>0) throw new GenesisSharedAccessException('TASK_MOVE_RELATIONS',409);
             $lists=json_decode($task['checklists_json'],true);
@@ -1392,6 +1395,7 @@ function genesisSharedMoveTask(string $userId, string $sourceProjectId, string $
         $done = (int)$isDone === 1;
         if ($done) { genesisSharedRequireTaskChildrenComplete($taskId); genesisSharedRequireTaskApproval($taskId); }
         elseif ($task['completed_at'] !== null) genesisSharedResetTaskApprovals($taskId);
+        if($changedProject||$done&&$task['completed_at']===null)genesisSharedCustomTaskInput($userId,$destination,$taskId,[],true);
         if ($changedProject) {
             $missing = $db->prepare('SELECT COUNT(*) FROM shared_task_approvals a WHERE a.task_id = :task AND a.approved_at IS NULL
                 AND NOT EXISTS (SELECT 1 FROM shared_project_members m JOIN shared_projects p ON p.id = m.project_id
@@ -1596,6 +1600,7 @@ function genesisSharedTask(string $userId, string $projectId, array $input, ?str
         $id = $taskId ?? genesisUuid();
         $schedule = genesisSharedSchedule($input, $existing, $dueDate);
         $details = genesisSharedTaskDetailsInput($projectId, $id, $input, $existing, $isDone);
+        $custom=genesisSharedCustomTaskInput($userId,$project,$id,$input,$existing===null,$isDone&&(!$existing||$existing['completed_at']===null));
         $oldDependencies = genesisSharedDependencyIds($id);
         $completedBy = $isDone ? ($existing['completed_by'] ?? $userId) : null;
         $completedAt = $isDone ? ($existing['completed_at'] ?? $now) : null;
@@ -1636,6 +1641,7 @@ function genesisSharedTask(string $userId, string $projectId, array $input, ?str
             }
         }
         genesisSharedTaskDetailsSave($id, $details);
+        genesisSharedSaveCustomTaskValues($id,$custom['values']);
         if (array_key_exists('imageData', $input)) genesisSharedSaveTaskImage($id, $input['imageData']);
         if (array_key_exists('attachments', $input) || array_key_exists('removeAttachmentIds', $input)) {
             genesisSharedSaveTaskAttachments($id, $input);
@@ -1650,6 +1656,13 @@ function genesisSharedTask(string $userId, string $projectId, array $input, ?str
              'dueDate' => $existing['due_date'] ?? null, 'statusId' => $existing['status_id'] ?? null, 'categoryId' => $existing['category_id'] ?? null, 'assigneeId' => $existing['assignee_id'] ?? null, 'labelIds' => $oldLabels,
              'startDate' => $existing['start_date'] ?? null, 'startTime' => $existing['start_time'] ?? null, 'endTime' => $existing['end_time'] ?? null, 'dependsOnIds' => $oldDependencies, 'priority'=>(int)($existing['priority']??0), 'parentTaskId'=>$existing['parent_task_id']??null, 'checklists'=>json_decode($existing['checklists_json']??'[]',true)],
             compact('entryType', 'title', 'description', 'tags', 'dueDate', 'statusId', 'categoryId', 'assigneeId', 'labelIds', 'dependsOnIds') + $schedule + ['priority'=>$details['priority'],'parentTaskId'=>$details['parentId'],'checklists'=>$details['checklists']]);
+        if($custom['old']!==$custom['values']){
+            $from=[];$to=[];foreach(array_unique(array_merge(array_keys($custom['old']),array_keys($custom['values']))) as $fieldId){
+                $before=$custom['old'][$fieldId]??null;$after=$custom['values'][$fieldId]??null;
+                if($before!==$after){$from[$fieldId]=$before;$to[$fieldId]=$after;}
+            }
+            $taskChanges['customFields']=['from'=>$from,'to'=>$to];
+        }
         if (!$existing || $taskChanges || !empty($input['attachments']) || !empty($input['removeAttachmentIds']) || array_key_exists('imageData', $input)) {
             genesisSharedAudit($projectId, $userId, $existing ? 'task.updated' : 'task.created', $id, ['changes' => $taskChanges]);
         }

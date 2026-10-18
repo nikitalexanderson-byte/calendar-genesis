@@ -25,7 +25,7 @@ Code rollback выполняется через Git revert и штатный wor
 - 364 web tests и native JVM suite прошли на C6 checkpoint; последний lint: 0 errors, 2 исходных img warnings. build:beget: 90 mandatory assets, 203 visual assets, max chunk349908 bytes. Тsc по-прежнему имеет 8 известных исходных ошибок.
 - Три реальные browser-сессии: editor видит исходный проект; readonly preview не меняет права; после concurrent edit —409 с черновиком; потерянный ответ после server commit повторяется тем же operationId; открытый список editor очищается; task/project404, search0, только разрешённая карта; child readonly без edit inputs; viewer не может управлять доступом.
 - До/после: `output/playwright/c6-before-*`, `c6-after-*`, обе темы ×360/390/768/1440, без горизонтального переполнения. Цвет целевой страницы проверен, а не только настройка в соседней вкладке.
-- Смена языка в соседней сессии настроек и обновление session проверяются отдельно; ru/en/el подтвердили сохранение выбора. Полная browser-проверка 14 языков ещё требует завершения; статический каталог/audits покрывают все локали.
+- Реальная смена всех14 языков через соседнюю вкладку настроек и session refresh: интерфейс переведён, русский пользовательский текст и несохранённые commenter/inheritance rules сохранены, переполнения нет (`output/playwright/c6-confirm-locales.log`). Первая попытка поймала timeout фоновой browser-страницы; повтор на активной вкладке прошёл без изменения product code.
 
 ## Ещё не закрыто
 

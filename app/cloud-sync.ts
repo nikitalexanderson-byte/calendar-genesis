@@ -1676,6 +1676,7 @@ export type SharedReviewSettingsData = {rootProjectId:string;rootTitle:string;re
 export type SharedTaskReviewData = {enabled:boolean;allowed:Record<SharedReviewKind,boolean>;entries:{kind:SharedReviewKind;userId:string;displayName:string;reviewedAt:string}[]};
 export type SharedTrashEntry = {kind:"task"|"project";id:string;title:string;deletedAt:string;expiresAt:string;retentionDays:number;canRestore:boolean;canPurge?:boolean;projectId?:string};
 export type SharedTask = { review?:SharedTaskReviewData; id: string; projectId: string; statusId: string; title: string;
+  customFields?: import("./shared-custom-fields").CustomFieldValues;
   unreadCommentCount?: number;
   seriesId?: string; seriesProjectId?: string; seriesOriginalDate?: string;
   priority?: number; parentTaskId?: string | null; checklists?: SharedChecklist[]; archivedAt?: string | null;
@@ -1692,8 +1693,10 @@ export type SharedTask = { review?:SharedTaskReviewData; id: string; projectId: 
 export type SharedMember = { userId: string; role: string; spaceRole: string;
   canOrganizeTasks: number; displayName: string };
 export type SharedProjectSnapshot = { project: SharedProject; statuses: SharedStatus[]; categories: SharedCategory[];
+  customFieldDefinitions?: import("./shared-custom-fields").SharedCustomField[];
   tasks: SharedTask[]; members: SharedMember[]; taskPage?: Omit<SharedTaskPage, "tasks"> };
 export type SharedTaskCriteria = { spaceId?: string; projectIds?: string[]; statusIds?: string[]; assigneeIds?: string[];
+  customFields?: import("./shared-custom-fields").CustomFieldCriterion[];
   createdBy?: string; priority?: number[]; labelIds?: string[]; tags?: string[]; q?: string; from?: string; to?: string;
   dueFrom?: string; dueTo?: string; undated?: boolean; unscheduled?: "date" | "time"; scheduled?: "date" | "time"; completion?: "any" | "open" | "completed";
   approvalPending?: boolean; archived?: boolean; includeArchived?: boolean; parentTaskId?: string | null; ids?: string[] };
@@ -1725,7 +1728,7 @@ export async function deleteSharedSavedView(view:SharedSavedView, requestId:stri
 }
 export type SharedTaskPage = { tasks: SharedTask[]; total: number; hasMore: boolean; nextCursor: string | null;
   statusCounts: Record<string, number>; dateCounts: Record<string, number>; consistency: "restart-on-change"; queryVersion: string; bounds?: {first: string | null; last: string | null} };
-export type SharedTaskSort = "position" | "dueDate" | "priority" | "updatedAt" | "title" | "createdAt" | "createdAtAsc";
+export type SharedTaskSort = "position" | "dueDate" | "priority" | "updatedAt" | "title" | "createdAt" | "createdAtAsc" | `custom:${string}:asc` | `custom:${string}:desc`;
 export type SharedBulkSelection = {mode:"page";items:{id:string;projectId:string;revision:number}[]}
   | {mode:"all";filter:SharedTaskFilter;sort:SharedTaskSort;queryVersion:string};
 export type SharedBulkAction = {kind:"priority";priority:number}|{kind:"assignee";assigneeId:string|null}
@@ -1813,6 +1816,19 @@ export function assignSharedMemberPermissions(spaceId: string, userId: string, c
 export function loadSharedProjectAccess(spaceId: string, userId: string, signal?: AbortSignal) {
   return api<import("./shared-project-access").SharedProjectAccessState>(`/shared/spaces/${encodeURIComponent(spaceId)}/members/${encodeURIComponent(userId)}/project-access`, { signal });
 }
+export async function listSharedCustomFields(spaceId:string,projectId?:string,signal?:AbortSignal){
+  return(await api<{fields:import("./shared-custom-fields").SharedCustomField[]}>(`/shared/spaces/${encodeURIComponent(spaceId)}/custom-fields?archived=true${projectId?`&projectId=${encodeURIComponent(projectId)}`:""}`,{signal})).fields;
+}
+export function previewSharedCustomField(spaceId:string,draft:import("./shared-custom-fields").CustomFieldDraft,signal?:AbortSignal){
+  return api<import("./shared-custom-fields").CustomFieldPreview>(`/shared/spaces/${encodeURIComponent(spaceId)}/custom-fields/preview`,{method:"POST",body:JSON.stringify(draft),signal});
+}
+export async function saveSharedCustomField(spaceId:string,command:import("./shared-custom-fields").CustomFieldCommand){
+  const result=await api<{field:import("./shared-custom-fields").SharedCustomField;previousFieldId:string|null}>(`/shared/spaces/${encodeURIComponent(spaceId)}/custom-fields`,{method:"PUT",body:JSON.stringify(command)});
+  window.dispatchEvent(new Event("genesis:shared-updates"));return result;
+}
+export function loadSharedCustomFieldHistory(fieldId:string,signal?:AbortSignal){
+  return api<{versions:{field:import("./shared-custom-fields").SharedCustomField;createdAt:string}[]}>(`/shared/custom-fields/${encodeURIComponent(fieldId)}/history`,{signal});
+}
 export function previewSharedProjectAccess(spaceId: string, userId: string, draft: import("./shared-project-access").SharedProjectAccessDraft, signal?: AbortSignal) {
   return api<import("./shared-project-access").SharedProjectAccessPreview>(`/shared/spaces/${encodeURIComponent(spaceId)}/members/${encodeURIComponent(userId)}/project-access`, { method: "POST", body: JSON.stringify(draft), signal });
 }
@@ -1826,7 +1842,7 @@ export async function approveSharedTask(projectId: string, taskId: string) {
 }
 export type SharedComment = { id: string; body: string; mentionIds?: string[]; authorId: string; authorName: string; createdAt: string };
 export type SharedActivityEvent = { id: string; action: string; objectId: string; taskId: string | null; boardId: string | null; actorName: string; createdAt: string;
-  details: { objectTitle?: string; imageChanged?: boolean; changes?: Record<string, { from: unknown; to: unknown; fromUnavailable?: boolean; toUnavailable?: boolean }> } };
+  details: { objectTitle?: string; imageChanged?: boolean; customFieldDefinitions?:import("./shared-custom-fields").SharedCustomField[]; changes?: Record<string, { from: unknown; to: unknown; fromUnavailable?: boolean; toUnavailable?: boolean }> } };
 export type SharedGoogleSettings = { tasksEnabled: boolean; calendarEnabled: boolean;
   tasksAvailable: boolean; calendarAvailable: boolean };
 
@@ -2174,6 +2190,7 @@ export async function removeSharedMember(projectId: string, userId: string) {
   });
 }
 export async function createSharedTask(projectId: string, input: { title: string; statusId: string;
+  customFields?: import("./shared-custom-fields").CustomFieldValues;
   entryType?: "task" | "meeting" | "birthday" | "event";
   approvalRequired?: boolean; approverIds?: string[];
   imageData?: string;
@@ -2194,6 +2211,7 @@ export async function createSharedTask(projectId: string, input: { title: string
   }, { id: `pending:${requestId}`, projectId, statusId: input.statusId,
     approvalRequired: input.approvalRequired, approvals: input.approverIds?.map(userId => ({userId, displayName:"", approvedAt:null})),
     entryType: input.entryType ?? "task", priority: input.priority ?? 0, parentTaskId: input.parentTaskId ?? null, checklists: input.checklists ?? [],
+    customFields:input.customFields ?? {},
     title: input.title, description: input.description ?? "", dueDate: input.dueDate ?? null,
     categoryId: input.categoryId ?? null, assigneeId: input.assigneeId ?? null, labelIds: input.labelIds ?? [], startDate: input.startDate ?? null, dependsOnIds: input.dependsOnIds ?? [],
     startTime: input.startTime ?? null, endTime: input.endTime ?? null,

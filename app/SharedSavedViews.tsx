@@ -10,7 +10,10 @@ import { useSharedTaskPage } from "./use-shared-task-page";
 import { sharedPriorityLabel, sharedTaskDetailsError } from "./shared-task-details";
 import { editableSharedViewDefinition, repairSharedViewContext } from "./shared-saved-view-model";
 import { translateText as t } from "./i18n";
-import { GenesisNetworkTimeoutError, deleteSharedSavedView, listSharedSavedViews, loadSharedSavedView, loadSharedViewOptions, saveSharedSavedView,
+import { getRuntimeLanguage } from "./i18n";
+import { SharedCustomFieldFilter } from "./SharedCustomFieldFilter";
+import { customFieldsError, type SharedCustomField } from "./shared-custom-fields";
+import { GenesisNetworkTimeoutError, deleteSharedSavedView, listSharedSavedViews, loadSharedSavedView, loadSharedViewOptions, saveSharedSavedView, listSharedCustomFields,
   type SharedSavedView, type SharedSavedViewDefinition, type SharedSavedViewPage, type SharedSpace, type SharedTask,
   type SharedTaskCriteria, type SharedTaskFilter, type SharedViewOptionKind, type SharedViewOptionsPage } from "./cloud-sync";
 import "./shared-saved-views.css";
@@ -31,7 +34,7 @@ function restoreDraft(key:string,mode:CalendarMode):Draft {
   } catch { /* Preserve the damaged stored draft until the user explicitly replaces it. */ }
   return {definition:null,spaceId:null,visibility:"personal",dirty:true};
 }
-const message=(error:unknown,fallback="Не удалось загрузить данные")=>error instanceof TypeError||error instanceof GenesisNetworkTimeoutError?t(fallback):sharedTaskDetailsError(error)??t(error instanceof Error?error.message:fallback);
+const message=(error:unknown,fallback="Не удалось загрузить данные")=>error instanceof TypeError||error instanceof GenesisNetworkTimeoutError?t(fallback):customFieldsError(error)??sharedTaskDetailsError(error)??t(error instanceof Error?error.message:fallback);
 const strings=(value:unknown)=>Array.isArray(value)?value.filter((item):item is string=>typeof item==="string"):[];
 const subscribeOnline=(callback:()=>void)=>{window.addEventListener("online",callback);window.addEventListener("offline",callback);return()=>{window.removeEventListener("online",callback);window.removeEventListener("offline",callback);};};
 const onlineSnapshot=()=>navigator.onLine;
@@ -87,6 +90,10 @@ export function SharedSavedViews({userId,spaces,mode,opened,onClose,onOpen}:{use
     ? {...draft,definition:{...draft.definition,calendarMode:"profane" as const}} : draft;
   useEffect(()=>{const element=dialog.current;if(opened&&!element?.open)element?.showModal();else if(!opened&&element?.open)element.close();},[opened]);
   const [metadata,setMetadata]=useState<SharedSavedView|null>(null),[filter,setFilter]=useState<SharedTaskFilter|null>(null),[optionsVersion,setOptionsVersion]=useState(0);
+  const [customFields,setCustomFields]=useState<{spaceId:string;items:SharedCustomField[]}>({spaceId:"",items:[]});
+  useEffect(()=>{if(!opened||!draft.spaceId)return;const controller=new AbortController(),spaceId=draft.spaceId;
+    void listSharedCustomFields(spaceId,undefined,controller.signal).then(items=>{if(!controller.signal.aborted)setCustomFields({spaceId,items});}).catch(error=>{if(!controller.signal.aborted)setError(message(error));});
+    return()=>controller.abort();},[opened,draft.spaceId,optionsVersion]);
   const rolesKey=spaces.map(space=>`${space.id}:${space.role}`).sort().join("|");
   const requestKey=`${storageKey}.request`;
   const online=useSyncExternalStore(subscribeOnline,onlineSnapshot,serverOnline),operation=useRef(false),listGeneration=useRef(0);
@@ -221,13 +228,16 @@ export function SharedSavedViews({userId,spaces,mode,opened,onClose,onOpen}:{use
           <label className="saved-view-toggle">{t("Создано мной")}<input type="checkbox" checked={definition.filter.createdBy==="me"} onChange={event=>{const filter={...definition.filter};if(event.target.checked)filter.createdBy="me";else delete filter.createdBy;update({filter});}}/></label>
           <label className="saved-view-toggle">{t("Ожидает утверждения")}<input type="checkbox" checked={definition.filter.approvalPending===true} onChange={event=>criteria({approvalPending:event.target.checked})}/></label>
           <label>{t("Выполнение")}<select value={definition.filter.completion??"any"} onChange={event=>criteria({completion:event.target.value as SharedTaskCriteria["completion"]})}><option value="any">{t("Все задачи")}</option><option value="open">{t("Текущие")}</option><option value="completed">{t("Завершённые")}</option></select></label>
-          <label>{t("Сортировка")}<select value={definition.sort} onChange={event=>update({sort:event.target.value as SharedSavedViewDefinition["sort"]})}>{sortOptions.map(([value,label])=><option key={value} value={value}>{t(label)}</option>)}</select></label>
+          <label>{t("Сортировка")}<select value={definition.sort} onChange={event=>update({sort:event.target.value as SharedSavedViewDefinition["sort"]})}>{sortOptions.map(([value,label])=><option key={value} value={value}>{t(label)}</option>)}
+          {(customFields.spaceId===draft.spaceId?customFields.items:[]).filter(field=>field.type!=="multi").flatMap(field=>(['asc','desc'] as const).map(direction=><option key={`${field.id}:${direction}`} value={`custom:${field.id}:${direction}`} data-no-translate>{field.title} · {t(direction==='asc'?'По возрастанию':'По убыванию')}</option>))}
+          {!sortOptions.some(([value])=>value===definition.sort)&&!customFields.items.some(field=>definition.sort.startsWith(`custom:${field.id}:`))?<option value={definition.sort}>{t('Недоступно')}</option>:null}</select></label>
           <label>{t("Период")}<select value={definition.relative} onChange={event=>update({relative:event.target.value as SharedSavedViewDefinition["relative"]})}>{([ ["none","Фиксированный диапазон"],["overdue","Просрочено"],["this-week","На этой неделе"],["this-month","В этом месяце"]]as const).map(([value,label])=><option key={value} value={value}>{t(label)}</option>)}</select></label>
           {sacredFeaturesEnabled ? <label>{t("Календарь")}<select value={definition.calendarMode} onChange={event=>update({calendarMode:event.target.value as CalendarMode})}>{([ ["profane","Григорианский"],["sacred","Сакральный"],["lunar","Лунный"]]as const).map(([value,label])=><option key={value} value={value}>{t(label)}</option>)}</select></label> : null}
           <label>{t("Начало года")}<select value={definition.calendarContext.gregorianYearStart} onChange={event=>update({calendarContext:{...definition.calendarContext,gregorianYearStart:event.target.value as CalendarContext["gregorianYearStart"]}})}><option value="january">{t("Январь")}</option><option value="march">{t("Март")}</option></select></label>
           <label>{t("Часовой пояс")}<input value={definition.calendarContext.timeZone} aria-invalid={Boolean(zoneError)} aria-describedby={zoneError?"saved-view-zone-error":undefined} onChange={event=>update({calendarContext:{...definition.calendarContext,timeZone:event.target.value}})}/></label>
         </div>
         {zoneError?<p id="saved-view-zone-error" role="alert">{zoneError}</p>:null}
+        <SharedCustomFieldFilter fields={customFields.spaceId===draft.spaceId?customFields.items:[]} criteria={definition.filter.customFields??[]} onChange={customFields=>criteria({customFields})} language={getRuntimeLanguage()} mode={definition.calendarMode}/>
         {definition.relative==="none"&&!zoneError?<div className="saved-view-dates">{([ ["dueFrom","Начало"],["dueTo","Окончание"]]as const).map(([key,label])=><label key={key}>{t(label)}<CalendarDatePicker mode={definition.calendarMode} calculationContext={context} value={definition.filter[key]??""} ariaLabel={t(label)} onChange={value=>{const filter={...definition.filter};if(value)filter[key]=value;else delete filter[key];update({filter});}}/></label>)}</div>:null}
         <div className="saved-view-actions"><button type="button" className="secondary-button" disabled={busy||!online||Boolean(zoneError)} onClick={()=>{setFilter({viewDefinition:payload(effectiveDraft)});setEditor(false);setError("");}}>{t("Показать задачи")}</button>
           <button type="submit" className="primary-button" disabled={busy||!online||!canEdit||scopeChanged||Boolean(zoneError)||Boolean(draft.id&&!draft.dirty)}>{t("Сохранить")}</button>

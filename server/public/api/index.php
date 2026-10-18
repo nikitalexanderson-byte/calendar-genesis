@@ -903,6 +903,10 @@ try {
         if (count($segments) === 5 && $segments[1] === 'spaces' && $segments[3] === 'member-categories' && $method === 'PATCH') {
             genesisJson(['category' => genesisSharedMemberCategory($userId, $segments[2], genesisReadJson(), $segments[4])]);
         }
+        if(count($segments)===4&&$segments[1]==='spaces'&&$segments[3]==='custom-fields'&&$method==='GET')genesisJson(['fields'=>genesisSharedCustomFields($userId,$segments[2],isset($_GET['projectId'])?(string)$_GET['projectId']:null,($_GET['archived']??'')==='true')]);
+        if(count($segments)===5&&$segments[1]==='spaces'&&$segments[3]==='custom-fields'&&$segments[4]==='preview'&&$method==='POST')genesisJson(genesisSharedPreviewCustomField($userId,$segments[2],genesisReadJson()));
+        if(count($segments)===4&&$segments[1]==='spaces'&&$segments[3]==='custom-fields'&&$method==='PUT')genesisJson(genesisSharedSaveCustomField($userId,$segments[2],genesisReadJson()));
+        if(count($segments)===4&&$segments[1]==='custom-fields'&&$segments[3]==='history'&&$method==='GET')genesisJson(['versions'=>genesisSharedCustomFieldHistory($userId,$segments[2])]);
         if (count($segments) === 6 && $segments[1] === 'spaces' && $segments[3] === 'members' && $segments[5] === 'project-access') {
             if($method==='GET')genesisJson(genesisSharedProjectAccessState($userId,$segments[2],$segments[4]));
             if($method==='POST')genesisJson(genesisSharedPreviewProjectAccess($userId,$segments[2],$segments[4],genesisReadJson()));
