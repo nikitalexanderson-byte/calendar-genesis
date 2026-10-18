@@ -117,7 +117,8 @@ function genesisSharedMindmaps(string $userId, string $spaceId, ?string $history
     genesisSharedMindmapAccess($userId, $spaceId);
     if ($historyId !== null) genesisMindmapId($historyId);
     $space=genesisSharedSpaceAccess($spaceId,$userId);
-    $access=' AND ((project_id IS NULL AND ?=0) OR project_id IN (SELECT p.id FROM shared_projects p JOIN shared_project_members m ON m.project_id=p.id AND m.user_id=? JOIN shared_space_members sm ON sm.space_id=p.space_id AND sm.user_id=m.user_id WHERE p.space_id=? AND NOT EXISTS(SELECT 1 FROM shared_trash t WHERE t.kind=\'project\' AND t.object_id=p.id)))';
+    // PDO execute(array) binds scalar values as strings; SQLite does not coerce a bare parameter in ?=0.
+    $access=' AND ((project_id IS NULL AND CAST(? AS INTEGER)=0) OR project_id IN (SELECT p.id FROM shared_projects p JOIN shared_project_members m ON m.project_id=p.id AND m.user_id=? JOIN shared_space_members sm ON sm.space_id=p.space_id AND sm.user_id=m.user_id WHERE p.space_id=? AND NOT EXISTS(SELECT 1 FROM shared_trash t WHERE t.kind=\'project\' AND t.object_id=p.id)))';
     $q=genesisDb()->prepare($historyId===null?'SELECT * FROM shared_mindmaps WHERE space_id=?'.$access.' ORDER BY updated_at DESC'
         :'SELECT * FROM shared_mindmap_versions WHERE space_id=? AND map_id=?'.$access.' ORDER BY revision DESC LIMIT 20');
     $values=$historyId===null?[$spaceId]:[$spaceId,$historyId];array_push($values,(int)((bool)$space['project_access_restricted']&&!in_array($space['member_role'],['owner','admin'],true)),$userId,$spaceId);$q->execute($values);
