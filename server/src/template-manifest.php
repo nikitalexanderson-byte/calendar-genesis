@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/template-dates.php';
+require_once __DIR__.'/shared-planning.php';
 
 function genesisTemplateKey(mixed $value):string
 {
@@ -87,7 +88,7 @@ function genesisTemplateManifest(mixed $input):array
     }
     $tasks=[];$checklistKeys=[];
     foreach(genesisTemplateList($input['tasks']??null,500) as $task){
-        if(!is_array($task)||array_diff(array_keys($task),['key','projectKey','parentKey','title','description','entryType','statusKey','categoryKey','priority','tags','assigneeId','labelKeys','dependsOnKeys','due','start','startTime','endTime','checklists','customValues','approvalRequired','approverIds']))throw new InvalidArgumentException('TEMPLATE_INVALID');
+        if(!is_array($task)||array_diff(array_keys($task),['key','projectKey','parentKey','title','description','entryType','statusKey','categoryKey','priority','tags','assigneeId','labelKeys','dependsOnKeys','due','start','startTime','endTime','checklists','customValues','approvalRequired','approverIds','storyPoints','estimateHours']))throw new InvalidArgumentException('TEMPLATE_INVALID');
         $key=genesisTemplateKey($task['key']??null);$project=genesisTemplateKey($task['projectKey']??null);$parent=genesisTemplateNullableKey($task['parentKey']??null);$status=genesisTemplateKey($task['statusKey']??null);$category=genesisTemplateNullableKey($task['categoryKey']??null);
         if(isset($tasks[$key])||!isset($projects[$project])||!isset($statuses[$status])||$statuses[$status]['projectKey']!==$project
             ||$parent!==null&&(!isset($tasks[$parent])||$tasks[$parent]['projectKey']!==$project)||$category!==null&&($categories[$category]??null)!==$project)throw new InvalidArgumentException('TEMPLATE_REFERENCE_INVALID');
@@ -119,7 +120,8 @@ function genesisTemplateManifest(mixed $input):array
         $tasks[$key]=['key'=>$key,'projectKey'=>$project,'parentKey'=>$parent,'title'=>genesisSharedTitle($task['title']??null),'description'=>genesisSharedText($task['description']??'',20000),
             'entryType'=>$entryType,'statusKey'=>$status,'categoryKey'=>$category,'priority'=>$priority,'tags'=>genesisSharedTags($task['tags']??[]),'assigneeId'=>$assignee,'approvalRequired'=>$approval,'approverIds'=>array_keys($approvers),
             'labelKeys'=>genesisTemplateKeys($task['labelKeys']??[],$labels),'dependsOnKeys'=>$task['dependsOnKeys']??[],'due'=>genesisTemplateOffset($task['due']??null),
-            'start'=>genesisTemplateOffset($task['start']??null),...$times,'checklists'=>$lists,'customValues'=>(object)$custom];
+            'start'=>genesisTemplateOffset($task['start']??null),...$times,'checklists'=>$lists,'customValues'=>(object)$custom,
+            'storyPoints'=>genesisPlanningEstimate($task['storyPoints']??null),'estimateHours'=>genesisPlanningEstimate($task['estimateHours']??null)];
     }
     if(!$tasks&&$input['kind']==='task')throw new InvalidArgumentException('TEMPLATE_INVALID');
     foreach($tasks as &$task){

@@ -221,5 +221,5 @@ function genesisSharedSafeActivityRow(string $userId,string $projectId,array $ro
             unset($details[$field]);
         }
     }
-    $row['details']=$details;return $row;
+    $row['details']=genesisPlanningSafeDetails($userId,$details);return $row;
 }

@@ -94,7 +94,7 @@ function genesisSharedTemplateCapture(string $actor,string $projectId,?string $t
                 'priority'=>(int)$row['priority'],'tags'=>json_decode($row['tags_json'],true,32,JSON_THROW_ON_ERROR),'assigneeId'=>$row['assignee_id'],'approvalRequired'=>(bool)$approvals,'approverIds'=>$approvers,
                 'labelKeys'=>$labels,'dependsOnKeys'=>array_values(array_intersect($dependencies,array_keys($taskRows))),
                 'due'=>$offset($row['due_date']),'start'=>$offset($row['start_date']),'startTime'=>$row['start_time'],'endTime'=>$row['end_time'],
-                'checklists'=>$lists,'customValues'=>(object)$kept];
+                'checklists'=>$lists,'customValues'=>(object)$kept,...array_intersect_key(genesisPlanningTaskValues($row['id']),['storyPoints'=>true,'estimateHours'=>true])];
             if($row['completed_at']!==null)$notices[]=['code'=>'TASK_COMPLETION_RESET','taskKey'=>$id];
             $q=$db->prepare('SELECT (SELECT COUNT(*) FROM shared_task_attachments WHERE task_id=?)+(SELECT COUNT(*) FROM shared_task_images WHERE task_id=?)+(SELECT COUNT(*) FROM shared_comments WHERE task_id=?)');$q->execute([$id,$id,$id]);$privateCount=(int)$q->fetchColumn();
             if($privateCount)$notices[]=['code'=>'PRIVATE_CONTENT_EXCLUDED','taskKey'=>$id,'count'=>$privateCount];

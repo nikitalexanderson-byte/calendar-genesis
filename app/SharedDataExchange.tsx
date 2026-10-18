@@ -9,12 +9,13 @@ import { RecordCalendarChoice } from "./RecordCalendarChoice";
 import { DialogCloseButton } from "./DialogCloseButton";
 import { SharedCustomFieldInputs } from './SharedCustomFieldInputs';
 import type { CustomFieldValues } from './shared-custom-fields';
+import { planningText } from './shared-planning';
 import { applyData, dataColumns, dataCsvHeaders, dataError, dataImports, dataIssueText, DATA_FILE_LIMIT, downloadData, exportData, previewData, undoData, type DataCommand, type DataIssue, type DataPreview, type DataReceipt } from "./shared-data-exchange";
 import "./shared-templates.css";
 import "./shared-data-exchange.css";
 
 export function SharedDataExchange({snapshot,language,mode,onClose,onAccessLost,onChanged,onOpenProject}:{snapshot:SharedProjectSnapshot;language:Language;mode:CalendarMode;onClose:()=>void;onAccessLost:()=>void;onChanged:()=>Promise<void>;onOpenProject:(id:string)=>void}){
- const t=(value:string)=>translateText(value,language),dialog=useRef<HTMLDialogElement>(null),live=useRef(true),lock=useRef(false),pending=useRef<{key:string;command:DataCommand&{operationId:string;fingerprint:string}}|null>(null);
+ const t=(value:string)=>value==='Story points'?planningText('points',language):value==='Часы'?planningText('hours',language):translateText(value,language),dialog=useRef<HTMLDialogElement>(null),live=useRef(true),lock=useRef(false),pending=useRef<{key:string;command:DataCommand&{operationId:string;fingerprint:string}}|null>(null);
  const spaceId=snapshot.project.spaceId,projectId=snapshot.project.id,canWrite=snapshot.project.permissions?.editTasks??['owner','manager','member'].includes(snapshot.project.role),canCreate=Boolean(snapshot.project.permissions?.createProjects);
  const [tab,setTab]=useState<'import'|'export'|'history'>(canWrite||canCreate?'import':'export'),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState(''),[online,setOnline]=useState(()=>navigator.onLine);
  const [file,setFile]=useState<{id:string;name:string;content:string}|null>(null),[format,setFormat]=useState<DataCommand['format']>('json'),[destination,setDestination]=useState(canCreate?'tree':'tasks'),[delimiter,setDelimiter]=useState(','),[dateFormat,setDateFormat]=useState('iso'),[columns,setColumns]=useState<Partial<Record<keyof typeof dataColumns,number>>>({}),[custom,setCustom]=useState<Record<number,string>>({});

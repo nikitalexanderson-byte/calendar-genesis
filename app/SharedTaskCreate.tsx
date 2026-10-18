@@ -11,6 +11,8 @@ import { SharedTaskApprovalChoice } from "./SharedTaskApprovalChoice";
 import { EntryTypeChoice, type EntryType } from "./EntryTypeChoice";
 import { SharedTaskSchedule, emptySharedPlan } from "./SharedTaskSchedule";
 import type { TimeFormat } from "./time-format";
+import { SharedEstimateInputs } from './SharedTaskEstimates';
+import { estimateDraft, estimateInput, type EstimateDraft } from './shared-planning';
 import {
   createSharedTask, listSharedProjects, listSharedSpaces, loadSharedProject,
   type SharedProject, type SharedProjectSnapshot, type SharedSpace, type SharedTask,
@@ -36,6 +38,7 @@ export function SharedTaskCreate({ language, enabledCalendars,
   const [title, setTitle] = useState(initialTitle);
   const [tags, setTags] = useState("");
   const [description, setDescription] = useState("");
+  const [estimates,setEstimates]=useState<{projectId:string;value:EstimateDraft}>({projectId:'',value:estimateDraft()});
   const [files, setFiles] = useState<TaskFileDraft[]>([]);
   const [imageReading, setImageReading] = useState(false);
   const [dueDate, setDueDate] = useState("");
@@ -105,6 +108,7 @@ export function SharedTaskCreate({ language, enabledCalendars,
     setBusy(true); setMessage("");
     try {
       const created = await createSharedTask(snapshot.project.id, {
+        ...(snapshot.project.planning?.enabled?estimateInput(estimates.projectId===projectId?estimates.value:estimateDraft()):{}),
         ...(mindmapSource ? {mindmapSource} : {}),
         title: title.trim(), description: description.trim(), tags: [...new Set(tags.split(/[,;\s]+/).map((tag) => tag.replace(/^#/, "")).filter(Boolean))], dueDate: dueDate || null,
         approvalRequired, approverIds,
@@ -114,6 +118,7 @@ export function SharedTaskCreate({ language, enabledCalendars,
         ...(files.length ? { attachments: files.map(({ name, data }) => ({ name, data })) } : {}),
       });
       setTitle(""); setDescription(""); setTags(""); setDueDate(""); setFiles([]);
+      setEstimates({projectId,value:estimateDraft()});
       await onSaved?.(created);
       onCreated?.(Boolean(created.pending));
       setMessage(created.pending
@@ -135,6 +140,7 @@ export function SharedTaskCreate({ language, enabledCalendars,
       <label>{english ? "Name" : "Название"}<input value={title} maxLength={160} required
         onChange={(event) => setTitle(event.target.value)} /></label>
       <SharedTaskAttachmentsInput value={files} onChange={setFiles} onReadingChange={setImageReading} english={english} disabled={busy} />
+      {snapshot?.project.id===projectId&&snapshot.project.planning?.enabled?<SharedEstimateInputs value={estimates.projectId===projectId?estimates.value:estimateDraft()} onChange={value=>setEstimates({projectId,value})} language={language as import('./i18n').Language} disabled={busy}/>:null}
       <label>{english ? "Workspace" : "Пространство"}<select value={spaceId} onChange={(event) => {
         setSpaceId(event.target.value); setProjects([]); setProjectId(""); setSnapshot(null);
       }}>{spaces.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>

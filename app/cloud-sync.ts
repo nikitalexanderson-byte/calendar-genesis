@@ -1661,6 +1661,7 @@ export type SharedSpaceInvitationInput = { email: string; role: "admin" | "membe
 export type SharedSpaceSettings = { space: SharedSpace; members: { categoryId?: string | null; userId: string; displayName: string; email: string; role: SharedSpace["role"]; permissions: SharedPermissions }[];
   invitations: (SharedSpaceInvitationInput & { id: string; expiresAt: string })[] };
 export type SharedProject = { id: string; spaceId: string; parentId: string | null; title: string;
+  planning?: import('./shared-planning').PlanningConfig;
   categoryId?: string | null;
   labelIds?: string[];
   createdBy?: string | null; createdAt?: string; description: string; tags?: string[]; kind?: "project" | "task-list"; boardStatusId?: string | null; layout: "list" | "board"; isInbox?: number; taskCount?: number; boardCount?: number;
@@ -1678,6 +1679,7 @@ export type SharedReviewSettingsData = {rootProjectId:string;rootTitle:string;re
 export type SharedTaskReviewData = {enabled:boolean;allowed:Record<SharedReviewKind,boolean>;entries:{kind:SharedReviewKind;userId:string;displayName:string;reviewedAt:string}[]};
 export type SharedTrashEntry = {kind:"task"|"project";id:string;title:string;deletedAt:string;expiresAt:string;retentionDays:number;canRestore:boolean;canPurge?:boolean;projectId?:string};
 export type SharedTask = { review?:SharedTaskReviewData; id: string; projectId: string; statusId: string; title: string;
+  sprintId?:string|null;storyPoints?:number|null;estimateHours?:number|null;
   customFields?: import("./shared-custom-fields").CustomFieldValues;
   unreadCommentCount?: number;
   seriesId?: string; seriesProjectId?: string; seriesOriginalDate?: string;
@@ -1698,6 +1700,7 @@ export type SharedProjectSnapshot = { project: SharedProject; statuses: SharedSt
   customFieldDefinitions?: import("./shared-custom-fields").SharedCustomField[];
   tasks: SharedTask[]; members: SharedMember[]; taskPage?: Omit<SharedTaskPage, "tasks"> };
 export type SharedTaskCriteria = { spaceId?: string; projectIds?: string[]; statusIds?: string[]; assigneeIds?: string[];
+  sprintId?:string|null;backlog?:boolean;
   customFields?: import("./shared-custom-fields").CustomFieldCriterion[];
   createdBy?: string; priority?: number[]; labelIds?: string[]; tags?: string[]; q?: string; from?: string; to?: string;
   dueFrom?: string; dueTo?: string; undated?: boolean; unscheduled?: "date" | "time"; scheduled?: "date" | "time"; completion?: "any" | "open" | "completed";
@@ -2210,6 +2213,7 @@ export async function removeSharedMember(projectId: string, userId: string) {
   });
 }
 export async function createSharedTask(projectId: string, input: { title: string; statusId: string;
+  sprintId?:string|null;storyPoints?:number|null;estimateHours?:number|null;
   customFields?: import("./shared-custom-fields").CustomFieldValues;
   entryType?: "task" | "meeting" | "birthday" | "event";
   approvalRequired?: boolean; approverIds?: string[];
@@ -2232,6 +2236,7 @@ export async function createSharedTask(projectId: string, input: { title: string
     approvalRequired: input.approvalRequired, approvals: input.approverIds?.map(userId => ({userId, displayName:"", approvedAt:null})),
     entryType: input.entryType ?? "task", priority: input.priority ?? 0, parentTaskId: input.parentTaskId ?? null, checklists: input.checklists ?? [],
     customFields:input.customFields ?? {},
+    ...Object.fromEntries(Object.entries({sprintId:input.sprintId,storyPoints:input.storyPoints,estimateHours:input.estimateHours}).filter(([,value])=>value!==undefined)),
     title: input.title, description: input.description ?? "", dueDate: input.dueDate ?? null,
     categoryId: input.categoryId ?? null, assigneeId: input.assigneeId ?? null, labelIds: input.labelIds ?? [], startDate: input.startDate ?? null, dependsOnIds: input.dependsOnIds ?? [],
     startTime: input.startTime ?? null, endTime: input.endTime ?? null,
@@ -2249,7 +2254,7 @@ export async function updateSharedTask(projectId: string, taskId: string, input:
   { id: taskId, projectId, statusId: input.statusId ?? "", title: input.title ?? "",
     description: input.description ?? "", categoryId: input.categoryId ?? null,
     assigneeId: input.assigneeId ?? null, dueDate: input.dueDate ?? null,
-    ...Object.fromEntries(Object.entries({labelIds: input.labelIds, startDate: input.startDate, startTime: input.startTime, endTime: input.endTime, dependsOnIds: input.dependsOnIds, priority: input.priority, parentTaskId: input.parentTaskId, checklists: input.checklists}).filter(([,value])=>value!==undefined)),
+    ...Object.fromEntries(Object.entries({labelIds: input.labelIds, startDate: input.startDate, startTime: input.startTime, endTime: input.endTime, dependsOnIds: input.dependsOnIds, priority: input.priority, parentTaskId: input.parentTaskId, checklists: input.checklists,sprintId:input.sprintId,storyPoints:input.storyPoints,estimateHours:input.estimateHours}).filter(([,value])=>value!==undefined)),
     position: 0, revision: input.expectedRevision, updatedAt: new Date().toISOString(), pending: true });
 }
 export async function moveSharedTask(projectId: string, taskId: string, input: {

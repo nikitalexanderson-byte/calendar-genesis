@@ -10,12 +10,13 @@ function genesisReportTime(mixed $value):?float{
 /** Trusted server observation, captured with the mutation; historical C5 scope exits before this hook. */
 function genesisSharedReportEventState(string $project,string $action,string $task,array $details):?array{
     if(!str_starts_with($action,'task.'))return null;
-    $q=genesisDb()->prepare("SELECT t.project_id,t.status_id,t.completed_at,t.archived_at,t.updated_at,t.revision,EXISTS(SELECT 1 FROM shared_trash tr WHERE tr.kind='task' AND tr.object_id=t.id) AS trashed FROM shared_tasks t WHERE t.id=?");$q->execute([$task]);$row=$q->fetch();
+    $q=genesisDb()->prepare("SELECT t.project_id,t.status_id,t.assignee_id,t.completed_at,t.archived_at,t.updated_at,t.revision,EXISTS(SELECT 1 FROM shared_trash tr WHERE tr.kind='task' AND tr.object_id=t.id) AS trashed FROM shared_tasks t WHERE t.id=?");$q->execute([$task]);$row=$q->fetch();
     if(!$row)return ['version'=>1,'statusId'=>null,'done'=>false,'active'=>false,'revision'=>null,'kind'=>'removed','at'=>genesisNow(),'beforeDone'=>null,'beforeStatusId'=>null];
     $inside=$row['project_id']===$project;$kind=match($action){'task.created'=>'created','task.moved_out'=>'left','task.moved_in'=>'entered','task.archived'=>'archived','task.deleted'=>'removed','task.restored','task.unarchived'=>'restored',default=>'state'};
     $before=$details['reportBefore']??[];$doneBefore=$before['completed']??($details['changes']['isDone']['from']??null);$statusBefore=$before['statusId']??($details['changes']['statusId']['from']??null);
     return ['version'=>1,'statusId'=>$inside?$row['status_id']:null,'done'=>$inside&&$row['completed_at']!==null,'active'=>$inside&&!$row['trashed']&&$row['archived_at']===null&&$kind!=='left','revision'=>(int)$row['revision'],'kind'=>$kind,
-        'at'=>in_array($kind,['removed','restored','left','entered'],true)?genesisNow():$row['updated_at'],'beforeDone'=>is_bool($doneBefore)?$doneBefore:null,'beforeStatusId'=>is_string($statusBefore)?$statusBefore:null];
+        'at'=>in_array($kind,['removed','restored','left','entered'],true)?genesisNow():$row['updated_at'],'beforeDone'=>is_bool($doneBefore)?$doneBefore:null,'beforeStatusId'=>is_string($statusBefore)?$statusBefore:null,
+        'planning'=>$inside?['version'=>1,'assigneeId'=>$row['assignee_id'],...genesisPlanningTaskValues($task)]:null];
 }
 
 /** A legacy name alone is not a status identity; a changed definition alone is not its historical semantics. */

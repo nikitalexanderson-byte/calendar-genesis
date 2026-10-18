@@ -4,11 +4,13 @@ import { customFieldsError, type SharedCustomField } from './shared-custom-field
 import type { CalendarMode } from './calendar-data';
 import type { CalendarContext } from './calendar-context';
 export type ReportMetric={key:string;count:number};
+export type ReportEstimateGroup={all:ReportMetric;points:{value:number;estimated:ReportMetric;unestimated:ReportMetric};hours:{value:number;estimated:ReportMetric;unestimated:ReportMetric}};
+export type ReportProjectEstimates=ReportEstimateGroup&{projectId:string;members:(ReportEstimateGroup&{id:string})[]};
 export type ReportOptions={filter:SharedTaskFilter;from:string;to:string;calendarMode:CalendarMode;calendarContext:CalendarContext;cycleStartStatusIds:string[]};
 export type TeamReport={token:string;asOf:string;period:Omit<ReportOptions,'filter'|'cycleStartStatusIds'>;filter:SharedTaskFilter;summary:Record<'all'|'open'|'completed'|'overdue'|'unassigned',ReportMetric>;
  members:{id:string;title:string|null;all:ReportMetric;open:ReportMetric;completed:ReportMetric}[];stages:{id:string;title:string|null;projectId:string|null;seconds:number;tasks:ReportMetric}[];ages:{id:'week'|'month'|'quarter'|'older'|'unknown';tasks:ReportMetric}[];
  cycle:{meanSeconds:number|null;medianSeconds:number|null;eligible:number;known:ReportMetric;unknown:ReportMetric};unknown:ReportMetric;daily:{date:string;coverage:'observed'|'partial'|'unknown'|'future';created:ReportMetric;completed:ReportMetric;reopened:ReportMetric;unknown:ReportMetric}[];
- catalog:{projects:{id:string;spaceId:string;title:string}[];statuses:{id:string;projectId:string;title:string;isDone:boolean;revision:number}[];members:{id:string;title:string}[];customFieldDefinitions:SharedCustomField[]};estimates:{available:boolean;unestimated:number;points:number|null;hours:number|null}};
+ catalog:{projects:{id:string;spaceId:string;title:string}[];statuses:{id:string;projectId:string;title:string;isDone:boolean;revision:number}[];members:{id:string;title:string}[];customFieldDefinitions:SharedCustomField[]};estimates:{available:boolean;unestimated:number;points:number|null;hours:number|null;projects:ReportProjectEstimates[]}};
 export type ReportTaskPage={tasks:SharedTask[];total:number;nextCursor:string|null;asOf:string};
 export function loadTeamReport(options:ReportOptions,signal?:AbortSignal){return sharedCollaborationRequest<TeamReport>('/reports',{method:'POST',body:JSON.stringify(options),signal});}
 export function checkTeamReport(token:string,signal?:AbortSignal){return sharedCollaborationRequest<{unchanged:true}>('/reports/check',{method:'POST',body:JSON.stringify({token}),signal});}

@@ -34,7 +34,7 @@ function genesisDataCsvDate(string $value,string $format):?string{
     if(!in_array($format,['dmy','mdy'],true)||!preg_match('/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})$/D',$value,$parts))genesisDataInvalid('DATA_DATE_INVALID');
     return genesisDataDate(sprintf('%04d-%02d-%02d',(int)$parts[3],(int)$parts[$format==='dmy'?2:1],(int)$parts[$format==='dmy'?1:2]));
 }
-function genesisDataCsvColumnKeys():array{return ['key','title','description','project','status','done','assignee','priority','labels','dueDate','startDate','startTime','endTime','parentKey'];}
+function genesisDataCsvColumnKeys():array{return ['key','title','description','project','status','done','assignee','priority','labels','dueDate','startDate','startTime','endTime','parentKey','storyPoints','estimateHours'];}
 
 /** CSV keeps a flat editable subset. Its marker reverses our own spreadsheet escaping only. */
 function genesisDataFromCsv(string $content,array $options):array{
@@ -70,6 +70,7 @@ function genesisDataFromCsv(string $content,array $options):array{
         $parent=$read($row,'parentKey');$tasks[$key]=['key'=>$key,'projectKey'=>$project,'parentKey'=>$parent===''?null:'csv-task:'.hash('sha256',$parent),'statusKey'=>$status,'title'=>$read($row,'title'),'description'=>$read($row,'description'),
             'priority'=>(int)($priority?:0),'assigneeKey'=>$member,'labelKeys'=>$taskLabels,'dueDate'=>genesisDataCsvDate($read($row,'dueDate'),$dateFormat),'startDate'=>genesisDataCsvDate($read($row,'startDate'),$dateFormat),
             'startTime'=>$read($row,'startTime')?:null,'endTime'=>$read($row,'endTime')?:null,'customValues'=>(object)$values];
+        foreach(['storyPoints','estimateHours'] as $field){$raw=trim($read($row,$field));if($raw!==''&&!preg_match('/^\d+(?:[.,]\d{1,2})?$/D',$raw))genesisDataInvalid('DATA_CSV_NUMBER_INVALID');$tasks[$key][$field]=$raw===''?null:genesisPlanningEstimate((float)str_replace(',','.',$raw));}
     }
     foreach($projects as &$project){$project['statuses']=array_values(array_filter($statuses,static fn($status)=>$status['projectKey']===$project['key']));foreach($project['statuses'] as &$status)unset($status['projectKey']);unset($status);
         foreach([false,true] as $done)if(!array_filter($project['statuses'],static fn($status)=>$status['isDone']===$done))$project['statuses'][]=['key'=>$project['key'].($done?':done':':open'),'title'=>$done?$defaultDone:$defaultOpen,'isDone'=>$done];
@@ -87,6 +88,7 @@ function genesisDataToCsv(array $data,array $titles=[]):string{
     $lines=[implode(',',array_map('genesisDataCsvCell',$header))];
     foreach($data['tasks'] as $task){$values=['key'=>$task['key'],'title'=>$task['title'],'description'=>$task['description'],'project'=>$projects[$task['projectKey']]['title'],'status'=>$statuses[$task['statusKey']]['title'],'done'=>$statuses[$task['statusKey']]['isDone']?'true':'false',
         'assignee'=>$members[$task['assigneeKey']??'']['title']??'','priority'=>(string)$task['priority'],'labels'=>implode('|',array_map(static fn($key)=>$labels[$key]['title'],$task['labelKeys'])),'dueDate'=>$task['dueDate']??'','startDate'=>$task['startDate']??'','startTime'=>$task['startTime']??'','endTime'=>$task['endTime']??'','parentKey'=>$task['parentKey']??''];
+        foreach(['storyPoints','estimateHours'] as $field)$values[$field]=$task[$field]===null?'':(string)$task[$field];
         $cells=['1'];foreach($keys as $key)$cells[]=$values[$key];$custom=(array)$task['customValues'];
         foreach($fields as $field){$value=$custom[$field['key']]??null;if($value===null){$cells[]='';continue;}$options=array_column($field['options'],null,'id');$cells[]=is_bool($value)?($value?'true':'false'):(is_array($value)?implode('|',array_map(static fn($id)=>$options[$id]['title']??$id,$value)):($field['type']==='select'?($options[$value]['title']??$value):(string)$value));}
         $lines[]=implode(',',array_map('genesisDataCsvCell',$cells));

@@ -1,6 +1,11 @@
 .shared-reports-dialog section { border-top:1px solid var(--line); margin-top:32px; padding-top:8px; }
 .report-summary,.report-age,.report-cycle { margin:24px 0; display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr)); gap:24px; }
 .shared-reports-dialog :is(dt,th) { font-weight:600; }
+.report-estimate-values { display:flex; flex-wrap:wrap; gap:24px 40px; }
+.report-estimate-values > div { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:baseline; gap:8px 16px; }
+.report-estimate-values dd { margin:0; }
+.report-estimate-project { border-top:1px solid var(--line); margin-top:24px; padding-top:8px; }
+.report-estimate-project :is(h4,h5) { overflow-wrap:anywhere; }
 .shared-reports-dialog dd { margin:8px 0 0; font-variant-numeric:tabular-nums; }
 .report-summary dd { font-size:1.5rem; }
 .shared-reports-dialog .report-metric { border:1px solid var(--line); border-radius:8px; background:var(--paper); color:var(--ink); min-width:52px; padding:8px 12px; font:inherit; text-decoration:underline; text-underline-offset:4px; font-variant-numeric:tabular-nums; }

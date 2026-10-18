@@ -5,7 +5,7 @@ import type { CalendarMode } from "./calendar-data";
 import { customFieldsError, type CustomFieldValues, type SharedCustomField } from './shared-custom-fields';
 
 export const DATA_FILE_LIMIT=20*1024*1024;
-export const dataColumns={key:"ID",title:"Название",description:"Описание",project:"Проект",status:"Статус",done:"Выполнено",assignee:"Исполнитель",priority:"Приоритет",labels:"Метки",dueDate:"Срок",startDate:"Начало",startTime:"Время начала",endTime:"Время окончания",parentKey:"Родительская задача"} as const;
+export const dataColumns={key:"ID",title:"Название",description:"Описание",project:"Проект",status:"Статус",done:"Выполнено",assignee:"Исполнитель",priority:"Приоритет",labels:"Метки",dueDate:"Срок",startDate:"Начало",startTime:"Время начала",endTime:"Время окончания",parentKey:"Родительская задача",storyPoints:"Story points",estimateHours:"Часы"} as const;
 export type DataIssue={code:string;field:string};
 export type DataStatus={key:string;title:string;isDone:boolean};
 export type DataProject={key:string;title:string;parentKey:string|null;statuses:DataStatus[]};

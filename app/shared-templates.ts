@@ -11,6 +11,7 @@ export type TemplateProject={key:string;parentKey:string|null;title:string;descr
  categories:{key:string;title:string;color:string}[];labelKeys:string[];tags:string[];boardStatusKey:string|null};
 export type TemplateChecklist={key:string;title:string;items:{key:string;title:string;assigneeId:string|null;due:TemplateOffset|null;linkedTaskKey:string|null}[]};
 export type TemplateTask={key:string;projectKey:string;parentKey:string|null;title:string;description:string;entryType:"task"|"meeting"|"event";statusKey:string;categoryKey:string|null;priority:number;tags:string[];
+ storyPoints?:number|null;estimateHours?:number|null;
  assigneeId:string|null;approvalRequired:boolean;approverIds:string[];labelKeys:string[];dependsOnKeys:string[];due:TemplateOffset|null;start:TemplateOffset|null;startTime:string|null;endTime:string|null;checklists:TemplateChecklist[];customValues:CustomFieldValues};
 export type TemplateManifest={schemaVersion:1;kind:"task"|"project";calendarMode:CalendarMode;calendarContext:CalendarContext;projects:TemplateProject[];labels:{key:string;title:string;color:string}[];fields:TemplateField[];tasks:TemplateTask[]};
 export type TemplateIssue={code:string;taskKey?:string;projectKey?:string;fieldKey?:string;fieldRef?:string;itemKey?:string;title?:string;date?:string;count?:number;option?:keyof typeof templateOptions;sourceUserId?:string};
