@@ -4,7 +4,7 @@
 
 ## Подтверждённые публикации
 
-Актуальное непубликуемое продолжение: C5 и C4 server/web реализованы и проверены — [обмен данными](genesis-data-exchange-2026-10-18.md), [командные отчёты и ограничения](genesis-team-reports-2026-10-18.md).365 web tests,33 PHP suites, реальные HTTP browser flows,14 языков, обе темы ×четыре ширины, точные selections и честная неизвестная история. Общий tsc сохраняет8 прежних ошибок. Следующий блок — G1–G4. [Актуальный остаток](genesis-remaining-work-2026-10-18.md):21 открытый ID,4 блока первичной реализации и17 частичных; это не процент готовности.
+Актуальное непубликуемое продолжение: C5/C4 и теперь G1–G2 server/web реализованы и проверены — [обмен данными](genesis-data-exchange-2026-10-18.md), [командные отчёты](genesis-team-reports-2026-10-18.md), [спринты, оценки и ограничения](genesis-agile-2026-10-18.md).365 web tests,37 самостоятельных PHP suites, реальные HTTP browser flows,14 языков, обе темы ×четыре ширины. Общий tsc сохраняет8 прежних ошибок; специализированный mindmaps harness в последнем regression не запускался. Следующий блок — G3, затем G4. [Актуальный остаток](genesis-remaining-work-2026-10-18.md):21 открытый ID,2 блока первичной реализации и19 частичных; это не процент готовности.
 
 - F1: PR #192, master/production `178200c4fd1e4889558cffbb427fb87f6888d21a`, workflow `39058401746`, attempt 2 success. GitHub billing block снят; SHA/health подтверждены.
 - E5 export: PR #193, master/production `5bf126e99d7ff8b92787f2d0261c51c9ec5a31c5`, workflow `39070503817` success. Вся история CSV и JSON backup доступны в «Привычки → Прогресс → Данные привычек». SHA/health подтверждены. Это последняя проверенная production-точка перед новым выпуском переводов/панели.
@@ -13,6 +13,8 @@
 - Android остаётся **2.9.0/95**, SHA256 `a04a3b8c85d6b3977fc634f7f3779b5cac3ff93eddc2bd27ac006b2c50449243`. GENESIS_DEPLOY_ANDROID=false.
 
 ## Подготовлено и проверено отдельно
+
+- G1–G2 server/web: opt-in backlog/sprints, полная пагинация, lifecycle с явными carry-over decisions, независимые points/часы и0/null, суммы/assignees/C4, C1/C5 round-trip и old-client preservation. Atomic rollback, current ACL/CAS/replay, два browser contexts, потерянные committed create/complete responses и mounted offline draft подтверждены.8 before/39 after PNG,14 языков, две темы ×4 ширины. Нативный UI, durable cold-offline draft, дальнейшие G3/G4/B/C-интеграции и общая приёмка остаются открытыми. [Подробный отчёт](genesis-agile-2026-10-18.md).
 
 - Три последних UI-уточнения реализованы и проверены: [пространство, pin и единые списки](genesis-workspace-ui-refinements-2026-10-18.md).365 web tests, lint/build, обе темы ×4 ширины,14 языков, клавиатура, переключение пространств и перенос списков.24 before и44 after PNG. Это дополнительный UI-срез; число открытых ID основного промпта остаётся21. Production и Android не обновлялись.
 
@@ -39,7 +41,7 @@
 - E4/E5: веб/data-model pause/archive/delete/restore и backup preview/conflicts/apply, reset/CAS/replay уже проверены в непубликуемом checkpoint; остаются полная нативная UI, старый offline outbox upgrade и device/общая приёмка.
 - F1–F3: веб-аналитика новых типов и экономика/causal skip/merge проверены в `8276f8d`; остаётся полная native UI и сквозная экономика всех последующих C/G/B операций.
 - C: сервер/web C1–C6 проверены; последние срезы C5/C4 описаны в отдельных отчётах. Открыты native, будущие workflow/WIP/оценки и зависимые B/G-интеграции, общая приёмка и фактический Hostinger runtime после снятия запрета деплоя.
-- G1–G4: backlog/спринты, points/часы, workflow/WIP и отчётность по настоящим событиям.
+- G1–G2: server/web backlog/спринты и points/часы проверены; native, дальнейшие интеграции и общая приёмка открыты. G3/G4: workflow/WIP и отчётность по настоящим событиям ещё требуют первичной реализации.
 - Интеграции B1/B2/B4/B5/B7 и полная A4/K/U/L-приёмка; затем оставшийся нативный этап. Физическая внешняя push-доставка и live Google sync не объявлены подтверждёнными.
 
-Порядок продолжения: G1–G4 → зависимые B1/B2/B4/B5/B7 и C1–C6 → затронутая native UI/protocol6/7/offline upgrade → общая приёмка и экономика. C5/C4 server/web прошли проверку, native/интеграции ещё открыты. Все изменения остаются в рабочей ветке до полного завершения. Android также не публиковать. Ручной SSH и production DB edits в этом продолжении не использовались.
+Порядок продолжения: G3 → G4 → зависимые B1/B2/B4/B5/B7 и C1–C6 → затронутая native UI/protocol6/7/offline upgrade → общая приёмка и экономика. C5/C4/G1/G2 server/web прошли проверку, native/интеграции ещё открыты. Все изменения остаются в рабочей ветке до полного завершения. Android также не публиковать. Ручной SSH и production DB edits в этом продолжении не использовались.

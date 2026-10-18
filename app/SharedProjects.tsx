@@ -7,6 +7,8 @@ import { SharedCustomFieldFilter } from "./SharedCustomFieldFilter";
 import { customFieldsError, type CustomFieldValues, type CustomFieldCriterion } from "./shared-custom-fields";
 import {useSharedTaskSort} from "./use-personal-task-display";
 import {MindmapLaunchButton} from "./MindmapLaunchButton";
+import { SharedEstimateInputs, SharedEstimateValues } from './SharedTaskEstimates';
+import { estimateDraft, estimateInput, planningText, type EstimateDraft } from './shared-planning';
 
 import { type ReactNode, type CSSProperties, type FormEvent, Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { lazyWithRecovery as lazy } from "./DeferredViews";
@@ -43,6 +45,7 @@ import "./task-list-entry.css";
 const SharedSavedViews = lazy(() => import("./SharedSavedViews").then(module => ({default:module.SharedSavedViews})));
 const SharedCustomFieldManager = lazy(() => import("./SharedCustomFieldManager").then(module => ({default:module.SharedCustomFieldManager})));
 const SharedTemplates = lazy(() => import("./SharedTemplates").then(module => ({default:module.SharedTemplates})));
+const SharedPlanning = lazy(() => import('./SharedPlanning').then(module=>({default:module.SharedPlanning})));
 const SharedAutomations = lazy(() => import("./SharedAutomations").then(module => ({default:module.SharedAutomations})));
 const SharedDataExchange = lazy(() => import("./SharedDataExchange").then(module => ({default:module.SharedDataExchange})));
 const SharedTeamReports = lazy(() => import("./SharedTeamReports").then(module => ({default:module.SharedTeamReports})));
@@ -233,6 +236,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   const [editTaskTags, setEditTaskTags] = useState("");
   const [editTaskDetails, setEditTaskDetails] = useState<SharedTaskDetailsDraft>({ priority: 0, parentTaskId: null, checklists: [] });
   const [editCustomFields,setEditCustomFields]=useState<CustomFieldValues>({});
+  const [editEstimates,setEditEstimates]=useState<EstimateDraft>(()=>estimateDraft());
   const [newCustomFields,setNewCustomFields]=useState<CustomFieldValues>({});
   const [customFieldDraftOpen,setCustomFieldDraftOpen]=useState(false);
   const [templateScope,setTemplateScope]=useState<{context:SharedProjectSnapshot;source?:{taskId?:string;title:string}}|null>(null);
@@ -242,6 +246,8 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   const [dataScope,setDataScope]=useState<SharedProjectSnapshot|null>(null);
   const dataAccessLost=useCallback(()=>{setDataScope(null);announce(translateText("Нет доступа"));},[announce]);
   const [reportScope,setReportScope]=useState<{context:SharedProjectSnapshot;filter:import('./cloud-sync').SharedTaskFilter}|null>(null);
+  const [planningScope,setPlanningScope]=useState<SharedProjectSnapshot|null>(null);
+  const planningAccessLost=useCallback(()=>{setPlanningScope(null);announce(translateText('Нет доступа'));},[announce]);
   const reportAccessLost=useCallback(()=>{setReportScope(null);announce(translateText("Нет доступа"));},[announce]);
   const [customCriteria,setCustomCriteria]=useState<{projectId:string;criteria:CustomFieldCriterion[]}>({projectId:"",criteria:[]});
   const [customSort,setCustomSort]=useState<{projectId:string;sort:import("./cloud-sync").SharedTaskSort}>({projectId:"",sort:"position"});
@@ -303,6 +309,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   const [seriesDirty, setSeriesDirty] = useState(false);
   const taskFieldsSaved = Boolean(selectedTask && JSON.stringify(editTaskDetails) === JSON.stringify(taskDetailsDraft(selectedTask))
     && JSON.stringify(editCustomFields)===JSON.stringify(selectedTask.customFields??{})
+    && (!taskSnapshot?.project.planning?.enabled||JSON.stringify(editEstimates)===JSON.stringify(estimateDraft(selectedTask)))
     && editTaskTitle === selectedTask.title && editTaskDescription === selectedTask.description
     && editTaskDueDate === (selectedTask.dueDate ?? "") && editTaskCategoryId === (selectedTask.categoryId ?? "")
     && editTaskTags === (selectedTask.tags ?? []).join(", ") && JSON.stringify(editPlan) === JSON.stringify(taskSharedPlan(selectedTask))
@@ -787,6 +794,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       const changed = await updateSharedTask(taskProjectId, taskId, {
         ...editTaskDetails,
         customFields:editCustomFields,
+        ...(taskSnapshot?.project.planning?.enabled?estimateInput(editEstimates):{}),
         ...(editTaskFiles.length ? { attachments: editTaskFiles.map(({ name, data }) => ({ name, data })) } : {}),
         ...(removedTaskFileIds.length ? { removeAttachmentIds: removedTaskFileIds } : {}),
         title: editTaskTitle.trim(), description: editTaskDescription.trim(), tags: splitTags(editTaskTags),
@@ -799,6 +807,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       setEditTaskRevision(changed.revision);
       setEditTaskDetails(taskDetailsDraft(changed));
       setEditCustomFields(changed.customFields??{});
+      setEditEstimates(estimateDraft(changed));
       setEditTaskFiles([]); setRemovedTaskFileIds([]);
       setApprovalConfigChanged(false);
       if (!changed.pending) {
@@ -1006,6 +1015,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
     setEditTaskRevision(task.revision);
     setEditTaskDetails(taskDetailsDraft(task));
     setEditCustomFields(structuredClone(task.customFields??{}));
+    setEditEstimates(estimateDraft(task));
     setEditTaskLabelIds(task.labelIds||[]);setEditPlan(taskSharedPlan(task));
     setEditEntryType(task.entryType ?? "task");
     setEditApprovalRequired(Boolean(task.approvalRequired)); setEditApproverIds((task.approvals ?? []).flatMap(item => item.userId ? [item.userId] : [])); setApprovalConfigChanged(false);
@@ -1251,6 +1261,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
     {automationScope?<Suspense fallback={<p role="status">{translateText("Загрузка…")}</p>}><SharedAutomations key={automationScope.project.id} snapshot={snapshot?.project.id===automationScope.project.id?snapshot:automationScope} labels={labels} userId={userId} language={language as import("./i18n").Language} mode={taskCalendarMode} timeFormat={timeFormat} onClose={()=>setAutomationScope(null)} onAccessLost={automationAccessLost} onChanged={()=>refreshProject(automationScope.project.id)} onOpenTask={task=>openTask(task)}/></Suspense>:null}
     {dataScope?<Suspense fallback={<p role="status">{translateText("Загрузка…")}</p>}><SharedDataExchange key={dataScope.project.id} snapshot={dataScope} language={language as import("./i18n").Language} mode={taskCalendarMode} onClose={()=>setDataScope(null)} onAccessLost={dataAccessLost} onChanged={async()=>{await refreshProjects(dataScope.project.spaceId);if(projectId)await refreshProject(projectId);}} onOpenProject={id=>{setDataScope(null);setSpaceId(dataScope.project.spaceId);setProjectId(id);void refreshProject(id);}}/></Suspense>:null}
     {reportScope?<Suspense fallback={<p role="status">{translateText("Загрузка…")}</p>}><SharedTeamReports key={reportScope.context.project.id} snapshot={reportScope.context} initialFilter={reportScope.filter} language={language as import('./i18n').Language} mode={calendarMode} onClose={()=>setReportScope(null)} onAccessLost={reportAccessLost} onOpenTask={async task=>{const[context,fresh]=await Promise.all([loadSharedProject(task.projectId),loadSharedTask(task.projectId,task.id,Boolean(task.archivedAt))]);setReportScope(null);openTask(fresh,context);}}/></Suspense>:null}
+    {planningScope?<Suspense fallback={<p role="status">{translateText('Загрузка…')}</p>}><SharedPlanning key={planningScope.project.id} context={planningScope} language={language as import('./i18n').Language} mode={taskCalendarMode} onClose={()=>setPlanningScope(null)} onAccessLost={planningAccessLost} onChanged={async()=>{await refreshProject(planningScope.project.id);window.dispatchEvent(new Event('genesis:shared-updates'));}} onOpenTask={async task=>{const [context,fresh]=await Promise.all([loadSharedProject(task.projectId),loadSharedTask(task.projectId,task.id,Boolean(task.archivedAt))]);setPlanningScope(null);openTask(fresh,context);}}/></Suspense>:null}
     <Suspense fallback={<p role="status">{translateText("Загружаем данные…")}</p>}><SharedSavedViews key={userId} userId={userId} spaces={spaces} mode={calendarMode} opened={savedViewsOpen} onClose={()=>setSavedViewsOpen(false)} onOpen={task=>void run(async()=>{
       const [context,found]=await Promise.all([loadSharedProject(task.projectId),loadSharedTask(task.projectId,task.id,Boolean(task.archivedAt))]);setSavedViewsOpen(false);openTask(found,context);
     })}/></Suspense>
@@ -1365,6 +1376,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
           <h2>{snapshot.project.isInbox ? (english ? "Team tasks" : "Задачи команды") : snapshot.project.title}</h2>
         </div>
       <div className="shared-context-actions">
+        {!snapshot.project.isInbox?<button type="button" className="secondary-button" data-planning-trigger data-no-translate onClick={()=>setPlanningScope(snapshot)}><ExperimentalIcon name="list"/>{planningText('heading',language as import('./i18n').Language)}</button>:null}
         <button type="button" className="secondary-button" data-template-trigger onClick={()=>setTemplateScope({context:snapshot})}><ExperimentalIcon name="copy"/>{translateText("Шаблоны")}</button>
         <button type="button" className="secondary-button" data-automation-trigger onClick={()=>setAutomationScope(snapshot)}><ExperimentalIcon name="gear"/>{translateText("Автоматизации")}</button>
         <button type="button" className="secondary-button" data-exchange-trigger onClick={()=>setDataScope(snapshot)}><ExperimentalIcon name="copy"/>{translateText("Импорт и экспорт")}</button>
@@ -1638,6 +1650,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
           <label>{english ? "Name" : "Название"}<textarea rows={2} value={editTaskTitle} onChange={(event) => setEditTaskTitle(event.target.value)} maxLength={160} placeholder={entryTypeTitlePlaceholder(editEntryType)} required /></label>
           <label>{english ? "Description" : "Описание"}<textarea value={editTaskDescription} onChange={(event) => setEditTaskDescription(event.target.value)} maxLength={20000} /></label>
           <SharedCustomFieldInputs fields={taskSnapshot.customFieldDefinitions??[]} values={editCustomFields} onChange={setEditCustomFields} language={language as import("./i18n").Language} mode={editTaskCalendarMode} disabled={busy}/>
+          {taskSnapshot.project.planning?.enabled?<SharedEstimateInputs value={editEstimates} onChange={setEditEstimates} language={language as import('./i18n').Language} disabled={busy||selectedTask.revision!==editTaskRevision}/>:null}
           <details className="task-advanced-fields shared-record-calendar"><summary>{english ? "Calendar" : "Календарь"}</summary>
           <RecordCalendarChoice value={editTaskCalendarMode} onChange={setEditTaskCalendarMode} language={language} />
           </details>
@@ -1671,6 +1684,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
           <SharedTaskReadOnlyMetadata task={selectedTask} snapshot={taskSnapshot} labels={labels} statusName={statusLabel(taskSnapshot.statuses.find(status=>status.id===selectedTask.statusId)?.title ?? "")} mode={editTaskCalendarMode} timeFormat={timeFormat}
             onOpen={(projectId, taskId)=>void run(async()=>{const [context,task]=await Promise.all([loadSharedProject(projectId),loadSharedTask(projectId,taskId,true)]);openTask(task,context);})}/>
           <SharedCustomFieldValues fields={taskSnapshot.customFieldDefinitions??[]} values={selectedTask.customFields??{}} language={language as import("./i18n").Language} mode={editTaskCalendarMode}/>
+          {taskSnapshot.project.planning?.enabled||selectedTask.storyPoints!=null||selectedTask.estimateHours!=null?<SharedEstimateValues task={selectedTask} language={language as import('./i18n').Language}/>:null}
           <SharedTaskDetailsEditor key={selectedTask.id} task={selectedTask} value={taskDetailsDraft(selectedTask)} onChange={() => undefined} members={taskSnapshot.members} mode={editTaskCalendarMode} disabled={busy} readOnly saved
           onConvert={() => undefined} onCreateChild={async () => undefined} onOpen={(projectId, taskId) => void run(async () => { const [context, task] = await Promise.all([loadSharedProject(projectId), loadSharedTask(projectId, taskId, true)]); openTask(task, context); })}/></>}
 

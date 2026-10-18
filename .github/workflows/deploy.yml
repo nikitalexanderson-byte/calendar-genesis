@@ -152,6 +152,8 @@ jobs:
           GENESIS_IMPROVEMENTS_TEST=isolated php server/tests/shared-reports-history.php
           GENESIS_IMPROVEMENTS_TEST=isolated php server/tests/shared-reports.php
           GENESIS_IMPROVEMENTS_TEST=isolated php server/tests/shared-reports-integration.php
+          GENESIS_IMPROVEMENTS_TEST=isolated php server/tests/shared-planning.php
+          php server/tests/planning-migration.php
           php server/tests/shared-task-details.php
           php server/tests/shared-task-details-migration.php
           php server/tests/shared-task-lifecycle.php

@@ -227,7 +227,7 @@ function genesisSharedTemplatePlan(string $actor,string $id,array $input):array
         $mappedTasks[$key]=['key'=>$key,'projectKey'=>$task['projectKey'],'parentKey'=>$task['parentKey'],'title'=>!$new&&$task['parentKey']===null&&$options['title']!==null?$options['title']:$task['title'],
             'description'=>$include['descriptions']?$task['description']:'','entryType'=>$task['entryType'],'priority'=>$task['priority'],'tags'=>$include['tags']?$task['tags']:[],'statusRef'=>$statusRef,'categoryRef'=>$categoryRef,'sourceStatusKey'=>$task['statusKey'],'sourceCategoryKey'=>$task['categoryKey'],
             'labelKeys'=>$include['labels']?$task['labelKeys']:[],'assigneeId'=>$include['assignees']?$member($task['assigneeId'],$key,'assignee'):null,'approverIds'=>$approvers,
-            'dueDate'=>$due,'startDate'=>$start,...$times,'checklists'=>$lists,'customValues'=>$values,'dependsOnKeys'=>$dependencies];
+            'dueDate'=>$due,'startDate'=>$start,...$times,'checklists'=>$lists,'customValues'=>$values,'dependsOnKeys'=>$dependencies,'storyPoints'=>$task['storyPoints'],'estimateHours'=>$task['estimateHours']];
     }
     foreach($options['fieldValues'] as $key=>$unused)if(!isset($tasks[$key]))throw new InvalidArgumentException('TEMPLATE_REFERENCE_INVALID');
     $fingerprint=hash('sha256',json_encode([$id,$record['revision'],$manifest,$options,$destination['digest']],JSON_THROW_ON_ERROR));
@@ -294,11 +294,11 @@ function genesisSharedApplyTemplate(string $actor,string $id,array $input):array
                 foreach($list['items'] as $item){$itemId=genesisUuid();$checklistIds[$item['key']]=$itemId;$items[]=['id'=>$itemId,'title'=>$item['title'],'done'=>false,'assigneeId'=>$item['assigneeId'],'dueDate'=>$item['dueDate']];}
                 $lists[]=['id'=>$listId,'title'=>$list['title'],'items'=>$items];
             }
-            $created=genesisSharedTask($actor,$projectIds[$task['projectKey']],['title'=>$task['title'],'description'=>$task['description'],'entryType'=>$task['entryType'],'priority'=>$task['priority'],'tags'=>$task['tags'],
+            $created=GenesisPlanningSeedScope::run(fn()=>genesisSharedTask($actor,$projectIds[$task['projectKey']],['title'=>$task['title'],'description'=>$task['description'],'entryType'=>$task['entryType'],'priority'=>$task['priority'],'tags'=>$task['tags'],
                 'statusId'=>$new?$statusIds[$task['statusRef']]:$task['statusRef'],'categoryId'=>$new?($categoryIds[$task['categoryRef']]??null):$task['categoryRef'],
                 'assigneeId'=>$task['assigneeId'],'labelIds'=>$labels($task['labelKeys']),'dueDate'=>$task['dueDate'],'startDate'=>$task['startDate'],'startTime'=>$task['startTime'],'endTime'=>$task['endTime'],
                 'parentTaskId'=>$task['parentKey']===null?null:$taskIds[$task['parentKey']],'checklists'=>$lists,'customFields'=>$values,
-                'approvalRequired'=>(bool)$task['approverIds'],'approverIds'=>$task['approverIds']]);
+                'approvalRequired'=>(bool)$task['approverIds'],'approverIds'=>$task['approverIds'],'storyPoints'=>$task['storyPoints'],'estimateHours'=>$task['estimateHours']]));
             $taskIds[$task['key']]=$created['id'];$createdTasks[$task['key']]=$created;
         }
         // All endpoints now exist. Links are internal to this validated manifest and new ID map.

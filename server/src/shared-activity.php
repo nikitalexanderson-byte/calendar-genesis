@@ -15,6 +15,9 @@ function genesisSharedChanges(array $before, array $after): array
 /** Save readable names with the event so later renames/deletions do not erase context. */
 function genesisSharedReadableChanges(array $details): array
 {
+    if(isset($details['changes']['sprintId']))foreach(['from','to'] as $direction){$id=$details['changes']['sprintId'][$direction]??null;$details['referenceIds']['sprintId'][$direction]=$id;
+        if(is_string($id)){$rows=genesisPlanningRows('SELECT content_json FROM shared_sprints WHERE id=?',[$id]);$details['changes']['sprintId'][$direction]=$rows?genesisPlanningOpen($rows[0]['content_json'])['title']:null;}
+    }
     if(isset($details['changes']['customFields'])){
         $ids=array_unique(array_merge(array_keys($details['changes']['customFields']['from']),array_keys($details['changes']['customFields']['to'])));
         $definitions=[];foreach($ids as $id){$q=genesisDb()->prepare('SELECT * FROM shared_custom_fields WHERE id=?');$q->execute([$id]);if($row=$q->fetch())$definitions[]=genesisSharedCustomFieldRecord($row);}

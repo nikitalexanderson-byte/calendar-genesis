@@ -75,7 +75,10 @@ function genesisSharedSaveTemplate(string $actor,string $spaceId,string $project
             $manifest=$captured['manifest'];$sources=$captured['sourceProjectIds'];$notices=$captured['notices'];
         }else{
             if(isset($input['sourceTaskId'])||isset($input['sourceProjectId']))throw new InvalidArgumentException('TEMPLATE_INVALID');
-            $manifest=genesisTemplateManifest($input['manifest']??($old?json_decode(genesisSharedContentDecrypt($old['manifest_json']),true,256,JSON_THROW_ON_ERROR):null));
+            $previous=$old?json_decode(genesisSharedContentDecrypt($old['manifest_json']),true,256,JSON_THROW_ON_ERROR):null;
+            $draft=$input['manifest']??$previous;
+            if($old&&is_array($draft)&&is_array($draft['tasks']??null)){$before=array_column($previous['tasks'],null,'key');foreach($draft['tasks'] as &$task)if(is_array($task)&&is_string($task['key']??null))foreach(['storyPoints','estimateHours'] as $field)if(!array_key_exists($field,$task)&&array_key_exists($field,$before[$task['key']]??[]))$task[$field]=$before[$task['key']][$field];unset($task);}
+            $manifest=genesisTemplateManifest($draft);
         }
         $title=genesisSharedTitle($input['title']??null,160);$deleted=$input['deleted']??false;if(!is_bool($deleted))throw new InvalidArgumentException('TEMPLATE_INVALID');
         $plain=json_encode($manifest,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);if(strlen($plain)>5_000_000)throw new GenesisResourceLimitException(413,'TEMPLATE_SIZE_LIMIT');

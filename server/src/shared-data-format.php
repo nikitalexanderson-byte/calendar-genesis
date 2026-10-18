@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__.'/shared-planning.php';
 
 const GENESIS_DATA_FORMAT='genesis.shared-data';
 const GENESIS_DATA_FILE_LIMIT=20*1024*1024;
@@ -82,7 +83,7 @@ function genesisDataManifest(mixed $input):array{
     $checked=[];foreach($fields as $key=>$field){$path=[];$cursor=$key;while($cursor!==null&&!isset($checked[$cursor])){if(!isset($fields[$cursor])||isset($path[$cursor]))genesisDataInvalid('DATA_REFERENCE_INVALID');$path[$cursor]=true;$cursor=$fields[$cursor]['predecessorKey'];}$checked+=$path;}
     $tasks=[];$itemKeys=[];
     foreach(genesisDataList($data['tasks']??[],100000) as $row){
-        $row=genesisDataObject($row,['key','projectKey','parentKey','statusKey','categoryKey','title','description','entryType','priority','tags','assigneeKey','labelKeys','dependsOnKeys','dueDate','startDate','startTime','endTime','checklists','customValues','approvals','completedAt','archivedAt','archiveRootKey','createdAt','updatedAt']);
+        $row=genesisDataObject($row,['key','projectKey','parentKey','statusKey','categoryKey','title','description','entryType','priority','tags','assigneeKey','labelKeys','dependsOnKeys','dueDate','startDate','startTime','endTime','checklists','customValues','approvals','completedAt','archivedAt','archiveRootKey','createdAt','updatedAt','storyPoints','estimateHours']);
         $key=genesisDataKey($row['key']??null);$project=genesisDataKey($row['projectKey']??null);$status=genesisDataKey($row['statusKey']??null);$category=genesisDataNullableKey($row['categoryKey']??null);$parent=genesisDataNullableKey($row['parentKey']??null);$member=genesisDataNullableKey($row['assigneeKey']??null);
         if(isset($tasks[$key])||!isset($projects[$project])||($statuses[$status]['projectKey']??null)!==$project||$category!==null&&($categories[$category]??null)!==$project||$member!==null&&!isset($members[$member]))genesisDataInvalid('DATA_REFERENCE_INVALID');
         $priority=$row['priority']??0;if(!is_int($priority)||$priority<0||$priority>3)genesisDataInvalid();$entry=$row['entryType']??'task';if(!in_array($entry,['task','meeting','event'],true))genesisDataInvalid();
@@ -99,6 +100,7 @@ function genesisDataManifest(mixed $input):array{
         $approvals=[];foreach(genesisDataList($row['approvals']??[],200) as $approval){$approval=genesisDataObject($approval,['memberKey','approvedAt']);$id=genesisDataKey($approval['memberKey']??null);if(!isset($members[$id]))genesisDataInvalid('DATA_REFERENCE_INVALID');$approvals[]=['memberKey'=>$id,'approvedAt'=>genesisDataInstant($approval['approvedAt']??null)];}
         $tasks[$key]=['key'=>$key,'projectKey'=>$project,'parentKey'=>$parent,'statusKey'=>$status,'categoryKey'=>$category,'title'=>genesisSharedTitle($row['title']??null),'description'=>genesisSharedText($row['description']??'',20000),
             'entryType'=>$entry,'priority'=>$priority,'tags'=>genesisSharedTags($row['tags']??[]),'assigneeKey'=>$member,'labelKeys'=>genesisDataRefs($row['labelKeys']??[],$labels),'dependsOnKeys'=>$row['dependsOnKeys']??[],
+            'storyPoints'=>genesisPlanningEstimate($row['storyPoints']??null),'estimateHours'=>genesisPlanningEstimate($row['estimateHours']??null),
             'dueDate'=>genesisDataDate($row['dueDate']??null),'startDate'=>genesisDataDate($row['startDate']??null),'startTime'=>$start,'endTime'=>$end,'checklists'=>$lists,'customValues'=>(object)$custom,'approvals'=>$approvals,
             'completedAt'=>genesisDataInstant($row['completedAt']??null),'archivedAt'=>genesisDataInstant($row['archivedAt']??null),'archiveRootKey'=>genesisDataNullableKey($row['archiveRootKey']??null),'createdAt'=>genesisDataInstant($row['createdAt']??null),'updatedAt'=>genesisDataInstant($row['updatedAt']??null)];
     }

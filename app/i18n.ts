@@ -1124,6 +1124,9 @@ export function useDocumentLanguage(language: Language) {
 
     const observer = new MutationObserver((mutations) => {
       for (const mutation of mutations) {
+        // A changed descendant keeps the same exclusion as a whole-tree pass.
+        const element=mutation.target instanceof Element?mutation.target:mutation.target.parentElement;
+        if(element?.closest('script, style, [data-no-translate]'))continue;
         if (mutation.type === "characterData") {
           localizeTextNode(mutation.target as Text, language);
         } else if (mutation.type === "attributes") {

@@ -43,10 +43,24 @@ function genesisSharedQueryScope(string $userId, array $filter): array
 /** All text predicates execute in SQLite, before pagination, on the encrypted-content read view. */
 function genesisSharedTaskPredicate(string $userId, array $filter, array $scope): array
 {
-    $known = ['spaceId','projectIds','statusIds','assigneeIds','createdBy','priority','labelIds','tags','q','from','to','dueFrom','dueTo','undated','unscheduled','scheduled','completion','approvalPending','archived','includeArchived','parentTaskId','ids','overdueDate','overdueTime','customFields'];
+    $known = ['spaceId','projectIds','statusIds','assigneeIds','createdBy','priority','labelIds','tags','q','from','to','dueFrom','dueTo','undated','unscheduled','scheduled','completion','approvalPending','archived','includeArchived','parentTaskId','ids','overdueDate','overdueTime','customFields','sprintId','backlog'];
     if (array_diff(array_keys($filter), $known)) throw new InvalidArgumentException('INVALID_TASK_FILTER');
     $where = $scope ? ['t.project_id IN (' . implode(',', array_fill(0, count($scope), '?')) . ')'] : ['0=1'];
     $values = array_column($scope, 'id');
+    if(array_key_exists('sprintId',$filter)){
+        if($filter['sprintId']===null)$where[]='NOT EXISTS(SELECT 1 FROM shared_task_planning a WHERE a.task_id=t.id AND a.sprint_id IS NOT NULL)';
+        else{
+            if(!is_string($filter['sprintId']))throw new InvalidArgumentException('INVALID_TASK_FILTER');
+            $sprints=genesisPlanningRows('SELECT project_id FROM shared_sprints WHERE id=?',[$filter['sprintId']]);
+            if(!$sprints)throw new GenesisSharedAccessException('SPRINT_NOT_FOUND',404);
+            genesisSharedProjectAccess($sprints[0]['project_id'],$userId);
+            $where[]='EXISTS(SELECT 1 FROM shared_task_planning a WHERE a.task_id=t.id AND a.sprint_id=?)';$values[]=$filter['sprintId'];
+        }
+    }
+    if(array_key_exists('backlog',$filter)){
+        if(!is_bool($filter['backlog']))throw new InvalidArgumentException('INVALID_TASK_FILTER');
+        if($filter['backlog'])$where[]="t.completed_at IS NULL AND NOT EXISTS(SELECT 1 FROM shared_task_planning a JOIN shared_sprints s ON s.id=a.sprint_id WHERE a.task_id=t.id AND s.state IN ('planning','active'))";
+    }
     if(isset($filter['customFields'])){[$customWhere,$customValues]=genesisSharedCustomFieldPredicates($userId,$filter['customFields']);array_push($where,...$customWhere);array_push($values,...$customValues);}
     if (empty($filter['includeArchived'])) $where[] = !empty($filter['archived']) ? 't.archived_at IS NOT NULL' : 't.archived_at IS NULL';
     foreach (['statusIds'=>'t.status_id', 'assigneeIds'=>'t.assignee_id', 'ids'=>'t.id'] as $field=>$column) if (isset($filter[$field])) {
@@ -185,6 +199,7 @@ function genesisSharedHydrateTasks(string $userId, array $rows, array $projects 
         $task['labelIds'] = genesisSharedLabelIds('task', $row['id']);
         $customDefinitions=$customDefinitionsByProject[$projectId]??=genesisSharedCustomFields($userId,$project['space_id'],$projectId,true);
         $task['customFields']=(object)array_intersect_key(genesisSharedCustomTaskValues($row['id']),array_column($customDefinitions,null,'id'));
+        $task+=genesisPlanningTaskValues($row['id']);
         $task['approvals'] = genesisSharedTaskApprovals($row['id']); $task['approvalRequired'] = count($task['approvals']) > 0;
         $task['attachments'] = genesisSharedTaskAttachments($row['id']);
         $image = $db->prepare('SELECT 1 FROM shared_task_images WHERE task_id=?'); $image->execute([$row['id']]);

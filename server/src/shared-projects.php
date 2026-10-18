@@ -30,6 +30,8 @@ require_once __DIR__ . '/automation-worker.php';
 require_once __DIR__ . '/shared-data-apply.php';
 require_once __DIR__ . '/shared-reports-history.php';
 require_once __DIR__ . '/shared-reports.php';
+require_once __DIR__ . '/shared-planning.php';
+require_once __DIR__ . '/shared-planning-reports.php';
 
 final class GenesisSharedAccessException extends RuntimeException
 {
@@ -864,13 +866,18 @@ function genesisSharedMutationReceipt(PDO $db, string $userId, ?string $requestI
     if ($row['action'] !== $action || $row['resource_id'] !== $resourceId) {
         throw new GenesisSharedAccessException('SHARED_REQUEST_ID_CONFLICT', 409);
     }
-    return json_decode((string)$row['response_json'], true, 512, JSON_THROW_ON_ERROR);
+    $response=json_decode((string)$row['response_json'],true,512,JSON_THROW_ON_ERROR);
+    foreach(['storyPoints','estimateHours'] as $field)if(is_array($response[$field]??null)&&is_string($response[$field]['planningValue']??null))$response[$field]=genesisPlanningOpen($response[$field]['planningValue'])['value'];
+    if(array_key_exists('customFields',$response))$response['customFields']=(object)$response['customFields'];
+    return $response;
 }
 
 function genesisSharedSaveMutationReceipt(PDO $db, string $userId, ?string $requestId,
     string $action, string $resourceId, array $response): void
 {
     if ($requestId === null) return;
+    // Old receipt records stay readable; new estimate values follow content encryption too.
+    foreach(['storyPoints','estimateHours'] as $field)if(isset($response[$field]))$response[$field]=['planningValue'=>genesisPlanningSeal(['value'=>$response[$field]])];
     $db->prepare('INSERT INTO shared_mutation_receipts
         (user_id, request_id, action, resource_id, response_json, created_at)
         VALUES (:user, :request, :action, :resource, :response, :created)')->execute([
@@ -1149,6 +1156,7 @@ function genesisSharedProjectSnapshot(string $userId, string $projectId, array $
             'role' => $project['member_role'], 'spaceRole' => $project['space_member_role'],
             'canOrganizeTasks' => $project['permissions']['organizeTasks'],
             'canCreateBoards' => $project['permissions'][$project['space_permissions_json'] === null ? 'editTasks' : 'manageProjects'],
+            'planning'=>genesisPlanningConfig($projectId),
             'permissions' => $project['permissions'],
             'updatedAt' => $project['updated_at'], 'createdAt' => $project['created_at'], 'createdBy' => $project['created_by'],
         ],
@@ -1619,6 +1627,7 @@ function genesisSharedTask(string $userId, string $projectId, array $input, ?str
         $schedule = genesisSharedSchedule($input, $existing, $dueDate);
         $details = genesisSharedTaskDetailsInput($projectId, $id, $input, $existing, $isDone);
         $custom=genesisSharedCustomTaskInput($userId,$project,$id,$input,$existing===null,$isDone&&(!$existing||$existing['completed_at']===null));
+        $planning=genesisPlanningTaskInput($userId,$project,$id,$input,$existing===null);
         $oldDependencies = genesisSharedDependencyIds($id);
         $completedBy = $isDone ? ($existing['completed_by'] ?? $userId) : null;
         $completedAt = $isDone ? ($existing['completed_at'] ?? $now) : null;
@@ -1660,6 +1669,7 @@ function genesisSharedTask(string $userId, string $projectId, array $input, ?str
         }
         genesisSharedTaskDetailsSave($id, $details);
         genesisSharedSaveCustomTaskValues($id,$custom['values']);
+        if($planning['old']!==$planning['values'])genesisPlanningSaveTask($id,$planning['values']);
         if (array_key_exists('imageData', $input)) genesisSharedSaveTaskImage($id, $input['imageData']);
         if (array_key_exists('attachments', $input) || array_key_exists('removeAttachmentIds', $input)) {
             genesisSharedSaveTaskAttachments($id, $input);
@@ -1674,6 +1684,7 @@ function genesisSharedTask(string $userId, string $projectId, array $input, ?str
              'dueDate' => $existing['due_date'] ?? null, 'statusId' => $existing['status_id'] ?? null, 'categoryId' => $existing['category_id'] ?? null, 'assigneeId' => $existing['assignee_id'] ?? null, 'labelIds' => $oldLabels,
              'startDate' => $existing['start_date'] ?? null, 'startTime' => $existing['start_time'] ?? null, 'endTime' => $existing['end_time'] ?? null, 'dependsOnIds' => $oldDependencies, 'priority'=>(int)($existing['priority']??0), 'parentTaskId'=>$existing['parent_task_id']??null, 'checklists'=>json_decode($existing['checklists_json']??'[]',true)],
             compact('entryType', 'title', 'description', 'tags', 'dueDate', 'statusId', 'categoryId', 'assigneeId', 'labelIds', 'dependsOnIds') + $schedule + ['priority'=>$details['priority'],'parentTaskId'=>$details['parentId'],'checklists'=>$details['checklists']]);
+        $taskChanges+=genesisSharedChanges($planning['old'],$planning['values']);
         if($custom['old']!==$custom['values']){
             $from=[];$to=[];foreach(array_unique(array_merge(array_keys($custom['old']),array_keys($custom['values']))) as $fieldId){
                 $before=$custom['old'][$fieldId]??null;$after=$custom['values'][$fieldId]??null;

@@ -942,6 +942,13 @@ try {
             if($segments[3]==='preview')genesisJson(genesisSharedPreviewTemplate($userId,$segments[2],genesisReadJson()));
             if($segments[3]==='apply')genesisJson(genesisSharedApplyTemplate($userId,$segments[2],genesisReadJson()));
         }
+        if(count($segments)===4&&$segments[1]==='projects'&&$segments[3]==='planning'){
+            if($method==='GET')genesisJson(genesisSharedPlanning($userId,$segments[2]));
+            if($method==='PUT')genesisJson(genesisSharedSavePlanning($userId,$segments[2],genesisReadJson()));
+        }
+        if(count($segments)===5&&$segments[1]==='projects'&&$segments[3]==='planning'&&$segments[4]==='sprints'&&$method==='POST')genesisJson(genesisSharedSaveSprint($userId,$segments[2],genesisReadJson()),201);
+        if(count($segments)===6&&$segments[1]==='projects'&&$segments[3]==='planning'&&$segments[4]==='sprints'&&$method==='PATCH')genesisJson(genesisSharedSaveSprint($userId,$segments[2],genesisReadJson(),$segments[5]));
+        if(count($segments)===7&&$segments[1]==='projects'&&$segments[3]==='planning'&&$segments[4]==='sprints'&&$segments[6]==='transition'&&$method==='POST')genesisJson(genesisSharedTransitionSprint($userId,$segments[2],$segments[5],genesisReadJson()));
         if(count($segments)===4&&$segments[1]==='spaces'&&$segments[3]==='custom-fields'&&$method==='GET')genesisJson(['fields'=>genesisSharedCustomFields($userId,$segments[2],isset($_GET['projectId'])?(string)$_GET['projectId']:null,($_GET['archived']??'')==='true')]);
         if(count($segments)===5&&$segments[1]==='spaces'&&$segments[3]==='custom-fields'&&$segments[4]==='preview'&&$method==='POST')genesisJson(genesisSharedPreviewCustomField($userId,$segments[2],genesisReadJson()));
         if(count($segments)===4&&$segments[1]==='spaces'&&$segments[3]==='custom-fields'&&$method==='PUT')genesisJson(genesisSharedSaveCustomField($userId,$segments[2],genesisReadJson()));
