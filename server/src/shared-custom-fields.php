@@ -89,6 +89,7 @@ function genesisSharedSaveCustomField(string $actor,string $spaceId,array $input
         if(!is_string($input['fingerprint']??null)||!hash_equals($preview['fingerprint'],$input['fingerprint']))throw new GenesisSharedAccessException('CUSTOM_FIELD_CONFLICT',409);
         if($preview['replaceType']&&($input['replaceType']??false)!==true)throw new GenesisSharedAccessException('CUSTOM_FIELD_TYPE_TRANSITION_REQUIRED',409);
         $field=$preview['field'];$previous=null;$revision=$preview['previousRevision'];$now=genesisNow();
+        genesisWorkflowCustomFieldEdit($field['id'],$field['projectId'],$field['archived']||$preview['replaceType']);
         $count=$db->prepare('SELECT COUNT(*) FROM shared_custom_fields WHERE space_id=? AND archived_at IS NULL AND id<>?');$count->execute([$spaceId,$field['id']]);
         if(!$field['archived']&&(int)$count->fetchColumn()>=200)throw new GenesisResourceLimitException(409,'CUSTOM_FIELD_LIMIT');
         if($preview['replaceType']){
