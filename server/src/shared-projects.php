@@ -26,6 +26,7 @@ require_once __DIR__ . '/shared-notifications.php';
 require_once __DIR__ . '/shared-project-access.php';
 require_once __DIR__ . '/shared-custom-fields.php';
 require_once __DIR__ . '/template-apply.php';
+require_once __DIR__ . '/automation-worker.php';
 
 final class GenesisSharedAccessException extends RuntimeException
 {
@@ -144,6 +145,7 @@ function genesisSharedAudit(string $projectId, string $actorId, string $action, 
         'details' => json_encode($details, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
     ]);
     genesisNotificationCapture($eventId,$projectId,$actorId,$action,$objectId,$notificationDetails);
+    genesisAutomationCapture($eventId,$projectId,$action,$objectId,$notificationDetails);
     if($ownsTransaction)$db->commit();
     return $eventId;
     } catch(Throwable $error) { if($ownsTransaction&&$db->inTransaction())$db->rollBack();throw$error; }

@@ -34,8 +34,8 @@
 
 - E4/E5: веб/data-model pause/archive/delete/restore и backup preview/conflicts/apply, reset/CAS/replay уже проверены в непубликуемом checkpoint; остаются полная нативная UI, старый offline outbox upgrade и device/общая приёмка.
 - F1–F3: веб-аналитика новых типов и экономика/causal skip/merge проверены в `8276f8d`; остаётся полная native UI и сквозная экономика всех последующих C/G/B операций.
-- C: сервер/web C6/C3/C1 проверены; C2 в работе (definition/worker/CRUD/runs/constructor подготовлены, первичные synthetic tests прошли; UI/i18n/расширенная приёмка впереди). Нужны завершение C2, C4 отчёты, C5 import/export, связанные интеграции и native.
+- C: сервер/web C6/C3/C1/C2 проверены. C2:365 web tests,24 PHP suites, реальное выполнение браузерного правила через leased queue, owner/editor/viewer, CAS/replay, черновики/отзыв доступа,14 языков и обе темы ×четыре ширины. Отчёт `genesis-automations-2026-10-18.md`. Открыты C5, C4, будущие workflow/WIP и связанные интеграции, native и фактический запуск новой C2-версии на Hostinger после снятия запрета деплоя.
 - G1–G4: backlog/спринты, points/часы, workflow/WIP и отчётность по настоящим событиям.
 - Интеграции B1/B2/B4/B5/B7 и полная A4/K/U/L-приёмка; затем оставшийся нативный этап. Физическая внешняя push-доставка и live Google sync не объявлены подтверждёнными.
 
-Порядок продолжения: завершить C2 → C5/C4 → G1–G4 → зависимые B1/B2/B4/B5/B7 → полная native UI/protocol6/7/offline upgrade → общая приёмка и экономика. Все изменения остаются в рабочей ветке до полного завершения. Android также не публиковать. Ручной SSH и production DB edits в этом продолжении не использовались.
+Порядок продолжения: C5 → C4 → G1–G4 → зависимые B1/B2/B4/B5/B7 → полная native UI/protocol6/7/offline upgrade → общая приёмка и экономика. Все изменения остаются в рабочей ветке до полного завершения. Android также не публиковать. Ручной SSH и production DB edits в этом продолжении не использовались.

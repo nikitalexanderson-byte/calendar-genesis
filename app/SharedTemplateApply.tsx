@@ -18,9 +18,9 @@ export function SharedTemplateIssues({issues,language,record}:{issues:TemplateIs
    {grouped.length>limit?<button type="button" onClick={()=>setLimit(limit+40)}>{t("Показать ещё")}</button>:null}</>;
 }
 
-export function SharedTemplateApply({record,spaceId,projectId,projects,language,onApplied,onDirtyChange}:{record:SharedTemplate;spaceId:string;projectId:string;projects:TemplateDestinationProject[];language:Language;onApplied:(receipt:TemplateReceipt)=>Promise<void>;onDirtyChange:(dirty:boolean)=>void}){
+export function SharedTemplateApply({record,spaceId,projectId,projects,language,onApplied,onDirtyChange,onConfigured,initialOptions}:{record:SharedTemplate;spaceId:string;projectId:string;projects:TemplateDestinationProject[];language:Language;onApplied:(receipt:TemplateReceipt)=>Promise<void>;onDirtyChange:(dirty:boolean)=>void;onConfigured?:(options:TemplateApplyOptions)=>void;initialOptions?:Partial<TemplateApplyOptions>}){
  const t=(s:string)=>translateText(s,language);
- const [options,setOptions]=useState<TemplateApplyOptions>(()=>({spaceId,projectId:record.kind==='task'?(projects.find(project=>project.id===projectId&&project.canWrite&&!project.archivedAt)?.id??projects.find(project=>project.canWrite&&!project.archivedAt)?.id??null):null,parentProjectId:null,language,anchorDate:todayCivilDate(record.manifest.calendarContext),include:{}}));
+ const [options,setOptions]=useState<TemplateApplyOptions>(()=>({spaceId,projectId:record.kind==='task'?(projects.find(project=>project.id===projectId&&project.canWrite&&!project.archivedAt)?.id??projects.find(project=>project.canWrite&&!project.archivedAt)?.id??null):null,parentProjectId:null,language,anchorDate:todayCivilDate(record.manifest.calendarContext),include:{},...initialOptions}));
  const [preview,setPreview]=useState<TemplatePreview|null>(null),[receipt,setReceipt]=useState<TemplateReceipt|null>(null),[error,setError]=useState(""),[busy,setBusy]=useState(false),[pageIndex,setPageIndex]=useState(0),[previewRequest,setPreviewRequest]=useState("");
  const lock=useRef(false),pending=useRef<(TemplateApplyOptions&{operationId:string;fingerprint:string})|null>(null);
  const request={...options,language},current=JSON.stringify(request),fresh=Boolean(preview&&previewRequest===current&&preview.revision===record.revision);
@@ -33,6 +33,7 @@ export function SharedTemplateApply({record,spaceId,projectId,projects,language,
  const previewNow=()=>run(async()=>{const value=await previewSharedTemplate(record.id,request);setPreview(value);setPreviewRequest(current);pending.current=null;setPageIndex(0);});
  const apply=()=>run(async()=>{
   if(!preview||!fresh||!preview.canApply||receipt)return;
+  if(onConfigured){onConfigured(request);onDirtyChange(false);return;}
   const command=pending.current??{...request,operationId:crypto.randomUUID(),fingerprint:preview.fingerprint};pending.current=command;
   const value=await applySharedTemplate(record.id,command);setReceipt(value);onDirtyChange(false);await onApplied(value);
  });
@@ -72,7 +73,7 @@ export function SharedTemplateApply({record,spaceId,projectId,projects,language,
     </li>;
    })}</ol>
    {preview.tasks.length>20?<nav className="template-actions" aria-label={t("Страницы задач")}><button type="button" disabled={pageIndex===0} onClick={()=>setPageIndex(pageIndex-1)}>{t("Назад")}</button><span>{new Intl.NumberFormat(language).format(pageIndex+1)} / {new Intl.NumberFormat(language).format(Math.ceil(preview.tasks.length/20))}</span><button type="button" disabled={(pageIndex+1)*20>=preview.tasks.length} onClick={()=>setPageIndex(pageIndex+1)}>{t("Далее")}</button></nav>:null}
-   <button type="button" className="primary-button" disabled={busy||!fresh||!preview.canApply||Boolean(receipt)} onClick={()=>void apply()}>{t("Создать из шаблона")}</button>
+   <button type="button" className="primary-button" disabled={busy||!fresh||!preview.canApply||Boolean(receipt)} onClick={()=>void apply()}>{t(onConfigured?"Сохранить настройки применения":"Создать из шаблона")}</button>
   </section>:null}
   {receipt?<p role="status">{t("Шаблон применён.")} <button type="button" disabled={busy} onClick={()=>void run(()=>onApplied(receipt))}>{t("Открыть созданное")}</button></p>:null}
   {busy?<p role="status">{t("Загрузка…")}</p>:null}{error?<p role="alert">{error}</p>:null}

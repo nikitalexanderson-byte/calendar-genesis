@@ -144,6 +144,8 @@ jobs:
           GENESIS_IMPROVEMENTS_TEST=isolated php server/tests/template-manifest.php
           GENESIS_IMPROVEMENTS_TEST=isolated php server/tests/template-apply.php
           php server/tests/templates-migration.php
+          GENESIS_IMPROVEMENTS_TEST=isolated php server/tests/shared-automations.php
+          php server/tests/automations-migration.php
           php server/tests/shared-task-details.php
           php server/tests/shared-task-details-migration.php
           php server/tests/shared-task-lifecycle.php

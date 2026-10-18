@@ -903,6 +903,17 @@ try {
         if (count($segments) === 5 && $segments[1] === 'spaces' && $segments[3] === 'member-categories' && $method === 'PATCH') {
             genesisJson(['category' => genesisSharedMemberCategory($userId, $segments[2], genesisReadJson(), $segments[4])]);
         }
+        if(count($segments)===4&&$segments[1]==='projects'&&$segments[3]==='automations'){
+            if($method==='GET')genesisJson(genesisSharedAutomations($userId,$segments[2],($_GET['deleted']??'')==='true',$_GET['cursor']??null));
+            if($method==='POST')genesisJson(['rule'=>genesisSharedSaveAutomation($userId,$segments[2],genesisReadJson())],201);
+        }
+        if(count($segments)===5&&$segments[1]==='projects'&&$segments[3]==='automations'){
+            if($segments[4]==='preview'&&$method==='POST')genesisJson(genesisSharedAutomationPreview($userId,$segments[2],genesisReadJson()));
+            if($method==='GET')genesisJson(['rule'=>genesisAutomationRecord(genesisAutomationRule($userId,$segments[2],$segments[4]))]);
+            if($method==='PATCH')genesisJson(['rule'=>genesisSharedSaveAutomation($userId,$segments[2],genesisReadJson(),$segments[4])]);
+        }
+        if(count($segments)===6&&$segments[1]==='projects'&&$segments[3]==='automations'&&$segments[5]==='runs'&&$method==='GET')genesisJson(genesisSharedAutomationRuns($userId,$segments[2],$segments[4],$_GET['cursor']??null));
+        if(count($segments)===8&&$segments[1]==='projects'&&$segments[3]==='automations'&&$segments[5]==='runs'&&$segments[7]==='retry'&&$method==='POST')genesisJson(genesisSharedRetryAutomation($userId,$segments[2],$segments[4],$segments[6],genesisReadJson()));
         if(($segments[1]??'')==='templates'&&isset($segments[2]))$segments[2]=rawurldecode($segments[2]);
         if(count($segments)===4&&$segments[1]==='spaces'&&$segments[3]==='templates'){
             if($method==='GET')genesisJson(genesisSharedTemplates($userId,$segments[2],isset($_GET['projectId'])?(string)$_GET['projectId']:null,($_GET['deleted']??'')==='true',$_GET['cursor']??null)
