@@ -13,7 +13,7 @@
 ## Подготовлено и проверено отдельно
 
 - C6, проектные права: checkpoint `50df33b`, `genesis-project-access-2026-10-18.md`. Серверный индекс и web preview/apply, CAS/replay, inheritance/exclusions, privacy history/maps, три browser-сессии и все14 языков проверены; обе темы ×4 ширины. Нативный UI и будущие C/G-интеграции ещё открыты.
-- C3, поля: `genesis-custom-fields-2026-10-18.md`. API/редактор/карточка/список/типовые query и saved views, encrypted versions/values, архив/type successor, required и0/false проверены;365 web tests, чистый PHP regression suite,14 языков и16 viewport/theme cases. Открыты шаблоны/автоматизации/import/export, зависимые B/G и native. Следующий этап C1: `genesis-templates-2026-10-18.md`; календарные относительные даты уже подготовлены и протестированы, остальной C1 ещё не реализован.
+- C3, поля: checkpoint `4c8436c`, `genesis-custom-fields-2026-10-18.md`. API/редактор/карточка/список/типовые query и saved views, encrypted versions/values, архив/type successor, required и0/false проверены;365 web tests, чистый PHP regression suite,14 языков и16 viewport/theme cases. Открыты шаблоны/автоматизации/import/export, зависимые B/G и native. Следующий этап C1: `genesis-templates-2026-10-18.md`; календарные относительные даты уже подготовлены и протестированы, остальной C1 ещё не реализован.
 
 - F1–F3, веб и нативные data-контракты: `genesis-habit-goal-analysis-2026-10-18.md`. Добавлены календарь выполнения и исходные записи, отдельные знаменатели количества/целей, честная неизвестная legacy-доступность, causal explicit skip и защита XP двух клиентов. 364 web и 296 native JVM tests; нативный UI/upgrade/device acceptance остаются открыты. Следующий основной этап — C6 как основание C1–C5, затем G и зависимые B.
 
