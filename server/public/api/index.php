@@ -903,6 +903,11 @@ try {
         if (count($segments) === 5 && $segments[1] === 'spaces' && $segments[3] === 'member-categories' && $method === 'PATCH') {
             genesisJson(['category' => genesisSharedMemberCategory($userId, $segments[2], genesisReadJson(), $segments[4])]);
         }
+        if(count($segments)===2&&$segments[1]==='reports'&&$method==='POST')genesisJson(genesisSharedReport($userId,genesisReadJson()));
+        if(count($segments)===3&&$segments[1]==='reports'&&$method==='POST'){
+            if($segments[2]==='tasks')genesisJson(genesisSharedReportTasks($userId,genesisReadJson()));
+            if($segments[2]==='check'){$input=genesisReadJson();if(!is_string($input['token']??null))throw new InvalidArgumentException('REPORT_INVALID');genesisJson(genesisSharedReportCheck($userId,$input['token']));}
+        }
         if(count($segments)===3&&$segments[1]==='data'&&$method==='POST'){
             if($segments[2]==='preview')genesisJson(genesisSharedDataPreview($userId,genesisReadJson()));
             if($segments[2]==='apply')genesisJson(genesisSharedDataApply($userId,genesisReadJson()));

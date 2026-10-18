@@ -48,7 +48,7 @@ function payload(draft:Draft):SharedSavedViewDefinition {
   return {...definition,title:definition.title.trim()||t("Представление"),filter};
 }
 
-function ViewChoice({kind,label,filter,value,onChange,online}:{kind:SharedViewOptionKind;label:string;filter:Pick<SharedTaskCriteria,"spaceId"|"projectIds">;value:string[];onChange:(value:string[])=>void;online:boolean}) {
+export function ViewChoice({kind,label,filter,value,onChange,online}:{kind:SharedViewOptionKind;label:string;filter:Pick<SharedTaskCriteria,"spaceId"|"projectIds">;value:string[];onChange:(value:string[])=>void;online:boolean}) {
   const key=JSON.stringify(filter),[state,setState]=useState<{key:string;page:SharedViewOptionsPage}|null>(null),[failure,setFailure]=useState<{key:string;text:string}|null>(null),[pending,setPending]=useState<{key:string;id:number}|null>(null);
   const generation=useRef(0),moreController=useRef<AbortController|null>(null);
   useEffect(()=>{

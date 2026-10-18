@@ -65,7 +65,7 @@ function genesisSharedActivity(string $userId, string $projectId, ?string $taskI
 {
     genesisSharedRequireEnabled($userId);
     genesisSharedProjectAccess($projectId, $userId, 'read', true);
-    $db = genesisDb(); $values = ['project' => $projectId]; $filter = '';
+    $db = genesisDb(); $values = ['project' => $projectId]; $filter = " AND e.action <> 'task.observed'";
     if ($taskId !== null) {
         $query = $db->prepare('SELECT 1 FROM shared_tasks_history_read WHERE id = :id AND project_id = :project');
         $query->execute(['id' => $taskId, 'project' => $projectId]);
