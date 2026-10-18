@@ -16,7 +16,7 @@
 
 Frozen install, lint (0 ошибок и два прежних img warnings),327/327 web tests с i18n и build:beget прошли на ветке выпуска.90 mandatory precache entries,203 visual assets; largest JS349901 bytes. Fresh isolated PHP regression по всем56 самостоятельным suites существующего workflow прошёл, включая10001-task bulk и миграции. Специализированный mindmaps harness отделён существующим CI и не смешивается с этой выборкой. Изолированный browser config восстановлен; PHP fixture перезапущен.
 
-Новые shared screens используют ранее принятые browser screenshots и14-language/theme/viewport acceptance из соответствующих отчётов. После сборки выпуска нужен интеграционный browser smoke без Google mock и production verification. Полный tsc, live Google roundtrip, physical external push и новый Android release не заявляются подтверждёнными.
+Новые shared screens используют ранее принятые browser screenshots и14-language/theme/viewport acceptance из соответствующих отчётов. После сборки выпуска отдельный интеграционный browser smoke прошёл без Google mock: обе темы ×360/390/768/1440, планирование, оценки в отчёте и реальные planning/automations/custom-fields API200; переполнений и page errors нет.8 release PNG сохранены в output/playwright/web-ready-planning-*.png. Предварительный синтетический профиль с будущими личными данными protocol7 корректно открыл защиту восстановления; его данные не очищались. Приёмка совместимого выпуска использовала отдельный свежий browser context. Полный tsc, live Google roundtrip, physical external push и новый Android release не заявляются подтверждёнными.
 
 ## Публикация и откат
 
