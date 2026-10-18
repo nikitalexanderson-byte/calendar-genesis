@@ -3,6 +3,7 @@ import { DialogCloseButton } from "./DialogCloseButton";
 import {orderPersonalTasks,taskListOrders,unreadPersonalCommentIds,type TaskListOrder} from "./task-list-order";
 import {usePersonalTaskDisplay} from "./use-personal-task-display";
 import {MindmapLaunchButton} from "./MindmapLaunchButton";
+import "./task-list-entry.css";
 import { CalendarCellTasks } from "./CalendarCellTasks";
 import { useCalendarTaskPreviews } from "./use-calendar-task-previews";
 import "./calendar-cell-tasks.css";
@@ -3840,7 +3841,9 @@ export function GenesisCalendar() {
   const beginProjectPointerDrag = (event: PointerEvent<HTMLElement>, item: ProjectDragItem) => {
     if (event.pointerType === "touch" || event.button !== 0 || projectDragControl(event.target)) return;
     projectDragSourceRef.current = event.currentTarget;
-    event.currentTarget.setPointerCapture(event.pointerId);
+    // Keep a simple click targeted at the task/list opener while retaining drag capture.
+    const captureTarget = event.target instanceof Element ? event.target.closest<HTMLElement>("[data-affair-drag-surface]") ?? event.currentTarget : event.currentTarget;
+    captureTarget.setPointerCapture(event.pointerId);
     projectPointerDragRef.current = {
       item,
       pointerId: event.pointerId,
@@ -4573,7 +4576,7 @@ export function GenesisCalendar() {
                     >
                       <header>
                         <div className="task-list-column-heading">
-                          <span><button type="button" className="task-preview-open" onClick={()=>setPersonalPreview({kind:"task-list",id:taskList.id})} data-no-translate>{taskList.title}</button><small>{listTasks.length} задач{taskList.accountEmail ? ` · ${taskList.accountEmail}` : ""}</small></span>
+                          <span><button type="button" className="task-preview-open task-list-entry-title" onClick={()=>setPersonalPreview({kind:"task-list",id:taskList.id})} data-no-translate>{taskList.title}</button><small className="task-list-entry-meta">{listTasks.length} задач{taskList.accountEmail ? ` · ${taskList.accountEmail}` : ""}</small></span>
                           <span className="task-list-column-actions">
                             <button type="button" onClick={() => setEditingTaskList(taskList)} aria-label={`Редактировать список «${taskList.title}»`}>{experimentalThemeActive ? <ExperimentalIcon name="edit" /> : "✎"}</button>
                             {!taskList.isDefault ? (
@@ -5932,7 +5935,7 @@ export function GenesisCalendar() {
                     const taskCount = tasks.filter((task) => task.googleTaskListId === taskList.id).length;
                     return (
                       <article className="inbox-list-item project-draggable-item" key={taskList.id} aria-label={`Перетащить список «${taskList.title}»`} {...projectDragProps(item)}>
-                        <button type="button" className="task-preview-open" data-affair-drag-surface onClick={()=>setPersonalPreview({kind:"task-list",id:taskList.id})}><strong data-no-translate>{taskList.title}</strong><small data-no-translate>{formatTaskListCount(taskCount, language)}</small></button>
+                        <button type="button" className="task-preview-open task-list-entry-open" data-affair-drag-surface onClick={()=>setPersonalPreview({kind:"task-list",id:taskList.id})}><strong className="task-list-entry-title" data-no-translate>{taskList.title}</strong><small className="task-list-entry-meta" data-no-translate>{formatTaskListCount(taskCount, language)}</small></button>
                         <span className="task-list-column-actions">
                           <button type="button" onClick={() => setEditingTaskList(taskList)} aria-label={`Редактировать список «${taskList.title}»`}>{experimentalThemeActive ? <ExperimentalIcon name="edit" /> : "✎"}</button>
                           {!taskList.isDefault ? <button type="button" onClick={() => void deleteTaskList(taskList)} aria-label={`Удалить список «${taskList.title}»`}>{experimentalThemeActive ? <ExperimentalIcon name="close" /> : "×"}</button> : null}
@@ -6013,7 +6016,7 @@ export function GenesisCalendar() {
                           const taskCount = tasks.filter((task) => task.googleTaskListId === taskList.id).length;
                           return (
                             <div className="project-assigned-list project-draggable-item" key={taskList.id} aria-label={`Перетащить список «${taskList.title}»`} {...projectDragProps(item)}>
-                              <button type="button" className="task-preview-open" data-affair-drag-surface onClick={()=>setPersonalPreview({kind:"task-list",id:taskList.id})}><strong data-no-translate>{taskList.title}</strong><small data-no-translate>{formatTaskListCount(taskCount, language)}</small></button>
+                              <button type="button" className="task-preview-open task-list-entry-open" data-affair-drag-surface onClick={()=>setPersonalPreview({kind:"task-list",id:taskList.id})}><strong className="task-list-entry-title" data-no-translate>{taskList.title}</strong><small className="task-list-entry-meta" data-no-translate>{formatTaskListCount(taskCount, language)}</small></button>
                               <span className="task-list-column-actions">
                                 <button type="button" onClick={() => setEditingTaskList(taskList)} aria-label={`Редактировать список «${taskList.title}»`}>{experimentalThemeActive ? <ExperimentalIcon name="edit" /> : "✎"}</button>
                                 {!taskList.isDefault ? <button type="button" onClick={() => void deleteTaskList(taskList)} aria-label={`Удалить список «${taskList.title}»`}>{experimentalThemeActive ? <ExperimentalIcon name="close" /> : "×"}</button> : null}

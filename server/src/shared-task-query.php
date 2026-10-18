@@ -21,7 +21,7 @@ function genesisSharedQueryIds(mixed $value): array
 /** Only accessible projects enter the cursor fingerprint; permissions are rechecked on every page. */
 function genesisSharedQueryScope(string $userId, array $filter): array
 {
-    $sql = 'SELECT p.id,p.revision,p.space_id,m.role,sm.role AS spaceRole,sm.permissions_json,sm.can_organize_tasks,
+    $sql = 'SELECT p.id,p.revision,p.space_id,m.role,sm.role AS spaceRole,sm.permissions_json,sm.can_organize_tasks,sm.project_access_restricted,
         COALESCE(v.version,0) AS version FROM shared_projects p
         JOIN shared_project_members m ON m.project_id=p.id AND m.user_id=?
         JOIN shared_space_members sm ON sm.space_id=p.space_id AND sm.user_id=m.user_id
@@ -43,10 +43,25 @@ function genesisSharedQueryScope(string $userId, array $filter): array
 /** All text predicates execute in SQLite, before pagination, on the encrypted-content read view. */
 function genesisSharedTaskPredicate(string $userId, array $filter, array $scope): array
 {
-    $known = ['spaceId','projectIds','statusIds','assigneeIds','createdBy','priority','labelIds','tags','q','from','to','dueFrom','dueTo','undated','unscheduled','scheduled','completion','approvalPending','archived','includeArchived','parentTaskId','ids','overdueDate','overdueTime'];
+    $known = ['spaceId','projectIds','statusIds','assigneeIds','createdBy','priority','labelIds','tags','q','from','to','dueFrom','dueTo','undated','unscheduled','scheduled','completion','approvalPending','archived','includeArchived','parentTaskId','ids','overdueDate','overdueTime','customFields','sprintId','backlog'];
     if (array_diff(array_keys($filter), $known)) throw new InvalidArgumentException('INVALID_TASK_FILTER');
     $where = $scope ? ['t.project_id IN (' . implode(',', array_fill(0, count($scope), '?')) . ')'] : ['0=1'];
     $values = array_column($scope, 'id');
+    if(array_key_exists('sprintId',$filter)){
+        if($filter['sprintId']===null)$where[]='NOT EXISTS(SELECT 1 FROM shared_task_planning a WHERE a.task_id=t.id AND a.sprint_id IS NOT NULL)';
+        else{
+            if(!is_string($filter['sprintId']))throw new InvalidArgumentException('INVALID_TASK_FILTER');
+            $sprints=genesisPlanningRows('SELECT project_id FROM shared_sprints WHERE id=?',[$filter['sprintId']]);
+            if(!$sprints)throw new GenesisSharedAccessException('SPRINT_NOT_FOUND',404);
+            genesisSharedProjectAccess($sprints[0]['project_id'],$userId);
+            $where[]='EXISTS(SELECT 1 FROM shared_task_planning a WHERE a.task_id=t.id AND a.sprint_id=?)';$values[]=$filter['sprintId'];
+        }
+    }
+    if(array_key_exists('backlog',$filter)){
+        if(!is_bool($filter['backlog']))throw new InvalidArgumentException('INVALID_TASK_FILTER');
+        if($filter['backlog'])$where[]="t.completed_at IS NULL AND NOT EXISTS(SELECT 1 FROM shared_task_planning a JOIN shared_sprints s ON s.id=a.sprint_id WHERE a.task_id=t.id AND s.state IN ('planning','active'))";
+    }
+    if(isset($filter['customFields'])){[$customWhere,$customValues]=genesisSharedCustomFieldPredicates($userId,$filter['customFields']);array_push($where,...$customWhere);array_push($values,...$customValues);}
     if (empty($filter['includeArchived'])) $where[] = !empty($filter['archived']) ? 't.archived_at IS NOT NULL' : 't.archived_at IS NULL';
     foreach (['statusIds'=>'t.status_id', 'assigneeIds'=>'t.assignee_id', 'ids'=>'t.id'] as $field=>$column) if (isset($filter[$field])) {
         $ids = genesisSharedQueryIds($filter[$field]);
@@ -106,7 +121,7 @@ function genesisSharedTaskPredicate(string $userId, array $filter, array $scope)
             if ($term === '') continue;
             $tagSql = 'EXISTS(SELECT 1 FROM json_each(t.tags_json) tag WHERE instr(genesis_fold(tag.value),genesis_fold(?))>0)';
             if ($tagOnly) { $where[] = $tagSql; $values[] = $term; }
-            else { $where[] = '(instr(genesis_fold(t.title),genesis_fold(?))>0 OR instr(genesis_fold(t.description),genesis_fold(?))>0 OR ' . $tagSql . ')'; array_push($values, $term, $term, $term); }
+            else { $where[] = '(instr(genesis_fold(t.title),genesis_fold(?))>0 OR instr(genesis_fold(t.description),genesis_fold(?))>0 OR ' . $tagSql . ' OR '.genesisSharedCustomFieldSearchSql().')'; array_push($values, $term, $term, $term,$term,$term); }
         }
     }
     return [implode(' AND ', $where), $values];
@@ -153,7 +168,7 @@ function genesisSharedCalendarPreviews(string $userId, string $from, string $to)
 function genesisSharedHydrateTasks(string $userId, array $rows, array $projects = []): array
 {
     if (!$rows) return [];
-    $db = genesisDb(); $result = []; $ids = array_column($rows, 'id');
+    $db = genesisDb(); $result = []; $ids = array_column($rows, 'id');$customDefinitionsByProject=[];
     $page = implode(',', array_fill(0, count($ids), '?'));
     $childQuery = $db->prepare('SELECT parent_task_id AS id,COUNT(*) AS total,SUM(completed_at IS NOT NULL) AS done FROM shared_tasks_history_read
         WHERE parent_task_id IN (' . $page . ') GROUP BY parent_task_id'); $childQuery->execute($ids);
@@ -182,6 +197,9 @@ function genesisSharedHydrateTasks(string $userId, array $rows, array $projects 
             catch(GenesisSharedAccessException) { /* A subscription or series link never grants access. */ }
         }
         $task['labelIds'] = genesisSharedLabelIds('task', $row['id']);
+        $customDefinitions=$customDefinitionsByProject[$projectId]??=genesisSharedCustomFields($userId,$project['space_id'],$projectId,true);
+        $task['customFields']=(object)array_intersect_key(genesisSharedCustomTaskValues($row['id']),array_column($customDefinitions,null,'id'));
+        $task+=genesisPlanningTaskValues($row['id']);
         $task['approvals'] = genesisSharedTaskApprovals($row['id']); $task['approvalRequired'] = count($task['approvals']) > 0;
         $task['attachments'] = genesisSharedTaskAttachments($row['id']);
         $image = $db->prepare('SELECT 1 FROM shared_task_images WHERE task_id=?'); $image->execute([$row['id']]);
@@ -213,6 +231,8 @@ function genesisSharedQueryTasks(string $userId, array $filter = [], ?string $cu
     $db = genesisDb(); $owns = !$db->inTransaction(); if ($owns) $db->beginTransaction();
     try {
         [$filter,$sort,$viewSignature]=genesisSharedViewQuery($userId,$filter,$sort);
+        $customSort=str_starts_with($sort,'custom:');
+        if($customSort)$sorts[$sort]=genesisSharedCustomFieldSort($userId,$sort);
         if (!isset($sorts[$sort])) throw new InvalidArgumentException('INVALID_TASK_FILTER');
         $scope = genesisSharedQueryScope($userId, $filter);
         [$where, $values] = genesisSharedTaskPredicate($userId, $filter, $scope);
@@ -221,11 +241,13 @@ function genesisSharedQueryTasks(string $userId, array $filter = [], ?string $cu
         if ($cursor !== null && $cursor !== '') {
             $decoded = strlen($cursor)<16000 ? genesisDecrypt($cursor) : null;
             $state = $decoded ? json_decode($decoded,true) : null;
-            if (!is_array($state) || ($state['v']??null)!==1 || !isset($state['signature'],$state['id'],$state['key'])) throw new InvalidArgumentException('INVALID_TASK_PAGE');
+            if (!is_array($state) || ($state['v']??null)!==1 || !isset($state['signature'],$state['id'])||!array_key_exists('key',$state)) throw new InvalidArgumentException('INVALID_TASK_PAGE');
             if (!hash_equals($signature, $state['signature'])) throw new GenesisSharedAccessException('SHARED_QUERY_CHANGED',409);
             $operator = $direction === 'ASC' ? '>' : '<';
-            $seek = " AND ($column $operator ? OR ($column = ? AND t.id > ?))";
-            $seekValues = [$state['key'],$state['key'],$state['id']];
+            if($customSort&&$state['key']===null){$seek=" AND ($column IS NULL AND t.id > ?)";$seekValues=[$state['id']];}
+            else{$bind=$customSort?'CAST(? AS '.$sorts[$sort][2].')':'?';
+                $seek = " AND ($column $operator $bind OR ($column = $bind AND t.id > ?)".($customSort?" OR $column IS NULL":'').')';
+                $seekValues = [$state['key'],$state['key'],$state['id']];}
         }
         $from = ' FROM shared_tasks_history_read t WHERE ' . $where;
         $q = $db->prepare('SELECT COUNT(*)' . $from); $q->execute($values); $total = (int)$q->fetchColumn();
@@ -235,7 +257,7 @@ function genesisSharedQueryTasks(string $userId, array $filter = [], ?string $cu
         $statusCounts = array_map('intval', array_column($q->fetchAll(), 'n', 'status_id'));
         $q = $db->prepare('SELECT due_date,COUNT(*) AS n' . $from . ' AND due_date IS NOT NULL GROUP BY due_date'); $q->execute($values);
         $dateCounts = array_map('intval', array_column($q->fetchAll(), 'n', 'due_date'));
-        $q = $db->prepare('SELECT t.*, ' . $column . ' AS page_key' . $from . $seek . " ORDER BY $column $direction,t.id ASC LIMIT " . ($limit+1));
+        $q = $db->prepare('SELECT t.*, ' . $column . ' AS page_key' . $from . $seek . ' ORDER BY '.($customSort?"($column IS NULL) ASC,":'')."$column $direction,t.id ASC LIMIT " . ($limit+1));
         $q->execute([...$values,...$seekValues]); $rows = $q->fetchAll(); $hasMore = count($rows)>$limit;
         if ($hasMore) array_pop($rows);
         $last = $rows ? $rows[count($rows)-1] : null;

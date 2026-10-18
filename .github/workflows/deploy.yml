@@ -132,12 +132,28 @@ jobs:
 
           php server/tests/google-sync-cache.php
           php server/tests/calendar.php
+          php server/tests/template-dates.php
           php server/tests/recurrence.php
           php server/tests/google-calendar-context.php
           php server/tests/google-incremental.php
           php server/tests/shared-content-storage.php
           php server/tests/smoke.php
           php server/tests/shared-projects.php
+          GENESIS_IMPROVEMENTS_TEST=isolated php server/tests/shared-project-access.php
+          GENESIS_IMPROVEMENTS_TEST=isolated php server/tests/shared-custom-fields.php
+          GENESIS_IMPROVEMENTS_TEST=isolated php server/tests/template-manifest.php
+          GENESIS_IMPROVEMENTS_TEST=isolated php server/tests/template-apply.php
+          php server/tests/templates-migration.php
+          GENESIS_IMPROVEMENTS_TEST=isolated php server/tests/shared-automations.php
+          php server/tests/automations-migration.php
+          GENESIS_IMPROVEMENTS_TEST=isolated php server/tests/shared-data-exchange.php
+          GENESIS_IMPROVEMENTS_TEST=isolated php server/tests/shared-data-access.php
+          php server/tests/data-exchange-migration.php
+          GENESIS_IMPROVEMENTS_TEST=isolated php server/tests/shared-reports-history.php
+          GENESIS_IMPROVEMENTS_TEST=isolated php server/tests/shared-reports.php
+          GENESIS_IMPROVEMENTS_TEST=isolated php server/tests/shared-reports-integration.php
+          GENESIS_IMPROVEMENTS_TEST=isolated php server/tests/shared-planning.php
+          php server/tests/planning-migration.php
           php server/tests/shared-task-details.php
           php server/tests/shared-task-details-migration.php
           php server/tests/shared-task-lifecycle.php

@@ -15,6 +15,14 @@ function genesisSharedChanges(array $before, array $after): array
 /** Save readable names with the event so later renames/deletions do not erase context. */
 function genesisSharedReadableChanges(array $details): array
 {
+    if(isset($details['changes']['sprintId']))foreach(['from','to'] as $direction){$id=$details['changes']['sprintId'][$direction]??null;$details['referenceIds']['sprintId'][$direction]=$id;
+        if(is_string($id)){$rows=genesisPlanningRows('SELECT content_json FROM shared_sprints WHERE id=?',[$id]);$details['changes']['sprintId'][$direction]=$rows?genesisPlanningOpen($rows[0]['content_json'])['title']:null;}
+    }
+    if(isset($details['changes']['customFields'])){
+        $ids=array_unique(array_merge(array_keys($details['changes']['customFields']['from']),array_keys($details['changes']['customFields']['to'])));
+        $definitions=[];foreach($ids as $id){$q=genesisDb()->prepare('SELECT * FROM shared_custom_fields WHERE id=?');$q->execute([$id]);if($row=$q->fetch())$definitions[]=genesisSharedCustomFieldRecord($row);}
+        $details['customFieldDefinitions']=$definitions;
+    }
     $queries = ['statusId' => 'SELECT title FROM shared_project_statuses WHERE id = :id',
         'boardStatusId' => 'SELECT title FROM shared_project_statuses WHERE id = :id',
         'categoryId' => 'SELECT title FROM shared_project_categories WHERE id = :id UNION ALL SELECT title FROM shared_space_project_categories WHERE id = :id LIMIT 1',
@@ -60,7 +68,7 @@ function genesisSharedActivity(string $userId, string $projectId, ?string $taskI
 {
     genesisSharedRequireEnabled($userId);
     genesisSharedProjectAccess($projectId, $userId, 'read', true);
-    $db = genesisDb(); $values = ['project' => $projectId]; $filter = '';
+    $db = genesisDb(); $values = ['project' => $projectId]; $filter = " AND e.action <> 'task.observed'";
     if ($taskId !== null) {
         $query = $db->prepare('SELECT 1 FROM shared_tasks_history_read WHERE id = :id AND project_id = :project');
         $query->execute(['id' => $taskId, 'project' => $projectId]);
@@ -91,7 +99,7 @@ function genesisSharedActivity(string $userId, string $projectId, ?string $taskI
         FROM shared_audit_events_read e LEFT JOIN users u ON u.id = e.actor_id
         WHERE e.project_id = :project' . $filter . ' ORDER BY e.created_at DESC, e.id DESC LIMIT 51');
     $query->execute($values); $items = $query->fetchAll(); $hasMore = count($items) > 50;
-    $items = array_map(static function ($row) { $row['details'] = json_decode($row['detailsJson'], true) ?: [];
-        unset($row['detailsJson']); return $row; }, array_slice($items, 0, 50));
+    $items = array_map(static function ($row) use($userId,$projectId) { $row['details'] = json_decode($row['detailsJson'], true) ?: [];
+        unset($row['detailsJson']); return genesisSharedSafeActivityRow($userId,$projectId,$row); }, array_slice($items, 0, 50));
     return ['events' => $items, 'nextCursor' => $hasMore ? $items[49]['id'] : null];
 }

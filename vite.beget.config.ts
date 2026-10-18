@@ -138,6 +138,11 @@ export default defineConfig({
               priority: 14,
             },
             ...["en","el","de","fr","es","it","pt","pl","sr","uk","zh","tr","ja"].map((locale) => ({
+              name: `locale-work-${locale}`,
+              test: new RegExp(`shared-work-translations[\\\\/]${locale}\\.json$`),
+              priority: 46,
+            })),
+            ...["en","el","de","fr","es","it","pt","pl","sr","uk","zh","tr","ja"].map((locale) => ({
               name: `locale-ui-${locale}`,
               test: new RegExp(`ui-translations[\\\\/]${locale}\\.json$`),
               priority: 46,

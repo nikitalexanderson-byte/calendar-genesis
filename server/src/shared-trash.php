@@ -4,9 +4,9 @@ function genesisSharedTrashDays(mixed $value):int {if(!is_int($value)||$value<1|
 function genesisSharedTrashExpiry(string $now,int $days):string {return gmdate('Y-m-d\TH:i:s\Z',(int)strtotime($now)+$days*86400);}
 function genesisSharedTrashProjectAccess(string $userId,string $projectId,string $permission):array {
  genesisSharedRequireEnabled($userId);
- $q=genesisDb()->prepare('SELECT p.*,m.role AS member_role,sm.role AS space_member_role,sm.permissions_json AS space_permissions_json,sm.can_organize_tasks FROM shared_projects p JOIN shared_project_members m ON m.project_id=p.id AND m.user_id=? JOIN shared_space_members sm ON sm.space_id=p.space_id AND sm.user_id=m.user_id WHERE p.id=?');$q->execute([$userId,$projectId]);$p=$q->fetch();
+ $q=genesisDb()->prepare('SELECT p.*,m.role AS member_role,sm.role AS space_member_role,sm.permissions_json AS space_permissions_json,sm.can_organize_tasks,sm.project_access_restricted FROM shared_projects p JOIN shared_project_members m ON m.project_id=p.id AND m.user_id=? JOIN shared_space_members sm ON sm.space_id=p.space_id AND sm.user_id=m.user_id WHERE p.id=?');$q->execute([$userId,$projectId]);$p=$q->fetch();
  if(!$p)throw new GenesisSharedAccessException();
- $p['permissions']=genesisSharedPermissions($p['space_member_role'],$p['space_permissions_json'],(int)$p['can_organize_tasks']===1,$p['member_role']);
+ $p['permissions']=genesisSharedPermissions($p['space_member_role'],$p['space_permissions_json'],(int)$p['can_organize_tasks']===1,$p['member_role'],(bool)$p['project_access_restricted']);
  if($permission!=='read'&&!$p['permissions'][$permission])throw new GenesisSharedAccessException('SHARED_PROJECT_FORBIDDEN',403);return $p;
 }
 function genesisSharedTrashGoogleCleanup(PDO $db,string $taskId):void {

@@ -1,8 +1,9 @@
 "use client";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { ExperimentalIcon } from "./ExperimentalIcon";
 
-export function SharedWorkspaceIdentity({ title, owner, members, description, english }: {
-  title: string; owner: string; members: number | undefined; description?: string; english: boolean;
+export function SharedWorkspaceIdentity({ title, selector, showDetails=true, owner, members, description, english }: {
+  title: string; selector?: ReactNode; showDetails?: boolean; owner: string; members: number | undefined; description?: string; english: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const id = useId();
@@ -13,11 +14,13 @@ export function SharedWorkspaceIdentity({ title, owner, members, description, en
     document.addEventListener("keydown", dismiss);
     return () => document.removeEventListener("keydown", dismiss);
   }, [open]);
-  return <div className="shared-space-identity" onPointerEnter={event => { if (event.pointerType === "mouse") setOpen(true); }}
-    onPointerLeave={event => { if (event.pointerType === "mouse") setOpen(false); }}
+  return <div className="shared-space-identity" onPointerLeave={event => { if (event.pointerType === "mouse") setOpen(false); }}
     onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false); }}>
-    <button type="button" className="shared-space-info-trigger" aria-expanded={open} aria-controls={id}
+    <div className="shared-space-name-row">{selector ?? <strong data-no-translate>{title}</strong>}
+    {showDetails ? <button type="button" className="shared-space-description-toggle" aria-expanded={open} aria-controls={id}
+      aria-label={english ? "Workspace description" : "Описание пространства"}
       aria-describedby={open ? id : undefined}
+      onPointerEnter={event => { if (event.pointerType === "mouse") setOpen(true); }}
       onFocus={event => { if (event.currentTarget.matches(":focus-visible")) setOpen(true); }}
       onClick={() => setOpen(current => !current)} onKeyDown={event => {
         if (open && ["ArrowDown", "ArrowUp", "PageDown", "PageUp"].includes(event.key)) {
@@ -26,12 +29,12 @@ export function SharedWorkspaceIdentity({ title, owner, members, description, en
           popupRef.current?.scrollBy(0, event.key.endsWith("Up") ? -distance : distance);
         }
       }}>
-      {[[english ? "Workspace" : "Пространство", title], [english ? "Owner" : "Владелец", owner || "…"],
-        [english ? "Participants" : "Участников", members ?? "…"]].map(([label, value]) => <span className="shared-space-info-row" key={label}>
+      <ExperimentalIcon name="list"/>
+    </button> : null}</div>
+    {showDetails ? [[english ? "Owner" : "Владелец", owner || "…"], [english ? "Participants" : "Участников", members ?? "…"]].map(([label, value]) => <div className="shared-space-info-row" key={label}>
         <span className="shared-space-info-label">{label}:</span><span className="shared-space-info-leader" aria-hidden="true" />
         <span className="shared-space-info-value" data-no-translate>{value}</span>
-      </span>)}
-    </button>
+      </div>) : null}
     {open ? <div ref={popupRef} id={id} className="shared-space-info-popup" role="tooltip"
       aria-label={english ? "Workspace description" : "Описание пространства"}>
       <span data-no-translate>{description || (english ? "No description yet." : "Описание пока не добавлено.")}</span>

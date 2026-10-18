@@ -12,7 +12,7 @@ function genesisSharedPermissionInput(mixed $input): ?array
     return $input;
 }
 
-function genesisSharedPermissions(string $spaceRole, mixed $json = null, bool $organize = false, ?string $projectRole = null): array
+function genesisSharedPermissions(string $spaceRole, mixed $json = null, bool $organize = false, ?string $projectRole = null, bool $projectRestricted = false): array
 {
     $owner = $spaceRole === 'owner';
     $manager = in_array($spaceRole, ['owner', 'admin'], true);
@@ -26,14 +26,22 @@ function genesisSharedPermissions(string $spaceRole, mixed $json = null, bool $o
         'inviteMembers' => in_array($role, ['owner', 'manager'], true),
     ];
     if ($owner) return array_fill_keys(array_keys($defaults), true);
-    if ($json === null || $json === '') return $defaults;
-    return genesisSharedPermissionInput(json_decode((string)$json, true, 512, JSON_THROW_ON_ERROR)) ?? $defaults;
+    $permissions=$json===null||$json===''?$defaults:(genesisSharedPermissionInput(json_decode((string)$json,true,512,JSON_THROW_ON_ERROR))??$defaults);
+    if($projectRestricted&&!$manager){
+        foreach(['createProjects','manageProjects','inviteMembers'] as $key)$permissions[$key]=false;
+        if($projectRole!==null){
+            $permissions['editTasks']=$permissions['editTasks']&&$projectRole==='member';
+            $permissions['organizeTasks']=$permissions['organizeTasks']&&$projectRole==='member';
+            $permissions['comment']=$permissions['comment']&&in_array($projectRole,['member','commenter'],true);
+        }
+    }
+    return $permissions;
 }
 
 function genesisSharedSpacePermission(array $space, string $permission): bool
 {
     return genesisSharedPermissions($space['member_role'], $space['permissions_json'] ?? null,
-        (int)($space['can_organize_tasks'] ?? 0) === 1)[$permission] ?? false;
+        (int)($space['can_organize_tasks'] ?? 0) === 1,null,(bool)($space['project_access_restricted']??false))[$permission] ?? false;
 }
 
 function genesisSharedSpaceSettings(string $userId, string $spaceId): array
