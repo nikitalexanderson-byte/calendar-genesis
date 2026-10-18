@@ -1860,7 +1860,7 @@ export async function saveSharedProjectAccess(spaceId: string, userId: string, c
 export async function approveSharedTask(projectId: string, taskId: string) {
   return (await api<{task: SharedTask}>(`/shared/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}/approve`, {method:"POST",body:"{}"})).task;
 }
-export type SharedComment = { id: string; body: string; mentionIds?: string[]; authorId: string; authorName: string; createdAt: string };
+export type SharedComment = { id: string; body: string; mentionIds?: string[]; authorId: string; authorName: string; importedAuthorName?:string; createdAt: string };
 export type SharedActivityEvent = { id: string; action: string; objectId: string; taskId: string | null; boardId: string | null; actorName: string; createdAt: string;
   details: { objectTitle?: string; imageChanged?: boolean; customFieldDefinitions?:import("./shared-custom-fields").SharedCustomField[]; changes?: Record<string, { from: unknown; to: unknown; fromUnavailable?: boolean; toUnavailable?: boolean }> } };
 export type SharedGoogleSettings = { tasksEnabled: boolean; calendarEnabled: boolean;

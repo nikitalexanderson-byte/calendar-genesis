@@ -4,6 +4,7 @@ import { loadSharedActivity, type SharedActivityEvent } from "./cloud-sync";
 import { ExperimentalIcon } from "./ExperimentalIcon";
 import { getRuntimeLanguage, translateText } from "./i18n";
 import { customFieldText, type CustomFieldValue, type SharedCustomField } from "./shared-custom-fields";
+import { SharedImportedHistory } from './SharedImportedHistory';
 const accessFields:Record<string,string>={read:"Просмотр",editTasks:"Редактирование",organizeTasks:"Организация задач",createProjects:"Создание проектов",manageProjects:"Управление проектами",inviteMembers:"Приглашение участников",comment:"Комментарии"};
 const roleNames:Record<string,string>={owner:"Владелец",admin:"Администратор",manager:"Управление проектами",member:"Участник",commenter:"Комментарии",viewer:"Просмотр",guest:"Гость"};
 const templateActions:Record<string,string>={'automation.created':'Правило сохранено.','automation.updated':'Правило сохранено.','automation.notification':'Уведомление','template.created':'Шаблон сохранён.','template.updated':'Шаблон сохранён.','template.deleted':'Шаблон удалён.','template.restored':'Шаблон восстановлен.','template.applied':'Шаблон применён.'};
@@ -35,6 +36,7 @@ export function SharedActivity({projectId,taskId,boardId,english,refreshKey=0}:{
       </li>)}</ol>{busy ? <p role="status">{english ? "Loading history…" : "Загружаем историю…"}</p> : !events.length&&!error ? <p>{english ? "No activity yet." : "Действий пока нет."}</p> : null}
       {events.length>5||cursor ? <button type="button" aria-expanded={expanded} onClick={()=>{setExpanded(value=>!value);if(!expanded&&events.length<=5&&cursor&&!busy)void more();}}>{expanded ? (english ? "Hide older events" : "Скрыть остальные") : (english ? "View older events" : "Смотреть остальные")}</button> : null}
       {expanded&&cursor ? <button type="button" disabled={busy} onClick={()=>void more()}>{english ? "Show more" : "Показать ещё"}</button> : null}
+      {!boardId?<SharedImportedHistory key={`${projectId}:${taskId??''}:${refreshKey}`} projectId={projectId} taskId={taskId}/>:null}
     </> : null}
   </details>;
 }
