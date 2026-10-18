@@ -105,7 +105,7 @@ export const HABIT_HISTORY_CSV_COLUMNS = {
   updated_at: "Время изменения", source: "Источник", historical: "Историческая корректировка", replaces: "Предыдущие записи",
   rule_id: "Версия правила", target_thousandths: "Дневная цель в тысячных", period: "Период цели", period_metric: "Метрика цели",
   period_target: "Цель периода", period_target_thousandths: "Цель периода в тысячных", calendar: "Календарь", time_zone: "Часовой пояс", year_start: "Начало года",
-  quality_confirmed_at: "Время подтверждения качества", completed_times: "Время выполнений", calendar_version: "Версия календаря",
+  quality_confirmed_at: "Время подтверждения качества", completed_times: "Время выполнений", calendar_version: "Версия календаря", skipped_at: "Время осознанного пропуска",
 } as const;
 
 function decimal(value: number | null) {
@@ -144,13 +144,14 @@ export function buildHabitHistoryCsv(workspace: HabitWorkspace, options: {
   for (const row of workspace.habitCompletions) if (accepts(row.habitId, row.date)) output.push({ ...common(row.habitId, row.date),
     record_type: "completion", record_id: row.id, completed: row.completed, quality: row.qualityValue, note: row.note,
     created_at: row.createdAt, updated_at: row.updatedAt, source: "snapshot", quality_confirmed_at: row.qualityConfirmedAt,
-    completed_times: JSON.stringify(row.completedTimes ?? []), historical: workspace.habitHistory.some(edit => edit.habitId === row.habitId && edit.date === row.date) });
+    completed_times: JSON.stringify(row.completedTimes ?? []), skipped_at: row.skippedAt,
+    historical: workspace.habitHistory.some(edit => edit.habitId === row.habitId && edit.date === row.date && edit.source !== "decision") });
   for (const row of workspace.habitMeasurements) if (accepts(row.habitId, row.date)) output.push({ ...common(row.habitId, row.date, row.ruleId),
     record_type: "measurement", record_id: row.id, rule_id: row.ruleId, value: decimal(row.value), value_thousandths: row.value,
     entry_id: row.entryId, note: row.note, source: row.source, historical: row.historical, created_at: row.createdAt, updated_at: row.createdAt, replaces: JSON.stringify(row.replaces) });
   for (const row of workspace.habitHistory) if (accepts(row.habitId, row.date)) output.push({ ...common(row.habitId, row.date, row.ruleId),
     record_type: "history-edit", record_id: row.id, rule_id: row.ruleId, completed: row.value.completed,
-    quality: row.value.qualityValue, note: row.value.note, source: row.source, historical: true,
+    quality: row.value.qualityValue, note: row.value.note, source: row.source, historical: row.source !== "decision", skipped_at: row.value.skippedAt,
     quality_confirmed_at: row.value.qualityConfirmedAt, completed_times: JSON.stringify(row.value.completedTimes),
     created_at: row.createdAt, updated_at: row.updatedAt, replaces: JSON.stringify(row.replaces) });
   output.sort((a, b) => String(a.date).localeCompare(String(b.date)) || String(a.habit_id).localeCompare(String(b.habit_id))

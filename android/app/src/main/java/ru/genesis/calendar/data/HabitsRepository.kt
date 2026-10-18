@@ -75,8 +75,10 @@ class HabitsRepository(private val app: GenesisApplication) {
         db.withTransaction {
             val record=dao.document(scope,"habits")
             val current=if(record==null) LocalHabitWorkspace() else HabitDocument.decode(cipher.decrypt(record.encrypted,"$scope/habits"),record.revision)
-            val candidate=change(current)
-            val lifecycleChanged=candidate.habits.map { it.lifecycleHistory }!=current.habits.map { it.lifecycleHistory }
+            val candidate=observeChangedHabitAvailability(current,change(current),Instant.now().toString())
+            val lifecycleChanged=candidate.habits.any { habit -> current.habits.firstOrNull { it.id==habit.id }?.let {
+                it.lifecycleHistory.filter { row -> row.action!="observe" }!=habit.lifecycleHistory.filter { row -> row.action!="observe" }
+            }==true }
             val economy=if(lifecycleChanged) candidate else current
             val projected=reconcile(candidate)
             val next=(if(preserveEconomy || lifecycleChanged) projected.copy(rewards=economy.rewards,streakFreezeTransactions=economy.streakFreezeTransactions,
@@ -99,6 +101,7 @@ class HabitsRepository(private val app: GenesisApplication) {
     suspend fun updateSettings(settings: HabitSettings) = mutate { it.copy(settings = settings) }
     suspend fun correctHistory(command: HabitHistoryCommand) = mutate(preserveEconomy = true) { workspace -> HabitHistory.apply(workspace, command) }
     suspend fun lifecycle(command: HabitLifecycleCommand) = mutate { workspace -> HabitLifecycleWorkspace.apply(workspace,command) }
+    suspend fun decideDay(command: HabitDayDecisionCommand) = mutate(preserveEconomy=true) { workspace -> HabitDayDecisionWorkspace.apply(workspace,command) }
     suspend fun updateAppearance(value: JSONObject) = mutate { workspace ->
         workspace.copy(settings = workspace.settings.copy(rawJson = JSONObject(workspace.settings.rawJson)
             .put("nativeAppearance", value).toString()))
@@ -310,7 +313,7 @@ class HabitsRepository(private val app: GenesisApplication) {
         val nonQuestLedger=StreakProtection.reconcileComeback(rewardGoals,
             StreakRewards.reconcile(rewardGoals,Rewards.reconcileDailyGoals(rewardGoals,workspace.rewards,today)),today)
         val ledger=if (questsEnabled) HabitQuests.reconcileRewards(quests,nonQuestLedger) else nonQuestLedger
-        val progress=HeroProgress.reconcile(workspace.progress,workspace.completions.map { it.xpAwarded },timestamp,
+        val progress=HeroProgress.reconcile(workspace.progress,habitCompletionCredits(workspace.completions),timestamp,
             DailyGoals.streak(goals,today),Rewards.balance(ledger),streakFreezeCount=StreakProtection.count(freezes),
             rhythmScore=DailyGoals.rhythmScore(goals,today))
         val unlocks=Achievements.reconcile(workspace.achievementUnlocks,projected,rewardGoals,
@@ -412,10 +415,11 @@ internal object HabitDocument {
             .put("measurements",JSONArray(w.measurements.map(::measurementEvent)))
             .put("timers",HabitTimerCodec.encode(w.timers))
             .put("history",HabitHistoryCodec.encode(w.history))
-            .put("timerEpoch",HabitTimers.workspaceEpoch(w.timerEpoch,w.history.isNotEmpty(),w.habits.any { it.lifecycleHistory.isNotEmpty() }))
+            .put("timerEpoch",HabitTimers.workspaceEpoch(w.timerEpoch,w.history.isNotEmpty(),w.habits.any { it.lifecycleHistory.isNotEmpty() }
+                || w.history.any { it.source=="decision" } || w.completions.any { it.skippedAt!=null }))
             .put("completions",JSONArray(w.completions.map { c -> entity(c.entity).put("habitId",c.habitId).put("date",c.date.toString()).put("completed",c.completed)
                 .put("qualityConfirmedAt",c.qualityConfirmedAt ?: JSONObject.NULL).put("qualityValue",c.qualityValue ?: JSONObject.NULL).put("score",c.score).put("xpAwarded",c.xpAwarded).put("note",c.note)
-                .put("completedTimes",JSONArray(c.completedTimes)) }))
+                .put("completedTimes",JSONArray(c.completedTimes)).apply { c.skippedAt?.let { put("skippedAt",it) } } }))
             .put("goals",JSONArray(w.goals.map { g -> JSONObject().put("date",g.date.toString()).put("mode",g.mode).put("timezone",g.timezone).put("scheduledCount",g.scheduledCount)
                 .put("completedCount",g.completedCount).put("targetCount",g.targetCount).put("status",g.status).put("updatedAt",g.updatedAt) }))
             .put("rewards",JSONArray(w.rewards.map { t -> JSONObject().put("id",t.id).put("amount",t.amount).put("reason",t.reason).put("sourceId",t.sourceId)
@@ -442,7 +446,7 @@ internal object HabitDocument {
         val p=v.getJSONObject("progress")
         return LocalHabitWorkspace(v.getJSONArray("habits").objects().map(::habit),v.getJSONArray("completions").objects().map { c ->
             HabitCompletion(entity(c),c.getString("habitId"),LocalDate.parse(c.getString("date")),c.getBoolean("completed"),if(c.isNull("qualityValue")) null else c.getDouble("qualityValue"),c.getInt("score"),c.getInt("xpAwarded"),c.getString("note"),c.optString("qualityConfirmedAt").takeUnless { it.isBlank() || it == "null" },
-                c.optJSONArray("completedTimes")?.let { times -> (0 until times.length()).map { times.optString(it) }.filter { Regex("(?:[01]\\d|2[0-3]):[0-5]\\d").matches(it) }.distinct().sorted().take(1440) }.orEmpty()) },
+                c.optJSONArray("completedTimes")?.let { times -> (0 until times.length()).map { times.optString(it) }.filter { Regex("(?:[01]\\d|2[0-3]):[0-5]\\d").matches(it) }.distinct().sorted().take(1440) }.orEmpty(),c.nullable("skippedAt")) },
             v.getJSONArray("goals").objects().map { g -> DailyGoalRecord(LocalDate.parse(g.getString("date")),g.getString("mode"),g.getString("timezone"),g.getInt("scheduledCount"),g.getInt("completedCount"),g.getInt("targetCount"),g.getString("status"),g.getString("updatedAt")) },
             v.getJSONArray("rewards").objects().map { t -> RewardTransaction(t.getString("id"),t.getInt("amount"),t.getString("reason"),t.getString("sourceId"),t.getString("idempotencyKey"),t.getString("createdAt"),t.getString("userId"),t.getString("currency")) },
             UserProgress(p.getInt("lifetimeXp"),p.getInt("laurelsBalance"),p.nullable("currentRankId"),p.nullable("hiddenHeroicPathRevealedAt"),p.getInt("currentStreak"),p.getInt("longestStreak"),p.nullable("lastQualifiedDate")?.let(LocalDate::parse),p.getString("streakGoalMode"),p.getInt("streakFreezeCount"),p.getInt("rhythmScore"),p.getString("updatedAt")),revision,

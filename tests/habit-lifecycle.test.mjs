@@ -9,6 +9,25 @@ const habits=calendarModule('app/habits.ts'),sync=calendarModule('app/workspace-
 const timers=calendarModule('app/habit-timer.ts'),storage=calendarModule('app/habit-timer-storage.ts');
 const history=calendarModule('app/habit-history-workspace.ts'),rewards=calendarModule('app/rewards.ts');
 const now='2026-10-17T12:00:00.000Z';
+
+test('concurrent availability observations agree, remain historically honest and permit one real transition',()=>{
+ const source=workspaceFixture(),habit=source.habits[0];
+ const observe=(id,at)=>lifecycle.applyHabitLifecycleCommand(habit,{id,habitId:habit.id,action:'observe',at,heads:[]});
+ const a=observe('observed-a',now),b=observe('observed-b','2026-10-17T12:01:00.000Z');
+ const merged=lifecycle.projectHabitLifecycle({...habit,lifecycleHistory:lifecycle.mergeHabitLifecycleEvents(a.lifecycleHistory,b.lifecycleHistory)});
+ assert.equal(lifecycle.habitLifecycleState(merged).conflict,false);
+ const next=lifecycle.applyHabitLifecycleCommand(merged,command(merged,'pause','real-pause','2026-10-17T12:02:00.000Z'));
+ assert.equal(lifecycle.habitLifecycleState(next).status,'paused');
+ const analysis=calendarModule('app/habit-goal-analysis.ts');
+ assert.equal(analysis.habitAvailabilityKnown(next,'2026-10-16','2026-10-18'),false);
+ assert.equal(analysis.habitAvailabilityKnown(next,'2026-10-17','2026-10-18'),true);
+ const edited={...source,habits:[{...habit,title:'Edited'}]};
+ const observed=habits.observeChangedHabitAvailability(source,edited,now);
+ assert.equal(observed.habits[0].lifecycleHistory[0].action,'observe');
+ assert.deepEqual(observed.rewardTransactions,source.rewardTransactions);
+ assert.equal(habits.observeChangedHabitAvailability(observed,observed,now),observed);
+ assert.equal(habits.observeChangedHabitAvailability(source,source,now),source);
+});
 function workspaceFixture(days=0) {
  const habit=habits.defaultHabit('2026-08-01','profane');habit.schedule.timezone='UTC';habit.title='Original habit';
  const habitCompletions=Array.from({length:days},(_,index)=>({id:'completion-'+index,habitId:habit.id,

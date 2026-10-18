@@ -1435,6 +1435,9 @@ private object TranslationCatalog {
                             Log.e("GenesisI18n", "Could not load $name: ${error.javaClass.simpleName}")
                         }
                     }
+                    runCatching { objectAsset("habit-report-translations.json").getJSONObject("en") }.onSuccess { catalog ->
+                        catalog.keys().forEach { put(it, catalog.getString(it)) }
+                    }
                     runCatching {
                         val englishDays = context.assets.open("originals/i18n/calendar-days.en.json")
                             .bufferedReader().use { JSONArray(it.readText()) }
@@ -1486,6 +1489,9 @@ private object TranslationCatalog {
                         }
                     }
                     context.assets.open("originals/i18n/ui-translations/$language.json").bufferedReader().use {reader->JSONObject(reader.readText()).let {json->json.keys().forEach {put(it,json.getString(it))}}}
+                    context.assets.open("originals/i18n/habit-report-translations.json").bufferedReader().use { reader ->
+                        JSONObject(reader.readText()).getJSONObject(language).let { json -> json.keys().forEach { put(it,json.getString(it)) } }
+                    }
                     context.assets.open("originals/i18n/native-affairs-translations.json")
                         .bufferedReader().use { reader ->
                             JSONObject(reader.readText()).optJSONObject(language)?.let { json ->

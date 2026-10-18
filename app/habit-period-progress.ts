@@ -20,10 +20,11 @@ export function habitPeriodProgress(habit: Habit, date: string, workspace: Perio
     && event.date >= effectiveStart && event.date < period.end);
   const completions = workspace.habitCompletions.filter(entry => entry.habitId === habit.id
     && entry.date >= effectiveStart && entry.date < period.end);
-  let value = 0, qualifiedValue = 0, rewardValue = 0, conflicts = Boolean(ruleState.conflicts.length);
+  let value = 0, qualifiedValue = 0, rewardValue = 0, conflicts = Boolean(ruleState.conflicts.length), interrupted = false;
   for (let day = effectiveStart; day < period.end; day = addCivilDays(day, 1)) {
     const applied = habitRuleForDate(habit, day);
     const lifecycle = habitLifecycleState(habit, day);
+    if (isTrackerScheduledForDate(rule.schedule, day, goal.calendar) && (applied.id !== rule.id || lifecycle.status !== "active" || lifecycle.conflict)) interrupted = true;
     if (applied.id !== rule.id || lifecycle.status !== "active" || lifecycle.conflict || !isTrackerScheduledForDate(rule.schedule, day, goal.calendar)) continue;
     allowedDays.push(day);
     if (day > today) continue;
@@ -56,7 +57,7 @@ export function habitPeriodProgress(habit: Habit, date: string, workspace: Perio
       throw new RangeError("HABIT_MEASUREMENT_TOTAL_TOO_LARGE");
   }
   const deadline = allowedDays.at(-1) ?? null;
-  const partial = effectiveStart > period.start || Boolean(rule.schedule.endDate && rule.schedule.endDate < addCivilDays(period.end, -1));
+  const partial = interrupted || effectiveStart > period.start || Boolean(rule.schedule.endDate && rule.schedule.endDate < addCivilDays(period.end, -1));
   const unattainable = goal.metric === "days" && allowedDays.length < goal.target;
   const completed = qualifiedValue >= goal.target && !conflicts;
   return { goal, rule, ...period, effectiveStart, deadline, allowedDays, elapsedDays: days,
@@ -65,7 +66,7 @@ export function habitPeriodProgress(habit: Habit, date: string, workspace: Perio
     rewardEligible: rewardValue >= goal.target && !conflicts && (!ruleState.appliedVersion.selectedRuleId || !deadline
       || momentCivilDate(new Date(ruleState.appliedVersion.recordedAt), goal.context.timeZone) <= deadline),
     conflicts, partial, unattainable,
-    status: habitLifecycleState(habit, date).status !== "active" || ruleState.conflicts.length || partial && !completed || unattainable && !completed || !deadline ? "neutral" as const
+    status: ruleState.conflicts.length || partial && !completed || unattainable && !completed || !deadline ? "neutral" as const
       : completed ? "completed" as const : today > deadline ? "missed" as const : "open" as const };
 }
 

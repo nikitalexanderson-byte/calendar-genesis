@@ -46,7 +46,8 @@ export function preserveHabitTimerRecords<T>(incoming: T, saved: unknown): T {
       xpAwarded: Math.max(current.xpAwarded, row.xpAwarded) } : row);
   }
   return { ...incoming, habits: [...habits.values()], habitTimers, habitHistory,
-    habitTimerEpoch: habitWorkspaceEpoch(epoch, habitHistory.length > 0, lifecycleIds.size > 0), habitMeasurements, habitCompletions: [...completions.values()],
+    habitTimerEpoch: habitWorkspaceEpoch(epoch, habitHistory.length > 0, lifecycleIds.size > 0 || habitHistory.some(row => row.source === "decision")
+      || [...completions.values()].some(row => row.skippedAt)), habitMeasurements, habitCompletions: [...completions.values()],
     rewardTransactions: normalizeRewardTransactions([...(Array.isArray(incoming.rewardTransactions) ? incoming.rewardTransactions : []),
       ...(Array.isArray(saved.rewardTransactions) ? saved.rewardTransactions : [])]) } as T;
 }

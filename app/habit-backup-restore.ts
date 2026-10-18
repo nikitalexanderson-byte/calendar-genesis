@@ -33,7 +33,7 @@ export async function previewHabitRestore(workspace: HabitWorkspace, text: strin
     const current = workspace.habits.find(row => row.id === habit.id), copyId = `${prefix}:habit:${index}`;
     const restored = workspace.habits.some(row => row.id === copyId)
       || workspace.habitHistory.some(row => row.habitId === habit.id && row.id.startsWith(`${prefix}:`))
-      || current?.lifecycleHistory?.some(row => row.id === `${prefix}:pause:${index}`);
+      || current?.lifecycleHistory?.some(row => row.id.startsWith(`${prefix}:`));
     const records = backup.data.habitCompletions.filter(row => row.habitId === habit.id).length
       + backup.data.habitMeasurements.filter(row => row.habitId === habit.id).length;
     const sameRecords = ["habitCompletions", "habitMeasurements", "habitHistory"].every(key => {
@@ -64,6 +64,7 @@ export async function applyHabitRestore(workspace: HabitWorkspace, request: Habi
   if (!Number.isFinite(Date.parse(at))) return fail("HABIT_BACKUP_INVALID");
   if (Date.parse(checked.backup.createdAt) > Date.parse(at)) return fail("HABIT_RESTORE_FUTURE");
   const source = checked.backup.data, prefix = `restore:${checked.backup.checksum.slice(0, 32)}`;
+  const snapshotAt = checked.backup.createdAt;
   const selected = checked.habits.filter(row => row.kind === "new" || row.kind === "conflict" && request.choices[row.id] === "copy");
   if (checked.habits.some(row => row.kind === "conflict" && !["keep", "copy"].includes(request.choices[row.id]))) return fail("HABIT_RESTORE_CHOICE_REQUIRED");
   if (!selected.length) return workspace;
@@ -83,7 +84,9 @@ export async function applyHabitRestore(workspace: HabitWorkspace, request: Habi
       lifecycleHistory: (habit.lifecycleHistory ?? []).map(row => ({ ...clone(row), habitId: ids.get(habit.id)!,
         id: lifeIds.get(row.id)!, replaces: row.replaces.map(id => lifeIds.get(id)!), ...(row.selectedId ? { selectedId: lifeIds.get(row.selectedId)! } : {}) })) };
     if (habitLifecycleState(imported).status === "active") imported = applyHabitLifecycleCommand(imported, {
-      id: `${prefix}:pause:${index}`, habitId: imported.id, at, action: "pause", heads: habitLifecycleState(imported).heads.map(row => row.id) });
+      id: `${prefix}:pause:${index}`, habitId: imported.id, at: snapshotAt, action: "pause", heads: habitLifecycleState(imported).heads.map(row => row.id) });
+    else if (!imported.lifecycleHistory?.length) imported = applyHabitLifecycleCommand(imported, {
+      id: `${prefix}:observe:${index}`, habitId: imported.id, at: snapshotAt, action: "observe", heads: [] });
     return imported;
   });
   const habitMap = new Map(importedHabits.map(habit => [habit.id, habit]));
@@ -112,11 +115,11 @@ export async function applyHabitRestore(workspace: HabitWorkspace, request: Habi
     if (row.date > momentCivilDate(new Date(at), habit.schedule.timezone)) return fail("HABIT_RESTORE_FUTURE");
     const baseline = economy?.habitCompletions.find(item => item.habitId === originalId && item.date === row.date) ?? null;
     history.push({ id: dayIds.get(`${originalId}:${row.date}`)!, habitId: row.habitId, date: row.date,
-      createdAt: at, updatedAt: at, version: 1, syncState: "local", source: "import", epoch,
+      createdAt: snapshotAt, updatedAt: snapshotAt, version: 1, syncState: "local", source: "import", epoch,
       ruleId: habitRuleForDate(habit, row.date).id, replaces: habitHistoryState(history, row.habitId, row.date).heads.map(item => item.id),
       baseline: baseline ? { ...clone(baseline), habitId: row.habitId } : null,
       value: { completed: row.completed, qualityValue: row.qualityValue, note: row.note,
-        completedTimes: row.completedTimes ?? [], qualityConfirmedAt: row.qualityConfirmedAt ?? null } });
+        completedTimes: row.completedTimes ?? [], qualityConfirmedAt: row.qualityConfirmedAt ?? null, ...(row.skippedAt ? { skippedAt: row.skippedAt } : {}) } });
   }
   let timers = related(source.habitTimers).map(row => ({ ...clone(row), id: timerIds.get(row.id)!, sessionId: sessionIds.get(row.sessionId)!,
     habitId: ids.get(row.habitId)!, epoch, parents: row.parents.map(id => timerIds.get(id)!),

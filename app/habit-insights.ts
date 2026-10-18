@@ -3,6 +3,7 @@ import type { DailyGoalRecord } from "./daily-goal";
 import type { Habit, HabitCompletion, HabitWorkspace } from "./habits";
 import { addCivilDays, calendarContext, civilDayNumber, isCivilDate, momentCivilDate, type CalendarContext } from "./calendar-context.ts";
 import { habitGoalPeriod } from "./habit-period-goal.ts";
+import { currentHabitCompletions } from "./habit-completion-state.ts";
 
 type InsightCompletion = Pick<HabitCompletion, "habitId" | "date" | "completed">;
 
@@ -30,6 +31,7 @@ export type HabitWeeklySummary = {
 };
 
 export type HabitPersonalRecord = {
+  unknownDays?: number;
   periodUnit?: "week" | "month";
   habitId: string;
   currentStreak: number;
@@ -89,7 +91,8 @@ function weekMetrics(workspace: HabitWorkspace, startDate: string, endDate: stri
     const key = `${entry.habitId}:${entry.date}`, previous = unique.get(key);
     if (!previous || entry.completed && !previous.completed || entry.completed === previous.completed && entry.xpAwarded > previous.xpAwarded) unique.set(key, entry);
   }
-  const completions = [...unique.values()].filter(entry => entry.completed);
+  const latest = workspace.habits.flatMap(habit => [...currentHabitCompletions(workspace, habit.id).values()]);
+  const completions = latest.filter(entry => entry.date >= startDate && entry.date <= endDate && entry.completed);
   const perHabit = new Map<string, number>();
   completions.forEach((entry) => perHabit.set(entry.habitId, (perHabit.get(entry.habitId) ?? 0) + 1));
   const best = Array.from(perHabit.entries()).sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))[0];
@@ -99,7 +102,7 @@ function weekMetrics(workspace: HabitWorkspace, startDate: string, endDate: stri
     hasData: entries.length > 0 || records.length > 0 || (workspace.habitMeasurements ?? []).some(entry => entry.date >= startDate && entry.date <= endDate),
     dailyGoals: records.filter((record) => record.status === "qualified" || record.status === "perfect").length,
     perfectDays: records.filter((record) => record.status === "perfect").length,
-    xp: completions.reduce((total, entry) => total + Math.max(0, entry.xpAwarded), 0),
+    xp: [...unique.values()].reduce((total, entry) => total + Math.max(0, entry.xpAwarded), 0),
     laurels: workspace.rewardTransactions
       .filter((transaction) => transaction.amount > 0 && rewardDate(transaction, timeZone) >= startDate && rewardDate(transaction, timeZone) <= endDate)
       .reduce((total, transaction) => total + transaction.amount, 0),

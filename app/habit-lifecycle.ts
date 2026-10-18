@@ -1,7 +1,7 @@
 import { isCivilDate, momentCivilDate } from "./calendar-context.ts";
 
 export type HabitLifecycleStatus = "active" | "paused" | "archived" | "deleted";
-export type HabitLifecycleAction = "pause" | "resume" | "archive" | "delete" | "restore" | "resolve";
+export type HabitLifecycleAction = "pause" | "resume" | "archive" | "delete" | "restore" | "resolve" | "observe";
 export type HabitLifecycleEvent = {
   id: string; habitId: string; at: string; date: string;
   action: HabitLifecycleAction; status: HabitLifecycleStatus;
@@ -16,12 +16,13 @@ type LifecycleHabit = {
   lifecycleHistory?: HabitLifecycleEvent[];
 };
 const statuses = new Set(["active", "paused", "archived", "deleted"]);
-const actions = new Set(["pause", "resume", "archive", "delete", "restore", "resolve"]);
+const actions = new Set(["pause", "resume", "archive", "delete", "restore", "resolve", "observe"]);
 const transitions: Record<HabitLifecycleStatus, Partial<Record<HabitLifecycleAction, HabitLifecycleStatus>>> = {
-  active: { pause: "paused", archive: "archived", delete: "deleted" },
-  paused: { resume: "active", archive: "archived", delete: "deleted" },
-  archived: { restore: "paused", delete: "deleted" }, deleted: { restore: "paused" },
+  active: { pause: "paused", archive: "archived", delete: "deleted", observe: "active" },
+  paused: { resume: "active", archive: "archived", delete: "deleted", observe: "paused" },
+  archived: { restore: "paused", delete: "deleted", observe: "archived" }, deleted: { restore: "paused", observe: "deleted" },
 };
+const compatibleObservations = (rows: HabitLifecycleEvent[]) => rows.length > 0 && rows.every(row => row.action === "observe" && row.status === rows[0].status);
 const identifier = (value: unknown): value is string => typeof value === "string" && value.length > 0 && value.length <= 512;
 const sorted = (values: readonly string[]) => [...new Set(values)].sort();
 const canonical = (row: HabitLifecycleEvent) => JSON.stringify({ ...row, replaces: sorted(row.replaces) });
@@ -77,7 +78,7 @@ export function mergeHabitLifecycleEvents(...sources: unknown[]): HabitLifecycle
         }
       }
     } else {
-      if (row.replaces.length > 1) return fail();
+      if (row.replaces.length > 1 && !compatibleObservations(row.replaces.map(id => events.get(id)!))) return fail();
       const previous = row.replaces.length ? events.get(row.replaces[0])!.status : row.baselineActive ? "active" : "paused";
       if (transitions[previous][row.action] !== row.status) return fail();
     }
@@ -96,8 +97,8 @@ export function habitLifecycleState(habit: Pick<LifecycleHabit, "id" | "active" 
   const roots = all.filter(row => row.replaces.length === 0);
   const baselineUncertain = new Set(roots.map(row => row.baselineActive)).size > 1;
   const baselineActive = roots[0]?.baselineActive ?? habit.active;
-  const conflict = heads.length > 1;
-  const status: HabitLifecycleStatus = heads.length === 1 ? heads[0].status : conflict
+  const compatible = compatibleObservations(heads), conflict = heads.length > 1 && !compatible;
+  const status: HabitLifecycleStatus = heads.length === 1 || compatible ? heads[0].status : conflict
     ? heads.some(row => row.status === "deleted") ? "deleted" : heads.some(row => row.status === "archived") ? "archived" : "paused"
     : !baselineUncertain && baselineActive ? "active" : "paused";
   return { rows, heads, status, conflict, baselineActive, unknown: heads.length === 0 && baselineUncertain };

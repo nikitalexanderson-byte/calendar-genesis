@@ -362,6 +362,9 @@ export function mergeWorkspaceDocuments(input: {
         winnerRevision = rightRevision;
       }
       if (!winner) return;
+      if (collection === "habitCompletions" && leftItem && rightItem
+        && habitTimerEpoch(input.left.habitTimerEpoch) === habitTimerEpoch(input.right.habitTimerEpoch)) winner = { ...winner,
+        xpAwarded: Math.max(Number(leftItem.xpAwarded) || 0, Number(rightItem.xpAwarded) || 0) };
       if (historyRows) winner = historyRows.get(id) as unknown as Record<string, unknown>;
       if (collection === "habitMeasurements") {
         const events = mergeHabitMeasurementEvents(leftItem ? [leftItem] : [], rightItem ? [rightItem] : []);
@@ -412,9 +415,15 @@ export function mergeWorkspaceDocuments(input: {
     else merged[field] = canonical(input.left[field]) >= canonical(input.right[field]) ? input.left[field] : input.right[field];
   });
   const history = Array.isArray(merged.habitHistory) ? merged.habitHistory : [];
+  if (habitTimerEpoch(input.left.habitTimerEpoch) === habitTimerEpoch(input.right.habitTimerEpoch)
+    && merged.userProgress && typeof merged.userProgress === "object") {
+    const left = input.left.userProgress as Record<string, unknown> | undefined, right = input.right.userProgress as Record<string, unknown> | undefined;
+    merged.userProgress = { ...merged.userProgress, lifetimeXp: Math.max(Number(left?.lifetimeXp) || 0, Number(right?.lifetimeXp) || 0) };
+  }
   const epoch = habitTimerEpoch(merged.habitTimerEpoch);
   merged.habitTimerEpoch = habitWorkspaceEpoch(epoch, history.some(row => row && row.epoch === epoch),
-    Array.isArray(merged.habits) && merged.habits.some(row => Array.isArray(row.lifecycleHistory) && row.lifecycleHistory.length > 0));
+    Array.isArray(merged.habits) && merged.habits.some(row => Array.isArray(row.lifecycleHistory) && row.lifecycleHistory.length > 0)
+      || history.some(row => row?.source === "decision") || Array.isArray(merged.habitCompletions) && merged.habitCompletions.some(row => row.skippedAt));
   merged.syncMetadata = mergedMetadata;
   return { document: merged, metadata: mergedMetadata };
 }

@@ -25,12 +25,13 @@ object HabitLifecycle {
     data class State(val rows: List<HabitLifecycleEvent>, val heads: List<HabitLifecycleEvent>, val status: String,
         val conflict: Boolean, val baselineActive: Boolean, val unknown: Boolean)
     private val statuses = setOf("active", "paused", "archived", "deleted")
-    private val actions = setOf("pause", "resume", "archive", "delete", "restore", "resolve")
+    private val actions = setOf("pause", "resume", "archive", "delete", "restore", "resolve", "observe")
     private val transitions = mapOf(
-        "active" to mapOf("pause" to "paused", "archive" to "archived", "delete" to "deleted"),
-        "paused" to mapOf("resume" to "active", "archive" to "archived", "delete" to "deleted"),
-        "archived" to mapOf("restore" to "paused", "delete" to "deleted"),
-        "deleted" to mapOf("restore" to "paused"))
+        "active" to mapOf("pause" to "paused", "archive" to "archived", "delete" to "deleted", "observe" to "active"),
+        "paused" to mapOf("resume" to "active", "archive" to "archived", "delete" to "deleted", "observe" to "paused"),
+        "archived" to mapOf("restore" to "paused", "delete" to "deleted", "observe" to "archived"),
+        "deleted" to mapOf("restore" to "paused", "observe" to "deleted"))
+    private fun compatibleObservations(rows: List<HabitLifecycleEvent>)=rows.isNotEmpty() && rows.all { it.action=="observe" && it.status==rows.first().status }
     private fun validId(value: String) = value.isNotEmpty() && value.length <= 512
     private fun instant(value: String) = try { HabitTimers.instant(Instant.parse(value)) }
         catch (_: Exception) { throw IllegalArgumentException("INVALID_HABIT_LIFECYCLE") }
@@ -71,7 +72,7 @@ object HabitLifecycle {
                     }
                 }
             } else {
-                valid(row.replaces.size <= 1)
+                valid(row.replaces.size <= 1 || compatibleObservations(row.replaces.map { events.getValue(it) }))
                 val before = row.replaces.firstOrNull()?.let { events.getValue(it).status }
                     ?: if (row.baselineActive) "active" else "paused"
                 valid(transitions[before]?.get(row.action) == row.status)
@@ -86,8 +87,8 @@ object HabitLifecycle {
         val all = events.filter { it.habitId == habitId }; val rows = all.filter { it.date <= date }
         val replaced = rows.flatMap { it.replaces }.toSet(); val heads = rows.filter { it.id !in replaced }
         val roots = all.filter { it.replaces.isEmpty() }; val baselineUncertain = roots.map { it.baselineActive }.distinct().size > 1
-        val baseline = roots.firstOrNull()?.baselineActive ?: active; val conflict = heads.size > 1
-        val status = heads.singleOrNull()?.status ?: if (conflict) {
+        val baseline = roots.firstOrNull()?.baselineActive ?: active; val compatible=compatibleObservations(heads);val conflict = heads.size > 1 && !compatible
+        val status = (if(compatible) heads.first().status else heads.singleOrNull()?.status) ?: if (conflict) {
             if (heads.any { it.status == "deleted" }) "deleted" else if (heads.any { it.status == "archived" }) "archived" else "paused"
         } else if (!baselineUncertain && baseline) "active" else "paused"
         return State(rows, heads, status, conflict, baseline, heads.isEmpty() && baselineUncertain)

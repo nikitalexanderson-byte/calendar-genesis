@@ -12,6 +12,30 @@ function fixture() {
 }
 const backup=async workspace=>JSON.stringify(await b.createHabitBackup(workspace,at));
 
+test('clock-skewed snapshot timestamps cannot invent earlier parent transitions or partially apply data',async()=>{
+ const source=fixture();source.habits[0]=l.applyHabitLifecycleCommand(source.habits[0],{id:'future-observation',habitId:'habit-water',at:'2026-10-18T11:00:00.000Z',action:'observe',heads:[]});
+ const empty=clone(h.EMPTY_HABIT_WORKSPACE),before=JSON.stringify(empty),preview=await r.previewHabitRestore(empty,await backup(source));
+ await assert.rejects(()=>r.applyHabitRestore(empty,{preview,choices:{}},'2026-10-18T12:00:00.000Z'),/CLOCK_CONFLICT/);
+ assert.equal(JSON.stringify(empty),before);
+});
+
+test('two clients restoring the same file at different times produce identical causal records and merge without ID conflicts',async()=>{
+ const source=fixture(),text=await backup(source),sync=calendarModule('app/workspace-sync-state.ts');
+ for(const recover of [true,false]){
+  const local=recover?clone(h.EMPTY_HABIT_WORKSPACE):{...clone(source),habits:source.habits.map(row=>({...row,title:'Keep mine'}))};
+  const preview=await r.previewHabitRestore(local,text),choices=recover?{}:{'habit-water':'copy'};
+  const left=await r.applyHabitRestore(local,{preview,choices},'2026-10-18T12:00:00.000Z');
+  const right=await r.applyHabitRestore(local,{preview,choices},'2026-10-19T12:00:00.000Z');
+  assert.deepEqual(left.habits,right.habits);assert.deepEqual(left.habitHistory,right.habitHistory);
+  const clock={version:2,updatedAt:at,deviceId:'a'};
+  const merged=h.normalizeHabitWorkspace(sync.mergeWorkspaceDocuments({left,right,leftFallback:clock,rightFallback:{...clock,deviceId:'b'}}).document,'profane');
+  assert.equal(merged.habits.length,recover?1:2);
+  assert.equal(merged.habitMeasurements.length,recover?1:2);
+  assert.equal(merged.userProgress.lifetimeXp,local.userProgress.lifetimeXp||source.userProgress.lifetimeXp);
+  assert.equal((await r.previewHabitRestore(merged,text)).habits[0].kind,'restored');
+ }
+});
+
 test('clean recovery restores original IDs, values and the ledger while preserving unrelated private modules',async()=>{
  const source=fixture(), empty={...clone(h.EMPTY_HABIT_WORKSPACE),sleepPlans:[{id:'keep-private-sleep'}]};
  const preview=await r.previewHabitRestore(empty,await backup(source));

@@ -1158,7 +1158,8 @@ async function decryptWorkspace(envelope: WorkspaceEnvelope | null): Promise<Enc
 }
 
 function workspaceMinimumWriterProtocol(structure: EncryptedWorkspaceStructure) {
-  if (structure.habits.some(habit => habit.lifecycleHistory?.length)) return 7;
+  if (structure.habits.some(habit => habit.lifecycleHistory?.length) || structure.habitHistory.some(row => row.source === "decision")
+    || structure.habitCompletions.some(row => row.skippedAt)) return 7;
   if (structure.habitHistory.length) return 6;
   if (structure.habitTimers.length || structure.habitTimerEpoch) return 5;
   if (structure.habits.some(habit => habit.ruleHistory?.some(rule => rule.supersedes !== undefined || rule.selectedRuleId))) return 4;

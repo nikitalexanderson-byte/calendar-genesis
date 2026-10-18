@@ -1,7 +1,20 @@
 package ru.genesis.calendar.data
 
 import java.time.Instant
+import java.util.UUID
 import ru.genesis.calendar.domain.habits.*
+
+internal fun observeChangedHabitAvailability(previous: LocalHabitWorkspace, next: LocalHabitWorkspace, at: String): LocalHabitWorkspace {
+    fun changedRecords(id: String) = previous.completions.filter { it.habitId==id }!=next.completions.filter { it.habitId==id }
+        || previous.measurements.filter { it.habitId==id }!=next.measurements.filter { it.habitId==id }
+        || previous.history.filter { it.habitId==id }!=next.history.filter { it.habitId==id }
+        || previous.timers.filter { it.habitId==id }!=next.timers.filter { it.habitId==id }
+    return next.copy(habits=next.habits.map { habit ->
+        val old=previous.habits.firstOrNull { it.id==habit.id }
+        if(habit.lifecycleHistory.isNotEmpty() || old==habit && !changedRecords(habit.id)) habit
+        else HabitLifecycle.apply(habit,HabitLifecycleCommand("habit-observed:${UUID.randomUUID()}",habit.id,at,"observe",emptyList()))
+    })
+}
 
 /** Runs inside the same Room transaction as the encrypted document and outbox write. */
 internal object HabitLifecycleWorkspace {

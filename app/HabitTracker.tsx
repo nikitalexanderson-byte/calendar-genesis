@@ -145,6 +145,7 @@ import { ExperimentalIcon } from "./ExperimentalIcon";
 import { HabitHistoryPanel } from "./HabitHistoryPanel";
 import { HabitDataExport } from "./HabitDataExport";
 import type { HabitRestoreRequest } from "./habit-backup-restore";
+import type { HabitDayDecisionCommand } from "./habit-day-decision";
 import type { HabitHistoryCommand } from "./habit-history-workspace";
 import { habitLifecycleState, type HabitLifecycleCommand } from "./habit-lifecycle";
 import { applyHabitLifecycleToWorkspace } from "./habits";
@@ -161,7 +162,7 @@ type DailyPanelProps = {
   onSave?: (workspace: HabitWorkspace) => Promise<void>;
   onTimerCommand?: (command: HabitTimerCommand) => Promise<void>;
   onOpenHabits?: () => void;
-  onOpenHistory?: (date:string) => void;
+  onOpenHistory?: (date:string, habitId?:string) => void;
   onCreateHabit?: () => void;
   compact?: boolean;
   showGoalSettings?: boolean;
@@ -172,8 +173,9 @@ type HabitTrackerPageProps = DailyPanelProps & {
   onHistoryCommand?: (command:HabitHistoryCommand)=>Promise<void>;
   onLifecycleCommand?: (command:HabitLifecycleCommand)=>Promise<void>;
   onRestoreHabits?: (request: HabitRestoreRequest, scope: string) => Promise<void>;
+  onDayDecision?: (command: HabitDayDecisionCommand, scope: string) => Promise<void>;
   restoreScope?: string;
-  historyRequest?: {date:string;token:number}|null;
+  historyRequest?: {date:string;habitId?:string;token:number}|null;
   reminderFocus?: {habitId:string;date:string;token:number} | null;
   googleTasksReady: boolean;
   googleCalendarReady: boolean;
@@ -1236,7 +1238,8 @@ function AddictionEditor({ tracker, language, calendarMode, allowCalendarModeCha
   );
 }
 
-function HabitStatistics({ workspace, date, language, calendarMode, experimental, reportContext, rangeToolbar }: { workspace: HabitWorkspace; date: string; language: Language; calendarMode: CalendarMode; experimental: boolean; reportContext?: CalendarContext; rangeToolbar?: import("react").ReactNode }) {
+function HabitStatistics({ workspace, date, language, calendarMode, reportContext, rangeToolbar, timeFormat, scope, onOpenHistory, onDayDecision }: { workspace: HabitWorkspace; date: string; language: Language; calendarMode: CalendarMode; reportContext?: CalendarContext; rangeToolbar?: import("react").ReactNode;
+  timeFormat: TimeFormat; scope?: string; onOpenHistory?: (date:string, habitId?:string)=>void; onDayDecision?: (command:HabitDayDecisionCommand, scope:string)=>Promise<void> }) {
   const isEnglish = language === "en";
   const range = reportDateRange(workspace.habitSettings, date, reportCalendarStarts(date, calendarMode, reportContext));
   const dates = useMemo(() => dateValuesBetween(range.start, range.end), [range.start, range.end]);
@@ -1278,7 +1281,7 @@ function HabitStatistics({ workspace, date, language, calendarMode, experimental
   return (
     <section className="habit-statistics" aria-labelledby="habit-statistics-title">
       <header className="habit-stats-heading"><div><span className="eyebrow">{isEnglish ? "My habit statistics" : "Статистика моих привычек"}</span><h2 id="habit-statistics-title">{isEnglish ? "Independent tracker metrics" : "Метрики отдельных трекеров"}</h2></div></header>
-      <HabitInsightsPanel reportContext={reportContext} workspace={workspace} date={date} language={language} calendarMode={calendarMode} showCompletionCalendar={experimental} />
+      <HabitInsightsPanel reportContext={reportContext} workspace={workspace} date={date} language={language} calendarMode={calendarMode} timeFormat={timeFormat} scope={scope} onOpenHistory={onOpenHistory} onDayDecision={onDayDecision} />
       {rangeToolbar}
       <article className="heroic-rank-card" style={{ "--rank-color": rank.color } as CSSProperties}><div className="heroic-rank-art" /><div className="heroic-rank-copy"><span>{isEnglish ? "Heroic progression" : "Героический путь"}</span><h3>{isEnglish ? rank.titleEn : rank.title}</h3><p>{isEnglish ? `${total} lifetime XP · never spent or lost` : `${total} пожизненного XP · не тратится и не теряется`}</p><div><i style={{ width: `${progress}%` }} /></div><small>{nextRank ? (isEnglish ? `${nextRank.threshold - total} XP to ${nextRank.titleEn}` : `${nextRank.threshold - total} XP до «${nextRank.title}»`) : (isEnglish ? "Highest rank reached" : "Высший ранг достигнут")}</small></div><HeroicRankSigil className="heroic-rank-seal" rankId={rank.id} color={rank.color} /></article>
       <div className="habit-stat-cards"><article className="laurels-stat"><span>{isEnglish ? "Spendable currency" : "Расходуемая валюта"}</span><strong>♕ {workspace.userProgress.laurelsBalance}</strong><small>{isEnglish ? "Laurels balance" : "Баланс Лавров"}</small></article><article className="perfect-days-stat"><span>Perfect Day</span><strong>{perfectDays}</strong><small>{isEnglish ? "in selected period" : "за выбранный период"}</small></article><article><span>{isEnglish ? "Habit completion" : "Выполнение привычек"}</span><strong>{rate}%</strong><small>{done} / {scheduled}</small></article><article><span>{isEnglish ? "Average quality" : "Среднее качество"}</span><strong>{habitQualityCount ? (habitQualityTotal / habitQualityCount).toFixed(1) : "—"}</strong><small>{habitQualityCount} {isEnglish ? "ratings" : "оценок"}</small></article><article><span>{isEnglish ? "Period score" : "Баллы периода"}</span><strong>{Math.max(0, periodScore)}</strong><small>{formatCalendarDateValue(range.start, calendarMode)} — {formatCalendarDateValue(range.end, calendarMode)}</small></article><article><span>{isEnglish ? "Average sleep" : "Средняя длительность сна"}</span><strong>{formatDuration(sleepCount ? Math.round(sleepMinutes / sleepCount) : 0, isEnglish)}</strong><small>{sleepCount} {isEnglish ? "entries" : "записей"}</small></article><article><span>{isEnglish ? "Average mood" : "Среднее настроение"}</span><strong>{moodCount ? (moodTotal / moodCount).toFixed(1) : "—"}</strong><small>{moodCount} {isEnglish ? "entries" : "записей"}</small></article><article><span>{isEnglish ? "Abstinence" : "Воздержание"}</span><strong>{cleanDays}</strong><small>{isEnglish ? `${relapses} relapse(s)` : `${relapses} срывов`}</small></article></div>
@@ -1434,9 +1437,14 @@ function SacredHabitLibrary({
   );
 }
 
-export function HabitTrackerPage({ workspace, date, language, timeFormat, calendarMode, reportContext, googleTasksReady, googleCalendarReady, experimentalThemeActive = false, sacredFeaturesEnabled = true, voiceRequest, reminderFocus, historyRequest, onVoiceRequestConsumed, onChange, onSave, onTimerCommand, onHistoryCommand, onLifecycleCommand, onRestoreHabits, restoreScope, onReminderRequested, onReminderRemoved }: HabitTrackerPageProps) {
+export function HabitTrackerPage({ workspace, date, language, timeFormat, calendarMode, reportContext, googleTasksReady, googleCalendarReady, experimentalThemeActive = false, sacredFeaturesEnabled = true, voiceRequest, reminderFocus, historyRequest, onVoiceRequestConsumed, onChange, onSave, onTimerCommand, onHistoryCommand, onLifecycleCommand, onRestoreHabits, onDayDecision, restoreScope, onOpenHistory, onReminderRequested, onReminderRemoved }: HabitTrackerPageProps) {
   const isEnglish = language === "en";
   const workspaceRef = useRef(workspace);
+  const historyDirty = useRef(false);
+  const openSourceHistory = (date: string, habitId?: string) => {
+    if (historyDirty.current && !window.confirm(translateText("Вернуться без сохранения изменений?", language))) return;
+    onOpenHistory?.(date, habitId);
+  };
   useEffect(() => {
     workspaceRef.current = workspace;
   }, [workspace]);
@@ -1687,7 +1695,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
 
       {workspace.habitSettings.feedback.gamificationWidgets ? <HabitSectionBlock className="experimental-habit-section experimental-habit-section-progress" label={isEnglish ? "Achievements" : "Достижения"} language={language} {...sectionProps("achievements")}><AchievementPanel workspace={workspace} language={language} calendarMode={calendarMode} /></HabitSectionBlock> : null}
       <HabitSectionBlock className="experimental-habit-section experimental-habit-section-progress" label={isEnglish ? "My habit statistics" : "Статистика моих привычек"} language={language} {...sectionProps("statistics")}>
-      <HabitStatistics reportContext={reportContext} workspace={workspace} date={date} language={language} calendarMode={calendarMode} experimental={experimentalThemeActive} rangeToolbar={<section className="habit-range-toolbar">
+      <HabitStatistics reportContext={reportContext} workspace={workspace} date={date} language={language} calendarMode={calendarMode} timeFormat={timeFormat} scope={restoreScope} onOpenHistory={openSourceHistory} onDayDecision={onDayDecision} rangeToolbar={<section className="habit-range-toolbar">
         <span>{isEnglish ? "Analytics period" : "Период аналитики"}</span>
         <div>{(["week", "days-30", "month", "quarter", "year", "custom"] as const).map((period) => <button type="button" className={workspace.habitSettings.reportRange === period ? "active" : ""} onClick={() => onChange({ ...workspace, habitSettings: { ...workspace.habitSettings, reportRange: period } })} key={period}>{period === "week" ? (isEnglish ? "7 days" : "7 дней") : period === "days-30" ? (isEnglish ? "30 days" : "30 дней") : period === "month" ? (isEnglish ? "Month" : "Месяц") : period === "quarter" ? (isEnglish ? "Quarter" : "Квартал") : period === "year" ? (isEnglish ? "Year" : "Год") : (isEnglish ? "Custom" : "Свой")}</button>)}</div>
         {workspace.habitSettings.reportRange === "custom" ? <div className="habit-range-custom" role="group" aria-label={isEnglish ? "Custom analytics period" : "Пользовательский период аналитики"}>
@@ -1697,7 +1705,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
         </div> : <small>{formatCalendarDateValue(range.start, calendarMode)} — {formatCalendarDateValue(range.end, calendarMode)}</small>}
       </section>} />
       <HabitDataExport workspace={workspace} language={language} timeFormat={timeFormat} timeZone={reportContext?.timeZone} restoreScope={restoreScope} onRestore={onRestoreHabits} />
-      {onHistoryCommand?<HabitHistoryPanel key={historyRequest?.token??"history"} requestedDate={historyRequest?.date} workspace={workspace} language={language} calendarMode={calendarMode} timeFormat={timeFormat} reportContext={reportContext} onCommand={onHistoryCommand}/>:null}
+      {onHistoryCommand?<HabitHistoryPanel key={historyRequest?.token??"history"} requestedDate={historyRequest?.date} requestedHabitId={historyRequest?.habitId} workspace={workspace} language={language} calendarMode={calendarMode} timeFormat={timeFormat} reportContext={reportContext} onCommand={onHistoryCommand} onDirtyChange={value=>{historyDirty.current=value;}}/>:null}
       </HabitSectionBlock>
       {sacredFeaturesEnabled ? <HabitSectionBlock className="experimental-habit-section experimental-habit-section-library" label={isEnglish ? "Sacred habits" : "Сакральные привычки"} language={language} {...sectionProps("sacred-habits")}><SacredHabitLibrary
           workspace={workspace}

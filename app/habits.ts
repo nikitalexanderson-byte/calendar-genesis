@@ -1,5 +1,24 @@
 import type { CalendarMode } from "./calendar-data";
 import { catalogText } from "./catalog-i18n";
+
+/** Begin documenting legacy availability at the first real edit, without inventing past pauses. */
+export function observeChangedHabitAvailability(previous: HabitWorkspace, next: HabitWorkspace, at: string): HabitWorkspace {
+  const records = (workspace: HabitWorkspace, id: string) => JSON.stringify([
+    workspace.habitCompletions.filter(row => row.habitId === id),
+    workspace.habitMeasurements.filter(row => row.habitId === id),
+    workspace.habitHistory.filter(row => row.habitId === id),
+    workspace.habitTimers.filter(row => row.habitId === id),
+  ]);
+  let changed = false;
+  const habits = next.habits.map(habit => {
+    if (habit.lifecycleHistory?.length) return habit;
+    const old = previous.habits.find(row => row.id === habit.id);
+    if (old && JSON.stringify(old) === JSON.stringify(habit) && records(previous, habit.id) === records(next, habit.id)) return habit;
+    changed = true;
+    return applyHabitLifecycleCommand(habit, { id: `habit-observed:${crypto.randomUUID()}`, habitId: habit.id, at, action: "observe", heads: [] });
+  });
+  return changed ? { ...next, habits } : next;
+}
 import type { Language } from "./i18n";
 import { habitIntervalTimes, habitIntervalMarks, normalizeHabitInterval, normalizeHabitCompletedTimes, type HabitIntervalSchedule } from "./habit-interval";
 import { effectiveHabitMeasurement, habitMeasurementProgress, habitRuleForDate, mergeHabitMeasurementEvents, newHabitMeasurementEvent,
@@ -222,6 +241,7 @@ export type HabitCompletion = TrackerEntity & {
   habitId: string;
   date: string;
   completed: boolean;
+  skippedAt?: string | null;
   completedTimes?: string[];
   qualityValue: number | null;
   qualityConfirmedAt?: string | null;
@@ -309,6 +329,7 @@ type LegacyHabit = Partial<TrackerEntity> & {
 };
 
 type LegacyHabitEntry = Partial<TrackerEntity> & {
+  skippedAt?: string | null;
   qualityConfirmedAt?: string | null;
   id?: string;
   habitId?: string;
@@ -532,7 +553,7 @@ export function updateHabitCompletion(
   const current = workspace.habitCompletions.find((entry) => entry.habitId === habit.id && entry.date === date);
   const base: HabitCompletion = current ?? {
     ...newTrackerEntity("habit-completion"),
-    ...(effectiveHabitMeasurement(habitRuleForDate(habit, date)) ? { id: `habit-completion:${habit.id}:${date}` } : {}),
+    id: `habit-completion:${habit.id}:${date}`,
     habitId: habit.id,
     date,
     completed: false,
@@ -542,6 +563,7 @@ export function updateHabitCompletion(
     note: "",
   };
   const patched = markTrackerEntityChanged({ ...base, ...patch,
+    ...(patch.completed === true ? { skippedAt: null } : {}),
     ...(habit.intervalSchedule?.completionMode === "each" && patch.completed !== undefined ? {
       completedTimes: patch.completedTimes !== undefined ? normalizeHabitCompletedTimes(patch.completedTimes)
         : patch.completed ? habitIntervalTimes(habit.intervalSchedule) : [],
@@ -620,6 +642,7 @@ function normalizeHabitCompletion(value: LegacyHabitEntry, habits: Map<string, H
   const date = typeof value.date === "string" ? value.date : "";
   const habit = habits.get(habitId);
   if (!habit || !DATE_PATTERN.test(date) || date < habit.createdDate) return null;
+  if (value.skippedAt != null && (typeof value.skippedAt !== "string" || !Number.isFinite(Date.parse(value.skippedAt)))) throw new RangeError("INVALID_HABIT_HISTORY");
   const qualityValue = typeof value.qualityValue === "number"
     ? value.qualityValue
     : typeof value.quality === "number" ? value.quality : null;
@@ -634,6 +657,7 @@ function normalizeHabitCompletion(value: LegacyHabitEntry, habits: Map<string, H
     date,
     ...completion,
     completedTimes: normalizeHabitCompletedTimes(value.completedTimes),
+    ...(value.skippedAt ? { skippedAt: value.skippedAt } : {}),
     qualityConfirmedAt: typeof value.qualityConfirmedAt === "string" ? value.qualityConfirmedAt : null,
     score,
     xpAwarded: typeof value.xpAwarded === "number"
@@ -874,7 +898,8 @@ export function normalizeHabitWorkspace(
     habitMeasurements,
     habitTimers,
     habitHistory,
-    habitTimerEpoch: habitWorkspaceEpoch(value.habitTimerEpoch, habitHistory.length > 0, habits.some(habit => habit.lifecycleHistory?.length)),
+    habitTimerEpoch: habitWorkspaceEpoch(value.habitTimerEpoch, habitHistory.length > 0, habits.some(habit => habit.lifecycleHistory?.length)
+      || habitHistory.some(row => row.source === "decision") || habitCompletions.some(row => row.skippedAt)),
     sleepPlans,
     sleepEntries: [...explicitSleepEntries, ...migratedSleepEntries],
     moodEntries: normalizeMoodEntries(value.moodEntries),
