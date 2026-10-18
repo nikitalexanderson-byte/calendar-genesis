@@ -20,6 +20,7 @@ function genesisBackgroundClaim(?string $now=null,?string $uniqueKey=null): ?arr
         foreach($expired as$ended)if($ended['kind']==='shared-bulk')genesisSharedBulkJobFailed($ended,'BACKGROUND_LEASE_EXPIRED');
         foreach($expired as$ended)if($ended['kind']==='shared-notification')genesisNotificationJobFailed($ended,'BACKGROUND_LEASE_EXPIRED');
         foreach($expired as$ended)if($ended['kind']==='habit-notification')genesisHabitReminderJobFailed($ended,'BACKGROUND_LEASE_EXPIRED');
+        foreach($expired as$ended)if($ended['kind']==='shared-automation')genesisAutomationJobError($ended,'BACKGROUND_LEASE_EXPIRED',true);
         $q=$db->prepare("SELECT * FROM background_jobs WHERE ((state='pending' AND available_at<=?) OR (state='running' AND lease_until<=?))".$scope." ORDER BY available_at,id LIMIT 1");
         $q->execute([$now,$now,...$keyValues]);$job=$q->fetch();$q->closeCursor();
         if(!$job){$db->commit();return null;}
@@ -42,6 +43,7 @@ function genesisBackgroundPerform(array $job,?callable $handler=null): string
         $state=$handler ? $handler($job['kind'],$payload) : match($job['kind']) {
             'shared-series'=>genesisSharedSeriesGenerate($payload),
             'shared-bulk'=>genesisSharedBulkBatch($payload),
+            'shared-automation'=>genesisAutomationPerform($payload),
             'shared-notification'=>genesisNotificationDeliver($payload),
             default=>throw new RuntimeException('BACKGROUND_KIND_UNSUPPORTED'),
         };
@@ -66,6 +68,7 @@ function genesisBackgroundPerform(array $job,?callable $handler=null): string
             if($job['kind']==='shared-series' && isset($payload['seriesId'],$payload['revision'])) $db->prepare('UPDATE shared_task_series SET last_error=? WHERE id=? AND revision=?')->execute([$code,$payload['seriesId'],$payload['revision']]);
             if($job['kind']==='shared-bulk'&&$state==='failed')genesisSharedBulkJobFailed($job,$code);
             if($job['kind']==='shared-notification'&&$state==='failed')genesisNotificationJobFailed($job,$code);
+            if($job['kind']==='shared-automation')genesisAutomationJobError($job,$code,$state==='failed');
             $db->commit();return $state;
         }catch(Throwable $failure){if($db->inTransaction())$db->rollBack();throw $failure;}
     }
@@ -75,6 +78,7 @@ function genesisBackgroundRun(int $limit=20): array
 {
     $db=genesisDb();$db->exec("UPDATE background_worker_state SET started_at=strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id=1");
     genesisSharedSeriesEnqueue();
+    genesisAutomationScan();
     genesisHabitReminderMaintenance();
     genesisNotificationScan();
     $counts=['succeeded'=>0,'cancelled'=>0,'pending'=>0,'failed'=>0,'superseded'=>0];$deadline=microtime(true)+25;

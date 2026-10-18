@@ -25,7 +25,7 @@ function genesisNotificationInboxSql(string $userId,?string $spaceId=null,bool $
     // Creation history stays discoverable for newly added members; this does not enqueue past external deliveries.
     $typeFilter=$channel==='all'?'1=1':($channel==='email'?"COALESCE(json_extract(pref.settings_json,'$.emailTypes.'||($kind)),json_extract(pref.settings_json,'$.types.'||($kind)),1)=1":"COALESCE(json_extract(pref.settings_json,'$.types.'||($kind)),1)=1");
     $where=" WHERE (n.user_id IS NOT NULL OR (e.actor_id IS NOT :user AND (e.action IN ('project.created','task.created') OR (captured.event_id IS NULL AND e.action IN ('project.updated','invitation.accepted','member.role_changed','task.updated','task.moved_in','task.moved_out','comment.created')))))
-        AND (e.action IN ('project.created','project.updated','invitation.accepted','member.role_changed') OR t.id IS NOT NULL OR e.task_id IS NOT NULL)
+        AND (e.action IN ('project.created','project.updated','invitation.accepted','member.role_changed','automation.notification') OR t.id IS NOT NULL OR e.task_id IS NOT NULL)
         AND NOT EXISTS(SELECT 1 FROM shared_trash tr WHERE (tr.kind='project' AND tr.object_id=p.id) OR (tr.kind='task' AND tr.object_id=COALESCE(n.task_id,e.task_id,t.id)))
         AND ($typeFilter)
         AND (COALESCE(n.kind,'')<>'approvalRequest' OR (n.approval_version=ns.approval_version AND EXISTS(SELECT 1 FROM shared_task_approvals a WHERE a.task_id=t.id AND a.user_id=:user AND a.approved_at IS NULL)))
@@ -65,7 +65,7 @@ function genesisNotificationInbox(string $userId,string $before='',bool $unread=
     $q=$db->prepare('SELECT e.id,e.action,e.created_at AS createdAt,'.$sql['kind'].' AS kind,
         COALESCE(t.id,e.task_id,e.object_id) AS objectId,p.id AS projectId,p.title AS projectTitle,p.space_id AS spaceId,
         COALESCE(NULLIF(actor.display_name,\'\'),\'GENESIS\') AS actorName,CASE WHEN e.task_id IS NOT NULL OR e.action LIKE \'task.%\' THEN COALESCE(t.title,json_extract(e.details_json,\'$.objectTitle\')) END AS taskTitle,t.archived_at AS archivedAt,t.due_date AS dueDate,
-        substr(c.body,1,180) AS commentBody,c.id AS commentId,CASE WHEN r.event_id IS NULL THEN 0 ELSE 1 END AS isRead'
+        COALESCE(substr(c.body,1,180),substr(json_extract(e.details_json,\'$.message\'),1,1000)) AS commentBody,c.id AS commentId,CASE WHEN r.event_id IS NULL THEN 0 ELSE 1 END AS isRead'
         .$sql['from'].$sql['where'].$filter.' ORDER BY e.created_at DESC,e.id DESC LIMIT '.($limit+1));
     $q->execute($values);$rows=$q->fetchAll();$q->closeCursor();$settings=genesisNotificationPreferences($userId)['settings'];$preview=genesisNotificationQuietUntil($settings)===null;$user=genesisFindUser($userId);
     $items=array_map(static function($row)use($preview,$settings,$user){$row['isRead']=(int)$row['isRead'];$row['previewAllowed']=$preview;$row['timeZone']=$settings['timeZone'];$row['timeFormat']=$user['time_format']??'24h';$row['gregorianYearStart']=$user['gregorian_year_start']??'january';return$row;},array_slice($rows,0,$limit));

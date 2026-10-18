@@ -1,5 +1,7 @@
 # Комплекс улучшений GENESIS — 14 октября 2026
 
+Актуальное продолжение18 октября: сервер/web C2 проверены в непубликуемой ветке `codex/genesis-complete-acceptance` после C6/C3/C1 и F.365 web tests,24 PHP suites,14 языков, обе темы ×360/390/768/1440, реальная leased queue, CAS/replay и ACL/черновики подтверждены. [Отчёт C2 и ограничения](genesis-automations-2026-10-18.md). Следующий этап C5 → C4/G → зависимости B → native/общая приёмка. Последний запрет деплоя до полного завершения заменяет исторические разрешения небольших выпусков ниже. Master/production остаётся36027d8; SSH и production-БД в этом продолжении не использовались. [Текущее состояние](genesis-current-status-2026-10-18.md).
+
 ## Исходное состояние и выпуск
 
 - Источник: `nikitalexanderson-byte/calendar-genesis`; отдельная ветка `codex/genesis-complete-improvements`, управляемый worktree `genesis-complete-improvements`.
