@@ -1810,12 +1810,23 @@ export async function saveSharedMemberCategory(spaceId: string, input: {title: s
 export function assignSharedMemberPermissions(spaceId: string, userId: string, categoryId: string | null, permissions?: SharedPermissions) {
   return api<{ok: true}>(`/shared/spaces/${encodeURIComponent(spaceId)}/members/${encodeURIComponent(userId)}/permissions`, {method:"PATCH",body:JSON.stringify({categoryId,permissions})});
 }
+export function loadSharedProjectAccess(spaceId: string, userId: string, signal?: AbortSignal) {
+  return api<import("./shared-project-access").SharedProjectAccessState>(`/shared/spaces/${encodeURIComponent(spaceId)}/members/${encodeURIComponent(userId)}/project-access`, { signal });
+}
+export function previewSharedProjectAccess(spaceId: string, userId: string, draft: import("./shared-project-access").SharedProjectAccessDraft, signal?: AbortSignal) {
+  return api<import("./shared-project-access").SharedProjectAccessPreview>(`/shared/spaces/${encodeURIComponent(spaceId)}/members/${encodeURIComponent(userId)}/project-access`, { method: "POST", body: JSON.stringify(draft), signal });
+}
+export async function saveSharedProjectAccess(spaceId: string, userId: string, command: import("./shared-project-access").SharedProjectAccessCommand) {
+  const receipt = await api<{ operationId: string; revision: number; changed: number }>(`/shared/spaces/${encodeURIComponent(spaceId)}/members/${encodeURIComponent(userId)}/project-access`, { method: "PATCH", body: JSON.stringify(command) });
+  if (typeof window !== "undefined") window.dispatchEvent(new Event("genesis:shared-updates"));
+  return receipt;
+}
 export async function approveSharedTask(projectId: string, taskId: string) {
   return (await api<{task: SharedTask}>(`/shared/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}/approve`, {method:"POST",body:"{}"})).task;
 }
 export type SharedComment = { id: string; body: string; mentionIds?: string[]; authorId: string; authorName: string; createdAt: string };
 export type SharedActivityEvent = { id: string; action: string; objectId: string; taskId: string | null; boardId: string | null; actorName: string; createdAt: string;
-  details: { objectTitle?: string; imageChanged?: boolean; changes?: Record<string, { from: unknown; to: unknown }> } };
+  details: { objectTitle?: string; imageChanged?: boolean; changes?: Record<string, { from: unknown; to: unknown; fromUnavailable?: boolean; toUnavailable?: boolean }> } };
 export type SharedGoogleSettings = { tasksEnabled: boolean; calendarEnabled: boolean;
   tasksAvailable: boolean; calendarAvailable: boolean };
 

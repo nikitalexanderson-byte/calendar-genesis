@@ -903,6 +903,11 @@ try {
         if (count($segments) === 5 && $segments[1] === 'spaces' && $segments[3] === 'member-categories' && $method === 'PATCH') {
             genesisJson(['category' => genesisSharedMemberCategory($userId, $segments[2], genesisReadJson(), $segments[4])]);
         }
+        if (count($segments) === 6 && $segments[1] === 'spaces' && $segments[3] === 'members' && $segments[5] === 'project-access') {
+            if($method==='GET')genesisJson(genesisSharedProjectAccessState($userId,$segments[2],$segments[4]));
+            if($method==='POST')genesisJson(genesisSharedPreviewProjectAccess($userId,$segments[2],$segments[4],genesisReadJson()));
+            if($method==='PATCH')genesisJson(genesisSharedSaveProjectAccess($userId,$segments[2],$segments[4],genesisReadJson()));
+        }
         if (count($segments) === 6 && $segments[1] === 'spaces' && $segments[3] === 'members' && $segments[5] === 'permissions' && $method === 'PATCH') {
             genesisSharedAssignMemberPermissions($userId, $segments[2], $segments[4], genesisReadJson());
             genesisJson(['ok' => true]);

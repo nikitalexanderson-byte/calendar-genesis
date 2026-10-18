@@ -10,6 +10,16 @@ function genesisSharedMindmapAccess(string $userId, string $spaceId, bool $write
     return $space;
 }
 
+function genesisSharedMindmapProjectScope(string $userId,string $spaceId,?string $projectId,bool $write=false):void
+{
+    $space=genesisSharedSpaceAccess($spaceId,$userId);
+    if($projectId!==null){
+        $project=genesisSharedProjectAccess($projectId,$userId,$write?'write':'read',true);
+        if($project['space_id']!==$spaceId)throw new GenesisSharedAccessException();
+    }elseif((bool)$space['project_access_restricted']&&!in_array($space['member_role'],['owner','admin'],true))throw new GenesisSharedAccessException();
+    elseif($write&&!genesisSharedSpacePermission($space,'editTasks'))throw new GenesisSharedAccessException('SHARED_PROJECT_FORBIDDEN',403);
+}
+
 function genesisSharedMapLength(string $value):int {return intdiv(strlen(mb_convert_encoding($value,"UTF-16LE","UTF-8")),2);}
 function genesisSharedMapId(mixed $id):string {if(!is_string($id))throw new InvalidArgumentException('INVALID_MINDMAP');genesisMindmapId($id);return $id;}
 function genesisSharedMapColors(mixed $value,array $keys):array {
@@ -106,9 +116,11 @@ function genesisSharedMindmaps(string $userId, string $spaceId, ?string $history
 {
     genesisSharedMindmapAccess($userId, $spaceId);
     if ($historyId !== null) genesisMindmapId($historyId);
-    $q = genesisDb()->prepare($historyId === null ? 'SELECT * FROM shared_mindmaps WHERE space_id=? ORDER BY updated_at DESC'
-        : 'SELECT * FROM shared_mindmap_versions WHERE space_id=? AND map_id=? ORDER BY revision DESC LIMIT 20');
-    $q->execute($historyId === null ? [$spaceId] : [$spaceId,$historyId]);
+    $space=genesisSharedSpaceAccess($spaceId,$userId);
+    $access=' AND ((project_id IS NULL AND ?=0) OR project_id IN (SELECT p.id FROM shared_projects p JOIN shared_project_members m ON m.project_id=p.id AND m.user_id=? JOIN shared_space_members sm ON sm.space_id=p.space_id AND sm.user_id=m.user_id WHERE p.space_id=? AND NOT EXISTS(SELECT 1 FROM shared_trash t WHERE t.kind=\'project\' AND t.object_id=p.id)))';
+    $q=genesisDb()->prepare($historyId===null?'SELECT * FROM shared_mindmaps WHERE space_id=?'.$access.' ORDER BY updated_at DESC'
+        :'SELECT * FROM shared_mindmap_versions WHERE space_id=? AND map_id=?'.$access.' ORDER BY revision DESC LIMIT 20');
+    $values=$historyId===null?[$spaceId]:[$spaceId,$historyId];array_push($values,(int)((bool)$space['project_access_restricted']&&!in_array($space['member_role'],['owner','admin'],true)),$userId,$spaceId);$q->execute($values);
     return array_map('genesisSharedMindmapRecord', $q->fetchAll());
 }
 
@@ -118,8 +130,11 @@ function genesisSaveSharedMindmap(string $userId, string $spaceId, string $id, a
     if (($input['schemaVersion'] ?? null) !== 1 || !is_int($input['expectedRevision'] ?? null) || $input['expectedRevision'] < 0) throw new InvalidArgumentException('INVALID_MINDMAP');
     $db = genesisDb(); genesisBeginWriteTransaction($db);
     try {
-        genesisSharedMindmapAccess($userId, $spaceId, true);
+        genesisSharedMindmapAccess($userId, $spaceId);
         $document = genesisSharedMindmapDocument($spaceId, $id, $input['document'] ?? null);
+        genesisSharedMindmapProjectScope($userId,$spaceId,$document['projectId'],true);
+        $q=$db->prepare('SELECT project_id FROM shared_mindmaps WHERE space_id=? AND id=?');$q->execute([$spaceId,$id]);
+        if($row=$q->fetch())genesisSharedMindmapProjectScope($userId,$spaceId,$row['project_id'],true);
         $plain = json_encode($document, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
         $hash = hash('sha256', $input['expectedRevision'] . ':' . $plain);
         $q = $db->prepare('SELECT 1 FROM shared_mindmap_deletions WHERE space_id=? AND map_id=?'); $q->execute([$spaceId,$id]);
@@ -150,12 +165,15 @@ function genesisDeleteSharedMindmap(string $userId, string $spaceId, string $id,
     if (!is_int($input['expectedRevision'] ?? null) || $input['expectedRevision'] < 0) throw new InvalidArgumentException('INVALID_MINDMAP');
     $db = genesisDb(); genesisBeginWriteTransaction($db);
     try {
-        genesisSharedMindmapAccess($userId,$spaceId,true);
-        $q=$db->prepare('SELECT 1 FROM shared_mindmap_deletions WHERE space_id=? AND map_id=?'); $q->execute([$spaceId,$id]);
-        if ($q->fetchColumn()) { $db->commit(); return ['deleted'=>true]; }
-        $q=$db->prepare('SELECT revision FROM shared_mindmaps WHERE space_id=? AND id=?'); $q->execute([$spaceId,$id]);
-        if ((int)$q->fetchColumn() !== $input['expectedRevision']) throw new GenesisResourceLimitException(409,'MAP_REVISION_CONFLICT');
-        $db->prepare('INSERT INTO shared_mindmap_deletions VALUES(?,?)')->execute([$spaceId,$id]);
+        genesisSharedMindmapAccess($userId,$spaceId);
+        $q=$db->prepare('SELECT d.map_id,s.project_id FROM shared_mindmap_deletions d LEFT JOIN shared_mindmap_deletion_scopes s ON s.space_id=d.space_id AND s.map_id=d.map_id WHERE d.space_id=? AND d.map_id=?'); $q->execute([$spaceId,$id]);
+        if($deleted=$q->fetch()){genesisSharedMindmapProjectScope($userId,$spaceId,$deleted['project_id'],true);$db->commit();return ['deleted'=>true];}
+        $q=$db->prepare('SELECT revision,project_id FROM shared_mindmaps WHERE space_id=? AND id=?'); $q->execute([$spaceId,$id]);$map=$q->fetch();
+        if(!$map)throw new GenesisSharedAccessException();
+        genesisSharedMindmapProjectScope($userId,$spaceId,$map['project_id'],true);
+        if ((int)$map['revision'] !== $input['expectedRevision']) throw new GenesisResourceLimitException(409,'MAP_REVISION_CONFLICT');
+        $db->prepare('INSERT INTO shared_mindmap_deletions(space_id,map_id) VALUES(?,?)')->execute([$spaceId,$id]);
+        $db->prepare('INSERT INTO shared_mindmap_deletion_scopes(space_id,map_id,project_id) VALUES(?,?,?)')->execute([$spaceId,$id,$map['project_id']]);
         $db->prepare('DELETE FROM shared_mindmaps WHERE space_id=? AND id=?')->execute([$spaceId,$id]);
         $db->commit(); return ['deleted'=>true];
     } catch (Throwable $error) { if ($db->inTransaction()) $db->rollBack(); throw $error; }
@@ -164,7 +182,7 @@ function genesisDeleteSharedMindmap(string $userId, string $spaceId, string $id,
 /** Runs inside the ordinary shared-task transaction, so two members cannot duplicate one thought. */
 function genesisSharedMindmapConversion(string $userId, array $project, array $source): ?array
 {
-    $spaceId=$project['space_id']; genesisSharedMindmapAccess($userId,$spaceId,true);
+    $spaceId=$project['space_id']; genesisSharedMindmapAccess($userId,$spaceId);
     genesisSharedMapId($source['mapId'] ?? ''); genesisSharedMapId($source['nodeId'] ?? '');
     $q=genesisDb()->prepare('SELECT * FROM shared_mindmap_conversions WHERE space_id=? AND map_id=? AND node_id=?');
     $q->execute([$spaceId,$source['mapId'],$source['nodeId']]); $existing=$q->fetch();
@@ -174,8 +192,9 @@ function genesisSharedMindmapConversion(string $userId, array $project, array $s
         foreach ($snapshot['tasks'] as $task) if ($task['id']===$existing['task_id']) return $task;
         throw new GenesisResourceLimitException(409,'TASK_DELETED');
     }
-    $q=genesisDb()->prepare('SELECT content FROM shared_mindmaps WHERE space_id=? AND id=?'); $q->execute([$spaceId,$source['mapId']]); $content=$q->fetchColumn();
-    if ($content===false) throw new GenesisSharedAccessException();
+    $q=genesisDb()->prepare('SELECT content,project_id FROM shared_mindmaps WHERE space_id=? AND id=?'); $q->execute([$spaceId,$source['mapId']]); $map=$q->fetch();
+    if (!$map) throw new GenesisSharedAccessException();
+    genesisSharedMindmapProjectScope($userId,$spaceId,$map['project_id'],true);$content=$map['content'];
     $document=json_decode(genesisSharedContentDecrypt($content),true,64,JSON_THROW_ON_ERROR);
     foreach ($document['nodes'] as $node) if ($node['id']===$source['nodeId'] && $node['kind']==='idea') return null;
     throw new GenesisResourceLimitException(409,'MAP_REVISION_CONFLICT');

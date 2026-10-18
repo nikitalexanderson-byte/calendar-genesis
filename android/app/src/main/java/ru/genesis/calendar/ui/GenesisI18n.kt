@@ -1428,7 +1428,7 @@ private object TranslationCatalog {
                 fun objectAsset(name: String): JSONObject = context.assets.open("originals/i18n/$name")
                     .bufferedReader().use { JSONObject(it.readText()) }
                 buildMap {
-                    listOf("translations.en.json", "ui-translations/en.json", "curated-translations.en.json", "year-translations/en.json").forEach { name ->
+                    listOf("translations.en.json", "ui-translations/en.json", "shared-work-translations/en.json", "curated-translations.en.json", "year-translations/en.json").forEach { name ->
                         runCatching { objectAsset(name) }.onSuccess { catalog ->
                             catalog.keys().forEach { put(it, catalog.getString(it)) }
                         }.onFailure { error ->
@@ -1486,6 +1486,7 @@ private object TranslationCatalog {
                         }
                     }
                     context.assets.open("originals/i18n/ui-translations/$language.json").bufferedReader().use {reader->JSONObject(reader.readText()).let {json->json.keys().forEach {put(it,json.getString(it))}}}
+                    context.assets.open("originals/i18n/shared-work-translations/$language.json").bufferedReader().use {reader->JSONObject(reader.readText()).let {json->json.keys().forEach {put(it,json.getString(it))}}}
                     context.assets.open("originals/i18n/native-affairs-translations.json")
                         .bufferedReader().use { reader ->
                             JSONObject(reader.readText()).optJSONObject(language)?.let { json ->

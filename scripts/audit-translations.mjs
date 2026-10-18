@@ -74,6 +74,7 @@ const translations = {
   ...JSON.parse(catalogText),
   ...JSON.parse(curatedText),
   ...JSON.parse(await readFile(path.join(APP_DIR, "ui-translations/en.json"), "utf8")),
+  ...JSON.parse(await readFile(path.join(APP_DIR, "shared-work-translations/en.json"), "utf8")),
   ...JSON.parse(await readFile(path.join(APP_DIR, "habit-report-translations.json"), "utf8")).en,
   ...readCuratedTranslations(i18nText),
 };

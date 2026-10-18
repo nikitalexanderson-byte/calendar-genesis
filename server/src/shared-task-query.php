@@ -21,7 +21,7 @@ function genesisSharedQueryIds(mixed $value): array
 /** Only accessible projects enter the cursor fingerprint; permissions are rechecked on every page. */
 function genesisSharedQueryScope(string $userId, array $filter): array
 {
-    $sql = 'SELECT p.id,p.revision,p.space_id,m.role,sm.role AS spaceRole,sm.permissions_json,sm.can_organize_tasks,
+    $sql = 'SELECT p.id,p.revision,p.space_id,m.role,sm.role AS spaceRole,sm.permissions_json,sm.can_organize_tasks,sm.project_access_restricted,
         COALESCE(v.version,0) AS version FROM shared_projects p
         JOIN shared_project_members m ON m.project_id=p.id AND m.user_id=?
         JOIN shared_space_members sm ON sm.space_id=p.space_id AND sm.user_id=m.user_id
