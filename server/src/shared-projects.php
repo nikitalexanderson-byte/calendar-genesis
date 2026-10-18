@@ -28,6 +28,8 @@ require_once __DIR__ . '/shared-custom-fields.php';
 require_once __DIR__ . '/template-apply.php';
 require_once __DIR__ . '/automation-worker.php';
 require_once __DIR__ . '/shared-data-apply.php';
+require_once __DIR__ . '/shared-reports-history.php';
+require_once __DIR__ . '/shared-reports.php';
 
 final class GenesisSharedAccessException extends RuntimeException
 {
@@ -135,7 +137,9 @@ function genesisSharedAudit(string $projectId, string $actorId, string $action, 
     $db=genesisDb();$ownsTransaction=!$db->inTransaction();if($ownsTransaction)genesisBeginWriteTransaction($db);
     try {
     $details = genesisSharedEventContext($projectId, $action, $objectId, $details);
+    $reportState=genesisSharedReportEventState($projectId,$action,$objectId,$details);unset($details['reportBefore']);
     $notificationDetails = $details;
+    if($reportState!==null)$details['reportState']=$reportState;
     foreach($details['changes']??[] as $field=>$change)if(in_array($field,['projectId','parentId','statusId','boardStatusId','parentTaskId','dependsOnIds'],true))$details['referenceIds'][$field]=$change;
     $details = genesisSharedReadableChanges($details);
     $eventId = genesisUuid();
@@ -146,8 +150,10 @@ function genesisSharedAudit(string $projectId, string $actorId, string $action, 
         'task' => $details['taskId'] ?? null, 'board' => $details['boardId'] ?? null,
         'details' => json_encode($details, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
     ]);
-    genesisNotificationCapture($eventId,$projectId,$actorId,$action,$objectId,$notificationDetails);
-    genesisAutomationCapture($eventId,$projectId,$action,$objectId,$notificationDetails);
+    if($action!=='task.observed'){
+        genesisNotificationCapture($eventId,$projectId,$actorId,$action,$objectId,$notificationDetails);
+        genesisAutomationCapture($eventId,$projectId,$action,$objectId,$notificationDetails);
+    }
     if($ownsTransaction)$db->commit();
     return $eventId;
     } catch(Throwable $error) { if($ownsTransaction&&$db->inTransaction())$db->rollBack();throw$error; }
@@ -1676,7 +1682,10 @@ function genesisSharedTask(string $userId, string $projectId, array $input, ?str
             $taskChanges['customFields']=['from'=>$from,'to'=>$to];
         }
         if (!$existing || $taskChanges || !empty($input['attachments']) || !empty($input['removeAttachmentIds']) || array_key_exists('imageData', $input)) {
-            genesisSharedAudit($projectId, $userId, $existing ? 'task.updated' : 'task.created', $id, ['changes' => $taskChanges]);
+            genesisSharedAudit($projectId, $userId, $existing ? 'task.updated' : 'task.created', $id, ['changes' => $taskChanges,'reportBefore'=>$existing===null?null:['statusId'=>$existing['status_id'],'completed'=>$existing['completed_at']!==null]]);
+        } else {
+            // This accepted write still advances revision/updated_at; keep an observation without change notifications.
+            genesisSharedAudit($projectId,$userId,'task.observed',$id,['reportBefore'=>['statusId'=>$existing['status_id'],'completed'=>$existing['completed_at']!==null]]);
         }
         $response = ['id' => $id, 'projectId' => $projectId, 'statusId' => $statusId,
             'title' => $title, 'description' => $description, 'tags' => $tags, 'dueDate' => $dueDate,
