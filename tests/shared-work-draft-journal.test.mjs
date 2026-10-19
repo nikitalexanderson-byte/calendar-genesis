@@ -1,0 +1,57 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {SharedWorkDraftJournal,SHARED_WORK_DRAFT_PREFIX} from '../app/shared-work-draft-journal.ts';
+import {clearPrivateDeviceStorage} from '../app/local-sign-out.ts';
+class MemoryStorage{
+ data=new Map();quota=false;
+ get length(){return this.data.size;}key(index){return [...this.data.keys()][index]??null;}
+ getItem(key){return this.data.get(key)??null;}setItem(key,value){if(this.quota)throw new DOMException('Quota','QuotaExceededError');this.data.set(key,String(value));}removeItem(key){this.data.delete(key);}
+}
+const valid=value=>{if(!value||typeof value.text!=='string'||value.pending!==null&&typeof value.pending?.requestId!=='string')throw Error('INVALID_DOCUMENT');return value;};
+const payload=(text,requestId=null)=>({text,pending:requestId?{requestId,expectedRevision:3}:null});
+async function cipher(){
+ const key=await crypto.subtle.generateKey({name:'AES-GCM',length:256},false,['encrypt','decrypt']);let active=true;
+ const check=()=>{if(!active)throw Error('SESSION_ENDED');};
+ return {check,revoke(){active=false;},async seal(value,scope){check();const iv=crypto.getRandomValues(new Uint8Array(12));const data=await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:new TextEncoder().encode(scope)},key,new TextEncoder().encode(JSON.stringify(value)));check();return {iv:Buffer.from(iv).toString('base64'),ciphertext:Buffer.from(data).toString('base64')};},async open(value,scope){check();const data=await crypto.subtle.decrypt({name:'AES-GCM',iv:Buffer.from(value.iv,'base64'),additionalData:new TextEncoder().encode(scope)},key,Buffer.from(value.ciphertext,'base64'));check();return JSON.parse(new TextDecoder().decode(data));}};
+}
+const journal=(storage,access,writerId='writer-a',extra={})=>new SharedWorkDraftJournal({storage,access,userId:'user-a',projectId:'project-a',purpose:'workflow',validate:valid,writerId,...extra});
+test('reload restores encrypted draft and exact pending identity without plaintext',async()=>{
+ const storage=new MemoryStorage(),access=await cipher(),first=journal(storage,access);await first.write(payload('PRIVATE_WORKFLOW_TITLE','request-stable'));first.dispose();
+ assert.ok(![...storage.data.values()].join('').includes('PRIVATE_WORKFLOW_TITLE'));assert.ok(![...storage.data.values()].join('').includes('request-stable'));
+ const reloaded=journal(storage,access,'new-window'),rows=await reloaded.list();assert.equal(rows.length,1);assert.deepEqual(rows[0].value,payload('PRIVATE_WORKFLOW_TITLE','request-stable'));
+ assert.equal((await journal(storage,access,'other',{userId:'other-user'}).list()).length,0);
+ assert.equal((await journal(storage,access,'other',{projectId:'other-project'}).list()).length,0);
+ assert.equal((await journal(storage,access,'other',{purpose:'planning'}).list()).length,0);
+ const [oldKey,raw]=[...storage.data][0];storage.data.set(oldKey.replace('project-a','other-project'),raw);await assert.rejects(journal(storage,access,'other',{projectId:'other-project'}).list(),/DRAFT_INVALID/);
+ storage.data.set(oldKey.replace('user-a','other-user'),raw);await assert.rejects(journal(storage,access,'other',{userId:'other-user'}).list(),/DRAFT_INVALID/);
+ storage.data.set(oldKey.replace(':workflow:',':planning:'),raw);await assert.rejects(journal(storage,access,'other',{purpose:'planning'}).list(),/DRAFT_INVALID/);
+});
+test('independent tabs keep both edits and recovery deletion uses compare-and-swap',async()=>{
+ const storage=new MemoryStorage(),access=await cipher(),a=journal(storage,access),b=journal(storage,access,'writer-b');const old=await a.write(payload('A'));await b.write(payload('B'));assert.equal((await a.list()).length,2);
+ await a.write(payload('A changed'));await assert.rejects(b.remove(old),/DRAFT_CHANGED/);assert.equal((await b.list()).length,2);
+ const current=(await b.list()).find(row=>row.id==='writer-a');await b.remove(current);assert.equal((await b.list())[0].value.text,'B');
+});
+test('queued encryption preserves input snapshot and edit order',async()=>{
+ const storage=new MemoryStorage(),access=await cipher();let release,entered;const gate=new Promise(resolve=>release=resolve),started=new Promise(resolve=>entered=resolve);let calls=0;
+ const slow={...access,async seal(value,scope){if(++calls===1){entered();await gate;}return access.seal(value,scope);}};
+ const a=journal(storage,slow),input=payload('first'),first=a.write(input);input.text='mutated after staging';await started;const second=a.write(payload('second'));release();assert.equal((await first).value.text,'first');await second;assert.equal((await a.list())[0].value.text,'second');
+});
+test('sign-out blocks delayed crypto and clears the private namespace',async()=>{
+ const storage=new MemoryStorage(),access=await cipher();let release,entered;const gate=new Promise(resolve=>release=resolve),started=new Promise(resolve=>entered=resolve);
+ const slow={...access,async seal(value,scope){const result=await access.seal(value,scope);entered();await gate;return result;}};
+ const a=journal(storage,slow),pending=a.write(payload('late'));await started;access.revoke();clearPrivateDeviceStorage(storage);release();await assert.rejects(pending,/SESSION_ENDED/);assert.equal(storage.length,0);
+ const other=await cipher();await journal(storage,other).write(payload('saved'));storage.setItem('public-theme','standart');clearPrivateDeviceStorage(storage);assert.equal(storage.length,1);assert.equal(storage.getItem('public-theme'),'standart');
+});
+test('quota and corrupt bytes preserve the previous record until explicit recovery',async()=>{
+ const storage=new MemoryStorage(),access=await cipher(),a=journal(storage,access),saved=await a.write(payload('original'));storage.quota=true;await assert.rejects(a.write(payload('unsaved')),error=>error.name==='QuotaExceededError');storage.quota=false;assert.equal((await a.list())[0].value.text,'original');
+ const key=[...storage.data.keys()][0];storage.data.set(key,'CORRUPT_RECOVERY_BYTES');let failure;try{await a.list();}catch(error){failure=error;}assert.equal(failure.message,'DRAFT_INVALID');assert.equal(storage.getItem(key),'CORRUPT_RECOVERY_BYTES');await assert.rejects(a.write(payload('do not overwrite')),/DRAFT_RECOVERY_REQUIRED/);await a.remove(failure.record);assert.equal((await a.list()).length,0);await a.write(payload('recovered'));assert.notEqual(storage.getItem(key),saved.raw);
+});
+test('size and count bounds never delete earlier drafts',async()=>{
+ const storage=new MemoryStorage(),access=await cipher();for(let index=0;index<20;index++)await journal(storage,access,'writer-'+index).write(payload('draft '+index));
+ const a=journal(storage,access,'overflow');await assert.rejects(a.write(payload('extra')),/DRAFT_LIMIT/);assert.equal(storage.length,20);assert.throws(()=>a.write(payload('я'.repeat(1_000_001))),/DRAFT_TOO_LARGE/);assert.equal(storage.length,20);assert.ok([...storage.data.keys()].every(key=>key.startsWith(SHARED_WORK_DRAFT_PREFIX)));
+});
+test('disposing a view blocks a delayed storage write',async()=>{
+ const storage=new MemoryStorage(),access=await cipher();let release,entered;const gate=new Promise(resolve=>release=resolve),started=new Promise(resolve=>entered=resolve);
+ const slow={...access,async seal(value,scope){const result=await access.seal(value,scope);entered();await gate;return result;}};
+ const a=journal(storage,slow),pending=a.write(payload('closed editor'));await started;a.dispose();release();await assert.rejects(pending,/DRAFT_CLOSED/);assert.equal(storage.length,0);
+});

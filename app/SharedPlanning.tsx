@@ -53,7 +53,7 @@ function PlanningTaskRow({task,sprints,language,canEdit,canOrganize,disabled,onO
   </form>:null}
  </li>;
 }
-export function SharedPlanning({context,language,mode,onClose,onAccessLost,onChanged,onOpenTask}:{context:SharedProjectSnapshot;language:Language;mode:CalendarMode;onClose:()=>void;onAccessLost:()=>void;onChanged:()=>Promise<void>;onOpenTask:(task:SharedTask)=>Promise<void>}){
+export function SharedPlanning({userId,context,language,mode,onClose,onAccessLost,onChanged,onOpenTask}:{userId:string;context:SharedProjectSnapshot;language:Language;mode:CalendarMode;onClose:()=>void;onAccessLost:()=>void;onChanged:()=>Promise<void>;onOpenTask:(task:SharedTask)=>Promise<void>}){
  const projectId=context.project.id,dialog=useRef<HTMLDialogElement>(null),live=useRef(true),job=useRef<Job|null>(null),lock=useRef(false);
  const t=(key:PlanningCopyKey)=>planningText(key,language),g=(value:string)=>translateText(value,language),number=new Intl.NumberFormat(language,{maximumFractionDigits:2});
  const [data,setData]=useState<ProjectPlanning|null>(null),[error,setError]=useState<unknown>(null),[busy,setBusy]=useState(false),[retry,setRetry]=useState(false),[lost,setLost]=useState(false),[online,setOnline]=useState(()=>typeof navigator==='undefined'||navigator.onLine);
@@ -106,7 +106,7 @@ export function SharedPlanning({context,language,mode,onClose,onAccessLost,onCha
    </section>:<section aria-label={bucket==='backlog'?t('backlog'):t('sprint')}><h3>{bucket==='backlog'?t('backlog'):g('Задачи')}</h3><ul>{tasks.page?.tasks.map(task=><PlanningTaskRow key={task.id} task={task} sprints={data.sprints} language={language} canEdit={canEdit} canOrganize={canOrganize} disabled={blocked} onOpen={task=>void openTask(task)} onSave={(task,values)=>run(id=>savePlanningTask(task,values,id))}/>)}</ul>{tasks.page&&!tasks.page.total?<p>{g('Задач нет.')}</p>:null}<SharedTaskPageControls page={tasks.page} loaded={tasks.page?.tasks.length??0} busy={tasks.busy||busy} onMore={()=>void tasks.more()} onRefresh={()=>void tasks.refresh()} error={tasks.error}/></section>}
    {Object.keys(byAssignee).length?<section><h3>{t('byAssignee')}</h3><table className="shared-planning-members"><thead><tr><th scope="col">{g('Исполнитель')}</th><th scope="col">{t('count')}</th><th scope="col">{t(data.config.estimateUnit)}</th><th scope="col">{t('unestimated')}</th></tr></thead><tbody>{Object.entries(byAssignee).map(([id,values])=><tr key={id}><th scope="row">{context.members.find(member=>member.userId===id)?.displayName??g(id==='unassigned'?'Не назначен':'Участник')}</th><td>{number.format(values.count)}</td><td>{number.format(values[data.config.estimateUnit].value)}</td><td>{number.format(values[data.config.estimateUnit].unestimated)}</td></tr>)}</tbody></table></section>:null}
   </>}
-  <SharedWorkflow projectId={projectId} language={language} disabled={blocked} onChanged={onChanged} onAccessLost={onAccessLost}/>
+  <SharedWorkflow userId={userId} projectId={projectId} language={language} disabled={blocked} onChanged={onChanged} onAccessLost={onAccessLost}/>
   {busy?<p role="status">{g('Загрузка…')}</p>:null}
  </dialog>;
 }
