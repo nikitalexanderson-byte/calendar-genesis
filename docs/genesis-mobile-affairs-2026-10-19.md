@@ -29,4 +29,6 @@ Chromium: обе схемы ×360/390/768/1440px, геометрия строк,
 
 Предыдущий native G1 срез опубликован в PR #209: master/production `02f050ccfa8fce2ba6bd7da4bee3814ea1112cb0`, workflow39245608461 success. SHA/health, Android95 и импорт старого SharedPlanning-чанка из оставленной production-вкладки подтверждены.
 
-Этот UI-срез не закрывает 21 частичный функциональный ID и 14 общих K/U/L. Следующим выполняется [native settings/lifecycle и защищённый журнал](genesis-native-planning-lifecycle-audit-2026-10-19.md), затем workflow/WIP/отчёты и сквозные интеграции. Публикация текущего среза подтверждается после merge, deploy.yml и production SHA/health отдельно.
+Этот UI-срез не закрывает 21 частичный функциональный ID и 14 общих K/U/L. Следующим выполняется [native settings/lifecycle и защищённый журнал](genesis-native-planning-lifecycle-audit-2026-10-19.md), затем workflow/WIP/отчёты и сквозные интеграции.
+
+Публикация подтверждена: PR #210, master/production `defd444e83adb0cc0c8d87aa68d24b1ae8949814`, workflow39251496172 success. SHA/health, новый SharedProjects-чанк и импорт старого чанка из оставленной production-вкладки (HTTP200) проверены; page errors отсутствуют. Официальный Android2.9.0/95 сохранил прежний SHA256. Календарные подписи Пяты/Quintas и подсказки Ганта подтверждены через UI во всех14 языках. SSH не использовался.
