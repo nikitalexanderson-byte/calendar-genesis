@@ -1079,6 +1079,21 @@ html[data-genesis-theme] .genesis-app .shared-projects-view-switch button[data-d
 html[data-genesis-theme] .genesis-app button:is(.project-create-project, .project-open, .habit-emoji-expand, .habit-suggestions-toggle, .inbox-mobile-toggle, .shared-task-title-toggle, .shared-task-lists-title, .shared-space-info-trigger, .workspace-overview-toggle, .mindmap-collapse)[aria-expanded="true"] { background: color-mix(in srgb, var(--ui-accent) 12%, var(--ui-surface-group)); border-color: var(--ui-accent); color: var(--ink); }
 html[data-genesis-theme] .genesis-app :is(.project-open,.mobile-disclosure-toggle,.mindmap-more-toggle,.inbox-mobile-toggle,.shared-task-lists-title,.shared-space-info-trigger) { border-radius:var(--ui-radius); }
 html[data-genesis-theme] .genesis-app .project-row .project-open { padding:8px; }
+/* The full project header expands tasks; its separate title opens project details. */
+html[data-genesis-theme] .genesis-app .project-row .project-open { position:relative; display:block; padding-inline-start:34px; }
+html[data-genesis-theme] .genesis-app .project-row .project-open[data-expanded] { background:color-mix(in srgb,var(--ui-accent) 12%,var(--ui-surface-group)); }
+html[data-genesis-theme] .genesis-app .project-open .project-expand {
+  position:absolute; inset:0; display:block; width:100%; min-height:44px; margin:0; padding:12px 8px; border:0; border-radius:var(--ui-radius); background:transparent; color:var(--gold); text-align:start;
+}
+html[data-genesis-theme] .genesis-app .project-expand > svg { position:absolute; top:12px; inset-inline-start:8px; width:18px; height:18px; transition:transform 150ms ease-out; }
+html[data-genesis-theme] .genesis-app .project-expand[aria-expanded="true"] > svg { transform:rotate(90deg); }
+html[data-genesis-theme] .genesis-app .project-open > .project-info { position:relative; pointer-events:none; }
+html[data-genesis-theme] .genesis-app .project-open .project-preview-title {
+  display:block; width:fit-content; max-width:100%; min-height:28px; margin:0; padding:0; border:0; border-radius:4px; background:transparent; color:inherit; font:inherit; text-align:start; pointer-events:auto;
+}
+html[data-genesis-theme] .genesis-app .project-open .project-preview-title strong { white-space:normal; }
+html[data-genesis-theme] .genesis-app .project-open .project-preview-title:hover { color:var(--gold); }
+html[data-genesis-theme] .genesis-app .project-open :is(.project-expand,.project-preview-title):focus-visible { outline:2px solid var(--ui-accent); outline-offset:2px; }
 html[data-genesis-theme] .genesis-app .project-tree-main .project-row .project-drop-field { margin-inline:12px; }
 html[data-genesis-theme] .genesis-app .shared-workspace-toolbar .shared-workspace-search { flex: 1 1 260px; min-width: 180px; margin: 0; }
 html[data-genesis-theme] .genesis-app .shared-workspace-toolbar .shared-workspace-search { position: relative; padding: 0; border: 0; background: transparent; }
