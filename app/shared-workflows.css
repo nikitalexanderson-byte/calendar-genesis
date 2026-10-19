@@ -25,3 +25,6 @@ html[data-genesis-theme] .genesis-app .shared-workflow .shared-workflow-edge>.sh
 @media(max-width:767px) {
  .shared-workflow-statuses,.shared-workflow-counts { grid-template-columns:minmax(0,1fr); }
 }
+@media(max-width:420px) {
+ html[data-genesis-theme] .genesis-app .shared-workflow .shared-workflow-checks { grid-template-columns:minmax(0,1fr); }
+}

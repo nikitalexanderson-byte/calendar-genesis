@@ -72,8 +72,25 @@ function wfIntegrations(string $owner,string $space,array $users):array {
 
     $repair=genesisSharedCreateProject($owner,$space,['title'=>'Workflow trash repair'])['id'];$repairStatuses=genesisSharedProjectSnapshot($owner,$repair)['statuses'];$repairRules=wfRules($repairStatuses);$repairRules['statuses'][2]['requiredFields']=[];$repairRules['statuses'][0]['requiredFields']=['description'];wfSave($owner,$repair,$repairRules);
     $repairTask=genesisSharedTask($owner,$repair,['title'=>'Needs later description','description'=>'Valid before legacy write','statusId'=>$repairStatuses[0]['id']]);
+    $repairField=['id'=>genesisUuid(),'title'=>'Scoped repair field','type'=>'text','projectId'=>$repair,'options'=>[],'position'=>0,'required'=>false,'showCard'=>false,'showList'=>false,'archived'=>false,'expectedRevision'=>0];
+    $fieldPreview=genesisSharedPreviewCustomField($owner,$space,$repairField);genesisSharedSaveCustomField($owner,$space,[...$repairField,'operationId'=>genesisUuid(),'fingerprint'=>$fieldPreview['fingerprint']]);
+    $settings=genesisSharedWorkflow($owner,$repair);$readonly=genesisSharedWorkflow($users['viewer'],$repair);
+    wfCheck($settings['context']['project']['permissions']['manageProjects']&&!$readonly['context']['project']['permissions']['manageProjects'],'Settings projection misstated current rights');
+    wfCheck(array_column($settings['context']['statuses'],'id')===array_column($repairStatuses,'id'),'Settings projection lost status catalog');
+    wfCheck(array_column($settings['context']['customFieldDefinitions'],'id')===[$repairField['id']],'Settings projection included another project field');
+    wfCheck(!isset($settings['context']['tasks'],$settings['context']['members'])&&!str_contains(genesisDataJson($settings),$repairTask['title']),'Settings projection read hidden task content');
+    genesisSharedSetArchived($owner,$repair,true);$archived=genesisSharedWorkflow($owner,$repair);
+    wfCheck($archived['context']===$settings['context'],'Archived settings context changed');
+    $archiveRows=array_column(genesisSharedArchivedProjects($owner,$space),null,'id');wfCheck($archiveRows[$repair]['permissions']['manageProjects'],'Archived list omitted repair permission');
+    genesisSharedSetArchived($owner,$repair,false);
     genesisSharedTrashProject($owner,$repair,['expectedRevision'=>genesisSharedProjectSnapshot($owner,$repair)['project']['revision']]);
     $trashed=array_values(array_filter(genesisSharedTrashList($owner,$space),static fn($row)=>$row['kind']==='project'&&$row['id']===$repair))[0];
+    $readonlyTrash=array_column(genesisSharedTrashList($users['viewer'],$space),null,'id');
+    wfCheck($trashed['canManageWorkflow']&&!$readonlyTrash[$repair]['canManageWorkflow']&&$trashed['projectTitle']==='Workflow trash repair','Trash repair permission or identity is wrong');
+    wfCheck(genesisSharedWorkflow($owner,$repair)['context']===$settings['context'],'Trash repair relied on an ordinary project snapshot');
+    wfReject(fn()=>genesisSharedWorkflow($users['outsider'],$repair),'SHARED_PROJECT_NOT_FOUND');
+    $db->prepare('DELETE FROM shared_project_members WHERE project_id=? AND user_id=?')->execute([$repair,$users['viewer']]);
+    wfReject(fn()=>genesisSharedWorkflow($users['viewer'],$repair),'SHARED_PROJECT_NOT_FOUND');$checks[]='minimal live/archive/trash settings context and current ACL';
     // Simulate an older server that preserves definitions but cannot enforce them.
     $db->prepare('UPDATE shared_tasks SET description=? WHERE id=?')->execute([genesisSharedContentEncrypt(''),$repairTask['id']]);
     wfReject(fn()=>genesisSharedRestoreTrash($owner,$space,'project',$repair,['expectedExpiresAt'=>$trashed['expiresAt']]),'WORKFLOW_REQUIRED_FIELDS');

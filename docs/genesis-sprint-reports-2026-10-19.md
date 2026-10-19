@@ -36,3 +36,5 @@
 Native UI/совместимая синхронизация, общий project flow, крупные многолетние истории сверх первого лимита, дальнейшие C/B/G-интеграции и общие K/U/L открыты. Не проверены Safari/Firefox, физический Android, screen reader, 200% zoom и внешний Google roundtrip. Read-only отчёт сам не меняет задачи, награды или журнал экономики; это не заменяет общую приёмку остальных функций.
 
 Rollback кода — обычный git revert и существующий deploy workflow; database rollback для этого среза не нужен.
+
+Публикация подтверждена: [PR #203](https://github.com/nikitalexanderson-byte/calendar-genesis/pull/203), merge/master `588d89496c12dde03b7544c3b501a5c9f5d9f9d3`, workflow `39193907371` attempt1 success. Production deploy-meta содержит этот SHA, health ok; настоящий asset `/assets/SharedPlanning-BIYs4K35.js` из production precache содержит отчёт. Android metadata сохраняет 2.9.0/95 и SHA256 `a04a3b8c85d6b3977fc634f7f3779b5cac3ff93eddc2bd27ac006b2c50449243`. Доказательство — `output/sprint-reports-production.json`. Ручной SSH не использовался.

@@ -1676,7 +1676,7 @@ export type SharedReviewKind = "checked" | "confirmed" | "deletable";
 export type SharedReviewPolicy = {enabled:boolean} & Record<SharedReviewKind,{group:"everyone"|"editors"|"organizers"|"selected";userIds:string[]}>;
 export type SharedReviewSettingsData = {rootProjectId:string;rootTitle:string;revision:number;canManage:boolean;policy:SharedReviewPolicy;members:{userId:string;displayName:string}[]};
 export type SharedTaskReviewData = {enabled:boolean;allowed:Record<SharedReviewKind,boolean>;entries:{kind:SharedReviewKind;userId:string;displayName:string;reviewedAt:string}[]};
-export type SharedTrashEntry = {kind:"task"|"project";id:string;title:string;deletedAt:string;expiresAt:string;retentionDays:number;canRestore:boolean;canPurge?:boolean;projectId?:string};
+export type SharedTrashEntry = {kind:"task"|"project";id:string;title:string;deletedAt:string;expiresAt:string;retentionDays:number;canRestore:boolean;canPurge?:boolean;canManageWorkflow?:boolean;projectId?:string;projectTitle?:string};
 export type SharedTask = { review?:SharedTaskReviewData; id: string; projectId: string; statusId: string; title: string;
   sprintId?:string|null;storyPoints?:number|null;estimateHours?:number|null;
   customFields?: import("./shared-custom-fields").CustomFieldValues;

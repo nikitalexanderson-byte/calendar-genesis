@@ -125,7 +125,16 @@ function genesisWorkflowCustomFieldEdit(string $id,?string $destination,bool $un
     }
 }
 function genesisSharedWorkflow(string $actor,string $projectId):array {
-    genesisWorkflowAccess($actor,$projectId);return ['config'=>genesisWorkflowConfig($projectId),'counts'=>genesisWorkflowCounts($projectId)];
+    $db=genesisDb();$owns=!$db->inTransaction();if($owns)$db->beginTransaction();
+    try {
+        $project=genesisWorkflowAccess($actor,$projectId);
+        // A settings projection must also work before restore, without reading hidden tasks.
+        $context=['project'=>['id'=>$projectId,'title'=>$project['title'],'role'=>$project['member_role'],'permissions'=>$project['permissions']],
+            'statuses'=>genesisPlanningRows('SELECT id,title,position,is_done AS isDone,revision FROM shared_project_statuses WHERE project_id=? ORDER BY position,id',[$projectId]),
+            'customFieldDefinitions'=>array_map('genesisSharedCustomFieldRecord',genesisPlanningRows('SELECT * FROM shared_custom_fields WHERE space_id=? AND (project_id IS NULL OR project_id=?) ORDER BY position,id',[$project['space_id'],$projectId]))];
+        $result=['config'=>genesisWorkflowConfig($projectId),'counts'=>genesisWorkflowCounts($projectId),'context'=>$context];
+        if($owns)$db->commit();return $result;
+    }catch(Throwable $error){if($owns&&$db->inTransaction())$db->rollBack();throw $error;}
 }
 function genesisSharedSaveWorkflow(string $actor,string $projectId,array $input):array {
     return genesisWorkflowWrite($actor,$projectId,$input,function($project)use($actor,$projectId,$input){

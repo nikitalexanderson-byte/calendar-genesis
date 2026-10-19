@@ -265,7 +265,7 @@ function genesisSharedArchivedProjects(string $userId, string $spaceId): array
         WHERE p.space_id = :space AND m.user_id = :user AND p.archived_at IS NOT NULL AND NOT EXISTS(SELECT 1 FROM shared_trash tr WHERE tr.kind=\'project\' AND tr.object_id=p.id)
         ORDER BY p.archived_at DESC LIMIT 100');
     $query->execute(['space' => $spaceId, 'user' => $userId]);
-    return array_map('genesisSharedRowTags', $query->fetchAll());
+    return array_map(static fn($row)=>[...genesisSharedRowTags($row),'permissions'=>genesisSharedProjectAccess($row['id'],$userId,'read',true)['permissions']], $query->fetchAll());
 }
 
 function genesisSharedSetArchived(string $userId, string $projectId, bool $archived): void

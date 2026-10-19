@@ -1,35 +1,35 @@
 "use client";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
-import { GenesisApiError, sharedCollaborationRequest, type SharedProjectSnapshot } from './cloud-sync';
+import { GenesisApiError } from './cloud-sync';
 import { translateText, type Language } from './i18n';
 import { planningAccessLost, planningText } from './shared-planning';
-import { loadWorkflow, saveWorkflow, workflowDraft, workflowHistory, workflowRoles, workflowStatusesKey, type ProjectWorkflow, type WorkflowCommand, type WorkflowConfig, type WorkflowRole, type WorkflowVersion } from './shared-workflows';
+import { loadWorkflow, saveWorkflow, workflowDraft, workflowHistory, workflowRoles, workflowStatusesKey, type WorkflowSnapshot, type WorkflowCommand, type WorkflowConfig, type WorkflowRole, type WorkflowVersion } from './shared-workflows';
 import { workflowError, workflowText } from './workflow-copy';
 import './shared-workflows.css';
 
-type State=ProjectWorkflow&{context:SharedProjectSnapshot};
+type State=WorkflowSnapshot;
 type Draft={config:WorkflowConfig;statusesKey:string};
 const roleLabels:Record<WorkflowRole,string>={owner:'Владелец',manager:'Менеджер',member:'Участник',commenter:'Комментатор',viewer:'Читатель'};
 
-export function SharedWorkflow({context,language,disabled,onChanged,onAccessLost}:{context:SharedProjectSnapshot;language:Language;disabled:boolean;onChanged:()=>Promise<void>;onAccessLost:()=>void}) {
- const projectId=context.project.id,g=(text:string)=>translateText(text,language),t=(key:Parameters<typeof workflowText>[0])=>workflowText(key,language);
+export function SharedWorkflow({projectId,language,disabled,onChanged,onAccessLost,initiallyExpanded=false}:{projectId:string;language:Language;disabled:boolean;onChanged:()=>Promise<void>;onAccessLost:()=>void;initiallyExpanded?:boolean}) {
+ const g=(text:string)=>translateText(text,language),t=(key:Parameters<typeof workflowText>[0])=>workflowText(key,language);
  const [data,setData]=useState<State|null>(null),[draft,setDraft]=useState<Draft|null>(null),[from,setFrom]=useState(''),[error,setError]=useState<unknown>(null),[busy,setBusy]=useState(false),[retry,setRetry]=useState(false),[saved,setSaved]=useState(false);
- const [history,setHistory]=useState<{versions:WorkflowVersion[];nextCursor:number|null}|null>(null),[expanded,setExpanded]=useState(false);
- const live=useRef(true),lock=useRef(false),reads=useRef(0),pending=useRef<WorkflowCommand|null>(null);
+ const [history,setHistory]=useState<{versions:WorkflowVersion[];nextCursor:number|null}|null>(null),[expanded,setExpanded]=useState(initiallyExpanded);
+ const live=useRef(true),lock=useRef(false),reads=useRef(0),pending=useRef<WorkflowCommand|null>(null),lost=useRef(onAccessLost);
  useEffect(()=>{live.current=true;return()=>{live.current=false;};},[]);
+ useEffect(()=>{lost.current=onAccessLost;},[onAccessLost]);
  const load=useCallback(async(signal?:AbortSignal)=>{
   const generation=++reads.current;
-  const [workflow,fresh]=await Promise.all([loadWorkflow(projectId,signal),sharedCollaborationRequest<SharedProjectSnapshot>(`/projects/${encodeURIComponent(projectId)}`,{signal})]);
-  const value={...workflow,context:fresh};if(live.current&&!signal?.aborted&&generation===reads.current)setData(value);return value;
+  const value=await loadWorkflow(projectId,signal);if(live.current&&!signal?.aborted&&generation===reads.current)setData(value);return value;
  },[projectId]);
- const fail=useCallback((reason:unknown)=>{if(!live.current)return;setError(reason);if(planningAccessLost(reason))onAccessLost();},[onAccessLost]);
+ const fail=useCallback((reason:unknown)=>{if(!live.current)return;setError(reason);if(planningAccessLost(reason)){setData(null);setDraft(null);setHistory(null);lost.current();}},[]);
  useEffect(()=>{
   if(!expanded)return;const controller=new AbortController();
   const refresh=()=>{if(!lock.current)void load(controller.signal).catch(reason=>{if(!controller.signal.aborted)fail(reason);});};refresh();
   const timer=window.setInterval(()=>{if(navigator.onLine&&document.visibilityState==='visible')refresh();},15000);
   return()=>{controller.abort();window.clearInterval(timer);};
  },[load,fail,expanded]);
- const canManage=Boolean(data?.context.project.permissions?.manageProjects??['owner','manager'].includes(data?.context.project.role??context.project.role));
+ const canManage=Boolean(data?.context.project.permissions?.manageProjects);
  const blocked=disabled||busy||retry||!canManage;
  const stale=Boolean(draft&&data&&(draft.config.revision!==data.config.revision||draft.statusesKey!==workflowStatusesKey(data.context.statuses)));
  const fields=[['description',t('description')],['assigneeId',g('Исполнитель')],['dueDate',t('dueDate')],['startDate',t('startDate')],['categoryId',t('category')],['labels',g('Метки')],['storyPoints',planningText('points',language)],['estimateHours',planningText('hours',language)],
@@ -48,7 +48,7 @@ export function SharedWorkflow({context,language,disabled,onChanged,onAccessLost
  const submit=(event:FormEvent)=>{event.preventDefault();if(!draft||stale||!draft.config.transitions.every(edge=>edge.roles.length>0))return;run({enabled:true,expectedRevision:draft.config.revision,statuses:draft.config.statuses,transitions:draft.config.transitions});};
  const rebase=async()=>{if(lock.current||!draft)return;lock.current=true;setBusy(true);try{const fresh=await load();if(live.current)setDraft({config:workflowDraft({...draft.config,revision:fresh.config.revision},fresh.context.statuses),statusesKey:workflowStatusesKey(fresh.context.statuses)});}catch(reason){fail(reason);}finally{lock.current=false;if(live.current)setBusy(false);}};
  const moreHistory=async()=>{if(lock.current||history&&history.nextCursor===null)return;lock.current=true;setBusy(true);try{const next=await workflowHistory(projectId,history?.nextCursor??undefined);if(live.current)setHistory(current=>({versions:[...(current?.versions??[]),...next.versions],nextCursor:next.nextCursor}));}catch(reason){fail(reason);}finally{lock.current=false;if(live.current)setBusy(false);}};
- return <details className="shared-workflow" data-workflow-panel onToggle={event=>setExpanded(event.currentTarget.open)}>
+ return <details className="shared-workflow" data-workflow-panel open={expanded} onToggle={event=>{if(event.target===event.currentTarget)setExpanded(event.currentTarget.open);}}>
   <summary>{t('heading')}</summary>
   <p>{t('hint')}</p>
   {error?<div role="alert"><p>{workflowError(error,language)??g('Не удалось получить ответ. Обновите отчёт или повторите запрос.')}</p>{retry?<button type="button" className="secondary-button" disabled={busy||disabled} onClick={()=>{if(pending.current)void attempt(pending.current);}}>{g('Повторить')}</button>:<button type="button" className="secondary-button" disabled={busy||disabled} onClick={()=>{setError(null);void load().catch(fail);}}>{g('Обновить')}</button>}</div>:null}
