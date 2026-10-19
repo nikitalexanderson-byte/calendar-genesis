@@ -117,6 +117,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     var actionsOpen by remember { mutableStateOf(false) }
     var planningOpen by rememberSaveable(projectId) { mutableStateOf(false) }
     var workflowProject by rememberSaveable { mutableStateOf("") }
+    var dataExportOpen by rememberSaveable(spaceId, projectId) { mutableStateOf(false) }
     var workflowRepairProjects by remember(spaceId) { mutableStateOf(emptyList<JSONObject>()) }
     val workflowCopy = sharedWorkflowCopy()
     var showArchived by rememberSaveable { mutableStateOf(false) }
@@ -347,6 +348,8 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     }
     if (workflowProject.isNotBlank()) SharedWorkflowScreen(controller, workflowProject,
         onClose = { workflowProject = "" }, onChanged = { if (projectId == workflowProject) run { refreshProject(projectId) } })
+    if (dataExportOpen && spaceId.isNotBlank()) SharedDataExportScreen(controller, spaceId, projectId,
+        project?.optString("title").orEmpty(), onClose = { dataExportOpen = false })
     val estimateDraft = selectedTask?.takeIf { draftTaskKey == "$projectId:$taskId" }?.let { sharedTaskEstimates(it, editTaskDetails) }
     val taskArchived = selectedTask?.optString("archivedAt")?.let { it.isNotBlank() && it != "null" } == true
     LaunchedEffect(projectId,taskId,comments,discussionVisible,pageActive) {
@@ -1135,6 +1138,8 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                     AffairsIconButton("Дополнительные действия", AffairsAction.MORE, { actionsOpen = true },
                         Modifier.testTag("shared-actions"))
                     DropdownMenu(actionsOpen, { actionsOpen = false }) {
+                        if (spaceId.isNotBlank()) DropdownMenuItem(text = { Text("Экспорт данных") },
+                            modifier = Modifier.testTag("shared-export-open"), onClick = { actionsOpen = false; dataExportOpen = true })
                         if (projectId.isNotBlank()) {
                             if (project?.optInt("isInbox") == 0) DropdownMenuItem(
                                 text = { androidx.compose.material3.Text(sharedPlanningCopy().getString("heading")) },

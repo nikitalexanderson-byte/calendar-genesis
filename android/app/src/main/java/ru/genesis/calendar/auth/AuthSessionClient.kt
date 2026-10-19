@@ -27,6 +27,7 @@ internal fun allowedSharedRoute(method: String, path: String): Boolean {
     if (path == "/shared/notification-settings/retry") return method == "POST"
     if (path.matches(Regex("/shared/invitations/[a-f0-9-]{36}"))) return method == "POST"
     if (path == "/shared/task-lists") return method == "GET"
+    if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/data-export"))) return method == "POST"
     if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/planning"))) return method in setOf("GET", "PUT")
     if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/workflow"))) return method in setOf("GET", "PUT")
     if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/workflow/history(?:\\?before=[1-9][0-9]{0,9})?"))) return method == "GET"
@@ -272,6 +273,11 @@ internal class AuthSessionClient(context: Context) {
         request(expected, "/shared/projects/$projectId/google/sync", JSONObject())
     fun updateSharedProject(expected: Long, projectId: String, body: JSONObject): JSONObject =
         request(expected, "/shared/projects/$projectId", body)
+    fun exportSharedData(expected: Long, spaceId: String, input: JSONObject): JSONObject {
+        val command = DataExportProtocol.command(spaceId, input)
+        return request(expected, "/shared/spaces/$spaceId/data-export", command,
+            responseReader = { DataExportStream.read(it, command.getString("format")) })
+    }
     fun setSharedProjectArchived(expected: Long, projectId: String, archived: Boolean): JSONObject =
         request(expected, "/shared/projects/$projectId/${if (archived) "archive" else "restore"}", JSONObject())
     fun createSharedStatus(expected: Long, projectId: String, body: JSONObject): JSONObject =
@@ -352,7 +358,8 @@ internal class AuthSessionClient(context: Context) {
 
     /** Blocking; the controller always calls on Dispatchers.IO. Default platform TLS verification. */
     private fun request(expected: Long, path: String, body: JSONObject?, secret: SessionSecret? = null,
-        persist: Boolean = true, method: String = if (body == null) "GET" else "POST"): JSONObject {
+        persist: Boolean = true, method: String = if (body == null) "GET" else "POST",
+        responseReader: ((java.io.InputStream) -> JSONObject)? = null): JSONObject {
         require(path in setOf("/session", "/auth/providers", "/workspace", "/bootstrap", "/stoicheion/draws", "/auth/google/native/challenge",
             "/auth/yandex/native",
             "/account/yandex-calendar/connect", "/account/yandex-calendar/disconnect",
@@ -408,7 +415,10 @@ internal class AuthSessionClient(context: Context) {
                                 output.write(buffer, 0, count)
                             }
                         }
-                        workflowFailure(status, JSONObject(output.toString(Charsets.UTF_8.name())))
+                        val payload = JSONObject(output.toString(Charsets.UTF_8.name()))
+                        val code = payload.optString("error")
+                        if (path.endsWith("/data-export") && code in DataExportProtocol.errors) AuthApiError(code)
+                        else workflowFailure(status, payload)
                     }.getOrNull()
                     if (failure != null) throw failure
                 }
@@ -444,9 +454,10 @@ internal class AuthSessionClient(context: Context) {
             }
             if (!connection.contentType.orEmpty().substringBefore(';').trim().equals("application/json", true))
                 throw AuthFailure(AuthFailure.Kind.PROTOCOL)
-            val output = ByteArrayOutputStream()
             phase = "read"
-            connection.inputStream.use { input ->
+            val payload = connection.inputStream.use { input ->
+                if (responseReader != null) return@use responseReader(input)
+                val output = ByteArrayOutputStream()
                 val buffer = ByteArray(4096)
                 while (true) {
                     val read = input.read(buffer)
@@ -460,8 +471,8 @@ internal class AuthSessionClient(context: Context) {
                     if (output.size() + read > maximumBytes) throw AuthFailure(AuthFailure.Kind.PROTOCOL)
                     output.write(buffer, 0, read)
                 }
+                JSONObject(output.toString(Charsets.UTF_8.name()))
             }
-            val payload = JSONObject(output.toString(Charsets.UTF_8.name()))
             if (persist) {
                 val headers = connection.headerFields.filterKeys { it?.equals("Set-Cookie", true) == true }.values.flatten()
                 val update = AuthProtocol.cookie(headers, System.currentTimeMillis())
