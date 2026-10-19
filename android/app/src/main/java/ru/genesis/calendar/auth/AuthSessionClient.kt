@@ -27,7 +27,10 @@ internal fun allowedSharedRoute(method: String, path: String): Boolean {
     if (path == "/shared/notification-settings/retry") return method == "POST"
     if (path.matches(Regex("/shared/invitations/[a-f0-9-]{36}"))) return method == "POST"
     if (path == "/shared/task-lists") return method == "GET"
-    if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/planning"))) return method == "GET"
+    if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/planning"))) return method in setOf("GET", "PUT")
+    if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/planning/sprints"))) return method == "POST"
+    if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/planning/sprints/[a-f0-9-]{36}"))) return method == "PATCH"
+    if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/planning/sprints/[a-f0-9-]{36}/transition"))) return method == "POST"
     if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/ui"))) return method in setOf("GET", "PATCH")
     if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/invitations"))) return method == "POST"
     if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/projects"))) return method in setOf("GET", "POST")
@@ -225,6 +228,17 @@ internal class AuthSessionClient(context: Context) {
         request(expected, "/shared/projects/$projectId", null)
     fun sharedPlanning(expected: Long, projectId: String): JSONObject =
         request(expected, "/shared/projects/$projectId/planning", null)
+    fun sharedPlanningCommand(expected: Long, projectId: String, command: JSONObject): JSONObject {
+        val path = "/shared/projects/$projectId/planning"
+        val body = command.getJSONObject("body")
+        return when (command.getString("kind")) {
+            "settings" -> request(expected, path, body, method = "PUT")
+            "sprint" -> if (command.isNull("sprintId")) request(expected, "$path/sprints", body)
+                else request(expected, "$path/sprints/${command.getString("sprintId")}", body, method = "PATCH")
+            "transition" -> request(expected, "$path/sprints/${command.getString("sprintId")}/transition", body)
+            else -> throw AuthFailure(AuthFailure.Kind.PROTOCOL)
+        }
+    }
     fun sharedGoogleSettings(expected: Long, projectId: String): JSONObject =
         request(expected, "/shared/projects/$projectId/google", null)
     fun updateSharedGoogleSettings(expected: Long, projectId: String, body: JSONObject): JSONObject =
@@ -358,6 +372,21 @@ internal class AuthSessionClient(context: Context) {
             phase = "status"
             val status = connection.responseCode
             if (status !in 200..299) {
+                if (method != "GET" && path.contains("/planning") && status in 400..499 && status !in setOf(401, 403, 404, 405, 429)) {
+                    val code = runCatching {
+                        val output = ByteArrayOutputStream()
+                        connection.errorStream?.use { input ->
+                            val buffer = ByteArray(1024)
+                            while (output.size() < 8192) {
+                                val count = input.read(buffer, 0, minOf(buffer.size, 8192 - output.size()))
+                                if (count < 0) break
+                                output.write(buffer, 0, count)
+                            }
+                        }
+                        JSONObject(output.toString(Charsets.UTF_8.name())).optString("error")
+                    }.getOrDefault("")
+                    if (code in PlanningJournal.DEFINITIVE_ERRORS) throw AuthApiError(code)
+                }
                 if (path.contains("/invitations")) {
                     val code = runCatching { JSONObject(connection.errorStream?.bufferedReader()?.use { it.readText() }
                         ?: "{}").optString("error") }.getOrDefault("")

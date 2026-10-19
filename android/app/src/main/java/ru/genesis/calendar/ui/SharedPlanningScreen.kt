@@ -3,6 +3,7 @@ package ru.genesis.calendar.ui
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -23,6 +24,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 import org.json.JSONObject
 import ru.genesis.calendar.domain.CalendarMode
 import ru.genesis.calendar.domain.GenesisCalendar
@@ -34,6 +36,9 @@ import java.time.format.FormatStyle
 import java.util.Locale
 import ru.genesis.calendar.auth.SharedWorkspaceGateway
 import ru.genesis.calendar.auth.AuthFailure
+import ru.genesis.calendar.GenesisApplication
+import ru.genesis.calendar.data.LocalPreferences
+import ru.genesis.calendar.data.UiPreferences
 
 /** One project uses the existing task collection and encrypted task mutation outbox. */
 @Composable internal fun SharedPlanningScreen(controller: SharedWorkspaceGateway, project: JSONObject,
@@ -59,19 +64,42 @@ import ru.genesis.calendar.auth.AuthFailure
     var destination by rememberSaveable(projectId, bucket) { mutableStateOf("") }
     var notice by remember(projectId) { mutableStateOf("") }
     var accessLost by remember(projectId) { mutableStateOf(false) }
+    val accountKey = LocalGenesisUserId.current
+    val currentChanged by rememberUpdatedState(onChanged)
+    val currentCopy by rememberUpdatedState(copy)
+    val editor = remember(controller, projectId, accountKey) { SharedPlanningEditorState(controller, projectId,
+        onLost = { accessLost = true; data = null; page = null; selected = null }, onSaved = { receipt ->
+            receipt.optJSONObject("sprint")?.let { bucket = if (it.optString("state") == "completed") "backlog" else it.getString("id") }
+            selected = null; notice = currentCopy.getString("saved"); reload++; currentChanged()
+        }, onRefreshed = { fresh -> data = validatePlanning(projectId, fresh) }) }
+    val authorPreferences by produceState<UiPreferences?>(null, accountKey) {
+        val application = context.applicationContext as? GenesisApplication
+        value = if (application != null) LocalPreferences(context, application.workspaceScope).values.first() else UiPreferences()
+    }
+    LaunchedEffect(projectId, data != null, accessLost) {
+        if (accessLost) editor.hide() else if (data != null) editor.load()
+    }
+    LaunchedEffect(editor.inputVersion) {
+        delay(150)
+        if (editor.editable && !editor.saved) editor.persist()
+    }
+    fun leave(action: () -> Unit) {
+        if (editor.busy || !editor.active || editor.phase != "editing" || editor.saved) action()
+        else scope.launch { if (editor.persist()) action() }
+    }
     val currentBucket by rememberUpdatedState(bucket)
     val currentData by rememberUpdatedState(data)
     val selectedBucket = planningRows(data?.optJSONArray("sprints")).find { it.optString("id") == bucket }
     val readOnly = data?.optBoolean("offlineCache") == true || page?.optBoolean("offlineCache") == true
     val permissions = data?.optJSONObject("context")?.optJSONObject("permissions")
-    val canAssign = data?.optJSONObject("config")?.optBoolean("enabled") == true && !readOnly &&
+    val canAssign = data?.optJSONObject("config")?.optBoolean("enabled") == true && !readOnly && !editor.busy && !editor.pending &&
         permissions?.optBoolean("editTasks") == true && permissions.optBoolean("organizeTasks") && selectedBucket?.optString("state") != "completed"
 
     LaunchedEffect(projectId, bucket, reload, lifecycle.isAtLeast(Lifecycle.State.STARTED)) {
         if (!lifecycle.isAtLeast(Lifecycle.State.STARTED)) return@LaunchedEffect
         loading = page == null
         while (isActive) {
-            if (!busy) try {
+            if (!busy && !editor.busy) try {
                 val fresh = validatePlanning(projectId, controller.sharedPlanning(projectId))
                 val next = controller.querySharedTasks(planningTaskFilter(projectId, bucket))
                 currentCoroutineContext().ensureActive()
@@ -211,8 +239,13 @@ import ru.genesis.calendar.auth.AuthFailure
         }
     }
     @Composable fun TaskList(modifier: Modifier, compact: Boolean) {
-        LazyColumn(modifier.testTag("planning-tasks"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        val listState = rememberLazyListState()
+        LaunchedEffect(editor.notice) { if (editor.notice) { withFrameNanos { }; listState.scrollToItem(0) } }
+        LazyColumn(modifier.testTag("planning-tasks"), state = listState, verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (compact) item { Navigation(Modifier.fillMaxWidth().padding(bottom = 16.dp)) }
+            data?.takeUnless { accessLost }?.let { fresh -> item {
+                SharedPlanningEditor(editor, fresh, selectedBucket, projectId, authorPreferences, readOnly, scope)
+            } }
             if (loading) item { LinearProgressIndicator(Modifier.fillMaxWidth().testTag("planning-loading")) }
             if (readOnly) item { Text("Нет связи: показана последняя защищённая копия команды.") }
             if (data?.optJSONObject("config")?.optBoolean("enabled") == false) item { androidx.compose.material3.Text(copy.getString("disabled")) }
@@ -221,13 +254,20 @@ import ru.genesis.calendar.auth.AuthFailure
                 TextButton(onClick = ::refreshPlanning, enabled = !busy) { Text("Обновить") }
             } }
             if (notice.isNotBlank()) item { androidx.compose.material3.Text(notice, Modifier.testTag("planning-notice")) }
+            if (editor.completion && editor.phase == "editing" && data != null) {
+                items(editor.tasks, key = { "completion-" + it.getString("id") }) { task ->
+                    SharedPlanningCompletionRow(editor, requireNotNull(data), task) { leave { onTask(task.getString("id")) } }
+                }
+                item { SharedPlanningCompletionSubmit(editor, requireNotNull(data), projectId, readOnly, scope) }
+            }
+            if (!editor.active) {
             items(planningRows(page?.optJSONArray("tasks")), key = { it.getString("id") }) { task ->
                 val pending = queue.any { it.optString("taskId") == task.getString("id") }
                 val completed = task.optString("completedAt").let { it.isNotBlank() && it != "null" }
                 val metadata = listOf("storyPoints" to "points", "estimateHours" to "hours").map { (key, unit) ->
                         copy.getString(unit) + ": " + if (task.isNull(key)) copy.getString("unestimated") else number.format(task.getDouble(key))
                     } + listOfNotNull(if (completed) t("Завершено") else null, if (pending) t("Ожидает синхронизации") else null)
-                AffairsTaskRow(task.getString("title"), completed, { onTask(task.getString("id")) },
+                AffairsTaskRow(task.getString("title"), completed, { leave { onTask(task.getString("id")) } },
                     Modifier.testTag("planning-task-${task.getString("id")}"), metadata = metadata, enabled = !busy,
                     actions = if (canAssign) ({
                         AffairsIconButton(copy.getString("assignTo"), AffairsAction.MOVE, {
@@ -266,16 +306,17 @@ import ru.genesis.calendar.auth.AuthFailure
                 page?.let { androidx.compose.material3.Text(t("Показано: {loaded} из {total}").replace("{loaded}", number.format(planningRows(it.optJSONArray("tasks")).size)).replace("{total}", number.format(it.optInt("total")))) }
                 if (page?.optString("nextCursor")?.let { it.isNotBlank() && it != "null" } == true) TextButton(::more, enabled = !busy, modifier = Modifier.testTag("planning-more")) { Text("Показать ещё") }
             }
+            }
         }
     }
-    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+    Dialog(onDismissRequest = { leave(onClose) }, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Surface(Modifier.fillMaxSize()) {
             Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding().padding(16.dp).testTag("shared-planning-screen"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 AffairsPageHeader(if (accessLost) copy.getString("heading") else project.getString("title"),
                     if (accessLost) "" else copy.getString("heading"), titleIsUserContent = true,
-                    onBack = onClose, actions = {
+                    onBack = { leave(onClose) }, actions = {
                         AffairsIconButton("Обновить", AffairsAction.REFRESH, ::refreshPlanning,
-                            Modifier.testTag("planning-refresh"), enabled = !busy)
+                            Modifier.testTag("planning-refresh"), enabled = !busy && !editor.busy)
                     })
                 BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                     if (maxWidth >= 720.dp) Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {

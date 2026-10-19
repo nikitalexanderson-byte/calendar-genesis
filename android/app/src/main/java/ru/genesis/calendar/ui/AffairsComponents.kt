@@ -29,10 +29,11 @@ internal object AffairsLayout {
     val gap = 8.dp
     val sectionGap = 16.dp
     val touchTarget = 48.dp
+    val formMaxWidth = 720.dp
     val shape = RoundedCornerShape(16.dp)
 }
 
-internal enum class AffairsAction { BACK, MORE, CLOSE, SEARCH, FILTER, EXPAND, COLLAPSE, REFRESH, MOVE }
+internal enum class AffairsAction { BACK, MORE, CLOSE, SEARCH, FILTER, EXPAND, COLLAPSE, REFRESH, MOVE, ADD, EDIT, SETTINGS, DELETE }
 
 @Composable internal fun GenesisAccountFooter(status: String) {
     Text(status, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
@@ -53,6 +54,22 @@ internal enum class AffairsAction { BACK, MORE, CLOSE, SEARCH, FILTER, EXPAND, C
         when (action) {
             AffairsAction.BACK -> { move(14f, 5f); line(7f, 12f); line(14f, 19f) }
             AffairsAction.CLOSE -> { move(6f, 6f); line(18f, 18f); move(18f, 6f); line(6f, 18f) }
+            AffairsAction.DELETE -> {
+                move(4f, 7f); line(20f, 7f); move(9f, 7f); line(9f, 3f); line(15f, 3f); line(15f, 7f)
+                move(6f, 7f); line(7f, 21f); line(17f, 21f); line(18f, 7f)
+                move(10f, 11f); line(10f, 17f); move(14f, 11f); line(14f, 17f)
+            }
+            AffairsAction.ADD -> { move(12f, 5f); line(12f, 19f); move(5f, 12f); line(19f, 12f) }
+            AffairsAction.EDIT -> {
+                move(3f, 21f); line(4f, 17f); line(17f, 4f); line(20f, 7f); line(7f, 20f); line(3f, 21f)
+                move(15f, 6f); line(18f, 9f)
+            }
+            AffairsAction.SETTINGS -> {
+                for ((y, x) in listOf(6f to 13f, 12f to 8f, 18f to 16f)) {
+                    move(3f, y); line(x - 3f, y); move(x + 3f, y); line(21f, y)
+                    drawCircle(ink, 2.5f * unit, Offset(x * unit, y * unit), style = Stroke(1.8f * unit))
+                }
+            }
             AffairsAction.SEARCH -> {
                 drawCircle(ink, 6 * unit, Offset(10 * unit, 10 * unit), style = Stroke(1.8f * unit))
                 move(15f, 15f); line(21f, 21f)

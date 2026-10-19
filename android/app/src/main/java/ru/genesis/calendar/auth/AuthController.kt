@@ -57,6 +57,8 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
     private val app = context.applicationContext as GenesisApplication
     private val client = AuthSessionClient(context.applicationContext)
     private val sharedOffline = SharedOfflineStore(context.applicationContext)
+    private val planningJournal = PlanningJournal(PlanningDraftStore(context.applicationContext))
+    private val planningOperationMutex = Mutex()
     private val credentials = CredentialManager.create(context.applicationContext)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var operation: Job? = null
@@ -192,6 +194,47 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
         sharedCachedCall("project:$projectId") { api, generation -> api.sharedProject(generation, projectId) }
     override suspend fun sharedPlanning(projectId: String): JSONObject =
         sharedCachedCall("planning:$projectId") { api, generation -> api.sharedPlanning(generation, projectId) }
+    private suspend fun <T> planningDraftCall(action: (PlanningDraftService) -> T): T {
+        val initial = mutableState.value
+        val account = initial.user?.uid ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
+        check(initial.ready && initial.accountSettings?.sharedProjectsEnabled == true)
+        val generation = client.currentGeneration()
+        fun current() {
+            if (!client.isCurrent(generation) || mutableState.value.user?.uid != account ||
+                app.workspaceScope != CloudAccountSnapshot.scopeFor(account)) throw CancellationException()
+        }
+        val access = object : PlanningDraftAccess {
+            override fun check() = current()
+            private fun network() { current(); if (mutableState.value.requiresSignIn) throw AuthFailure(AuthFailure.Kind.NETWORK) }
+            override fun planning(projectId: String): JSONObject { network(); return client.sharedPlanning(generation, projectId).also { current() } }
+            override fun tasks(filter: JSONObject, cursor: String?): JSONObject { network(); return client.querySharedTasks(generation, filter, cursor).also { current() } }
+            override fun hasTaskQueue(projectId: String): Boolean { current(); return sharedOffline.queued(account).any { it.optString("projectId") == projectId } }
+            override fun send(projectId: String, command: JSONObject): JSONObject { network(); return client.sharedPlanningCommand(generation, projectId, command).also { current() } }
+        }
+        return withContext(Dispatchers.IO) { planningOperationMutex.withLock {
+            current(); action(PlanningDraftService(planningJournal, account, access)).also { current() }
+        } }
+    }
+    override suspend fun sharedPlanningDraft(projectId: String): JSONObject? = planningDraftCall { it.load(projectId) }
+    override suspend fun sharedPlanningCopies(projectId: String): List<JSONObject> = planningDraftCall { it.copies(projectId) }
+    override suspend fun saveSharedPlanningCopy(projectId: String, id: String, stamp: String?, edit: JSONObject): JSONObject =
+        planningDraftCall { it.saveCopy(projectId, id, stamp, edit) }
+    override suspend fun useSharedPlanningCopy(projectId: String, id: String, copyStamp: String, stamp: String?): JSONObject =
+        planningDraftCall { it.useCopy(projectId, id, copyStamp, stamp) }
+    override suspend fun removeSharedPlanningCopy(projectId: String, id: String, stamp: String): Unit =
+        planningDraftCall { it.removeCopy(projectId, id, stamp) }
+    override suspend fun saveSharedPlanningDraft(projectId: String, stamp: String?, edit: JSONObject): JSONObject =
+        planningDraftCall { it.save(projectId, stamp, edit) }
+    override suspend fun prepareSharedPlanningDraft(projectId: String, stamp: String): JSONObject =
+        planningDraftCall { it.prepare(projectId, stamp) }
+    override suspend fun sendSharedPlanningDraft(projectId: String, stamp: String): JSONObject =
+        planningDraftCall { it.send(projectId, stamp) }
+    override suspend fun rebaseSharedPlanningDraft(projectId: String, stamp: String): JSONObject =
+        planningDraftCall { it.rebase(projectId, stamp) }
+    override suspend fun prepareSharedSprintCompletion(projectId: String, sprintId: String, stamp: String?): JSONObject =
+        planningDraftCall { it.completion(projectId, sprintId, stamp) }
+    override suspend fun removeSharedPlanningDraft(projectId: String, stamp: String): Unit =
+        planningDraftCall { it.remove(projectId, stamp) }
     override suspend fun sharedGoogleSettings(projectId: String): JSONObject =
         sharedCall { api, generation -> api.sharedGoogleSettings(generation, projectId) }
     override suspend fun updateSharedGoogleSettings(projectId: String, tasksEnabled: Boolean, calendarEnabled: Boolean): JSONObject =
