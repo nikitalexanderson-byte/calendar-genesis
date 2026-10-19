@@ -220,7 +220,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
         error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
         current?.habits?.filter { HabitRuleHistory.state(it,LocalDate.MAX).conflicts.isNotEmpty() }?.forEach { habit ->
             Text("Правила изменены на нескольких устройствах. Выберите действующий вариант.",color=MaterialTheme.colorScheme.error)
-            Text(habit.title)
+            Text(habitDisplayTitle(habit))
             TextButton(onClick={edit=habit;editorOpen=true}) { Text("Открыть историю") }
         }
         if(current==null) {
@@ -268,7 +268,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                     onToggle={scope.launch { runAction { repository.save(habit.copy(active=!habit.active)) } }},
                     onDelete={deleteCandidate=habit})
                 else Card((if (current.settings.feedback.animations) Modifier.animateContentSize() else Modifier).fillMaxWidth()) { Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
-                    Text("${habit.emoji} ${habit.title}",style=MaterialTheme.typography.titleMedium)
+                    Text("${habit.emoji} ${habitDisplayTitle(habit)}",style=MaterialTheme.typography.titleMedium)
                     if(habit.description.isNotEmpty()) Text(habit.description)
                     Text(if(!habit.active) "На паузе" else if(scheduled) "Запланировано сегодня" else "Сегодня не запланировано",style=MaterialTheme.typography.bodySmall)
                     if(habit.scoringMode.startsWith("quality") && scheduled && !measured) {
@@ -420,8 +420,8 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
         AlertDialog(onDismissRequest={if(!busy) deleteCandidate=null},
             title={Text("Удалить привычку?")},
             text={Text(if(retainsLaurels)
-                "«${habit.title}» и все отметки будут удалены. Рубеж в $HABIT_LAUREL_RETENTION_COMPLETIONS выполнений достигнут — заработанные Лавры сохранятся."
-                else "«${habit.title}» и все отметки будут удалены. Прогресс: $completionCount/$HABIT_LAUREL_RETENTION_COMPLETIONS; баланс Лавров будет обнулён.")},
+                "«${habitDisplayTitle(habit)}» и все отметки будут удалены. Рубеж в $HABIT_LAUREL_RETENTION_COMPLETIONS выполнений достигнут — заработанные Лавры сохранятся."
+                else "«${habitDisplayTitle(habit)}» и все отметки будут удалены. Прогресс: $completionCount/$HABIT_LAUREL_RETENTION_COMPLETIONS; баланс Лавров будет обнулён.")},
             confirmButton={TextButton(enabled=!busy,onClick={scope.launch {
                 runAction {
                     repository.delete(habit.id)
@@ -458,7 +458,7 @@ private fun ExperimentalHabitCard(habit: Habit, entry: HabitCompletion?, schedul
                     }
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(habit.title, style = MaterialTheme.typography.titleMedium, color = Color(0xff132426))
+                    Text(habitDisplayTitle(habit), style = MaterialTheme.typography.titleMedium, color = Color(0xff132426))
                     Text(status, style = MaterialTheme.typography.labelMedium,
                         color = if (habit.active && scheduled) Color(0xff255b59) else Color(0xff596665))
                 }
@@ -537,7 +537,9 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
     val engineCalendar=remember { GenesisCalendar() }
     val engine=remember(engineCalendar) { HabitEngine(engineCalendar) }
     val initial=remember(existing,initialTitle) { existing ?: Habit(TrackerEntity.create("habit"),initialTitle,LocalDate.now(),engine.defaultSchedule(LocalDate.now(),inputCalendarMode)) }
-    var title by rememberSaveable(initial.id) { mutableStateOf(initial.title) }
+    val displayTitle = habitDisplayTitle(initial)
+    val editorInitialTitle = rememberSaveable(initial.id) { displayTitle }
+    var title by rememberSaveable(initial.id) { mutableStateOf(editorInitialTitle) }
     var description by rememberSaveable(initial.id) { mutableStateOf(initial.description) }
     var emoji by rememberSaveable(initial.id) { mutableStateOf(initial.emoji) }
     var color by rememberSaveable(initial.id) { mutableStateOf(initial.color) }
@@ -758,7 +760,7 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
                 Button(enabled=!busy&&HabitRuleHistory.state(initial,LocalDate.MAX).conflicts.isEmpty()&&measurementValid&&periodValid&&title.isNotBlank()&&normalizedHabitColor(color)!=null&&normalizedHabitEmoji(emoji)!=null&&
                     (ritualId!="custom"||ritualName.isNotBlank())&&
                     (limit==0||config.days.isNotEmpty())&&(end.isEmpty()||end>=start)&&intervalSchedule?.valid()!=false,onClick={
-                    onSave(initial.copy(title=title.trim(),description=description,priority=priority,scoringMode=scoring,
+                    onSave(initial.copy(title=if (title.trim() == editorInitialTitle) initial.title else title.trim(),description=description,priority=priority,scoringMode=scoring,
                         createdDate=if(existing==null) LocalDate.parse(start) else initial.createdDate,
                         emoji=requireNotNull(normalizedHabitEmoji(emoji)),color=requireNotNull(normalizedHabitColor(color)),
                         isKeyHabit=isKeyHabit,ritualId=ritualId,ritualName=if(ritualId=="custom") ritualName.trim() else "",

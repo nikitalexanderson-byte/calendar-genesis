@@ -70,7 +70,7 @@ internal fun HabitCompletionCalendar(workspace: LocalHabitWorkspace, today: Loca
                 val marked = workspace.completions.filter { it.habitId==habit.id && it.completed }
                     .map { it.date }.toHashSet()
                 Column(verticalArrangement=Arrangement.spacedBy(5.dp)) {
-                    Text("${habit.emoji} ${habit.title}", color=Color(0xfffff5df),
+                    Text("${habit.emoji} ${habitDisplayTitle(habit)}", color=Color(0xfffff5df),
                         style=MaterialTheme.typography.titleSmall)
                     days.chunked(columns).forEach { row ->
                         Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.spacedBy(4.dp)) {

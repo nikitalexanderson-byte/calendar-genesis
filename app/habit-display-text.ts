@@ -6,7 +6,7 @@ import { translateText, type Language } from "./i18n";
 import { REGION_LANGUAGES } from "./region-language";
 
 type HabitText = Pick<Habit, "title" | "description" | "sourceTemplateId" | "sacredPracticeId">;
-type BuiltInText = { title: LocalizedPair; description: LocalizedPair; sacred: boolean };
+type BuiltInText = { title: LocalizedPair; previousTitles?: readonly string[]; description: LocalizedPair; sacred: boolean };
 const templates = new Map<string, BuiltInText>(STARTER_HABIT_TEMPLATES.map(template => [template.id, {
   title: { ru: template.title, en: template.titleEn },
   description: { ru: template.description, en: template.descriptionEn }, sacred: false,
@@ -19,10 +19,10 @@ function render(copy: LocalizedPair, language: Language, sacred: boolean) {
     : language === "en" ? copy.en : translateText(copy.ru, language);
 }
 
-function localizeOriginal(saved: string, copy: LocalizedPair, language: Language, sacred: boolean) {
+function localizeOriginal(saved: string, copy: LocalizedPair, language: Language, sacred: boolean, previous: readonly string[] = []) {
   let known = originals.get(copy);
   if (!known) {
-    known = new Set([copy.ru, copy.en, ...REGION_LANGUAGES.map(locale => render(copy, locale, sacred))]);
+    known = new Set([copy.ru, copy.en, ...previous, ...REGION_LANGUAGES.map(locale => render(copy, locale, sacred))]);
     originals.set(copy, known);
   }
   return known.has(saved) ? render(copy, language, sacred) : saved;
@@ -34,7 +34,7 @@ export function habitDisplayText(habit: HabitText, language: Language): Pick<Hab
     : habit.sourceTemplateId ? templates.get(habit.sourceTemplateId) : undefined;
   if (!original) return { title: habit.title, description: habit.description };
   return {
-    title: localizeOriginal(habit.title, original.title, language, original.sacred),
+    title: localizeOriginal(habit.title, original.title, language, original.sacred, original.previousTitles),
     description: localizeOriginal(habit.description, original.description, language, original.sacred),
   };
 }

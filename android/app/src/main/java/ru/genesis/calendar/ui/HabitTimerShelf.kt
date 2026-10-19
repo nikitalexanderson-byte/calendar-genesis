@@ -126,7 +126,7 @@ internal fun HabitTimerShelf(workspace: LocalHabitWorkspace, owner: String, requ
             for (session in pending) {
                 val plan = session.root.plan!!; val state = session.state; val own = session.root.owner == owner
                 HorizontalDivider()
-                MaterialText(workspace.habits.firstOrNull { it.id == session.root.habitId }?.title ?: plan.habitTitle,
+                MaterialText(workspace.habits.firstOrNull { it.id == session.root.habitId }?.let { habitDisplayTitle(it) } ?: plan.habitTitle,
                     style = MaterialTheme.typography.titleMedium)
                 Text(instantLabel(session.root.at, plan.timeZone), style = MaterialTheme.typography.bodySmall)
                 MaterialText(plan.timeZone, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -195,8 +195,10 @@ internal fun HabitTimerShelf(workspace: LocalHabitWorkspace, owner: String, requ
                 TextButton({ historyOpen = !historyOpen }) { Text("История сессий"); MaterialText(" · ${history.size}") }
                 if (historyOpen) {
                     for (session in history.take(historyCount)) {
-                        MaterialText(session.root.plan!!.habitTitle, style = MaterialTheme.typography.titleSmall)
-                        Text(instantLabel(session.root.at, session.root.plan.timeZone), style = MaterialTheme.typography.bodySmall)
+                        val plan = session.root.plan!!
+                        MaterialText(workspace.habits.firstOrNull { it.id == session.root.habitId }?.let { habitDisplayTitle(it) }
+                            ?: plan.habitTitle, style = MaterialTheme.typography.titleSmall)
+                        Text(instantLabel(session.root.at, plan.timeZone), style = MaterialTheme.typography.bodySmall)
                         MaterialText(timerDuration(HabitTimers.reading(session.state!!, now).workMs, true))
                     }
                     if (history.size > historyCount) TextButton({ historyCount += 10 }) { Text("Показать ещё") }

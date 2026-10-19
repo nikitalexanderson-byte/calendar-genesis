@@ -139,7 +139,7 @@ internal fun TodayHabitsContent(app: GenesisApplication, date: LocalDate,
                             else complete(habit, checked, entry?.qualityValue)
                         })
                     Column(Modifier.weight(1f).padding(8.dp)) {
-                        Text(habit.title, style = MaterialTheme.typography.titleMedium)
+                        Text(habitDisplayTitle(habit), style = MaterialTheme.typography.titleMedium)
                         if (entry?.completed == true) Text("Выполнено · ${entry.score} баллов",
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                     }
@@ -162,7 +162,7 @@ internal fun TodayHabitsContent(app: GenesisApplication, date: LocalDate,
     ratingHabit?.let { habit ->
         var quality by remember(habit.id) { mutableFloatStateOf(
             (entries[habit.id]?.qualityValue ?: if (habit.scoringMode == "quality-ten") 5.0 else 0.0).toFloat()) }
-        AlertDialog(onDismissRequest = { ratingHabit = null }, title = { Text(habit.title) },
+        AlertDialog(onDismissRequest = { ratingHabit = null }, title = { Text(habitDisplayTitle(habit)) },
             text = { Column {
                 Text("Качество выполнения · ${quality.toInt()}")
                 Slider(value = quality, onValueChange = { quality = it },

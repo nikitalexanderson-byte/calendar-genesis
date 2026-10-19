@@ -1452,9 +1452,25 @@
       "sectorId": "nadir",
       "emoji": "🌱",
       "title": {
-        "ru": "Семя Персефоны",
-        "en": "Persephone's seed"
+        "ru": "Возвращение Персефоны",
+        "en": "Persephone’s Return"
       },
+      "previousTitles": [
+        "Семя Персефоны",
+        "Persephone's seed",
+        "Σπόρος του Περσεφόνη",
+        "Persephone-Seed",
+        "graine de Persephone",
+        "semilla de Persephone",
+        "seme di Persephone",
+        "semente do Persephone",
+        "Materiał siewny Persephone",
+        "Персефона",
+        "насіння Персефона",
+        "Persephone的种子",
+        "Persephone'nin tohumu",
+        "Persephone のシード"
+      ],
       "description": {
         "ru": "Освободить место от одной отжившей вещи, записи или обязательства и назвать, чему теперь можно прорасти.",
         "en": "Release one outgrown object, note, or obligation and name what may grow in its place."
