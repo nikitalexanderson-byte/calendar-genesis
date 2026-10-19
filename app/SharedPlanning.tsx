@@ -13,6 +13,7 @@ import { useSharedTaskPage } from './use-shared-task-page';
 import { estimateDraft, estimateInput, loadPlanning, planningAccessLost, planningError, planningText, savePlanning, savePlanningTask, saveSprint, transitionSprint, type PlanningCopyKey, type PlanningTotals, type ProjectPlanning, type SharedSprint, type SprintDraft } from './shared-planning';
 import './shared-templates.css';
 import './shared-planning.css';
+import { SharedWorkflow } from './SharedWorkflow';
 
 type PlanningValues={sprintId?:string|null;storyPoints?:number|null;estimateHours?:number|null};
 type Job={invoke:(id:string)=>Promise<unknown>;id:string;after?:(value:unknown)=>void};
@@ -103,6 +104,7 @@ export function SharedPlanning({context,language,mode,onClose,onAccessLost,onCha
    </section>:<section aria-label={bucket==='backlog'?t('backlog'):t('sprint')}><h3>{bucket==='backlog'?t('backlog'):g('Задачи')}</h3><ul>{tasks.page?.tasks.map(task=><PlanningTaskRow key={task.id} task={task} sprints={data.sprints} language={language} canEdit={canEdit} canOrganize={canOrganize} disabled={blocked} onOpen={task=>void openTask(task)} onSave={(task,values)=>run(id=>savePlanningTask(task,values,id))}/>)}</ul>{tasks.page&&!tasks.page.total?<p>{g('Задач нет.')}</p>:null}<SharedTaskPageControls page={tasks.page} loaded={tasks.page?.tasks.length??0} busy={tasks.busy||busy} onMore={()=>void tasks.more()} onRefresh={()=>void tasks.refresh()} error={tasks.error}/></section>}
    {Object.keys(byAssignee).length?<section><h3>{t('byAssignee')}</h3><table className="shared-planning-members"><thead><tr><th scope="col">{g('Исполнитель')}</th><th scope="col">{t('count')}</th><th scope="col">{t(data.config.estimateUnit)}</th><th scope="col">{t('unestimated')}</th></tr></thead><tbody>{Object.entries(byAssignee).map(([id,values])=><tr key={id}><th scope="row">{context.members.find(member=>member.userId===id)?.displayName??g(id==='unassigned'?'Не назначен':'Участник')}</th><td>{number.format(values.count)}</td><td>{number.format(values[data.config.estimateUnit].value)}</td><td>{number.format(values[data.config.estimateUnit].unestimated)}</td></tr>)}</tbody></table></section>:null}
   </>}
+  <SharedWorkflow context={context} language={language} disabled={blocked} onChanged={onChanged} onAccessLost={onAccessLost}/>
   {busy?<p role="status">{g('Загрузка…')}</p>:null}
  </dialog>;
 }

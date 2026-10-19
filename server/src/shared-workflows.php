@@ -51,7 +51,9 @@ function genesisWorkflowRequired(array $row,array $rule):void {
 function genesisWorkflowRules(string $actor,array $project,array $input):array {
     $statuses=genesisWorkflowStatuses($project['id']);$rules=$input['statuses']??null;$transitions=$input['transitions']??null;
     if(!is_array($rules)||!array_is_list($rules)||count($rules)!==count($statuses)||!is_array($transitions)||!array_is_list($transitions)||count($transitions)>930)throw new InvalidArgumentException('WORKFLOW_INVALID');
-    $fields=array_column(genesisSharedCustomFields($actor,$project['space_id'],$project['id'],true),null,'id');
+    // Workflow access above already includes repairable projects in trash. The regular
+    // C3 reader deliberately hides those projects, so read only scoped definitions here.
+    $fields=array_column(genesisPlanningRows('SELECT id,archived_at FROM shared_custom_fields WHERE space_id=? AND (project_id IS NULL OR project_id=?)',[$project['space_id'],$project['id']]),null,'id');
     $normalized=[];$core=['description','assigneeId','dueDate','startDate','categoryId','labels','storyPoints','estimateHours'];
     foreach($rules as $rule){
         if(!is_array($rule)||array_diff(array_keys($rule),['statusId','wipLimit','requiredFields'])||!is_string($rule['statusId']??null)||!isset($statuses[$rule['statusId']])||isset($normalized[$rule['statusId']])||!array_key_exists('wipLimit',$rule)
@@ -61,7 +63,7 @@ function genesisWorkflowRules(string $actor,array $project,array $input):array {
             if(!is_string($field))throw new InvalidArgumentException('WORKFLOW_INVALID');
             if(in_array($field,$core,true))continue;
             $custom=str_starts_with($field,'custom:')?($fields[substr($field,7)]??null):null;
-            if(!$custom||$custom['archived'])throw new InvalidArgumentException('WORKFLOW_FIELD_UNAVAILABLE');
+            if(!$custom||$custom['archived_at']!==null)throw new InvalidArgumentException('WORKFLOW_FIELD_UNAVAILABLE');
         }
         $required=array_values(array_unique($rule['requiredFields']));sort($required);$normalized[$rule['statusId']]=['statusId'=>$rule['statusId'],'wipLimit'=>$limit,'requiredFields'=>$required];
     }

@@ -85,6 +85,7 @@ try {
     $processes=[];foreach($raceTasks as $row){$pipes=[];$process=proc_open([PHP_BINARY,__FILE__,'race',$owner,$race,$row['id'],$raceStatuses[1]['id']],[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes);if(!is_resource($process))throw new RuntimeException('Cannot launch race');fclose($pipes[0]);$processes[]=[$process,$pipes];}
     $results=[];foreach($processes as [$process,$pipes]){$out=stream_get_contents($pipes[1]);$err=stream_get_contents($pipes[2]);fclose($pipes[1]);fclose($pipes[2]);wfCheck(proc_close($process)===0,'Race child failed '.$err);$results[]=json_decode($out,true,32,JSON_THROW_ON_ERROR);}
     wfCheck(count(array_filter($results,fn($row)=>$row['ok']))===1&&count(array_filter($results,fn($row)=>($row['error']??null)==='WORKFLOW_WIP_LIMIT'))===1,'Concurrent WIP did not serialize '.json_encode($results));$checks[]='two process concurrent WIP';
+    require_once __DIR__.'/workflow-integrations.php';$checks=[...$checks,...wfIntegrations($owner,$space,$users)];
     echo json_encode(['pass'=>true,'checks'=>$checks],JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR)."\n";
 }finally{
     if($db->inTransaction())$db->rollBack();if($space)$db->prepare('DELETE FROM shared_spaces WHERE id=?')->execute([$space]);foreach($users as $id)$db->prepare('DELETE FROM users WHERE id=?')->execute([$id]);
