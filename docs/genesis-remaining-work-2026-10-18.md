@@ -1,5 +1,7 @@
 # Остаток полного промпта — 18 октября 2026
 
+G2 row drafts прошли локальную приёмку: [отчёт и открытые состояния](genesis-planning-task-drafts-2026-10-19.md). Несколько редакторов сохраняются после смены bucket/page/reload/cold offline; текущие права и безопасные task references проверяются отдельно.352 tests,8 PHP suites,14 языков и обе темы ×4 ширины прошли. Публикация этого совместимого веб-среза — следующий шаг. После неё остаются native и сквозные интеграции;21 функциональный ID остаётся частичным,14 общих K/U/L учитываются отдельно.
+
 G1 durable forms/lifecycle и защита G1/G3 pending identity прошли локальную приёмку: [подробный отчёт](genesis-planning-durable-drafts-2026-10-19.md). Cold offline,5 команд с потерянным ответом,131 carry-over choice, текущие права/late response, две вкладки/CAS, quota/corrupt,4 календарных контекста,14 языков и обе схемы ×4 ширины проверены. Опубликовано в PR #206: master/productiona05f6b7, workflow39205763510 attempt1 success; SHA/health/assets и Android2.9.0/95 проверены. Следующий срез — G2 row drafts; native/интеграции/общая приёмка открыты, всего21 функциональный ID.
 
 Durable workflow drafts опубликованы и проверены: PR #205, master/production03bec6f, workflow39200986842 attempt1 success; SHA/health/production chunk и Android2.9.0/95 подтверждены. [Приёмка](genesis-workflow-durable-drafts-2026-10-19.md). Следующий срез G1 сохраняет формы и lifecycle planning на устройстве; G2 row edits и native пока открыты. Функциональных ID по-прежнему открыто21.
@@ -18,8 +20,8 @@ Durable workflow drafts опубликованы и проверены: PR #205,
 |---|---|---|
 |1|C5|Server/web опубликованы: Trello/CSV/JSON, mapping/preview, полная разрешённая выборка, typed fields/defaults, история/метаданные, replay/undo. Открыты native/общая приёмка, будущие G3/B-интеграции|
 |2|C4|Server/web проверены: точные полные выборки, реальные cycle/stage time, legacy unknown, календарные границы, C1/C2/C3/C5/C6/G2,14 языков и две темы. Открыты native, G4, общая приёмка и большие многолетние отчёты|
-|3|G1|Server/web проверены: backlog >100, planning/active/completed, сохранённые даты/контекст, состав/fingerprint, явный carry-over, atomic rollback и lost-response replay. Durable forms/lifecycle reload/cold-offline draft проверены для web; открыты G2 row drafts, native, дальнейшие G/B/C-интеграции и общая приёмка|
-|4|G2|Server/web проверены: независимые points/часы,0/null, карточка/backlog/C4, суммы/assignees, C1/C5 round-trip и old-client preservation. Открыты native, дальнейшие B/C/G3/G4-интеграции и общая приёмка|
+|3|G1|Server/web проверены: backlog >100, planning/active/completed, сохранённые даты/контекст, состав/fingerprint, явный carry-over, atomic rollback и lost-response replay. Durable forms/lifecycle reload/cold-offline draft опубликованы; G2 row drafts проверены локально. Открыты native, дальнейшие G/B/C-интеграции и общая приёмка|
+|4|G2|Server/web проверены: независимые points/часы,0/null, карточка/backlog/C4, суммы/assignees, C1/C5 round-trip и old-client preservation. Durable multirow drafts прошли локальную приёмку; открыты native, дальнейшие B/C/G3/G4-интеграции и общая приёмка|
 |5|G3|Server/первый web-экран проверены: workflow/WIP/поля/роли, старые API-клиенты, bulk/C1/C2/C5, CAS/replay/history. Archive/trash repair UI опубликован; durable draft проверен для web. Открыты native, дальнейшие интеграции и общая приёмка|
 |6|G4|Server/первый web-отчёт проверены: план/факт, burndown/CFD/WIP/scope, три единицы и источники с текущими правами. Открыты native, общий project flow, крупные истории, дальнейшие интеграции и общая приёмка|
 |7|B1/B2/B4/B5/B7|Завершить и проверить связи checklist/subtask/priority/saved-view/notifications с новыми C/G-функциями|
