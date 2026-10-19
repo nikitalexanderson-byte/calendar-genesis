@@ -24,4 +24,6 @@ Frozen install, lint (0 ошибок,2 прежних предупреждени
 
 ## Границы выпуска
 
-Не проверены Safari/Firefox, физические touch-устройства, screen reader и native Android календарь/поиск. Браузер использует синтетические изолированные @example.invalid аккаунты; реальные пользовательские данные не изменялись. Нового APK нет: официальный Android2.9.0/95 и writer protocol6 сохраняются. Ручной SSH и production-БД не использовались. Публикация и production SHA/health фиксируются после штатного deploy.yml.
+Опубликовано в [PR #208](https://github.com/nikitalexanderson-byte/calendar-genesis/pull/208): master/production `6739c0e0e9e40724ac6080dd37faf900f34de519`, workflow `39237718858`, attempt1 success. `/deploy-meta.json` содержит этот SHA, `/api/health` отвечает ok. Старая вкладка2597a3e успешно импортировала прежний SharedPlanning chunk (HTTP200), затем reload загрузил новый выпуск без page errors. Доказательства: `output/shared-calendar-production.json`, `output/shared-calendar-production-browser.json`. Число131 дополнительно проверено геометрически на четырёх ширинах: scrollWidth=clientWidth33px, обрезания нет.
+
+Не проверены Safari/Firefox, физические touch-устройства, screen reader и native Android календарь/поиск. Браузер использует синтетические изолированные @example.invalid аккаунты; реальные пользовательские данные не изменялись. Нового APK нет: официальный Android2.9.0/95 и writer protocol6 сохраняются. Ручной SSH и production-БД не использовались.

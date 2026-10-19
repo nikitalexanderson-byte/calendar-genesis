@@ -1,0 +1,311 @@
+package ru.genesis.calendar.ui
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.currentStateAsState
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import org.json.JSONObject
+import ru.genesis.calendar.domain.CalendarMode
+import ru.genesis.calendar.domain.GenesisCalendar
+import java.text.NumberFormat
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
+import java.util.Locale
+import ru.genesis.calendar.auth.SharedWorkspaceGateway
+import ru.genesis.calendar.auth.AuthFailure
+
+/** One project uses the existing task collection and encrypted task mutation outbox. */
+@Composable internal fun SharedPlanningScreen(controller: SharedWorkspaceGateway, project: JSONObject,
+    members: List<JSONObject>, onClose: () -> Unit, onTask: (String) -> Unit, onChanged: () -> Unit) {
+    val projectId = project.getString("id")
+    val copy = sharedPlanningCopy()
+    val language = LocalGenesisLanguage.current
+    val context = LocalContext.current
+    fun t(source: String) = translateGenesisText(context, source, language)
+    val number = remember(language) { NumberFormat.getNumberInstance(Locale.forLanguageTag(language)).apply { maximumFractionDigits = 2 } }
+    val lifecycle = LocalLifecycleOwner.current.lifecycle.currentStateAsState().value
+    val scope = rememberCoroutineScope()
+    var bucket by rememberSaveable(projectId) { mutableStateOf("backlog") }
+    var data by remember(projectId) { mutableStateOf<JSONObject?>(null) }
+    var page by remember(projectId, bucket) { mutableStateOf<JSONObject?>(null) }
+    var error by remember(projectId, bucket) { mutableStateOf("") }
+    var busy by remember(projectId) { mutableStateOf(false) }
+    var loading by remember(projectId, bucket) { mutableStateOf(true) }
+    var reload by remember { mutableIntStateOf(0) }
+    var queue by remember(projectId) { mutableStateOf(emptyList<JSONObject>()) }
+    var selected by remember(projectId, bucket) { mutableStateOf<JSONObject?>(null) }
+    var needsRebase by remember(projectId, bucket) { mutableStateOf(false) }
+    var destination by rememberSaveable(projectId, bucket) { mutableStateOf("") }
+    var notice by remember(projectId) { mutableStateOf("") }
+    var accessLost by remember(projectId) { mutableStateOf(false) }
+    val currentBucket by rememberUpdatedState(bucket)
+    val currentData by rememberUpdatedState(data)
+    val selectedBucket = planningRows(data?.optJSONArray("sprints")).find { it.optString("id") == bucket }
+    val readOnly = data?.optBoolean("offlineCache") == true || page?.optBoolean("offlineCache") == true
+    val permissions = data?.optJSONObject("context")?.optJSONObject("permissions")
+    val canAssign = data?.optJSONObject("config")?.optBoolean("enabled") == true && !readOnly &&
+        permissions?.optBoolean("editTasks") == true && permissions.optBoolean("organizeTasks") && selectedBucket?.optString("state") != "completed"
+
+    LaunchedEffect(projectId, bucket, reload, lifecycle.isAtLeast(Lifecycle.State.STARTED)) {
+        if (!lifecycle.isAtLeast(Lifecycle.State.STARTED)) return@LaunchedEffect
+        loading = page == null
+        while (isActive) {
+            if (!busy) try {
+                val fresh = validatePlanning(projectId, controller.sharedPlanning(projectId))
+                val next = controller.querySharedTasks(planningTaskFilter(projectId, bucket))
+                currentCoroutineContext().ensureActive()
+                val first = mergePlanningPage(projectId, null, next, false)
+                // Keep already loaded pages only while the backend confirms the same collection.
+                page = page?.takeIf { it.optString("queryVersion") == first.optString("queryVersion") }
+                    ?.let { old -> JSONObject(first.toString()).put("tasks", old.getJSONArray("tasks"))
+                        .put("nextCursor", old.opt("nextCursor") ?: JSONObject.NULL) } ?: first
+                data = fresh; queue = controller.queuedSharedTasks(projectId); error = ""; accessLost = false
+                if (bucket != "backlog" && planningRows(fresh.getJSONArray("sprints")).none { it.getString("id") == bucket }) bucket = "backlog"
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (failure: Exception) {
+                error = if (planningAccessLost(failure)) t("Нет доступа") else t("Не удалось загрузить данные")
+                if (planningAccessLost(failure)) { accessLost = true; data = null; page = null; selected = null }
+            } finally { loading = false }
+            delay(5000)
+        }
+    }
+    fun more() {
+        val previous = page ?: return
+        val cursor = previous.optString("nextCursor").takeUnless { it.isBlank() || it == "null" } ?: return
+        if (busy) return
+        val targetBucket = bucket
+        busy = true
+        scope.launch {
+            try {
+                val next = controller.querySharedTasks(planningTaskFilter(projectId, targetBucket), cursor)
+                if (currentBucket == targetBucket) {
+                    require(page?.optString("queryVersion") == previous.optString("queryVersion")) { "SHARED_QUERY_CHANGED" }
+                    page = mergePlanningPage(projectId, previous, next, true)
+                }
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (failure: Exception) {
+                if (currentBucket == targetBucket) {
+                    error = if (failure.message == "SHARED_QUERY_CHANGED") copy.getString("conflict") else t("Не удалось загрузить данные")
+                    if (planningAccessLost(failure)) { accessLost = true; data = null; page = null; selected = null }
+                }
+            } finally { busy = false }
+        }
+    }
+    fun assign() {
+        val task = selected ?: return
+        if (currentData == null) return
+        if (busy || !canAssign) return
+        val targetBucket = bucket
+        busy = true; error = ""; notice = ""
+        scope.launch {
+            try {
+                // Recheck the current permission/sprint snapshot before creating a command.
+                val fresh = validatePlanning(projectId, controller.sharedPlanning(projectId))
+                data = fresh
+                val freshTask = controller.sharedTask(projectId, task.getString("id"))
+                require(!freshTask.optBoolean("offlineCache")) { "PLANNING_PERMISSION_CHANGED" }
+                require(freshTask.getJSONObject("task").getInt("revision") == task.getInt("revision")) { "SHARED_QUERY_CHANGED" }
+                val pending = controller.queuedSharedTasks(projectId).any { it.optString("taskId") == task.getString("id") }
+                val patch = planningAssignment(fresh, projectId, task, destination.takeUnless { it == "backlog" }, pending)
+                currentCoroutineContext().ensureActive()
+                require(currentBucket == targetBucket) { "PLANNING_PERMISSION_CHANGED" }
+                val result = controller.updateSharedTask(projectId, task.getString("id"), patch).getJSONObject("task")
+                queue = controller.queuedSharedTasks(projectId)
+                notice = if (result.optBoolean("pending")) t("Изменение сохранено на устройстве и синхронизируется после подключения.") else copy.getString("saved")
+                selected = null; busy = false; reload++; onChanged()
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (failure: Exception) {
+                val conflict = failure.message == "SHARED_QUERY_CHANGED" || failure is AuthFailure && failure.kind == AuthFailure.Kind.CONFLICT
+                if (conflict) needsRebase = true
+                error = copy.getString(when (if (conflict) "SHARED_QUERY_CHANGED" else failure.message) {
+                    "SHARED_QUERY_CHANGED" -> "conflict"
+                    "PLANNING_PERMISSION_CHANGED" -> "movePermissionChanged"
+                    "PLANNING_TASK_DESTINATION" -> "taskDraftDestination"
+                    "PLANNING_TASK_UNAVAILABLE" -> "taskDraftUnavailable"
+                    "SPRINT_COMPLETED" -> "closed"
+                    else -> "error"
+                })
+                if (planningAccessLost(failure)) { accessLost = true; data = null; page = null; selected = null; error = t("Нет доступа") }
+            } finally { busy = false }
+        }
+    }
+    fun refreshPlanning() {
+        if (busy) return
+        val task = selected
+        if (task == null) { reload++; return }
+        val targetBucket = bucket
+        busy = true
+        scope.launch {
+            try {
+                val fresh = validatePlanning(projectId, controller.sharedPlanning(projectId))
+                val result = controller.sharedTask(projectId, task.getString("id"))
+                require(!fresh.optBoolean("offlineCache") && !result.optBoolean("offlineCache")) { "PLANNING_PERMISSION_CHANGED" }
+                currentCoroutineContext().ensureActive()
+                if (currentBucket == targetBucket) {
+                    data = fresh; selected = result.getJSONObject("task"); needsRebase = false; error = ""; accessLost = false; busy = false; reload++
+                }
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (failure: Exception) {
+                error = if (planningAccessLost(failure)) t("Нет доступа") else copy.getString("conflict")
+                if (planningAccessLost(failure)) { accessLost = true; data = null; page = null; selected = null }
+            } finally { busy = false }
+        }
+    }
+    @Composable fun Navigation(modifier: Modifier) {
+        Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            var expanded by remember { mutableStateOf(false) }
+            Box {
+                OutlinedButton(onClick = { expanded = true }, enabled = !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("planning-bucket")) {
+                    androidx.compose.material3.Text(selectedBucket?.optString("title") ?: copy.getString("backlog"), Modifier.weight(1f))
+                    AffairsActionIcon(AffairsAction.EXPAND)
+                }
+                DropdownMenu(expanded, { expanded = false }) {
+                    DropdownMenuItem(text = { androidx.compose.material3.Text(copy.getString("backlog")) },
+                        modifier = Modifier.testTag("planning-select-backlog"), onClick = { bucket = "backlog"; selected = null; expanded = false })
+                    planningRows(data?.optJSONArray("sprints")).forEach { sprint ->
+                        DropdownMenuItem(text = { Column {
+                            androidx.compose.material3.Text(sprint.getString("title"))
+                            androidx.compose.material3.Text(copy.getString(when (sprint.getString("state")) { "active" -> "active"; "completed" -> "completed"; else -> "planned" }), style = MaterialTheme.typography.bodySmall)
+                        } }, modifier = Modifier.testTag("planning-select-${sprint.getString("id")}"),
+                            onClick = { bucket = sprint.getString("id"); selected = null; expanded = false })
+                    }
+                }
+            }
+            selectedBucket?.let { sprint ->
+                androidx.compose.material3.Text(copy.getString(when (sprint.getString("state")) { "active" -> "active"; "completed" -> "completed"; else -> "planned" }), style = MaterialTheme.typography.titleSmall)
+                Text(planningPeriod(sprint, language), style = MaterialTheme.typography.bodyMedium)
+                if (sprint.optString("goal").isNotBlank()) androidx.compose.material3.Text(sprint.getString("goal"))
+            }
+            data?.optJSONObject("totals")?.optJSONObject(bucket)?.let { totals -> SharedPlanningTotals(totals, copy, number) }
+            data?.optJSONObject("byAssignee")?.optJSONObject(bucket)?.takeIf { it.length() > 0 }?.let { groups ->
+                AffairsDisclosure(copy.getString("byAssignee")) {
+                    groups.keys().forEach { id ->
+                        Column(Modifier.testTag("planning-assignee-$id"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            androidx.compose.material3.Text(members.find { it.optString("userId") == id }?.optString("displayName") ?: t(if (id == "unassigned") "Не назначен" else "Недоступно"), style = MaterialTheme.typography.titleSmall)
+                            SharedPlanningTotals(groups.getJSONObject(id), copy, number)
+                        }
+                    }
+                }
+            }
+        }
+    }
+    @Composable fun TaskList(modifier: Modifier, compact: Boolean) {
+        LazyColumn(modifier.testTag("planning-tasks"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (compact) item { Navigation(Modifier.fillMaxWidth().padding(bottom = 16.dp)) }
+            if (loading) item { LinearProgressIndicator(Modifier.fillMaxWidth().testTag("planning-loading")) }
+            if (readOnly) item { Text("Нет связи: показана последняя защищённая копия команды.") }
+            if (data?.optJSONObject("config")?.optBoolean("enabled") == false) item { androidx.compose.material3.Text(copy.getString("disabled")) }
+            if (error.isNotBlank()) item { Column(Modifier.testTag("planning-error")) {
+                androidx.compose.material3.Text(error, color = MaterialTheme.colorScheme.error)
+                TextButton(onClick = ::refreshPlanning, enabled = !busy) { Text("Обновить") }
+            } }
+            if (notice.isNotBlank()) item { androidx.compose.material3.Text(notice, Modifier.testTag("planning-notice")) }
+            items(planningRows(page?.optJSONArray("tasks")), key = { it.getString("id") }) { task ->
+                val pending = queue.any { it.optString("taskId") == task.getString("id") }
+                val completed = task.optString("completedAt").let { it.isNotBlank() && it != "null" }
+                val metadata = listOf("storyPoints" to "points", "estimateHours" to "hours").map { (key, unit) ->
+                        copy.getString(unit) + ": " + if (task.isNull(key)) copy.getString("unestimated") else number.format(task.getDouble(key))
+                    } + listOfNotNull(if (completed) t("Завершено") else null, if (pending) t("Ожидает синхронизации") else null)
+                AffairsTaskRow(task.getString("title"), completed, { onTask(task.getString("id")) },
+                    Modifier.testTag("planning-task-${task.getString("id")}"), metadata = metadata, enabled = !busy,
+                    actions = if (canAssign) ({
+                        AffairsIconButton(copy.getString("assignTo"), AffairsAction.MOVE, {
+                            selected = task; needsRebase = false; destination = task.optString("sprintId").takeUnless { it.isBlank() || it == "null" } ?: "backlog"
+                        }, Modifier.testTag("planning-move-${task.getString("id")}"), enabled = !busy && !pending)
+                    }) else null, extra = {
+                    if (selected?.optString("id") == task.getString("id")) {
+                        Column(Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        val stale = needsRebase || selected?.optInt("revision") != task.optInt("revision")
+                        if (stale) androidx.compose.material3.Text(copy.getString("conflict"), Modifier.testTag("planning-selection-conflict"))
+                        var targets by remember { mutableStateOf(false) }
+                        Box {
+                            OutlinedButton({ targets = true }, enabled = !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("planning-destination")) {
+                                androidx.compose.material3.Text(planningRows(data?.optJSONArray("sprints")).find { it.optString("id") == destination }?.optString("title") ?: copy.getString("backlog"), Modifier.weight(1f))
+                                AffairsActionIcon(AffairsAction.EXPAND)
+                            }
+                            DropdownMenu(targets, { targets = false }) {
+                                DropdownMenuItem(text = { androidx.compose.material3.Text(copy.getString("backlog")) }, onClick = { destination = "backlog"; targets = false })
+                                planningRows(data?.optJSONArray("sprints")).filter { it.optString("state") != "completed" }.forEach { sprint ->
+                                    DropdownMenuItem(text = { androidx.compose.material3.Text(sprint.getString("title")) }, modifier = Modifier.testTag("planning-destination-${sprint.getString("id")}"),
+                                        onClick = { destination = sprint.getString("id"); targets = false })
+                                }
+                            }
+                        }
+                        Row {
+                            TextButton(::assign, enabled = !busy && !stale && runCatching { planningAssignment(requireNotNull(data), projectId, task, destination.takeUnless { it == "backlog" }, pending) }.isSuccess,
+                                modifier = Modifier.testTag("planning-assign")) { Text("Сохранить") }
+                            TextButton({ selected = null }, enabled = !busy) { Text("Отмена") }
+                        }
+                        }
+                    }
+                })
+            }
+            if (!loading && error.isBlank() && page != null && planningRows(page?.optJSONArray("tasks")).isEmpty()) item { Text("Здесь пока нет задач", Modifier.testTag("planning-empty")) }
+            item {
+                page?.let { androidx.compose.material3.Text(t("Показано: {loaded} из {total}").replace("{loaded}", number.format(planningRows(it.optJSONArray("tasks")).size)).replace("{total}", number.format(it.optInt("total")))) }
+                if (page?.optString("nextCursor")?.let { it.isNotBlank() && it != "null" } == true) TextButton(::more, enabled = !busy, modifier = Modifier.testTag("planning-more")) { Text("Показать ещё") }
+            }
+        }
+    }
+    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        Surface(Modifier.fillMaxSize()) {
+            Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding().padding(16.dp).testTag("shared-planning-screen"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                AffairsPageHeader(if (accessLost) copy.getString("heading") else project.getString("title"),
+                    if (accessLost) "" else copy.getString("heading"), titleIsUserContent = true,
+                    onBack = onClose, actions = {
+                        AffairsIconButton("Обновить", AffairsAction.REFRESH, ::refreshPlanning,
+                            Modifier.testTag("planning-refresh"), enabled = !busy)
+                    })
+                BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+                    if (maxWidth >= 720.dp) Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                        Navigation(Modifier.width(248.dp).fillMaxHeight().verticalScroll(rememberScrollState()))
+                        TaskList(Modifier.weight(1f).fillMaxHeight(), false)
+                    } else TaskList(Modifier.fillMaxSize(), true)
+                }
+            }
+        }
+    }
+}
+
+@Composable private fun SharedPlanningTotals(totals: JSONObject, copy: JSONObject, number: NumberFormat) {
+    Column(Modifier.fillMaxWidth().testTag("planning-totals"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        androidx.compose.material3.Text(copy.getString("count") + ": " + number.format(totals.getInt("count")), style = MaterialTheme.typography.titleSmall)
+        for (unit in listOf("points", "hours")) {
+            val values = totals.getJSONObject(unit)
+            androidx.compose.material3.Text(copy.getString(unit) + ": " + number.format(values.getDouble("value")) + " · " + copy.getString("unestimated") + ": " + number.format(values.getInt("unestimated")), style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+}
+
+internal fun planningPeriod(sprint: JSONObject, language: String): String {
+    val context = sprint.getJSONObject("calendarContext")
+    val calendar = GenesisCalendar(ZoneId.of(context.getString("timeZone")), context.getInt("version"), context.getString("gregorianYearStart"))
+    val mode = CalendarMode.fromWire(sprint.getString("calendarMode"))
+    fun label(raw: String): String {
+        val date = LocalDate.parse(raw)
+        val civil = date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.forLanguageTag(language)))
+        return if (mode == CalendarMode.PROFANE) civil else calendar.formatDate(date, mode) + " · " + civil
+    }
+    return label(sprint.getString("startDate")) + " — " + label(sprint.getString("endDate"))
+}

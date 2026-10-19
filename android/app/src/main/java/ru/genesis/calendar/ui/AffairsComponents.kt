@@ -32,7 +32,7 @@ internal object AffairsLayout {
     val shape = RoundedCornerShape(16.dp)
 }
 
-internal enum class AffairsAction { BACK, MORE, CLOSE, SEARCH, FILTER, EXPAND, COLLAPSE }
+internal enum class AffairsAction { BACK, MORE, CLOSE, SEARCH, FILTER, EXPAND, COLLAPSE, REFRESH, MOVE }
 
 @Composable internal fun GenesisAccountFooter(status: String) {
     Text(status, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
@@ -48,6 +48,8 @@ internal enum class AffairsAction { BACK, MORE, CLOSE, SEARCH, FILTER, EXPAND, C
         val path = Path()
         fun move(x: Float, y: Float) = path.moveTo(x * unit, y * unit)
         fun line(x: Float, y: Float) = path.lineTo(x * unit, y * unit)
+        fun curve(x1: Float, y1: Float, x2: Float, y2: Float, x: Float, y: Float) =
+            path.cubicTo(x1 * unit, y1 * unit, x2 * unit, y2 * unit, x * unit, y * unit)
         when (action) {
             AffairsAction.BACK -> { move(14f, 5f); line(7f, 12f); line(14f, 19f) }
             AffairsAction.CLOSE -> { move(6f, 6f); line(18f, 18f); move(18f, 6f); line(6f, 18f) }
@@ -60,6 +62,19 @@ internal enum class AffairsAction { BACK, MORE, CLOSE, SEARCH, FILTER, EXPAND, C
             }
             AffairsAction.EXPAND -> { move(6f, 9f); line(12f, 15f); line(18f, 9f) }
             AffairsAction.COLLAPSE -> { move(6f, 15f); line(12f, 9f); line(18f, 15f) }
+            AffairsAction.REFRESH -> {
+                move(20f, 8f); curve(18f, 2f, 10f, 1f, 6f, 5f); line(3f, 8f)
+                move(3f, 3f); line(3f, 8f); line(8f, 8f)
+                move(4f, 16f); curve(6f, 22f, 14f, 23f, 18f, 19f); line(21f, 16f)
+                move(21f, 21f); line(21f, 16f); line(16f, 16f)
+            }
+            AffairsAction.MOVE -> {
+                move(12f, 3f); line(12f, 21f); move(3f, 12f); line(21f, 12f)
+                move(9f, 6f); line(12f, 3f); line(15f, 6f)
+                move(9f, 18f); line(12f, 21f); line(15f, 18f)
+                move(6f, 9f); line(3f, 12f); line(6f, 15f)
+                move(18f, 9f); line(21f, 12f); line(18f, 15f)
+            }
             AffairsAction.MORE -> for (y in listOf(5f, 12f, 19f)) {
                 drawCircle(ink, 1.6f * unit, Offset(12 * unit, y * unit))
             }
@@ -156,7 +171,7 @@ internal enum class AffairsAction { BACK, MORE, CLOSE, SEARCH, FILTER, EXPAND, C
     onComplete: (() -> Unit)? = null, enabled: Boolean = true,
     actions: @Composable (() -> Unit)? = null, extra: @Composable (() -> Unit)? = null,
     titleContent: @Composable (() -> Unit)? = null) {
-    OutlinedCard(onClick = onOpen, modifier = modifier.fillMaxWidth(), shape = AffairsLayout.shape,
+    OutlinedCard(onClick = onOpen, enabled = enabled, modifier = modifier.fillMaxWidth(), shape = AffairsLayout.shape,
         colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.dp, if (unreadComments > 0) MaterialTheme.colorScheme.secondary
             else MaterialTheme.colorScheme.outlineVariant)) {
