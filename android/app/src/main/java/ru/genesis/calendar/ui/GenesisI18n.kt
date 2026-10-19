@@ -1014,7 +1014,7 @@ private val nativeCopy = mapOf(
         "Rules are saved in your website account. Android task changes are sent to Google through GENESIS; when offline, they remain in the protected on-device queue.",
     "При создании задачи выберите один или несколько Google-аккаунтов. Пока правило не сохранено, используется прежняя маршрутизация." to
         "Choose one or more Google accounts when creating a task. Until the rule is saved, the previous routing remains active.",
-    "ПЯТА" to "PYATA", "СТУПЕНЬ" to "STAGE", "Ступень" to "Stage", "Рекорд:" to "Record:", " · получено " to " · claimed ",
+    "ПЯТА" to "QUINTA", "СТУПЕНЬ" to "STAGE", "Ступень" to "Stage", "Рекорд:" to "Record:", " · получено " to " · claimed ",
     "Сон:" to "Sleep:", " · настроение:" to " · mood:", " · награды:" to " · rewards:", " · испытания:" to " · quests:",
     // Authentication, cloud state, validation, and failure recovery.
     "Серверная сессия ещё не проверена." to "The server session has not been checked yet.",

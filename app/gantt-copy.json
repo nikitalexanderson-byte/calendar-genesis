@@ -13,7 +13,7 @@
   },
   "en": {
     "time": "Time",
-    "pyatas": "Pyatas",
+    "pyatas": "Quintas",
     "help": "Help",
     "helpTitle": "How to use Gantt",
     "actions": "Timeline actions",
@@ -25,7 +25,7 @@
   },
   "de": {
     "time": "Zeit",
-    "pyatas": "Pyatas",
+    "pyatas": "Quintas",
     "help": "Hilfe",
     "helpTitle": "Gantt verwenden",
     "actions": "Zeitleistenaktionen",
@@ -37,7 +37,7 @@
   },
   "fr": {
     "time": "Heure",
-    "pyatas": "Pyatas",
+    "pyatas": "Quintas",
     "help": "Aide",
     "helpTitle": "Utiliser le Gantt",
     "actions": "Actions de la chronologie",
@@ -49,7 +49,7 @@
   },
   "es": {
     "time": "Hora",
-    "pyatas": "Pyatas",
+    "pyatas": "Quintas",
     "help": "Ayuda",
     "helpTitle": "Cómo usar Gantt",
     "actions": "Acciones de la cronología",
@@ -61,7 +61,7 @@
   },
   "it": {
     "time": "Ora",
-    "pyatas": "Pyatas",
+    "pyatas": "Quintas",
     "help": "Guida",
     "helpTitle": "Come usare il Gantt",
     "actions": "Azioni della cronologia",
@@ -73,7 +73,7 @@
   },
   "pt": {
     "time": "Hora",
-    "pyatas": "Pyatas",
+    "pyatas": "Quintas",
     "help": "Ajuda",
     "helpTitle": "Como usar o Gantt",
     "actions": "Ações da linha do tempo",
@@ -85,7 +85,7 @@
   },
   "pl": {
     "time": "Czas",
-    "pyatas": "Pyaty",
+    "pyatas": "Quintas",
     "help": "Pomoc",
     "helpTitle": "Jak używać Gantta",
     "actions": "Działania na osi czasu",
@@ -97,7 +97,7 @@
   },
   "el": {
     "time": "Ώρα",
-    "pyatas": "Πυάτες",
+    "pyatas": "Quintas",
     "help": "Βοήθεια",
     "helpTitle": "Χρήση του Gantt",
     "actions": "Ενέργειες χρονογραμμής",
@@ -109,7 +109,7 @@
   },
   "sr": {
     "time": "Време",
-    "pyatas": "Пјате",
+    "pyatas": "Quintas",
     "help": "Помоћ",
     "helpTitle": "Како користити Гант",
     "actions": "Радње на временској оси",
@@ -121,7 +121,7 @@
   },
   "uk": {
     "time": "Час",
-    "pyatas": "П’яти",
+    "pyatas": "Quintas",
     "help": "Підказка",
     "helpTitle": "Як працювати з Гантом",
     "actions": "Дії зі шкалою",
@@ -133,7 +133,7 @@
   },
   "zh": {
     "time": "时间",
-    "pyatas": "五日组",
+    "pyatas": "Quintas",
     "help": "帮助",
     "helpTitle": "如何使用甘特图",
     "actions": "时间轴操作",
@@ -145,7 +145,7 @@
   },
   "tr": {
     "time": "Saat",
-    "pyatas": "Pyatalar",
+    "pyatas": "Quintas",
     "help": "Yardım",
     "helpTitle": "Gantt nasıl kullanılır",
     "actions": "Zaman çizelgesi işlemleri",
@@ -157,7 +157,7 @@
   },
   "ja": {
     "time": "時間",
-    "pyatas": "ピャタ",
+    "pyatas": "Quintas",
     "help": "ヘルプ",
     "helpTitle": "ガントの使い方",
     "actions": "タイムラインの操作",

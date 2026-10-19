@@ -1,6 +1,7 @@
 /* eslint-disable @next/next/no-img-element -- User-provided board pictures remain native img elements. */
 "use client";
 import { DialogCloseButton } from "./DialogCloseButton";
+import { useMobileLayout } from "./use-mobile-layout";
 import { SharedTaskViewControls } from "./SharedTaskViewControls";
 import { SharedCustomFieldInputs, SharedCustomFieldValues } from "./SharedCustomFieldInputs";
 import { SharedCustomFieldFilter } from "./SharedCustomFieldFilter";
@@ -231,6 +232,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   const [taskEditing,setTaskEditing]=useState(false);
   const [previewProjectId,setPreviewProjectId]=useState("");
   const isCompact = useSyncExternalStore(subscribeCompact, compactSnapshot, serverCompactSnapshot);
+  const isMobile = useMobileLayout();
   const [taskSection, setTaskSection] = useState<"task" | "comments">("task");
   const [taskSnapshot, setTaskSnapshot] = useState<SharedProjectSnapshot | null>(null);
   const [comments, setComments] = useState<SharedComment[]>([]);
@@ -1271,7 +1273,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
           </option>)}
         </select> : null}
         <div className="shared-project-toolbar-actions">{selectedSpace && (selectedSpace.permissions?.createProjects ?? selectedSpace.role !== "guest") ? <button type="button"
-          className={projects.some(project => !project.isInbox) ? "secondary-button" : "primary-button shared-create-first-project"}
+          className={projects.some(project => !project.isInbox) ? "secondary-button shared-create-project" : "primary-button shared-create-first-project"}
           title={english ? "Create project" : "Создать проект"}
           aria-label={projects.some(project => !project.isInbox) ? english ? "Create project" : "Создать проект" : english ? "Create your first project" : "Создать первый проект"}
           onClick={() => { setCreateKind("project"); setParentId(""); setParentBoardId(""); setCreateModal("project"); }}><ExperimentalIcon name="project-plus" />
@@ -1421,8 +1423,9 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       <section className="shared-projects-task-panel" aria-labelledby="shared-projects-tasks-title">
       <section className="shared-projects-planning" aria-label={english ? "Tasks and views" : "Задачи и виды проекта"}>
         <div className="shared-project-task-panel-heading"><h3 id="shared-projects-tasks-title">{english ? "Tasks" : "Задачи"}</h3>
+        {isMobile ? createTaskAction : null}
       <div className="shared-task-query-bar" data-active-view={activeView}>
-        {isCompact ? createTaskAction : null}
+        {isCompact && !isMobile ? createTaskAction : null}
         <label aria-hidden={activeView === "gantt"}>{translateText("Приоритет")}<select disabled={activeView === "gantt"} value={priorityFilter} onChange={event => setPriorityFilter(event.target.value)}><option value="">{translateText("Все приоритеты")}</option>{[0,1,2,3].map(priority => <option key={priority} value={priority}>{sharedPriorityLabel(priority)}</option>)}</select></label>
         <label aria-hidden={activeView === "gantt"}>{translateText("Сортировка")}<select disabled={activeView === "gantt"} value={projectSort} onChange={event=>{const sort=event.target.value as import("./cloud-sync").SharedTaskSort;if(sort.startsWith('custom:'))setCustomSort({projectId,sort});else{setCustomSort({projectId:"",sort:"position"});setTaskSort(sort);}}}>{([ ["position","Порядок на доске"],["priority","Приоритет"],["dueDate","Срок"],["title","Название"],["updatedAt","Последнее изменение"],["createdAt","Новые вверху"],["createdAtAsc","Старые вверху"] ] as const).map(([value,label])=><option key={value} value={value}>{translateText(label)}</option>)}
         {(snapshot.customFieldDefinitions??[]).filter(field=>field.type!=="multi").flatMap(field=>(['asc','desc'] as const).map(direction=><option key={`${field.id}:${direction}`} value={`custom:${field.id}:${direction}`} data-no-translate>{field.title} · {translateText(direction==='asc'?'По возрастанию':'По убыванию')}</option>))}</select></label>

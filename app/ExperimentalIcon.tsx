@@ -17,6 +17,7 @@ export function ExperimentalIcon({ name, className = "" }: { name: string; class
     {name === "undo" ? <><path d="M3 10h11a7 7 0 0 1 7 7v3M3 10l6-6m-6 6 6 6"/></> : null}
     {name === "redo" ? <><path d="M21 10H10a7 7 0 0 0-7 7v3m18-10-6-6m6 6-6 6"/></> : null}
     {name === "help" ? <><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 4.3 1.7c-1.1.8-1.8 1.3-1.8 2.8M12 17h.01"/></> : null}
+    {name === "fit" ? <><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/><rect x="8" y="8" width="8" height="8" rx="1"/></> : null}
     {name === "thought-new" ? <><path d="M9 18h6m-5 3h4M8 14a6 6 0 1 1 8-1c-1.2 1-1.5 2-1.5 3h-5c0-1-.3-1.7-1.5-2Z"/><path d="M19 3v6m-3-3h6"/></> : null}
     {name === "thought-link" ? <path d="M10 13a5 5 0 0 0 7 .2l3-3a5 5 0 0 0-7-7l-2 2m3 6a5 5 0 0 0-7-.2l-3 3a5 5 0 0 0 7 7l2-2"/> : null}
     {name === "map-mode" ? <><rect x="8" y="8" width="8" height="8" rx="2"/><path d="M8 10 4 5m12 5 4-5M8 14l-4 5m12-5 4 5"/><circle cx="3" cy="3" r="2"/><circle cx="21" cy="3" r="2"/><circle cx="3" cy="21" r="2"/><circle cx="21" cy="21" r="2"/></> : null}
