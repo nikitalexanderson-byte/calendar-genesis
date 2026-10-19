@@ -23,6 +23,7 @@ sfCheck($summary['plan']['value']===10.0&&$summary['delivered']['value']===4.0&&
 sfCheck($flow['historyComplete']&&count($flow['carrySourceIds'])===6&&$summary['removed']['tasks']===0,'Atomic completion carries were counted as ordinary scope removal');
 sfCheck(min(array_column(array_column($flow['series'],'remaining'),'value'))===6.0,'Burndown fabricated a zero before terminal plan');
 sfCheck(end($flow['series'])['connectPrevious'],'Matching terminal evidence introduced an artificial gap');$checks[]='terminal carry and causal ordering';
+sfCheck(end($flow['series'])['wipStatuses']->todo['value']===6.0&&(!isset(end($flow['series'])['wipStatuses']->done)||end($flow['series'])['wipStatuses']->done['value']===0.0),'Per-status WIP included completed work');
 
 // Count, points and hours are independent. Zero is estimated; null is unknown effort.
 $zero=sfTask('zero',0,1);$unestimated=sfTask('null',null,null);$outside=sfTask('outside',2,0,['sprintId'=>null,'revision'=>4]);$events=[];
@@ -75,6 +76,7 @@ $raw=['id'=>'raw','sequence'=>1,'created_at'=>'2026-10-19T10:01:00Z','object_id'
 sfCheck(genesisSprintFlowEvent($raw)['state']===null,'Legacy event manufactured planning data');
 $raw['details']['reportState']['planning']=['version'=>1,'sprintId'=>'sprint-a','storyPoints'=>0,'estimateHours'=>null];$observation=genesisSprintFlowEvent($raw);
 sfCheck($observation['state']['storyPoints']===0.0&&$observation['state']['estimateHours']===null,'Adapter lost explicit zero/null');
+$raw['created_at']='2026-10-19 10:01:00';sfCheck(genesisSprintFlowEvent($raw)['at']==='2026-10-19T10:01:00.000000Z','Legacy UTC instant became browser-local time');
 unset($raw['details']['reportState']['planning']['storyPoints']);sfCheck(genesisSprintFlowEvent($raw)['state']===null,'Truncated planning observation became known');$checks[]='strict observation adapter';
 
 // Reconciliation is an explicit observation NOW, never an invented task mutation in the past.
@@ -91,5 +93,8 @@ sfCheck($daily['summary']===$points['summary']&&count($daily['series'])===3&&$da
 sfCheck($daily['series'][1]['date']==='2026-10-20','Daily grouping ignored the saved timezone');
 $dailyGap=genesisSprintFlowFold('sprint-a','points',sfStart([$one,$other]),null,[$middle,$late],$asOf,null,['resolution'=>'day','timeZone'=>'UTC']);
 sfCheck($dailyGap['series'][1]['scope']['value']===10.0&&!$dailyGap['series'][1]['connectPrevious']&&$dailyGap['series'][1]['gapWithinBucket'],'Daily grouping concealed a historical gap after endpoint recovery');$checks[]='daily sampling and saved calendar timezone';
+sfCheck(genesisSprintFlowTask(['taskId'=>'bad','statusId'=>'todo','done'=>false,'active'=>true,'revision'=>1,'sprintId'=>'sprint-a','storyPoints'=>1.0e300,'estimateHours'=>null])===null,'Corrupt effort overflowed aggregate arithmetic');
+$badPlan=sfStart([]);$badPlan['plan']=['taskId'=>'not-a-list'];sfCheck(!genesisSprintFlowFold('sprint-a','tasks',$badPlan,null,[],$asOf)['available'],'A malformed plan invented an unavailable task count');
+$badRow=genesisSprintFlowFold('sprint-a','tasks',sfStart(['not-a-task']),null,[],$asOf);sfCheck($badRow['summary']['plan']['value']===null,'A malformed plan entry became known zero');$checks[]='corrupt observation bounds and shapes';
 
 echo json_encode(['pass'=>true,'groups'=>count($checks),'checks'=>$checks],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)."\n";

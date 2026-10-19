@@ -32,6 +32,7 @@ require_once __DIR__ . '/shared-reports-history.php';
 require_once __DIR__ . '/shared-reports.php';
 require_once __DIR__ . '/shared-planning.php';
 require_once __DIR__ . '/shared-planning-reports.php';
+require_once __DIR__ . '/shared-sprint-reports.php';
 require_once __DIR__ . '/shared-workflows.php';
 
 final class GenesisSharedAccessException extends RuntimeException

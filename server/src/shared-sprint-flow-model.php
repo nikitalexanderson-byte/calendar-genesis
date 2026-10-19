@@ -2,6 +2,13 @@
 declare(strict_types=1);
 require_once __DIR__.'/shared-reports-history.php';
 
+/** SQLite legacy instants without an offset mean UTC, including in browser payloads. */
+function genesisSprintFlowInstant(mixed $value):mixed
+{
+    if(genesisReportTime($value)===null)return $value;
+    return (new DateTimeImmutable($value,new DateTimeZone('UTC')))->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d\TH:i:s.u\Z');
+}
+
 /** Pure projection of server observations. No current snapshot is backdated into history. */
 function genesisSprintFlowTask(mixed $value):?array
 {
@@ -12,7 +19,7 @@ function genesisSprintFlowTask(mixed $value):?array
     if($value['sprintId']!==null&&(!is_string($value['sprintId'])||$value['sprintId']===''))return null;
     foreach(['storyPoints','estimateHours'] as $key){
         $number=$value[$key];
-        if($number!==null&&(!is_int($number)&&!is_float($number)||!is_finite((float)$number)||$number<0))return null;
+        if($number!==null&&(!is_int($number)&&!is_float($number)||!is_finite((float)$number)||$number<0||$number>1000000))return null;
     }
     foreach(['storyPoints','estimateHours'] as $key)if($value[$key]!==null)$value[$key]=round((float)$value[$key],2);
     return array_intersect_key($value,array_flip(['taskId','statusId','done','active','revision','sprintId','storyPoints','estimateHours']));
@@ -33,7 +40,7 @@ function genesisSprintFlowEvent(array $event):array
         ]);
         $outside=($report['active']??null)===false&&in_array($report['kind']??null,['left','removed'],true);
     }
-    return ['id'=>(string)($event['id']??''),'sequence'=>(int)($event['sequence']??0),'at'=>$event['created_at']??null,
+    return ['id'=>(string)($event['id']??''),'sequence'=>(int)($event['sequence']??0),'at'=>genesisSprintFlowInstant($event['created_at']??null),
         'taskId'=>(string)$task,'action'=>(string)($event['action']??''),'state'=>$state,'outside'=>$outside,
         'revision'=>is_int($report['revision']??null)?$report['revision']:null];
 }
@@ -73,14 +80,14 @@ function genesisSprintFlowFold(string $sprint,string $unit,?array $start,?array 
     try{$zone=new DateTimeZone($seriesOptions['timeZone']??'UTC');}catch(Throwable){throw new InvalidArgumentException('SPRINT_REPORT_CONTEXT_INVALID');}
     $asOfTime=genesisReportTime($asOf);if($asOfTime===null)throw new InvalidArgumentException('SPRINT_REPORT_TIME_INVALID');
     $from=$start?genesisReportTime($start['at']??null):null;
-    if($from===null||$from>$asOfTime||!is_array($start['plan']??null)||!is_int($start['sequence']??null)||$start['sequence']<1||!is_string($start['id']??null)||$start['id']==='')return ['available'=>false,'reason'=>'start-observation-missing','unit'=>$unit,'series'=>[],'summary'=>null,'gaps'=>[]];
+    if($from===null||$from>$asOfTime||!is_array($start['plan']??null)||!array_is_list($start['plan'])||!is_int($start['sequence']??null)||$start['sequence']<1||!is_string($start['id']??null)||$start['id']==='')return ['available'=>false,'reason'=>'start-observation-missing','unit'=>$unit,'series'=>[],'summary'=>null,'gaps'=>[]];
 
     $gaps=[];$unknown=[];$opaque=0;$states=[];$lastSequence=[];$historyComplete=true;
     $readPlan=static function(array $plan)use(&$opaque,&$unknown,&$historyComplete):array{
         $result=[];
         foreach($plan as $raw){
             $task=genesisSprintFlowTask($raw);
-            if($task===null){if(is_string($raw['taskId']??null)&&$raw['taskId']!=='')$unknown[$raw['taskId']]=true;else $opaque++;$historyComplete=false;continue;}
+            if($task===null){if(is_array($raw)&&is_string($raw['taskId']??null)&&$raw['taskId']!=='')$unknown[$raw['taskId']]=true;else $opaque++;$historyComplete=false;continue;}
             if(isset($result[$task['taskId']])){$unknown[$task['taskId']]=true;$historyComplete=false;continue;}
             $result[$task['taskId']]=$task;
         }
@@ -93,7 +100,7 @@ function genesisSprintFlowFold(string $sprint,string $unit,?array $start,?array 
     foreach($states as $id=>$_)$lastSequence[$id]=$start['sequence'];
     $initialUnknown=$opaque+count($unknown);
     $to=$terminal?genesisReportTime($terminal['at']??null):null;
-    if($terminal!==null&&($to===null||$to<$from||$to>$asOfTime||($terminal['sequence']??0)<=$start['sequence']||!is_array($terminal['plan']??null))){
+    if($terminal!==null&&($to===null||$to<$from||$to>$asOfTime||($terminal['sequence']??0)<=$start['sequence']||!is_array($terminal['plan']??null)||!array_is_list($terminal['plan']))){
         $gaps[]=['reason'=>'invalid-terminal-observation'];$terminal=null;$historyComplete=false;
     }
     $stopSequence=$terminal['sequence']??PHP_INT_MAX;$to=$terminal?$to:$asOfTime;
@@ -114,20 +121,21 @@ function genesisSprintFlowFold(string $sprint,string $unit,?array $start,?array 
         }
     }
 
-    $scope=genesisSprintFlowEmpty();$open=genesisSprintFlowEmpty();$done=genesisSprintFlowEmpty();$statuses=[];
-    $apply=static function(?array $task,int $direction)use(&$scope,&$open,&$done,&$statuses,$sprint,$unit):void{
+    $scope=genesisSprintFlowEmpty();$open=genesisSprintFlowEmpty();$done=genesisSprintFlowEmpty();$statuses=[];$wipStatuses=[];
+    $apply=static function(?array $task,int $direction)use(&$scope,&$open,&$done,&$statuses,&$wipStatuses,$sprint,$unit):void{
         if(!genesisSprintFlowInside($task,$sprint))return;
         genesisSprintFlowAccumulate($scope,$task,$unit,$direction);
         if($task['done'])genesisSprintFlowAccumulate($done,$task,$unit,$direction);else genesisSprintFlowAccumulate($open,$task,$unit,$direction);
         $status=$task['statusId'];$statuses[$status]??=genesisSprintFlowEmpty();genesisSprintFlowAccumulate($statuses[$status],$task,$unit,$direction);
+        if(!$task['done']){$wipStatuses[$status]??=genesisSprintFlowEmpty();genesisSprintFlowAccumulate($wipStatuses[$status],$task,$unit,$direction);}
     };
     foreach($states as $task)$apply($task,1);
     $series=[];
-    $point=static function(string $at,int $sequence,string $source,bool $connect,string $kind='event')use(&$series,&$scope,&$open,&$done,&$statuses,&$unknown,&$opaque,$resolution,$zone):void{
+    $point=static function(string $at,int $sequence,string $source,bool $connect,string $kind='event')use(&$series,&$scope,&$open,&$done,&$statuses,&$wipStatuses,&$unknown,&$opaque,$resolution,$zone):void{
         $missing=$opaque+count($unknown);$metric=static fn(array $total):array=>[...$total,'value'=>$missing?null:$total['knownValue']];
-        $byStatus=[];foreach($statuses as $id=>$total)$byStatus[$id]=$metric($total);
+        $byStatus=[];foreach($statuses as $id=>$total)$byStatus[$id]=$metric($total);$byWipStatus=[];foreach($wipStatuses as $id=>$total)$byWipStatus[$id]=$metric($total);
         $sample=['at'=>$at,'date'=>(new DateTimeImmutable($at))->setTimezone($zone)->format('Y-m-d'),'sequence'=>$sequence,'firstSequence'=>$sequence,'sourceId'=>$source!==''?$source:null,'sourceKind'=>$kind,'sourceCount'=>1,'connectPrevious'=>$connect,'coverage'=>$missing?'partial':'observed','unknownTasks'=>$missing,
-            'scope'=>$metric($scope),'remaining'=>$metric($open),'done'=>$metric($done),'wip'=>$metric($open),'statuses'=>(object)$byStatus];
+            'scope'=>$metric($scope),'remaining'=>$metric($open),'done'=>$metric($done),'wip'=>$metric($open),'statuses'=>(object)$byStatus,'wipStatuses'=>(object)$byWipStatus];
         $last=count($series)-1;
         if($resolution==='day'&&$kind==='event'&&$last>=0&&$series[$last]['sourceKind']==='event'&&$series[$last]['date']===$sample['date']){
             $sample['firstSequence']=$series[$last]['firstSequence'];$sample['sourceCount']+=$series[$last]['sourceCount'];
@@ -188,7 +196,7 @@ function genesisSprintFlowFold(string $sprint,string $unit,?array $start,?array 
         $matches=$observed===$terminalStates&&$opaque===0&&!$unknown&&$to>=$lastTime;
         if(!$matches){$historyComplete=false;$gaps[]=['sourceId'=>$terminal['id'],'fromSequence'=>$start['sequence'],'toSequence'=>$terminal['sequence'],'reason'=>'terminal-plan-reconciliation'];}
         $opaque=0;$unknown=[];$states=$readPlan($terminal['plan']);
-        $scope=genesisSprintFlowEmpty();$open=genesisSprintFlowEmpty();$done=genesisSprintFlowEmpty();$statuses=[];
+        $scope=genesisSprintFlowEmpty();$open=genesisSprintFlowEmpty();$done=genesisSprintFlowEmpty();$statuses=[];$wipStatuses=[];
         foreach($states as $task)$apply($task,1);
         $point($terminal['at'],$terminal['sequence'],$terminal['id'],$matches,'terminal');
     }elseif($current!==null){
@@ -201,7 +209,7 @@ function genesisSprintFlowFold(string $sprint,string $unit,?array $start,?array 
                 $gaps[]=['taskId'=>$id,'fromSequence'=>$lastSequence[$id]??$start['sequence'],'toSequence'=>null,'reason'=>'current-snapshot-reconciliation'];
             }
         }
-        $states=$latest;$scope=genesisSprintFlowEmpty();$open=genesisSprintFlowEmpty();$done=genesisSprintFlowEmpty();$statuses=[];
+        $states=$latest;$scope=genesisSprintFlowEmpty();$open=genesisSprintFlowEmpty();$done=genesisSprintFlowEmpty();$statuses=[];$wipStatuses=[];
         foreach($states as $task)$apply($task,1);
         $point($asOf,$lastEventSequence,'',$matches,'current-snapshot');
     }elseif($lastTime<$asOfTime||$unknown||$opaque){
@@ -220,7 +228,7 @@ function genesisSprintFlowFold(string $sprint,string $unit,?array $start,?array 
         if(!$affected)continue;
         $sample['coverage']='partial';$sample['historyGap']=true;
         foreach(['scope','remaining','done','wip'] as $key)foreach(['value','knownValue','tasks','unestimated'] as $field)$sample[$key][$field]=null;
-        $buckets=(array)$sample['statuses'];foreach($buckets as &$bucket)foreach(['value','knownValue','tasks','unestimated'] as $field)$bucket[$field]=null;unset($bucket);$sample['statuses']=(object)$buckets;
+        foreach(['statuses','wipStatuses'] as $key){$buckets=(array)$sample[$key];foreach($buckets as &$bucket)foreach(['value','knownValue','tasks','unestimated'] as $field)$bucket[$field]=null;unset($bucket);$sample[$key]=(object)$buckets;}
     }unset($sample);
     $currentUnknown=$opaque+count($unknown);$finish=static fn(array $value,int $missing):array=>[...$value,'value'=>$missing?null:$value['knownValue'],'unknownTasks'=>$missing];
     $delivered=genesisSprintFlowTotals($states,$sprint,$unit,static fn($task)=>$task['done']&&isset($completions[$task['taskId']]));
