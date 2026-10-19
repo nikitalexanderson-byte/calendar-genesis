@@ -121,7 +121,11 @@ class TaskListsFlowTest {
             compose.onNodeWithTag("task-list-title").performTextInput("План чтения")
             compose.onNodeWithTag("task-list-drafts").performTextInput("Прочитать главу\nЗаписать мысли")
             UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
-            compose.onNodeWithTag("task-list-form-calendar-lunar").performScrollTo().performClick()
+            compose.waitForIdle()
+            // First bring the horizontal picker row into the outer vertical viewport.
+            compose.onNodeWithTag("task-list-form-calendar-lunar").onParent().performScrollTo()
+            compose.onNodeWithTag("task-list-form-calendar-lunar").performScrollTo().assertIsDisplayed().performClick()
+            compose.waitUntil(5_000) { compose.onAllNodes(hasTestTag("task-list-form-calendar-lunar") and isSelected()).fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithTag("task-list-form-calendar-lunar").assertIsSelected()
             compose.onNodeWithTag("save-task-list").performScrollTo().performClick()
             compose.waitUntil(10_000) { saves==1 }

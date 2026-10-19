@@ -5,6 +5,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
@@ -83,10 +85,17 @@ class SharedWorkflowUiTest {
     private var fixture by mutableStateOf<WorkflowUiFixture?>(null); private var generation by mutableIntStateOf(0)
     private var language by mutableStateOf("ru"); private var dark by mutableStateOf(false)
     private val fixtures = mutableListOf<WorkflowUiFixture>(); private var installed = false
+    private var viewportDensity = 1f
     private fun show(value: WorkflowUiFixture) {
         if (value !in fixtures) fixtures.add(value)
         if (!installed) {
-            compose.setContent { fixture?.let { current -> key(generation) { CompositionLocalProvider(LocalGenesisLanguage provides language, LocalEveningTheme provides dark) {
+            compose.setContent {
+                val original = LocalDensity.current
+                val args = InstrumentationRegistry.getArguments()
+                val width = if (args.getString("genesisWorkflowDensityCapture") == "true") args.getString("genesisWorkflowWidth")?.toFloatOrNull() else null
+                val density = width?.let { Density(compose.activity.resources.displayMetrics.widthPixels / it, args.getString("genesisWorkflowFontScale")?.toFloatOrNull() ?: 1f) } ?: original
+                SideEffect { viewportDensity = density.density }
+                fixture?.let { current -> key(generation) { CompositionLocalProvider(LocalGenesisLanguage provides language, LocalEveningTheme provides dark, LocalDensity provides density) {
                 MaterialTheme(colorScheme = if (dark) evening else standart) { Surface(Modifier.fillMaxSize()) { SharedWorkflowScreen(current, "project", {}, {}) } }
             } } } }; installed = true
         }
@@ -177,6 +186,8 @@ class SharedWorkflowUiTest {
         val langs = if (all) listOf("ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja") else listOf("ru")
         val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
         fun capture(state: String) {
+            val logicalWidth = compose.onNodeWithTag("shared-workflow-screen").fetchSemanticsNode().boundsInRoot.width / viewportDensity
+            assertTrue("Workflow viewport width $logicalWidth does not match $width", logicalWidth in (width.toFloat() - 48f)..(width.toFloat() + 1f))
             compose.waitForIdle(); val target = File(InstrumentationRegistry.getInstrumentation().targetContext.filesDir, "workflow-${if (all) "font130-" else ""}${if (dark) "dark" else "light"}-$width-$language-$state.png")
             assertTrue(device.takeScreenshot(target))
         }

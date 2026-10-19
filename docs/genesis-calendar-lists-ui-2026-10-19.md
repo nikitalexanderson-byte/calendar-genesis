@@ -24,4 +24,6 @@
 
 ## Границы
 
+Публикация: PR #213 объединён в `master` как `ba06af59eb180b7dc988e86eaa166dc004e38cda`. Штатный deploy run `39279916389` ожидал выполнения во время `degraded_performance` GitHub Actions. На production подтверждены этот SHA в `/deploy-meta.json`, HTTP 200/`ok: true` в `/api/health` и новая сборка `/assets/index-8gi6rn1f.js`. Старые entry и SharedProjects chunk отвечают HTTP 200. В свежем Chromium-контексте открывается Google-only вход без ошибок JavaScript. Проверка выполнена без входа в настоящий пользовательский аккаунт и без записи production-данных.
+
 Не проверены Safari/Firefox, физические устройства и экранные дикторы; браузерная мобильная проверка выполнена в Chromium. Изменений нативного Android и официального APK в этой поставке нет. SSH не использовался.
