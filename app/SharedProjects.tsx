@@ -55,6 +55,7 @@ import { WorkspaceHeader } from "./WorkspaceHeader";
 import { SharedWorkspaceIdentity } from "./SharedWorkspaceIdentity";
 import { SharedProjectCategories } from "./SharedProjectCategories";
 import { ExperimentalIcon } from "./ExperimentalIcon";
+import { IconActionButton } from "./IconActionButton";
 import { ActionNotice, useActionNotice } from "./ActionNotice";
 import { ProjectCompletionDialog } from "./ProjectCompletionDialog";
 import { useAffairDrag } from "./use-affair-drag";
@@ -1219,20 +1220,20 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   } as CSSProperties}>
     <WorkspaceHeader title={english ? "Affairs · shared" : "Дела · общие"}
       overviewLabel={english ? "Workspace overview" : "Обзор пространства"}
-      context={spaces.length ? <SharedWorkspaceIdentity key={spaceId} title={selectedSpace?.title ?? ""} selector={spacePicker} showDetails={Boolean(selectedSpace)}
+      context={selectedSpace ? <SharedWorkspaceIdentity key={spaceId} title={selectedSpace.title} selector={spacePicker}
         owner={selectedSpace?.ownerName ?? visibleInbox?.members.filter(member => member.spaceRole === "owner").map(member => member.displayName).join(", ") ?? ""}
         members={selectedSpace?.memberCount ?? visibleInbox?.members.length}
         description={selectedSpace?.description} english={english} /> : undefined}
       mark={<ProjectsHeroMark shared />} description={english
         ? "Plan together while keeping personal tasks, habits and calendars private."
         : "Планируйте вместе. Личные задачи, привычки и календарь остаются вашими."}>
-      <SharedWorkspaceSummary userId={userId} english={english} spaceId={spaceId || undefined} workspaceActions={spaces.length ? spaceActions : undefined} onOpen={place => {
+      <SharedWorkspaceSummary userId={userId} english={english} spaceId={spaceId || undefined} workspaceActions={selectedSpace ? spaceActions : undefined} onOpen={place => {
         void refreshSpaces();
         recordSharedPlace(userId, { ...place, taskId: place.taskId || "", view: null });
         window.dispatchEvent(new Event("genesis:shared-route"));
       }} />
     </WorkspaceHeader>
-    {spaces.length ? <section className="shared-workspace-toolbar shared-toolbar-projects-first" aria-label={english ? "Projects in workspace" : "Проекты пространства"}>
+    {selectedSpace ? <section className="shared-workspace-toolbar shared-toolbar-projects-first" aria-label={english ? "Projects in workspace" : "Проекты пространства"}>
       {spaceId ? <div className="shared-project-toolbar-group" role="group" aria-label={english ? "Projects in workspace" : "Проекты пространства"}>
         <span className="shared-toolbar-label">{translateText("Проекты")}</span>
         {sharedMindmapsEnabled && selectedSpace ? <MindmapLaunchButton label={translateText("Майндмепы")} className="shared-mindmaps-open" onClick={()=>{closeTask();setSearchQuery("");setMapsOpen(true);}} /> : null}
@@ -1378,12 +1379,12 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
           <h2>{snapshot.project.isInbox ? (english ? "Team tasks" : "Задачи команды") : snapshot.project.title}</h2>
         </div>
       <div className="shared-context-actions">
-        {!snapshot.project.isInbox?<button type="button" className="secondary-button" data-planning-trigger data-no-translate onClick={()=>setPlanningScope(snapshot)}><ExperimentalIcon name="list"/>{planningText('heading',language as import('./i18n').Language)}</button>:null}
-        <button type="button" className="secondary-button" data-template-trigger onClick={()=>setTemplateScope({context:snapshot})}><ExperimentalIcon name="copy"/>{translateText("Шаблоны")}</button>
-        <button type="button" className="secondary-button" data-automation-trigger onClick={()=>setAutomationScope(snapshot)}><ExperimentalIcon name="gear"/>{translateText("Автоматизации")}</button>
-        <button type="button" className="secondary-button" data-exchange-trigger onClick={()=>setDataScope(snapshot)}><ExperimentalIcon name="copy"/>{translateText("Импорт и экспорт")}</button>
-        <button type="button" className="secondary-button" data-report-trigger onClick={()=>setReportScope({context:snapshot,filter:{projectIds:[snapshot.project.id],...rangeFilter,...appliedPriority}})}><ExperimentalIcon name="history"/>{translateText("Командный отчёт")}</button>
-        {(canManage || canInvite) && !snapshot.project.isInbox ? <button type="button" className="secondary-button shared-project-settings-icon" title={english ? "Project settings" : "Настройки проекта"} aria-label={english ? "Project settings" : "Настройки проекта"} onClick={() => {setEditProjectLabelIds(snapshot.project.labelIds||[]);setCreateModal("settings");}}><ExperimentalIcon name="gear" /></button> : null}
+        {!snapshot.project.isInbox?<IconActionButton icon="list" label={planningText('heading',language as import('./i18n').Language)} data-planning-trigger onClick={()=>setPlanningScope(snapshot)}/>:null}
+        <IconActionButton icon="copy" label={translateText("Шаблоны",language as import('./i18n').Language)} data-template-trigger onClick={()=>setTemplateScope({context:snapshot})}/>
+        <IconActionButton icon="gear" label={translateText("Автоматизации",language as import('./i18n').Language)} data-automation-trigger onClick={()=>setAutomationScope(snapshot)}/>
+        <IconActionButton icon="map-import" label={translateText("Импорт и экспорт",language as import('./i18n').Language)} data-exchange-trigger onClick={()=>setDataScope(snapshot)}/>
+        <IconActionButton icon="history" label={translateText("Командный отчёт",language as import('./i18n').Language)} data-report-trigger onClick={()=>setReportScope({context:snapshot,filter:{projectIds:[snapshot.project.id],...rangeFilter,...appliedPriority}})}/>
+        {(canManage || canInvite) && !snapshot.project.isInbox ? <IconActionButton icon="gear" label={translateText("Настройки проекта",language as import('./i18n').Language)} className="shared-project-settings-icon" onClick={() => {setEditProjectLabelIds(snapshot.project.labelIds||[]);setCreateModal("settings");}}/> : null}
       </div>
         <div className="shared-project-details">
           {!snapshot.project.isInbox && snapshot.project.description ? <p>{snapshot.project.description}</p> : null}
