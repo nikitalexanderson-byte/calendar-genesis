@@ -39,3 +39,11 @@ Cache содержит только нужные этому редактору p
 Не проверены Safari/Firefox, физическое Android-устройство, screen reader,200% zoom,20 полных device records в браузере и forced browser/process crash. Logout/поздняя crypto покрыты model/session guard и прежними sign-out regression, отдельный новый browser logout в этом срезе не заявляется. Native UI, G1 cold-offline lifecycle, последующие C/B/G-интеграции и общие K/U/L остаются открытыми. Счётчик открытых функциональных ID остаётся21.
 
 Rollback — git revert через существующий deploy workflow. Нового database rollback не требуется; локальные записи сохраняют собственную версию и не входят в server migrations.
+
+## Публикация
+
+PR #205 опубликован: master/production `03bec6f10865897a23a70c33c149b3d7c205eeab`, workflow `39200986842` attempt1 success. Проверены deploy-meta SHA, api/health и реальный chunk `/assets/SharedWorkflow-G6Xv8zNZ.js` из production precache с draft marker и encrypted journal namespace. Android2.9.0/95 и SHA APK сохранены. Доказательство: `output/workflow-durable-production.json`. Ручной SSH не использовался.
+
+## Дополнение при приёмке G1
+
+[Срез планирования](genesis-planning-durable-drafts-2026-10-19.md) исправляет сохранение G3 pending identity после storage failure на повторе и нового отказа ACL. Они не доказывают, что исходная отправка не выполнилась. Реальная цепочка commit/lost reply → quota →403 → возврат прав → тот же UUID/body дала ровно1 версию; прежние replay и WIP rejection повторены успешно. Текущий production этого дополнения фиксируется в отчёте G1 после публикации.

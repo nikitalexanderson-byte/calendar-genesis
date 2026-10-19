@@ -137,7 +137,8 @@ function genesisSharedPlanning(string $actor,string $projectId):array {
             if(!isset($members[$bucket][$member]))$members[$bucket][$member]=genesisPlanningEmptyTotals();
             genesisPlanningAddTotals($members[$bucket][$member],$task);
         }
-        $result=['config'=>$config,'sprints'=>$sprints,'totals'=>$totals,'byAssignee'=>(object)$members,'fingerprint'=>genesisPlanningFingerprint($projectId)];
+        $result=['config'=>$config,'sprints'=>$sprints,'totals'=>$totals,'byAssignee'=>(object)$members,'fingerprint'=>genesisPlanningFingerprint($projectId),
+            'context'=>['permissions'=>array_intersect_key($project['permissions'],array_flip(['editTasks','organizeTasks','manageProjects']))]];
         if($owns)$db->commit();return $result;
     }catch(Throwable $error){if($owns&&$db->inTransaction())$db->rollBack();throw $error;}
 }
