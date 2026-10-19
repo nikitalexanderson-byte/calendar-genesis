@@ -59,6 +59,8 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
     private val sharedOffline = SharedOfflineStore(context.applicationContext)
     private val planningJournal = PlanningJournal(PlanningDraftStore(context.applicationContext))
     private val planningOperationMutex = Mutex()
+    private val workflowJournal = PlanningJournal(PlanningDraftStore(context.applicationContext, "workflow"), contract = WorkflowJournalContract)
+    private val workflowOperationMutex = Mutex()
     private val credentials = CredentialManager.create(context.applicationContext)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var operation: Job? = null
@@ -194,6 +196,74 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
         sharedCachedCall("project:$projectId") { api, generation -> api.sharedProject(generation, projectId) }
     override suspend fun sharedPlanning(projectId: String): JSONObject =
         sharedCachedCall("planning:$projectId") { api, generation -> api.sharedPlanning(generation, projectId) }
+    override suspend fun sharedWorkflow(projectId: String): JSONObject {
+        val initial = mutableState.value
+        val account = initial.user?.uid ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
+        check(initial.ready && initial.accountSettings?.sharedProjectsEnabled == true)
+        val generation = client.currentGeneration()
+        fun current() {
+            if (!client.isCurrent(generation) || mutableState.value.user?.uid != account ||
+                app.workspaceScope != CloudAccountSnapshot.scopeFor(account)) throw CancellationException()
+        }
+        return withContext(Dispatchers.IO) {
+            current()
+            try {
+                if (initial.requiresSignIn) throw AuthFailure(AuthFailure.Kind.NETWORK)
+                val result = WorkflowLifecycle.snapshot(projectId, client.sharedWorkflow(generation, projectId)); current()
+                runCatching { sharedOffline.saveSnapshot(account, "workflow:$projectId", result) }
+                current(); result
+            } catch (failure: AuthFailure) {
+                current()
+                if (failure.kind == AuthFailure.Kind.NETWORK) {
+                    val cached = sharedOffline.snapshot(account, "workflow:$projectId") ?: throw failure
+                    current(); WorkflowLifecycle.snapshot(projectId, cached)
+                } else {
+                    if (failure.kind in setOf(AuthFailure.Kind.UNAUTHORIZED, AuthFailure.Kind.NOT_DEPLOYED)) sharedOffline.clearSnapshots(account)
+                    throw failure
+                }
+            }
+        }
+    }
+    override suspend fun sharedWorkflowHistory(projectId: String, before: Long?): JSONObject =
+        sharedCall { api, generation -> api.sharedWorkflowHistory(generation, projectId, before) }
+    override suspend fun sharedWorkflowRepairProjects(spaceId: String): JSONObject = sharedCall { api, generation ->
+        val items = PlanningLifecycle.rows(api.sharedWorkflowRepairProjects(generation, spaceId).getJSONArray("items"))
+        JSONObject().put("projects", JSONArray(items.filter { it.getString("kind") == "project" }.distinctBy { it.getString("projectId") }.map {
+            JSONObject().put("id", it.getString("projectId")).put("title", it.getString("projectTitle"))
+        }))
+    }
+    private suspend fun <T> workflowDraftCall(action: (WorkflowDraftService) -> T): T {
+        val initial = mutableState.value
+        val account = initial.user?.uid ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
+        check(initial.ready && initial.accountSettings?.sharedProjectsEnabled == true)
+        val generation = client.currentGeneration()
+        fun current() {
+            if (!client.isCurrent(generation) || mutableState.value.user?.uid != account ||
+                app.workspaceScope != CloudAccountSnapshot.scopeFor(account)) throw CancellationException()
+        }
+        val access = object : WorkflowDraftAccess {
+            override fun check() = current()
+            private fun network() { current(); if (mutableState.value.requiresSignIn) throw AuthFailure(AuthFailure.Kind.NETWORK) }
+            override fun workflow(project: String): JSONObject { network(); return client.sharedWorkflow(generation, project).also { current() } }
+            override fun hasTaskQueue(project: String): Boolean { current(); return sharedOffline.queued(account).any {
+                it.optString("projectId") == project || it.optJSONObject("body")?.optString("destinationProjectId") == project
+            } }
+            override fun send(project: String, body: JSONObject): JSONObject { network(); return client.saveSharedWorkflow(generation, project, body).also { current() } }
+        }
+        return withContext(Dispatchers.IO) { workflowOperationMutex.withLock {
+            current(); action(WorkflowDraftService(workflowJournal, account, access)).also { current() }
+        } }
+    }
+    override suspend fun sharedWorkflowDraft(projectId: String) = workflowDraftCall { it.load(projectId) }
+    override suspend fun sharedWorkflowCopies(projectId: String) = workflowDraftCall { it.copies(projectId) }
+    override suspend fun saveSharedWorkflowDraft(projectId: String, stamp: String?, edit: JSONObject) = workflowDraftCall { it.save(projectId, stamp, edit) }
+    override suspend fun prepareSharedWorkflowDraft(projectId: String, stamp: String) = workflowDraftCall { it.prepare(projectId, stamp) }
+    override suspend fun sendSharedWorkflowDraft(projectId: String, stamp: String) = workflowDraftCall { it.send(projectId, stamp) }
+    override suspend fun rebaseSharedWorkflowDraft(projectId: String, stamp: String) = workflowDraftCall { it.rebase(projectId, stamp) }
+    override suspend fun removeSharedWorkflowDraft(projectId: String, stamp: String): Unit = workflowDraftCall { it.remove(projectId, stamp) }
+    override suspend fun saveSharedWorkflowCopy(projectId: String, id: String, stamp: String?, edit: JSONObject) = workflowDraftCall { it.saveCopy(projectId, id, stamp, edit) }
+    override suspend fun useSharedWorkflowCopy(projectId: String, id: String, copyStamp: String, stamp: String?) = workflowDraftCall { it.useCopy(projectId, id, copyStamp, stamp) }
+    override suspend fun removeSharedWorkflowCopy(projectId: String, id: String, stamp: String): Unit = workflowDraftCall { it.removeCopy(projectId, id, stamp) }
     private suspend fun <T> planningDraftCall(action: (PlanningDraftService) -> T): T {
         val initial = mutableState.value
         val account = initial.user?.uid ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
@@ -330,7 +400,7 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
             sharedOffline.remove(userId, requestId)
             response
         } catch (error: AuthFailure) {
-            if (error.kind != AuthFailure.Kind.NETWORK) sharedOffline.markError(userId, requestId, error.kind.name)
+            if (error.kind != AuthFailure.Kind.NETWORK) sharedOffline.markError(userId, requestId, sharedFailureCode(error))
             throw error
         }
     }
@@ -357,7 +427,7 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
                 synced++
             } catch (error: AuthFailure) {
                 if (error.kind == AuthFailure.Kind.NETWORK) break
-                sharedOffline.markError(userId, item.getString("requestId"), error.kind.name)
+                sharedOffline.markError(userId, item.getString("requestId"), sharedFailureCode(error))
             }
         }
         JSONObject().put("synced", synced)

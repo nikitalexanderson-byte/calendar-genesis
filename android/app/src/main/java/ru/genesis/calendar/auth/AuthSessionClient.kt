@@ -13,7 +13,7 @@ import java.util.TimeZone
 import java.util.UUID
 import javax.net.ssl.HttpsURLConnection
 
-internal class AuthFailure(val kind: Kind, val httpStatus: Int? = null) : Exception("Authentication request failed") {
+internal open class AuthFailure(val kind: Kind, val httpStatus: Int? = null) : Exception("Authentication request failed") {
     enum class Kind { NOT_DEPLOYED, UNAUTHORIZED, RATE_LIMIT, NETWORK, PROTOCOL, STORAGE, CONFLICT, SERVER }
 }
 internal class AuthApiError(val code: String) : Exception(code)
@@ -28,6 +28,8 @@ internal fun allowedSharedRoute(method: String, path: String): Boolean {
     if (path.matches(Regex("/shared/invitations/[a-f0-9-]{36}"))) return method == "POST"
     if (path == "/shared/task-lists") return method == "GET"
     if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/planning"))) return method in setOf("GET", "PUT")
+    if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/workflow"))) return method in setOf("GET", "PUT")
+    if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/workflow/history(?:\\?before=[1-9][0-9]{0,9})?"))) return method == "GET"
     if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/planning/sprints"))) return method == "POST"
     if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/planning/sprints/[a-f0-9-]{36}"))) return method == "PATCH"
     if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/planning/sprints/[a-f0-9-]{36}/transition"))) return method == "POST"
@@ -36,6 +38,7 @@ internal fun allowedSharedRoute(method: String, path: String): Boolean {
     if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/projects"))) return method in setOf("GET", "POST")
     if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/import-project"))) return method == "POST"
     if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/archived-projects"))) return method == "GET"
+    if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/trash"))) return method == "GET"
     if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/members/[A-Za-z0-9_-]{1,100}"))) return method == "POST"
     if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}"))) return method in setOf("GET", "POST")
     if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/google"))) return method in setOf("GET", "POST")
@@ -228,6 +231,12 @@ internal class AuthSessionClient(context: Context) {
         request(expected, "/shared/projects/$projectId", null)
     fun sharedPlanning(expected: Long, projectId: String): JSONObject =
         request(expected, "/shared/projects/$projectId/planning", null)
+    fun sharedWorkflow(expected: Long, projectId: String): JSONObject = request(expected, "/shared/projects/$projectId/workflow", null)
+    fun sharedWorkflowRepairProjects(expected: Long, spaceId: String): JSONObject = request(expected, "/shared/spaces/$spaceId/trash", null)
+    fun sharedWorkflowHistory(expected: Long, projectId: String, before: Long?): JSONObject =
+        request(expected, "/shared/projects/$projectId/workflow/history" + (before?.let { "?before=$it" } ?: ""), null)
+    fun saveSharedWorkflow(expected: Long, projectId: String, body: JSONObject): JSONObject =
+        request(expected, "/shared/projects/$projectId/workflow", body, method = "PUT")
     fun sharedPlanningCommand(expected: Long, projectId: String, command: JSONObject): JSONObject {
         val path = "/shared/projects/$projectId/planning"
         val body = command.getJSONObject("body")
@@ -372,6 +381,21 @@ internal class AuthSessionClient(context: Context) {
             phase = "status"
             val status = connection.responseCode
             if (status !in 200..299) {
+                if (path.startsWith("/shared/") && status in 400..499 && status !in setOf(401, 403, 404, 405, 429) && !path.contains("/planning") && !path.contains("/invitations")) {
+                    val failure = runCatching {
+                        val output = ByteArrayOutputStream()
+                        connection.errorStream?.use { input ->
+                            val buffer = ByteArray(1024)
+                            while (output.size() < 8192) {
+                                val count = input.read(buffer, 0, minOf(buffer.size, 8192 - output.size()))
+                                if (count < 0) break
+                                output.write(buffer, 0, count)
+                            }
+                        }
+                        workflowFailure(status, JSONObject(output.toString(Charsets.UTF_8.name())))
+                    }.getOrNull()
+                    if (failure != null) throw failure
+                }
                 if (method != "GET" && path.contains("/planning") && status in 400..499 && status !in setOf(401, 403, 404, 405, 429)) {
                     val code = runCatching {
                         val output = ByteArrayOutputStream()

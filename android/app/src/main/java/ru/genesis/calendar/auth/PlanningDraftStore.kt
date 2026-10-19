@@ -4,9 +4,10 @@ import android.content.Context
 import ru.genesis.calendar.data.LocalCipher
 
 /** Shared by all editors in the app process; corruption never becomes an empty draft. */
-internal class PlanningDraftStore(context: Context) : PlanningJournalStorage {
+internal class PlanningDraftStore(context: Context, purpose: String = "planning") : PlanningJournalStorage {
     companion object { private val guard = Any() }
-    private val preferences = context.getSharedPreferences("genesis.shared.planning.v1", Context.MODE_PRIVATE)
+    init { require(purpose in setOf("planning", "workflow")) }
+    private val preferences = context.getSharedPreferences("genesis.shared.$purpose.v1", Context.MODE_PRIVATE)
     private val cipher = LocalCipher()
     override fun <T> locked(block: () -> T): T = synchronized(guard, block)
     override fun read(key: String): String? = preferences.getString(key, null)?.let { cipher.decrypt(it, key) }
