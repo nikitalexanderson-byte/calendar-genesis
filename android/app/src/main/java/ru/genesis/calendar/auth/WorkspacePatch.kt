@@ -185,7 +185,14 @@ internal object WorkspacePatch {
             val edited = local.opt(key)
             if (sameKnown(old, edited)) continue
             val current = remote.opt(key)
-            val merged = if (key == "ruleHistory" && edited is JSONArray && current is JSONArray) {
+            // Two devices may recalculate an identical goal/progress independently.
+            // Its clock is not an author edit and must not block the entire outbox.
+            val projectionClock = key == "updatedAt" && (path == "userProgress" || path.startsWith("dailyGoalRecords/"))
+            val merged = if (projectionClock && edited is String && current is String) {
+                listOf(edited, current).maxByOrNull { value ->
+                    runCatching { java.time.Instant.parse(value) }.getOrDefault(java.time.Instant.MIN)
+                }
+            } else if (key == "ruleHistory" && edited is JSONArray && current is JSONArray) {
                 val versions = linkedMapOf<String, JSONObject>()
                 listOf(current, edited).forEach { rows -> for(index in 0 until rows.length()) {
                     val rule = rows.getJSONObject(index)

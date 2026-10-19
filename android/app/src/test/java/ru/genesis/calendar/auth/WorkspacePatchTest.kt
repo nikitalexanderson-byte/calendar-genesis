@@ -6,6 +6,29 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class WorkspacePatchTest {
+    @Test fun derivedClocksMergeButConflictingGoalChoicesStillStop() {
+        val clock="2026-10-19T10:00:00Z"
+        val old=base().put("dailyGoalRecords",JSONArray().put(JSONObject().put("date","2026-10-19")
+            .put("mode","rhythm").put("updatedAt",clock)))
+        old.getJSONObject("userProgress").put("updatedAt",clock)
+        val local=JSONObject(old.toString()).apply {
+            getJSONArray("dailyGoalRecords").getJSONObject(0).put("updatedAt","2026-10-19T11:00:00Z")
+            getJSONObject("userProgress").put("updatedAt","2026-10-19T11:00:00Z")
+        }
+        val remote=JSONObject(old.toString()).apply {
+            getJSONArray("dailyGoalRecords").getJSONObject(0).put("updatedAt","2026-10-19T12:00:00Z")
+            getJSONObject("userProgress").put("updatedAt","2026-10-19T12:00:00Z")
+        }
+        val merged=WorkspacePatch.apply(old,local,remote,setOf("habits"),2,stamp(),"native").document
+        assertEquals("2026-10-19T12:00:00Z",merged.getJSONObject("userProgress").getString("updatedAt"))
+        assertEquals("2026-10-19T12:00:00Z",merged.getJSONArray("dailyGoalRecords").getJSONObject(0).getString("updatedAt"))
+        local.getJSONArray("dailyGoalRecords").getJSONObject(0).put("mode","easy")
+        remote.getJSONArray("dailyGoalRecords").getJSONObject(0).put("mode","perfect")
+        assertThrows(WorkspacePatch.Conflict::class.java) {
+            WorkspacePatch.apply(old,local,remote,setOf("habits"),2,stamp(),"native")
+        }
+    }
+
     @Test fun concurrentHabitRuleEditsRetainBothImmutableHistories() {
         fun rule(id:String)=JSONObject().put("id",id).put("effectiveDate","2026-10-17").put("recordedAt","2026-10-16T10:00:00Z")
         val old=base().put("habits",JSONArray().put(JSONObject().put("id","habit").put("title","Water").put("ruleHistory",JSONArray())))

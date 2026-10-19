@@ -195,6 +195,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
             if (remote.calendarMode in setOf("sacred", "lunar", "profane")) prefsStore.setRemote("display", remote.calendarMode)
             if (remote.taskCalendarMode in setOf("sacred", "lunar", "profane")) prefsStore.setRemote("input", remote.taskCalendarMode)
             if (remote.timeFormat in setOf("12h", "24h")) prefsStore.setRemote("time", remote.timeFormat)
+            if (remote.theme in setOf("standart", "standart-dark", "experimental", "experimental-dark")) prefsStore.setRemote("theme", remote.theme)
             if (remote.weekStart in setOf("sunday", "monday")) prefsStore.setRemote("weekStart", remote.weekStart)
             if (remote.gregorianYearStart in setOf("january", "march"))
                 prefsStore.setRemote("gregorianYearStart", remote.gregorianYearStart)
@@ -241,9 +242,22 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     var creatingSharedTask by rememberSaveable { mutableStateOf(false) }
     var newTaskProjectId by rememberSaveable { mutableStateOf<String?>(null) }
     var newTaskListId by rememberSaveable { mutableStateOf<String?>(null) }
-    val mindmapUid=authState.user?.uid
-    val mapsRepo=remember(mindmapUid,app.workspaceScope) {mindmapUid?.let {uid->ru.genesis.calendar.data.MindmapRepository(app.database,app.workspaceScope,uid,authController.mindmapTransport(uid))}}
-    LaunchedEffect(mapsRepo) {mapsRepo?.conversionDraft()?.let {draft->if(app.repository.get(draft.id)==null){mindmapTaskDraft=draft;newTaskProjectId=draft.projectId;newTaskListId=null;editId=null;creating=true;mindmapsOpen=true}else mapsRepo?.clearConversionDraft()} }
+    val mindmapUid=mindmapAccountUid(authState.user?.uid,authState.ready,activeScope)
+    val mapsRepo=remember(mindmapUid,activeScope) {mindmapUid?.let {uid->ru.genesis.calendar.data.MindmapRepository(app.database,activeScope,uid,authController.mindmapTransport(uid))}}
+    LaunchedEffect(mapsRepo) {
+        val repository=mapsRepo ?: return@LaunchedEffect
+        try {
+            repository.conversionDraft()?.let { draft ->
+                if(app.repository.get(draft.id)==null) {
+                    mindmapTaskDraft=draft;newTaskProjectId=draft.projectId;newTaskListId=null;editId=null;creating=true;mindmapsOpen=true
+                } else repository.clearConversionDraft()
+            }
+        } catch(error:kotlinx.coroutines.CancellationException) { throw error }
+        catch(error:Exception) {
+            // Startup/session transitions must preserve a failed draft without crashing sign-in.
+            android.util.Log.e("GenesisMaps", "DRAFT_RECOVERY: ${error.javaClass.simpleName}")
+        }
+    }
     var requestedPersonalListId by rememberSaveable { mutableStateOf<String?>(null) }
     var creatingTaskList by rememberSaveable { mutableStateOf(false) }
     var sharedListRefreshKey by remember { mutableIntStateOf(0) }
@@ -392,7 +406,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
             if (features.isNotEmpty()) runCatching { authController.recordFeatureUsage(features) }
         }
     }
-    val eveningTheme = rememberEveningTheme(AppearanceSettings.read(habitWorkspace.settings.rawJson))
+    val eveningTheme = rememberEveningTheme(AppearanceSettings.read(habitWorkspace.settings.rawJson, prefs.theme))
     val accountGate = !testWorkspace && (!activeScope.startsWith("account-") || authState.user == null || !authState.ready)
     val welcomeVisible = accountGate && !(authState.busy && authState.user != null)
     val window = LocalContext.current.activity()?.window
@@ -1914,7 +1928,7 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sectionId:
             section.description(prefs.language), "⚙", icon = section.icon)
         when (section.id) {
         "appearance" -> {
-        AppearancePanel(app, workspace, prefs.use24) {
+        AppearancePanel(app, workspace, prefs.use24, prefs.theme, { onSet("theme", it) }) {
             MenuDisplaySettings(prefs, onSetLocal) {
                 MenuVisibilitySettings(prefs, accountSettings, sharedProjectsEnabled,
                 visibility, onSetVisibility, menuVisibilityExpanded,

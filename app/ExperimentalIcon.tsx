@@ -1,6 +1,6 @@
 /** Reference uses Lucide's ISC-licensed 24px geometry. No new UI runtime. */
 export function ExperimentalIcon({ name, className = "" }: { name: string; className?: string }) {
-  return <svg className={`experimental-icon ${className}`} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+  return <svg className={`experimental-icon ${className}`} data-icon={name} viewBox="0 0 24 24" fill="none" stroke="currentColor"
     strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
     {name === "today" || name === "sun" ? <><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2m-7.07-15.07 1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></> : null}
     {name === "moon" ? <path d="M19.79 15.5A8 8 0 0 1 8.5 4.21 8 8 0 1 0 19.79 15.5Z"/> : null}
@@ -9,6 +9,7 @@ export function ExperimentalIcon({ name, className = "" }: { name: string; class
     {name === "calendar" ? <><path d="M8 2v4m8-4v4M3 10h18"/><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/></> : null}
     {name === "meeting" ? <><path d="M8 2v4m8-4v4M3 9h18"/><rect x="3" y="4" width="18" height="18" rx="2"/><circle cx="12" cy="13" r="2"/><path d="M8 20v-1a3 3 0 0 1 3-3h2a3 3 0 0 1 3 3v1"/></> : null}
     {name === "event" ? <><path d="M8 2v4m8-4v4M3 9h18"/><rect x="3" y="4" width="18" height="18" rx="2"/><path d="m12 11 1.4 2.8 3.1.4-2.3 2.2.6 3.1-2.8-1.5-2.8 1.5.6-3.1-2.3-2.2 3.1-.4Z"/></> : null}
+    {name === "birthday" ? <><path d="M8 3v3m4-4v4m4-3v3M5 12h14M4 12v9h16v-9M3 21h18"/><path d="M5 12V9h14v3M4 15c2 2 4 2 6 0 1.3-1.3 2.7-1.3 4 0 2 2 4 2 6 0"/></> : null}
     {name === "year" ? <><circle cx="12" cy="12" r="9"/><path d="M12 3v3m0 12v3M3 12h3m12 0h3M12 8v4l3 2"/></> : null}
     {name === "stoicheion" || name === "theokyklos" ? <><path d="m12 3 2 7 7 2-7 2-2 7-2-7-7-2 7-2Z"/><path d="M20 2v4m2-2h-4M3 18v4m2-2H1"/></> : null}
     {name === "admin" ? <><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1Z"/><path d="m9 12 2 2 4-4"/></> : null}
@@ -35,6 +36,8 @@ export function ExperimentalIcon({ name, className = "" }: { name: string; class
     {name === "copy" ? <><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></> : null}
     {name === "history" ? <><path d="M3 11a9 9 0 1 1 2.6 7M3 4v7h7M12 7v5l3 2"/></> : null}
     {name === "map-import" ? <><path d="M14 2H6v8m8-8 6 6v13H6v-5m8-14v6h6M2 13h10m-3-3 3 3-3 3"/></> : null}
+    {name === "paste" ? <><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M8 5H5v16h14V5h-3M8 11h8m-8 4h8m-8 3h5"/></> : null}
+    {name === "export" ? <><path d="M14 2H6v8m8-8 6 6v13H6v-5m8-14v6h6M2 13h10m-7-3-3 3 3 3"/></> : null}
     {name === "map-refresh" ? <><path d="M20 8a8 8 0 0 0-14-3L3 8m0-5v5h5M4 16a8 8 0 0 0 14 3l3-3m0 5v-5h-5"/></> : null}
     {name === "map-up" ? <path d="M12 20V4m-6 6 6-6 6 6"/> : null}
     {name === "map-down" ? <path d="M12 4v16m-6-6 6 6 6-6"/> : null}

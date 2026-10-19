@@ -1191,7 +1191,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       : calendarMode === "lunar" ? getLunarDate(date).day : date.getDate();
     return <div key={key} role="group" aria-label={dateLabel} className="shared-projects-calendar-date"
       data-shared-calendar-date={key} data-drop-active={dropTarget?.calendarDate === key || undefined}
-      data-has-tasks={count > 0 || undefined} data-weekend={calendarMode === "profane" && [0, 6].includes(date.getDay()) || undefined}
+      data-has-tasks={count > 0 || undefined} data-weekend={calendarMode === "profane" ? date.getDay() === 6 ? "saturday" : date.getDay() === 0 ? "sunday" : undefined : undefined}
       data-selected={key === calendarDay || undefined} aria-current={isToday ? "date" : undefined}
       data-calendar-date={key}>
       <button type="button" className="shared-projects-calendar-date-open" aria-haspopup="dialog" aria-label={dateLabel} onClick={openDay}>
@@ -1472,7 +1472,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
         {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- Focus enables keyboard scrolling of the wide date grid. */}
         <div className="shared-projects-calendar-scroll" tabIndex={0} role="region" aria-label={english ? "Project calendar" : "Календарь проекта"}>
         {calendarMode === "profane" ? <div className="shared-projects-calendar-grid">
-          {(english ? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] : ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]).map((day) => <span key={day} className="shared-projects-calendar-weekday">{day}</span>)}
+          {(english ? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] : ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]).map((day, index) => <span key={day} className="shared-projects-calendar-weekday" data-weekend={index === 5 ? "saturday" : index === 6 ? "sunday" : undefined}>{day}</span>)}
           {calendarDays.map((date, index) => {
             if (!date) return <span key={`space-${index}`} aria-hidden="true" />;
             return renderCalendarDate(date);
@@ -1800,11 +1800,11 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
         </header>
         {message ? <p className="shared-task-feedback" role="status">{message}</p> : null}
         {newTaskDestination && (createModal === "task" || createModal === "project" && createKind === "task-list") ? <div className="task-composer-tabs" role="group" aria-label={english ? "Create type" : "Тип дела"}>
-          <button type="button" aria-pressed={createModal === "task" && newEntryType === "task"} onClick={() => { setNewEntryType("task"); setCreateModal("task"); }}>{english ? "Task" : "Задача"}</button>
-          <button type="button" onClick={() => {
+          <IconActionButton icon="task" label={translateText("Задача", language as import("./i18n").Language)} showLabel choiceHint aria-pressed={createModal === "task" && newEntryType === "task"} onClick={() => { setNewEntryType("task"); setCreateModal("task"); }}/>
+          <IconActionButton icon="list" label={translateText("Список задач", language as import("./i18n").Language)} showLabel choiceHint onClick={() => {
             setCreateKind("task-list"); setCreateModal("project");
-          }} aria-pressed={createModal === "project"}>{english ? "Task list" : "Список задач"}</button>
-          {(["meeting", "event"] as const).map(type => <button type="button" key={type} aria-pressed={createModal === "task" && newEntryType === type} onClick={() => { setNewEntryType(type); setCreateModal("task"); }}>{entryTypeLabel(type, english)}</button>)}
+          }} aria-pressed={createModal === "project"}/>
+          {(["meeting", "event"] as const).map(type => <IconActionButton key={type} icon={type} label={translateText(entryTypeLabel(type, english), language as import("./i18n").Language)} showLabel choiceHint aria-pressed={createModal === "task" && newEntryType === type} onClick={() => { setNewEntryType(type); setCreateModal("task"); }}/>) }
         </div> : null}
         {createModal === "join" ? <div className="shared-invitations">
           {invitationsLoading ? <p role="status">{english ? "Loading invitations…" : "Загружаем приглашения…"}</p>

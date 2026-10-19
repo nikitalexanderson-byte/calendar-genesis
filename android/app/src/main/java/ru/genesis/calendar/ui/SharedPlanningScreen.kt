@@ -64,6 +64,7 @@ import ru.genesis.calendar.data.UiPreferences
     var destination by rememberSaveable(projectId, bucket) { mutableStateOf("") }
     var notice by remember(projectId) { mutableStateOf("") }
     var accessLost by remember(projectId) { mutableStateOf(false) }
+    var reportSprint by remember(projectId, LocalGenesisUserId.current) { mutableStateOf<String?>(null) }
     val accountKey = LocalGenesisUserId.current
     val currentChanged by rememberUpdatedState(onChanged)
     val currentCopy by rememberUpdatedState(copy)
@@ -221,7 +222,11 @@ import ru.genesis.calendar.data.UiPreferences
                 }
             }
             selectedBucket?.let { sprint ->
-                androidx.compose.material3.Text(copy.getString(when (sprint.getString("state")) { "active" -> "active"; "completed" -> "completed"; else -> "planned" }), style = MaterialTheme.typography.titleSmall)
+                Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    androidx.compose.material3.Text(copy.getString(when (sprint.getString("state")) { "active" -> "active"; "completed" -> "completed"; else -> "planned" }), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+                    AffairsIconButton(sharedWorkflowCopy("sprint-report-translations.json").getString("heading"), AffairsAction.REPORT,
+                        { reportSprint = sprint.getString("id") }, Modifier.testTag("planning-sprint-report"), !busy && !editor.busy && !accessLost)
+                }
                 Text(planningPeriod(sprint, language), style = MaterialTheme.typography.bodyMedium)
                 if (sprint.optString("goal").isNotBlank()) androidx.compose.material3.Text(sprint.getString("goal"))
             }
@@ -326,6 +331,10 @@ import ru.genesis.calendar.data.UiPreferences
                 }
             }
         }
+    }
+    if (!accessLost) reportSprint?.let { id ->
+        SharedSprintReportScreen(controller, projectId, id, data?.optJSONObject("config")?.optString("estimateUnit") ?: "points",
+            onClose = { reportSprint = null }, onLost = { accessLost = true; data = null; page = null; selected = null; error = t("Нет доступа"); editor.hide(); reportSprint = null })
     }
 }
 

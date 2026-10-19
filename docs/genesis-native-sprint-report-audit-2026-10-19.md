@@ -22,3 +22,17 @@
 Проверить planning/not-started, active/completed, missing start/end, 0/null, points/hours, partial/gaps,30 статусов и крупные значения; источники0/100/131, архив/перенос, неизвестные записи, изменившийся token/права/данные и поздние ответы. Проверить утрату/возврат сети, смену единицы/спринта/аккаунта, защиту от старого ответа и сохранность прежних planning/workflow/task/list сценариев. Сначала модель/границы и один полный экран, затем один пакетный visual pass обеих схем ×360/390/768/1440dp,14 языков/font130; максимум один confirming pass после общего исправления. Не выпускать официальный APK на основании gateway fixtures; живой Google/HTTP, физические устройства/TalkBack и release runtime перечислить отдельно.
 
 Аудит не означает реализации G4. SSH и production-БД не использовались. Подготовленная protocol7/E4/F ветка не объединяется автоматически.
+
+## Direction contract
+
+THESIS: selected sprint planning gains a read-only plan/fact view with explicit unknown history and inspectable sources. No new top-level product navigation is introduced.
+
+OWN-WORLD: existing STANDART paper/green/gold Material roles, Affairs header/disclosures, 48dp outlined and icon actions, current theme typography. No new assets, library or visual identity.
+
+STORY: choose a sprint, compare the launch plan and current outcome, inspect daily gaps and sources, then freshly read a moved or archived task. Unit changes never reinterpret points as hours.
+
+FIRST VIEWPORT: existing Affairs heading and refresh action; unit, period and section navigation above compact metric rows on phone, beside them at 720dp and wider. Details and graphs use the same vertical flow.
+
+FORM: ordinary extension of existing native planning, with inherited composition; no concept seed or comp is owed. Both phone widths and tablet/desktop classes use the same content and independent navigation.
+
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance

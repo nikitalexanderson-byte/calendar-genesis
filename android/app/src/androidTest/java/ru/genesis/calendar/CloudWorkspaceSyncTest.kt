@@ -19,6 +19,66 @@ import ru.genesis.calendar.security.WorkspaceCipher
 
 @RunWith(AndroidJUnit4::class)
 class CloudWorkspaceSyncTest {
+    @Test fun intervalHabitFromWebRoundTripsThroughNativeOutbox() = intervalRoundTrip(false)
+
+    @Test fun independentDailyRecalculationDoesNotBlockIntervalMarks() = intervalRoundTrip(true)
+
+    @Test fun actualNativeGoalAndQuestRecalculationRoundTripsWebIntervals() = intervalRoundTrip(false, true)
+
+    private fun intervalRoundTrip(concurrentRecalculation: Boolean, nativeRecalculation: Boolean = false) = runBlocking {
+        val context=ApplicationProvider.getApplicationContext<android.content.Context>()
+        val source=androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().context.assets
+            .open("web-interval-sync.json").bufferedReader().use { JSONObject(it.readText()) }
+        val scope=CloudAccountSnapshot.scopeFor("synthetic-interval-sync-$concurrentRecalculation")
+        val key=ByteArray(32) { (it+11).toByte() }
+        val cipher=LocalCipher()
+        val version=1_000_000_513L
+        val db=Room.inMemoryDatabaseBuilder(context,GenesisDatabase::class.java).build()
+        try {
+            val workspace=HabitDocument.decode(CloudAccountImporter.habitsDocument(source),version)
+            val date=java.time.LocalDate.parse("2026-10-19")
+            val engine=ru.genesis.calendar.domain.habits.HabitEngine(ru.genesis.calendar.domain.GenesisCalendar(java.time.ZoneId.of("Europe/Moscow")))
+            var local=workspace.copy(completions=engine.updateIntervalCompletion(workspace.completions,
+                workspace.habits.first(),date,date,"12:30",true))
+            if(nativeRecalculation) local=ru.genesis.calendar.data.reconcileHabitWorkspace(local,date,"Europe/Moscow","2026-10-19T12:00:00Z")
+            val remote=JSONObject(source.toString())
+            if(concurrentRecalculation) {
+                local=local.copy(progress=local.progress.copy(updatedAt="2026-10-19T12:00:00Z"),
+                    goals=local.goals.map { if(it.date==date) it.copy(updatedAt="2026-10-19T12:00:00Z") else it })
+                remote.getJSONObject("userProgress").put("updatedAt","2026-10-19T12:00:01Z")
+                val goals=remote.getJSONArray("dailyGoalRecords")
+                for(index in 0 until goals.length()) if(goals.getJSONObject(index).getString("date")==date.toString())
+                    goals.getJSONObject(index).put("updatedAt","2026-10-19T12:00:01Z")
+            }
+            db.dao().putDocument(DocumentRecord(scope,"cloud-base",cipher.encrypt(source.toString(),"$scope/cloud-base"),version))
+            db.dao().putDocument(DocumentRecord(scope,"habits",cipher.encrypt(HabitDocument.encode(local),"$scope/habits"),version+1))
+            db.dao().putOutbox(OutboxRecord(scope,"habits",version+1,"synthetic-interval-operation"))
+            var uploaded:JSONObject?=null
+            val transport=object:CloudWorkspaceTransport {
+                override fun get():JSONObject {
+                    val envelope=WorkspaceCipher.encrypt(remote.toString().toByteArray(),key)
+                    return JSONObject().put("workspace",JSONObject().put("keyMode","account")
+                        .put("key",Base64.getEncoder().encodeToString(key)).put("envelope",JSONObject()
+                            .put("version",version).put("ciphertext",envelope.ciphertext).put("iv",envelope.iv)))
+                }
+                override fun put(body:JSONObject):JSONObject {
+                    assertEquals(version,body.getLong("expectedVersion"))
+                    val bytes=WorkspaceCipher.decrypt(WorkspaceCipher.Envelope(body.getString("ciphertext"),body.getString("iv")),key)
+                    uploaded=try { JSONObject(bytes.toString(Charsets.UTF_8)) } finally { bytes.fill(0) }
+                    return JSONObject().put("workspace",JSONObject().put("version",version+1))
+                }
+            }
+            assertEquals(1,CloudWorkspaceSync(db,transport).flush(scope))
+            assertTrue(db.dao().outbox(scope).isEmpty())
+            val confirmed=HabitDocument.decode(CloudAccountImporter.habitsDocument(requireNotNull(uploaded)),version+1)
+            assertEquals(listOf("11:00","12:30"),confirmed.completions.first { it.habitId==workspace.habits.first().id&&it.date==date }.completedTimes)
+            if(!nativeRecalculation) assertEquals(workspace.rewards,confirmed.rewards)
+            assertEquals(confirmed.rewards.size,confirmed.rewards.map { it.idempotencyKey }.distinct().size)
+            assertEquals(workspace.habits.size,confirmed.habits.size)
+            assertTrue(uploaded!!.getJSONObject("unknownWebSection").getBoolean("keep"))
+        } finally { key.fill(0);db.close() }
+    }
+
     @Test fun olderEncryptedWorkspaceCanSyncAnAndroidEdit() = runBlocking {
       for (schema in listOf(0, 15)) {
         val scope = CloudAccountSnapshot.scopeFor("synthetic-legacy-sync-$schema")

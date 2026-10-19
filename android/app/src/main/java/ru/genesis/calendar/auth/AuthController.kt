@@ -45,6 +45,7 @@ data class AuthPanelState(
     val accountSettings: AccountSettings? = null,
     val preview: CloudWorkspacePreview.Summary? = null,
     val workspaceConflictPath: String? = null,
+    val outgoingSyncIssue: String? = null,
     val checkedAt: Long? = null,
     val offerGoogleServices: Boolean = false,
     val message: String = "Серверная сессия ещё не проверена.",
@@ -196,6 +197,26 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
         sharedCachedCall("project:$projectId") { api, generation -> api.sharedProject(generation, projectId) }
     override suspend fun sharedPlanning(projectId: String): JSONObject =
         sharedCachedCall("planning:$projectId") { api, generation -> api.sharedPlanning(generation, projectId) }
+    private suspend fun sprintReportCall(action: (AuthSessionClient, Long) -> JSONObject): JSONObject {
+        val before = mutableState.value
+        val account = before.user?.uid ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
+        if (before.accountSettings?.sharedProjectsEnabled != true) throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
+        if (!before.ready || before.requiresSignIn) throw AuthFailure(AuthFailure.Kind.NETWORK)
+        val generation = client.currentGeneration()
+        fun current() {
+            if (!client.isCurrent(generation) || mutableState.value.user?.uid != account ||
+                app.workspaceScope != CloudAccountSnapshot.scopeFor(account)) throw CancellationException()
+        }
+        return withContext(Dispatchers.IO) { current(); action(client, generation).also { current() } }
+    }
+    override suspend fun sharedSprintReport(projectId: String, sprintId: String, unit: String): JSONObject =
+        sprintReportCall { api, generation -> api.sharedSprintReport(generation, projectId, sprintId, unit) }
+    override suspend fun checkSharedSprintReport(projectId: String, sprintId: String, token: String): JSONObject =
+        sprintReportCall { api, generation -> api.checkSharedSprintReport(generation, projectId, sprintId, token) }
+    override suspend fun sharedSprintReportSources(projectId: String, sprintId: String, token: String, query: JSONObject, cursor: String?): JSONObject =
+        sprintReportCall { api, generation -> api.sharedSprintReportSources(generation, projectId, sprintId, token, query, cursor) }
+    override suspend fun sharedSprintSourceTask(projectId: String, taskId: String, archived: Boolean): JSONObject =
+        sprintReportCall { api, generation -> api.sharedSprintSourceTask(generation, projectId, taskId, archived) }
     override suspend fun sharedWorkflow(projectId: String): JSONObject {
         val initial = mutableState.value
         val account = initial.user?.uid ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
@@ -763,6 +784,7 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
             "weekStart" -> { require(value in setOf("sunday", "monday")); changes.put("weekStart", value) }
             "gregorianYearStart" -> { require(value in setOf("january", "march")); changes.put("gregorianYearStart", value) }
             "language" -> { require(value in setOf("ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja")); changes.put("language", value) }
+            "theme" -> { require(value in setOf("standart", "standart-dark")); changes.put("theme", value) }
             "stoicheionDivinationDisabled" -> {
                 require(value in setOf("true", "false")); changes.put("stoicheionDivinationDisabled", value.toBoolean())
             }
@@ -773,7 +795,8 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
             else -> throw AuthFailure(AuthFailure.Kind.PROTOCOL)
         }
         val preferences = LocalPreferences(app, app.workspaceScope)
-        preferences.setPending(name, value)
+        if (name == "theme") preferences.setPendingTheme(value, previous.accountSettings.themeRevision)
+        else preferences.setPending(name, value)
         val payload = flushPendingPreferences(generation, previous.user?.uid ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED))
             ?: throw AuthFailure(AuthFailure.Kind.PROTOCOL)
         val settings = AccountSettings.fromResponse(payload) ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
@@ -903,6 +926,10 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
                     }
                     withContext(Dispatchers.IO) { ru.genesis.calendar.data.TaskListsRepository.cacheBootstrap(app.database, accountScope, payload) }
                     val available = withContext(Dispatchers.IO) { app.database.dao().accountTasks(accountScope).size }
+                    val uploadPending = withContext(Dispatchers.IO) {
+                        app.database.dao().outbox(accountScope).isNotEmpty() ||
+                            LocalPreferences(app, accountScope).pending.first().isNotEmpty()
+                    }
                     if (!client.isCurrent(generation)) return@withLock
                     val issue = when {
                         imported == CloudAccountImporter.Result.IMPORTED_WITH_TASK_WARNING ->
@@ -918,7 +945,7 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
                     publish(generation, mutableState.value.copy(
                         accountSettings = AccountSettings.fromResponse(payload) ?: mutableState.value.accountSettings,
                         preview = preview, checkedAt = System.currentTimeMillis(),
-                        message = when (imported) {
+                        message = mutableState.value.outgoingSyncIssue?.takeIf { uploadPending } ?: when (imported) {
                             CloudAccountImporter.Result.IMPORTED -> if (mutableState.value.accountSettings?.authProvider == "yandex")
                                 "Защищённые данные GENESIS обновлены. Задачи остаются на устройстве."
                                 else "Данные аккаунта и задачи Google обновлены."
@@ -927,7 +954,8 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
                             CloudAccountImporter.Result.IMPORTED_WITH_TASK_WARNING ->
                                 "Часть записей не удалось прочитать. Остальные задачи загружены; сохранённые записи не удалены."
                             CloudAccountImporter.Result.PENDING_LOCAL_CHANGES ->
-                                "Данные других устройств получены. Неотправленные изменения этого устройства сохранены."
+                                mutableState.value.outgoingSyncIssue ?:
+                                "Отправка изменений ещё не завершена. Полученные данные обновлены; изменения этого устройства сохранены и ожидают синхронизации."
                         }))
                 }
                 try { withContext(Dispatchers.IO) { app.scheduler.restore(recoverOverdue = true); app.scheduler.restoreHabitNotifications() } }
@@ -1069,8 +1097,11 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
             try { flushPendingPreferences(generation, identity.uid) }
             catch (e: CancellationException) { throw e }
             catch (error: Exception) {
+                logCloudFailure("PREFERENCE_PUSH", error)
                 if (error is AuthFailure && error.kind == AuthFailure.Kind.UNAUTHORIZED) requireSignIn(generation)
-                failure = "Настройки сохранены на устройстве и ожидают синхронизации."
+                failure = if (error is AuthFailure && error.kind == AuthFailure.Kind.CONFLICT)
+                    "Настройка изменилась на другом устройстве. Обновите данные и выберите тему повторно; ваш выбор сохранён на устройстве."
+                    else "Настройки сохранены на устройстве и ожидают синхронизации."
             }
             try {
                 sentWorkspace = withContext(Dispatchers.IO) {
@@ -1082,11 +1113,13 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
                 }
             } catch (error: CancellationException) { throw error }
             catch (error: WorkspacePatch.Conflict) {
+                logCloudFailure("WORKSPACE_PUSH_CONFLICT", error)
                 conflictPath = error.field
                 failure = "Конфликт зашифрованного пространства: данные устройства сохранены. Решите, какую версию оставить."
             }
             catch (_: CloudWorkspacePreview.RecoveryRequired) { failure = "Для синхронизации нужен код восстановления пространства." }
             catch (error: Exception) {
+                logCloudFailure("WORKSPACE_PUSH", error)
                 if (error is AuthFailure && error.kind == AuthFailure.Kind.UNAUTHORIZED) requireSignIn(generation)
                 failure = "Изменения проектов или привычек пока не подтверждены сервером и сохранены на устройстве."
             }
@@ -1101,13 +1134,14 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
                     }
                 } catch (error: CancellationException) { throw error }
                 catch (error: Exception) {
+                    logCloudFailure("TASK_PUSH", error)
                     if (error is AuthFailure && error.kind == AuthFailure.Kind.UNAUTHORIZED) requireSignIn(generation)
                     failure = listOfNotNull(failure,
                         "Изменения задач пока не подтверждены сервером и сохранены на устройстве.").joinToString(" ")
                 }
             }
             if (client.isCurrent(generation)) mutableState.value = mutableState.value.copy(
-                workspaceConflictPath = conflictPath, message = failure ?:
+                workspaceConflictPath = conflictPath, outgoingSyncIssue = failure, message = failure ?:
                 if (sentTasks + sentWorkspace > 0) "Синхронизировано: $sentTasks задач, $sentWorkspace изменений пространства."
                 else mutableState.value.message)
             AuthDiagnostics.event(if (failure == null) "SYNC_SUCCESS" else "SYNC_FAILED")
@@ -1121,17 +1155,7 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
         val preferences = LocalPreferences(app, accountScope)
         val changes = preferences.pending.first()
         if (changes.isEmpty()) return null
-        val body = JSONObject()
-        changes.forEach { (name, value) -> when (name) {
-            "display" -> body.put("calendarMode", value)
-            "input" -> body.put("taskCalendarMode", value)
-            "time" -> body.put("timeFormat", value)
-            "weekStart" -> body.put("weekStart", value)
-            "gregorianYearStart" -> body.put("gregorianYearStart", value)
-            "language" -> body.put("language", value)
-            "stoicheionDivinationDisabled" -> body.put(name, value.toBoolean())
-            "sharedProjectsEnabled" -> body.put(name, value.toBoolean())
-        } }
+        val body = PreferencePatch.request(changes)
         val payload = withContext(Dispatchers.IO) { client.updatePreferences(generation, body) }
         if (AuthProtocol.identity(payload)?.uid != uid || !client.isCurrent(generation)) throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
         val settings = AccountSettings.fromResponse(payload) ?: throw AuthFailure(AuthFailure.Kind.PROTOCOL)
@@ -1238,7 +1262,8 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
         // Exception messages can contain cloud record values. Keep only the stage,
         // type and application source location for device diagnostics.
         val location = error.stackTrace.firstOrNull { it.className.startsWith("ru.genesis.calendar.") }
-        Log.e("GenesisAuth", "$stage: ${error.javaClass.simpleName} at ${location?.fileName}:${location?.lineNumber}")
+        val kind = (error as? AuthFailure)?.kind?.name?.let { "/$it" }.orEmpty()
+        Log.e("GenesisAuth", "$stage: ${error.javaClass.simpleName}$kind at ${location?.fileName}:${location?.lineNumber}")
     }
 
     private suspend fun requireSignIn(generation: Long) {

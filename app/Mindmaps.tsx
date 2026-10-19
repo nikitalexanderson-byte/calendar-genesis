@@ -5,6 +5,7 @@ import type { GenesisProject, GenesisTask } from "./cloud-sync";
 import { GenesisApiError, LOCAL_SESSION_ENDED_EVENT } from "./cloud-sync";
 import { useDialogAccessibility } from "./use-dialog-accessibility";
 import { ExperimentalIcon } from "./ExperimentalIcon";
+import { IconActionButton } from "./IconActionButton";
 import { mindmapCopy } from "./mindmap-copy";
 import { translateText } from "./i18n";
 import { attachTask, descendants, exportMindmap, importMindmap, mapId, mapMarkdown, mapProgress, mapCatalogStats, mapSvg,
@@ -408,8 +409,13 @@ export default function Mindmaps(props: Props) {
         {view.focus ? <button type="button" className="mindmap-all-map" onClick={() => changeView({ ...view, focus: null })}>Вся карта</button> : null}
         <button type="button" className="mindmap-more-toggle" aria-label="Настройка карты" title="Настройка карты" aria-expanded={moreOpen} aria-controls="mindmap-more-panel" onClick={() => setMoreOpen(open => !open)}><ExperimentalIcon name="gear"/><span>Настройка карты</span><ExperimentalIcon name="chevron"/></button>
       </div>
-      {moreOpen ? <div className="mindmap-more-panel" id="mindmap-more-panel"><div className="mindmap-actions mindmap-settings-actions"><button type="button" disabled={props.readOnly} onClick={() => { setText(""); setPreview(null); setDialog("paste"); }}>Вставить текст</button><button type="button" onClick={() => setDialog("export")}>Экспорт</button><button type="button" onClick={() => { setVersions([]); setDialog("history"); void repository.history(map.id).then(setVersions).catch(fail); }}>История</button></div>
+      {moreOpen ? <div className="mindmap-more-panel" id="mindmap-more-panel"><div className="mindmap-title-row">
           <label>Название карты<input disabled={props.readOnly} value={map.title} maxLength={2000} onChange={e => change({ ...map, title: e.target.value || "Без названия", nodes: map.nodes.map(n => n.parentId === null && n.kind === "idea" ? { ...n, text: e.target.value } : n) })} /></label>
+          <div className="mindmap-actions mindmap-settings-actions" role="group" aria-label={translateText("Настройка карты")}>
+            <IconActionButton icon="paste" label={translateText("Вставить текст")} disabled={props.readOnly} onClick={() => { setText(""); setPreview(null); setDialog("paste"); }}/>
+            <IconActionButton icon="export" label={translateText("Экспорт")} onClick={() => setDialog("export")}/>
+            <IconActionButton icon="history" label={translateText("История")} onClick={() => { setVersions([]); setDialog("history"); void repository.history(map.id).then(setVersions).catch(fail); }}/>
+          </div></div>
           <label>Описание<textarea disabled={props.readOnly} rows={3} value={map.description ?? ""} maxLength={12000} onChange={e => change({...map,description:e.target.value})}/></label>
           <label>Контекстный проект<select disabled={props.readOnly} value={map.projectId || ""} onChange={e => change({ ...map, projectId: e.target.value || null })}><option value="">Без проекта</option>{props.projects.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}</select></label>
         </div> : null}

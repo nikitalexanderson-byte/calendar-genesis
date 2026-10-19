@@ -297,6 +297,31 @@
           "oklch(87% 0.1021 32.29)",
           "oklch(95% 0.1021 32.29)"
         ]
+      },
+      "light-weekend-saturday": {
+        "role": "secondary",
+        "displayName": "Зелёная суббота — светлая поверхность",
+        "tonalRamp": ["oklch(15% 0.0254 164.35)", "oklch(27% 0.0254 164.35)", "oklch(39% 0.0254 164.35)", "oklch(51% 0.0254 164.35)", "oklch(63% 0.0254 164.35)", "oklch(75% 0.0254 164.35)", "oklch(87% 0.0254 164.35)", "oklch(95% 0.0254 164.35)"]
+      },
+      "dark-weekend-saturday": {
+        "role": "secondary",
+        "displayName": "Зелёная суббота — тёмная поверхность",
+        "tonalRamp": ["oklch(15% 0.0456 173.10)", "oklch(27% 0.0456 173.10)", "oklch(39% 0.0456 173.10)", "oklch(51% 0.0456 173.10)", "oklch(63% 0.0456 173.10)", "oklch(75% 0.0456 173.10)", "oklch(87% 0.0456 173.10)", "oklch(95% 0.0456 173.10)"]
+      },
+      "light-weekend-sunday": {
+        "role": "secondary",
+        "displayName": "Золотое воскресенье — светлая поверхность",
+        "tonalRamp": ["oklch(15% 0.0952 88.16)", "oklch(27% 0.0952 88.16)", "oklch(39% 0.0952 88.16)", "oklch(51% 0.0952 88.16)", "oklch(63% 0.0952 88.16)", "oklch(75% 0.0952 88.16)", "oklch(87% 0.0952 88.16)", "oklch(95% 0.0952 88.16)"]
+      },
+      "dark-weekend-sunday": {
+        "role": "secondary",
+        "displayName": "Золотое воскресенье — тёмная поверхность",
+        "tonalRamp": ["oklch(15% 0.0592 78.51)", "oklch(27% 0.0592 78.51)", "oklch(39% 0.0592 78.51)", "oklch(51% 0.0592 78.51)", "oklch(63% 0.0592 78.51)", "oklch(75% 0.0592 78.51)", "oklch(87% 0.0592 78.51)", "oklch(95% 0.0592 78.51)"]
+      },
+      "light-weekend-sunday-ink": {
+        "role": "secondary",
+        "displayName": "Текст золотого воскресенья — светлая схема",
+        "tonalRamp": ["oklch(15% 0.0826 74.11)", "oklch(27% 0.0826 74.11)", "oklch(39% 0.0826 74.11)", "oklch(51% 0.0826 74.11)", "oklch(63% 0.0826 74.11)", "oklch(75% 0.0826 74.11)", "oklch(87% 0.0826 74.11)", "oklch(95% 0.0826 74.11)"]
       }
     },
     "typographyMeta": {
@@ -327,6 +352,10 @@
       "caption": {
         "displayName": "Метаданные",
         "purpose": "Метаданные проекта; не использовать служебные 11px исключения для нового основного текста."
+      },
+      "disclosure": {
+        "displayName": "Общее раскрытие раздела",
+        "purpose": "Единый Inter-заголовок details/summary и кнопок раскрытия. Source: app/layout-refinements.css."
       }
     },
     "shadows": [
@@ -371,6 +400,11 @@
         "name": "global-reduced-motion",
         "value": "0.01ms",
         "purpose": "app/globals.css: transition/animation duration; animation one pass, scroll auto."
+      },
+      {
+        "name": "disclosure-marker",
+        "value": "transform 150ms ease-out",
+        "purpose": "Единственный ведущий шеврон summary поворачивается на 90deg; reduced motion отключает transition. Source: app/layout-refinements.css."
       }
     ],
     "breakpoints": [
@@ -389,6 +423,10 @@
       {
         "name": "mobile",
         "value": "600px"
+      },
+      {
+        "name": "task-controls-compact",
+        "value": "760px"
       }
     ]
   },
@@ -456,6 +494,14 @@
       "description": "Рядом с аккаунтом; role switch, сохраняет текущий светлый/тёмный режим. Source: app/GenesisCalendar.tsx and app/experimental-theme.css.",
       "html": "<button class=\"ds-theme-switch\" type=\"button\" role=\"switch\" aria-checked=\"true\" aria-label=\"Тема Experimental\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 3h6M10 3v6l-5.5 9a2 2 0 0 0 1.7 3h11.6a2 2 0 0 0 1.7-3L14 9V3M8 15h8\"/></svg><span>Experimental</span><i aria-hidden=\"true\"></i></button>",
       "css": ".ds-theme-switch{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;padding:8px 10px;color:var(--ink, #132426);background:var(--surface, #fffdf8);border:1px solid var(--line,#21383820);border-radius:10px;font:500 12px/1.4 var(--font-ui, Inter, \"Source Sans 3\", \"Segoe UI\", sans-serif);cursor:pointer}.ds-theme-switch svg{width:18px;height:18px;flex:none}.ds-theme-switch[aria-checked=true]{color:var(--gold, #8c672b);border-color:color-mix(in srgb,var(--gold,#8c672b) 45%,transparent);background:color-mix(in srgb,var(--gold,#8c672b) 9%,var(--surface,#fffdf8))}.ds-theme-switch>i{position:relative;width:24px;height:14px;border-radius:7px;background:var(--line,#21383820)}.ds-theme-switch>i::after{content:\"\";position:absolute;top:3px;left:3px;width:8px;height:8px;border-radius:50%;background:var(--ink-soft, #526263);transition:transform .18s ease-out,background .18s ease-out}.ds-theme-switch[aria-checked=true]>i::after{transform:translateX(10px);background:var(--gold, #8c672b)}.ds-theme-switch:hover{cursor:pointer}.ds-theme-switch:focus-visible{outline:2px solid var(--gold, #8c672b);outline-offset:3px}@media(max-width:600px){.ds-theme-switch{padding:8px}.ds-theme-switch>span{display:none}}@media(prefers-reduced-motion:reduce){.ds-theme-switch>i::after{transition:none}}"
+    },
+    {
+      "name": "Общее раскрытие раздела",
+      "kind": "custom",
+      "refersTo": "disclosure",
+      "description": "Единая бумажная поверхность summary в обеих схемах; кнопочные раскрытия сохраняют те же роли с отдельным padding. Source: app/layout-refinements.css, web controls refinement 2026-10-19.",
+      "html": "<details class=\"ds-details\"><summary><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"m9 18 6-6-6-6\"/></svg>Подробности и настройки</summary><div class=\"ds-details-content\">Содержимое раздела остаётся доступно после раскрытия.</div></details>",
+      "css": ".ds-details{max-width:480px;color:var(--ink,#132426)}.ds-details>summary{display:flex;align-items:center;gap:10px;min-width:0;min-height:48px;padding:12px 16px;border:1px solid var(--line,#21383820);border-radius:var(--ui-radius,10px);background:var(--paper,#eee9dc);color:var(--ink,#132426);box-shadow:none;font:500 14px/1.4 var(--font-ui,Inter,\"Source Sans 3\",\"Segoe UI\",sans-serif);letter-spacing:0;text-transform:none;overflow-wrap:anywhere;list-style:none;cursor:pointer}.ds-details>summary::marker{content:\"\"}.ds-details>summary::-webkit-details-marker{display:none}.ds-details>summary>svg{flex:0 0 18px;width:18px;height:18px;color:var(--ui-accent,#255b59);transition:transform 150ms ease-out}.ds-details>summary:hover,.ds-details>summary:focus-visible{background:var(--exp-hover,color-mix(in srgb,#255b59 9%,#fffdf8));border-color:var(--ui-accent,#255b59)}.ds-details>summary:focus-visible{outline:2px solid var(--ui-accent,#255b59);outline-offset:3px}.ds-details[open]>summary,.ds-details>summary:active{background:var(--exp-accent-wash,color-mix(in srgb,#8c672b 12%,#fffdf8));border-color:var(--ui-accent,#255b59)}.ds-details[open]>summary>svg{transform:rotate(90deg)}.ds-details-content{margin-top:16px;font:400 14px/1.6 var(--font-ui,Inter,\"Source Sans 3\",\"Segoe UI\",sans-serif)}@media(prefers-reduced-motion:reduce){.ds-details>summary>svg{transition:none}}"
     },
     {
       "name": "Раскрытие проекта",

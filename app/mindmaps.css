@@ -321,11 +321,11 @@ html[data-genesis-theme] .genesis-app .mindmap-header .mindmap-back-link { grid-
 }
 .mindmap-label-short { display: none; }
 @media (max-width: 760px) { .mindmap-label-short { display: inline; } .mindmap-action-label:has(.mindmap-label-short) > .mindmap-label-full { display: none; } }
-@media (max-width: 760px) {
-  .mindmap-settings-actions { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 8px; }
-  .mindmap-settings-actions > button { grid-column: span 2; min-width: 0; height: 64px; min-height: 64px; padding: 6px; font: 500 13px/1.3 var(--font-ui); }
-  .mindmap-settings-actions > button:nth-child(-n+2) { grid-column: span 3; }
-}
+.mindmap-title-row { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: end; gap: 12px; min-width: 0; }
+.mindmap-title-row > label { display: grid; gap: 6px; min-width: 0; margin: 0; }
+.mindmap-title-row > label > input { width: 100%; min-width: 0; min-height: 44px; }
+.mindmap-title-row .mindmap-settings-actions { display: flex; flex-wrap: nowrap; gap: 6px; margin: 0; }
+html[data-genesis-theme] .genesis-app .mindmap-settings-actions > .icon-action-button { flex: 0 0 44px; width: 44px; height: 44px; min-width: 44px; min-height: 44px; padding: 10px; }
 .mindmap-save-state:empty { display: none; }
 .mindmap-edit-fields { display:grid; gap:14px; border:0; padding:0; margin:0; min-width:0; }
 @media(max-width:760px) {

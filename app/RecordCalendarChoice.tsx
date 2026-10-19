@@ -1,6 +1,7 @@
 "use client";
 
 import { CalendarModeIcon } from "./CalendarModeIcon";
+import { IconActionButton } from "./IconActionButton";
 import type { CalendarMode } from "./calendar-data";
 import { getRuntimeLanguage, translateText, type Language } from "./i18n";
 import { useSacredFeaturesEnabled } from "./sacred-features";
@@ -18,10 +19,8 @@ export function RecordCalendarChoice({ value, onChange, language = getRuntimeLan
         ["sacred", t('Сакральный')],
         ["profane", t('Григорианский')],
         ["lunar", t('Лунный')],
-      ] as const).map(([mode, label]) => <button type="button" key={mode}
-        aria-pressed={value === mode} onClick={() => onChange(mode)}>
-        <CalendarModeIcon mode={mode} /><span>{label}</span>
-      </button>)}
+      ] as const).map(([mode, label]) => <IconActionButton key={mode} icon={<CalendarModeIcon mode={mode}/>} label={label}
+        showLabel choiceHint aria-pressed={value === mode} onClick={() => onChange(mode)}/>)}
     </div>
   </fieldset>;
 }

@@ -32,6 +32,21 @@ internal fun sprintReportFixture(unit: String = "points"): JSONObject {
 }
 
 class SprintReportProtocolTest {
+    @Test fun exportedServerResponsesParseForEveryUnitAndAllSourceKinds() {
+        val corpus = javaClass.getResourceAsStream("/sprint-report-server-corpus.json")!!.bufferedReader(Charsets.UTF_8).use { JSONArray(it.readText()) }
+        assertEquals(9, corpus.length())
+        for (entry in SprintReportProtocol.rows(corpus)) {
+            val raw = entry.getJSONObject("report"); val project = raw.getString("projectId"); val sprint = raw.getJSONObject("sprint").getString("id"); val unit = raw.getJSONObject("flow").getString("unit")
+            val parsed = SprintReportProtocol.snapshot(project, sprint, unit, raw)
+            assertEquals(raw.getJSONObject("flow").getBoolean("available"), parsed.getJSONObject("flow").getBoolean("available"))
+            for (kind in listOf("tasks", "events", "changes")) {
+                val source = entry.getJSONObject("sources").getJSONObject(kind)
+                val page = SprintReportProtocol.sources(parsed, SprintReportProtocol.query(kind, "plan"), source)
+                assertEquals(source.getLong("total"), page.getLong("total")); assertEquals(source.getJSONArray("items").length(), page.getJSONArray("items").length())
+            }
+            assertFalse(SprintReportProtocol.offline(parsed).has("token"))
+        }
+    }
     private fun report(value: JSONObject = sprintReportFixture(), unit: String = "points") = SprintReportProtocol.snapshot("project", "sprint", unit, value)
     private fun rejected(action: () -> Unit) = assertTrue(runCatching(action).isFailure)
     private fun task(index: Int) = JSONObject().put("id", "task-$index").put("projectId", "current-project").put("title", "Текущая задача $index").put("archived", index % 2 == 0).put("revision", 3)
@@ -114,5 +129,16 @@ class SprintReportProtocolTest {
         rejected { SprintReportProtocol.query("tasks", "arbitrary") }
         rejected { SprintReportProtocol.query("events", date = "2026-02-30") }
         assertEquals("2026-10-19", SprintReportProtocol.query("events", date = "2026-10-19").getString("date"))
+    }
+    @Test fun nativeRoutesAllowOnlyTheExactReadOperationsAndArchivedSourceFlag() {
+        val project = "11111111-1111-4111-8111-111111111111"; val sprint = "22222222-2222-4222-8222-222222222222"
+        val root = "/shared/projects/$project/planning/sprints/$sprint/report"
+        for (suffix in listOf("", "/check", "/sources")) {
+            assertTrue(allowedSharedRoute("POST", root + suffix))
+            for (method in listOf("GET", "PUT", "PATCH", "DELETE")) assertFalse(allowedSharedRoute(method, root + suffix))
+        }
+        val task = "/shared/projects/$project/tasks/$sprint?archived=true"
+        assertTrue(allowedSharedRoute("GET", task)); assertFalse(allowedSharedRoute("POST", task))
+        assertFalse(allowedSharedRoute("GET", task + "&token=opaque")); assertFalse(allowedSharedRoute("POST", root + "/other"))
     }
 }
