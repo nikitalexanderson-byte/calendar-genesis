@@ -243,9 +243,12 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
             .put("title", fields.optString("title")).put("body", body).put("queuedAt", System.currentTimeMillis()))
         try {
             (api?.createSharedTask(generation, projectId, body)
-                ?: throw AuthFailure(AuthFailure.Kind.NETWORK)).also { sharedOffline.remove(userId, requestId) }
+                ?: throw AuthFailure(AuthFailure.Kind.NETWORK)).also {
+                confirmedSharedReceipt("create", projectId, null, body, it)
+                sharedOffline.remove(userId, requestId)
+            }
         } catch (error: AuthFailure) {
-            if (error.kind != AuthFailure.Kind.NETWORK) {
+            if (definiteSharedRejection(error)) {
                 sharedOffline.remove(userId, requestId)
                 throw error
             }
@@ -265,6 +268,27 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
         }) { "SHARED_DRAFT_NOT_FOUND" }
         sharedOffline.remove(userId, requestId)
     }
+    override suspend fun retryFailedSharedMutation(requestId: String): JSONObject = sharedTaskCall { api, generation ->
+        val userId = mutableState.value.user?.uid ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
+        val item = sharedOffline.queued(userId).firstOrNull {
+            it.optString("requestId") == requestId && it.optString("error").isNotBlank()
+        } ?: throw IllegalStateException("SHARED_DRAFT_NOT_FOUND")
+        val endpoint = api ?: throw AuthFailure(AuthFailure.Kind.NETWORK)
+        try {
+            val response = when (item.optString("kind", "create")) {
+                "create" -> endpoint.createSharedTask(generation, item.getString("projectId"), item.getJSONObject("body"))
+                "update" -> endpoint.updateSharedTask(generation, item.getString("projectId"), item.getString("taskId"), item.getJSONObject("body"))
+                "move" -> endpoint.moveSharedTask(generation, item.getString("projectId"), item.getString("taskId"), item.getJSONObject("body"))
+                else -> throw IllegalStateException("Unknown shared mutation")
+            }
+            confirmedSharedReceipt(item.optString("kind", "create"), item.getString("projectId"), item.optString("taskId").takeIf { it.isNotBlank() }, item.getJSONObject("body"), response)
+            sharedOffline.remove(userId, requestId)
+            response
+        } catch (error: AuthFailure) {
+            if (error.kind != AuthFailure.Kind.NETWORK) sharedOffline.markError(userId, requestId, error.kind.name)
+            throw error
+        }
+    }
     override suspend fun flushSharedOfflineTasks(): Int = sharedCall { api, generation ->
         val userId = mutableState.value.user?.uid ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
         var synced = 0
@@ -275,7 +299,7 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
                 continue
             }
             try {
-                when (item.optString("kind", "create")) {
+                val response = when (item.optString("kind", "create")) {
                     "create" -> api.createSharedTask(generation, item.getString("projectId"), item.getJSONObject("body"))
                     "update" -> api.updateSharedTask(generation, item.getString("projectId"),
                         item.getString("taskId"), item.getJSONObject("body"))
@@ -283,6 +307,7 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
                         item.getString("taskId"), item.getJSONObject("body"))
                     else -> throw IllegalStateException("Unknown shared mutation")
                 }
+                confirmedSharedReceipt(item.optString("kind", "create"), item.getString("projectId"), item.optString("taskId").takeIf { it.isNotBlank() }, item.getJSONObject("body"), response)
                 sharedOffline.remove(userId, item.getString("requestId"))
                 synced++
             } catch (error: AuthFailure) {
@@ -298,7 +323,7 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
         kind: String): JSONObject = sharedTaskCall { api, generation ->
         val userId = mutableState.value.user?.uid ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
         check(sharedOffline.queued(userId).none {
-            it.optString("taskId") == taskId && it.optString("error").isBlank()
+            it.optString("taskId") == taskId
         }) { "SHARED_TASK_PENDING" }
         val requestId = UUID.randomUUID().toString()
         val body = JSONObject(changes.toString()).put("requestId", requestId)
@@ -309,10 +334,11 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
             val response = if (kind == "move") api?.moveSharedTask(generation, projectId, taskId, body)
                 else api?.updateSharedTask(generation, projectId, taskId, body)
             if (response == null) throw AuthFailure(AuthFailure.Kind.NETWORK)
+            confirmedSharedReceipt(kind, projectId, taskId, body, response)
             sharedOffline.remove(userId, requestId)
             response
         } catch (error: AuthFailure) {
-            if (error.kind != AuthFailure.Kind.NETWORK) {
+            if (definiteSharedRejection(error)) {
                 sharedOffline.remove(userId, requestId)
                 throw error
             }

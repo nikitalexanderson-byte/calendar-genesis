@@ -23,6 +23,7 @@ interface SharedWorkspaceGateway {
     suspend fun deleteSharedCategory(projectId: String, categoryId: String, revision: Int): JSONObject = throw UnsupportedOperationException("deleteSharedCategory")
     suspend fun deleteSharedStatus(projectId: String, statusId: String, destinationId: String, revision: Int): JSONObject = throw UnsupportedOperationException("deleteSharedStatus")
     suspend fun discardFailedSharedMutation(requestId: String): Unit = throw UnsupportedOperationException("discardFailedSharedMutation")
+    suspend fun retryFailedSharedMutation(requestId: String): JSONObject = throw UnsupportedOperationException("retryFailedSharedMutation")
     suspend fun flushSharedOfflineTasks(): Int = throw UnsupportedOperationException("flushSharedOfflineTasks")
     suspend fun inviteSharedSpaceMember(spaceId: String, email: String, role: String): JSONObject = throw UnsupportedOperationException("inviteSharedSpaceMember")
     suspend fun moveSharedTask(projectId: String, taskId: String, changes: JSONObject): JSONObject = throw UnsupportedOperationException("moveSharedTask")

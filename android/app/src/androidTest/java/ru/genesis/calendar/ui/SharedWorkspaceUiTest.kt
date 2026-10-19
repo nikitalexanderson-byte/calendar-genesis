@@ -12,6 +12,9 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.StateRestorationTester
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.text.AnnotatedString
 import androidx.test.platform.app.InstrumentationRegistry
 import org.json.JSONArray
 import org.json.JSONObject
@@ -28,14 +31,20 @@ private const val childFixture = "10000000-0000-4000-8000-000000000003"
 private const val boardFixture = "10000000-0000-4000-8000-000000000004"
 
 private class WorkspaceFixture(val available: Boolean = true, val withTasks: Boolean = false,
-    val role: String = "owner") : SharedWorkspaceGateway {
+    val role: String = "owner", var planning: Boolean = false, var editPermission: Boolean? = null) : SharedWorkspaceGateway {
     var expanded: List<String> = emptyList()
     var snapshots = 0
     var boardTitle = "К выполнению"
     var boardRevision = 1
+    var estimateUnit = "points"
     var creates = 0
     var updates = 0
     var failNextUpdate = false
+    var pendingNextUpdate = false
+    var rejectNextRetry = false
+    val retries = mutableListOf<String>()
+    var lastMutation: JSONObject? = null
+    val queue = mutableListOf<JSONObject>()
     val queries = mutableListOf<JSONObject>()
     private val sampleTask = JSONObject().put("id", "qa-task").put("projectId", projectFixture)
         .put("title", "Подготовить обзор проекта и согласовать следующий шаг")
@@ -43,12 +52,15 @@ private class WorkspaceFixture(val available: Boolean = true, val withTasks: Boo
         .put("statusId", boardFixture).put("revision", 1).put("priority", 2)
         .put("dueDate", "2026-10-20").put("categoryId", JSONObject.NULL)
         .put("assigneeId", JSONObject.NULL).put("checklists", JSONArray()).put("unreadCommentCount", 2)
+        .apply { if (planning) put("storyPoints", 0).put("estimateHours", 2.5) }
     val records = mutableListOf<JSONObject>().apply { if (withTasks) add(sampleTask) }
     private fun project(id: String, title: String, parent: String? = null) = JSONObject()
         .put("id", id).put("spaceId", spaceFixture).put("title", title).put("parentId", parent ?: JSONObject.NULL)
         .put("layout", "board").put("kind", "project").put("isInbox", 0).put("role", role)
         .put("spaceRole", if (role == "owner") "owner" else "guest")
         .put("revision", 1).put("canOrganizeTasks", role in setOf("owner", "manager", "member"))
+        .put("planning", JSONObject().put("enabled", planning).put("estimateUnit", estimateUnit).put("revision", 1))
+        .apply { if (editPermission != null) put("permissions", JSONObject().put("editTasks", editPermission)) }
     override suspend fun sharedSpaces() = JSONObject().put("spaces", JSONArray().apply {
         if (available) put(JSONObject().put("id", spaceFixture).put("title", "Команда QA")
             .put("role", if (role == "owner") "owner" else "guest"))
@@ -93,7 +105,7 @@ private class WorkspaceFixture(val available: Boolean = true, val withTasks: Boo
         JSONObject(records.first { it.optString("id") == taskId && it.optString("projectId") == projectId }.toString()))
     override suspend fun sharedComments(projectId: String, taskId: String) = JSONObject().put("comments", JSONArray())
     override suspend fun sharedGoogleSettings(projectId: String) = JSONObject().put("settings", JSONObject())
-    override suspend fun queuedSharedTasks(projectId: String) = emptyList<JSONObject>()
+    override suspend fun queuedSharedTasks(projectId: String) = queue.map { JSONObject(it.toString()) }
     override suspend fun flushSharedOfflineTasks() = 0
     override suspend fun createSharedTask(projectId: String, fields: JSONObject): JSONObject {
         check(role in setOf("owner", "manager", "member"))
@@ -106,11 +118,31 @@ private class WorkspaceFixture(val available: Boolean = true, val withTasks: Boo
     override suspend fun updateSharedTask(projectId: String, taskId: String, changes: JSONObject): JSONObject {
         check(role in setOf("owner", "manager", "member"))
         updates++
+        lastMutation = JSONObject(changes.toString())
         if (failNextUpdate) { failNextUpdate = false; error("Нет связи с сервером. Повторите попытку.") }
         val task = records.first { it.optString("id") == taskId }
+        if (pendingNextUpdate) {
+            pendingNextUpdate = false
+            queue.add(JSONObject().put("taskId", taskId).put("requestId", "stable-pending")
+                .put("body", JSONObject(changes.toString()).put("requestId", "stable-pending")).put("title", changes.optString("title")))
+            return JSONObject().put("task", JSONObject().put("id", taskId).put("projectId", projectId)
+                .put("revision", changes.getInt("expectedRevision")).put("pending", true))
+        }
         assertEquals(task.optInt("revision"), changes.optInt("expectedRevision"))
         changes.keys().forEach { if (it != "expectedRevision") task.put(it, changes.get(it)) }
         task.put("revision", task.optInt("revision") + 1)
+        return JSONObject().put("task", JSONObject(task.toString()))
+    }
+    override suspend fun retryFailedSharedMutation(requestId: String): JSONObject {
+        val item = queue.first { it.getString("requestId") == requestId }
+        val body = item.getJSONObject("body")
+        retries.add(body.toString())
+        if (rejectNextRetry) { rejectNextRetry = false; error("Нет доступа") }
+        val task = records.first { it.getString("id") == item.getString("taskId") }
+        assertEquals(task.getInt("revision"), body.getInt("expectedRevision"))
+        body.keys().forEach { if (it !in setOf("requestId", "expectedRevision")) task.put(it, body.get(it)) }
+        task.put("revision", task.getInt("revision") + 1)
+        queue.remove(item)
         return JSONObject().put("task", JSONObject(task.toString()))
     }
     override suspend fun moveSharedTask(projectId: String, taskId: String, changes: JSONObject): JSONObject {
@@ -135,11 +167,18 @@ class SharedWorkspaceUiTest {
     @Test fun captureAffairsEntryProjectAndTaskInBothThemes() {
         var dark by mutableStateOf(false)
         val phase = InstrumentationRegistry.getArguments().getString("genesisCapturePhase") ?: "before"
+        val planning = InstrumentationRegistry.getArguments().getString("genesisPlanningFixture") == "true"
+        val pending = InstrumentationRegistry.getArguments().getString("genesisPendingFixture") == "true"
+        var currentFixture: WorkspaceFixture? = null
         compose.setContent {
             CompositionLocalProvider(LocalGenesisLanguage provides "ru", LocalEveningTheme provides dark) {
                 MaterialTheme(colorScheme = if (dark) evening else standart) {
                     androidx.compose.material3.Surface(Modifier.fillMaxSize().safeDrawingPadding()) {
-                        key(dark) { SharedProjectsScreen(remember { WorkspaceFixture(withTasks = true) }, "ru") }
+                        key(dark) {
+                            val fixture = remember { WorkspaceFixture(withTasks = true, planning = planning) }
+                            currentFixture = fixture
+                            SharedProjectsScreen(fixture, "ru")
+                        }
                     }
                 }
             }
@@ -147,8 +186,11 @@ class SharedWorkspaceUiTest {
         fun capture(screen: String) {
             compose.waitForIdle()
             val instrumentation = InstrumentationRegistry.getInstrumentation()
-            check(androidx.test.uiautomator.UiDevice.getInstance(instrumentation).takeScreenshot(
-                File(instrumentation.targetContext.cacheDir, "ui290-$phase-native-shared-$screen-${if (dark) "dark" else "light"}.png")))
+            val image = File(instrumentation.targetContext.cacheDir, "ui290-$phase-native-shared-$screen-${if (dark) "dark" else "light"}.png")
+            android.os.ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("screencap -p")).use { input ->
+                image.outputStream().use { output -> input.copyTo(output) }
+            }
+            check(image.length() > 0)
         }
         for (theme in listOf(false, true)) {
             compose.runOnIdle { dark = theme }
@@ -162,19 +204,267 @@ class SharedWorkspaceUiTest {
             compose.onNodeWithText("Подготовить обзор проекта и согласовать следующий шаг").performScrollTo().performClick()
             compose.onNodeWithText("Название", substring = false).performScrollTo()
             capture("task")
+            if (compose.onAllNodesWithTag("shared-task-estimates").fetchSemanticsNodes().isNotEmpty()) {
+                compose.onNodeWithTag("shared-estimate-points").performScrollTo().performTextReplacement("3.5")
+                if (phase.endsWith("-390")) capture("task-keyboard")
+                compose.onNodeWithTag("shared-estimate-hours").performScrollTo().performClick().performImeAction()
+                awaitEstimateImeHidden()
+                compose.onNodeWithTag("shared-task-estimates").performScrollTo()
+                capture("task-estimates")
+                val fieldBounds = compose.onNodeWithTag("shared-estimate-points").getUnclippedBoundsInRoot()
+                assertTrue((fieldBounds.bottom - fieldBounds.top).value >= 48f)
+                if (pending) {
+                    val fixture = requireNotNull(currentFixture)
+                    fixture.pendingNextUpdate = true
+                    compose.onNodeWithTag("affairs-save").performClick()
+                    compose.waitUntil(5_000) { fixture.queue.isNotEmpty() }
+                    compose.runOnIdle { fixture.queue.single().put("error", "UNAUTHORIZED") }
+                    awaitFixturePoll(fixture) { compose.onAllNodesWithText("Подробнее").fetchSemanticsNodes().isNotEmpty() }
+                    compose.onNodeWithText("Подробнее").performScrollTo().performClick()
+                    val retryBounds = compose.onNodeWithTag("shared-pending-retry").getUnclippedBoundsInRoot()
+                    assertTrue((retryBounds.bottom - retryBounds.top).value >= 48f && (retryBounds.right - retryBounds.left).value >= 48f)
+                    capture("task-pending")
+                    compose.onNodeWithText("Закрыть").performClick()
+                }
+            }
         }
     }
 
-    private fun openFixtureProject(fixture: WorkspaceFixture) {
-        compose.setContent { CompositionLocalProvider(LocalGenesisLanguage provides "ru") {
+    private fun openFixtureProject(fixture: WorkspaceFixture, restoration: StateRestorationTester? = null) {
+        if (restoration == null) compose.setContent { CompositionLocalProvider(LocalGenesisLanguage provides "ru") {
+            MaterialTheme(colorScheme = standart) { SharedProjectsScreen(fixture, "ru") }
+        } } else restoration.setContent { CompositionLocalProvider(LocalGenesisLanguage provides "ru") {
             MaterialTheme(colorScheme = standart) { SharedProjectsScreen(fixture, "ru") }
         } }
+        selectFixtureProject(fixture)
+    }
+
+    private fun selectFixtureProject(fixture: WorkspaceFixture) {
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("shared-space-$spaceFixture").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("shared-space-$spaceFixture").performClick()
         compose.onNodeWithTag("shared-project-$projectFixture").performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("shared-view-list").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("shared-view-list").performScrollTo().performClick()
         compose.waitUntil(5_000) { fixture.queries.isNotEmpty() }
+    }
+
+    private fun openEstimateTask(fixture: WorkspaceFixture, restoration: StateRestorationTester? = null) {
+        openFixtureProject(fixture, restoration)
+        compose.onNodeWithTag("shared-task-qa-task").performScrollTo().performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("shared-task-estimates").fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    private fun estimateValue(key: String, expected: String) {
+        compose.onNodeWithTag("shared-estimate-$key").assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString(expected)))
+    }
+
+    private fun awaitEstimateImeHidden() {
+        compose.waitUntil(5_000) {
+            androidx.core.view.ViewCompat.getRootWindowInsets(compose.activity.window.decorView)
+                ?.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime()) == false
+        }
+        InstrumentationRegistry.getInstrumentation().uiAutomation.waitForIdle(350, 5_000)
+    }
+
+    private fun awaitFixturePoll(fixture: WorkspaceFixture, condition: () -> Boolean) {
+        compose.mainClock.advanceTimeBy(6_000)
+        compose.waitForIdle()
+        try { compose.waitUntil(15_000, condition) }
+        catch (cause: Throwable) {
+            throw AssertionError("Fixture snapshots=${fixture.snapshots}, queries=${fixture.queries.size}, planning=${fixture.planning}, edit=${fixture.editPermission}, task=${fixture.records.singleOrNull()}; UI=${compose.onRoot().printToString().take(5000)}", cause)
+        }
+    }
+
+    @Test fun estimateCardDistinguishesZeroClearAndNoopWithoutSendingItsSibling() {
+        val fixture = WorkspaceFixture(withTasks = true, planning = true)
+        openEstimateTask(fixture)
+        estimateValue("points", "0")
+        estimateValue("hours", "2.5")
+        compose.onNodeWithTag("affairs-save").assertIsNotEnabled()
+        compose.onNodeWithTag("shared-estimate-points").performScrollTo().performTextReplacement("0.00")
+        compose.onNodeWithTag("affairs-save").assertIsNotEnabled()
+        assertEquals(0, fixture.updates)
+        compose.onNodeWithTag("shared-estimate-points").performTextReplacement("")
+        compose.onNodeWithTag("affairs-save").performClick()
+        compose.waitUntil(5_000) { fixture.updates == 1 }
+        assertTrue(fixture.lastMutation!!.has("storyPoints"))
+        assertTrue(fixture.lastMutation!!.isNull("storyPoints"))
+        assertFalse(fixture.lastMutation!!.has("estimateHours"))
+        assertFalse(fixture.lastMutation!!.has(SHARED_ESTIMATE_DRAFT_KEY))
+        assertEquals(2.5, fixture.records.single().getDouble("estimateHours"), 0.0)
+        compose.onNodeWithTag("shared-estimate-points").performScrollTo().performTextReplacement("0")
+        compose.onNodeWithTag("affairs-save").performClick()
+        compose.waitUntil(5_000) { fixture.updates == 2 }
+        assertEquals(0.0, fixture.records.single().getDouble("storyPoints"), 0.0)
+        val before = fixture.snapshots
+        compose.runOnIdle { fixture.estimateUnit = "hours" }
+        compose.waitUntil(15_000) { fixture.snapshots > before }
+        estimateValue("points", "0")
+        estimateValue("hours", "2.5")
+        assertEquals(2, fixture.updates)
+    }
+
+    @Test fun estimateConflictExplicitlyKeepsTouchedPointsAndReloadsUntouchedHours() {
+        val fixture = WorkspaceFixture(withTasks = true, planning = true)
+        openEstimateTask(fixture)
+        compose.onNodeWithTag("shared-estimate-points").performScrollTo().performTextReplacement("5")
+        compose.runOnIdle { fixture.records.single().put("storyPoints", 3).put("estimateHours", 8).put("revision", 2) }
+        awaitFixturePoll(fixture) { compose.onAllNodesWithText("Обновить поля").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("affairs-save").assertIsNotEnabled()
+        compose.onNodeWithText("Обновить поля").performScrollTo().performClick()
+        estimateValue("points", "5")
+        estimateValue("hours", "8")
+        compose.onNodeWithTag("affairs-save").performClick()
+        compose.waitUntil(5_000) { fixture.updates == 1 }
+        assertEquals(5.0, fixture.records.single().getDouble("storyPoints"), 0.0)
+        assertEquals(8.0, fixture.records.single().getDouble("estimateHours"), 0.0)
+        assertFalse(fixture.lastMutation!!.has("estimateHours"))
+        assertEquals(2, fixture.lastMutation!!.getInt("expectedRevision"))
+    }
+
+    @Test fun disabledPlanningAndRevokedEditRightKeepTheProposedValue() {
+        val fixture = WorkspaceFixture(withTasks = true, planning = true)
+        openEstimateTask(fixture)
+        compose.onNodeWithTag("shared-estimate-points").performScrollTo().performTextReplacement("3")
+        compose.runOnIdle { fixture.planning = false }
+        awaitFixturePoll(fixture) { compose.onAllNodesWithText("Планирование для этого проекта ещё не включено.").fetchSemanticsNodes().isNotEmpty() }
+        estimateValue("points", "3")
+        compose.onNodeWithTag("affairs-save").assertIsNotEnabled()
+        compose.onNodeWithTag("shared-estimate-reset").performScrollTo().performClick()
+        compose.onNodeWithTag("shared-estimate-points-value").assertTextContains("0")
+        compose.runOnIdle { fixture.planning = true }
+        awaitFixturePoll(fixture) { compose.onAllNodesWithTag("shared-estimate-points").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("shared-estimate-points").performScrollTo().performTextReplacement("3")
+        compose.runOnIdle { fixture.editPermission = false }
+        awaitFixturePoll(fixture) { compose.onAllNodesWithTag("shared-task-title-input").fetchSemanticsNodes().isEmpty() }
+        estimateValue("points", "3")
+        compose.onNodeWithTag("shared-estimate-points").assertIsNotEnabled()
+        compose.onNodeWithTag("affairs-save").assertDoesNotExist()
+        compose.onNodeWithTag("affairs-back").performScrollTo().performClick()
+        compose.onNodeWithText("Несохранённые изменения").assertExists()
+        compose.onNodeWithText("Продолжить редактирование").performClick()
+        estimateValue("points", "3")
+        assertEquals(0, fixture.updates)
+    }
+
+    @Test fun invalidEstimateSurvivesSavedStateAndCannotBecomeAZeroMutation() {
+        val fixture = WorkspaceFixture(withTasks = true, planning = true)
+        val restoration = StateRestorationTester(compose)
+        openEstimateTask(fixture, restoration)
+        compose.onNodeWithTag("shared-estimate-points").performScrollTo().performTextReplacement("1.111")
+        compose.onNodeWithTag("affairs-save").assertIsNotEnabled()
+        restoration.emulateSavedInstanceStateRestore()
+        compose.waitUntil(15_000) { compose.onAllNodesWithTag("shared-estimate-points").fetchSemanticsNodes().isNotEmpty() }
+        estimateValue("points", "1.111")
+        compose.onNodeWithTag("affairs-save").assertIsNotEnabled()
+        assertEquals(0, fixture.updates)
+        compose.onNodeWithTag("shared-estimate-points").performScrollTo().performTextReplacement("0.00")
+        compose.onNodeWithTag("affairs-save").assertIsNotEnabled()
+        assertEquals(0, fixture.updates)
+    }
+
+    @Test fun pendingEstimateBodyKeepsZeroNullAndBlocksASecondCommand() {
+        val fixture = WorkspaceFixture(withTasks = true, planning = true)
+        fixture.records.single().put("storyPoints", 3)
+        openEstimateTask(fixture)
+        compose.onNodeWithTag("shared-estimate-points").performScrollTo().performTextReplacement("0")
+        compose.onNodeWithTag("shared-estimate-hours").performScrollTo().performTextReplacement("")
+        fixture.pendingNextUpdate = true
+        compose.onNodeWithTag("affairs-save").performClick()
+        compose.waitUntil(5_000) { fixture.queue.size == 1 }
+        estimateValue("points", "0")
+        estimateValue("hours", "")
+        compose.onNodeWithTag("shared-estimate-points").assertIsNotEnabled()
+        compose.onNodeWithTag("affairs-save").assertIsNotEnabled()
+        val body = fixture.queue.single().getJSONObject("body")
+        assertEquals(0.0, body.getDouble("storyPoints"), 0.0)
+        assertTrue(body.has("estimateHours") && body.isNull("estimateHours"))
+        assertFalse(body.has(SHARED_ESTIMATE_DRAFT_KEY))
+        compose.runOnIdle { fixture.queue.single().put("error", "FORBIDDEN") }
+        compose.onNodeWithTag("affairs-save").assertIsNotEnabled()
+        assertEquals(1, fixture.updates)
+    }
+
+    @Test fun savedEstimatesRemainReadableWhenPlanningIsOffAndRoleIsViewer() {
+        val fixture = WorkspaceFixture(withTasks = true, role = "viewer")
+        fixture.records.single().put("storyPoints", 0).put("estimateHours", 2.5)
+        openEstimateTask(fixture)
+        compose.onNodeWithTag("shared-estimate-points-value").assertTextContains("0")
+        compose.onNodeWithTag("shared-estimate-hours-value").assertTextContains("2,5")
+        compose.onNodeWithTag("shared-estimate-points").assertDoesNotExist()
+        compose.onNodeWithTag("affairs-save").assertDoesNotExist()
+    }
+
+    @Test fun explicitRetryKeepsTheSameEstimateBodyAfterAnotherRefusal() {
+        val fixture = WorkspaceFixture(withTasks = true, planning = true)
+        fixture.records.single().put("storyPoints", 3)
+        openEstimateTask(fixture)
+        compose.onNodeWithTag("shared-estimate-points").performScrollTo().performTextReplacement("0")
+        compose.onNodeWithTag("shared-estimate-hours").performScrollTo().performTextReplacement("")
+        fixture.pendingNextUpdate = true
+        compose.onNodeWithTag("affairs-save").performClick()
+        compose.waitUntil(5_000) { fixture.queue.size == 1 }
+        val original = fixture.queue.single().getJSONObject("body").toString()
+        compose.runOnIdle { fixture.queue.single().put("error", "UNAUTHORIZED") }
+        awaitFixturePoll(fixture) { compose.onAllNodesWithText("Подробнее").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Подробнее").performScrollTo().performClick()
+        fixture.rejectNextRetry = true
+        compose.onNodeWithTag("shared-pending-retry").performClick()
+        compose.waitUntil(5_000) { fixture.retries.size == 1 }
+        assertEquals(original, fixture.queue.single().getJSONObject("body").toString())
+        compose.onNodeWithTag("shared-pending-retry").performClick()
+        compose.waitUntil(5_000) { fixture.retries.size == 2 && fixture.queue.isEmpty() }
+        assertEquals(listOf(original, original), fixture.retries)
+        assertEquals(0.0, fixture.records.single().getDouble("storyPoints"), 0.0)
+        assertTrue(fixture.records.single().isNull("estimateHours"))
+        assertEquals(2, fixture.records.single().getInt("revision"))
+    }
+
+    @Test fun explicitTaskPermissionOverridesAnOwnerRoleInTheCard() {
+        val fixture = WorkspaceFixture(withTasks = true, planning = true, editPermission = false)
+        openEstimateTask(fixture)
+        compose.onNodeWithTag("shared-task-title-input").assertDoesNotExist()
+        compose.onNodeWithTag("shared-estimate-points-value").assertTextContains("0")
+        compose.onNodeWithTag("affairs-save").assertDoesNotExist()
+        assertEquals(0, fixture.updates)
+    }
+
+    @Test fun estimateCopyFollowsFourteenLanguagesWithoutResettingInput() {
+        val fixture = WorkspaceFixture(withTasks = true, planning = true)
+        var language by mutableStateOf("ru")
+        val dark = InstrumentationRegistry.getArguments().getString("genesisCaptureDark") == "true"
+        compose.setContent { CompositionLocalProvider(LocalGenesisLanguage provides language, LocalEveningTheme provides dark) {
+            MaterialTheme(colorScheme = if (dark) evening else standart) {
+                androidx.compose.material3.Surface(Modifier.fillMaxSize().safeDrawingPadding()) {
+                    SharedProjectsScreen(fixture, language)
+                }
+            }
+        } }
+        selectFixtureProject(fixture)
+        compose.onNodeWithTag("shared-task-qa-task").performScrollTo().performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("shared-estimate-points").fetchSemanticsNodes().isNotEmpty() }
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val copy = context.assets.open("originals/i18n/planning-translations.json").bufferedReader(Charsets.UTF_8).use { JSONObject(it.readText()) }
+        for (code in listOf("ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja")) {
+            compose.runOnIdle { language = code }
+            compose.onNodeWithTag("shared-estimate-points").performScrollTo().performTextReplacement("3.5")
+            estimateValue("points", "3.5")
+            compose.onNodeWithText(copy.getJSONObject(code).getString("estimates")).assertExists()
+            compose.onNodeWithText(copy.getJSONObject(code).getString("independent")).assertExists()
+            compose.onNodeWithTag("affairs-save").assertIsEnabled()
+            compose.onNodeWithTag("shared-estimate-points").performTextReplacement("1.111")
+            estimateValue("points", "1.111")
+            compose.onNodeWithText(copy.getJSONObject(code).getString("numbersInvalid")).assertExists()
+            compose.onNodeWithTag("affairs-save").assertIsNotEnabled()
+        }
+        compose.onNodeWithTag("shared-estimate-hours").performScrollTo().performClick().performImeAction()
+        awaitEstimateImeHidden()
+        compose.onNodeWithTag("shared-task-estimates").performScrollTo()
+        val image = File(context.cacheDir, "native-estimates-after-ja-error-${if (dark) "dark" else "light"}.png")
+        android.os.ParcelFileDescriptor.AutoCloseInputStream(InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand("screencap -p")).use { input ->
+            image.outputStream().use { output -> input.copyTo(output) }
+        }
+        assertEquals(0, fixture.updates)
     }
 
     @Test fun searchAndAppliedFiltersResetAndTaskCanBeCompletedWithoutDragging() {
@@ -213,6 +503,20 @@ class SharedWorkspaceUiTest {
         compose.onNodeWithTag("shared-task-title-input").assertDoesNotExist()
         compose.onNodeWithTag("shared-task-qa-task").assertIsDisplayed()
         compose.onNodeWithTag("shared-project-$projectFixture").assertDoesNotExist()
+    }
+
+    @Test fun pendingIdentityReplyKeepsTheSubmittedTitleInTheEditor() {
+        val fixture = WorkspaceFixture(withTasks = true, planning = true)
+        openFixtureProject(fixture)
+        compose.onNodeWithTag("shared-task-qa-task").performScrollTo().performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("shared-task-title-input").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("shared-task-title-input").performTextReplacement("Queued task proposal")
+        fixture.pendingNextUpdate = true
+        compose.onNodeWithTag("affairs-save").performClick()
+        compose.waitUntil(5_000) { fixture.updates == 1 && fixture.queue.size == 1 }
+        compose.onNodeWithTag("shared-task-title-input").assertTextContains("Queued task proposal")
+        compose.onNodeWithTag("affairs-save").assertIsNotEnabled()
+        assertEquals("Queued task proposal", fixture.queue.single().getJSONObject("body").getString("title"))
     }
 
     @Test fun newTaskUsesExplicitCreateAndViewerCannotEditOrComplete() {

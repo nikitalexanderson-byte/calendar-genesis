@@ -10,10 +10,26 @@ import androidx.compose.ui.unit.dp
 import org.json.JSONArray
 import org.json.JSONObject
 
-internal fun sharedTaskDetailDraft(task: JSONObject): JSONObject = JSONObject()
+private fun sharedTaskDetailCore(task: JSONObject): JSONObject = JSONObject()
     .put("priority", task.optInt("priority"))
     .put("parentTaskId", task.opt("parentTaskId") ?: JSONObject.NULL)
     .put("checklists", JSONArray((task.optJSONArray("checklists") ?: JSONArray()).toString()))
+
+internal fun sharedTaskDetailDraft(task: JSONObject): JSONObject = sharedTaskWithEstimates(
+    sharedTaskDetailCore(task), SharedTaskEstimateDraft.fromTask(task))
+
+internal fun sharedTaskDetailChanges(task: JSONObject, details: JSONObject, includeEstimates: Boolean): JSONObject =
+    sharedTaskDetailCore(details).apply {
+        if (includeEstimates) sharedTaskEstimates(task, details).patch().let { estimates ->
+            estimates.keys().forEach { key -> put(key, estimates.get(key)) }
+        }
+    }
+
+internal fun sharedTaskDetailsChanged(task: JSONObject, details: JSONObject): Boolean =
+    sharedTaskDetailCore(task).toString() != sharedTaskDetailCore(details).toString() || sharedTaskEstimates(task, details).dirty
+
+internal fun rebaseSharedTaskDetailDraft(task: JSONObject, details: JSONObject): JSONObject =
+    sharedTaskWithEstimates(sharedTaskDetailCore(task), sharedTaskEstimates(task, details).rebase(task))
 
 /** Preserve loaded pages only while the server's membership/data generation is unchanged. */
 internal fun mergeSharedTaskPage(previous: JSONObject?, next: JSONObject, append: Boolean): JSONObject {

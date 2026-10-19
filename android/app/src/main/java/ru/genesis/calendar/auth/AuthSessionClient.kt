@@ -13,7 +13,7 @@ import java.util.TimeZone
 import java.util.UUID
 import javax.net.ssl.HttpsURLConnection
 
-internal class AuthFailure(val kind: Kind) : Exception("Authentication request failed") {
+internal class AuthFailure(val kind: Kind, val httpStatus: Int? = null) : Exception("Authentication request failed") {
     enum class Kind { NOT_DEPLOYED, UNAUTHORIZED, RATE_LIMIT, NETWORK, PROTOCOL, STORAGE, CONFLICT, SERVER }
 }
 internal class AuthApiError(val code: String) : Exception(code)
@@ -368,7 +368,7 @@ internal class AuthSessionClient(context: Context) {
                     409 -> AuthFailure.Kind.CONFLICT
                     in 300..399 -> AuthFailure.Kind.PROTOCOL
                     else -> AuthFailure.Kind.SERVER
-                })
+                }, httpStatus = status)
             }
             if (!connection.contentType.orEmpty().substringBefore(';').trim().equals("application/json", true))
                 throw AuthFailure(AuthFailure.Kind.PROTOCOL)
