@@ -2635,9 +2635,11 @@ async function habitReminderProjection(structure: HabitWorkspace): Promise<{ hab
     return { habitReminderPlan: buildHabitReminderPlan(structure) };
   } catch { return {}; }
 }
-export async function loadSharedCalendarPreviews(from: string, to: string, signal?: AbortSignal) {
+export type SharedCalendarPreviewFilter = Pick<SharedTaskFilter, "projectIds" | "priority" | "customFields">;
+
+export async function loadSharedCalendarPreviews(from: string, to: string, signal?: AbortSignal, filter?: SharedCalendarPreviewFilter) {
   return api<{tasks:SharedCalendarTask[];dateCounts:Record<string,number>}>(
-    `/shared/calendar/previews?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, {signal});
+    `/shared/calendar/previews?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}${filter ? `&filter=${encodeURIComponent(JSON.stringify(filter))}` : ""}`, {signal});
 }
 
 export async function loadHabitReminderStatus(userId: string) {

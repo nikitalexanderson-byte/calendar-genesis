@@ -813,7 +813,7 @@ try {
         if ($method === 'GET' && $path === 'shared/calendar/previews') {
             $from=genesisSharedTaskDate($_GET['from']??null);$to=genesisSharedTaskDate($_GET['to']??null);
             if (!$from || !$to) throw new InvalidArgumentException('INVALID_SHARED_CALENDAR_RANGE');
-            genesisJson(genesisSharedCalendarPreviews($userId,$from,$to));
+            genesisJson(genesisSharedCalendarPreviews($userId,$from,$to,genesisSharedReadTaskFilter($_GET['filter']??null)));
         }
         if ($method === 'GET' && $path === 'shared/calendar/tasks') {
             $from=genesisSharedTaskDate($_GET['from']??null);$to=genesisSharedTaskDate($_GET['to']??null);

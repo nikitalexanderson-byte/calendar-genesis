@@ -18,6 +18,8 @@ import { setSharedTaskArchived, restoreSharedTrash, type SharedTrashEntry } from
 import { SharedTaskDetailsEditor, SharedTaskReadOnlyMetadata, taskDetailsDraft } from "./SharedTaskDetailsEditor";
 import { sharedTaskDetailsError, sharedPriorityLabel, type SharedTaskDetailsDraft } from "./shared-task-details";
 import { useSharedTaskPage } from "./use-shared-task-page";
+import { useCalendarTaskPreviews } from "./use-calendar-task-previews";
+import { CalendarCellTasks } from "./CalendarCellTasks";
 import { SharedTaskPageControls, SharedTaskPageCount } from "./SharedTaskPageControls";
 import {
   searchSharedAffairs, type SharedAffairSearch,
@@ -36,11 +38,12 @@ import {
   approveSharedTask,
   queuedSharedMutations, discardSharedMutation, sharedDataCameFromOfflineCache,
   type SharedComment, type SharedProject, type SharedProjectSnapshot,
-  type SharedSpace, type SharedTask, type SharedGoogleSettings,
+  type SharedSpace, type SharedTask, type SharedGoogleSettings, type SharedCalendarTask,
 } from "./cloud-sync";
 import "./shared-projects.css";
 import "./shared-projects-layout.css";
 import "./shared-workspace-toolbar.css";
+import "./calendar-cell-tasks.css";
 import "./task-list-entry.css";
 const SharedSavedViews = lazy(() => import("./SharedSavedViews").then(module => ({default:module.SharedSavedViews})));
 const SharedCustomFieldManager = lazy(() => import("./SharedCustomFieldManager").then(module => ({default:module.SharedCustomFieldManager})));
@@ -202,6 +205,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   const [calendarTaskPicker, setCalendarTaskPicker] = useState(false);
   const [calendarTaskSearch, setCalendarTaskSearch] = useState("");
   const calendarAgendaRef = useRef<HTMLDialogElement>(null);
+  const calendarTaskRequest = useRef(0);
   const [snapshotBase, setSnapshot] = useState<SharedProjectSnapshot | null>(null);
   const [priorityFilter, setPriorityFilter] = useState("");
   const [taskSort,setTaskSort]=useSharedTaskSort(userId);
@@ -296,8 +300,14 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   const rangeFilter = activeView === "calendar" && calendarPeriod.dates.length ? { from: localDateKey(calendarPeriod.dates[0]), to: localDateKey(calendarPeriod.dates[calendarPeriod.dates.length - 1]) } : {};
   const projectCustomFilter=customCriteria.projectId===projectId&&customCriteria.criteria.length?{customFields:customCriteria.criteria}:{};
   const projectSort=customSort.projectId===projectId?customSort.sort:taskSort;
-  const projectPage = useSharedTaskPage(projectId && activeView !== "gantt" ? { projectIds: [projectId], ...rangeFilter, ...(priorityFilter ? { priority: [Number(priorityFilter)] } : {}),...projectCustomFilter } : null, projectSort, activityKey);
+  const projectPage = useSharedTaskPage(projectId && activeView !== "gantt" ? { projectIds: [projectId], ...rangeFilter, ...(activeView === "calendar" ? {completion:"open" as const} : {}), ...(priorityFilter ? { priority: [Number(priorityFilter)] } : {}),...projectCustomFilter } : null, projectSort, activityKey);
   const appliedPriority = {...(priorityFilter ? {priority:[Number(priorityFilter)]} : {}),...projectCustomFilter};
+  const calendarFrom = calendarPeriod.dates.length ? localDateKey(calendarPeriod.dates[0]) : "";
+  const calendarTo = calendarPeriod.dates.length ? localDateKey(calendarPeriod.dates[calendarPeriod.dates.length - 1]) : "";
+  const calendarPreviews = useCalendarTaskPreviews(userId, calendarFrom, calendarTo, Boolean(projectId && activeView === "calendar"),
+    {filter:{projectIds:[projectId],...appliedPriority},allWidths:true,refreshKey:activityKey,pollMs:5000});
+  const calendarScopeKey = JSON.stringify([userId, spaceId, projectId, activeView, calendarFrom, calendarTo, appliedPriority]);
+  useEffect(() => () => { calendarTaskRequest.current++; }, [calendarScopeKey]);
   const dayPage = useSharedTaskPage(projectId && calendarAgendaProjectId === projectId ? { projectIds: [projectId], dueFrom: calendarDay, dueTo: calendarDay, ...appliedPriority } : null, "position", activityKey);
   const undatedPage = useSharedTaskPage(projectId && activeView === "calendar" ? {projectIds:[projectId],undated:true,completion:"open",...appliedPriority} : null, projectSort, activityKey);
   const completedPage = useSharedTaskPage(projectId && activeView === "calendar" ? {projectIds:[projectId],...rangeFilter,completion:"completed",...appliedPriority} : null, projectSort, activityKey);
@@ -1005,6 +1015,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
     if (!calendarAgendaOpen && dialog.open) dialog.close();
   }, [calendarAgendaOpen]);
   const openTask = useCallback((task: SharedTask, context = snapshot, editing = false) => {
+    calendarTaskRequest.current++;
     setTaskEditing(editing);
     if (!context || context.project.id !== task.projectId) return;
     setMessage("");
@@ -1024,6 +1035,17 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
     setEditEntryType(task.entryType ?? "task");
     setEditApprovalRequired(Boolean(task.approvalRequired)); setEditApproverIds((task.approvals ?? []).flatMap(item => item.userId ? [item.userId] : [])); setApprovalConfigChanged(false);
   }, [snapshot, taskCalendarMode, setMessage, setTaskSnapshot, setTaskId, setComments, setEditTaskCalendarMode, setEditTaskTitle, setEditTaskDescription, setEditTaskTags, setEditTaskDueDate, setEditTaskCategoryId, setEditTaskRevision, setEditTaskLabelIds, setEditPlan, setEditTaskFiles, setRemovedTaskFileIds]);
+  const openCalendarTask = async (preview: SharedCalendarTask) => {
+    const request = ++calendarTaskRequest.current;
+    try {
+      const [context, task] = await Promise.all([loadSharedProject(preview.projectId), loadSharedTask(preview.projectId, preview.id)]);
+      if (request !== calendarTaskRequest.current) return;
+      setCalendarAgendaProjectId(null);
+      openTask(task, context);
+    } catch {
+      if (request === calendarTaskRequest.current) setMessage(english ? "Could not open the task. Check your access and connection." : "Не удалось открыть задачу. Проверьте доступ и подключение.");
+    }
+  };
   useEffect(() => {
     const restore = () => {
       if (!window.location.hash.startsWith("#projects")) return;
@@ -1158,25 +1180,25 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   const renderCalendarDate = (date: Date) => {
     const key = localDateKey(date);
     const isToday = key === localDateKey(new Date());
-    const dayTasks = activeCalendarTasks.filter(task => task.dueDate === key);
-    const count = snapshot?.taskPage?.dateCounts[key] ?? dayTasks.length;
+    const dayTasks = calendarPreviews?.tasks.filter(task => task.dueDate === key) ?? [];
+    const count = calendarPreviews ? calendarPreviews.dateCounts[key] ?? 0 : snapshot?.taskPage?.dateCounts[key] ?? 0;
+    const dateLabel = `${formatCalendarDate(date, calendarMode, true)}${isToday ? english ? " · Today" : " · Сегодня" : ""}${count ? english ? ` · ${count} tasks` : ` · задач: ${count}` : ""}`;
+    const openDay = () => { calendarTaskRequest.current++; setCalendarDay(key); setCalendarTaskPicker(false); setCalendarAgendaProjectId(snapshot?.project.id ?? null); };
     const dayNumber = calendarMode === "sacred" ? getSacredDate(date).day
       : calendarMode === "lunar" ? getLunarDate(date).day : date.getDate();
-    return <button key={key} type="button" className="shared-projects-calendar-date"
+    return <div key={key} role="group" aria-label={dateLabel} className="shared-projects-calendar-date"
       data-shared-calendar-date={key} data-drop-active={dropTarget?.calendarDate === key || undefined}
       data-has-tasks={count > 0 || undefined} data-weekend={calendarMode === "profane" && [0, 6].includes(date.getDay()) || undefined}
       data-selected={key === calendarDay || undefined} aria-current={isToday ? "date" : undefined}
-      data-calendar-date={key}
-      aria-haspopup="dialog"
-      aria-label={`${formatCalendarDate(date, calendarMode, true)}${isToday ? english ? " · Today" : " · Сегодня" : ""}${count ? english ? ` · ${count} tasks` : ` · задач: ${count}` : ""}`}
-      onClick={() => { setCalendarDay(key); setCalendarTaskPicker(false); setCalendarAgendaProjectId(snapshot?.project.id ?? null); }}>
+      data-calendar-date={key}>
+      <button type="button" className="shared-projects-calendar-date-open" aria-haspopup="dialog" aria-label={dateLabel} onClick={openDay}>
       {isToday ? <span className="shared-calendar-today-pill"><span>{dayNumber}</span><span>{english ? "Today" : "Сегодня"}</span></span> : <span>{dayNumber}</span>}
       {calendarMode !== "profane" ? <time dateTime={key}>{formatGregorian(date)}</time> : null}
-      {count > 0 && count <= 3 ? <span className="shared-calendar-date-tasks" aria-hidden="true">
-        {dayTasks.map(task => <span className="shared-calendar-date-task" key={task.id} title={task.title} data-no-translate>{task.title}</span>)}
-      </span> : null}
-      {count ? <small className="shared-calendar-task-count">{count}</small> : null}
-    </button>;
+      </button>
+      <CalendarCellTasks personal={[]} shared={dayTasks} sharedTotal={count} dateLabel={formatCalendarDate(date, calendarMode, true)}
+        language={language as import("./i18n").Language} onPersonal={() => undefined} onShared={task => void openCalendarTask(task)} onMore={openDay}/>
+      {count ? <small className="shared-calendar-task-count" aria-hidden="true">{count}</small> : null}
+    </div>;
   };
   const renderCalendarTask = (task: SharedTask) => snapshot ? <article key={task.id} className={`shared-calendar-task${completedCalendarIds.has(task.id) ? " is-completed" : ""}`}
     style={{ "--shared-task-status-color": snapshot.statuses.find(status => status.id === task.statusId)?.color ?? "#2d6c68" } as CSSProperties}
@@ -1443,6 +1465,8 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
           <h2>{calendarPeriod.title}</h2>
           <button type="button" aria-label={english ? "Next month" : "Следующий месяц"} onClick={() => { setCalendarMonth(calendarPeriod.next); setCalendarDay(localDateKey(calendarPeriod.next)); }}>→</button>
         </div>
+        {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- Focus enables keyboard scrolling of the wide date grid. */}
+        <div className="shared-projects-calendar-scroll" tabIndex={0} role="region" aria-label={english ? "Project calendar" : "Календарь проекта"}>
         {calendarMode === "profane" ? <div className="shared-projects-calendar-grid">
           {(english ? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] : ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]).map((day) => <span key={day} className="shared-projects-calendar-weekday">{day}</span>)}
           {calendarDays.map((date, index) => {
@@ -1476,6 +1500,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
             <div className="shared-projects-cycle-days">{calendarPeriod.dates.filter((date) => getLunarDate(date).decade.id === decade.id).map(renderCalendarDate)}</div>
           </section>)}
         </div>}
+        </div>
         {undatedCalendarTasks.length ? <details className="shared-projects-calendar-undated">
           <summary><ExperimentalIcon name="chevron" /><span>{english ? "Tasks without a due date" : "Задачи без срока"}</span><small>{undatedPage.page?.total ?? 0}</small></summary>
           <p>{english ? "Drag a task onto a calendar date to schedule it." : "Перетащите задачу на дату календаря, чтобы назначить срок."}</p>
