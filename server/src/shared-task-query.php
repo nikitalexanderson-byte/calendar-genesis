@@ -128,9 +128,10 @@ function genesisSharedTaskPredicate(string $userId, array $filter, array $scope)
 }
 
 /** A bounded month preview for every date, including days beyond a dense first page. */
-function genesisSharedCalendarPreviews(string $userId, string $from, string $to): array
+function genesisSharedCalendarPreviews(string $userId, string $from, string $to, array $filter = []): array
 {
     genesisSharedRequireEnabled($userId);
+    if (array_diff(array_keys($filter), ['projectIds', 'priority', 'customFields'])) throw new InvalidArgumentException('INVALID_TASK_FILTER');
     try { $valid = genesisSharedTaskDate($from) === $from && genesisSharedTaskDate($to) === $to; }
     catch (InvalidArgumentException) { $valid = false; }
     if (!$valid || $from > $to
@@ -140,7 +141,7 @@ function genesisSharedCalendarPreviews(string $userId, string $from, string $to)
     $db = genesisDb(); $owns = !$db->inTransaction();
     if ($owns) $db->beginTransaction();
     try {
-        $filter = ['dueFrom'=>$from, 'dueTo'=>$to, 'completion'=>'open'];
+        $filter = [...$filter, 'dueFrom'=>$from, 'dueTo'=>$to, 'completion'=>'open'];
         $scope = genesisSharedQueryScope($userId, $filter);
         [$where, $values] = genesisSharedTaskPredicate($userId, $filter, $scope);
         $q = $db->prepare('SELECT t.due_date,COUNT(*) AS n FROM shared_tasks_history_read t WHERE ' . $where . ' GROUP BY t.due_date');

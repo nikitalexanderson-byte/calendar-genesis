@@ -87,9 +87,15 @@ html[data-genesis-theme] .genesis-app .shared-projects > .workspace-header .shar
   html[data-genesis-theme] .genesis-app .shared-projects > .workspace-header[data-mobile-expanded="false"] .shared-summary-counts { display:none; }
 }
 
-/* Project headings keep room when contextual actions wrap. */
+/* Narrow screens keep project actions below the heading. */
 html[data-genesis-theme] .genesis-app .shared-projects .shared-projects-context { grid-template-columns:minmax(0,1fr); }
 html[data-genesis-theme] .genesis-app .shared-projects .shared-projects-context > .shared-project-heading { grid-column:1; grid-row:1; }
 html[data-genesis-theme] .genesis-app .shared-projects .shared-projects-context > .shared-context-actions { grid-column:1; grid-row:2; flex-wrap:wrap; min-width:0; max-width:100%; justify-self:start; justify-content:flex-start; }
 html[data-genesis-theme] .genesis-app .shared-projects .shared-context-actions > .icon-action-button { flex:0 0 44px; width:44px; min-width:44px; height:44px; padding:10px; }
 html[data-genesis-theme] .genesis-app .shared-projects .shared-projects-context > .shared-project-details { grid-column:1; grid-row:3; }
+@media(min-width:1024px) {
+  html[data-genesis-theme] .genesis-app .shared-projects .shared-projects-context { grid-template-columns:minmax(0,1fr) auto; }
+  html[data-genesis-theme] .genesis-app .shared-projects .shared-projects-context > .shared-project-heading { align-self:center; }
+  html[data-genesis-theme] .genesis-app .shared-projects .shared-projects-context > .shared-context-actions { grid-column:2; grid-row:1; flex-wrap:nowrap; justify-self:end; align-self:center; }
+  html[data-genesis-theme] .genesis-app .shared-projects .shared-projects-context > .shared-project-details { grid-column:1/-1; grid-row:2; }
+}

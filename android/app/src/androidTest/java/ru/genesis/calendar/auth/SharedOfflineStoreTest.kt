@@ -10,6 +10,27 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class SharedOfflineStoreTest {
+    @Test fun estimateCommandKeepsZeroNullOmittedAndIdentityAfterAnUncertainRetry() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val user = UUID.randomUUID().toString()
+        val request = UUID.randomUUID().toString()
+        val body = JSONObject().put("storyPoints", 0).put("estimateHours", JSONObject.NULL)
+            .put("expectedRevision", 0).put("requestId", request)
+        val store = SharedOfflineStore(context)
+        try {
+            store.enqueue(user, JSONObject().put("taskId", "estimate-test").put("requestId", request).put("body", body))
+            store.markError(user, request, "FORBIDDEN")
+            val retained = SharedOfflineStore(context).queued(user).single()
+            assertEquals(request, retained.getString("requestId"))
+            assertEquals(body.toString(), retained.getJSONObject("body").toString())
+            assertEquals(0, retained.getJSONObject("body").getInt("storyPoints"))
+            assertTrue(retained.getJSONObject("body").has("estimateHours"))
+            assertTrue(retained.getJSONObject("body").isNull("estimateHours"))
+            assertFalse(retained.getJSONObject("body").has("sprintId"))
+            assertEquals("FORBIDDEN", retained.getString("error"))
+        } finally { store.clear(user) }
+    }
+
     @Test fun teamDraftsAreEncryptedScopedAndClearedOnLogout() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val store = SharedOfflineStore(context)
