@@ -1,0 +1,58 @@
+{
+  "ru": {
+    "thisMonth": "Этот месяц",
+    "returnMonth": "Вернуться к текущему месяцу"
+  },
+  "en": {
+    "thisMonth": "This month",
+    "returnMonth": "Return to the current month"
+  },
+  "el": {
+    "thisMonth": "Τρέχων μήνας",
+    "returnMonth": "Επιστροφή στον τρέχοντα μήνα"
+  },
+  "de": {
+    "thisMonth": "Dieser Monat",
+    "returnMonth": "Zum aktuellen Monat zurückkehren"
+  },
+  "fr": {
+    "thisMonth": "Ce mois-ci",
+    "returnMonth": "Revenir au mois en cours"
+  },
+  "es": {
+    "thisMonth": "Este mes",
+    "returnMonth": "Volver al mes actual"
+  },
+  "it": {
+    "thisMonth": "Questo mese",
+    "returnMonth": "Torna al mese corrente"
+  },
+  "pt": {
+    "thisMonth": "Este mês",
+    "returnMonth": "Voltar ao mês atual"
+  },
+  "pl": {
+    "thisMonth": "Ten miesiąc",
+    "returnMonth": "Wróć do bieżącego miesiąca"
+  },
+  "sr": {
+    "thisMonth": "Овај месец",
+    "returnMonth": "Повратак на текући месец"
+  },
+  "uk": {
+    "thisMonth": "Цей місяць",
+    "returnMonth": "Повернутися до поточного місяця"
+  },
+  "zh": {
+    "thisMonth": "本月",
+    "returnMonth": "返回当前月份"
+  },
+  "tr": {
+    "thisMonth": "Bu ay",
+    "returnMonth": "Geçerli aya dön"
+  },
+  "ja": {
+    "thisMonth": "今月",
+    "returnMonth": "現在の月に戻る"
+  }
+}

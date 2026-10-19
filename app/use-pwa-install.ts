@@ -29,6 +29,11 @@ function isAndroidPhoneBrowser() {
   return isAndroid && isPhone;
 }
 
+function isIosBrowser() {
+  return /iPhone|iPad|iPod/i.test(navigator.userAgent)
+    || navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
+}
+
 const subscribeToBrowserCapabilities = () => () => {};
 const getServerBrowserCapability = () => false;
 
@@ -39,6 +44,7 @@ export function usePwaInstall() {
     isAndroidPhoneBrowser,
     getServerBrowserCapability,
   );
+  const isIos = useSyncExternalStore(subscribeToBrowserCapabilities, isIosBrowser, getServerBrowserCapability);
   const [isStandalone, setStandalone] = useState(() =>
     typeof window === "undefined"
       ? false
@@ -85,5 +91,6 @@ export function usePwaInstall() {
     canInstall: Boolean(prompt),
     install,
     isStandalone,
+    isIos,
   };
 }

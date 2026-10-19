@@ -1,6 +1,8 @@
 /* eslint-disable @next/next/no-img-element -- User-provided board pictures remain native img elements. */
 "use client";
 import { DialogCloseButton } from "./DialogCloseButton";
+import { useSacredFeaturesEnabled } from "./sacred-features";
+import { getSolarEvent } from "./calendar-data";
 import { useMobileLayout } from "./use-mobile-layout";
 import { SharedTaskViewControls } from "./SharedTaskViewControls";
 import { SharedCustomFieldInputs, SharedCustomFieldValues } from "./SharedCustomFieldInputs";
@@ -159,6 +161,7 @@ function sharedCalendarPeriod(anchor: Date, mode: CalendarMode, english: boolean
 
 export function SharedProjects({ userId, language, enabledCalendars, calendarMode, taskCalendarMode, onCalendarModeChange, experimentalTheme = false, timeFormat = "24h", destination, inboxWidth, onInboxWidth, inboxPosition, inboxHidden, inboxCompact, onInboxPosition, onInboxHidden, onInboxCompact, categoriesExpanded, onCategoriesExpanded, categoriesView, onCategoriesView }: Props) {
   const english = language === "en";
+  const sacredFeaturesEnabled = useSacredFeaturesEnabled();
   const tasksCompact = inboxCompact;
   const [initialPlace] = useState(() => (typeof window === "undefined" ? null : sharedPlaceFromUrl(new URL(window.location.href))) ?? (destination ? { spaceId: destination.spaceId, projectId: destination.projectId || "", taskId: "", view: null } : initialSharedPlace(userId)));
   const [requestedTaskId, setRequestedTaskId] = useState(initialPlace.taskId);
@@ -1190,6 +1193,8 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
     const dayNumber = calendarMode === "sacred" ? getSacredDate(date).day
       : calendarMode === "lunar" ? getLunarDate(date).day : date.getDate();
     return <div key={key} role="group" aria-label={dateLabel} className="shared-projects-calendar-date"
+      data-weekday={calendarMode === "profane" ? date.getDay() : undefined}
+      data-solar={calendarMode === "profane" && sacredFeaturesEnabled && (() => { const info = getSacredDate(date); return Boolean(getSolarEvent(info.sacredYear, info.monthIndex, info.day)); })() || undefined}
       data-shared-calendar-date={key} data-drop-active={dropTarget?.calendarDate === key || undefined}
       data-has-tasks={count > 0 || undefined} data-weekend={calendarMode === "profane" ? date.getDay() === 6 ? "saturday" : date.getDay() === 0 ? "sunday" : undefined : undefined}
       data-selected={key === calendarDay || undefined} aria-current={isToday ? "date" : undefined}
@@ -1463,7 +1468,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       </section>
       <div className="shared-projects-workspace">
       {activeView !== "gantt" ? <SharedTaskPageControls page={snapshot.taskPage} loaded={snapshot.tasks.length} busy={projectPage.busy} onMore={() => void projectPage.more()} onRefresh={() => void projectPage.refresh()} error={projectPage.error} showCount={activeView === "calendar"}/> : null}
-      {activeView === "gantt" ? <SharedGantt snapshot={snapshot} english={english} calendarMode={calendarMode} timeFormat={timeFormat} initialDay={ganttDay} onOpen={openTask} onCreate={schedule=>{openCreateTask(snapshot.project);setNewPlan({startDate:schedule.startDate,startTime:schedule.startTime||"",endTime:schedule.endTime||"",dependsOnIds:[]});setNewTaskDueDate(schedule.dueDate);}} onSchedule={scheduleTask} onReturn={returnGanttTask} resolveReturn={resolveGanttReturn} onReturnTarget={setGanttReturnTarget} busy={busy} externalDrop={sharedDrag.target?.schedule} externalDropRow={sharedDrag.target?.ganttRow}/> : activeView === "calendar" ? <section className="shared-projects-calendar" aria-label={english ? "Project calendar" : "Календарь проекта"}>
+      {activeView === "gantt" ? <SharedGantt snapshot={snapshot} english={english} calendarMode={calendarMode} timeFormat={timeFormat} initialDay={ganttDay} onOpen={openTask} onCreate={schedule=>{openCreateTask(snapshot.project);setNewPlan({startDate:schedule.startDate,startTime:schedule.startTime||"",endTime:schedule.endTime||"",dependsOnIds:[]});setNewTaskDueDate(schedule.dueDate);}} onSchedule={scheduleTask} onReturn={returnGanttTask} resolveReturn={resolveGanttReturn} onReturnTarget={setGanttReturnTarget} busy={busy} externalDrop={sharedDrag.target?.schedule} externalDropRow={sharedDrag.target?.ganttRow}/> : activeView === "calendar" ? <section className={`shared-projects-calendar${calendarMode === "profane" ? " weekday-tinted-calendar" : ""}`} style={{ "--month-accent": MONTHS[getSacredDate(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 15, 12)).monthIndex].color } as CSSProperties} aria-label={english ? "Project calendar" : "Календарь проекта"}>
         <div className="shared-projects-calendar-head">
           <button type="button" aria-label={english ? "Previous month" : "Предыдущий месяц"} onClick={() => { setCalendarMonth(calendarPeriod.previous); setCalendarDay(localDateKey(calendarPeriod.previous)); }}>←</button>
           <h2>{calendarPeriod.title}</h2>
