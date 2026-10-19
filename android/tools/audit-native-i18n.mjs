@@ -148,7 +148,7 @@ const workCopy=JSON.parse(await readFile(path.join(ROOT,"app/shared-work-transla
 const translations = { ...web, ...curated, ...supplemental, ...sacred, ...native, ...workCopy };
 const affairs = JSON.parse(await readFile(path.join(ROOT, "app/native-affairs-translations.json"), "utf8"));
 const affairKeys = Object.keys(affairs.en ?? {});
-if (affairKeys.length !== 39) throw new Error("Native supplemental copy must contain all 39 labels.");
+if (affairKeys.length !== 41) throw new Error("Native supplemental copy must contain all 41 labels.");
 for (const language of ["en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja"]) {
   for (const key of affairKeys) {
     const value = affairs[language]?.[key];

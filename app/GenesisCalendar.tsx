@@ -46,6 +46,7 @@ import {
 import { CalendarYearTaskCounts } from "./CalendarTaskCounts";
 import { EntryTypeChoice, entryTypeLabel, entryTypeTitlePlaceholder, type EntryType } from "./EntryTypeChoice";
 import { RecordCalendarChoice } from "./RecordCalendarChoice";
+import { IconActionButton } from "./IconActionButton";
 import { SERVICE_IDENTITY } from "./public-service";
 import { normalizeWebTheme } from "./web-theme";
 import { TodayAdBlock } from "./TodayAdBlock";
@@ -4629,7 +4630,7 @@ export function GenesisCalendar() {
                               }}
                               onDragEnd={() => setTaskListDropTargetId("")}
                             >⋮⋮</button>
-                            <button type="button" className="task-check" onClick={() => toggleTask(task.id)} aria-label={namedAction(task.done ? "Вернуть задачу" : "Завершить задачу", task.title, language)}>{task.done ? "✓" : ""}</button>
+                            <button type="button" className="task-check" aria-pressed={task.done} onClick={() => toggleTask(task.id)} aria-label={namedAction(task.done ? "Вернуть задачу" : "Завершить задачу", task.title, language)}>{task.done ? <ExperimentalIcon name="check"/> : null}</button>
                             <button type="button" className="task-list-item-open" onClick={() => setPersonalPreview({kind:"task",id:task.id})}>
                               <strong data-no-translate>{task.title}</strong>
                               {unread?<span className="unread-comment-badge">{translateText("Новые комментарии",language)}: {unread}</span>:null}
@@ -5103,8 +5104,8 @@ export function GenesisCalendar() {
             <div className="today-task-list" aria-live="polite">
               {todayTasks.map((task) => (
                 <article className={task.done ? "done" : ""} key={task.id}>
-                  <button type="button" className="task-check" onClick={() => toggleTask(task.id)} aria-label={namedAction(task.done ? "Вернуть задачу" : "Завершить задачу", task.title, language)}>
-                    {task.done ? "✓" : ""}
+                  <button type="button" className="task-check" aria-pressed={task.done} onClick={() => toggleTask(task.id)} aria-label={namedAction(task.done ? "Вернуть задачу" : "Завершить задачу", task.title, language)}>
+                    {task.done ? <ExperimentalIcon name="check"/> : null}
                   </button>
                   <button type="button" className="today-task-open" onClick={() => setPersonalPreview({kind:"task",id:task.id,date:todayDateValue})}>
                     <strong data-no-translate>{task.title}</strong>
@@ -5310,6 +5311,7 @@ export function GenesisCalendar() {
           : undefined}
         key={`${adjacentMonth ?? "current"}-${dateValue}`}
         data-calendar-date={dateValue}
+        data-weekend={mode === "profane" ? weekdayIndex === 6 ? "saturday" : weekdayIndex === 0 ? "sunday" : undefined : undefined}
       >
         {isAdjacentMonth ? null : (
           <button
@@ -6125,8 +6127,8 @@ export function GenesisCalendar() {
               .filter((title): title is string => Boolean(title));
             return (
               <div className={`all-task-row project-task-card project-draggable-item${unread ? " has-unread-comments" : ""}${task.done ? " done" : ""}${overdue ? " past" : ""}${locatedPersonalTaskId === task.id ? " task-location-highlight" : ""}`} data-personal-task-id={task.id} key={task.id} role="button" tabIndex={0} onKeyDown={event=>{if(event.target===event.currentTarget&&(event.key==="Enter"||event.key===" ")){event.preventDefault();setPersonalPreview({kind:"task",id:task.id});}}} onClick={event=>{if(!(event.target as Element).closest("button,input,select,textarea,a,summary,label,details"))setPersonalPreview({kind:"task",id:task.id});}} {...projectDragProps({ kind: "task", id: task.id, title: task.title })}>
-                <button type="button" className="task-check" onClick={() => toggleTask(task.id)} aria-label={namedAction(task.done ? "Вернуть задачу" : "Завершить задачу", task.title, language)}>
-                  {task.done ? "✓" : ""}
+                <button type="button" className="task-check" aria-pressed={task.done} onClick={() => toggleTask(task.id)} aria-label={namedAction(task.done ? "Вернуть задачу" : "Завершить задачу", task.title, language)}>
+                  {task.done ? <ExperimentalIcon name="check"/> : null}
                 </button>
                 <div className="all-task-body" data-affair-drag-surface>
                   <div className="all-task-title-row">
@@ -6529,6 +6531,7 @@ export function GenesisCalendar() {
                       <button
                         type="button"
                         className={`mini-day${dayTasks ? " has-task" : ""}${dateValue === todayDateValue ? " today" : ""}${solar ? " solar" : ""}${isSaturday ? " saturday" : ""}`}
+                        data-weekend={mode === "profane" ? date.getDay() === 6 ? "saturday" : date.getDay() === 0 ? "sunday" : undefined : undefined}
                         key={dateValue}
                         onClick={() => openCalendarDate(date, "year")}
                         aria-label={`${formatCalendarDate(date, mode, true)}${sacredFeaturesEnabled ? `${mode === "profane" ? `; ${weekdayPatron.weekday}, ${weekdayPatron.patronage}` : ""}; ${sacredDay.name}; ${moon.day} ${translateText("лунный день", language)}` : ""}${dayTasks ? `; ${formatTaskCount(dayTasks, language)}` : ""}`}
@@ -7140,10 +7143,11 @@ export function GenesisCalendar() {
                         <button
                           type="button"
                           className="task-check"
+                          aria-pressed={task.done}
                           onClick={() => toggleTask(task.id)}
                           aria-label={namedAction(task.done ? "Вернуть задачу" : "Завершить задачу", task.title, language)}
                         >
-                          {task.done ? "✓" : ""}
+                          {task.done ? <ExperimentalIcon name="check"/> : null}
                         </button>
                         <button type="button" className="day-details-task-open" onClick={() => {
                           setDayDetailsOpen(false);
@@ -7239,7 +7243,7 @@ export function GenesisCalendar() {
               const index = tabs.indexOf(composerTab); const tab = event.key === "Home" ? tabs[0] : event.key === "End" ? tabs[tabs.length-1] : tabs[(index + (event.key === "ArrowLeft" ? -1 : 1) + tabs.length) % tabs.length];
               setComposerTab(tab); setTaskUndated(false); if(tab !== "lists") {setNewEntryType(tab);setYandexEntryType(tab === "meeting" ? "meeting" : "task");} event.currentTarget.querySelector<HTMLButtonElement>(`#composer-tab-${tab}`)?.focus();
             }}>
-              {(["task", "lists", "meeting", "birthday", "event"] as const).filter(tab => tab !== "birthday" || taskScope !== "shared").map((tab) => <button id={`composer-tab-${tab}`} type="button" role="tab" key={tab} aria-selected={composerTab === tab} aria-controls={`composer-panel-${tab}`} tabIndex={composerTab === tab ? 0 : -1} onClick={() => { setComposerTab(tab); setTaskUndated(false); if(tab !== "lists"){setNewEntryType(tab);setYandexEntryType(tab === "meeting" ? "meeting" : "task");} }}>{tab === "lists" ? "Списки задач" : entryTypeLabel(tab, language === "en")}</button>)}
+              {(["task", "lists", "meeting", "birthday", "event"] as const).filter(tab => tab !== "birthday" || taskScope !== "shared").map((tab) => <IconActionButton id={`composer-tab-${tab}`} role="tab" key={tab} icon={tab === "lists" ? "list" : tab} label={translateText(tab === "lists" ? "Списки задач" : entryTypeLabel(tab, language === "en"), language)} showLabel choiceHint aria-selected={composerTab === tab} aria-controls={`composer-panel-${tab}`} tabIndex={composerTab === tab ? 0 : -1} onClick={() => { setComposerTab(tab); setTaskUndated(false); if(tab !== "lists"){setNewEntryType(tab);setYandexEntryType(tab === "meeting" ? "meeting" : "task");} }}/>)}
             </div>
             <div id={`composer-panel-${composerTab}`} role="tabpanel" aria-labelledby={`composer-tab-${composerTab}`}>
               {composerTab === "lists" ? renderTaskListCreateForm("composer") : renderTaskCreateForm("composer")}
@@ -7279,7 +7283,7 @@ export function GenesisCalendar() {
       ) : null}
       {editingTask ? (
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditingTask(null); }}>
-          <form ref={taskEditorDialogRef} className="editor-modal" data-exp-ui="dialog" role="dialog" aria-modal="true" aria-labelledby="task-editor-title" tabIndex={-1} onSubmit={saveTaskEdit}>
+          <form ref={taskEditorDialogRef} className="editor-modal task-editor" data-exp-ui="dialog" role="dialog" aria-modal="true" aria-labelledby="task-editor-title" tabIndex={-1} onSubmit={saveTaskEdit}>
             <DialogCloseButton type="button" className="modal-close" onClick={() => setEditingTask(null)} aria-label="Закрыть" />
             <span className="eyebrow">{cloudUser?.authProvider === "yandex" && editingTask.yandexEntryType === "meeting" ? "Редактирование встречи" : "Редактирование задачи"}</span>
             <h2 id="task-editor-title">{cloudUser?.authProvider === "yandex" ? "Запись Яндекс.Календаря" : "Задача и её контекст"}</h2>

@@ -33,6 +33,8 @@ internal fun allowedSharedRoute(method: String, path: String): Boolean {
     if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/planning/sprints"))) return method == "POST"
     if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/planning/sprints/[a-f0-9-]{36}"))) return method == "PATCH"
     if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/planning/sprints/[a-f0-9-]{36}/transition"))) return method == "POST"
+    if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/planning/sprints/[a-f0-9-]{36}/report(?:/(?:check|sources))?"))) return method == "POST"
+    if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/tasks/[a-f0-9-]{36}\\?archived=true"))) return method == "GET"
     if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/ui"))) return method in setOf("GET", "PATCH")
     if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/invitations"))) return method == "POST"
     if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/projects"))) return method in setOf("GET", "POST")
@@ -231,6 +233,20 @@ internal class AuthSessionClient(context: Context) {
         request(expected, "/shared/projects/$projectId", null)
     fun sharedPlanning(expected: Long, projectId: String): JSONObject =
         request(expected, "/shared/projects/$projectId/planning", null)
+    fun sharedSprintReport(expected: Long, projectId: String, sprintId: String, unit: String): JSONObject {
+        require(unit in SprintReportProtocol.units)
+        return request(expected, "/shared/projects/$projectId/planning/sprints/$sprintId/report", JSONObject().put("unit", unit))
+    }
+    fun checkSharedSprintReport(expected: Long, projectId: String, sprintId: String, token: String): JSONObject =
+        request(expected, "/shared/projects/$projectId/planning/sprints/$sprintId/report/check", JSONObject().put("token", token))
+    fun sharedSprintReportSources(expected: Long, projectId: String, sprintId: String, token: String, query: JSONObject, cursor: String?): JSONObject {
+        val selection = SprintReportProtocol.query(query.getString("kind"), query.optString("metric", "scope"), query.optString("date").takeIf { it.isNotEmpty() })
+        val body = JSONObject(selection.toString()).put("token", token)
+        if (cursor != null) { require(cursor.length in 1..32000); body.put("cursor", cursor) }
+        return request(expected, "/shared/projects/$projectId/planning/sprints/$sprintId/report/sources", body)
+    }
+    fun sharedSprintSourceTask(expected: Long, projectId: String, taskId: String, archived: Boolean): JSONObject =
+        request(expected, "/shared/projects/$projectId/tasks/$taskId" + if (archived) "?archived=true" else "", null)
     fun sharedWorkflow(expected: Long, projectId: String): JSONObject = request(expected, "/shared/projects/$projectId/workflow", null)
     fun sharedWorkflowRepairProjects(expected: Long, spaceId: String): JSONObject = request(expected, "/shared/spaces/$spaceId/trash", null)
     fun sharedWorkflowHistory(expected: Long, projectId: String, before: Long?): JSONObject =
@@ -409,7 +425,7 @@ internal class AuthSessionClient(context: Context) {
                         }
                         JSONObject(output.toString(Charsets.UTF_8.name())).optString("error")
                     }.getOrDefault("")
-                    if (code in PlanningJournal.DEFINITIVE_ERRORS) throw AuthApiError(code)
+                    if (code in PlanningJournal.DEFINITIVE_ERRORS || path.matches(Regex("/shared/projects/[a-f0-9-]{36}/planning/sprints/[a-f0-9-]{36}/report(?:/(?:check|sources))?")) && code in SprintReportProtocol.errors) throw AuthApiError(code)
                 }
                 if (path.contains("/invitations")) {
                     val code = runCatching { JSONObject(connection.errorStream?.bufferedReader()?.use { it.readText() }

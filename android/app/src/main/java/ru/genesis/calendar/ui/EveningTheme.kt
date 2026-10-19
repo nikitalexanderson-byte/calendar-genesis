@@ -38,14 +38,20 @@ internal data class AppearanceSettings(val mode: String = "scheduled", val light
     }
     fun json() = JSONObject().put("mode", mode).put("lightAt", lightAt).put("darkAt", darkAt)
     companion object {
-        fun read(raw: String): AppearanceSettings {
+        fun read(raw: String, accountTheme: String? = null): AppearanceSettings {
             val value = runCatching { JSONObject(raw).optJSONObject("nativeAppearance") }.getOrNull()
             fun time(key: String, fallback: String) = value?.optString(key)?.takeIf {
                 it.matches(Regex("(?:[01][0-9]|2[0-3]):[0-5][0-9]")) } ?: fallback
             val light = time("lightAt", "07:00")
             val dark = time("darkAt", "21:00").takeUnless { it == light } ?: if (light == "21:00") "22:00" else "21:00"
-            return AppearanceSettings(value?.optString("mode")?.takeIf {
-                it in setOf("light", "evening", "system", "scheduled") } ?: "scheduled", light, dark)
+            val savedMode = value?.optString("mode")?.takeIf { it in setOf("light", "evening", "system", "scheduled") }
+            val accountMode = when (accountTheme) {
+                "standart", "experimental" -> "light"
+                "standart-dark", "experimental-dark" -> "evening"
+                else -> null
+            }
+            return AppearanceSettings(if (savedMode in setOf("system", "scheduled")) savedMode!!
+                else accountMode ?: savedMode ?: "scheduled", light, dark)
         }
     }
 }
@@ -102,8 +108,9 @@ internal fun eveningSurfaceTone(color: Color): Color {
 }
 
 @Composable internal fun AppearancePanel(app: GenesisApplication, workspace: LocalHabitWorkspace,
-    use24: Boolean, extra: @Composable ColumnScope.() -> Unit = {}) {
-    val appearance = AppearanceSettings.read(workspace.settings.rawJson)
+    use24: Boolean, accountTheme: String? = null, onManualTheme: (String) -> Unit = {},
+    extra: @Composable ColumnScope.() -> Unit = {}) {
+    val appearance = AppearanceSettings.read(workspace.settings.rawJson, accountTheme)
     val scope = rememberCoroutineScope()
     val repository = remember(app, app.workspaceScope) { HabitsRepository(app) }
     val context = LocalContext.current
@@ -113,7 +120,11 @@ internal fun eveningSurfaceTone(color: Color): Color {
     fun save(next: AppearanceSettings) {
         scope.launch {
             runCatching { repository.updateAppearance(next.json()) }
-                .onSuccess { error = null }.onFailure { error = "Не удалось сохранить тему. Повторите попытку." }
+                .onSuccess {
+                    error = null
+                    if (next.mode in setOf("light", "evening"))
+                        onManualTheme(if (next.mode == "evening") "standart-dark" else "standart")
+                }.onFailure { error = "Не удалось сохранить тему. Повторите попытку." }
         }
     }
     fun chooseTime(light: Boolean) {

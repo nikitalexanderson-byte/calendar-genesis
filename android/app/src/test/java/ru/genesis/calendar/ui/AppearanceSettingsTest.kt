@@ -6,6 +6,18 @@ import org.junit.Test
 import org.json.JSONObject
 
 class AppearanceSettingsTest {
+    @Test fun manualAccountThemeUpdatesNativeButAutomaticModesKeepTheirSchedule() {
+        val raw=JSONObject().put("nativeAppearance",AppearanceSettings("light").json()).toString()
+        assertEquals("evening",AppearanceSettings.read(raw,"standart-dark").mode)
+        assertEquals("light",AppearanceSettings.read(raw,"standart").mode)
+        assertEquals("evening",AppearanceSettings.read("{}","experimental-dark").mode)
+        for(mode in listOf("scheduled","system")) {
+            val automatic=AppearanceSettings(mode,"08:30","20:30")
+            val stored=JSONObject().put("nativeAppearance",automatic.json()).toString()
+            assertEquals(automatic,AppearanceSettings.read(stored,"standart-dark"))
+            assertEquals(automatic,AppearanceSettings.read(stored,"standart"))
+        }
+    }
     @Test fun eveningScheduleCrossesMidnightAndUsesExactBoundaries() {
         val settings=AppearanceSettings("scheduled","07:00","21:00")
         assertFalse(settings.isEvening(LocalTime.of(20,59),false))

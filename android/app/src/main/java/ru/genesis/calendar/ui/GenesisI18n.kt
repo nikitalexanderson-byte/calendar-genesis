@@ -672,6 +672,10 @@ private val nativeCopy = mapOf(
     "После перезагрузки и возврата из настроек Android напоминания восстанавливаются автоматически." to "Reminders are restored automatically after a reboot or returning from Android settings.",
     "Открыта защищённая локальная копия. Проверяем связь с облаком…" to "Your protected local copy is open. Checking the cloud connection…",
     "Настройки сохранены на устройстве и ожидают синхронизации." to "Settings are saved on this device and waiting to sync.",
+    "Отправка изменений ещё не завершена. Полученные данные обновлены; изменения этого устройства сохранены и ожидают синхронизации." to
+        "Changes have not finished uploading. Downloaded data is up to date; changes on this device are saved and waiting to sync.",
+    "Настройка изменилась на другом устройстве. Обновите данные и выберите тему повторно; ваш выбор сохранён на устройстве." to
+        "This setting changed on another device. Refresh the data and select the theme again; your choice is saved on this device.",
     "Практика дня" to "Daily practice", "Точное время привычки" to "Habit's exact time",
     "Выполнять в определённое время" to "Practice at a specific time",
     "Персональное напоминание" to "Personal reminder",

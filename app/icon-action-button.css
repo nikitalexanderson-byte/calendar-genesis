@@ -12,7 +12,7 @@ html[data-genesis-theme] .genesis-app .icon-action-button {
 }
 html[data-genesis-theme] .icon-action-tooltip {
   position:fixed;
-  z-index:120;
+  z-index:calc(var(--ui-layer-dialog,1600) + 20);
   width:max-content;
   max-width:min(240px,calc(100vw - 32px));
   padding:8px 12px;

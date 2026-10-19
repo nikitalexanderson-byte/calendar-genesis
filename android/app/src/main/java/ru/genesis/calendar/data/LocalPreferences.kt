@@ -20,14 +20,14 @@ data class UiPreferences(val display: CalendarMode = CalendarMode.PROFANE,
     val menuSwipeEnabled: Boolean = true, val menuSwipeSubmenus: Boolean = true,
     val settingsMenuLabels: Boolean = false, val updateRemindersEnabled: Boolean = true,
     val menuThreadsEnabled: Boolean = false,
-    val settingsSubmenuEnabled: Boolean = true)
+    val settingsSubmenuEnabled: Boolean = true, val theme: String? = null)
 class LocalPreferences(private val context: Context, private val scope: String) {
     private fun moonLeadDays(value: String?): Set<Int> = value.orEmpty().split(',')
         .mapNotNull { it.trim().toIntOrNull()?.takeIf { day -> day in 1..3 } }.toSet()
     private fun key(name: String) = stringPreferencesKey("$scope:$name")
     private fun pendingKey(name: String) = stringPreferencesKey("$scope:pending:$name")
     private val names = setOf("display", "input", "time", "weekStart", "gregorianYearStart",
-        "language", "stoicheionDivinationDisabled", "sharedProjectsEnabled")
+        "language", "stoicheionDivinationDisabled", "sharedProjectsEnabled", "theme", "themeRevision")
     val pending = context.genesisPreferences.data.map { values -> names.mapNotNull { name ->
         values[pendingKey(name)]?.let { name to it }
     }.toMap() }
@@ -48,7 +48,8 @@ class LocalPreferences(private val context: Context, private val scope: String) 
             it[key("settingsMenuLabels")] == "text",
             it[key("updateRemindersEnabled")] != "false",
             it[key("menuThreadsEnabled")] == "true",
-            it[key("settingsSubmenuEnabled")] != "false")
+            it[key("settingsSubmenuEnabled")] != "false",
+            it[key("theme")]?.takeIf { value -> value in setOf("standart", "standart-dark", "experimental", "experimental-dark") })
     }
     suspend fun set(name: String, value: String) { context.genesisPreferences.edit { it[key(name)] = value } }
     suspend fun initializeNewAccount() {
@@ -63,15 +64,31 @@ class LocalPreferences(private val context: Context, private val scope: String) 
         }
     }
     suspend fun setPending(name: String, value: String) {
-        require(name in names)
+        require(name in names && name !in setOf("theme", "themeRevision"))
         context.genesisPreferences.edit { it[key(name)] = value; it[pendingKey(name)] = value }
+    }
+    suspend fun setPendingTheme(value: String, expectedRevision: Int) {
+        require(value in setOf("standart", "standart-dark") && expectedRevision >= 0)
+        context.genesisPreferences.edit {
+            it[key("theme")] = value
+            it[pendingKey("theme")] = value
+            it[pendingKey("themeRevision")] = expectedRevision.toString()
+        }
     }
     suspend fun setRemote(name: String, value: String) {
         context.genesisPreferences.edit { if (it[pendingKey(name)] == null) it[key(name)] = value }
     }
     suspend fun acknowledge(changes: Map<String, String>) {
-        context.genesisPreferences.edit { prefs -> changes.forEach { (name, value) ->
-            if (prefs[pendingKey(name)] == value) prefs.remove(pendingKey(name))
-        } }
+        context.genesisPreferences.edit { prefs ->
+            // The same color chosen after a new pull is a different CAS operation.
+            if (changes.containsKey("theme") && changes.containsKey("themeRevision") &&
+                prefs[pendingKey("theme")] == changes["theme"] &&
+                prefs[pendingKey("themeRevision")] == changes["themeRevision"]) {
+                prefs.remove(pendingKey("theme")); prefs.remove(pendingKey("themeRevision"))
+            }
+            changes.filterKeys { it !in setOf("theme", "themeRevision") }.forEach { (name, value) ->
+                if (prefs[pendingKey(name)] == value) prefs.remove(pendingKey(name))
+            }
+        }
     }
 }

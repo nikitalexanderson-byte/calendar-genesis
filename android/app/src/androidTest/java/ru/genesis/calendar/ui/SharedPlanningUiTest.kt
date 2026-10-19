@@ -22,6 +22,9 @@ import ru.genesis.calendar.auth.SharedWorkspaceGateway
 import java.io.File
 
 private class PlanningFixture : SharedWorkspaceGateway {
+    val report = ReportUiFixture()
+    override suspend fun sharedSprintReport(projectId:String,sprintId:String,unit:String) = report.sharedSprintReport(projectId,sprintId,unit)
+    override suspend fun checkSharedSprintReport(projectId:String,sprintId:String,token:String) = report.checkSharedSprintReport(projectId,sprintId,token)
     var organize=true
     var cached=false
     var deny=false
@@ -163,6 +166,18 @@ class SharedPlanningUiTest {
         val fixture=PlanningFixture();var closed=false;show(fixture,onClose={closed=true})
         androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
         compose.waitUntil(5_000){closed}
+        assertTrue(fixture.updates.isEmpty());assertTrue(fixture.queue.isEmpty())
+    }
+    @Test fun selectedSprintOpensReadOnlyReportAndBackReturnsToPlanning() {
+        val fixture=PlanningFixture();show(fixture)
+        compose.onNodeWithTag("planning-sprint-report").assertDoesNotExist()
+        compose.onNodeWithTag("planning-bucket").performClick();compose.onNodeWithTag("planning-select-sprint").performClick()
+        if(compose.onAllNodesWithTag("planning-sprint-report").fetchSemanticsNodes().isEmpty())
+            compose.onNodeWithTag("planning-tasks").performScrollToNode(hasTestTag("planning-sprint-report"))
+        compose.onNodeWithTag("planning-sprint-report").performClick()
+        compose.waitUntil(10000){compose.onAllNodesWithTag("report-overview").fetchSemanticsNodes().isNotEmpty()}
+        androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack();compose.waitForIdle()
+        compose.onNodeWithTag("shared-sprint-report").assertDoesNotExist();compose.onNodeWithTag("shared-planning-screen").assertExists()
         assertTrue(fixture.updates.isEmpty());assertTrue(fixture.queue.isEmpty())
     }
     @Test fun latePageCannotReplaceAnotherBucketAndCompletedSprintIsReadOnly() {

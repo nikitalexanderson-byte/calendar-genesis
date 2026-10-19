@@ -32,6 +32,38 @@ import ru.genesis.calendar.ui.standart
 class AccountTaskVisibilityTest {
     @get:Rule val compose = createAndroidComposeRule<StoicheionGestureActivity>()
 
+    @Test fun secondLinkedGoogleAccountListTaskIsVisibleInPersonalInbox() {
+        val app=InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
+        check(BuildConfig.DEBUG && app.packageName.endsWith(".debug"))
+        val uid="linked-list-visibility-fixture"
+        val owner=CloudAccountSnapshot.scopeFor(uid)
+        val lists=JSONArray().put(JSONObject().put("id","primary-list").put("title","Основной список").put("accountId","google-a"))
+            .put(JSONObject().put("id","secondary-list").put("title","Пробный список").put("accountId","google-b"))
+        val payload=JSONObject().put("user",JSONObject().put("uid",uid).put("authProvider","google").put("email","fixture@example.invalid"))
+            .put("workspace",JSONObject().put("keyMode","new").put("envelope",JSONObject.NULL))
+            .put("taskLists",lists).put("tasks",JSONArray().put(JSONObject().put("id","linked-list-task")
+                .put("title","пробная задача из списка").put("dueDate","").put("createdIn","google-tasks")
+                .put("googleAccountId","google-b").put("googleTaskListId","secondary-list").put("googleTaskListTitle","Пробный список")))
+        try {
+            runBlocking {
+                assertEquals(CloudAccountImporter.Result.IMPORTED,CloudAccountImporter(app.database).import(CloudAccountSnapshot.fromBootstrap(payload)))
+                ru.genesis.calendar.data.TaskListsRepository.cacheBootstrap(app.database,owner,payload)
+            }
+            compose.runOnUiThread { app.activateAccount(uid) }
+            compose.setContent { GenesisApp(app,null,testWorkspace=true) }
+            compose.onNodeWithTag("navigation-Проекты").performClick()
+            compose.onNodeWithTag("personal-task-list-secondary-list").performScrollTo().assertIsDisplayed()
+            compose.onNodeWithTag("toggle-task-list-secondary-list").performClick()
+            compose.onNodeWithText("пробная задача из списка").performScrollTo().assertIsDisplayed()
+        } finally {
+            compose.runOnUiThread { app.activateAccount(null) }
+            runBlocking {
+                app.database.dao().clearAccountTaskCache(owner)
+                app.database.dao().clearReminders(owner)
+            }
+        }
+    }
+
     private fun capture(name: String) {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         compose.waitForIdle()
@@ -68,11 +100,10 @@ class AccountTaskVisibilityTest {
             compose.runOnUiThread { app.activateAccount(uid) }
             compose.setContent { GenesisApp(app, null, testWorkspace = true) }
             compose.onNodeWithTag("navigation-Проекты").performClick()
-            compose.onNodeWithTag("submenu-tasks").performClick()
-            compose.onNodeWithTag("task-website-task").performScrollTo().assertIsDisplayed()
-            compose.onNodeWithTag("task-untitled-event").performScrollTo().assertIsDisplayed()
+            compose.onNodeWithTag("drag-task-website-task").performScrollTo().assertIsDisplayed()
+            compose.onNodeWithTag("drag-task-untitled-event").performScrollTo().assertIsDisplayed()
             compose.onNodeWithText("Без названия").assertIsDisplayed()
-            compose.onNodeWithTag("task-$longId").performScrollTo().assertIsDisplayed()
+            compose.onNodeWithTag("drag-task-$longId").performScrollTo().assertIsDisplayed()
             capture("imported-task-list")
             compose.onNodeWithTag("navigation-Календарь").performClick()
             compose.onNodeWithTag("calendar-task-count-$date").performScrollTo().performClick()

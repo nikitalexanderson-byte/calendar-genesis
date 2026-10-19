@@ -9,6 +9,27 @@ import ru.genesis.calendar.data.LocalPreferences
 import ru.genesis.calendar.domain.CalendarMode
 
 class PreferencesTest {
+    @Test fun accountThemePullCannotOverwriteOfflineChoiceOrAcknowledgeANewerSelection() = runBlocking {
+        val app=InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
+        check(BuildConfig.DEBUG && app.packageName.endsWith(".debug"))
+        val preferences=LocalPreferences(app,"test-theme-sync")
+        try {
+            preferences.setRemote("theme","standart")
+            assertEquals("standart",preferences.values.first().theme)
+            preferences.setPendingTheme("standart-dark",108)
+            val oldRequest=preferences.pending.first()
+            preferences.setRemote("theme","standart")
+            assertEquals("standart-dark",preferences.values.first().theme)
+            preferences.setPendingTheme("standart-dark",109)
+            preferences.acknowledge(oldRequest)
+            assertEquals("109",preferences.pending.first()["themeRevision"])
+            preferences.acknowledge(preferences.pending.first())
+            assertTrue(preferences.pending.first().isEmpty())
+            preferences.setRemote("theme","standart")
+            assertEquals("standart",preferences.values.first().theme)
+        } finally { preferences.acknowledge(preferences.pending.first()) }
+    }
+
     @Test fun sharedProjectsSwitchQueuesAndAcknowledgesPreference() = runBlocking {
         val app=InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
         check(BuildConfig.DEBUG && app.packageName.endsWith(".debug"))
