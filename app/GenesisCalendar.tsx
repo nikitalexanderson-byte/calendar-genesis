@@ -6006,9 +6006,8 @@ export function GenesisCalendar() {
                         <ExperimentalIcon name="chevron" />
                       </button>
                       <div className="project-info">
-                        <button type="button" className="project-preview-title" aria-haspopup="dialog"
-                          aria-label={namedAction("Открыть проект", project.title, language)}
-                          onClick={event => { if (mobileLayout || event.detail === 0) setPersonalPreview({kind:"project",id:project.id}); else if (event.detail === 1) expandProject(); }}
+                        <button type="button" className="project-preview-title" aria-expanded={projectExpanded} aria-controls={`personal-project-tasks-${project.id}`}
+                          onClick={event => { if (mobileLayout || event.detail <= 1) expandProject(); }}
                           onDoubleClick={() => { if (!mobileLayout) setPersonalPreview({kind:"project",id:project.id}); }}>
                           <strong data-no-translate>{project.title}</strong>
                         </button>
@@ -6027,6 +6026,9 @@ export function GenesisCalendar() {
                         ? <svg className="project-restore-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1.7 7.3M4 4v6h6"/></svg>
                         : <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="m7 12 3 3 7-7"/></svg>}
                     </button>
+                    <div className="project-row-actions">
+                    <button type="button" className="project-preview personal-action-hint" data-action-hint={translateText("Открыть проект", language)} aria-label={namedAction("Открыть проект", project.title, language)} aria-haspopup="dialog"
+                      onClick={() => setPersonalPreview({kind:"project",id:project.id})}><ExperimentalIcon name="eye" /></button>
                     {experimentalThemeActive ? <button type="button" className="experimental-add-subproject personal-action-hint" data-action-hint={translateText("Новый подпроект", language)} aria-label={`${translateText("Новый подпроект", language)}: ${project.title}`}
                       onClick={() => { setNewProjectParent(project.id); setExperimentalProjectFormOpen(true); }}><ExperimentalIcon name="plus" /></button> : null}
                     <button type="button" className="project-edit personal-action-hint" data-action-hint={translateText("Редактировать проект", language)} onClick={() => openProjectEditor(project)} aria-label={namedAction("Редактировать проект", project.title, language)}>{experimentalThemeActive ? <ExperimentalIcon name="edit" /> : "✎"}</button>
@@ -6035,6 +6037,7 @@ export function GenesisCalendar() {
                       aria-label={`${translateText("Переместить в общие", language)}: ${project.title}`}>
                       {experimentalThemeActive ? <ExperimentalIcon name="open" /> : "↗"}</button> : null}
                     <button type="button" className="project-delete personal-action-hint" data-action-hint={translateText("Удалить проект", language)} onClick={() => void deleteProject(project.id)} aria-label={namedAction("Удалить проект", project.title, language)}>{experimentalThemeActive ? <ExperimentalIcon name="delete" /> : "×"}</button>
+                    </div>
                     <div className="project-drop-field" id={`personal-project-tasks-${project.id}`}>
                       <div className="project-drop-heading">
                         <span>Пространство проекта</span>
