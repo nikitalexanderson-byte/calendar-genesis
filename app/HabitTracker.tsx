@@ -1095,8 +1095,9 @@ function HabitEditor({ habit, isExisting, language, calendarMode, timeFormat, go
         <HabitEmojiField value={draft.emoji} language={language} onChange={(emoji) => setDraft((current) => ({ ...current, emoji }))} />
         <HabitPriorityControl value={draft.priority} language={language} onChange={(priority) => setDraft((current) => ({ ...current, priority }))} />
         <HabitRoleFields habit={draft} language={language} onChange={(patch) => setDraft((current) => ({ ...current, ...patch }))} />
-        <fieldset className="habit-editor-section">
-          <legend><span>01</span>{isEnglish ? "Rhythm and calendar" : "Ритм и календарь"}</legend>
+        <details className="habit-editor-section habit-editor-disclosure" data-habit-editor-section="rhythm">
+          <summary><span><ExperimentalIcon name="calendar" />{isEnglish ? "Rhythm and calendar" : "Ритм и календарь"}</span><ExperimentalIcon name="chevron-down" /></summary>
+          <div className="habit-editor-disclosure-body">
             <p className="habit-rhythm-start-note">{isExisting ? (isEnglish ? "The start date and scoring are fixed; the other settings can be changed." : "Дата начала и система баллов зафиксированы; остальные настройки можно менять.") : (isEnglish ? "Choose today or a future start date. After saving, the start date and scoring formula are fixed." : "Выберите сегодня или будущую дату начала. После сохранения дата начала и система баллов будут зафиксированы.")}</p>
           <RecurrenceBuilder
             headerControls={<label className="habit-switch"><span><strong>{isEnglish ? "Track indefinitely" : "Отслеживать всегда"}</strong><small>{isEnglish ? "No final date" : "Без даты окончания"}</small></span><input type="checkbox" role="switch" aria-label={isEnglish ? "Track indefinitely" : "Отслеживать всегда"} checked={forever} onChange={(event) => { setForever(event.target.checked); setDraft((current) => ({ ...current, schedule: { ...current.schedule, endDate: event.target.checked ? null : current.schedule.recurrence.rangeEnd || current.schedule.startDate } })); }} /><i /></label>}
@@ -1112,9 +1113,11 @@ function HabitEditor({ habit, isExisting, language, calendarMode, timeFormat, go
               return { ...next, schedule: { ...next.schedule, recurrence: { ...recurrence, rangeStart: next.createdDate }, endDate: forever ? null : recurrence.rangeEnd || next.schedule.endDate } };
             })}
           />
-        </fieldset>
-        <fieldset className="habit-editor-section">
-          <legend><span>02</span>{isEnglish ? "Quality and points" : "Качество и баллы"}</legend>
+          </div>
+        </details>
+        <details className="habit-editor-section habit-editor-disclosure" data-habit-editor-section="quality">
+          <summary><span><ExperimentalIcon name="check" />{isEnglish ? "Quality and points" : "Качество и баллы"}</span><ExperimentalIcon name="chevron-down" /></summary>
+          <div className="habit-editor-disclosure-body">
           {isExisting ? <p className="habit-scoring-lock-note">🔒 {isEnglish ? "Points and the quality scale were fixed when this habit was created and cannot be changed." : "Баллы и шкала качества зафиксированы при создании этой привычки и не могут быть изменены."}</p> : null}
           <fieldset className="habit-scoring-locked-fields" disabled={isExisting}>
             <label className="habit-switch habit-disable-switch"><span><strong>{isEnglish ? "Disable scoring" : "Отключить начисление баллов"}</strong><small>{isEnglish ? "All scoring fields will be disabled" : "Все поля качества и баллов будут выключены"}</small></span><input type="checkbox" role="switch" aria-label={isEnglish ? "Disable habit scoring" : "Отключить начисление баллов"} checked={scoringDisabled} onChange={(event) => setDraft((current) => ({ ...current, scoringMode: event.target.checked ? "none" : current.qualityScale === "ten" ? "quality-ten" : current.qualityScale === "bipolar" ? "quality-bipolar" : "binary" }))} /><i /></label>
@@ -1125,16 +1128,19 @@ function HabitEditor({ habit, isExisting, language, calendarMode, timeFormat, go
             </div>
           </fieldset>
           </fieldset>
-        </fieldset>
-        <fieldset className="habit-editor-section">
-          <legend><span>03</span>{isEnglish ? "Reminder" : "Напоминание"}</legend>
+          </div>
+        </details>
+        <details className="habit-editor-section habit-editor-disclosure" data-habit-editor-section="reminder">
+          <summary><span><ExperimentalIcon name="history" />{isEnglish ? "Reminder" : "Напоминание"}</span><ExperimentalIcon name="chevron-down" /></summary>
+          <div className="habit-editor-disclosure-body">
           <label className="habit-switch"><span><strong>{isEnglish ? "Enable reminder" : "Добавить напоминание"}</strong><small>{isEnglish ? "GENESIS remains the source of truth" : "GENESIS остаётся источником истины"}</small></span><input type="checkbox" role="switch" aria-label={isEnglish ? "Enable reminder" : "Добавить напоминание"} checked={draft.reminder.enabled} onChange={(event) => setDraft((current) => ({ ...current, reminder: { ...current.reminder, enabled: event.target.checked } }))} /><i /></label>
           <fieldset className="habit-reminder-fields" disabled={!draft.reminder.enabled}>
             <div className="habit-editor-grid">
               <HabitReminderTimingFields habit={draft} language={language} onChange={(reminder) => setDraft((current) => ({ ...current, reminder }))} />
             </div>
           </fieldset>
-        </fieldset>
+          </div>
+        </details>
         <footer><button type="button" className="secondary-button" disabled={saving} onClick={onClose}>{isEnglish ? "Cancel" : "Отмена"}</button><button type="submit" className="primary-button" disabled={saving || habitRuleFrontier(habit).length > 1 || !measurementValid || !periodValid || !draft.title.trim() || Boolean(draft.intervalSchedule && !normalizeHabitInterval(draft.intervalSchedule))}>{saving ? translateText("Сохраняем…",language) : isExisting ? (isEnglish ? "Save changes" : "Сохранить изменения") : (isEnglish ? "Save habit" : "Сохранить привычку")}</button></footer>
       </form>
     </div>

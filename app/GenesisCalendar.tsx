@@ -7472,11 +7472,11 @@ export function GenesisCalendar() {
                 />
               </div>
             ) : null}
-            <div className="editor-actions">
-              <button type="button" className="danger-button" onClick={() => { const id = editingTask.id; const occurrence = editingOccurrenceDate || editingTask.dueDate; setEditingTask(null); deleteTask(id, occurrence); }}>Удалить</button>
-              {cloudUser?.sharedProjectsEnabled && editingTask.entryType !== "birthday" ? <button type="button" className="text-button" onClick={() => { setTransferTask(tasks.find((task) => task.id === editingTask.id) ?? editingTask); setEditingTask(null); }}>{language === "en" ? "Move to shared" : "Переместить в общие"}</button> : null}
-              <button type="button" className="text-button" onClick={() => setEditingTask(null)}>Отмена</button>
-              <button type="submit" className="primary-button" disabled={!editingTask.title.trim()}>Сохранить задачу</button>
+            <div className="editor-actions task-editor-actions">
+              <button type="button" className="task-editor-action task-editor-action-delete personal-action-hint" aria-label={translateText("Удалить", language)} data-action-hint={translateText("Удалить", language)} onClick={() => { const id = editingTask.id; const occurrence = editingOccurrenceDate || editingTask.dueDate; setEditingTask(null); deleteTask(id, occurrence); }}><ExperimentalIcon name="delete" /><span className="task-editor-action-label">{translateText("Удалить", language)}</span></button>
+              {cloudUser?.sharedProjectsEnabled && editingTask.entryType !== "birthday" ? <button type="button" className="task-editor-action task-editor-action-transfer personal-action-hint" aria-label={translateText("Переместить в общие", language)} data-action-hint={translateText("Переместить в общие", language)} onClick={() => { setTransferTask(tasks.find((task) => task.id === editingTask.id) ?? editingTask); setEditingTask(null); }}><ExperimentalIcon name="move" /><span className="task-editor-action-label">{translateText("Переместить в общие", language)}</span></button> : null}
+              <button type="button" className="task-editor-action task-editor-action-cancel personal-action-hint" aria-label={translateText("Отмена", language)} data-action-hint={translateText("Отмена", language)} onClick={() => setEditingTask(null)}><ExperimentalIcon name="close" /><span className="task-editor-action-label">{translateText("Отмена", language)}</span></button>
+              <button type="submit" className="task-editor-action task-editor-action-save personal-action-hint" aria-label={translateText("Сохранить задачу", language)} data-action-hint={translateText("Сохранить задачу", language)} disabled={!editingTask.title.trim()}><ExperimentalIcon name="save" /><span className="task-editor-action-label">{translateText("Сохранить задачу", language)}</span></button>
             </div>
           </form>
         </div>
