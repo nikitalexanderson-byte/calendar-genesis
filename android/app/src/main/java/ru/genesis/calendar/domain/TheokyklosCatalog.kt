@@ -30,7 +30,11 @@ data class TheokyklosPractice(
     val suggestedTime: String,
     val priority: Int,
     val color: String,
-)
+    val previousTitles: List<String> = emptyList(),
+) {
+    fun displayTitle(saved: String, english: Boolean): String =
+        if (saved in previousTitles) (if (english) title.en else title.ru) else saved
+}
 data class StoicheionSectorGuidance(val sectorId: String, val upright: TheokyklosText,
     val reversed: TheokyklosText)
 data class TheokyklosCatalog(val sectors: List<TheokyklosSector>, val practices: List<TheokyklosPractice>,
@@ -99,6 +103,9 @@ object TheokyklosCatalogSource {
                 description = text(value.getJSONObject("description")), myth = text(value.getJSONObject("myth")),
                 suggestedTime = value.getString("suggestedTime"), priority = value.getInt("priority"),
                 color = value.getString("color"),
+                previousTitles = value.optJSONArray("previousTitles")?.let { titles ->
+                    (0 until titles.length()).map { titles.getString(it) }
+                }.orEmpty(),
             )
         }
         require(practices.map { it.id }.toSet().size == practices.size &&

@@ -73,6 +73,8 @@ export type SacredPractice = {
   sectorId: SacredPracticeSectorId;
   emoji: string;
   title: SacredPracticeLocalizedText;
+  /** Recognize unchanged titles saved before a catalog rename, without rewriting user data. */
+  previousTitles?: readonly string[];
   description: SacredPracticeLocalizedText;
   myth: SacredPracticeLocalizedText;
   suggestedTime: string;
@@ -359,7 +361,13 @@ export const SACRED_PRACTICES: readonly SacredPractice[] = [
     id: "persephone-new-seed",
     sectorId: "nadir",
     emoji: "🌱",
-    title: { ru: "Семя Персефоны", en: "Persephone's seed" },
+    title: { ru: "Возвращение Персефоны", en: "Persephone’s Return" },
+    previousTitles: [
+      "Семя Персефоны", "Persephone's seed", "Σπόρος του Περσεφόνη", "Persephone-Seed",
+      "graine de Persephone", "semilla de Persephone", "seme di Persephone", "semente do Persephone",
+      "Materiał siewny Persephone", "Персефона", "насіння Персефона", "Persephone的种子",
+      "Persephone'nin tohumu", "Persephone のシード",
+    ],
     description: { ru: "Освободить место от одной отжившей вещи, записи или обязательства и назвать, чему теперь можно прорасти.", en: "Release one outgrown object, note, or obligation and name what may grow in its place." },
     myth: { ru: "Персефона возвращается из глубины с новым циклом жизни: завершение становится почвой для роста.", en: "Persephone returns from the depths with a new cycle of life: an ending becomes soil for growth." },
     suggestedTime: "19:00",

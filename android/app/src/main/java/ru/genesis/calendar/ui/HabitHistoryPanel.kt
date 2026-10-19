@@ -36,7 +36,7 @@ import ru.genesis.calendar.domain.habits.*
         val date = dateValue.takeIf { it.isNotEmpty() }?.let(LocalDate::parse) ?: yesterday
         Text("Историческая корректировка меняет статистику и серии. XP и Лавры не начисляются; выданные награды и потраченная защита сохраняются.",
             style = MaterialTheme.typography.bodySmall)
-        HistoryChoice("Привычка", habit.title, workspace.habits.map { it.id to it.title }, userContent = true) { selected = it; dateValue = "" }
+        HistoryChoice("Привычка", habitDisplayTitle(habit), workspace.habits.map { it.id to habitDisplayTitle(it) }, userContent = true) { selected = it; dateValue = "" }
         Text("Прошлая дата", style = MaterialTheme.typography.labelLarge)
         if (yesterday >= habit.createdDate) AuthorDatePicker(date.toString(), mode, minDate = habit.createdDate, maxDate = yesterday,
             calculationContext = ru.genesis.calendar.domain.CalendarContext(timeZone = rule.schedule.timezone,
@@ -86,7 +86,7 @@ import ru.genesis.calendar.domain.habits.*
     val entry = measured?.entries?.firstOrNull { it.id == entryId }
     val slots = habit.intervalSchedule?.takeIf { it.completionMode == "each" }?.times().orEmpty()
     Column(Modifier.fillMaxWidth().testTag("habit-history-form"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        MaterialText(habit.title, style = MaterialTheme.typography.titleMedium)
+        MaterialText(habitDisplayTitle(habit), style = MaterialTheme.typography.titleMedium)
         Text(GenesisCalendar(ZoneId.of(rule.schedule.timezone)).formatDate(date, mode) + " · " + rule.schedule.timezone)
         if (history.conflict || measured?.entries?.any { it.conflict } == true) Text("Одновременные исправления. Выберите правильное значение.", color = MaterialTheme.colorScheme.error)
         if (definition != null) {

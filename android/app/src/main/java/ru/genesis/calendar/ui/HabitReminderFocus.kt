@@ -51,7 +51,7 @@ internal fun HabitReminderFocus(app: GenesisApplication, workspace: LocalHabitWo
                 Text("Напоминание", style = MaterialTheme.typography.titleMedium)
                 TextButton({ closed = true }) { Text("Закрыть") }
             }
-            if (habit != null) MaterialText(habit.title, style = MaterialTheme.typography.titleMedium)
+            if (habit != null) MaterialText(habitDisplayTitle(habit), style = MaterialTheme.typography.titleMedium)
             val locale = Locale.forLanguageTag(LocalGenesisLanguage.current)
             val display = LocalTimerDisplayMode.current
             val calendar = remember { ru.genesis.calendar.domain.GenesisCalendar() }

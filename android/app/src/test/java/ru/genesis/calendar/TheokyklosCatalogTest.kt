@@ -3,6 +3,7 @@ package ru.genesis.calendar
 import java.io.File
 import org.junit.Assert.*
 import org.junit.Test
+import org.json.JSONObject
 import ru.genesis.calendar.domain.CalendarMode
 import ru.genesis.calendar.domain.GenesisCalendar
 import ru.genesis.calendar.domain.TheokyklosCatalogSource
@@ -61,6 +62,21 @@ class TheokyklosCatalogTest {
             assertTrue(engine.isScheduled(habit, habit.createdDate))
             assertFalse(engine.isScheduled(habit, habit.createdDate.minusDays(1)))
             assertFalse(engine.isScheduled(habit, habit.createdDate.plusDays(1)))
+        }
+    }
+
+    @Test fun renamedPracticeRecognizesSavedDefaultsInEveryLanguageAndKeepsPersonalNames() {
+        val raw = File("src/main/assets/catalogs/theokyklos.json").readText(Charsets.UTF_8)
+        val original = catalog.practices.single { it.id == "persephone-new-seed" }
+        assertEquals(14, original.previousTitles.size)
+        for (language in listOf("ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja")) {
+            val translations = if (language in listOf("ru", "en")) null else JSONObject(
+                File("../../app/catalog-translations/$language.json").readText(Charsets.UTF_8)).getJSONObject("theokyklos")
+            val practice = TheokyklosCatalogSource.parse(raw, translations, null)
+                .practices.single { it.id == original.id }
+            val expected = if (language == "en") original.title.en else translations?.getString(original.title.ru) ?: original.title.ru
+            for (previous in original.previousTitles) assertEquals(expected, practice.displayTitle(previous, language == "en"))
+            assertEquals("Мой собственный ритуал", practice.displayTitle("Мой собственный ритуал", language == "en"))
         }
     }
 }

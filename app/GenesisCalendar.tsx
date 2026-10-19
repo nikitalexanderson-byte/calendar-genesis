@@ -6534,6 +6534,7 @@ export function GenesisCalendar() {
                       <button
                         type="button"
                         className={`mini-day${dayTasks ? " has-task" : ""}${dateValue === todayDateValue ? " today" : ""}${solar ? " solar" : ""}${isSaturday ? " saturday" : ""}`}
+                        data-weekday={date.getDay()}
                         data-weekend={mode === "profane" ? date.getDay() === 6 ? "saturday" : date.getDay() === 0 ? "sunday" : undefined : undefined}
                         key={dateValue}
                         onClick={() => openCalendarDate(date, "year")}

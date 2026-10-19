@@ -152,7 +152,7 @@ internal fun SacredHabitsBlock(workspace: LocalHabitWorkspace, today: LocalDate,
                         Card(Modifier.fillMaxWidth().testTag("sacred-practice-${practice.id}"),
                             colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainerHigh)) {
                             Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(7.dp)) {
-                                Text("${habit?.emoji ?: practice.emoji} ${habit?.title ?: if(english)practice.title.en else practice.title.ru}",
+                                Text("${habit?.emoji ?: practice.emoji} ${habit?.let { habitDisplayTitle(it) } ?: if(english)practice.title.en else practice.title.ru}",
                                     style=MaterialTheme.typography.titleMedium)
                                 Text(habit?.description ?: if(english)practice.description.en else practice.description.ru,
                                     style=MaterialTheme.typography.bodyMedium)

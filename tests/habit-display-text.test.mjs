@@ -45,6 +45,20 @@ test("starter template defaults translate without changing their saved values", 
   }
 });
 
+test("renamed sacred defaults retain their identity and history without replacing personal text", () => {
+  const practice = SACRED_PRACTICES.find(row => row.id === "persephone-new-seed");
+  for (const previous of practice.previousTitles) {
+    const habit = text(previous, "Моя заметка", { sacredPracticeId: practice.id });
+    const before = JSON.stringify(habit);
+    for (const language of REGION_LANGUAGES) assert.deepEqual(habitDisplayText(habit, language), {
+      title: catalogText(practice.title, language), description: "Моя заметка",
+    });
+    assert.equal(JSON.stringify(habit), before);
+    assert.equal(habitDisplayText({ ...habit, sacredPracticeId: null }, "ru").title, previous);
+  }
+  assert.equal(habitDisplayText(text("Моё возвращение", "", { sacredPracticeId: practice.id }), "en").title, "Моё возвращение");
+});
+
 test("user text stays verbatim even if it coincides with a translated UI or another template", () => {
   const practice = SACRED_PRACTICES[0];
   const custom = text(practice.title.ru, "Моя заметка: План на день");
