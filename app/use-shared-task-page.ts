@@ -43,18 +43,20 @@ export function useSharedTaskPage(filter: SharedTaskFilter | null, sort: SharedT
     return () => { invalidate(); controller.abort(); window.clearTimeout(initial); window.clearInterval(timer); window.removeEventListener("genesis:shared-updates", changed); };
   }, [refresh, refreshKey, filterKey]);
   const more = async () => {
-    if (!filter || !page?.nextCursor || busy) return;
+    if (!filter || !page?.nextCursor || busy) return false;
     const current = ++request.current; loadingMore.current = true; refreshing.current=false; setBusy(true);
     const controller = new AbortController(); moreController.current=controller;
     try {
       const result = await querySharedTasks(filter, page.nextCursor, sort, controller.signal);
-      if (current !== request.current) return;
+      if (current !== request.current) return false;
       setState({key,page:{...result,tasks:[...new Map([...page.tasks,...result.tasks].map(task=>[task.id,task])).values()]}}); setFailure(null);
+      return true;
     } catch (error) {
-      if (current !== request.current) return;
+      if (current !== request.current) return false;
       if (error instanceof Error && error.message === "SHARED_QUERY_CHANGED") { loadingMore.current = false; setBusy(false); await refresh(); }
       if ((error instanceof Error && error.message.startsWith("VIEW_")) || (error && typeof error === "object" && "status" in error && [401,403,404].includes(Number(error.status)))) setState(null);
       setFailure({key,message:sharedTaskDetailsError(error) ?? translateText(error instanceof Error ? error.message : "Не удалось загрузить данные")});
+      return false;
     } finally { if (current === request.current) {loadingMore.current = false; setBusy(false);} }
   };
   return { page, error, busy, more, refresh };

@@ -1,5 +1,6 @@
 "use client";
 import { DialogCloseButton } from "./DialogCloseButton";
+import { useMobileLayout } from "./use-mobile-layout";
 import {orderPersonalTasks,taskListOrders,unreadPersonalCommentIds,type TaskListOrder} from "./task-list-order";
 import {usePersonalTaskDisplay} from "./use-personal-task-display";
 import {MindmapLaunchButton} from "./MindmapLaunchButton";
@@ -1165,6 +1166,7 @@ function DisplayCalendarChoice({ label, className, enabledCalendars, mode, langu
 }
 
 export function GenesisCalendar() {
+  const mobileLayout = useMobileLayout();
   const initial = useMemo(() => getSacredDate(new Date()), []);
   const [language, setLanguage] = useState<Language>(browserLanguage);
   const [today, setToday] = useState(() => new Date());
@@ -5984,6 +5986,11 @@ export function GenesisCalendar() {
                   taskListLinks.some((link) => link.taskListId === taskList.id && link.projectId === project.id)
                 ));
                 const finished = projectTasks.filter((task) => task.done).length;
+                const projectExpanded = expandedExperimentalProjects.includes(project.id);
+                const expandProject = () => {
+                  setTaskProject(project.id);
+                  setExpandedExperimentalProjects(ids => ids.includes(project.id) ? ids.filter(id => id !== project.id) : [...ids, project.id]);
+                };
                 return (
                   <article
                     className={`project-row${projectDropTargetId === project.id ? " drop-target" : ""}${expandedExperimentalProjects.includes(project.id) ? " is-expanded" : ""}`}
@@ -5991,10 +5998,18 @@ export function GenesisCalendar() {
                     data-project-drop-id={project.id}
                     style={{ "--project-depth": depth, "--project-color": category?.color ?? "#8d7750" } as CSSProperties}
                   >
-                    <button type="button" className="project-open" aria-expanded={experimentalThemeActive ? expandedExperimentalProjects.includes(project.id) : undefined} onClick={() => { setPersonalPreview({kind:"project",id:project.id});setTaskProject(project.id); if (experimentalThemeActive) setExpandedExperimentalProjects(ids => ids.includes(project.id) ? ids.filter(id => id !== project.id) : [...ids, project.id]); }}>
-                      <span>{experimentalThemeActive ? <ExperimentalIcon name="chevron" /> : depth ? "↳" : "◇"}</span>
-                      <div>
-                        <strong data-no-translate>{project.title}</strong>
+                    <div className="project-open" data-expanded={projectExpanded || undefined}>
+                      <button type="button" className="project-expand" aria-expanded={projectExpanded} aria-controls={`personal-project-tasks-${project.id}`}
+                        aria-label={`${translateText(projectExpanded ? "Свернуть" : "Развернуть", language)}: ${project.title}`} onClick={expandProject}>
+                        <ExperimentalIcon name="chevron" />
+                      </button>
+                      <div className="project-info">
+                        <button type="button" className="project-preview-title" aria-haspopup="dialog"
+                          aria-label={namedAction("Открыть проект", project.title, language)}
+                          onClick={event => { if (mobileLayout || event.detail === 0) setPersonalPreview({kind:"project",id:project.id}); else if (event.detail === 1) expandProject(); }}
+                          onDoubleClick={() => { if (!mobileLayout) setPersonalPreview({kind:"project",id:project.id}); }}>
+                          <strong data-no-translate>{project.title}</strong>
+                        </button>
                         {isCompletedProject(project) ? <span className="project-completed-label">Завершено</span> : null}
                         <small>{category?.name ?? "Без категории"} · {finished}/{projectTasks.length} действий{projectTaskLists.length
                           ? cloudUser?.authProvider === "yandex" ? ` · GENESIS: ${projectTaskLists.length}`
@@ -6002,7 +6017,7 @@ export function GenesisCalendar() {
                         {!accountLayout.personalInboxCompact && project.description ? <p data-no-translate>{project.description}</p> : null}
                         {!accountLayout.personalInboxCompact && project.tags.length ? <em data-no-translate>{project.tags.map((tag) => `#${tag}`).join("  ")}</em> : null}
                       </div>
-                    </button>
+                    </div>
                     <button type="button" className={`project-complete-action${completingProjectIds.includes(project.id) ? " is-completing" : ""}`} aria-pressed={project.status !== "active"} disabled={completingProjectIds.includes(project.id)}
                       aria-label={namedAction(project.status !== "active" ? "Вернуть проект" : "Завершить проект", project.title, language)}
                       title={project.status !== "active" ? (language === "en" ? "Restore" : "Вернуть") : "Завершить проект"} onClick={() => project.status === "active" ? setProjectToComplete(project) : toggleProject(project.id)}>
@@ -6018,7 +6033,7 @@ export function GenesisCalendar() {
                       aria-label={`${translateText("Переместить в общие", language)}: ${project.title}`}>
                       {experimentalThemeActive ? <ExperimentalIcon name="open" /> : "↗"}</button> : null}
                     <button type="button" className="project-delete personal-action-hint" data-action-hint={translateText("Удалить проект", language)} onClick={() => void deleteProject(project.id)} aria-label={namedAction("Удалить проект", project.title, language)}>{experimentalThemeActive ? <ExperimentalIcon name="delete" /> : "×"}</button>
-                    <div className="project-drop-field">
+                    <div className="project-drop-field" id={`personal-project-tasks-${project.id}`}>
                       <div className="project-drop-heading">
                         <span>Пространство проекта</span>
                         {personalMindmapsEnabled ? <button type="button" onClick={() => { mindmapsReturnScroll.current = window.scrollY; setMindmapsProjectId(project.id); setMindmapsOpen(true); }}>Майндмепы проекта</button> : null}
