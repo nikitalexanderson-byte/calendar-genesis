@@ -153,6 +153,8 @@ jobs:
           GENESIS_IMPROVEMENTS_TEST=isolated php server/tests/shared-reports.php
           GENESIS_IMPROVEMENTS_TEST=isolated php server/tests/shared-reports-integration.php
           GENESIS_IMPROVEMENTS_TEST=isolated php server/tests/shared-planning.php
+          php server/tests/shared-sprint-flow-model.php
+          GENESIS_IMPROVEMENTS_TEST=isolated php server/tests/shared-sprint-reports.php
           php server/tests/planning-migration.php
           GENESIS_IMPROVEMENTS_TEST=isolated php server/tests/shared-workflows.php
           php server/tests/workflows-migration.php
