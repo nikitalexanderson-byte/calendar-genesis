@@ -46,4 +46,4 @@ PR #205 опубликован: master/production `03bec6f10865897a23a70c33c149b
 
 ## Дополнение при приёмке G1
 
-[Срез планирования](genesis-planning-durable-drafts-2026-10-19.md) исправляет сохранение G3 pending identity после storage failure на повторе и нового отказа ACL. Они не доказывают, что исходная отправка не выполнилась. Реальная цепочка commit/lost reply → quota →403 → возврат прав → тот же UUID/body дала ровно1 версию; прежние replay и WIP rejection повторены успешно. Текущий production этого дополнения фиксируется в отчёте G1 после публикации.
+[Срез планирования](genesis-planning-durable-drafts-2026-10-19.md) исправляет сохранение G3 pending identity после storage failure на повторе и нового отказа ACL. Они не доказывают, что исходная отправка не выполнилась. Реальная цепочка commit/lost reply → quota →403 → возврат прав → тот же UUID/body дала ровно1 версию; прежние replay и WIP rejection повторены успешно. Дополнение опубликовано в PR #206, master/productiona05f6b7, workflow39205763510 success; SHA/health/assets и Android2.9.0/95 проверены.

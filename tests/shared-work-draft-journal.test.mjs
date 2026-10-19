@@ -15,6 +15,13 @@ async function cipher(){
  return {check,revoke(){active=false;},async seal(value,scope){check();const iv=crypto.getRandomValues(new Uint8Array(12));const data=await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:new TextEncoder().encode(scope)},key,new TextEncoder().encode(JSON.stringify(value)));check();return {iv:Buffer.from(iv).toString('base64'),ciphertext:Buffer.from(data).toString('base64')};},async open(value,scope){check();const data=await crypto.subtle.decrypt({name:'AES-GCM',iv:Buffer.from(value.iv,'base64'),additionalData:new TextEncoder().encode(scope)},key,Buffer.from(value.ciphertext,'base64'));check();return JSON.parse(new TextDecoder().decode(data));}};
 }
 const journal=(storage,access,writerId='writer-a',extra={})=>new SharedWorkDraftJournal({storage,access,userId:'user-a',projectId:'project-a',purpose:'workflow',validate:valid,writerId,...extra});
+
+test('planning task drafts have an independent authenticated namespace and share sign-out cleanup',async()=>{
+ const storage=new MemoryStorage(),access=await cipher(),workflow=journal(storage,access),planning=journal(storage,access,'writer-a',{purpose:'planning'}),tasks=journal(storage,access,'writer-a',{purpose:'planning-tasks'});
+ await workflow.write(payload('workflow'));await planning.write(payload('sprint'));const saved=await tasks.write(payload('estimate','task-request'));
+ assert.deepEqual((await workflow.list()).map(row=>row.value.text),['workflow']);assert.deepEqual((await planning.list()).map(row=>row.value.text),['sprint']);assert.deepEqual((await tasks.list()).map(row=>row.value.text),['estimate']);
+ const planningKey=[...storage.data.keys()].find(key=>key.includes(':planning:')),taskKey=planningKey.replace(':planning:',':planning-tasks:');storage.setItem(taskKey,storage.getItem(planningKey));await assert.rejects(tasks.list(),/DRAFT_INVALID/);storage.setItem(taskKey,saved.raw);assert.equal((await tasks.list())[0].value.pending.requestId,'task-request');storage.setItem('public-theme','standart');clearPrivateDeviceStorage(storage);assert.deepEqual([...storage.data.keys()],['public-theme']);
+});
 test('reload restores encrypted draft and exact pending identity without plaintext',async()=>{
  const storage=new MemoryStorage(),access=await cipher(),first=journal(storage,access);await first.write(payload('PRIVATE_WORKFLOW_TITLE','request-stable'));first.dispose();
  assert.ok(![...storage.data.values()].join('').includes('PRIVATE_WORKFLOW_TITLE'));assert.ok(![...storage.data.values()].join('').includes('request-stable'));

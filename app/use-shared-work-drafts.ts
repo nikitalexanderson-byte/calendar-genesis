@@ -1,10 +1,10 @@
 "use client";
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {personalDocumentAccess} from './cloud-sync';
-import {SharedWorkDraftJournal,SHARED_WORK_DRAFT_PREFIX,type WorkDraft} from './shared-work-draft-journal';
+import {SharedWorkDraftJournal,SHARED_WORK_DRAFT_PREFIX,type WorkDraft,type SharedWorkDraftPurpose} from './shared-work-draft-journal';
 
 /** Private device journal only; this hook never sends a shared mutation. */
-export function useSharedWorkDrafts<T>(userId:string,projectId:string,purpose:'workflow'|'planning',active:boolean,validate:(value:unknown)=>T){
+export function useSharedWorkDrafts<T>(userId:string,projectId:string,purpose:SharedWorkDraftPurpose,active:boolean,validate:(value:unknown)=>T){
  const validator=useRef(validate),epoch=useRef(0),reads=useRef(0),writes=useRef(0),pending=useRef(0),own=useRef<WorkDraft<T>|null>(null),currentJournal=useRef<SharedWorkDraftJournal<T>|null>(null);
  const [journal,setJournal]=useState<SharedWorkDraftJournal<T>|null>(null),[rows,setRows]=useState<WorkDraft<T>[]>([]),[error,setError]=useState<unknown>(null),[status,setStatus]=useState<'idle'|'saving'|'saved'|'error'>('idle');
  useEffect(()=>{validator.current=validate;},[validate]);
