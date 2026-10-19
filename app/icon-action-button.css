@@ -1,0 +1,26 @@
+html[data-genesis-theme] .genesis-app .icon-action-button {
+  display:inline-flex;
+  flex:0 0 44px;
+  align-items:center;
+  justify-content:center;
+  width:44px;
+  min-width:44px;
+  height:44px;
+  min-height:44px;
+  margin:0;
+  padding:10px;
+}
+html[data-genesis-theme] .icon-action-tooltip {
+  position:fixed;
+  z-index:120;
+  width:max-content;
+  max-width:min(240px,calc(100vw - 32px));
+  padding:8px 12px;
+  border-radius:8px;
+  background:var(--surface);
+  color:var(--ink);
+  font:500 12px/1.5 var(--font-ui);
+  text-align:center;
+  overflow-wrap:anywhere;
+  pointer-events:none;
+}
