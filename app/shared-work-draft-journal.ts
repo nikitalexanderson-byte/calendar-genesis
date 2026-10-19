@@ -1,4 +1,5 @@
 export const SHARED_WORK_DRAFT_PREFIX='genesis-shared-work-drafts-v1:';
+export type SharedWorkDraftPurpose='workflow'|'planning'|'planning-tasks';
 const ID=/^[a-zA-Z0-9_-]{1,200}$/;
 const MAX_RECORDS=20,MAX_BYTES=2_000_000;
 type Sealed={iv:string;ciphertext:string};
@@ -9,7 +10,7 @@ export class WorkDraftError extends Error{
  readonly record?:{id:string;raw:string};
  constructor(message:string,record?:{id:string;raw:string},options?:ErrorOptions){super(message,options);this.record=record;}
 }
-type JournalOptions<T>={storage:DeviceStorage;access:DraftCipher;userId:string;projectId:string;purpose:'workflow'|'planning';validate:(value:unknown)=>T;writerId?:string;now?:()=>Date};
+type JournalOptions<T>={storage:DeviceStorage;access:DraftCipher;userId:string;projectId:string;purpose:SharedWorkDraftPurpose;validate:(value:unknown)=>T;writerId?:string;now?:()=>Date};
 const object=(value:unknown):value is Record<string,unknown>=>Boolean(value)&&typeof value==='object'&&!Array.isArray(value);
 
 /** Device-only encrypted drafts. Every mounted writer owns a distinct record. */

@@ -32,10 +32,14 @@ Browser → HTTP → PHP → SQLite: reopen/reload/cold offline и offline editi
 
 14 языков проверены в работающем UI с quota и cached copy, полями и скрытым списком задач. Catalog/form/completion проверены на360/390/768/1440 в двух схемах, overflow0, controls≥44px. Для completion исправлена ошибочная маркировка теста: начальный capture другой вкладки сохранил прежнюю тёмную схему; отдельный подтверждающий проход выбрал обе темы непосредственно в этой вкладке и проверил data-genesis-theme для всех8 кадров. Сохранены4 before и24 after PNG плюс JA quota; изображения просмотрены, дальнейшей косметической полировки нет.
 
-Локальная приёмка завершена; публикация фиксируется после штатного workflow и production checks. Логи: `output/planning-durable-*.log`, `output/playwright/planning-durable-*-result.log`; before PNG сохранены отдельно.
+Локальная приёмка завершена, публикация подтверждена ниже. Логи: `output/planning-durable-*.log`, `output/playwright/planning-durable-*-result.log`; before PNG сохранены отдельно.
 
 ## Открытые состояния
 
 Safari/Firefox, физический Android, screen reader,200% zoom,20 полных device records в браузере,20000 реальных completion tasks и forced process crash не проверены. Logout/поздняя crypto покрыты общей моделью journal и прежними regression; новый browser logout здесь не заявляется. G2 row drafts, native, дальнейшие B/C/G-интеграции и общие K/U/L остаются открытыми. Всего открытых функциональных ID21; этот срез не закрывает G1 целиком.
 
 Code rollback — git revert через существующий deploy.yml. Нового database rollback не требуется.
+
+## Публикация
+
+PR #206 опубликован: master/production `a05f6b739b0260dddaa45edd396daa646047d4ca`, workflow `39205763510` attempt1 success. Проверены deploy-meta SHA, api/health и реальные chunks `/assets/SharedPlanning-DIvCm_Js.js` и `/assets/SharedWorkflow-DpUanpAW.js` из production precache с нужными markers. Android2.9.0/95 и прежний SHA APK сохранены. Доказательство: `output/planning-durable-production.json`. Ручной SSH не применялся; приватные пользовательские действия проверены на локальной synthetic HTTP/SQLite fixture, production-проверка ограничена metadata/health/assets/Android metadata.

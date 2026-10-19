@@ -1,6 +1,6 @@
 # GENESIS: текущее состояние — 18 октября 2026
 
-G1 durable forms/lifecycle и защита G1/G3 pending identity прошли локальную приёмку: [подробный отчёт](genesis-planning-durable-drafts-2026-10-19.md). Cold offline,5 команд с потерянным ответом,131 carry-over choice, текущие права/late response, две вкладки/CAS, quota/corrupt,4 календарных контекста,14 языков и обе схемы ×4 ширины проверены. Публикация ещё ожидает commit/merge/workflow. Следующий срез — G2 row drafts; native/интеграции/общая приёмка открыты, всего21 функциональный ID.
+G1 durable forms/lifecycle и защита G1/G3 pending identity прошли локальную приёмку: [подробный отчёт](genesis-planning-durable-drafts-2026-10-19.md). Cold offline,5 команд с потерянным ответом,131 carry-over choice, текущие права/late response, две вкладки/CAS, quota/corrupt,4 календарных контекста,14 языков и обе схемы ×4 ширины проверены. Опубликовано в PR #206: master/productiona05f6b7, workflow39205763510 attempt1 success; SHA/health/assets и Android2.9.0/95 проверены. Следующий срез — G2 row drafts; native/интеграции/общая приёмка открыты, всего21 функциональный ID.
 
 Durable workflow drafts опубликованы и проверены: PR #205, master/production03bec6f, workflow39200986842 attempt1 success; SHA/health/production chunk и Android2.9.0/95 подтверждены. [Приёмка](genesis-workflow-durable-drafts-2026-10-19.md). Следующий срез G1 сохраняет формы и lifecycle planning на устройстве; G2 row edits и native пока открыты. Функциональных ID по-прежнему открыто21.
 
