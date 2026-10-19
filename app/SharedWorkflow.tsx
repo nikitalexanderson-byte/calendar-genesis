@@ -22,7 +22,7 @@ export function SharedWorkflow({userId,projectId,language,disabled,onChanged,onA
  const [history,setHistory]=useState<{versions:WorkflowVersion[];nextCursor:number|null}|null>(null),[expanded,setExpanded]=useState(initiallyExpanded);
  const [verified,setVerified]=useState(false),[notice,setNotice]=useState<'restored'|'changed'|null>(null);
  const [source,setSource]=useState<WorkDraft<WorkflowDeviceDraft>|null>(null);
- const live=useRef(true),lock=useRef(false),reads=useRef(0),pending=useRef<WorkflowCommand|null>(null),lost=useRef(onAccessLost),verifiedNow=useRef(false);
+ const live=useRef(true),lock=useRef(false),reads=useRef(0),pending=useRef<WorkflowCommand|null>(null),sent=useRef(false),lost=useRef(onAccessLost),verifiedNow=useRef(false);
  const validate=useCallback((value:unknown)=>validateWorkflowDeviceDraft(value,projectId),[projectId]);
  const {rows:deviceRows,error:deviceError,status:deviceStatus,ready:deviceReady,writerId,stage,clearCurrent,refresh:refreshDevice,remove:removeDevice}=useSharedWorkDrafts(userId,projectId,'workflow',expanded,validate);
  useEffect(()=>{live.current=true;return()=>{live.current=false;};},[]);
@@ -50,20 +50,21 @@ export function SharedWorkflow({userId,projectId,language,disabled,onChanged,onA
  };
  const editDraft=(next:Draft,nextFrom=from,context=data)=>{setDraft(next);if(error instanceof Error&&error.message==='WORKFLOW_INVALID')setError(null);if(context){try{void stage(deviceDocument(next,pending.current,context,nextFrom)).catch(()=>undefined);}catch{setError(new Error('WORKFLOW_DEVICE_PERSIST'));}}};
  const restore=(record:WorkDraft<WorkflowDeviceDraft>)=>{
-  if(lock.current||draft||retry)return;const value=validate(record.value);setSource(record);if(!verifiedNow.current)setData({...value.snapshot,observedAt:value.observedAt});setDraft(value.draft);setFrom(value.fromStatusId);pending.current=value.pending;setRetry(Boolean(value.pending));setError(value.pending?new Error('WORKFLOW_DEVICE_PENDING'):null);setSaved(false);setNotice('restored');
+  if(lock.current||draft||retry)return;const value=validate(record.value);setSource(record);if(!verifiedNow.current)setData({...value.snapshot,observedAt:value.observedAt});setDraft(value.draft);setFrom(value.fromStatusId);pending.current=value.pending;sent.current=Boolean(value.pending);setRetry(Boolean(value.pending));setError(value.pending?new Error('WORKFLOW_DEVICE_PENDING'):null);setSaved(false);setNotice('restored');
  };
  const discard=async()=>{if(lock.current||retry)return;try{await clearCurrent(null);setSource(null);setDraft(null);setError(null);setNotice(null);}catch(reason){setError(reason);}};
  const attempt=async(command:WorkflowCommand)=>{
-  if(lock.current||disabled||!verifiedNow.current||!navigator.onLine)return;lock.current=true;reads.current++;setBusy(true);setError(null);setSaved(false);let journaled=false,original:WorkflowDeviceDraft|null=null;
+  // Current ACL/storage failures cannot settle an earlier unconfirmed send.
+  if(lock.current||disabled||!verifiedNow.current||!navigator.onLine)return;const replaying=sent.current;lock.current=true;reads.current++;setBusy(true);setError(null);setSaved(false);let journaled=false,committed=false,original:WorkflowDeviceDraft|null=null;
   try {
-   original=deviceDocument(draft,command);await stage(original);journaled=true;const result=await saveWorkflow(projectId,command);const cleared=await clearCurrent(source);pending.current=null;setSource(null);if(!live.current)return;
+   original=deviceDocument(draft,command);await stage(original);journaled=true;sent.current=true;const result=await saveWorkflow(projectId,command);committed=true;const cleared=await clearCurrent(source);pending.current=null;sent.current=false;setSource(null);if(!live.current)return;
    setData(current=>current?{...current,...result}:current);setDraft(null);setRetry(false);setHistory(null);setSaved(true);
    setNotice(cleared.changed?'changed':null);
    await load();await onChanged();
-  }catch(reason){if(live.current){const definitive=reason instanceof GenesisApiError&&reason.status>=400&&reason.status<500,uncertain=pending.current!==null&&!definitive;if(!uncertain){pending.current=null;if(original)void stage({...original,pending:null}).catch(()=>undefined);}setRetry(uncertain);fail(reason,!definitive);if(!journaled)setError(new Error('WORKFLOW_DEVICE_PERSIST'));}}
+  }catch(reason){if(live.current){const rejected=reason instanceof GenesisApiError&&reason.status>=400&&reason.status<500,uncertain=pending.current!==null&&(replaying||journaled&&!rejected);if(!uncertain){pending.current=null;sent.current=false;if(original&&journaled&&!committed)void stage({...original,pending:null}).catch(()=>undefined);}setRetry(uncertain);fail(reason,!rejected);if(!journaled)setError(new Error('WORKFLOW_DEVICE_PERSIST'));}}
   finally{lock.current=false;if(live.current)setBusy(false);}
  };
- const run=(values:Omit<WorkflowCommand,'requestId'>)=>{if(blocked||pending.current)return;const command={...values,requestId:crypto.randomUUID()};pending.current=command;void attempt(command);};
+ const run=(values:Omit<WorkflowCommand,'requestId'>)=>{if(blocked||pending.current)return;const command={...values,requestId:crypto.randomUUID()};pending.current=command;sent.current=false;void attempt(command);};
  const start=()=>{if(!data)return;setError(null);editDraft({config:workflowDraft(data.config,data.context.statuses),statusesKey:workflowStatusesKey(data.context.statuses)},'');setSaved(false);setNotice(null);setFrom('');};
  const submit=(event:FormEvent)=>{event.preventDefault();if(!draft||stale||!draft.config.transitions.every(edge=>edge.roles.length>0))return;run({enabled:true,expectedRevision:draft.config.revision,statuses:draft.config.statuses,transitions:draft.config.transitions});};
  const rebase=async()=>{if(lock.current||!draft)return;lock.current=true;setBusy(true);try{const fresh=await load();if(live.current)editDraft({config:workflowDraft({...draft.config,revision:fresh.config.revision},fresh.context.statuses),statusesKey:workflowStatusesKey(fresh.context.statuses)},from,{...workflowDeviceSnapshot(fresh),observedAt:new Date().toISOString()});}catch(reason){fail(reason);}finally{lock.current=false;if(live.current)setBusy(false);}};

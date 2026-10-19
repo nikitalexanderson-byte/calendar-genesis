@@ -32,6 +32,9 @@ try {
     spReject(fn()=>genesisSharedTask($owner,$project,['expectedRevision'=>$task['revision'],'storyPoints'=>0],$task['id']),'PLANNING_DISABLED');
     spCheck(genesisSharedGetTask($owner,$project,$task['id'])['revision']===$task['revision'],'Disabled estimate partially wrote task');
     spCheck(!genesisSharedPlanning($owner,$project)['config']['enabled'],'Planning enabled implicitly');
+    $ownerContext=genesisSharedPlanning($owner,$project)['context'];$viewerContext=genesisSharedPlanning($users['viewer'],$project)['context'];
+    spCheck($ownerContext===['permissions'=>['editTasks'=>true,'organizeTasks'=>true,'manageProjects'=>true]],'Planning context is not minimal/current for owner');
+    spCheck($viewerContext===['permissions'=>['editTasks'=>false,'organizeTasks'=>false,'manageProjects'=>false]],'Read-only planning context grants write permissions');
     spReject(fn()=>spSettings($users['viewer'],$project),'SHARED_PROJECT_FORBIDDEN');
     $input=['requestId'=>genesisUuid(),'expectedRevision'=>0,'enabled'=>true,'estimateUnit'=>'points'];
     $enabled=genesisSharedSavePlanning($owner,$project,$input);spCheck(genesisSharedSavePlanning($owner,$project,$input)===$enabled,'Settings replay diverged');
