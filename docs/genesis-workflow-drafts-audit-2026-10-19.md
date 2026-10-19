@@ -1,6 +1,6 @@
 # G3: durable drafts — аудит следующего этапа
 
-Основание — свежий master `199ad11` после PR #204. Публикация #204 ещё должна быть подтверждена CI/production. Следующий этап начинается с существующего редактора workflow; G1 planning переносится отдельно после проверки этой основы.
+Основание — свежий master `199ad11` после PR #204. Публикация #204 подтверждена: workflow39196115450 attempt1 success, production SHA/health/assets и Android metadata2.9.0/95 сохранены. Следующий этап начинается с существующего редактора workflow; G1 planning переносится отдельно после проверки этой основы.
 
 Сейчас draft и pending request находятся только в React/ref. Reload теряет оба; после потерянного ответа закрытие окна теряет requestId, хотя сервер уже мог сохранить настройки. GET workflow не использует encrypted shared offline cache. У существующего cache всего 12 entries и mutable глобальный индикатор последнего offline read: добавлять туда ещё один экран без собственного результата свежести недостаточно для честного восстановления.
 
@@ -19,3 +19,5 @@
 Семь behavioral tests используют настоящую AES-GCM криптографию: reload с прежним pending requestId без plaintext; изоляция и подмена user/project/purpose; две вкладки и CAS удаления; асинхронный порядок и snapshot до мутации input; sign-out во время crypto; quota/corrupt recovery; ограничения; закрытие редактора во время crypto. Вместе с двумя существующими sign-out tests проходит 9/9. Targeted lint успешен; общий tsc сохраняет 9 прежних диагностик, новых в journal/sign-out нет. Доказательства: `output/workflow-draft-journal{,-lint,-types}.log`.
 
 Следующая работа — строгий формат содержимого workflow draft, подключение приватного адаптера и одного UI с явным восстановлением/повтором, cached context и свежими ACL. Текущие tests проверяют journal, а не готовый browser cold-offline сценарий. Этот checkpoint не публикуется на master отдельно от законченной UI-приёмки.
+
+Следующий web checkpoint реализовал и проверил этот UI: [приёмка durable workflow drafts](genesis-workflow-durable-drafts-2026-10-19.md). Cold offline, реальные receipt/retry, два окна, quota/corrupt recovery, актуальные ACL,14 языков и обе схемы ×4 ширины подтверждены; историческое описание core выше сохраняется как этап до интеграции.
