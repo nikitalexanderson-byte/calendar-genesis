@@ -53,7 +53,7 @@ import kotlin.math.roundToInt
 
 private fun JSONArray.rows(): List<JSONObject> = (0 until length()).map { getJSONObject(it) }
 
-private fun sharedRoleLabel(role: String, en: Boolean): String = when (role) {
+internal fun sharedRoleLabel(role: String, en: Boolean): String = when (role) {
     "owner" -> if (en) "Owner" else "Владелец"
     "manager" -> if (en) "Manager" else "Менеджер"
     "member" -> if (en) "Member" else "Участник"
@@ -116,7 +116,17 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     var taskId by rememberSaveable { mutableStateOf("") }
     var actionsOpen by remember { mutableStateOf(false) }
     var planningOpen by rememberSaveable(projectId) { mutableStateOf(false) }
+    var workflowProject by rememberSaveable { mutableStateOf("") }
+    var workflowRepairProjects by remember(spaceId) { mutableStateOf(emptyList<JSONObject>()) }
+    val workflowCopy = sharedWorkflowCopy()
     var showArchived by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(spaceId, showArchived) {
+        workflowRepairProjects = emptyList()
+        if (spaceId.isNotBlank() && showArchived) try {
+            workflowRepairProjects = controller.sharedWorkflowRepairProjects(spaceId).getJSONArray("projects").rows()
+        } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+        catch (_: Exception) { /* Existing archive entries remain usable when trash is offline. */ }
+    }
     var filtersOpen by rememberSaveable { mutableStateOf(false) }
     var statusFilter by rememberSaveable(projectId) { mutableStateOf("") }
     var completionFilter by rememberSaveable(projectId) { mutableStateOf("any") }
@@ -249,7 +259,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         if (busy) return
         busy = true; message = ""; messageIsError = false
         scope.launch {
-            try { action() } catch (error: Exception) { messageIsError = true; message = when (error.message) {
+            try { action() } catch (error: Exception) { messageIsError = true; message = workflowMessage((error as? ru.genesis.calendar.auth.WorkflowFailure)?.code.orEmpty(), workflowCopy) ?: when (error.message) {
                 "INVITEE_ACCOUNT_UNSUPPORTED" -> if (en) "This account cannot use shared projects." else "Этот аккаунт не может использовать общие проекты."
                 "INVITEE_ACCOUNT_NOT_FOUND" -> if (en) "No GENESIS account was found for this email." else "Аккаунт GENESIS с такой почтой не найден."
                 else -> error.message ?: "Ошибка сервера"
@@ -335,6 +345,8 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         SharedPlanningScreen(controller, project, members, onClose = { planningOpen = false },
             onTask = { id -> planningOpen = false; taskId = id }, onChanged = { run { refreshProject(projectId) } })
     }
+    if (workflowProject.isNotBlank()) SharedWorkflowScreen(controller, workflowProject,
+        onClose = { workflowProject = "" }, onChanged = { if (projectId == workflowProject) run { refreshProject(projectId) } })
     val estimateDraft = selectedTask?.takeIf { draftTaskKey == "$projectId:$taskId" }?.let { sharedTaskEstimates(it, editTaskDetails) }
     val taskArchived = selectedTask?.optString("archivedAt")?.let { it.isNotBlank() && it != "null" } == true
     LaunchedEffect(projectId,taskId,comments,discussionVisible,pageActive) {
@@ -745,7 +757,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(if (en) "This change could not be sent. Your draft is kept on this device."
                 else "Изменение не удалось отправить. Черновик сохранён на устройстве.")
-            Text(draft.optString("error"), style = MaterialTheme.typography.bodySmall)
+            androidx.compose.material3.Text(workflowMessage(draft.optString("error"), workflowCopy) ?: draft.optString("error"), style = MaterialTheme.typography.bodySmall)
             if (messageIsError && message.isNotBlank()) Text(message, color = MaterialTheme.colorScheme.error)
             SelectionContainer { androidx.compose.material3.Text(draft.optJSONObject("body")?.toString(2).orEmpty(),
                 Modifier.heightIn(max = 240.dp).verticalScroll(rememberScrollState())) }
@@ -1128,6 +1140,10 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                                 text = { androidx.compose.material3.Text(sharedPlanningCopy().getString("heading")) },
                                 modifier = Modifier.testTag("shared-planning-open"),
                                 onClick = { actionsOpen = false; planningOpen = true })
+                            if (project?.optInt("isInbox") == 0) DropdownMenuItem(
+                                text = { androidx.compose.material3.Text(workflowCopy.getString("heading")) },
+                                modifier = Modifier.testTag("shared-workflow-open"),
+                                onClick = { actionsOpen = false; workflowProject = projectId })
                             DropdownMenuItem(text = { Text("Настройки проекта") }, onClick = {
                                 actionsOpen = false; managementPage = "project"; showManagement = true })
                             DropdownMenuItem(text = { Text("Участники и роли") }, onClick = {
@@ -1220,11 +1236,21 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                     Text("Архив проектов", style = MaterialTheme.typography.titleMedium)
                     archivedProjects.forEach { item -> Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                         Text(item.optString("title"), modifier = Modifier.weight(1f))
+                        AffairsIconButton(workflowCopy.getString("heading"), AffairsAction.SETTINGS,
+                            { workflowProject = item.getString("id") }, Modifier.testTag("shared-workflow-archive-${item.getString("id")}"))
                         if (item.optString("role") == "owner") TextButton(onClick = { run {
                             controller.setSharedProjectArchived(item.getString("id"), false)
                             refreshProjects(spaceId); selectProject(item.getString("id"))
                         } }, enabled = !busy) { Text("Восстановить") }
                     } }
+                    if (workflowRepairProjects.isNotEmpty()) {
+                        Text("Корзина", style = MaterialTheme.typography.titleMedium)
+                        workflowRepairProjects.forEach { item -> Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                            androidx.compose.material3.Text(item.getString("title"), Modifier.weight(1f))
+                            AffairsIconButton(workflowCopy.getString("heading"), AffairsAction.SETTINGS,
+                                { workflowProject = item.getString("id") }, Modifier.testTag("shared-workflow-trash-${item.getString("id")}"))
+                        } }
+                    }
                 } else {
                     SharedProjectTree(projects, expandedIds, projectId, ::selectProject,
                         onToggle = { id -> persistExpansion(if (id in expandedIds) expandedIds - id else expandedIds + id) })

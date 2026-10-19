@@ -138,11 +138,13 @@ internal enum class AffairsAction { BACK, MORE, CLOSE, SEARCH, FILTER, EXPAND, C
 }
 
 @Composable internal fun AffairsDisclosure(title: String, modifier: Modifier = Modifier,
+    titleIsUserContent: Boolean = false,
     content: @Composable ColumnScope.() -> Unit) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedButton(onClick = { expanded = !expanded }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-            Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+            if (titleIsUserContent) androidx.compose.material3.Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+            else Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
             AffairsActionIcon(if (expanded) AffairsAction.COLLAPSE else AffairsAction.EXPAND)
         }
         if (expanded) content()

@@ -13,7 +13,8 @@ internal interface PlanningJournalStorage {
 
 /** The storage transaction covers the read, CAS check and committed encrypted write. */
 internal class PlanningJournal(private val storage: PlanningJournalStorage,
-    private val now: () -> Long = System::currentTimeMillis, private val token: () -> String = { UUID.randomUUID().toString() }) {
+    private val now: () -> Long = System::currentTimeMillis, private val token: () -> String = { UUID.randomUUID().toString() },
+    private val contract: CommandJournalContract? = null) {
     companion object {
         const val MAX_BYTES = 8_000_000
         const val MAX_COPIES = 8
@@ -23,15 +24,18 @@ internal class PlanningJournal(private val storage: PlanningJournalStorage,
     }
     private fun key(account: String, project: String): String {
         require(account.isNotBlank() && account.length <= 255 && PlanningLifecycle.id(project)) { "PLANNING_DRAFT_SCOPE" }
-        return "planning-v1:${account.length}:$account:${project.length}:$project"
+        return "${contract?.namespace ?: "planning-v1"}:${account.length}:$account:${project.length}:$project"
     }
+    private val definitiveErrors get() = contract?.definitiveErrors ?: DEFINITIVE_ERRORS
+    private fun validateEdit(edit: JSONObject) = contract?.validateEdit(edit) ?: PlanningLifecycle.validateEdit(edit)
+    private fun command(edit: JSONObject, request: String) = contract?.command(edit, request) ?: PlanningLifecycle.command(edit, request)
     private fun clone(value: JSONObject) = JSONObject(value.toString())
     private fun validate(account: String, project: String, record: JSONObject): JSONObject {
         require(record.keys().asSequence().toSet() == setOf("version", "accountId", "projectId", "stamp", "savedAt", "edit", "phase", "command", "attempts", "error", "receipt")) { "PLANNING_DRAFT_INVALID" }
         require(record.get("version") is Int && record.getInt("version") == 1 && record.getString("accountId") == account && record.getString("projectId") == project) { "PLANNING_DRAFT_SCOPE" }
         require(UUID.fromString(record.getString("stamp")).toString() == record.getString("stamp")) { "PLANNING_DRAFT_INVALID" }
         require((record.get("savedAt") is Long || record.get("savedAt") is Int) && record.getLong("savedAt") >= 0) { "PLANNING_DRAFT_INVALID" }
-        val edit = PlanningLifecycle.validateEdit(record.getJSONObject("edit"))
+        val edit = validateEdit(record.getJSONObject("edit"))
         val attempts = record.get("attempts")
         require((attempts is Int || attempts is Long) && (attempts as Number).toLong() in 0 until Int.MAX_VALUE.toLong()) { "PLANNING_DRAFT_INVALID" }
         val command = record.opt("command").takeUnless { it == JSONObject.NULL }
@@ -39,7 +43,7 @@ internal class PlanningJournal(private val storage: PlanningJournalStorage,
             require(command is String && command.toByteArray(Charsets.UTF_8).size <= MAX_BYTES) { "PLANNING_DRAFT_INVALID" }
             val value = JSONObject(command as String)
             require(value.keys().asSequence().toSet() == setOf("kind", "sprintId", "body")) { "PLANNING_DRAFT_INVALID" }
-            val generated = PlanningLifecycle.command(edit, value.getJSONObject("body").getString("requestId"))
+            val generated = command(edit, value.getJSONObject("body").getString("requestId"))
             require(PlanningLifecycle.canonical(value) == PlanningLifecycle.canonical(generated)) { "PLANNING_DRAFT_INVALID" }
         }
         val failureCode = record.opt("error").takeUnless { it == JSONObject.NULL }
@@ -48,7 +52,7 @@ internal class PlanningJournal(private val storage: PlanningJournalStorage,
         when (record.getString("phase")) {
             "editing" -> require(command == null && record.getInt("attempts") == 0 && failureCode == null && !hasReceipt)
             "pending" -> require(command != null && !hasReceipt)
-            "rejected" -> require(command != null && record.getInt("attempts") == 1 && failureCode in DEFINITIVE_ERRORS && !hasReceipt)
+            "rejected" -> require(command != null && record.getInt("attempts") == 1 && failureCode in definitiveErrors && !hasReceipt)
             "received" -> {
                 require(command != null && record.getInt("attempts") > 0 && failureCode == null && hasReceipt)
                 val receipt = receipt(project, JSONObject(command as String), record.getJSONObject("receipt"))
@@ -78,7 +82,7 @@ internal class PlanningJournal(private val storage: PlanningJournalStorage,
             require(entry.keys().asSequence().toSet() == setOf("id", "stamp", "savedAt", "edit") &&
                 uuid(entry.getString("id")) && uuid(entry.getString("stamp")) &&
                 (entry.get("savedAt") is Long || entry.get("savedAt") is Int) && entry.getLong("savedAt") >= 0) { "PLANNING_DRAFT_INVALID" }
-            PlanningLifecycle.validateEdit(entry.getJSONObject("edit"))
+            validateEdit(entry.getJSONObject("edit"))
         }
         return copies.map(::clone)
     }
@@ -94,7 +98,7 @@ internal class PlanningJournal(private val storage: PlanningJournalStorage,
         require(uuid(id)) { "PLANNING_DRAFT_INVALID" }
         val copies = readCopies(account, project)
         require(copies.find { it.getString("id") == id }?.getString("stamp") == stamp) { "PLANNING_DRAFT_CHANGED" }
-        val next = JSONObject().put("id", id).put("stamp", token()).put("savedAt", now()).put("edit", PlanningLifecycle.validateEdit(edit))
+        val next = JSONObject().put("id", id).put("stamp", token()).put("savedAt", now()).put("edit", validateEdit(edit))
         writeCopies(account, project, copies.filterNot { it.getString("id") == id } + next)
         clone(next)
     }
@@ -136,15 +140,16 @@ internal class PlanningJournal(private val storage: PlanningJournalStorage,
         val old = current(account, project, stamp)
         require(old == null || old.getString("phase") == "editing") { "PLANNING_DRAFT_PENDING" }
         persist(account, project, JSONObject().put("version", 1).put("accountId", account).put("projectId", project)
-            .put("edit", PlanningLifecycle.validateEdit(edit)).put("phase", "editing").put("command", JSONObject.NULL)
+            .put("edit", validateEdit(edit)).put("phase", "editing").put("command", JSONObject.NULL)
             .put("attempts", 0).put("error", JSONObject.NULL).put("receipt", JSONObject.NULL))
     }
     fun prepare(account: String, project: String, stamp: String, fresh: JSONObject, hasTaskQueue: Boolean,
         remaining: List<JSONObject>? = null, requestId: String = UUID.randomUUID().toString()): JSONObject = storage.locked {
         val old = requireNotNull(current(account, project, stamp))
         require(old.getString("phase") == "editing") { "PLANNING_DRAFT_PENDING" }
-        PlanningLifecycle.verify(old.getJSONObject("edit"), fresh, project, hasTaskQueue, remaining)
-        val command = PlanningLifecycle.command(old.getJSONObject("edit"), requestId).toString()
+        if (contract != null) contract.verify(old.getJSONObject("edit"), fresh, project, hasTaskQueue)
+        else PlanningLifecycle.verify(old.getJSONObject("edit"), fresh, project, hasTaskQueue, remaining)
+        val command = command(old.getJSONObject("edit"), requestId).toString()
         persist(account, project, old.put("phase", "pending").put("command", command))
     }
     /** A durable attempt marker precedes every HTTPS write, including a replay. */
@@ -158,7 +163,7 @@ internal class PlanningJournal(private val storage: PlanningJournalStorage,
         require(old.getString("phase") == "pending" && old.getInt("attempts") > 0) { "PLANNING_DRAFT_PENDING" }
         require(Regex("[A-Z0-9_]{1,100}").matches(code)) { "PLANNING_DRAFT_INVALID" }
         // A rejected replay cannot prove that the original request did not commit.
-        if (old.getInt("attempts") == 1 && code in DEFINITIVE_ERRORS) old.put("phase", "rejected")
+        if (old.getInt("attempts") == 1 && code in definitiveErrors) old.put("phase", "rejected")
         persist(account, project, old.put("error", code))
     }
     fun succeeded(account: String, project: String, stamp: String, response: JSONObject): JSONObject = storage.locked {
@@ -170,7 +175,7 @@ internal class PlanningJournal(private val storage: PlanningJournalStorage,
     fun rebase(account: String, project: String, stamp: String, fresh: JSONObject, remaining: List<JSONObject>? = null): JSONObject = storage.locked {
         val old = requireNotNull(current(account, project, stamp))
         require(editable(old)) { "PLANNING_DRAFT_PENDING" }
-        val edit = PlanningLifecycle.rebase(old.getJSONObject("edit"), fresh, project, remaining)
+        val edit = contract?.rebase(old.getJSONObject("edit"), fresh, project) ?: PlanningLifecycle.rebase(old.getJSONObject("edit"), fresh, project, remaining)
         persist(account, project, old.put("edit", edit).put("phase", "editing").put("command", JSONObject.NULL)
             .put("attempts", 0).put("error", JSONObject.NULL).put("receipt", JSONObject.NULL))
     }
@@ -182,6 +187,7 @@ internal class PlanningJournal(private val storage: PlanningJournalStorage,
         storage.remove(key(account, project))
     }
     private fun receipt(project: String, command: JSONObject, response: JSONObject): JSONObject {
+        if (contract != null) return contract.receipt(command, response)
         val body = command.getJSONObject("body")
         if (command.getString("kind") == "settings") {
             val config = response.getJSONObject("config")
