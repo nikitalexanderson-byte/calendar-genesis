@@ -5,7 +5,7 @@ import { CalendarDatePicker } from "./CalendarDatePicker";
 import { formatCalendarDate, type CalendarMode } from "./calendar-data";
 import type { SharedProjectSnapshot, SharedTask } from "./cloud-sync";
 import { dateSerial, serialDate, taskSpan, ganttTaskGroups, ganttUnscheduledTasks, ganttUnscheduledSchedule, ganttSchedule, ganttCreationSchedule, ganttResizeSchedule, ganttAxisPosition, ganttAxisPoint, GANTT_CELL_WIDTH, type GanttEdge, type GanttSchedule, type GanttScale, type GanttReturnTarget } from "./shared-gantt";
-import { runtimeLocale, translateText } from "./i18n";
+import { translateText } from "./i18n";
 import { ExperimentalIcon } from "./ExperimentalIcon";
 import { calendarGanttRange, calendarGanttPeriods, calendarGanttMonths, shiftGanttAnchor, sacredGanttDate, type GanttPeriod } from "./shared-gantt-calendar";
 import { useDialogAccessibility } from "./use-dialog-accessibility";
@@ -14,7 +14,8 @@ import { useAffairDrag } from "./use-affair-drag";
 import { formatTimeValue, type TimeFormat } from "./time-format";
 import { useSharedTaskPage } from "./use-shared-task-page";
 import { SharedDependencyDialog } from "./SharedDependencyPicker";
-import { SharedTaskPageControls, SharedTaskPageCount } from "./SharedTaskPageControls";
+import { SharedTaskPageControls } from "./SharedTaskPageControls";
+import { SharedTaskBatches } from "./SharedTaskBatches";
 import { IconActionButton } from "./IconActionButton";
 import { useMobileLayout } from "./use-mobile-layout";
 
@@ -22,9 +23,6 @@ type ResizeItem = {id:string;title:string;task:SharedTask;edge:GanttEdge;offset:
 export function SharedGantt({snapshot,english,calendarMode,timeFormat,initialDay,onOpen,onCreate,onSchedule,onReturn,resolveReturn,onReturnTarget,busy,externalDrop,externalDropRow}:{snapshot:SharedProjectSnapshot;english:boolean;calendarMode:CalendarMode;timeFormat:TimeFormat;initialDay?:string;onOpen:(task:SharedTask)=>void;onCreate:(schedule:GanttSchedule)=>void;onSchedule:(task:SharedTask,schedule:GanttSchedule)=>void;onReturn:(task:SharedTask,target:GanttReturnTarget)=>void;resolveReturn:(x:number,y:number,task:SharedTask)=>GanttReturnTarget|null;onReturnTarget:(target:GanttReturnTarget|null)=>void;busy:boolean;externalDrop?:GanttSchedule;externalDropRow?:string}) {
   const root=useRef<HTMLElement>(null);
   const mobile=useMobileLayout();
-  const completedMoreId=useId(),completedMoreSummary=useRef<HTMLElement>(null);
-  const [completedDisclosure,setCompletedDisclosure]=useState({projectId:snapshot.project.id,open:false});
-  const completedExpanded=completedDisclosure.projectId===snapshot.project.id&&completedDisclosure.open;
   const [helpOpen,setHelpOpen]=useState(false);
   const [dependencyTask,setDependencyTask]=useState<SharedTask|null>(null);
   const helpTitle=useId();
@@ -57,8 +55,6 @@ export function SharedGantt({snapshot,english,calendarMode,timeFormat,initialDay
   const completedPage = useSharedTaskPage({projectIds:[snapshot.project.id],completion:"completed"},"updatedAt",snapshot.taskPage?.queryVersion);
   const {active:activeTasks}=ganttTaskGroups(rangePage.page?.tasks??[],snapshot.statuses);
   const completedTasks=completedPage.page?.tasks ?? [];
-  const completedOverflow=mobile&&(completedPage.page?.total??0)>5;
-  const completedPreview=completedOverflow?completedTasks.slice(0,5):completedTasks;
   const renderCompletedTask=(task:SharedTask)=><button type="button" key={task.id} onClick={()=>onOpen(task)}><ExperimentalIcon name="check"/><span data-no-translate>{task.title}</span></button>;
   const ticks = calendarGanttPeriods(range,scale,calendarMode);
   const axisPeriods=ticks.map(period=>({start:Math.max(range.start,period.start),end:Math.min(range.end,period.end)}));
@@ -204,16 +200,8 @@ export function SharedGantt({snapshot,english,calendarMode,timeFormat,initialDay
     </section>
     {completedPage.page?.total ? <details className="shared-gantt-completed"><summary><ExperimentalIcon name="chevron" /><span>{english ? "Completed" : "Выполненные"}</span><span>{completedPage.page.total}</span></summary>
       <p>{english ? "Completed tasks are kept here and do not take up space on the timeline. Open a task to return it to an active board." : "Выполненные задачи сохранены здесь и не занимают место на шкале. Откройте задачу, чтобы вернуть её на активную доску."}</p>
-      <div className="shared-gantt-completed-items">{completedPreview.map(renderCompletedTask)}</div>
-      {completedOverflow?<>
-        <details className="shared-gantt-completed-more" open={completedExpanded} onToggle={event=>setCompletedDisclosure({projectId:snapshot.project.id,open:event.currentTarget.open})}>
-          <summary ref={completedMoreSummary} aria-controls={completedMoreId}><ExperimentalIcon name="chevron"/><span data-no-translate>{completedExpanded?translateText("Свернуть"):`${translateText("Показать ещё")} (${Math.max(0,completedPage.page!.total-5).toLocaleString(runtimeLocale())})`}</span></summary>
-          <div id={completedMoreId} className="shared-gantt-completed-items">{completedTasks.slice(5).map(renderCompletedTask)}</div>
-          <SharedTaskPageControls page={completedPage.page} loaded={completedTasks.length} busy={completedPage.busy} onMore={()=>void completedPage.more()} onRefresh={()=>void completedPage.refresh()} error={completedPage.error}/>
-          <button type="button" className="secondary-button shared-gantt-completed-collapse" onClick={()=>{setCompletedDisclosure({projectId:snapshot.project.id,open:false});completedMoreSummary.current?.focus();}}>{translateText("Свернуть")}</button>
-        </details>
-        {!completedExpanded?<SharedTaskPageCount loaded={completedPreview.length} total={completedPage.page!.total}/>:null}
-      </>:<SharedTaskPageControls page={completedPage.page} loaded={completedTasks.length} busy={completedPage.busy} onMore={()=>void completedPage.more()} onRefresh={()=>void completedPage.refresh()} error={completedPage.error}/>}
+      <SharedTaskBatches key={snapshot.project.id} tasks={completedTasks} page={completedPage.page} busy={completedPage.busy} error={completedPage.error}
+        onMore={completedPage.more} onRefresh={()=>void completedPage.refresh()} className="shared-gantt-completed-items" renderTask={renderCompletedTask}/>
     </details> : null}
     {dependencyTask ? <SharedDependencyDialog task={dependencyTask} onClose={()=>setDependencyTask(null)} onOpen={task=>{setDependencyTask(null);onOpen(task);}}/> : null}
     {drag.preview && drag.target?.destination ? <div className="shared-projects-drag-preview" aria-hidden="true" style={{left:drag.preview.x+14,top:drag.preview.y+14}}>{drag.preview.item.title}</div> : null}

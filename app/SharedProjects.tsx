@@ -22,6 +22,7 @@ import { useSharedTaskPage } from "./use-shared-task-page";
 import { useCalendarTaskPreviews } from "./use-calendar-task-previews";
 import { CalendarCellTasks } from "./CalendarCellTasks";
 import { SharedTaskPageControls, SharedTaskPageCount } from "./SharedTaskPageControls";
+import { SharedTaskBatches } from "./SharedTaskBatches";
 import {
   searchSharedAffairs, type SharedAffairSearch,
   listSharedLabels, type SharedLabel,
@@ -1194,7 +1195,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       data-selected={key === calendarDay || undefined} aria-current={isToday ? "date" : undefined}
       data-calendar-date={key}>
       <button type="button" className="shared-projects-calendar-date-open" aria-haspopup="dialog" aria-label={dateLabel} onClick={openDay}>
-      {isToday ? <span className="shared-calendar-today-pill"><span>{dayNumber}</span><span>{english ? "Today" : "Сегодня"}</span></span> : <span>{dayNumber}</span>}
+      <span className={`shared-calendar-day-number${isToday ? " shared-calendar-today-pill" : ""}`}>{dayNumber}</span>
       {calendarMode !== "profane" ? <time dateTime={key}>{formatGregorian(date)}</time> : null}
       </button>
       <CalendarCellTasks personal={[]} shared={dayTasks} sharedTotal={count} dateLabel={formatCalendarDate(date, calendarMode, true)}
@@ -1512,8 +1513,8 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
         </details> : null}
         {completedCalendarTasks.length ? <details className="shared-projects-calendar-undated shared-calendar-completed">
           <summary><ExperimentalIcon name="chevron" /><span>{english ? "Completed tasks" : "Выполненные задачи"}</span><small>{completedPage.page?.total ?? 0}</small></summary>
-          <div className="shared-calendar-task-list">{completedCalendarTasks.map(renderCalendarTask)}</div>
-          <SharedTaskPageControls page={completedPage.page} loaded={completedCalendarTasks.length} busy={completedPage.busy} onMore={() => void completedPage.more()} onRefresh={() => void completedPage.refresh()} error={completedPage.error}/>
+          <SharedTaskBatches key={snapshot.project.id} tasks={completedCalendarTasks} page={completedPage.page} busy={completedPage.busy} error={completedPage.error}
+            onMore={completedPage.more} onRefresh={() => void completedPage.refresh()} className="shared-calendar-task-list" renderTask={renderCalendarTask}/>
         </details> : null}
       </section> : <div className={activeView === "board" ? "shared-projects-board" : "shared-projects-list"}>
         {snapshot.statuses.map((status) => {
