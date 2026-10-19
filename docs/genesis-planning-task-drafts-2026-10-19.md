@@ -37,3 +37,9 @@ Frozen install, lint (0 ошибок,2 прежних img warnings),352/352 test
 В работающем UI проверены14 языков с quota/unavailable copy, сохранением live input3.5 и блокировкой отправки до свежей проверки. Каталог, строки текущей страницы и редакторы вне страницы проверены в двух схемах ×360/390/768/1440 —24 состояния, overflow0, draft controls≥44px. Тема проверялась в реально снимаемой вкладке для каждого кадра. Сохранены8 before и25 after PNG; все after просмотрены. Новых косметических правок после этого прохода не потребовалось. Визуальный/языковой проход дал0 task mutations и0 page errors.
 
 Локальная приёмка завершена; публикация — следующий шаг. Логи и снимки находятся в `output/planning-task-drafts-*` и `output/playwright/planning-task-drafts-*`.
+
+## Публикация
+
+PR #207 опубликован: master/production `2597a3e2233a5a692ae7c8e925ea5dbe2b504af0`, workflow `39214562143` attempt1 success. Проверены deploy-meta SHA/run ID, api/health, настоящий precache chunk `/assets/SharedPlanning-BPl0cLyP.js` с новыми editor/purpose/pending markers и неизменные Android2.9.0/95/SHA256. Прежний chunk `/assets/SharedPlanning-DIvCm_Js.js` остаётся доступным с200 и корректным JS.
+
+В отдельной production-вкладке, открытой до деплоя, после деплоя импортирован старый lazy planning module. Перезагрузка показала новый SHA и реальную страницу GENESIS без page errors. Это проверка публичной страницы и загрузки модулей; private CRUD/ACL проверены на isolated HTTP/SQLite fixture, реальные production-пользовательские данные не менялись. Доказательства: `output/planning-task-drafts-production.json` и `output/playwright/planning-task-drafts-production-after-result.log`. Ручной SSH не применялся; штатный deploy.yml сохранил прежнюю схему runtime backup и публикации.
