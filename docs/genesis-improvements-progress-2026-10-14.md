@@ -1,5 +1,7 @@
 # Комплекс улучшений GENESIS — 14 октября 2026
 
+19 октября первый native G1 срез прошёл локальную приёмку: [backlog/sprints, точные суммы и безопасный перенос](genesis-native-planning-2026-10-19.md). 301 JVM tests, 12 функциональных instrumentation, 84 confirming PNG, 14 языков/font130 и обе схемы ×4 ширины проверены; source этап готов к штатной публикации, APK остаётся 2.9.0/95. Следом — [native settings/lifecycle/durable journal](genesis-native-planning-lifecycle-audit-2026-10-19.md). Правило icon actions с едиными tooltip закреплено в основном промпте и UX-матрице. Открыты 21 функциональный ID и 14 общих K/U/L.
+
 19 октября пользователь усилил UX-условие каждого из21 оставшихся ID: удобные desktop web, mobile web и Android в едином дизайн-коде обязательны для каждой из шести групп. Это зафиксировано в [основном промпте](genesis-improvements-requirements-2026-10-14.md) и [матрице приёмки](genesis-universal-ux-acceptance-2026-10-19.md). Функциональный экран или серверная реализация не закрывают ID без всех трёх поверхностей и общих K/U/L.
 
 19 октября native G2 карточка/очередь, desktop project actions и [календарные ячейки/поиск справа](genesis-shared-calendar-cell-tasks-2026-10-19.md) опубликованы в PR #208, master/production6739c0e, workflow39237718858 attempt1 success. SHA/health и старая production-вкладка подтверждены. Последний web acceptance:352 tests,2 focused PHP suites,14 языков, обе темы ×4 ширины,131-task day, custom false/current ACL/late response/error fallback. Android APK остаётся2.9.0/95; следующий основной срез — [native G1](genesis-native-planning-audit-2026-10-19.md). Полный остаток21 частичный функциональный ID и14 общих K/U/L сохраняется.
@@ -84,7 +86,7 @@
 | F1 | Аудит: неполная неделя vs полная, +100% при базе 0 | Равные части периодов, absolute delta/no-baseline, локализованный UI |
 | F2 | Частично реализовано | Убран предел 370, год следует контексту; 384 дня и последняя дата проверены. Факт/план/знаменатели новых типов остаются |
 | F3 | Ожидает: существующая экономика | Проверить однократность для всех новых источников/редактирования |
-| G1 | Server/web опубликованы; native/интеграции открыты | Opt-in backlog, полная пагинация, lifecycle/carry-over и durable forms/commands; PR #206, [границы](genesis-planning-durable-drafts-2026-10-19.md) |
+| G1 | Server/web опубликованы; первый native экран проверен | [Native чтение/перенос/точные суммы](genesis-native-planning-2026-10-19.md); native settings/lifecycle/durable journal, интеграции и общая приёмка открыты |
 | G2 | Server/web и durable rows опубликованы; native/интеграции открыты | PR #207, независимые points/часы,0/null/omitted, dirty-only rebase и multiple device editors; [границы](genesis-planning-task-drafts-2026-10-19.md) |
 | G3 | Server/web опубликованы; native/интеграции открыты | Workflow/WIP/поля/роли, archive/trash repair и durable recovery; PR #201/#204/#205 |
 | G4 | Server/web опубликованы; native/интеграции открыты | Burndown/CFD/scope/WIP и разрешённые event/task sources; PR #203, [границы](genesis-sprint-reports-2026-10-19.md) |

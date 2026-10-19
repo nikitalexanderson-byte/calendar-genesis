@@ -115,6 +115,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     var projectTrail by rememberSaveable { mutableStateOf(emptyList<String>()) }
     var taskId by rememberSaveable { mutableStateOf("") }
     var actionsOpen by remember { mutableStateOf(false) }
+    var planningOpen by rememberSaveable(projectId) { mutableStateOf(false) }
     var showArchived by rememberSaveable { mutableStateOf(false) }
     var filtersOpen by rememberSaveable { mutableStateOf(false) }
     var statusFilter by rememberSaveable(projectId) { mutableStateOf("") }
@@ -330,6 +331,10 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     val canComment = role in setOf("owner", "manager", "member", "commenter")
     val canInvite = role in setOf("owner", "manager")
     val selectedTask = openedTask?.takeIf { it.optString("id") == taskId && it.optString("projectId") == projectId } ?: tasks.firstOrNull { it.optString("id") == taskId }
+    if (planningOpen && project != null && project.optInt("isInbox") == 0) key(projectId) {
+        SharedPlanningScreen(controller, project, members, onClose = { planningOpen = false },
+            onTask = { id -> planningOpen = false; taskId = id }, onChanged = { run { refreshProject(projectId) } })
+    }
     val estimateDraft = selectedTask?.takeIf { draftTaskKey == "$projectId:$taskId" }?.let { sharedTaskEstimates(it, editTaskDetails) }
     val taskArchived = selectedTask?.optString("archivedAt")?.let { it.isNotBlank() && it != "null" } == true
     LaunchedEffect(projectId,taskId,comments,discussionVisible,pageActive) {
@@ -1119,6 +1124,10 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                         Modifier.testTag("shared-actions"))
                     DropdownMenu(actionsOpen, { actionsOpen = false }) {
                         if (projectId.isNotBlank()) {
+                            if (project?.optInt("isInbox") == 0) DropdownMenuItem(
+                                text = { androidx.compose.material3.Text(sharedPlanningCopy().getString("heading")) },
+                                modifier = Modifier.testTag("shared-planning-open"),
+                                onClick = { actionsOpen = false; planningOpen = true })
                             DropdownMenuItem(text = { Text("Настройки проекта") }, onClick = {
                                 actionsOpen = false; managementPage = "project"; showManagement = true })
                             DropdownMenuItem(text = { Text("Участники и роли") }, onClick = {

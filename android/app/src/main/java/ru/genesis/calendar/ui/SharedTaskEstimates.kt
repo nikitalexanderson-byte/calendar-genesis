@@ -21,7 +21,7 @@ import java.util.Locale
 import org.json.JSONObject
 
 @Composable
-private fun sharedPlanningCopy(): JSONObject {
+internal fun sharedPlanningCopy(): JSONObject {
     val context = LocalContext.current
     val language = LocalGenesisLanguage.current
     val all = remember(context) {

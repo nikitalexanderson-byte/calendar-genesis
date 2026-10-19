@@ -27,6 +27,7 @@ internal fun allowedSharedRoute(method: String, path: String): Boolean {
     if (path == "/shared/notification-settings/retry") return method == "POST"
     if (path.matches(Regex("/shared/invitations/[a-f0-9-]{36}"))) return method == "POST"
     if (path == "/shared/task-lists") return method == "GET"
+    if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/planning"))) return method == "GET"
     if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/ui"))) return method in setOf("GET", "PATCH")
     if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/invitations"))) return method == "POST"
     if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/projects"))) return method in setOf("GET", "POST")
@@ -222,6 +223,8 @@ internal class AuthSessionClient(context: Context) {
         request(expected, "/shared/projects/$projectId/tasks/$taskId", null)
     fun sharedProject(expected: Long, projectId: String): JSONObject =
         request(expected, "/shared/projects/$projectId", null)
+    fun sharedPlanning(expected: Long, projectId: String): JSONObject =
+        request(expected, "/shared/projects/$projectId/planning", null)
     fun sharedGoogleSettings(expected: Long, projectId: String): JSONObject =
         request(expected, "/shared/projects/$projectId/google", null)
     fun updateSharedGoogleSettings(expected: Long, projectId: String, body: JSONObject): JSONObject =

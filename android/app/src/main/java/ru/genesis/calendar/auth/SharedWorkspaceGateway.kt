@@ -42,6 +42,7 @@ interface SharedWorkspaceGateway {
     suspend fun saveNotificationSettings(settings:JSONObject,revision:Int):JSONObject=throw UnsupportedOperationException("saveNotificationSettings")
     suspend fun sharedTask(projectId: String, taskId: String): JSONObject = throw UnsupportedOperationException("sharedTask")
     suspend fun sharedProject(projectId: String): JSONObject = throw UnsupportedOperationException("sharedProject")
+    suspend fun sharedPlanning(projectId: String): JSONObject = throw UnsupportedOperationException("sharedPlanning")
     suspend fun sharedProjects(spaceId: String): JSONObject = throw UnsupportedOperationException("sharedProjects")
     suspend fun sharedSpaceUi(spaceId: String): JSONObject = throw UnsupportedOperationException("sharedSpaceUi")
     suspend fun sharedSpaces(): JSONObject = throw UnsupportedOperationException("sharedSpaces")

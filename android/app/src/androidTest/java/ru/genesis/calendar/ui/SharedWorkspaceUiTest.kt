@@ -83,6 +83,15 @@ private class WorkspaceFixture(val available: Boolean = true, val withTasks: Boo
             .put("tasks", JSONArray(records.map { JSONObject(it.toString()) })).put("members", JSONArray()).put("spaceMembers", JSONArray())
             .put("categories", JSONArray())
     }
+    override suspend fun sharedPlanning(projectId: String): JSONObject {
+        val total = JSONObject().put("count", records.size).put("completed", 0)
+        for ((key, unit) in listOf("storyPoints" to "points", "estimateHours" to "hours")) total.put(unit,
+            JSONObject().put("value", records.filter { !it.isNull(key) }.sumOf { it.getDouble(key) }).put("unestimated", records.count { it.isNull(key) }))
+        return JSONObject().put("config", JSONObject().put("enabled", planning).put("estimateUnit", estimateUnit))
+            .put("sprints", JSONArray()).put("totals", JSONObject().put("backlog", total)).put("byAssignee", JSONObject())
+            .put("context", JSONObject().put("permissions", JSONObject().put("editTasks", editPermission ?: (role != "viewer"))
+                .put("organizeTasks", role != "viewer").put("manageProjects", role == "owner")))
+    }
     override suspend fun querySharedTasks(filter: JSONObject, cursor: String?): JSONObject {
         queries.add(JSONObject(filter.toString()))
         fun contains(key: String, value: String): Boolean = filter.optJSONArray(key)?.let { ids ->
@@ -163,6 +172,17 @@ private class WorkspaceFixture(val available: Boolean = true, val withTasks: Boo
 
 class SharedWorkspaceUiTest {
     @get:Rule val compose = createAndroidComposeRule<PagerTestActivity>()
+
+    @Test fun projectPlanningMenuOpensTheExistingTaskCard() {
+        val fixture = WorkspaceFixture(withTasks = true, planning = true)
+        openFixtureProject(fixture)
+        compose.onNodeWithTag("shared-actions").performClick()
+        compose.onNodeWithTag("shared-planning-open").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("planning-task-qa-task").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(hasText("Подготовить обзор проекта и согласовать следующий шаг") and hasAnyAncestor(hasTestTag("shared-planning-screen"))).performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("shared-task-estimates").fetchSemanticsNodes().isNotEmpty() }
+        compose.onAllNodes(hasTestTag("shared-planning-screen")).assertCountEquals(0)
+    }
 
     @Test fun captureAffairsEntryProjectAndTaskInBothThemes() {
         var dark by mutableStateOf(false)
