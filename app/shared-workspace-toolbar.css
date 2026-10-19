@@ -87,6 +87,25 @@ html[data-genesis-theme] .genesis-app .shared-projects > .workspace-header .shar
   html[data-genesis-theme] .genesis-app .shared-projects > .workspace-header[data-mobile-expanded="false"] .shared-summary-counts { display:none; }
 }
 
+@media(max-width:767px) {
+  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar.shared-toolbar-projects-first > .shared-project-toolbar-group:has(>.shared-mindmaps-open) { grid-template-columns:minmax(0,1fr) auto; gap:12px 6px; }
+  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar.shared-toolbar-projects-first .shared-project-toolbar-group:has(>.shared-mindmaps-open) > .shared-mindmaps-open { grid-column:1; grid-row:2; width:100%; padding-inline:8px; gap:6px; font-size:13px; }
+  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar.shared-toolbar-projects-first .shared-mindmaps-open > span { min-width:0; white-space:normal; line-height:1.1; }
+  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar.shared-toolbar-projects-first .shared-project-toolbar-group:has(>.shared-mindmaps-open) > .shared-project-toolbar-actions { grid-column:2; grid-row:2; flex-wrap:nowrap; gap:4px; }
+  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar.shared-toolbar-projects-first .shared-project-toolbar-group > select { grid-column:1/-1; grid-row:3; }
+  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar.shared-toolbar-projects-first .shared-project-toolbar-group:not(:has(>.shared-mindmaps-open)) > .shared-project-toolbar-actions { grid-column:1/-1; grid-row:2; }
+  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar .shared-project-toolbar-actions > .shared-create-project { background:var(--ui-accent); color:var(--ui-on-accent); border-color:var(--ui-accent); }
+  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar .shared-project-toolbar-actions > .shared-create-first-project { font-size:0; gap:0; flex-basis:44px; width:44px; padding:10px; }
+  html[data-genesis-theme] .genesis-app .shared-project-task-panel-heading { align-items:center; gap:12px; }
+  html[data-genesis-theme] .genesis-app .shared-project-task-panel-heading > h3 { align-self:center; }
+  html[data-genesis-theme] .genesis-app .shared-project-task-panel-heading > .shared-projects-create-actions { flex:0 0 44px; margin-inline-start:auto; }
+  html[data-genesis-theme] .genesis-app .shared-project-task-panel-heading > .shared-task-query-bar[data-active-view=gantt] { display:none; }
+  html[data-genesis-theme] .genesis-app .shared-projects > .workspace-header[data-mobile-expanded=false] :is(.workspace-header-context,.shared-header-actions,.shared-updates-open,.shared-summary-counts,.shared-summary-retry) { display:none; }
+  html[data-genesis-theme] .genesis-app .shared-projects > .workspace-header .shared-space-identity { width:100%; max-width:none; }
+  html[data-genesis-theme] .genesis-app .shared-projects > .workspace-header .shared-workspace-tools { display:grid; grid-template-columns:repeat(var(--shared-workspace-tool-count),minmax(0,1fr)); width:100%; gap:4px; }
+  html[data-genesis-theme] .genesis-app .shared-projects > .workspace-header .shared-workspace-tools > button { width:100%; min-width:44px; height:44px; }
+}
+
 /* Narrow screens keep project actions below the heading. */
 html[data-genesis-theme] .genesis-app .shared-projects .shared-projects-context { grid-template-columns:minmax(0,1fr); }
 html[data-genesis-theme] .genesis-app .shared-projects .shared-projects-context > .shared-project-heading { grid-column:1; grid-row:1; }
