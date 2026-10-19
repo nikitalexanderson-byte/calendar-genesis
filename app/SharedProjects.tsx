@@ -46,6 +46,7 @@ const SharedSavedViews = lazy(() => import("./SharedSavedViews").then(module => 
 const SharedCustomFieldManager = lazy(() => import("./SharedCustomFieldManager").then(module => ({default:module.SharedCustomFieldManager})));
 const SharedTemplates = lazy(() => import("./SharedTemplates").then(module => ({default:module.SharedTemplates})));
 const SharedPlanning = lazy(() => import('./SharedPlanning').then(module=>({default:module.SharedPlanning})));
+const SharedWorkflowDialog = lazy(() => import('./SharedWorkflowDialog').then(module=>({default:module.SharedWorkflowDialog})));
 const SharedAutomations = lazy(() => import("./SharedAutomations").then(module => ({default:module.SharedAutomations})));
 const SharedDataExchange = lazy(() => import("./SharedDataExchange").then(module => ({default:module.SharedDataExchange})));
 const SharedTeamReports = lazy(() => import("./SharedTeamReports").then(module => ({default:module.SharedTeamReports})));
@@ -56,6 +57,7 @@ import { SharedWorkspaceIdentity } from "./SharedWorkspaceIdentity";
 import { SharedProjectCategories } from "./SharedProjectCategories";
 import { ExperimentalIcon } from "./ExperimentalIcon";
 import { IconActionButton } from "./IconActionButton";
+import { workflowText } from './workflow-copy';
 import { ActionNotice, useActionNotice } from "./ActionNotice";
 import { ProjectCompletionDialog } from "./ProjectCompletionDialog";
 import { useAffairDrag } from "./use-affair-drag";
@@ -161,6 +163,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   const initialRoute = useRef(true);
   const [trashOpen, setTrashOpen] = useState(false);
   const [taskArchiveOpen,setTaskArchiveOpen]=useState(false);
+  const [workflowScope,setWorkflowScope]=useState<{id:string;title:string}|null>(null);
   const [savedViewsOpen,setSavedViewsOpen]=useState(false);
   const [undoTaskAction,setUndoTaskAction]=useState<{task:SharedTask;trash?:SharedTrashEntry}|null>(null);
   const [trashTarget,setTrashTarget]=useState<{kind:"task";task:SharedTask;context:SharedProjectSnapshot}|{kind:"project";project:SharedProject}|null>(null);
@@ -1268,12 +1271,13 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
     <Suspense fallback={<p role="status">{translateText("Загружаем данные…")}</p>}><SharedSavedViews key={userId} userId={userId} spaces={spaces} mode={calendarMode} opened={savedViewsOpen} onClose={()=>setSavedViewsOpen(false)} onOpen={task=>void run(async()=>{
       const [context,found]=await Promise.all([loadSharedProject(task.projectId),loadSharedTask(task.projectId,task.id,Boolean(task.archivedAt))]);setSavedViewsOpen(false);openTask(found,context);
     })}/></Suspense>
-    {taskArchiveOpen && selectedSpace ? <SharedArchivedTasks spaceId={spaceId} projects={projects} onOpen={task=>void run(async()=>{const context=await loadSharedProject(task.projectId);setTaskArchiveOpen(false);openTask(task,context);})} onClose={()=>setTaskArchiveOpen(false)} onChanged={async()=>{await refreshProjects(spaceId);if(projectId)await refreshProject(projectId);window.dispatchEvent(new Event("genesis:shared-updates"));}} onTrash={task=>void run(async()=>{const context=await loadSharedProject(task.projectId);setTaskArchiveOpen(false);setTrashTarget({kind:"task",task,context});})}/> : null}
+    {taskArchiveOpen && selectedSpace ? <SharedArchivedTasks spaceId={spaceId} projects={projects} onWorkflow={setWorkflowScope} onOpen={task=>void run(async()=>{const context=await loadSharedProject(task.projectId);setTaskArchiveOpen(false);openTask(task,context);})} onClose={()=>setTaskArchiveOpen(false)} onChanged={async()=>{await refreshProjects(spaceId);if(projectId)await refreshProject(projectId);window.dispatchEvent(new Event("genesis:shared-updates"));}} onTrash={task=>void run(async()=>{const context=await loadSharedProject(task.projectId);setTaskArchiveOpen(false);setTrashTarget({kind:"task",task,context});})}/> : null}
     {undoTaskAction ? <div className="shared-detail-actions" role="status"><span>{translateText("Действие выполнено. Вы можете его отменить.")}</span><button type="button" disabled={busy} onClick={()=>void run(async()=>{
       if(undoTaskAction.trash)await restoreSharedTrash(undoTaskAction.task.spaceId ?? spaceId,undoTaskAction.trash);else await setSharedTaskArchived(undoTaskAction.task,false);
       setUndoTaskAction(null);await refreshProjects(spaceId);if(projectId)await refreshProject(projectId);window.dispatchEvent(new Event("genesis:shared-updates"));
     })}>{translateText("Отменить действие")}</button></div> : null}
-    {trashOpen && selectedSpace ? <SharedTrash spaceId={spaceId} onClose={()=>setTrashOpen(false)} onChanged={async()=>{await refreshProjects(spaceId);if(projectId)await refreshProject(projectId);}}/> : null}
+    {trashOpen && selectedSpace ? <SharedTrash spaceId={spaceId} onWorkflow={setWorkflowScope} onClose={()=>setTrashOpen(false)} onChanged={async()=>{await refreshProjects(spaceId);if(projectId)await refreshProject(projectId);}}/> : null}
+    {workflowScope?<Suspense fallback={<p role="status">{translateText('Загрузка…')}</p>}><SharedWorkflowDialog key={workflowScope.id} project={workflowScope} language={language as import('./i18n').Language} onClose={()=>setWorkflowScope(null)} onChanged={async()=>{window.dispatchEvent(new Event('genesis:shared-updates'));}}/></Suspense>:null}
     {trashTarget ? <SharedTrashConfirmation title={trashTarget.kind==="task"?trashTarget.task.title:trashTarget.project.title} onClose={()=>setTrashTarget(null)} onConfirm={async days=>{
       if(trashTarget.kind==="task") {const {task,context}=trashTarget;const deleted=await deleteSharedTask(context.project.id,task.id,task.revision,days);setUndoTaskAction({task,trash:{kind:"task",id:task.id,title:task.title,deletedAt:new Date().toISOString(),expiresAt:deleted.expiresAt,retentionDays:days,canRestore:true,projectId:task.projectId}});if(taskId===task.id)closeTask();await refreshProject(context.project.id);if(context.project.isInbox)setInboxPreview(await loadSharedProject(context.project.id));}
       else {await trashSharedProject(trashTarget.project,days);setProjectId("");setSnapshot(null);setCreateModal(null);closeTask();}
@@ -1596,6 +1600,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
     {archivedProjects.length ? <details className="shared-projects-create">
       <summary><ExperimentalIcon name="chevron"/><span className="shared-disclosure-heading"><ExperimentalIcon name="archive"/>{english ? "Completed projects" : "Завершённые"} · {archivedProjects.length}</span></summary>
       <div className="shared-projects-members">{archivedProjects.map(project => <div key={project.id} className="shared-projects-member"><span>{project.title}</span>
+        {project.permissions?.manageProjects?<IconActionButton icon="settings" label={workflowText('heading',language as import('./i18n').Language)} data-workflow-repair={project.id} disabled={busy} onClick={()=>setWorkflowScope(project)}/>:null}
         {project.role === "owner" ? <button type="button" className="project-complete-action" disabled={busy} title={english ? "Restore" : "Вернуть"} aria-label={english ? `Restore project “${project.title}”` : `Вернуть проект «${project.title}»`} onClick={() => restoreProject(project.id)}><svg className="project-restore-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1.7 7.3M4 4v6h6"/></svg></button> : null}
       </div>)}</div>
     </details> : null}
