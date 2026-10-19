@@ -31,6 +31,7 @@ export function ExperimentalIcon({ name, className = "" }: { name: string; class
     {name === "map-pin" ? <><path d="m8 3 8 0-1 6 3 4H6l3-4-1-6ZM12 13v8"/></> : null}
     {name === "map-archive" || name === "archive" ? <><rect x="3" y="3" width="18" height="5" rx="1"/><path d="M5 8v13h14V8M9 12h6"/></> : null}
     {name === "save" ? <><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12l4 4v12a2 2 0 0 1-2 2Z"/><path d="M7 3v6h9V3M7 21v-8h10v8"/></> : null}
+    {name === "delete" ? <path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/> : null}
     {name === "copy" ? <><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></> : null}
     {name === "history" ? <><path d="M3 11a9 9 0 1 1 2.6 7M3 4v7h7M12 7v5l3 2"/></> : null}
     {name === "map-import" ? <><path d="M14 2H6v8m8-8 6 6v13H6v-5m8-14v6h6M2 13h10m-3-3 3 3-3 3"/></> : null}
@@ -45,6 +46,7 @@ export function ExperimentalIcon({ name, className = "" }: { name: string; class
     {name === "chevron" ? <path d="m9 18 6-6-6-6"/> : null}
     {name === "search" ? <><circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/></> : null}
     {name === "close" ? <path d="m6 6 12 12M6 18 18 6"/> : null}
+    {name === "chevron-down" ? <path d="m6 9 6 6 6-6"/> : null}
     {name === "eye" ? <><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></> : null}
     {name === "move" ? <path d="M12 3v18M3 12h18m-12-6 3-3 3 3m-6 12 3 3 3-3M6 9l-3 3 3 3m12-6 3 3-3 3"/> : null}
     {name === "flask" ? <path d="M9 3h6M10 3v6l-5.5 9a2 2 0 0 0 1.7 3h11.6a2 2 0 0 0 1.7-3L14 9V3M8 15h8"/> : null}
