@@ -1069,7 +1069,7 @@ html[data-genesis-theme] .genesis-app .shared-projects-view-switch button[data-d
 html[data-genesis-theme] .genesis-app button:is(.project-create-project, .project-open, .habit-emoji-expand, .habit-suggestions-toggle, .inbox-mobile-toggle, .shared-task-title-toggle, .shared-task-lists-title, .shared-space-info-trigger, .workspace-overview-toggle, .mindmap-collapse)[aria-expanded="true"] { background: color-mix(in srgb, var(--ui-accent) 12%, var(--ui-surface-group)); border-color: var(--ui-accent); color: var(--ink); }
 html[data-genesis-theme] .genesis-app :is(.project-open,.mobile-disclosure-toggle,.mindmap-more-toggle,.inbox-mobile-toggle,.shared-task-lists-title,.shared-space-info-trigger) { border-radius:var(--ui-radius); }
 html[data-genesis-theme] .genesis-app .project-row .project-open { padding:8px; }
-/* The full project header expands tasks; its separate title opens project details. */
+/* Header and title expand tasks; the eye action opens project details. */
 html[data-genesis-theme] .genesis-app .project-row .project-open { position:relative; display:block; padding-inline-start:34px; }
 html[data-genesis-theme] .genesis-app .project-row .project-open[data-expanded] { background:color-mix(in srgb,var(--ui-accent) 12%,var(--ui-surface-group)); }
 html[data-genesis-theme] .genesis-app .project-open .project-expand {
