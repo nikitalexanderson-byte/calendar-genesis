@@ -14,6 +14,7 @@ import { estimateDraft, estimateInput, loadPlanning, planningAccessLost, plannin
 import './shared-templates.css';
 import './shared-planning.css';
 import { SharedWorkflow } from './SharedWorkflow';
+import { SharedSprintReport } from './SharedSprintReport';
 
 type PlanningValues={sprintId?:string|null;storyPoints?:number|null;estimateHours?:number|null};
 type Job={invoke:(id:string)=>Promise<unknown>;id:string;after?:(value:unknown)=>void};
@@ -97,6 +98,7 @@ export function SharedPlanning({context,language,mode,onClose,onAccessLost,onCha
    {selected?<section aria-label={t('sprint')}><h3>{selected.title}</h3><p>{t(stateCopy[selected.state])}</p>{selected.goal?<p>{selected.goal}</p>:null}<p className="shared-planning-period"><span>{formatCalendarDateValue(selected.startDate,selected.calendarMode,false,selected.calendarContext)} — {formatCalendarDateValue(selected.endDate,selected.calendarMode,false,selected.calendarContext)}</span><span>{selected.calendarContext.timeZone}</span></p>
     {canOrganize&&selected.state!=='completed'?<div className="shared-planning-actions"><button type="button" className="secondary-button" disabled={blocked||Boolean(completion)} onClick={()=>setForm(selected)}>{g('Редактировать')}</button>{selected.state==='planning'?<button type="button" className="primary-button" disabled={blocked||data.sprints.some(sprint=>sprint.state==='active')} onClick={()=>void run(id=>transitionSprint(projectId,selected,data.fingerprint,'start',id))}>{t('startSprint')}</button>:<button type="button" className="primary-button" disabled={blocked||Boolean(completion)} onClick={()=>void prepareComplete()}>{t('finishSprint')}</button>}</div>:null}
    </section>:null}
+   {selected?<SharedSprintReport key={selected.id} context={context} sprint={selected} language={language} disabled={blocked} onAccessLost={onAccessLost} onOpenTask={openTask}/>:null}
    {totals?<Totals totals={totals} language={language}/>:null}
    {completion?<section aria-labelledby="planning-outcomes-title"><h3 id="planning-outcomes-title">{t('remaining')}: {number.format(completion.tasks.length)}</h3><p>{t('chooseOutcome')}</p>{completionStale?<p role="status">{t('conflict')}</p>:null}
     <ul>{completion.tasks.map(task=><li className="shared-planning-row" key={task.id}><span>{task.title}</span><label>{t('assignTo')}<select value={completion.choices[task.id]??''} disabled={blocked} required onChange={event=>setCompletion({...completion,choices:{...completion.choices,[task.id]:event.target.value}})}><option value="">{g('Выберите')}</option><option value="backlog">{t('backlog')}</option>{data.sprints.filter(sprint=>sprint.state!=='completed'&&sprint.id!==completion.sprint.id).map(sprint=><option value={sprint.id} key={sprint.id}>{sprint.title}</option>)}</select></label></li>)}</ul>

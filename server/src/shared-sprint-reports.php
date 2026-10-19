@@ -74,10 +74,14 @@ function genesisSprintReportPlan(string $actor,string $projectId,string $sprintI
         $sources[$event['id']]=[...$event,'kind'=>'task'];
     }unset($event);
     // The frozen launch context controls grouping, independent of today's display settings.
-    $launch=is_array($start['sprint']??null)?$start['sprint']:$sprint;
+    $launchData=$start['sprint']??null;
+    $trustedContext=$start===null||is_array($launchData)&&($launchData['calendarContext']['version']??null)===2
+        &&in_array($launchData['calendarMode']??null,['profane','sacred','lunar'],true)&&genesisDataDate($launchData['startDate']??null)!==null&&genesisDataDate($launchData['endDate']??null)!==null;
+    $launch=$start!==null&&$trustedContext?$launchData:$sprint;
     $context=genesisCalendarContext($launch['calendarContext']??$sprint['calendarContext']);
-    $flow=genesisSprintFlowFold($sprintId,$unit,$start,$terminal,$events,$asOf,$sprint['state']==='completed'?null:$current,['resolution'=>'day','timeZone'=>$context['timeZone']]);
-    if($sprint['state']==='completed'&&(!$terminal||!is_array($terminal['plan'])||empty($flow['terminal']))){
+    $flow=$trustedContext?genesisSprintFlowFold($sprintId,$unit,$start,$terminal,$events,$asOf,$sprint['state']==='completed'?null:$current,['resolution'=>'day','timeZone'=>$context['timeZone']])
+        :['available'=>false,'reason'=>'launch-context-missing','unit'=>$unit,'series'=>[],'summary'=>null,'gaps'=>[]];
+    if($trustedContext&&$sprint['state']==='completed'&&(!$terminal||!is_array($terminal['plan'])||empty($flow['terminal']))){
         $flow=['available'=>false,'reason'=>'terminal-observation-missing','unit'=>$unit,'series'=>[],'summary'=>null,'gaps'=>[]];
     }
     $statuses=genesisPlanningRows('SELECT id,title,color,position,revision,is_done AS isDone FROM shared_project_statuses WHERE project_id=? ORDER BY position,id',[$projectId]);
@@ -110,7 +114,7 @@ function genesisSharedSprintReport(string $actor,string $project,string $sprint,
     $db=genesisDb();$owns=!$db->inTransaction();if($owns)$db->beginTransaction();
     try{
         genesisSharedRequireEnabled($actor);genesisSharedProjectAccess($project,$actor);
-        $record=genesisPlanningSprintRecord(genesisPlanningSprint($project,$sprint));$unit=$input['unit']??$record['estimateUnit'];
+        $record=genesisPlanningSprintRecord(genesisPlanningSprint($project,$sprint));$unit=$input['unit']??$record['estimateUnit']??genesisPlanningConfig($project)['estimateUnit'];
         if(!is_string($unit))throw new InvalidArgumentException('SPRINT_REPORT_UNIT_INVALID');
         $asOf=genesisNow();$plan=genesisSprintReportPlan($actor,$project,$sprint,$unit,$asOf);
         $token=genesisEncrypt(genesisDataJson(['version'=>1,'kind'=>'sprint-flow','actor'=>$actor,'project'=>$project,'sprint'=>$sprint,'unit'=>$unit,'asOf'=>$asOf,'fingerprint'=>$plan['fingerprint']]));

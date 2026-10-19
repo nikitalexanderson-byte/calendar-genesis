@@ -29,6 +29,7 @@ try{
     genesisSharedSavePlanning($owner,$project,['requestId'=>genesisUuid(),'expectedRevision'=>0,'enabled'=>true,'estimateUnit'=>'points']);
     $a=srSprint($owner,$project,'A · Terminal evidence');$b=srSprint($owner,$project,'B · More than 100');
     $empty=genesisSharedSprintReport($viewer,$project,$a['id'],['unit'=>'tasks']);srCheck(!$empty['flow']['available']&&$empty['flow']['summary']===null,'Planning sprint fabricated history');
+    $emptyDefault=genesisSharedSprintReport($viewer,$project,$a['id'],[]);srCheck($emptyDefault['flow']['unit']==='points','Unstarted sprint has no usable default report unit');
     srReject(fn()=>genesisSharedSprintReport($users['outsider'],$project,$a['id'],[]),'SHARED_PROJECT_NOT_FOUND');
     $tasks=[];for($i=0;$i<10;$i++)$tasks[]=genesisSharedTask($owner,$project,['title'=>$i===0?'SECRET_MOVED_TASK':'Committed '.$i,'statusId'=>$todo,'sprintId'=>$a['id'],'storyPoints'=>$i===0?0:($i===1?null:2),'estimateHours'=>$i===0?0:null]);
     $a=srTransition($owner,$project,$a,'start');
@@ -77,6 +78,10 @@ try{
     foreach(['tasks','events','changes'] as $kind){$source=genesisSharedSprintReportSources($viewer,$project,$a['id'],['token'=>$safe['token'],'kind'=>$kind,'metric'=>'plan']);srCheck(!str_contains(genesisDataJson($source),$moved['id'])&&!str_contains(genesisDataJson($source),'SECRET_MOVED_TASK'),'Source page leaked revoked task: '.$kind);}
     srReject(fn()=>genesisSharedSprintReportSources($viewer,$project,$a['id'],['token'=>$report['token'],'kind'=>'tasks','metric'=>'plan']),'REPORT_CHANGED');$checks[]='current ACL, moved history and inaccessible source redaction';
 
+    $launch=genesisPlanningRows("SELECT id,details_json FROM shared_audit_events_read WHERE project_id=? AND object_id=? AND action='sprint.started'",[$project,$a['id']])[0];$original=$launch['details_json'];$damaged=json_decode($original,true,128,JSON_THROW_ON_ERROR);unset($damaged['sprint']['calendarContext']);
+    $db->prepare('UPDATE shared_audit_events SET details_json=? WHERE id=?')->execute([genesisDataJson($damaged),$launch['id']]);$contextMissing=genesisSharedSprintReport($owner,$project,$a['id'],['unit'=>'tasks']);
+    srCheck(!$contextMissing['flow']['available']&&$contextMissing['flow']['reason']==='launch-context-missing','Current calendar settings invented a missing frozen launch context');
+    $db->prepare('UPDATE shared_audit_events SET details_json=? WHERE id=?')->execute([$original,$launch['id']]);$checks[]='frozen launch context and default unit';
     $terminal=genesisPlanningRows("SELECT id FROM shared_audit_events WHERE project_id=? AND object_id=? AND action='sprint.completed'",[$project,$a['id']])[0]['id'];
     $db->prepare('DELETE FROM shared_audit_events WHERE id=?')->execute([$terminal]);$unknown=genesisSharedSprintReport($owner,$project,$a['id'],['unit'=>'tasks']);
     srCheck(!$unknown['flow']['available']&&$unknown['flow']['summary']===null&&$unknown['flow']['reason']==='terminal-observation-missing','Missing closure was rebuilt from post-carry snapshot');$checks[]='missing terminal honesty';
