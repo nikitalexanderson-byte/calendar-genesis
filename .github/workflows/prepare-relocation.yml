@@ -64,7 +64,12 @@ jobs:
           export GENESIS_ANDROID_SIGNING_STORE="$RUNNER_TEMP/genesis-signing/release.jks"
           printf '%s' "$SIGNING_KEYSTORE_B64" | base64 -d > "$GENESIS_ANDROID_SIGNING_STORE"
           if [ "$TARGET_ORIGIN" = "https://genesiscalendar.com" ]; then export GENESIS_YANDEX_CLIENT_ID=""; fi
-          (cd android && bash ./gradlew :app:testDebugUnitTest :app:assembleRelease -PgenesisUrl="$TARGET_ORIGIN/" --no-daemon --console=plain)
+          # Keep one compiler JVM: a separate 2 GiB Kotlin daemon exhausted its heap
+          # on the release sources, then repeated the same work in the fallback JVM.
+          (cd android && bash ./gradlew :app:testDebugUnitTest :app:assembleRelease \
+            -PgenesisUrl="$TARGET_ORIGIN/" -Pkotlin.compiler.execution.strategy=in-process \
+            "-Dorg.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8" \
+            --max-workers=2 --no-daemon --console=plain)
           APK=android/app/build/outputs/apk/release/app-release.apk
           test -s "$APK"
           "$ANDROID_HOME/build-tools/37.0.0/apksigner" verify --verbose --print-certs "$APK" \
