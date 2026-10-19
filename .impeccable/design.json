@@ -325,37 +325,37 @@
       },
       "year-day-white": {
         "role": "neutral",
-        "displayName": "Белая маска понедельника — только Gregorian year",
+        "displayName": "Белая маска понедельника — Gregorian year/shared",
         "tonalRamp": ["oklch(15% 0.0000 0.00)","oklch(27% 0.0000 0.00)","oklch(39% 0.0000 0.00)","oklch(51% 0.0000 0.00)","oklch(63% 0.0000 0.00)","oklch(75% 0.0000 0.00)","oklch(87% 0.0000 0.00)","oklch(95% 0.0000 0.00)"]
       },
       "year-day-red": {
         "role": "tertiary",
-        "displayName": "Красная маска вторника — только Gregorian year",
+        "displayName": "Красная маска вторника — Gregorian year/shared",
         "tonalRamp": ["oklch(15% 0.1585 24.54)","oklch(27% 0.1585 24.54)","oklch(39% 0.1585 24.54)","oklch(51% 0.1585 24.54)","oklch(63% 0.1585 24.54)","oklch(75% 0.1585 24.54)","oklch(87% 0.1585 24.54)","oklch(95% 0.1585 24.54)"]
       },
       "year-day-green": {
         "role": "tertiary",
-        "displayName": "Зелёная маска среды — только Gregorian year",
+        "displayName": "Зелёная маска среды — Gregorian year/shared",
         "tonalRamp": ["oklch(15% 0.0979 158.77)","oklch(27% 0.0979 158.77)","oklch(39% 0.0979 158.77)","oklch(51% 0.0979 158.77)","oklch(63% 0.0979 158.77)","oklch(75% 0.0979 158.77)","oklch(87% 0.0979 158.77)","oklch(95% 0.0979 158.77)"]
       },
       "year-day-blue": {
         "role": "tertiary",
-        "displayName": "Синяя маска четверга — только Gregorian year",
+        "displayName": "Синяя маска четверга — Gregorian year/shared",
         "tonalRamp": ["oklch(15% 0.0979 250.56)","oklch(27% 0.0979 250.56)","oklch(39% 0.0979 250.56)","oklch(51% 0.0979 250.56)","oklch(63% 0.0979 250.56)","oklch(75% 0.0979 250.56)","oklch(87% 0.0979 250.56)","oklch(95% 0.0979 250.56)"]
       },
       "year-day-pink": {
         "role": "tertiary",
-        "displayName": "Розовая маска пятницы — только Gregorian year",
+        "displayName": "Розовая маска пятницы — Gregorian year/shared",
         "tonalRamp": ["oklch(15% 0.1137 356.15)","oklch(27% 0.1137 356.15)","oklch(39% 0.1137 356.15)","oklch(51% 0.1137 356.15)","oklch(63% 0.1137 356.15)","oklch(75% 0.1137 356.15)","oklch(87% 0.1137 356.15)","oklch(95% 0.1137 356.15)"]
       },
       "year-day-black": {
         "role": "neutral",
-        "displayName": "Чёрная маска субботы — только Gregorian year",
+        "displayName": "Чёрная маска субботы — Gregorian year/shared",
         "tonalRamp": ["oklch(15% 0.0140 188.88)","oklch(27% 0.0140 188.88)","oklch(39% 0.0140 188.88)","oklch(51% 0.0140 188.88)","oklch(63% 0.0140 188.88)","oklch(75% 0.0140 188.88)","oklch(87% 0.0140 188.88)","oklch(95% 0.0140 188.88)"]
       },
       "year-day-yellow": {
         "role": "secondary",
-        "displayName": "Жёлтая маска воскресенья — только Gregorian year",
+        "displayName": "Жёлтая маска воскресенья — Gregorian year/shared",
         "tonalRamp": ["oklch(15% 0.1159 91.62)","oklch(27% 0.1159 91.62)","oklch(39% 0.1159 91.62)","oklch(51% 0.1159 91.62)","oklch(63% 0.1159 91.62)","oklch(75% 0.1159 91.62)","oklch(87% 0.1159 91.62)","oklch(95% 0.1159 91.62)"]
       },
       "year-day-light-ink": {
@@ -365,7 +365,7 @@
       },
       "year-solar-light": {
         "role": "secondary",
-        "displayName": "Золотая солнечная дата года — светлый фон",
+        "displayName": "Солнечная дата Gregorian year/shared — светлый фон",
         "tonalRamp": ["oklch(15% 0.1198 86.06)","oklch(27% 0.1198 86.06)","oklch(39% 0.1198 86.06)","oklch(51% 0.1198 86.06)","oklch(63% 0.1198 86.06)","oklch(75% 0.1198 86.06)","oklch(87% 0.1198 86.06)","oklch(95% 0.1198 86.06)"]
       },
       "year-solar-light-ink": {
@@ -375,12 +375,12 @@
       },
       "year-solar-light-border": {
         "role": "secondary",
-        "displayName": "Солнечная дата года — светлая рамка",
+        "displayName": "Солнечная дата Gregorian year/shared — светлая рамка",
         "tonalRamp": ["oklch(15% 0.1028 79.31)","oklch(27% 0.1028 79.31)","oklch(39% 0.1028 79.31)","oklch(51% 0.1028 79.31)","oklch(63% 0.1028 79.31)","oklch(75% 0.1028 79.31)","oklch(87% 0.1028 79.31)","oklch(95% 0.1028 79.31)"]
       },
       "year-solar-dark": {
         "role": "secondary",
-        "displayName": "Золотая солнечная дата года — тёмный фон",
+        "displayName": "Солнечная дата Gregorian year/shared — тёмный фон",
         "tonalRamp": ["oklch(15% 0.0957 86.41)","oklch(27% 0.0957 86.41)","oklch(39% 0.0957 86.41)","oklch(51% 0.0957 86.41)","oklch(63% 0.0957 86.41)","oklch(75% 0.0957 86.41)","oklch(87% 0.0957 86.41)","oklch(95% 0.0957 86.41)"]
       },
       "year-solar-dark-ink": {
@@ -390,7 +390,7 @@
       },
       "year-solar-dark-border": {
         "role": "secondary",
-        "displayName": "Солнечная дата года — тёмная рамка",
+        "displayName": "Солнечная дата Gregorian year/shared — тёмная рамка",
         "tonalRamp": ["oklch(15% 0.0820 87.20)","oklch(27% 0.0820 87.20)","oklch(39% 0.0820 87.20)","oklch(51% 0.0820 87.20)","oklch(63% 0.0820 87.20)","oklch(75% 0.0820 87.20)","oklch(87% 0.0820 87.20)","oklch(95% 0.0820 87.20)"]
       }
     },

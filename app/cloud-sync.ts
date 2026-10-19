@@ -168,6 +168,7 @@ export type GenesisUser = {
   sharedProjectsEligible?: boolean;
   sharedProjectsLifetimeAccess?: boolean;
   sharedProjectsEnabled?: boolean;
+  calendarExplorationPending?: boolean;
   uiVisibility?: import("./ui-visibility").UiVisibility;
   calendarMode: CalendarMode;
   taskCalendarMode?: CalendarMode;
@@ -1625,6 +1626,7 @@ export function disconnectYandexCalendar(accountId?: string) {
 }
 
 export async function updateAccountPreferences(preferences: Partial<{
+  calendarExplorationPending: false;
   sharedProjectsEnabled: boolean;
   uiVisibility: import("./ui-visibility").UiVisibility;
   uiLayout: Partial<import("./ui-visibility").AccountLayout>;

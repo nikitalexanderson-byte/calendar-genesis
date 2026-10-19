@@ -64,6 +64,11 @@ import { matchesAffair } from "./affairs-search";
 import { ExperimentalIcon } from "./ExperimentalIcon";
 import { NavigationIcon } from "./NavigationIcon";
 import { WorkspaceHeader } from "./WorkspaceHeader";
+import { useAccountGuide } from "./AccountGuide";
+import discoveryCopy from "./current-month-copy.json";
+const SharedAffairsHint = lazy(() => import("./SharedAffairsHint"));
+const CalendarExploreNotice = lazy(() => import("./CalendarExploreNotice"));
+const IosInstallPrompt = lazy(() => import("./IosInstallPrompt"));
 import { SharedUpdatesProvider } from "./SharedUpdatesProvider";
 import type { SharedTaskDestination } from "./SharedUpdates";
 import { saveAffairsArea, storedAffairsArea, savedSharedPlace, sharedPlaceUrl } from "./shared-navigation";
@@ -1218,6 +1223,11 @@ export function GenesisCalendar() {
     error: null,
   });
   const [accountOpen, setAccountOpen] = useState(false);
+  const [iosInstallOpen, setIosInstallOpen] = useState(false);
+  const accountGuide = useAccountGuide(cloudUser?.uid ?? "");
+  const acknowledgeCalendarExploration = useCallback((userId: string) => {
+    setCloudUser(current => current?.uid === userId ? { ...current, calendarExplorationPending: false } : current);
+  }, []);
   const [projectsArea, setProjectsAreaState] = useState<"personal" | "shared">("personal");
   const setProjectsArea = (area: "personal" | "shared") => {
     setProjectsAreaState(area);
@@ -1387,7 +1397,7 @@ export function GenesisCalendar() {
     active: boolean;
   } | null>(null);
   const suppressProjectItemClickRef = useRef(false);
-  const { nativeAndroidApkUrl, canInstall, install, isStandalone } = usePwaInstall();
+  const { nativeAndroidApkUrl, canInstall, install, isStandalone, isIos } = usePwaInstall();
   const sacredYearDialogRef = useDialogAccessibility<HTMLElement>(() => setSacredYearDetailsOpen(false), sacredYearDetailsOpen);
   const dayDetailsDialogRef = useDialogAccessibility<HTMLElement>(() => setDayDetailsOpen(false), dayDetailsOpen);
   const mindmapTaskPanel = useRef(false);
@@ -5375,6 +5385,19 @@ export function GenesisCalendar() {
     );
   };
 
+  const renderCurrentMonthButton = () => {
+    const currentMonth = activeCalendarMode === "sacred"
+      ? sacredYear === todayInfo.sacredYear && monthIndex === todayInfo.monthIndex
+      : activeCalendarMode === "lunar" ? selectedLunarMonthIndex === lunarMonthIndex(today)
+        : selectedDate.getFullYear() === today.getFullYear() && selectedDate.getMonth() === today.getMonth();
+    if (currentMonth) return null;
+    return <button type="button" className="calendar-current-month" aria-label={discoveryCopy[language].returnMonth}
+      onClick={() => { selectCalendarDate(new Date()); setDayDetailsOpen(false); }}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 9V5h4M4 5a9 9 0 1 1-1 11M12 7v5l3 2" /></svg>
+      <span data-no-translate>{discoveryCopy[language].thisMonth}</span>
+    </button>;
+  };
+
   const renderSacredCalendar = () => {
     const dayCount = monthIndex === 12 ? apeironLength(sacredYear) : 30;
     const days = Array.from({ length: dayCount }, (_, index) => index + 1);
@@ -5398,6 +5421,14 @@ export function GenesisCalendar() {
             <h1>{selectedMonth.name}</h1>
             <p className="calendar-title">{selectedMonth.title}</p>
             <p>{selectedMonth.description}</p>
+
+          </div>
+          <div className="month-switcher" aria-label="Переключение месяцев">
+            <button type="button" onClick={() => selectMonth(monthIndex - 1)} aria-label="Предыдущий месяц">←</button>
+            <span aria-hidden="true">{selectedMonth.symbol}</span>
+            <button type="button" onClick={() => selectMonth(monthIndex + 1)} aria-label="Следующий месяц">→</button>
+          </div>
+          <div className="calendar-month-footer">
             <div className={`calendar-solar-control status-${solarLocationStatus}`} aria-live="polite">
               <div>
                 <span aria-hidden="true">☀</span>
@@ -5415,11 +5446,7 @@ export function GenesisCalendar() {
                   : "Приблизительный расчёт по часовому поясу устройства"} · ${solarTimeZone}`
                 : "Определяем регион автоматически, без запроса геопозиции"}</small>
             </div>
-          </div>
-          <div className="month-switcher" aria-label="Переключение месяцев">
-            <button type="button" onClick={() => selectMonth(monthIndex - 1)} aria-label="Предыдущий месяц">←</button>
-            <span aria-hidden="true">{selectedMonth.symbol}</span>
-            <button type="button" onClick={() => selectMonth(monthIndex + 1)} aria-label="Следующий месяц">→</button>
+            {renderCurrentMonthButton()}
           </div>
         </header>
 
@@ -5709,15 +5736,19 @@ export function GenesisCalendar() {
             <h1>{monthTitle}</h1>
             <p className="calendar-title">{monthSubtitle}</p>
             {sacredFeaturesEnabled ? <p>{monthDescription}</p> : null}
-            <div className={`calendar-solar-control status-${solarLocationStatus}`} aria-live="polite">
-              <div><span aria-hidden="true">☀</span><strong>{solarLocationStatus === "ready" ? `Рассвет и закат · ${solarLocationSource === "selected-city" ? "время выбранного города" : "время устройства"}` : "Синхронизируем рассвет и закат…"}</strong></div>
-              <small>{solarLocationStatus === "ready" ? `${solarTimeZone} · ${solarLocationSource === "selected-city" ? "координаты выбранного города" : "приблизительный расчёт для региона устройства"}` : "Определяем регион автоматически, без запроса геопозиции"}</small>
-            </div>
+
           </div>
           <div className="month-switcher" aria-label={mode === "profane" ? "Переключение календарных месяцев" : "Переключение лунных месяцев"}>
             <button type="button" onClick={() => moveMonth(-1)} aria-label={mode === "profane" ? "Предыдущий календарный месяц" : "Предыдущий лунный месяц"}>←</button>
             <span aria-hidden="true">{sacredFeaturesEnabled ? <CalendarModeIcon mode={mode} size={35} /> : gregorianMonthNumber(firstDate, gregorianYearStartsInMarch ? "march" : "january")}</span>
             <button type="button" onClick={() => moveMonth(1)} aria-label={mode === "profane" ? "Следующий календарный месяц" : "Следующий лунный месяц"}>→</button>
+          </div>
+          <div className="calendar-month-footer">
+            <div className={`calendar-solar-control status-${solarLocationStatus}`} aria-live="polite">
+              <div><span aria-hidden="true">☀</span><strong>{solarLocationStatus === "ready" ? `Рассвет и закат · ${solarLocationSource === "selected-city" ? "время выбранного города" : "время устройства"}` : "Синхронизируем рассвет и закат…"}</strong></div>
+              <small>{solarLocationStatus === "ready" ? `${solarTimeZone} · ${solarLocationSource === "selected-city" ? "координаты выбранного города" : "приблизительный расчёт для региона устройства"}` : "Определяем регион автоматически, без запроса геопозиции"}</small>
+            </div>
+            {renderCurrentMonthButton()}
           </div>
         </header>
 
@@ -5893,6 +5924,7 @@ export function GenesisCalendar() {
             <span><strong>{projects.length - rootProjects}</strong> {language === "en" ? "subprojects" : "подпроектов"}</span>
           </div>
         </WorkspaceHeader>
+        {cloudUser?.sharedProjectsEligible && !sharedProjectsVisible ? <Suspense fallback={null}><SharedAffairsHint language={language} onGuide={accountGuide.start} /></Suspense> : null}
         <div className="project-toolbar" data-has-completed={completedCount > 0}>
         {completedCount > 0 ? <div className="affairs-actions">
           <div className="project-completion-tabs" role="group" aria-label={language === "en" ? "Project status" : "Статус проектов"}>
@@ -6614,6 +6646,65 @@ export function GenesisCalendar() {
   const pendingDeletionTask = tasks.find((task) => task.id === pendingTaskDeletion?.taskId);
   const pendingDeletionHasSeries = pendingDeletionTask ? taskHasSeries(pendingDeletionTask) : false;
 
+  const renderTopbarActions = () => (
+    <div className="topbar-actions">
+            {cloudUser ? (
+              <div className={`account-chip${accountIdentityExpanded ? " is-expanded" : " is-compact"}`} ref={accountMenuRef}>
+                <button
+                  type="button"
+                  className={`account-open${accountGuide.highlighted ? " is-guided" : ""}`}
+                  ref={accountGuide.targetRef}
+                  data-tooltip={translateText("Личный кабинет и настройки",language)}
+                  onClick={() => { setAccountMenuOpen(false); setAccountOpen(true); }}
+                  aria-label={language === "en" ? "Open account settings" : "Открыть личный кабинет и настройки"}
+                  aria-haspopup="dialog"
+                >
+                  <ExperimentalIcon name="account" />
+                  {accountIdentityExpanded ? <span>
+                    <strong>{cloudUser.displayName || (cloudUser.authProvider === "yandex" ? "Яндекс" : "Google")}</strong>
+                    <small>{cloudUser.calendarConnected
+                      ? (cloudUser.authProvider === "yandex" ? "Яндекс.Календарь подключён" : "Google Calendar подключён")
+                      : "личный кабинет"}</small>
+                  </span> : null}
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="google-button"
+                onClick={() => void handleGoogleSignIn()}
+                disabled={!isGoogleSyncConfigured || syncStatus === "syncing"}
+                title={!isGoogleSyncConfigured ? "Сервер GENESIS подключается" : "Войти через Google"}
+                aria-label="Войти через Google"
+              >
+                <img src={`${APP_BASE}/google-signin-light-square.svg`} alt="" aria-hidden="true" data-genesis-preserve="google-signin-icon" />
+              </button>
+            )}
+            {nativeAndroidApkUrl ? (
+              <a className="icon-button ux-action-button android-native-icon-button" href={nativeAndroidApkUrl} data-tooltip={language === "en" ? "Native Android app · remove the old TWA first" : "Нативное приложение · сначала удалите прежнюю TWA"} title={language === "en" ? "Native GENESIS APK; old TWA must be removed first" : "Нативный GENESIS APK; прежнюю TWA необходимо сначала удалить"} aria-label={language === "en" ? "Download native GENESIS for Android; remove the old TWA first" : "Скачать нативный GENESIS для Android; сначала удалите старую TWA"}>
+                <svg className="ux-android-robot" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M5.5 9h13v8.5a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2V9ZM5.5 9a6.5 6.5 0 0 1 13 0M4 11v5M20 11v5M9 19.5V22M15 19.5V22M7 3 5.5 1M17 3 18.5 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><circle cx="9.3" cy="7" r=".8" fill="currentColor"/><circle cx="14.7" cy="7" r=".8" fill="currentColor"/></svg>
+              </a>
+            ) : null}
+            {isIos && !isStandalone ? <button type="button" className="icon-button ux-action-button ios-install-button" data-tooltip={translateText("Установить GENESIS", language)} aria-label="Установить GENESIS" aria-haspopup="dialog" onClick={() => setIosInstallOpen(true)}><span className="ux-install-icon" aria-hidden="true" /></button> : null}
+            {!isIos && !nativeAndroidApkUrl && !isStandalone && canInstall ? (
+              <button type="button" className="icon-button ux-action-button" data-tooltip={language === "en" ? "Install app" : "Установить приложение"} aria-label="Установить GENESIS" onClick={() => void install()}>
+                <span className="ux-install-icon" aria-hidden="true" />
+              </button>
+            ) : null}
+            {voiceLanguageEnabled ? <button type="button" className={`voice-open-button${voiceLaunchAnimating ? " is-activating" : ""}`} onClick={openVoiceAssistant} data-tooltip={language === "en" ? "Open the free GENESIS Voice assistant" : "Открыть бесплатного голосового помощника GENESIS Voice"} aria-label={language === "en" ? "Open the free GENESIS Voice assistant" : "Открыть бесплатного голосового помощника GENESIS Voice"} aria-busy={voiceLaunchAnimating}>
+              <svg className="voice-microphone-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+                <rect className="voice-microphone-capsule" x="8.7" y="2.8" width="6.6" height="11.2" rx="3.3" />
+                <path className="voice-microphone-grille" d="M10.55 6.2h2.9M10.55 8.45h2.9" />
+                <path className="voice-microphone-capture" d="M5.9 10.4v.9a6.1 6.1 0 0 0 12.2 0v-.9" />
+                <path className="voice-microphone-stand" d="M12 17.4v3.35M8.9 20.75h6.2" />
+              </svg>
+            </button> : null}
+
+            {!mobileLayout ? <div className="notification-header-slot" ref={setNotificationHeaderTarget} /> : null}
+
+          </div>
+  );
+
   if (legalPage) {
     return <LegalPage page={legalPage} />;
   }
@@ -6685,6 +6776,8 @@ export function GenesisCalendar() {
     >
       {experimentalProjectFormOpen ? <div className="modal-backdrop experimental-project-composer-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setExperimentalProjectFormOpen(false); }}>{renderProjectCreateForm()}</div> : null}
       <ActionNotice message={layoutError || (view === "projects" && activeProjectsArea === "shared" ? "" : notice)}/>
+      {accountGuide.overlay}
+      {iosInstallOpen ? <Suspense fallback={null}><IosInstallPrompt language={language} onClose={() => setIosInstallOpen(false)} /></Suspense> : null}
       <Suspense fallback={null}><NotificationDock key={cloudUser?.uid ?? "guest"} userId={cloudUser?.uid ?? ""} language={language} mode={activeCalendarMode} appBase={APP_BASE}
         layout={accountLayout} onLayoutChange={saveLayout} headerTarget={notificationHeaderTarget}
         sharedEnabled={Boolean(cloudUser?.sharedProjectsEnabled)} invitationsEnabled={Boolean(cloudUser?.sharedProjectsEligible)}
@@ -6755,67 +6848,18 @@ export function GenesisCalendar() {
             <img src={`${APP_BASE}/icons/icon-round-v2.png`} alt="" aria-hidden="true" data-genesis-preserve="web-header-logo" />
             <strong data-no-translate>GENESIS</strong>
           </button>
+          {mobileLayout ? renderTopbarActions() : null}
         </header>
         <header className="topbar" data-exp-ui="topbar">
+          <div className="topbar-date-row">
           <div className="topbar-date">
             {sacredFeaturesEnabled ? <span className="topbar-kicker">{view === "stoicheion" || view === "theokyklos" ? "Оракул" : view === "habits" ? (language === "en" ? "Habit tracker" : "Трекер привычек") : CALENDAR_MODE_META[activeCalendarMode].label}</span> : null}
             <strong>{formatCalendarDate(today, activeCalendarMode, activeCalendarMode !== "sacred")}</strong>
           </div>
-          {experimentalThemeActive ? renderDisplayCalendarChoice(language === "en" ? "Display calendar" : "Календарь отображения", "topbar-calendar-choice") : null}
-          <div className="topbar-actions">
-            {cloudUser ? (
-              <div className={`account-chip${accountIdentityExpanded ? " is-expanded" : " is-compact"}`} ref={accountMenuRef}>
-                <button
-                  type="button"
-                  className="account-open"
-                  data-tooltip={translateText("Личный кабинет и настройки",language)}
-                  onClick={() => { setAccountMenuOpen(false); setAccountOpen(true); }}
-                  aria-label={language === "en" ? "Open account settings" : "Открыть личный кабинет и настройки"}
-                  aria-haspopup="dialog"
-                >
-                  <ExperimentalIcon name="account" />
-                  {accountIdentityExpanded ? <span>
-                    <strong>{cloudUser.displayName || (cloudUser.authProvider === "yandex" ? "Яндекс" : "Google")}</strong>
-                    <small>{cloudUser.calendarConnected
-                      ? (cloudUser.authProvider === "yandex" ? "Яндекс.Календарь подключён" : "Google Calendar подключён")
-                      : "личный кабинет"}</small>
-                  </span> : null}
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                className="google-button"
-                onClick={() => void handleGoogleSignIn()}
-                disabled={!isGoogleSyncConfigured || syncStatus === "syncing"}
-                title={!isGoogleSyncConfigured ? "Сервер GENESIS подключается" : "Войти через Google"}
-                aria-label="Войти через Google"
-              >
-                <img src={`${APP_BASE}/google-signin-light-square.svg`} alt="" aria-hidden="true" data-genesis-preserve="google-signin-icon" />
-              </button>
-            )}
-            {nativeAndroidApkUrl ? (
-              <a className="icon-button ux-action-button android-native-icon-button" href={nativeAndroidApkUrl} data-tooltip={language === "en" ? "Native Android app · remove the old TWA first" : "Нативное приложение · сначала удалите прежнюю TWA"} title={language === "en" ? "Native GENESIS APK; old TWA must be removed first" : "Нативный GENESIS APK; прежнюю TWA необходимо сначала удалить"} aria-label={language === "en" ? "Download native GENESIS for Android; remove the old TWA first" : "Скачать нативный GENESIS для Android; сначала удалите старую TWA"}>
-                <svg className="ux-android-robot" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M5.5 9h13v8.5a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2V9ZM5.5 9a6.5 6.5 0 0 1 13 0M4 11v5M20 11v5M9 19.5V22M15 19.5V22M7 3 5.5 1M17 3 18.5 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><circle cx="9.3" cy="7" r=".8" fill="currentColor"/><circle cx="14.7" cy="7" r=".8" fill="currentColor"/></svg>
-              </a>
-            ) : null}
-            {!nativeAndroidApkUrl && !isStandalone && canInstall ? (
-              <button type="button" className="icon-button ux-action-button" data-tooltip={language === "en" ? "Install app" : "Установить приложение"} aria-label="Установить GENESIS" onClick={() => void install()}>
-                <span className="ux-install-icon" aria-hidden="true" />
-              </button>
-            ) : null}
-            {voiceLanguageEnabled ? <button type="button" className={`voice-open-button${voiceLaunchAnimating ? " is-activating" : ""}`} onClick={openVoiceAssistant} data-tooltip={language === "en" ? "Open the free GENESIS Voice assistant" : "Открыть бесплатного голосового помощника GENESIS Voice"} aria-label={language === "en" ? "Open the free GENESIS Voice assistant" : "Открыть бесплатного голосового помощника GENESIS Voice"} aria-busy={voiceLaunchAnimating}>
-              <svg className="voice-microphone-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
-                <rect className="voice-microphone-capsule" x="8.7" y="2.8" width="6.6" height="11.2" rx="3.3" />
-                <path className="voice-microphone-grille" d="M10.55 6.2h2.9M10.55 8.45h2.9" />
-                <path className="voice-microphone-capture" d="M5.9 10.4v.9a6.1 6.1 0 0 0 12.2 0v-.9" />
-                <path className="voice-microphone-stand" d="M12 17.4v3.35M8.9 20.75h6.2" />
-              </svg>
-            </button> : null}
-
-            <div className="notification-header-slot" ref={setNotificationHeaderTarget} />
-
+          {mobileLayout ? <div className="notification-header-slot" ref={setNotificationHeaderTarget} /> : null}
           </div>
+          {experimentalThemeActive ? renderDisplayCalendarChoice(language === "en" ? "Display calendar" : "Календарь отображения", "topbar-calendar-choice") : null}
+          {!mobileLayout ? renderTopbarActions() : null}
         </header>
 
         <div className={`workspace workspace-full${view === "today" ? " today-workspace" : ""}`} id="main-content" data-exp-layout="content">
@@ -6830,6 +6874,9 @@ export function GenesisCalendar() {
             <ViewErrorBoundary resetKey={view}>
               {view === "today" ? renderToday() : null}
               {view === "calendar" || view === "year" ? <>
+                {cloudUser && sacredFeaturesEnabled ? <Suspense fallback={null}><CalendarExploreNotice key={cloudUser.uid}
+                  userId={cloudUser.uid} pending={cloudUser.calendarExplorationPending === true} language={language}
+                  calendars={visibility.enabledCalendars} onSelect={mode => void changeDisplayCalendar(mode)} onAcknowledged={acknowledgeCalendarExploration} /></Suspense> : null}
                 <div className="view-calendar-toolbar">
                 <div className="shared-projects-switch calendar-area-switch" role="tablist" tabIndex={-1} aria-label={language === "en" ? "Calendar views" : "Виды календаря"}
                   onKeyDown={(event) => {

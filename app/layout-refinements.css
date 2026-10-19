@@ -1904,7 +1904,7 @@ html[data-genesis-theme] .genesis-app .shared-projects-calendar-weekday[data-wee
 /* A translucent weekday tint keeps the Gregorian month palette as its base. */
 html[data-genesis-theme] .genesis-app .stoicheion-intro .theokyklos-hero-copy,
 html[data-genesis-theme] .genesis-app .stoicheion-intro .theokyklos-hero-copy > p { max-width: none; }
-html[data-genesis-theme] .genesis-app .calendar-mode-year-month.mode-profane {
+html[data-genesis-theme] .genesis-app :is(.calendar-mode-year-month.mode-profane, .weekday-tinted-calendar) {
   --year-day-base: color-mix(in srgb, var(--month-accent) 19%, var(--surface));
   --year-day-ink: #263b39;
   --year-day-mask-strength: 18%;
@@ -1916,18 +1916,18 @@ html[data-genesis-theme] .genesis-app .calendar-mode-year-month.mode-profane {
   --year-day-black: #202a29;
   --year-day-yellow: #efd176;
 }
-html[data-genesis-theme$="-dark"] .genesis-app .calendar-mode-year-month.mode-profane {
+html[data-genesis-theme$="-dark"] .genesis-app :is(.calendar-mode-year-month.mode-profane, .weekday-tinted-calendar) {
   --year-day-base: color-mix(in srgb, var(--month-accent) 23%, var(--surface));
   --year-day-ink: #f0eee7;
   --year-day-mask-strength: 16%;
 }
-html[data-genesis-theme] .genesis-app .civil-mini-calendar.mode-profane .mini-day[data-weekday="1"] { --year-day-mask: var(--year-day-white); }
-html[data-genesis-theme] .genesis-app .civil-mini-calendar.mode-profane .mini-day[data-weekday="2"] { --year-day-mask: var(--year-day-red); }
-html[data-genesis-theme] .genesis-app .civil-mini-calendar.mode-profane .mini-day[data-weekday="3"] { --year-day-mask: var(--year-day-green); }
-html[data-genesis-theme] .genesis-app .civil-mini-calendar.mode-profane .mini-day[data-weekday="4"] { --year-day-mask: var(--year-day-blue); }
-html[data-genesis-theme] .genesis-app .civil-mini-calendar.mode-profane .mini-day[data-weekday="5"] { --year-day-mask: var(--year-day-pink); }
-html[data-genesis-theme] .genesis-app .civil-mini-calendar.mode-profane .mini-day[data-weekday="6"] { --year-day-mask: var(--year-day-black); }
-html[data-genesis-theme] .genesis-app .civil-mini-calendar.mode-profane .mini-day[data-weekday="0"] { --year-day-mask: var(--year-day-yellow); }
+html[data-genesis-theme] .genesis-app :is(.civil-mini-calendar.mode-profane, .weekday-tinted-calendar) [data-weekday="1"] { --year-day-mask: var(--year-day-white); }
+html[data-genesis-theme] .genesis-app :is(.civil-mini-calendar.mode-profane, .weekday-tinted-calendar) [data-weekday="2"] { --year-day-mask: var(--year-day-red); }
+html[data-genesis-theme] .genesis-app :is(.civil-mini-calendar.mode-profane, .weekday-tinted-calendar) [data-weekday="3"] { --year-day-mask: var(--year-day-green); }
+html[data-genesis-theme] .genesis-app :is(.civil-mini-calendar.mode-profane, .weekday-tinted-calendar) [data-weekday="4"] { --year-day-mask: var(--year-day-blue); }
+html[data-genesis-theme] .genesis-app :is(.civil-mini-calendar.mode-profane, .weekday-tinted-calendar) [data-weekday="5"] { --year-day-mask: var(--year-day-pink); }
+html[data-genesis-theme] .genesis-app :is(.civil-mini-calendar.mode-profane, .weekday-tinted-calendar) [data-weekday="6"] { --year-day-mask: var(--year-day-black); }
+html[data-genesis-theme] .genesis-app :is(.civil-mini-calendar.mode-profane, .weekday-tinted-calendar) [data-weekday="0"] { --year-day-mask: var(--year-day-yellow); }
 html[data-genesis-theme] .genesis-app .civil-mini-calendar.mode-profane .mini-day[data-weekday] {
   color: var(--year-day-ink);
   background: color-mix(in srgb, var(--year-day-mask) var(--year-day-mask-strength), var(--year-day-base));
