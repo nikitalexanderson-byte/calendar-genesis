@@ -1,6 +1,8 @@
 # Calendar discovery: подсказки, навигация и установка
 
-Ветка `codex/calendar-discovery-ui`, основание `05b00907`. Это локальный исходный UI-этап в существующей STANDART light/dark. Запись не подтверждает публикацию или production-приёмку. Общий остаток сохраняется: **21 partial + 14 K/U/L**.
+Ветка `codex/calendar-discovery-ui`, основание `05b00907`. UI-этап опубликован 20 октября через PR #218: master/production `8c9351f78379431128b4acbbd6ce22fb6e1ba19e`, deploy `39324432158` success. Общий остаток сохраняется: **21 partial + 14 K/U/L**.
+
+Production `/deploy-meta.json` содержит этот SHA, `/api/health` возвращает ok. Новые entry `index-Xqwoye2z.js` / `index-SB7Ut97M.css` и предыдущий production entry `index-SZd7wCQx.js` отвечают200. SSH не использовался. Авторизованные и реальные device-сценарии ограничены локальной приёмкой ниже; публичный health не подменяет Google-вход или установку iOS.
 
 ## Поведение
 

@@ -197,7 +197,7 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
         sharedCachedCall("project:$projectId") { api, generation -> api.sharedProject(generation, projectId) }
     override suspend fun sharedPlanning(projectId: String): JSONObject =
         sharedCachedCall("planning:$projectId") { api, generation -> api.sharedPlanning(generation, projectId) }
-    private suspend fun sprintReportCall(action: (AuthSessionClient, Long) -> JSONObject): JSONObject {
+    private suspend fun sharedOnlineCall(action: (AuthSessionClient, Long) -> JSONObject): JSONObject {
         val before = mutableState.value
         val account = before.user?.uid ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
         if (before.accountSettings?.sharedProjectsEnabled != true) throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
@@ -209,14 +209,16 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
         }
         return withContext(Dispatchers.IO) { current(); action(client, generation).also { current() } }
     }
+    override suspend fun exportSharedData(spaceId: String, command: JSONObject): JSONObject =
+        sharedOnlineCall { api, generation -> api.exportSharedData(generation, spaceId, command) }
     override suspend fun sharedSprintReport(projectId: String, sprintId: String, unit: String): JSONObject =
-        sprintReportCall { api, generation -> api.sharedSprintReport(generation, projectId, sprintId, unit) }
+        sharedOnlineCall { api, generation -> api.sharedSprintReport(generation, projectId, sprintId, unit) }
     override suspend fun checkSharedSprintReport(projectId: String, sprintId: String, token: String): JSONObject =
-        sprintReportCall { api, generation -> api.checkSharedSprintReport(generation, projectId, sprintId, token) }
+        sharedOnlineCall { api, generation -> api.checkSharedSprintReport(generation, projectId, sprintId, token) }
     override suspend fun sharedSprintReportSources(projectId: String, sprintId: String, token: String, query: JSONObject, cursor: String?): JSONObject =
-        sprintReportCall { api, generation -> api.sharedSprintReportSources(generation, projectId, sprintId, token, query, cursor) }
+        sharedOnlineCall { api, generation -> api.sharedSprintReportSources(generation, projectId, sprintId, token, query, cursor) }
     override suspend fun sharedSprintSourceTask(projectId: String, taskId: String, archived: Boolean): JSONObject =
-        sprintReportCall { api, generation -> api.sharedSprintSourceTask(generation, projectId, taskId, archived) }
+        sharedOnlineCall { api, generation -> api.sharedSprintSourceTask(generation, projectId, taskId, archived) }
     override suspend fun sharedWorkflow(projectId: String): JSONObject {
         val initial = mutableState.value
         val account = initial.user?.uid ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)

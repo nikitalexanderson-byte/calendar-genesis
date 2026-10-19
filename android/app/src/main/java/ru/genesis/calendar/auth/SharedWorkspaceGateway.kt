@@ -5,6 +5,7 @@ import java.util.UUID
 
 /** Shared workspace operations implemented by the authenticated controller. */
 interface SharedWorkspaceGateway {
+    suspend fun exportSharedData(spaceId: String, command: JSONObject): JSONObject = throw UnsupportedOperationException("exportSharedData")
     suspend fun acceptSharedInvitation(id: String): JSONObject = throw UnsupportedOperationException("acceptSharedInvitation")
     suspend fun addSharedComment(projectId: String, taskId: String, body: String): JSONObject = throw UnsupportedOperationException("addSharedComment")
     suspend fun archivedSharedProjects(spaceId: String): JSONObject = throw UnsupportedOperationException("archivedSharedProjects")

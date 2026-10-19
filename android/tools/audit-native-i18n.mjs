@@ -145,7 +145,19 @@ sacredRussian.forEach((match, index) => {
 });
 const supplemental=JSON.parse(await readFile(path.join(ROOT,"app/ui-translations/en.json"),"utf8"));
 const workCopy=JSON.parse(await readFile(path.join(ROOT,"app/shared-work-translations/en.json"),"utf8"));
-const translations = { ...web, ...curated, ...supplemental, ...sacred, ...native, ...workCopy };
+const exportCopy = JSON.parse(await readFile(path.join(ROOT, "app/native-data-export-translations.json"), "utf8"));
+const exportKeys = Object.keys(exportCopy.ru ?? {});
+if (exportKeys.length !== 13) throw new Error("Native export copy must contain all 13 labels.");
+for (const language of ["ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja"]) {
+  if (Object.keys(exportCopy[language] ?? {}).length !== exportKeys.length) throw new Error(`Incomplete native export catalog: ${language}`);
+  for (const key of exportKeys) {
+    const value = exportCopy[language]?.[key];
+    if (typeof value !== "string" || !value.trim() || (!["ru", "sr", "uk"].includes(language) && CYRILLIC.test(value))) {
+      throw new Error(`Incomplete native export copy: ${language}: ${key}`);
+    }
+  }
+}
+const translations = { ...web, ...curated, ...supplemental, ...sacred, ...native, ...workCopy, ...exportCopy.en };
 const affairs = JSON.parse(await readFile(path.join(ROOT, "app/native-affairs-translations.json"), "utf8"));
 const affairKeys = Object.keys(affairs.en ?? {});
 if (affairKeys.length !== 41) throw new Error("Native supplemental copy must contain all 41 labels.");
