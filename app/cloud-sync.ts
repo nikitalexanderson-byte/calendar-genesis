@@ -1660,6 +1660,7 @@ export type SharedSpaceSettings = { space: SharedSpace; members: { categoryId?: 
   invitations: (SharedSpaceInvitationInput & { id: string; expiresAt: string })[] };
 export type SharedProject = { id: string; spaceId: string; parentId: string | null; title: string;
   planning?: import('./shared-planning').PlanningConfig;
+  workflow?: import('./shared-workflows').WorkflowConfig;
   categoryId?: string | null;
   labelIds?: string[];
   createdBy?: string | null; createdAt?: string; description: string; tags?: string[]; kind?: "project" | "task-list"; boardStatusId?: string | null; layout: "list" | "board"; isInbox?: number; taskCount?: number; boardCount?: number;

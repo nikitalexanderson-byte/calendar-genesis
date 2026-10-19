@@ -66,15 +66,18 @@ function genesisSharedRestoreTrash(string $userId,string $spaceId,string $kind,s
    $db->prepare('UPDATE shared_trash SET retention_days=?,expires_at=? WHERE kind=? AND root_id=? AND space_id=?')->execute([$days,$expires,$kind,$row['root_id'],$spaceId]);$result=['ok'=>true,'projectId'=>$row['project_id']];genesisSharedSaveMutationReceipt($db,$userId,$requestId,$action,$id,$result);$db->commit();return $result;}
   if($kind==='project'){
    if($project['parent_id']!==null){$parent=$db->prepare('SELECT archived_at FROM shared_projects WHERE id=?');$parent->execute([$project['parent_id']]);$archived=$parent->fetchColumn();if($archived!==false&&$archived!==null)throw new GenesisSharedAccessException('RESTORE_PARENT_FIRST',409);}
-   $q=$db->prepare("SELECT object_id,previous_archived_at FROM shared_trash WHERE kind='project' AND root_id=? AND space_id=?");$q->execute([$row['root_id'],$spaceId]);foreach($q->fetchAll() as $child)$db->prepare('UPDATE shared_projects SET archived_at=?,revision=revision+1,updated_at=? WHERE id=?')->execute([$child['previous_archived_at'],genesisNow(),$child['object_id']]);
+   $q=$db->prepare("SELECT object_id,previous_archived_at FROM shared_trash WHERE kind='project' AND root_id=? AND space_id=?");$q->execute([$row['root_id'],$spaceId]);$restoredProjects=$q->fetchAll();foreach($restoredProjects as $child)$db->prepare('UPDATE shared_projects SET archived_at=?,revision=revision+1,updated_at=? WHERE id=?')->execute([$child['previous_archived_at'],genesisNow(),$child['object_id']]);
    $db->prepare("DELETE FROM shared_trash WHERE kind='project' AND root_id=? AND space_id=?")->execute([$row['root_id'],$spaceId]);
+   foreach($restoredProjects as $child)if($child['previous_archived_at']===null)genesisWorkflowAssertProject($userId,$child['object_id']);
   }else{
    if($project['archived_at']!==null)throw new GenesisSharedAccessException('RESTORE_PARENT_FIRST',409);
    $q=$db->prepare('SELECT parent_task_id,completed_at FROM shared_tasks WHERE id=?');$q->execute([$id]);$task=$q->fetch();
    if($task['parent_task_id']!==null){$q=$db->prepare('SELECT completed_at FROM shared_tasks_read WHERE id=?');$q->execute([$task['parent_task_id']]);$parent=$q->fetch();if(!$parent)throw new GenesisSharedAccessException('RESTORE_PARENT_FIRST',409);if($parent['completed_at']!==null&&$task['completed_at']===null)throw new GenesisSharedAccessException('TASK_PARENT_COMPLETED',409);}
    $q=$db->prepare("SELECT object_id FROM shared_trash WHERE kind='task' AND root_id=? AND project_id=?");$q->execute([$id,$row['project_id']]);
-   foreach($q->fetchAll() as $child){$db->prepare('UPDATE shared_tasks SET revision=revision+1,updated_at=? WHERE id=?')->execute([genesisNow(),$child['object_id']]);$db->prepare('UPDATE shared_task_reviews SET task_revision=task_revision+1 WHERE task_id=?')->execute([$child['object_id']]);}
+   $restoredTasks=$q->fetchAll();foreach($restoredTasks as $child){$db->prepare('UPDATE shared_tasks SET revision=revision+1,updated_at=? WHERE id=?')->execute([genesisNow(),$child['object_id']]);$db->prepare('UPDATE shared_task_reviews SET task_revision=task_revision+1 WHERE task_id=?')->execute([$child['object_id']]);}
    $db->prepare("DELETE FROM shared_trash WHERE kind='task' AND root_id=? AND project_id=?")->execute([$id,$row['project_id']]);
+   foreach($restoredTasks as $child)genesisWorkflowTask($userId,$row['project_id'],$child['object_id'],null,true,false);
+   genesisWorkflowAssertWip($row['project_id'],genesisWorkflowConfig($row['project_id']));
   }
   genesisSharedAudit($row['project_id'],$userId,$kind.'.restored',$id);$result=['ok'=>true,'projectId'=>$row['project_id']];genesisSharedSaveMutationReceipt($db,$userId,$requestId,$action,$id,$result);$db->commit();return $result;
  }catch(Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}

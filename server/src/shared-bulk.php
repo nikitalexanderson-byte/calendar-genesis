@@ -274,6 +274,7 @@ function genesisSharedBulkResume(string $actor,string $id): array
 /** Fixed cause vocabulary; never persist raw exceptions containing user content or infrastructure. */
 function genesisSharedBulkError(Throwable $error): string
 {
+    if(preg_match('/^WORKFLOW_[A-Z_]+$/D',$error->getMessage()))return $error->getMessage();
     $known=['SHARED_TASK_CONFLICT','SHARED_PROJECT_NOT_FOUND','SHARED_PROJECT_FORBIDDEN','INVALID_ASSIGNEE','INVALID_STATUS','TASK_MOVE_RELATIONS','TASK_PARENT_COMPLETED','TASK_CHILDREN_INCOMPLETE','TASK_APPROVAL_REQUIRED','INVALID_LABEL','INVALID_DUE_DATE','BULK_TREE_CHANGED','BULK_NO_DUE','BULK_STATUS_REQUIRED'];
     return in_array($error->getMessage(),$known,true)?$error->getMessage():($error instanceof GenesisSharedAccessException?'BULK_NOT_ALLOWED':($error instanceof InvalidArgumentException?'BULK_INVALID_ITEM':'BULK_RETRY'));
 }

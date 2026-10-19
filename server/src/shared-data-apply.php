@@ -99,6 +99,8 @@ function genesisSharedDataApply(string $actor,array $input):array{
             if($new)foreach($data['projects'] as $project)$db->prepare('UPDATE shared_projects SET archived_at=?,created_at=COALESCE(?,created_at) WHERE id=?')->execute([$project['archivedAt'],$project['createdAt'],$projectIds[$project['key']]]);
             return ['importId'=>$import,'operationId'=>$operation,'spaceId'=>$spaceId,'rootProjectId'=>reset($projectIds),'projectIds'=>$projectIds,'createdProjectIds'=>$createdProjects,'taskIds'=>$taskIds,'statusIds'=>$statusIds,'categoryIds'=>$categoryIds,'fieldIds'=>$fieldIds,'createdFieldIds'=>$createdFields,'optionIds'=>$optionIds,'labelIds'=>$labelIds,'createdLabelIds'=>$createdLabels,'checklistIds'=>$checklistIds,'projectCount'=>count($createdProjects),'taskCount'=>count($taskIds),'notices'=>$plan['notices'],'duplicate'=>false,'state'=>'active','canUndo'=>true];
         });
+        foreach($receipt['taskIds'] as $id){$project=genesisDataRows('SELECT project_id FROM shared_tasks WHERE id=?',[$id])[0]['project_id'];genesisWorkflowTask($actor,$project,$id,null,false,false);}
+        foreach(array_unique(array_values($receipt['projectIds'])) as $project)genesisWorkflowAssertWip($project,genesisWorkflowConfig($project));
         genesisSharedAudit($receipt['rootProjectId'],$actor,'data.imported',$import,['taskCount'=>$receipt['taskCount'],'projectCount'=>$receipt['projectCount']]);
         $baseline=genesisDataImportSnapshot($receipt);$db->prepare('UPDATE shared_data_imports SET receipt_json=?,baseline_json=? WHERE id=?')->execute([genesisDataSeal($receipt),genesisDataSeal(['hash'=>$baseline]),$import]);
         if($owns)$db->commit();else $db->exec('RELEASE '.$savepoint);return $receipt;

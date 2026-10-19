@@ -3,6 +3,7 @@ import type { CalendarMode } from './calendar-data';
 import type { CalendarContext } from './calendar-context';
 import type { Language } from './i18n';
 import translations from './planning-translations.json';
+import { workflowError } from './workflow-copy';
 
 export type PlanningCopyKey=keyof typeof translations.ru;
 const copy:Record<Language,Record<PlanningCopyKey,string>>=translations;
@@ -23,6 +24,7 @@ export const transitionSprint=(project:string,sprint:SharedSprint,fingerprint:st
 export const savePlanningTask=(task:SharedTask,values:{sprintId?:string|null;storyPoints?:number|null;estimateHours?:number|null},requestId:string)=>sharedCollaborationRequest<{task:SharedTask}>(`/projects/${encodeURIComponent(task.projectId)}/tasks/${encodeURIComponent(task.id)}`,{method:'PATCH',body:JSON.stringify({...values,expectedRevision:task.revision,requestId})});
 export const planningAccessLost=(reason:unknown)=>reason instanceof GenesisApiError&&[401,403,404].includes(reason.status);
 export function planningError(reason:unknown,language:Language):string {
+ const workflow=workflowError(reason,language);if(workflow)return workflow;
  const code=reason instanceof GenesisApiError?String(reason.payload?.error??reason.message):reason instanceof Error?reason.message:'';
  const keys:Record<string,PlanningCopyKey>={PLANNING_CONFLICT:'conflict',SHARED_TASK_CONFLICT:'conflict',SHARED_QUERY_CHANGED:'conflict',PLANNING_ACTIVE_SPRINT:'activeExists',SPRINT_COMPLETED:'closed',SPRINT_DATES_INVALID:'datesInvalid',PLANNING_ESTIMATE_INVALID:'numbersInvalid',SPRINT_CONTEXT_INVALID:'contextInvalid',INVALID_CALENDAR_CONTEXT:'contextInvalid',SPRINT_OUTCOMES_REQUIRED:'outcomesRequired',SPRINT_STATE_INVALID:'stateInvalid',PLANNING_DISABLED:'disabled'};
  return planningText(keys[code]??'error',language);

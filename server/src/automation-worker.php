@@ -123,7 +123,7 @@ function genesisAutomationEffects(array $rule,array $definition,?array $task,arr
 function genesisAutomationSafeError(Throwable $error):string
 {
     $code=$error->getMessage();
-    if(preg_match('/^(?:AUTOMATION|CUSTOM_FIELD|TEMPLATE|SHARED_PROJECT|SHARED_TASK|INVALID_|TASK_)[A-Z_]*$/D',$code))return $code;
+    if(preg_match('/^(?:AUTOMATION|CUSTOM_FIELD|TEMPLATE|WORKFLOW|SHARED_PROJECT|SHARED_TASK|INVALID_|TASK_)[A-Z_]*$/D',$code))return $code;
     return 'AUTOMATION_ACTION_REJECTED';
 }
 

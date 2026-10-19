@@ -32,10 +32,11 @@ require_once __DIR__ . '/shared-reports-history.php';
 require_once __DIR__ . '/shared-reports.php';
 require_once __DIR__ . '/shared-planning.php';
 require_once __DIR__ . '/shared-planning-reports.php';
+require_once __DIR__ . '/shared-workflows.php';
 
 final class GenesisSharedAccessException extends RuntimeException
 {
-    public function __construct(string $message = 'SHARED_PROJECT_NOT_FOUND', public readonly int $status = 404)
+    public function __construct(string $message = 'SHARED_PROJECT_NOT_FOUND', public readonly int $status = 404, public readonly array $details = [])
     {
         parent::__construct($message);
     }
@@ -292,6 +293,7 @@ function genesisSharedSetArchived(string $userId, string $projectId, bool $archi
         $changed->execute(['archived' => $archived ? genesisNow() : null,
             'now' => genesisNow(), 'project' => $projectId, 'revision' => (int)$project['revision']]);
         if ($changed->rowCount() !== 1) throw new GenesisSharedAccessException('SHARED_PROJECT_CONFLICT', 409);
+        if (!$archived) genesisWorkflowAssertProject($userId,$projectId);
         genesisSharedAudit($projectId, $userId, $archived ? 'project.archived' : 'project.restored', $projectId);
         $db->commit();
     } catch (Throwable $error) {
@@ -324,6 +326,7 @@ function genesisSharedCreateStatus(string $userId, string $projectId, array $inp
         if ((int)$summary['count'] >= 30) throw new GenesisSharedAccessException('STATUS_LIMIT', 409);
         $id = genesisUuid();
         $position = (int)$summary['lastPosition'] + 1;
+        genesisWorkflowStatusEdit($projectId);
         $db->prepare('INSERT INTO shared_project_statuses (id, project_id, title, position, is_done)
             VALUES (:id, :project, :title, :position, :done)')->execute([
                 'id' => $id, 'project' => $projectId, 'title' => $title,
@@ -356,6 +359,7 @@ function genesisSharedUpdateStatus(string $userId, string $projectId, string $st
         $color = array_key_exists('color', $input) ? genesisSharedCategoryColor($input['color']) : $status['color'];
         $image = array_key_exists('imageUrl', $input) ? genesisSharedBoardImage($input['imageUrl']) : $status['image_url'];
         $done = array_key_exists('isDone', $input) ? (int)(bool)$input['isDone'] : (int)$status['is_done'];
+        if ($done !== (int)$status['is_done']) genesisWorkflowStatusEdit($projectId);
         $titleLines = array_key_exists('taskTitleLines', $input) ? $input['taskTitleLines'] : ($status['task_title_lines'] ?? ($status['is_done'] ? 2 : 0));
         $visibleCount = array_key_exists('visibleTaskCount', $input) ? $input['visibleTaskCount'] : ($status['visible_task_count'] ?? ($status['is_done'] ? 5 : 0));
         if (!is_int($titleLines) || $titleLines < 0 || $titleLines > 3
@@ -416,6 +420,7 @@ function genesisSharedDeleteStatus(string $userId, string $projectId, string $st
         if ((int)$statuses[$statusId]['revision'] !== $expected) {
             throw new GenesisSharedAccessException('STATUS_CONFLICT', 409);
         }
+        genesisWorkflowStatusEdit($projectId);
         if ((int)$statuses[$statusId]['is_done'] === 1) {
             $done = $db->prepare('SELECT COUNT(*) FROM shared_project_statuses
                 WHERE project_id = :project AND is_done = 1');
@@ -1157,6 +1162,7 @@ function genesisSharedProjectSnapshot(string $userId, string $projectId, array $
             'canOrganizeTasks' => $project['permissions']['organizeTasks'],
             'canCreateBoards' => $project['permissions'][$project['space_permissions_json'] === null ? 'editTasks' : 'manageProjects'],
             'planning'=>genesisPlanningConfig($projectId),
+            'workflow'=>genesisWorkflowConfig($projectId),
             'permissions' => $project['permissions'],
             'updatedAt' => $project['updated_at'], 'createdAt' => $project['created_at'], 'createdBy' => $project['created_by'],
         ],
@@ -1489,6 +1495,7 @@ function genesisSharedMoveTask(string $userId, string $sourceProjectId, string $
         array_splice($ordered, min($position, count($ordered)), 0, [$taskId]);
         $reposition = $db->prepare('UPDATE shared_tasks SET position = :position WHERE id = :id');
         foreach ($ordered as $index => $id) $reposition->execute(['position' => $index, 'id' => $id]);
+        genesisWorkflowTask($userId,$destinationId,$taskId,$task);
         $moveDetails = ['taskId' => $taskId, 'objectTitle' => $task['title'], 'destinationBoardId' => $statusId, 'changes' => [
             'statusId' => ['from' => $task['status_id'], 'to' => $statusId], 'projectId' => ['from' => $sourceProjectId, 'to' => $destinationId]] + genesisSharedChanges(['dueDate' => $task['due_date'], 'startDate' => $task['start_date'], 'startTime' => $task['start_time'], 'endTime' => $task['end_time']], ['dueDate' => $dueDate] + $schedule)];
         genesisSharedAudit($sourceProjectId, $userId, 'task.moved_out', $taskId, $moveDetails + ['boardId' => $task['status_id']]);
@@ -1679,6 +1686,7 @@ function genesisSharedTask(string $userId, string $projectId, array $input, ?str
             'id' => $id, 'entry' => $entryType, 'start' => $schedule['startDate'], 'start_time' => $schedule['startTime'], 'end_time' => $schedule['endTime']]);
         $dependsOnIds = genesisSharedAssignDependencies($projectId, $id, $input);
         $labelIds = genesisSharedAssignLabels($project['space_id'], 'task', $id, $input);
+        genesisWorkflowTask($userId,$projectId,$id,$existing);
         $taskChanges = genesisSharedChanges(
             ['entryType' => $existing['entry_type'] ?? 'task', 'title' => $existing['title'] ?? null, 'description' => $existing['description'] ?? null, 'tags' => isset($existing['tags_json']) ? json_decode($existing['tags_json'], true) : [],
              'dueDate' => $existing['due_date'] ?? null, 'statusId' => $existing['status_id'] ?? null, 'categoryId' => $existing['category_id'] ?? null, 'assigneeId' => $existing['assignee_id'] ?? null, 'labelIds' => $oldLabels,

@@ -33,6 +33,7 @@ function genesisSharedArchiveTask(string $userId,string $projectId,string $taskI
    $q=$db->prepare('SELECT id FROM shared_tasks_history_read WHERE project_id=? AND (id=? OR archive_root_id=?) AND archived_at IS NOT NULL');$q->execute([$projectId,$taskId,$taskId]);
    foreach($q->fetchAll() as $row){
     $db->prepare('UPDATE shared_tasks SET archived_at=NULL,archive_root_id=NULL,revision=revision+1,updated_at=?,updated_by=? WHERE id=?')->execute([$now,$userId,$row['id']]);
+    genesisWorkflowTask($userId,$projectId,$row['id'],null,true);
     genesisSharedAudit($projectId,$userId,'task.unarchived',$row['id'],['rootId'=>$taskId]);$affected++;
    }
   }

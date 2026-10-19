@@ -85,6 +85,7 @@ function genesisSharedApproveTask(string $userId, string $projectId, string $tas
                 updated_by = :user, updated_at = :now, revision = revision + 1 WHERE id = :task')->execute([
                 'status' => $complete ? $doneId : $task['status_id'], 'actor' => $complete ? $userId : null,
                 'completed' => $complete ? $now : null, 'user' => $userId, 'now' => $now, 'task' => $taskId]);
+            genesisWorkflowTask($userId,$projectId,$taskId,$task);
             genesisSharedAudit($projectId, $userId, 'task.updated', $taskId, ['objectTitle' => $task['title'],'reportBefore'=>['statusId'=>$task['status_id'],'completed'=>$task['completed_at']!==null], 'changes' => ['approval' => ['from' => false, 'to' => true]]]);
         }
         $db->commit();

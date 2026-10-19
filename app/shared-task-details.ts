@@ -1,4 +1,5 @@
 import { translateText } from "./i18n";
+import { workflowError } from './workflow-copy';
 
 export type SharedChecklistItem = {
   id: string; title: string; done: boolean; assigneeId: string | null; dueDate: string | null;
@@ -32,5 +33,6 @@ const errors: Record<string, string> = {
   VIEW_LIST_CHANGED: "Представления или права изменились. Обновите список.",
 };
 export function sharedTaskDetailsError(error: unknown): string | null {
+  const workflow=workflowError(error);if(workflow)return workflow;
   return error instanceof Error && errors[error.message] ? translateText(errors[error.message]) : null;
 }

@@ -1,4 +1,5 @@
 import { GenesisApiError } from "./cloud-sync";
+import { workflowError } from './workflow-copy';
 import { translateText as t, type Language } from "./i18n";
 export type CustomFieldType = "text"|"number"|"date"|"select"|"multi"|"checkbox"|"url";
 export type CustomFieldValue = string|number|boolean|string[];
@@ -16,6 +17,7 @@ export function customFieldDraft(field:SharedCustomField):CustomFieldDraft {
     required:field.required,showCard:field.showCard,showList:field.showList,archived:field.archived,expectedRevision:field.revision};
 }
 export function customFieldsError(error:unknown,language?:Language):string|null {
+  const workflow=workflowError(error,language);if(workflow)return workflow;
   const code=error instanceof GenesisApiError?String(error.payload?.error??error.message):error instanceof Error?error.message:"";
   const copy:Record<string,string>={
     CUSTOM_FIELD_CONFLICT:"Поле или его значения изменились. Обновите предпросмотр; черновик сохранён.",

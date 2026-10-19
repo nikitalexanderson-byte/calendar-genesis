@@ -946,6 +946,15 @@ try {
             if($method==='GET')genesisJson(genesisSharedPlanning($userId,$segments[2]));
             if($method==='PUT')genesisJson(genesisSharedSavePlanning($userId,$segments[2],genesisReadJson()));
         }
+        if(count($segments)===4&&$segments[1]==='projects'&&$segments[3]==='workflow'){
+            if($method==='GET')genesisJson(genesisSharedWorkflow($userId,$segments[2]));
+            if($method==='PUT')genesisJson(genesisSharedSaveWorkflow($userId,$segments[2],genesisReadJson()));
+        }
+        if(count($segments)===5&&$segments[1]==='projects'&&$segments[3]==='workflow'&&$segments[4]==='history'&&$method==='GET'){
+            $cursor=isset($_GET['before'])?filter_var($_GET['before'],FILTER_VALIDATE_INT):null;
+            if($cursor===false)throw new InvalidArgumentException('WORKFLOW_INVALID');
+            genesisJson(genesisSharedWorkflowHistory($userId,$segments[2],$cursor));
+        }
         if(count($segments)===5&&$segments[1]==='projects'&&$segments[3]==='planning'&&$segments[4]==='sprints'&&$method==='POST')genesisJson(genesisSharedSaveSprint($userId,$segments[2],genesisReadJson()),201);
         if(count($segments)===6&&$segments[1]==='projects'&&$segments[3]==='planning'&&$segments[4]==='sprints'&&$method==='PATCH')genesisJson(genesisSharedSaveSprint($userId,$segments[2],genesisReadJson(),$segments[5]));
         if(count($segments)===7&&$segments[1]==='projects'&&$segments[3]==='planning'&&$segments[4]==='sprints'&&$segments[6]==='transition'&&$method==='POST')genesisJson(genesisSharedTransitionSprint($userId,$segments[2],$segments[5],genesisReadJson()));
@@ -1361,7 +1370,7 @@ try {
 
     genesisJson(['error' => 'NOT_FOUND'], 404);
 } catch (GenesisSharedAccessException $error) {
-    genesisJson(['error' => $error->getMessage()], $error->status);
+    genesisJson(['error' => $error->getMessage()]+($error->details?['details'=>$error->details]:[]), $error->status);
 } catch (GenesisResourceLimitException $error) {
     if ($error->status === 429) header('Retry-After: ' . (600 - time() % 600));
     genesisJson(['error' => $error->getMessage()], $error->status);
