@@ -11,6 +11,7 @@ type DragPreview = { id: ProjectView; x: number; y: number; width: number; heigh
 type Gesture = {
   id: ProjectView; pointer: number; x: number; y: number; active: boolean; timer: number; original: string;
   capture: HTMLDivElement; order: ProjectView[]; offsetX: number; offsetY: number; lift: number; valid: boolean;
+  touch: boolean; width: number; height: number; fontSize: string;
 };
 const names = { list: "Список", board: "Доски", calendar: "Календарь", gantt: "Гант" };
 
@@ -24,6 +25,7 @@ export function ProjectViewSwitch({ order, active, language, dropView, onSelect,
   const container = useRef<HTMLDivElement>(null);
   const gesture = useRef<Gesture | null>(null), suppressClick = useRef(false);
   const [preview, setPreview] = useState<ProjectView[] | null>(null), [dragging, setDragging] = useState<DragPreview | null>(null);
+  const [pressing, setPressing] = useState<ProjectView | null>(null);
   const [message, setMessage] = useState("");
   const labels = copy[language];
   const label = (view: ProjectView) => translateText(names[view], language);
@@ -37,7 +39,7 @@ export function ProjectViewSwitch({ order, active, language, dropView, onSelect,
       } else if (commit && item.original !== currentIdentity.current) setMessage(labels.changed);
     }
     if (item.capture.hasPointerCapture(item.pointer)) item.capture.releasePointerCapture(item.pointer);
-    setPreview(null); setDragging(null);
+    setPreview(null); setDragging(null); setPressing(null);
   }, [labels, language, onReorder]);
   useEffect(() => {
     const cancel = () => finish(false);
@@ -72,6 +74,15 @@ export function ProjectViewSwitch({ order, active, language, dropView, onSelect,
       if (item.capture.hasPointerCapture(item.pointer)) item.capture.releasePointerCapture(item.pointer);
     }
   }, []);
+  const activate = (item: Gesture) => {
+    if (gesture.current !== item || item.original !== currentIdentity.current) { finish(false); return false; }
+    // Capture the stable row: moving a captured button in the DOM breaks capture.
+    try { item.capture.setPointerCapture(item.pointer); } catch { finish(false); return false; }
+    window.clearTimeout(item.timer); item.active = true; setPressing(null); setPreview(item.order);
+    setDragging({ id: item.id, x: item.x - item.offsetX, y: Math.max(8, item.y - item.offsetY - item.lift),
+      width: item.width, height: item.height, fontSize: item.fontSize, valid: true });
+    return true;
+  };
   const down = (event: PointerEvent<HTMLButtonElement>, id: ProjectView) => {
     if (!event.isPrimary || event.button !== 0 || gesture.current || !container.current) return;
     suppressClick.current = false;
@@ -80,21 +91,19 @@ export function ProjectViewSwitch({ order, active, language, dropView, onSelect,
       id, pointer: event.pointerId, x: event.clientX, y: event.clientY, active: false, timer: 0, original: identity,
       capture, order: [...saved], offsetX: event.clientX - rect.x, offsetY: event.clientY - rect.y,
       lift: event.pointerType === "touch" ? rect.height + 12 : 12, valid: true,
+      touch: event.pointerType === "touch", width: rect.width, height: rect.height, fontSize: getComputedStyle(button).fontSize,
     };
-    item.timer = window.setTimeout(() => {
-      if (gesture.current !== item) return;
-      if (currentIdentity.current !== item.original) { finish(false); return; }
-      // The row stays mounted when its buttons move. Capturing a button loses the gesture on DOM reorder.
-      try { capture.setPointerCapture(item.pointer); } catch { finish(false); return; }
-      item.active = true; setPreview(item.order);
-      setDragging({ id, x: item.x - item.offsetX, y: Math.max(8, item.y - item.offsetY - item.lift),
-        width: rect.width, height: rect.height, fontSize: getComputedStyle(button).fontSize, valid: true });
-    }, 350);
-    gesture.current = item;
+    item.timer = window.setTimeout(() => activate(item), 350);
+    gesture.current = item; setPressing(id);
   };
   const move = (event: PointerEvent<HTMLDivElement>) => {
     const item = gesture.current; if (!item || event.pointerId !== item.pointer) return;
-    if (!item.active) { if (Math.hypot(event.clientX - item.x, event.clientY - item.y) > 8) finish(false); return; }
+    if (!item.active) {
+      const distance = Math.hypot(event.clientX - item.x, event.clientY - item.y);
+      if (item.touch) { if (distance > 12) finish(false); return; }
+      // A normal mouse drag starts as soon as it moves; waiting 350 ms rejected it.
+      if (distance <= 4 || !activate(item)) return;
+    }
     event.preventDefault();
     const bounds = item.capture.getBoundingClientRect();
     item.valid = event.clientX >= bounds.left && event.clientX <= bounds.right && event.clientY >= bounds.top && event.clientY <= bounds.bottom;
@@ -121,6 +130,7 @@ export function ProjectViewSwitch({ order, active, language, dropView, onSelect,
       {(preview ?? saved).map(view => <button key={view} type="button" data-project-view={view}
         data-shared-drop-view={view === "list" || view === "board" ? view : undefined} data-drop-active={dropView === view || undefined}
         data-view-dragging={dragging?.id === view || undefined} aria-pressed={active === view} aria-describedby={helpId}
+        data-view-pressing={pressing === view || undefined}
         onContextMenu={event => event.preventDefault()} onDragStart={event => event.preventDefault()} onPointerDown={event => down(event, view)}
         onClick={event => { if (suppressClick.current && event.detail !== 0) { event.preventDefault(); suppressClick.current = false; } else onSelect(view); }}
         onKeyDown={event => {

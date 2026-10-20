@@ -6,6 +6,7 @@ import { getSolarEvent } from "./calendar-data";
 import { useMobileLayout } from "./use-mobile-layout";
 import { SharedTaskViewControls } from "./SharedTaskViewControls";
 import calendarScaleCopy from "./calendar-scale-copy.json";
+import { sharedCalendarPeriod, sharedCalendarWindow, type CalendarScale } from "./shared-calendar-period";
 import { SharedCustomFieldInputs, SharedCustomFieldValues } from "./SharedCustomFieldInputs";
 import { SharedCustomFieldFilter } from "./SharedCustomFieldFilter";
 import { customFieldsError, type CustomFieldValues, type CustomFieldCriterion } from "./shared-custom-fields";
@@ -93,7 +94,7 @@ import { formatTimeValue, type TimeFormat } from "./time-format";
 type SharedDragItem = { id: string; title: string } & ({ kind: "task"; task: SharedTask } | { kind: "container"; project: SharedProject });
 type SharedDropTarget = GanttReturnTarget & { schedule?:GanttSchedule; ganttRow?:string; calendarDate?:string };
 import { RecordCalendarChoice } from "./RecordCalendarChoice";
-import { type CalendarMode, MONTHS, LUNAR_DECADES, ELEMENTS, formatCalendarDate, formatGregorian, getGregorianDate, getLunarDate, getLunarMonthDates, getSacredDate, getSacredDay, lunarMonthIndex } from "./calendar-data";
+import { type CalendarMode, MONTHS, LUNAR_DECADES, ELEMENTS, formatCalendarDate, formatGregorian, getLunarDate, getSacredDate, getSacredDay } from "./calendar-data";
 import { translateText } from "./i18n";
 import { restoredSharedProject, sharedProjectTree } from "./shared-expansion";
 import { formatTaskCount } from "./task-count-i18n";
@@ -119,6 +120,7 @@ import type { SharedInvitationDestination } from "./SharedInvitationNotices";
 
 type Props = { userId: string; language: string; enabledCalendars: CalendarMode[]; experimentalTheme?: boolean; timeFormat?: TimeFormat;
   projectViewOrder: ProjectView[] | null; onProjectViewOrder: (views: ProjectView[]) => void;
+  calendarScale: CalendarScale; onCalendarScale: (scale: CalendarScale) => void;
   inboxWidth: number; onInboxWidth: (width: number) => void; inboxPosition: InboxPosition; inboxHidden: boolean; inboxCompact: boolean; onInboxPosition: (position: InboxPosition) => void; onInboxHidden: (hidden: boolean) => void; onInboxCompact: (compact: boolean) => void;
   destination?: SharedInvitationDestination;
   categoriesExpanded: boolean; onCategoriesExpanded: (expanded: boolean) => void;
@@ -133,37 +135,7 @@ function localDateKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-function sharedCalendarPeriod(anchor: Date, mode: CalendarMode, english: boolean, language: string) {
-  if (mode === "sacred") {
-    const sacred = getSacredDate(anchor);
-    const start = getGregorianDate(sacred.sacredYear, sacred.monthIndex, 1);
-    const next = sacred.monthIndex === 12
-      ? getGregorianDate(sacred.sacredYear + 1, 0, 1)
-      : getGregorianDate(sacred.sacredYear, sacred.monthIndex + 1, 1);
-    const dates: Date[] = [];
-    for (const date = new Date(start); date < next; date.setDate(date.getDate() + 1)) dates.push(new Date(date));
-    const previous = new Date(start); previous.setDate(previous.getDate() - 1);
-    return { dates, previous, next, title: `${translateText(MONTHS[sacred.monthIndex].name, language as import("./i18n").Language)} · ${sacred.sacredYear}–${sacred.sacredYear + 1}` };
-  }
-  if (mode === "lunar") {
-    const index = lunarMonthIndex(anchor);
-    const dates = getLunarMonthDates(index);
-    const previousDates = getLunarMonthDates(index - 1);
-    const nextDates = getLunarMonthDates(index + 1);
-    const lunar = getLunarDate(dates[Math.floor(dates.length / 2)] ?? anchor);
-    return { dates, previous: previousDates[0] ?? anchor, next: nextDates[0] ?? anchor,
-      title: `${translateText(lunar.month.name, language as import("./i18n").Language)} · ${lunar.year.sacredYear}–${lunar.year.sacredYear + 1}` };
-  }
-  const start = new Date(anchor.getFullYear(), anchor.getMonth(), 1, 12);
-  const next = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 1, 12);
-  const previous = new Date(anchor.getFullYear(), anchor.getMonth() - 1, 1, 12);
-  const dates: Date[] = [];
-  for (const date = new Date(start); date < next; date.setDate(date.getDate() + 1)) dates.push(new Date(date));
-  return { dates, previous, next,
-    title: new Intl.DateTimeFormat(english ? "en-US" : "ru-RU", { month: "long", year: "numeric" }).format(start) };
-}
-
-export function SharedProjects({ userId, language, enabledCalendars, calendarMode, taskCalendarMode, onCalendarModeChange, experimentalTheme = false, timeFormat = "24h", destination, inboxWidth, onInboxWidth, inboxPosition, inboxHidden, inboxCompact, onInboxPosition, onInboxHidden, onInboxCompact, categoriesExpanded, onCategoriesExpanded, categoriesView, onCategoriesView, projectViewOrder, onProjectViewOrder }: Props) {
+export function SharedProjects({ userId, language, enabledCalendars, calendarMode, taskCalendarMode, onCalendarModeChange, experimentalTheme = false, timeFormat = "24h", destination, inboxWidth, onInboxWidth, inboxPosition, inboxHidden, inboxCompact, onInboxPosition, onInboxHidden, onInboxCompact, categoriesExpanded, onCategoriesExpanded, categoriesView, onCategoriesView, projectViewOrder, onProjectViewOrder, calendarScale, onCalendarScale }: Props) {
   const english = language === "en";
   const sacredFeaturesEnabled = useSacredFeaturesEnabled();
   const tasksCompact = inboxCompact;
@@ -215,7 +187,6 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   const [editEntryType,setEditEntryType] = useState<EntryType>("task");
   const [activityKey,setActivityKey] = useState(0);
   const [calendarMonth, setCalendarMonth] = useState(() => { const now = new Date(); return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12); });
-  const [calendarScale, setCalendarScale] = useState<1 | 0.5 | 0.25>(1);
   const [calendarDay, setCalendarDay] = useState(() => localDateKey(new Date()));
   const [calendarAgendaProjectId, setCalendarAgendaProjectId] = useState<string | null>(null);
   const [calendarTaskPicker, setCalendarTaskPicker] = useState(false);
@@ -313,14 +284,22 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   const [boardTitleEdit, setBoardTitleEdit] = useState<{ id: string; title: string } | null>(null);
   const cancelledBoardTitleRef = useRef(false);
   const activeView = viewOverride ?? defaultProjectView(projectViewOrder, isCompact, snapshotBase?.project.layout);
-  const calendarPeriod = sharedCalendarPeriod(calendarMonth, calendarMode, english, language);
-  const rangeFilter = activeView === "calendar" && calendarPeriod.dates.length ? { from: localDateKey(calendarPeriod.dates[0]), to: localDateKey(calendarPeriod.dates[calendarPeriod.dates.length - 1]) } : {};
+  const calendarData = sharedCalendarWindow(calendarMonth, calendarMode, calendarScale);
+  const calendarWindow = { ...calendarData, periods: calendarData.periods.map(period => {
+    const middle = period.dates[Math.floor(period.dates.length / 2)];
+    const sacred = calendarMode === "sacred" ? getSacredDate(middle) : null, lunar = calendarMode === "lunar" ? getLunarDate(middle) : null;
+    const title = calendarMode === "profane" ? new Intl.DateTimeFormat(language, { month: "long", year: "numeric" }).format(middle)
+      : calendarMode === "sacred" ? `${translateText(MONTHS[sacred!.monthIndex].name, language as import("./i18n").Language)} · ${sacred!.sacredYear}–${sacred!.sacredYear + 1}`
+        : `${translateText(lunar!.month.name, language as import("./i18n").Language)} · ${lunar!.year.sacredYear}–${lunar!.year.sacredYear + 1}`;
+    return { ...period, title };
+  }) };
+  const calendarPeriod = calendarWindow.periods[0];
+  const rangeFilter = activeView === "calendar" ? { from: calendarWindow.from, to: calendarWindow.to } : {};
   const projectCustomFilter=customCriteria.projectId===projectId&&customCriteria.criteria.length?{customFields:customCriteria.criteria}:{};
   const projectSort=customSort.projectId===projectId?customSort.sort:taskSort;
   const projectPage = useSharedTaskPage(projectId && activeView !== "gantt" ? { projectIds: [projectId], ...rangeFilter, ...(activeView === "calendar" ? {completion:"open" as const} : {}), ...(priorityFilter ? { priority: [Number(priorityFilter)] } : {}),...projectCustomFilter } : null, projectSort, activityKey);
   const appliedPriority = {...(priorityFilter ? {priority:[Number(priorityFilter)]} : {}),...projectCustomFilter};
-  const calendarFrom = calendarPeriod.dates.length ? localDateKey(calendarPeriod.dates[0]) : "";
-  const calendarTo = calendarPeriod.dates.length ? localDateKey(calendarPeriod.dates[calendarPeriod.dates.length - 1]) : "";
+  const calendarFrom = calendarWindow.from, calendarTo = calendarWindow.to;
   const calendarPreviews = useCalendarTaskPreviews(userId, calendarFrom, calendarTo, Boolean(projectId && activeView === "calendar"),
     {filter:{projectIds:[projectId],...appliedPriority},allWidths:true,refreshKey:activityKey,pollMs:5000});
   const calendarScopeKey = JSON.stringify([userId, spaceId, projectId, activeView, calendarFrom, calendarTo, appliedPriority]);
@@ -1012,11 +991,6 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
     return () => { live = false; window.clearInterval(timer); };
   }, [inboxProjectId]);
   const visibleInbox = inboxPreview && inboxPreview.project.id === inboxProjectId ? {...inboxPreview,tasks:inboxPage.page?.tasks ?? [],taskPage:inboxPage.page ?? undefined} : null;
-  const calendarOffset = calendarPeriod.dates.length ? (calendarPeriod.dates[0].getDay() + 6) % 7 : 0;
-  const calendarDays = [
-    ...Array.from({ length: calendarOffset }, () => null),
-    ...calendarPeriod.dates,
-  ];
   const { active: activeCalendarTasks } = ganttTaskGroups(snapshot?.tasks ?? [], snapshot?.statuses ?? []);
   const completedCalendarTasks = completedPage.page?.tasks ?? [];
   const completedCalendarIds = new Set([...completedCalendarTasks,...dayPage.page?.tasks.filter(task=>task.completedAt) ?? []].map(task => task.id));
@@ -1218,6 +1192,43 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
         previewLimit={calendarScale === 0.5 ? 1 : 3} language={language as import("./i18n").Language} onPersonal={() => undefined} onShared={task => void openCalendarTask(task)} onMore={openDay}/> : null}
       {count ? <small className="shared-calendar-task-count" aria-hidden="true">{count}</small> : null}
     </div>;
+  };
+  const renderCalendarPeriod = (period: ReturnType<typeof sharedCalendarPeriod>) => {
+    const offset = (period.dates[0].getDay() + 6) % 7;
+    const calendarDays = [...Array.from({ length: offset }, () => null), ...period.dates];
+    return calendarMode === "profane" ? <div className="shared-projects-calendar-grid">
+          {(english ? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] : ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]).map((day, index) => <span key={day} className="shared-projects-calendar-weekday" data-weekend={index === 5 ? "saturday" : index === 6 ? "sunday" : undefined}>{day}</span>)}
+          {calendarDays.map((date, index) => {
+            if (!date) return <span key={`space-${index}`} aria-hidden="true" />;
+            return renderCalendarDate(date);
+          })}
+        </div> : calendarMode === "sacred" ? <div className="shared-projects-calendar-cycles mode-sacred">
+          {getSacredDate(period.dates[0]).monthIndex !== 12 ? <div className="shared-projects-calendar-elements" aria-hidden="true">
+            {ELEMENTS.map((element) => <span key={element.name}>{translateText(element.name, language as import("./i18n").Language)}</span>)}
+          </div> : null}
+          {Array.from(new Set(period.dates.map((date) => {
+            const sacred = getSacredDate(date);
+            return getSacredDay(sacred.monthIndex, sacred.day).pyata;
+          }))).map((pyata) => {
+            const dates = period.dates.filter((date) => {
+              const sacred = getSacredDate(date);
+              return getSacredDay(sacred.monthIndex, sacred.day).pyata === pyata;
+            });
+            const sacred = getSacredDate(dates[0]);
+            const firstDay = getSacredDay(sacred.monthIndex, sacred.day);
+            return <section className="shared-projects-calendar-cycle" key={pyata} aria-label={pyata ? `${english ? "Quinta" : "Пята"} ${pyata}` : english ? "Apeiron" : "Апейрон"}>
+              <header><strong>{pyata ? `${english ? "Quinta" : "Пята"} ${pyata}` : english ? "Outside time" : "Вне времени"}</strong>
+                <span>{translateText(firstDay.pyataTitle || "Апейрон", language as import("./i18n").Language)}</span></header>
+              <div className="shared-projects-cycle-days">{dates.map(renderCalendarDate)}</div>
+            </section>;
+          })}
+        </div> : <div className="shared-projects-calendar-cycles mode-lunar">
+          {LUNAR_DECADES.map((decade) => <section className="shared-projects-calendar-cycle" key={decade.id}
+            aria-label={translateText(decade.name, language as import("./i18n").Language)}>
+            <header><strong>{translateText(decade.name, language as import("./i18n").Language)}</strong><span>{translateText(decade.range, language as import("./i18n").Language)}</span></header>
+            <div className="shared-projects-cycle-days">{period.dates.filter((date) => getLunarDate(date).decade.id === decade.id).map(renderCalendarDate)}</div>
+          </section>)}
+        </div>;
   };
   const renderCalendarTask = (task: SharedTask) => snapshot ? <article key={task.id} className={`shared-calendar-task${completedCalendarIds.has(task.id) ? " is-completed" : ""}`}
     style={{ "--shared-task-status-color": snapshot.statuses.find(status => status.id === task.statusId)?.color ?? "#2d6c68" } as CSSProperties}
@@ -1472,56 +1483,31 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
         : "Проведите по доске, чтобы увидеть все статусы."}</p> : null}
       </section>
       <div className="shared-projects-workspace">
-      {activeView !== "gantt" ? <SharedTaskPageControls page={snapshot.taskPage} loaded={snapshot.tasks.length} busy={projectPage.busy} onMore={() => void projectPage.more()} onRefresh={() => void projectPage.refresh()} error={projectPage.error} showCount={activeView === "calendar"}/> : null}
+      {activeView === "calendar" ? <div className="shared-calendar-toolbar"><SharedTaskPageControls page={snapshot.taskPage} loaded={snapshot.tasks.length} busy={projectPage.busy} onMore={() => void projectPage.more()} onRefresh={() => void projectPage.refresh()} error={projectPage.error} showCount={activeView === "calendar"}/>
+        <div className="shared-calendar-scale" role="group" aria-label={(calendarScaleCopy[language as import("./i18n").Language] ?? calendarScaleCopy.en).group}>
+          {([1, 0.5, 0.25] as const).map(scale => {
+            const size = scale === 1 ? "full" : scale === 0.5 ? "half" : "quarter";
+            return <IconActionButton key={scale} icon={`calendar-scale-${size}`} data-scale={scale}
+              label={(calendarScaleCopy[language as import("./i18n").Language] ?? calendarScaleCopy.en)[size]}
+              aria-pressed={calendarScale === scale} choiceHint onClick={() => onCalendarScale(scale)}/>;
+          })}
+        </div>
+      </div> : activeView !== "gantt" ? <SharedTaskPageControls page={snapshot.taskPage} loaded={snapshot.tasks.length} busy={projectPage.busy} onMore={() => void projectPage.more()} onRefresh={() => void projectPage.refresh()} error={projectPage.error} showCount={activeView === "calendar"}/> : null}
       {activeView === "gantt" ? <SharedGantt snapshot={snapshot} english={english} calendarMode={calendarMode} timeFormat={timeFormat} initialDay={ganttDay} onOpen={openTask} onCreate={schedule=>{openCreateTask(snapshot.project);setNewPlan({startDate:schedule.startDate,startTime:schedule.startTime||"",endTime:schedule.endTime||"",dependsOnIds:[]});setNewTaskDueDate(schedule.dueDate);}} onSchedule={scheduleTask} onReturn={returnGanttTask} resolveReturn={resolveGanttReturn} onReturnTarget={setGanttReturnTarget} busy={busy} externalDrop={sharedDrag.target?.schedule} externalDropRow={sharedDrag.target?.ganttRow}/> : activeView === "calendar" ? <section className={`shared-projects-calendar${calendarMode === "profane" ? " weekday-tinted-calendar" : ""}`} style={{ "--month-accent": MONTHS[getSacredDate(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 15, 12)).monthIndex].color } as CSSProperties} aria-label={english ? "Project calendar" : "Календарь проекта"}>
         <div className="shared-projects-calendar-head">
           <button type="button" aria-label={english ? "Previous month" : "Предыдущий месяц"} onClick={() => { setCalendarMonth(calendarPeriod.previous); setCalendarDay(localDateKey(calendarPeriod.previous)); }}>←</button>
           <h2>{calendarPeriod.title}</h2>
           <button type="button" aria-label={english ? "Next month" : "Следующий месяц"} onClick={() => { setCalendarMonth(calendarPeriod.next); setCalendarDay(localDateKey(calendarPeriod.next)); }}>→</button>
         </div>
-        <div className="shared-calendar-scale" role="group" aria-label={(calendarScaleCopy[language as import("./i18n").Language] ?? calendarScaleCopy.en).group}>
-          {([1, 0.5, 0.25] as const).map(scale => {
-            const size = scale === 1 ? "full" : scale === 0.5 ? "half" : "quarter";
-            return <IconActionButton key={scale} icon={`calendar-scale-${size}`} data-scale={scale}
-              label={(calendarScaleCopy[language as import("./i18n").Language] ?? calendarScaleCopy.en)[size]}
-              aria-pressed={calendarScale === scale} choiceHint onClick={() => setCalendarScale(scale)}/>;
-          })}
-        </div>
         {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- Focus enables keyboard scrolling of the wide date grid. */}
         <div className="shared-projects-calendar-scroll" data-calendar-scale={calendarScale} style={{ "--calendar-scale": calendarScale } as CSSProperties} tabIndex={0} role="region" aria-label={english ? "Project calendar" : "Календарь проекта"}>
-        {calendarMode === "profane" ? <div className="shared-projects-calendar-grid">
-          {(english ? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] : ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]).map((day, index) => <span key={day} className="shared-projects-calendar-weekday" data-weekend={index === 5 ? "saturday" : index === 6 ? "sunday" : undefined}>{day}</span>)}
-          {calendarDays.map((date, index) => {
-            if (!date) return <span key={`space-${index}`} aria-hidden="true" />;
-            return renderCalendarDate(date);
-          })}
-        </div> : calendarMode === "sacred" ? <div className="shared-projects-calendar-cycles mode-sacred">
-          {getSacredDate(calendarPeriod.dates[0]).monthIndex !== 12 ? <div className="shared-projects-calendar-elements" aria-hidden="true">
-            {ELEMENTS.map((element) => <span key={element.name}>{translateText(element.name, language as import("./i18n").Language)}</span>)}
-          </div> : null}
-          {Array.from(new Set(calendarPeriod.dates.map((date) => {
-            const sacred = getSacredDate(date);
-            return getSacredDay(sacred.monthIndex, sacred.day).pyata;
-          }))).map((pyata) => {
-            const dates = calendarPeriod.dates.filter((date) => {
-              const sacred = getSacredDate(date);
-              return getSacredDay(sacred.monthIndex, sacred.day).pyata === pyata;
-            });
-            const sacred = getSacredDate(dates[0]);
-            const firstDay = getSacredDay(sacred.monthIndex, sacred.day);
-            return <section className="shared-projects-calendar-cycle" key={pyata} aria-label={pyata ? `${english ? "Quinta" : "Пята"} ${pyata}` : english ? "Apeiron" : "Апейрон"}>
-              <header><strong>{pyata ? `${english ? "Quinta" : "Пята"} ${pyata}` : english ? "Outside time" : "Вне времени"}</strong>
-                <span>{translateText(firstDay.pyataTitle || "Апейрон", language as import("./i18n").Language)}</span></header>
-              <div className="shared-projects-cycle-days">{dates.map(renderCalendarDate)}</div>
-            </section>;
-          })}
-        </div> : <div className="shared-projects-calendar-cycles mode-lunar">
-          {LUNAR_DECADES.map((decade) => <section className="shared-projects-calendar-cycle" key={decade.id}
-            aria-label={translateText(decade.name, language as import("./i18n").Language)}>
-            <header><strong>{translateText(decade.name, language as import("./i18n").Language)}</strong><span>{translateText(decade.range, language as import("./i18n").Language)}</span></header>
-            <div className="shared-projects-cycle-days">{calendarPeriod.dates.filter((date) => getLunarDate(date).decade.id === decade.id).map(renderCalendarDate)}</div>
+        {calendarScale === 0.25 ? <div className="shared-calendar-months">
+          {calendarWindow.periods.map(period => <section key={localDateKey(period.dates[0])} className="shared-calendar-month"
+            data-calendar-month={localDateKey(period.dates[0])} aria-label={period.title}
+            style={{ "--month-accent": MONTHS[getSacredDate(period.dates[0]).monthIndex].color } as CSSProperties}>
+            <h3>{period.title}</h3>{renderCalendarPeriod(period)}
           </section>)}
-        </div>}
+        </div> : renderCalendarPeriod(calendarPeriod)}
         </div>
         {undatedCalendarTasks.length ? <details className="shared-projects-calendar-undated">
           <summary><ExperimentalIcon name="chevron" /><span>{english ? "Tasks without a due date" : "Задачи без срока"}</span><small>{undatedPage.page?.total ?? 0}</small></summary>
@@ -1560,17 +1546,17 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
           {canWrite || canManage ? <div className="shared-board-create-actions" role="group" aria-label={statusLabel(status.title)}>
             {canWrite ? <><div className="shared-board-create-work">
             <button type="button" className="shared-board-create-task" onClick={() => openCreateTask(snapshot.project, status)}
-              aria-label={english ? "Create task" : "Создать задачу"} aria-describedby={`shared-create-task-${status.id}`}>
-              <ExperimentalIcon name="task" /><span id={`shared-create-task-${status.id}`} className="shared-create-tooltip" role="tooltip">{english ? "Create task" : "Создать задачу"}</span>
+              aria-label={english ? "Create task" : "Создать задачу"}>
+              <ExperimentalIcon name="task" />
             </button>
             {(["project", "task-list"] as const).map((kind) => <button type="button" className={`shared-board-create-${kind}`} key={kind}
               aria-label={kind === "project" ? (english ? "Create project" : "Создать проект") : translateText("Создать список задач")}
-              aria-describedby={`shared-create-${kind}-${status.id}`} onClick={() => {
+              onClick={() => {
               if (kind === "task-list") { openCreateTask(snapshot.project, status, "task-list"); return; }
               setCreateKind(kind); setParentId(snapshot.project.id); setParentBoardId(status.id); setCreateModal("project");
             }}><ExperimentalIcon name={kind === "project" ? "project-plus" : "list"} />
-              <span id={`shared-create-${kind}-${status.id}`} className="shared-create-tooltip" role="tooltip">{kind === "project" ? (english ? "Create project" : "Создать проект") : translateText("Создать список задач")}</span></button>)}
-            </div><div className="shared-board-create-events">{(["meeting", "event"] as const).map(type => <button type="button" className={`shared-board-create-${type}`} key={type} aria-label={`${english ? "Create" : "Создать"}: ${entryTypeLabel(type,english)}`} onClick={() => openCreateTask(snapshot.project,status,type)}><ExperimentalIcon name={type}/><span className="shared-create-tooltip" role="tooltip">{entryTypeLabel(type,english)}</span></button>)}</div></> : null}
+              </button>)}
+            </div><div className="shared-board-create-events">{(["meeting", "event"] as const).map(type => <button type="button" className={`shared-board-create-${type}`} key={type} aria-label={`${english ? "Create" : "Создать"}: ${entryTypeLabel(type,english)}`} onClick={() => openCreateTask(snapshot.project,status,type)}><ExperimentalIcon name={type}/></button>)}</div></> : null}
             {canManage ? <button type="button" className="shared-board-settings" disabled={busy} aria-label={english ? `Settings for ${status.title}` : `Настройки доски «${status.title}»`} title={english ? "Board settings" : "Настройки доски"} onClick={() => openBoardSettings(status)}><ExperimentalIcon name="gear" /></button> : null}
           </div> : null}
           </header>

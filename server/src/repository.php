@@ -257,6 +257,9 @@ function genesisUiVisibility(mixed $value): array
         throw new InvalidArgumentException('INVALID_PROJECT_VIEW_ORDER');
     }
     $result['sharedProjectViewOrder'] = $viewOrder;
+    $calendarScale = array_key_exists('sharedCalendarScale', $decoded) ? $decoded['sharedCalendarScale'] : 1;
+    if (!in_array($calendarScale, [1, 1.0, 0.5, 0.25], true)) throw new InvalidArgumentException('INVALID_CALENDAR_SCALE');
+    $result['sharedCalendarScale'] = $calendarScale;
     return $result;
 }
 
@@ -1242,7 +1245,7 @@ function genesisUpdateAccountPreferencesInTransaction(string $userId, array $pay
     }
     $visibilityInput = $payload['uiVisibility'] ?? ($user['ui_visibility_json'] ?? '{}');
     $savedVisibility = genesisUiVisibility($user['ui_visibility_json'] ?? '{}');
-    $layoutFields = ['sidebarWidth', 'personalInboxPosition', 'personalInboxHidden', 'personalInboxCompact', 'sharedInboxPosition', 'sharedInboxHidden', 'sharedInboxCompact', 'sharedCategoriesExpanded', 'personalCategoriesExpanded', 'personalCategoriesView', 'sharedCategoriesView', 'sharedTasksCompact', 'personalInboxWidth', 'sharedInboxWidth', 'notificationDockPinned', 'notificationDockX', 'notificationDockY', 'sharedProjectViewOrder'];
+    $layoutFields = ['sidebarWidth', 'personalInboxPosition', 'personalInboxHidden', 'personalInboxCompact', 'sharedInboxPosition', 'sharedInboxHidden', 'sharedInboxCompact', 'sharedCategoriesExpanded', 'personalCategoriesExpanded', 'personalCategoriesView', 'sharedCategoriesView', 'sharedTasksCompact', 'personalInboxWidth', 'sharedInboxWidth', 'notificationDockPinned', 'notificationDockX', 'notificationDockY', 'sharedProjectViewOrder', 'sharedCalendarScale'];
     // Older web/native clients must not reset account layout preferences.
     if (is_array($visibilityInput)) {
         foreach (['sacredFeaturesEnabled', 'sidebarAutoCollapseSeconds', ...$layoutFields] as $field) {

@@ -1,5 +1,6 @@
 html[data-genesis-theme] .genesis-app .reorderable-project-views > button { touch-action: pan-y; cursor: grab; user-select: none; -webkit-touch-callout: none; }
 html[data-genesis-theme] .genesis-app .reorderable-project-views[data-reordering] > button { cursor: grabbing; }
+html[data-genesis-theme] .genesis-app .reorderable-project-views > button[data-view-pressing] { outline: 2px solid var(--ui-accent); outline-offset: -3px; }
 html[data-genesis-theme] .genesis-app .shared-projects-planning .reorderable-project-views > button[data-view-dragging] {
   color: var(--ink-soft); background: var(--surface); border: 1px dashed var(--ui-accent);
   box-shadow: none; opacity: .55;

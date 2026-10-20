@@ -1,6 +1,6 @@
 "use client";
 import { DialogCloseButton } from "./DialogCloseButton";
-import { useMobileLayout } from "./use-mobile-layout";
+import { useMobileLayout, useCompactHeader } from "./use-mobile-layout";
 import {orderPersonalTasks,taskListOrders,unreadPersonalCommentIds,type TaskListOrder} from "./task-list-order";
 import {usePersonalTaskDisplay} from "./use-personal-task-display";
 import {MindmapLaunchButton} from "./MindmapLaunchButton";
@@ -1179,6 +1179,7 @@ function DisplayCalendarChoice({ label, className, enabledCalendars, mode, langu
 
 export function GenesisCalendar() {
   const mobileLayout = useMobileLayout();
+  const compactHeader = useCompactHeader();
   const initial = useMemo(() => getSacredDate(new Date()), []);
   const [language, setLanguage] = useState<Language>(browserLanguage);
   const [today, setToday] = useState(() => new Date());
@@ -5081,6 +5082,8 @@ export function GenesisCalendar() {
                 <span><b>{isEnglish ? "Body parts:" : "Части тела:"}</b> {weekdayPatron.bodyParts}</span>
               </div>
             ) : null : <p className="hero-description">{heroDescription}</p>}
+            <TodaySolarTimes today={today} location={deviceLocation} deviceTimeZone={deviceTimeZone} approximate={solarLocationSource !== "selected-city"}
+              ready={solarLocationStatus === "ready"} language={language} timeFormat={activeTimeFormat}/>
             <div className="hero-actions">
               <button className="primary-button" type="button" onClick={openTodayInCalendar}>
                 Открыть день <span aria-hidden="true">↗</span>
@@ -5398,11 +5401,11 @@ export function GenesisCalendar() {
       : activeCalendarMode === "lunar" ? selectedLunarMonthIndex === lunarMonthIndex(today)
         : selectedDate.getFullYear() === today.getFullYear() && selectedDate.getMonth() === today.getMonth();
     if (currentMonth) return null;
-    return <button type="button" className="calendar-current-month" aria-label={discoveryCopy[language].returnMonth}
+    return <div className="calendar-month-footer"><button type="button" className="calendar-current-month" aria-label={discoveryCopy[language].returnMonth}
       onClick={() => { selectCalendarDate(new Date()); setDayDetailsOpen(false); }}>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M7 3v4M17 3v4M4 10h16M10 21H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5"/><path d="m15 13-3 3 3 3m-3-3h5a3 3 0 0 1 0 6"/></svg>
       <span data-no-translate>{discoveryCopy[language].thisMonth}</span>
-    </button>;
+    </button></div>;
   };
 
   const renderSacredCalendar = () => {
@@ -5436,11 +5439,7 @@ export function GenesisCalendar() {
             <span aria-hidden="true">{selectedMonth.symbol}</span>
             <button type="button" onClick={() => selectMonth(monthIndex + 1)} aria-label="Следующий месяц">→</button>
           </div>
-          <div className="calendar-month-footer">
-            <TodaySolarTimes today={today} location={deviceLocation} deviceTimeZone={deviceTimeZone} approximate={solarLocationSource !== "selected-city"}
-              ready={solarLocationStatus === "ready"} language={language} timeFormat={activeTimeFormat}/>
-            {renderCurrentMonthButton()}
-          </div>
+          {renderCurrentMonthButton()}
         </header>
 
         <section className="month-calendar" aria-label={`Календарь месяца ${selectedMonth.name}`}>
@@ -5735,11 +5734,7 @@ export function GenesisCalendar() {
             <span aria-hidden="true">{sacredFeaturesEnabled ? <CalendarModeIcon mode={mode} size={35} /> : gregorianMonthNumber(firstDate, gregorianYearStartsInMarch ? "march" : "january")}</span>
             <button type="button" onClick={() => moveMonth(1)} aria-label={mode === "profane" ? "Следующий календарный месяц" : "Следующий лунный месяц"}>→</button>
           </div>
-          <div className="calendar-month-footer">
-            <TodaySolarTimes today={today} location={deviceLocation} deviceTimeZone={deviceTimeZone} approximate={solarLocationSource !== "selected-city"}
-              ready={solarLocationStatus === "ready"} language={language} timeFormat={activeTimeFormat}/>
-            {renderCurrentMonthButton()}
-          </div>
+          {renderCurrentMonthButton()}
         </header>
 
         <section className={`month-calendar calendar-mode-calendar mode-${mode}`} aria-label={`${CALENDAR_MODE_META[mode].label}: ${monthTitle}`}>
@@ -6695,7 +6690,7 @@ export function GenesisCalendar() {
               </svg>
             </button> : null}
 
-            {!mobileLayout ? <div className="notification-header-slot" ref={setNotificationHeaderTarget} /> : null}
+            <div className="notification-header-slot" ref={setNotificationHeaderTarget} />
 
           </div>
   );
@@ -6837,17 +6832,17 @@ export function GenesisCalendar() {
         aria-label={language === "en" ? "Sidebar width" : "Ширина боковой панели"} {...resizeProps} />
 
       <section className="app-stage" data-exp-layout="stage">
-        <header className="app-brand-header">
+        <header className="app-brand-header" data-compact-header={compactHeader || undefined}>
           <button type="button" onClick={selectToday} aria-label="GENESIS — на главную">
             <img src={`${APP_BASE}/icons/icon-round-v2.png`} alt="" aria-hidden="true" data-genesis-preserve="web-header-logo" />
             <strong data-no-translate>GENESIS</strong>
           </button>
-          {mobileLayout ? renderTopbarActions() : null}
+          {compactHeader && experimentalThemeActive ? renderDisplayCalendarChoice(language === "en" ? "Display calendar" : "Календарь отображения", "topbar-calendar-choice") : null}
+          {compactHeader ? renderTopbarActions() : null}
         </header>
         <header className="topbar" data-exp-ui="topbar">
-          {experimentalThemeActive ? renderDisplayCalendarChoice(language === "en" ? "Display calendar" : "Календарь отображения", "topbar-calendar-choice") : null}
-          {mobileLayout ? <div className="notification-header-slot" ref={setNotificationHeaderTarget} /> : null}
-          {!mobileLayout ? renderTopbarActions() : null}
+          {!compactHeader && experimentalThemeActive ? renderDisplayCalendarChoice(language === "en" ? "Display calendar" : "Календарь отображения", "topbar-calendar-choice") : null}
+          {!compactHeader ? renderTopbarActions() : null}
         </header>
 
         <div className={`workspace workspace-full${view === "today" ? " today-workspace" : ""}`} id="main-content" data-exp-layout="content">
@@ -6857,7 +6852,7 @@ export function GenesisCalendar() {
             {authError ? <p className="oauth-callback-error" role="alert">{authError}</p> : null}
             {cloudUser && cloudUser.authProvider !== "yandex" && (!cloudUser.calendarConnected || !cloudUser.googleTasksImportReady) ? (
 
-                <Suspense fallback={null}><GoogleConnectNotice compact={view === "projects"} busy={syncStatus === "syncing"} onConnect={() => void handleGoogleConnect()} /></Suspense>
+                <Suspense fallback={null}><GoogleConnectNotice key={cloudUser.uid} compact={view === "projects"} busy={syncStatus === "syncing"} onConnect={() => void handleGoogleConnect()} /></Suspense>
             ) : null}
             <ViewErrorBoundary resetKey={view}>
               {view === "today" ? renderToday() : null}
@@ -6895,6 +6890,7 @@ export function GenesisCalendar() {
                 {!sharedProjectsVisible || activeProjectsArea === "personal" ? renderProjects() : <Suspense fallback={<DeferredViewFallback label={language === "en" ? "Opening shared projects…" : "Открываем общие проекты…"} />}>
                   <SharedProjects key={`${cloudUser?.uid}:${invitationDestination?.userId===cloudUser?.uid ? invitationDestination?.request : "default"}`} userId={cloudUser?.uid ?? ""} language={language} experimentalTheme={experimentalThemeActive}
                     projectViewOrder={accountLayout.sharedProjectViewOrder} onProjectViewOrder={sharedProjectViewOrder => saveLayout({ sharedProjectViewOrder })}
+                    calendarScale={accountLayout.sharedCalendarScale} onCalendarScale={sharedCalendarScale => saveLayout({ sharedCalendarScale })}
                     inboxPosition={accountLayout.sharedInboxPosition} inboxHidden={accountLayout.sharedInboxHidden}
                     inboxWidth={accountLayout.sharedInboxWidth} onInboxWidth={sharedInboxWidth => saveLayout({ sharedInboxWidth })}
                     inboxCompact={accountLayout.sharedInboxCompact} onInboxCompact={sharedInboxCompact => saveLayout({ sharedInboxCompact })}

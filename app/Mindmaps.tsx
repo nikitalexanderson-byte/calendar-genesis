@@ -43,7 +43,7 @@ function Dialog({ title, onClose, children }: { title: string; onClose: () => vo
 }
 const statuses: Record<SaveState, string> = { saving: "Сохраняем защищённый черновик…", device: "Сохранено на устройстве", pending: "Ожидает синхронизации", synced: "Синхронизировано с сервером", conflict: "Конфликт: оба варианта сохранены", error: "Сохранение требует внимания" };
 function MapAction({label,shortLabel,icon,onClick,pressed,disabled,danger}:{label:string;shortLabel?:string;icon:string;onClick:()=>void;pressed?:boolean;disabled?:boolean;danger?:boolean}) {
-  return <button type="button" className={`mindmap-icon-action${danger ? " danger-button" : ""}`} aria-label={label} aria-pressed={pressed} disabled={disabled} onClick={onClick}><ExperimentalIcon name={icon}/><span className="mindmap-action-label" aria-hidden="true">{shortLabel ? <><span className="mindmap-label-full">{label}</span><span className="mindmap-label-short" data-no-translate>{shortLabel}</span></> : label}</span><span role="tooltip" className="mindmap-action-tooltip">{label}</span></button>;
+  return <button type="button" className={`mindmap-icon-action${danger ? " danger-button" : ""}`} aria-label={label} aria-pressed={pressed} disabled={disabled} onClick={onClick}><ExperimentalIcon name={icon}/><span className="mindmap-action-label" aria-hidden="true">{shortLabel ? <><span className="mindmap-label-full">{label}</span><span className="mindmap-label-short" data-no-translate>{shortLabel}</span></> : label}</span></button>;
 }
 function download(name: string, content: string, type: string) {
   const url = URL.createObjectURL(new Blob([content], { type })); const a = document.createElement("a");
@@ -401,12 +401,12 @@ export default function Mindmaps(props: Props) {
         <button type="button" className="primary-button mindmap-add-thought" disabled={props.readOnly} aria-label="Добавить мысль" title="Добавить мысль" onClick={() => addIdea()}><ExperimentalIcon name="thought-new"/><span>Добавить мысль</span></button><button type="button" className="mindmap-add-affair" disabled={props.readOnly} aria-label="Добавить из дел" title="Добавить из дел" onClick={() => { setPickerQuery(""); setPickerTask(null); setDialog("add"); }}><ExperimentalIcon name="thought-affair"/><span>Добавить из дел</span></button>
       <div className="mindmap-history-actions" role="group" aria-label={mindmapCopy("edits")}>
         <button type="button" disabled={props.readOnly || Boolean(ideaDraft) || status === "conflict" || !editHistory.canUndo}
-          aria-label={translateText("Отменить изменение карты")} aria-keyshortcuts="Control+Z Meta+Z" onClick={() => applyHistory("undo")}>
-          <ExperimentalIcon name="undo"/><span role="tooltip" className="mindmap-action-tooltip">{translateText("Отменить изменение карты")} · Ctrl+Z</span>
+          aria-label={translateText("Отменить изменение карты")} aria-keyshortcuts="Control+Z Meta+Z" data-tooltip={`${translateText("Отменить изменение карты")} · Ctrl+Z`} onClick={() => applyHistory("undo")}>
+          <ExperimentalIcon name="undo"/>
         </button>
         <button type="button" disabled={props.readOnly || Boolean(ideaDraft) || status === "conflict" || !editHistory.canRedo}
-          aria-label={translateText("Повторить изменение карты")} aria-keyshortcuts="Control+Y Meta+Shift+Z" onClick={() => applyHistory("redo")}>
-          <ExperimentalIcon name="redo"/><span role="tooltip" className="mindmap-action-tooltip">{translateText("Повторить изменение карты")} · Ctrl+Y</span>
+          aria-label={translateText("Повторить изменение карты")} aria-keyshortcuts="Control+Y Meta+Shift+Z" data-tooltip={`${translateText("Повторить изменение карты")} · Ctrl+Y`} onClick={() => applyHistory("redo")}>
+          <ExperimentalIcon name="redo"/>
         </button>
       </div>
         {!isMobile ? nodeSearch : null}
