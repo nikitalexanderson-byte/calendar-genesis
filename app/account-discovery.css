@@ -11,12 +11,6 @@ html[data-genesis-theme] .genesis-app .account-guide-link {
   text-underline-offset: .2em; cursor: pointer;
 }
 html[data-genesis-theme] .genesis-app .account-guide-link:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 3px; }
-html[data-genesis-theme] .account-guide-arrow {
-  position: fixed; z-index: 1600; color: #bd5144; overflow: visible; pointer-events: none;
-  filter: drop-shadow(0 3px 3px rgba(91, 39, 24, .22)); animation: account-guide-point 1.8s ease-in-out infinite;
-}
-html[data-genesis-theme$="-dark"] .account-guide-arrow { color: #ed927e; }
-.account-guide-stroke { fill: none; stroke: currentColor; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
 html[data-genesis-theme] .genesis-app .calendar-explore-notice {
   padding: 20px; border-radius: 12px; background: var(--surface); color: var(--ink); border: 1px solid var(--line);
 }
@@ -66,19 +60,16 @@ html[data-genesis-theme] .genesis-app .topbar .topbar-date { display: grid; gap:
   html[data-genesis-theme] .genesis-app .calendar-explore-notice { padding: 16px; }
   html[data-genesis-theme] .genesis-app .calendar-explore-options { grid-template-columns: minmax(0, 1fr); gap: 18px; }
 }
-html[data-genesis-theme] .genesis-app .account-open.is-guided {
-  outline: 2px solid #d6ac56; outline-offset: 3px;
-  animation: account-guide-gold 2.4s ease-in-out infinite;
+html[data-genesis-theme] .genesis-app .shared-projects-guide > i {
+  outline: 2px solid var(--terracotta); outline-offset: 4px;
+  animation: shared-projects-guide-pulse 1.25s ease-in-out 4;
 }
-@keyframes account-guide-point { 50% { transform: translateY(5px); } }
-@keyframes account-guide-gold {
-  0%, 100% { box-shadow: 0 0 0 3px rgba(214, 172, 86, .16), 0 3px 14px rgba(214, 172, 86, .28); }
-  50% { box-shadow: 0 0 0 5px rgba(214, 172, 86, .3), 0 4px 24px rgba(214, 172, 86, .48); }
+@keyframes shared-projects-guide-pulse {
+  0%, 100% { outline-offset: 4px; }
+  50% { outline-offset: 8px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  html[data-genesis-theme] .account-guide-arrow,
-  html[data-genesis-theme] .genesis-app .account-open.is-guided { animation: none; }
-  html[data-genesis-theme] .genesis-app .account-open.is-guided { box-shadow: 0 0 0 3px rgba(214, 172, 86, .25), 0 4px 18px rgba(214, 172, 86, .35); }
+  html[data-genesis-theme] .genesis-app .shared-projects-guide > i { animation: none; }
 }
 
 @media (max-width: 767px) {

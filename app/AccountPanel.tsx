@@ -66,6 +66,7 @@ const TODAY_SETTINGS = [
 
 type AccountPanelProps = {
   user: GenesisUser;
+  guideSharedProjects?: boolean;
   onClose: () => void;
   onSignOut: () => Promise<void>;
   onReconnectGoogle: () => void;
@@ -127,7 +128,7 @@ function createHabitResetChallenge(): HabitResetChallenge {
   };
 }
 
-export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onConnectAdditionalGoogle, onLanguageChange, onUserChange, themeState, onThemeChange, habitTrackingEnabled, onHabitTrackingChange, habitNotificationSettings, notificationPermission, onHabitNotificationSettingsChange, habitFeedbackSettings, onHabitFeedbackSettingsChange, onRequestHabitNotifications, hiddenHabitTemplateCount, onRestoreHabitTemplates, onResetHabitTracking, onExportCalendar, calendarExportAvailable, categories }: AccountPanelProps) {
+export function AccountPanel({ user, guideSharedProjects = false, onClose, onSignOut, onReconnectGoogle, onConnectAdditionalGoogle, onLanguageChange, onUserChange, themeState, onThemeChange, habitTrackingEnabled, onHabitTrackingChange, habitNotificationSettings, notificationPermission, onHabitNotificationSettingsChange, habitFeedbackSettings, onHabitFeedbackSettingsChange, onRequestHabitNotifications, hiddenHabitTemplateCount, onRestoreHabitTemplates, onResetHabitTracking, onExportCalendar, calendarExportAvailable, categories }: AccountPanelProps) {
   const [sharedNotificationSettingsOpen,setSharedNotificationSettingsOpen]=useState(false);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -139,7 +140,9 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
   const [teamReadBusy, setTeamReadBusy] = useState(false);
   const [invitationBusy, setInvitationBusy] = useState("");
   const [invitationMessage, setInvitationMessage] = useState("");
-  const [settingsTab, setSettingsTab] = useState<SettingsSectionId>("appearance");
+  const [settingsTab, setSettingsTab] = useState<SettingsSectionId>(guideSharedProjects ? "shared" : "appearance");
+  const [sharedGuideVisible, setSharedGuideVisible] = useState(guideSharedProjects);
+  const sharedProjectsToggleRef = useRef<HTMLInputElement>(null);
   const settingsTouch = useRef<{ x: number; y: number } | null>(null);
   const [habitResetChallenge, setHabitResetChallenge] = useState<HabitResetChallenge | null>(null);
   const [habitResetAnswer, setHabitResetAnswer] = useState("");
@@ -518,6 +521,17 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
 
   const accountDialogRef = useDialogAccessibility<HTMLElement>(onClose);
   const habitResetDialogRef = useDialogAccessibility<HTMLFormElement>(closeHabitReset, Boolean(habitResetChallenge));
+
+  useEffect(() => {
+    if (!guideSharedProjects) return;
+    const timer = window.setTimeout(() => setSharedGuideVisible(false), 5_000);
+    const frame = window.requestAnimationFrame(() => {
+      sharedProjectsToggleRef.current?.scrollIntoView({ block: "center", behavior: "instant" });
+    });
+    return () => { window.clearTimeout(timer); window.cancelAnimationFrame(frame); };
+  }, [guideSharedProjects]);
+
+  const sharedGuideActive = sharedGuideVisible && settingsTab === "shared" && user.sharedProjectsEligible && !user.sharedProjectsEnabled;
 
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
@@ -1006,11 +1020,12 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
               ? (user.language === "en" ? "Lifetime free access to Shared affairs." : "Пожизненный бесплатный открытый доступ к функциям «Общие дела».")
               : (user.language === "en" ? "Open to all GENESIS accounts during testing." : "Открыто всем аккаунтам GENESIS на время тестирования.")}</small>
           </div>
-          <label htmlFor="shared-projects-toggle" aria-label={user.language === "en" ? "Enable shared affairs" : "Включить общие дела"} className="account-switch-row" data-exp-ui="row">
+          <label htmlFor="shared-projects-toggle" aria-label={user.language === "en" ? "Enable shared affairs" : "Включить общие дела"} className={`account-switch-row${sharedGuideActive ? " shared-projects-guide" : ""}`} data-exp-ui="row">
             <span><strong>{user.language === "en" ? "Enable shared affairs" : "Включить общие дела"}</strong></span>
-            <input id="shared-projects-toggle" type="checkbox" role="switch" data-exp-ui="switch" checked={Boolean(user.sharedProjectsEnabled)}
+            <input ref={sharedProjectsToggleRef} id="shared-projects-toggle" type="checkbox" role="switch" data-exp-ui="switch" checked={Boolean(user.sharedProjectsEnabled)}
+              data-dialog-initial-focus={guideSharedProjects ? "" : undefined}
               disabled={!user.sharedProjectsEligible || preferenceBusy}
-              onChange={(event) => void changeSharedProjectsPreference(event.target.checked)} />
+              onChange={(event) => { setSharedGuideVisible(false); void changeSharedProjectsPreference(event.target.checked); }} />
             <i aria-hidden="true" />
           </label>
         {user.sharedProjectsEnabled?<div className="notification-preference-buttons"><button type="button" className="secondary-button" onClick={()=>setSharedNotificationSettingsOpen(true)}>{translateText("Настройки уведомлений")}</button><button type="button" className="secondary-button" onClick={()=>{onClose();window.dispatchEvent(new Event("genesis:notification-inbox-open"));}}>{translateText("История уведомлений")}</button></div>:null}

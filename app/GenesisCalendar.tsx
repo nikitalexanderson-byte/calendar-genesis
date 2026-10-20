@@ -64,7 +64,7 @@ import { matchesAffair } from "./affairs-search";
 import { ExperimentalIcon } from "./ExperimentalIcon";
 import { NavigationIcon } from "./NavigationIcon";
 import { WorkspaceHeader } from "./WorkspaceHeader";
-import { useAccountGuide } from "./AccountGuide";
+import "./account-discovery.css";
 import discoveryCopy from "./current-month-copy.json";
 const SharedAffairsHint = lazy(() => import("./SharedAffairsHint"));
 const CalendarExploreNotice = lazy(() => import("./CalendarExploreNotice"));
@@ -189,12 +189,15 @@ import {
   normalizeCalendarDateNote,
 } from "./calendar-data";
 import { gregorianMonthNumber, gregorianWeekdayOffset } from "./calendar-layout";
+import { gregorianSeasonArt } from "./gregorian-season-art";
+import "./gregorian-season-art.css";
 import {
   type AutomaticSolarLocation,
   type DeviceLocation,
   formatDeviceSolarTime,
   getAutomaticSolarLocation,
   getSunriseSunset,
+  getTimezoneFallbackLocation,
 } from "./solar-times";
 import { readSolarPlace, readSolarTimesVisible, SOLAR_PLACE_CHANGED } from "./solar-place";
 import { usePwaInstall } from "./use-pwa-install";
@@ -1224,7 +1227,7 @@ export function GenesisCalendar() {
   });
   const [accountOpen, setAccountOpen] = useState(false);
   const [iosInstallOpen, setIosInstallOpen] = useState(false);
-  const accountGuide = useAccountGuide(cloudUser?.uid ?? "");
+  const [accountGuideUserId, setAccountGuideUserId] = useState<string | null>(null);
   const acknowledgeCalendarExploration = useCallback((userId: string) => {
     setCloudUser(current => current?.uid === userId ? { ...current, calendarExplorationPending: false } : current);
   }, []);
@@ -1620,6 +1623,7 @@ export function GenesisCalendar() {
     [],
   );
   const solarTimeZone = deviceLocation?.timeZone ?? deviceTimeZone;
+  const seasonLocation = deviceLocation ?? getTimezoneFallbackLocation(deviceTimeZone);
   const displaySolarTime = (date: Date) =>
     `${solarLocationSource === "selected-city" ? "" : "≈"}${formatDeviceSolarTime(date, solarTimeZone)}`;
 
@@ -5665,9 +5669,6 @@ export function GenesisCalendar() {
   const renderAlternativeCalendar = (mode: Exclude<CalendarMode, "sacred">) => {
     const lunarDates = mode === "lunar" ? getLunarMonthDates(selectedLunarMonthIndex) : [];
     const dates = mode === "profane" ? profaneMonthDates(selectedDate) : lunarDates;
-    const representativeDate = dates[Math.floor(dates.length / 2)] ?? selectedDate;
-    const representativeSacred = getSacredDate(representativeDate);
-    const accentMonth = MONTHS[representativeSacred.monthIndex];
     const firstDate = dates[0] ?? selectedDate;
     const lastDate = dates.at(-1) ?? selectedDate;
     const lunarOrdinal = selectedLunarMonthIndex - selectedLunarYear.startMonthIndex + 1;
@@ -5725,12 +5726,12 @@ export function GenesisCalendar() {
       <div
         className={`calendar-view calendar-mode-view mode-${mode}`}
         style={{
-          "--month-accent": mode === "lunar" ? lunarMonthColor(lunarDefinition.index) : accentMonth.color,
-          "--month-art": mode === "lunar" ? `url("${lunarMonthArtUrl(lunarDefinition.index)}")` : undefined,
+          "--month-accent": mode === "lunar" ? lunarMonthColor(lunarDefinition.index) : "var(--ui-accent)",
+          "--month-art": `url("${mode === "lunar" ? lunarMonthArtUrl(lunarDefinition.index) : `${APP_BASE}/${gregorianSeasonArt(selectedDate.getMonth(), seasonLocation)}`}")`,
         } as CSSProperties}
       >
         <header className="calendar-header calendar-mode-header">
-          {mode === "lunar" ? <span className="calendar-month-art" aria-hidden="true" /> : null}
+          <span className={mode === "lunar" ? "calendar-month-art" : "gregorian-season-art"} aria-hidden="true" />
           <div>
             {sacredFeaturesEnabled ? <span className="eyebrow">{monthEyebrow}</span> : null}
             <h1>{monthTitle}</h1>
@@ -5924,7 +5925,11 @@ export function GenesisCalendar() {
             <span><strong>{projects.length - rootProjects}</strong> {language === "en" ? "subprojects" : "подпроектов"}</span>
           </div>
         </WorkspaceHeader>
-        {cloudUser?.sharedProjectsEligible && !sharedProjectsVisible ? <Suspense fallback={null}><SharedAffairsHint language={language} onGuide={accountGuide.start} /></Suspense> : null}
+        {cloudUser?.sharedProjectsEligible && !sharedProjectsVisible ? <Suspense fallback={null}><SharedAffairsHint language={language} onGuide={() => {
+          setAccountGuideUserId(cloudUser.uid);
+          setAccountMenuOpen(false);
+          setAccountOpen(true);
+        }} /></Suspense> : null}
         <div className="project-toolbar" data-has-completed={completedCount > 0}>
         {completedCount > 0 ? <div className="affairs-actions">
           <div className="project-completion-tabs" role="group" aria-label={language === "en" ? "Project status" : "Статус проектов"}>
@@ -6356,9 +6361,9 @@ export function GenesisCalendar() {
         })}
         <article className="year-description-card" aria-labelledby="year-description-title">
           <span className="eyebrow">Ритм GENESIS</span>
-          <h2 id="year-description-title">Солнечно-лунный календарь</h2>
+          <h2 id="year-description-title">Солнечный календарь</h2>
           <p>Год GENESIS начинается в день весеннего равноденствия и раскрывается через двенадцать месяцев. Каждый месяц несёт собственный образ, цвет, стихию и смысл — не просто отрезок времени, а отдельную ступень годового пути.</p>
-          <p>В каждом месяце ровно 30 дней. Вместо привычных недель время собрано в шесть пят: коротких пятидневных ритмов, где нечётные и чётные пяты сменяют друг друга. Так солнечная мера года соединяется с живым лунным дыханием.</p>
+          <p>В каждом месяце ровно 30 дней. Вместо привычных недель время собрано в шесть пят: коротких пятидневных ритмов, где нечётные и чётные пяты сменяют друг друга. Годовой ритм задают движение Солнца, равноденствия и солнцестояния.</p>
           <dl>
             <div><dt>12</dt><dd>символических месяцев</dd></div>
             <div><dt>30</dt><dd>дней в каждом месяце</dd></div>
@@ -6398,6 +6403,7 @@ export function GenesisCalendar() {
             symbol: "",
             dates,
             accentMonth,
+            artUrl: `${APP_BASE}/${gregorianSeasonArt(representative.getMonth(), seasonLocation)}`,
           };
         })
       : Array.from({ length: lunarYear.monthCount }, (_, offset) => {
@@ -6524,7 +6530,7 @@ export function GenesisCalendar() {
                 key={month.id}
                 aria-labelledby={`year-month-${month.id}`}
                 style={{
-                  "--month-accent": month.color ?? month.accentMonth.color,
+                  "--month-accent": mode === "profane" ? "var(--ui-accent)" : month.color ?? month.accentMonth.color,
                   "--month-art": month.artUrl ? `url("${month.artUrl}")` : undefined,
                 } as CSSProperties}
               >
@@ -6652,10 +6658,9 @@ export function GenesisCalendar() {
               <div className={`account-chip${accountIdentityExpanded ? " is-expanded" : " is-compact"}`} ref={accountMenuRef}>
                 <button
                   type="button"
-                  className={`account-open${accountGuide.highlighted ? " is-guided" : ""}`}
-                  ref={accountGuide.targetRef}
+                  className="account-open"
                   data-tooltip={translateText("Личный кабинет и настройки",language)}
-                  onClick={() => { setAccountMenuOpen(false); setAccountOpen(true); }}
+                  onClick={() => { setAccountGuideUserId(null); setAccountMenuOpen(false); setAccountOpen(true); }}
                   aria-label={language === "en" ? "Open account settings" : "Открыть личный кабинет и настройки"}
                   aria-haspopup="dialog"
                 >
@@ -6776,7 +6781,6 @@ export function GenesisCalendar() {
     >
       {experimentalProjectFormOpen ? <div className="modal-backdrop experimental-project-composer-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setExperimentalProjectFormOpen(false); }}>{renderProjectCreateForm()}</div> : null}
       <ActionNotice message={layoutError || (view === "projects" && activeProjectsArea === "shared" ? "" : notice)}/>
-      {accountGuide.overlay}
       {iosInstallOpen ? <Suspense fallback={null}><IosInstallPrompt language={language} onClose={() => setIosInstallOpen(false)} /></Suspense> : null}
       <Suspense fallback={null}><NotificationDock key={cloudUser?.uid ?? "guest"} userId={cloudUser?.uid ?? ""} language={language} mode={activeCalendarMode} appBase={APP_BASE}
         layout={accountLayout} onLayoutChange={saveLayout} headerTarget={notificationHeaderTarget}
@@ -7631,10 +7635,12 @@ export function GenesisCalendar() {
       {accountOpen && cloudUser ? (
         <Suspense fallback={<DeferredDialogFallback label={language === "en" ? "Opening account…" : "Открываем личный кабинет…"} />}>
           <AccountPanel
+            key={cloudUser.uid}
             user={cloudUser}
+            guideSharedProjects={accountGuideUserId === cloudUser.uid}
             onExportCalendar={exportCalendar}
             calendarExportAvailable={tasks.length > 0}
-            onClose={() => setAccountOpen(false)}
+            onClose={() => { setAccountGuideUserId(null); setAccountOpen(false); }}
             onSignOut={handleGoogleSignOut}
             onReconnectGoogle={() => {
               setAccountOpen(false);
