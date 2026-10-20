@@ -6857,14 +6857,11 @@ export function GenesisCalendar() {
           {mobileLayout ? renderTopbarActions() : null}
         </header>
         <header className="topbar" data-exp-ui="topbar">
-          <div className="topbar-date-row">
-          {sacredFeaturesEnabled ? <div className="topbar-date">
+          {!mobileLayout && sacredFeaturesEnabled ? <div className="topbar-date">
             <span className="topbar-kicker">{view === "stoicheion" || view === "theokyklos" ? "Оракул" : view === "habits" ? (language === "en" ? "Habit tracker" : "Трекер привычек") : CALENDAR_MODE_META[activeCalendarMode].label}</span>
-            <strong>{formatCalendarDate(today, activeCalendarMode, activeCalendarMode !== "sacred")}</strong>
           </div> : null}
-          {mobileLayout ? <div className="notification-header-slot" ref={setNotificationHeaderTarget} /> : null}
-          </div>
           {experimentalThemeActive ? renderDisplayCalendarChoice(language === "en" ? "Display calendar" : "Календарь отображения", "topbar-calendar-choice") : null}
+          {mobileLayout ? <div className="notification-header-slot" ref={setNotificationHeaderTarget} /> : null}
           {!mobileLayout ? renderTopbarActions() : null}
         </header>
 

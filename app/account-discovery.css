@@ -64,8 +64,8 @@ html[data-genesis-theme] .genesis-app .weekday-tinted-calendar .shared-projects-
   background: #e5bd61; border: 2px solid #987025;
 }
 html[data-genesis-theme$="-dark"] .genesis-app .weekday-tinted-calendar .shared-projects-calendar-date[data-solar] { background: #dabb75; border-color: #f2d89c; }
-html[data-genesis-theme] .genesis-app .topbar-date-row { display: contents; }
 html[data-genesis-theme] .genesis-app .topbar .topbar-date { display: grid; gap: 3px; }
+html[data-genesis-theme] .genesis-app .topbar > .topbar-actions { display: flex; grid-column: 3; }
 @media (max-width: 767px) {
   html[data-genesis-theme] .genesis-app .calendar-month-footer { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   html[data-genesis-theme] .genesis-app .calendar-month-footer:not(:has(.calendar-current-month)) { grid-template-columns: minmax(0, 1fr); }
@@ -101,14 +101,12 @@ html[data-genesis-theme] .genesis-app .shared-projects-guide > i {
     display: grid; place-items: center; flex: 0 0 44px; width: 44px; min-width: 44px; height: 44px; min-height: 44px; padding: 0; border-radius: 10px;
   }
   html[data-genesis-theme] .genesis-app .app-brand-header .account-chip { margin: 0; padding: 0; }
-  html[data-genesis-theme] .genesis-app .topbar[data-exp-ui] { display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 8px 16px 14px; }
+  html[data-genesis-theme] .genesis-app .topbar[data-exp-ui] { display: flex; align-items: center; gap: 12px; padding: 8px 16px 14px; }
   html[data-genesis-theme] .genesis-app .topbar > .topbar-calendar-choice {
     display: grid; order: -1; grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);
-    width: 100%; min-width: 0; max-width: none; margin: 0; padding: 4px; gap: 4px; border-radius: 12px;
+    flex: 1; width: 100%; min-width: 0; max-width: none; margin: 0; padding: 4px; gap: 4px; border-radius: 12px;
   }
   html[data-genesis-theme] .genesis-app .topbar .topbar-calendar-choice > button { width: 100%; min-width: 0; height: 48px; min-height: 48px; padding: 10px 4px; border-radius: 9px; justify-content: center; }
-  html[data-genesis-theme] .genesis-app .topbar .topbar-date-row { display: flex; align-items: center; justify-content: center; gap: 12px; min-width: 0; }
-  html[data-genesis-theme] .genesis-app .topbar .topbar-date { flex: 1; min-width: 0; text-align: center; }
   html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .topbar[data-exp-ui]:not(:has(.notification-header-slot > button:not([hidden]))) { display: none; }
 }
 @media (max-width: 400px) {
