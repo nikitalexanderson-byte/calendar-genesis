@@ -1,6 +1,11 @@
 package ru.genesis.calendar.ui
 
 import android.content.Context
+import android.content.res.Configuration
+import android.accessibilityservice.AccessibilityServiceInfo
+import android.graphics.Rect
+import android.provider.Settings
+import android.view.accessibility.AccessibilityWindowInfo
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -11,6 +16,8 @@ import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.By
+import androidx.test.uiautomator.Until
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.json.JSONObject
@@ -82,7 +89,11 @@ class SharedAutomationEditorUiTest {
         compose.waitUntil(30_000) { compose.onAllNodesWithTag("automation-editor-progress").fetchSemanticsNodes().isEmpty() }
     }
     private fun expand(tag: String) { compose.onNode(hasClickAction() and hasAnyAncestor(hasTestTag(tag))).performScrollTo().performClick() }
-    private fun choice(tag: String, value: String) { compose.onNodeWithTag(tag).performScrollTo().performClick(); compose.onNodeWithTag("$tag-$value").performClick() }
+    private fun choice(tag: String, value: String) {
+        compose.onNodeWithTag(tag).performScrollTo().performClick()
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("$tag-$value").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("$tag-$value").performClick()
+    }
     @Test fun createAndLostReplyRestoreThroughTouchWithoutDuplicatingTheRule() {
         fixture.loseReply = true; val restore = StateRestorationTester(compose); open(restore)
         compose.onNodeWithTag("automation-editor-title").performTextReplacement("Нативное правило команды")
@@ -115,7 +126,7 @@ class SharedAutomationEditorUiTest {
         val saved = fixture.service().load(fixture.project)!!; assertEquals("editing", saved.getString("phase"))
         assertEquals("priority", saved.getJSONObject("edit").getJSONObject("definition").getJSONArray("actions").getJSONObject(0).getString("type"))
         assertEquals(0, fixture.editorSends)
-        compose.onNodeWithTag("automation-editor-action-0-type").performScrollTo().performClick(); compose.onNodeWithTag("automation-editor-action-0-type-notify").performClick()
+        choice("automation-editor-action-0-type", "notify")
         compose.onNodeWithTag("automation-editor-save").performClick(); await("automation-editor-done"); assertEquals(1, fixture.editorSends)
     }
     @Test fun checkboxFalseAndNumberZeroAreSavedThroughTheExistingTypedControls() {
@@ -171,6 +182,7 @@ class SharedAutomationEditorUiTest {
         assertEquals(2, JSONObject(fixture.sent.single()).getJSONObject("definition").getJSONObject("trigger").getInt("leadDays"))
     }
     @Test fun anEmptyTemplateCatalogExplainsWhereToCreateATaskTemplate() {
+        fixture.emptyTemplateCatalog = true
         seed(); open(); choice("automation-editor-action-0-type", "createTemplate"); await("automation-editor-action-0-template-empty")
         compose.onNodeWithText("Создайте шаблон задачи в разделе «Шаблоны».").assertExists()
         compose.onNodeWithTag("automation-editor-action-0-template").assertIsNotEnabled()
@@ -179,6 +191,11 @@ class SharedAutomationEditorUiTest {
     }
     @Test fun captureNativeAutomationEditor() {
         val args = InstrumentationRegistry.getArguments(); assumeTrue(args.getString("genesisAutomationEditorCapture") == "true")
+        val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+        if (args.getString("genesisLandscape") == "true") {
+            device.setOrientationLeft()
+            compose.waitUntil(10_000) { compose.activity.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE }
+        }
         language = args.getString("genesisLanguage", "ru"); dark = args.getString("genesisNight") == "true"
         val expectedWidth = args.getString("genesisWidth")?.toInt(); val expectedFont = args.getString("genesisFont")?.toFloat()
         if (expectedWidth != null) assertEquals(expectedWidth, compose.activity.resources.configuration.screenWidthDp)
@@ -186,6 +203,8 @@ class SharedAutomationEditorUiTest {
         val compact = args.getString("genesisAutomationEditorCompact") == "true"
         val template = if (compact) null else capturedTaskTemplate()
         val directory = File(fixture.base.app.filesDir, "automation-editor-captures").apply { mkdirs() }
+        for (name in listOf("top", "calendar", "schedule", "condition", "typed-action", "template", "pending", "received", "access", "ime-title", "ime-received")) File(directory, "$name.png").delete()
+        File(directory, "keyboard-proof.json").delete(); File(directory, "metrics.json").delete()
         seed(); open()
         fun capture(name: String) {
             compose.waitForIdle(); InstrumentationRegistry.getInstrumentation().waitForIdleSync()
@@ -203,6 +222,33 @@ class SharedAutomationEditorUiTest {
         }
         compose.onNodeWithTag("automation-editor-action-0-type").performScrollTo(); choice("automation-editor-action-0-type", "custom")
         choice("automation-editor-action-0-custom", fields.getValue("checkbox")); compose.onNodeWithTag("shared-custom-${fields.getValue("checkbox")}-false").performScrollTo(); capture("typed-action")
+        if (args.getString("genesisAutomationEditorKeyboard") == "true") {
+            val keyboard = Settings.Secure.getString(fixture.base.app.contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD).substringBefore('/')
+            compose.onNodeWithTag("automation-editor-title").performScrollTo().performClick()
+            assertTrue("The system keyboard must actually be visible", device.wait(Until.hasObject(By.pkg(keyboard)), 10_000))
+            compose.onNodeWithTag("automation-editor-title").performTextReplacement("Правило с открытой клавиатурой")
+            device.pressBack()
+            assertTrue("Back must dismiss the keyboard first", device.wait(Until.gone(By.pkg(keyboard)), 10_000))
+            compose.onNodeWithTag("automation-editor-title").assertExists(); assertTrue(visible); assertEquals(0, fixture.editorSends)
+            compose.onNodeWithTag("automation-editor-title").performScrollTo().performClick()
+            assertTrue("The system keyboard must reopen", device.wait(Until.hasObject(By.pkg(keyboard)), 10_000))
+            val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+            automation.serviceInfo = automation.serviceInfo.apply { flags = flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS }
+            val nativeSave = requireNotNull(device.wait(Until.findObject(By.text("Сохранить правило")), 10_000))
+            val imeWindow = requireNotNull(automation.windows.firstOrNull { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD })
+            val imeBounds = Rect().also(imeWindow::getBoundsInScreen); val saveBounds = nativeSave.visibleBounds
+            val proof = JSONObject().put("imeWindow", imeBounds.toShortString()).put("saveBounds", saveBounds.toShortString())
+                .put("saveHeight", saveBounds.height()).put("density", compose.activity.resources.displayMetrics.density.toDouble()).put("systemTap", false)
+            File(directory, "keyboard-proof.json").writeText(proof.toString())
+            capture("ime-title")
+            assertTrue("The system IME must not cover the save action", !saveBounds.isEmpty && saveBounds.bottom <= imeBounds.top)
+            assertTrue("The save action must retain its full48dp touch target above the system IME", saveBounds.height() >= 48f * compose.activity.resources.displayMetrics.density - 1f)
+            nativeSave.click(); await("automation-editor-done")
+            assertEquals(1, fixture.editorSends)
+            assertEquals("Правило с открытой клавиатурой", JSONObject(fixture.sent.single()).getString("title"))
+            capture("ime-received")
+            File(directory, "keyboard-proof.json").writeText(proof.put("systemTap", true).toString())
+        }
         if (!compact) {
             choice("automation-editor-action-0-type", "createTemplate")
             compose.waitUntil(30_000) { compose.onAllNodes(hasTestTag("automation-editor-action-0-template") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }

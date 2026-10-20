@@ -12,6 +12,7 @@ internal class AutomationEditorHttpsFixture : AutoCloseable {
     val project get() = base.project
     val space get() = base.space
     var loseReply = false; var forbidden = false; var writable = true
+    var emptyTemplateCatalog = false
     var editorSends = 0; var templateSends = 0; var previews = 0
     val sent = mutableListOf<String>()
     private var opened = false
@@ -55,6 +56,12 @@ internal class AutomationEditorHttpsFixture : AutoCloseable {
         override suspend fun sharedAutomation(projectId: String, ruleId: String) = io { base.client.sharedAutomation(base.generation, projectId, ruleId) }
         override suspend fun sharedAutomations(projectId: String, deleted: Boolean, cursor: String?) = io { base.client.sharedAutomations(base.generation, projectId, deleted, cursor) }
         override suspend fun sharedAutomationRuns(projectId: String, ruleId: String, cursor: String?) = io { base.client.sharedAutomationRuns(base.generation, projectId, ruleId, cursor) }
+        override suspend fun sharedTemplates(space: String, language: String, deleted: Boolean, cursor: String?) = io {
+            base.client.sharedTemplates(base.generation, space, language, deleted, cursor).apply {
+                // The real empty workspace still has built-in templates. Inject the valid empty-read state explicitly.
+                if (emptyTemplateCatalog) put("templates", org.json.JSONArray()).put("systemTemplates", org.json.JSONArray()).put("hasMore", false).put("nextCursor", JSONObject.NULL)
+            }
+        }
         override suspend fun sharedBulkOptions(kind: String, filter: JSONObject, cursor: String?) = io { base.client.sharedBulkOptions(base.generation, kind, filter, cursor) }
         override suspend fun querySharedTasks(filter: JSONObject, cursor: String?) = io { base.client.querySharedTasks(base.generation, filter, cursor) }
         override suspend fun sharedAutomationEditor(project: String) = io { service().load(project) }
