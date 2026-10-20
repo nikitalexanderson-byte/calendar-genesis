@@ -1437,7 +1437,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       <div className="shared-context-actions">
         {!snapshot.project.isInbox?<IconActionButton icon="list" label={planningText('heading',language as import('./i18n').Language)} data-planning-trigger onClick={()=>setPlanningScope(snapshot)}/>:null}
         <IconActionButton icon="copy" label={translateText("Шаблоны",language as import('./i18n').Language)} data-template-trigger onClick={()=>setTemplateScope({context:snapshot})}/>
-        <IconActionButton icon="gear" label={translateText("Автоматизации",language as import('./i18n').Language)} data-automation-trigger onClick={()=>setAutomationScope(snapshot)}/>
+        <IconActionButton icon="automation" label={translateText("Автоматизации",language as import('./i18n').Language)} data-automation-trigger onClick={()=>setAutomationScope(snapshot)}/>
         <IconActionButton icon="map-import" label={translateText("Импорт и экспорт",language as import('./i18n').Language)} data-exchange-trigger onClick={()=>setDataScope(snapshot)}/>
         <IconActionButton icon="history" label={translateText("Командный отчёт",language as import('./i18n').Language)} data-report-trigger onClick={()=>setReportScope({context:snapshot,filter:{projectIds:[snapshot.project.id],...rangeFilter,...appliedPriority}})}/>
         {(canManage || canInvite) && !snapshot.project.isInbox ? <IconActionButton icon="gear" label={translateText("Настройки проекта",language as import('./i18n').Language)} className="shared-project-settings-icon" onClick={() => {setEditProjectLabelIds(snapshot.project.labelIds||[]);setCreateModal("settings");}}/> : null}
@@ -1590,6 +1590,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       </section>
       </div>
       {projectCategorySection}
+      {selectedSpace ? <Suspense fallback={null}><SharedSpaceCollaboration key={spaceId} userId={userId} spaceId={spaceId} language={language}/></Suspense> : null}
       <details className="shared-projects-google" aria-label={english ? "My Google copies" : "Мои копии в Google"}>
         <summary><ExperimentalIcon name="chevron" /><span className="shared-disclosure-heading"><ExperimentalIcon name="copy"/>{english ? "My Google copies" : "Мои копии в Google"}</span>
           {(googleSettings?.tasksEnabled || googleSettings?.calendarEnabled) ? <span>{english ? "On" : "Включено"}</span> : null}</summary>
@@ -1629,7 +1630,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
         onClick={() => openCreateTask(inboxProject)}><ExperimentalIcon name="plus" />{english ? "Create task" : "Создать задачу"}</button> : null}
     </section> : null}
     {!snapshot && spaceId ? projectCategorySection : null}
-    {selectedSpace ? <Suspense fallback={null}><SharedSpaceCollaboration key={spaceId} userId={userId} spaceId={spaceId} language={language}/></Suspense> : null}
+    {!snapshot && selectedSpace ? <Suspense fallback={null}><SharedSpaceCollaboration key={spaceId} userId={userId} spaceId={spaceId} language={language}/></Suspense> : null}
     {archivedProjects.length ? <details className="shared-projects-create">
       <summary><ExperimentalIcon name="chevron"/><span className="shared-disclosure-heading"><ExperimentalIcon name="archive"/>{english ? "Completed projects" : "Завершённые"} · {archivedProjects.length}</span></summary>
       <div className="shared-projects-members">{archivedProjects.map(project => <div key={project.id} className="shared-projects-member"><span>{project.title}</span>
