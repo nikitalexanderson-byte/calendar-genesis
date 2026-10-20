@@ -858,7 +858,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         if (!LocalFixedSubmenu.current && sharedProjectsEnabled && projectSubmenus.size > 1) ConnectedSubmenu(projectSubmenus,
                             visibleSwipeState.projectArea, { menuSwipeState.projectArea = it },
                             Modifier.testTag("projects-area-switch"))
-                        if(sharedProjectsEnabled && visibleSwipeState.projectArea=="shared") key(invitationDestination) { SharedProjectsScreen(authController,prefs.language,invitationDestination) }
+                        if(sharedProjectsEnabled && visibleSwipeState.projectArea=="shared") key(invitationDestination) { SharedProjectsScreen(authController,prefs.language,invitationDestination,prefs) }
                         else personalAffairsContent(visibleSwipeState)
                     }
                     "Задачи" -> personalAffairsContent(visibleSwipeState)

@@ -464,7 +464,7 @@ internal class AuthSessionClient(context: Context) {
                             (path.startsWith("/shared/data/") || path.startsWith("/shared/data-imports/")) && DataImportProtocol.errorCode(code) ||
                             path.startsWith("/shared/reports") && (code in TeamReportProtocol.errors || code.startsWith("CUSTOM_FIELD_")) ||
                             path.endsWith("/project-access") && code in ProjectAccessProtocol.errors) AuthApiError(code)
-                        else workflowFailure(status, payload)
+                        else customFieldFailure(status, payload) ?: workflowFailure(status, payload)
                     }.getOrNull()
                     if (failure != null) throw failure
                 }

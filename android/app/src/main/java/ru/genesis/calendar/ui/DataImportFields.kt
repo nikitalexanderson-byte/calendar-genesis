@@ -25,12 +25,14 @@ internal fun importMapValue(map: JSONObject?, key: String, fallback: String = "@
 }
 
 @Composable internal fun ImportChoice(label: String, value: String, choices: List<Pair<String, String>>, enabled: Boolean,
-    tag: String, userLabel: Boolean = false, onChange: (String) -> Unit) {
+    tag: String, userLabel: Boolean = false, showLabel: Boolean = true, onChange: (String) -> Unit) {
     var open by remember { mutableStateOf(false) }; var search by remember { mutableStateOf("") }; var limit by remember { mutableIntStateOf(50) }
     val selected = choices.firstOrNull { it.first == value }?.second ?: genesisTranslate("Не задано")
     val description = (if (userLabel) label else genesisTranslate(label)) + ": " + selected
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (userLabel) androidx.compose.material3.Text(label, style = MaterialTheme.typography.titleSmall) else Text(label, style = MaterialTheme.typography.titleSmall)
+        if (showLabel) {
+            if (userLabel) androidx.compose.material3.Text(label, style = MaterialTheme.typography.titleSmall) else Text(label, style = MaterialTheme.typography.titleSmall)
+        }
         Box {
             OutlinedButton({ search = ""; limit = 50; open = true }, enabled = enabled,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag(tag).semantics { contentDescription = description }) {

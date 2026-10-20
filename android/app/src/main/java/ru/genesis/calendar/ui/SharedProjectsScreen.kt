@@ -43,6 +43,9 @@ import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
 import org.json.JSONObject
 import ru.genesis.calendar.auth.SharedWorkspaceGateway
+import ru.genesis.calendar.auth.CustomFieldFailure
+import ru.genesis.calendar.auth.CustomFieldProtocol
+import ru.genesis.calendar.data.UiPreferences
 import ru.genesis.calendar.domain.CalendarMode
 import ru.genesis.calendar.domain.GenesisCalendar
 import ru.genesis.calendar.domain.SacredCatalog
@@ -73,15 +76,15 @@ private fun sharedStatusLabel(title: String, en: Boolean): String = if (!en) tit
 
 @Composable
 internal fun SharedProjectsScreen(controller: SharedWorkspaceGateway, language: String,
-    destination: SharedInvitationDestination? = null) {
+    destination: SharedInvitationDestination? = null, preferences: UiPreferences = UiPreferences()) {
     // Keep Compose's optional-argument mask out of the large workspace method.
     // R8 9.4.14 emits an invalid >255 register reference for that mask in release DEX.
-    SharedProjectsContent(controller, language, destination)
+    SharedProjectsContent(controller, language, destination, preferences)
 }
 
 @Composable
 private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: String,
-    destination: SharedInvitationDestination?) {
+    destination: SharedInvitationDestination?, preferences: UiPreferences) {
     val en = language == "en"
     val scope = rememberCoroutineScope()
     val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
@@ -123,6 +126,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     var projectAccessOpen by rememberSaveable(spaceId) { mutableStateOf(false) }
     var workflowRepairProjects by remember(spaceId) { mutableStateOf(emptyList<JSONObject>()) }
     val workflowCopy = sharedWorkflowCopy()
+    val customFailureMessages = CustomFieldProtocol.errors.associateWith { genesisTranslate(customFieldMessage(it).orEmpty()) }
     var showArchived by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(spaceId, showArchived) {
         workflowRepairProjects = emptyList()
@@ -263,7 +267,9 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         if (busy) return
         busy = true; message = ""; messageIsError = false
         scope.launch {
-            try { action() } catch (error: Exception) { messageIsError = true; message = workflowMessage((error as? ru.genesis.calendar.auth.WorkflowFailure)?.code.orEmpty(), workflowCopy) ?: when (error.message) {
+            try { action() } catch (error: Exception) { messageIsError = true; message =
+                customFailureMessages[(error as? CustomFieldFailure)?.code ?: error.message]?.takeIf { it.isNotBlank() } ?:
+                workflowMessage((error as? ru.genesis.calendar.auth.WorkflowFailure)?.code.orEmpty(), workflowCopy) ?: when (error.message) {
                 "INVITEE_ACCOUNT_UNSUPPORTED" -> if (en) "This account cannot use shared projects." else "Этот аккаунт не может использовать общие проекты."
                 "INVITEE_ACCOUNT_NOT_FOUND" -> if (en) "No GENESIS account was found for this email." else "Аккаунт GENESIS с такой почтой не найден."
                 else -> error.message ?: "Ошибка сервера"
@@ -358,6 +364,9 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         onClose = { dataImportOpen = false }, onChanged = { run { refreshProjects(spaceId); if (projectId.isNotBlank()) refreshProject(projectId) } },
         onOpenProject = { id -> projectId = id; taskId = ""; run { refreshProjects(spaceId); refreshProject(id) } })
     val estimateDraft = selectedTask?.takeIf { draftTaskKey == "$projectId:$taskId" }?.let { sharedTaskEstimates(it, editTaskDetails) }
+    val customDraft = selectedTask?.takeIf { draftTaskKey == "$projectId:$taskId" }?.let {
+        bindSharedTaskCustom(it, editTaskDetails, snapshot, preferences)
+    }
     val taskArchived = selectedTask?.optString("archivedAt")?.let { it.isNotBlank() && it != "null" } == true
     LaunchedEffect(projectId,taskId,comments,discussionVisible,pageActive) {
         if(pageActive&&discussionVisible&&taskId.isNotBlank()&&comments.isNotEmpty())runCatching {
@@ -457,7 +466,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         editTaskDescription != selectedTask.optString("description") ||
         editTaskDueDate != selectedTask.optString("dueDate").takeUnless { it == "null" }.orEmpty() ||
         editTaskCategoryId != selectedTask.optString("categoryId").takeUnless { it == "null" }.orEmpty() ||
-        sharedTaskDetailsChanged(selectedTask, editTaskDetails))
+        sharedTaskDetailsChanged(selectedTask, editTaskDetails, customDraft?.fields.orEmpty()))
     val taskDraftChanged = taskFieldsChanged || canComment && commentBody.isNotBlank()
     fun navigateBack() {
         if (busy) return
@@ -503,7 +512,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         if (projectId != targetProject || taskId != targetTask) return@LaunchedEffect
         openedTask = current
         if (draftTaskKey != "$projectId:$taskId") {
-            editTaskDetails = sharedTaskDetailDraft(current)
+            editTaskDetails = sharedTaskDetailDraft(current, preferences)
             editTaskTitle = current.optString("title")
             editTaskDescription = current.optString("description")
             editTaskDueDate = current.optString("dueDate").takeUnless { it == "null" }.orEmpty()
@@ -777,7 +786,8 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(if (en) "This change could not be sent. Your draft is kept on this device."
                 else "Изменение не удалось отправить. Черновик сохранён на устройстве.")
-            androidx.compose.material3.Text(workflowMessage(draft.optString("error"), workflowCopy) ?: draft.optString("error"), style = MaterialTheme.typography.bodySmall)
+            androidx.compose.material3.Text(customFailureMessages[draft.optString("error")]?.takeIf { it.isNotBlank() }
+                ?: workflowMessage(draft.optString("error"), workflowCopy) ?: draft.optString("error"), style = MaterialTheme.typography.bodySmall)
             if (messageIsError && message.isNotBlank()) Text(message, color = MaterialTheme.colorScheme.error)
             SelectionContainer { androidx.compose.material3.Text(draft.optJSONObject("body")?.toString(2).orEmpty(),
                 Modifier.heightIn(max = 240.dp).verticalScroll(rememberScrollState())) }
@@ -1109,8 +1119,8 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     val saveTask: () -> Unit = { run {
         val current = requireNotNull(selectedTask)
         check(canEditTask && !taskPending && !taskArchived && taskFieldsChanged && estimateDraft?.valid != false &&
-            (estimateDraft?.dirty != true || planningEnabled) && current.optInt("revision") == editTaskRevision)
-        val fields = sharedTaskDetailChanges(current, editTaskDetails, planningEnabled)
+            customDraft?.valid == true && (estimateDraft?.dirty != true || planningEnabled) && current.optInt("revision") == editTaskRevision)
+        val fields = sharedTaskDetailChanges(current, editTaskDetails, planningEnabled, customDraft.fields)
             .put("title", editTaskTitle.trim()).put("description", editTaskDescription.trim())
             .put("dueDate", editTaskDueDate.ifBlank { null } ?: JSONObject.NULL)
             .put("categoryId", editTaskCategoryId.ifBlank { null } ?: JSONObject.NULL)
@@ -1123,7 +1133,9 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                 else "Изменение сохранено на устройстве и синхронизируется после подключения."
         } else {
             require(changed.optString("id") == taskId && changed.optString("projectId") == projectId) { "PLANNING_TASK_ACK_INVALID" }
-            editTaskRevision = changed.getInt("revision"); editTaskDetails = sharedTaskDetailDraft(changed)
+            val inputCalendar = editTaskDetails.optJSONObject(SHARED_CUSTOM_CALENDAR_KEY)
+            editTaskRevision = changed.getInt("revision"); editTaskDetails = sharedTaskDetailDraft(changed, preferences)
+                .apply { if (inputCalendar != null) put(SHARED_CUSTOM_CALENDAR_KEY, inputCalendar) }
             editTaskTitle = changed.optString("title"); editTaskDescription = changed.optString("description")
             editTaskDueDate = changed.optString("dueDate").takeUnless { it == "null" }.orEmpty()
             editTaskCategoryId = changed.optString("categoryId").takeUnless { it == "null" }.orEmpty()
@@ -1518,6 +1530,8 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                             label = { Text(if (en) "Description" else "Описание") }, enabled = !busy, modifier = Modifier.fillMaxWidth())
                         SharedTaskEstimates(selectedTask, editTaskDetails, planningEnabled, canEditTask,
                             busy || taskPending || taskArchived, { editTaskDetails = it })
+                        customDraft?.let { custom -> SharedTaskCustomFields(selectedTask, editTaskDetails, custom, preferences, true,
+                            busy || taskPending || taskArchived, { editTaskDetails = it }, { run { refreshProject(projectId) } }) }
                         Text(if (en) "Due date" else "Срок", style = MaterialTheme.typography.titleSmall)
                         if (editTaskDueDate.isBlank()) TextButton(onClick = { editTaskDueDate = LocalDate.now().toString() }) {
                             Text(if (en) "Set due date" else "Установить срок")
@@ -1560,7 +1574,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                             Text(if (en) "Changed elsewhere. Your draft is kept." else "Изменено другим участником. Черновик сохранён.",
                                 color = MaterialTheme.colorScheme.error)
                             TextButton(onClick = {
-                                editTaskDetails = rebaseSharedTaskDetailDraft(selectedTask, editTaskDetails)
+                                editTaskDetails = rebaseSharedTaskDetailDraft(selectedTask, editTaskDetails, customDraft?.fields.orEmpty())
                                 editTaskTitle = selectedTask.optString("title")
                                 editTaskDescription = selectedTask.optString("description")
                                 editTaskDueDate = selectedTask.optString("dueDate").takeUnless { it == "null" } ?: ""
@@ -1572,6 +1586,8 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                         if (selectedTask.optString("description").isNotBlank()) androidx.compose.material3.Text(selectedTask.getString("description"))
                         SharedTaskEstimates(selectedTask, editTaskDetails, planningEnabled, false,
                             busy || taskPending || taskArchived, { editTaskDetails = it })
+                        customDraft?.let { custom -> SharedTaskCustomFields(selectedTask, editTaskDetails, custom, preferences, false,
+                            busy || taskPending || taskArchived, {}, { run { refreshProject(projectId) } }) }
                         SharedTaskDetailsFields(selectedTask, sharedTaskDetailDraft(selectedTask), {}, true)
                     }
                     Text(if (en) "Discussion" else "Обсуждение", style = MaterialTheme.typography.titleMedium)
@@ -1592,7 +1608,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).testTag("shared-feedback"),
         color = if (messageIsError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
     if (taskId.isNotBlank() && selectedTask != null && canEditTask) AffairsSaveBar(saveTask,
-        enabled = taskFieldsChanged && !taskPending && !taskArchived && estimateDraft?.valid != false &&
+        enabled = taskFieldsChanged && !taskPending && !taskArchived && estimateDraft?.valid != false && customDraft?.valid == true &&
             (estimateDraft?.dirty != true || planningEnabled) && editTaskTitle.isNotBlank() && dateValid && selectedTask.optInt("revision") == editTaskRevision &&
             draftTaskKey == "$projectId:$taskId", busy = busy)
     }

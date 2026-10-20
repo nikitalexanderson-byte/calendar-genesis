@@ -16,5 +16,9 @@ internal fun confirmedSharedReceipt(kind: String, projectId: String, taskId: Str
         task.optString("projectId") == expectedProject && revision != null && revision.toDouble().isFinite() &&
         revision.toDouble() == revision.toLong().toDouble() && revision.toLong() >= body.optLong("expectedRevision", 0)
     if (!valid) throw AuthFailure(AuthFailure.Kind.PROTOCOL)
+    if (body.has("customFields")) {
+        val patch = try { CustomFieldProtocol.values(body.get("customFields")) } catch (_: Exception) { throw AuthFailure(AuthFailure.Kind.PROTOCOL) }
+        if (patch.length() > 0) CustomFieldProtocol.confirmPatch(patch, requireNotNull(task))
+    }
     return response
 }

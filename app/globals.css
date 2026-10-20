@@ -5639,7 +5639,8 @@ html[data-language="en"] .inbox-card.drop-target::after {
 .welcome-auth {
   position: relative;
   padding: 44px 42px 36px;
-  color: var(--ink);
+  /* The sign-in card keeps its paper surface in both color modes. */
+  color: #132426;
   background: linear-gradient(145deg, rgba(255,253,248,.98), rgba(234,226,207,.96));
   border: 1px solid rgba(224,202,153,.5);
   border-radius: 5px 38px 5px 38px;
