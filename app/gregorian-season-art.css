@@ -4,12 +4,12 @@ html[data-genesis-theme] .genesis-app .calendar-mode-year-month.mode-profane {
 }
 html[data-genesis-theme] .genesis-app .calendar-mode-year-month.mode-profane .year-month-footer { align-self: end; }
 html[data-genesis-theme] .genesis-app .calendar-mode-year-month.mode-profane::before {
-  background-image: var(--month-art); background-position: center; opacity: .16;
+  background-image: var(--month-art); background-position: center; opacity: .24;
   -webkit-mask-image: none; mask-image: none; pointer-events: none; transform: none;
 }
 html[data-genesis-theme$="-dark"] .genesis-app .calendar-mode-year-month.mode-profane { background: #0e1013; }
 html[data-genesis-theme$="-dark"] .genesis-app .calendar-mode-year-month.mode-profane::before {
-  background-image: linear-gradient(rgb(6 8 10 / .9), rgb(6 8 10 / .9)), var(--month-art); opacity: 1;
+  background-image: linear-gradient(rgb(6 8 10 / .84), rgb(6 8 10 / .84)), var(--month-art); opacity: 1;
 }
 html[data-genesis-theme$="-dark"] .genesis-app .year-month.calendar-mode-year-month.mode-profane {
   --year-day-base: #2b3832;
