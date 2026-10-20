@@ -1,9 +1,9 @@
 import type { GenesisTask, SharedCalendarTask } from "./cloud-sync";
 import { translateText, type Language } from "./i18n";
 
-export function CalendarCellTasks({personal, shared, sharedTotal, dateLabel, language, onPersonal, onShared, onMore}: {
+export function CalendarCellTasks({personal, shared, sharedTotal, dateLabel, language, onPersonal, onShared, onMore, previewLimit = 3}: {
   personal: readonly GenesisTask[]; shared: readonly SharedCalendarTask[]; sharedTotal: number;
-  dateLabel: string; language: Language;
+  dateLabel: string; language: Language; previewLimit?: 1 | 3;
   onPersonal: (task: GenesisTask) => void; onShared: (task: SharedCalendarTask) => void; onMore: () => void;
 }) {
   const total = personal.length + sharedTotal;
@@ -11,7 +11,7 @@ export function CalendarCellTasks({personal, shared, sharedTotal, dateLabel, lan
   const rows = [
     ...personal.map(task => ({task, shared:false as const})),
     ...shared.map(task => ({task, shared:true as const})),
-  ].slice(0, 3);
+  ].slice(0, previewLimit);
   return <div className="calendar-cell-tasks">
     <ul>{rows.map(row => <li key={`${row.shared ? "shared" : "personal"}-${row.task.id}`}>
       <button type="button" className="calendar-cell-task" data-shared={row.shared}

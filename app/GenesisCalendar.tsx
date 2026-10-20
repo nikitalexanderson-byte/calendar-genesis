@@ -229,6 +229,8 @@ import {
 } from "./task-recurrence";
 import { legacyReminderMinutes, normalizeTaskReminders, type TaskReminder } from "./task-reminders";
 import { formatClockTime, formatTimeValue, normalizeTimeFormat, type TimeFormat } from "./time-format";
+import { TodaySolarTimes } from "./TodaySolarTimes";
+import { CalendarMonthHeading } from "./CalendarMonthHeading";
 import { nextOccurrenceDate, shiftRangeEndDate, buildTaskSeries, taskForOccurrence, standaloneTaskFromOccurrence, taskSeriesAfterExcludingOccurrence, taskWithSharedSeriesFields, taskRangeLabel } from "./personal-task-schedule";
 import { cleanTaskDescription } from "./task-description";
 import { cleanGenesisAppUrl } from "./app-url";
@@ -5065,7 +5067,7 @@ export function GenesisCalendar() {
                 <span className="event-badge lunar-event-badge"><MoonPhaseIcon phaseStep={moon.phaseStep} size={14} /> {moon.event || moon.epithet}</span>
               ) : sacredFeaturesEnabled && solarEvent ? <span className="event-badge solar-event-badge"><b aria-hidden="true">{solarEvent.symbol}</b> {solarEvent.name}</span> : null}
             </div> : null}
-            {sacredFeaturesEnabled ? <p className="hero-month">{heroMonth}</p> : null}
+            {sacredFeaturesEnabled && activeCalendarMode !== "profane" ? <p className="hero-month">{heroMonth}</p> : null}
             <h1 id="today-title">
               <span className="hero-day-title-primary">{heroTitlePrimary}</span>
               {heroTitleTranslation ? (
@@ -5087,13 +5089,13 @@ export function GenesisCalendar() {
             </div>
           </div>
           <div className="hero-day-clock">
-          {sacredFeaturesEnabled ? <div className="hero-number" aria-hidden="true">
+          {sacredFeaturesEnabled && activeCalendarMode !== "profane" ? <div className="hero-number" aria-hidden="true">
             {activeCalendarMode === "lunar" ? (
               <MoonPhaseIcon phaseStep={moon.phaseStep} size={68} className="hero-mode-moon" />
             ) : (
-              <span>{activeCalendarMode === "profane" ? gregorian.getDate() : romanDay(info.monthIndex, info.day)}</span>
+              <span>{romanDay(info.monthIndex, info.day)}</span>
             )}
-            <small>{activeCalendarMode === "lunar" ? moon.phase : activeCalendarMode === "profane" ? weekdayPatron.weekday : info.monthIndex === 12 ? "вне времени" : `${day.pyata} пята`}</small>
+            <small>{activeCalendarMode === "lunar" ? moon.phase : info.monthIndex === 12 ? "вне времени" : `${day.pyata} пята`}</small>
           </div> : null}
           <DeviceClock timeFormat={activeTimeFormat} />
           </div>
@@ -5423,7 +5425,8 @@ export function GenesisCalendar() {
           <span className="calendar-month-art" aria-hidden="true" />
           <div>
             <span className="eyebrow">{selectedMonth.season} · {selectedMonth.roman} месяц</span>
-            <h1>{selectedMonth.name}</h1>
+            <CalendarMonthHeading title={selectedMonth.name} icon={<CalendarModeIcon mode="sacred" size={28}/>}
+              previousLabel="Предыдущий месяц" nextLabel="Следующий месяц" onPrevious={() => selectMonth(monthIndex - 1)} onNext={() => selectMonth(monthIndex + 1)}/>
             <p className="calendar-title">{selectedMonth.title}</p>
             <p>{selectedMonth.description}</p>
 
@@ -5434,23 +5437,8 @@ export function GenesisCalendar() {
             <button type="button" onClick={() => selectMonth(monthIndex + 1)} aria-label="Следующий месяц">→</button>
           </div>
           <div className="calendar-month-footer">
-            <div className={`calendar-solar-control status-${solarLocationStatus}`} aria-live="polite">
-              <div>
-                <span aria-hidden="true">☀</span>
-                <strong>{solarLocationStatus === "ready"
-                  ? `Рассвет и закат · ${solarLocationSource === "selected-city" ? "время выбранного города" : "время устройства"}`
-                  : "Синхронизируем рассвет и закат…"}</strong>
-              </div>
-              <small>{solarLocationStatus === "ready"
-                ? `${solarLocationSource === "selected-city"
-                  ? "Координаты выбранного города"
-                  : solarLocationSource === "network"
-                  ? "Регион приблизительно определён по сети"
-                  : solarLocationSource === "timezone-network"
-                  ? "Регион определён по часовому поясу через сеть"
-                  : "Приблизительный расчёт по часовому поясу устройства"} · ${solarTimeZone}`
-                : "Определяем регион автоматически, без запроса геопозиции"}</small>
-            </div>
+            <TodaySolarTimes today={today} location={deviceLocation} deviceTimeZone={deviceTimeZone} approximate={solarLocationSource !== "selected-city"}
+              ready={solarLocationStatus === "ready"} language={language} timeFormat={activeTimeFormat}/>
             {renderCurrentMonthButton()}
           </div>
         </header>
@@ -5735,7 +5723,9 @@ export function GenesisCalendar() {
           <span className={mode === "lunar" ? "calendar-month-art" : "gregorian-season-art"} aria-hidden="true" />
           <div>
             {sacredFeaturesEnabled ? <span className="eyebrow">{monthEyebrow}</span> : null}
-            <h1>{monthTitle}</h1>
+            <CalendarMonthHeading title={monthTitle} icon={<CalendarModeIcon mode={mode} size={28}/>}
+              previousLabel={mode === "profane" ? "Предыдущий календарный месяц" : "Предыдущий лунный месяц"}
+              nextLabel={mode === "profane" ? "Следующий календарный месяц" : "Следующий лунный месяц"} onPrevious={() => moveMonth(-1)} onNext={() => moveMonth(1)}/>
             <p className="calendar-title">{monthSubtitle}</p>
             {sacredFeaturesEnabled ? <p>{monthDescription}</p> : null}
 
@@ -5746,10 +5736,8 @@ export function GenesisCalendar() {
             <button type="button" onClick={() => moveMonth(1)} aria-label={mode === "profane" ? "Следующий календарный месяц" : "Следующий лунный месяц"}>→</button>
           </div>
           <div className="calendar-month-footer">
-            <div className={`calendar-solar-control status-${solarLocationStatus}`} aria-live="polite">
-              <div><span aria-hidden="true">☀</span><strong>{solarLocationStatus === "ready" ? `Рассвет и закат · ${solarLocationSource === "selected-city" ? "время выбранного города" : "время устройства"}` : "Синхронизируем рассвет и закат…"}</strong></div>
-              <small>{solarLocationStatus === "ready" ? `${solarTimeZone} · ${solarLocationSource === "selected-city" ? "координаты выбранного города" : "приблизительный расчёт для региона устройства"}` : "Определяем регион автоматически, без запроса геопозиции"}</small>
-            </div>
+            <TodaySolarTimes today={today} location={deviceLocation} deviceTimeZone={deviceTimeZone} approximate={solarLocationSource !== "selected-city"}
+              ready={solarLocationStatus === "ready"} language={language} timeFormat={activeTimeFormat}/>
             {renderCurrentMonthButton()}
           </div>
         </header>

@@ -16,4 +16,4 @@ GENESIS связывает календарь, личные и общие дел
 Сохраняются название GENESIS, авторские календарные и сакральные изображения и вращение круга из 24 греческих букв в рабочей области Стойхейона. Используется существующий GENESIS Universal UI, React/Vite и PHP/SQLite.
 
 ## Operating Context
-Production: https://genesiscalendar.ru. Единственный источник отслеживаемого кода — GitHub nikitalexanderson-byte/calendar-genesis. Публикация через существующий deploy.yml с runtime-backup; ручное изменение production-БД не входит в задачу.
+Production: https://genesiscalendar.com, Hostinger. Старый домен https://genesiscalendar.ru сохраняет рабочий интерфейс и совместимость прежних клиентов до подтверждения Google-входа и синхронизации нового Android-выпуска; только после этого можно включать объявление о переезде. Единственный источник отслеживаемого кода — GitHub nikitalexanderson-byte/calendar-genesis. Публикация через существующий deploy.yml с runtime-backup; ручное изменение production-БД не входит в задачу.

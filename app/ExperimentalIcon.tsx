@@ -4,6 +4,9 @@ export function ExperimentalIcon({ name, className = "" }: { name: string; class
     strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
     {name === "today" || name === "sun" ? <><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2m-7.07-15.07 1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></> : null}
     {name === "moon" ? <path d="M19.79 15.5A8 8 0 0 1 8.5 4.21 8 8 0 1 0 19.79 15.5Z"/> : null}
+    {name === "theme-contrast" ? <><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 4h5a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3h-5Z" fill="currentColor" stroke="none"/><path d="M12 4v16"/></> : null}
+    {name === "sunrise" || name === "sunset" ? <><path d="M3 19h18M5 15H3m18 0h-2M7 9 5.5 7.5M17 9l1.5-1.5M7 15a5 5 0 0 1 10 0"/><path d={name === "sunrise" ? "M12 10V2m-3 3 3-3 3 3" : "M12 2v8m-3-3 3 3 3-3"}/></> : null}
+    {name.startsWith("calendar-scale-") ? <><rect x="3" y="3" width="18" height="18" rx="2" opacity={name === "calendar-scale-full" ? 1 : .35}/>{name === "calendar-scale-full" ? <path d="M3 9h18M9 9v12M15 9v12M3 15h18"/> : <rect x={name === "calendar-scale-half" ? 6 : 9} y={name === "calendar-scale-half" ? 6 : 9} width={name === "calendar-scale-half" ? 12 : 6} height={name === "calendar-scale-half" ? 12 : 6} rx="1" fill="currentColor"/>}</> : null}
     {name === "projects" ? <><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/><path d="M8 10v4m4-4v2m4-2v6"/></> : null}
     {name === "habits" ? <><path d="M14 9.536V7a4 4 0 0 1 4-4h1.5a.5.5 0 0 1 .5.5V5a4 4 0 0 1-4 4 4 4 0 0 0-4 4c0 2 1 3 1 5a5 5 0 0 1-1 3M4 9a5 5 0 0 1 8 4 5 5 0 0 1-8-4M5 21h14"/></> : null}
     {name === "calendar" ? <><path d="M8 2v4m8-4v4M3 10h18"/><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/></> : null}

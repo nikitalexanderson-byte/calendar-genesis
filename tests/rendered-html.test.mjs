@@ -3218,7 +3218,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.doesNotMatch(calendar, /navigator\.geolocation/);
   assert.doesNotMatch(calendar, /requestDeviceLocation/);
   assert.match(calendar, /getAutomaticSolarLocation/);
-  assert.match(calendar, /Приблизительный расчёт по часовому поясу устройства/);
+  assert.match(calendar, /TodaySolarTimes today=\{today\} location=\{deviceLocation\} deviceTimeZone=\{deviceTimeZone\}/);
   assert.doesNotMatch(calendar, /Рассвет и закат временно недоступны/);
   assert.doesNotMatch(calendar, /Не удалось связаться с сервисом определения региона/);
   assert.match(solarTimes, /getSunriseSunset/);

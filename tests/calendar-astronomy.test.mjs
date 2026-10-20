@@ -6,8 +6,29 @@ const a = calendarModule("app/calendar-astronomy.ts");
 const data = calendarModule("app/calendar-data.ts");
 const r = calendarModule("app/task-recurrence.ts");
 const insights = calendarModule("app/habit-insights.ts");
+const solar = calendarModule("app/solar-times.ts");
 const utc = c.calendarContext({timeZone: "UTC"});
 const zones = ["UTC", "Europe/Moscow", "America/New_York", "Pacific/Auckland"];
+
+test("solar events retain their instant when displayed in the device zone and selected clock format", () => {
+  const event = new Date("2026-10-20T21:05:00Z");
+  assert.equal(solar.formatDeviceSolarTime(event, "Europe/Moscow", "24h"), "00:05");
+  assert.equal(solar.formatDeviceSolarTime(event, "Europe/Moscow", "12h"), "12:05 AM");
+  assert.equal(solar.formatDeviceSolarTime(event, "America/Los_Angeles", "24h"), "14:05");
+  assert.equal(solar.formatDeviceSolarTime(event, "America/Los_Angeles", "12h"), "02:05 PM");
+  assert.equal(solar.getSunriseSunset(new Date(2026, 11, 20, 12), {latitude:78.2232,longitude:15.6469,timeZone:"Arctic/Longyearbyen"}), null);
+});
+
+test("today's solar summary chooses events inside the device day across the date line", () => {
+  const now = new Date("2026-10-20T01:00:00Z"), zone = "America/Los_Angeles";
+  const events = solar.getDeviceDaySolarTimes(now, {latitude:35.6762,longitude:139.6503,timeZone:"Asia/Tokyo"}, zone);
+  const day = new Intl.DateTimeFormat("en-CA", {year:"numeric",month:"2-digit",day:"2-digit",timeZone:zone});
+  assert.ok(events.sunrise && events.sunset);
+  assert.equal(day.format(events.sunrise), "2026-10-19");
+  assert.equal(day.format(events.sunset), "2026-10-19");
+  assert.ok(events.sunset < events.sunrise);
+  assert.deepEqual(solar.getDeviceDaySolarTimes(new Date("2026-12-20T09:00:00Z"), {latitude:78.2232,longitude:15.6469,timeZone:"Arctic/Longyearbyen"}, "Europe/Moscow"), {sunrise:null,sunset:null});
+});
 
 test("first and last supported report years include complete boundary months", () => {
   for (const date of ["1900-01-01", "2100-12-31"]) for (const mode of ["profane", "sacred", "lunar"]) {
