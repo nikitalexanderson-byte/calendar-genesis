@@ -39,4 +39,5 @@ export const bulkErrorLabels:Record<string,string>={
   INVALID_STATUS:"Статус больше недоступен в этом проекте.",
   INVALID_LABEL:"Метка недоступна в этом пространстве.",
   TASK_APPROVAL_REQUIRED:"Сначала требуется утверждение результата.",
+  CUSTOM_FIELD_MOVE_REQUIRES_MAPPING:"Перенос требует сопоставления проектных полей. Сохраните данные через экспорт или используйте поля пространства.",
 };

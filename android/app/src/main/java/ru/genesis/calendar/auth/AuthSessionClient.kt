@@ -26,6 +26,11 @@ internal fun allowedSharedRoute(method: String, path: String): Boolean {
             "/shared/notifications", "/shared/notifications/read")) return method in setOf("GET", "POST")
     if (method == "GET" && path.matches(Regex("/shared/calendar/tasks\\?from=\\d{4}-\\d{2}-\\d{2}&to=\\d{4}-\\d{2}-\\d{2}"))) return true
     if (method == "GET" && path.matches(Regex("/shared/tasks\\?filter=[A-Za-z0-9%+_.~-]+(?:&cursor=[A-Za-z0-9%+_.~-]+)?(?:&sort=(?:position|createdAt|createdAtAsc|dueDate|updatedAt|title|priority))?"))) return true
+    if (path in setOf("/shared/bulk/scope", "/shared/bulk/preview")) return method == "POST"
+    if (path.matches(Regex("/shared/bulk(?:\\?cursor=[A-Za-z0-9%+_.~*-]+)?"))) return method == "GET"
+    if (path.matches(Regex("/shared/bulk/[a-f0-9-]{36}\\?after=(?:0|[1-9][0-9]{0,15})"))) return method == "GET"
+    if (path.matches(Regex("/shared/bulk/[a-f0-9-]{36}/(?:confirm|cancel|advance|resume)"))) return method == "POST"
+    if (path.matches(Regex("/shared/views/options\\?kind=(?:projects|statuses|assignees|labels)&filter=[A-Za-z0-9%+_.~*-]+(?:&cursor=[A-Za-z0-9%+_.~*-]+)?"))) return method == "GET"
     if (path == "/shared/notification-settings") return method in setOf("GET", "PUT")
     if (path == "/shared/notification-settings/retry") return method == "POST"
     if (path.matches(Regex("/shared/invitations/[a-f0-9-]{36}"))) return method == "POST"
@@ -230,13 +235,33 @@ internal class AuthSessionClient(context: Context) {
         val continuation = cursor?.let { "&cursor=" + java.net.URLEncoder.encode(it, "UTF-8") } ?: ""
         return request(expected, "/shared/tasks?filter=$query$continuation&sort=${java.net.URLEncoder.encode(sort,"UTF-8")}", null)
     }
+    fun sharedBulkScope(expected: Long, selection: JSONObject, cursor: String?): JSONObject = SharedBulkProtocol.scope(request(expected,
+        "/shared/bulk/scope", JSONObject().put("selection", SharedBulkProtocol.selection(selection)).apply { if (cursor != null) put("cursor", SharedBulkProtocol.cursor(cursor)) }))
+    fun sharedBulkPreview(expected: Long, body: JSONObject): JSONObject = SharedBulkProtocol.report(request(expected, "/shared/bulk/preview", body))
+    fun sharedBulkReport(expected: Long, id: String, after: Long): JSONObject {
+        require(after in 0..9_007_199_254_740_991L)
+        return SharedBulkProtocol.report(request(expected, "/shared/bulk/${SharedBulkProtocol.operation(id)}?after=$after", null), id, after)
+    }
+    fun sharedBulkHistory(expected: Long, cursor: String?): JSONObject = SharedBulkProtocol.history(request(expected, "/shared/bulk" +
+        (SharedBulkProtocol.cursor(cursor)?.let { "?cursor=" + java.net.URLEncoder.encode(it, "UTF-8") } ?: ""), null))
+    fun sharedBulkCommand(expected: Long, id: String, command: String, after: Long): JSONObject {
+        require(command in SharedBulkProtocol.commands && after in 0..9_007_199_254_740_991L)
+        return SharedBulkProtocol.report(request(expected, "/shared/bulk/${SharedBulkProtocol.operation(id)}/$command", JSONObject().put("after", after)), id, after)
+    }
+    fun sharedBulkOptions(expected: Long, kind: String, filter: JSONObject, cursor: String?): JSONObject {
+        require(kind in setOf("projects", "statuses", "assignees", "labels") && filter.keys().asSequence().all { it in setOf("projectIds", "spaceId") })
+        return SharedBulkProtocol.options(request(expected, "/shared/views/options?kind=$kind&filter=" + java.net.URLEncoder.encode(filter.toString(), "UTF-8") +
+            (SharedBulkProtocol.cursor(cursor)?.let { "&cursor=" + java.net.URLEncoder.encode(it, "UTF-8") } ?: ""), null))
+    }
     fun readSharedTaskUpdates(expected:Long,projectId:String,taskId:String,commentIds:List<String>):JSONObject=
         request(expected,"/shared/projects/$projectId/tasks/$taskId/read",JSONObject().put("commentIds",org.json.JSONArray(commentIds)))
     fun notificationSettings(expected:Long):JSONObject=request(expected,"/shared/notification-settings",null)
     fun saveNotificationSettings(expected:Long,settings:JSONObject,revision:Int):JSONObject=
         request(expected,"/shared/notification-settings",JSONObject().put("settings",settings).put("expectedRevision",revision),method="PUT")
     fun sharedTask(expected: Long, projectId: String, taskId: String): JSONObject =
-        request(expected, "/shared/projects/$projectId/tasks/$taskId", null)
+        // Explicit task links (including bulk/history results) can refer to an archived task.
+        // The API still applies the current project ACL; archived cards remain read-only.
+        request(expected, "/shared/projects/$projectId/tasks/$taskId?archived=true", null)
     fun sharedProject(expected: Long, projectId: String): JSONObject =
         request(expected, "/shared/projects/$projectId", null)
     fun sharedPlanning(expected: Long, projectId: String): JSONObject =
@@ -463,7 +488,8 @@ internal class AuthSessionClient(context: Context) {
                         if (path.endsWith("/data-export") && code in DataExportProtocol.errors ||
                             (path.startsWith("/shared/data/") || path.startsWith("/shared/data-imports/")) && DataImportProtocol.errorCode(code) ||
                             path.startsWith("/shared/reports") && (code in TeamReportProtocol.errors || code.startsWith("CUSTOM_FIELD_")) ||
-                            path.endsWith("/project-access") && code in ProjectAccessProtocol.errors) AuthApiError(code)
+                            path.endsWith("/project-access") && code in ProjectAccessProtocol.errors ||
+                            (path.startsWith("/shared/bulk") || path.startsWith("/shared/views/options")) && SharedBulkProtocol.errorCode(code)) AuthApiError(code)
                         else customFieldFailure(status, payload) ?: workflowFailure(status, payload)
                     }.getOrNull()
                     if (failure != null) throw failure

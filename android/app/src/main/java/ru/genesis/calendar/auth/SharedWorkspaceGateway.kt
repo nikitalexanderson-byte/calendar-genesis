@@ -5,6 +5,16 @@ import java.util.UUID
 
 /** Shared workspace operations implemented by the authenticated controller. */
 interface SharedWorkspaceGateway {
+    suspend fun sharedBulkDraft(projectId: String): JSONObject? = null
+    suspend fun saveSharedBulkDraft(projectId: String, stamp: String?, edit: JSONObject): JSONObject = throw UnsupportedOperationException("saveSharedBulkDraft")
+    suspend fun prepareSharedBulkDraft(projectId: String, stamp: String): JSONObject = throw UnsupportedOperationException("prepareSharedBulkDraft")
+    suspend fun sendSharedBulkDraft(projectId: String, stamp: String): JSONObject = throw UnsupportedOperationException("sendSharedBulkDraft")
+    suspend fun removeSharedBulkDraft(projectId: String, stamp: String): Unit = throw UnsupportedOperationException("removeSharedBulkDraft")
+    suspend fun sharedBulkScope(selection: JSONObject, cursor: String? = null): JSONObject = throw UnsupportedOperationException("sharedBulkScope")
+    suspend fun sharedBulkReport(id: String, after: Long = 0): JSONObject = throw UnsupportedOperationException("sharedBulkReport")
+    suspend fun sharedBulkHistory(cursor: String? = null): JSONObject = throw UnsupportedOperationException("sharedBulkHistory")
+    suspend fun sharedBulkCommand(id: String, command: String, after: Long = 0): JSONObject = throw UnsupportedOperationException("sharedBulkCommand")
+    suspend fun sharedBulkOptions(kind: String, filter: JSONObject, cursor: String? = null): JSONObject = throw UnsupportedOperationException("sharedBulkOptions")
     suspend fun sharedProjectAccessMembers(spaceId: String): JSONObject = throw UnsupportedOperationException("sharedProjectAccessMembers")
     suspend fun sharedProjectAccess(spaceId: String, userId: String): JSONObject = throw UnsupportedOperationException("sharedProjectAccess")
     suspend fun sharedProjectAccessDraft(spaceId: String, userId: String): JSONObject? = null

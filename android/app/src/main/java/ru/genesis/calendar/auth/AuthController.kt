@@ -64,6 +64,8 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
     private val workflowOperationMutex = Mutex()
     private val projectAccessJournal = PlanningJournal(PlanningDraftStore(context.applicationContext, "project-access"), contract = ProjectAccessJournalContract)
     private val projectAccessOperationMutex = Mutex()
+    private val bulkJournal = PlanningJournal(PlanningDraftStore(context.applicationContext, "bulk"), contract = SharedBulkJournalContract)
+    private val bulkOperationMutex = Mutex()
     private val importStorage = PlanningDraftStore(context.applicationContext, "data-import")
     private val importJournal = PlanningJournal(importStorage, contract = DataImportJournalContract)
     private val importUndoJournal = DataImportUndoJournal(importStorage)
@@ -217,6 +219,40 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
         }
         return withContext(Dispatchers.IO) { current(); action(client, generation).also { current() } }
     }
+    override suspend fun sharedBulkScope(selection: JSONObject, cursor: String?) = sharedOnlineCall { api, generation -> api.sharedBulkScope(generation, selection, cursor) }
+    override suspend fun sharedBulkReport(id: String, after: Long) = sharedOnlineCall { api, generation -> api.sharedBulkReport(generation, id, after) }
+    override suspend fun sharedBulkHistory(cursor: String?) = sharedOnlineCall { api, generation -> api.sharedBulkHistory(generation, cursor) }
+    override suspend fun sharedBulkOptions(kind: String, filter: JSONObject, cursor: String?) = sharedOnlineCall { api, generation -> api.sharedBulkOptions(generation, kind, filter, cursor) }
+    override suspend fun sharedBulkCommand(id: String, command: String, after: Long) = sharedOnlineCall { api, generation ->
+        if (command == "confirm") {
+            val account = mutableState.value.user?.uid ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
+            require(sharedOffline.queued(account).isEmpty()) { "BULK_LOCAL_QUEUE" }
+        }
+        api.sharedBulkCommand(generation, id, command, after)
+    }
+    private suspend fun <T> bulkDraftCall(action: (SharedBulkDraftService) -> T): T {
+        val initial = mutableState.value; val account = initial.user?.uid ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
+        if (!initial.ready || initial.accountSettings?.sharedProjectsEnabled != true) throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
+        val generation = client.currentGeneration(); val caller = currentCoroutineContext()
+        fun current() {
+            caller.ensureActive(); val state = mutableState.value
+            if (!client.isCurrent(generation) || !state.ready || state.user?.uid != account || state.accountSettings?.sharedProjectsEnabled != true ||
+                app.workspaceScope != CloudAccountSnapshot.scopeFor(account)) throw CancellationException()
+        }
+        val access = object : SharedBulkAccess {
+            override fun check() = current()
+            private fun online() { current(); if (mutableState.value.requiresSignIn) throw AuthFailure(AuthFailure.Kind.NETWORK) }
+            override fun hasTaskQueue(): Boolean { current(); return sharedOffline.queued(account).isNotEmpty() }
+            override fun scope(selection: JSONObject): JSONObject { online(); return client.sharedBulkScope(generation, selection, null).also { current() } }
+            override fun preview(body: JSONObject): JSONObject { online(); return client.sharedBulkPreview(generation, body).also { current() } }
+        }
+        return withContext(Dispatchers.IO) { bulkOperationMutex.withLock { current(); action(SharedBulkDraftService(bulkJournal, account, access)).also { current() } } }
+    }
+    override suspend fun sharedBulkDraft(projectId: String) = bulkDraftCall { it.load(projectId) }
+    override suspend fun saveSharedBulkDraft(projectId: String, stamp: String?, edit: JSONObject) = bulkDraftCall { it.save(projectId, stamp, edit) }
+    override suspend fun prepareSharedBulkDraft(projectId: String, stamp: String) = bulkDraftCall { it.prepare(projectId, stamp) }
+    override suspend fun sendSharedBulkDraft(projectId: String, stamp: String) = bulkDraftCall { it.send(projectId, stamp) }
+    override suspend fun removeSharedBulkDraft(projectId: String, stamp: String): Unit = bulkDraftCall { it.remove(projectId, stamp) }
     override suspend fun sharedProjectAccessMembers(spaceId: String) = sharedOnlineCall { api, generation -> api.sharedProjectAccessMembers(generation, spaceId) }
     override suspend fun sharedProjectAccess(spaceId: String, userId: String) = sharedOnlineCall { api, generation -> api.sharedProjectAccess(generation, spaceId, userId) }
     private suspend fun <T> projectAccessDraftCall(action: (ProjectAccessDraftService) -> T): T {
