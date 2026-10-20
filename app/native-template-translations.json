@@ -50,7 +50,8 @@
       "TASK_RELATION_CYCLE": "Связи задач образуют цикл. Измените родителя или зависимости.",
       "INVALID_TASK_RANGE": "Начало задачи должно быть не позже срока.",
       "INVALID_TASK_TIME_RANGE": "Время окончания должно быть позже начала.",
-      "TASK_DATE_REQUIRED": "Укажите дату для времени задачи."
+      "TASK_DATE_REQUIRED": "Укажите дату для времени задачи.",
+      "TEMPLATE_PERMISSION_CHANGED": "Доступ к проекту или шаблону изменился. Сохранённые черновики и неподтверждённые запросы остаются на этом устройстве. Когда доступ восстановится, заново откройте проект и раздел «Шаблоны» в том же аккаунте."
     },
     "options": {
       "descriptions": "Описания",
@@ -116,7 +117,8 @@
       "TASK_RELATION_CYCLE": "Task relations form a cycle. Change the parent or dependencies.",
       "INVALID_TASK_RANGE": "The task start must not be later than its due date.",
       "INVALID_TASK_TIME_RANGE": "The end time must be later than the start.",
-      "TASK_DATE_REQUIRED": "Set a date for the task time."
+      "TASK_DATE_REQUIRED": "Set a date for the task time.",
+      "TEMPLATE_PERMISSION_CHANGED": "Access to the project or template has changed. Saved drafts and unconfirmed requests remain on this device. Once access is restored, reopen the project and Templates with the same account."
     },
     "options": {
       "descriptions": "Descriptions",
@@ -182,7 +184,8 @@
       "TASK_RELATION_CYCLE": "Οι σχέσεις εργασιών σχηματίζουν κύκλο. Αλλάξτε τη γονική εργασία ή τις εξαρτήσεις.",
       "INVALID_TASK_RANGE": "Η έναρξη εργασίας δεν πρέπει να είναι μετά την προθεσμία.",
       "INVALID_TASK_TIME_RANGE": "Η ώρα λήξης πρέπει να είναι μετά την ώρα έναρξης.",
-      "TASK_DATE_REQUIRED": "Ορίστε ημερομηνία για την ώρα εργασίας."
+      "TASK_DATE_REQUIRED": "Ορίστε ημερομηνία για την ώρα εργασίας.",
+      "TEMPLATE_PERMISSION_CHANGED": "Η πρόσβαση στο έργο ή στο πρότυπο άλλαξε. Τα αποθηκευμένα πρόχειρα και τα μη επιβεβαιωμένα αιτήματα παραμένουν σε αυτήν τη συσκευή. Όταν αποκατασταθεί η πρόσβαση, ανοίξτε ξανά το έργο και τα Πρότυπα με τον ίδιο λογαριασμό."
     },
     "options": {
       "descriptions": "Περιγραφές",
@@ -248,7 +251,8 @@
       "TASK_RELATION_CYCLE": "Aufgabenbeziehungen bilden einen Zyklus. Ändern Sie die übergeordnete Aufgabe oder Abhängigkeiten.",
       "INVALID_TASK_RANGE": "Der Aufgabenbeginn darf nicht nach dem Fälligkeitsdatum liegen.",
       "INVALID_TASK_TIME_RANGE": "Die Endzeit muss nach der Startzeit liegen.",
-      "TASK_DATE_REQUIRED": "Legen Sie für die Aufgabenzeit ein Datum fest."
+      "TASK_DATE_REQUIRED": "Legen Sie für die Aufgabenzeit ein Datum fest.",
+      "TEMPLATE_PERMISSION_CHANGED": "Der Zugriff auf das Projekt oder die Vorlage hat sich geändert. Gespeicherte Entwürfe und unbestätigte Anfragen bleiben auf diesem Gerät. Öffnen Sie das Projekt und die Vorlagen mit demselben Konto erneut, sobald der Zugriff wiederhergestellt ist."
     },
     "options": {
       "descriptions": "Beschreibungen",
@@ -314,7 +318,8 @@
       "TASK_RELATION_CYCLE": "Les relations entre tâches forment un cycle. Modifiez la tâche parente ou les dépendances.",
       "INVALID_TASK_RANGE": "Le début de la tâche ne doit pas être postérieur à son échéance.",
       "INVALID_TASK_TIME_RANGE": "L’heure de fin doit être postérieure à l’heure de début.",
-      "TASK_DATE_REQUIRED": "Définissez une date pour l’heure de la tâche."
+      "TASK_DATE_REQUIRED": "Définissez une date pour l’heure de la tâche.",
+      "TEMPLATE_PERMISSION_CHANGED": "L’accès au projet ou au modèle a changé. Les brouillons enregistrés et les requêtes non confirmées restent sur cet appareil. Une fois l’accès rétabli, rouvrez le projet et les Modèles avec le même compte."
     },
     "options": {
       "descriptions": "Descriptions",
@@ -380,7 +385,8 @@
       "TASK_RELATION_CYCLE": "Las relaciones entre tareas forman un ciclo. Cambia la tarea principal o las dependencias.",
       "INVALID_TASK_RANGE": "El inicio de la tarea no debe ser posterior al vencimiento.",
       "INVALID_TASK_TIME_RANGE": "La hora de fin debe ser posterior a la de inicio.",
-      "TASK_DATE_REQUIRED": "Establece una fecha para la hora de la tarea."
+      "TASK_DATE_REQUIRED": "Establece una fecha para la hora de la tarea.",
+      "TEMPLATE_PERMISSION_CHANGED": "El acceso al proyecto o a la plantilla ha cambiado. Los borradores guardados y las solicitudes sin confirmar permanecen en este dispositivo. Cuando se restablezca el acceso, vuelva a abrir el proyecto y Plantillas con la misma cuenta."
     },
     "options": {
       "descriptions": "Descripciones",
@@ -446,7 +452,8 @@
       "TASK_RELATION_CYCLE": "Le relazioni tra attività formano un ciclo. Cambia l’attività principale o le dipendenze.",
       "INVALID_TASK_RANGE": "L’inizio dell’attività non può essere successivo alla scadenza.",
       "INVALID_TASK_TIME_RANGE": "L’ora di fine deve essere successiva a quella di inizio.",
-      "TASK_DATE_REQUIRED": "Imposta una data per l’orario dell’attività."
+      "TASK_DATE_REQUIRED": "Imposta una data per l’orario dell’attività.",
+      "TEMPLATE_PERMISSION_CHANGED": "L’accesso al progetto o al modello è cambiato. Le bozze salvate e le richieste non confermate restano su questo dispositivo. Quando l’accesso viene ripristinato, riapri il progetto e i Modelli con lo stesso account."
     },
     "options": {
       "descriptions": "Descrizioni",
@@ -512,7 +519,8 @@
       "TASK_RELATION_CYCLE": "As relações das tarefas formam um ciclo. Altere a tarefa principal ou as dependências.",
       "INVALID_TASK_RANGE": "O início da tarefa não pode ser posterior ao prazo.",
       "INVALID_TASK_TIME_RANGE": "A hora de fim deve ser posterior à de início.",
-      "TASK_DATE_REQUIRED": "Defina uma data para a hora da tarefa."
+      "TASK_DATE_REQUIRED": "Defina uma data para a hora da tarefa.",
+      "TEMPLATE_PERMISSION_CHANGED": "O acesso ao projeto ou ao modelo mudou. Os rascunhos guardados e os pedidos não confirmados permanecem neste dispositivo. Quando o acesso for restabelecido, reabra o projeto e os Modelos com a mesma conta."
     },
     "options": {
       "descriptions": "Descrições",
@@ -578,7 +586,8 @@
       "TASK_RELATION_CYCLE": "Relacje zadań tworzą cykl. Zmień zadanie nadrzędne lub zależności.",
       "INVALID_TASK_RANGE": "Początek zadania nie może przypadać po terminie.",
       "INVALID_TASK_TIME_RANGE": "Godzina zakończenia musi przypadać po rozpoczęciu.",
-      "TASK_DATE_REQUIRED": "Ustaw datę dla godziny zadania."
+      "TASK_DATE_REQUIRED": "Ustaw datę dla godziny zadania.",
+      "TEMPLATE_PERMISSION_CHANGED": "Dostęp do projektu lub szablonu uległ zmianie. Zapisane szkice i niepotwierdzone żądania pozostają na tym urządzeniu. Po przywróceniu dostępu otwórz ponownie projekt i Szablony na tym samym koncie."
     },
     "options": {
       "descriptions": "Opisy",
@@ -644,7 +653,8 @@
       "TASK_RELATION_CYCLE": "Везе задатака чине циклус. Промените надређени задатак или зависности.",
       "INVALID_TASK_RANGE": "Почетак задатка не сме бити после рока.",
       "INVALID_TASK_TIME_RANGE": "Време завршетка мора бити после почетка.",
-      "TASK_DATE_REQUIRED": "Одредите датум за време задатка."
+      "TASK_DATE_REQUIRED": "Одредите датум за време задатка.",
+      "TEMPLATE_PERMISSION_CHANGED": "Приступ пројекту или шаблону је промењен. Сачувани нацрти и непотврђени захтеви остају на овом уређају. Када се приступ врати, поново отворите пројекат и Шаблоне са истог налога."
     },
     "options": {
       "descriptions": "Описи",
@@ -710,7 +720,8 @@
       "TASK_RELATION_CYCLE": "Зв’язки завдань утворюють цикл. Змініть батьківське завдання або залежності.",
       "INVALID_TASK_RANGE": "Початок завдання має бути не пізніше терміну.",
       "INVALID_TASK_TIME_RANGE": "Час завершення має бути пізніше початку.",
-      "TASK_DATE_REQUIRED": "Укажіть дату для часу завдання."
+      "TASK_DATE_REQUIRED": "Укажіть дату для часу завдання.",
+      "TEMPLATE_PERMISSION_CHANGED": "Доступ до проєкту або шаблону змінився. Збережені чернетки й непідтверджені запити залишаються на цьому пристрої. Коли доступ відновиться, знову відкрийте проєкт і розділ «Шаблони» в тому самому обліковому записі."
     },
     "options": {
       "descriptions": "Описи",
@@ -776,7 +787,8 @@
       "TASK_RELATION_CYCLE": "任务关联形成循环。请更改父任务或依赖关系。",
       "INVALID_TASK_RANGE": "任务开始日期不能晚于截止日期。",
       "INVALID_TASK_TIME_RANGE": "结束时间必须晚于开始时间。",
-      "TASK_DATE_REQUIRED": "请为任务时间设置日期。"
+      "TASK_DATE_REQUIRED": "请为任务时间设置日期。",
+      "TEMPLATE_PERMISSION_CHANGED": "项目或模板的访问权限已更改。已保存的草稿和未确认的请求仍保留在此设备上。恢复访问权限后，请使用同一账号重新打开项目和“模板”。"
     },
     "options": {
       "descriptions": "描述",
@@ -842,7 +854,8 @@
       "TASK_RELATION_CYCLE": "Görev ilişkileri döngü oluşturuyor. Üst görevi veya bağımlılıkları değiştirin.",
       "INVALID_TASK_RANGE": "Görevin başlangıcı son tarihten sonra olamaz.",
       "INVALID_TASK_TIME_RANGE": "Bitiş saati başlangıçtan sonra olmalıdır.",
-      "TASK_DATE_REQUIRED": "Görev saati için bir tarih belirleyin."
+      "TASK_DATE_REQUIRED": "Görev saati için bir tarih belirleyin.",
+      "TEMPLATE_PERMISSION_CHANGED": "Projeye veya şablona erişim değişti. Kaydedilen taslaklar ve onaylanmamış istekler bu cihazda kalır. Erişim geri geldiğinde aynı hesapla projeyi ve Şablonlar bölümünü yeniden açın."
     },
     "options": {
       "descriptions": "Açıklamalar",
@@ -908,7 +921,8 @@
       "TASK_RELATION_CYCLE": "タスクの関連付けが循環しています。親タスクまたは依存関係を変更してください。",
       "INVALID_TASK_RANGE": "タスクの開始日は期限より後にできません。",
       "INVALID_TASK_TIME_RANGE": "終了時刻は開始時刻より後にしてください。",
-      "TASK_DATE_REQUIRED": "タスクの時刻に対応する日付を設定してください。"
+      "TASK_DATE_REQUIRED": "タスクの時刻に対応する日付を設定してください。",
+      "TEMPLATE_PERMISSION_CHANGED": "プロジェクトまたはテンプレートへのアクセス権が変更されました。保存済みの下書きと未確認のリクエストは、この端末に残ります。アクセスが回復したら、同じアカウントでプロジェクトと「テンプレート」を開き直してください。"
     },
     "options": {
       "descriptions": "説明",

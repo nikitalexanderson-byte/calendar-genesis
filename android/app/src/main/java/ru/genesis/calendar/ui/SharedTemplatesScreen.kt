@@ -108,6 +108,7 @@ import java.util.UUID
                     }
                     if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("template-progress"))
                     if (state.error.isNotBlank()) androidx.compose.material3.Text(when {
+                        state.lost -> templateIssueMessage("TEMPLATE_PERMISSION_CHANGED", copy)
                         state.conflicted -> draftCopy.getString("changed")
                         state.error in setOf("PLANNING_DRAFT_STORAGE", "STORAGE") -> draftCopy.getString("error")
                         state.error in setOf("PLANNING_DRAFT_LIMIT", "TEMPLATE_SIZE_LIMIT") -> draftCopy.getString("limit")

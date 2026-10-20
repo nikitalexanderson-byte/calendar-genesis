@@ -126,6 +126,8 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     var projectAccessOpen by rememberSaveable(spaceId) { mutableStateOf(false) }
     var templatesOpen by rememberSaveable(spaceId, projectId) { mutableStateOf(false) }
     var templatesCaptureId by rememberSaveable(spaceId, projectId) { mutableStateOf("") }
+    var templateAccessLost by remember(spaceId) { mutableStateOf(false) }
+    val templateCopy = sharedTemplateCopy()
     var bulkOpen by rememberSaveable { mutableStateOf(false) }
     var bulkProjectId by rememberSaveable { mutableStateOf("") }
     var bulkFilter by rememberSaveable { mutableStateOf("{}") }
@@ -242,6 +244,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         val result = try { controller.sharedProject(id) }
         catch (failure: Exception) {
             if (projectId == id && sharedTemplateAccessDenied(failure)) {
+                if (templatesOpen) templateAccessLost = true
                 templatesOpen = false; templatesCaptureId = ""; snapshot = null
                 openedTask = null; taskPage = null; taskId = ""; projectId = ""
                 projects = projects.filterNot { it.optString("id") == id }
@@ -268,6 +271,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         }
     }
     fun selectProject(id: String) {
+        templateAccessLost = false
         if (projectId.isNotBlank() && projectId != id) projectTrail = projectTrail + projectId
         persistExpansion(expandedIds + id)
         taskId = ""; projectId = id
@@ -282,6 +286,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     }
     fun run(action: suspend () -> Unit) {
         if (busy) return
+        templateAccessLost = false
         busy = true; message = ""; messageIsError = false
         scope.launch {
             try { action() } catch (error: Exception) { messageIsError = true; message =
@@ -1295,8 +1300,12 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                 } }
             }
         }
-        if (message.isNotBlank() && taskId.isBlank()) Text(message, modifier = Modifier.testTag("shared-feedback"),
-            color = if (messageIsError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+        if (message.isNotBlank() && taskId.isBlank()) {
+            if (templateAccessLost) androidx.compose.material3.Text(templateIssueMessage("TEMPLATE_PERMISSION_CHANGED", templateCopy),
+                modifier = Modifier.testTag("shared-feedback"), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+            else Text(message, modifier = Modifier.testTag("shared-feedback"),
+                color = if (messageIsError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+        }
         if (projectId.isBlank()) {
             if (spaceId.isBlank()) {
                 if (spaces.isEmpty()) {

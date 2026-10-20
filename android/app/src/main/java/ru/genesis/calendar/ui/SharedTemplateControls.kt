@@ -36,7 +36,9 @@ import java.util.Locale
     return (all.optJSONObject(language) ?: all.getJSONObject("ru")).getString(source)
 }
 
-internal fun templateIssueMessage(code: String, copy: JSONObject) = copy.getJSONObject("issues").optString(code).takeIf { it.isNotBlank() }
+internal fun templateIssueMessage(code: String, copy: JSONObject) = copy.getJSONObject("issues").optString(
+    if (code in setOf("TEMPLATE_PERMISSION_CHANGED", "TEMPLATE_FORBIDDEN", "SHARED_PROJECT_FORBIDDEN", "SHARED_PROJECT_NOT_FOUND",
+            "SHARED_SPACE_FORBIDDEN", "SHARED_SPACE_NOT_FOUND", "UNAUTHORIZED")) "TEMPLATE_PERMISSION_CHANGED" else code).takeIf { it.isNotBlank() }
     ?: customFieldMessage(code) ?: copy.getJSONObject("issues").getString("TEMPLATE_INVALID")
 
 @Composable internal fun TemplateField(label: String, value: String, enabled: Boolean, tag: String,

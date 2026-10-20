@@ -208,6 +208,9 @@ class SharedTemplatesUiTest {
         loseReply = true; click("template-submit"); await("template-retry")
         val before = fixture.service().load(fixture.project)!!.toString()
         compose.runOnIdle { writeAllowed = false }; await("template-access-lost")
+        compose.onNodeWithTag("template-error").assertTextContains("Доступ к проекту или шаблону изменился.", substring = true)
+            .assertTextContains("Когда доступ восстановится", substring = true).assertTextContains("в том же аккаунте", substring = true)
+        compose.onAllNodesWithText("Проверьте структуру, сроки и связи шаблона.").assertCountEquals(0)
         compose.onNodeWithTag("template-retry").assertDoesNotExist(); compose.onNodeWithTag("template-preview").assertDoesNotExist()
         assertEquals(before, fixture.service().load(fixture.project)!!.toString())
         for (night in listOf(false, true)) { compose.runOnIdle { dark = night }; fixCapture("write-denied") }
@@ -225,6 +228,9 @@ class SharedTemplatesUiTest {
         compose.waitUntil(15_000) { compose.onAllNodesWithTag("shared-templates-screen").fetchSemanticsNodes().isEmpty() }
         assertEquals(protected, fixture.service().load(fixture.project)!!.toString())
         compose.onNodeWithTag("template-source-copy").assertDoesNotExist(); compose.onNodeWithTag("template-submit").assertDoesNotExist()
+        compose.onNodeWithTag("shared-feedback").assertTextContains("Сохранённые черновики и неподтверждённые запросы", substring = true)
+            .assertTextContains("Когда доступ восстановится", substring = true).assertTextContains("в том же аккаунте", substring = true)
+        compose.onAllNodesWithText("SHARED_PROJECT_FORBIDDEN").assertCountEquals(0)
         for (night in listOf(false, true)) { compose.runOnIdle { dark = night }; fixCapture("parent-read-denied") }
         readRevoked = false
     }

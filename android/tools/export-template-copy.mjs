@@ -35,10 +35,12 @@ for (const language of ['ru','en','el','de','fr','es','it','pt','pl','sr','uk','
   result[language] = { issues: Object.fromEntries(Object.entries(issues).map(([key,text]) => [key,translate(text)])), options: Object.fromEntries(Object.entries(flags).map(([key,text]) => [key,translate(text)])) };
   result[language].options.tags = nativeLabels[language]['Текстовые теги'];
   result[language].options.labels = nativeLabels[language]['Метки пространства'];
+  result[language].issues.TEMPLATE_PERMISSION_CHANGED = nativeLabels[language]['Доступ к проекту или шаблону изменился. Сохранённые черновики и неподтверждённые запросы остаются на этом устройстве. Когда доступ восстановится, заново откройте проект и раздел «Шаблоны» в том же аккаунте.'];
+  if (!result[language].issues.TEMPLATE_PERMISSION_CHANGED) throw Error(`Missing native template access recovery: ${language}`);
   if (!result[language].options.tags || !result[language].options.labels || result[language].options.tags === result[language].options.labels) throw Error(`Ambiguous native template tags/labels: ${language}`);
 }
 const path = new URL('native-template-translations.json', app), expected = JSON.stringify(result,null,2)+'\n';
 if (process.argv.includes('--check')) {
   if (await readFile(path,'utf8') !== expected) throw Error('Native template copy is stale');
 } else await writeFile(path,expected);
-console.log(`Native template copy: ${Object.keys(issues).length} issues and ${Object.keys(flags).length} options in 14 reviewed languages.`);
+console.log(`Native template copy: ${Object.keys(issues).length + 1} issues and ${Object.keys(flags).length} options in 14 reviewed languages.`);
