@@ -39,6 +39,17 @@ class DataImportControllerTest {
         }
     }
     private fun selection(space: String) = importInitialSelection(space, null, "Synthetic import", "Open", "Done", "profane", "UTC", false)
+    @Test fun readOnlyReportRoutesRejectOfflineAndRevokedAccessBeforeAnyRequest() = inAccount { controller, _, state, space, project ->
+        val options = JSONObject().put("filter", JSONObject().put("projectIds", org.json.JSONArray().put(project)))
+            .put("from", "2026-10-01").put("to", "2026-10-31").put("calendarMode", "profane")
+            .put("calendarContext", selection(space).getJSONObject("parse").getJSONObject("calendarContext")).put("cycleStartStatusIds", org.json.JSONArray())
+        val calls: List<suspend () -> Unit> = listOf(
+            { controller.sharedTeamReport(options); Unit }, { controller.checkSharedTeamReport("synthetic-token"); Unit },
+            { controller.sharedTeamReportTasks("synthetic-token", "all", null); Unit })
+        for (call in calls) assertEquals(AuthFailure.Kind.NETWORK, (runCatching { call() }.exceptionOrNull() as? AuthFailure)?.kind)
+        state.value = state.value.copy(accountSettings = state.value.accountSettings!!.copy(sharedProjectsEnabled = false))
+        for (call in calls) assertEquals(AuthFailure.Kind.UNAUTHORIZED, (runCatching { call() }.exceptionOrNull() as? AuthFailure)?.kind)
+    }
     @Test fun offlineControllerKeepsEncryptedDraftsAndBlocksPreviewBeforeAnyRequest() = inAccount { controller, _, _, space, project ->
         val chosen = controller.chooseSharedDataImportSource(space, project, null, "offline.json", selection(space)) { "{\"synthetic\":true}".byteInputStream() }
         val edit = JSONObject(chosen.getJSONObject("edit").toString())

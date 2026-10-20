@@ -96,6 +96,7 @@ android {
         compose = true
         resValues = true
     }
+    sourceSets.getByName("androidTest").assets.srcDir("src/test/resources")
 }
 
 // Original byte copies in generated assets; no tracked duplicate or image conversion.

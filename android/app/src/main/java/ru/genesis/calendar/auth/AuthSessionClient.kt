@@ -19,6 +19,7 @@ internal open class AuthFailure(val kind: Kind, val httpStatus: Int? = null) : E
 internal class AuthApiError(val code: String) : Exception(code)
 
 internal fun allowedSharedRoute(method: String, path: String): Boolean {
+    if (path in setOf("/shared/reports", "/shared/reports/check", "/shared/reports/tasks")) return method == "POST"
     if (path in setOf("/shared/spaces", "/shared/invitations", "/shared/invitations/accept",
             "/shared/notifications", "/shared/notifications/read")) return method in setOf("GET", "POST")
     if (method == "GET" && path.matches(Regex("/shared/calendar/tasks\\?from=\\d{4}-\\d{2}-\\d{2}&to=\\d{4}-\\d{2}-\\d{2}"))) return true
@@ -282,6 +283,12 @@ internal class AuthSessionClient(context: Context) {
         return request(expected, "/shared/spaces/$spaceId/data-export", command,
             responseReader = { DataExportStream.read(it, command.getString("format")) })
     }
+    fun sharedTeamReport(expected: Long, options: JSONObject): JSONObject = request(expected, "/shared/reports", TeamReportProtocol.options(options))
+    fun checkSharedTeamReport(expected: Long, token: String): JSONObject = request(expected, "/shared/reports/check", JSONObject().put("token", TeamReportProtocol.token(token)))
+    fun sharedTeamReportTasks(expected: Long, token: String, metric: String, cursor: String?): JSONObject {
+        require(metric.isNotBlank() && metric.length <= 300 && (cursor == null || cursor.isNotBlank() && cursor.length < 4096))
+        return request(expected, "/shared/reports/tasks", JSONObject().put("token", TeamReportProtocol.token(token)).put("metric", metric).put("cursor", cursor ?: JSONObject.NULL))
+    }
     fun previewSharedData(expected: Long, selection: JSONObject, content: String): JSONObject {
         val command = DataImportProtocol.selection(selection)
         return request(expected, "/shared/data/preview?view=native-v1", command, importBody = DataImportBody(command, content))
@@ -405,7 +412,7 @@ internal class AuthSessionClient(context: Context) {
         try {
             connection.instanceFollowRedirects = false
             connection.connectTimeout = 15_000
-            connection.readTimeout = if (path == "/bootstrap" || path.startsWith("/shared/data/")) 120_000 else 30_000
+            connection.readTimeout = if (path == "/bootstrap" || path.startsWith("/shared/data/") || path.startsWith("/shared/reports")) 120_000 else 30_000
             connection.useCaches = false
             connection.requestMethod = method
             connection.setRequestProperty("Accept", "application/json")
@@ -445,7 +452,8 @@ internal class AuthSessionClient(context: Context) {
                         val payload = JSONObject(output.toString(Charsets.UTF_8.name()))
                         val code = payload.optString("error")
                         if (path.endsWith("/data-export") && code in DataExportProtocol.errors ||
-                            (path.startsWith("/shared/data/") || path.startsWith("/shared/data-imports/")) && DataImportProtocol.errorCode(code)) AuthApiError(code)
+                            (path.startsWith("/shared/data/") || path.startsWith("/shared/data-imports/")) && DataImportProtocol.errorCode(code) ||
+                            path.startsWith("/shared/reports") && (code in TeamReportProtocol.errors || code.startsWith("CUSTOM_FIELD_"))) AuthApiError(code)
                         else workflowFailure(status, payload)
                     }.getOrNull()
                     if (failure != null) throw failure

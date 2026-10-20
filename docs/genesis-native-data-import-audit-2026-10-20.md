@@ -59,3 +59,5 @@
 - Обе схемы, phone/tablet/короткое landscape-окно и14 языков; baseline и один общий fix/confirm-проход. Browser360/390/768/1440 при изменении web-поверхности. Подписанная/физическая приёмка указывается отдельно.
 
 SSH и ручные изменения production-БД для этого аудита не использовались. Реальный Samsung сейчас отключён; его аккаунты, привычки и очередь этим срезом не затрагиваются.
+
+Срез исходников и совместимое native API-представление опубликованы в PR #223: master/production `f7b333eaa9e4a5b1177efe393baafc4a5cadc038`, Deploy `39358945556` success. Публичный deploy-meta подтверждает SHA/run ID, `/api/health` отвечает200/ok, Gregorian WebP доступен200/image-webp. Новый публичный Android APK не выпускался. Далее начат C4 native team report, сохраняя открытые release/integration критерии C5.
