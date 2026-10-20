@@ -76,6 +76,13 @@ try{
     cfReject(fn()=>genesisSharedSaveCustomField($owner,$spaceId,[...cfEdit($required,['title'=>'Concurrent']),'fingerprint'=>$stale['fingerprint'],'operationId'=>genesisUuid()]),'CUSTOM_FIELD_CONFLICT');
     $bStatus=genesisSharedProjectSnapshot($owner,$b['id'])['statuses'][0]['id'];$fresh=genesisSharedGetTask($owner,$a['id'],$taskId);
     cfReject(fn()=>genesisSharedMoveTask($owner,$a['id'],$taskId,['expectedRevision'=>$fresh['revision'],'destinationProjectId'=>$b['id'],'statusId'=>$bStatus,'position'=>0]),'CUSTOM_FIELD_MOVE_REQUIRES_MAPPING');
+    $bulk=genesisSharedBulkPreview($owner,['requestId'=>genesisUuid(),'selection'=>['mode'=>'page','items'=>[
+        ['id'=>$taskId,'projectId'=>$a['id'],'revision'=>$fresh['revision']]]],'action'=>['kind'=>'move','projectId'=>$b['id'],'statusId'=>$bStatus]]);
+    genesisSharedBulkConfirm($owner,$bulk['id']);
+    for($attempt=0;$attempt<20;$attempt++){$bulk=genesisSharedBulkAdvance($owner,$bulk['id']);if($bulk['state']!=='running')break;}
+    cfCheck($bulk['state']==='done'&&$bulk['counts']['skipped']===1&&$bulk['items'][0]['code']==='CUSTOM_FIELD_MOVE_REQUIRES_MAPPING','Bulk move hid custom-field mapping requirement');
+    cfCheck(genesisSharedGetTask($owner,$a['id'],$taskId)['revision']===$fresh['revision'],'Rejected bulk move changed custom field task');
+    $checks[]='bulk-move-retains-custom-field-mapping-error';
     $private=cfSave($owner,$spaceId,cfDraft('text',$b['id'],['title'=>'C3 confidential definition']));
     $access=['allProjects'=>false,'grants'=>[['projectId'=>$a['id'],'role'=>'viewer','includeDescendants'=>false]]];$preview=genesisSharedPreviewProjectAccess($owner,$spaceId,$member,$access);
     genesisSharedSaveProjectAccess($owner,$spaceId,$member,[...$access,'expectedFingerprint'=>$preview['fingerprint'],'operationId'=>genesisUuid()]);

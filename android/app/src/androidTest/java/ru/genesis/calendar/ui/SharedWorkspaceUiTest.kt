@@ -642,6 +642,43 @@ class SharedWorkspaceUiTest {
         }
     }
 
+    @Test fun archivedTaskValuesRemainReadOnlyForAnEditor() {
+        val fixture = WorkspaceFixture(withTasks = true, custom = true)
+        fixture.records.single().put("archivedAt", "2026-10-20T05:00:00Z")
+        openFixtureProject(fixture)
+        compose.onNodeWithTag("shared-task-qa-task").performScrollTo().performClick()
+        compose.waitUntil(10000) { compose.onAllNodesWithTag("shared-custom-fields").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("shared-task-title-input").assertDoesNotExist()
+        compose.onNodeWithTag("affairs-save").assertDoesNotExist()
+        compose.onNodeWithText("Комментарий").assertDoesNotExist()
+        compose.onNodeWithText("Отправить").assertDoesNotExist()
+        customInput("number").assertDoesNotExist(); assertEquals(0, fixture.updates)
+    }
+
+    @Test fun projectMenuOpensBulkWithoutCompletingOrEditingItsTasks() {
+        val fixture = WorkspaceFixture(withTasks = true)
+        openFixtureProject(fixture)
+        compose.onNodeWithTag("shared-actions").performClick(); compose.onNodeWithTag("shared-bulk-open").performClick()
+        compose.waitUntil(10000) { compose.onAllNodesWithTag("bulk-task-qa-task").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("bulk-task-qa-task").performScrollTo().performClick()
+        compose.onNodeWithTag("bulk-configure").assertIsEnabled(); assertEquals(0, fixture.updates)
+        compose.onNodeWithTag("bulk-close").performClick(); compose.onNodeWithTag("shared-bulk-screen").assertDoesNotExist()
+        assertEquals(0, fixture.updates)
+    }
+
+    @Test fun bulkRestorationKeepsItsFrozenProjectFilterWhileTheParentReloads() {
+        val fixture = WorkspaceFixture(withTasks = true); val restore = StateRestorationTester(compose)
+        restore.setContent { CompositionLocalProvider(LocalGenesisLanguage provides "ru") { MaterialTheme(colorScheme = standart) { SharedProjectsScreen(fixture, "ru") } } }
+        selectFixtureProject(fixture)
+        compose.onNodeWithTag("shared-actions").performClick(); compose.onNodeWithTag("shared-bulk-open").performClick()
+        compose.waitUntil(10000) { compose.onAllNodesWithTag("bulk-task-qa-task").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("bulk-task-qa-task").performScrollTo().performClick()
+        restore.emulateSavedInstanceStateRestore()
+        compose.waitUntil(10000) { compose.onAllNodesWithTag("bulk-task-qa-task").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("bulk-task-qa-task").assertIsOn(); compose.onNodeWithTag("bulk-configure").assertIsEnabled()
+        assertEquals(0, fixture.updates)
+    }
+
     @Test fun projectOwnerMenuOpensTheSpaceWideMemberAccessScreen() {
         openFixtureProject(WorkspaceFixture(withTasks = true, access = AccessUiFixture(spaceFixture)))
         compose.onNodeWithTag("shared-actions").performClick(); compose.onNodeWithTag("shared-project-access-open").performClick()

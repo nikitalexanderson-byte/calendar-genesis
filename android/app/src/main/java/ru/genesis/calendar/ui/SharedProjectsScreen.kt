@@ -124,6 +124,10 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     var dataImportOpen by rememberSaveable(spaceId, projectId) { mutableStateOf(false) }
     var teamReportOpen by rememberSaveable(spaceId, projectId) { mutableStateOf(false) }
     var projectAccessOpen by rememberSaveable(spaceId) { mutableStateOf(false) }
+    var bulkOpen by rememberSaveable { mutableStateOf(false) }
+    var bulkProjectId by rememberSaveable { mutableStateOf("") }
+    var bulkFilter by rememberSaveable { mutableStateOf("{}") }
+    var bulkSort by rememberSaveable { mutableStateOf("position") }
     var workflowRepairProjects by remember(spaceId) { mutableStateOf(emptyList<JSONObject>()) }
     val workflowCopy = sharedWorkflowCopy()
     val customFailureMessages = CustomFieldProtocol.errors.associateWith { genesisTranslate(customFieldMessage(it).orEmpty()) }
@@ -348,13 +352,14 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     val members = snapshot?.getJSONArray("members")?.rows().orEmpty()
     val role = project?.optString("role") ?: ""
     val canWrite = role in setOf("owner", "manager", "member")
-    val canEditTask = sharedTaskCanEdit(project)
+    val selectedTask = openedTask?.takeIf { it.optString("id") == taskId && it.optString("projectId") == projectId } ?: tasks.firstOrNull { it.optString("id") == taskId }
+    val taskArchived = selectedTask?.optString("archivedAt")?.let { it.isNotBlank() && it != "null" } == true
+    val canEditTask = sharedTaskCanEdit(project) && !taskArchived
     val planningEnabled = project?.optJSONObject("planning")?.optBoolean("enabled") == true
     val taskPending = sharedTaskHasPending(taskId, pendingTasks)
     val canOrganize = project?.optBoolean("canOrganizeTasks") == true
-    val canComment = role in setOf("owner", "manager", "member", "commenter")
+    val canComment = role in setOf("owner", "manager", "member", "commenter") && !taskArchived
     val canInvite = role in setOf("owner", "manager")
-    val selectedTask = openedTask?.takeIf { it.optString("id") == taskId && it.optString("projectId") == projectId } ?: tasks.firstOrNull { it.optString("id") == taskId }
     if (planningOpen && project != null && project.optInt("isInbox") == 0) key(projectId) {
         SharedPlanningScreen(controller, project, members, onClose = { planningOpen = false },
             onTask = { id -> planningOpen = false; taskId = id }, onChanged = { run { refreshProject(projectId) } })
@@ -371,7 +376,6 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     val customDraft = selectedTask?.takeIf { draftTaskKey == "$projectId:$taskId" }?.let {
         bindSharedTaskCustom(it, editTaskDetails, snapshot, preferences)
     }
-    val taskArchived = selectedTask?.optString("archivedAt")?.let { it.isNotBlank() && it != "null" } == true
     val newCustomBinding = if (createModal == "task" && snapshot != null) bindSharedTaskCustom(createCustom.source, createCustom.details, snapshot, preferences) else null
     LaunchedEffect(projectId,taskId,comments,discussionVisible,pageActive) {
         if(pageActive&&discussionVisible&&taskId.isNotBlank()&&comments.isNotEmpty())runCatching {
@@ -391,6 +395,19 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     }
     val taskFilterKey = taskFilter.toString()
     val teamReportNoAccess = genesisTranslate("Нет доступа")
+    if (bulkOpen && bulkProjectId.isNotBlank()) SharedBulkScreen(controller, bulkProjectId, JSONObject(bulkFilter), bulkSort, preferences,
+        onClose = { bulkOpen = false }, onLost = {
+            bulkOpen = false; snapshot = null; taskPage = null; openedTask = null; taskId = ""; projectId = ""
+            message = teamReportNoAccess; run { refreshProjects(spaceId) }
+        }, onChanged = { run { if (projectId.isNotBlank()) refreshProject(projectId) } }, onTask = { targetProject, targetTask ->
+            run {
+                val target = controller.sharedProject(targetProject).getJSONObject("project")
+                bulkOpen = false
+                val destinationSpace = target.getString("spaceId")
+                if (destinationSpace != spaceId) { spaceId = destinationSpace; refreshProjects(destinationSpace) }
+                selectProject(targetProject); taskId = targetTask
+            }
+        })
     if (projectAccessOpen && spaceId.isNotBlank()) SharedProjectAccessScreen(controller, spaceId, onClose = { projectAccessOpen = false }, onLost = {
         projectAccessOpen = false; snapshot = null; taskPage = null; openedTask = null; taskId = ""; projectId = ""
         message = teamReportNoAccess; run { refreshProjects(spaceId) }
@@ -486,7 +503,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         }
     }
     BackHandler(enabled = pageActive && (taskId.isNotBlank() || projectId.isNotBlank() || spaceId.isNotBlank()) &&
-        createModal == null && !showManagement && boardDraft == null && !filtersOpen && !discardTaskDraft && !teamReportOpen && !projectAccessOpen) { navigateBack() }
+        createModal == null && !showManagement && boardDraft == null && !filtersOpen && !discardTaskDraft && !teamReportOpen && !projectAccessOpen && !bulkOpen) { navigateBack() }
     if (discardTaskDraft) AlertDialog(onDismissRequest = { discardTaskDraft = false },
         title = { Text("Несохранённые изменения") },
         text = { Text("Вернуться без сохранения изменений?") },
@@ -1192,6 +1209,10 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                         if (spaceId.isNotBlank()) DropdownMenuItem(text = { Text("Экспорт данных") },
                             modifier = Modifier.testTag("shared-export-open"), onClick = { actionsOpen = false; dataExportOpen = true })
                         if (projectId.isNotBlank()) {
+                            DropdownMenuItem(text = { Text("Массовые действия") }, modifier = Modifier.testTag("shared-bulk-open"),
+                                leadingIcon = { AffairsActionIcon(AffairsAction.SETTINGS) }, onClick = {
+                                    actionsOpen = false; bulkProjectId = projectId; bulkFilter = taskFilter.toString(); bulkSort = taskSort.wire; bulkOpen = true
+                                })
                             DropdownMenuItem(text = { Text("Импорт данных") }, modifier = Modifier.testTag("shared-import-open"),
                                 onClick = { actionsOpen = false; dataImportOpen = true })
                             DropdownMenuItem(text = { Text("Отчёт по совместной работе") }, modifier = Modifier.testTag("shared-team-report-open"),

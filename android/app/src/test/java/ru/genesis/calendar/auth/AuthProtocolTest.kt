@@ -9,6 +9,25 @@ class AuthProtocolTest {
     private val now = 1_800_000_000_000L
     private fun header(extra: String = "") = "$SESSION_COOKIE=$sessionId; Path=/; Secure; HttpOnly$extra"
 
+    @Test fun nativeBulkTransportAllowsItsExactRoutesAndRejectsOtherMethodsAndQueries() {
+        val id = "01234567-89ab-cdef-0123-456789abcdef"
+        for (path in listOf("/shared/bulk/scope", "/shared/bulk/preview") +
+            listOf("confirm", "cancel", "advance", "resume").map { "/shared/bulk/$id/$it" }) {
+            assertTrue(path, allowedSharedRoute("POST", path)); assertFalse(allowedSharedRoute("GET", path))
+        }
+        for (path in listOf("/shared/bulk", "/shared/bulk?cursor=opaque%2Fpage", "/shared/bulk/$id?after=0", "/shared/bulk/$id?after=100") +
+            listOf("projects", "statuses", "assignees", "labels").map { "/shared/views/options?kind=$it&filter=%7B%7D&cursor=page-2" }) {
+            assertTrue(path, allowedSharedRoute("GET", path)); assertFalse(allowedSharedRoute("POST", path))
+        }
+        for (path in listOf("/shared/bulk/$id/erase", "/shared/bulk/$id?after=-1", "/shared/bulk/$id?after=0&untrusted=1",
+            "/shared/bulk?cursor=x&untrusted=1", "/shared/bulk/../../other?after=0",
+            "/shared/views/options?kind=untrusted&filter=%7B%7D", "/shared/views/options?kind=projects&filter=%7B%7D&untrusted=1")) {
+            assertFalse(path, allowedSharedRoute("GET", path)); assertFalse(path, allowedSharedRoute("POST", path))
+        }
+        assertTrue(allowedSharedRoute("GET", "/shared/projects/$id/tasks/$id?archived=true"))
+        assertFalse(allowedSharedRoute("POST", "/shared/projects/$id/tasks/$id?archived=true"))
+    }
+
     @Test fun sharedRoutesAllowInvitationsCalendarMovesAndGoogleSettings() {
         val id = "01234567-89ab-cdef-0123-456789abcdef"
         assertTrue(allowedSharedRoute("GET", "/shared/tasks?filter=%7B%7D"))
