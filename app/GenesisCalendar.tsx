@@ -6857,9 +6857,6 @@ export function GenesisCalendar() {
           {mobileLayout ? renderTopbarActions() : null}
         </header>
         <header className="topbar" data-exp-ui="topbar">
-          {!mobileLayout && sacredFeaturesEnabled ? <div className="topbar-date">
-            <span className="topbar-kicker">{view === "stoicheion" || view === "theokyklos" ? "Оракул" : view === "habits" ? (language === "en" ? "Habit tracker" : "Трекер привычек") : CALENDAR_MODE_META[activeCalendarMode].label}</span>
-          </div> : null}
           {experimentalThemeActive ? renderDisplayCalendarChoice(language === "en" ? "Display calendar" : "Календарь отображения", "topbar-calendar-choice") : null}
           {mobileLayout ? <div className="notification-header-slot" ref={setNotificationHeaderTarget} /> : null}
           {!mobileLayout ? renderTopbarActions() : null}
