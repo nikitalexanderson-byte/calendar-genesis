@@ -17,6 +17,9 @@ export function ExperimentalIcon({ name, className = "" }: { name: string; class
     {name === "stoicheion" || name === "theokyklos" ? <><path d="m12 3 2 7 7 2-7 2-2 7-2-7-7-2 7-2Z"/><path d="M20 2v4m2-2h-4M3 18v4m2-2H1"/></> : null}
     {name === "admin" ? <><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1Z"/><path d="m9 12 2 2 4-4"/></> : null}
     {name === "plus" ? <path d="M5 12h14M12 5v14"/> : null}
+    {name === "star" ? <path d="m12 3 2.78 5.63 6.22.9-4.5 4.39 1.06 6.2L12 17.19l-5.56 2.93 1.06-6.2L3 9.53l6.22-.9Z"/> : null}
+    {name === "pause" ? <><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></> : null}
+    {name === "play" ? <path d="m8 4 12 8-12 8Z"/> : null}
     {name === "account" ? <><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v2"/></> : null}
     {name === "undo" ? <><path d="M3 10h11a7 7 0 0 1 7 7v3M3 10l6-6m-6 6 6 6"/></> : null}
     {name === "redo" ? <><path d="M21 10H10a7 7 0 0 0-7 7v3m18-10-6-6m6 6-6 6"/></> : null}
@@ -60,7 +63,7 @@ export function ExperimentalIcon({ name, className = "" }: { name: string; class
     {name === "lock" ? <><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></> : null}
     {name === "team" ? <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m20 0v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/><circle cx="9" cy="7" r="4"/></> : null}
     {name === "settings" ? <><path d="M3 6h7m4 0h7M3 18h13m4 0h1"/><circle cx="12" cy="6" r="2"/><circle cx="18" cy="18" r="2"/></> : null}
-    {name === "automation" ? <><path d="m13 2-6 10h5l-1 10 7-12h-5l1-8Z"/><path d="M4 5h3m10 14h3"/><circle cx="2.5" cy="5" r="1.5"/><circle cx="21.5" cy="19" r="1.5"/></> : null}
+    {name === "automation" ? <path d="m13 2-9 12h7l-1 8 10-12h-7l1-8Z"/> : null}
     {name === "gear" ? <><path d="m9 3-.5 2-2 1-2-.5-2 3 1.5 1.5v3L2.5 15l2 3 2-.5 2 1 .5 2h4l.5-2 2-1 2 .5 2-3-1.5-1.5v-3L20 9l-2-3-2 .5-2-1-.5-2Z"/><circle cx="11.25" cy="12" r="3"/></> : null}
     {name === "tag" ? <><path d="M20 13 11 22 2 13V2h11l9 9Z"/><circle cx="7" cy="7" r="1"/></> : null}
     {name === "spaces" ? <><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></> : null}

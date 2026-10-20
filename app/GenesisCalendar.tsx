@@ -1,6 +1,7 @@
 "use client";
 import { DialogCloseButton } from "./DialogCloseButton";
 import { useMobileLayout, useCompactHeader } from "./use-mobile-layout";
+import { useHeaderControlSize } from "./use-header-control-size";
 import {orderPersonalTasks,taskListOrders,unreadPersonalCommentIds,type TaskListOrder} from "./task-list-order";
 import {usePersonalTaskDisplay} from "./use-personal-task-display";
 import {MindmapLaunchButton} from "./MindmapLaunchButton";
@@ -1180,6 +1181,7 @@ function DisplayCalendarChoice({ label, className, enabledCalendars, mode, langu
 export function GenesisCalendar() {
   const mobileLayout = useMobileLayout();
   const compactHeader = useCompactHeader();
+  const compactHeaderRef = useHeaderControlSize(compactHeader);
   const initial = useMemo(() => getSacredDate(new Date()), []);
   const [language, setLanguage] = useState<Language>(browserLanguage);
   const [today, setToday] = useState(() => new Date());
@@ -6832,7 +6834,7 @@ export function GenesisCalendar() {
         aria-label={language === "en" ? "Sidebar width" : "Ширина боковой панели"} {...resizeProps} />
 
       <section className="app-stage" data-exp-layout="stage">
-        <header className="app-brand-header" data-compact-header={compactHeader || undefined}>
+        <header ref={compactHeaderRef} className="app-brand-header" data-compact-header={compactHeader || undefined}>
           <button type="button" onClick={selectToday} aria-label="GENESIS — на главную">
             <img src={`${APP_BASE}/icons/icon-round-v2.png`} alt="" aria-hidden="true" data-genesis-preserve="web-header-logo" />
             <strong data-no-translate>GENESIS</strong>
