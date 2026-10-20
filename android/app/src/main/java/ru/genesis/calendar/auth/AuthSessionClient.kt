@@ -39,6 +39,7 @@ internal fun allowedSharedRoute(method: String, path: String): Boolean {
     if (path.matches(Regex("/shared/bulk/[a-f0-9-]{36}/(?:confirm|cancel|advance|resume)"))) return method == "POST"
     if (path.matches(Regex("/shared/views/options\\?kind=(?:projects|statuses|assignees|labels)&filter=[A-Za-z0-9%+_.~*-]+(?:&cursor=[A-Za-z0-9%+_.~*-]+)?"))) return method == "GET"
     if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/automations\\?deleted=(?:true|false)(?:&cursor=[a-f0-9-]{36})?"))) return method == "GET"
+    if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/automations(?:/preview)?"))) return method == "POST"
     if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/automations/[a-f0-9-]{36}"))) return method in setOf("GET", "PATCH")
     if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/automations/[a-f0-9-]{36}/runs(?:\\?cursor=[a-f0-9-]{36})?"))) return method == "GET"
     if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/automations/[a-f0-9-]{36}/runs/[a-f0-9-]{36}/retry"))) return method == "POST"
@@ -259,6 +260,13 @@ internal class AuthSessionClient(context: Context) {
     fun sharedAutomationCommand(expected: Long, project: String, rule: String, run: String?, body: JSONObject): JSONObject = request(expected,
         "/shared/projects/${SharedAutomationProtocol.id(project)}/automations/${SharedAutomationProtocol.id(rule)}" + (run?.let { "/runs/${SharedAutomationProtocol.id(it)}/retry" } ?: ""),
         body, method = if (run == null) "PATCH" else "POST")
+    fun saveSharedAutomation(expected: Long, project: String, rule: String?, payload: JSONObject): JSONObject = request(expected,
+        "/shared/projects/${SharedAutomationProtocol.id(project)}/automations" + (rule?.let { "/${SharedAutomationProtocol.id(it)}" } ?: ""),
+        payload, method = if (rule == null) "POST" else "PATCH")
+    fun previewSharedAutomation(expected: Long, project: String, definition: JSONObject, owner: String, task: String?): JSONObject =
+        SharedAutomationProtocol.preview(request(expected, "/shared/projects/${SharedAutomationProtocol.id(project)}/automations/preview",
+            JSONObject().put("definition", SharedAutomationProtocol.definition(definition)).put("ownerId", SharedAutomationProtocol.id(owner))
+                .put("taskId", task?.let(SharedAutomationProtocol::id) ?: JSONObject.NULL)), owner, task)
     fun sharedAutomationTemplate(expected: Long, template: String, language: String): JSONObject {
         require(language in setOf("ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja"))
         val raw = request(expected, "/shared/templates/" + java.net.URLEncoder.encode(SharedAutomationProtocol.templateId(template), "UTF-8") + "?language=$language", null).getJSONObject("template")

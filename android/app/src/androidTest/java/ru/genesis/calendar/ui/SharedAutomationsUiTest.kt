@@ -152,7 +152,7 @@ class SharedAutomationsUiTest {
         compose.onNodeWithText("Не все параметры доступны. Включение и повторный запуск здесь заблокированы.").assertExists()
         compose.onNodeWithTag("automation-enabled").assertIsOn().assertIsEnabled()
         expand("automation-actions"); compose.onNode(hasText("Показать ещё") and hasAnyAncestor(hasTestTag("automation-actions"))).performScrollTo().performClick()
-        compose.onNodeWithText("Параметры применения шаблона доступны на сайте.", substring = true).assertExists()
+        compose.onNodeWithText("Параметры применения шаблона доступны в редакторе правила.", substring = true).assertExists()
         expand("automation-runs"); compose.onNodeWithTag("automation-retry-run-auto-run-0").performScrollTo().assertIsNotEnabled()
         assertEquals(0, fixture.sends)
         compose.onNodeWithTag("automation-enabled").performScrollTo().performClick(); confirm(fixture)

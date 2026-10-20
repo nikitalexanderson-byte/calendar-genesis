@@ -5,6 +5,16 @@ import java.util.UUID
 
 /** Shared workspace operations implemented by the authenticated controller. */
 interface SharedWorkspaceGateway {
+    suspend fun sharedAutomationEditor(project: String): JSONObject? = null
+    suspend fun saveSharedAutomationEditor(project: String, stamp: String?, edit: JSONObject): JSONObject = throw UnsupportedOperationException("saveSharedAutomationEditor")
+    suspend fun prepareSharedAutomationEditor(project: String, stamp: String): JSONObject = throw UnsupportedOperationException("prepareSharedAutomationEditor")
+    suspend fun sendSharedAutomationEditor(project: String, stamp: String): JSONObject = throw UnsupportedOperationException("sendSharedAutomationEditor")
+    suspend fun previewSharedAutomationEditor(project: String, stamp: String, task: String?): JSONObject = throw UnsupportedOperationException("previewSharedAutomationEditor")
+    suspend fun removeSharedAutomationEditor(project: String, stamp: String): Unit = throw UnsupportedOperationException("removeSharedAutomationEditor")
+    suspend fun sharedAutomationEditorCopies(project: String): List<JSONObject> = emptyList()
+    suspend fun saveSharedAutomationEditorCopy(project: String, id: String, stamp: String?, edit: JSONObject): JSONObject = throw UnsupportedOperationException("saveSharedAutomationEditorCopy")
+    suspend fun useSharedAutomationEditorCopy(project: String, id: String, copyStamp: String, stamp: String?): JSONObject = throw UnsupportedOperationException("useSharedAutomationEditorCopy")
+    suspend fun removeSharedAutomationEditorCopy(project: String, id: String, stamp: String): Unit = throw UnsupportedOperationException("removeSharedAutomationEditorCopy")
     suspend fun sharedTemplates(space: String, language: String, deleted: Boolean, cursor: String?): JSONObject = throw UnsupportedOperationException("sharedTemplates")
     suspend fun sharedTemplate(space: String, id: String, language: String, deleted: Boolean): JSONObject = throw UnsupportedOperationException("sharedTemplate")
     suspend fun previewSharedTemplate(space: String, id: String, request: JSONObject): JSONObject = throw UnsupportedOperationException("previewSharedTemplate")

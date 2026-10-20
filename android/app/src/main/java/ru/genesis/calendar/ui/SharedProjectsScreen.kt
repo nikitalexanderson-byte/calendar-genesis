@@ -434,7 +434,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                 selectProject(targetProject); taskId = targetTask
             }
         })
-    val automationDestination = rememberSharedAutomationNavigation(controller, onLost = {
+    val automationDestination = rememberSharedAutomationNavigation(controller, preferences, onLost = {
             snapshot = null; taskPage = null; openedTask = null; taskId = ""; projectId = ""
             message = teamReportNoAccess; run { refreshProjects(spaceId) }
         }, onChanged = { run { if (projectId.isNotBlank()) refreshProject(projectId) } }, onTask = { targetProject, targetTask ->

@@ -30,6 +30,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import ru.genesis.calendar.auth.SharedWorkspaceGateway
+import ru.genesis.calendar.data.UiPreferences
 import java.time.ZoneId
 import java.util.Locale
 
@@ -39,16 +40,18 @@ import java.util.Locale
 }
 
 @Composable internal fun SharedAutomationsScreen(gateway: SharedWorkspaceGateway, projectId: String,
-    onClose: () -> Unit, onLost: () -> Unit, onChanged: () -> Unit, onTask: (String) -> Unit) {
+    onClose: () -> Unit, onLost: () -> Unit, onChanged: () -> Unit, onTask: (String) -> Unit, preferences: UiPreferences = UiPreferences()) {
     val language = LocalGenesisLanguage.current
     key(gateway, LocalGenesisUserId.current, projectId, language) {
         var savedRule by rememberSaveable { mutableStateOf("") }; var savedDeleted by rememberSaveable { mutableStateOf(false) }
+        var writerMode by rememberSaveable { mutableStateOf<String?>(null) }; var writerRule by rememberSaveable { mutableStateOf("") }
+        var libraryVersion by remember { mutableIntStateOf(0) }
         val lost by rememberUpdatedState(onLost); val changed by rememberUpdatedState(onChanged)
-        val state = remember { SharedAutomationsState(gateway, projectId, language, savedRule, savedDeleted,
+        val state = remember(libraryVersion) { SharedAutomationsState(gateway, projectId, language, savedRule, savedDeleted,
             { id, deleted -> savedRule = id; savedDeleted = deleted }, { lost() }, { changed() }) }
         val scope = rememberCoroutineScope(); val t = automationTranslator()
         val lifecycle = LocalLifecycleOwner.current.lifecycle.currentStateAsState().value
-        val active = lifecycle.isAtLeast(Lifecycle.State.STARTED) && LocalNavigationPageContext.current?.active != false
+        val active = lifecycle.isAtLeast(Lifecycle.State.STARTED) && LocalNavigationPageContext.current?.active != false && writerMode == null
         val night = LocalEveningTheme.current
         var confirmation by remember { mutableStateOf<JSONObject?>(null) }
         DisposableEffect(state) { onDispose { state.close() } }
@@ -56,7 +59,9 @@ import java.util.Locale
             if (!active) { state.pause(); return@LaunchedEffect }
             state.load(); while (isActive) { delay(30000); state.poll() }
         }
-        Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        if (writerMode != null) SharedAutomationEditorScreen(gateway, projectId, writerRule.takeIf(String::isNotBlank), writerMode == "copy", preferences,
+            onClose = { writerMode = null }, onSaved = { id -> savedRule = id; savedDeleted = false; libraryVersion++; writerMode = null; onChanged() })
+        if (writerMode == null) Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
             val view = LocalView.current
             SideEffect { (view.parent as? DialogWindowProvider)?.window?.let { WindowInsetsControllerCompat(it, view).isAppearanceLightStatusBars = !night } }
             BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -76,11 +81,12 @@ import java.util.Locale
                             verticalArrangement = Arrangement.spacedBy(16.dp)) {
                             state.project?.let { androidx.compose.material3.Text(it.getString("title"), style = MaterialTheme.typography.titleMedium) }
                             if (!state.loaded) Text("Загрузка…")
-                            else if (state.ruleId.isEmpty()) AutomationLibrary(state)
+                            else if (state.ruleId.isEmpty()) AutomationLibrary(state) { writerRule = ""; writerMode = "new" }
                             else state.rule?.let { rule -> key(rule.getString("id")) { AutomationDetails(state, rule, t,
                                 { kind, value, run -> confirmation = JSONObject().put("kind", kind).put("value", value ?: JSONObject.NULL).put("runId", run ?: JSONObject.NULL)
                                     .put("ruleId", rule.getString("id")).put("revision", rule.getInt("revision")) },
-                                { id -> scope.launch { state.openTask(id) { onTask(id) } } }) } }
+                                { id -> scope.launch { state.openTask(id) { onTask(id) } } },
+                                { copy -> writerRule = rule.getString("id"); writerMode = if (copy) "copy" else "edit" }) } }
                             state.page?.let { page ->
                                 AffairsDisclosure("Фоновая обработка", Modifier.testTag("automation-worker")) {
                                     if (!page.isNull("workerCompletedAt")) androidx.compose.material3.Text(bulkHistoryTimestamp(page.getString("workerCompletedAt"), language, ZoneId.systemDefault()), style = MaterialTheme.typography.bodySmall)
@@ -134,8 +140,12 @@ import java.util.Locale
     }
 }
 
-@Composable private fun AutomationLibrary(state: SharedAutomationsState) {
+@Composable private fun AutomationLibrary(state: SharedAutomationsState, onCreate: () -> Unit) {
     val scope = rememberCoroutineScope(); val page = state.page ?: return
+    if (page.getBoolean("canCreate")) Button(onCreate, enabled = !state.busy && state.record == null, shape = AffairsLayout.shape,
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("automation-create")) {
+        AffairsActionIcon(AffairsAction.ADD); Spacer(Modifier.width(8.dp)); Text("Создать правило")
+    }
     ImportChoice("Показывать", state.deleted.toString(), listOf("false" to genesisTranslate("Действующие правила"), "true" to genesisTranslate("Удалённые правила")),
         !state.busy && state.record == null, "automation-filter") { scope.launch { state.list(it.toBooleanStrict()) } }
     val rows = importRows(page.getJSONArray("rules")); var limit by rememberSaveable(state.cursor, state.deleted) { mutableIntStateOf(5) }
@@ -159,12 +169,16 @@ import java.util.Locale
 }
 
 @Composable private fun AutomationDetails(state: SharedAutomationsState, rule: JSONObject, t: (String) -> String,
-    onCommand: (String, Boolean?, String?) -> Unit, onTask: (String) -> Unit) {
+    onCommand: (String, Boolean?, String?) -> Unit, onTask: (String) -> Unit, onEdit: (Boolean) -> Unit) {
     val definition = rule.getJSONObject("definition"); val parameters = automationCanReadParameters(state)
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         androidx.compose.material3.Text(rule.getString("title"), Modifier.weight(1f).semantics { heading() }, style = MaterialTheme.typography.titleLarge)
         if (state.canManage) AffairsIconButton(if (rule.getBoolean("deleted")) "Восстановить правило" else "Удалить правило", if (rule.getBoolean("deleted")) AffairsAction.UNDO else AffairsAction.DELETE,
             { onCommand("deleted", !rule.getBoolean("deleted"), null) }, Modifier.testTag("automation-delete-restore"), enabled = state.canMutate)
+    }
+    if (!rule.getBoolean("deleted") && state.project?.optJSONObject("permissions")?.optBoolean("editTasks") == true) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        TemplateIconButton("Изменить правило", AffairsAction.EDIT, state.canMutate, Modifier.weight(1f).testTag("automation-edit")) { onEdit(false) }
+        TemplateIconButton("Копировать правило", AffairsAction.TEMPLATE, !state.busy && state.record == null, Modifier.weight(1f).testTag("automation-copy")) { onEdit(true) }
     }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(if (rule.getBoolean("deleted")) "Удалено" else if (rule.getBoolean("enabled")) "Включено" else "Выключено", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)

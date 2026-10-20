@@ -100,7 +100,7 @@ internal fun automationActionValue(state: SharedAutomationsState, action: JSONOb
             val name = if (action.optBoolean("unavailable")) null else state.templates[action.getString("templateId")]
             val optionsSupported = action.optJSONObject("options")?.length() == 0
             AutomationValue(if (name == null) t("Шаблон недоступен") else name +
-                if (optionsSupported) "" else "\n" + t("Параметры применения шаблона доступны на сайте."), name != null && optionsSupported)
+                if (optionsSupported) "" else "\n" + t("Параметры применения шаблона доступны в редакторе правила."), name != null && optionsSupported)
         }
         else -> AutomationValue(t("Недоступно"), false)
     }

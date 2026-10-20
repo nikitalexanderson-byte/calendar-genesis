@@ -13,7 +13,8 @@ import java.util.UUID
 class SharedAutomationStorageTest {
     @Test fun encryptedColdAutomationCommandKeepsItsIdentityAndRejectsOtherPurposesAndAad() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        assumeTrue("Separate QA installation required", context.packageName.endsWith(".c5qa.debug"))
+        assumeTrue("Separate QA installation required", ru.genesis.calendar.BuildConfig.DEBUG &&
+            context.packageName in setOf("ru.genesis.calendar.c5qa.debug", "ru.genesis.calendar.ghttps.debug"))
         val actor = "automation-storage-${UUID.randomUUID()}"; val project = automationUiProject; val other = "other-project"
         val key = "automations-v1:${actor.length}:$actor:${project.length}:$project"; val otherKey = "automations-v1:${actor.length}:$actor:${other.length}:$other"
         val prefs = context.getSharedPreferences("genesis.shared.automations.v1", Context.MODE_PRIVATE)

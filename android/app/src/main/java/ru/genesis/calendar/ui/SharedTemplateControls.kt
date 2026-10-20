@@ -43,10 +43,11 @@ internal fun templateIssueMessage(code: String, copy: JSONObject) = copy.getJSON
 
 @Composable internal fun TemplateField(label: String, value: String, enabled: Boolean, tag: String,
     lines: Int = 1, number: Boolean = false, maxLength: Int = if (lines == 1) 160 else 20000,
-    labelIsLocalized: Boolean = false, onChange: (String) -> Unit) {
+    labelIsLocalized: Boolean = false, error: String? = null, onChange: (String) -> Unit) {
     val description = if (labelIsLocalized) label else genesisTranslate(label)
     OutlinedTextField(value, { onChange(it.substring(0, it.offsetByCodePoints(0, minOf(maxLength, it.codePointCount(0, it.length))))) }, label = { androidx.compose.material3.Text(description) }, enabled = enabled, singleLine = lines == 1,
-        minLines = lines, maxLines = if (lines == 1) 1 else 5, textStyle = MaterialTheme.typography.bodyMedium,
+        minLines = lines, maxLines = if (lines == 1) 1 else 5, textStyle = MaterialTheme.typography.bodyMedium, isError = error != null,
+        supportingText = if (error == null) null else { { androidx.compose.material3.Text(error) } },
         keyboardOptions = KeyboardOptions(keyboardType = if (number) KeyboardType.Decimal else KeyboardType.Text),
         shape = AffairsLayout.shape, modifier = Modifier.fillMaxWidth().testTag(tag))
 }

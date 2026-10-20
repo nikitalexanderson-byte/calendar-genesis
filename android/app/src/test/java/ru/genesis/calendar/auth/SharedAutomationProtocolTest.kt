@@ -78,9 +78,11 @@ class SharedAutomationProtocolTest {
             assertTrue(path, allowedSharedRoute("GET", path)); assertFalse(allowedSharedRoute("POST", path))
         }
         assertTrue(allowedSharedRoute("PATCH", "$root/$id")); assertTrue(allowedSharedRoute("POST", "$root/$id/runs/$id/retry"))
+        assertTrue(allowedSharedRoute("POST", root)); assertTrue(allowedSharedRoute("POST", "$root/preview"))
+        assertFalse(allowedSharedRoute("GET", "$root/preview")); assertFalse(allowedSharedRoute("PATCH", "$root/preview"))
         assertTrue(allowedSharedRoute("GET", "/shared/templates/builtin%3Atask?language=en"))
         assertFalse(allowedSharedRoute("POST", "/shared/templates/builtin%3Atask?language=en"))
-        for (path in listOf("$root?deleted=false&untrusted=1", "$root/../../other", "$root/$id/runs?cursor=bad&other=1", "$root/$id/runs/$id/erase", "$root/preview")) {
+        for (path in listOf("$root?deleted=false&untrusted=1", "$root/../../other", "$root/$id/runs?cursor=bad&other=1", "$root/$id/runs/$id/erase", "$root/preview?untrusted=1")) {
             for (method in listOf("GET", "POST", "PATCH", "DELETE")) assertFalse("$method $path", allowedSharedRoute(method, path))
         }
     }

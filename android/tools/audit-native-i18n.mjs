@@ -193,9 +193,9 @@ for (const language of ["ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "s
 }
 const automationsCopy = JSON.parse(await readFile(path.join(ROOT, "app/native-automations-translations.json"), "utf8"));
 const automationsKeys = Object.keys(automationsCopy.ru ?? {});
-if (automationsKeys.length !== 30) throw new Error("Native automations copy must contain all 30 labels.");
+if (automationsKeys.length !== 82) throw new Error("Native automations copy must contain all 82 labels.");
 for (const language of ["ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja"]) {
-  if (Object.keys(automationsCopy[language] ?? {}).length !== automationsKeys.length) throw new Error(`Incomplete native automations catalog: ${language}`);
+  if (Object.keys(automationsCopy[language] ?? {}).sort().join("\n") !== [...automationsKeys].sort().join("\n")) throw new Error(`Incomplete native automations catalog: ${language}`);
   for (const key of automationsKeys) {
     const value = automationsCopy[language]?.[key];
     if (typeof value !== "string" || !value.trim() || (!["ru", "sr", "uk"].includes(language) && CYRILLIC.test(value))) {

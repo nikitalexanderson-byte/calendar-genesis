@@ -20,24 +20,42 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.util.Locale
 
-@Composable internal fun SharedTemplateApplyEditor(state: SharedTemplateState, preferences: UiPreferences, projects: List<JSONObject>) {
+/** Form-only binding deliberately has no command, prepare, send or apply capability. */
+internal class SharedTemplateApplyForm(val edit: JSONObject?, val source: JSONObject?, val preview: JSONObject?,
+    val editable: Boolean, val previewCurrent: Boolean, private val onChange: (JSONObject, Boolean) -> Boolean,
+    private val onDateInput: (SharedCustomCalendar) -> Unit, private val onTitle: (String) -> Unit) {
+    fun change(edit: JSONObject, invalidateReview: Boolean = true) = onChange(edit, invalidateReview)
+    fun changeDateInput(calendar: SharedCustomCalendar) = onDateInput(calendar)
+    fun changeTitle(value: String) = onTitle(value)
+}
+private fun templateApplyForm(state: SharedTemplateState) = SharedTemplateApplyForm(state.edit, state.source, state.preview,
+    state.editable, state.previewCurrent, state::change, state::changeDateInput, state::changeTitle)
+
+@Composable internal fun SharedTemplateApplyEditor(state: SharedTemplateState, preferences: UiPreferences, projects: List<JSONObject>) =
+    SharedTemplateApplyEditor(templateApplyForm(state), preferences, projects)
+
+@Composable internal fun SharedTemplateApplyEditor(state: SharedTemplateApplyForm, preferences: UiPreferences, projects: List<JSONObject>,
+    automationRun: Boolean = false) {
     val edit = state.edit ?: return; val request = edit.getJSONObject("request"); val options = SharedTemplateProtocol.options(request)
     val source = state.source; val preview = state.preview; val copy = sharedTemplateCopy(); val enabled = state.editable
     val kind = source?.optString("kind") ?: if (!options.isNull("projectId")) "task" else "project"
     val calendar = edit.optJSONObject("dateInput")?.let(SharedCustomCalendar::restore) ?: SharedCustomCalendar.initial(preferences)
     fun change(action: (JSONObject) -> Unit) { val next = SharedTemplateEdits.copy(edit); action(next.getJSONObject("request")); state.change(next) }
     Column(Modifier.fillMaxWidth().testTag("template-apply-editor"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Будут созданы самостоятельные задачи. Файлы, обсуждения, права и подписки не копируются.", style = MaterialTheme.typography.bodyMedium)
+        Text(if (automationRun) "Шаблон создаст задачи в проекте правила. Базовая дата — день запуска в часовом поясе правила. Предпросмотр показывает пример на сегодня."
+            else "Будут созданы самостоятельные задачи. Файлы, обсуждения, права и подписки не копируются.", style = MaterialTheme.typography.bodyMedium)
         val destination = if (kind == "task") "projectId" else "parentProjectId"
-        ImportChoice("Место создания", options.optString(destination).takeUnless { it == "null" }.orEmpty().ifBlank { "@none" },
+        if (!automationRun) ImportChoice("Место создания", options.optString(destination).takeUnless { it == "null" }.orEmpty().ifBlank { "@none" },
             listOf("@none" to genesisTranslate(if (kind == "task") "Выберите проект" else "Корень пространства")) + projects.filter { it.optString("archivedAt") in setOf("", "null") && sharedTaskCanEdit(it) }.map { it.getString("id") to it.getString("title") }, enabled, "template-apply-destination") { value -> change {
                 it.put(destination, value.takeUnless { it == "@none" } ?: JSONObject.NULL).put("boardStatusId", JSONObject.NULL)
                 for (key in listOf("statusMap", "categoryMap", "fieldMap", "optionMap", "fieldValues")) it.put(key, JSONObject())
             }
         }
-        Text("Базовая дата", style = MaterialTheme.typography.titleSmall)
-        AuthorDatePicker(options.getString("anchorDate"), calendar.mode, calculationContext = calendar.context, enabled = enabled,
-            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-apply-anchor")) { value -> change { it.put("anchorDate", value) } }
+        if (!automationRun) {
+            Text("Базовая дата", style = MaterialTheme.typography.titleSmall)
+            AuthorDatePicker(options.getString("anchorDate"), calendar.mode, calculationContext = calendar.context, enabled = enabled,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-apply-anchor")) { value -> change { it.put("anchorDate", value) } }
+        }
         AffairsDisclosure("Календарь ввода") { EditorCalendarModePicker(calendar.mode, { state.changeDateInput(calendar.copy(mode = it)) }, enabled, preferredMode = calendar.mode, tag = "template-apply-input-calendar") }
         TemplateField("Название нового объекта", options.optString("title").takeUnless { it == "null" }.orEmpty(), enabled, "template-apply-title", onChange = state::changeTitle)
         AffairsDisclosure("Переносимые данные", initiallyExpanded = true) {
@@ -50,7 +68,7 @@ import java.util.Locale
     }
 }
 
-@Composable private fun TemplateApplyMappings(state: SharedTemplateState, preview: JSONObject, source: JSONObject?, options: JSONObject) {
+@Composable private fun TemplateApplyMappings(state: SharedTemplateApplyForm, preview: JSONObject, source: JSONObject?, options: JSONObject) {
     if (source == null) return
     val manifest = source.getJSONObject("manifest"); val root = manifest.getJSONArray("projects").getJSONObject(0); val enabled = state.editable
     val tasks = SharedTemplateEdits.rows(manifest.getJSONArray("tasks")); val members = SharedTemplateEdits.rows(preview.getJSONArray("members"))
@@ -106,7 +124,9 @@ import java.util.Locale
     }
 }
 
-@Composable internal fun SharedTemplatePreview(state: SharedTemplateState, preferences: UiPreferences) {
+@Composable internal fun SharedTemplatePreview(state: SharedTemplateState, preferences: UiPreferences) = SharedTemplatePreview(templateApplyForm(state), preferences)
+
+@Composable internal fun SharedTemplatePreview(state: SharedTemplateApplyForm, preferences: UiPreferences) {
     val preview = state.preview ?: return; val copy = sharedTemplateCopy(); val language = LocalGenesisLanguage.current
     val number = remember(language) { NumberFormat.getIntegerInstance(Locale.forLanguageTag(language)) }
     val projects = SharedTemplateEdits.rows(preview.getJSONArray("projects")); val tasks = SharedTemplateEdits.rows(preview.getJSONArray("tasks"))
@@ -139,7 +159,7 @@ import java.util.Locale
     }
 }
 
-@Composable private fun TemplatePreviewFields(state: SharedTemplateState, preview: JSONObject, task: JSONObject, preferences: UiPreferences) {
+@Composable private fun TemplatePreviewFields(state: SharedTemplateApplyForm, preview: JSONObject, task: JSONObject, preferences: UiPreferences) {
     val edit = state.edit ?: return; val key = task.getString("key"); val options = edit.getJSONObject("request")
     val fields = SharedTemplateEdits.rows(preview.getJSONArray("fields")).map { JSONObject(it.toString()).put("key", it.getString("id")) } +
         SharedTemplateEdits.rows(preview.getJSONArray("newFields")).filter { it.getString("projectKey") == task.getString("projectKey") }.map { JSONObject(it.toString()).put("key", it.getString("ref")) }

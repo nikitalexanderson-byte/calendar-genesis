@@ -70,6 +70,8 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
     private val templateOperationMutex = Mutex()
     private val automationJournal = PlanningJournal(PlanningDraftStore(context.applicationContext, "automations"), contract = SharedAutomationJournalContract)
     private val automationOperationMutex = Mutex()
+    private val automationEditorJournal = PlanningJournal(PlanningDraftStore(context.applicationContext, "automation-editor"), contract = SharedAutomationEditorJournalContract)
+    private val automationEditorMutex = Mutex()
     private val importStorage = PlanningDraftStore(context.applicationContext, "data-import")
     private val importJournal = PlanningJournal(importStorage, contract = DataImportJournalContract)
     private val importUndoJournal = DataImportUndoJournal(importStorage)
@@ -251,6 +253,53 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
     override suspend fun prepareSharedAutomationDraft(projectId: String, stamp: String) = automationDraftCall { it.prepare(projectId, stamp) }
     override suspend fun sendSharedAutomationDraft(projectId: String, stamp: String) = automationDraftCall { it.send(projectId, stamp) }
     override suspend fun removeSharedAutomationDraft(projectId: String, stamp: String): Unit = automationDraftCall { it.remove(projectId, stamp) }
+    private suspend fun <T> automationEditorCall(action: (SharedAutomationEditorService) -> T): T {
+        val initial = mutableState.value; val account = initial.user?.uid ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
+        if (!initial.ready || initial.accountSettings?.sharedProjectsEnabled != true) throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
+        val generation = client.currentGeneration(); val caller = currentCoroutineContext()
+        fun current() {
+            caller.ensureActive(); val state = mutableState.value
+            if (!client.isCurrent(generation) || !state.ready || state.user?.uid != account || state.accountSettings?.sharedProjectsEnabled != true ||
+                app.workspaceScope != CloudAccountSnapshot.scopeFor(account)) throw CancellationException()
+        }
+        val access = object : SharedAutomationEditorAccess {
+            override fun check() = current()
+            private fun online() { current(); if (mutableState.value.requiresSignIn) throw AuthFailure(AuthFailure.Kind.NETWORK) }
+            override fun project(project: String): JSONObject { online(); return client.sharedProject(generation, project).also { current() } }
+            override fun rule(project: String, rule: String): JSONObject { online(); return client.sharedAutomation(generation, project, rule).getJSONObject("rule").also { current() } }
+            override fun labels(project: String): JSONArray {
+                online(); val rows = JSONArray(); var cursor: String? = null; val seen = mutableSetOf<String>()
+                repeat(100) {
+                    val page = client.sharedBulkOptions(generation, "labels", JSONObject().put("projectIds", JSONArray().put(project)), cursor); current()
+                    val options = page.getJSONArray("options"); for (index in 0 until options.length()) rows.put(options.getJSONObject(index))
+                    if (!page.getBoolean("hasMore")) return rows
+                    cursor = page.getString("nextCursor"); require(seen.add(cursor!!)) { "AUTOMATION_PROTOCOL" }
+                }
+                error("AUTOMATION_SIZE_LIMIT")
+            }
+            override fun template(space: String, template: String, language: String): JSONObject {
+                online(); return client.sharedTemplate(generation, space, template, language, false).also { current() }
+            }
+            override fun hasTaskQueue(): Boolean { current(); return sharedOffline.queued(account).isNotEmpty() }
+            override fun send(project: String, rule: String?, payload: JSONObject): JSONObject {
+                online(); return client.saveSharedAutomation(generation, project, rule, payload).also { current() }
+            }
+            override fun preview(project: String, definition: JSONObject, owner: String, task: String?): JSONObject {
+                online(); return client.previewSharedAutomation(generation, project, definition, owner, task).also { current() }
+            }
+        }
+        return withContext(Dispatchers.IO) { automationEditorMutex.withLock { current(); action(SharedAutomationEditorService(automationEditorJournal, account, access)).also { current() } } }
+    }
+    override suspend fun sharedAutomationEditor(project: String) = automationEditorCall { it.load(project) }
+    override suspend fun saveSharedAutomationEditor(project: String, stamp: String?, edit: JSONObject) = automationEditorCall { it.save(project, stamp, edit) }
+    override suspend fun prepareSharedAutomationEditor(project: String, stamp: String) = automationEditorCall { it.prepare(project, stamp) }
+    override suspend fun sendSharedAutomationEditor(project: String, stamp: String) = automationEditorCall { it.send(project, stamp) }
+    override suspend fun previewSharedAutomationEditor(project: String, stamp: String, task: String?) = automationEditorCall { it.preview(project, stamp, task) }
+    override suspend fun removeSharedAutomationEditor(project: String, stamp: String): Unit = automationEditorCall { it.remove(project, stamp) }
+    override suspend fun sharedAutomationEditorCopies(project: String) = automationEditorCall { it.copies(project) }
+    override suspend fun saveSharedAutomationEditorCopy(project: String, id: String, stamp: String?, edit: JSONObject) = automationEditorCall { it.saveCopy(project, id, stamp, edit) }
+    override suspend fun useSharedAutomationEditorCopy(project: String, id: String, copyStamp: String, stamp: String?) = automationEditorCall { it.useCopy(project, id, copyStamp, stamp) }
+    override suspend fun removeSharedAutomationEditorCopy(project: String, id: String, stamp: String): Unit = automationEditorCall { it.removeCopy(project, id, stamp) }
     override suspend fun sharedBulkScope(selection: JSONObject, cursor: String?) = sharedOnlineCall { api, generation -> api.sharedBulkScope(generation, selection, cursor) }
     override suspend fun sharedBulkReport(id: String, after: Long) = sharedOnlineCall { api, generation -> api.sharedBulkReport(generation, id, after) }
     override suspend fun sharedBulkHistory(cursor: String?) = sharedOnlineCall { api, generation -> api.sharedBulkHistory(generation, cursor) }

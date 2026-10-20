@@ -112,7 +112,7 @@ class SharedAutomationsStateTest {
             val state = state(gateway, "rule"); state.load()
             assertFalse(automationCanReadParameters(state))
             val value = automationActionValue(state, state.rule!!.getJSONObject("definition").getJSONArray("actions").getJSONObject(0)) { it }
-            assertFalse(value.available); assertTrue(value.text.startsWith("Шаблон команды\n")); assertTrue(value.text.contains("доступны на сайте"))
+            assertFalse(value.available); assertTrue(value.text.startsWith("Шаблон команды\n")); assertTrue(value.text.contains("доступны в редакторе правила"))
             state.apply(kind, if (kind == "enabled") true else null, if (kind == "retry") "run-0" else null, "rule", 3)
             assertEquals("AUTOMATION_STALE", state.error); assertEquals(0, gateway.sends); assertNull(state.record)
         }

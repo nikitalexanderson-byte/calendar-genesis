@@ -20,7 +20,8 @@ internal object SharedAutomationProtocol {
         "TEMPLATE_INVALID", "TEMPLATE_UNAVAILABLE", "TEMPLATE_FORBIDDEN", "TEMPLATE_SOURCE_UNAVAILABLE", "TEMPLATE_SOURCE_SCOPE_UNAVAILABLE",
         "TEMPLATE_DATE_INVALID", "TEMPLATE_DATE_OUTSIDE_RANGE", "TEMPLATE_OPEN_STATUS_REQUIRED", "TEMPLATE_REFERENCE_INVALID",
         "TEMPLATE_FIELD_MAPPING_INVALID", "TEMPLATE_FIELD_MAPPING_COLLISION", "TEMPLATE_FIELD_VALUE_UNMAPPED", "TEMPLATE_STATUS_MAPPING_INVALID",
-        "TEMPLATE_OPERATION_REQUIRED", "TEMPLATE_PREVIEW_CHANGED", "TEMPLATE_RESOURCE_LIMIT", "SERIES_INVALID", "INVALID_CALENDAR_CONTEXT", "INVALID_ASSIGNEE", "INVALID_TITLE", "INVALID_TEXT")
+        "TEMPLATE_OPERATION_REQUIRED", "TEMPLATE_PREVIEW_CHANGED", "TEMPLATE_RESOURCE_LIMIT", "SERIES_INVALID", "INVALID_CALENDAR_CONTEXT", "INVALID_ASSIGNEE", "INVALID_TITLE", "INVALID_TEXT",
+        "AUTOMATION_ACTION_REJECTED", "AUTOMATION_TASK_UNAVAILABLE")
     fun errorCode(code: String) = code in errors || Regex("(?:CUSTOM_FIELD|WORKFLOW)_[A-Z_]{1,80}").matches(code)
     private fun valid(condition: Boolean) { require(condition) { "AUTOMATION_PROTOCOL" } }
     fun id(value: String) = SharedBulkProtocol.id(value)
@@ -149,9 +150,28 @@ internal object SharedAutomationProtocol {
     private fun effects(raw: JSONObject) {
         keys(raw, setOf("updated", "patch", "createdTaskCount", "notifications", "notices")); bool(raw, "updated")
         valid(raw.opt("patch") is JSONObject || raw.opt("patch") is JSONArray && raw.getJSONArray("patch").length() == 0)
+        val patch = SharedTemplateProtocol.dictionary(raw.get("patch"))
+        valid(patch.keys().asSequence().all { it in setOf("statusId", "assigneeId", "priority", "labelIds", "dueDate", "customFields") })
+        if (patch.has("statusId")) id(text(patch, "statusId"))
+        if (patch.has("assigneeId")) nullable(patch, "assigneeId", ::id)
+        if (patch.has("priority")) number(patch, "priority", 0, 3)
+        if (patch.has("dueDate")) nullable(patch, "dueDate") { value -> valid(LocalDate.parse(value).toString() == value); value }
+        if (patch.has("customFields")) CustomFieldProtocol.values(patch.get("customFields"))
+        if (patch.has("labelIds")) {
+            val ids = patch.getJSONArray("labelIds"); valid(ids.length() <= 200); (0 until ids.length()).forEach { id(ids.getString(it)) }
+        }
         number(raw, "createdTaskCount", 0, 50); number(raw, "notifications")
         val notices = raw.getJSONArray("notices"); valid(notices.length() <= 100); (0 until notices.length()).forEach { valid(notices.get(it) is String && notices.getString(it).length <= 5000) }
         valid(raw.toString().length <= 200000)
+    }
+    fun preview(raw: JSONObject, owner: String, task: String?): JSONObject {
+        keys(raw, setOf("matches", "ownerId", "taskId", "taskRevision", "effects", "dryRun"))
+        valid(bool(raw, "dryRun") && text(raw, "ownerId") == id(owner)); bool(raw, "matches")
+        valid(if (task == null) raw.isNull("taskId") && raw.isNull("taskRevision") else text(raw, "taskId") == id(task))
+        if (task != null) number(raw, "taskRevision", 1)
+        valid(raw.isNull("effects") != raw.getBoolean("matches"))
+        if (!raw.isNull("effects")) effects(raw.getJSONObject("effects"))
+        return clone(raw)
     }
     fun edit(raw: JSONObject): JSONObject {
         val kind = text(raw, "kind"); valid(kind in setOf("enabled", "deleted", "retry"))
