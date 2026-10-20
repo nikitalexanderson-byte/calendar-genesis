@@ -10,6 +10,30 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class SharedOfflineStoreTest {
+    @Test fun customPatchAndOldCommandsSurviveEncryptedReloadWithTheirOriginalIdentity() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val user = UUID.randomUUID().toString(); val other = UUID.randomUUID().toString()
+        val store = SharedOfflineStore(context)
+        val oldRequest = UUID.randomUUID().toString(); val request = UUID.randomUUID().toString()
+        val old = JSONObject().put("requestId", oldRequest).put("body", JSONObject().put("title", "Legacy task").put("requestId", oldRequest))
+        val body = JSONObject().put("customFields", JSONObject().put("number", 0).put("checkbox", false)
+            .put("text", JSONObject.NULL).put("select", "retired")).put("expectedRevision", 5).put("requestId", request)
+        try {
+            store.enqueue(user, old)
+            store.enqueue(user, JSONObject().put("requestId", request).put("taskId", "custom-task").put("body", body))
+            store.markError(user, request, "CUSTOM_FIELD_REQUIRED")
+            val reloaded = SharedOfflineStore(context)
+            assertTrue(reloaded.queued(other).isEmpty()); assertEquals(old.toString(), reloaded.queued(user).first().toString())
+            val pending = reloaded.queued(user).last(); assertEquals(body.toString(), pending.getJSONObject("body").toString())
+            assertEquals(request, pending.getString("requestId")); assertEquals("CUSTOM_FIELD_REQUIRED", pending.getString("error"))
+            assertFalse(context.getSharedPreferences("genesis.shared.offline.v1", 0).all.values.joinToString().contains("retired"))
+            val incomplete = JSONObject().put("task", JSONObject().put("id", "custom-task").put("projectId", "custom-project").put("revision", 6))
+            assertThrows(AuthFailure::class.java) { confirmedSharedReceipt("update", "custom-project", "custom-task", body, incomplete) }
+            assertEquals(body.toString(), reloaded.queued(user).last().getJSONObject("body").toString())
+            store.remove(user, request); assertEquals(old.toString(), reloaded.queued(user).single().toString())
+        } finally { store.clear(user); store.clear(other) }
+    }
+
     @Test fun estimateCommandKeepsZeroNullOmittedAndIdentityAfterAnUncertainRetry() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val user = UUID.randomUUID().toString()

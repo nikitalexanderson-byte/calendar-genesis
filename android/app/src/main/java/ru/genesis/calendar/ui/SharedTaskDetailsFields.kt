@@ -9,27 +9,38 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import org.json.JSONArray
 import org.json.JSONObject
+import ru.genesis.calendar.data.UiPreferences
 
 private fun sharedTaskDetailCore(task: JSONObject): JSONObject = JSONObject()
     .put("priority", task.optInt("priority"))
     .put("parentTaskId", task.opt("parentTaskId") ?: JSONObject.NULL)
     .put("checklists", JSONArray((task.optJSONArray("checklists") ?: JSONArray()).toString()))
 
-internal fun sharedTaskDetailDraft(task: JSONObject): JSONObject = sharedTaskWithEstimates(
-    sharedTaskDetailCore(task), SharedTaskEstimateDraft.fromTask(task))
+internal fun sharedTaskDetailDraft(task: JSONObject, prefs: UiPreferences = UiPreferences()): JSONObject = initialSharedTaskCustom(task,
+    sharedTaskWithEstimates(sharedTaskDetailCore(task), SharedTaskEstimateDraft.fromTask(task)), prefs)
 
-internal fun sharedTaskDetailChanges(task: JSONObject, details: JSONObject, includeEstimates: Boolean): JSONObject =
+internal fun sharedTaskDetailChanges(task: JSONObject, details: JSONObject, includeEstimates: Boolean,
+    customFields: List<JSONObject> = emptyList()): JSONObject =
     sharedTaskDetailCore(details).apply {
         if (includeEstimates) sharedTaskEstimates(task, details).patch().let { estimates ->
             estimates.keys().forEach { key -> put(key, estimates.get(key)) }
         }
+        sharedTaskCustomDraft(task, details).patch(customFields).let { patch ->
+            if (patch.length() > 0) put("customFields", patch)
+        }
     }
 
-internal fun sharedTaskDetailsChanged(task: JSONObject, details: JSONObject): Boolean =
-    sharedTaskDetailCore(task).toString() != sharedTaskDetailCore(details).toString() || sharedTaskEstimates(task, details).dirty
+internal fun sharedTaskDetailsChanged(task: JSONObject, details: JSONObject, customFields: List<JSONObject> = emptyList()): Boolean =
+    sharedTaskDetailCore(task).toString() != sharedTaskDetailCore(details).toString() || sharedTaskEstimates(task, details).dirty ||
+        runCatching { sharedTaskCustomDraft(task, details).changedIds(customFields).isNotEmpty() }.getOrDefault(true)
 
-internal fun rebaseSharedTaskDetailDraft(task: JSONObject, details: JSONObject): JSONObject =
-    sharedTaskWithEstimates(sharedTaskDetailCore(task), sharedTaskEstimates(task, details).rebase(task))
+internal fun rebaseSharedTaskDetailDraft(task: JSONObject, details: JSONObject, customFields: List<JSONObject> = emptyList()): JSONObject {
+    val result = sharedTaskWithEstimates(sharedTaskDetailCore(task), sharedTaskEstimates(task, details).rebase(task))
+    // Keep malformed local input recoverable rather than replacing it during a refresh.
+    if (details.has(SHARED_CUSTOM_CALENDAR_KEY)) result.put(SHARED_CUSTOM_CALENDAR_KEY, details.get(SHARED_CUSTOM_CALENDAR_KEY))
+    return runCatching { sharedTaskWithCustomFields(task, result, sharedTaskCustomDraft(task, details).rebase(task, customFields)) }
+        .getOrElse { if (details.has(SHARED_CUSTOM_DRAFT_KEY)) result.put(SHARED_CUSTOM_DRAFT_KEY, details.get(SHARED_CUSTOM_DRAFT_KEY)) else result }
+}
 
 /** Preserve loaded pages only while the server's membership/data generation is unchanged. */
 internal fun mergeSharedTaskPage(previous: JSONObject?, next: JSONObject, append: Boolean): JSONObject {

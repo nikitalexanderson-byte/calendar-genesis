@@ -5,6 +5,32 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class SharedMutationReceiptTest {
+    @Test fun typedCustomFieldRejectionsKeepTheOriginalTaskOutboxRules() {
+        for (code in listOf("CUSTOM_FIELD_REQUIRED", "CUSTOM_FIELD_OPTION_UNAVAILABLE", "CUSTOM_FIELD_VALUE_INVALID")) {
+            val failure = requireNotNull(customFieldFailure(409, JSONObject().put("error", code)))
+            assertTrue(definiteSharedRejection(failure)); assertEquals(code, sharedFailureCode(failure))
+        }
+        assertNull(customFieldFailure(200, JSONObject().put("error", "CUSTOM_FIELD_REQUIRED")))
+        assertNull(customFieldFailure(403, JSONObject().put("error", "CUSTOM_FIELD_REQUIRED")))
+        assertNull(customFieldFailure(409, JSONObject().put("error", "UNTRUSTED_CODE")))
+    }
+    @Test fun malformedCustomSuccessIsAnUnknownResultAndCannotReleaseTheTaskCommand() {
+        val body = JSONObject().put("requestId", "frozen").put("expectedRevision", 0)
+            .put("customFields", JSONObject().put("effort", 0).put("approved", false).put("note", JSONObject.NULL))
+        val good = reply().apply { getJSONObject("task").put("customFields", JSONObject().put("effort", 0).put("approved", false)) }
+        confirmedSharedReceipt("update", "project-a", "task-a", body, good)
+        for (bad in listOf(reply(), reply().apply { getJSONObject("task").put("customFields", JSONObject().put("effort", "0").put("approved", false)) },
+            reply().apply { getJSONObject("task").put("customFields", JSONObject().put("effort", 0).put("approved", false).put("note", "Old note")) })) {
+            val failure = assertThrows(AuthFailure::class.java) { confirmedSharedReceipt("update", "project-a", "task-a", body, bad) }
+            assertEquals(AuthFailure.Kind.PROTOCOL, failure.kind); assertFalse(definiteSharedRejection(failure))
+        }
+        assertEquals("frozen", body.getString("requestId")); assertEquals(false, body.getJSONObject("customFields").get("approved"))
+    }
+    @Test fun anEmptyLegacyCustomMapHasNoNewValueToAcknowledge() {
+        for (empty in listOf(JSONObject(), org.json.JSONArray())) {
+            val response = reply(); confirmedSharedReceipt("update", "project-a", "task-a", JSONObject().put("customFields", empty), response)
+        }
+    }
     private fun reply(id: String = "task-a", project: String = "project-a", revision: Any = 1) =
         JSONObject().put("task", JSONObject().put("id", id).put("projectId", project).put("revision", revision))
 

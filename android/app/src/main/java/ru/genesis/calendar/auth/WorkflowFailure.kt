@@ -7,7 +7,11 @@ import org.json.JSONObject
 internal class WorkflowFailure(val code: String, val details: JSONObject, status: Int) :
     AuthFailure(if (status == 409) Kind.CONFLICT else Kind.SERVER, status)
 
-internal fun sharedFailureCode(failure: AuthFailure): String = if (failure is WorkflowFailure) failure.code else failure.kind.name
+internal fun sharedFailureCode(failure: AuthFailure): String = when (failure) {
+    is WorkflowFailure -> failure.code
+    is CustomFieldFailure -> failure.code
+    else -> failure.kind.name
+}
 
 internal fun workflowFailure(status: Int, payload: JSONObject): WorkflowFailure? {
     val code = payload.optString("error")

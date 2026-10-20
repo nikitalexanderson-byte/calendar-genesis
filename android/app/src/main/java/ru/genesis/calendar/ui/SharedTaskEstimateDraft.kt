@@ -102,7 +102,14 @@ internal fun sharedPendingTask(current: JSONObject, reply: JSONObject, changes: 
     require(reply.optBoolean("pending") && reply.getString("id") == current.getString("id") &&
         reply.getString("projectId") == current.getString("projectId")) { "PLANNING_TASK_ACK_INVALID" }
     return JSONObject(current.toString()).apply {
-        changes.keys().forEach { key -> if (key !in setOf("expectedRevision", "requestId", SHARED_ESTIMATE_DRAFT_KEY)) put(key, changes.get(key)) }
+        changes.keys().forEach { key ->
+            if (key == "customFields") {
+                val values = ru.genesis.calendar.auth.CustomFieldProtocol.fromTask(current)
+                val patch = ru.genesis.calendar.auth.CustomFieldProtocol.values(changes.get(key))
+                patch.keys().forEach { id -> values.put(id, patch.get(id)) }
+                put(key, values)
+            } else if (key !in setOf("expectedRevision", "requestId", SHARED_ESTIMATE_DRAFT_KEY, SHARED_CUSTOM_DRAFT_KEY, SHARED_CUSTOM_CALENDAR_KEY)) put(key, changes.get(key))
+        }
         put("pending", true)
     }
 }
