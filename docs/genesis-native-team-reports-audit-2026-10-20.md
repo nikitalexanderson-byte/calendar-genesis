@@ -22,3 +22,5 @@
 Не проверены: физический Samsung, TalkBack, IME/foldables, все переведённые интерактивные состояния, реальный native C4 Google/HTTPS, подписанный/R8 C4 APK, большие многолетние C4 истории и общий project/release flow. Публичный APK остаётся 2.9.0/95. Эти ограничения сохраняют C4 частичным; отдельная приёмка исходников не закрывает общий ID.
 
 Миграций и ручных production-БД изменений не требуется. SSH не использовался.
+
+Срез исходников опубликован в PR #224: master/production `c5d80f415c8927b611b7e1b96e0ea3961f1a3a0e`, Deploy `39363498982` success. Публичный deploy-meta подтверждает SHA/run ID; `/api/health` — 200/ok, entry `/assets/index-CeBWhWoM.js` — 200, Gregorian monthly WebP — 200/image-webp. Android deployment остаётся выключенным, публичный APK не изменён. Следующий экран — native C6 project access.
