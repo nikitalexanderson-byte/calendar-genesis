@@ -4,8 +4,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.json.JSONObject
@@ -15,6 +17,12 @@ import ru.genesis.calendar.auth.SharedTemplateManifest
 import ru.genesis.calendar.auth.SharedTemplateProtocol
 import ru.genesis.calendar.auth.SharedWorkspaceGateway
 import java.util.UUID
+
+internal fun sharedTemplateAccessDenied(failure: Exception): Boolean = when (failure) {
+    is AuthApiError -> failure.code in setOf("UNAUTHORIZED", "SHARED_PROJECT_FORBIDDEN", "SHARED_PROJECT_NOT_FOUND", "SHARED_SPACE_FORBIDDEN", "SHARED_SPACE_NOT_FOUND")
+    is AuthFailure -> failure.kind == AuthFailure.Kind.UNAUTHORIZED
+    else -> false
+}
 
 /** One selected project owns one durable template editor; server catalogs and previews remain in memory. */
 internal class SharedTemplateState(private val gateway: SharedWorkspaceGateway, private val account: String,
@@ -34,14 +42,18 @@ internal class SharedTemplateState(private val gateway: SharedWorkspaceGateway, 
     var error by mutableStateOf(""); private set
     var inputVersion by mutableStateOf(0); private set
     @Volatile private var active = true
+    private var permissions: Pair<Boolean, Boolean>? = null
+    private var contextPermissions: Pair<Boolean, Boolean>? = null
     private val mutex = Mutex()
     val phase get() = record?.optString("phase") ?: "editing"
-    val editable get() = loaded && !busy && !lost && !conflicted && edit != null && phase == "editing"
+    private val mutationAllowed get() = if (edit?.optString("kind") == "template-apply" && edit?.getJSONObject("request")?.isNull("projectId") == true)
+        permissions?.second != false && contextPermissions?.second != false else permissions?.first != false && contextPermissions?.first != false
+    val editable get() = loaded && !busy && !lost && !conflicted && edit != null && phase == "editing" && mutationAllowed
     val receipt get() = record?.optJSONObject("receipt")
     val previewCurrent get() = preview != null && edit?.opt("review") == preview?.opt("fingerprint") && !dirty
     val hasMore get() = library?.optBoolean("hasMore") == true
     private fun copy(value: JSONObject) = JSONObject(value.toString())
-    private fun current() { if (!active) throw CancellationException() }
+    private fun current() { if (!active || lost) throw CancellationException() }
     fun close() { active = false; source = null; preview = null; library = null; edit = null; record = null; copies = emptyList() }
     private suspend fun <T> checked(block: suspend () -> T): T {
         currentCoroutineContext().ensureActive(); current()
@@ -62,8 +74,8 @@ internal class SharedTemplateState(private val gateway: SharedWorkspaceGateway, 
         catch (cancelled: CancellationException) { throw cancelled }
         catch (failure: Exception) {
             current(); error = code(failure)
-            if (error in setOf("UNAUTHORIZED", "SHARED_PROJECT_FORBIDDEN", "SHARED_SPACE_FORBIDDEN", "TEMPLATE_FORBIDDEN", "TEMPLATE_PERMISSION_CHANGED", "TEMPLATE_UNAVAILABLE", "TEMPLATE_SOURCE_UNAVAILABLE", "TEMPLATE_SOURCE_SCOPE_UNAVAILABLE")) {
-                source = null; preview = null; library = null; edit = null; record = null; copies = emptyList(); lost = true
+            if (error in setOf("UNAUTHORIZED", "SHARED_PROJECT_FORBIDDEN", "SHARED_PROJECT_NOT_FOUND", "SHARED_SPACE_FORBIDDEN", "SHARED_SPACE_NOT_FOUND", "TEMPLATE_FORBIDDEN", "TEMPLATE_PERMISSION_CHANGED", "TEMPLATE_UNAVAILABLE", "TEMPLATE_SOURCE_UNAVAILABLE", "TEMPLATE_SOURCE_SCOPE_UNAVAILABLE")) {
+                invalidateAccess(error)
             } else {
                 if (error == "PLANNING_DRAFT_CHANGED") conflicted = true
                 try {
@@ -74,10 +86,34 @@ internal class SharedTemplateState(private val gateway: SharedWorkspaceGateway, 
             }
         } finally { if (active && !quiet) busy = false }
     }
+    /** Invalidation hides server content immediately; only our last unsaved input may enter an encrypted copy. */
+    suspend fun invalidateAccess(reason: String = "TEMPLATE_PERMISSION_CHANGED") {
+        if (lost || !active) return
+        val own = edit?.takeIf { dirty && phase == "editing" }?.let(::copy)
+        lost = true; error = reason; dirty = false; busy = false
+        source = null; preview = null; library = null; edit = null; record = null; copies = emptyList()
+        if (own != null) try { gateway.saveSharedTemplateCopy(project, UUID.randomUUID().toString(), null, own) }
+        catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) { /* The existing journal is preserved if the account/storage is unavailable. */ }
+    }
+    suspend fun updatePermissions(canWrite: Boolean, canCreate: Boolean) {
+        val previous = permissions; permissions = canWrite to canCreate
+        if (previous != null && (previous.first && !canWrite || previous.second && !canCreate)) invalidateAccess()
+    }
+    private inline fun localEdit(action: () -> Unit): Boolean {
+        if (!editable) return false
+        return try { action(); true }
+        catch (cancelled: CancellationException) { throw cancelled }
+        catch (failure: Exception) { error = code(failure); false }
+    }
     suspend fun load() = operate {
         require(account.isNotBlank()) { "UNAUTHORIZED" }
         SharedTemplateProtocol.id(space); SharedTemplateProtocol.id(project); SharedTemplateProtocol.language(language)
+        val context = checked { gateway.sharedProject(project) }.getJSONObject("project")
+        require(context.getString("id") == project && context.getString("spaceId") == space) { "TEMPLATE_SCOPE_CHANGED" }
+        contextPermissions = sharedTaskCanEdit(context) to (context.optJSONObject("permissions")?.optBoolean("createProjects") == true)
         accept(checked { gateway.sharedTemplateDraft(project) }); copies = checked { gateway.sharedTemplateCopies(project) }; loaded = true
+        if (edit != null && !mutationAllowed) { invalidateAccess(); return@operate }
         library = SharedTemplateProtocol.library(space, checked { gateway.sharedTemplates(space, language, deleted, null) })
     }
     suspend fun loadLibrary(archive: Boolean = deleted, more: Boolean = false) = operate {
@@ -100,8 +136,8 @@ internal class SharedTemplateState(private val gateway: SharedWorkspaceGateway, 
         require(initial.getString("spaceId") == space && initial.getString("projectId") == project) { "TEMPLATE_SCOPE_CHANGED" }
         edit = copy(initial); dirty = true; inputVersion++; persist()
     }
-    fun change(value: JSONObject, invalidateReview: Boolean = true) {
-        if (!editable) return
+    fun change(value: JSONObject, invalidateReview: Boolean = true): Boolean = localEdit { commitChange(value, invalidateReview) }
+    private fun commitChange(value: JSONObject, invalidateReview: Boolean = true) {
         val next = SharedTemplateProtocol.edit(value)
         require(next.getString("spaceId") == space && next.getString("projectId") == project) { "TEMPLATE_SCOPE_CHANGED" }
         val previous = edit
@@ -119,8 +155,20 @@ internal class SharedTemplateState(private val gateway: SharedWorkspaceGateway, 
         val next = edit?.let(::copy) ?: return
         next.getJSONObject("request").put("title", if (next.getString("kind") == "template-apply" && value.isBlank()) JSONObject.NULL else value); change(next)
     }
-    fun changeManifest(value: JSONObject) {
-        val next = edit?.let(::copy) ?: return
+    fun changeManifest(value: JSONObject): Boolean = localEdit { commitManifest(value) }
+    fun proposeManifest(proposal: () -> JSONObject): Boolean = localEdit { commitManifest(proposal()) }
+    /** Evaluate the helper inside the same boundary as validation; a rejected edit never replaces the draft. */
+    fun mutateManifest(action: (JSONObject) -> JSONObject): Boolean = localEdit {
+        commitManifest(action(copy(requireNotNull(edit).getJSONObject("request").getJSONObject("manifest"))))
+    }
+    fun addTask(project: String, parent: String?): String? {
+        var chosen: String? = null
+        mutateManifest { manifest -> SharedTemplateEdits.addTask(manifest, project, parent = parent).also { chosen = it.second }.first }
+            .also { if (!it) chosen = null }
+        return chosen
+    }
+    private fun commitManifest(value: JSONObject) {
+        val next = copy(requireNotNull(edit))
         require(next.getString("kind") == "template-save")
         val manifest = SharedTemplateManifest.validate(value, complete = false)
         val tasks = SharedTemplateManifest.rows(manifest.getJSONArray("tasks")).associateBy { it.getString("key") }
@@ -139,7 +187,7 @@ internal class SharedTemplateState(private val gateway: SharedWorkspaceGateway, 
             }
             if (removed) inputs.remove(path)
         }
-        next.getJSONObject("request").put("manifest", manifest); change(next)
+        next.getJSONObject("request").put("manifest", manifest); commitChange(next)
     }
     fun changeEstimate(task: String, field: String, value: String) {
         require(field in setOf("storyPoints", "estimateHours"))
@@ -162,7 +210,8 @@ internal class SharedTemplateState(private val gateway: SharedWorkspaceGateway, 
         record = copy(saved)
         if (version == inputVersion) { edit = copy(saved.getJSONObject("edit")); dirty = false }
     }
-    suspend fun save() = operate(quiet = true) { persist() }
+    // A new keystroke cancels the debounce job, but a committed local write still owes us its CAS stamp.
+    suspend fun save() = withContext(NonCancellable) { operate(quiet = true) { persist() } }
     suspend fun review() = operate {
         require(!lost && !conflicted && phase == "editing") { "PLANNING_DRAFT_PENDING" }; persist()
         var value = requireNotNull(edit); require(value.getString("kind") == "template-apply")

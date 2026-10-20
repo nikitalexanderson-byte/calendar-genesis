@@ -67,6 +67,15 @@ internal object SharedTemplateEdits {
         val result = copy(raw); result.put("fields", filter(result.getJSONArray("fields")) { it.getString("key") != id })
         rows(result.getJSONArray("tasks")).forEach { it.getJSONObject("customValues").remove(id) }; return result
     }
+    /** Called only after explicit confirmation when there are values or options to clear. */
+    fun changeFieldType(raw: JSONObject, id: String, type: String): JSONObject {
+        require(type in setOf("text", "number", "date", "checkbox", "url", "select", "multi"))
+        val result = copy(raw); val field = rows(result.getJSONArray("fields")).single { it.getString("key") == id }
+        if (field.getString("type") == type) return result
+        field.put("type", type).put("options", JSONArray())
+        rows(result.getJSONArray("tasks")).forEach { it.getJSONObject("customValues").remove(id) }
+        return result
+    }
     fun reparentTask(raw: JSONObject, id: String, parent: String?): JSONObject {
         val result = copy(raw); val all = rows(result.getJSONArray("tasks")); val task = all.single { it.getString("key") == id }
         if (parent != null) require(all.any { it.getString("key") == parent && it.getString("projectKey") == task.getString("projectKey") } && parent !in descendants(raw, "tasks", id))

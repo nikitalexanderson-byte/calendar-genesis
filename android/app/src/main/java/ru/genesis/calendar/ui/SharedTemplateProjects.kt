@@ -31,19 +31,21 @@ import java.util.UUID
     val projects = SharedTemplateEdits.rows(manifest.getJSONArray("projects")); val enabled = state.editable
     var chosen by rememberSaveable { mutableStateOf("") }; var remove by remember { mutableStateOf(false) }
     val project = projects.firstOrNull { it.getString("key") == chosen } ?: projects.first(); val id = project.getString("key")
-    fun change(action: (JSONObject) -> Unit) = state.changeManifest(SharedTemplateEdits.update(manifest, "projects", id, action))
+    fun change(action: (JSONObject) -> Unit) = state.proposeManifest { SharedTemplateEdits.update(manifest, "projects", id, action) }
     Column(Modifier.fillMaxWidth().testTag("template-project-editor"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Структура проекта", style = MaterialTheme.typography.titleLarge)
         ImportChoice("Проект шаблона", id, projects.map { it.getString("key") to it.getString("title").ifBlank { genesisTranslate("Без названия") } }, !state.busy, "template-project-choice") { chosen = it }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (manifest.getString("kind") == "project") TemplateIconButton("Добавить подпроект", AffairsAction.ADD, enabled && projects.size < 50, Modifier.weight(1f).testTag("template-project-add")) {
-                val next = SharedTemplateEdits.copy(manifest); val child = UUID.randomUUID().toString()
-                next.getJSONArray("projects").put(SharedTemplateManifest.newProject(child, "", openTitle, doneTitle, parent = id)); chosen = child; state.changeManifest(next)
+                val child = UUID.randomUUID().toString()
+                if (state.proposeManifest { SharedTemplateEdits.copy(manifest).apply {
+                    getJSONArray("projects").put(SharedTemplateManifest.newProject(child, "", openTitle, doneTitle, parent = id))
+                } }) chosen = child
             }
             if (projects.first().getString("key") != id) TemplateIconButton("Удалить подпроект", AffairsAction.DELETE, enabled, Modifier.weight(1f).testTag("template-project-remove")) { remove = true }
         }
         TemplateField("Название", project.getString("title"), enabled, "template-project-title") { value -> change { it.put("title", value) } }
-        TemplateField("Описание", project.getString("description"), enabled, "template-project-description", lines = 2, maxLength = 5000) { value -> change { it.put("description", value) } }
+        TemplateField("Описание проекта", project.getString("description"), enabled, "template-project-description", lines = 2, maxLength = 5000) { value -> change { it.put("description", value) } }
         ImportChoice("Вид", project.getString("layout"), listOf("list" to genesisTranslate("Список"), "board" to genesisTranslate("Доска")), enabled, "template-project-layout") { value -> change { it.put("layout", value) } }
         ImportChoice("Тип", project.getString("kind"), listOf("project" to genesisTranslate("Проект"), "task-list" to genesisTranslate("Список задач")), enabled, "template-project-kind") { value -> change { it.put("kind", value) } }
         val parent = projects.firstOrNull { it.getString("key") == project.optString("parentKey") }
@@ -53,10 +55,10 @@ import java.util.UUID
         }
         AffairsDisclosure("Календарь шаблона") {
             val mode = CalendarMode.entries.single { it.wireValue == manifest.getString("calendarMode") }
-            EditorCalendarModePicker(mode, { value -> state.changeManifest(SharedTemplateEdits.copy(manifest).put("calendarMode", value.wireValue)) }, enabled, preferredMode = mode, tag = "template-offset-calendar")
+            EditorCalendarModePicker(mode, { value -> state.proposeManifest { SharedTemplateEdits.copy(manifest).put("calendarMode", value.wireValue) } }, enabled, preferredMode = mode, tag = "template-offset-calendar")
             Text("Месяцы и годы считаются по календарю шаблона. Проверяйте итоговые даты в предпросмотре.", style = MaterialTheme.typography.bodySmall)
             TemplateToggle("Григорианский год с марта", manifest.getJSONObject("calendarContext").getString("gregorianYearStart") == "march", enabled, "template-year-start") {
-                value -> val next = SharedTemplateEdits.copy(manifest); next.getJSONObject("calendarContext").put("gregorianYearStart", if (value) "march" else "january"); state.changeManifest(next)
+                value -> val next = SharedTemplateEdits.copy(manifest); next.getJSONObject("calendarContext").put("gregorianYearStart", if (value) "march" else "january"); state.proposeManifest { next }
             }
         }
         TemplateTags(state, manifest, project, "projects")
@@ -66,31 +68,31 @@ import java.util.UUID
         TemplateLabels(state, manifest)
     }
     if (remove) AlertDialog(onDismissRequest = { remove = false }, title = { Text("Удалить подпроект") }, text = { Text("Удалить эту ветку из шаблона?") },
-        confirmButton = { TextButton({ state.changeManifest(SharedTemplateEdits.removeProject(manifest, id)); chosen = ""; remove = false }) { Text("Удалить") } },
+        confirmButton = { TextButton({ if (state.proposeManifest { SharedTemplateEdits.removeProject(manifest, id) }) { chosen = ""; remove = false } }) { Text("Удалить") } },
         dismissButton = { TextButton({ remove = false }) { Text("Отмена") } })
 }
 
 @Composable private fun TemplateStatuses(state: SharedTemplateState, manifest: JSONObject, project: JSONObject) {
     val projectId = project.getString("key"); val statuses = SharedTemplateEdits.rows(project.getJSONArray("statuses")); val enabled = state.editable
     var deleting by remember { mutableStateOf<String?>(null) }; var replacement by remember { mutableStateOf("") }; var limit by rememberSaveable(projectId) { mutableIntStateOf(5) }
-    fun changeStatus(id: String, action: (JSONObject) -> Unit) = state.changeManifest(SharedTemplateEdits.update(manifest, "projects", projectId) { value -> action(SharedTemplateEdits.rows(value.getJSONArray("statuses")).single { it.getString("key") == id }) })
-    AffairsDisclosure("Статусы") {
+    fun changeStatus(id: String, action: (JSONObject) -> Unit) = state.proposeManifest { SharedTemplateEdits.update(manifest, "projects", projectId) { value -> action(SharedTemplateEdits.rows(value.getJSONArray("statuses")).single { it.getString("key") == id }) } }
+    AffairsDisclosure("Статусы", Modifier.testTag("template-statuses")) {
         statuses.take(limit).forEach { status -> key(status.getString("key")) {
             val id = status.getString("key")
             TemplateField("Название", status.getString("title"), enabled, "template-status-title", maxLength = 80) { value -> changeStatus(id) { it.put("title", value) } }
             TemplateColor(status.getString("color"), enabled) { value -> changeStatus(id) { it.put("color", value) } }
-            TemplateToggle("Завершённый статус", status.getBoolean("isDone"), enabled, "template-status-done") { value -> changeStatus(id) { it.put("isDone", value) } }
+            TemplateToggle("Завершённый статус", status.getBoolean("isDone"), enabled, "template-status-done-$id") { value -> changeStatus(id) { it.put("isDone", value) } }
             ImportChoice("Строки заголовка", status.getInt("taskTitleLines").toString(), (0..3).map { it.toString() to if (it == 0) genesisTranslate("Автоматически") else it.toString() }, enabled, "template-status-lines") { value -> changeStatus(id) { it.put("taskTitleLines", value.toInt()) } }
             ImportChoice("Показывать задач", status.getInt("visibleTaskCount").toString(), (listOf(0, 3, 5, 10, 20, 50, 100, 1000) + status.getInt("visibleTaskCount")).distinct().sorted().map { it.toString() to if (it == 0) genesisTranslate("Все") else it.toString() }, enabled, "template-status-count") { value -> changeStatus(id) { it.put("visibleTaskCount", value.toInt()) } }
             AffairsIconButton("Убрать", AffairsAction.DELETE, { deleting = id; replacement = statuses.firstOrNull { it.getString("key") != id }?.getString("key").orEmpty() }, enabled = enabled && statuses.size > 2)
             HorizontalDivider()
         } }
-        if (statuses.size > limit) OutlinedButton({ limit += 5 }, Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Показать ещё") }
-        OutlinedButton({ state.changeManifest(SharedTemplateEdits.update(manifest, "projects", projectId) { it.getJSONArray("statuses").put(JSONObject().put("key", UUID.randomUUID().toString()).put("title", "").put("isDone", false).put("color", "#2d6c68").put("taskTitleLines", 0).put("visibleTaskCount", 0)) }) }, enabled = enabled && statuses.size < 30, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Добавить статус") }
+        if (statuses.size > limit) TemplateOutlinedButton({ limit += 5 }, Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Показать ещё") }
+        TemplateOutlinedButton({ state.proposeManifest { SharedTemplateEdits.update(manifest, "projects", projectId) { it.getJSONArray("statuses").put(JSONObject().put("key", UUID.randomUUID().toString()).put("title", "").put("isDone", false).put("color", "#2d6c68").put("taskTitleLines", 0).put("visibleTaskCount", 0)) } } }, enabled = enabled && statuses.size < 30, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Добавить статус") }
     }
     if (deleting != null) AlertDialog(onDismissRequest = { deleting = null }, title = { Text("Убрать") }, text = {
         ImportChoice("Перенести задачи", replacement, statuses.filter { it.getString("key") != deleting }.map { it.getString("key") to it.getString("title") }, true, "template-status-replacement") { replacement = it }
-    }, confirmButton = { TextButton({ state.changeManifest(SharedTemplateEdits.removeStatus(manifest, projectId, requireNotNull(deleting), replacement)); deleting = null }, enabled = replacement.isNotBlank()) { Text("Убрать") } }, dismissButton = { TextButton({ deleting = null }) { Text("Отмена") } })
+    }, confirmButton = { TextButton({ state.proposeManifest { SharedTemplateEdits.removeStatus(manifest, projectId, requireNotNull(deleting), replacement) }; deleting = null }, enabled = replacement.isNotBlank()) { Text("Убрать") } }, dismissButton = { TextButton({ deleting = null }) { Text("Отмена") } })
 }
 
 @Composable private fun TemplateCategories(state: SharedTemplateState, manifest: JSONObject, project: JSONObject) {
@@ -98,13 +100,13 @@ import java.util.UUID
     var limit by rememberSaveable(id) { mutableIntStateOf(5) }
     AffairsDisclosure("Категории") {
         categories.take(limit).forEach { category -> key(category.getString("key")) {
-            fun change(action: (JSONObject) -> Unit) = state.changeManifest(SharedTemplateEdits.update(manifest, "projects", id) { action(SharedTemplateEdits.rows(it.getJSONArray("categories")).single { it.getString("key") == category.getString("key") }) })
+            fun change(action: (JSONObject) -> Unit) = state.proposeManifest { SharedTemplateEdits.update(manifest, "projects", id) { action(SharedTemplateEdits.rows(it.getJSONArray("categories")).single { it.getString("key") == category.getString("key") }) } }
             TemplateField("Название", category.getString("title"), enabled, "template-category-title", maxLength = 80) { value -> change { it.put("title", value) } }
             TemplateColor(category.getString("color"), enabled) { value -> change { it.put("color", value) } }
-            AffairsIconButton("Убрать", AffairsAction.DELETE, { state.changeManifest(SharedTemplateEdits.removeCategory(manifest, id, category.getString("key"))) }, enabled = enabled)
+            AffairsIconButton("Убрать", AffairsAction.DELETE, { state.proposeManifest { SharedTemplateEdits.removeCategory(manifest, id, category.getString("key")) } }, enabled = enabled)
         } }
-        if (categories.size > limit) OutlinedButton({ limit += 5 }, Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Показать ещё") }
-        OutlinedButton({ state.changeManifest(SharedTemplateEdits.update(manifest, "projects", id) { it.getJSONArray("categories").put(JSONObject().put("key", UUID.randomUUID().toString()).put("title", "").put("color", "#2d6c68")) }) }, enabled = enabled && categories.size < 50, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Добавить категорию") }
+        if (categories.size > limit) TemplateOutlinedButton({ limit += 5 }, Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Показать ещё") }
+        TemplateOutlinedButton({ state.proposeManifest { SharedTemplateEdits.update(manifest, "projects", id) { it.getJSONArray("categories").put(JSONObject().put("key", UUID.randomUUID().toString()).put("title", "").put("color", "#2d6c68")) } } }, enabled = enabled && categories.size < 50, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Добавить категорию") }
     }
 }
 
@@ -113,12 +115,12 @@ import java.util.UUID
     var limit by rememberSaveable { mutableIntStateOf(5) }
     AffairsDisclosure("Метки пространства") {
         labels.take(limit).forEach { label -> key(label.getString("key")) {
-            fun change(action: (JSONObject) -> Unit) = state.changeManifest(SharedTemplateEdits.update(manifest, "labels", label.getString("key"), action))
+            fun change(action: (JSONObject) -> Unit) = state.proposeManifest { SharedTemplateEdits.update(manifest, "labels", label.getString("key"), action) }
             TemplateField("Название", label.getString("title"), enabled, "template-label-title", maxLength = 40) { value -> change { it.put("title", value) } }
             TemplateColor(label.getString("color"), enabled) { value -> change { it.put("color", value) } }
-            AffairsIconButton("Убрать", AffairsAction.DELETE, { state.changeManifest(SharedTemplateEdits.removeLabel(manifest, label.getString("key"))) }, enabled = enabled)
+            AffairsIconButton("Убрать", AffairsAction.DELETE, { state.proposeManifest { SharedTemplateEdits.removeLabel(manifest, label.getString("key")) } }, enabled = enabled)
         } }
-        if (labels.size > limit) OutlinedButton({ limit += 5 }, Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Показать ещё") }
-        OutlinedButton({ val next = SharedTemplateEdits.copy(manifest); next.getJSONArray("labels").put(JSONObject().put("key", UUID.randomUUID().toString()).put("title", "").put("color", "#2d6c68")); state.changeManifest(next) }, enabled = enabled && labels.size < 50, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Добавить метку") }
+        if (labels.size > limit) TemplateOutlinedButton({ limit += 5 }, Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Показать ещё") }
+        TemplateOutlinedButton({ val next = SharedTemplateEdits.copy(manifest); next.getJSONArray("labels").put(JSONObject().put("key", UUID.randomUUID().toString()).put("title", "").put("color", "#2d6c68")); state.proposeManifest { next } }, enabled = enabled && labels.size < 50, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Добавить метку") }
     }
 }

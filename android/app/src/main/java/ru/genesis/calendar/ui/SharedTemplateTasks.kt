@@ -1,12 +1,17 @@
 package ru.genesis.calendar.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import org.json.JSONArray
 import org.json.JSONObject
@@ -14,22 +19,28 @@ import ru.genesis.calendar.data.UiPreferences
 import java.util.UUID
 
 internal fun templateStrings(value: JSONArray) = (0 until value.length()).map(value::getString)
-internal fun templateMemberTitle(value: JSONObject) = value.optString("name").ifBlank { value.optString("title") }.ifBlank { value.optString("email") }
+internal fun templateMemberId(value: JSONObject) = value.optString("userId").ifBlank { value.optString("id") }
+internal fun templateMemberTitle(value: JSONObject) = value.optString("displayName").ifBlank { value.optString("name") }.ifBlank { value.optString("title") }.ifBlank { value.optString("email") }
 
 @Composable internal fun TemplateMember(label: String, value: String?, members: List<JSONObject>, enabled: Boolean, tag: String, onChange: (String?) -> Unit) {
-    val choices = listOf("@none" to genesisTranslate("Не задано")) + members.map { it.getString("id") to templateMemberTitle(it) } +
-        if (value != null && members.none { it.getString("id") == value }) listOf(value to genesisTranslate("Недоступный участник")) else emptyList()
+    val choices = listOf("@none" to genesisTranslate("Не задано")) + members.map { templateMemberId(it) to templateMemberTitle(it) } +
+        if (value != null && members.none { templateMemberId(it) == value }) listOf(value to genesisTranslate("Недоступный участник")) else emptyList()
     ImportChoice(label, value ?: "@none", choices, enabled, tag) { onChange(it.takeUnless { it == "@none" }) }
 }
 
-@Composable internal fun TemplateChecks(label: String, selected: List<String>, choices: List<Pair<String, String>>, enabled: Boolean, tag: String, onChange: (List<String>) -> Unit) {
+@Composable internal fun TemplateChecks(label: String, selected: List<String>, choices: List<Pair<String, String>>, enabled: Boolean, tag: String,
+    maxSelected: Int = 200, onChange: (List<String>) -> Unit) {
     var limit by rememberSaveable(tag) { mutableIntStateOf(5) }
     AffairsDisclosure(label, Modifier.testTag(tag)) {
-        choices.take(limit).forEach { (id, title) -> Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(id in selected, { checked -> onChange((selected.filterNot { it == id } + if (checked) listOf(id) else emptyList()).distinct()) }, enabled = enabled)
+        choices.take(limit).forEach { (id, title) -> Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("$tag-choice-$id")
+            .toggleable(id in selected, enabled = enabled && (id in selected || selected.size < maxSelected), role = Role.Checkbox,
+                onValueChange = { checked -> onChange((selected.filterNot { it == id } + if (checked) listOf(id) else emptyList()).distinct()) })
+            .semantics(mergeDescendants = true) { contentDescription = title }, verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(id in selected, null, enabled = enabled && (id in selected || selected.size < maxSelected), modifier = Modifier.clearAndSetSemantics { })
             androidx.compose.material3.Text(title, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
         } }
-        if (choices.size > limit) OutlinedButton({ limit += 5 }, Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Показать ещё") }
+        if (choices.size > limit) TemplateOutlinedButton({ limit += 5 }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("$tag-more")) { Text("Показать ещё") }
+        if (maxSelected == 50 && selected.size >= maxSelected) Text("Выбрано 50 зависимостей. Уберите одну, чтобы выбрать другую.", Modifier.testTag("template-dependency-limit"), style = MaterialTheme.typography.bodySmall)
     }
 }
 
@@ -63,30 +74,33 @@ internal fun templateMemberTitle(value: JSONObject) = value.optString("name").if
         Text("Задачи", style = MaterialTheme.typography.titleLarge)
         if (task != null) ImportChoice("Задача шаблона", task.getString("key"), all.map { it.getString("key") to it.getString("title").ifBlank { genesisTranslate("Без названия") } }, !state.busy, "template-task-choice") { chosen = it }
         val target = projects.firstOrNull { it.getString("key") == destination } ?: projects.firstOrNull { it.getString("key") == task?.getString("projectKey") } ?: projects.first()
+        val targetOpen = SharedTemplateEdits.rows(target.getJSONArray("statuses")).any { !it.getBoolean("isDone") }
+        val taskOpen = projects.firstOrNull { it.getString("key") == task?.getString("projectKey") }?.let { project -> SharedTemplateEdits.rows(project.getJSONArray("statuses")).any { !it.getBoolean("isDone") } } == true
         if (projects.size > 1) ImportChoice("Проект для новых задач", target.getString("key"), projects.map { it.getString("key") to it.getString("title").ifBlank { genesisTranslate("Без названия") } }, enabled, "template-task-destination") { destination = it }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TemplateIconButton("Добавить задачу", AffairsAction.ADD, enabled && all.size < 500, Modifier.weight(1f).testTag("template-task-add")) {
+            TemplateIconButton("Добавить задачу", AffairsAction.ADD, enabled && targetOpen && all.size < 500, Modifier.weight(1f).testTag("template-task-add")) {
                 val project = target.getString("key")
                 val parent = if (manifest.getString("kind") == "task") all.firstOrNull { it.isNull("parentKey") }?.getString("key") else null
-                val next = SharedTemplateEdits.addTask(manifest, project, parent = parent); chosen = next.second; state.changeManifest(next.first)
+                state.addTask(project, parent)?.let { chosen = it }
             }
-            if (task != null) TemplateIconButton("Добавить подзадачу", AffairsAction.SUBTASK, enabled && all.size < 500, Modifier.weight(1f).testTag("template-subtask-add")) {
-                val next = SharedTemplateEdits.addTask(manifest, task.getString("projectKey"), parent = task.getString("key")); chosen = next.second; state.changeManifest(next.first)
+            if (task != null) TemplateIconButton("Добавить подзадачу", AffairsAction.SUBTASK, enabled && taskOpen && all.size < 500, Modifier.weight(1f).testTag("template-subtask-add")) {
+                state.addTask(task.getString("projectKey"), task.getString("key"))?.let { chosen = it }
             }
             if (task != null) TemplateIconButton("Удалить задачу", AffairsAction.DELETE, enabled, Modifier.weight(1f).testTag("template-task-remove")) { remove = true }
         }
+        if (!targetOpen || task != null && !taskOpen) Text("Для новых задач нужен незавершённый статус. Откройте «Статусы» в структуре проекта.", Modifier.testTag("template-open-status-needed"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
         if (task == null) Text("Добавить задачу", style = MaterialTheme.typography.bodyMedium)
         if (task != null) key(task.getString("key")) {
             val id = task.getString("key"); val project = projects.single { it.getString("key") == task.getString("projectKey") }
-            fun change(action: (JSONObject) -> Unit) = state.changeManifest(SharedTemplateEdits.update(manifest, "tasks", id, action))
+            fun change(action: (JSONObject) -> Unit) = state.proposeManifest { SharedTemplateEdits.update(manifest, "tasks", id, action) }
             TemplateField("Название", task.getString("title"), enabled, "template-task-title") { value -> change { it.put("title", value) } }
-            TemplateField("Описание", task.getString("description"), enabled, "template-task-description", lines = 2) { value -> change { it.put("description", value) } }
-            ImportChoice("Тип", task.getString("entryType"), listOf("task" to genesisTranslate("Задача"), "meeting" to genesisTranslate("Встреча"), "event" to genesisTranslate("Событие")), enabled, "template-task-type") { value -> change { it.put("entryType", value) } }
+            TemplateField("Описание задачи", task.getString("description"), enabled, "template-task-description", lines = 2) { value -> change { it.put("description", value) } }
+            ImportChoice("Тип записи", task.getString("entryType"), listOf("task" to templateLocalizedLabel("Задача (тип записи)"), "meeting" to templateLocalizedLabel("Встреча (тип записи)"), "event" to templateLocalizedLabel("Событие (тип записи)")), enabled, "template-task-type") { value -> change { it.put("entryType", value) } }
             val descendants = SharedTemplateEdits.descendants(manifest, "tasks", id)
             val parents = all.filter { it.getString("projectKey") == task.getString("projectKey") && it.getString("key") !in descendants }
             ImportChoice("Родительская задача", task.optString("parentKey").takeUnless { it == "null" }.orEmpty().ifBlank { "@none" },
                 (if (manifest.getString("kind") != "task" || task.isNull("parentKey")) listOf("@none" to genesisTranslate("Без родителя")) else emptyList()) + parents.map { it.getString("key") to it.getString("title").ifBlank { genesisTranslate("Без названия") } }, enabled, "template-task-parent") {
-                state.changeManifest(SharedTemplateEdits.reparentTask(manifest, id, it.takeUnless { key -> key == "@none" }))
+                state.mutateManifest { raw -> SharedTemplateEdits.reparentTask(raw, id, it.takeUnless { key -> key == "@none" }) }
             }
             ImportChoice("Статус", task.getString("statusKey"), SharedTemplateEdits.rows(project.getJSONArray("statuses")).map { it.getString("key") to it.getString("title") }, enabled, "template-task-status") { value -> change { it.put("statusKey", value) } }
             ImportChoice("Приоритет", task.getInt("priority").toString(), listOf("0" to genesisTranslate("Без приоритета"), "1" to genesisTranslate("Низкий"), "2" to genesisTranslate("Средний"), "3" to genesisTranslate("Высокий")), enabled, "template-task-priority") { value -> change { it.put("priority", value.toInt()) } }
@@ -115,9 +129,9 @@ internal fun templateMemberTitle(value: JSONObject) = value.optString("name").if
                 TemplateToggle("Требуется подтверждение", task.getBoolean("approvalRequired"), enabled, "template-task-approval") { on -> change { it.put("approvalRequired", on); if (!on) it.put("approverIds", JSONArray()) } }
                 if (task.getBoolean("approvalRequired")) {
                     val selected = templateStrings(task.getJSONArray("approverIds"))
-                    TemplateChecks("Участники для подтверждения", selected, members.map { it.getString("id") to templateMemberTitle(it) } + selected.filter { key -> members.none { it.getString("id") == key } }.map { it to genesisTranslate("Недоступный участник") }, enabled, "template-task-approvers") { value -> change { it.put("approverIds", JSONArray(value)) } }
+                    TemplateChecks("Участники для подтверждения", selected, members.map { templateMemberId(it) to templateMemberTitle(it) } + selected.filter { key -> members.none { templateMemberId(it) == key } }.map { it to genesisTranslate("Недоступный участник") }, enabled, "template-task-approvers") { value -> change { it.put("approverIds", JSONArray(value)) } }
                 }
-                TemplateChecks("Зависимости", templateStrings(task.getJSONArray("dependsOnKeys")), all.filter { it.getString("key") != id && it.getString("projectKey") == task.getString("projectKey") }.map { it.getString("key") to it.getString("title").ifBlank { genesisTranslate("Без названия") } }, enabled, "template-task-dependencies") { value -> change { it.put("dependsOnKeys", JSONArray(value)) } }
+                TemplateChecks("Зависимости", templateStrings(task.getJSONArray("dependsOnKeys")), all.filter { it.getString("key") != id && it.getString("projectKey") == task.getString("projectKey") }.map { it.getString("key") to it.getString("title").ifBlank { genesisTranslate("Без названия") } }, enabled, "template-task-dependencies", maxSelected = 50) { value -> change { it.put("dependsOnKeys", JSONArray(value)) } }
             }
             AffairsDisclosure("Метки и категории") {
                 ImportChoice("Категория", task.optString("categoryKey").takeUnless { it == "null" }.orEmpty().ifBlank { "@none" }, listOf("@none" to genesisTranslate("Не задано")) + SharedTemplateEdits.rows(project.getJSONArray("categories")).map { it.getString("key") to it.getString("title") }, enabled, "template-task-category") { value -> change { it.put("categoryKey", value.takeUnless { it == "@none" } ?: JSONObject.NULL) } }
@@ -130,27 +144,27 @@ internal fun templateMemberTitle(value: JSONObject) = value.optString("name").if
         }
     }
     if (remove && task != null) AlertDialog(onDismissRequest = { remove = false }, title = { Text("Удалить задачу") },
-        text = { Text("Удалить эту ветку из шаблона?") }, confirmButton = { TextButton({ state.changeManifest(SharedTemplateEdits.removeTasks(manifest, SharedTemplateEdits.descendants(manifest, "tasks", task.getString("key")))); chosen = ""; remove = false }) { Text("Удалить") } },
+        text = { Text("Удалить эту ветку из шаблона?") }, confirmButton = { TextButton({ if (state.proposeManifest { SharedTemplateEdits.removeTasks(manifest, SharedTemplateEdits.descendants(manifest, "tasks", task.getString("key"))) }) { chosen = ""; remove = false } }) { Text("Удалить") } },
         dismissButton = { TextButton({ remove = false }) { Text("Отмена") } })
 }
 
 @Composable internal fun TemplateTags(state: SharedTemplateState, manifest: JSONObject, task: JSONObject, collection: String) {
     val id = task.getString("key"); val path = "${if (collection == "projects") "tagProject" else "tag"}/$id/pending"; val tags = templateStrings(task.getJSONArray("tags"))
     val pending = state.edit?.getJSONObject("inputs")?.optString(path).orEmpty()
-    AffairsDisclosure("Теги") {
+    AffairsDisclosure("Текстовые теги") {
         tags.forEach { tag -> Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             androidx.compose.material3.Text(tag, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-            AffairsIconButton("Убрать", AffairsAction.CLOSE, { state.changeManifest(SharedTemplateEdits.update(manifest, collection, id) { it.put("tags", JSONArray(tags.filterNot { value -> value == tag })) }) }, enabled = state.editable)
+            AffairsIconButton("Убрать", AffairsAction.CLOSE, { state.proposeManifest { SharedTemplateEdits.update(manifest, collection, id) { it.put("tags", JSONArray(tags.filterNot { value -> value == tag })) } } }, enabled = state.editable)
         } }
         TemplateField("Тег", pending, state.editable && tags.size < 30, "template-tag-input", maxLength = 80) { state.changeInput(path, it) }
-        OutlinedButton({ state.changeManifest(SharedTemplateEdits.update(manifest, collection, id) { it.put("tags", JSONArray((tags + pending.trim()).distinct())) }); state.clearInput(path) },
+        TemplateOutlinedButton({ if (state.proposeManifest { SharedTemplateEdits.update(manifest, collection, id) { it.put("tags", JSONArray((tags + pending.trim()).distinct())) } }) state.clearInput(path) },
             enabled = state.editable && pending.isNotBlank() && tags.size < 30, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Добавить") }
     }
 }
 
 @Composable private fun TemplateTaskChecklists(state: SharedTemplateState, manifest: JSONObject, task: JSONObject, members: List<JSONObject>) {
     val id = task.getString("key"); val lists = SharedTemplateEdits.rows(task.getJSONArray("checklists")); val enabled = state.editable
-    fun change(action: (JSONObject) -> Unit) = state.changeManifest(SharedTemplateEdits.update(manifest, "tasks", id, action))
+    fun change(action: (JSONObject) -> Unit) = state.proposeManifest { SharedTemplateEdits.update(manifest, "tasks", id, action) }
     AffairsDisclosure("Чек-листы") {
         lists.forEach { list -> key(list.getString("key")) {
             val listId = list.getString("key")
@@ -170,13 +184,13 @@ internal fun templateMemberTitle(value: JSONObject) = value.optString("name").if
                     AffairsIconButton("Убрать", AffairsAction.DELETE, { changeList { it.put("items", JSONArray(items.filterNot { row -> row.getString("key") == itemId })) } }, enabled = enabled)
                     HorizontalDivider()
                 } }
-                if (items.size > limit) OutlinedButton({ limit += 5 }, Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Показать ещё") }
-                OutlinedButton({ changeList { it.getJSONArray("items").put(JSONObject().put("key", UUID.randomUUID().toString()).put("title", "").put("assigneeId", JSONObject.NULL).put("due", JSONObject.NULL).put("linkedTaskKey", JSONObject.NULL)) } },
+                if (items.size > limit) TemplateOutlinedButton({ limit += 5 }, Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Показать ещё") }
+                TemplateOutlinedButton({ changeList { it.getJSONArray("items").put(JSONObject().put("key", UUID.randomUUID().toString()).put("title", "").put("assigneeId", JSONObject.NULL).put("due", JSONObject.NULL).put("linkedTaskKey", JSONObject.NULL)) } },
                     enabled = enabled && itemCount < 300, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Новый пункт") }
-                OutlinedButton({ change { it.put("checklists", JSONArray(lists.filterNot { row -> row.getString("key") == listId })) } }, enabled = enabled, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Убрать") }
+                TemplateOutlinedButton({ change { it.put("checklists", JSONArray(lists.filterNot { row -> row.getString("key") == listId })) } }, enabled = enabled, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Убрать") }
             }
         } }
-        OutlinedButton({ change { it.getJSONArray("checklists").put(JSONObject().put("key", UUID.randomUUID().toString()).put("title", "").put("items", JSONArray())) } },
+        TemplateOutlinedButton({ change { it.getJSONArray("checklists").put(JSONObject().put("key", UUID.randomUUID().toString()).put("title", "").put("items", JSONArray())) } },
             enabled = enabled && lists.size < 20, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Добавить чек-лист") }
     }
 }

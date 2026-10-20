@@ -7,6 +7,34 @@ import ru.genesis.calendar.auth.SharedTemplateManifest
 import ru.genesis.calendar.auth.templateRich
 
 class SharedTemplateEditsTest {
+    @Test fun actualProjectMembersAndPreviewMembersKeepTheirOwnIdentityAndDisplayName() {
+        val member = JSONObject().put("userId", "member:actual").put("displayName", "Real project member")
+        assertEquals("member:actual", templateMemberId(member)); assertEquals("Real project member", templateMemberTitle(member))
+        val preview = JSONObject().put("id", "member:preview").put("title", "Preview member")
+        assertEquals("member:preview", templateMemberId(preview)); assertEquals("Preview member", templateMemberTitle(preview))
+    }
+    @Test fun androidGmtDefaultsHavePortableEquivalentRulesWhileRegionalTimeZonesStayIntact() {
+        val prefs = ru.genesis.calendar.data.UiPreferences()
+        for (id in listOf("GMT", "Z", "UTC")) {
+            val calendar = SharedCustomCalendar.initial(prefs, java.time.ZoneId.of(id))
+            assertEquals("UTC", calendar.context.timeZone)
+            assertNotNull(ru.genesis.calendar.auth.DataExportProtocol.timeZone(calendar.context.timeZone))
+        }
+        for (id in listOf("Europe/Moscow", "America/New_York")) assertEquals(id,
+            SharedCustomCalendar.initial(prefs, java.time.ZoneId.of(id)).context.timeZone)
+    }
+    @Test fun aConfirmedFieldTypeChangeClearsOnlyThatFieldsValuesAndOptionsWithoutMutatingTheOriginal() {
+        val source = templateRich(); val before = source.toString()
+        val unchanged = SharedTemplateEdits.changeFieldType(source, "field:number", "number")
+        assertEquals(before, unchanged.toString())
+        val changed = SharedTemplateEdits.changeFieldType(source, "field:number", "text")
+        val task = changed.getJSONArray("tasks").getJSONObject(0)
+        assertFalse(task.getJSONObject("customValues").has("field:number"))
+        assertEquals(false, task.getJSONObject("customValues").get("field:checkbox"))
+        assertEquals("text", SharedTemplateEdits.rows(changed.getJSONArray("fields")).single { it.getString("key") == "field:number" }.getString("type"))
+        assertEquals(before, source.toString())
+        assertThrows(IllegalArgumentException::class.java) { SharedTemplateEdits.changeFieldType(source, "field:number", "executable") }
+    }
     @Test fun removingABranchClearsOnlyItsDependentReferencesAndLeavesTheInputUntouched() {
         val source = templateRich(); val before = source.toString()
         val result = SharedTemplateEdits.removeTasks(source, SharedTemplateEdits.descendants(source, "tasks", "task:child"))

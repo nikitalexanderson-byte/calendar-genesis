@@ -91,6 +91,7 @@ import java.util.UUID
         if (state.phase == "received") onChanged()
     }
     LaunchedEffect(state) { state.load(); if (captureTask != null && state.loaded && state.record == null && !state.lost) capture() }
+    LaunchedEffect(state, canWrite, canCreate) { state.updatePermissions(canWrite, canCreate) }
     LaunchedEffect(state.inputVersion) { if (state.dirty && state.phase == "editing") { delay(250); state.save() } }
     DisposableEffect(state) { onDispose { scope.launch(NonCancellable) { try { if (state.dirty) state.save() } finally { state.close() } } } }
     Dialog(onDismissRequest = ::back, properties = DialogProperties(usePlatformDefaultWidth = false)) {
@@ -106,7 +107,7 @@ import java.util.UUID
                         AffairsIconButton("Закрыть", AffairsAction.CLOSE, ::close, Modifier.testTag("template-close"))
                     }
                     if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("template-progress"))
-                    if (state.error.isNotBlank()) Text(when {
+                    if (state.error.isNotBlank()) androidx.compose.material3.Text(when {
                         state.conflicted -> draftCopy.getString("changed")
                         state.error in setOf("PLANNING_DRAFT_STORAGE", "STORAGE") -> draftCopy.getString("error")
                         state.error in setOf("PLANNING_DRAFT_LIMIT", "TEMPLATE_SIZE_LIMIT") -> draftCopy.getString("limit")
@@ -114,12 +115,12 @@ import java.util.UUID
                         state.error in setOf("PLANNING_DRAFT_INVALID", "PLANNING_DRAFT_SCOPE") -> genesisTranslate("Черновик не удалось прочитать. Он сохранён на устройстве. Повторите загрузку или закройте окно.")
                         else -> templateIssueMessage(state.error, copy)
                     }, Modifier.fillMaxWidth().padding(16.dp).testTag("template-error"), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
-                    if (!state.loaded && !state.busy && !state.lost) OutlinedButton({ run { state.load() } }, Modifier.fillMaxWidth().padding(horizontal = 16.dp).heightIn(min = 48.dp)) { Text("Повторить") }
+                    if (!state.loaded && !state.busy && !state.lost) TemplateOutlinedButton({ run { state.load() } }, Modifier.fillMaxWidth().padding(horizontal = 16.dp).heightIn(min = 48.dp)) { Text("Повторить") }
                     BoxWithConstraints(Modifier.weight(1f, fill = false).fillMaxWidth()) {
                         val wide = maxWidth >= 720.dp
                         @Composable fun Library(modifier: Modifier) {
                             Column(modifier.verticalScroll(rememberScrollState()).padding(16.dp).testTag("template-library"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                if (state.record != null && state.edit == null) OutlinedButton({ state.resume() }, Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(draftCopy.getString("restore")) }
+                                if (state.record != null && state.edit == null) TemplateOutlinedButton({ state.resume() }, Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(draftCopy.getString("restore")) }
                                 val available = state.loaded && !state.busy && !state.lost && state.record == null && state.edit == null
                                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     TemplateIconButton("Сохранить как шаблон", AffairsAction.TEMPLATE, canWrite && available, Modifier.weight(1f).testTag("template-capture"), onClick = ::capture)
@@ -134,14 +135,14 @@ import java.util.UUID
                                     val records = SharedTemplateEdits.rows(library.getJSONArray(collection)).filter { search.isBlank() || it.getString("title").contains(search.trim(), ignoreCase = true) }
                                     var limit by rememberSaveable(collection, state.deleted, search) { mutableIntStateOf(5) }
                                     if (records.isNotEmpty()) Text(title, style = MaterialTheme.typography.titleMedium)
-                                    records.take(limit).forEach { row -> OutlinedButton({ run { state.open(row.getString("id")) } }, enabled = !state.busy && state.edit == null && !state.lost, shape = AffairsLayout.shape,
+                                    records.take(limit).forEach { row -> TemplateOutlinedButton({ run { state.open(row.getString("id")) } }, enabled = !state.busy && state.edit == null && !state.lost, shape = AffairsLayout.shape,
                                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-source-${row.getString("id")}")) {
                                         androidx.compose.material3.Text(row.getString("title"), Modifier.fillMaxWidth(), style = MaterialTheme.typography.bodyMedium)
                                     } }
-                                    if (records.size > limit) OutlinedButton({ limit += 5 }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-library-$collection-more")) { Text("Показать ещё") }
+                                    if (records.size > limit) TemplateOutlinedButton({ limit += 5 }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-library-$collection-more")) { Text("Показать ещё") }
                                 }
                                 if (library?.getInt("total") == 0) Text("Сохраните задачу или проект как шаблон, чтобы использовать структуру снова.", style = MaterialTheme.typography.bodyMedium)
-                                if (state.hasMore) OutlinedButton({ run { state.loadLibrary(more = true) } }, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Показать ещё") }
+                                if (state.hasMore) TemplateOutlinedButton({ run { state.loadLibrary(more = true) } }, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Показать ещё") }
                                 if (state.copies.isNotEmpty()) AffairsDisclosure(draftCopy.getString("heading")) { state.copies.forEach { saved ->
                                     val title = saved.getJSONObject("edit").getJSONObject("request").optString("title").takeUnless { it == "null" }.orEmpty()
                                     androidx.compose.material3.Text(title, style = MaterialTheme.typography.bodyMedium)
@@ -155,13 +156,13 @@ import java.util.UUID
                         @Composable fun Detail(modifier: Modifier) {
                             Column(modifier.verticalScroll(rememberScrollState()).padding(16.dp).testTag("template-detail"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                                 val edit = state.edit; val source = state.source
-                                if (state.lost) Text("Нет доступа", style = MaterialTheme.typography.titleMedium)
+                                if (state.lost) Text("Нет доступа", Modifier.testTag("template-access-lost"), style = MaterialTheme.typography.titleMedium)
                                 else if (edit != null) {
                                     val request = edit.getJSONObject("request")
                                     if (state.phase == "received") {
                                         Text(if (edit.getString("kind") == "template-apply") "Шаблон применён." else "Готово", Modifier.testTag("template-received"), style = MaterialTheme.typography.titleLarge)
                                         val receipt = state.receipt
-                                        if (receipt != null) OutlinedButton({
+                                        if (receipt != null) TemplateOutlinedButton({
                                             if (edit.getString("kind") == "template-apply") { state.close(); onOpen(receipt.getString("rootProjectId"), receipt.optString("rootTaskId").takeUnless { it == "null" || it.isBlank() }) }
                                             else run { val id = receipt.getString("id"); val deleted = receipt.getBoolean("deleted"); state.discard(); state.loadLibrary(archive = deleted); state.open(id) }
                                         }, Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(if (edit.getString("kind") == "template-apply") "Открыть созданное" else "Открыть") }
@@ -190,8 +191,8 @@ import java.util.UUID
                                         } else SharedTemplateApplyEditor(state, preferences, projects)
                                     }
                                     if (state.conflicted) {
-                                        OutlinedButton({ run { state.saveOwnCopy() } }, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Сохранить копию") }
-                                        state.copies.forEachIndexed { index, saved -> OutlinedButton({ run { state.useCopy(saved.getString("id")) } }, enabled = !state.busy && !state.dirty, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                                        TemplateOutlinedButton({ run { state.saveOwnCopy() } }, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Сохранить копию") }
+                                        state.copies.forEachIndexed { index, saved -> TemplateOutlinedButton({ run { state.useCopy(saved.getString("id")) } }, enabled = !state.busy && !state.dirty, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
                                             Text(genesisTranslate("Восстановить") + " " + (index + 1))
                                         } }
                                     }
@@ -209,7 +210,7 @@ import java.util.UUID
                                         val rows = SharedTemplateEdits.rows(manifest.getJSONArray(collection))
                                         var limit by rememberSaveable(source.getString("id"), collection) { mutableIntStateOf(5) }
                                         rows.take(limit).forEach { row -> androidx.compose.material3.Text(row.getString("title"), style = if (collection == "projects") MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium) }
-                                        if (rows.size > limit) OutlinedButton({ limit += 5 }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-source-$collection-more")) { Text("Показать ещё") }
+                                        if (rows.size > limit) TemplateOutlinedButton({ limit += 5 }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-source-$collection-more")) { Text("Показать ещё") }
                                     }
                                     if (!source.getBoolean("deleted")) Button(::applySource, enabled = available && (if (source.getString("kind") == "project") canCreate else canWrite), shape = AffairsLayout.shape, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-apply-open")) { Text("Применить шаблон") }
                                     TemplateIssues(source.getJSONArray("notices"), copy, "Изменения и пропуски", "template-source-notices")
@@ -225,7 +226,7 @@ import java.util.UUID
                             when (state.phase) {
                                 "received" -> Button({ run { state.discard(); state.loadLibrary() } }, enabled = !state.busy, shape = AffairsLayout.shape, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-done")) { Text("Готово") }
                                 "editing" -> {
-                                    if (state.edit?.getString("kind") == "template-apply") OutlinedButton({ run { state.review() } }, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-review")) { Text("Предпросмотр применения") }
+                                    if (state.edit?.getString("kind") == "template-apply") TemplateOutlinedButton({ run { state.review() } }, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-review")) { Text("Предпросмотр применения") }
                                     Button(::submit, enabled = state.editable && (state.edit?.getString("kind") != "template-apply" || state.previewCurrent && state.preview?.optBoolean("canApply") == true), shape = AffairsLayout.shape, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-submit")) {
                                         Text(if (state.edit?.getString("kind") == "template-apply") "Создать из шаблона" else if (state.edit?.getJSONObject("request")?.optBoolean("deleted") == true) "Удалить шаблон" else "Сохранить шаблон")
                                     }
@@ -233,7 +234,7 @@ import java.util.UUID
                                 }
                                 else -> {
                                     Button(::submit, enabled = !state.busy && state.phase == "pending", shape = AffairsLayout.shape, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-retry")) { Text("Повторить") }
-                                    if (state.phase == "rejected" || state.phase == "pending" && state.record?.optInt("attempts") == 0) OutlinedButton({ run { state.resumeEditing() } }, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Изменить") }
+                                    if (state.phase == "rejected" || state.phase == "pending" && state.record?.optInt("attempts") == 0) TemplateOutlinedButton({ run { state.resumeEditing() } }, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Изменить") }
                                 }
                             }
                         }

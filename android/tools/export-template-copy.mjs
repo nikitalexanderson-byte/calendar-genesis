@@ -14,6 +14,7 @@ function strings(node) {
   }));
 }
 const issues = strings(copy), flags = strings(options);
+const nativeLabels = JSON.parse(await readFile(new URL('native-template-labels.json', app), 'utf8'));
 const result = {};
 const catalogs = await readdir(app);
 for (const language of ['ru','en','el','de','fr','es','it','pt','pl','sr','uk','zh','tr','ja']) {
@@ -32,6 +33,9 @@ for (const language of ['ru','en','el','de','fr','es','it','pt','pl','sr','uk','
     return translated;
   };
   result[language] = { issues: Object.fromEntries(Object.entries(issues).map(([key,text]) => [key,translate(text)])), options: Object.fromEntries(Object.entries(flags).map(([key,text]) => [key,translate(text)])) };
+  result[language].options.tags = nativeLabels[language]['Текстовые теги'];
+  result[language].options.labels = nativeLabels[language]['Метки пространства'];
+  if (!result[language].options.tags || !result[language].options.labels || result[language].options.tags === result[language].options.labels) throw Error(`Ambiguous native template tags/labels: ${language}`);
 }
 const path = new URL('native-template-translations.json', app), expected = JSON.stringify(result,null,2)+'\n';
 if (process.argv.includes('--check')) {

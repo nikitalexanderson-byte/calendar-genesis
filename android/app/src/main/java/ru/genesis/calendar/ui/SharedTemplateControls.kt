@@ -2,6 +2,7 @@ package ru.genesis.calendar.ui
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -12,6 +13,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import org.json.JSONArray
@@ -27,33 +30,53 @@ import java.util.Locale
     return remember(all, language) { all.optJSONObject(language) ?: all.getJSONObject("ru") }
 }
 
+@Composable internal fun templateLocalizedLabel(source: String): String {
+    val context = LocalContext.current; val language = LocalGenesisLanguage.current
+    val all = remember(context) { context.assets.open("originals/i18n/native-template-labels.json").bufferedReader(Charsets.UTF_8).use { JSONObject(it.readText()) } }
+    return (all.optJSONObject(language) ?: all.getJSONObject("ru")).getString(source)
+}
+
 internal fun templateIssueMessage(code: String, copy: JSONObject) = copy.getJSONObject("issues").optString(code).takeIf { it.isNotBlank() }
     ?: customFieldMessage(code) ?: copy.getJSONObject("issues").getString("TEMPLATE_INVALID")
 
 @Composable internal fun TemplateField(label: String, value: String, enabled: Boolean, tag: String,
-    lines: Int = 1, number: Boolean = false, maxLength: Int = if (lines == 1) 160 else 20000, onChange: (String) -> Unit) {
-    OutlinedTextField(value, { onChange(it.substring(0, it.offsetByCodePoints(0, minOf(maxLength, it.codePointCount(0, it.length))))) }, label = { Text(label) }, enabled = enabled, singleLine = lines == 1,
+    lines: Int = 1, number: Boolean = false, maxLength: Int = if (lines == 1) 160 else 20000,
+    labelIsLocalized: Boolean = false, onChange: (String) -> Unit) {
+    val description = if (labelIsLocalized) label else genesisTranslate(label)
+    OutlinedTextField(value, { onChange(it.substring(0, it.offsetByCodePoints(0, minOf(maxLength, it.codePointCount(0, it.length))))) }, label = { androidx.compose.material3.Text(description) }, enabled = enabled, singleLine = lines == 1,
         minLines = lines, maxLines = if (lines == 1) 1 else 5, textStyle = MaterialTheme.typography.bodyMedium,
         keyboardOptions = KeyboardOptions(keyboardType = if (number) KeyboardType.Decimal else KeyboardType.Text),
-        modifier = Modifier.fillMaxWidth().testTag(tag))
+        shape = AffairsLayout.shape, modifier = Modifier.fillMaxWidth().testTag(tag))
 }
 
-@Composable internal fun TemplateToggle(label: String, selected: Boolean, enabled: Boolean, tag: String, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag(tag), verticalAlignment = Alignment.CenterVertically,
+@Composable internal fun TemplateOutlinedButton(onClick: () -> Unit, modifier: Modifier = Modifier,
+    enabled: Boolean = true, shape: androidx.compose.ui.graphics.Shape = AffairsLayout.shape,
+    content: @Composable RowScope.() -> Unit) {
+    OutlinedButton(onClick, modifier.heightIn(min = 48.dp), enabled = enabled, shape = shape, content = content)
+}
+
+@Composable internal fun TemplateToggle(label: String, selected: Boolean, enabled: Boolean, tag: String,
+    labelIsLocalized: Boolean = false, onChange: (Boolean) -> Unit) {
+    val description = if (labelIsLocalized) label else genesisTranslate(label)
+    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag(tag)
+        .toggleable(selected, enabled = enabled, role = Role.Switch, onValueChange = onChange)
+        .semantics(mergeDescendants = true) { contentDescription = description }, verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-        Switch(selected, onChange, enabled = enabled)
+        androidx.compose.material3.Text(description, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        Switch(selected, null, enabled = enabled, modifier = Modifier.clearAndSetSemantics { })
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable internal fun TemplateIconButton(label: String, action: AffairsAction, enabled: Boolean, modifier: Modifier = Modifier, selected: Boolean = false, onClick: () -> Unit) {
     val description = genesisTranslate(label)
-    TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(), tooltip = { PlainTooltip { Text(label) } }, state = rememberTooltipState(), modifier = modifier) {
+    Box(modifier.semantics(mergeDescendants = true) { contentDescription = description; this.selected = selected }) {
+      TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(), tooltip = { PlainTooltip { Text(label) } }, state = rememberTooltipState()) {
         OutlinedIconButton(onClick, enabled = enabled, shape = AffairsLayout.shape,
             colors = IconButtonDefaults.outlinedIconButtonColors(containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else androidx.compose.ui.graphics.Color.Transparent,
                 contentColor = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant),
             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).semantics { contentDescription = description; this.selected = selected }) { AffairsActionIcon(action) }
+      }
     }
 }
 
@@ -68,13 +91,13 @@ internal fun templateIssueMessage(code: String, copy: JSONObject) = copy.getJSON
                 val code = issue.getString("code")
                 val message = if (code == "OPTION_EXCLUDED" && issue.has("option")) copy.getJSONObject("options").optString(issue.getString("option")) + ": " + genesisTranslate("Не переносится")
                     else templateIssueMessage(code, copy)
-                Text(message, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("$tag-$index"))
+                androidx.compose.material3.Text(message, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("$tag-$index"))
                 if (issue.has("title")) androidx.compose.material3.Text(issue.getString("title"), style = MaterialTheme.typography.bodyMedium)
                 if (issue.has("date")) androidx.compose.material3.Text(issue.getString("date"), style = MaterialTheme.typography.bodySmall)
                 if (issue.has("count")) androidx.compose.material3.Text(number.format(issue.getInt("count")), style = MaterialTheme.typography.bodySmall)
             }
         }
-        if (issues.length() > limit) OutlinedButton({ limit += 5 }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("$tag-more")) { Text("Показать ещё") }
+        if (issues.length() > limit) TemplateOutlinedButton({ limit += 5 }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("$tag-more")) { Text("Показать ещё") }
     }
 }
 
@@ -97,6 +120,6 @@ internal fun templateIssueMessage(code: String, copy: JSONObject) = copy.getJSON
                     onChange(next)
                 }, onReset = { }, onCalendar = onCalendar)
         } }
-        if (fields.size > limit) OutlinedButton({ limit += 5 }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-fields-more")) { Text("Показать ещё") }
+        if (fields.size > limit) TemplateOutlinedButton({ limit += 5 }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-fields-more")) { Text("Показать ещё") }
     }
 }

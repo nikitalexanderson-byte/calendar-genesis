@@ -103,6 +103,7 @@ internal class TemplateHttpsFixture : AutoCloseable {
     })
     val gateway = object : SharedWorkspaceGateway {
         private suspend fun <T> io(action: () -> T): T = withContext(Dispatchers.IO) { action() }
+        override suspend fun sharedProject(projectId: String) = io { client.sharedProject(generation, projectId) }
         override suspend fun sharedTemplates(space: String, language: String, deleted: Boolean, cursor: String?) = io { client.sharedTemplates(generation, space, language, deleted, cursor) }
         override suspend fun sharedTemplate(space: String, id: String, language: String, deleted: Boolean) = io { client.sharedTemplate(generation, space, id, language, deleted) }
         override suspend fun previewSharedTemplate(space: String, id: String, request: JSONObject) = io { preview(id, request) }

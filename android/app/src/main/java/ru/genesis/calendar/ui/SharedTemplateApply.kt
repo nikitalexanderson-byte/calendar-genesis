@@ -29,7 +29,7 @@ import java.util.Locale
     Column(Modifier.fillMaxWidth().testTag("template-apply-editor"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Будут созданы самостоятельные задачи. Файлы, обсуждения, права и подписки не копируются.", style = MaterialTheme.typography.bodyMedium)
         val destination = if (kind == "task") "projectId" else "parentProjectId"
-        ImportChoice("Назначение", options.optString(destination).takeUnless { it == "null" }.orEmpty().ifBlank { "@none" },
+        ImportChoice("Место создания", options.optString(destination).takeUnless { it == "null" }.orEmpty().ifBlank { "@none" },
             listOf("@none" to genesisTranslate(if (kind == "task") "Выберите проект" else "Корень пространства")) + projects.filter { it.optString("archivedAt") in setOf("", "null") && sharedTaskCanEdit(it) }.map { it.getString("id") to it.getString("title") }, enabled, "template-apply-destination") { value -> change {
                 it.put(destination, value.takeUnless { it == "@none" } ?: JSONObject.NULL).put("boardStatusId", JSONObject.NULL)
                 for (key in listOf("statusMap", "categoryMap", "fieldMap", "optionMap", "fieldValues")) it.put(key, JSONObject())
@@ -41,7 +41,7 @@ import java.util.Locale
         AffairsDisclosure("Календарь ввода") { EditorCalendarModePicker(calendar.mode, { state.changeDateInput(calendar.copy(mode = it)) }, enabled, preferredMode = calendar.mode, tag = "template-apply-input-calendar") }
         TemplateField("Название нового объекта", options.optString("title").takeUnless { it == "null" }.orEmpty(), enabled, "template-apply-title", onChange = state::changeTitle)
         AffairsDisclosure("Переносимые данные", initiallyExpanded = true) {
-            for (flag in SharedTemplateProtocol.transfer) TemplateToggle(copy.getJSONObject("options").getString(flag), options.getJSONObject("include").getBoolean(flag), enabled, "template-transfer-$flag") { value -> change {
+            for (flag in SharedTemplateProtocol.transfer) TemplateToggle(copy.getJSONObject("options").getString(flag), options.getJSONObject("include").getBoolean(flag), enabled, "template-transfer-$flag", labelIsLocalized = true) { value -> change {
                 it.put("include", SharedTemplateProtocol.dictionary(it.opt("include")).put(flag, value)).put("fieldValues", JSONObject())
             } }
         }
@@ -68,7 +68,7 @@ import java.util.Locale
     fun mapped(name: String, key: String) = options.getJSONObject(name).let { if (!it.has(key)) "@auto" else it.optString(key).takeUnless { value -> value == "null" }.orEmpty().ifBlank { "@none" } }
     val language = LocalGenesisLanguage.current; val number = remember(language) { NumberFormat.getIntegerInstance(Locale.forLanguageTag(language)) }
     AffairsDisclosure("Сопоставление данных", Modifier.testTag("template-mappings")) {
-        OutlinedButton({ val edit = SharedTemplateEdits.copy(requireNotNull(state.edit)); for (key in listOf("statusMap", "categoryMap", "fieldMap", "optionMap", "memberMap", "fieldValues")) edit.getJSONObject("request").put(key, JSONObject()); state.change(edit) }, enabled = enabled, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Сбросить") }
+        TemplateOutlinedButton({ val edit = SharedTemplateEdits.copy(requireNotNull(state.edit)); for (key in listOf("statusMap", "categoryMap", "fieldMap", "optionMap", "memberMap", "fieldValues")) edit.getJSONObject("request").put(key, JSONObject()); state.change(edit) }, enabled = enabled, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Сбросить") }
         if (source.getString("kind") == "task") {
             SharedTemplateEdits.rows(root.getJSONArray("statuses")).forEach { status -> ImportChoice(status.getString("title"), mapped("statusMap", status.getString("key")),
                 listOf("@auto" to genesisTranslate("Автоматически")) + SharedTemplateEdits.rows(preview.getJSONArray("statuses")).filter { !it.getBoolean("isDone") }.map { it.getString("id") to it.getString("title") }, enabled, "template-status-map-${status.getString("key")}", userLabel = true) { map("statusMap", status.getString("key"), it) } }
@@ -97,7 +97,7 @@ import java.util.Locale
                             all.put(fieldKey, patch); request.put("optionMap", all).put("fieldValues", JSONObject()); state.change(next)
                         }
                     }
-                    if (choices.size > limit) OutlinedButton({ limit += 5 }, Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Показать ещё") }
+                    if (choices.size > limit) TemplateOutlinedButton({ limit += 5 }, Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Показать ещё") }
                 }
             }
         }
@@ -135,7 +135,7 @@ import java.util.Locale
                 HorizontalDivider()
             }
         } }
-        if (tasks.size > limit) OutlinedButton({ limit += 5 }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-preview-more")) { Text("Показать ещё") }
+        if (tasks.size > limit) TemplateOutlinedButton({ limit += 5 }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-preview-more")) { Text("Показать ещё") }
     }
 }
 
@@ -160,6 +160,6 @@ import java.util.Locale
                     patch.put(field.getString("key"), SharedTemplateManifest.optionValue(field, value, false)); all.put(key, patch); request.put("fieldValues", all); state.change(next)
                 }, onReset = { }, onCalendar = state::changeDateInput)
         } }
-        if (fields.size > limit) OutlinedButton({ limit += 5 }, Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Показать ещё") }
+        if (fields.size > limit) TemplateOutlinedButton({ limit += 5 }, Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Показать ещё") }
     }
 }

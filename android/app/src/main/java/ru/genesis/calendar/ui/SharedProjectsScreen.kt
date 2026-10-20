@@ -239,7 +239,15 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         if (rows.none { it.getString("id") == projectId }) projectId = ""
     }
     suspend fun refreshProject(id: String) {
-        val result = controller.sharedProject(id)
+        val result = try { controller.sharedProject(id) }
+        catch (failure: Exception) {
+            if (projectId == id && sharedTemplateAccessDenied(failure)) {
+                templatesOpen = false; templatesCaptureId = ""; snapshot = null
+                openedTask = null; taskPage = null; taskId = ""; projectId = ""
+                projects = projects.filterNot { it.optString("id") == id }
+            }
+            throw failure
+        }
         offlineSnapshot = result.optBoolean("offlineCache")
         if (projectId != id) return
         if (snapshot?.toString() != result.toString()) snapshot = result

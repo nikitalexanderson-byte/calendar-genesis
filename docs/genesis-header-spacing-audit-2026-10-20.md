@@ -1,6 +1,6 @@
 # GENESIS: интервалы шапки и порядок секций — 20 октября 2026
 
-Локальная приёмка ограниченного веб-среза завершена; независимый finish review дал `ship`. [PR #235](https://github.com/nikitalexanderson-byte/calendar-genesis/pull/235) подготовлен как draft. Публикация остаётся ожидаемой до merge через существующий `.github/workflows/deploy.yml` и подтверждения ответственным исполнителем SHA текущего `master` в `/deploy-meta.json` и успешного `/api/health`. Этот отчёт сам по себе не подтверждает production.
+Локальная приёмка ограниченного веб-среза завершена; независимый finish review дал `ship`. [PR #235](https://github.com/nikitalexanderson-byte/calendar-genesis/pull/235) merged штатным путём: master/production `2ab29434cdbaebf36ad2ad8e2b8847f59534d2eb`, [Deploy 39452319575](https://github.com/nikitalexanderson-byte/calendar-genesis/actions/runs/39452319575) success. Проверка 20 октября 16:01 UTC подтвердила SHA в `/deploy-meta.json`, успешный `/api/health` и все 90 реальных JS/CSS ресурсов главной страницы. Android descriptor и SHA APK 2.9.0/95 не изменились. Receipt: `output/header-spacing-production.json`. Операторский SSH не использовался.
 
 Исходный commit: `8d40e82ffd9c3df53e12460dfaa7af2fe2b48083`, ветка `codex/header-equal-spacing`, база `9b49669657d43e011fbb267aa07eef254ed06a12`. Сверен diff между этими commit: он содержит только [account-discovery.css](../app/account-discovery.css), [SharedProjects.tsx](../app/SharedProjects.tsx) и [ExperimentalIcon.tsx](../app/ExperimentalIcon.tsx).
 

@@ -183,7 +183,7 @@ for (const language of ["ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "s
 }
 const templateCopy = JSON.parse(await readFile(path.join(ROOT, "app/native-template-labels.json"), "utf8"));
 const templateKeys = Object.keys(templateCopy.ru ?? {});
-if (templateKeys.length !== 26) throw new Error("Native template labels must contain all 26 labels.");
+if (templateKeys.length !== 39) throw new Error("Native template labels must contain all 39 labels.");
 for (const language of ["ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja"]) {
   if (Object.keys(templateCopy[language] ?? {}).sort().join("\n") !== [...templateKeys].sort().join("\n")) throw new Error(`Incomplete native template labels: ${language}`);
   for (const key of templateKeys) {
