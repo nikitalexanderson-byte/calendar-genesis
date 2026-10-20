@@ -166,6 +166,9 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         save = { it.toString() }, restore = { JSONObject(it) })) { mutableStateOf(JSONObject()) }
     var draftTaskKey by rememberSaveable { mutableStateOf("") }
     var createModal by rememberSaveable { mutableStateOf<String?>(null) }
+    // Project loading briefly clears projectId during recreation; keep the open form's scope stable.
+    var createCustomProjectId by rememberSaveable { mutableStateOf("") }
+    val createCustom = rememberSharedTaskCustomCreation(createCustomProjectId, preferences)
     var showManagement by remember { mutableStateOf(false) }
     var spaceTitle by rememberSaveable { mutableStateOf("") }
     var projectTitle by rememberSaveable { mutableStateOf("") }
@@ -287,6 +290,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         catch (cause: Exception) { message = cause.message ?: "Не удалось открыть родительский проект." }
     }
     LaunchedEffect(createModal) {
+        if (createModal == "task") { message = ""; messageIsError = false }
         if (createModal == "join") {
             loadingInvitations = true
             try { invitations = controller.sharedInvitations().getJSONArray("invitations").rows() }
@@ -368,6 +372,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         bindSharedTaskCustom(it, editTaskDetails, snapshot, preferences)
     }
     val taskArchived = selectedTask?.optString("archivedAt")?.let { it.isNotBlank() && it != "null" } == true
+    val newCustomBinding = if (createModal == "task" && snapshot != null) bindSharedTaskCustom(createCustom.source, createCustom.details, snapshot, preferences) else null
     LaunchedEffect(projectId,taskId,comments,discussionVisible,pageActive) {
         if(pageActive&&discussionVisible&&taskId.isNotBlank()&&comments.isNotEmpty())runCatching {
             controller.readSharedTaskUpdates(projectId,taskId,comments.map { it.getString("id") })
@@ -588,7 +593,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         val modal = createModal!!
         val validDate = newTaskDueDate.isBlank() || runCatching { LocalDate.parse(newTaskDueDate) }.isSuccess
         AlertDialog(onDismissRequest = { if (!busy) createModal = null },
-            title = { Text(when (modal) {
+            title = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Text(when (modal) {
                 "join" -> if (en) "Workspace invitations" else "Приглашения в пространства"
                 "space" -> if (en) "New workspace" else "Новое пространство"
                 "project" -> if (en) "New shared project" else "Новый общий проект"
@@ -596,7 +601,15 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                 "status" -> if (en) "New task list / board column" else "Новый список задач / колонка доски"
                 "category" -> if (en) "New category" else "Новая категория"
                 else -> if (en) "Invite a participant" else "Пригласить участника"
-            }) },
+            })
+                if (modal == "task" && messageIsError && message.isNotBlank()) Row(Modifier.fillMaxWidth(),
+                    verticalAlignment = androidx.compose.ui.Alignment.Top) {
+                    Text(message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f).testTag("shared-create-error"))
+                    AffairsIconButton("Обновить", AffairsAction.REFRESH, { run { refreshProject(projectId) } },
+                        Modifier.testTag("shared-create-refresh"), enabled = !busy)
+                }
+            } },
             text = { Column(Modifier.fillMaxWidth().heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 when (modal) {
@@ -656,6 +669,11 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                         OutlinedTextField(taskTitle, { taskTitle = it },
                             label = { Text(if (en) "Name" else "Название") }, enabled = !busy,
                             modifier = Modifier.fillMaxWidth().testTag("shared-new-task-title"))
+                        if (project == null) LinearProgressIndicator(Modifier.fillMaxWidth())
+                        else if (!canEditTask) Text("Нет доступа", color = MaterialTheme.colorScheme.error)
+                        newCustomBinding?.let { custom -> SharedTaskCustomFields(createCustom.source, createCustom.details, createCustom.presentation(custom), preferences, true,
+                            busy || !canEditTask || project?.optString("archivedAt")?.let { it.isNotBlank() && it != "null" } == true,
+                            { createCustom.change(it) }, { run { refreshProject(projectId) } }) }
                         OutlinedTextField(newTaskDescription, { newTaskDescription = it },
                             label = { Text(if (en) "Description" else "Описание") }, enabled = !busy, modifier = Modifier.fillMaxWidth())
                         Text(if (en) "Due date" else "Срок", style = MaterialTheme.typography.titleSmall)
@@ -733,12 +751,15 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                         refreshProjects(spaceId); projectId = created.getString("id"); persistExpansion(expandedIds + projectId)
                     }
                     "task" -> {
-                        val created = controller.createSharedTask(projectId, JSONObject().put("title", taskTitle.trim())
+                        check(canEditTask && newCustomBinding?.valid == true) { "CUSTOM_FIELD_UNAVAILABLE" }
+                        val fields = createCustom.fields(requireNotNull(newCustomBinding)).put("title", taskTitle.trim())
                             .put("description", newTaskDescription.trim())
                             .put("dueDate", newTaskDueDate.ifBlank { null } ?: JSONObject.NULL)
                             .put("statusId", newTaskStatusId.ifBlank { statuses.first().getString("id") })
                             .put("categoryId", newTaskCategoryId.ifBlank { null } ?: JSONObject.NULL)
-                            .put("assigneeId", newTaskAssigneeId.ifBlank { null } ?: JSONObject.NULL))
+                            .put("assigneeId", newTaskAssigneeId.ifBlank { null } ?: JSONObject.NULL)
+                        val created = controller.createSharedTask(projectId, fields)
+                        createCustom.reset(preferences)
                         taskTitle = ""; newTaskDescription = ""; newTaskDueDate = ""
                         newTaskStatusId = ""; newTaskCategoryId = ""; newTaskAssigneeId = ""
                         pendingTasks = controller.queuedSharedTasks(projectId)
@@ -765,7 +786,8 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
             } }, modifier = Modifier.heightIn(min = 48.dp).testTag("shared-create-confirm"), enabled = !busy && when (modal) {
                 "space" -> spaceTitle.isNotBlank()
                 "project" -> projectTitle.isNotBlank()
-                "task" -> taskTitle.isNotBlank() && statuses.isNotEmpty() && validDate
+                "task" -> canEditTask && taskTitle.isNotBlank() && statuses.isNotEmpty() && validDate && newCustomBinding?.valid == true &&
+                    project?.optString("archivedAt")?.let { it.isNotBlank() && it != "null" } != true
                 "status" -> newStatusTitle.isNotBlank() && statuses.size < 30
                 "category" -> newCategoryTitle.isNotBlank() && categories.size < 50
                 else -> inviteEmail.trim().lowercase(Locale.ROOT).let { it.endsWith("@gmail.com") || it.endsWith("@googlemail.com") }
@@ -1305,8 +1327,8 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
             if (taskId.isBlank()) {
                 if (canWrite && statuses.isNotEmpty()) Button(onClick = {
                     newTaskStatusId = statuses.first().optString("id")
-                    newTaskCategoryId = ""; newTaskAssigneeId = ""; createModal = "task"
-                }, enabled = !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("shared-create-task")) {
+                    newTaskCategoryId = ""; newTaskAssigneeId = ""; createCustomProjectId = projectId; createModal = "task"
+                }, enabled = !busy && canEditTask, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("shared-create-task")) {
                     Text("Добавить задачу")
                 }
                 AffairsSearchField(taskSearch, { taskSearch = it.take(200) }, "Поиск задач",
