@@ -3104,7 +3104,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /composerTab === "lists" \? renderTaskListCreateForm\("composer"\) : renderTaskCreateForm\("composer"\)/);
   assert.doesNotMatch(calendar, /renderTaskListCreateForm\("projects"\)/);
   assert.match(calendar, /DeviceClock/);
-  assert.match(calendar, /<div className="hero-number" aria-hidden="true">[\s\S]*?<\/div>\s*<DeviceClock timeFormat=\{activeTimeFormat\} \/>/);
+  assert.match(calendar, /<div className="hero-number" aria-hidden="true">[\s\S]*?<\/div>\s*: null\}\s*<DeviceClock timeFormat=\{activeTimeFormat\} \/>/);
   assert.match(calendar, /<DayRhythmPanel timeFormat=\{activeTimeFormat\} \/>/);
   assert.match(calendar, /useSyncExternalStore\(subscribeDeviceClock, getDeviceClockSnapshot, getServerDeviceClockSnapshot\)/);
   assert.match(calendar, /1000 - \(Date\.now\(\) % 1000\)/);

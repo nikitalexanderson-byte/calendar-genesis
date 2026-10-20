@@ -22,10 +22,12 @@ export function MoonReminderSettings({ accountId, english, permission, requestPe
           setSettings(next); saveMoonReminderSettings(accountId, next);
         }}>{days === 0 ? english ? "Off" : "Выключено" : english ? `${days} day${days > 1 ? "s" : ""} before` : `За ${days} ${days === 1 ? "сутки" : "суток"}`}</button>)}</div>
     </fieldset>)}
-    <small>{english ? "Saved for this account on this device. The website must be open for browser delivery."
+    <div className="moon-reminder-delivery">
+      <small>{english ? "Saved for this account on this device. The website must be open for browser delivery."
       : "Настройки сохраняются для этого аккаунта на устройстве. Для доставки в браузере сайт должен быть открыт."}</small>
     {permission !== "granted" ? <button type="button" className="secondary-button" onClick={() => void requestPermission()}>
       {english ? "Allow browser notifications" : "Разрешить уведомления браузера"}</button> : null}
+    </div>
   </section>;
 }
 

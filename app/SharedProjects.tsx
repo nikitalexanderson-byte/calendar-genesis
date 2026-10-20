@@ -98,6 +98,8 @@ import { restoredSharedProject, sharedProjectTree } from "./shared-expansion";
 import { formatTaskCount } from "./task-count-i18n";
 import { InboxToolbar, InboxRestore, InboxResizeBoundary } from "./InboxToolbar";
 import type { InboxPosition } from "./ui-visibility";
+import { ProjectViewSwitch } from "./ProjectViewSwitch";
+import { defaultProjectView, type ProjectView } from "./project-view-order";
 
 import { SharedTaskReview } from "./SharedTaskReview";
 import { SharedReviewSettings } from "./SharedReviewSettings";
@@ -115,6 +117,7 @@ const serverCompactSnapshot = () => false;
 import type { SharedInvitationDestination } from "./SharedInvitationNotices";
 
 type Props = { userId: string; language: string; enabledCalendars: CalendarMode[]; experimentalTheme?: boolean; timeFormat?: TimeFormat;
+  projectViewOrder: ProjectView[] | null; onProjectViewOrder: (views: ProjectView[]) => void;
   inboxWidth: number; onInboxWidth: (width: number) => void; inboxPosition: InboxPosition; inboxHidden: boolean; inboxCompact: boolean; onInboxPosition: (position: InboxPosition) => void; onInboxHidden: (hidden: boolean) => void; onInboxCompact: (compact: boolean) => void;
   destination?: SharedInvitationDestination;
   categoriesExpanded: boolean; onCategoriesExpanded: (expanded: boolean) => void;
@@ -159,11 +162,17 @@ function sharedCalendarPeriod(anchor: Date, mode: CalendarMode, english: boolean
     title: new Intl.DateTimeFormat(english ? "en-US" : "ru-RU", { month: "long", year: "numeric" }).format(start) };
 }
 
-export function SharedProjects({ userId, language, enabledCalendars, calendarMode, taskCalendarMode, onCalendarModeChange, experimentalTheme = false, timeFormat = "24h", destination, inboxWidth, onInboxWidth, inboxPosition, inboxHidden, inboxCompact, onInboxPosition, onInboxHidden, onInboxCompact, categoriesExpanded, onCategoriesExpanded, categoriesView, onCategoriesView }: Props) {
+export function SharedProjects({ userId, language, enabledCalendars, calendarMode, taskCalendarMode, onCalendarModeChange, experimentalTheme = false, timeFormat = "24h", destination, inboxWidth, onInboxWidth, inboxPosition, inboxHidden, inboxCompact, onInboxPosition, onInboxHidden, onInboxCompact, categoriesExpanded, onCategoriesExpanded, categoriesView, onCategoriesView, projectViewOrder, onProjectViewOrder }: Props) {
   const english = language === "en";
   const sacredFeaturesEnabled = useSacredFeaturesEnabled();
   const tasksCompact = inboxCompact;
-  const [initialPlace] = useState(() => (typeof window === "undefined" ? null : sharedPlaceFromUrl(new URL(window.location.href))) ?? (destination ? { spaceId: destination.spaceId, projectId: destination.projectId || "", taskId: "", view: null } : initialSharedPlace(userId)));
+  const [initialPlace] = useState(() => {
+    const route = typeof window === "undefined" ? null : sharedPlaceFromUrl(new URL(window.location.href));
+    if (route) return route;
+    if (destination) return { spaceId: destination.spaceId, projectId: destination.projectId || "", taskId: "", view: null };
+    const saved = initialSharedPlace(userId);
+    return projectViewOrder ? { ...saved, view: null } : saved;
+  });
   const [requestedTaskId, setRequestedTaskId] = useState(initialPlace.taskId);
   const [commentId, setCommentId] = useState(initialPlace.commentId ?? "");
   const [locatedTaskId, setLocatedTaskId] = useState("");
@@ -301,7 +310,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   const [createModal, setCreateModal] = useState<"space" | "space-settings" | "project" | "task" | "status" | "invite" | "join" | "settings" | "team" | "board" | null>(null);
   const [boardTitleEdit, setBoardTitleEdit] = useState<{ id: string; title: string } | null>(null);
   const cancelledBoardTitleRef = useRef(false);
-  const activeView = viewOverride ?? (isCompact ? "list" : snapshotBase?.project.layout ?? "list");
+  const activeView = viewOverride ?? defaultProjectView(projectViewOrder, isCompact, snapshotBase?.project.layout);
   const calendarPeriod = sharedCalendarPeriod(calendarMonth, calendarMode, english, language);
   const rangeFilter = activeView === "calendar" && calendarPeriod.dates.length ? { from: localDateKey(calendarPeriod.dates[0]), to: localDateKey(calendarPeriod.dates[calendarPeriod.dates.length - 1]) } : {};
   const projectCustomFilter=customCriteria.projectId===projectId&&customCriteria.criteria.length?{customFields:customCriteria.criteria}:{};
@@ -1441,14 +1450,8 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       <div className="shared-planning-controls">
       <div className="shared-planning-view">
       <p className="shared-projects-calendar-mode-label">{english ? "Project view" : "Вид проекта"}</p>
-      <div className="shared-projects-view-switch" role="group" aria-label={english ? "Project view" : "Вид проекта"}>
-        {(["list", "board", "calendar", "gantt"] as const).map((item) => <button key={item} type="button"
-          data-shared-drop-view={item === "list" || item === "board" ? item : undefined}
-          data-drop-active={dropTarget?.view === item || undefined}
-          aria-pressed={activeView === item} onClick={() => {setGanttDay(undefined);setViewOverride(item);}}>{item === "list"
-            ? (english ? "List" : "Список") : item === "board" ? (english ? "Boards" : "Доски")
-              : item === "gantt" ? (english ? "Gantt" : "Гант") : (english ? "Calendar" : "Календарь")}</button>)}
-      </div>
+      <ProjectViewSwitch order={projectViewOrder} active={activeView} language={language as import("./i18n").Language}
+        dropView={dropTarget?.view} onSelect={item => { setGanttDay(undefined); setViewOverride(item); }} onReorder={onProjectViewOrder}/>
       </div>
       {!experimentalTheme && enabledCalendars.length > 1 ? <div className="shared-planning-dates">
       <p className="shared-projects-calendar-mode-label">{english ? "Calendar for project view and task dates" : "Календарь проекта и дат задач"}</p>

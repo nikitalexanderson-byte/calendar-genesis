@@ -1,58 +1,58 @@
 {
   "ru": {
-    "thisMonth": "Этот месяц",
+    "thisMonth": "К нынешнему месяцу",
     "returnMonth": "Вернуться к текущему месяцу"
   },
   "en": {
-    "thisMonth": "This month",
+    "thisMonth": "To current month",
     "returnMonth": "Return to the current month"
   },
   "el": {
-    "thisMonth": "Τρέχων μήνας",
+    "thisMonth": "Στον τρέχοντα μήνα",
     "returnMonth": "Επιστροφή στον τρέχοντα μήνα"
   },
   "de": {
-    "thisMonth": "Dieser Monat",
+    "thisMonth": "Zum aktuellen Monat",
     "returnMonth": "Zum aktuellen Monat zurückkehren"
   },
   "fr": {
-    "thisMonth": "Ce mois-ci",
+    "thisMonth": "Au mois en cours",
     "returnMonth": "Revenir au mois en cours"
   },
   "es": {
-    "thisMonth": "Este mes",
+    "thisMonth": "Al mes actual",
     "returnMonth": "Volver al mes actual"
   },
   "it": {
-    "thisMonth": "Questo mese",
+    "thisMonth": "Al mese corrente",
     "returnMonth": "Torna al mese corrente"
   },
   "pt": {
-    "thisMonth": "Este mês",
+    "thisMonth": "Ao mês atual",
     "returnMonth": "Voltar ao mês atual"
   },
   "pl": {
-    "thisMonth": "Ten miesiąc",
+    "thisMonth": "Do bieżącego miesiąca",
     "returnMonth": "Wróć do bieżącego miesiąca"
   },
   "sr": {
-    "thisMonth": "Овај месец",
+    "thisMonth": "На текући месец",
     "returnMonth": "Повратак на текући месец"
   },
   "uk": {
-    "thisMonth": "Цей місяць",
+    "thisMonth": "До поточного місяця",
     "returnMonth": "Повернутися до поточного місяця"
   },
   "zh": {
-    "thisMonth": "本月",
+    "thisMonth": "回到本月",
     "returnMonth": "返回当前月份"
   },
   "tr": {
-    "thisMonth": "Bu ay",
+    "thisMonth": "Bu aya dön",
     "returnMonth": "Geçerli aya dön"
   },
   "ja": {
-    "thisMonth": "今月",
+    "thisMonth": "今月に戻る",
     "returnMonth": "現在の月に戻る"
   }
 }

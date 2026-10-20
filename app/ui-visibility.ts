@@ -1,4 +1,5 @@
 import type { CalendarMode } from "./calendar-data";
+import { projectViewOrder, type ProjectView } from "./project-view-order.ts";
 
 export type InboxPosition = "top" | "right" | "left" | "bottom";
 export type AccountLayout = {
@@ -19,6 +20,7 @@ export type AccountLayout = {
   notificationDockPinned: boolean;
   notificationDockX: number;
   notificationDockY: number;
+  sharedProjectViewOrder: ProjectView[] | null;
 };
 export const DEFAULT_ACCOUNT_LAYOUT: AccountLayout = {
   sidebarWidth: 240, personalInboxPosition: "right", personalInboxHidden: false, personalInboxCompact: false,
@@ -28,6 +30,7 @@ export const DEFAULT_ACCOUNT_LAYOUT: AccountLayout = {
   sharedTasksCompact: true,
   personalInboxWidth: 300, sharedInboxWidth: 300,
   notificationDockPinned: false, notificationDockX: -1, notificationDockY: -1,
+  sharedProjectViewOrder: null,
 };
 export function accountLayout(value?: Partial<AccountLayout> | null): AccountLayout {
   const position = (input?: InboxPosition): InboxPosition => input && ["top", "right", "left", "bottom"].includes(input) ? input : "right";
@@ -47,6 +50,7 @@ export function accountLayout(value?: Partial<AccountLayout> | null): AccountLay
     notificationDockPinned: value?.notificationDockPinned === true,
     notificationDockX: Number.isInteger(value?.notificationDockX) ? Math.max(-1, Math.min(10000, value!.notificationDockX!)) : -1,
     notificationDockY: Number.isInteger(value?.notificationDockY) ? Math.max(-1, Math.min(10000, value!.notificationDockY!)) : -1,
+    sharedProjectViewOrder: projectViewOrder(value?.sharedProjectViewOrder),
   };
 }
 

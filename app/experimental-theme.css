@@ -363,6 +363,25 @@ html[data-genesis-theme^="standart"] .genesis-app .account-panel .account-prefer
 html[data-genesis-theme^="standart"] .genesis-app .account-panel button { min-height: 44px; padding: 10px 12px; border: 1px solid var(--exp-border); border-radius: var(--ui-radius); background: var(--surface); color: var(--ink); font-weight: 500; }
 html[data-genesis-theme^="standart"] .genesis-app .account-panel button.primary-button { color: var(--ui-on-accent); background: var(--ui-accent); border-color: var(--ui-accent); }
 html[data-genesis-theme^="standart"] .genesis-app .account-panel :is(.settings-section-nav button.active, .language-choice button[aria-checked="true"], .calendar-mode-segment button[aria-checked="true"]) { color: var(--gold); background: var(--exp-accent-wash); border-color: color-mix(in srgb, var(--gold) 45%, transparent); box-shadow: none; }
+/* Account notification choices keep their selected state above the general button layer. */
+html[data-genesis-theme^="standart"] .genesis-app .account-panel .habit-notification-tone { gap: 4px; padding: 4px; border-color: var(--exp-border); border-radius: 12px; background: var(--paper); }
+html[data-genesis-theme^="standart"] .genesis-app .account-panel .habit-notification-tone > button { min-width: 0; min-height: 44px; padding: 10px 8px; border-color: transparent; border-radius: 8px; background: transparent; color: var(--ink); font: 500 14px/1.4 var(--font-ui); box-shadow: none; }
+html[data-genesis-theme^="standart"] .genesis-app .account-panel :is(.habit-notification-tone > button[aria-checked="true"], .moon-reminder-choices button[aria-pressed="true"]) { color: var(--ui-on-accent); background: var(--ui-accent); border-color: var(--ui-accent); box-shadow: none; }
+html[data-genesis-theme^="standart"] .genesis-app .account-panel :is(.habit-notification-tone > button, .moon-reminder-choices button):focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 3px; }
+html[data-genesis-theme^="standart"] .genesis-app .account-panel .habit-notification-times { align-items: stretch; gap: 12px; }
+html[data-genesis-theme^="standart"] .genesis-app .account-panel .habit-notification-times > label { grid-template-rows: 1fr auto; align-items: start; gap: 8px; min-width: 0; }
+html[data-genesis-theme^="standart"] .genesis-app .account-panel .habit-notification-times > label > span { color: var(--ink-soft); font: 500 13px/1.4 var(--font-ui); letter-spacing: 0; text-transform: none; }
+html[data-genesis-theme^="standart"] .genesis-app .account-panel .habit-notification-times .time-clock-picker { width: 100%; min-width: 0; background: transparent; }
+html[data-genesis-theme^="standart"] .genesis-app .account-panel .habit-notification-times .time-clock-picker-trigger { width: 100%; min-width: 0; min-height: 44px; margin: 0; font: 500 16px/1.4 var(--font-ui); font-variant-numeric: tabular-nums; }
+html[data-genesis-theme^="standart"] .genesis-app .account-panel .moon-reminder-delivery { display: grid; gap: 12px; margin-top: 16px; }
+html[data-genesis-theme^="standart"] .genesis-app .account-panel .moon-reminder-delivery > small { display: block; margin: 0; color: var(--ink-soft); font: 400 14px/1.6 var(--font-ui); }
+html[data-genesis-theme^="standart"] .genesis-app .account-panel .moon-reminder-delivery > button { justify-self: start; max-width: 100%; white-space: normal; text-align: center; }
+@media (hover: hover) {
+  html[data-genesis-theme^="standart"] .genesis-app .account-panel :is(.habit-notification-tone > button:not([aria-checked="true"]), .moon-reminder-choices button:not([aria-pressed="true"])):hover { color: var(--ink); background: var(--exp-hover); border-color: var(--exp-border); }
+}
+@media (max-width: 600px) {
+  html[data-genesis-theme^="standart"] .genesis-app .account-panel .moon-reminder-delivery > button { width: 100%; }
+}
 html[data-genesis-theme^="standart"] .genesis-app .account-panel .settings-section-hero { padding: 16px; border: 1px solid var(--exp-border); border-radius: 12px; background: var(--paper); color: var(--ink); box-shadow: none; }
 html[data-genesis-theme^="standart"] .genesis-app .settings-section-hero p { color: var(--ink-soft); }
 html[data-genesis-theme^="standart"] .genesis-app .settings-section-hero-icon { flex-basis: 44px; width: 44px; height: 44px; border-radius: var(--ui-radius); color: var(--gold); background: var(--exp-accent-wash); }
@@ -552,13 +571,15 @@ html[data-genesis-theme^="standart"] .genesis-app .today-task-open > span { gap:
 html[data-genesis-theme^="standart"] .genesis-app .today-task-open > span > * { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
 html[data-genesis-theme^="standart"] .genesis-app .today-task-open > span i { color: var(--ink-soft); }
 html[data-genesis-theme^="standart"] .genesis-app .today-task-list > article.done .task-check { background: var(--ui-accent); color: var(--ui-on-accent); border-color: var(--ui-accent); }
-@media (max-width: 600px) {
+@media (max-width: 767px) {
   html[data-genesis-theme^="standart"] .genesis-app .today-tasks-panel { padding: 16px; }
-  html[data-genesis-theme^="standart"] .genesis-app .today-tasks-panel > header { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; }
+  html[data-genesis-theme^="standart"] .genesis-app .today-tasks-panel > header { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; gap: 12px; }
   html[data-genesis-theme^="standart"] .genesis-app .today-tasks-panel > header > div:last-child { display: contents; }
   html[data-genesis-theme^="standart"] .genesis-app .today-tasks-panel > header > div:last-child > strong { grid-column: 2; grid-row: 1; }
   html[data-genesis-theme^="standart"] .genesis-app .today-tasks-panel > header .primary-button { grid-column: 1; grid-row: 2; }
   html[data-genesis-theme^="standart"] .genesis-app .today-tasks-panel > header .secondary-button { grid-column: 2; grid-row: 2; }
+  html[data-genesis-theme^="standart"] .genesis-app .today-tasks-panel > header > div:last-child > button { align-self: stretch; width: 100%; min-width: 0; min-height: 44px; height: 100%; justify-content: center; white-space: normal; }
+  html[data-genesis-theme^="standart"] .genesis-app .today-tasks-panel > header > div:last-child > button:only-of-type { grid-column: 1 / -1; }
 }
 @media (pointer: coarse) {
   html[data-genesis-theme^="standart"] .genesis-app .today-task-list { max-height: none; overflow: visible; }
