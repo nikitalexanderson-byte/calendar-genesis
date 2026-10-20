@@ -101,7 +101,9 @@ html[data-genesis-theme] .genesis-app .shared-projects-guide > i {
 @media (max-width: 1399.98px) {
   html[data-genesis-theme] .genesis-app .app-brand-header[data-compact-header] {
     --header-control-size: 44px;
-    display: flex; flex-wrap: nowrap; align-items: center; gap: 16px; min-width: 0;
+    --header-icon-size: 26px;
+    --header-control-gap: 8px;
+    display: flex; flex-wrap: nowrap; align-items: center; gap: var(--header-control-gap); min-width: 0;
     padding: 12px 16px; background: var(--paper); border-bottom: 1px solid var(--line);
   }
   html[data-genesis-theme] .genesis-app .app-brand-header > button { display: flex; align-items: center; gap: 8px; min-width: 0; margin-inline-end: auto; white-space: nowrap; }
@@ -119,22 +121,22 @@ html[data-genesis-theme] .genesis-app .shared-projects-guide > i {
   html[data-genesis-theme] .genesis-app .app-brand-header .topbar-calendar-choice > button > span { display: none; }
   html[data-genesis-theme] .genesis-app .app-brand-header .topbar-calendar-choice .calendar-mode-icon { display: block; }
   html[data-genesis-theme] .genesis-app .app-brand-header .topbar-calendar-choice > button[aria-pressed="true"] { background: var(--ui-accent); color: var(--ui-on-accent); }
-  html[data-genesis-theme] .genesis-app .app-brand-header .topbar-actions { display: flex; flex: 0 0 auto; flex-wrap: nowrap; align-items: center; gap: 6px; margin: 0; padding: 0; }
-  html[data-genesis-theme] .genesis-app .app-brand-header .account-chip { margin: 0; padding: 0; }
+  html[data-genesis-theme] .genesis-app .app-brand-header .topbar-actions { display: flex; flex: 0 0 auto; flex-wrap: nowrap; align-items: center; gap: var(--header-control-gap); margin: 0; padding: 0; }
+  html[data-genesis-theme] .genesis-app .app-brand-header .account-chip { flex: 0 0 var(--header-control-size); width: var(--header-control-size); min-width: 0; margin: 0; padding: 0; border: 0; background: transparent; }
   html[data-genesis-theme] .genesis-app .app-brand-header .account-open > span { display: none; }
-  html[data-genesis-theme] .genesis-app .app-brand-header :is(.topbar-calendar-choice, .topbar-actions) button > svg { width: 22px; height: 22px; }
+  html[data-genesis-theme] .genesis-app .app-brand-header :is(.topbar-calendar-choice, .topbar-actions) :is(button, a) > :is(svg, .ux-install-icon) { width: var(--header-icon-size); height: var(--header-icon-size); }
   html[data-genesis-theme] .genesis-app .topbar[data-exp-ui] { display: none; }
 }
 @media (max-width: 599px) {
-  html[data-genesis-theme] .genesis-app .app-brand-header[data-compact-header] { --header-control-size: clamp(24px, 8vw, 40px); gap: 6px; padding: 10px 8px; }
+  html[data-genesis-theme] .genesis-app .app-brand-header[data-compact-header] { --header-control-size: clamp(30px, 9vw, 44px); --header-icon-size: clamp(22px, 5.7vw, 26px); --header-control-gap: 4px; padding: 10px 8px; }
   html[data-genesis-theme] .genesis-app .app-brand-header > button { gap: 4px; }
   html[data-genesis-theme] .genesis-app .app-brand-header > button > img { flex-basis: 26px; width: 26px; height: 26px; }
   html[data-genesis-theme] .genesis-app .app-brand-header > button > strong { font-size: clamp(12px, 3.3vw, 18px); }
-  html[data-genesis-theme] .genesis-app .app-brand-header .topbar-actions { gap: 3px; }
-  html[data-genesis-theme] .genesis-app .app-brand-header :is(.topbar-calendar-choice, .topbar-actions) button > svg { width: 19px; height: 19px; }
   html[data-genesis-theme] .genesis-app .app-brand-header .notification-dock-count { min-width: 14px; height: 14px; padding: 1px 3px; font-size: 9px; inset-block-start: -4px; inset-inline-end: -4px; }
 }
-@media (max-width: 479px) {
+@media (max-width: 599px) {
+  html[data-genesis-theme] .genesis-app .app-brand-header[data-compact-header]:has(.notification-header-slot > button:not([hidden])),
+  html[data-genesis-theme] .genesis-app .app-brand-header[data-compact-header]:has(.topbar-actions > :nth-child(4):not(.notification-header-slot)) { --header-control-size: clamp(27px, 8.2vw, 44px); }
   html[data-genesis-theme] .genesis-app .app-brand-header:has(.notification-header-slot > button:not([hidden])) > button,
   html[data-genesis-theme] .genesis-app .app-brand-header:has(.topbar-actions > :nth-child(4):not(.notification-header-slot)) > button { flex-direction: column; gap: 1px; }
   html[data-genesis-theme] .genesis-app .app-brand-header:has(.notification-header-slot > button:not([hidden])) > button > strong,
