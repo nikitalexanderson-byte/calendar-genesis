@@ -1,6 +1,8 @@
 package ru.genesis.calendar.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.*
@@ -8,7 +10,9 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -45,11 +49,22 @@ internal fun templateIssueMessage(code: String, copy: JSONObject) = copy.getJSON
     lines: Int = 1, number: Boolean = false, maxLength: Int = if (lines == 1) 160 else 20000,
     labelIsLocalized: Boolean = false, error: String? = null, onChange: (String) -> Unit) {
     val description = if (labelIsLocalized) label else genesisTranslate(label)
+    val bringIntoView = remember { BringIntoViewRequester() }
+    var focused by remember { mutableStateOf(false) }
+    val imeBottom = WindowInsets.ime.getBottom(LocalDensity.current)
+    LaunchedEffect(focused, imeBottom) {
+        if (focused) {
+            // Let IME insets and the compact dialog settle before revealing the entire input.
+            withFrameNanos { }; withFrameNanos { }
+            bringIntoView.bringIntoView()
+        }
+    }
     OutlinedTextField(value, { onChange(it.substring(0, it.offsetByCodePoints(0, minOf(maxLength, it.codePointCount(0, it.length))))) }, label = { androidx.compose.material3.Text(description) }, enabled = enabled, singleLine = lines == 1,
         minLines = lines, maxLines = if (lines == 1) 1 else 5, textStyle = MaterialTheme.typography.bodyMedium, isError = error != null,
         supportingText = if (error == null) null else { { androidx.compose.material3.Text(error) } },
         keyboardOptions = KeyboardOptions(keyboardType = if (number) KeyboardType.Decimal else KeyboardType.Text),
-        shape = AffairsLayout.shape, modifier = Modifier.fillMaxWidth().testTag(tag))
+        shape = AffairsLayout.shape, modifier = Modifier.fillMaxWidth().bringIntoViewRequester(bringIntoView)
+            .onFocusChanged { focused = it.isFocused }.testTag(tag))
 }
 
 @Composable internal fun TemplateOutlinedButton(onClick: () -> Unit, modifier: Modifier = Modifier,

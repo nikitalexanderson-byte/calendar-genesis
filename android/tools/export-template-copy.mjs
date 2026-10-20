@@ -41,6 +41,6 @@ for (const language of ['ru','en','el','de','fr','es','it','pt','pl','sr','uk','
 }
 const path = new URL('native-template-translations.json', app), expected = JSON.stringify(result,null,2)+'\n';
 if (process.argv.includes('--check')) {
-  if (await readFile(path,'utf8') !== expected) throw Error('Native template copy is stale');
+  if ((await readFile(path,'utf8')).replaceAll('\r\n','\n') !== expected) throw Error('Native template copy is stale');
 } else await writeFile(path,expected);
 console.log(`Native template copy: ${Object.keys(issues).length + 1} issues and ${Object.keys(flags).length} options in 14 reviewed languages.`);

@@ -9,11 +9,13 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -39,6 +41,13 @@ import java.util.Locale
     val active = lifecycle.isAtLeast(Lifecycle.State.STARTED) && LocalNavigationPageContext.current?.active != false
     val calendar = SharedCustomCalendar.initial(if (LocalSacredFeaturesEnabled.current) preferences else preferences.copy(input = CalendarMode.PROFANE))
     var template by rememberSaveable { mutableStateOf<String?>(null) }; var leave by remember { mutableStateOf(false) }; var discard by remember { mutableStateOf(false) }
+    val projectTitle = state.context?.optJSONObject("project")?.getString("title")
+    val headerTitle = if (template != null) "Применение шаблона" else if (state.edit?.isNull("ruleId") != false) "Новое правило" else "Изменить правило"
+    val noticeError = when { state.lost -> "AUTOMATION_PERMISSION_CHANGED"; state.stale -> "AUTOMATION_CONFLICT"; state.error.isNotBlank() -> state.error; else -> null }
+    val canRefresh = state.loaded && !state.busy && !state.lost
+    val canSaveCopy = state.edit != null && !state.busy && !state.lost
+    val canCreateCopy = canSaveCopy && !state.conflict
+    val canDiscard = state.record != null && !state.busy && !state.lost && !state.conflict
     fun close() { scope.launch {
         if (template != null) { template = null; return@launch }
         if (state.dirty) state.saveLocal()
@@ -51,29 +60,25 @@ import java.util.Locale
     }
     LaunchedEffect(state.version) { if (state.dirty && state.phase == "editing") { delay(250); state.saveLocal() } }
     DisposableEffect(state) { onDispose { scope.launch(NonCancellable) { try { if (state.dirty) state.saveLocal() } finally { state.close() } } } }
-    Dialog(onDismissRequest = ::close, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    Dialog(onDismissRequest = ::close, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         BackHandler(onBack = ::close)
         BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing), contentAlignment = Alignment.Center) {
-            Surface(Modifier.widthIn(max = 1120.dp).fillMaxWidth().padding(12.dp).heightIn(max = maxHeight * .96f).imePadding(), shape = AffairsLayout.shape) {
+            val compactIme = WindowInsets.ime.getBottom(LocalDensity.current) > 0 && maxHeight < 360.dp
+            Surface(Modifier.widthIn(max = 1120.dp).fillMaxWidth().padding(horizontal = 12.dp, vertical = if (compactIme) 4.dp else 12.dp)
+                .heightIn(max = if (compactIme) maxHeight else maxHeight * .96f).imePadding(), shape = AffairsLayout.shape) {
                 Column(Modifier.testTag("shared-automation-editor")) {
-                    Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        AffairsIconButton("Назад", AffairsAction.BACK, ::close, Modifier.testTag("automation-editor-back"))
-                        Column(Modifier.weight(1f).padding(horizontal = 8.dp)) {
-                            Text(if (template != null) "Применение шаблона" else if (state.edit?.isNull("ruleId") != false) "Новое правило" else "Изменить правило",
-                                Modifier.semantics { heading() }, style = MaterialTheme.typography.titleLarge)
-                            state.project?.let { androidx.compose.material3.Text(it.getString("title"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                        }
-                        AffairsIconButton("Закрыть", AffairsAction.CLOSE, { template = null; close() }, Modifier.testTag("automation-editor-close"))
-                    }
+                    if (!compactIme) AutomationEditorHeader(headerTitle, projectTitle, false, ::close) { template = null; close() }
                     if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("automation-editor-progress"))
                     HorizontalDivider()
-                    if (state.error.isNotBlank() || state.stale || state.lost) Text(automationEditorErrorText(if (state.lost) "AUTOMATION_PERMISSION_CHANGED" else if (state.stale) "AUTOMATION_CONFLICT" else state.error),
-                        Modifier.fillMaxWidth().padding(16.dp).testTag("automation-editor-error").semantics { liveRegion = LiveRegionMode.Polite },
-                        color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+                    if (!compactIme) AutomationEditorNotice(noticeError)
                     val scroll = rememberScrollState()
                     LaunchedEffect(template) { scroll.scrollTo(0) }
-                    Column(Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(scroll).padding(16.dp).testTag("automation-editor-content"),
+                    Column(Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(scroll).padding(horizontal = 16.dp, vertical = if (compactIme) 8.dp else 16.dp).testTag("automation-editor-content"),
                         verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        if (compactIme) {
+                            AutomationEditorHeader(headerTitle, projectTitle, true, ::close) { template = null; close() }
+                            AutomationEditorNotice(noticeError)
+                        }
                         if (!state.loaded && !state.busy && !state.lost) TemplateOutlinedButton({ scope.launch { state.load(rule, asCopy, calendar) } }, Modifier.fillMaxWidth()) { Text("Повторить") }
                         if (state.edit != null && !state.lost) {
                             if (template != null) AutomationTemplateConfiguration(gateway, state, requireNotNull(template), preferences)
@@ -91,19 +96,17 @@ import java.util.Locale
                                 AutomationEditorCopies(state)
                             }
                         }
+                        if (compactIme && template == null && state.phase == "editing") AutomationEditorLocalActions(canRefresh, canSaveCopy, canCreateCopy, canDiscard,
+                            { scope.launch { state.refresh() } }, { scope.launch { state.saveCopy() } }, { scope.launch { state.asNewCopy() } }, { discard = true })
                     }
                     HorizontalDivider()
-                    Column(Modifier.fillMaxWidth().padding(16.dp).testTag("automation-editor-footer"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(Modifier.fillMaxWidth().padding(if (compactIme) 8.dp else 16.dp).testTag("automation-editor-footer"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (template != null) {
                             Button({ template = null }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("automation-template-done"), shape = AffairsLayout.shape) { Text("Готово") }
                         } else when (state.phase) {
                             "editing" -> {
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    TemplateIconButton("Обновить", AffairsAction.REFRESH, state.loaded && !state.busy && !state.lost, Modifier.weight(1f).testTag("automation-editor-refresh")) { scope.launch { state.refresh() } }
-                                    TemplateIconButton("Сохранить мою копию", AffairsAction.TEMPLATE, state.edit != null && !state.busy && !state.lost, Modifier.weight(1f).testTag("automation-editor-copy")) { scope.launch { state.saveCopy() } }
-                                    TemplateIconButton("Создать отдельную копию правила", AffairsAction.ADD, state.edit != null && !state.busy && !state.lost && !state.conflict, Modifier.weight(1f).testTag("automation-editor-as-new")) { scope.launch { state.asNewCopy() } }
-                                    TemplateIconButton("Удалить черновик", AffairsAction.DELETE, state.record != null && !state.busy && !state.lost && !state.conflict, Modifier.weight(1f).testTag("automation-editor-discard")) { discard = true }
-                                }
+                                if (!compactIme) AutomationEditorLocalActions(canRefresh, canSaveCopy, canCreateCopy, canDiscard,
+                                    { scope.launch { state.refresh() } }, { scope.launch { state.saveCopy() } }, { scope.launch { state.asNewCopy() } }, { discard = true })
                                 Button({ scope.launch { state.submit() } }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("automation-editor-save"), enabled = state.canSubmit, shape = AffairsLayout.shape) { Text("Сохранить правило") }
                             }
                             "pending" -> {
@@ -133,6 +136,35 @@ import java.util.Locale
     if (discard) AlertDialog(onDismissRequest = { discard = false }, title = { Text("Удалить черновик?") }, text = { Text("Это удалит только сохранённый ввод. Правило на сервере не изменится.") },
         confirmButton = { TextButton({ discard = false; scope.launch { state.discard(); if (state.record == null) onClose() } }, enabled = !state.busy) { Text("Удалить") } },
         dismissButton = { TextButton({ discard = false }) { Text("Отмена") } })
+}
+
+@Composable private fun AutomationEditorHeader(title: String, projectTitle: String?, compact: Boolean,
+    onBack: () -> Unit, onClose: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(if (compact) 4.dp else 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        AffairsIconButton("Назад", AffairsAction.BACK, onBack, Modifier.testTag("automation-editor-back"))
+        Column(Modifier.weight(1f).padding(horizontal = 8.dp)) {
+            Text(title, Modifier.semantics { heading() }, style = MaterialTheme.typography.titleLarge,
+                maxLines = if (compact) 1 else Int.MAX_VALUE, overflow = TextOverflow.Ellipsis)
+            if (!compact && projectTitle != null) androidx.compose.material3.Text(projectTitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        AffairsIconButton("Закрыть", AffairsAction.CLOSE, onClose, Modifier.testTag("automation-editor-close"))
+    }
+}
+
+@Composable private fun AutomationEditorNotice(error: String?) {
+    if (error != null) Text(automationEditorErrorText(error),
+        Modifier.fillMaxWidth().padding(16.dp).testTag("automation-editor-error").semantics { liveRegion = LiveRegionMode.Polite },
+        color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+}
+
+@Composable private fun AutomationEditorLocalActions(canRefresh: Boolean, canSaveCopy: Boolean, canCreateCopy: Boolean, canDiscard: Boolean,
+    onRefresh: () -> Unit, onSaveCopy: () -> Unit, onCreateCopy: () -> Unit, onDiscard: () -> Unit) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        TemplateIconButton("Обновить", AffairsAction.REFRESH, canRefresh, Modifier.weight(1f).testTag("automation-editor-refresh"), onClick = onRefresh)
+        TemplateIconButton("Сохранить мою копию", AffairsAction.TEMPLATE, canSaveCopy, Modifier.weight(1f).testTag("automation-editor-copy"), onClick = onSaveCopy)
+        TemplateIconButton("Создать отдельную копию правила", AffairsAction.ADD, canCreateCopy, Modifier.weight(1f).testTag("automation-editor-as-new"), onClick = onCreateCopy)
+        TemplateIconButton("Удалить черновик", AffairsAction.DELETE, canDiscard, Modifier.weight(1f).testTag("automation-editor-discard"), onClick = onDiscard)
+    }
 }
 
 @Composable private fun AutomationEditorDryRun(state: SharedAutomationEditorState) {

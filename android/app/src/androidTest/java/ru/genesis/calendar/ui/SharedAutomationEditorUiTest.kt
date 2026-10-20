@@ -161,6 +161,29 @@ class SharedAutomationEditorUiTest {
         val options = JSONObject(fixture.sent.single()).getJSONObject("definition").getJSONArray("actions").getJSONObject(0).getJSONObject("options")
         assertFalse(options.has("anchorDate")); assertEquals(fixture.project, options.getString("projectId")); assertEquals("Собственное название", options.getString("title"))
     }
+    @Test fun loadedProjectIdentityAppearsAndClearsWhenAccessIsRevoked() {
+        seed(); open()
+        val projectTitle = snapshot.getJSONObject("project").getString("title")
+        compose.waitUntil(30_000) { compose.onAllNodesWithText(projectTitle).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText(projectTitle).assertIsDisplayed()
+        compose.waitUntil(30_000) { compose.onAllNodes(hasTestTag("automation-editor-save") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
+        compose.runOnIdle { fixture.forbidden = true }
+        compose.onNodeWithTag("automation-editor-refresh").performClick()
+        try { await("automation-editor-error") } catch (failure: Throwable) {
+            val directory = File(fixture.base.app.filesDir, "automation-editor-diagnostics").apply { mkdirs() }
+            val pipe = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand("screencap -p")
+            android.os.ParcelFileDescriptor.AutoCloseInputStream(pipe).use { pixels -> File(directory, "access-failure.png").outputStream().use { pixels.copyTo(it) } }
+            File(directory, "access-failure.txt").writeText(compose.onNodeWithTag("shared-automation-editor", useUnmergedTree = true).printToString())
+            throw failure
+        }
+        compose.onNodeWithText(projectTitle).assertDoesNotExist()
+        compose.onNodeWithTag("automation-editor-title").assertDoesNotExist()
+        compose.onNodeWithTag("automation-editor-save").assertIsNotEnabled()
+        for (tag in listOf("automation-editor-refresh", "automation-editor-copy", "automation-editor-as-new", "automation-editor-discard")) {
+            compose.onNode(hasClickAction() and hasAnyAncestor(hasTestTag(tag)), useUnmergedTree = true).assertIsNotEnabled()
+        }
+        assertEquals(0, fixture.editorSends)
+    }
     @Test fun nativeBackSavesPartialInputWithoutSendingARule() {
         open(); compose.onNodeWithTag("automation-editor-title").performTextReplacement("Сохранить после возврата")
         val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()); device.pressBack()
@@ -201,18 +224,38 @@ class SharedAutomationEditorUiTest {
         if (expectedWidth != null) assertEquals(expectedWidth, compose.activity.resources.configuration.screenWidthDp)
         if (expectedFont != null) assertEquals(expectedFont, compose.activity.resources.configuration.fontScale, .005f)
         val compact = args.getString("genesisAutomationEditorCompact") == "true"
-        val template = if (compact) null else capturedTaskTemplate()
+        val topOnly = args.getString("genesisAutomationEditorTopOnly") == "true"
+        val template = if (compact || topOnly) null else capturedTaskTemplate()
         val directory = File(fixture.base.app.filesDir, "automation-editor-captures").apply { mkdirs() }
         for (name in listOf("top", "calendar", "schedule", "condition", "typed-action", "template", "pending", "received", "access", "ime-title", "ime-received")) File(directory, "$name.png").delete()
         File(directory, "keyboard-proof.json").delete(); File(directory, "metrics.json").delete()
         seed(); open()
+        fun writeMetrics() {
+            File(directory, "metrics.json").writeText(JSONObject().put("language", language).put("night", dark).put("densityDpi", compose.activity.resources.displayMetrics.densityDpi)
+                .put("widthDp", compose.activity.resources.configuration.screenWidthDp).put("heightDp", compose.activity.resources.configuration.screenHeightDp)
+                .put("fontScale", compose.activity.resources.configuration.fontScale.toDouble()).toString())
+        }
         fun capture(name: String) {
+            compose.mainClock.advanceTimeBy(250)
             compose.waitForIdle(); InstrumentationRegistry.getInstrumentation().waitForIdleSync()
             UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).waitForIdle(1_500)
+            // Native screencap reads the displayed frame, not the already-updated semantics tree.
+            android.os.SystemClock.sleep(150)
             val descriptor = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand("screencap -p")
             android.os.ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { pixels -> File(directory, "$name.png").outputStream().use { pixels.copyTo(it) } }
         }
+        compose.waitUntil(30_000) { compose.onAllNodes(hasTestTag("automation-editor-save") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
+        try {
+            compose.waitUntil(30_000) { compose.onAllNodesWithText(snapshot.getJSONObject("project").getString("title")).fetchSemanticsNodes().isNotEmpty() }
+        } catch (failure: Throwable) {
+            capture("ready-failure")
+            File(directory, "ready-failure.txt").writeText("Expected project: ${snapshot.getJSONObject("project").getString("title")}\n" + compose.onNodeWithTag("shared-automation-editor", useUnmergedTree = true).printToString())
+            throw failure
+        }
+        compose.waitUntil(30_000) { compose.onAllNodesWithTag("automation-editor-progress").fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithText(snapshot.getJSONObject("project").getString("title")).assertExists()
         capture("top")
+        if (topOnly) { writeMetrics(); return }
         if (!compact) {
             expand("automation-editor-context"); compose.onNodeWithTag("automation-editor-zone").performScrollTo(); capture("calendar")
             compose.onNodeWithTag("automation-editor-trigger").performScrollTo(); choice("automation-editor-trigger", "schedule"); expand("automation-editor-schedule")
@@ -224,24 +267,38 @@ class SharedAutomationEditorUiTest {
         choice("automation-editor-action-0-custom", fields.getValue("checkbox")); compose.onNodeWithTag("shared-custom-${fields.getValue("checkbox")}-false").performScrollTo(); capture("typed-action")
         if (args.getString("genesisAutomationEditorKeyboard") == "true") {
             val keyboard = Settings.Secure.getString(fixture.base.app.contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD).substringBefore('/')
-            compose.onNodeWithTag("automation-editor-title").performScrollTo().performClick()
+            compose.onNodeWithTag("automation-editor-title").performScrollTo().performTouchInput { click() }
             assertTrue("The system keyboard must actually be visible", device.wait(Until.hasObject(By.pkg(keyboard)), 10_000))
             compose.onNodeWithTag("automation-editor-title").performTextReplacement("Правило с открытой клавиатурой")
             device.pressBack()
             assertTrue("Back must dismiss the keyboard first", device.wait(Until.gone(By.pkg(keyboard)), 10_000))
             compose.onNodeWithTag("automation-editor-title").assertExists(); assertTrue(visible); assertEquals(0, fixture.editorSends)
-            compose.onNodeWithTag("automation-editor-title").performScrollTo().performClick()
+            compose.onNodeWithTag("automation-editor-title").performScrollTo()
+            compose.waitForIdle()
+            // A semantics click only requests focus on an already-focused TextField. Reopen IME through system touch.
+            requireNotNull(device.wait(Until.findObject(By.text("Правило с открытой клавиатурой")), 10_000)).click()
             assertTrue("The system keyboard must reopen", device.wait(Until.hasObject(By.pkg(keyboard)), 10_000))
+            try {
+                compose.waitUntil(10_000) {
+                    val input = compose.onNodeWithTag("automation-editor-title").fetchSemanticsNode()
+                    input.boundsInWindow.height >= input.size.height - 1f
+                }
+            } finally { capture("ime-title") }
             val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
             automation.serviceInfo = automation.serviceInfo.apply { flags = flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS }
-            val nativeSave = requireNotNull(device.wait(Until.findObject(By.text("Сохранить правило")), 10_000))
+            val saveLabel = requireNotNull(device.wait(Until.findObject(By.text("Сохранить правило")), 10_000))
+            val nativeSave = requireNotNull(generateSequence(saveLabel) { it.parent }.firstOrNull { it.isClickable })
             val imeWindow = requireNotNull(automation.windows.firstOrNull { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD })
             val imeBounds = Rect().also(imeWindow::getBoundsInScreen); val saveBounds = nativeSave.visibleBounds
+            val titleInput = compose.onNodeWithTag("automation-editor-title").fetchSemanticsNode()
+            val titleBounds = titleInput.boundsInWindow
             val proof = JSONObject().put("imeWindow", imeBounds.toShortString()).put("saveBounds", saveBounds.toShortString())
-                .put("saveHeight", saveBounds.height()).put("density", compose.activity.resources.displayMetrics.density.toDouble()).put("systemTap", false)
+                .put("saveHeight", saveBounds.height()).put("saveClickable", nativeSave.isClickable)
+                .put("inputBounds", titleBounds.toString()).put("inputHeight", titleBounds.height.toDouble()).put("inputFullHeight", titleInput.size.height)
+                .put("density", compose.activity.resources.displayMetrics.density.toDouble()).put("systemTap", false)
             File(directory, "keyboard-proof.json").writeText(proof.toString())
-            capture("ime-title")
             assertTrue("The system IME must not cover the save action", !saveBounds.isEmpty && saveBounds.bottom <= imeBounds.top)
+            assertTrue("The focused input must remain fully visible above the save action", titleBounds.height >= titleInput.size.height - 1f && titleBounds.bottom <= saveBounds.top)
             assertTrue("The save action must retain its full48dp touch target above the system IME", saveBounds.height() >= 48f * compose.activity.resources.displayMetrics.density - 1f)
             nativeSave.click(); await("automation-editor-done")
             assertEquals(1, fixture.editorSends)
@@ -263,8 +320,6 @@ class SharedAutomationEditorUiTest {
                 compose.runOnIdle { fixture.writable = false; epoch++ }; await("automation-editor-error"); capture("access")
             }
         }
-        File(directory, "metrics.json").writeText(JSONObject().put("language", language).put("night", dark).put("densityDpi", compose.activity.resources.displayMetrics.densityDpi)
-            .put("widthDp", compose.activity.resources.configuration.screenWidthDp).put("heightDp", compose.activity.resources.configuration.screenHeightDp)
-            .put("fontScale", compose.activity.resources.configuration.fontScale.toDouble()).toString())
+        writeMetrics()
     }
 }
