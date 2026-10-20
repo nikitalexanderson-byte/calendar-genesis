@@ -5,6 +5,7 @@ import { useSacredFeaturesEnabled } from "./sacred-features";
 import { getSolarEvent } from "./calendar-data";
 import { useMobileLayout } from "./use-mobile-layout";
 import { SharedTaskViewControls } from "./SharedTaskViewControls";
+import calendarScaleCopy from "./calendar-scale-copy.json";
 import { SharedCustomFieldInputs, SharedCustomFieldValues } from "./SharedCustomFieldInputs";
 import { SharedCustomFieldFilter } from "./SharedCustomFieldFilter";
 import { customFieldsError, type CustomFieldValues, type CustomFieldCriterion } from "./shared-custom-fields";
@@ -214,6 +215,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   const [editEntryType,setEditEntryType] = useState<EntryType>("task");
   const [activityKey,setActivityKey] = useState(0);
   const [calendarMonth, setCalendarMonth] = useState(() => { const now = new Date(); return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12); });
+  const [calendarScale, setCalendarScale] = useState<1 | 0.5 | 0.25>(1);
   const [calendarDay, setCalendarDay] = useState(() => localDateKey(new Date()));
   const [calendarAgendaProjectId, setCalendarAgendaProjectId] = useState<string | null>(null);
   const [calendarTaskPicker, setCalendarTaskPicker] = useState(false);
@@ -1212,8 +1214,8 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       <span className={`shared-calendar-day-number${isToday ? " shared-calendar-today-pill" : ""}`}>{dayNumber}</span>
       {calendarMode !== "profane" ? <time dateTime={key}>{formatGregorian(date)}</time> : null}
       </button>
-      <CalendarCellTasks personal={[]} shared={dayTasks} sharedTotal={count} dateLabel={formatCalendarDate(date, calendarMode, true)}
-        language={language as import("./i18n").Language} onPersonal={() => undefined} onShared={task => void openCalendarTask(task)} onMore={openDay}/>
+      {calendarScale !== 0.25 ? <CalendarCellTasks personal={[]} shared={dayTasks} sharedTotal={count} dateLabel={formatCalendarDate(date, calendarMode, true)}
+        previewLimit={calendarScale === 0.5 ? 1 : 3} language={language as import("./i18n").Language} onPersonal={() => undefined} onShared={task => void openCalendarTask(task)} onMore={openDay}/> : null}
       {count ? <small className="shared-calendar-task-count" aria-hidden="true">{count}</small> : null}
     </div>;
   };
@@ -1477,8 +1479,16 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
           <h2>{calendarPeriod.title}</h2>
           <button type="button" aria-label={english ? "Next month" : "Следующий месяц"} onClick={() => { setCalendarMonth(calendarPeriod.next); setCalendarDay(localDateKey(calendarPeriod.next)); }}>→</button>
         </div>
+        <div className="shared-calendar-scale" role="group" aria-label={(calendarScaleCopy[language as import("./i18n").Language] ?? calendarScaleCopy.en).group}>
+          {([1, 0.5, 0.25] as const).map(scale => {
+            const size = scale === 1 ? "full" : scale === 0.5 ? "half" : "quarter";
+            return <IconActionButton key={scale} icon={`calendar-scale-${size}`} data-scale={scale}
+              label={(calendarScaleCopy[language as import("./i18n").Language] ?? calendarScaleCopy.en)[size]}
+              aria-pressed={calendarScale === scale} choiceHint onClick={() => setCalendarScale(scale)}/>;
+          })}
+        </div>
         {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- Focus enables keyboard scrolling of the wide date grid. */}
-        <div className="shared-projects-calendar-scroll" tabIndex={0} role="region" aria-label={english ? "Project calendar" : "Календарь проекта"}>
+        <div className="shared-projects-calendar-scroll" data-calendar-scale={calendarScale} style={{ "--calendar-scale": calendarScale } as CSSProperties} tabIndex={0} role="region" aria-label={english ? "Project calendar" : "Календарь проекта"}>
         {calendarMode === "profane" ? <div className="shared-projects-calendar-grid">
           {(english ? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] : ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]).map((day, index) => <span key={day} className="shared-projects-calendar-weekday" data-weekend={index === 5 ? "saturday" : index === 6 ? "sunday" : undefined}>{day}</span>)}
           {calendarDays.map((date, index) => {

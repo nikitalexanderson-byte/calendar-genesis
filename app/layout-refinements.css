@@ -1255,14 +1255,29 @@ html[data-genesis-theme] .genesis-app .habit-editor-disclosure > summary {
 .genesis-app .unread-comment-badge { display: inline-flex; width: fit-content; align-items: center; padding: 3px 8px; border: 1px solid var(--gold); border-radius: 6px; color: var(--ink); background: var(--exp-accent-wash); font: 600 12px/1.5 var(--font-ui); }
 .genesis-app :is(.has-unread-comments, [data-unread-comments]:not([data-unread-comments="0"])) :is(.task-preview-open, .shared-board-task-title, .shared-task-open, strong[title]) { font-weight: 750; }
 
-/* Without the sacred layer, the date and clock form one compact, readable header. */
+html[data-genesis-theme] .genesis-app .day-rhythm-heading-actions .day-rhythm-toggle {
+  min-height: 44px; padding: 12px 16px; border-radius: var(--ui-radius);
+  justify-content: space-between; font: 500 14px/1.4 var(--font-ui); letter-spacing: 0; white-space: normal; text-align: start;
+}
+html[data-genesis-theme] .genesis-app .daily-goal-settings[open] > [role="radiogroup"] { margin-block-start: 12px; }
+html[data-genesis-theme] .genesis-app .today-view .hero-card.mode-profane .hero-copy { padding-top: 20px; }
+html[data-genesis-theme] .genesis-app .hero-card.mode-profane .hero-copy h1 { margin-top: 12px; }
+html[data-genesis-theme] .genesis-app .hero-card.mode-profane .hero-day-clock { align-self: start; }
+
+/* Compact mobile controls share the same geometry as their desktop counterparts. */
 @media (max-width: 767px) {
   html[data-genesis-theme] .genesis-app .day-rhythm-heading { align-items: flex-start; flex-direction: column; }
   html[data-genesis-theme] .genesis-app .day-rhythm-heading-actions { width: 100%; }
   html[data-genesis-theme] .genesis-app .day-rhythm-heading-actions .day-rhythm-toggle {
-    width: 100%; min-height: 44px; padding: 12px 16px; border-radius: var(--ui-radius);
-    justify-content: space-between; font: 500 14px/1.4 var(--font-ui); white-space: normal; text-align: start;
+    width: 100%;
   }
+  html[data-genesis-theme] .genesis-app .habits-hero-actions { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); width: 100%; justify-self: stretch; gap: 8px; }
+  html[data-genesis-theme] .genesis-app .habits-hero-actions > button { width: 100%; min-width: 0; min-height: 48px; height: 100%; padding: 8px 6px; gap: 4px; justify-content: center; font-size: 12px; white-space: normal; }
+  html[data-genesis-theme] .genesis-app .habits-hero-actions > button :is(.experimental-icon, .hero-path-open-sigil) { flex: 0 0 18px; width: 18px; height: 18px; }
+  html[data-genesis-theme] .genesis-app .habit-range-toolbar > div:first-of-type { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); width: 100%; gap: 3px; }
+  html[data-genesis-theme] .genesis-app .habit-range-toolbar { width: calc(100% + 32px); margin-inline: -16px; padding-inline: 6px; }
+  html[data-genesis-theme] .genesis-app .habit-range-toolbar > div:first-of-type { gap: 2px; }
+  html[data-genesis-theme] .genesis-app .habit-range-toolbar > div:first-of-type > button { min-width: 0; min-height: 48px; padding: 6px 0; font-size: 11px; line-height: 1.3; letter-spacing: -.02em; white-space: normal; }
   html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .calendar-mode-calendar.mode-profane :is(.calendar-mode-day, .calendar-mode-blank) {
     min-height: 64px; padding: 6px 2px;
   }
@@ -1313,6 +1328,13 @@ html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .year-month-
   html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .today-view .hero-card .hero-copy { display: contents; }
   html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .today-view .hero-card h1 { grid-column: 1; grid-row: 1; min-width: 0; font-size: 28px; }
   html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .today-view .hero-card .hero-actions { grid-column: 1 / -1; grid-row: 2; margin: 0; }
+  html[data-genesis-theme] .genesis-app[data-sacred-features="true"] .today-view .hero-card.mode-profane { gap: 12px; }
+  html[data-genesis-theme] .genesis-app[data-sacred-features="true"] .today-view .hero-card.mode-profane .hero-copy { display: contents; }
+  html[data-genesis-theme] .genesis-app[data-sacred-features="true"] .today-view .hero-card.mode-profane .eyebrow-row { grid-column: 1; grid-row: 1; align-self: start; }
+  html[data-genesis-theme] .genesis-app[data-sacred-features="true"] .today-view .hero-card.mode-profane h1 { grid-column: 1 / -1; grid-row: 2; min-width: 0; margin: 0; }
+  html[data-genesis-theme] .genesis-app[data-sacred-features="true"] .today-view .hero-card.mode-profane .hero-day-title-translation { font-size: clamp(20px, 5.8vw, 28px) !important; }
+  html[data-genesis-theme] .genesis-app[data-sacred-features="true"] .today-view .hero-card.mode-profane .profane-hero-description { grid-column: 1 / -1; grid-row: 3; margin: 0; }
+  html[data-genesis-theme] .genesis-app[data-sacred-features="true"] .today-view .hero-card.mode-profane .hero-actions { grid-column: 1 / -1; grid-row: 4; margin-top: 12px; }
   html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .day-details-heading { padding: 20px; }
 }
 @media (max-width:600px) {

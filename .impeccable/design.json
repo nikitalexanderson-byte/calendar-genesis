@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "generatedAt": "2026-10-09T01:18:14.037Z",
-  "title": "Design System: GENESIS Experimental",
+  "title": "Design System: GENESIS STANDART",
   "extensions": {
     "colorMeta": {
       "light-green": {
@@ -567,12 +567,12 @@
       "css": ".ds-chaos{max-width:300px;padding:20px;background:color-mix(in srgb,var(--surface,#fffdf8) 65%,var(--paper,#eee9dc));border:1px dashed var(--exp-border, color-mix(in srgb, #132426 13%, transparent));border-radius:12px;box-shadow:none;color:var(--ink, #132426)}.ds-chaos h2{margin:0 0 10px;font:400 22px/1.25 var(--font-heading, \"Source Serif 4\", Literata, Georgia, serif);letter-spacing:-.02em}.ds-chaos>strong{display:block;margin-bottom:10px;color:var(--terracotta,#a5543f);font:400 32px/1.15 var(--font-heading, \"Source Serif 4\", Literata, Georgia, serif)}.ds-chaos p{color:var(--ink-soft, #526263);font:400 12px/1.65 var(--font-ui, Inter, \"Source Sans 3\", \"Segoe UI\", sans-serif)}.ds-chaos-action{min-height:44px;padding:10px 16px;border:1px solid var(--exp-border, color-mix(in srgb, #132426 13%, transparent));border-radius:var(--ui-radius,10px);background:transparent;color:var(--ink, #132426);font:500 13px/1.4 var(--font-ui, Inter, \"Source Sans 3\", \"Segoe UI\", sans-serif);cursor:pointer}.ds-chaos-action:hover{filter:brightness(1.08)}.ds-chaos-action:focus-visible{outline:2px solid var(--gold, #8c672b);outline-offset:3px}"
     },
     {
-      "name": "Experimental switch",
+      "name": "Цветовая схема STANDART",
       "kind": "custom",
       "refersTo": "theme-switch",
-      "description": "Рядом с аккаунтом; role switch, сохраняет текущий светлый/тёмный режим. Source: app/GenesisCalendar.tsx and app/experimental-theme.css.",
-      "html": "<button class=\"ds-theme-switch\" type=\"button\" role=\"switch\" aria-checked=\"true\" aria-label=\"Тема Experimental\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M9 3h6M10 3v6l-5.5 9a2 2 0 0 0 1.7 3h11.6a2 2 0 0 0 1.7-3L14 9V3M8 15h8\"/></svg><span>Experimental</span><i aria-hidden=\"true\"></i></button>",
-      "css": ".ds-theme-switch{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;padding:8px 10px;color:var(--ink, #132426);background:var(--surface, #fffdf8);border:1px solid var(--line,#21383820);border-radius:10px;font:500 12px/1.4 var(--font-ui, Inter, \"Source Sans 3\", \"Segoe UI\", sans-serif);cursor:pointer}.ds-theme-switch svg{width:18px;height:18px;flex:none}.ds-theme-switch[aria-checked=true]{color:var(--gold, #8c672b);border-color:color-mix(in srgb,var(--gold,#8c672b) 45%,transparent);background:color-mix(in srgb,var(--gold,#8c672b) 9%,var(--surface,#fffdf8))}.ds-theme-switch>i{position:relative;width:24px;height:14px;border-radius:7px;background:var(--line,#21383820)}.ds-theme-switch>i::after{content:\"\";position:absolute;top:3px;left:3px;width:8px;height:8px;border-radius:50%;background:var(--ink-soft, #526263);transition:transform .18s ease-out,background .18s ease-out}.ds-theme-switch[aria-checked=true]>i::after{transform:translateX(10px);background:var(--gold, #8c672b)}.ds-theme-switch:hover{cursor:pointer}.ds-theme-switch:focus-visible{outline:2px solid var(--gold, #8c672b);outline-offset:3px}@media(max-width:600px){.ds-theme-switch{padding:8px}.ds-theme-switch>span{display:none}}@media(prefers-reduced-motion:reduce){.ds-theme-switch>i::after{transition:none}}"
+      "description": "Кнопка единой STANDART с контрастным квадратом меняет только светлую/тёмную схему; aria-pressed отражает тёмный режим, доступное имя и общая подсказка называют следующую схему. Выбор сохраняется существующим контроллером; во время загрузки или сохранения кнопка недоступна. Образец показывает светлое состояние. Source: app/ThemeModeToggle.tsx, app/ExperimentalIcon.tsx, app/IconActionButton.tsx and app/experimental-theme.css.",
+      "html": "<span class=\"ds-theme-mode-control\"><button class=\"ds-theme-mode-toggle\" type=\"button\" aria-pressed=\"false\" aria-label=\"Включить тёмную тему\" aria-describedby=\"ds-theme-mode-hint\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><rect x=\"4\" y=\"4\" width=\"16\" height=\"16\" rx=\"3\"/><path d=\"M12 4h5a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3h-5Z\" fill=\"currentColor\" stroke=\"none\"/><path d=\"M12 4v16\"/></svg></button><span id=\"ds-theme-mode-hint\" class=\"ds-theme-mode-hint\" role=\"tooltip\">Включить тёмную тему</span></span>",
+      "css": ".ds-theme-mode-control{position:relative;display:inline-flex}.ds-theme-mode-toggle{display:inline-grid;place-items:center;width:44px;min-width:44px;height:44px;min-height:44px;margin:0;padding:0;color:var(--ink,#132426);background:var(--surface,#fffdf8);border:1px solid var(--exp-border,color-mix(in srgb,var(--ink,#132426) 13%,transparent));border-radius:var(--ui-radius,10px);box-shadow:none;cursor:pointer;transition:color 160ms ease,background 160ms ease,border-color 160ms ease,transform 160ms ease}.ds-theme-mode-toggle svg{width:18px;height:18px;flex:none}.ds-theme-mode-toggle:hover:not(:disabled){filter:brightness(1.08);transform:translateY(-1px)}.ds-theme-mode-toggle:focus-visible{outline:2px solid var(--gold,#8c672b);outline-offset:3px;transform:translateY(-1px)}.ds-theme-mode-toggle:disabled{cursor:not-allowed}.ds-theme-mode-hint{display:none;position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);z-index:1;width:max-content;max-width:min(240px,calc(100vw - 32px));padding:8px 12px;border-radius:8px;background:var(--surface,#fffdf8);color:var(--ink,#132426);font:500 12px/1.5 var(--font-ui,Inter,\"Source Sans 3\",\"Segoe UI\",sans-serif);text-align:center;overflow-wrap:anywhere;pointer-events:none}.ds-theme-mode-toggle:is(:hover,:focus-visible):not(:disabled)+.ds-theme-mode-hint{display:block}@media(prefers-reduced-motion:reduce){.ds-theme-mode-toggle{transition:none}}"
     },
     {
       "name": "Общее раскрытие раздела",
@@ -592,19 +592,19 @@
     }
   ],
   "narrative": {
-    "northStar": "GENESIS Experimental — дерево проектов в зелёном и золоте",
-    "overview": "Experimental — дополнительная визуальная семья для рабочего интерфейса GENESIS, построенная поверх текущего Standart и GENESIS Universal UI. Она использует ту же структуру компонентов, данные и действия; меняет типографику, цветовые роли, плотность контролов и композицию проектов. Этот документ описывает именно новый Experimental и не переопределяет оформление Standart. Слой загружается после `globals.css`, `dark-theme.css`, `universal-ui.css` и `web-standart.css`; его основная область — `data-genesis-theme=\"experimental\"` и `\"experimental-dark\"`. Общий переключатель рядом с аккаунтом доступен в обеих семьях.\n\nСпокойный рабочий ритм взят из согласованного раздела проектов [tempo-roan-delta.vercel.app](https://tempo-roan-delta.vercel.app/): Inter для управления, Source Serif 4 для заголовков, тонкие контурные иконки и раскрываемое дерево. Зелёный и золотой принадлежат GENESIS. Авторские изображения, сакральные цвета, SVG/JS и обратная связь сохраняют свои смысловые места и геометрию. Публичный интерфейс остаётся на существующем стеке React/Vite и PHP/SQLite; новая UI-библиотека не используется.",
+    "northStar": "GENESIS STANDART — дерево проектов в зелёном и золоте",
+    "overview": "По решению пользователя от 10 октября 2026 оформление Experimental переименовано в STANDART и стало единственной темой сайта. Светлая и тёмная схемы используют `data-genesis-theme=\"standart\"` и `\"standart-dark\"`. Исторические значения Experimental в настройках аккаунта нормализуются с сохранением цветовой схемы. Слой `experimental-theme.css` содержит базовое оформление; `web-standart.css` сохраняет общую основу и загружается перед ним; `layout-refinements.css` содержит исправления компоновки и загружается последним. Переключатель семейства удалён.\n\nСпокойный рабочий ритм взят из согласованного раздела проектов [tempo-roan-delta.vercel.app](https://tempo-roan-delta.vercel.app/): Inter для управления, Source Serif 4 для заголовков, тонкие контурные иконки и раскрываемое дерево. Зелёный и золотой принадлежат GENESIS. Авторские изображения, сакральные цвета, SVG/JS и обратная связь сохраняют свои смысловые места и геометрию. Публичный интерфейс остаётся на существующем стеке React/Vite и PHP/SQLite; новая UI-библиотека не используется.",
     "keyCharacteristics": [
       "Светлая бумага и глубокие зелёные тёмные поверхности с тёплым текстом.",
       "Serif-заголовки проектов, компактные Inter-контролы и переносимые длинные названия.",
       "Раскрываемые реальные проекты; «Хаос» рядом на широком экране и ниже на узком.",
       "Общий язык личных и общих дел при сохранении списка, досок и календаря.",
-      "Независимые выбор визуальной семьи и светлой/тёмной схемы."
+      "Выбор светлой или тёмной схемы единой темы STANDART."
     ],
     "rules": [
       {
-        "name": "The Separate Families Rule",
-        "body": "Эти токены принадлежат Experimental; Standart остаётся самостоятельной исходной семьёй. Переключение семьи сохраняет цветовой режим, а переключение цветового режима сохраняет семью.",
+        "name": "The Single Theme Rule",
+        "body": "Эти токены принадлежат единственной теме STANDART. Пользователь выбирает только светлую или тёмную цветовую схему.",
         "section": "overview"
       },
       {
@@ -624,7 +624,7 @@
       },
       {
         "name": "The Today Flow Rule",
-        "body": "В web-«Сегодня» от (1024px) плашка даты следует высоте содержимого без принудительной минимальной высоты; верхний отступ не создаёт пустую hero-область. Изображения, фактическая сегодняшняя дата, часы и действия сохраняются. При выключенных сакральных функциях остаётся одна основная дата, без повторных меток месяца, числа и дня недели; desktop-часы выровнены с верхом содержимого. Включение сакральных функций возвращает прежний календарный слой.",
+        "body": "В web-«Сегодня» от (1024px) плашка даты следует высоте содержимого без принудительной минимальной высоты; верхний отступ не создаёт пустую hero-область. Изображения, фактическая сегодняшняя дата, часы и действия сохраняются. В григорианском режиме красное название месяца и повторное число справа отсутствуют и при включённых сакральных функциях; подпись григорианского календаря и описание сохраняются, на телефоне подпись и часы занимают верхний ряд. При выключенных сакральных функциях остаётся одна основная дата, без повторных меток месяца, числа и дня недели; desktop-часы выровнены с верхом содержимого.",
         "section": "layout"
       },
       {
@@ -664,8 +664,8 @@
       }
     ],
     "dos": [
-      "**Do** развивать новый Experimental как слой над текущим Standart и GENESIS Universal UI.",
-      "**Do** сохранять светлую/тёмную схему при выборе семьи и семью при выборе схемы.",
+      "**Do** развивать единую STANDART на основе согласованного Experimental и GENESIS Universal UI.",
+      "**Do** сохранять цветовую схему исторических настроек при переходе на единую STANDART.",
       "**Do** использовать Inter для управления и Source Serif 4 для проектной иерархии.",
       "**Do** сохранять все изображения, сакральные SVG/JS, названия месяцев, греческие буквы, выделения и Apeiron на существующих смысловых местах.",
       "**Do** сохранять фактическую дату «Сегодня», независимость календаря отображения и ввода/повторов, кастомные окна 24h и AM/PM.",
@@ -673,7 +673,7 @@
       "**Do** проверять обе схемы на 360, 390, 768 и 1440px, сохранять до/после и явно отмечать непроверенные состояния."
     ],
     "donts": [
-      "**Don't** применять Experimental-токены как новое описание Standart.",
+      "**Don't** возвращать отдельное семейство Experimental или переключатель семейства тем.",
       "**Don't** переносить с референса синий/мятный акцент вместо зелёного/золотого GENESIS.",
       "**Don't** удалять или заменять изображения ради компактности либо перекрашивать авторскую геометрию как обычный UI.",
       "**Don't** скрывать действия при переносе длинного названия проекта или заменять реальное содержимое дерева декоративным.",

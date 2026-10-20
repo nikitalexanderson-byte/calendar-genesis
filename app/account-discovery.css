@@ -42,6 +42,12 @@ html[data-genesis-theme] .genesis-app .calendar-current-month {
 }
 html[data-genesis-theme] .genesis-app .calendar-current-month { grid-column: 2; grid-row: 1; align-self: stretch; min-width: 0; margin: 0; cursor: pointer; }
 html[data-genesis-theme] .genesis-app .calendar-current-month svg { width: 20px; height: 20px; flex: 0 0 20px; }
+html[data-genesis-theme] .genesis-app .calendar-today-solar { flex-wrap: wrap; justify-content: flex-start; }
+.genesis-app .calendar-solar-events { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.genesis-app .calendar-solar-event { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.genesis-app .calendar-solar-event > svg { flex: 0 0 18px; width: 18px; height: 18px; }
+.genesis-app .calendar-solar-event time { font-variant-numeric: tabular-nums; }
+.genesis-app .calendar-inline-arrow, .genesis-app .calendar-inline-symbol { display: none; }
 html[data-genesis-theme] .genesis-app .calendar-current-month:is(:hover, :focus-visible) { background: rgba(216, 189, 128, .18); outline: 2px solid #d8bd80; outline-offset: 3px; }
 html[data-genesis-theme] .genesis-app .ios-install-dialog { width: min(520px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: auto; padding: 24px; border-radius: 16px; background: var(--surface); color: var(--ink); }
 html[data-genesis-theme] .genesis-app .ios-install-dialog header { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
@@ -67,6 +73,14 @@ html[data-genesis-theme$="-dark"] .genesis-app .weekday-tinted-calendar .shared-
 html[data-genesis-theme] .genesis-app .topbar .topbar-date { display: grid; gap: 3px; }
 html[data-genesis-theme] .genesis-app .topbar > .topbar-actions { display: flex; grid-column: 3; }
 @media (max-width: 767px) {
+  html[data-genesis-theme] .genesis-app .calendar-month-title-row { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; gap: 8px; margin-block: 12px; }
+  html[data-genesis-theme] .genesis-app .calendar-month-title { display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; }
+  html[data-genesis-theme] .genesis-app .calendar-month-title h1 { margin: 0; font-size: clamp(22px, 6.5vw, 32px); text-align: center; overflow-wrap: anywhere; }
+  html[data-genesis-theme] .genesis-app .calendar-inline-symbol { display: inline-flex; flex: 0 0 28px; align-items: center; }
+  html[data-genesis-theme] .genesis-app .calendar-inline-arrow { display: grid; place-items: center; min-width: 44px; min-height: 44px; padding: 8px; border: 1px solid rgba(216,189,128,.3); border-radius: var(--ui-radius); background: rgba(216,189,128,.08); color: #eed29c; cursor: pointer; }
+  .genesis-app .calendar-inline-previous > svg { transform: rotate(180deg); }
+  html[data-genesis-theme] .genesis-app .calendar-inline-arrow:is(:hover, :focus-visible) { background: rgba(216,189,128,.18); outline: 2px solid #d8bd80; outline-offset: 2px; }
+  html[data-genesis-theme] .genesis-app .calendar-header > .month-switcher { display: none; }
   html[data-genesis-theme] .genesis-app .calendar-month-footer { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   html[data-genesis-theme] .genesis-app .calendar-month-footer:not(:has(.calendar-current-month)) { grid-template-columns: minmax(0, 1fr); }
   html[data-genesis-theme] .genesis-app .calendar-month-footer .calendar-solar-control > div,

@@ -1,4 +1,5 @@
 import { getRuntimeLanguage, runtimeLocale } from "./i18n";
+import { formatTimeValue, type TimeFormat } from "./time-format";
 
 const DAY_MS = 86_400_000;
 const JULIAN_UNIX_EPOCH = 2_440_588;
@@ -251,7 +252,23 @@ export function getSunriseSunset(date: Date, location: DeviceLocation): SunriseS
   };
 }
 
-export function formatDeviceSolarTime(date: Date, timeZone?: string) {
+/** A remote city's sunset can precede sunrise in the device's civil day. */
+export function getDeviceDaySolarTimes(today: Date, location: DeviceLocation, timeZone: string) {
+  const formatter = new Intl.DateTimeFormat("en-CA", {year:"numeric", month:"2-digit", day:"2-digit", timeZone});
+  const key = formatter.format(today);
+  const parts = formatter.formatToParts(today);
+  const part = (name: Intl.DateTimeFormatPartTypes) => Number(parts.find(item => item.type === name)?.value);
+  const candidates = [-1, 0, 1].map(offset => getSunriseSunset(new Date(part("year"), part("month") - 1, part("day") + offset, 12), {...location, timeZone}));
+  return {
+    sunrise: candidates.map(events => events?.sunrise).find(date => date && formatter.format(date) === key) ?? null,
+    sunset: candidates.map(events => events?.sunset).find(date => date && formatter.format(date) === key) ?? null,
+  };
+}
+
+export function formatDeviceSolarTime(date: Date, timeZone?: string, timeFormat?: TimeFormat) {
+  if (timeFormat) return formatTimeValue(new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone,
+  }).format(date), timeFormat);
   return new Intl.DateTimeFormat(runtimeLocale(), {
     hour: "2-digit",
     minute: "2-digit",
