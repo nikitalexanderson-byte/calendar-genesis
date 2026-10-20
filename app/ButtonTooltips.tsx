@@ -40,11 +40,11 @@ export function ButtonTooltips() {
     };
     const close = () => { cancelAnimationFrame(keyboardFrame); keyboardFrame = 0; current.current = null; setHint(null); };
     const show = (control: HTMLElement | null) => {
-      if (!control || !control.isConnected || control.matches(':disabled, [aria-disabled="true"]') ||
+      if (!control || !control.isConnected ||
         control.closest('[data-reordering="true"]') || control.dataset.tooltip === "off" ||
-        (!control.hasAttribute("data-tooltip") && visibleText(control))) { close(); return; }
+        (!control.hasAttribute("data-tooltip") && !control.hasAttribute("data-action-hint") && !originalTitle(control)?.trim() && visibleText(control))) { close(); return; }
       const label = (control.dataset.tooltip || control.querySelector('[role="tooltip"]')?.textContent ||
-        control.getAttribute("aria-label") || originalTitle(control) || "").trim();
+        control.getAttribute("aria-label") || originalTitle(control) || control.dataset.actionHint || "").trim();
       if (!label) { close(); return; }
       if (!muted.has(control)) {
         const title = control.getAttribute("title"), addedLabel = !control.hasAttribute("aria-label") ? label : null;

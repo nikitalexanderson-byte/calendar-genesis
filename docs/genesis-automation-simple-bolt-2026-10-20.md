@@ -1,6 +1,6 @@
 # GENESIS: простая молния автоматизаций — 20 октября 2026
 
-Локальная приёмка новой иконки завершена; свежий независимый finish review дал `ship` без обязательных исправлений. Публикация этой молнии ещё ожидает merge и штатный deploy. Этот срез подготовлен в `codex/automation-simple-bolt` от `origin/master` `2ab29434cdbaebf36ad2ad8e2b8847f59534d2eb`.
+Простая молния опубликована через [PR #236](https://github.com/nikitalexanderson-byte/calendar-genesis/pull/236): source `ba637ad`, master/production `1e9663b6c1208bd4fc69255e9de353176743bb75`, [Deploy `39469948612`](https://github.com/nikitalexanderson-byte/calendar-genesis/actions/runs/39469948612) success. Локальная приёмка и свежий независимый finish review дали `ship` без обязательных исправлений. Срез подготовлен в `codex/automation-simple-bolt` от `origin/master` `2ab29434cdbaebf36ad2ad8e2b8847f59534d2eb`.
 
 ## Изменение
 
@@ -29,8 +29,8 @@
 
 ## Production и границы выпуска
 
-Предыдущий срез шапки уже опубликован через [PR #235](https://github.com/nikitalexanderson-byte/calendar-genesis/pull/235): production SHA `2ab29434cdbaebf36ad2ad8e2b8847f59534d2eb`, Deploy `39452319575`, успешный health и 90 ресурсов подтверждены в [production record](../output/header-spacing-production.json). Этот record относится к предыдущей геометрии и не подтверждает публикацию новой простой молнии. Для неё ещё нужны merge в `master`, успешный `.github/workflows/deploy.yml` и совпадение `/deploy-meta.json` с текущим `master` при успешном `/api/health`.
+[Production receipt](../output/simple-bolt-production.json) подтверждает публикацию простой молнии: master/production SHA `1e9663b6c1208bd4fc69255e9de353176743bb75`, Deploy `39469948612` success, успешный health, 90 ресурсов, `plainBolt: true` и неизменный Android 2.9.0/95. Публикация выполнена существующим `.github/workflows/deploy.yml` после merge PR #236 с source `ba637ad`. Предыдущий [PR #235](https://github.com/nikitalexanderson-byte/calendar-genesis/pull/235), SHA `2ab29434cdbaebf36ad2ad8e2b8847f59534d2eb`, Deploy `39452319575` и [его record](../output/header-spacing-production.json) остаются историей предыдущей геометрии.
 
 Нативный C1 checkpoint `a95b707` остаётся отдельным. Публичный Android — 2.9.0/95, без нового выпуска. Остаток программы сохраняется: 21 частичный ID и 14 K/U/L; иконка их не закрывает.
 
-Не проверены Safari, физические браузеры/устройства, новая молния в production, native release и Google acceptance. Локальные доказательства получены в Chromium с синтетическим актором и не заменяют реальный Google-вход/синхронизацию. Этот review не является повторной полной приёмкой шапки, всех подсказок или всей программы. SSH и ручные изменения production-БД не использовались.
+Не проверены Safari, физические браузеры/устройства, native release и Google acceptance. Локальные доказательства получены в Chromium с синтетическим актором и не заменяют реальный Google-вход/синхронизацию. Этот review не является повторной полной приёмкой шапки, всех подсказок или всей программы. Новый [мобильный UI-пакет](genesis-mobile-today-actions-2026-10-20.md) принят отдельно и ещё ожидает публикации. Смартфон отключён; текущие native-проверки выполняются только на эмуляторах. SSH и ручные изменения production-БД не использовались.

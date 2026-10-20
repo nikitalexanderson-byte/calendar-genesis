@@ -635,7 +635,8 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.doesNotMatch(tracker, /Начать с завтрашнего дня/);
   assert.match(tracker, /setEditingHabit\(habit\)/);
   assert.match(tracker, /isExisting=\{workspace\.habits\.some/);
-  assert.match(tracker, /habit\.active \? \(isEnglish \? "Pause" : "Пауза"\)/);
+  const habitActions = await readFile(new URL("../app/HabitLibraryActions.tsx", import.meta.url), "utf8");
+  assert.match(habitActions, /active \? t\("Пауза", "Pause"\) : t\("Включить", "Resume"\)/);
   assert.match(tracker, /Можно изменять все настройки, кроме баллов и шкалы качества/);
   assert.match(tracker, /applyEditableHabitUpdate/);
   assert.match(tracker, /MAX_HABIT_XP_PER_COMPLETION/);
