@@ -1,8 +1,8 @@
 type SeasonLocation = { latitude: number; timeZone?: string };
 type Season = "winter" | "spring" | "summer" | "autumn";
 
-/** Uses the same offline climate hints and artwork as the native calendar. */
-export function gregorianSeasonArt(monthIndex: number, location: SeasonLocation): string {
+/** Offline climate hints remain consistent with the native season families. */
+function climate(location: SeasonLocation) {
   const zone = location.timeZone ?? "";
   const latitude = Math.abs(location.latitude);
   const southern = location.latitude < -5 || /^(Australia|Antarctica)\//.test(zone)
@@ -15,8 +15,23 @@ export function gregorianSeasonArt(monthIndex: number, location: SeasonLocation)
   else if ((latitude >= 58 || /Helsinki|Stockholm|Oslo|Reykjavik|Anchorage/.test(zone)) && !southern) region = "boreal";
   else if (southern && (latitude >= 23 || /Johannesburg|Windhoek|Harare|Maputo|Auckland|Chatham/.test(zone))) region = "southern";
   else if (latitude < 23.5 || /^(Pacific|Indian)\//.test(zone)) region = "tropical";
+  return { region: region || "temperate", southern };
+}
+
+/** Retained native season assets and their original selection contract. */
+export function gregorianSeasonArt(monthIndex: number, location: SeasonLocation): string {
+  const { region, southern } = climate(location);
   const seasonMonth = ((monthIndex + (southern ? 6 : 0)) % 12 + 12) % 12;
   const season: Season = seasonMonth < 2 || seasonMonth === 11 ? "winter"
     : seasonMonth < 5 ? "spring" : seasonMonth < 8 ? "summer" : "autumn";
-  return `gregorian-seasons/${region ? `${region}/` : ""}${season}.jpg`;
+  return `gregorian-seasons/${region === "temperate" ? "" : `${region}/`}${season}.jpg`;
+}
+
+/** A distinct web illustration for every Gregorian month and climate family. */
+export function gregorianMonthArt(monthIndex: number, location: SeasonLocation): string {
+  if (!Number.isInteger(monthIndex)) throw new TypeError("Invalid Gregorian month");
+  const { region, southern } = climate(location);
+  // Southern temperate art is authored in actual January–December order.
+  const month = ((monthIndex + (southern && region !== "southern" ? 6 : 0)) % 12 + 12) % 12;
+  return `gregorian-months-v1/${region}/${String(month + 1).padStart(2, "0")}.webp`;
 }

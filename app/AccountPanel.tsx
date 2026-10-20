@@ -943,17 +943,27 @@ export function AccountPanel({ user, guideSharedProjects = false, onClose, onSig
                 : `${translateText("Напоминание о дневной цели",user.language)}: ${translateText("Выключено",user.language)}`}</p>
           <fieldset className="habit-notification-settings" disabled={notificationBusy}>
             <legend>{user.language === "en" ? "Notification behavior" : "Поведение уведомлений"}</legend>
-            <div className="habit-notification-tone" role="radiogroup" aria-label={user.language === "en" ? "Notification tone" : "Тон уведомлений"}>
+            <div className="habit-notification-tone" role="radiogroup" tabIndex={-1} aria-label={user.language === "en" ? "Notification tone" : "Тон уведомлений"}
+              onKeyDown={(event) => {
+                if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
+                const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('button[role="radio"]:not(:disabled)'));
+                const current = buttons.indexOf(event.target as HTMLButtonElement);
+                if (current < 0 || !buttons.length) return;
+                event.preventDefault();
+                const next = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1
+                  : (current + (["ArrowLeft", "ArrowUp"].includes(event.key) ? -1 : 1) + buttons.length) % buttons.length;
+                buttons[next].focus(); buttons[next].click();
+              }}>
               {([
                 ["calm", user.language === "en" ? "Calm" : "Спокойный"],
                 ["heroic", user.language === "en" ? "Heroic" : "Героический"],
                 ["ironic", user.language === "en" ? "With irony" : "С иронией"],
-              ] as const).map(([tone, label]) => <button type="button" role="radio" aria-checked={habitNotificationSettings.tone === tone} className={habitNotificationSettings.tone === tone ? "active" : ""} onClick={() => onHabitNotificationSettingsChange({ ...habitNotificationSettings, tone })} key={tone}>{label}</button>)}
+              ] as const).map(([tone, label]) => <button type="button" role="radio" aria-checked={habitNotificationSettings.tone === tone} tabIndex={habitNotificationSettings.tone === tone ? 0 : -1} className={habitNotificationSettings.tone === tone ? "active" : ""} onClick={() => onHabitNotificationSettingsChange({ ...habitNotificationSettings, tone })} key={tone}>{label}</button>)}
             </div>
             <div className="habit-notification-times">
-              <label><span>{user.language === "en" ? "Daily goal reminder" : "Напоминание о дневной цели"}</span><TimeClockPicker value={habitNotificationSettings.dailyGoalTime} onChange={(value) => onHabitNotificationSettingsChange({ ...habitNotificationSettings, dailyGoalTime: value })} /></label>
-              <label><span>{user.language === "en" ? "Quiet hours start" : "Начало тихих часов"}</span><TimeClockPicker value={habitNotificationSettings.quietHoursStart} onChange={(value) => onHabitNotificationSettingsChange({ ...habitNotificationSettings, quietHoursStart: value })} /></label>
-              <label><span>{user.language === "en" ? "Quiet hours end" : "Конец тихих часов"}</span><TimeClockPicker value={habitNotificationSettings.quietHoursEnd} onChange={(value) => onHabitNotificationSettingsChange({ ...habitNotificationSettings, quietHoursEnd: value })} /></label>
+              <label><span>{user.language === "en" ? "Daily goal reminder" : "Напоминание о дневной цели"}</span><TimeClockPicker value={habitNotificationSettings.dailyGoalTime} ariaLabel={user.language === "en" ? "Daily goal reminder" : "Напоминание о дневной цели"} onChange={(value) => onHabitNotificationSettingsChange({ ...habitNotificationSettings, dailyGoalTime: value })} /></label>
+              <label><span>{user.language === "en" ? "Quiet hours start" : "Начало тихих часов"}</span><TimeClockPicker value={habitNotificationSettings.quietHoursStart} ariaLabel={user.language === "en" ? "Quiet hours start" : "Начало тихих часов"} onChange={(value) => onHabitNotificationSettingsChange({ ...habitNotificationSettings, quietHoursStart: value })} /></label>
+              <label><span>{user.language === "en" ? "Quiet hours end" : "Конец тихих часов"}</span><TimeClockPicker value={habitNotificationSettings.quietHoursEnd} ariaLabel={user.language === "en" ? "Quiet hours end" : "Конец тихих часов"} onChange={(value) => onHabitNotificationSettingsChange({ ...habitNotificationSettings, quietHoursEnd: value })} /></label>
             </div>
             <label className="account-switch-row compact">
               <span><strong>{user.language === "en" ? "Daily goal and streak reminders" : "Напоминания о цели и серии"}</strong><small>{user.language === "en" ? "Shown only while the goal is still achievable; they never shame or deduct progress." : "Показываются только пока цель достижима; не стыдят и не отнимают прогресс."}</small></span>

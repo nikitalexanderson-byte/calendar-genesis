@@ -47,6 +47,7 @@ import { CalendarYearTaskCounts } from "./CalendarTaskCounts";
 import { EntryTypeChoice, entryTypeLabel, entryTypeTitlePlaceholder, type EntryType } from "./EntryTypeChoice";
 import { RecordCalendarChoice } from "./RecordCalendarChoice";
 import { IconActionButton } from "./IconActionButton";
+import { ThemeModeToggle } from "./ThemeModeToggle";
 import { SERVICE_IDENTITY } from "./public-service";
 import { normalizeWebTheme } from "./web-theme";
 import { TodayAdBlock } from "./TodayAdBlock";
@@ -189,7 +190,7 @@ import {
   normalizeCalendarDateNote,
 } from "./calendar-data";
 import { gregorianMonthNumber, gregorianWeekdayOffset } from "./calendar-layout";
-import { gregorianSeasonArt } from "./gregorian-season-art";
+import { gregorianMonthArt } from "./gregorian-season-art";
 import "./gregorian-season-art.css";
 import {
   type AutomaticSolarLocation,
@@ -5064,7 +5065,7 @@ export function GenesisCalendar() {
                 <span className="event-badge lunar-event-badge"><MoonPhaseIcon phaseStep={moon.phaseStep} size={14} /> {moon.event || moon.epithet}</span>
               ) : sacredFeaturesEnabled && solarEvent ? <span className="event-badge solar-event-badge"><b aria-hidden="true">{solarEvent.symbol}</b> {solarEvent.name}</span> : null}
             </div> : null}
-            <p className="hero-month">{heroMonth}</p>
+            {sacredFeaturesEnabled ? <p className="hero-month">{heroMonth}</p> : null}
             <h1 id="today-title">
               <span className="hero-day-title-primary">{heroTitlePrimary}</span>
               {heroTitleTranslation ? (
@@ -5086,14 +5087,14 @@ export function GenesisCalendar() {
             </div>
           </div>
           <div className="hero-day-clock">
-          <div className="hero-number" aria-hidden="true">
+          {sacredFeaturesEnabled ? <div className="hero-number" aria-hidden="true">
             {activeCalendarMode === "lunar" ? (
               <MoonPhaseIcon phaseStep={moon.phaseStep} size={68} className="hero-mode-moon" />
             ) : (
               <span>{activeCalendarMode === "profane" ? gregorian.getDate() : romanDay(info.monthIndex, info.day)}</span>
             )}
             <small>{activeCalendarMode === "lunar" ? moon.phase : activeCalendarMode === "profane" ? weekdayPatron.weekday : info.monthIndex === 12 ? "вне времени" : `${day.pyata} пята`}</small>
-          </div>
+          </div> : null}
           <DeviceClock timeFormat={activeTimeFormat} />
           </div>
         </section>
@@ -5397,7 +5398,7 @@ export function GenesisCalendar() {
     if (currentMonth) return null;
     return <button type="button" className="calendar-current-month" aria-label={discoveryCopy[language].returnMonth}
       onClick={() => { selectCalendarDate(new Date()); setDayDetailsOpen(false); }}>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 9V5h4M4 5a9 9 0 1 1-1 11M12 7v5l3 2" /></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M7 3v4M17 3v4M4 10h16M10 21H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5"/><path d="m15 13-3 3 3 3m-3-3h5a3 3 0 0 1 0 6"/></svg>
       <span data-no-translate>{discoveryCopy[language].thisMonth}</span>
     </button>;
   };
@@ -5727,7 +5728,7 @@ export function GenesisCalendar() {
         className={`calendar-view calendar-mode-view mode-${mode}`}
         style={{
           "--month-accent": mode === "lunar" ? lunarMonthColor(lunarDefinition.index) : "var(--ui-accent)",
-          "--month-art": `url("${mode === "lunar" ? lunarMonthArtUrl(lunarDefinition.index) : `${APP_BASE}/${gregorianSeasonArt(selectedDate.getMonth(), seasonLocation)}`}")`,
+          "--month-art": `url("${mode === "lunar" ? lunarMonthArtUrl(lunarDefinition.index) : `${APP_BASE}/${gregorianMonthArt(selectedDate.getMonth(), seasonLocation)}`}")`,
         } as CSSProperties}
       >
         <header className="calendar-header calendar-mode-header">
@@ -6403,7 +6404,7 @@ export function GenesisCalendar() {
             symbol: "",
             dates,
             accentMonth,
-            artUrl: `${APP_BASE}/${gregorianSeasonArt(representative.getMonth(), seasonLocation)}`,
+            artUrl: `${APP_BASE}/${gregorianMonthArt(representative.getMonth(), seasonLocation)}`,
           };
         })
       : Array.from({ length: lunarYear.monthCount }, (_, offset) => {
@@ -6654,6 +6655,7 @@ export function GenesisCalendar() {
 
   const renderTopbarActions = () => (
     <div className="topbar-actions">
+            {cloudUser ? <ThemeModeToggle state={themeState} language={language} onChange={changeGenesisTheme} /> : null}
             {cloudUser ? (
               <div className={`account-chip${accountIdentityExpanded ? " is-expanded" : " is-compact"}`} ref={accountMenuRef}>
                 <button
@@ -6856,10 +6858,10 @@ export function GenesisCalendar() {
         </header>
         <header className="topbar" data-exp-ui="topbar">
           <div className="topbar-date-row">
-          <div className="topbar-date">
-            {sacredFeaturesEnabled ? <span className="topbar-kicker">{view === "stoicheion" || view === "theokyklos" ? "Оракул" : view === "habits" ? (language === "en" ? "Habit tracker" : "Трекер привычек") : CALENDAR_MODE_META[activeCalendarMode].label}</span> : null}
+          {sacredFeaturesEnabled ? <div className="topbar-date">
+            <span className="topbar-kicker">{view === "stoicheion" || view === "theokyklos" ? "Оракул" : view === "habits" ? (language === "en" ? "Habit tracker" : "Трекер привычек") : CALENDAR_MODE_META[activeCalendarMode].label}</span>
             <strong>{formatCalendarDate(today, activeCalendarMode, activeCalendarMode !== "sacred")}</strong>
-          </div>
+          </div> : null}
           {mobileLayout ? <div className="notification-header-slot" ref={setNotificationHeaderTarget} /> : null}
           </div>
           {experimentalThemeActive ? renderDisplayCalendarChoice(language === "en" ? "Display calendar" : "Календарь отображения", "topbar-calendar-choice") : null}
@@ -6910,6 +6912,7 @@ export function GenesisCalendar() {
                 </div>
                 {!sharedProjectsVisible || activeProjectsArea === "personal" ? renderProjects() : <Suspense fallback={<DeferredViewFallback label={language === "en" ? "Opening shared projects…" : "Открываем общие проекты…"} />}>
                   <SharedProjects key={`${cloudUser?.uid}:${invitationDestination?.userId===cloudUser?.uid ? invitationDestination?.request : "default"}`} userId={cloudUser?.uid ?? ""} language={language} experimentalTheme={experimentalThemeActive}
+                    projectViewOrder={accountLayout.sharedProjectViewOrder} onProjectViewOrder={sharedProjectViewOrder => saveLayout({ sharedProjectViewOrder })}
                     inboxPosition={accountLayout.sharedInboxPosition} inboxHidden={accountLayout.sharedInboxHidden}
                     inboxWidth={accountLayout.sharedInboxWidth} onInboxWidth={sharedInboxWidth => saveLayout({ sharedInboxWidth })}
                     inboxCompact={accountLayout.sharedInboxCompact} onInboxCompact={sharedInboxCompact => saveLayout({ sharedInboxCompact })}

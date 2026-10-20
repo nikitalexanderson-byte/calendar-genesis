@@ -1,4 +1,4 @@
-/* Gregorian months share one surface; the native regional art stays a quiet backdrop. */
+/* Gregorian months share one surface; regional month art stays a quiet backdrop. */
 html[data-genesis-theme] .genesis-app .calendar-mode-year-month.mode-profane {
   background: var(--surface); grid-template-rows: auto auto auto 1fr auto;
 }
@@ -7,7 +7,10 @@ html[data-genesis-theme] .genesis-app .calendar-mode-year-month.mode-profane::be
   background-image: var(--month-art); background-position: center; opacity: .16;
   -webkit-mask-image: none; mask-image: none; pointer-events: none; transform: none;
 }
-html[data-genesis-theme$="-dark"] .genesis-app .calendar-mode-year-month.mode-profane::before { opacity: .12; }
+html[data-genesis-theme$="-dark"] .genesis-app .calendar-mode-year-month.mode-profane { background: #0e1013; }
+html[data-genesis-theme$="-dark"] .genesis-app .calendar-mode-year-month.mode-profane::before {
+  background-image: linear-gradient(rgb(6 8 10 / .78), rgb(6 8 10 / .78)), var(--month-art); opacity: 1;
+}
 html[data-genesis-theme] .genesis-app .calendar-mode-year-month.mode-profane::after { background: none; }
 html[data-genesis-theme] .genesis-app .calendar-view.mode-profane .calendar-mode-header { background-image: none; }
 html[data-genesis-theme] .genesis-app .calendar-view.mode-profane .calendar-mode-header::before { display: none; }

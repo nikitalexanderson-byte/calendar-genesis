@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { captureAccountSessionGuard, updateAccountPreferences, type GenesisUser } from "./cloud-sync";
 import { accountLayout, type AccountLayout } from "./ui-visibility";
+import { sameLayoutValue } from "./project-view-order";
 
 /** Serialize small patches so a resize cannot overwrite an inbox move. */
 export function useAccountLayout(user: GenesisUser | null, onUserChange: (user: GenesisUser) => void) {
@@ -18,8 +19,9 @@ export function useAccountLayout(user: GenesisUser | null, onUserChange: (user: 
       try {
         assertSession();
         const result = await updateAccountPreferences({ uiLayout: patch });
+        assertSession();
         const saved = accountLayout(result.user.uiVisibility);
-        if (Object.entries(patch).some(([key, value]) => saved[key as keyof AccountLayout] !== value)) {
+        if (Object.entries(patch).some(([key, value]) => !sameLayoutValue(saved[key as keyof AccountLayout], value))) {
           throw new Error(language === "en" ? "Layout was not saved. Please try again." : "Расположение не сохранилось. Повторите изменение.");
         }
         onUserChange(result.user);
@@ -27,7 +29,7 @@ export function useAccountLayout(user: GenesisUser | null, onUserChange: (user: 
           if (current.uid !== uid) return current;
           const remaining = { ...current.patch };
           for (const key of Object.keys(patch) as (keyof AccountLayout)[]) {
-            if (remaining[key] === patch[key]) delete remaining[key];
+            if (sameLayoutValue(remaining[key], patch[key])) delete remaining[key];
           }
           return { uid, patch: remaining };
         });

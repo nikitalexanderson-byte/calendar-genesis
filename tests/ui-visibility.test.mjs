@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { uiVisibility, visibleCalendarModes, visibleCalendarMode, viewIsVisible } from '../app/ui-visibility.ts';
+import { projectViewOrder, moveProjectView, defaultProjectView, sameLayoutValue } from '../app/project-view-order.ts';
 
 test('the sacred layer hides its entry points without changing saved calendar or menu choices', () => {
   const original = uiVisibility({enabledCalendars:['sacred','lunar'],hiddenMenuItems:['tasks'],hiddenSubmenus:['calendar.year']});
@@ -34,4 +35,23 @@ test('a sacred-only account gets a temporary civil display and recovers its orig
   assert.deepEqual(saved.enabledCalendars,['sacred']);
   assert.equal(visibleCalendarMode('sacred',{...saved,sacredFeaturesEnabled:true}),'sacred');
   assert.equal(uiVisibility().sacredFeaturesEnabled,true);
+});
+
+test('account project view order sets the default without changing legacy project layout',()=>{
+  assert.equal(defaultProjectView(null,false,'board'),'board');
+  assert.equal(defaultProjectView(null,true,'board'),'list');
+  const saved=uiVisibility({sharedProjectViewOrder:['board','list','gantt','calendar']});
+  assert.equal(defaultProjectView(saved.sharedProjectViewOrder,true,'list'),'board');
+  assert.deepEqual(saved.sharedProjectViewOrder,['board','list','gantt','calendar']);
+  const moved=moveProjectView(saved.sharedProjectViewOrder,'calendar','board');
+  assert.deepEqual(moved,['calendar','board','list','gantt']);
+  assert.equal(defaultProjectView(moved,false,'board'),'calendar');
+  assert.equal(sameLayoutValue(moved,[...moved]),true);assert.equal(sameLayoutValue(moved,saved.sharedProjectViewOrder),false);
+  assert.equal(saved.sharedProjectViewOrder[0],'board');
+});
+
+test('malformed project orders never hide views or change old account defaults',()=>{
+  for(const value of [null,undefined,[],['board'],['board','board','calendar','gantt'],['board','list','calendar','unknown'],['board','list','calendar',false]]){
+    assert.equal(projectViewOrder(value),null);assert.equal(uiVisibility({sharedProjectViewOrder:value}).sharedProjectViewOrder,null);
+  }
 });

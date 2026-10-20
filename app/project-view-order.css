@@ -1,0 +1,4 @@
+html[data-genesis-theme] .genesis-app .reorderable-project-views > button { touch-action: pan-y; cursor: grab; user-select: none; }
+html[data-genesis-theme] .genesis-app .reorderable-project-views[data-reordering] > button { cursor: grabbing; }
+html[data-genesis-theme] .genesis-app .reorderable-project-views > button[data-view-dragging] { outline: 2px solid var(--ui-accent); outline-offset: -3px; }
+html[data-genesis-theme] .genesis-app .project-view-order-help { margin: 8px 0 0; color: var(--ink-soft); font: 400 12px/1.5 var(--font-ui); }

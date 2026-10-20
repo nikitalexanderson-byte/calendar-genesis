@@ -250,6 +250,13 @@ function genesisUiVisibility(mixed $value): array
             throw new InvalidArgumentException('INVALID_NOTIFICATION_DOCK_LAYOUT');
         $result[$field] = $coordinate;
     }
+    $viewOrder = $decoded['sharedProjectViewOrder'] ?? null;
+    if ($viewOrder !== null && (!is_array($viewOrder) || !array_is_list($viewOrder) || count($viewOrder) !== 4
+        || count(array_unique($viewOrder, SORT_REGULAR)) !== 4
+        || array_filter($viewOrder, static fn(mixed $view): bool => !is_string($view) || !in_array($view, ['list','board','calendar','gantt'], true)))) {
+        throw new InvalidArgumentException('INVALID_PROJECT_VIEW_ORDER');
+    }
+    $result['sharedProjectViewOrder'] = $viewOrder;
     return $result;
 }
 
@@ -1201,6 +1208,21 @@ function genesisSaveStoicheionDraw(string $userId, string $kind, int $seed): arr
 
 function genesisUpdateAccountPreferences(string $userId, array $payload): array
 {
+    $db = genesisDb(); $owns = !$db->inTransaction();
+    if ($owns) genesisBeginWriteTransaction($db);
+    try {
+        $result = genesisUpdateAccountPreferencesInTransaction($userId, $payload);
+        if ($owns) $db->commit();
+        return $result;
+    } catch (Throwable $error) {
+        if ($owns && $db->inTransaction()) $db->rollBack();
+        throw $error;
+    }
+}
+
+/** Read and merge layout patches under the same write lock across devices. */
+function genesisUpdateAccountPreferencesInTransaction(string $userId, array $payload): array
+{
     $user = genesisFindUser($userId);
     if ($user === null) {
         throw new RuntimeException('Пользователь не найден.');
@@ -1220,7 +1242,7 @@ function genesisUpdateAccountPreferences(string $userId, array $payload): array
     }
     $visibilityInput = $payload['uiVisibility'] ?? ($user['ui_visibility_json'] ?? '{}');
     $savedVisibility = genesisUiVisibility($user['ui_visibility_json'] ?? '{}');
-    $layoutFields = ['sidebarWidth', 'personalInboxPosition', 'personalInboxHidden', 'personalInboxCompact', 'sharedInboxPosition', 'sharedInboxHidden', 'sharedInboxCompact', 'sharedCategoriesExpanded', 'personalCategoriesExpanded', 'personalCategoriesView', 'sharedCategoriesView', 'sharedTasksCompact', 'personalInboxWidth', 'sharedInboxWidth', 'notificationDockPinned', 'notificationDockX', 'notificationDockY'];
+    $layoutFields = ['sidebarWidth', 'personalInboxPosition', 'personalInboxHidden', 'personalInboxCompact', 'sharedInboxPosition', 'sharedInboxHidden', 'sharedInboxCompact', 'sharedCategoriesExpanded', 'personalCategoriesExpanded', 'personalCategoriesView', 'sharedCategoriesView', 'sharedTasksCompact', 'personalInboxWidth', 'sharedInboxWidth', 'notificationDockPinned', 'notificationDockX', 'notificationDockY', 'sharedProjectViewOrder'];
     // Older web/native clients must not reset account layout preferences.
     if (is_array($visibilityInput)) {
         foreach (['sacredFeaturesEnabled', 'sidebarAutoCollapseSeconds', ...$layoutFields] as $field) {
