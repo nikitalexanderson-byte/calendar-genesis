@@ -22,6 +22,7 @@ import ru.genesis.calendar.auth.CustomFieldDraft
 import ru.genesis.calendar.auth.CustomFieldProtocol
 import ru.genesis.calendar.data.UiPreferences
 import ru.genesis.calendar.domain.GenesisCalendar
+import ru.genesis.calendar.domain.CalendarMode
 import java.text.NumberFormat
 import java.time.LocalDate
 import java.time.ZoneId
@@ -119,6 +120,8 @@ private fun customDisplay(field: JSONObject, value: Any?, language: String, cale
     val value = draft.value(id); val archived = field.getBoolean("archived"); val editable = canEdit && !archived
     val enabled = editable && !disabled; val tag = "shared-custom-$id"
     val language = LocalGenesisLanguage.current
+    val sacredFeatures = LocalSacredFeaturesEnabled.current
+    val dateCalendar = if (sacredFeatures) calendar else calendar.copy(mode = CalendarMode.PROFANE)
     val uri = LocalUriHandler.current
     val focus = LocalFocusManager.current
     var linkError by remember { mutableStateOf(false) }
@@ -132,7 +135,7 @@ private fun customDisplay(field: JSONObject, value: Any?, language: String, cale
         if (!editable) {
             val label = when { CustomFieldProtocol.absent(value) -> genesisTranslate("Не задано")
                 value is Boolean -> genesisTranslate(if (value) "Да" else "Нет")
-                type == "date" -> genesisTranslate(customDisplay(field, value, language, calendar).orEmpty())
+                type == "date" -> genesisTranslate(customDisplay(field, value, language, dateCalendar).orEmpty())
                 else -> customDisplay(field, value, language, calendar).orEmpty() }
             androidx.compose.material3.Text(label, Modifier.testTag("$tag-value"), style = MaterialTheme.typography.bodyMedium)
         } else when (type) {
@@ -188,7 +191,7 @@ private fun customDisplay(field: JSONObject, value: Any?, language: String, cale
                 val date = (value as? String)?.takeIf { runCatching { LocalDate.parse(it) }.isSuccess }.orEmpty()
                 AuthorDatePicker(date, calendar.mode, calculationContext = calendar.context, enabled = enabled,
                     placeholder = "Выберите дату", modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag(tag), onChange = { onValue(id, it) })
-                AffairsDisclosure("Календарь ввода", Modifier.testTag("$tag-calendar")) {
+                if (sacredFeatures) AffairsDisclosure("Календарь ввода", Modifier.testTag("$tag-calendar")) {
                     EditorCalendarModePicker(calendar.mode, { onCalendar(calendar.copy(mode = it)) }, enabled,
                         preferredMode = calendar.mode, tag = "$tag-mode")
                 }

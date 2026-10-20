@@ -40,6 +40,9 @@ private class WorkspaceFixture(val available: Boolean = true, val withTasks: Boo
     var boardRevision = 1
     var estimateUnit = "points"
     var creates = 0
+    var createAttempts = 0
+    var pendingNextCreate = false
+    var lastCreate: JSONObject? = null
     var updates = 0
     var failNextUpdate = false
     var pendingNextUpdate = false
@@ -134,6 +137,23 @@ private class WorkspaceFixture(val available: Boolean = true, val withTasks: Boo
     override suspend fun flushSharedOfflineTasks() = 0
     override suspend fun createSharedTask(projectId: String, fields: JSONObject): JSONObject {
         check(role in setOf("owner", "manager", "member"))
+        createAttempts++; lastCreate = JSONObject(fields.toString())
+        customFailure?.let { code -> customFailure = null; throw ru.genesis.calendar.auth.CustomFieldFailure(code, 422) }
+        if (custom && projectId == projectFixture) {
+            val definitions = ru.genesis.calendar.auth.CustomFieldProtocol.definitions(spaceFixture, projectId,
+                JSONArray(importRows(customCatalog).map { JSONObject(it.toString()).put("spaceId", spaceFixture).put("projectId", projectId) }))
+            var draft = ru.genesis.calendar.auth.CustomFieldDraft.fromTask(JSONObject().put("customFields", JSONObject()))
+            val values = ru.genesis.calendar.auth.CustomFieldProtocol.values(fields.opt("customFields") ?: JSONObject())
+            values.keys().forEach { id -> draft = draft.change(id, values.get(id)) }
+            val failures = draft.errors(definitions)
+            if (failures.isNotEmpty()) throw ru.genesis.calendar.auth.CustomFieldFailure(failures.values.first(), 422)
+        }
+        if (pendingNextCreate) {
+            pendingNextCreate = false
+            queue.add(JSONObject().put("kind", "create").put("projectId", projectId).put("requestId", "stable-create")
+                .put("title", fields.optString("title")).put("body", JSONObject(fields.toString()).put("requestId", "stable-create")))
+            return JSONObject().put("task", JSONObject(fields.toString()).put("projectId", projectId).put("id", "pending:stable-create").put("pending", true).put("revision", 0))
+        }
         creates++
         val task = JSONObject(fields.toString()).put("id", "qa-new-$creates").put("projectId", projectId)
             .put("revision", 1).put("priority", 0).put("checklists", JSONArray())
@@ -164,6 +184,13 @@ private class WorkspaceFixture(val available: Boolean = true, val withTasks: Boo
         val body = item.getJSONObject("body")
         retries.add(body.toString())
         if (rejectNextRetry) { rejectNextRetry = false; error("Нет доступа") }
+        if (item.optString("kind") == "create") {
+            creates++
+            val task = JSONObject(body.toString()).apply { remove("requestId") }.put("id", "qa-new-$creates")
+                .put("projectId", item.getString("projectId")).put("revision", 1).put("checklists", JSONArray()).put("priority", 0)
+            records.add(task); queue.remove(item)
+            return JSONObject().put("task", JSONObject(task.toString()))
+        }
         val task = records.first { it.getString("id") == item.getString("taskId") }
         assertEquals(task.getInt("revision"), body.getInt("expectedRevision"))
         applyTaskChanges(task, body)
@@ -201,6 +228,142 @@ class SharedWorkspaceUiTest {
 
     private fun customId(type: String) = importRows(JSONArray(workspaceCustomFile("fields"))).first { it.getString("type") == type && !it.getBoolean("archived") }.getString("id")
     private fun customInput(type: String) = compose.onNodeWithTag("shared-custom-${customId(type)}")
+
+    private fun fillRequiredCreation(number: String = "0") {
+        customInput("number").performScrollTo().performTextReplacement(number); customInput("number").performImeAction()
+        compose.onNodeWithTag("shared-custom-${customId("checkbox")}-false").performScrollTo().performClick()
+    }
+
+    @Test fun customCreationRequiresZeroAndFalseAndKeepsInputVisibleAfterServerRejection() {
+        val fixture = WorkspaceFixture(withTasks = true, custom = true)
+        openFixtureProject(fixture)
+        compose.onNodeWithTag("shared-create-task").performScrollTo().performClick()
+        compose.onNodeWithTag("shared-new-task-title").performTextInput("New custom task")
+        compose.onNodeWithTag("shared-create-confirm").assertIsNotEnabled()
+        compose.onNodeWithTag("shared-custom-${customId("number")}-error").assertDoesNotExist()
+        fillRequiredCreation()
+        compose.onNodeWithTag("shared-custom-${customId("number")}-clear").performScrollTo().performClick()
+        compose.onNodeWithTag("shared-custom-${customId("number")}-error").assertExists()
+        compose.onNodeWithTag("shared-create-confirm").assertIsNotEnabled()
+        fillRequiredCreation()
+        fixture.customFailure = "CUSTOM_FIELD_CONFLICT"
+        compose.onNodeWithTag("shared-create-confirm").assertIsEnabled().performClick()
+        compose.waitUntil(10000) { fixture.createAttempts == 1 }
+        compose.onNodeWithTag("shared-create-error").assertIsDisplayed().assertTextEquals("Поле или его значения изменились. Обновите предпросмотр; черновик сохранён.")
+        compose.onNodeWithTag("shared-create-refresh").assertIsDisplayed().performClick()
+        compose.waitUntil(10000) { compose.onAllNodesWithTag("shared-create-error").fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithTag("shared-new-task-title").assertTextContains("New custom task")
+        customInput("number").assertTextEquals("0")
+        compose.onNodeWithTag("shared-create-confirm").performClick()
+        compose.waitUntil(10000) { fixture.creates == 1 }
+        val body = fixture.lastCreate!!; val values = body.getJSONObject("customFields")
+        assertEquals(setOf(customId("number"), customId("checkbox")), values.keys().asSequence().toSet())
+        assertEquals(0.0, values.getDouble(customId("number")), 0.0); assertEquals(false, values.get(customId("checkbox")))
+        assertFalse(body.has(SHARED_CUSTOM_CALENDAR_KEY)); assertFalse(body.has("id")); assertFalse(body.has("expectedRevision"))
+        compose.onNodeWithTag("shared-create-task").performScrollTo().performClick()
+        compose.onNodeWithTag("shared-create-confirm").assertIsNotEnabled()
+        customInput("number").assertTextEquals("")
+    }
+
+    @Test fun customCreationSurvivesActivityStateAndCatalogChangesWithoutLosingOwnText() {
+        val fixture = WorkspaceFixture(withTasks = true, custom = true)
+        val restoration = StateRestorationTester(compose)
+        openFixtureProject(fixture, restoration)
+        compose.onNodeWithTag("shared-create-task").performScrollTo().performClick()
+        compose.onNodeWithTag("shared-new-task-title").performTextInput("Restored custom task")
+        fillRequiredCreation("3,5")
+        restoration.emulateSavedInstanceStateRestore()
+        compose.waitUntil(15000) { runCatching { compose.onNodeWithTag("shared-create-confirm").assertIsEnabled() }.isSuccess }
+        customInput("number").assertTextEquals("3,5")
+        compose.onNodeWithTag("shared-new-task-title").assertTextContains("Restored custom task")
+        compose.runOnIdle { importRows(fixture.customCatalog).first { it.getString("type") == "url" }.put("required", true) }
+        awaitFixturePoll(fixture) { runCatching { compose.onNodeWithTag("shared-create-confirm").assertIsNotEnabled() }.isSuccess }
+        customInput("number").assertTextEquals("3,5"); assertEquals(0, fixture.createAttempts)
+        customInput("url").performScrollTo().performTextReplacement("https://example.invalid/new"); customInput("url").performImeAction()
+        compose.onNodeWithTag("shared-create-confirm").assertIsEnabled().performClick()
+        compose.waitUntil(10000) { fixture.creates == 1 }
+        assertEquals(3.5, fixture.lastCreate!!.getJSONObject("customFields").getDouble(customId("number")), 0.0)
+    }
+
+    @Test fun customPendingCreationResetsTheFormOnlyAfterItsBodyIsDurablyQueued() {
+        val fixture = WorkspaceFixture(withTasks = true, custom = true)
+        openFixtureProject(fixture)
+        compose.onNodeWithTag("shared-create-task").performScrollTo().performClick()
+        compose.onNodeWithTag("shared-new-task-title").performTextInput("Queued custom task")
+        fillRequiredCreation()
+        fixture.pendingNextCreate = true
+        compose.onNodeWithTag("shared-create-confirm").performClick()
+        compose.waitUntil(10000) { fixture.queue.size == 1 }
+        compose.onNodeWithTag("shared-new-task-title").assertDoesNotExist()
+        val frozen = fixture.queue.single().getJSONObject("body").toString()
+        compose.runOnIdle { fixture.queue.single().put("error", "CUSTOM_FIELD_REQUIRED") }
+        awaitFixturePoll(fixture) { compose.onAllNodesWithText("Подробнее").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Подробнее").performScrollTo().performClick()
+        compose.onNodeWithTag("shared-pending-retry").performClick()
+        compose.waitUntil(10000) { fixture.creates == 1 && fixture.queue.isEmpty() }
+        assertEquals(1, fixture.createAttempts); assertEquals(listOf(frozen), fixture.retries)
+        assertEquals(false, fixture.records.last().getJSONObject("customFields").get(customId("checkbox")))
+    }
+
+    @Test fun customCreationHonorsExplicitEditPermissionBeforeOpeningTheForm() {
+        val fixture = WorkspaceFixture(withTasks = true, custom = true, editPermission = false)
+        openFixtureProject(fixture)
+        compose.onNodeWithTag("shared-create-task").assertIsNotEnabled()
+        assertEquals(0, fixture.createAttempts)
+    }
+
+    @Test fun customCreationDoesNotCarryProjectFieldsIntoAnotherProjectsNewTask() {
+        val fixture = WorkspaceFixture(withTasks = true, custom = true)
+        openFixtureProject(fixture)
+        compose.onNodeWithTag("shared-create-task").performScrollTo().performClick()
+        compose.onNodeWithTag("shared-new-task-title").performTextInput("Original draft")
+        fillRequiredCreation("17")
+        compose.onNodeWithText("Отмена").performClick()
+        compose.onNodeWithContentDescription("Назад").performScrollTo().performClick()
+        compose.onNodeWithTag("shared-project-$childFixture").performScrollTo().performClick()
+        compose.waitUntil(10000) { compose.onAllNodesWithTag("shared-create-task").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("shared-create-task").performScrollTo().performClick()
+        compose.onNodeWithTag("shared-custom-fields").assertDoesNotExist()
+        compose.onNodeWithTag("shared-new-task-title").performTextReplacement("Child task")
+        compose.onNodeWithTag("shared-create-confirm").assertIsEnabled().performClick()
+        compose.waitUntil(10000) { fixture.creates == 1 }
+        assertFalse(fixture.lastCreate!!.has("customFields")); assertEquals(childFixture, fixture.records.last().getString("projectId"))
+    }
+
+    @Test fun customReadOnlyDatesUseGregorianLabelsWhenSacredFeaturesAreOff() {
+        val fixture = WorkspaceFixture(withTasks = true, custom = true, role = "viewer")
+        compose.setContent { CompositionLocalProvider(LocalGenesisLanguage provides "ru", LocalSacredFeaturesEnabled provides false) {
+            MaterialTheme(colorScheme = standart) { SharedProjectsScreen(fixture, "ru",
+                preferences = ru.genesis.calendar.data.UiPreferences(input = ru.genesis.calendar.domain.CalendarMode.SACRED)) }
+        } }
+        selectFixtureProject(fixture)
+        compose.onNodeWithTag("shared-task-qa-task").performScrollTo().performClick()
+        compose.waitUntil(10000) { compose.onAllNodesWithTag("shared-custom-fields").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Пользовательские поля").performScrollTo().performClick()
+        compose.onNodeWithTag("shared-custom-${customId("date")}-value").assertTextEquals("2026-10-20")
+    }
+
+    @Test fun customCreationHidesSacredDateControlsAndSavesGregorianDatesWhenFeaturesAreOff() {
+        val fixture = WorkspaceFixture(withTasks = true, custom = true)
+        compose.setContent { CompositionLocalProvider(LocalGenesisLanguage provides "ru", LocalSacredFeaturesEnabled provides false) {
+            MaterialTheme(colorScheme = standart) { SharedProjectsScreen(fixture, "ru",
+                preferences = ru.genesis.calendar.data.UiPreferences(input = ru.genesis.calendar.domain.CalendarMode.SACRED)) }
+        } }
+        selectFixtureProject(fixture)
+        compose.onNodeWithTag("shared-create-task").performScrollTo().performClick()
+        compose.onNodeWithTag("shared-new-task-title").performTextInput("Gregorian custom date")
+        fillRequiredCreation()
+        compose.onNodeWithText("Пользовательские поля").performScrollTo().performClick()
+        compose.onNodeWithTag("shared-custom-${customId("date")}-calendar").assertDoesNotExist()
+        customInput("date").performScrollTo().performClick()
+        val date = java.time.LocalDate.now().withDayOfMonth(15).toString()
+        compose.onNodeWithContentDescription(date).performScrollTo().performClick()
+        customInput("date").assertTextContains(date)
+        compose.onNodeWithTag("shared-create-confirm").assertIsEnabled().performClick()
+        compose.waitUntil(10000) { fixture.creates == 1 }
+        assertEquals(date, fixture.lastCreate!!.getJSONObject("customFields").getString(customId("date")))
+        assertTrue(fixture.lastCreate!!.isNull("dueDate"))
+    }
 
     @Test fun customTaskSavesTypedValuesInOnePartialPatchWithoutReplacingArchive() {
         val fixture = WorkspaceFixture(withTasks = true, planning = true, custom = true)
@@ -381,6 +544,79 @@ class SharedWorkspaceUiTest {
                 customInput("date").performScrollTo().performClick(); capture("calendar")
                 androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
             }
+        }
+    }
+
+    @Test fun captureCustomCreationFields() {
+        val args = InstrumentationRegistry.getArguments()
+        org.junit.Assume.assumeTrue(args.getString("genesisCustomCreateCapture") == "true")
+        var dark by mutableStateOf(false); var language by mutableStateOf("ru")
+        var fixture by mutableStateOf(WorkspaceFixture(withTasks = true, custom = true))
+        val localeOnly = args.getString("genesisCustomCreateLocaleOnly") == "true"
+        val sacredFeatures = args.getString("genesisCustomCreateFeaturesOff") != "true"
+        val locales = args.getString("genesisCustomCreateLanguages", "ru").split(',')
+        compose.setContent { CompositionLocalProvider(LocalGenesisLanguage provides language, LocalEveningTheme provides dark,
+            LocalSacredFeaturesEnabled provides sacredFeatures) {
+            MaterialTheme(colorScheme = if (dark) evening else standart) {
+                androidx.compose.material3.Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                    key(dark, language, fixture) { SharedProjectsScreen(fixture, language) }
+                }
+            }
+        } }
+        fun capture(state: String) {
+            compose.waitForIdle(); InstrumentationRegistry.getInstrumentation().uiAutomation.waitForIdle(350, 5000)
+            val file = File(InstrumentationRegistry.getInstrumentation().targetContext.filesDir,
+                "custom-create-${args.getString("genesisCustomCreatePass", "initial")}-${args.getString("genesisCustomCreateWidth")}-${args.getString("genesisCustomCreateFont", "1.0")}-${if (dark) "dark" else "light"}-$language-$state.png")
+            assertTrue(androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(file))
+        }
+        for (locale in locales) for (night in listOf(false, true)) {
+            compose.runOnIdle { fixture = WorkspaceFixture(withTasks = true, custom = true); language = locale; dark = night }
+            selectFixtureProject(fixture)
+            compose.onNodeWithTag("shared-create-task").performScrollTo().performClick()
+            compose.onNodeWithTag("shared-new-task-title").assertIsDisplayed()
+            if (!localeOnly) capture("required")
+            compose.onNodeWithTag("shared-new-task-title").performTextInput("Новая задача с полями")
+            fillRequiredCreation()
+            if (!localeOnly) {
+                capture("ready")
+                fixture.customFailure = "CUSTOM_FIELD_CONFLICT"
+                compose.onNodeWithTag("shared-create-confirm").performClick()
+                compose.waitUntil(10000) { compose.onAllNodesWithTag("shared-create-error").fetchSemanticsNodes().isNotEmpty() }
+                compose.onNodeWithTag("shared-create-error").assertIsDisplayed(); capture("rejected")
+            }
+            customInput("number").performScrollTo().performTextReplacement("invalid"); customInput("number").performImeAction()
+            awaitEstimateImeHidden()
+            compose.onNodeWithTag("shared-create-confirm").assertIsNotEnabled(); capture("invalid")
+            if (!localeOnly) {
+                customInput("number").performScrollTo().performTextReplacement("0"); customInput("number").performImeAction()
+                compose.onNode(hasClickAction() and hasAnyAncestor(hasTestTag("shared-custom-optional"))).performScrollTo().performClick()
+                customInput("text").performScrollTo(); capture("optional")
+                customInput("date").performScrollTo().performClick(); capture("calendar")
+                androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
+            }
+        }
+    }
+
+    @Test fun captureOriginalCustomCreation() {
+        val args = InstrumentationRegistry.getArguments()
+        org.junit.Assume.assumeTrue(args.getString("genesisCustomCreateBaseline") == "true")
+        var dark by mutableStateOf(false)
+        val fixture = WorkspaceFixture(withTasks = true, planning = true, custom = true)
+        compose.setContent { CompositionLocalProvider(LocalGenesisLanguage provides "ru", LocalEveningTheme provides dark) {
+            MaterialTheme(colorScheme = if (dark) evening else standart) {
+                androidx.compose.material3.Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                    key(dark) { SharedProjectsScreen(fixture, "ru") }
+                }
+            }
+        } }
+        for (night in listOf(false, true)) {
+            compose.runOnIdle { dark = night }; selectFixtureProject(fixture)
+            compose.onNodeWithTag("shared-create-task").performScrollTo().performClick()
+            compose.onNodeWithTag("shared-new-task-title").assertIsDisplayed()
+            compose.waitForIdle(); InstrumentationRegistry.getInstrumentation().uiAutomation.waitForIdle(350, 5000)
+            val file = File(InstrumentationRegistry.getInstrumentation().targetContext.filesDir,
+                "custom-create-before-${args.getString("genesisCustomCreateWidth")}-1.0-${if (night) "dark" else "light"}-ru.png")
+            assertTrue(androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(file))
         }
     }
 

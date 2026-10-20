@@ -26,14 +26,66 @@ class CustomFieldHttpIntegrationTest {
             val session = call("/session"); require(session.getJSONObject("user").getString("email") == "improvements-editor@example.invalid")
             csrf = AuthProtocol.csrf(session.getString("csrf"))
         }
-        fun call(path: String, body: JSONObject? = null): JSONObject {
+        fun call(path: String, body: JSONObject? = null, method: String = if (body == null) "GET" else "POST"): JSONObject {
             require(path.startsWith('/') && !path.contains(".."))
             val builder = HttpRequest.newBuilder(URI("$origin/api$path")).timeout(Duration.ofSeconds(60)).header("Cookie", cookie).header("Accept", "application/json")
             if (body != null) builder.header("X-CSRF-Token", csrf).header("Content-Type", "application/json; charset=utf-8")
-            val response = client.send(builder.method(if (body == null) "GET" else "POST", body?.let { HttpRequest.BodyPublishers.ofString(it.toString()) } ?: HttpRequest.BodyPublishers.noBody()).build(), HttpResponse.BodyHandlers.ofString())
+            val response = client.send(builder.method(method, body?.let { HttpRequest.BodyPublishers.ofString(it.toString()) } ?: HttpRequest.BodyPublishers.noBody()).build(), HttpResponse.BodyHandlers.ofString())
             val value = JSONObject(response.body())
             if (response.statusCode() !in 200..299) throw AuthApiError(value.optString("error", "HTTP_${response.statusCode()}"))
             return value
+        }
+    }
+    @Test fun realPhpCreationRequiresTypedValuesAndLostResponseReplayCreatesOnlyOneTask() {
+        val origin = System.getenv("GENESIS_CUSTOM_FIELDS_HTTP_TEST")
+        assumeTrue("Local custom field integration fixture is opt-in", origin != null); require(origin == "http://127.0.0.1:4338")
+        val file = File(requireNotNull(System.getenv("GENESIS_CUSTOM_FIELDS_HTTP_TARGET"))).canonicalFile
+        require(file.name == "native-custom-fields-http-target.json" && file.parentFile?.name == "output")
+        val target = JSONObject(file.readText()); val space = target.getString("spaceId"); val project = target.getString("projectId")
+        CustomFieldProtocol.id(space); CustomFieldProtocol.id(project)
+        val http = Http(origin); val route = "/shared/projects/$project/tasks"
+        val snapshot = http.call("/shared/projects/$project")
+        require(snapshot.getJSONObject("project").getString("title") == "Карточка с полями")
+        val fields = CustomFieldProtocol.definitions(space, project, snapshot.getJSONArray("customFieldDefinitions"))
+        val status = snapshot.getJSONArray("statuses").getJSONObject(0).getString("id")
+        val keys = target.getJSONObject("fields"); fun key(type: String) = keys.getString(type)
+        val state = ru.genesis.calendar.ui.SharedTaskCustomCreation.initial(project,
+            ru.genesis.calendar.data.UiPreferences(input = ru.genesis.calendar.domain.CalendarMode.LUNAR))
+        var draft = CustomFieldDraft.fromTask(state.source).change(key("number"), "0,0").change(key("checkbox"), false)
+            .change(key("date"), "2026-10-21").change(key("select"), "first").change(key("multi"), JSONArray().put("second").put("first"))
+            .change(key("text"), "Авторский текст 🌿").change(key("url"), "https://example.invalid/task")
+        state.change(ru.genesis.calendar.ui.sharedTaskWithCustomFields(state.source, state.details, draft))
+        val binding = ru.genesis.calendar.ui.bindSharedTaskCustom(state.source, state.details, snapshot)
+        assertTrue(binding.valid)
+        val title = "C3 native create ${UUID.randomUUID()}"
+        fun command() = state.fields(binding).put("title", title).put("statusId", status).put("requestId", UUID.randomUUID().toString())
+        assertEquals("CUSTOM_FIELD_REQUIRED", assertThrows(AuthApiError::class.java) {
+            http.call(route, JSONObject().put("title", title).put("statusId", status).put("requestId", UUID.randomUUID().toString()))
+        }.code)
+        val wrongNumber = command().apply { getJSONObject("customFields").put(key("number"), "0") }
+        assertEquals("CUSTOM_FIELD_VALUE_INVALID", assertThrows(AuthApiError::class.java) { http.call(route, wrongNumber) }.code)
+        val retired = command().apply { getJSONObject("customFields").put(key("select"), "retired") }
+        assertEquals("CUSTOM_FIELD_OPTION_UNAVAILABLE", assertThrows(AuthApiError::class.java) { http.call(route, retired) }.code)
+        var createdId: String? = null
+        try {
+            val body = command(); val frozen = body.toString()
+            val first = http.call(route, body).getJSONObject("task"); createdId = first.getString("id")
+            // Deliberately lose the first success before acknowledging a frozen create request.
+            val replay = http.call(route, JSONObject(frozen))
+            confirmedSharedReceipt("create", project, null, JSONObject(frozen), replay)
+            assertEquals(createdId, replay.getJSONObject("task").getString("id")); assertEquals(first.getInt("revision"), replay.getJSONObject("task").getInt("revision"))
+            val stored = CustomFieldProtocol.fromTask(replay.getJSONObject("task"))
+            assertEquals(0.0, stored.getDouble(key("number")), 0.0); assertEquals(false, stored.get(key("checkbox")))
+            assertEquals("2026-10-21", stored.getString(key("date"))); assertEquals("Авторский текст 🌿", stored.getString(key("text")))
+            assertFalse(stored.has(key("archived"))); assertEquals(frozen, body.toString())
+            val tasks = PlanningLifecycle.rows(http.call("/shared/projects/$project").getJSONArray("tasks"))
+            assertEquals(1, tasks.count { it.getString("title") == title })
+        } finally {
+            createdId?.let { id ->
+                val current = http.call("$route/$id").getJSONObject("task")
+                assertTrue(http.call("$route/$id", JSONObject().put("expectedRevision", current.getInt("revision"))
+                    .put("requestId", UUID.randomUUID().toString()).put("retentionDays", 1), "DELETE").getBoolean("ok"))
+            }
         }
     }
     @Test fun realPhpTaskPatchReplayExplicitClearAndRebasePreserveZeroFalseAndUnchangedHistory() {
