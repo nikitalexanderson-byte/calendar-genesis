@@ -3135,7 +3135,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /Академия Генезис/);
   assert.match(calendar, /t\.me\/genesisbasilea/);
   assert.match(calendar, /donate\.stream\/genesiscalendar/);
-  assert.match(calendar, /Солнечно-лунный календарь/);
+  assert.match(calendar, /Солнечный календарь/);
   assert.doesNotMatch(calendar, /Солнечный круг, услышанный через Луну/);
   assert.match(calendar, /<em>\{weekday\}<\/em>/);
   assert.match(calendar, /label: "Календарь"/);
