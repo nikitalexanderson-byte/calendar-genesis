@@ -6,7 +6,7 @@
 .habit-interval-marks > div { display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 8px; padding-block: 8px; }
 .genesis-app .habit-interval-marks button { min-height: 44px; border-radius: var(--ui-radius); font-variant-numeric: tabular-nums; }
 .genesis-app .habit-interval-marks button[aria-pressed="true"] { color: var(--ui-on-accent); background: var(--ui-accent); border-color: var(--ui-accent); }
-.genesis-app .habit-check-copy.has-interval > span { flex-wrap: wrap; }
+.genesis-app .habit-check-copy.has-interval .habit-check-heading { flex-wrap: wrap; }
 .genesis-app .habit-check-copy.has-interval strong { flex: 1 1 120px; overflow: visible; white-space: normal; overflow-wrap: anywhere; }
 .habit-interval-count { flex: 0 0 auto; white-space: nowrap; font-variant-numeric: tabular-nums; }
 html[data-genesis-theme] .genesis-app .habit-interval-marks > summary { gap: 8px; padding: 8px; border-radius: var(--ui-radius); }

@@ -952,13 +952,17 @@ export function HabitDailyPanel({ workspace, date, language, timeFormat, calenda
                 >
                   {entry?.completed||choosingQuality ? "✓" : ""}
                 </button>
-                <div className={`habit-check-copy${habit.intervalSchedule ? " has-interval" : ""}`} id={`habit-copy-${habit.id}-${date}`}>
-                  <span><b className="habit-emoji" aria-hidden="true">{habit.emoji}</b><strong data-no-translate>{habitDisplayText(habit, language).title}</strong>{habit.isKeyHabit ? <mark>{isEnglish ? "Key habit" : "Главная"}</mark> : null}<em>{isEnglish ? `Priority ${habit.priority}` : `Приоритет ${habit.priority}`}</em></span>
-                  {habitDisplayText(habit, language).description ? <small data-no-translate>{habitDisplayText(habit, language).description}</small> : null}
-                  {onTimerCommand ? <button type="button" className="secondary-button habit-timer-launch" disabled={date !== today || !habit.active}
-                    onClick={() => setTimerHabit(habit.id)} aria-expanded={timerHabit === habit.id}><HabitTimerIcon/>{translateText("Таймер", language)}</button> : null}
-                  {habit.preferredTime ? <small className="habit-preferred-time">{isEnglish ? "Strict time" : "Строгое время"}: {formatTimeValue(habit.preferredTime, timeFormat)}</small> : null}
-                  {habit.intervalSchedule ? <small className="habit-preferred-time"><span>Интервал, минут:</span> {habit.intervalSchedule.intervalMinutes} · {formatTimeValue(habit.intervalSchedule.startTime, timeFormat)}–{formatTimeValue(habit.intervalSchedule.endTime, timeFormat)}</small> : null}
+                <div className={`habit-check-copy${habit.intervalSchedule ? " has-interval" : ""}${onTimerCommand || habit.preferredTime || habit.intervalSchedule ? " has-timing" : ""}`} id={`habit-copy-${habit.id}-${date}`}>
+                  <div className="habit-check-main">
+                    <span className="habit-check-heading"><b className="habit-emoji" aria-hidden="true">{habit.emoji}</b><strong data-no-translate>{habitDisplayText(habit, language).title}</strong>{habit.isKeyHabit ? <mark>{isEnglish ? "Key habit" : "Главная"}</mark> : null}<em>{isEnglish ? `Priority ${habit.priority}` : `Приоритет ${habit.priority}`}</em></span>
+                    {habitDisplayText(habit, language).description ? <small data-no-translate>{habitDisplayText(habit, language).description}</small> : null}
+                  </div>
+                  {onTimerCommand || habit.preferredTime || habit.intervalSchedule ? <div className="habit-check-timing">
+                    {onTimerCommand ? <button type="button" className="secondary-button habit-timer-launch" disabled={date !== today || !habit.active}
+                      onClick={() => setTimerHabit(habit.id)} aria-expanded={timerHabit === habit.id}><HabitTimerIcon/>{translateText("Таймер", language)}</button> : null}
+                    {habit.preferredTime ? <small className="habit-preferred-time">{isEnglish ? "Strict time" : "Строгое время"}: {formatTimeValue(habit.preferredTime, timeFormat)}</small> : null}
+                    {habit.intervalSchedule ? <small className="habit-preferred-time"><span>Интервал, минут:</span> {habit.intervalSchedule.intervalMinutes} · {formatTimeValue(habit.intervalSchedule.startTime, timeFormat)}–{formatTimeValue(habit.intervalSchedule.endTime, timeFormat)}</small> : null}
+                  </div> : null}
                   {!measured && habit.intervalSchedule?.completionMode === "each" ? <details className="habit-interval-marks">
                     <summary><span>Отметки повторений:</span> <span className="habit-interval-count">{habitIntervalMarks(habit.intervalSchedule, entry).length} / {habitIntervalTimes(habit.intervalSchedule).length}</span></summary>
                     <div>{habitIntervalTimes(habit.intervalSchedule).map(time => <button key={time} type="button" disabled={!canRecord} aria-pressed={habitIntervalMarks(habit.intervalSchedule, entry).includes(time)} onClick={() => onChange(updateHabitIntervalCompletion(workspace, habit, date, time, !habitIntervalMarks(habit.intervalSchedule, entry).includes(time)))}><span aria-hidden="true">{habitIntervalMarks(habit.intervalSchedule, entry).includes(time) ? "✓ " : ""}</span>{formatTimeValue(time, timeFormat)}</button>)}</div>
