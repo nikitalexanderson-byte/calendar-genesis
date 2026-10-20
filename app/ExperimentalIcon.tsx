@@ -17,6 +17,9 @@ export function ExperimentalIcon({ name, className = "" }: { name: string; class
     {name === "stoicheion" || name === "theokyklos" ? <><path d="m12 3 2 7 7 2-7 2-2 7-2-7-7-2 7-2Z"/><path d="M20 2v4m2-2h-4M3 18v4m2-2H1"/></> : null}
     {name === "admin" ? <><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1Z"/><path d="m9 12 2 2 4-4"/></> : null}
     {name === "plus" ? <path d="M5 12h14M12 5v14"/> : null}
+    {name === "star" ? <path d="m12 3 2.78 5.63 6.22.9-4.5 4.39 1.06 6.2L12 17.19l-5.56 2.93 1.06-6.2L3 9.53l6.22-.9Z"/> : null}
+    {name === "pause" ? <><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></> : null}
+    {name === "play" ? <path d="m8 4 12 8-12 8Z"/> : null}
     {name === "account" ? <><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v2"/></> : null}
     {name === "undo" ? <><path d="M3 10h11a7 7 0 0 1 7 7v3M3 10l6-6m-6 6 6 6"/></> : null}
     {name === "redo" ? <><path d="M21 10H10a7 7 0 0 0-7 7v3m18-10-6-6m6 6-6 6"/></> : null}
