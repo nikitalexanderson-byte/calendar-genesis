@@ -33,7 +33,7 @@ internal object AffairsLayout {
     val shape = RoundedCornerShape(16.dp)
 }
 
-internal enum class AffairsAction { BACK, MORE, CLOSE, SEARCH, FILTER, EXPAND, COLLAPSE, REFRESH, MOVE, ADD, EDIT, SETTINGS, DELETE, REPORT }
+internal enum class AffairsAction { BACK, MORE, CLOSE, SEARCH, FILTER, EXPAND, COLLAPSE, REFRESH, MOVE, ADD, EDIT, SETTINGS, DELETE, REPORT, IMPORT, HISTORY, VIEW, UNDO }
 
 @Composable internal fun GenesisAccountFooter(status: String) {
     Text(status, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
@@ -60,6 +60,23 @@ internal enum class AffairsAction { BACK, MORE, CLOSE, SEARCH, FILTER, EXPAND, C
                 move(10f, 11f); line(10f, 17f); move(14f, 11f); line(14f, 17f)
             }
             AffairsAction.ADD -> { move(12f, 5f); line(12f, 19f); move(5f, 12f); line(19f, 12f) }
+            AffairsAction.IMPORT -> {
+                move(6f, 6f); line(6f, 3f); line(15f, 3f); line(20f, 8f); line(20f, 21f); line(6f, 21f); line(6f, 18f)
+                move(15f, 3f); line(15f, 8f); line(20f, 8f)
+                move(2f, 12f); line(13f, 12f); move(9f, 8f); line(13f, 12f); line(9f, 16f)
+            }
+            AffairsAction.HISTORY -> {
+                move(3f, 8f); curve(5f, 2f, 15f, 1f, 20f, 7f); curve(25f, 15f, 16f, 25f, 8f, 20f)
+                move(3f, 3f); line(3f, 8f); line(8f, 8f); move(12f, 7f); line(12f, 12f); line(16f, 15f)
+            }
+            AffairsAction.VIEW -> {
+                move(2f, 12f); curve(7f, 3f, 17f, 3f, 22f, 12f); curve(17f, 21f, 7f, 21f, 2f, 12f)
+                drawCircle(ink, 3f * unit, Offset(12f * unit, 12f * unit), style = Stroke(1.8f * unit))
+            }
+            AffairsAction.UNDO -> {
+                move(8f, 5f); line(3f, 10f); line(8f, 15f); move(3f, 10f)
+                curve(16f, 5f, 23f, 12f, 20f, 20f)
+            }
             AffairsAction.REPORT -> {
                 move(4f, 3f); line(4f, 21f); line(21f, 21f)
                 move(8f, 16f); line(8f, 11f); move(13f, 16f); line(13f, 6f); move(18f, 16f); line(18f, 9f)

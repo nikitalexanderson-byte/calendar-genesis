@@ -1,0 +1,81 @@
+package ru.genesis.calendar.auth
+
+import androidx.test.platform.app.InstrumentationRegistry
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import org.json.JSONObject
+import org.junit.Assert.*
+import org.junit.Assume.assumeTrue
+import org.junit.Test
+import ru.genesis.calendar.GenesisApplication
+import ru.genesis.calendar.ui.importInitialSelection
+import java.util.UUID
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+
+/** Real controller/Keystore/draft path with a synthetic offline identity; no session or network is used. */
+class DataImportControllerTest {
+    private fun inAccount(block: suspend (AuthController, GenesisApplication, MutableStateFlow<AuthPanelState>, String, String) -> Unit) = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        assumeTrue("Separate import QA installation required", context.packageName.endsWith(".c5qa.debug"))
+        val app = context.applicationContext as GenesisApplication; val controller = AuthController.get(app)
+        @Suppress("UNCHECKED_CAST")
+        val state = AuthController::class.java.getDeclaredField("mutableState").apply { isAccessible = true }.get(controller) as MutableStateFlow<AuthPanelState>
+        val previous = state.value; require(previous.user == null) { "Synthetic test requires an unsigned QA installation" }
+        val account = "controller-import-qa-${UUID.randomUUID()}"; val space = UUID.randomUUID().toString(); val project = UUID.randomUUID().toString()
+        val settings = AccountSettings(emptyList(), SyncRouting("fixed", emptyList(), emptyMap()), false, "STANDART", 0, "profane", "lunar", "24h", false, "ru",
+            sharedProjectsEligible = true, sharedProjectsEnabled = true)
+        app.activateAccount(account)
+        state.value = AuthPanelState(ready = true, requiresSignIn = true, user = ServerIdentity(account, "Synthetic QA", "import-qa@example.invalid"), accountSettings = settings)
+        val synthetic = state.value
+        try { block(controller, app, state, space, project) }
+        finally {
+            app.activateAccount(account); state.value = synthetic
+            runCatching {
+                controller.sharedDataImportDraft(space, project)?.let { controller.removeSharedDataImportDraft(space, project, it.getString("stamp")) }
+                controller.sharedDataImportCopies(space, project).forEach { controller.removeSharedDataImportCopy(space, project, it.getString("id"), it.getString("stamp")) }
+            }
+            state.value = previous; app.activateAccount(null)
+        }
+    }
+    private fun selection(space: String) = importInitialSelection(space, null, "Synthetic import", "Open", "Done", "profane", "UTC", false)
+    @Test fun offlineControllerKeepsEncryptedDraftsAndBlocksPreviewBeforeAnyRequest() = inAccount { controller, _, _, space, project ->
+        val chosen = controller.chooseSharedDataImportSource(space, project, null, "offline.json", selection(space)) { "{\"synthetic\":true}".byteInputStream() }
+        val edit = JSONObject(chosen.getJSONObject("edit").toString())
+        edit.getJSONObject("selection").getJSONObject("fieldDefaults").put("effort:legacy", 0).put("approved", false)
+        val saved = controller.saveSharedDataImportDraft(space, project, chosen.getString("stamp"), edit)
+        val restored = controller.sharedDataImportDraft(space, project)!!
+        assertEquals(saved.toString(), restored.toString())
+        val result = runCatching { controller.inspectSharedDataImport(space, project, restored.getString("stamp")) }
+        assertEquals(AuthFailure.Kind.NETWORK, (result.exceptionOrNull() as? AuthFailure)?.kind)
+        assertEquals(saved.getString("stamp"), controller.sharedDataImportDraft(space, project)!!.getString("stamp"))
+        assertTrue(controller.pendingSharedDataUndos(space).isEmpty())
+    }
+    @Test fun accountScopeAndPermissionChangesCancelAnOpenSourceBeforeItCanReplaceTheDraft() = inAccount { controller, app, state, space, project ->
+        val original = controller.chooseSharedDataImportSource(space, project, null, "kept.json", selection(space)) { "{\"keep\":true}".byteInputStream() }
+        val synthetic = state.value; val account = synthetic.user!!.uid
+        for (change in listOf("account", "scope", "permission")) {
+            supervisorScope {
+                val opened = CountDownLatch(1); val release = CountDownLatch(1)
+                val replacement = async(Dispatchers.IO) {
+                    controller.chooseSharedDataImportSource(space, project, original.getString("stamp"), "late.json", selection(space)) {
+                        opened.countDown(); check(release.await(10, TimeUnit.SECONDS)); "{\"late\":true}".byteInputStream()
+                    }
+                }
+                try {
+                    assertTrue(opened.await(10, TimeUnit.SECONDS))
+                    when (change) {
+                        "account" -> state.value = synthetic.copy(user = ServerIdentity("another-synthetic-account", "QA", "other@example.invalid"))
+                        "scope" -> app.activateAccount("another-synthetic-scope")
+                        else -> state.value = synthetic.copy(accountSettings = synthetic.accountSettings!!.copy(sharedProjectsEnabled = false))
+                    }
+                    release.countDown()
+                    assertTrue("$change must cancel the source write", runCatching { replacement.await() }.exceptionOrNull() is CancellationException)
+                } finally { release.countDown(); replacement.cancelAndJoin(); app.activateAccount(account); state.value = synthetic }
+            }
+            val kept = controller.sharedDataImportDraft(space, project)!!
+            assertEquals(original.getString("stamp"), kept.getString("stamp"))
+            assertEquals("kept.json", kept.getJSONObject("edit").getJSONObject("source").getString("name"))
+        }
+    }
+}

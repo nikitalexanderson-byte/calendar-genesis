@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/shared-data-export.php';
+require_once __DIR__.'/shared-data-native.php';
 
 /** Server-only scope: no input flag can suppress normal task audits or validation. */
 final class GenesisDataHistoricalScope{

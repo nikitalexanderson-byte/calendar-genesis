@@ -909,11 +909,15 @@ try {
             if($segments[2]==='check'){$input=genesisReadJson();if(!is_string($input['token']??null))throw new InvalidArgumentException('REPORT_INVALID');genesisJson(genesisSharedReportCheck($userId,$input['token']));}
         }
         if(count($segments)===3&&$segments[1]==='data'&&$method==='POST'){
-            if($segments[2]==='preview')genesisJson(genesisSharedDataPreview($userId,genesisReadJson()));
-            if($segments[2]==='apply')genesisJson(genesisSharedDataApply($userId,genesisReadJson()));
+            $nativeView=genesisDataNativeView($_GET['view']??null);
+            if($segments[2]==='preview'){$preview=genesisSharedDataPreview($userId,genesisReadJson());genesisJson($nativeView?genesisDataNativePreview($preview):$preview);}
+            if($segments[2]==='apply'){$receipt=genesisSharedDataApply($userId,genesisReadJson());genesisJson($nativeView?genesisDataNativeReceipt($receipt):$receipt);}
         }
         if(count($segments)===4&&$segments[1]==='spaces'&&$segments[3]==='data-export'&&$method==='POST')genesisJson(genesisSharedDataExport($userId,$segments[2],genesisReadJson()));
-        if(count($segments)===4&&$segments[1]==='spaces'&&$segments[3]==='data-imports'&&$method==='GET')genesisJson(genesisSharedDataImports($userId,$segments[2],$_GET['cursor']??null));
+        if(count($segments)===4&&$segments[1]==='spaces'&&$segments[3]==='data-imports'&&$method==='GET'){
+            $nativeView=genesisDataNativeView($_GET['view']??null);$imports=genesisSharedDataImports($userId,$segments[2],$_GET['cursor']??null);
+            if($nativeView)$imports['imports']=array_map('genesisDataNativeReceipt',$imports['imports']);genesisJson($imports);
+        }
         if(count($segments)===4&&$segments[1]==='data-imports'&&$segments[3]==='undo'&&$method==='POST')genesisJson(genesisSharedDataUndo($userId,$segments[2]));
         if(count($segments)===4&&$segments[1]==='projects'&&$segments[3]==='data-history'&&$method==='GET')genesisJson(genesisSharedDataHistory($userId,$segments[2],isset($_GET['taskId'])?(string)$_GET['taskId']:null,$_GET['cursor']??null));
         if(count($segments)===4&&$segments[1]==='projects'&&$segments[3]==='automations'){

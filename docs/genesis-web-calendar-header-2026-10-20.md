@@ -33,3 +33,5 @@ Chromium: обе темы × 360/390/768/1440, дополнительно вер
 Не проверены физический Samsung/iPhone, Safari/Firefox, реальные установки, screen reader, визуальная матрица всех 14 языков/font-scale и production до CI. Новые словари содержат 14 языков; автоматические language audits входят в pnpm test. Нативный APK не выпускается, C5 и остальные функциональные ID не закрываются.
 
 Публикация — только commit/push рабочей ветки, merge master и `.github/workflows/deploy.yml`; проверка `/deploy-meta.json` SHA и `/api/health`. SQL-миграций и ручных production-БД операций нет; rollback — git revert через тот же workflow. **SSH не использовался.**
+
+Опубликовано в PR #222: master/production `ec1691cc7c2005f7998e922167731db5603720f6`, штатный Deploy `39356817406` завершился успешно. `/deploy-meta.json` подтверждает этот SHA и run ID, `/api/health` возвращает200/ok; новый Gregorian WebP доступен с200/image-webp. Публичный Android остаётся2.9.0/95; незавершённый C5 import в веб-публикацию не входил.
