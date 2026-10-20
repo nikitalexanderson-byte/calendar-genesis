@@ -88,21 +88,32 @@ internal class SharedTemplateState(private val gateway: SharedWorkspaceGateway, 
         library = SharedTemplateProtocol.library(space, result, previous, cursor); deleted = archive
     }
     suspend fun open(id: String) = operate {
-        require(edit == null && record == null) { "TEMPLATE_OWN_DRAFT" }
+        require(edit == null && !lost) { "TEMPLATE_OWN_DRAFT" }
         source = null; preview = null
         source = SharedTemplateProtocol.source(space, id, checked { gateway.sharedTemplate(space, id, language, deleted) })
     }
+    fun showLibrary() { if (!dirty && !busy) { edit = null; source = null; preview = null } }
+    fun resume() { if (!busy && !lost && record != null) { edit = copy(requireNotNull(record).getJSONObject("edit")); source = null; preview = null; dirty = false; inputVersion++ } }
     suspend fun start(value: JSONObject) = operate {
         require(loaded && !lost && record == null && edit == null) { "TEMPLATE_OWN_DRAFT" }
         val initial = SharedTemplateProtocol.edit(value)
         require(initial.getString("spaceId") == space && initial.getString("projectId") == project) { "TEMPLATE_SCOPE_CHANGED" }
         edit = copy(initial); dirty = true; inputVersion++; persist()
     }
-    fun change(value: JSONObject) {
+    fun change(value: JSONObject, invalidateReview: Boolean = true) {
         if (!editable) return
         val next = SharedTemplateProtocol.edit(value)
         require(next.getString("spaceId") == space && next.getString("projectId") == project) { "TEMPLATE_SCOPE_CHANGED" }
-        edit = copy(next).put("review", JSONObject.NULL); dirty = true; preview = null; inputVersion++; error = ""
+        val previous = edit
+        val oldRequest = previous?.optJSONObject("request"); val request = next.getJSONObject("request")
+        val scopeChanged = previous?.opt("templateId") != next.opt("templateId") || previous?.opt("kind") != next.opt("kind") ||
+            listOf("spaceId", "projectId", "parentProjectId").any { oldRequest?.opt(it) != request.opt(it) }
+        edit = copy(next); dirty = true; inputVersion++; error = ""
+        if (invalidateReview) { edit = copy(next).put("review", JSONObject.NULL); if (scopeChanged) preview = null }
+    }
+    fun changeDateInput(calendar: SharedCustomCalendar) {
+        val next = edit?.let(::copy) ?: return
+        next.put("dateInput", calendar.saved()); change(next, invalidateReview = false)
     }
     fun changeTitle(value: String) {
         val next = edit?.let(::copy) ?: return
@@ -111,7 +122,24 @@ internal class SharedTemplateState(private val gateway: SharedWorkspaceGateway, 
     fun changeManifest(value: JSONObject) {
         val next = edit?.let(::copy) ?: return
         require(next.getString("kind") == "template-save")
-        next.getJSONObject("request").put("manifest", SharedTemplateManifest.validate(value, complete = false)); change(next)
+        val manifest = SharedTemplateManifest.validate(value, complete = false)
+        val tasks = SharedTemplateManifest.rows(manifest.getJSONArray("tasks")).associateBy { it.getString("key") }
+        val projects = SharedTemplateManifest.rows(manifest.getJSONArray("projects"), 50).map { it.getString("key") }.toSet()
+        val inputs = next.getJSONObject("inputs")
+        inputs.keys().asSequence().toList().forEach { path ->
+            val parts = path.split('/'); val task = parts.getOrNull(1)?.let(tasks::get)
+            val removed = when {
+                parts.firstOrNull() == "tagProject" -> parts.getOrNull(1).orEmpty() !in projects
+                task == null -> parts.firstOrNull() in setOf("estimate", "offset", "checklistOffset", "tag")
+                parts.firstOrNull() == "offset" -> task.optJSONObject(parts.getOrNull(2).orEmpty()) == null
+                parts.firstOrNull() == "checklistOffset" -> SharedTemplateManifest.rows(task.getJSONArray("checklists"), 20)
+                    .firstOrNull { it.getString("key") == parts.getOrNull(2) }?.let { list -> SharedTemplateManifest.rows(list.getJSONArray("items"), 300)
+                        .firstOrNull { it.getString("key") == parts.getOrNull(3) }?.optJSONObject("due") } == null
+                else -> false
+            }
+            if (removed) inputs.remove(path)
+        }
+        next.getJSONObject("request").put("manifest", manifest); change(next)
     }
     fun changeEstimate(task: String, field: String, value: String) {
         require(field in setOf("storyPoints", "estimateHours"))
@@ -121,6 +149,10 @@ internal class SharedTemplateState(private val gateway: SharedWorkspaceGateway, 
         if (!editable) return
         val next = edit?.let(::copy) ?: return
         next.getJSONObject("inputs").put(path, value); change(next)
+    }
+    fun clearInput(path: String) {
+        val next = edit?.let(::copy) ?: return
+        next.getJSONObject("inputs").remove(path); change(next)
     }
     private suspend fun persist() {
         if (!dirty) return
@@ -133,9 +165,23 @@ internal class SharedTemplateState(private val gateway: SharedWorkspaceGateway, 
     suspend fun save() = operate(quiet = true) { persist() }
     suspend fun review() = operate {
         require(!lost && !conflicted && phase == "editing") { "PLANNING_DRAFT_PENDING" }; persist()
-        val value = requireNotNull(edit); require(value.getString("kind") == "template-apply")
-        val result = SharedTemplateProtocol.preview(space, value.getString("templateId"), value.getJSONObject("request"),
-            checked { gateway.previewSharedTemplate(space, value.getString("templateId"), value.getJSONObject("request")) })
+        var value = requireNotNull(edit); require(value.getString("kind") == "template-apply")
+        val latestSource = SharedTemplateProtocol.source(space, value.getString("templateId"), checked {
+            gateway.sharedTemplate(space, value.getString("templateId"), value.getJSONObject("request").getString("language"), false)
+        })
+        source = latestSource
+        val options = value.getJSONObject("request")
+        val baseOptions = copy(options).put("fieldValues", JSONObject())
+        val catalog = SharedTemplateProtocol.preview(space, value.getString("templateId"), baseOptions,
+            checked { gateway.previewSharedTemplate(space, value.getString("templateId"), baseOptions) })
+        val normalized = SharedTemplateProtocol.fieldInputs(options, catalog, latestSource.getJSONObject("manifest"))
+        val hasOverrides = normalized.getJSONObject("fieldValues").length() > 0
+        if (ru.genesis.calendar.auth.PlanningLifecycle.canonical(options) != ru.genesis.calendar.auth.PlanningLifecycle.canonical(normalized)) {
+            value = copy(value).put("request", normalized).put("review", JSONObject.NULL); edit = value; dirty = true; inputVersion++; persist()
+        }
+        val result = if (!hasOverrides) catalog else SharedTemplateProtocol.preview(space, value.getString("templateId"), normalized,
+            checked { gateway.previewSharedTemplate(space, value.getString("templateId"), normalized) })
+        require(result.getInt("revision") == latestSource.getInt("revision")) { "TEMPLATE_PREVIEW_CHANGED" }
         edit = copy(value).put("review", result.getString("fingerprint")); dirty = true; inputVersion++; persist(); preview = result
     }
     suspend fun prepare() = operate {
@@ -147,6 +193,20 @@ internal class SharedTemplateState(private val gateway: SharedWorkspaceGateway, 
     suspend fun send() = operate {
         require(!lost && !dirty && !conflicted && phase in setOf("pending", "received")) { "PLANNING_DRAFT_PENDING" }
         accept(checked { gateway.sendSharedTemplateDraft(project, requireNotNull(record).getString("stamp")) })
+    }
+    suspend fun resumeEditing() = operate {
+        val current = requireNotNull(record)
+        require(!lost && (phase == "rejected" || phase == "pending" && current.getInt("attempts") == 0)) { "PLANNING_DRAFT_PENDING" }
+        val snapshot = copy(current.getJSONObject("edit")).put("review", JSONObject.NULL)
+        val ownCopy = checked { gateway.saveSharedTemplateCopy(project, UUID.randomUUID().toString(), null, snapshot) }
+        copies = checked { gateway.sharedTemplateCopies(project) }
+        val stamp = if (phase == "pending") {
+            checked { gateway.removeSharedTemplateDraft(project, current.getString("stamp")) }
+            record = null; edit = snapshot; dirty = true
+            null
+        } else current.getString("stamp")
+        accept(checked { gateway.useSharedTemplateCopy(project, ownCopy.getString("id"), ownCopy.getString("stamp"), stamp) })
+        copies = checked { gateway.sharedTemplateCopies(project) }
     }
     suspend fun discard() = operate {
         val value = record

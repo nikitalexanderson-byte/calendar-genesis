@@ -101,7 +101,10 @@ internal object SharedTemplateProtocol {
                 SharedTemplateManifest.key(source)
                 if (name in setOf("optionMap", "fieldValues")) {
                     val nested = dictionary(mapping.get(source)); mapping.put(source, nested); valid(nested.length() <= 200)
-                    nested.keys().forEach { field -> SharedTemplateManifest.key(field); if (name == "optionMap") { val target = nested.opt(field); if (target != JSONObject.NULL) SharedTemplateManifest.key(text(target, 100)) } }
+                    nested.keys().forEach { field ->
+                        if (name == "fieldValues") valid(field.matches(Regex("[A-Za-z0-9:_-]{1,205}"))) else SharedTemplateManifest.key(field)
+                        if (name == "optionMap") { val target = nested.opt(field); if (target != JSONObject.NULL) SharedTemplateManifest.key(text(target, 100)) }
+                    }
                 } else if (!mapping.isNull(source)) SharedTemplateManifest.key(text(mapping.opt(source), 100))
             }
             result.put(name, mapping)
@@ -119,19 +122,46 @@ internal object SharedTemplateProtocol {
             SharedTemplateManifest.key(task.getString("key")); text(task.opt("title"), 160, true)
             SharedTemplateManifest.estimate(task.opt("storyPoints")); SharedTemplateManifest.estimate(task.opt("estimateHours"))
         }
-        for (name in listOf("members", "statuses", "categories", "fields", "sourceFields", "newFields")) rows(raw.getJSONArray(name), if (name == "fields") 5000 else 1000)
+        for (name in listOf("members", "statuses", "categories", "fields", "sourceFields", "newFields")) rows(raw.getJSONArray(name), when (name) { "newFields" -> 10000; "fields" -> 5000; else -> 1000 })
         issues(raw.getJSONArray("notices")); issues(raw.getJSONArray("blockers"))
         valid(raw.getBoolean("canApply") == (raw.getJSONArray("blockers").length() == 0))
         return copy(raw)
     }
 
+    /** Typed preview overrides preserve raw input in the draft until an explicit review normalizes it. */
+    fun fieldInputs(request: JSONObject, catalog: JSONObject, manifest: JSONObject? = null): JSONObject {
+        val result = options(request); val overrides = result.getJSONObject("fieldValues")
+        val tasks = rows(catalog.getJSONArray("tasks")).associateBy { it.getString("key") }
+        val sourceTasks = manifest?.let { rows(it.getJSONArray("tasks")).associateBy { task -> task.getString("key") } }.orEmpty()
+        val existing = rows(catalog.getJSONArray("fields"), 5000)
+        val created = rows(catalog.getJSONArray("newFields"), 10000)
+        overrides.keys().asSequence().toList().forEach { key ->
+            if (!result.getJSONObject("include").getBoolean("subtasks") && key !in tasks && sourceTasks[key]?.isNull("parentKey") == false) { overrides.remove(key); return@forEach }
+            val task = tasks[key] ?: error("TEMPLATE_REFERENCE_INVALID")
+            val fields = (existing.map { copy(it).put("key", it.getString("id")) } + created.filter { it.getString("projectKey") == task.getString("projectKey") }.map { copy(it).put("key", it.getString("ref")) }).associateBy { it.getString("key") }
+            val values = dictionary(overrides.get(key))
+            values.keys().forEach { ref ->
+                val field = fields[ref] ?: error("TEMPLATE_FIELD_MAPPING_INVALID")
+                val input = SharedTemplateManifest.optionValue(field, values.get(ref), true)
+                val normalized = CustomFieldProtocol.normalize(SharedTemplateManifest.fieldAdapter(field), input, input)
+                values.put(ref, SharedTemplateManifest.optionValue(field, normalized, false))
+            }
+            overrides.put(key, values)
+        }
+        return result
+    }
+
     /** Editing drafts may contain incomplete text; only a fully valid manifest can become a network command. */
     fun edit(raw: JSONObject): JSONObject {
-        keys(raw, setOf("kind", "spaceId", "projectId", "templateId", "request", "review", "inputs"))
+        keys(raw, setOf("kind", "spaceId", "projectId", "templateId", "request", "review", "inputs", "dateInput"))
         valid(raw.opt("kind") in setOf("template-save", "template-apply"), "TEMPLATE_DRAFT_INVALID")
         id(raw.getString("spaceId")); id(raw.getString("projectId"))
         if (!raw.isNull("templateId")) templateId(raw.getString("templateId"))
         if (!raw.isNull("review")) digest(raw.opt("review"))
+        if (!raw.isNull("dateInput")) {
+            val calendar = copy(raw.getJSONObject("dateInput")); valid(calendar.opt("mode") in SharedTemplateManifest.modes)
+            calendar.remove("mode"); SharedTemplateManifest.context(calendar)
+        }
         val request = raw.getJSONObject("request"); val inputs = raw.getJSONObject("inputs")
         valid(inputs.length() <= 5000); inputs.keys().forEach { path -> text(path, 500, true); text(inputs.opt(path), 200) }
         valid(request.toString().toByteArray(Charsets.UTF_8).size <= 6_000_000, "TEMPLATE_SIZE_LIMIT")
@@ -187,6 +217,15 @@ internal object SharedTemplateProtocol {
         }
         inputs.keys().forEach { path ->
             val parts = path.split('/'); valid(parts.size >= 3, "TEMPLATE_DRAFT_INVALID")
+            if (parts.size == 3 && parts[0] == "tagProject" && parts[2] == "pending") {
+                val project = rows(result.getJSONArray("projects"), 50).singleOrNull { it.getString("key") == parts[1] } ?: error("TEMPLATE_REFERENCE_INVALID")
+                val tag = inputs.getString(path).trim(); text(tag, 80)
+                if (tag.isNotEmpty()) {
+                    val values = project.getJSONArray("tags"); val next = ((0 until values.length()).map(values::getString) + tag).distinct()
+                    valid(next.size <= 30); project.put("tags", JSONArray(next))
+                }
+                return@forEach
+            }
             val task = rows(result.getJSONArray("tasks")).singleOrNull { it.getString("key") == parts[1] } ?: error("TEMPLATE_REFERENCE_INVALID")
             val text = inputs.getString(path).trim().replace(',', '.')
             when {
@@ -196,6 +235,13 @@ internal object SharedTemplateProtocol {
                         requireNotNull(value).toDouble()
                     }
                     task.put(parts[2], number)
+                }
+                parts.size == 3 && parts[0] == "tag" && parts[2] == "pending" -> {
+                    val tag = inputs.getString(path).trim(); text(tag, 80)
+                    if (tag.isNotEmpty()) {
+                        val values = task.getJSONArray("tags"); val tags = (0 until values.length()).map(values::getString)
+                        val next = (tags + tag).distinct(); valid(next.size <= 30); task.put("tags", JSONArray(next))
+                    }
                 }
                 parts.size == 4 && parts[0] == "offset" && parts[2] in setOf("due", "start") && parts[3] == "amount" -> {
                     val amount = text.toIntOrNull(); valid(amount != null, "TEMPLATE_DATE_INVALID"); task.getJSONObject(parts[2]).put("amount", amount)

@@ -181,7 +181,17 @@ for (const language of ["ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "s
     }
   }
 }
-const translations = { ...web, ...curated, ...supplemental, ...sacred, ...native, ...workCopy, ...exportCopy.en, ...importCopy.en, ...bulkCopy.en };
+const templateCopy = JSON.parse(await readFile(path.join(ROOT, "app/native-template-labels.json"), "utf8"));
+const templateKeys = Object.keys(templateCopy.ru ?? {});
+if (templateKeys.length !== 26) throw new Error("Native template labels must contain all 26 labels.");
+for (const language of ["ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja"]) {
+  if (Object.keys(templateCopy[language] ?? {}).sort().join("\n") !== [...templateKeys].sort().join("\n")) throw new Error(`Incomplete native template labels: ${language}`);
+  for (const key of templateKeys) {
+    const value = templateCopy[language]?.[key];
+    if (typeof value !== "string" || !value.trim() || (!["ru", "sr", "uk"].includes(language) && CYRILLIC.test(value))) throw new Error(`Invalid native template label: ${language}: ${key}`);
+  }
+}
+const translations = { ...web, ...curated, ...supplemental, ...sacred, ...native, ...workCopy, ...exportCopy.en, ...importCopy.en, ...bulkCopy.en, ...templateCopy.en };
 const affairs = JSON.parse(await readFile(path.join(ROOT, "app/native-affairs-translations.json"), "utf8"));
 const affairKeys = Object.keys(affairs.en ?? {});
 if (affairKeys.length !== 41) throw new Error("Native supplemental copy must contain all 41 labels.");

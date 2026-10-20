@@ -7,6 +7,8 @@ import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
 import ru.genesis.calendar.auth.*
+import ru.genesis.calendar.data.UiPreferences
+import ru.genesis.calendar.domain.CalendarMode
 
 private class TemplateWorkspaceFixture : SharedWorkspaceGateway {
     val storage = MemoryPlanningStorage()
@@ -17,6 +19,9 @@ private class TemplateWorkspaceFixture : SharedWorkspaceGateway {
     var sourceUnavailable = false
     var rejection: String? = null
     var sent = 0
+    var sourceRevision = 1
+    var previewRevision = 1
+    var previews = 0
     val commands = mutableListOf<String>()
     private val access = object : SharedTemplateAccess {
         override fun check() = Unit
@@ -34,7 +39,8 @@ private class TemplateWorkspaceFixture : SharedWorkspaceGateway {
     private fun service() = SharedTemplateDraftService(journal, "account", access)
     private fun previewValue(id: String, request: JSONObject): JSONObject {
         val source = templateStarters().getJSONObject(1); val manifest = source.getJSONObject("manifest")
-        return JSONObject().put("templateId", id).put("fingerprint", "a".repeat(64)).put("revision", 1).put("canApply", true)
+        previews++
+        return JSONObject().put("templateId", id).put("fingerprint", "a".repeat(64)).put("revision", previewRevision).put("canApply", true)
             .put("kind", source.getString("kind")).put("calendarMode", manifest.getString("calendarMode")).put("calendarContext", manifest.getJSONObject("calendarContext"))
             .put("options", SharedTemplateProtocol.options(request)).put("projects", manifest.getJSONArray("projects")).put("tasks", manifest.getJSONArray("tasks"))
             .apply { for (key in listOf("members", "statuses", "categories", "fields", "sourceFields", "newFields", "notices", "blockers")) put(key, JSONArray()) }
@@ -52,7 +58,7 @@ private class TemplateWorkspaceFixture : SharedWorkspaceGateway {
         .put("systemTemplates", if (deleted) JSONArray() else templateStarters(language)).put("total", 0).put("hasMore", false).put("nextCursor", JSONObject.NULL)
     override suspend fun sharedTemplate(space: String, id: String, language: String, deleted: Boolean): JSONObject {
         if (sourceUnavailable) throw AuthApiError("TEMPLATE_UNAVAILABLE")
-        return templateStarters(language).getJSONObject(1)
+        return templateStarters(language).getJSONObject(1).put("revision", sourceRevision)
     }
     override suspend fun previewSharedTemplate(space: String, id: String, request: JSONObject) = previewValue(id, request)
 }
@@ -108,5 +114,44 @@ class SharedTemplateStateTest {
         assertTrue(state.lost); assertNull(state.record); assertNull(state.edit); assertNull(state.preview); assertNull(state.library)
         val protected = gateway.sharedTemplateDraft(templateProject)!!
         assertEquals("pending", protected.getString("phase")); assertEquals(command, protected.getString("command")); assertEquals(2, protected.getInt("attempts"))
+    }
+    @Test fun anUnusedPreparedCommandCanReturnToEditingWithItsOwnInputProtectedFirst() = runBlocking {
+        val state = state(); state.load(); state.start(templateSave()); state.changeTitle("Own prepared title"); state.prepare()
+        val oldCommand = state.record!!.getString("command"); assertEquals(0, state.record!!.getInt("attempts"))
+        state.resumeEditing(); assertEquals("editing", state.phase); assertEquals("", state.error)
+        assertEquals("Own prepared title", state.edit!!.getJSONObject("request").getString("title")); assertTrue(state.copies.isNotEmpty()); assertEquals(0, gateway.sent)
+        state.prepare(); assertNotEquals(oldCommand, state.record!!.getString("command"))
+    }
+    @Test fun deletingAnEditedTaskRemovesOnlyItsInputWhilePreservingTheIndependentInputCalendar() = runBlocking {
+        val state = state(); state.load(); state.start(templateSave()); state.changeEstimate("task:child", "storyPoints", "-")
+        state.changeEstimate("task:parent", "estimateHours", "2,5")
+        state.changeDateInput(SharedCustomCalendar.initial(UiPreferences(input = CalendarMode.LUNAR)))
+        state.changeManifest(SharedTemplateEdits.removeTasks(state.edit!!.getJSONObject("request").getJSONObject("manifest"), setOf("task:child")))
+        assertFalse(state.edit!!.getJSONObject("inputs").has("estimate/task:child/storyPoints"))
+        assertEquals("2,5", state.edit!!.getJSONObject("inputs").getString("estimate/task:parent/estimateHours"))
+        assertEquals("lunar", state.edit!!.getJSONObject("dateInput").getString("mode")); assertEquals("sacred", state.edit!!.getJSONObject("request").getJSONObject("manifest").getString("calendarMode"))
+        state.save(); val restored = state(); restored.load(); assertEquals("lunar", restored.edit!!.getJSONObject("dateInput").getString("mode"))
+    }
+
+    @Test fun inputCalendarDoesNotInvalidateReviewedWireButDestinationDoesAndReopenedApplyFetchesSource() = runBlocking {
+        val state = state(); state.load()
+        state.start(SharedTemplateProtocol.newEdit(templateSpace, templateProject, "template-apply", "system:publication", templateOptions().put("projectId", templateProject)))
+        state.review(); assertTrue(state.previewCurrent); assertNotNull(state.source)
+        state.changeDateInput(SharedCustomCalendar.initial(UiPreferences(input = CalendarMode.LUNAR))); state.save()
+        assertTrue(state.previewCurrent)
+        val edit = JSONObject(state.edit!!.toString()); edit.getJSONObject("request").put("anchorDate", "2026-10-21"); state.change(edit)
+        assertNotNull(state.preview); assertFalse(state.previewCurrent)
+        edit.getJSONObject("request").put("projectId", "10000000-0000-4000-8000-000000000099"); state.change(edit)
+        assertNull(state.preview); state.save()
+        val restored = state(); restored.load(); assertNull(restored.source); restored.review(); assertNotNull(restored.source)
+        assertTrue(restored.previewCurrent)
+    }
+
+    @Test fun aSourceRevisionChangeDuringReviewCannotApproveAStaleManifest() = runBlocking {
+        val state = state(); state.load()
+        state.start(SharedTemplateProtocol.newEdit(templateSpace, templateProject, "template-apply", "system:publication", templateOptions().put("projectId", templateProject)))
+        gateway.sourceRevision = 2; state.review()
+        assertEquals("TEMPLATE_PREVIEW_CHANGED", state.error); assertFalse(state.previewCurrent)
+        gateway.previewRevision = 2; state.review(); assertTrue(state.previewCurrent)
     }
 }

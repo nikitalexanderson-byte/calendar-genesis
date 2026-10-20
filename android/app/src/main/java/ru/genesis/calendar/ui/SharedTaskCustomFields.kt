@@ -95,7 +95,7 @@ import java.util.Locale
     }
 }
 
-private fun customDisplay(field: JSONObject, value: Any?, language: String, calendar: SharedCustomCalendar): String? {
+private fun customDisplay(field: JSONObject, value: Any?, language: String, calendar: SharedCustomCalendar, unavailable: String): String? {
     if (CustomFieldProtocol.absent(value)) return null
     return when (value) {
         is Number -> NumberFormat.getNumberInstance(Locale.forLanguageTag(language)).apply { maximumFractionDigits = 12 }.format(value)
@@ -104,7 +104,7 @@ private fun customDisplay(field: JSONObject, value: Any?, language: String, cale
             "select", "multi" -> {
                 val ids = if (value is JSONArray) (0 until value.length()).map { value.getString(it) } else listOf(value.toString())
                 val options = importRows(field.getJSONArray("options")).associateBy { it.getString("id") }
-                ids.joinToString(", ") { options[it]?.getString("title") ?: it }
+                ids.joinToString(", ") { options[it]?.getString("title") ?: unavailable }
             }
             "date" -> runCatching { GenesisCalendar(ZoneId.of(calendar.context.timeZone), calendar.context.version,
                 calendar.context.gregorianYearStart).formatDate(LocalDate.parse(value.toString()), calendar.mode) }.getOrDefault(value.toString())
@@ -113,13 +113,14 @@ private fun customDisplay(field: JSONObject, value: Any?, language: String, cale
     }
 }
 
-@Composable private fun SharedCustomField(field: JSONObject, draft: CustomFieldDraft, error: String?, changed: Boolean, calendar: SharedCustomCalendar,
+@Composable internal fun SharedCustomField(field: JSONObject, draft: CustomFieldDraft, error: String?, changed: Boolean, calendar: SharedCustomCalendar,
     canEdit: Boolean, disabled: Boolean, modifier: Modifier, onValue: (String, Any?) -> Unit, onReset: (String) -> Unit,
     onCalendar: (SharedCustomCalendar) -> Unit) {
     val id = field.getString("id"); val title = field.getString("title"); val type = field.getString("type")
     val value = draft.value(id); val archived = field.getBoolean("archived"); val editable = canEdit && !archived
     val enabled = editable && !disabled; val tag = "shared-custom-$id"
     val language = LocalGenesisLanguage.current
+    val unavailable = genesisTranslate("Недоступный вариант")
     val sacredFeatures = LocalSacredFeaturesEnabled.current
     val dateCalendar = if (sacredFeatures) calendar else calendar.copy(mode = CalendarMode.PROFANE)
     val uri = LocalUriHandler.current
@@ -135,8 +136,8 @@ private fun customDisplay(field: JSONObject, value: Any?, language: String, cale
         if (!editable) {
             val label = when { CustomFieldProtocol.absent(value) -> genesisTranslate("Не задано")
                 value is Boolean -> genesisTranslate(if (value) "Да" else "Нет")
-                type == "date" -> genesisTranslate(customDisplay(field, value, language, dateCalendar).orEmpty())
-                else -> customDisplay(field, value, language, calendar).orEmpty() }
+                type == "date" -> genesisTranslate(customDisplay(field, value, language, dateCalendar, unavailable).orEmpty())
+                else -> customDisplay(field, value, language, calendar, unavailable).orEmpty() }
             androidx.compose.material3.Text(label, Modifier.testTag("$tag-value"), style = MaterialTheme.typography.bodyMedium)
         } else when (type) {
             "text", "number", "url" -> OutlinedTextField(if (CustomFieldProtocol.absent(value)) "" else value.toString(),
@@ -162,13 +163,13 @@ private fun customDisplay(field: JSONObject, value: Any?, language: String, cale
                 ImportChoice(title, value as? String ?: "@unset", listOf("@unset" to genesisTranslate("Не задано")) +
                     options.filter { !it.getBoolean("archived") || it.getString("id") == previous }.map { option ->
                         option.getString("id") to (option.getString("title") + if (option.getBoolean("archived")) " · " + genesisTranslate("Архив") else "")
-                    }, enabled, tag, userLabel = true, showLabel = false) { onValue(id, it.takeUnless { it == "@unset" }) }
+                    } + if (value is String && options.none { it.getString("id") == value }) listOf(value to unavailable) else emptyList(), enabled, tag, userLabel = true, showLabel = false) { onValue(id, it.takeUnless { it == "@unset" }) }
             }
             "multi" -> {
                 val selected = (value as? JSONArray)?.let { rows -> (0 until rows.length()).map(rows::getString) }.orEmpty()
                 val previous = (draft.previous(id) as? JSONArray)?.let { rows -> (0 until rows.length()).map(rows::getString) }.orEmpty()
                 val options = importRows(field.getJSONArray("options")).filter { !it.getBoolean("archived") || it.getString("id") in previous }
-                val summary = customDisplay(field, value, language, calendar) ?: genesisTranslate("Не задано")
+                val summary = customDisplay(field, value, language, calendar, unavailable) ?: genesisTranslate("Не задано")
                 androidx.compose.material3.Text(summary, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("$tag-value"))
                 AffairsDisclosure("Варианты", Modifier.testTag(tag)) {
                     var limit by rememberSaveable(id) { mutableIntStateOf(5) }

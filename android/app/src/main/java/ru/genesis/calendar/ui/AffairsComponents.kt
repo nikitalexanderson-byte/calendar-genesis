@@ -33,7 +33,7 @@ internal object AffairsLayout {
     val shape = RoundedCornerShape(16.dp)
 }
 
-internal enum class AffairsAction { BACK, MORE, CLOSE, SEARCH, FILTER, EXPAND, COLLAPSE, REFRESH, MOVE, ADD, EDIT, SETTINGS, DELETE, REPORT, IMPORT, HISTORY, VIEW, UNDO }
+internal enum class AffairsAction { BACK, MORE, CLOSE, SEARCH, FILTER, EXPAND, COLLAPSE, REFRESH, MOVE, ADD, EDIT, SETTINGS, DELETE, REPORT, IMPORT, HISTORY, VIEW, UNDO, TEMPLATE, SUBTASK, DECREASE, TASK }
 
 @Composable internal fun GenesisAccountFooter(status: String) {
     Text(status, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
@@ -60,6 +60,21 @@ internal enum class AffairsAction { BACK, MORE, CLOSE, SEARCH, FILTER, EXPAND, C
                 move(10f, 11f); line(10f, 17f); move(14f, 11f); line(14f, 17f)
             }
             AffairsAction.ADD -> { move(12f, 5f); line(12f, 19f); move(5f, 12f); line(19f, 12f) }
+            AffairsAction.DECREASE -> { move(5f, 12f); line(19f, 12f) }
+            AffairsAction.TASK -> {
+                move(3f, 5f); line(10f, 5f); line(10f, 12f); line(3f, 12f); line(3f, 5f)
+                move(5f, 8f); line(6f, 10f); line(9f, 6f); move(14f, 7f); line(21f, 7f)
+                move(14f, 11f); line(19f, 11f); move(3f, 17f); line(21f, 17f); move(3f, 21f); line(16f, 21f)
+            }
+            AffairsAction.TEMPLATE -> {
+                move(8f, 3f); line(21f, 3f); line(21f, 17f); move(17f, 7f); line(3f, 7f); line(3f, 21f); line(17f, 21f); line(17f, 7f)
+                move(6f, 11f); line(13f, 11f); move(6f, 15f); line(11f, 15f)
+            }
+            AffairsAction.SUBTASK -> {
+                move(4f, 3f); line(4f, 15f); line(9f, 15f); move(7f, 12f); line(10f, 15f); line(7f, 18f)
+                move(12f, 11f); line(21f, 11f); line(21f, 21f); line(12f, 21f); line(12f, 11f)
+                move(14f, 5f); line(20f, 5f); move(17f, 2f); line(17f, 8f)
+            }
             AffairsAction.IMPORT -> {
                 move(6f, 6f); line(6f, 3f); line(15f, 3f); line(20f, 8f); line(20f, 21f); line(6f, 21f); line(6f, 18f)
                 move(15f, 3f); line(15f, 8f); line(20f, 8f)
@@ -160,8 +175,9 @@ internal enum class AffairsAction { BACK, MORE, CLOSE, SEARCH, FILTER, EXPAND, C
 
 @Composable internal fun AffairsDisclosure(title: String, modifier: Modifier = Modifier,
     titleIsUserContent: Boolean = false,
+    initiallyExpanded: Boolean = false,
     content: @Composable ColumnScope.() -> Unit) {
-    var expanded by rememberSaveable { mutableStateOf(false) }
+    var expanded by rememberSaveable { mutableStateOf(initiallyExpanded) }
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedButton(onClick = { expanded = !expanded }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
             if (titleIsUserContent) androidx.compose.material3.Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)

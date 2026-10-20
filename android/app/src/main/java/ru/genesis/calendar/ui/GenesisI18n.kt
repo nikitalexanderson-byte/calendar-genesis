@@ -1439,7 +1439,7 @@ private object TranslationCatalog {
                             Log.e("GenesisI18n", "Could not load $name: ${error.javaClass.simpleName}")
                         }
                     }
-                    listOf("native-data-export-translations.json", "native-data-import-translations.json", "native-bulk-translations.json").forEach { name ->
+                    listOf("native-data-export-translations.json", "native-data-import-translations.json", "native-bulk-translations.json", "native-template-labels.json").forEach { name ->
                         objectAsset(name).getJSONObject("en").let { catalog -> catalog.keys().forEach { put(it, catalog.getString(it)) } }
                     }
                     runCatching {
@@ -1500,7 +1500,7 @@ private object TranslationCatalog {
                                 json.keys().forEach { put(it, json.getString(it)) }
                             }
                         }
-                    listOf("native-data-export-translations.json", "native-data-import-translations.json", "native-bulk-translations.json").forEach { name ->
+                    listOf("native-data-export-translations.json", "native-data-import-translations.json", "native-bulk-translations.json", "native-template-labels.json").forEach { name ->
                       context.assets.open("originals/i18n/$name").bufferedReader().use { reader ->
                             JSONObject(reader.readText()).getJSONObject(language).let { json ->
                                 json.keys().forEach { put(it, json.getString(it)) }

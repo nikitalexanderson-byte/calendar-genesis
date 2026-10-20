@@ -124,6 +124,8 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     var dataImportOpen by rememberSaveable(spaceId, projectId) { mutableStateOf(false) }
     var teamReportOpen by rememberSaveable(spaceId, projectId) { mutableStateOf(false) }
     var projectAccessOpen by rememberSaveable(spaceId) { mutableStateOf(false) }
+    var templatesOpen by rememberSaveable(spaceId, projectId) { mutableStateOf(false) }
+    var templatesCaptureId by rememberSaveable(spaceId, projectId) { mutableStateOf("") }
     var bulkOpen by rememberSaveable { mutableStateOf(false) }
     var bulkProjectId by rememberSaveable { mutableStateOf("") }
     var bulkFilter by rememberSaveable { mutableStateOf("{}") }
@@ -360,6 +362,17 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     val canOrganize = project?.optBoolean("canOrganizeTasks") == true
     val canComment = role in setOf("owner", "manager", "member", "commenter") && !taskArchived
     val canInvite = role in setOf("owner", "manager")
+    if (templatesOpen && project != null && spaceId.isNotBlank() && projectId.isNotBlank()) key(spaceId, projectId) {
+        SharedTemplatesScreen(controller, spaceId, projectId, project.optString("title"), projects, members, preferences,
+            sharedTaskCanEdit(project), project.optJSONObject("permissions")?.optBoolean("createProjects") == true,
+            captureTask = selectedTask?.takeIf { it.optString("id") == templatesCaptureId },
+            onClose = { templatesOpen = false; templatesCaptureId = "" },
+            onChanged = { run { refreshProjects(spaceId); refreshProject(projectId) } },
+            onOpen = { targetProject, targetTask ->
+                templatesOpen = false; templatesCaptureId = ""; selectProject(targetProject); taskId = targetTask.orEmpty()
+                run { refreshProjects(spaceId); refreshProject(targetProject) }
+            })
+    }
     if (planningOpen && project != null && project.optInt("isInbox") == 0) key(projectId) {
         SharedPlanningScreen(controller, project, members, onClose = { planningOpen = false },
             onTask = { id -> planningOpen = false; taskId = id }, onChanged = { run { refreshProject(projectId) } })
@@ -1209,6 +1222,8 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                         if (spaceId.isNotBlank()) DropdownMenuItem(text = { Text("Экспорт данных") },
                             modifier = Modifier.testTag("shared-export-open"), onClick = { actionsOpen = false; dataExportOpen = true })
                         if (projectId.isNotBlank()) {
+                            DropdownMenuItem(text = { Text("Шаблоны") }, modifier = Modifier.testTag("shared-templates-open"),
+                                leadingIcon = { AffairsActionIcon(AffairsAction.TEMPLATE) }, onClick = { actionsOpen = false; templatesCaptureId = ""; templatesOpen = true })
                             DropdownMenuItem(text = { Text("Массовые действия") }, modifier = Modifier.testTag("shared-bulk-open"),
                                 leadingIcon = { AffairsActionIcon(AffairsAction.SETTINGS) }, onClick = {
                                     actionsOpen = false; bulkProjectId = projectId; bulkFilter = taskFilter.toString(); bulkSort = taskSort.wire; bulkOpen = true
@@ -1559,6 +1574,10 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
             if (taskId.isNotBlank() && (selectedTask == null || draftTaskKey != "$projectId:$taskId")) LinearProgressIndicator(Modifier.fillMaxWidth())
             if (selectedTask != null && draftTaskKey == "$projectId:$taskId") Column(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (canEditTask) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        AffairsIconButton("Сохранить как шаблон", AffairsAction.TEMPLATE, { templatesCaptureId = taskId; templatesOpen = true },
+                            Modifier.testTag("shared-task-save-template"), enabled = !busy && !taskPending)
+                    }
                     if (!canEditTask) androidx.compose.material3.Text(selectedTask.getString("title"), style = MaterialTheme.typography.titleLarge)
                     if (selectedTask.optString("seriesId").let { it.isNotBlank() && it != "null" }) {
                         Text(genesisTranslate("Серия общих задач"), style = MaterialTheme.typography.titleSmall)

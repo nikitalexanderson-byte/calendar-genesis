@@ -132,6 +132,9 @@ class SharedTemplateProtocolTest {
         rejected { SharedTemplateProtocol.options(templateOptions().put("fieldMap", JSONArray().put("invalid"))) }
         rejected { SharedTemplateProtocol.options(templateOptions().put("anchorDate", "2026-02-30")) }
         rejected { SharedTemplateProtocol.options(templateOptions().put("language", "unknown")) }
+        val reference = "new:" + "p".repeat(100) + ":" + "f".repeat(100)
+        val largeReference = templateOptions().put("fieldValues", JSONObject().put("task", JSONObject().put(reference, 0)))
+        assertEquals(0, SharedTemplateProtocol.options(largeReference).getJSONObject("fieldValues").getJSONObject("task").getInt(reference))
     }
 
     @Test fun nativeRouteAllowlistUsesEncodedSystemIdsExactMethodsAndLanguageWhitelist() {
@@ -145,5 +148,21 @@ class SharedTemplateProtocolTest {
         assertTrue(allowedSharedRoute("GET", "/shared/spaces/$templateSpace/templates?language=ru&deleted=true&cursor=opaque%2Btoken"))
         assertTrue(allowedSharedRoute("PATCH", "/shared/spaces/$templateSpace/templates/$templateId"))
         for (path in listOf("/shared/templates/system%3Aunknown/apply", "/shared/templates/system:launch/apply", "/shared/templates/system%253Alaunch/apply", "/shared/templates/$templateId?language=xx&deleted=false", "/shared/templates/$templateId/apply?extra=1")) assertFalse(path, allowedSharedRoute("POST", path))
+    }
+
+    @Test fun previewOverridesNormalizeDecimalInputAndRequiredDestinationFieldsWhenSourceCopyIsDisabled() {
+        val fieldId = "40000000-0000-4000-8000-000000000001"
+        val field = JSONObject(templateRich().getJSONArray("fields").getJSONObject(1).toString()).put("id", fieldId).put("type", "number")
+        val task = templateRich().getJSONArray("tasks").getJSONObject(0)
+        val catalog = JSONObject().put("tasks", JSONArray().put(task)).put("fields", JSONArray().put(field)).put("newFields", JSONArray())
+        val input = templateOptions().put("include", JSONObject().put("customFields", false))
+            .put("fieldValues", JSONObject().put(task.getString("key"), JSONObject().put(fieldId, "0,0")))
+        val normalized = SharedTemplateProtocol.fieldInputs(input, catalog)
+        assertEquals(0.0, normalized.getJSONObject("fieldValues").getJSONObject(task.getString("key")).getDouble(fieldId), 0.0)
+        assertEquals("0,0", input.getJSONObject("fieldValues").getJSONObject(task.getString("key")).getString(fieldId))
+        input.getJSONObject("fieldValues").getJSONObject(task.getString("key")).put(fieldId, "-")
+        rejected { SharedTemplateProtocol.fieldInputs(input, catalog) }
+        input.getJSONObject("fieldValues").getJSONObject(task.getString("key")).put("unavailable", 1)
+        rejected { SharedTemplateProtocol.fieldInputs(input, catalog) }
     }
 }
