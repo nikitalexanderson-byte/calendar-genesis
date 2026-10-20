@@ -181,7 +181,19 @@ for (const language of ["ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "s
     }
   }
 }
-const translations = { ...web, ...curated, ...supplemental, ...sacred, ...native, ...workCopy, ...exportCopy.en, ...importCopy.en, ...bulkCopy.en };
+const automationsCopy = JSON.parse(await readFile(path.join(ROOT, "app/native-automations-translations.json"), "utf8"));
+const automationsKeys = Object.keys(automationsCopy.ru ?? {});
+if (automationsKeys.length !== 30) throw new Error("Native automations copy must contain all 30 labels.");
+for (const language of ["ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja"]) {
+  if (Object.keys(automationsCopy[language] ?? {}).length !== automationsKeys.length) throw new Error(`Incomplete native automations catalog: ${language}`);
+  for (const key of automationsKeys) {
+    const value = automationsCopy[language]?.[key];
+    if (typeof value !== "string" || !value.trim() || (!["ru", "sr", "uk"].includes(language) && CYRILLIC.test(value))) {
+      throw new Error(`Incomplete native automations copy: ${language}: ${key}`);
+    }
+  }
+}
+const translations = { ...web, ...curated, ...supplemental, ...sacred, ...native, ...workCopy, ...exportCopy.en, ...importCopy.en, ...bulkCopy.en, ...automationsCopy.en };
 const affairs = JSON.parse(await readFile(path.join(ROOT, "app/native-affairs-translations.json"), "utf8"));
 const affairKeys = Object.keys(affairs.en ?? {});
 if (affairKeys.length !== 41) throw new Error("Native supplemental copy must contain all 41 labels.");

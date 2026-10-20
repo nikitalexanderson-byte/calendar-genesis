@@ -128,6 +128,8 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     var bulkProjectId by rememberSaveable { mutableStateOf("") }
     var bulkFilter by rememberSaveable { mutableStateOf("{}") }
     var bulkSort by rememberSaveable { mutableStateOf("position") }
+    var automationsOpen by rememberSaveable { mutableStateOf(false) }
+    var automationsProjectId by rememberSaveable { mutableStateOf("") }
     var workflowRepairProjects by remember(spaceId) { mutableStateOf(emptyList<JSONObject>()) }
     val workflowCopy = sharedWorkflowCopy()
     val customFailureMessages = CustomFieldProtocol.errors.associateWith { genesisTranslate(customFieldMessage(it).orEmpty()) }
@@ -408,6 +410,19 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                 selectProject(targetProject); taskId = targetTask
             }
         })
+    if (automationsOpen && automationsProjectId.isNotBlank()) SharedAutomationsScreen(controller, automationsProjectId,
+        onClose = { automationsOpen = false }, onLost = {
+            automationsOpen = false; snapshot = null; taskPage = null; openedTask = null; taskId = ""; projectId = ""
+            message = teamReportNoAccess; run { refreshProjects(spaceId) }
+        }, onChanged = { run { if (projectId.isNotBlank()) refreshProject(projectId) } }, onTask = { targetTask ->
+            run {
+                val target = controller.sharedProject(automationsProjectId).getJSONObject("project")
+                automationsOpen = false
+                val destination = target.getString("spaceId")
+                if (destination != spaceId) { spaceId = destination; refreshProjects(destination) }
+                selectProject(automationsProjectId); taskId = targetTask
+            }
+        })
     if (projectAccessOpen && spaceId.isNotBlank()) SharedProjectAccessScreen(controller, spaceId, onClose = { projectAccessOpen = false }, onLost = {
         projectAccessOpen = false; snapshot = null; taskPage = null; openedTask = null; taskId = ""; projectId = ""
         message = teamReportNoAccess; run { refreshProjects(spaceId) }
@@ -503,7 +518,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         }
     }
     BackHandler(enabled = pageActive && (taskId.isNotBlank() || projectId.isNotBlank() || spaceId.isNotBlank()) &&
-        createModal == null && !showManagement && boardDraft == null && !filtersOpen && !discardTaskDraft && !teamReportOpen && !projectAccessOpen && !bulkOpen) { navigateBack() }
+        createModal == null && !showManagement && boardDraft == null && !filtersOpen && !discardTaskDraft && !teamReportOpen && !projectAccessOpen && !bulkOpen && !automationsOpen) { navigateBack() }
     if (discardTaskDraft) AlertDialog(onDismissRequest = { discardTaskDraft = false },
         title = { Text("Несохранённые изменения") },
         text = { Text("Вернуться без сохранения изменений?") },
@@ -1212,6 +1227,10 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                             DropdownMenuItem(text = { Text("Массовые действия") }, modifier = Modifier.testTag("shared-bulk-open"),
                                 leadingIcon = { AffairsActionIcon(AffairsAction.SETTINGS) }, onClick = {
                                     actionsOpen = false; bulkProjectId = projectId; bulkFilter = taskFilter.toString(); bulkSort = taskSort.wire; bulkOpen = true
+                                })
+                            DropdownMenuItem(text = { Text("Автоматизации") }, modifier = Modifier.testTag("shared-automations-open"),
+                                leadingIcon = { AffairsActionIcon(AffairsAction.SETTINGS) }, onClick = {
+                                    actionsOpen = false; automationsProjectId = projectId; automationsOpen = true
                                 })
                             DropdownMenuItem(text = { Text("Импорт данных") }, modifier = Modifier.testTag("shared-import-open"),
                                 onClick = { actionsOpen = false; dataImportOpen = true })

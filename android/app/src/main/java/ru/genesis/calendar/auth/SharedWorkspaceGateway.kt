@@ -5,6 +5,15 @@ import java.util.UUID
 
 /** Shared workspace operations implemented by the authenticated controller. */
 interface SharedWorkspaceGateway {
+    suspend fun sharedAutomations(projectId: String, deleted: Boolean = false, cursor: String? = null): JSONObject = throw UnsupportedOperationException("sharedAutomations")
+    suspend fun sharedAutomation(projectId: String, ruleId: String): JSONObject = throw UnsupportedOperationException("sharedAutomation")
+    suspend fun sharedAutomationRuns(projectId: String, ruleId: String, cursor: String? = null): JSONObject = throw UnsupportedOperationException("sharedAutomationRuns")
+    suspend fun sharedAutomationTemplate(templateId: String, language: String): JSONObject = throw UnsupportedOperationException("sharedAutomationTemplate")
+    suspend fun sharedAutomationDraft(projectId: String): JSONObject? = null
+    suspend fun saveSharedAutomationDraft(projectId: String, stamp: String?, edit: JSONObject): JSONObject = throw UnsupportedOperationException("saveSharedAutomationDraft")
+    suspend fun prepareSharedAutomationDraft(projectId: String, stamp: String): JSONObject = throw UnsupportedOperationException("prepareSharedAutomationDraft")
+    suspend fun sendSharedAutomationDraft(projectId: String, stamp: String): JSONObject = throw UnsupportedOperationException("sendSharedAutomationDraft")
+    suspend fun removeSharedAutomationDraft(projectId: String, stamp: String): Unit = throw UnsupportedOperationException("removeSharedAutomationDraft")
     suspend fun sharedBulkDraft(projectId: String): JSONObject? = null
     suspend fun saveSharedBulkDraft(projectId: String, stamp: String?, edit: JSONObject): JSONObject = throw UnsupportedOperationException("saveSharedBulkDraft")
     suspend fun prepareSharedBulkDraft(projectId: String, stamp: String): JSONObject = throw UnsupportedOperationException("prepareSharedBulkDraft")
