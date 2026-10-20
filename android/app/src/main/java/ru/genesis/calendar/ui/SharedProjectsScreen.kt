@@ -119,6 +119,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     var workflowProject by rememberSaveable { mutableStateOf("") }
     var dataExportOpen by rememberSaveable(spaceId, projectId) { mutableStateOf(false) }
     var dataImportOpen by rememberSaveable(spaceId, projectId) { mutableStateOf(false) }
+    var teamReportOpen by rememberSaveable(spaceId, projectId) { mutableStateOf(false) }
     var workflowRepairProjects by remember(spaceId) { mutableStateOf(emptyList<JSONObject>()) }
     val workflowCopy = sharedWorkflowCopy()
     var showArchived by rememberSaveable { mutableStateOf(false) }
@@ -374,6 +375,12 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         else taskFilter.put("dueFrom", calendarDay.toString()).put("dueTo", calendarDay.toString())
     }
     val taskFilterKey = taskFilter.toString()
+    val teamReportNoAccess = genesisTranslate("Нет доступа")
+    if (teamReportOpen && project != null && spaceId.isNotBlank() && projectId.isNotBlank()) SharedTeamReportScreen(controller, spaceId, projectId,
+        project.optString("title"), taskFilter, calendarMode, statuses, onClose = { teamReportOpen = false }, onLost = {
+            teamReportOpen = false; snapshot = null; taskPage = null; openedTask = null; taskId = ""; projectId = ""
+            message = teamReportNoAccess; run { refreshProjects(spaceId) }
+        })
     var taskQueryIdentity by remember { mutableStateOf("") }
     LaunchedEffect(taskFilterKey,taskSort,pageActive) {
         if (!pageActive) return@LaunchedEffect
@@ -460,7 +467,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         }
     }
     BackHandler(enabled = pageActive && (taskId.isNotBlank() || projectId.isNotBlank() || spaceId.isNotBlank()) &&
-        createModal == null && !showManagement && boardDraft == null && !filtersOpen && !discardTaskDraft) { navigateBack() }
+        createModal == null && !showManagement && boardDraft == null && !filtersOpen && !discardTaskDraft && !teamReportOpen) { navigateBack() }
     if (discardTaskDraft) AlertDialog(onDismissRequest = { discardTaskDraft = false },
         title = { Text("Несохранённые изменения") },
         text = { Text("Вернуться без сохранения изменений?") },
@@ -1148,6 +1155,8 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                         if (projectId.isNotBlank()) {
                             DropdownMenuItem(text = { Text("Импорт данных") }, modifier = Modifier.testTag("shared-import-open"),
                                 onClick = { actionsOpen = false; dataImportOpen = true })
+                            DropdownMenuItem(text = { Text("Отчёт по совместной работе") }, modifier = Modifier.testTag("shared-team-report-open"),
+                                leadingIcon = { AffairsActionIcon(AffairsAction.REPORT) }, onClick = { actionsOpen = false; teamReportOpen = true })
                             if (project?.optInt("isInbox") == 0) DropdownMenuItem(
                                 text = { androidx.compose.material3.Text(sharedPlanningCopy().getString("heading")) },
                                 modifier = Modifier.testTag("shared-planning-open"),

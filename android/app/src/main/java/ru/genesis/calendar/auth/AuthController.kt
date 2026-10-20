@@ -209,11 +209,15 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
         if (!before.ready || before.requiresSignIn) throw AuthFailure(AuthFailure.Kind.NETWORK)
         val generation = client.currentGeneration()
         fun current() {
-            if (!client.isCurrent(generation) || mutableState.value.user?.uid != account ||
+            val state = mutableState.value
+            if (!client.isCurrent(generation) || !state.ready || state.requiresSignIn || state.accountSettings?.sharedProjectsEnabled != true || state.user?.uid != account ||
                 app.workspaceScope != CloudAccountSnapshot.scopeFor(account)) throw CancellationException()
         }
         return withContext(Dispatchers.IO) { current(); action(client, generation).also { current() } }
     }
+    override suspend fun sharedTeamReport(options: JSONObject) = sharedOnlineCall { api, generation -> api.sharedTeamReport(generation, options) }
+    override suspend fun checkSharedTeamReport(token: String) = sharedOnlineCall { api, generation -> api.checkSharedTeamReport(generation, token) }
+    override suspend fun sharedTeamReportTasks(token: String, metric: String, cursor: String?) = sharedOnlineCall { api, generation -> api.sharedTeamReportTasks(generation, token, metric, cursor) }
     override suspend fun exportSharedData(spaceId: String, command: JSONObject): JSONObject =
         sharedOnlineCall { api, generation -> api.exportSharedData(generation, spaceId, command) }
     private suspend fun <T> dataImportCall(space: String, action: (DataImportDraftService) -> T): T {

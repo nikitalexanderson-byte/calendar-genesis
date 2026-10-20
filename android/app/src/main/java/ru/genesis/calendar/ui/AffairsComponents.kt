@@ -135,7 +135,7 @@ internal enum class AffairsAction { BACK, MORE, CLOSE, SEARCH, FILTER, EXPAND, C
 @Composable internal fun AffairsPageHeader(title: String, context: String,
     icon: GenesisPageIcon = GenesisPageIcon.PROJECTS, onBack: (() -> Unit)? = null,
     backLabel: String = "Назад", backEnabled: Boolean = true, titleIsUserContent: Boolean = false,
-    contextIsUserContent: Boolean = false, actions: @Composable RowScope.() -> Unit = {}) {
+    contextIsUserContent: Boolean = false, contextMaxLines: Int = Int.MAX_VALUE, actions: @Composable RowScope.() -> Unit = {}) {
     Surface(shape = AffairsLayout.shape, color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier.fillMaxWidth().testTag("affairs-page-header")) {
@@ -150,7 +150,7 @@ internal enum class AffairsAction { BACK, MORE, CLOSE, SEARCH, FILTER, EXPAND, C
                 androidx.compose.material3.Text(if (titleIsUserContent) title else genesisTranslate(title),
                     style = MaterialTheme.typography.titleLarge)
                 if (context.isNotBlank()) androidx.compose.material3.Text(
-                    if (contextIsUserContent) context else genesisTranslate(context), style = MaterialTheme.typography.bodySmall,
+                    if (contextIsUserContent) context else genesisTranslate(context), style = MaterialTheme.typography.bodySmall, maxLines = contextMaxLines, overflow = TextOverflow.Ellipsis,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             actions()
