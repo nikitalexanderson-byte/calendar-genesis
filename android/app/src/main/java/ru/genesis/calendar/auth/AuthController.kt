@@ -62,6 +62,8 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
     private val planningOperationMutex = Mutex()
     private val workflowJournal = PlanningJournal(PlanningDraftStore(context.applicationContext, "workflow"), contract = WorkflowJournalContract)
     private val workflowOperationMutex = Mutex()
+    private val projectAccessJournal = PlanningJournal(PlanningDraftStore(context.applicationContext, "project-access"), contract = ProjectAccessJournalContract)
+    private val projectAccessOperationMutex = Mutex()
     private val importStorage = PlanningDraftStore(context.applicationContext, "data-import")
     private val importJournal = PlanningJournal(importStorage, contract = DataImportJournalContract)
     private val importUndoJournal = DataImportUndoJournal(importStorage)
@@ -215,6 +217,42 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
         }
         return withContext(Dispatchers.IO) { current(); action(client, generation).also { current() } }
     }
+    override suspend fun sharedProjectAccessMembers(spaceId: String) = sharedOnlineCall { api, generation -> api.sharedProjectAccessMembers(generation, spaceId) }
+    override suspend fun sharedProjectAccess(spaceId: String, userId: String) = sharedOnlineCall { api, generation -> api.sharedProjectAccess(generation, spaceId, userId) }
+    private suspend fun <T> projectAccessDraftCall(action: (ProjectAccessDraftService) -> T): T {
+        val initial = mutableState.value
+        val account = initial.user?.uid ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
+        if (!initial.ready || initial.accountSettings?.sharedProjectsEnabled != true) throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
+        val generation = client.currentGeneration()
+        fun current() {
+            val state = mutableState.value
+            if (!client.isCurrent(generation) || !state.ready || state.accountSettings?.sharedProjectsEnabled != true || state.user?.uid != account ||
+                app.workspaceScope != CloudAccountSnapshot.scopeFor(account)) throw CancellationException()
+        }
+        val access = object : ProjectAccessDraftAccess {
+            override fun check() = current()
+            private fun network() { current(); if (mutableState.value.requiresSignIn) throw AuthFailure(AuthFailure.Kind.NETWORK) }
+            private fun onlineReply() { current(); if (mutableState.value.requiresSignIn) throw CancellationException() }
+            override fun state(space: String, user: String): JSONObject { network(); return client.sharedProjectAccess(generation, space, user).also { onlineReply() } }
+            override fun preview(space: String, user: String, draft: JSONObject): JSONObject { network(); return client.previewSharedProjectAccess(generation, space, user, draft).also { onlineReply() } }
+            override fun send(space: String, user: String, body: JSONObject): JSONObject { network(); return client.saveSharedProjectAccess(generation, space, user, body).also { onlineReply() } }
+            override fun hasTaskQueue(): Boolean { current(); return sharedOffline.queued(account).isNotEmpty() }
+        }
+        return withContext(Dispatchers.IO) { projectAccessOperationMutex.withLock {
+            current(); action(ProjectAccessDraftService(projectAccessJournal, account, access)).also { current() }
+        } }
+    }
+    override suspend fun sharedProjectAccessDraft(spaceId: String, userId: String) = projectAccessDraftCall { it.load(spaceId, userId) }
+    override suspend fun saveSharedProjectAccessDraft(spaceId: String, userId: String, stamp: String?, edit: JSONObject) = projectAccessDraftCall { it.save(spaceId, userId, stamp, edit) }
+    override suspend fun previewSharedProjectAccessDraft(spaceId: String, userId: String, stamp: String) = projectAccessDraftCall { it.preview(spaceId, userId, stamp) }
+    override suspend fun prepareSharedProjectAccessDraft(spaceId: String, userId: String, stamp: String) = projectAccessDraftCall { it.prepare(spaceId, userId, stamp) }
+    override suspend fun sendSharedProjectAccessDraft(spaceId: String, userId: String, stamp: String) = projectAccessDraftCall { it.send(spaceId, userId, stamp) }
+    override suspend fun rebaseSharedProjectAccessDraft(spaceId: String, userId: String, stamp: String) = projectAccessDraftCall { it.rebase(spaceId, userId, stamp) }
+    override suspend fun removeSharedProjectAccessDraft(spaceId: String, userId: String, stamp: String): Unit = projectAccessDraftCall { it.remove(spaceId, userId, stamp) }
+    override suspend fun sharedProjectAccessCopies(spaceId: String, userId: String) = projectAccessDraftCall { it.copies(spaceId, userId) }
+    override suspend fun saveSharedProjectAccessCopy(spaceId: String, userId: String, id: String, stamp: String?, edit: JSONObject) = projectAccessDraftCall { it.saveCopy(spaceId, userId, id, stamp, edit) }
+    override suspend fun useSharedProjectAccessCopy(spaceId: String, userId: String, id: String, copyStamp: String, stamp: String?) = projectAccessDraftCall { it.useCopy(spaceId, userId, id, copyStamp, stamp) }
+    override suspend fun removeSharedProjectAccessCopy(spaceId: String, userId: String, id: String, stamp: String): Unit = projectAccessDraftCall { it.removeCopy(spaceId, userId, id, stamp) }
     override suspend fun sharedTeamReport(options: JSONObject) = sharedOnlineCall { api, generation -> api.sharedTeamReport(generation, options) }
     override suspend fun checkSharedTeamReport(token: String) = sharedOnlineCall { api, generation -> api.checkSharedTeamReport(generation, token) }
     override suspend fun sharedTeamReportTasks(token: String, metric: String, cursor: String?) = sharedOnlineCall { api, generation -> api.sharedTeamReportTasks(generation, token, metric, cursor) }

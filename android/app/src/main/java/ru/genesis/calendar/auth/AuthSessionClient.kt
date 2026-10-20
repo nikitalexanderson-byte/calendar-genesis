@@ -19,6 +19,8 @@ internal open class AuthFailure(val kind: Kind, val httpStatus: Int? = null) : E
 internal class AuthApiError(val code: String) : Exception(code)
 
 internal fun allowedSharedRoute(method: String, path: String): Boolean {
+    if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}"))) return method == "GET"
+    if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/members/[A-Za-z0-9_-]{1,100}/project-access"))) return method in setOf("GET", "POST", "PATCH")
     if (path in setOf("/shared/reports", "/shared/reports/check", "/shared/reports/tasks")) return method == "POST"
     if (path in setOf("/shared/spaces", "/shared/invitations", "/shared/invitations/accept",
             "/shared/notifications", "/shared/notifications/read")) return method in setOf("GET", "POST")
@@ -283,6 +285,13 @@ internal class AuthSessionClient(context: Context) {
         return request(expected, "/shared/spaces/$spaceId/data-export", command,
             responseReader = { DataExportStream.read(it, command.getString("format")) })
     }
+    fun sharedProjectAccessMembers(expected: Long, space: String): JSONObject = ProjectAccessProtocol.members(space, request(expected, "/shared/spaces/${ProjectAccessProtocol.id(space)}", null))
+    fun sharedProjectAccess(expected: Long, space: String, user: String): JSONObject = ProjectAccessProtocol.snapshot(space, user,
+        request(expected, "/shared/spaces/${ProjectAccessProtocol.id(space)}/members/${ProjectAccessProtocol.id(user)}/project-access", null))
+    fun previewSharedProjectAccess(expected: Long, space: String, user: String, draft: JSONObject): JSONObject =
+        request(expected, "/shared/spaces/${ProjectAccessProtocol.id(space)}/members/${ProjectAccessProtocol.id(user)}/project-access", ProjectAccessProtocol.draft(draft, true))
+    fun saveSharedProjectAccess(expected: Long, space: String, user: String, body: JSONObject): JSONObject =
+        request(expected, "/shared/spaces/${ProjectAccessProtocol.id(space)}/members/${ProjectAccessProtocol.id(user)}/project-access", body, method = "PATCH")
     fun sharedTeamReport(expected: Long, options: JSONObject): JSONObject = request(expected, "/shared/reports", TeamReportProtocol.options(options))
     fun checkSharedTeamReport(expected: Long, token: String): JSONObject = request(expected, "/shared/reports/check", JSONObject().put("token", TeamReportProtocol.token(token)))
     fun sharedTeamReportTasks(expected: Long, token: String, metric: String, cursor: String?): JSONObject {
@@ -453,7 +462,8 @@ internal class AuthSessionClient(context: Context) {
                         val code = payload.optString("error")
                         if (path.endsWith("/data-export") && code in DataExportProtocol.errors ||
                             (path.startsWith("/shared/data/") || path.startsWith("/shared/data-imports/")) && DataImportProtocol.errorCode(code) ||
-                            path.startsWith("/shared/reports") && (code in TeamReportProtocol.errors || code.startsWith("CUSTOM_FIELD_"))) AuthApiError(code)
+                            path.startsWith("/shared/reports") && (code in TeamReportProtocol.errors || code.startsWith("CUSTOM_FIELD_")) ||
+                            path.endsWith("/project-access") && code in ProjectAccessProtocol.errors) AuthApiError(code)
                         else workflowFailure(status, payload)
                     }.getOrNull()
                     if (failure != null) throw failure

@@ -34,11 +34,27 @@ class DataImportControllerTest {
             runCatching {
                 controller.sharedDataImportDraft(space, project)?.let { controller.removeSharedDataImportDraft(space, project, it.getString("stamp")) }
                 controller.sharedDataImportCopies(space, project).forEach { controller.removeSharedDataImportCopy(space, project, it.getString("id"), it.getString("stamp")) }
+                controller.sharedProjectAccessDraft(space, project)?.let { controller.removeSharedProjectAccessDraft(space, project, it.getString("stamp")) }
             }
             state.value = previous; app.activateAccount(null)
         }
     }
     private fun selection(space: String) = importInitialSelection(space, null, "Synthetic import", "Open", "Done", "profane", "UTC", false)
+    @Test fun offlineProjectAccessDraftIsScopedAndNeverStartsAPermissionWrite() = inAccount { controller, app, state, space, user ->
+        val raw = JSONObject(InstrumentationRegistry.getInstrumentation().context.assets.open("project-access/state.json").bufferedReader().use { it.readText() }).put("spaceId", space).put("userId", user)
+        val saved = controller.saveSharedProjectAccessDraft(space, user, null, ProjectAccessProtocol.newEdit(raw))
+        assertEquals(saved.toString(), controller.sharedProjectAccessDraft(space, user)!!.toString())
+        val calls: List<suspend () -> Unit> = listOf({ controller.sharedProjectAccessMembers(space); Unit }, { controller.sharedProjectAccess(space, user); Unit },
+            { controller.previewSharedProjectAccessDraft(space, user, saved.getString("stamp")); Unit })
+        for (call in calls) assertEquals(AuthFailure.Kind.NETWORK, (runCatching { call() }.exceptionOrNull() as? AuthFailure)?.kind)
+        val account = state.value.user!!.uid
+        app.activateAccount("other-access-scope")
+        assertTrue(runCatching { controller.saveSharedProjectAccessDraft(space, user, saved.getString("stamp"), saved.getJSONObject("edit")) }.exceptionOrNull() is CancellationException)
+        app.activateAccount(account)
+        assertEquals(saved.getString("stamp"), controller.sharedProjectAccessDraft(space, user)!!.getString("stamp"))
+        state.value = state.value.copy(accountSettings = state.value.accountSettings!!.copy(sharedProjectsEnabled = false))
+        assertEquals(AuthFailure.Kind.UNAUTHORIZED, (runCatching { controller.sharedProjectAccessDraft(space, user) }.exceptionOrNull() as? AuthFailure)?.kind)
+    }
     @Test fun readOnlyReportRoutesRejectOfflineAndRevokedAccessBeforeAnyRequest() = inAccount { controller, _, state, space, project ->
         val options = JSONObject().put("filter", JSONObject().put("projectIds", org.json.JSONArray().put(project)))
             .put("from", "2026-10-01").put("to", "2026-10-31").put("calendarMode", "profane")

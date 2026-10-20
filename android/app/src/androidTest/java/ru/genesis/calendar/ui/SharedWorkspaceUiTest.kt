@@ -31,7 +31,7 @@ private const val childFixture = "10000000-0000-4000-8000-000000000003"
 private const val boardFixture = "10000000-0000-4000-8000-000000000004"
 
 private class WorkspaceFixture(val available: Boolean = true, val withTasks: Boolean = false,
-    val role: String = "owner", var planning: Boolean = false, var editPermission: Boolean? = null) : SharedWorkspaceGateway {
+    val role: String = "owner", var planning: Boolean = false, var editPermission: Boolean? = null, val access: AccessUiFixture? = null) : SharedWorkspaceGateway {
     var expanded: List<String> = emptyList()
     var snapshots = 0
     var boardTitle = "К выполнению"
@@ -80,7 +80,10 @@ private class WorkspaceFixture(val available: Boolean = true, val withTasks: Boo
             .put("statuses", JSONArray().put(JSONObject().put("id", boardFixture).put("title", boardTitle)
                 .put("position", 0).put("revision", boardRevision).put("isDone", 0).put("color", "#2d6c68").put("imageUrl", ""))
                 .put(JSONObject().put("id", "done").put("title", "Готово").put("isDone", 1).put("revision", 1)))
-            .put("tasks", JSONArray(records.map { JSONObject(it.toString()) })).put("members", JSONArray()).put("spaceMembers", JSONArray())
+            .put("tasks", JSONArray(records.map { JSONObject(it.toString()) })).put("members", JSONArray(access?.let { importRows(it.members.getJSONArray("members")).map { member ->
+                JSONObject().put("userId", member.getString("userId")).put("displayName", member.getString("displayName")).put("spaceRole", member.getString("role"))
+                    .put("role", if (member.getString("role") == "owner") "owner" else "member").put("canOrganizeTasks", true)
+            } }.orEmpty())).put("spaceMembers", JSONArray())
             .put("categories", JSONArray())
     }
     override suspend fun sharedPlanning(projectId: String): JSONObject {
@@ -114,6 +117,11 @@ private class WorkspaceFixture(val available: Boolean = true, val withTasks: Boo
         JSONObject(records.first { it.optString("id") == taskId && it.optString("projectId") == projectId }.toString()))
     override suspend fun sharedComments(projectId: String, taskId: String) = JSONObject().put("comments", JSONArray())
     override suspend fun sharedGoogleSettings(projectId: String) = JSONObject().put("settings", JSONObject())
+    override suspend fun sharedProjectAccessMembers(spaceId: String) = requireNotNull(access).sharedProjectAccessMembers(spaceId)
+    override suspend fun sharedProjectAccess(spaceId: String, userId: String) = requireNotNull(access).sharedProjectAccess(spaceId, userId)
+    override suspend fun sharedProjectAccessDraft(spaceId: String, userId: String) = requireNotNull(access).sharedProjectAccessDraft(spaceId, userId)
+    override suspend fun sharedProjectAccessCopies(spaceId: String, userId: String) = requireNotNull(access).sharedProjectAccessCopies(spaceId, userId)
+    override suspend fun saveSharedProjectAccessDraft(spaceId: String, userId: String, stamp: String?, edit: JSONObject) = requireNotNull(access).saveSharedProjectAccessDraft(spaceId, userId, stamp, edit)
     override suspend fun queuedSharedTasks(projectId: String) = queue.map { JSONObject(it.toString()) }
     override suspend fun flushSharedOfflineTasks() = 0
     override suspend fun createSharedTask(projectId: String, fields: JSONObject): JSONObject {
@@ -172,6 +180,30 @@ private class WorkspaceFixture(val available: Boolean = true, val withTasks: Boo
 
 class SharedWorkspaceUiTest {
     @get:Rule val compose = createAndroidComposeRule<PagerTestActivity>()
+
+    @Test fun projectOwnerMenuOpensTheSpaceWideMemberAccessScreen() {
+        openFixtureProject(WorkspaceFixture(withTasks = true, access = AccessUiFixture(spaceFixture)))
+        compose.onNodeWithTag("shared-actions").performClick(); compose.onNodeWithTag("shared-project-access-open").performClick()
+        compose.waitUntil(10000) { runCatching { compose.onNodeWithTag("access-review").assertIsEnabled() }.isSuccess }
+        compose.onNodeWithTag("access-member").assertExists(); compose.onNodeWithTag("access-close").performClick()
+        compose.onNodeWithTag("shared-project-access").assertDoesNotExist()
+    }
+
+    @Test fun captureOriginalProjectMembers() {
+        org.junit.Assume.assumeTrue(InstrumentationRegistry.getArguments().getString("genesisAccessBaseline") == "true")
+        var dark by mutableStateOf(false)
+        val fixture = WorkspaceFixture(withTasks = true, access = AccessUiFixture(spaceFixture))
+        compose.setContent { CompositionLocalProvider(LocalGenesisLanguage provides "ru", LocalEveningTheme provides dark) {
+            MaterialTheme(colorScheme = if (dark) evening else standart) { key(dark) { SharedProjectsScreen(fixture, "ru") } }
+        } }
+        for (night in listOf(false, true)) {
+            compose.runOnIdle { dark = night }; selectFixtureProject(fixture)
+            compose.onNodeWithTag("shared-actions").performClick(); compose.onNodeWithText("Участники и роли").performClick(); compose.waitForIdle()
+            val args = InstrumentationRegistry.getArguments()
+            val file = File(InstrumentationRegistry.getInstrumentation().targetContext.filesDir, "access-before-${args.getString("genesisAccessWidth")}-1.0-${if (night) "dark" else "light"}-ru-members.png")
+            assertTrue(androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(file))
+        }
+    }
 
     @Test fun projectPlanningMenuOpensTheExistingTaskCard() {
         val fixture = WorkspaceFixture(withTasks = true, planning = true)

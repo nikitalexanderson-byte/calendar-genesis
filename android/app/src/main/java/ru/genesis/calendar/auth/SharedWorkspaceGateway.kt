@@ -5,6 +5,19 @@ import java.util.UUID
 
 /** Shared workspace operations implemented by the authenticated controller. */
 interface SharedWorkspaceGateway {
+    suspend fun sharedProjectAccessMembers(spaceId: String): JSONObject = throw UnsupportedOperationException("sharedProjectAccessMembers")
+    suspend fun sharedProjectAccess(spaceId: String, userId: String): JSONObject = throw UnsupportedOperationException("sharedProjectAccess")
+    suspend fun sharedProjectAccessDraft(spaceId: String, userId: String): JSONObject? = null
+    suspend fun saveSharedProjectAccessDraft(spaceId: String, userId: String, stamp: String?, edit: JSONObject): JSONObject = throw UnsupportedOperationException("saveSharedProjectAccessDraft")
+    suspend fun previewSharedProjectAccessDraft(spaceId: String, userId: String, stamp: String): JSONObject = throw UnsupportedOperationException("previewSharedProjectAccessDraft")
+    suspend fun prepareSharedProjectAccessDraft(spaceId: String, userId: String, stamp: String): JSONObject = throw UnsupportedOperationException("prepareSharedProjectAccessDraft")
+    suspend fun sendSharedProjectAccessDraft(spaceId: String, userId: String, stamp: String): JSONObject = throw UnsupportedOperationException("sendSharedProjectAccessDraft")
+    suspend fun rebaseSharedProjectAccessDraft(spaceId: String, userId: String, stamp: String): JSONObject = throw UnsupportedOperationException("rebaseSharedProjectAccessDraft")
+    suspend fun removeSharedProjectAccessDraft(spaceId: String, userId: String, stamp: String): Unit = throw UnsupportedOperationException("removeSharedProjectAccessDraft")
+    suspend fun sharedProjectAccessCopies(spaceId: String, userId: String): List<JSONObject> = emptyList()
+    suspend fun saveSharedProjectAccessCopy(spaceId: String, userId: String, id: String, stamp: String?, edit: JSONObject): JSONObject = throw UnsupportedOperationException("saveSharedProjectAccessCopy")
+    suspend fun useSharedProjectAccessCopy(spaceId: String, userId: String, id: String, copyStamp: String, stamp: String?): JSONObject = throw UnsupportedOperationException("useSharedProjectAccessCopy")
+    suspend fun removeSharedProjectAccessCopy(spaceId: String, userId: String, id: String, stamp: String): Unit = throw UnsupportedOperationException("removeSharedProjectAccessCopy")
     suspend fun sharedTeamReport(options: JSONObject): JSONObject = throw UnsupportedOperationException("sharedTeamReport")
     suspend fun checkSharedTeamReport(token: String): JSONObject = throw UnsupportedOperationException("checkSharedTeamReport")
     suspend fun sharedTeamReportTasks(token: String, metric: String, cursor: String?): JSONObject = throw UnsupportedOperationException("sharedTeamReportTasks")
