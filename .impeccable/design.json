@@ -506,6 +506,18 @@
       {
         "name": "today-desktop-content-height",
         "value": "1024px"
+      },
+      {
+        "name": "compact-header",
+        "value": "1399.98px"
+      },
+      {
+        "name": "compact-header-dense",
+        "value": "599px"
+      },
+      {
+        "name": "compact-header-brand-stack",
+        "value": "479px"
       }
     ]
   },
@@ -570,9 +582,9 @@
       "name": "Цветовая схема STANDART",
       "kind": "custom",
       "refersTo": "theme-switch",
-      "description": "Кнопка единой STANDART с контрастным квадратом меняет только светлую/тёмную схему; aria-pressed отражает тёмный режим, доступное имя и общая подсказка называют следующую схему. Выбор сохраняется существующим контроллером; во время загрузки или сохранения кнопка недоступна. Образец показывает светлое состояние. Source: app/ThemeModeToggle.tsx, app/ExperimentalIcon.tsx, app/IconActionButton.tsx and app/experimental-theme.css.",
+      "description": "Кнопка единой STANDART с контрастным квадратом меняет только светлую/тёмную схему; aria-pressed отражает тёмный режим, доступное имя и общая подсказка называют следующую схему. Выбор сохраняется существующим контроллером; во время загрузки или сохранения кнопка недоступна. Статический образец показывает светлое состояние и общую поверхность подсказки; в приложении её размещением и поведением управляет единый ButtonTooltips. Source: app/ThemeModeToggle.tsx, app/ExperimentalIcon.tsx, app/IconActionButton.tsx, app/ButtonTooltips.tsx, app/button-tooltips.css and app/experimental-theme.css.",
       "html": "<span class=\"ds-theme-mode-control\"><button class=\"ds-theme-mode-toggle\" type=\"button\" aria-pressed=\"false\" aria-label=\"Включить тёмную тему\" aria-describedby=\"ds-theme-mode-hint\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><rect x=\"4\" y=\"4\" width=\"16\" height=\"16\" rx=\"3\"/><path d=\"M12 4h5a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3h-5Z\" fill=\"currentColor\" stroke=\"none\"/><path d=\"M12 4v16\"/></svg></button><span id=\"ds-theme-mode-hint\" class=\"ds-theme-mode-hint\" role=\"tooltip\">Включить тёмную тему</span></span>",
-      "css": ".ds-theme-mode-control{position:relative;display:inline-flex}.ds-theme-mode-toggle{display:inline-grid;place-items:center;width:44px;min-width:44px;height:44px;min-height:44px;margin:0;padding:0;color:var(--ink,#132426);background:var(--surface,#fffdf8);border:1px solid var(--exp-border,color-mix(in srgb,var(--ink,#132426) 13%,transparent));border-radius:var(--ui-radius,10px);box-shadow:none;cursor:pointer;transition:color 160ms ease,background 160ms ease,border-color 160ms ease,transform 160ms ease}.ds-theme-mode-toggle svg{width:18px;height:18px;flex:none}.ds-theme-mode-toggle:hover:not(:disabled){filter:brightness(1.08);transform:translateY(-1px)}.ds-theme-mode-toggle:focus-visible{outline:2px solid var(--gold,#8c672b);outline-offset:3px;transform:translateY(-1px)}.ds-theme-mode-toggle:disabled{cursor:not-allowed}.ds-theme-mode-hint{display:none;position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);z-index:1;width:max-content;max-width:min(240px,calc(100vw - 32px));padding:8px 12px;border-radius:8px;background:var(--surface,#fffdf8);color:var(--ink,#132426);font:500 12px/1.5 var(--font-ui,Inter,\"Source Sans 3\",\"Segoe UI\",sans-serif);text-align:center;overflow-wrap:anywhere;pointer-events:none}.ds-theme-mode-toggle:is(:hover,:focus-visible):not(:disabled)+.ds-theme-mode-hint{display:block}@media(prefers-reduced-motion:reduce){.ds-theme-mode-toggle{transition:none}}"
+      "css": ".ds-theme-mode-control{position:relative;display:inline-flex}.ds-theme-mode-toggle{display:inline-grid;place-items:center;width:44px;min-width:44px;height:44px;min-height:44px;margin:0;padding:0;color:var(--ink,#132426);background:var(--surface,#fffdf8);border:1px solid var(--exp-border,color-mix(in srgb,var(--ink,#132426) 13%,transparent));border-radius:var(--ui-radius,10px);box-shadow:none;cursor:pointer;transition:color 160ms ease,background 160ms ease,border-color 160ms ease,transform 160ms ease}.ds-theme-mode-toggle svg{width:18px;height:18px;flex:none}.ds-theme-mode-toggle:hover:not(:disabled){filter:brightness(1.08);transform:translateY(-1px)}.ds-theme-mode-toggle:focus-visible{outline:2px solid var(--gold,#8c672b);outline-offset:3px;transform:translateY(-1px)}.ds-theme-mode-toggle:disabled{cursor:not-allowed}.ds-theme-mode-hint{display:none;position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);z-index:1;box-sizing:border-box;width:max-content;max-width:min(280px,calc(100vw - 16px));margin:0;padding:8px 12px;border:var(--ui-popup-border-width,2px) solid var(--ui-popup-border,var(--gold,#8c672b));border-radius:8px;background:var(--surface,#fffdf8);color:var(--ink,#132426);font:500 12px/1.5 var(--font-ui,Inter,\"Source Sans 3\",\"Segoe UI\",sans-serif);letter-spacing:0;text-transform:none;text-align:center;white-space:normal;overflow-wrap:anywhere;pointer-events:none}.ds-theme-mode-toggle:is(:hover,:focus-visible):not(:disabled)+.ds-theme-mode-hint{display:block}@media(prefers-reduced-motion:reduce){.ds-theme-mode-toggle{transition:none}}"
     },
     {
       "name": "Общее раскрытие раздела",
@@ -586,7 +598,7 @@
       "name": "Раскрытие проекта",
       "kind": "custom",
       "refersTo": "project-surface",
-      "description": "Одиночный клик, касание и клавиатура раскрывают реальные задачи через aria-expanded/aria-controls; desktop double-click и отдельный eye открывают существующую карточку. Действия 44px собраны справа на desktop и одним рядом снизу на mobile, с общей personal-action-hint. Образец показывает контрол раскрытия. Source: app/GenesisCalendar.tsx and app/experimental-theme.css.",
+      "description": "Одиночный клик, касание и клавиатура раскрывают реальные задачи через aria-expanded/aria-controls; desktop double-click и отдельный eye открывают существующую карточку. Действия 44px собраны справа на desktop и одним рядом снизу на mobile, с общей подсказкой ButtonTooltips. Образец показывает контрол раскрытия. Source: app/GenesisCalendar.tsx and app/experimental-theme.css.",
       "html": "<button class=\"ds-disclosure\" type=\"button\" aria-expanded=\"true\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"m9 18 6-6-6-6\"/></svg><span><strong>Название личного проекта</strong><small>Задачи и списки проекта</small></span></button>",
       "css": ".ds-disclosure{display:grid;grid-template-columns:18px minmax(0,1fr);align-items:start;gap:8px;max-width:460px;min-width:0;padding:0;border:0;background:transparent;color:var(--ink, #132426);text-align:left;cursor:pointer}.ds-disclosure>svg{width:18px;height:18px;color:var(--gold, #8c672b);margin-top:4px;transition:transform .18s ease-out}.ds-disclosure[aria-expanded=true]>svg{transform:rotate(90deg)}.ds-disclosure strong{display:block;font:400 20px/1.3 var(--font-heading, \"Source Serif 4\", Literata, Georgia, serif);overflow-wrap:anywhere}.ds-disclosure small{display:block;margin-top:4px;color:var(--ink-soft, #526263);font:400 12px/1.6 var(--font-ui, Inter, \"Source Sans 3\", \"Segoe UI\", sans-serif);white-space:normal}.ds-disclosure:hover{cursor:pointer}.ds-disclosure:focus-visible{outline:2px solid var(--gold, #8c672b);outline-offset:3px}@media(prefers-reduced-motion:reduce){.ds-disclosure>svg{transition-duration:.01ms}}"
     }
@@ -649,8 +661,13 @@
       },
       {
         "name": "The Mobile Header Rule",
-        "body": "В web-шапке до (767px) бренд и четыре доступных действия — схема, кабинет, установка и голос — находятся в одном ряду. Каждое действие сохраняет цель (44×44px); логотип и надпись GENESIS адаптируются к узкому экрану, освобождая место для действий. На tablet действия остаются в topbar, а не в отдельной мобильной строке бренда.",
+        "body": "В web-шапке до (1399.98px) бренд, отдельная компактная группа доступных календарей и отдельная группа действий находятся в одном ряду без переноса. Действия включают схему, кабинет или вход, закреплённые уведомления, установку и голос по доступности. Календарные символы видимы во всём этом диапазоне; подписи заменяются доступными именами. Локальный размер целей шапки — (44×44px), до (599px) — `clamp(24px, 8vw, 40px)`. До (479px) при плотном наборе действий маленькая надпись GENESIS помещается под логотипом. Это локальное исключение плотности шапки. От (1400px) сохраняется прежняя композиция sidebar/topbar с текстовым выбором календаря и отдельной областью действий.",
         "section": "layout"
+      },
+      {
+        "name": "The Shared Tooltip Rule",
+        "body": "Все доступные кнопки и ссылки с одной иконкой используют один `ButtonTooltips`, включая динамические и лениво загружаемые разделы и нативные диалоги. Общая поверхность в обеих схемах использует `--surface`, `--ink`, золотую popup-границу (2px), радиус (8px), padding (8px 12px) и Inter (500, 12px/1.5); максимальная ширина — (280px) в пределах viewport. Отступ от контрола и минимальный отступ от края viewport — (8px). После касания варианта подсказка предпочитает место над контролом; остальные действия используют обычный выбор стороны с учётом доступного места. Portal помещается внутрь ближайшего открытого HTML `dialog` или popover, сохраняя browser top layer; вне них используется `body`. Слой — `--ui-layer-dialog` + 20. Одновременно открыта одна подсказка; первый Escape закрывает её, сохраняя диалог. Hover и клавиатурный focus показывают подсказку; Tab/Shift+Tab обновляет её и при переходе от касания к клавиатуре в диалоге с одной кнопкой. Прокрутка, resize и потеря фокуса окна закрывают её. Доступное имя, `aria-describedby`, `aria-selected`/`aria-pressed` и клавиатурная навигация сохраняются; нативный title не дублирует открытую подсказку.",
+        "section": "components"
       },
       {
         "name": "The Account View Order Rule",

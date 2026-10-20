@@ -166,11 +166,11 @@ export default function MindmapCanvas({ map, view, selected, selectedLink, title
         setMenu(null); setConnecting(null);
         onSelect(map.nodes.find(node => node.parentId === null)!.id);
         onHome(next);
-      }}><ExperimentalIcon name="map-home"/><span role="tooltip" className="mindmap-action-tooltip">К началу</span></button>
+      }}><ExperimentalIcon name="map-home"/></button>
       <button type="button" className="mindmap-canvas-action" aria-label="К выбранному узлу" onClick={() => {
         const row = byId.get(selected);
         if (row) scroller.current?.scrollTo({ left: Math.max(0, row.x * view.zoom - 24), top: Math.max(0, row.y * view.zoom - 24), behavior: "instant" });
-      }}><ExperimentalIcon name="thought-focus"/><span role="tooltip" className="mindmap-action-tooltip">К выбранному узлу</span></button>
+      }}><ExperimentalIcon name="thought-focus"/></button>
     </div>
     {connecting ? <p role="status">Выберите вторую карточку для связи. Escape отменяет соединение.</p> : null}
     {menu ? <div ref={menuRef} className="mindmap-context-menu" role="menu" tabIndex={-1} aria-label="Действия на полотне" style={{left:menu.left,top:menu.top}} onKeyDown={e=>{

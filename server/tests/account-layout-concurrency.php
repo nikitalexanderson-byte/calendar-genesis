@@ -32,7 +32,7 @@ try {
     $now = genesisNow();
     $db->prepare('INSERT INTO users (id, google_sub, email, display_name, workspace_key_enc, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
         ->execute([$userId, $userId, $userId . '@example.invalid', 'Isolated layout race', genesisEncrypt(base64_encode(random_bytes(32))), $now, $now]);
-    foreach ([['sharedProjectViewOrder' => ['board', 'gantt', 'list', 'calendar']], ['personalInboxWidth' => 512]] as $patch) {
+    foreach ([['sharedProjectViewOrder' => ['board', 'gantt', 'list', 'calendar']], ['personalInboxWidth' => 512], ['sharedCalendarScale' => 0.25]] as $patch) {
         $pipes = [];
         $process = proc_open([PHP_BINARY, __FILE__, '--worker', $userId, json_encode($patch, JSON_THROW_ON_ERROR)],
             [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
@@ -58,10 +58,10 @@ try {
     }
     unset($worker);
     $saved = genesisUiVisibility(genesisFindUser($userId)['ui_visibility_json']);
-    if ($saved['sharedProjectViewOrder'] !== ['board', 'gantt', 'list', 'calendar'] || $saved['personalInboxWidth'] !== 512) {
+    if ($saved['sharedProjectViewOrder'] !== ['board', 'gantt', 'list', 'calendar'] || $saved['personalInboxWidth'] !== 512 || $saved['sharedCalendarScale'] !== 0.25) {
         throw new RuntimeException('Independent concurrent layout patches lost data.');
     }
-    echo "Concurrent account layout patches preserved both values.\n";
+    echo "Concurrent account layout patches preserved all three values.\n";
 } finally {
     if ($db->inTransaction()) $db->rollBack();
     foreach ($workers as $worker) {

@@ -690,9 +690,6 @@ html[data-genesis-theme] .genesis-app .shared-board-create-actions { display:fle
 html[data-genesis-theme] .genesis-app :is(.shared-board-create-events,.shared-board-create-work) { display:flex; align-items:center; gap:6px; }
 html[data-genesis-theme] .genesis-app .shared-board-create-actions button { position:relative; display:grid; place-items:center; flex:0 0 32px; width:32px; height:32px; min-width:32px; min-height:32px; padding:6px; border-radius:8px; border:1px solid color-mix(in srgb,var(--shared-create-color) 45%,var(--line)); background:color-mix(in srgb,var(--shared-create-color) 10%,var(--surface)); color:color-mix(in srgb,var(--shared-create-color) 80%,var(--ink)); }
 html[data-genesis-theme] .genesis-app .shared-board-create-actions .experimental-icon { width: 16px; height: 16px; }
-html[data-genesis-theme] .genesis-app .shared-create-tooltip { position: absolute; bottom: calc(100% + 8px); right: 0; z-index: 10; visibility: hidden; width: max-content; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font: 500 12px/1.5 var(--font-ui); white-space: nowrap; pointer-events: none; }
-html[data-genesis-theme] .genesis-app .shared-board-create-actions button:is(:hover, :focus-visible) > .shared-create-tooltip { visibility: visible; }
-html[data-genesis-theme] .genesis-app .shared-board-create-events .shared-create-tooltip { left:0; right:auto; }
 html[data-genesis-theme] .genesis-app .shared-board-create-actions button:hover:not(:disabled) { background: color-mix(in srgb, var(--shared-create-color) 25%, var(--surface)); border-color: color-mix(in srgb, var(--shared-create-color) 75%, var(--ink)); }
 html[data-genesis-theme] .genesis-app .shared-board-create-actions button:focus-visible { outline-color: var(--shared-create-color); }
 html[data-genesis-theme] .genesis-app .shared-board-create-actions .shared-board-settings { --shared-create-color: var(--ink-soft); }
@@ -1327,14 +1324,16 @@ html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .year-month-
   html[data-genesis-theme] .genesis-app .today-view .hero-card .device-clock strong { font-size: 20px; }
   html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .today-view .hero-card .hero-copy { display: contents; }
   html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .today-view .hero-card h1 { grid-column: 1; grid-row: 1; min-width: 0; font-size: 28px; }
-  html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .today-view .hero-card .hero-actions { grid-column: 1 / -1; grid-row: 2; margin: 0; }
+  html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .today-view .hero-card .calendar-solar-control { grid-column: 1 / -1; grid-row: 2; margin: 0; }
+  html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .today-view .hero-card .hero-actions { grid-column: 1 / -1; grid-row: 3; margin: 0; }
   html[data-genesis-theme] .genesis-app[data-sacred-features="true"] .today-view .hero-card.mode-profane { gap: 12px; }
   html[data-genesis-theme] .genesis-app[data-sacred-features="true"] .today-view .hero-card.mode-profane .hero-copy { display: contents; }
   html[data-genesis-theme] .genesis-app[data-sacred-features="true"] .today-view .hero-card.mode-profane .eyebrow-row { grid-column: 1; grid-row: 1; align-self: start; }
   html[data-genesis-theme] .genesis-app[data-sacred-features="true"] .today-view .hero-card.mode-profane h1 { grid-column: 1 / -1; grid-row: 2; min-width: 0; margin: 0; }
   html[data-genesis-theme] .genesis-app[data-sacred-features="true"] .today-view .hero-card.mode-profane .hero-day-title-translation { font-size: clamp(20px, 5.8vw, 28px) !important; }
   html[data-genesis-theme] .genesis-app[data-sacred-features="true"] .today-view .hero-card.mode-profane .profane-hero-description { grid-column: 1 / -1; grid-row: 3; margin: 0; }
-  html[data-genesis-theme] .genesis-app[data-sacred-features="true"] .today-view .hero-card.mode-profane .hero-actions { grid-column: 1 / -1; grid-row: 4; margin-top: 12px; }
+  html[data-genesis-theme] .genesis-app[data-sacred-features="true"] .today-view .hero-card.mode-profane .calendar-solar-control { grid-column: 1 / -1; grid-row: 4; margin: 0; }
+  html[data-genesis-theme] .genesis-app[data-sacred-features="true"] .today-view .hero-card.mode-profane .hero-actions { grid-column: 1 / -1; grid-row: 5; margin-top: 12px; }
   html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .day-details-heading { padding: 20px; }
 }
 @media (max-width:600px) {

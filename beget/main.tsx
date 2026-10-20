@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { GenesisCalendar } from "../app/GenesisCalendar";
 import { AppUrlCleaner } from "../app/AppUrlCleaner";
+import { ButtonTooltips } from "../app/ButtonTooltips";
 import "../app/globals.css";
 import "../app/dark-theme.css";
 import "../app/tablet-layout.css";
@@ -34,6 +35,7 @@ if (!root) {
 createRoot(root).render(
   <StrictMode>
     <AppUrlCleaner />
+    <ButtonTooltips />
     <GenesisCalendar />
   </StrictMode>,
 );

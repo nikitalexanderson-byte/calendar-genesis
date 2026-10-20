@@ -122,6 +122,7 @@ try {
         'sharedTasksCompact' => false,
         'notificationDockPinned' => true, 'notificationDockX' => 1250, 'notificationDockY' => 2500,
         'sharedProjectViewOrder' => ['board','calendar','list','gantt'],
+        'sharedCalendarScale' => 0.25,
     ];
     $user = genesisUpdateAccountPreferences($userId, ['uiVisibility' => $visibility]);
     expect(genesisUserForClient($user)['uiVisibility'] === $visibility, 'Navigation visibility did not round-trip.');
@@ -129,7 +130,7 @@ try {
     foreach (['sacredFeaturesEnabled', 'sidebarAutoCollapseSeconds', 'sidebarWidth', 'personalInboxPosition', 'personalInboxHidden',
         'personalInboxCompact', 'sharedInboxPosition', 'sharedInboxHidden', 'sharedInboxCompact',
         'personalInboxWidth', 'sharedInboxWidth', 'sharedCategoriesExpanded', 'personalCategoriesExpanded', 'personalCategoriesView', 'sharedCategoriesView', 'sharedTasksCompact',
-        'notificationDockPinned', 'notificationDockX', 'notificationDockY', 'sharedProjectViewOrder'] as $field) unset($legacyVisibility[$field]);
+        'notificationDockPinned', 'notificationDockX', 'notificationDockY', 'sharedProjectViewOrder', 'sharedCalendarScale'] as $field) unset($legacyVisibility[$field]);
     $user = genesisUpdateAccountPreferences($userId, ['uiVisibility' => $legacyVisibility]);
     expect(genesisUserForClient($user)['uiVisibility']['sidebarAutoCollapseSeconds'] === 30,
         'An older client reset the sidebar delay.');
@@ -155,6 +156,7 @@ try {
         ['notificationDockPinned'=>1], ['notificationDockX'=>10001], ['notificationDockY'=>'0'],
         ['sharedProjectViewOrder'=>['board','board','calendar','gantt']], ['sharedProjectViewOrder'=>['board','list']],
         ['sharedProjectViewOrder'=>'board,list,calendar,gantt'], ['sharedProjectViewOrder'=>['board','list','calendar',false]],
+        ['sharedCalendarScale'=>null], ['sharedCalendarScale'=>'0.5'], ['sharedCalendarScale'=>0], ['sharedCalendarScale'=>0.75], ['sharedCalendarScale'=>true],
         ['sharedInboxHidden' => 1], ['personalInboxPosition' => 'floating'], ['sharedInboxCompact' => 'true']] as $invalid) {
         try {
             genesisUpdateAccountPreferences($userId, ['uiVisibility' => [...$visibility, ...$invalid]]);
@@ -164,6 +166,11 @@ try {
     $user = genesisUpdateAccountPreferences($userId, ['uiLayout' => ['sharedProjectViewOrder' => ['gantt','board','list','calendar']]]);
     expect(genesisUserForClient($user)['uiVisibility']['sharedProjectViewOrder'] === ['gantt','board','list','calendar'], 'View order patch did not round-trip.');
     expect(genesisUserForClient($user)['uiVisibility']['personalInboxWidth'] === 512, 'View order patch reset unrelated layout.');
+    foreach ([1, 0.5, 0.25] as $scale) {
+        $user = genesisUpdateAccountPreferences($userId, ['uiLayout' => ['sharedCalendarScale' => $scale]]);
+        expect(genesisUserForClient($user)['uiVisibility']['sharedCalendarScale'] === $scale, 'Calendar scale did not round-trip.');
+        expect(genesisUserForClient($user)['uiVisibility']['personalInboxWidth'] === 512, 'Calendar scale reset unrelated layout.');
+    }
     $user = genesisUpdateAccountPreferences($userId, ['uiVisibility' => genesisUiVisibility([]),
         'calendarMode' => 'sacred', 'taskCalendarMode' => 'lunar']);
     expect((genesisUserForClient($user)['theme'] ?? '') === 'standart', 'Theme must default safely to Standart.');

@@ -9,6 +9,7 @@ import "./experimental-theme.css";
 import "./layout-refinements.css";
 import "./popup-surfaces.css";
 import { AppUrlCleaner } from "./AppUrlCleaner";
+import { ButtonTooltips } from "./ButtonTooltips";
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
@@ -66,7 +67,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="ru">
-      <body><AppUrlCleaner />{children}</body>
+      <body><AppUrlCleaner /><ButtonTooltips />{children}</body>
     </html>
   );
 }
