@@ -1293,8 +1293,26 @@ html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .year-month-
   html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .topbar { grid-template-columns: minmax(0, 1fr) auto; }
 }
 @media (max-width: 760px) {
-  html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .hero-card { grid-template-columns: minmax(0, 1fr); gap: 20px; padding: 24px 20px; }
-  html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .hero-day-clock { grid-template-columns: minmax(0, 1fr); width: 100%; max-width: none; }
+  html[data-genesis-theme] .genesis-app .today-view .hero-card {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; align-content: start;
+    gap: 20px 12px; min-height: 0; padding: 24px 20px;
+  }
+  html[data-genesis-theme] .genesis-app .today-view .hero-card .hero-copy {
+    grid-column: 1 / -1; grid-row: 2; width: 100%; min-width: 0; max-width: none; padding: 0;
+  }
+  html[data-genesis-theme] .genesis-app .today-view .hero-card .hero-day-clock { display: contents; }
+  html[data-genesis-theme] .genesis-app .today-view .hero-card .hero-number {
+    position: static; grid-column: 1; grid-row: 1; justify-self: start; justify-items: start; max-width: 100%; margin: 0;
+  }
+  html[data-genesis-theme] .genesis-app .today-view .hero-card .hero-number small { text-align: start; }
+  html[data-genesis-theme] .genesis-app .today-view .hero-card .device-clock {
+    position: static; inset: auto; grid-column: 2; grid-row: 1; align-self: start; justify-self: end;
+    width: auto; min-width: 0; max-width: 148px; margin: 0; text-align: end; overflow-wrap: anywhere;
+  }
+  html[data-genesis-theme] .genesis-app .today-view .hero-card .device-clock strong { font-size: 20px; }
+  html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .today-view .hero-card .hero-copy { display: contents; }
+  html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .today-view .hero-card h1 { grid-column: 1; grid-row: 1; min-width: 0; font-size: 28px; }
+  html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .today-view .hero-card .hero-actions { grid-column: 1 / -1; grid-row: 2; margin: 0; }
   html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .day-details-heading { padding: 20px; }
 }
 @media (max-width:600px) {

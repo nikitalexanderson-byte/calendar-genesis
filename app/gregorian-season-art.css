@@ -9,7 +9,16 @@ html[data-genesis-theme] .genesis-app .calendar-mode-year-month.mode-profane::be
 }
 html[data-genesis-theme$="-dark"] .genesis-app .calendar-mode-year-month.mode-profane { background: #0e1013; }
 html[data-genesis-theme$="-dark"] .genesis-app .calendar-mode-year-month.mode-profane::before {
-  background-image: linear-gradient(rgb(6 8 10 / .78), rgb(6 8 10 / .78)), var(--month-art); opacity: 1;
+  background-image: linear-gradient(rgb(6 8 10 / .9), rgb(6 8 10 / .9)), var(--month-art); opacity: 1;
+}
+html[data-genesis-theme$="-dark"] .genesis-app .year-month.calendar-mode-year-month.mode-profane {
+  --year-day-base: #2b3832;
+  --year-day-mask-strength: 22%;
+  --year-day-hover-strength: 30%;
+}
+html[data-genesis-theme$="-dark"] .genesis-app .year-month.calendar-mode-year-month.mode-profane .mini-day[data-weekday="1"] {
+  --year-day-mask-strength: 27%;
+  --year-day-hover-strength: 27%;
 }
 html[data-genesis-theme] .genesis-app .calendar-mode-year-month.mode-profane::after { background: none; }
 html[data-genesis-theme] .genesis-app .calendar-view.mode-profane .calendar-mode-header { background-image: none; }
