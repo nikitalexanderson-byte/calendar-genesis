@@ -157,7 +157,19 @@ for (const language of ["ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "s
     }
   }
 }
-const translations = { ...web, ...curated, ...supplemental, ...sacred, ...native, ...workCopy, ...exportCopy.en };
+const importCopy = JSON.parse(await readFile(path.join(ROOT, "app/native-data-import-translations.json"), "utf8"));
+const importKeys = Object.keys(importCopy.ru ?? {});
+if (importKeys.length !== 38) throw new Error("Native import copy must contain all 38 labels.");
+for (const language of ["ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja"]) {
+  if (Object.keys(importCopy[language] ?? {}).length !== importKeys.length) throw new Error(`Incomplete native import catalog: ${language}`);
+  for (const key of importKeys) {
+    const value = importCopy[language]?.[key];
+    if (typeof value !== "string" || !value.trim() || (!["ru", "sr", "uk"].includes(language) && CYRILLIC.test(value))) {
+      throw new Error(`Incomplete native import copy: ${language}: ${key}`);
+    }
+  }
+}
+const translations = { ...web, ...curated, ...supplemental, ...sacred, ...native, ...workCopy, ...exportCopy.en, ...importCopy.en };
 const affairs = JSON.parse(await readFile(path.join(ROOT, "app/native-affairs-translations.json"), "utf8"));
 const affairKeys = Object.keys(affairs.en ?? {});
 if (affairKeys.length !== 41) throw new Error("Native supplemental copy must contain all 41 labels.");

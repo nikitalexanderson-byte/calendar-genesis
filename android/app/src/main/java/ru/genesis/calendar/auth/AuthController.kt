@@ -62,6 +62,11 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
     private val planningOperationMutex = Mutex()
     private val workflowJournal = PlanningJournal(PlanningDraftStore(context.applicationContext, "workflow"), contract = WorkflowJournalContract)
     private val workflowOperationMutex = Mutex()
+    private val importStorage = PlanningDraftStore(context.applicationContext, "data-import")
+    private val importJournal = PlanningJournal(importStorage, contract = DataImportJournalContract)
+    private val importUndoJournal = DataImportUndoJournal(importStorage)
+    private val importSources = DataImportBlobStore(context.applicationContext)
+    private val importOperationMutex = Mutex()
     private val credentials = CredentialManager.create(context.applicationContext)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var operation: Job? = null
@@ -211,6 +216,52 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
     }
     override suspend fun exportSharedData(spaceId: String, command: JSONObject): JSONObject =
         sharedOnlineCall { api, generation -> api.exportSharedData(generation, spaceId, command) }
+    private suspend fun <T> dataImportCall(space: String, action: (DataImportDraftService) -> T): T {
+        require(PlanningLifecycle.id(space))
+        val initial = mutableState.value; val account = initial.user?.uid ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
+        check(initial.ready && initial.accountSettings?.sharedProjectsEnabled == true)
+        val generation = client.currentGeneration(); val caller = currentCoroutineContext()
+        fun current() {
+            caller.ensureActive(); val state = mutableState.value
+            if (!client.isCurrent(generation) || !state.ready || state.user?.uid != account || state.accountSettings?.sharedProjectsEnabled != true ||
+                app.workspaceScope != CloudAccountSnapshot.scopeFor(account)) throw CancellationException()
+        }
+        val access = object : DataImportAccess {
+            override fun check() = current()
+            private fun online() { current(); if (mutableState.value.requiresSignIn) throw AuthFailure(AuthFailure.Kind.NETWORK) }
+            override fun hasTaskQueue(project: String): Boolean = sharedOffline.queued(account).any {
+                it.optString("projectId") == project || it.optJSONObject("body")?.optString("destinationProjectId") == project
+            }
+            override fun preview(selection: JSONObject, content: String): JSONObject { online(); return client.previewSharedData(generation, selection, content).also { current() } }
+            override fun apply(selection: JSONObject, content: String, operation: String, fingerprint: String): JSONObject {
+                online(); return client.applySharedData(generation, selection, content, operation, fingerprint).also { current() }
+            }
+            override fun imports(space: String, cursor: String?): JSONObject { online(); return client.sharedDataImports(generation, space, cursor).also { current() } }
+            override fun undo(import: String): JSONObject { online(); return client.undoSharedData(generation, import).also { current() } }
+            override fun history(project: String, cursor: String?): JSONObject { online(); return client.sharedDataHistory(generation, project, cursor).also { current() } }
+        }
+        return withContext(Dispatchers.IO) { importOperationMutex.withLock {
+            current(); action(DataImportDraftService(importJournal, importUndoJournal, importSources, account, space, access)).also { current() }
+        } }
+    }
+    override suspend fun sharedDataImportDraft(spaceId: String, projectId: String) = dataImportCall(spaceId) { it.load(projectId) }
+    override suspend fun sharedDataImportHeaders(spaceId: String, projectId: String, stamp: String, delimiter: String) = dataImportCall(spaceId) { it.headers(projectId, stamp, delimiter) }
+    override suspend fun chooseSharedDataImportSource(spaceId: String, projectId: String, stamp: String?, name: String, selection: JSONObject, open: () -> java.io.InputStream) =
+        dataImportCall(spaceId) { it.choose(projectId, stamp, name, open, selection) }
+    override suspend fun saveSharedDataImportDraft(spaceId: String, projectId: String, stamp: String?, edit: JSONObject) = dataImportCall(spaceId) { it.save(projectId, stamp, edit) }
+    override suspend fun inspectSharedDataImport(spaceId: String, projectId: String, stamp: String) = dataImportCall(spaceId) { it.inspect(projectId, stamp) }
+    override suspend fun prepareSharedDataImport(spaceId: String, projectId: String, stamp: String) = dataImportCall(spaceId) { it.prepare(projectId, stamp) }
+    override suspend fun sendSharedDataImport(spaceId: String, projectId: String, stamp: String) = dataImportCall(spaceId) { it.send(projectId, stamp) }
+    override suspend fun removeSharedDataImportDraft(spaceId: String, projectId: String, stamp: String): Unit = dataImportCall(spaceId) { it.remove(projectId, stamp) }
+    override suspend fun sharedDataImportCopies(spaceId: String, projectId: String) = dataImportCall(spaceId) { it.copies(projectId) }
+    override suspend fun saveSharedDataImportCopy(spaceId: String, projectId: String, id: String, stamp: String?, edit: JSONObject) = dataImportCall(spaceId) { it.saveCopy(projectId, id, stamp, edit) }
+    override suspend fun useSharedDataImportCopy(spaceId: String, projectId: String, id: String, copyStamp: String, stamp: String?) = dataImportCall(spaceId) { it.useCopy(projectId, id, copyStamp, stamp) }
+    override suspend fun removeSharedDataImportCopy(spaceId: String, projectId: String, id: String, stamp: String): Unit = dataImportCall(spaceId) { it.removeCopy(projectId, id, stamp) }
+    override suspend fun sharedDataImports(spaceId: String, cursor: String?) = dataImportCall(spaceId) { it.imports(cursor) }
+    override suspend fun pendingSharedDataUndos(spaceId: String) = dataImportCall(spaceId) { it.pendingUndos() }
+    override suspend fun sharedDataUndoOutcomes(spaceId: String) = dataImportCall(spaceId) { it.undoOutcomes() }
+    override suspend fun undoSharedDataImport(spaceId: String, receipt: JSONObject) = dataImportCall(spaceId) { it.undo(receipt) }
+    override suspend fun sharedDataHistory(projectId: String, cursor: String?) = sharedOnlineCall { api, generation -> api.sharedDataHistory(generation, projectId, cursor) }
     override suspend fun sharedSprintReport(projectId: String, sprintId: String, unit: String): JSONObject =
         sharedOnlineCall { api, generation -> api.sharedSprintReport(generation, projectId, sprintId, unit) }
     override suspend fun checkSharedSprintReport(projectId: String, sprintId: String, token: String): JSONObject =

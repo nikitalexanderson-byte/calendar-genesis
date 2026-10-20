@@ -28,6 +28,10 @@ internal fun allowedSharedRoute(method: String, path: String): Boolean {
     if (path.matches(Regex("/shared/invitations/[a-f0-9-]{36}"))) return method == "POST"
     if (path == "/shared/task-lists") return method == "GET"
     if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/data-export"))) return method == "POST"
+    if (path in setOf("/shared/data/preview?view=native-v1", "/shared/data/apply?view=native-v1")) return method == "POST"
+    if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/data-imports\\?view=native-v1(?:&cursor=[a-f0-9-]{36})?"))) return method == "GET"
+    if (path.matches(Regex("/shared/data-imports/[a-f0-9-]{36}/undo"))) return method == "POST"
+    if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/data-history(?:\\?cursor=[1-9][0-9]{0,17})?"))) return method == "GET"
     if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/planning"))) return method in setOf("GET", "PUT")
     if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/workflow"))) return method in setOf("GET", "PUT")
     if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/workflow/history(?:\\?before=[1-9][0-9]{0,9})?"))) return method == "GET"
@@ -278,6 +282,26 @@ internal class AuthSessionClient(context: Context) {
         return request(expected, "/shared/spaces/$spaceId/data-export", command,
             responseReader = { DataExportStream.read(it, command.getString("format")) })
     }
+    fun previewSharedData(expected: Long, selection: JSONObject, content: String): JSONObject {
+        val command = DataImportProtocol.selection(selection)
+        return request(expected, "/shared/data/preview?view=native-v1", command, importBody = DataImportBody(command, content))
+    }
+    fun applySharedData(expected: Long, selection: JSONObject, content: String, operation: String, fingerprint: String): JSONObject {
+        require(PlanningLifecycle.id(operation) && fingerprint.matches(Regex("[a-f0-9]{64}")))
+        val command = DataImportProtocol.selection(selection).put("operationId", operation).put("fingerprint", fingerprint)
+        return request(expected, "/shared/data/apply?view=native-v1", command, importBody = DataImportBody(command, content))
+    }
+    fun sharedDataImports(expected: Long, space: String, cursor: String?): JSONObject {
+        require(PlanningLifecycle.id(space) && (cursor == null || PlanningLifecycle.id(cursor)))
+        return request(expected, "/shared/spaces/$space/data-imports?view=native-v1" + (cursor?.let { "&cursor=$it" } ?: ""), null)
+    }
+    fun undoSharedData(expected: Long, import: String): JSONObject {
+        require(PlanningLifecycle.id(import)); return request(expected, "/shared/data-imports/$import/undo", JSONObject())
+    }
+    fun sharedDataHistory(expected: Long, project: String, cursor: String?): JSONObject {
+        require(PlanningLifecycle.id(project) && (cursor == null || cursor.matches(Regex("[1-9][0-9]{0,17}"))))
+        return request(expected, "/shared/projects/$project/data-history" + (cursor?.let { "?cursor=$it" } ?: ""), null)
+    }
     fun setSharedProjectArchived(expected: Long, projectId: String, archived: Boolean): JSONObject =
         request(expected, "/shared/projects/$projectId/${if (archived) "archive" else "restore"}", JSONObject())
     fun createSharedStatus(expected: Long, projectId: String, body: JSONObject): JSONObject =
@@ -359,7 +383,7 @@ internal class AuthSessionClient(context: Context) {
     /** Blocking; the controller always calls on Dispatchers.IO. Default platform TLS verification. */
     private fun request(expected: Long, path: String, body: JSONObject?, secret: SessionSecret? = null,
         persist: Boolean = true, method: String = if (body == null) "GET" else "POST",
-        responseReader: ((java.io.InputStream) -> JSONObject)? = null): JSONObject {
+        responseReader: ((java.io.InputStream) -> JSONObject)? = null, importBody: DataImportBody? = null): JSONObject {
         require(path in setOf("/session", "/auth/providers", "/workspace", "/bootstrap", "/stoicheion/draws", "/auth/google/native/challenge",
             "/auth/yandex/native",
             "/account/yandex-calendar/connect", "/account/yandex-calendar/disconnect",
@@ -381,7 +405,7 @@ internal class AuthSessionClient(context: Context) {
         try {
             connection.instanceFollowRedirects = false
             connection.connectTimeout = 15_000
-            connection.readTimeout = if (path == "/bootstrap") 120_000 else 30_000
+            connection.readTimeout = if (path == "/bootstrap" || path.startsWith("/shared/data/")) 120_000 else 30_000
             connection.useCaches = false
             connection.requestMethod = method
             connection.setRequestProperty("Accept", "application/json")
@@ -394,11 +418,14 @@ internal class AuthSessionClient(context: Context) {
                 connection.setRequestProperty("X-CSRF-Token", current.csrf)
                 connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
                 connection.doOutput = true
-                val bytes = body.toString().toByteArray(Charsets.UTF_8)
-                connection.setFixedLengthStreamingMode(bytes.size)
+                val bytes = if (importBody == null) body.toString().toByteArray(Charsets.UTF_8) else null
+                connection.setFixedLengthStreamingMode(importBody?.length ?: requireNotNull(bytes).size)
                 synchronized(guard) { check(expected) }
                 phase = "write"
-                connection.outputStream.use { it.write(bytes) }
+                connection.outputStream.use { output ->
+                    if (importBody == null) output.write(requireNotNull(bytes))
+                    else importBody.write(output) { synchronized(guard) { check(expected) } }
+                }
             }
             synchronized(guard) { check(expected) }
             phase = "status"
@@ -417,7 +444,8 @@ internal class AuthSessionClient(context: Context) {
                         }
                         val payload = JSONObject(output.toString(Charsets.UTF_8.name()))
                         val code = payload.optString("error")
-                        if (path.endsWith("/data-export") && code in DataExportProtocol.errors) AuthApiError(code)
+                        if (path.endsWith("/data-export") && code in DataExportProtocol.errors ||
+                            (path.startsWith("/shared/data/") || path.startsWith("/shared/data-imports/")) && DataImportProtocol.errorCode(code)) AuthApiError(code)
                         else workflowFailure(status, payload)
                     }.getOrNull()
                     if (failure != null) throw failure

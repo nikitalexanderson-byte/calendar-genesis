@@ -6,6 +6,23 @@ import java.util.UUID
 /** Shared workspace operations implemented by the authenticated controller. */
 interface SharedWorkspaceGateway {
     suspend fun exportSharedData(spaceId: String, command: JSONObject): JSONObject = throw UnsupportedOperationException("exportSharedData")
+    suspend fun sharedDataImportDraft(spaceId: String, projectId: String): JSONObject? = null
+    suspend fun sharedDataImportHeaders(spaceId: String, projectId: String, stamp: String, delimiter: String): List<String> = emptyList()
+    suspend fun chooseSharedDataImportSource(spaceId: String, projectId: String, stamp: String?, name: String, selection: JSONObject, open: () -> java.io.InputStream): JSONObject = throw UnsupportedOperationException("chooseSharedDataImportSource")
+    suspend fun saveSharedDataImportDraft(spaceId: String, projectId: String, stamp: String?, edit: JSONObject): JSONObject = throw UnsupportedOperationException("saveSharedDataImportDraft")
+    suspend fun inspectSharedDataImport(spaceId: String, projectId: String, stamp: String): JSONObject = throw UnsupportedOperationException("inspectSharedDataImport")
+    suspend fun prepareSharedDataImport(spaceId: String, projectId: String, stamp: String): JSONObject = throw UnsupportedOperationException("prepareSharedDataImport")
+    suspend fun sendSharedDataImport(spaceId: String, projectId: String, stamp: String): JSONObject = throw UnsupportedOperationException("sendSharedDataImport")
+    suspend fun removeSharedDataImportDraft(spaceId: String, projectId: String, stamp: String): Unit = throw UnsupportedOperationException("removeSharedDataImportDraft")
+    suspend fun sharedDataImportCopies(spaceId: String, projectId: String): List<JSONObject> = emptyList()
+    suspend fun saveSharedDataImportCopy(spaceId: String, projectId: String, id: String, stamp: String?, edit: JSONObject): JSONObject = throw UnsupportedOperationException("saveSharedDataImportCopy")
+    suspend fun useSharedDataImportCopy(spaceId: String, projectId: String, id: String, copyStamp: String, stamp: String?): JSONObject = throw UnsupportedOperationException("useSharedDataImportCopy")
+    suspend fun removeSharedDataImportCopy(spaceId: String, projectId: String, id: String, stamp: String): Unit = throw UnsupportedOperationException("removeSharedDataImportCopy")
+    suspend fun sharedDataImports(spaceId: String, cursor: String?): JSONObject = throw UnsupportedOperationException("sharedDataImports")
+    suspend fun pendingSharedDataUndos(spaceId: String): List<JSONObject> = emptyList()
+    suspend fun sharedDataUndoOutcomes(spaceId: String): List<JSONObject> = emptyList()
+    suspend fun undoSharedDataImport(spaceId: String, receipt: JSONObject): JSONObject = throw UnsupportedOperationException("undoSharedDataImport")
+    suspend fun sharedDataHistory(projectId: String, cursor: String?): JSONObject = throw UnsupportedOperationException("sharedDataHistory")
     suspend fun acceptSharedInvitation(id: String): JSONObject = throw UnsupportedOperationException("acceptSharedInvitation")
     suspend fun addSharedComment(projectId: String, taskId: String, body: String): JSONObject = throw UnsupportedOperationException("addSharedComment")
     suspend fun archivedSharedProjects(spaceId: String): JSONObject = throw UnsupportedOperationException("archivedSharedProjects")
