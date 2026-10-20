@@ -12276,7 +12276,7 @@ html:not([data-genesis-theme$="-dark"]) .month-calendar .calendar-day.today .cal
 .habit-check-list > article.done > .habit-check { animation:habit-check-confirm .4s cubic-bezier(.2,.9,.25,1); }
 .kind-negative.done > .habit-check { background: #923e3e; }
 .habit-check-copy { display: grid; min-width: 0; gap: 4px; }
-.habit-check-copy > span { display: flex; align-items: baseline; gap: 9px; min-width: 0; }
+.habit-check-heading { display: flex; align-items: baseline; gap: 9px; min-width: 0; }
 .habit-check-copy strong { overflow: hidden; font: 600 13px/1.2 Arial, sans-serif; text-overflow: ellipsis; white-space: nowrap; }
 .habit-check-copy em { color: var(--habit-color); font-size: 7px; font-style: normal; letter-spacing: .08em; text-transform: uppercase; }
 .habit-emoji { flex: 0 0 auto; font-size: 17px; line-height: 1; }

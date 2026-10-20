@@ -1511,7 +1511,7 @@ html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-ritual-group > h
 html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-ritual-group > header em { font: 600 13px/1.5 var(--font-ui); font-variant-numeric: tabular-nums; }
 html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-check-list > article { grid-template-columns: 44px minmax(0,1fr) auto; align-items: start; gap: 12px; padding: 14px; }
 html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-check { width: 44px; height: 44px; }
-html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-check-copy > span { display: grid; grid-template-columns: 24px minmax(0,1fr) auto; align-items: start; gap: 4px 8px; }
+html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-check-heading { display: grid; grid-template-columns: 24px minmax(0,1fr) auto; align-items: start; gap: 4px 8px; }
 html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-check-copy strong { min-width: 0; white-space: normal; overflow-wrap: anywhere; font: 600 15px/1.5 var(--font-ui); }
 html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-check-copy em { font: 500 11px/1.5 var(--font-ui); letter-spacing: 0; text-transform: none; white-space: nowrap; }
 html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-check-copy small { font: 400 13px/1.5 var(--font-ui); }
@@ -1524,8 +1524,8 @@ html[data-genesis-theme] .genesis-app .habit-daily-panel .mood-summary strong { 
   html[data-genesis-theme] .genesis-app .habit-daily-panel > header { align-items: start; }
   html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-check-list > article { gap: 10px; padding: 12px; }
   html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-check-copy { display: contents; }
-  html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-check-copy > span { grid-column: 2; grid-row: 1; grid-template-columns: 24px minmax(0,1fr); }
-  html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-check-copy > :is(small, button, details) { grid-column: 1 / -1; width: 100%; min-width: 0; margin: 0; text-align: start; }
+  html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-check-heading { grid-column: 2; grid-row: 1; grid-template-columns: 24px minmax(0,1fr); }
+  html[data-genesis-theme] .genesis-app .habit-daily-panel :is(.habit-check-copy, .habit-check-main, .habit-check-timing) > :is(small, button, details) { grid-column: 1 / -1; width: 100%; min-width: 0; margin: 0; text-align: start; }
   html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-check-copy .habit-timer-launch { min-height: 44px; justify-content: center; }
   html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-interval-marks > summary { overflow-wrap: normal; }
   html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-check-list > article > :is(.habit-measurement-control, .habit-period-progress, .habit-quality-control, .habit-quality-confirmed, .habit-quality-slider, .habit-time-entry) { grid-column: 1 / -1; grid-row: auto; }
