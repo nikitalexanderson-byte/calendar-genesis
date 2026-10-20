@@ -52,6 +52,14 @@ html[data-genesis-theme] .genesis-app .ios-install-dialog ol { padding-inline-st
 html[data-genesis-theme] .genesis-app .weekday-tinted-calendar .shared-projects-calendar-date[data-weekday] {
   background: color-mix(in srgb, var(--year-day-mask) var(--year-day-mask-strength), var(--year-day-base));
 }
+html[data-genesis-theme$="-dark"] .genesis-app .weekday-tinted-calendar [data-weekday="0"] { --shared-weekday-fill: var(--gregorian-weekday-0); }
+html[data-genesis-theme$="-dark"] .genesis-app .weekday-tinted-calendar [data-weekday="1"] { --shared-weekday-fill: var(--gregorian-weekday-1); }
+html[data-genesis-theme$="-dark"] .genesis-app .weekday-tinted-calendar [data-weekday="2"] { --shared-weekday-fill: var(--gregorian-weekday-2); }
+html[data-genesis-theme$="-dark"] .genesis-app .weekday-tinted-calendar [data-weekday="3"] { --shared-weekday-fill: var(--gregorian-weekday-3); }
+html[data-genesis-theme$="-dark"] .genesis-app .weekday-tinted-calendar [data-weekday="4"] { --shared-weekday-fill: var(--gregorian-weekday-4); }
+html[data-genesis-theme$="-dark"] .genesis-app .weekday-tinted-calendar [data-weekday="5"] { --shared-weekday-fill: var(--gregorian-weekday-5); }
+html[data-genesis-theme$="-dark"] .genesis-app .weekday-tinted-calendar [data-weekday="6"] { --shared-weekday-fill: var(--gregorian-weekday-6); }
+html[data-genesis-theme$="-dark"] .genesis-app .weekday-tinted-calendar .shared-projects-calendar-date[data-weekday] { background: var(--shared-weekday-fill); }
 html[data-genesis-theme] .genesis-app .weekday-tinted-calendar .shared-projects-calendar-date[data-solar] {
   background: #e5bd61; border: 2px solid #987025;
 }
@@ -101,6 +109,7 @@ html[data-genesis-theme] .genesis-app .shared-projects-guide > i {
   html[data-genesis-theme] .genesis-app .topbar .topbar-calendar-choice > button { width: 100%; min-width: 0; height: 48px; min-height: 48px; padding: 10px 4px; border-radius: 9px; justify-content: center; }
   html[data-genesis-theme] .genesis-app .topbar .topbar-date-row { display: flex; align-items: center; justify-content: center; gap: 12px; min-width: 0; }
   html[data-genesis-theme] .genesis-app .topbar .topbar-date { flex: 1; min-width: 0; text-align: center; }
+  html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .topbar[data-exp-ui]:not(:has(.notification-header-slot > button:not([hidden]))) { display: none; }
 }
 @media (max-width: 400px) {
   html[data-genesis-theme] .genesis-app .app-brand-header:has(.topbar-actions) { gap: 6px; padding-inline: 12px; }

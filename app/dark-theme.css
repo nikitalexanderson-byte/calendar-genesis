@@ -152,13 +152,22 @@ html[data-genesis-theme$="-dark"] .calendar-mode-calendar.mode-profane .calendar
   color: var(--ink);
   box-shadow: none;
 }
-html[data-genesis-theme$="-dark"] .calendar-mode-calendar.mode-profane .calendar-day.weekday-0 { --weekday-wash: #403925; }
-html[data-genesis-theme$="-dark"] .calendar-mode-calendar.mode-profane .calendar-day.weekday-1 { --weekday-wash: #303c45; }
-html[data-genesis-theme$="-dark"] .calendar-mode-calendar.mode-profane .calendar-day.weekday-2 { --weekday-wash: #453132; }
-html[data-genesis-theme$="-dark"] .calendar-mode-calendar.mode-profane .calendar-day.weekday-3 { --weekday-wash: #273e37; }
-html[data-genesis-theme$="-dark"] .calendar-mode-calendar.mode-profane .calendar-day.weekday-4 { --weekday-wash: #293e51; }
-html[data-genesis-theme$="-dark"] .calendar-mode-calendar.mode-profane .calendar-day.weekday-5 { --weekday-wash: #3d3247; }
-html[data-genesis-theme$="-dark"] .calendar-mode-calendar.mode-profane .calendar-day.weekday-6 { --weekday-wash: #303c36; }
+html[data-genesis-theme$="-dark"] .genesis-app {
+  --gregorian-weekday-0: #403925;
+  --gregorian-weekday-1: #303c45;
+  --gregorian-weekday-2: #453132;
+  --gregorian-weekday-3: #273e37;
+  --gregorian-weekday-4: #293e51;
+  --gregorian-weekday-5: #3d3247;
+  --gregorian-weekday-6: #303c36;
+}
+html[data-genesis-theme$="-dark"] .calendar-mode-calendar.mode-profane .calendar-day.weekday-0 { --weekday-wash: var(--gregorian-weekday-0); }
+html[data-genesis-theme$="-dark"] .calendar-mode-calendar.mode-profane .calendar-day.weekday-1 { --weekday-wash: var(--gregorian-weekday-1); }
+html[data-genesis-theme$="-dark"] .calendar-mode-calendar.mode-profane .calendar-day.weekday-2 { --weekday-wash: var(--gregorian-weekday-2); }
+html[data-genesis-theme$="-dark"] .calendar-mode-calendar.mode-profane .calendar-day.weekday-3 { --weekday-wash: var(--gregorian-weekday-3); }
+html[data-genesis-theme$="-dark"] .calendar-mode-calendar.mode-profane .calendar-day.weekday-4 { --weekday-wash: var(--gregorian-weekday-4); }
+html[data-genesis-theme$="-dark"] .calendar-mode-calendar.mode-profane .calendar-day.weekday-5 { --weekday-wash: var(--gregorian-weekday-5); }
+html[data-genesis-theme$="-dark"] .calendar-mode-calendar.mode-profane .calendar-day.weekday-6 { --weekday-wash: var(--gregorian-weekday-6); }
 html[data-genesis-theme$="-dark"] .calendar-day :is(
   .calendar-gregorian, .calendar-gregorian b, .calendar-weekday, .calendar-moon,
   .calendar-cross-date, .calendar-sun-times, .profane-weekday-patron,
