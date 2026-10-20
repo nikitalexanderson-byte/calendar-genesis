@@ -5,6 +5,18 @@ import java.util.UUID
 
 /** Shared workspace operations implemented by the authenticated controller. */
 interface SharedWorkspaceGateway {
+    suspend fun sharedTemplates(space: String, language: String, deleted: Boolean, cursor: String?): JSONObject = throw UnsupportedOperationException("sharedTemplates")
+    suspend fun sharedTemplate(space: String, id: String, language: String, deleted: Boolean): JSONObject = throw UnsupportedOperationException("sharedTemplate")
+    suspend fun previewSharedTemplate(space: String, id: String, request: JSONObject): JSONObject = throw UnsupportedOperationException("previewSharedTemplate")
+    suspend fun sharedTemplateDraft(project: String): JSONObject? = null
+    suspend fun saveSharedTemplateDraft(project: String, stamp: String?, edit: JSONObject): JSONObject = throw UnsupportedOperationException("saveSharedTemplateDraft")
+    suspend fun prepareSharedTemplateDraft(project: String, stamp: String): JSONObject = throw UnsupportedOperationException("prepareSharedTemplateDraft")
+    suspend fun sendSharedTemplateDraft(project: String, stamp: String): JSONObject = throw UnsupportedOperationException("sendSharedTemplateDraft")
+    suspend fun removeSharedTemplateDraft(project: String, stamp: String): Unit = throw UnsupportedOperationException("removeSharedTemplateDraft")
+    suspend fun sharedTemplateCopies(project: String): List<JSONObject> = emptyList()
+    suspend fun saveSharedTemplateCopy(project: String, id: String, stamp: String?, edit: JSONObject): JSONObject = throw UnsupportedOperationException("saveSharedTemplateCopy")
+    suspend fun useSharedTemplateCopy(project: String, id: String, copyStamp: String, stamp: String?): JSONObject = throw UnsupportedOperationException("useSharedTemplateCopy")
+    suspend fun removeSharedTemplateCopy(project: String, id: String, stamp: String): Unit = throw UnsupportedOperationException("removeSharedTemplateCopy")
     suspend fun sharedBulkDraft(projectId: String): JSONObject? = null
     suspend fun saveSharedBulkDraft(projectId: String, stamp: String?, edit: JSONObject): JSONObject = throw UnsupportedOperationException("saveSharedBulkDraft")
     suspend fun prepareSharedBulkDraft(projectId: String, stamp: String): JSONObject = throw UnsupportedOperationException("prepareSharedBulkDraft")

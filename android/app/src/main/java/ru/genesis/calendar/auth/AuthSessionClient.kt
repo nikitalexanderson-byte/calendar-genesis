@@ -19,6 +19,13 @@ internal open class AuthFailure(val kind: Kind, val httpStatus: Int? = null) : E
 internal class AuthApiError(val code: String) : Exception(code)
 
 internal fun allowedSharedRoute(method: String, path: String): Boolean {
+    val templateLanguage = "(?:ru|en|el|de|fr|es|it|pt|pl|sr|uk|zh|tr|ja)"
+    val templateKey = "(?:[a-f0-9-]{36}|system%3A(?:event|publication|launch|control))"
+    if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/templates\\?language=$templateLanguage&deleted=(?:true|false)(?:&cursor=[A-Za-z0-9%+_.~*-]+)?"))) return method == "GET"
+    if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/templates"))) return method == "POST"
+    if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/templates/[a-f0-9-]{36}"))) return method == "PATCH"
+    if (path.matches(Regex("/shared/templates/$templateKey\\?language=$templateLanguage&deleted=(?:true|false)"))) return method == "GET"
+    if (path.matches(Regex("/shared/templates/$templateKey/(?:preview|apply)"))) return method == "POST"
     if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}"))) return method == "GET"
     if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/members/[A-Za-z0-9_-]{1,100}/project-access"))) return method in setOf("GET", "POST", "PATCH")
     if (path in setOf("/shared/reports", "/shared/reports/check", "/shared/reports/tasks")) return method == "POST"
@@ -266,6 +273,30 @@ internal class AuthSessionClient(context: Context) {
         request(expected, "/shared/projects/$projectId", null)
     fun sharedPlanning(expected: Long, projectId: String): JSONObject =
         request(expected, "/shared/projects/$projectId/planning", null)
+    fun sharedTemplates(expected: Long, space: String, language: String, deleted: Boolean, cursor: String?): JSONObject {
+        val path = "/shared/spaces/${SharedTemplateProtocol.id(space)}/templates?language=${SharedTemplateProtocol.language(language)}&deleted=$deleted" +
+            (SharedTemplateProtocol.cursor(cursor)?.let { "&cursor=${java.net.URLEncoder.encode(it, "UTF-8")}" } ?: "")
+        return request(expected, path, null)
+    }
+    private fun templatePath(id: String): String = "/shared/templates/" + java.net.URLEncoder.encode(SharedTemplateProtocol.templateId(id), "UTF-8")
+    fun sharedTemplate(expected: Long, space: String, id: String, language: String, deleted: Boolean): JSONObject =
+        SharedTemplateProtocol.source(space, id, request(expected, "${templatePath(id)}?language=${SharedTemplateProtocol.language(language)}&deleted=$deleted", null).getJSONObject("template"))
+    fun previewSharedTemplate(expected: Long, space: String, id: String, input: JSONObject): JSONObject =
+        SharedTemplateProtocol.preview(space, id, input, request(expected, "${templatePath(id)}/preview", SharedTemplateProtocol.options(input)))
+    fun sharedTemplateCommand(expected: Long, command: JSONObject): JSONObject {
+        val body = command.getJSONObject("body"); val space = SharedTemplateProtocol.id(body.getString("spaceId"))
+        val input = body.getJSONObject("request")
+        require(input.getString("operationId") == body.getString("requestId")) { "TEMPLATE_DRAFT_INVALID" }
+        val response = when (command.getString("kind")) {
+            "template-save" -> {
+                val suffix = if (command.isNull("sprintId")) "" else "/${SharedTemplateProtocol.id(command.getString("sprintId"))}"
+                request(expected, "/shared/spaces/$space/templates$suffix", input, method = if (suffix.isEmpty()) "POST" else "PATCH")
+            }
+            "template-apply" -> request(expected, "${templatePath(command.getString("sprintId"))}/apply", input)
+            else -> throw AuthFailure(AuthFailure.Kind.PROTOCOL)
+        }
+        return SharedTemplateProtocol.receipt(command, response)
+    }
     fun sharedSprintReport(expected: Long, projectId: String, sprintId: String, unit: String): JSONObject {
         require(unit in SprintReportProtocol.units)
         return request(expected, "/shared/projects/$projectId/planning/sprints/$sprintId/report", JSONObject().put("unit", unit))
@@ -446,7 +477,7 @@ internal class AuthSessionClient(context: Context) {
         try {
             connection.instanceFollowRedirects = false
             connection.connectTimeout = 15_000
-            connection.readTimeout = if (path == "/bootstrap" || path.startsWith("/shared/data/") || path.startsWith("/shared/reports")) 120_000 else 30_000
+            connection.readTimeout = if (path == "/bootstrap" || path.startsWith("/shared/data/") || path.startsWith("/shared/reports") || path.startsWith("/shared/") && path.contains("/templates")) 120_000 else 30_000
             connection.useCaches = false
             connection.requestMethod = method
             connection.setRequestProperty("Accept", "application/json")
@@ -485,7 +516,8 @@ internal class AuthSessionClient(context: Context) {
                         }
                         val payload = JSONObject(output.toString(Charsets.UTF_8.name()))
                         val code = payload.optString("error")
-                        if (path.endsWith("/data-export") && code in DataExportProtocol.errors ||
+                        if (path.contains("/templates") && code in SharedTemplateProtocol.errors && !code.startsWith("WORKFLOW_") && !code.startsWith("CUSTOM_FIELD_") ||
+                            path.endsWith("/data-export") && code in DataExportProtocol.errors ||
                             (path.startsWith("/shared/data/") || path.startsWith("/shared/data-imports/")) && DataImportProtocol.errorCode(code) ||
                             path.startsWith("/shared/reports") && (code in TeamReportProtocol.errors || code.startsWith("CUSTOM_FIELD_")) ||
                             path.endsWith("/project-access") && code in ProjectAccessProtocol.errors ||

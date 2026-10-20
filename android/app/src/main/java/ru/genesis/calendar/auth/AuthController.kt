@@ -66,6 +66,8 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
     private val projectAccessOperationMutex = Mutex()
     private val bulkJournal = PlanningJournal(PlanningDraftStore(context.applicationContext, "bulk"), contract = SharedBulkJournalContract)
     private val bulkOperationMutex = Mutex()
+    private val templateJournal = PlanningJournal(PlanningDraftStore(context.applicationContext, "templates"), contract = SharedTemplateJournalContract)
+    private val templateOperationMutex = Mutex()
     private val importStorage = PlanningDraftStore(context.applicationContext, "data-import")
     private val importJournal = PlanningJournal(importStorage, contract = DataImportJournalContract)
     private val importUndoJournal = DataImportUndoJournal(importStorage)
@@ -416,6 +418,47 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
     override suspend fun saveSharedWorkflowCopy(projectId: String, id: String, stamp: String?, edit: JSONObject) = workflowDraftCall { it.saveCopy(projectId, id, stamp, edit) }
     override suspend fun useSharedWorkflowCopy(projectId: String, id: String, copyStamp: String, stamp: String?) = workflowDraftCall { it.useCopy(projectId, id, copyStamp, stamp) }
     override suspend fun removeSharedWorkflowCopy(projectId: String, id: String, stamp: String): Unit = workflowDraftCall { it.removeCopy(projectId, id, stamp) }
+    override suspend fun sharedTemplates(space: String, language: String, deleted: Boolean, cursor: String?) =
+        sharedOnlineCall { api, generation -> api.sharedTemplates(generation, space, language, deleted, cursor) }
+    override suspend fun sharedTemplate(space: String, id: String, language: String, deleted: Boolean) =
+        sharedOnlineCall { api, generation -> api.sharedTemplate(generation, space, id, language, deleted) }
+    override suspend fun previewSharedTemplate(space: String, id: String, request: JSONObject) =
+        sharedOnlineCall { api, generation -> api.previewSharedTemplate(generation, space, id, request) }
+    private suspend fun <T> templateDraftCall(action: (SharedTemplateDraftService) -> T): T {
+        val initial = mutableState.value
+        val account = initial.user?.uid ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
+        check(initial.ready && initial.accountSettings?.sharedProjectsEnabled == true)
+        val generation = client.currentGeneration()
+        fun current() {
+            if (!client.isCurrent(generation) || mutableState.value.user?.uid != account || app.workspaceScope != CloudAccountSnapshot.scopeFor(account)) throw CancellationException()
+        }
+        val access = object : SharedTemplateAccess {
+            override fun check() = current()
+            private fun online() { current(); if (mutableState.value.requiresSignIn) throw AuthFailure(AuthFailure.Kind.NETWORK) }
+            override fun project(id: String): JSONObject { online(); return client.sharedProject(generation, id).getJSONObject("project").also { current() } }
+            override fun source(space: String, id: String, language: String, deleted: Boolean): JSONObject {
+                online(); return client.sharedTemplate(generation, space, id, language, deleted).also { current() }
+            }
+            override fun preview(id: String, request: JSONObject): JSONObject {
+                online(); return client.previewSharedTemplate(generation, request.getString("spaceId"), id, request).also { current() }
+            }
+            override fun hasTaskQueue(): Boolean { current(); return sharedOffline.queued(account).isNotEmpty() }
+            override fun send(command: JSONObject): JSONObject { online(); return client.sharedTemplateCommand(generation, command).also { current() } }
+        }
+        return withContext(Dispatchers.IO) { templateOperationMutex.withLock {
+            current(); action(SharedTemplateDraftService(templateJournal, account, access)).also { current() }
+        } }
+    }
+    override suspend fun sharedTemplateDraft(project: String) = templateDraftCall { it.load(project) }
+    override suspend fun saveSharedTemplateDraft(project: String, stamp: String?, edit: JSONObject) = templateDraftCall { it.save(project, stamp, edit) }
+    override suspend fun prepareSharedTemplateDraft(project: String, stamp: String) = templateDraftCall { it.prepare(project, stamp) }
+    override suspend fun sendSharedTemplateDraft(project: String, stamp: String) = templateDraftCall { it.send(project, stamp) }
+    override suspend fun removeSharedTemplateDraft(project: String, stamp: String): Unit = templateDraftCall { it.remove(project, stamp) }
+    override suspend fun sharedTemplateCopies(project: String) = templateDraftCall { it.copies(project) }
+    override suspend fun saveSharedTemplateCopy(project: String, id: String, stamp: String?, edit: JSONObject) = templateDraftCall { it.saveCopy(project, id, stamp, edit) }
+    override suspend fun useSharedTemplateCopy(project: String, id: String, copyStamp: String, stamp: String?) = templateDraftCall { it.useCopy(project, id, copyStamp, stamp) }
+    override suspend fun removeSharedTemplateCopy(project: String, id: String, stamp: String): Unit = templateDraftCall { it.removeCopy(project, id, stamp) }
+
     private suspend fun <T> planningDraftCall(action: (PlanningDraftService) -> T): T {
         val initial = mutableState.value
         val account = initial.user?.uid ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
