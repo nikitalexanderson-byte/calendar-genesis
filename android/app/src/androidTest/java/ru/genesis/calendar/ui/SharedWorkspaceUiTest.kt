@@ -84,6 +84,8 @@ private class WorkspaceFixture(val available: Boolean = true, val withTasks: Boo
         expanded = ids.toList()
         return sharedSpaceUi(spaceId)
     }
+    override suspend fun sharedAutomations(projectId: String, deleted: Boolean, cursor: String?) = JSONObject().put("rules", JSONArray())
+        .put("nextCursor", JSONObject.NULL).put("canCreate", false).put("workerCompletedAt", JSONObject.NULL)
     override suspend fun sharedProject(projectId: String): JSONObject {
         snapshots++
         return JSONObject().put("project", project(projectId, "Проект QA"))
@@ -664,6 +666,14 @@ class SharedWorkspaceUiTest {
         compose.onNodeWithTag("bulk-configure").assertIsEnabled(); assertEquals(0, fixture.updates)
         compose.onNodeWithTag("bulk-close").performClick(); compose.onNodeWithTag("shared-bulk-screen").assertDoesNotExist()
         assertEquals(0, fixture.updates)
+    }
+    @Test fun projectMenuOpensTheNativeAutomationLibraryWithoutChangingTasks() {
+        val fixture = WorkspaceFixture(withTasks = true); openFixtureProject(fixture)
+        compose.onNodeWithTag("shared-actions").performClick(); compose.onNodeWithTag("shared-automations-open").performScrollTo().performClick()
+        compose.waitUntil(10000) { compose.onAllNodesWithTag("automation-filter").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("shared-automations-screen").assertExists(); compose.onNodeWithText("Правил пока нет.").assertExists()
+        assertEquals(0, fixture.updates); compose.onNodeWithTag("automation-close").performClick()
+        compose.onNodeWithTag("shared-task-qa-task").assertExists()
     }
 
     @Test fun bulkRestorationKeepsItsFrozenProjectFilterWhileTheParentReloads() {

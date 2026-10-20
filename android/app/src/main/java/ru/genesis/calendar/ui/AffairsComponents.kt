@@ -33,7 +33,7 @@ internal object AffairsLayout {
     val shape = RoundedCornerShape(16.dp)
 }
 
-internal enum class AffairsAction { BACK, MORE, CLOSE, SEARCH, FILTER, EXPAND, COLLAPSE, REFRESH, MOVE, ADD, EDIT, SETTINGS, DELETE, REPORT, IMPORT, HISTORY, VIEW, UNDO, TEMPLATE, SUBTASK, DECREASE, TASK }
+internal enum class AffairsAction { BACK, MORE, CLOSE, SEARCH, FILTER, EXPAND, COLLAPSE, REFRESH, MOVE, ADD, EDIT, SETTINGS, DELETE, REPORT, IMPORT, HISTORY, VIEW, UNDO, TEMPLATE, SUBTASK, DECREASE, TASK, AUTOMATION }
 
 @Composable internal fun GenesisAccountFooter(status: String) {
     Text(status, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
@@ -99,6 +99,10 @@ internal enum class AffairsAction { BACK, MORE, CLOSE, SEARCH, FILTER, EXPAND, C
             AffairsAction.EDIT -> {
                 move(3f, 21f); line(4f, 17f); line(17f, 4f); line(20f, 7f); line(7f, 20f); line(3f, 21f)
                 move(15f, 6f); line(18f, 9f)
+            }
+            AffairsAction.AUTOMATION -> {
+                move(13f, 2f); line(4f, 14f); line(11f, 14f); line(10f, 22f)
+                line(20f, 9f); line(13f, 9f); line(13f, 2f)
             }
             AffairsAction.SETTINGS -> {
                 for ((y, x) in listOf(6f to 13f, 12f to 8f, 18f to 16f)) {

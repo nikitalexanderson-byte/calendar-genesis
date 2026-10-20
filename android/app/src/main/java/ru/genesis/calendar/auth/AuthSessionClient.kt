@@ -38,6 +38,11 @@ internal fun allowedSharedRoute(method: String, path: String): Boolean {
     if (path.matches(Regex("/shared/bulk/[a-f0-9-]{36}\\?after=(?:0|[1-9][0-9]{0,15})"))) return method == "GET"
     if (path.matches(Regex("/shared/bulk/[a-f0-9-]{36}/(?:confirm|cancel|advance|resume)"))) return method == "POST"
     if (path.matches(Regex("/shared/views/options\\?kind=(?:projects|statuses|assignees|labels)&filter=[A-Za-z0-9%+_.~*-]+(?:&cursor=[A-Za-z0-9%+_.~*-]+)?"))) return method == "GET"
+    if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/automations\\?deleted=(?:true|false)(?:&cursor=[a-f0-9-]{36})?"))) return method == "GET"
+    if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/automations/[a-f0-9-]{36}"))) return method in setOf("GET", "PATCH")
+    if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/automations/[a-f0-9-]{36}/runs(?:\\?cursor=[a-f0-9-]{36})?"))) return method == "GET"
+    if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/automations/[a-f0-9-]{36}/runs/[a-f0-9-]{36}/retry"))) return method == "POST"
+    if (path.matches(Regex("/shared/templates/[A-Za-z0-9_%.-]{1,300}\\?language=(?:ru|en|el|de|fr|es|it|pt|pl|sr|uk|zh|tr|ja)"))) return method == "GET"
     if (path == "/shared/notification-settings") return method in setOf("GET", "PUT")
     if (path == "/shared/notification-settings/retry") return method == "POST"
     if (path.matches(Regex("/shared/invitations/[a-f0-9-]{36}"))) return method == "POST"
@@ -241,6 +246,24 @@ internal class AuthSessionClient(context: Context) {
         val query = java.net.URLEncoder.encode(filter.toString(), "UTF-8")
         val continuation = cursor?.let { "&cursor=" + java.net.URLEncoder.encode(it, "UTF-8") } ?: ""
         return request(expected, "/shared/tasks?filter=$query$continuation&sort=${java.net.URLEncoder.encode(sort,"UTF-8")}", null)
+    }
+    fun sharedAutomations(expected: Long, project: String, deleted: Boolean, cursor: String?): JSONObject = SharedAutomationProtocol.list(request(expected,
+        "/shared/projects/${SharedAutomationProtocol.id(project)}/automations?deleted=$deleted" + (cursor?.let { "&cursor=${SharedAutomationProtocol.id(it)}" } ?: ""), null), project)
+    fun sharedAutomation(expected: Long, project: String, rule: String): JSONObject {
+        val response = request(expected, "/shared/projects/${SharedAutomationProtocol.id(project)}/automations/${SharedAutomationProtocol.id(rule)}", null)
+        require(response.keys().asSequence().toSet() == setOf("rule")) { "AUTOMATION_PROTOCOL" }
+        return JSONObject().put("rule", SharedAutomationProtocol.rule(response.getJSONObject("rule"), project).also { require(it.getString("id") == rule) { "AUTOMATION_SCOPE_CHANGED" } })
+    }
+    fun sharedAutomationRuns(expected: Long, project: String, rule: String, cursor: String?): JSONObject = SharedAutomationProtocol.runs(request(expected,
+        "/shared/projects/${SharedAutomationProtocol.id(project)}/automations/${SharedAutomationProtocol.id(rule)}/runs" + (cursor?.let { "?cursor=${SharedAutomationProtocol.id(it)}" } ?: ""), null), rule)
+    fun sharedAutomationCommand(expected: Long, project: String, rule: String, run: String?, body: JSONObject): JSONObject = request(expected,
+        "/shared/projects/${SharedAutomationProtocol.id(project)}/automations/${SharedAutomationProtocol.id(rule)}" + (run?.let { "/runs/${SharedAutomationProtocol.id(it)}/retry" } ?: ""),
+        body, method = if (run == null) "PATCH" else "POST")
+    fun sharedAutomationTemplate(expected: Long, template: String, language: String): JSONObject {
+        require(language in setOf("ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja"))
+        val raw = request(expected, "/shared/templates/" + java.net.URLEncoder.encode(SharedAutomationProtocol.templateId(template), "UTF-8") + "?language=$language", null).getJSONObject("template")
+        require(raw.optString("id") == template && raw.optString("kind") == "task" && raw.opt("title") is String && raw.getString("title").length <= 5000) { "AUTOMATION_PROTOCOL" }
+        return JSONObject().put("id", template).put("title", raw.getString("title"))
     }
     fun sharedBulkScope(expected: Long, selection: JSONObject, cursor: String?): JSONObject = SharedBulkProtocol.scope(request(expected,
         "/shared/bulk/scope", JSONObject().put("selection", SharedBulkProtocol.selection(selection)).apply { if (cursor != null) put("cursor", SharedBulkProtocol.cursor(cursor)) }))
@@ -521,7 +544,8 @@ internal class AuthSessionClient(context: Context) {
                             (path.startsWith("/shared/data/") || path.startsWith("/shared/data-imports/")) && DataImportProtocol.errorCode(code) ||
                             path.startsWith("/shared/reports") && (code in TeamReportProtocol.errors || code.startsWith("CUSTOM_FIELD_")) ||
                             path.endsWith("/project-access") && code in ProjectAccessProtocol.errors ||
-                            (path.startsWith("/shared/bulk") || path.startsWith("/shared/views/options")) && SharedBulkProtocol.errorCode(code)) AuthApiError(code)
+                            (path.startsWith("/shared/bulk") || path.startsWith("/shared/views/options")) && SharedBulkProtocol.errorCode(code) ||
+                            path.contains("/automations") && SharedAutomationProtocol.errorCode(code)) AuthApiError(code)
                         else customFieldFailure(status, payload) ?: workflowFailure(status, payload)
                     }.getOrNull()
                     if (failure != null) throw failure

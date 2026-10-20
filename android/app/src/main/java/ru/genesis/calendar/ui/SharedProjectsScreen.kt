@@ -434,6 +434,17 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                 selectProject(targetProject); taskId = targetTask
             }
         })
+    val automationDestination = rememberSharedAutomationNavigation(controller, onLost = {
+            snapshot = null; taskPage = null; openedTask = null; taskId = ""; projectId = ""
+            message = teamReportNoAccess; run { refreshProjects(spaceId) }
+        }, onChanged = { run { if (projectId.isNotBlank()) refreshProject(projectId) } }, onTask = { targetProject, targetTask ->
+            run {
+                val target = controller.sharedProject(targetProject).getJSONObject("project")
+                val destination = target.getString("spaceId")
+                if (destination != spaceId) { spaceId = destination; refreshProjects(destination) }
+                selectProject(targetProject); taskId = targetTask
+            }
+        })
     if (projectAccessOpen && spaceId.isNotBlank()) SharedProjectAccessScreen(controller, spaceId, onClose = { projectAccessOpen = false }, onLost = {
         projectAccessOpen = false; snapshot = null; taskPage = null; openedTask = null; taskId = ""; projectId = ""
         message = teamReportNoAccess; run { refreshProjects(spaceId) }
@@ -529,7 +540,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         }
     }
     BackHandler(enabled = pageActive && (taskId.isNotBlank() || projectId.isNotBlank() || spaceId.isNotBlank()) &&
-        createModal == null && !showManagement && boardDraft == null && !filtersOpen && !discardTaskDraft && !teamReportOpen && !projectAccessOpen && !bulkOpen) { navigateBack() }
+        createModal == null && !showManagement && boardDraft == null && !filtersOpen && !discardTaskDraft && !teamReportOpen && !projectAccessOpen && !bulkOpen && automationDestination.value.isBlank()) { navigateBack() }
     if (discardTaskDraft) AlertDialog(onDismissRequest = { discardTaskDraft = false },
         title = { Text("Несохранённые изменения") },
         text = { Text("Вернуться без сохранения изменений?") },
@@ -1240,6 +1251,10 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                             DropdownMenuItem(text = { Text("Массовые действия") }, modifier = Modifier.testTag("shared-bulk-open"),
                                 leadingIcon = { AffairsActionIcon(AffairsAction.SETTINGS) }, onClick = {
                                     actionsOpen = false; bulkProjectId = projectId; bulkFilter = taskFilter.toString(); bulkSort = taskSort.wire; bulkOpen = true
+                                })
+                            DropdownMenuItem(text = { Text("Автоматизации") }, modifier = Modifier.testTag("shared-automations-open"),
+                                leadingIcon = { AffairsActionIcon(AffairsAction.AUTOMATION) }, onClick = {
+                                    actionsOpen = false; automationDestination.value = projectId
                                 })
                             DropdownMenuItem(text = { Text("Импорт данных") }, modifier = Modifier.testTag("shared-import-open"),
                                 onClick = { actionsOpen = false; dataImportOpen = true })

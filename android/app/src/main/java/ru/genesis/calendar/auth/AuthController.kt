@@ -68,6 +68,8 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
     private val bulkOperationMutex = Mutex()
     private val templateJournal = PlanningJournal(PlanningDraftStore(context.applicationContext, "templates"), contract = SharedTemplateJournalContract)
     private val templateOperationMutex = Mutex()
+    private val automationJournal = PlanningJournal(PlanningDraftStore(context.applicationContext, "automations"), contract = SharedAutomationJournalContract)
+    private val automationOperationMutex = Mutex()
     private val importStorage = PlanningDraftStore(context.applicationContext, "data-import")
     private val importJournal = PlanningJournal(importStorage, contract = DataImportJournalContract)
     private val importUndoJournal = DataImportUndoJournal(importStorage)
@@ -221,6 +223,34 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
         }
         return withContext(Dispatchers.IO) { current(); action(client, generation).also { current() } }
     }
+    override suspend fun sharedAutomations(projectId: String, deleted: Boolean, cursor: String?) = sharedOnlineCall { api, generation -> api.sharedAutomations(generation, projectId, deleted, cursor) }
+    override suspend fun sharedAutomation(projectId: String, ruleId: String) = sharedOnlineCall { api, generation -> api.sharedAutomation(generation, projectId, ruleId) }
+    override suspend fun sharedAutomationRuns(projectId: String, ruleId: String, cursor: String?) = sharedOnlineCall { api, generation -> api.sharedAutomationRuns(generation, projectId, ruleId, cursor) }
+    override suspend fun sharedAutomationTemplate(templateId: String, language: String) = sharedOnlineCall { api, generation -> api.sharedAutomationTemplate(generation, templateId, language) }
+    private suspend fun <T> automationDraftCall(action: (SharedAutomationDraftService) -> T): T {
+        val initial = mutableState.value; val account = initial.user?.uid ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
+        if (!initial.ready || initial.accountSettings?.sharedProjectsEnabled != true) throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
+        val generation = client.currentGeneration(); val caller = currentCoroutineContext()
+        fun current() {
+            caller.ensureActive(); val state = mutableState.value
+            if (!client.isCurrent(generation) || !state.ready || state.user?.uid != account || state.accountSettings?.sharedProjectsEnabled != true ||
+                app.workspaceScope != CloudAccountSnapshot.scopeFor(account)) throw CancellationException()
+        }
+        val access = object : SharedAutomationAccess {
+            override fun check() = current()
+            private fun online() { current(); if (mutableState.value.requiresSignIn) throw AuthFailure(AuthFailure.Kind.NETWORK) }
+            override fun rule(project: String, rule: String): JSONObject { online(); return client.sharedAutomation(generation, project, rule).also { current() } }
+            override fun send(project: String, rule: String, run: String?, body: JSONObject): JSONObject {
+                online(); return client.sharedAutomationCommand(generation, project, rule, run, body).also { current() }
+            }
+        }
+        return withContext(Dispatchers.IO) { automationOperationMutex.withLock { current(); action(SharedAutomationDraftService(automationJournal, account, access)).also { current() } } }
+    }
+    override suspend fun sharedAutomationDraft(projectId: String) = automationDraftCall { it.load(projectId) }
+    override suspend fun saveSharedAutomationDraft(projectId: String, stamp: String?, edit: JSONObject) = automationDraftCall { it.save(projectId, stamp, edit) }
+    override suspend fun prepareSharedAutomationDraft(projectId: String, stamp: String) = automationDraftCall { it.prepare(projectId, stamp) }
+    override suspend fun sendSharedAutomationDraft(projectId: String, stamp: String) = automationDraftCall { it.send(projectId, stamp) }
+    override suspend fun removeSharedAutomationDraft(projectId: String, stamp: String): Unit = automationDraftCall { it.remove(projectId, stamp) }
     override suspend fun sharedBulkScope(selection: JSONObject, cursor: String?) = sharedOnlineCall { api, generation -> api.sharedBulkScope(generation, selection, cursor) }
     override suspend fun sharedBulkReport(id: String, after: Long) = sharedOnlineCall { api, generation -> api.sharedBulkReport(generation, id, after) }
     override suspend fun sharedBulkHistory(cursor: String?) = sharedOnlineCall { api, generation -> api.sharedBulkHistory(generation, cursor) }

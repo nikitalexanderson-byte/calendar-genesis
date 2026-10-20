@@ -127,6 +127,7 @@ val genesisAssets = tasks.register<GenesisAssetsTask>("genesisAssets") {
     from(rootProject.file("../app/native-bulk-translations.json")) { into("i18n") }
     from(rootProject.file("../app/native-template-translations.json")) { into("i18n") }
     from(rootProject.file("../app/native-template-labels.json")) { into("i18n") }
+    from(rootProject.file("../app/native-automations-translations.json")) { into("i18n") }
     from(rootProject.file("../app/planning-translations.json")) { into("i18n") }
     from(rootProject.file("../app/sprint-report-translations.json")) { into("i18n") }
     from(rootProject.file("../app/workflow-draft-translations.json")) { into("i18n") }
