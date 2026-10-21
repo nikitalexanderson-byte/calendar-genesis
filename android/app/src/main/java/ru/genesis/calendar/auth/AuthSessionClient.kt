@@ -19,6 +19,9 @@ internal open class AuthFailure(val kind: Kind, val httpStatus: Int? = null) : E
 internal class AuthApiError(val code: String) : Exception(code)
 
 internal fun allowedSharedRoute(method: String, path: String): Boolean {
+    if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/custom-fields\\?projectId=[a-f0-9-]{36}&archived=(?:true|false)"))) return method == "GET"
+    if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/custom-fields/preview"))) return method == "POST"
+    if (path.matches(Regex("/shared/custom-fields/[A-Za-z0-9_-]{1,100}/history"))) return method == "GET"
     val templateLanguage = "(?:ru|en|el|de|fr|es|it|pt|pl|sr|uk|zh|tr|ja)"
     val templateKey = "(?:[a-f0-9-]{36}|system%3A(?:event|publication|launch|control))"
     if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/templates\\?language=$templateLanguage&deleted=(?:true|false)(?:&cursor=[A-Za-z0-9%+_.~*-]+)?"))) return method == "GET"
@@ -230,6 +233,19 @@ internal class AuthSessionClient(context: Context) {
     fun inviteSharedSpaceMember(expected: Long, spaceId: String, email: String, role: String): JSONObject =
         request(expected, "/shared/spaces/$spaceId/invitations", JSONObject().put("email", email).put("role", role))
     fun sharedSpaces(expected: Long): JSONObject = request(expected, "/shared/spaces", null)
+    fun sharedFieldDefinitions(expected: Long, space: String, project: String, archived: Boolean): JSONObject =
+        CustomFieldDefinitionProtocol.catalog(space, project, request(expected,
+            "/shared/spaces/${SharedTemplateProtocol.id(space)}/custom-fields?projectId=${SharedTemplateProtocol.id(project)}&archived=$archived", null), archived)
+    fun sharedFieldHistory(expected: Long, space: String, id: String): JSONObject {
+        SharedTemplateProtocol.id(space)
+        return CustomFieldDefinitionProtocol.history(space, id, request(expected, "/shared/custom-fields/${CustomFieldProtocol.id(id)}/history", null))
+    }
+    fun previewSharedFieldDefinition(expected: Long, space: String, project: String, body: JSONObject): JSONObject {
+        SharedTemplateProtocol.id(space); SharedTemplateProtocol.id(project)
+        val snapshot = JSONObject(body.toString())
+        return CustomFieldDefinitionProtocol.preview(space, project, snapshot,
+            request(expected, "/shared/spaces/$space/custom-fields/preview", snapshot))
+    }
     fun sharedTaskLists(expected: Long): JSONObject = request(expected, "/shared/task-lists", null)
     fun sharedCalendarTasks(expected: Long, from: String, to: String): JSONObject =
         request(expected, "/shared/calendar/tasks?from=$from&to=$to", null)

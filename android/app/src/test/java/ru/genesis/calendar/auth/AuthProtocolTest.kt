@@ -9,6 +9,21 @@ class AuthProtocolTest {
     private val now = 1_800_000_000_000L
     private fun header(extra: String = "") = "$SESSION_COOKIE=$sessionId; Path=/; Secure; HttpOnly$extra"
 
+    @Test fun fieldDefinitionReadsOnlyAllowTheirExactMethodsIdsAndQueries() {
+        val id = "01234567-89ab-cdef-0123-456789abcdef"
+        for (path in listOf("/shared/spaces/$id/custom-fields?projectId=$id&archived=true", "/shared/spaces/$id/custom-fields?projectId=$id&archived=false",
+            "/shared/custom-fields/$id/history", "/shared/custom-fields/legacy_field/history")) {
+            assertTrue(path, allowedSharedRoute("GET", path)); assertFalse(allowedSharedRoute("POST", path)); assertFalse(allowedSharedRoute("PUT", path))
+        }
+        assertTrue(allowedSharedRoute("POST", "/shared/spaces/$id/custom-fields/preview"))
+        assertFalse(allowedSharedRoute("GET", "/shared/spaces/$id/custom-fields/preview"))
+        for (path in listOf("/shared/spaces/$id/custom-fields", "/shared/spaces/$id/custom-fields?projectId=$id&archived=1",
+            "/shared/spaces/$id/custom-fields?projectId=$id&archived=true&other=1", "/shared/spaces/$id/custom-fields/preview?other=1",
+            "/shared/custom-fields/../../other/history", "/shared/custom-fields/$id/history?other=1")) {
+            for (method in listOf("GET", "POST", "PUT", "PATCH", "DELETE")) assertFalse("$method $path", allowedSharedRoute(method, path))
+        }
+    }
+
     @Test fun nativeBulkTransportAllowsItsExactRoutesAndRejectsOtherMethodsAndQueries() {
         val id = "01234567-89ab-cdef-0123-456789abcdef"
         for (path in listOf("/shared/bulk/scope", "/shared/bulk/preview") +

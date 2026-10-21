@@ -225,6 +225,9 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
         }
         return withContext(Dispatchers.IO) { current(); action(client, generation).also { current() } }
     }
+    override suspend fun sharedFieldDefinitions(space: String, project: String, archived: Boolean) = sharedOnlineCall { api, generation -> api.sharedFieldDefinitions(generation, space, project, archived) }
+    override suspend fun sharedFieldHistory(space: String, id: String) = sharedOnlineCall { api, generation -> api.sharedFieldHistory(generation, space, id) }
+    override suspend fun previewSharedFieldDefinition(space: String, project: String, body: JSONObject) = sharedOnlineCall { api, generation -> api.previewSharedFieldDefinition(generation, space, project, body) }
     override suspend fun sharedAutomations(projectId: String, deleted: Boolean, cursor: String?) = sharedOnlineCall { api, generation -> api.sharedAutomations(generation, projectId, deleted, cursor) }
     override suspend fun sharedAutomation(projectId: String, ruleId: String) = sharedOnlineCall { api, generation -> api.sharedAutomation(generation, projectId, ruleId) }
     override suspend fun sharedAutomationRuns(projectId: String, ruleId: String, cursor: String?) = sharedOnlineCall { api, generation -> api.sharedAutomationRuns(generation, projectId, ruleId, cursor) }

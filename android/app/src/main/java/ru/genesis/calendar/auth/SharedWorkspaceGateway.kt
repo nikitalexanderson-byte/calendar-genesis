@@ -5,6 +5,9 @@ import java.util.UUID
 
 /** Shared workspace operations implemented by the authenticated controller. */
 interface SharedWorkspaceGateway {
+    suspend fun sharedFieldDefinitions(space: String, project: String, archived: Boolean = true): JSONObject = throw UnsupportedOperationException("sharedFieldDefinitions")
+    suspend fun sharedFieldHistory(space: String, id: String): JSONObject = throw UnsupportedOperationException("sharedFieldHistory")
+    suspend fun previewSharedFieldDefinition(space: String, project: String, body: JSONObject): JSONObject = throw UnsupportedOperationException("previewSharedFieldDefinition")
     suspend fun sharedAutomationEditor(project: String): JSONObject? = null
     suspend fun saveSharedAutomationEditor(project: String, stamp: String?, edit: JSONObject): JSONObject = throw UnsupportedOperationException("saveSharedAutomationEditor")
     suspend fun prepareSharedAutomationEditor(project: String, stamp: String): JSONObject = throw UnsupportedOperationException("prepareSharedAutomationEditor")
