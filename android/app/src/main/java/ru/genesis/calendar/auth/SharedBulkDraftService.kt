@@ -11,13 +11,19 @@ internal interface SharedBulkAccess {
 }
 
 /** The frozen preview is durable before HTTPS. A replay never substitutes current task revisions. */
-internal class SharedBulkDraftService(private val journal: PlanningJournal, private val account: String, private val access: SharedBulkAccess) {
+internal class SharedBulkDraftService(private val journal: PlanningJournal, private val account: String, private val access: SharedBulkAccess, private val inputJournal: PlanningJournal? = null) {
     private fun <T> checked(block: () -> T): T { access.check(); return block().also { access.check() } }
     fun load(project: String): JSONObject? = checked { journal.load(account, SharedBulkProtocol.id(project)) }
     fun save(project: String, stamp: String?, edit: JSONObject): JSONObject = checked {
-        require(SharedBulkProtocol.edit(edit).getString("projectId") == project) { "BULK_SCOPE_CHANGED" }
+        require(SharedBulkProtocol.context(SharedBulkProtocol.edit(edit)) == project) { "BULK_SCOPE_CHANGED" }
         journal.save(account, project, stamp, edit)
     }
+    fun loadInput(project: String): JSONObject? = checked { requireNotNull(inputJournal).load(account, SharedBulkProtocol.id(project)) }
+    fun saveInput(project: String, stamp: String?, input: JSONObject): JSONObject = checked {
+        require(SharedBulkInputContract.validateEdit(input).getString("context") == project) { "BULK_SCOPE_CHANGED" }
+        requireNotNull(inputJournal).save(account, project, stamp, input)
+    }
+    fun removeInput(project: String, stamp: String) = checked { requireNotNull(inputJournal).remove(account, SharedBulkProtocol.id(project), stamp) }
     fun remove(project: String, stamp: String) = checked { journal.remove(account, SharedBulkProtocol.id(project), stamp) }
     private fun current(project: String, stamp: String) = requireNotNull(load(project)).also {
         require(it.getString("stamp") == stamp) { "PLANNING_DRAFT_CHANGED" }

@@ -8,6 +8,7 @@ import java.util.UUID
 
 /** Bounded native reader for the existing bulk API. Reports and ACL-bound names never enter the journal. */
 internal object SharedBulkProtocol {
+    const val QUERY_SCOPE = "00000000-0000-4000-8000-000000000006"
     val kinds = listOf("priority", "assignee", "status", "due", "labels", "move", "archive", "trash")
     val states = setOf("preview", "running", "done", "cancelled", "failed")
     val commands = setOf("confirm", "cancel", "advance", "resume")
@@ -98,11 +99,27 @@ internal object SharedBulkProtocol {
         }
         return result
     }
+    /** Local origin is deliberately excluded from the frozen PHP body. */
+    fun origin(raw: JSONObject): JSONObject {
+        keys(raw, setOf("filter", "sort", "title"))
+        val filter = raw.getJSONObject("filter")
+        valid(filter.toString().toByteArray(Charsets.UTF_8).size <= 32000)
+        return JSONObject().put("filter", JSONObject(filter.toString())).put("sort", sort(text(raw, "sort", 120)))
+            .put("title", text(raw, "title", 5000))
+    }
+    fun context(edit: JSONObject): String = if (edit.optString("scope") == "query") QUERY_SCOPE else id(edit.getString("projectId"))
     fun edit(raw: JSONObject): JSONObject {
-        keys(raw, setOf("projectId", "selection", "action")); val project = id(text(raw, "projectId", 100)); val selected = selection(raw.getJSONObject("selection"))
+        val selected = selection(raw.getJSONObject("selection")); val action = action(raw.getJSONObject("action"))
+        if (raw.optString("scope") == "query") {
+            keys(raw, setOf("scope", "origin", "selection", "action")); val origin = origin(raw.getJSONObject("origin"))
+            if (selected.getString("mode") == "all") valid(PlanningLifecycle.canonical(selected.getJSONObject("filter")) ==
+                PlanningLifecycle.canonical(origin.getJSONObject("filter")) && selected.getString("sort") == origin.getString("sort"))
+            return JSONObject().put("scope", "query").put("origin", origin).put("selection", selected).put("action", action)
+        }
+        keys(raw, setOf("projectId", "selection", "action")); val project = id(text(raw, "projectId", 100)); valid(project != QUERY_SCOPE)
         if (selected.getString("mode") == "page") PlanningLifecycle.rows(selected.getJSONArray("items")).forEach { valid(it.getString("projectId") == project) }
         else { val projects = selected.getJSONObject("filter").getJSONArray("projectIds"); valid(projects.length() == 1 && projects.get(0) == project) }
-        return JSONObject().put("projectId", project).put("selection", selected).put("action", action(raw.getJSONObject("action")))
+        return JSONObject().put("projectId", project).put("selection", selected).put("action", action)
     }
     fun counts(raw: JSONObject): JSONObject {
         val names = listOf("selected", "affected", "pending", "succeeded", "skipped", "failed", "cancelled"); val result = JSONObject()
@@ -117,8 +134,8 @@ internal object SharedBulkProtocol {
         valid(raw.has("nextCursor")); return if (raw.isNull("nextCursor")) JSONObject.NULL
         else if (integer) number(raw, "nextCursor", 1, 9_007_199_254_740_991L) else cursor(text(raw, "nextCursor", 16000))!!
     }
-    fun scope(raw: JSONObject): JSONObject {
-        val projects = raw.getJSONArray("projects"); valid(projects.length() <= 100); val safe = JSONArray()
+    fun scope(raw: JSONObject, maximumProjects: Int = 100): JSONObject {
+        val projects = raw.getJSONArray("projects"); valid(projects.length() <= maximumProjects); val safe = JSONArray()
         PlanningLifecycle.rows(projects).forEach { row ->
             val statuses = row.getJSONArray("statuses"); valid(statuses.length() <= 1000)
             safe.put(JSONObject().put("id", id(text(row, "id", 100))).put("spaceId", id(text(row, "spaceId", 100)))
@@ -195,9 +212,18 @@ internal object SharedBulkJournalContract : CommandJournalContract {
             .put("requestId", SharedBulkProtocol.operation(requestId)).put("selection", safe.getJSONObject("selection")).put("action", safe.getJSONObject("action")))
     }
     override fun verify(edit: JSONObject, data: JSONObject, project: String, queued: Boolean) {
-        val safe = validateEdit(edit); require(safe.getString("projectId") == project) { "BULK_SCOPE_CHANGED" }
-        require(!queued) { "BULK_LOCAL_QUEUE" }; val scope = SharedBulkProtocol.scope(data)
-        require(scope.getLong("total") > 0 && !scope.getBoolean("hasMore") && PlanningLifecycle.rows(scope.getJSONArray("projects")).all { it.getString("id") == project }) { "BULK_SCOPE_CHANGED" }
+        val safe = validateEdit(edit); require(SharedBulkProtocol.context(safe) == project) { "BULK_SCOPE_CHANGED" }
+        require(!queued) { "BULK_LOCAL_QUEUE" }; val scope = SharedBulkProtocol.scope(data, 1000)
+        val projects = PlanningLifecycle.rows(scope.getJSONArray("projects"))
+        require(scope.getLong("total") > 0 && !scope.getBoolean("hasMore") && projects.isNotEmpty() &&
+            projects.map { it.getString("id") }.toSet().size == projects.size && projects.all { it.getLong("taskCount") > 0 } &&
+            projects.sumOf { it.getLong("taskCount") } == scope.getLong("total")) { "BULK_SCOPE_CHANGED" }
+        if (project != SharedBulkProtocol.QUERY_SCOPE) require(projects.all { it.getString("id") == project }) { "BULK_SCOPE_CHANGED" }
+        else if (safe.getJSONObject("action").getString("kind") == "status") {
+            val map = safe.getJSONObject("action").getJSONObject("statusIds")
+            require(map.keys().asSequence().toSet() == projects.map { it.getString("id") }.toSet()) { "BULK_STATUS_REQUIRED" }
+            projects.forEach { row -> require(PlanningLifecycle.rows(row.getJSONArray("statuses")).any { it.getString("id") == map.getString(row.getString("id")) }) { "INVALID_STATUS" } }
+        }
     }
     override fun rebase(edit: JSONObject, data: JSONObject, project: String): JSONObject = error("BULK_RESELECT_REQUIRED")
     override fun receipt(command: JSONObject, response: JSONObject): JSONObject {
@@ -207,5 +233,33 @@ internal object SharedBulkJournalContract : CommandJournalContract {
             report.getString("mode") == body.getJSONObject("selection").getString("mode")) { "BULK_RECEIPT_INVALID" }
         if (report.getString("mode") == "page") require(report.getJSONObject("counts").getInt("selected") == body.getJSONObject("selection").getJSONArray("items").length()) { "BULK_RECEIPT_INVALID" }
         return JSONObject().put("operationId", report.getString("id"))
+    }
+}
+
+/** A complete scope is bounded and checked across pages, never silently truncated. */
+internal class SharedBulkScopePages {
+    private val projects = mutableListOf<JSONObject>()
+    private val ids = mutableSetOf<String>()
+    private val cursors = mutableSetOf<String>()
+    private var total: Long? = null
+    private var finished = false
+    var cursor: String? = null; private set
+    fun add(raw: JSONObject): Boolean {
+        require(!finished) { "BULK_SCOPE_CHANGED" }
+        val page = SharedBulkProtocol.scope(raw)
+        require(total == null || total == page.getLong("total")) { "BULK_SCOPE_CHANGED" }; total = page.getLong("total")
+        val rows = PlanningLifecycle.rows(page.getJSONArray("projects"))
+        require(rows.isNotEmpty() || !page.getBoolean("hasMore")) { "BULK_SCOPE_CHANGED" }
+        rows.forEach { require(ids.add(it.getString("id")) && it.getLong("taskCount") > 0) { "BULK_SCOPE_CHANGED" }; projects += it }
+        require(projects.size <= 1000) { "BULK_SCOPE_LIMIT" }
+        cursor = if (page.getBoolean("hasMore")) page.getString("nextCursor").also { require(cursors.add(it)) { "BULK_SCOPE_CHANGED" } } else null
+        finished = cursor == null
+        if (finished) require(projects.sumOf { it.getLong("taskCount") } == total) { "BULK_SCOPE_CHANGED" }
+        else require(projects.size < 1000) { "BULK_SCOPE_LIMIT" }
+        return finished
+    }
+    fun result(): JSONObject {
+        require(finished) { "BULK_SCOPE_CHANGED" }
+        return JSONObject().put("total", total).put("projects", JSONArray(projects)).put("hasMore", false).put("nextCursor", JSONObject.NULL)
     }
 }

@@ -71,6 +71,12 @@ internal object SavedViewProtocol {
         valid(value.getString("relative") == "none" || !criteria.has("dueFrom") && !criteria.has("dueTo"))
         valid(!criteria.has("dueFrom") || !criteria.has("dueTo") || criteria.getString("dueFrom") <= criteria.getString("dueTo"))
     }
+    /** PHP binds the filter to the outer visibility scope; frozen legacy bodies stay unchanged. */
+    fun scopedDefinition(definition: JSONObject, space: Any): JSONObject = ready(definition).also {
+        val filter = it.getJSONObject("filter")
+        if (space == JSONObject.NULL) filter.remove("spaceId") else filter.put("spaceId", space)
+        it.put("title", it.getString("title").trim())
+    }
     fun view(raw: JSONObject): JSONObject {
         val value = copy(raw)
         keys(value, setOf("id", "spaceId", "visibility", "revision", "canEdit", "updatedAt", "definition", "invalid"))
@@ -156,7 +162,7 @@ internal object SavedViewJournalContract : CommandJournalContract {
         require(!view.getBoolean("invalid") && (command.isNull("sprintId") || view.getString("id") == command.getString("sprintId")) &&
             view.getLong("revision") == (if (command.isNull("sprintId")) 1L else body.getLong("expectedRevision") + 1) &&
             view.get("spaceId") == body.get("spaceId") && view.get("visibility") == body.get("visibility") &&
-            PlanningLifecycle.canonical(view.getJSONObject("definition")) == PlanningLifecycle.canonical(body.getJSONObject("definition"))) { "VIEW_RECEIPT_INVALID" }
+            PlanningLifecycle.canonical(view.getJSONObject("definition")) == PlanningLifecycle.canonical(SavedViewProtocol.scopedDefinition(body.getJSONObject("definition"), body.get("spaceId")))) { "VIEW_RECEIPT_INVALID" }
         return JSONObject().put("view", view)
     }
 }

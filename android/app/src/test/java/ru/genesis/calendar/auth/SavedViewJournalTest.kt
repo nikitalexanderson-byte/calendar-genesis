@@ -49,6 +49,16 @@ private fun service(store: ViewStorage, access: ViewAccess, account: String = "a
     PlanningJournal(store, contract = SavedViewJournalContract), account, access)
 
 class SavedViewJournalTest {
+    @Test fun scopedReceiptAcceptsOnlyTheServersDocumentedFilterBindingWithoutChangingFrozenBytes() {
+        val edit = SavedViewProtocol.newEdit(definition()).put("spaceId", "space").put("visibility", "shared")
+        val command = SavedViewProtocol.command(edit, UUID.randomUUID().toString()); val frozen = command.toString()
+        val response = JSONObject().put("view", source(1).put("spaceId", "space").put("visibility", "shared")
+            .put("definition", definition().apply { getJSONObject("filter").put("spaceId", "space") }))
+        SavedViewJournalContract.receipt(command, response); assertEquals(frozen, command.toString())
+        response.getJSONObject("view").getJSONObject("definition").getJSONObject("filter").put("q", "Unexpected condition")
+        assertThrows(Exception::class.java) { SavedViewJournalContract.receipt(command, response) }
+    }
+
     @Test fun lostCreateReplyReopensExactCommandAndCannotBeReplacedOrRebased() {
         val store = ViewStorage(); val access = ViewAccess(); var service = service(store, access)
         val local = service.save(null, SavedViewProtocol.newEdit(definition()))

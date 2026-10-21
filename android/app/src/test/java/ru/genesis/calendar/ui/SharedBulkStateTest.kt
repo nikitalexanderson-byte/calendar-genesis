@@ -27,7 +27,10 @@ class SharedBulkStateTest {
         private val access = object : SharedBulkAccess {
             override fun check() { }
             override fun hasTaskQueue() = queue
-            override fun scope(selection: JSONObject) = bulkScopeFixture().put("total", if (selection.getString("mode") == "all") taskCount else selection.getJSONArray("items").length())
+            override fun scope(selection: JSONObject): JSONObject {
+                val size = if (selection.getString("mode") == "all") taskCount else selection.getJSONArray("items").length()
+                return bulkScopeFixture().put("total", size).also { it.getJSONArray("projects").getJSONObject(0).put("taskCount", size) }
+            }
             override fun preview(body: JSONObject): JSONObject {
                 previewCalls++; val size = if (body.getJSONObject("selection").getString("mode") == "all") taskCount else body.getJSONObject("selection").getJSONArray("items").length()
                 response = bulkReportFixture().put("expiresAt", "2099-10-20T12:00:00Z").put("action", body.getJSONObject("action")).put("mode", body.getJSONObject("selection").getString("mode"))

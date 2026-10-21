@@ -171,9 +171,9 @@ for (const language of ["ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "s
 }
 const bulkCopy = JSON.parse(await readFile(path.join(ROOT, "app/native-bulk-translations.json"), "utf8"));
 const bulkKeys = Object.keys(bulkCopy.ru ?? {});
-if (bulkKeys.length !== 32) throw new Error("Native bulk copy must contain all 32 labels.");
+if (bulkKeys.length !== 36) throw new Error("Native bulk copy must contain all 36 labels.");
 for (const language of ["ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja"]) {
-  if (Object.keys(bulkCopy[language] ?? {}).length !== bulkKeys.length) throw new Error(`Incomplete native bulk catalog: ${language}`);
+  if (Object.keys(bulkCopy[language] ?? {}).sort().join("\n") !== [...bulkKeys].sort().join("\n")) throw new Error(`Incomplete native bulk catalog: ${language}`);
   for (const key of bulkKeys) {
     const value = bulkCopy[language]?.[key];
     if (typeof value !== "string" || !value.trim() || (!["ru", "sr", "uk"].includes(language) && CYRILLIC.test(value))) {

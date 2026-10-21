@@ -24,6 +24,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.json.JSONObject
+import ru.genesis.calendar.auth.SharedBulkProtocol
 import ru.genesis.calendar.auth.SavedViewProtocol
 import ru.genesis.calendar.auth.SharedWorkspaceGateway
 import ru.genesis.calendar.data.UiPreferences
@@ -46,7 +47,8 @@ internal fun savedViewMessage(code: String): String = when (code) {
     val scope = rememberCoroutineScope()
     var detail by rememberSaveable(account) { mutableStateOf(false) }
     var conditions by rememberSaveable(account) { mutableStateOf(false) }
-    val conditionsOpen by rememberUpdatedState(conditions)
+    var bulkOrigin by rememberSaveable(account) { mutableStateOf<String?>(null) }
+    val conditionsOpen by rememberUpdatedState(conditions || bulkOrigin != null)
     var replace by remember { mutableStateOf<(() -> Unit)?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
     var leave by remember { mutableStateOf(false) }
@@ -130,6 +132,13 @@ internal fun savedViewMessage(code: String): String = when (code) {
                                     if (state.record != null && state.phase == "editing") AffairsIconButton("Сбросить", AffairsAction.UNDO, { replace = { scope.launch { state.cancel(); detail = false } } },
                                         Modifier.testTag("saved-view-reset"), enabled = !state.busy)
                                 }
+                                if (!conditions && state.queryJson != null && state.results.pageState.value?.optInt("total")?.let { it > 0 } == true) {
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                                        AffairsIconButton("Массовые действия", AffairsAction.TASK, {
+                                            bulkOrigin = JSONObject().put("filter", JSONObject(requireNotNull(state.queryJson))).put("sort", "position").put("title", title).toString()
+                                        }, Modifier.testTag("saved-view-bulk"), enabled = !state.busy && !state.results.busy)
+                                    }
+                                }
                                 SavedViewResults(state, onTask, { scope.launch { state.moreTasks() } })
                             }
                         }
@@ -137,6 +146,13 @@ internal fun savedViewMessage(code: String): String = when (code) {
                 }
             }
         }
+    }
+    bulkOrigin?.let { raw ->
+        val origin = JSONObject(raw)
+        SharedBulkScreen(gateway, SharedBulkProtocol.QUERY_SCOPE, origin.getJSONObject("filter"), origin.getString("sort"), prefs,
+            onClose = { bulkOrigin = null; scope.launch { state.refreshResults() } },
+            onLost = { bulkOrigin = null; state.pause() }, onChanged = {},
+            onTask = { project, task -> bulkOrigin = null; onTask(project, task) }, origin = origin)
     }
     if (replace != null) AlertDialog(onDismissRequest = { replace = null }, title = { Text("Заменить несохранённые условия представления?") },
         confirmButton = { TextButton({ val action = replace; replace = null; action?.invoke() }) { Text("Продолжить") } },

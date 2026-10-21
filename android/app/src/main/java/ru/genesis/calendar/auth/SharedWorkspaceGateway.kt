@@ -59,6 +59,10 @@ interface SharedWorkspaceGateway {
     suspend fun prepareSharedAutomationDraft(projectId: String, stamp: String): JSONObject = throw UnsupportedOperationException("prepareSharedAutomationDraft")
     suspend fun sendSharedAutomationDraft(projectId: String, stamp: String): JSONObject = throw UnsupportedOperationException("sendSharedAutomationDraft")
     suspend fun removeSharedAutomationDraft(projectId: String, stamp: String): Unit = throw UnsupportedOperationException("removeSharedAutomationDraft")
+    val supportsSharedBulkInput: Boolean get() = false
+    suspend fun sharedBulkInput(context: String): JSONObject? = null
+    suspend fun saveSharedBulkInput(context: String, stamp: String?, input: JSONObject): JSONObject = throw UnsupportedOperationException("saveSharedBulkInput")
+    suspend fun removeSharedBulkInput(context: String, stamp: String): Unit = throw UnsupportedOperationException("removeSharedBulkInput")
     suspend fun sharedBulkDraft(projectId: String): JSONObject? = null
     suspend fun saveSharedBulkDraft(projectId: String, stamp: String?, edit: JSONObject): JSONObject = throw UnsupportedOperationException("saveSharedBulkDraft")
     suspend fun prepareSharedBulkDraft(projectId: String, stamp: String): JSONObject = throw UnsupportedOperationException("prepareSharedBulkDraft")

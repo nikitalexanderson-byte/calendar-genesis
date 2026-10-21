@@ -1,5 +1,6 @@
 package ru.genesis.calendar.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -28,6 +29,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.currentStateAsState
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -62,32 +64,37 @@ internal fun bulkErrorText(code: String) = when {
     code == "PLANNING_DRAFT_CHANGED" -> "Операция изменена в другом окне. Откройте сохранённую операцию."
     code == "PLANNING_DRAFT_PENDING" -> "Результат отправки пока не подтверждён. Повторите ту же команду."
     code in setOf("NETWORK", "BULK_ONLINE_REQUIRED") -> "Нет связи. Подключитесь к интернету и обновите экран."
+    code == "BULK_SCOPE_LIMIT" -> "Слишком много проектов. Уточните фильтры и повторите."
     code == "BULK_SELECTION_LIMIT" -> "Можно выбрать до 1000 задач или все результаты по фильтрам."
     code.startsWith("WORKFLOW_") -> "Переход недоступен по правилам процесса. Откройте задачу и проверьте условия."
     else -> "Не удалось получить ответ. Обновите отчёт или повторите запрос."
 }
 
 @Composable internal fun SharedBulkScreen(controller: SharedWorkspaceGateway, projectId: String, initialFilter: JSONObject, sort: String,
-    preferences: UiPreferences, onClose: () -> Unit, onLost: () -> Unit, onChanged: () -> Unit, onTask: (String, String) -> Unit) {
+    preferences: UiPreferences, onClose: () -> Unit, onLost: () -> Unit, onChanged: () -> Unit, onTask: (String, String) -> Unit, origin: JSONObject? = null) {
     key(controller, LocalGenesisUserId.current, projectId) {
         var savedForm by rememberSaveable { mutableStateOf(SharedBulkForm.initial().saved()) }
         var savedOperation by rememberSaveable { mutableStateOf("") }
         var savedCalendar by rememberSaveable { mutableStateOf(SharedCustomCalendar.initial(preferences).saved().toString()) }
         val lost by rememberUpdatedState(onLost); val changed by rememberUpdatedState(onChanged)
         val state = remember { SharedBulkState(controller, projectId, JSONObject(initialFilter.toString()), sort, savedForm, savedOperation,
-            { savedForm = it }, { savedOperation = it }, { lost() }, { changed() }) }
-        val calendar = runCatching { SharedCustomCalendar.restore(JSONObject(savedCalendar)) }.getOrElse { SharedCustomCalendar.initial(preferences) }
+            { savedForm = it }, { savedOperation = it }, { lost() }, { changed() }, origin, JSONObject(savedCalendar)) }
+        val calendar = runCatching { SharedCustomCalendar.restore(JSONObject(state.calendarJson ?: savedCalendar)) }.getOrElse { SharedCustomCalendar.initial(preferences) }
         val scope = rememberCoroutineScope(); val lifecycle = LocalLifecycleOwner.current.lifecycle.currentStateAsState().value
         val active = lifecycle.isAtLeast(Lifecycle.State.STARTED) && LocalNavigationPageContext.current?.active != false
         val night = LocalEveningTheme.current
         var stopWarning by remember { mutableStateOf(false) }
-        DisposableEffect(state) { onDispose { state.close() } }
+        var leaveWarning by remember { mutableStateOf(false) }
+        fun close() { scope.launch { if (state.saveInput()) onClose() else leaveWarning = true } }
+        DisposableEffect(state) { onDispose { scope.launch(NonCancellable) { try { state.saveInput() } finally { state.close() } } } }
+        LaunchedEffect(state.version, state.busy) { if (state.dirty && !state.busy) { delay(250); state.saveInput() } }
         LaunchedEffect(state, active) {
-            if (!active) { state.pause(); return@LaunchedEffect }
+            if (!active) { state.saveInput(); state.pause(); return@LaunchedEffect }
             state.load()
             while (isActive) { delay(5000); state.poll() }
         }
-        Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Dialog(onDismissRequest = ::close, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+            BackHandler { close() }
             val view = LocalView.current
             SideEffect { (view.parent as? DialogWindowProvider)?.window?.let { WindowInsetsControllerCompat(it, view).isAppearanceLightStatusBars = !night } }
             BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -98,12 +105,13 @@ internal fun bulkErrorText(code: String) = when {
                                 if (state.pane == "configure" && state.editable) AffairsIconButton("Выбрать задачи", AffairsAction.BACK, { state.choose() }, Modifier.testTag("bulk-back"), enabled = !state.busy)
                                 else AffairsIconButton("История операций", AffairsAction.HISTORY, { scope.launch { state.showHistory() } }, Modifier.testTag("bulk-history"), enabled = !state.busy)
                                 AffairsIconButton("Обновить", AffairsAction.REFRESH, { scope.launch { state.refresh() } }, Modifier.testTag("bulk-refresh"), enabled = !state.busy)
-                                AffairsIconButton("Закрыть", AffairsAction.CLOSE, onClose, Modifier.testTag("bulk-close"))
+                                AffairsIconButton("Закрыть", AffairsAction.CLOSE, ::close, Modifier.testTag("bulk-close"))
                         }
                         HorizontalDivider()
                         val scroll = rememberScrollState()
                         LaunchedEffect(state.pane, state.operationId, state.after) { scroll.scrollTo(0) }
                         Column(Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(scroll).padding(16.dp).testTag("bulk-content"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            if (state.query && state.title.isNotBlank()) androidx.compose.material3.Text(state.title, style = MaterialTheme.typography.titleMedium)
                             state.project?.let { androidx.compose.material3.Text(it.optString("title"), style = MaterialTheme.typography.titleMedium) }
                             when {
                                 state.inputInvalid -> Text("Не удалось восстановить выбор. Создайте новую операцию.")
@@ -113,12 +121,14 @@ internal fun bulkErrorText(code: String) = when {
                                     state.expired, { scope.launch { state.reportPage(it) } }, onTask) } ?: Text("Загрузка отчёта…")
                                 state.phase == "pending" -> Text("Результат отправки пока не подтверждён. Повторите ту же команду.")
                                 state.phase == "rejected" -> Text("Задачи изменились. Обновите выборку и выберите задачи заново.")
-                                state.pane == "configure" -> BulkActionForm(state, controller, calendar) { savedCalendar = it.saved().toString() }
+                                state.pane == "configure" -> BulkActionForm(state, controller, calendar) { savedCalendar = it.saved().toString(); state.calendar(it.saved()) }
                                 else -> BulkSelection(state)
                             }
                         }
                         HorizontalDivider()
                         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (controller.supportsSharedBulkInput && (state.dirty || state.inputSaved) && state.phase in setOf("", "editing"))
+                                Text(if (state.dirty) "Сохранение…" else "Сохранено на устройстве", Modifier.testTag("bulk-save-state"), style = MaterialTheme.typography.bodySmall)
                             if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("bulk-working"))
                             if (state.error.isNotBlank()) Text(bulkErrorText(state.error), Modifier.testTag("bulk-error").semantics { liveRegion = LiveRegionMode.Polite },
                                 color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
@@ -131,6 +141,8 @@ internal fun bulkErrorText(code: String) = when {
                 }
             }
         }
+        if (leaveWarning) AlertDialog(onDismissRequest = { leaveWarning = false }, title = { Text("Не удалось сохранить последние изменения. Оставьте свою копию или вернитесь к редактированию.") },
+            confirmButton = { TextButton({ leaveWarning = false }) { Text("Вернуться к редактированию") } })
         if (stopWarning) AlertDialog(onDismissRequest = { stopWarning = false }, title = { Text("Остановить операцию?") },
             text = { Text("Отмена останавливает только оставшиеся задачи. Уже выполненные изменения сохранятся.") },
             confirmButton = { TextButton({ stopWarning = false; scope.launch { state.command("cancel") } }, Modifier.testTag("bulk-cancel-confirm")) { Text("Остановить") } },
@@ -163,6 +175,7 @@ internal fun bulkErrorText(code: String) = when {
                 Checkbox(selected, null)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     androidx.compose.material3.Text(task.getString("title"), style = MaterialTheme.typography.bodyLarge)
+                    if (state.query) androidx.compose.material3.Text(task.getString("projectTitle"), style = MaterialTheme.typography.bodySmall)
                     val due = task.optString("dueDate").takeUnless { it == "null" }.orEmpty()
                     if (due.isNotEmpty()) androidx.compose.material3.Text(due, style = MaterialTheme.typography.bodySmall)
                 }
@@ -178,7 +191,7 @@ internal fun bulkErrorText(code: String) = when {
 
 @Composable private fun BulkActionForm(state: SharedBulkState, gateway: SharedWorkspaceGateway, calendar: SharedCustomCalendar, onCalendar: (SharedCustomCalendar) -> Unit) {
     val form = state.form; val enabled = state.editable && !state.busy && state.canEdit; val project = state.projectId
-    val projectFilter = remember(project) { JSONObject().put("projectIds", JSONArray().put(project)) }
+    val projectFilter = if (state.query) JSONObject().put("projectIds", JSONArray(state.scopeProjects.map { it.getString("id") })) else remember(project) { JSONObject().put("projectIds", JSONArray().put(project)) }
     fun update(key: String, value: Any) = state.change(state.form.change(key, value))
     Text(if (form.all) "Выбраны все задачи по текущим фильтрам." else genesisTranslate("Выбрано") + ": ${form.selectionCount}", style = MaterialTheme.typography.bodyMedium)
     ImportChoice("Действие", form.kind, SharedBulkProtocol.kinds.map { it to genesisTranslate(bulkKindLabel(it)) }, enabled, "bulk-kind") { update("kind", it) }
@@ -187,7 +200,17 @@ internal fun bulkErrorText(code: String) = when {
             .mapIndexed { index, label -> index.toString() to genesisTranslate(label) }, enabled, "bulk-priority") { update("priority", it.toInt()) }
         "assignee" -> BulkOptionChoice(gateway, "assignees", projectFilter, "Исполнитель", listOfNotNull(form.text("assigneeId").takeIf { it.isNotEmpty() }), enabled,
             state.optionEpoch, "bulk-assignee", allowEmpty = true) { update("assigneeId", it.firstOrNull().orEmpty()) }
-        "status" -> BulkOptionChoice(gateway, "statuses", projectFilter, "Статус", listOfNotNull(form.text("statusId").takeIf { it.isNotEmpty() }), enabled,
+        "status" -> if (state.query) {
+            Text("Выберите статус для каждого проекта.", style = MaterialTheme.typography.bodySmall)
+            state.scopeProjects.forEach { row ->
+                val id = row.getString("id")
+                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    androidx.compose.material3.Text(row.getString("title"), style = MaterialTheme.typography.titleSmall)
+                    ImportChoice("Статус", form.status(id), listOf("" to genesisTranslate("Выберите")) + importRows(row.getJSONArray("statuses"))
+                        .map { it.getString("id") to it.getString("title") }, enabled, "bulk-status-$id") { state.change(state.form.status(id, it)) }
+                }
+            }
+        } else BulkOptionChoice(gateway, "statuses", projectFilter, "Статус", listOfNotNull(form.text("statusId").takeIf { it.isNotEmpty() }), enabled,
             state.optionEpoch, "bulk-status") { update("statusId", it.firstOrNull().orEmpty()) }
         "due" -> {
             ImportChoice("Действие со сроком", form.text("dueMode"), listOf("set" to genesisTranslate("Задать дату"), "shift" to genesisTranslate("Сдвинуть"), "clear" to genesisTranslate("Очистить срок")), enabled, "bulk-due-mode") { update("dueMode", it) }
@@ -228,9 +251,15 @@ internal fun bulkErrorText(code: String) = when {
         var page by remember { mutableStateOf<JSONObject?>(null) }; var options by remember { mutableStateOf(emptyList<JSONObject>()) }
         var failure by remember { mutableStateOf(false) }; var loading by remember { mutableStateOf(false) }
         var refresh by remember { mutableIntStateOf(0) }; var limit by rememberSaveable { mutableIntStateOf(5) }
+        val scopes = remember(identity) {
+            val source = JSONObject(identity); val projects = source.optJSONArray("projectIds")
+            if (projects == null || projects.length() <= 100) listOf(source) else (0 until projects.length()).map(projects::getString).chunked(100)
+                .map { ids -> JSONObject(identity).put("projectIds", JSONArray(ids)) }
+        }
+        var batch by remember { mutableIntStateOf(0) }
         LaunchedEffect(refresh) {
-            page = null; options = emptyList(); loading = true; failure = false
-            try { page = SharedBulkProtocol.options(gateway.sharedBulkOptions(kind, JSONObject(identity))); options = importRows(page!!.getJSONArray("options")) }
+            page = null; options = emptyList(); batch = 0; loading = true; failure = false
+            try { page = SharedBulkProtocol.options(gateway.sharedBulkOptions(kind, scopes[0])); options = importRows(page!!.getJSONArray("options")) }
             catch (cancelled: CancellationException) { throw cancelled } catch (_: Exception) { failure = true } finally { loading = false }
         }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -253,9 +282,14 @@ internal fun bulkErrorText(code: String) = when {
                 Text("Не удалось загрузить данные", Modifier.weight(1f), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 AffairsIconButton("Обновить", AffairsAction.REFRESH, { refresh++ }, enabled = !loading)
             }
-            if (page?.optBoolean("hasMore") == true) OutlinedButton({ scope.launch {
+            if (page != null && (page!!.getBoolean("hasMore") || batch + 1 < scopes.size)) OutlinedButton({ scope.launch {
                 loading = true; failure = false
-                try { val next = SharedBulkProtocol.options(gateway.sharedBulkOptions(kind, JSONObject(identity), page!!.getString("nextCursor"))); options = options + importRows(next.getJSONArray("options")); page = next; limit += 5 }
+                try {
+                    val nextBatch = if (page!!.getBoolean("hasMore")) batch else batch + 1
+                    val cursor = if (nextBatch == batch && page!!.getBoolean("hasMore")) page!!.getString("nextCursor") else null
+                    val next = SharedBulkProtocol.options(gateway.sharedBulkOptions(kind, scopes[nextBatch], cursor))
+                    options = (options + importRows(next.getJSONArray("options"))).distinctBy { it.getString("id") }; batch = nextBatch; page = next; limit += 5
+                }
                 catch (cancelled: CancellationException) { throw cancelled } catch (_: Exception) { page = null; options = emptyList(); failure = true } finally { loading = false }
             } }, enabled = !loading && enabled, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("$tag-more")) { Text("Загрузить ещё варианты") }
         }
@@ -359,7 +393,7 @@ internal fun bulkErrorText(code: String) = when {
             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("bulk-reselect")) { Text("Выбрать задачи заново") }
         state.pane == "configure" -> Button(onPreview, enabled = enabled && state.ready && state.online,
             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("bulk-preview")) { Text("Предварительный просмотр") }
-        else -> Button({ state.configure() }, enabled = enabled && state.editable && state.selectionReady && state.canEdit && state.online,
+        else -> Button({ if (state.query) scope.launch { state.configureQuery() } else state.configure() }, enabled = enabled && state.editable && state.selectionReady && state.canEdit && state.online,
             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("bulk-configure")) { Text("Выбрать действие") }
     }
 }

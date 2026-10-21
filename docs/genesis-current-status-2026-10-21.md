@@ -8,6 +8,8 @@
 
 Последний подтверждённый веб-релиз — [PR239](https://github.com/nikitalexanderson-byte/calendar-genesis/pull/239), master/production `438f94149cae474ac1cd38ccec20f16608821ec0`. Опубликованный Android остаётся2.9.0/95. Новые нативные экраны ниже являются исходниками следующего выпуска; локальная проверка не означает их появления в установленном2.9.0.
 
+[Native query bulk](genesis-native-query-bulk-2026-10-21.md) завершил локальную source-приёмку:678 JVM/670 выполнены/8 opt-in skips, по12 HTTPS/UI/storage cases на API28/API35,52 final PNG/14 языков/font130,384 web tests и обязательные gates, unsigned R8/45-holder ART. Добавлены encrypted pre-preview input, per-project status mapping, полный bounded scope и exact replay после удаления исходного view; исправлена B5 scoped receipt comparison. Общий выпуск ещё впереди. Следом C3 revision-rebase/option bounds и общие G/C/B связи. Realme отключён; SSH не использовался.
+
 ## Уже сделано
 
 1. **A1–A3:** восстановление после обновлений, сохранение совместимости старых вкладок/ресурсов, большие серверные выборки, поиск и точные счётчики, direct navigation с проверкой доступа, архив/корзина/восстановление/явное окончательное удаление.

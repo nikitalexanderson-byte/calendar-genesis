@@ -65,6 +65,8 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
     private val projectAccessJournal = PlanningJournal(PlanningDraftStore(context.applicationContext, "project-access"), contract = ProjectAccessJournalContract)
     private val projectAccessOperationMutex = Mutex()
     private val bulkJournal = PlanningJournal(PlanningDraftStore(context.applicationContext, "bulk"), contract = SharedBulkJournalContract)
+    private val bulkInputStorage = PlanningDraftStore(context.applicationContext, "bulk-input")
+    private val bulkInputJournal = PlanningJournal(bulkInputStorage, contract = SharedBulkInputContract)
     private val bulkOperationMutex = Mutex()
     private val templateJournal = PlanningJournal(PlanningDraftStore(context.applicationContext, "templates"), contract = SharedTemplateJournalContract)
     private val templateOperationMutex = Mutex()
@@ -392,11 +394,19 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
             override fun check() = current()
             private fun online() { current(); if (mutableState.value.requiresSignIn) throw AuthFailure(AuthFailure.Kind.NETWORK) }
             override fun hasTaskQueue(): Boolean { current(); return sharedOffline.queued(account).isNotEmpty() }
-            override fun scope(selection: JSONObject): JSONObject { online(); return client.sharedBulkScope(generation, selection, null).also { current() } }
+            override fun scope(selection: JSONObject): JSONObject {
+                val pages = SharedBulkScopePages()
+                do { online(); val page = client.sharedBulkScope(generation, selection, pages.cursor); current() } while (!pages.add(page))
+                return pages.result()
+            }
             override fun preview(body: JSONObject): JSONObject { online(); return client.sharedBulkPreview(generation, body).also { current() } }
         }
-        return withContext(Dispatchers.IO) { bulkOperationMutex.withLock { current(); action(SharedBulkDraftService(bulkJournal, account, access)).also { current() } } }
+        return withContext(Dispatchers.IO) { bulkOperationMutex.withLock { current(); action(SharedBulkDraftService(bulkJournal, account, access, bulkInputJournal)).also { current() } } }
     }
+    override val supportsSharedBulkInput = true
+    override suspend fun sharedBulkInput(context: String) = bulkDraftCall { it.loadInput(context) }
+    override suspend fun saveSharedBulkInput(context: String, stamp: String?, input: JSONObject) = bulkDraftCall { it.saveInput(context, stamp, input) }
+    override suspend fun removeSharedBulkInput(context: String, stamp: String) = bulkDraftCall { it.removeInput(context, stamp) }
     override suspend fun sharedBulkDraft(projectId: String) = bulkDraftCall { it.load(projectId) }
     override suspend fun saveSharedBulkDraft(projectId: String, stamp: String?, edit: JSONObject) = bulkDraftCall { it.save(projectId, stamp, edit) }
     override suspend fun prepareSharedBulkDraft(projectId: String, stamp: String) = bulkDraftCall { it.prepare(projectId, stamp) }
@@ -1206,6 +1216,7 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
         withContext(Dispatchers.IO) {
             mutableState.value.user?.uid?.let(sharedOffline::clear)
             savedViewStorage.clear()
+            bulkInputStorage.clear()
             CachedAccountEntry(app).clear(previousScope)
             app.scheduler.deactivate(previousScope)
         }
