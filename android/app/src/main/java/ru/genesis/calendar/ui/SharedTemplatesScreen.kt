@@ -8,9 +8,11 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -94,20 +96,30 @@ import java.util.UUID
     LaunchedEffect(state, canWrite, canCreate) { state.updatePermissions(canWrite, canCreate) }
     LaunchedEffect(state.inputVersion) { if (state.dirty && state.phase == "editing") { delay(250); state.save() } }
     DisposableEffect(state) { onDispose { scope.launch(NonCancellable) { try { if (state.dirty) state.save() } finally { state.close() } } } }
-    Dialog(onDismissRequest = ::back, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    Dialog(onDismissRequest = ::back, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing), contentAlignment = Alignment.Center) {
-            Surface(Modifier.widthIn(max = 1120.dp).fillMaxWidth().padding(12.dp).heightIn(max = maxHeight * .96f).imePadding(), shape = AffairsLayout.shape) {
+            val compactIme = WindowInsets.ime.getBottom(LocalDensity.current) > 0 && maxHeight < 360.dp
+            Surface(Modifier.widthIn(max = 1120.dp).fillMaxWidth().padding(horizontal = 12.dp, vertical = if (compactIme) 4.dp else 12.dp)
+                .heightIn(max = if (compactIme) maxHeight else maxHeight * .96f).imePadding(), shape = AffairsLayout.shape) {
                 Column(Modifier.testTag("shared-templates-screen")) {
-                    Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    @Composable fun Header() {
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = if (compactIme) 4.dp else 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         if (state.edit != null || state.source != null) AffairsIconButton("Назад", AffairsAction.BACK, ::back, Modifier.testTag("template-back"))
                         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                            Text("Шаблоны", Modifier.testTag("template-heading").semantics { heading() }, style = MaterialTheme.typography.headlineSmall)
-                            androidx.compose.material3.Text(projectTitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Шаблоны", Modifier.testTag("template-heading").semantics { heading() }, style = if (compactIme) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineSmall,
+                                maxLines = if (compactIme) 1 else Int.MAX_VALUE, overflow = TextOverflow.Ellipsis)
+                            if (!compactIme) androidx.compose.material3.Text(projectTitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         AffairsIconButton("Закрыть", AffairsAction.CLOSE, ::close, Modifier.testTag("template-close"))
                     }
+                    }
+                    @Composable fun LocalActions() {
+                        if (state.edit?.getString("kind") == "template-apply") TemplateOutlinedButton({ run { state.review() } }, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-review")) { Text("Предпросмотр применения") }
+                        TextButton({ erase = true }, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-discard")) { Text(draftCopy.getString("discard")) }
+                    }
+                    if (!compactIme) Header()
                     if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("template-progress"))
-                    if (state.error.isNotBlank()) androidx.compose.material3.Text(when {
+                    @Composable fun Notice() { if (state.error.isNotBlank()) androidx.compose.material3.Text(when {
                         state.lost -> templateIssueMessage("TEMPLATE_PERMISSION_CHANGED", copy)
                         state.conflicted -> draftCopy.getString("changed")
                         state.error in setOf("PLANNING_DRAFT_STORAGE", "STORAGE") -> draftCopy.getString("error")
@@ -115,12 +127,14 @@ import java.util.UUID
                         state.error == "NETWORK" -> genesisTranslate("Нет сети. Повторите действие после подключения.")
                         state.error in setOf("PLANNING_DRAFT_INVALID", "PLANNING_DRAFT_SCOPE") -> genesisTranslate("Черновик не удалось прочитать. Он сохранён на устройстве. Повторите загрузку или закройте окно.")
                         else -> templateIssueMessage(state.error, copy)
-                    }, Modifier.fillMaxWidth().padding(16.dp).testTag("template-error"), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+                    }, Modifier.fillMaxWidth().padding(16.dp).testTag("template-error"), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
+                    if (!compactIme) Notice()
                     if (!state.loaded && !state.busy && !state.lost) TemplateOutlinedButton({ run { state.load() } }, Modifier.fillMaxWidth().padding(horizontal = 16.dp).heightIn(min = 48.dp)) { Text("Повторить") }
                     BoxWithConstraints(Modifier.weight(1f, fill = false).fillMaxWidth()) {
                         val wide = maxWidth >= 720.dp
                         @Composable fun Library(modifier: Modifier) {
                             Column(modifier.verticalScroll(rememberScrollState()).padding(16.dp).testTag("template-library"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                if (compactIme) { Header(); Notice() }
                                 if (state.record != null && state.edit == null) TemplateOutlinedButton({ state.resume() }, Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(draftCopy.getString("restore")) }
                                 val available = state.loaded && !state.busy && !state.lost && state.record == null && state.edit == null
                                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -155,7 +169,8 @@ import java.util.UUID
                             }
                         }
                         @Composable fun Detail(modifier: Modifier) {
-                            Column(modifier.verticalScroll(rememberScrollState()).padding(16.dp).testTag("template-detail"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            Column(modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = if (compactIme) 4.dp else 16.dp).testTag("template-detail"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                                if (compactIme) { Header(); Notice() }
                                 val edit = state.edit; val source = state.source
                                 if (state.lost) Text("Нет доступа", Modifier.testTag("template-access-lost"), style = MaterialTheme.typography.titleMedium)
                                 else if (edit != null) {
@@ -216,22 +231,30 @@ import java.util.UUID
                                     if (!source.getBoolean("deleted")) Button(::applySource, enabled = available && (if (source.getString("kind") == "project") canCreate else canWrite), shape = AffairsLayout.shape, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-apply-open")) { Text("Применить шаблон") }
                                     TemplateIssues(source.getJSONArray("notices"), copy, "Изменения и пропуски", "template-source-notices")
                                 } else Text("Выберите шаблон, чтобы посмотреть структуру и применить его.", style = MaterialTheme.typography.bodyMedium)
+                                if (compactIme && state.edit != null && !state.lost && state.phase == "editing") LocalActions()
                             }
                         }
-                        if (wide) Row(Modifier.fillMaxWidth()) { Library(Modifier.width(288.dp)); VerticalDivider(); Detail(Modifier.weight(1f)) }
+                        if (wide) Row(Modifier.fillMaxWidth()) {
+                            val editing = state.edit != null || state.source != null || state.lost
+                            if (!compactIme || !editing) {
+                                Library(if (compactIme) Modifier.weight(1f) else Modifier.width(288.dp))
+                                if (!compactIme) VerticalDivider()
+                            }
+                            if (!compactIme || editing) Detail(Modifier.weight(1f))
+                        }
                         else if (state.edit != null || state.source != null || state.lost) Detail(Modifier.fillMaxWidth()) else Library(Modifier.fillMaxWidth())
                     }
                     if (state.edit != null && !state.lost) {
                         HorizontalDivider()
-                        Column(Modifier.fillMaxWidth().padding(16.dp).testTag("template-footer"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column(Modifier.fillMaxWidth().padding(if (compactIme) 4.dp else 16.dp).testTag("template-footer"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             when (state.phase) {
                                 "received" -> Button({ run { state.discard(); state.loadLibrary() } }, enabled = !state.busy, shape = AffairsLayout.shape, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-done")) { Text("Готово") }
                                 "editing" -> {
-                                    if (state.edit?.getString("kind") == "template-apply") TemplateOutlinedButton({ run { state.review() } }, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-review")) { Text("Предпросмотр применения") }
+                                    if (!compactIme && state.edit?.getString("kind") == "template-apply") TemplateOutlinedButton({ run { state.review() } }, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-review")) { Text("Предпросмотр применения") }
                                     Button(::submit, enabled = state.editable && (state.edit?.getString("kind") != "template-apply" || state.previewCurrent && state.preview?.optBoolean("canApply") == true), shape = AffairsLayout.shape, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-submit")) {
                                         Text(if (state.edit?.getString("kind") == "template-apply") "Создать из шаблона" else if (state.edit?.getJSONObject("request")?.optBoolean("deleted") == true) "Удалить шаблон" else "Сохранить шаблон")
                                     }
-                                    TextButton({ erase = true }, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-discard")) { Text(draftCopy.getString("discard")) }
+                                    if (!compactIme) TextButton({ erase = true }, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-discard")) { Text(draftCopy.getString("discard")) }
                                 }
                                 else -> {
                                     Button(::submit, enabled = !state.busy && state.phase == "pending", shape = AffairsLayout.shape, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-retry")) { Text("Повторить") }

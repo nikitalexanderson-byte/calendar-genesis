@@ -16,7 +16,11 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.Until
+import android.accessibilityservice.AccessibilityServiceInfo
+import android.content.res.Configuration
+import android.graphics.Rect
 import android.provider.Settings
+import android.view.accessibility.AccessibilityWindowInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -44,6 +48,7 @@ class SharedTemplatesUiTest {
     private var epoch by mutableIntStateOf(0)
     private var visible by mutableStateOf(true)
     private var loseReply = false
+    @Volatile private var templateSendCalls = 0
     private var captureTask: JSONObject? = null
     private var writeAllowed by mutableStateOf(true)
     private var parentScreen = false
@@ -83,6 +88,7 @@ class SharedTemplatesUiTest {
             override suspend fun queuedSharedTasks(projectId: String) = emptyList<JSONObject>()
             override suspend fun querySharedTasks(filter: JSONObject, cursor: String?) = withContext(Dispatchers.IO) { fixture.client.querySharedTasks(fixture.generation, filter, cursor) }
             override suspend fun sendSharedTemplateDraft(project: String, stamp: String): JSONObject = withContext(Dispatchers.IO) {
+                templateSendCalls++
                 fixture.service { loseReply.also { loseReply = false } }.send(project, stamp)
             }
         } }
@@ -287,26 +293,79 @@ class SharedTemplatesUiTest {
     }
     @Test fun thePrimaryActionRemainsReachableWithTheKeyboardOpen() {
         val args = InstrumentationRegistry.getArguments(); assumeTrue(args.getString("genesisTemplateKeyboard") == "true")
-        val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val device = UiDevice.getInstance(instrumentation)
+        if (args.getString("genesisTemplateLandscape") == "true") {
+            device.setOrientationLeft()
+            compose.waitUntil(10_000) { compose.activity.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE }
+        }
+        dark = args.getString("genesisTemplateNight") == "true"
+        args.getString("genesisTemplateFontScale")?.toFloat()?.let { assertEquals(it, compose.activity.resources.configuration.fontScale, .005f) }
+        val directory = File(fixture.app.filesDir, "template-system-ime").apply { mkdirs() }
+        for (name in listOf("copy-ime.png", "copy-received.png", "copy-proof.json", "apply-ime.png", "apply-received.png", "apply-proof.json")) File(directory, name).delete()
+        val config = compose.activity.resources.configuration
+        File(directory, "metrics.json").writeText(JSONObject().put("widthDp", config.screenWidthDp).put("heightDp", config.screenHeightDp)
+            .put("fontScale", config.fontScale.toDouble()).put("night", dark).put("densityDpi", compose.activity.resources.displayMetrics.densityDpi).toString())
         val keyboard = Settings.Secure.getString(fixture.app.contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD).substringBefore('/')
-        fun input(tag: String, text: String) {
+        val automation = instrumentation.uiAutomation
+        automation.serviceInfo = automation.serviceInfo.apply { flags = flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS }
+        fun saveWithSystemKeyboard(flow: String, tag: String, text: String, label: String, review: Boolean = false) {
+            val proof = JSONObject().put("flow", flow).put("systemTap", false).put("density", compose.activity.resources.displayMetrics.density.toDouble())
+            try {
             click(tag); assertTrue("Keyboard must actually be visible", device.wait(Until.hasObject(By.pkg(keyboard)), 10_000))
             compose.onNodeWithTag(tag).performTextReplacement(text)
-            compose.waitForIdle(); screen(File(fixture.app.filesDir, "template-keyboard-$tag.png"))
+            device.pressBack(); assertTrue("Back must dismiss the IME before the form", device.wait(Until.gone(By.pkg(keyboard)), 10_000))
+            compose.onNodeWithTag(tag).assertExists(); assertTrue(visible)
+            if (review) { click("template-review"); await("template-preview") }
+            compose.onNodeWithTag(tag).assertTextContains(text)
+            compose.onNodeWithTag(tag).performScrollTo(); compose.waitForIdle()
+            val inputBounds = compose.onNodeWithTag(tag).fetchSemanticsNode().boundsInWindow
+            assertTrue("The field must be visible before the system touch", inputBounds.width > 0 && inputBounds.height > 0)
+            device.click(inputBounds.center.x.toInt(), inputBounds.center.y.toInt())
+            assertTrue("System touch must reopen the IME", device.wait(Until.hasObject(By.pkg(keyboard)), 10_000))
+            compose.waitForIdle(); device.waitForIdle(1_500)
+                val nativeLabel = requireNotNull(device.wait(Until.findObject(By.text(label)), 10_000)) { "Native submit label must be reachable" }
+                val submit = requireNotNull(generateSequence(nativeLabel) { it.parent }.firstOrNull { it.isClickable })
+                val ime = requireNotNull(automation.windows.firstOrNull { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD })
+                val imeBounds = Rect().also(ime::getBoundsInScreen); val saveBounds = submit.visibleBounds
+                val field = compose.onNodeWithTag(tag).fetchSemanticsNode(); val fieldBounds = field.boundsInWindow
+                proof.put("imeWindow", imeBounds.toShortString()).put("saveBounds", saveBounds.toShortString())
+                    .put("saveHeight", saveBounds.height()).put("saveClickable", submit.isClickable).put("saveEnabled", submit.isEnabled)
+                    .put("inputBounds", fieldBounds.toString()).put("inputHeight", fieldBounds.height.toDouble()).put("inputFullHeight", field.size.height)
+                File(directory, "$flow-proof.json").writeText(proof.toString())
+                screen(File(directory, "$flow-ime.png"))
+                assertTrue("The real system IME must not cover Submit", !saveBounds.isEmpty && saveBounds.bottom <= imeBounds.top)
+                assertTrue("Submit must retain its whole48dp native touch target", saveBounds.height() >= 48f * compose.activity.resources.displayMetrics.density - 1f)
+                assertTrue("The entire focused field must remain visible above Submit", fieldBounds.height >= field.size.height - 1f && fieldBounds.bottom <= saveBounds.top)
+                assertTrue("Preview must be current before submitting", submit.isEnabled)
+                val previousCalls = templateSendCalls
+                submit.click(); await("template-received")
+                assertEquals(previousCalls + 1, templateSendCalls)
+                assertEquals("received", fixture.service().load(fixture.project)!!.getString("phase"))
+                screen(File(directory, "$flow-received.png"))
+                File(directory, "$flow-proof.json").writeText(proof.put("systemTap", true).put("sendCalls", templateSendCalls).put("phase", "received").toString())
+            } catch (failure: Throwable) {
+                screen(File(directory, "$flow-ime.png"))
+                proof.put("failure", failure.javaClass.simpleName).put("savedTitle", runCatching {
+                    fixture.service().load(fixture.project)?.getJSONObject("edit")?.getJSONObject("request")?.optString("title")
+                }.getOrNull())
+                File(directory, "$flow-proof.json").writeText(proof.toString())
+                File(directory, "$flow-semantics.txt").writeText(compose.onNodeWithTag("shared-templates-screen", useUnmergedTree = true).printToString())
+                throw failure
+            }
         }
-        fun saveVisibleAction() {
-            val layouts = mutableListOf<TextLayoutResult>()
-            compose.onNodeWithTag("template-heading").performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
-            val bounds = compose.onNodeWithTag("template-submit").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
-            assertTrue("Save touch target clipped by the keyboard", bounds.height >= 48f * layouts.single().layoutInput.density.density - 1f)
-            compose.onNodeWithTag("template-submit").performTouchInput { click() }; await("template-received")
+        compose.setContent { Content() }; await("template-library")
+        val only = args.getString("genesisTemplateKeyboardFlow")
+        if (only != "apply") {
+            source(); click("template-source-copy"); await("template-title")
+            saveWithSystemKeyboard("copy", "template-title", "Шаблон с открытой клавиатурой", "Сохранить шаблон")
+            if (device.hasObject(By.pkg(keyboard))) device.pressBack()
+            click("template-done"); await("template-library")
         }
-        compose.setContent { Content() }; await("template-library"); source(); click("template-source-copy"); await("template-title")
-        input("template-title", "Native keyboard edit"); saveVisibleAction()
-        if (device.hasObject(By.pkg(keyboard))) device.pressBack()
-        click("template-done"); await("template-library")
-        source(); click("template-apply-open"); await("template-preview"); input("template-apply-title", "Native keyboard result")
-        click("template-review"); await("template-preview"); saveVisibleAction()
+        if (only != "copy") {
+            source(); click("template-apply-open"); await("template-preview")
+            saveWithSystemKeyboard("apply", "template-apply-title", "Задача с открытой клавиатурой", "Создать из шаблона", review = true)
+        }
     }
     @Test fun captureActualNativeTemplateForms() {
         val args = InstrumentationRegistry.getArguments(); assumeTrue(args.getString("genesisTemplateCapture") == "true")
