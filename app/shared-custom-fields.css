@@ -68,6 +68,19 @@ html[data-genesis-theme] .genesis-app .shared-projects-modal .shared-custom-fiel
 @media(min-width:1100px) {
  html[data-genesis-theme] .genesis-app .shared-projects-modal:has(.shared-custom-field-manager[open]) { width:min(1120px,calc(100vw - 48px)); }
 }
-.shared-custom-field-filter { display:flex; align-items:end; flex-wrap:wrap; gap:12px; margin-block:16px; }
-.shared-custom-field-filter label { min-width:140px; flex:1; }
+.shared-custom-field-filter-panel { container:field-filter / inline-size; min-width:0; margin-block:20px; }
+.shared-custom-field-filter-panel > summary { min-height:44px; padding-block:12px; cursor:pointer; font-weight:600; overflow-wrap:anywhere; }
+.shared-custom-field-filter-panel > ul { list-style:none; margin:0; padding:0; }
+.shared-custom-field-filter-panel > ul > li { border-block-end:1px solid var(--line); padding-block:12px; }
+.shared-custom-field-filter-panel li > span { min-width:0; overflow-wrap:anywhere; }
+.shared-custom-field-filter-panel .icon-action-button { flex:none; width:44px; height:44px; padding:0; }
+.shared-custom-field-filter { margin-block:20px; }
+.shared-custom-field-filter > fieldset { display:grid; grid-template-columns:minmax(0,1fr); gap:16px; border:0; padding:0; margin:0; min-width:0; width:100%; }
+.shared-custom-field-filter label { min-width:0; margin:0; }
+.shared-custom-field-filter :is(input,select) { min-height:44px; min-width:0; width:100%; }
+.shared-custom-field-filter .shared-custom-fields-inputs { margin:0; grid-column:1 / -1; }
+.shared-custom-field-filter .shared-custom-fields-inputs legend { display:none; }
+.shared-custom-field-filter .shared-custom-field-input { margin:0; }
+.shared-custom-field-filter-add { display:flex; align-items:center; justify-content:space-between; gap:16px; grid-column:1 / -1; padding-block-start:12px; border-block-start:1px solid var(--line); }
+@container field-filter (min-width:520px) { .shared-custom-field-filter > fieldset { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media(max-width:600px){ .shared-custom-field-option { grid-template-columns:minmax(0,1fr); } }

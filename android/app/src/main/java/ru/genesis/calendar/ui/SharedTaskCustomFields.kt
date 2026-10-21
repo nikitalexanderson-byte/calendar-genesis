@@ -95,7 +95,7 @@ import java.util.Locale
     }
 }
 
-private fun customDisplay(field: JSONObject, value: Any?, language: String, calendar: SharedCustomCalendar, unavailable: String): String? {
+internal fun customDisplay(field: JSONObject, value: Any?, language: String, calendar: SharedCustomCalendar, unavailable: String): String? {
     if (CustomFieldProtocol.absent(value)) return null
     return when (value) {
         is Number -> NumberFormat.getNumberInstance(Locale.forLanguageTag(language)).apply { maximumFractionDigits = 12 }.format(value)
@@ -190,7 +190,7 @@ private fun customDisplay(field: JSONObject, value: Any?, language: String, cale
             }
             "date" -> {
                 val date = (value as? String)?.takeIf { runCatching { LocalDate.parse(it) }.isSuccess }.orEmpty()
-                AuthorDatePicker(date, calendar.mode, calculationContext = calendar.context, enabled = enabled,
+                AuthorDatePicker(date, dateCalendar.mode, calculationContext = dateCalendar.context, enabled = enabled,
                     placeholder = "Выберите дату", modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag(tag), onChange = { onValue(id, it) })
                 if (sacredFeatures) AffairsDisclosure("Календарь ввода", Modifier.testTag("$tag-calendar")) {
                     EditorCalendarModePicker(calendar.mode, { onCalendar(calendar.copy(mode = it)) }, enabled,

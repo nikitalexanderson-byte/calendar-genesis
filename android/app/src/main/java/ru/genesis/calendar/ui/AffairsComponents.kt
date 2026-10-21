@@ -33,7 +33,7 @@ internal object AffairsLayout {
     val shape = RoundedCornerShape(16.dp)
 }
 
-internal enum class AffairsAction { BACK, MORE, CLOSE, SEARCH, FILTER, EXPAND, COLLAPSE, REFRESH, MOVE, ADD, EDIT, SETTINGS, DELETE, REPORT, IMPORT, HISTORY, VIEW, UNDO, TEMPLATE, SUBTASK, DECREASE, TASK, AUTOMATION }
+internal enum class AffairsAction { BACK, MORE, CLOSE, SEARCH, FILTER, SORT, EXPAND, COLLAPSE, REFRESH, MOVE, ADD, EDIT, SETTINGS, DELETE, REPORT, IMPORT, HISTORY, VIEW, UNDO, TEMPLATE, SUBTASK, DECREASE, TASK, AUTOMATION }
 
 @Composable internal fun GenesisAccountFooter(status: String) {
     Text(status, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
@@ -52,6 +52,10 @@ internal enum class AffairsAction { BACK, MORE, CLOSE, SEARCH, FILTER, EXPAND, C
         fun curve(x1: Float, y1: Float, x2: Float, y2: Float, x: Float, y: Float) =
             path.cubicTo(x1 * unit, y1 * unit, x2 * unit, y2 * unit, x * unit, y * unit)
         when (action) {
+            AffairsAction.SORT -> {
+                move(3f, 6f); line(13f, 6f); move(3f, 12f); line(10f, 12f); move(3f, 18f); line(7f, 18f)
+                move(18f, 4f); line(18f, 20f); move(14f, 16f); line(18f, 20f); line(22f, 16f)
+            }
             AffairsAction.BACK -> { move(14f, 5f); line(7f, 12f); line(14f, 19f) }
             AffairsAction.CLOSE -> { move(6f, 6f); line(18f, 18f); move(18f, 6f); line(6f, 18f) }
             AffairsAction.DELETE -> {

@@ -36,7 +36,7 @@ internal fun allowedSharedRoute(method: String, path: String): Boolean {
     if (path in setOf("/shared/spaces", "/shared/invitations", "/shared/invitations/accept",
             "/shared/notifications", "/shared/notifications/read")) return method in setOf("GET", "POST")
     if (method == "GET" && path.matches(Regex("/shared/calendar/tasks\\?from=\\d{4}-\\d{2}-\\d{2}&to=\\d{4}-\\d{2}-\\d{2}"))) return true
-    if (method == "GET" && path.matches(Regex("/shared/tasks\\?filter=[A-Za-z0-9%+_.~-]+(?:&cursor=[A-Za-z0-9%+_.~-]+)?(?:&sort=(?:position|createdAt|createdAtAsc|dueDate|updatedAt|title|priority))?"))) return true
+    if (method == "GET" && path.matches(Regex("/shared/tasks\\?filter=[A-Za-z0-9%+_.~-]+(?:&cursor=[A-Za-z0-9%+_.~-]+)?(?:&sort=(?:position|createdAt|createdAtAsc|dueDate|updatedAt|title|priority|custom%3A[A-Za-z0-9_-]{1,100}%3A(?:asc|desc)))?"))) return true
     if (path in setOf("/shared/bulk/scope", "/shared/bulk/preview")) return method == "POST"
     if (path.matches(Regex("/shared/bulk(?:\\?cursor=[A-Za-z0-9%+_.~*-]+)?"))) return method == "GET"
     if (path.matches(Regex("/shared/bulk/[a-f0-9-]{36}\\?after=(?:0|[1-9][0-9]{0,15})"))) return method == "GET"
@@ -575,6 +575,7 @@ internal class AuthSessionClient(context: Context) {
                         val payload = JSONObject(output.toString(Charsets.UTF_8.name()))
                         val code = payload.optString("error")
                         if (path.contains("/templates") && code in SharedTemplateProtocol.errors && !code.startsWith("WORKFLOW_") && !code.startsWith("CUSTOM_FIELD_") ||
+                            path.startsWith("/shared/tasks?") && code in CustomFieldQueryProtocol.errors ||
                             path.endsWith("/data-export") && code in DataExportProtocol.errors ||
                             (path.startsWith("/shared/data/") || path.startsWith("/shared/data-imports/")) && DataImportProtocol.errorCode(code) ||
                             path.startsWith("/shared/reports") && (code in TeamReportProtocol.errors || code.startsWith("CUSTOM_FIELD_")) ||
