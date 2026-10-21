@@ -5,6 +5,17 @@ import java.util.UUID
 
 /** Shared workspace operations implemented by the authenticated controller. */
 interface SharedWorkspaceGateway {
+    suspend fun sharedFieldEditor(project: String): JSONObject? = null
+    suspend fun saveSharedFieldEditor(project: String, stamp: String?, edit: JSONObject): JSONObject = throw UnsupportedOperationException("saveSharedFieldEditor")
+    suspend fun previewSharedFieldEditor(project: String, stamp: String): JSONObject = throw UnsupportedOperationException("previewSharedFieldEditor")
+    suspend fun prepareSharedFieldEditor(project: String, stamp: String): JSONObject = throw UnsupportedOperationException("prepareSharedFieldEditor")
+    suspend fun sendSharedFieldEditor(project: String, stamp: String): JSONObject = throw UnsupportedOperationException("sendSharedFieldEditor")
+    suspend fun rebaseSharedFieldEditor(project: String, stamp: String): JSONObject = throw UnsupportedOperationException("rebaseSharedFieldEditor")
+    suspend fun removeSharedFieldEditor(project: String, stamp: String): Unit = throw UnsupportedOperationException("removeSharedFieldEditor")
+    suspend fun sharedFieldEditorCopies(project: String): List<JSONObject> = emptyList()
+    suspend fun saveSharedFieldEditorCopy(project: String, id: String, stamp: String?, edit: JSONObject): JSONObject = throw UnsupportedOperationException("saveSharedFieldEditorCopy")
+    suspend fun useSharedFieldEditorCopy(project: String, id: String, copyStamp: String, stamp: String?): JSONObject = throw UnsupportedOperationException("useSharedFieldEditorCopy")
+    suspend fun removeSharedFieldEditorCopy(project: String, id: String, stamp: String): Unit = throw UnsupportedOperationException("removeSharedFieldEditorCopy")
     suspend fun sharedFieldDefinitions(space: String, project: String, archived: Boolean = true): JSONObject = throw UnsupportedOperationException("sharedFieldDefinitions")
     suspend fun sharedFieldHistory(space: String, id: String): JSONObject = throw UnsupportedOperationException("sharedFieldHistory")
     suspend fun previewSharedFieldDefinition(space: String, project: String, body: JSONObject): JSONObject = throw UnsupportedOperationException("previewSharedFieldDefinition")

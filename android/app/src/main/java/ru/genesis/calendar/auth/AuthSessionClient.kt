@@ -19,6 +19,7 @@ internal open class AuthFailure(val kind: Kind, val httpStatus: Int? = null) : E
 internal class AuthApiError(val code: String) : Exception(code)
 
 internal fun allowedSharedRoute(method: String, path: String): Boolean {
+    if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/custom-fields"))) return method == "PUT"
     if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/custom-fields\\?projectId=[a-f0-9-]{36}&archived=(?:true|false)"))) return method == "GET"
     if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/custom-fields/preview"))) return method == "POST"
     if (path.matches(Regex("/shared/custom-fields/[A-Za-z0-9_-]{1,100}/history"))) return method == "GET"
@@ -246,6 +247,16 @@ internal class AuthSessionClient(context: Context) {
         return CustomFieldDefinitionProtocol.preview(space, project, snapshot,
             request(expected, "/shared/spaces/$space/custom-fields/preview", snapshot))
     }
+    fun sharedFieldEditorContext(expected: Long, space: String, project: String): JSONObject {
+        CustomFieldProtocol.id(space); CustomFieldProtocol.id(project)
+        val raw = sharedProject(expected, project); val child = raw.getJSONObject("project")
+        val data = JSONObject().put("project", child).put("space", JSONObject().put("id", child.getString("spaceId")).put("role", child.getString("spaceRole")))
+        require(!raw.optBoolean("offlineCache")) { "CUSTOM_FIELD_SCOPE_CHANGED" }
+        CustomFieldEditorProtocol.authorize(space, project, data)
+        return data
+    }
+    fun saveSharedFieldDefinition(expected: Long, space: String, payload: JSONObject): JSONObject =
+        request(expected, "/shared/spaces/${CustomFieldProtocol.id(space)}/custom-fields", payload, method = "PUT")
     fun sharedTaskLists(expected: Long): JSONObject = request(expected, "/shared/task-lists", null)
     fun sharedCalendarTasks(expected: Long, from: String, to: String): JSONObject =
         request(expected, "/shared/calendar/tasks?from=$from&to=$to", null)

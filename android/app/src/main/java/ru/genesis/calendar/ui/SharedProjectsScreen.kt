@@ -134,7 +134,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     var bulkSort by rememberSaveable { mutableStateOf("position") }
     var workflowRepairProjects by remember(spaceId) { mutableStateOf(emptyList<JSONObject>()) }
     val workflowCopy = sharedWorkflowCopy()
-    val customFailureMessages = CustomFieldProtocol.errors.associateWith { genesisTranslate(customFieldMessage(it).orEmpty()) }
+    val customFailureMessages = sharedCustomFieldFailureMessages()
     var showArchived by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(spaceId, showArchived) {
         workflowRepairProjects = emptyList()
@@ -434,7 +434,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                 selectProject(targetProject); taskId = targetTask
             }
         })
-    val automationDestination = rememberSharedAutomationNavigation(controller, preferences, onLost = {
+    val automationDestination = rememberSharedAutomationNavigation(controller, preferences, spaceId, projectId, onLost = {
             snapshot = null; taskPage = null; openedTask = null; taskId = ""; projectId = ""
             message = teamReportNoAccess; run { refreshProjects(spaceId) }
         }, onChanged = { run { if (projectId.isNotBlank()) refreshProject(projectId) } }, onTask = { targetProject, targetTask ->
@@ -540,7 +540,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         }
     }
     BackHandler(enabled = pageActive && (taskId.isNotBlank() || projectId.isNotBlank() || spaceId.isNotBlank()) &&
-        createModal == null && !showManagement && boardDraft == null && !filtersOpen && !discardTaskDraft && !teamReportOpen && !projectAccessOpen && !bulkOpen && automationDestination.value.isBlank()) { navigateBack() }
+        createModal == null && !showManagement && boardDraft == null && !filtersOpen && !discardTaskDraft && !teamReportOpen && !projectAccessOpen && automationDestination.fields.value.isBlank() && !bulkOpen && automationDestination.value.isBlank()) { navigateBack() }
     if (discardTaskDraft) AlertDialog(onDismissRequest = { discardTaskDraft = false },
         title = { Text("Несохранённые изменения") },
         text = { Text("Вернуться без сохранения изменений?") },
@@ -1256,6 +1256,9 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                                 leadingIcon = { AffairsActionIcon(AffairsAction.AUTOMATION) }, onClick = {
                                     actionsOpen = false; automationDestination.value = projectId
                                 })
+                            if (project?.optString("spaceRole") in setOf("owner", "admin")) DropdownMenuItem(text = { Text("Пользовательские поля") },
+                                modifier = Modifier.testTag("shared-fields-open"), leadingIcon = { AffairsActionIcon(AffairsAction.SETTINGS) },
+                                onClick = { actionsOpen = false; automationDestination.fields.value = projectId })
                             DropdownMenuItem(text = { Text("Импорт данных") }, modifier = Modifier.testTag("shared-import-open"),
                                 onClick = { actionsOpen = false; dataImportOpen = true })
                             DropdownMenuItem(text = { Text("Отчёт по совместной работе") }, modifier = Modifier.testTag("shared-team-report-open"),

@@ -99,3 +99,7 @@ internal fun customFieldMessage(code: String): String? = when (code) {
     "CUSTOM_FIELD_OPERATION_REUSED" -> "Эта операция уже использована. Обновите предпросмотр и повторите."
     else -> null
 }
+
+/** Isolate the composable catalog loop from the workspace's near-limit bytecode method. */
+@androidx.compose.runtime.Composable internal fun sharedCustomFieldFailureMessages(): Map<String, String> =
+    CustomFieldProtocol.errors.associateWith { genesisTranslate(customFieldMessage(it).orEmpty()) }

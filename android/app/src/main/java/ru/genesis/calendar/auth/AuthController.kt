@@ -72,6 +72,8 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
     private val automationOperationMutex = Mutex()
     private val automationEditorJournal = PlanningJournal(PlanningDraftStore(context.applicationContext, "automation-editor"), contract = SharedAutomationEditorJournalContract)
     private val automationEditorMutex = Mutex()
+    private val fieldEditorJournal = PlanningJournal(PlanningDraftStore(context.applicationContext, "field-editor"), contract = CustomFieldEditorJournalContract)
+    private val fieldEditorMutex = Mutex()
     private val importStorage = PlanningDraftStore(context.applicationContext, "data-import")
     private val importJournal = PlanningJournal(importStorage, contract = DataImportJournalContract)
     private val importUndoJournal = DataImportUndoJournal(importStorage)
@@ -228,6 +230,39 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
     override suspend fun sharedFieldDefinitions(space: String, project: String, archived: Boolean) = sharedOnlineCall { api, generation -> api.sharedFieldDefinitions(generation, space, project, archived) }
     override suspend fun sharedFieldHistory(space: String, id: String) = sharedOnlineCall { api, generation -> api.sharedFieldHistory(generation, space, id) }
     override suspend fun previewSharedFieldDefinition(space: String, project: String, body: JSONObject) = sharedOnlineCall { api, generation -> api.previewSharedFieldDefinition(generation, space, project, body) }
+    private suspend fun <T> fieldEditorCall(action: (SharedFieldEditorService) -> T): T {
+        val initial = mutableState.value; val account = initial.user?.uid ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
+        if (!initial.ready || initial.accountSettings?.sharedProjectsEnabled != true) throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
+        val generation = client.currentGeneration(); val caller = currentCoroutineContext()
+        fun current() {
+            caller.ensureActive(); val state = mutableState.value
+            if (!client.isCurrent(generation) || !state.ready || state.user?.uid != account || state.accountSettings?.sharedProjectsEnabled != true ||
+                app.workspaceScope != CloudAccountSnapshot.scopeFor(account)) throw CancellationException()
+        }
+        val access = object : SharedFieldEditorAccess {
+            override fun check() = current()
+            private fun online() { current(); if (mutableState.value.requiresSignIn) throw AuthFailure(AuthFailure.Kind.NETWORK) }
+            override fun context(space: String, project: String): JSONObject { online(); return client.sharedFieldEditorContext(generation, space, project).also { current() } }
+            override fun fields(space: String, project: String): JSONObject { online(); return client.sharedFieldDefinitions(generation, space, project, true).also { current() } }
+            override fun preview(space: String, project: String, request: JSONObject): JSONObject {
+                online(); return client.previewSharedFieldDefinition(generation, space, project, request).also { current() }
+            }
+            override fun hasTaskQueue(): Boolean { current(); return sharedOffline.queued(account).isNotEmpty() }
+            override fun send(space: String, payload: JSONObject): JSONObject { online(); return client.saveSharedFieldDefinition(generation, space, payload).also { current() } }
+        }
+        return withContext(Dispatchers.IO) { fieldEditorMutex.withLock { current(); action(SharedFieldEditorService(fieldEditorJournal, account, access)).also { current() } } }
+    }
+    override suspend fun sharedFieldEditor(project: String) = fieldEditorCall { it.load(project) }
+    override suspend fun saveSharedFieldEditor(project: String, stamp: String?, edit: JSONObject) = fieldEditorCall { it.save(project, stamp, edit) }
+    override suspend fun previewSharedFieldEditor(project: String, stamp: String) = fieldEditorCall { it.preview(project, stamp) }
+    override suspend fun prepareSharedFieldEditor(project: String, stamp: String) = fieldEditorCall { it.prepare(project, stamp) }
+    override suspend fun sendSharedFieldEditor(project: String, stamp: String) = fieldEditorCall { it.send(project, stamp) }
+    override suspend fun rebaseSharedFieldEditor(project: String, stamp: String) = fieldEditorCall { it.rebase(project, stamp) }
+    override suspend fun removeSharedFieldEditor(project: String, stamp: String): Unit = fieldEditorCall { it.remove(project, stamp) }
+    override suspend fun sharedFieldEditorCopies(project: String) = fieldEditorCall { it.copies(project) }
+    override suspend fun saveSharedFieldEditorCopy(project: String, id: String, stamp: String?, edit: JSONObject) = fieldEditorCall { it.saveCopy(project, id, stamp, edit) }
+    override suspend fun useSharedFieldEditorCopy(project: String, id: String, copyStamp: String, stamp: String?) = fieldEditorCall { it.useCopy(project, id, copyStamp, stamp) }
+    override suspend fun removeSharedFieldEditorCopy(project: String, id: String, stamp: String): Unit = fieldEditorCall { it.removeCopy(project, id, stamp) }
     override suspend fun sharedAutomations(projectId: String, deleted: Boolean, cursor: String?) = sharedOnlineCall { api, generation -> api.sharedAutomations(generation, projectId, deleted, cursor) }
     override suspend fun sharedAutomation(projectId: String, ruleId: String) = sharedOnlineCall { api, generation -> api.sharedAutomation(generation, projectId, ruleId) }
     override suspend fun sharedAutomationRuns(projectId: String, ruleId: String, cursor: String?) = sharedOnlineCall { api, generation -> api.sharedAutomationRuns(generation, projectId, ruleId, cursor) }
