@@ -67,6 +67,8 @@ function rewardId(idempotencyKey: string) {
   return `reward:${idempotencyKey}`;
 }
 
+const rewardInstant = (value: string) => Number.isFinite(Date.parse(value)) ? Date.parse(value) : Number.MIN_SAFE_INTEGER;
+
 export function createRewardTransaction(input: {
   amount: number;
   reason: RewardReason;
@@ -111,10 +113,12 @@ export function normalizeRewardTransactions(value: unknown): RewardTransaction[]
       createdAt: typeof source.createdAt === "string" ? source.createdAt : "",
     };
     const previous = transactions.get(idempotencyKey);
-    if (!previous || transaction.createdAt < previous.createdAt) transactions.set(idempotencyKey, transaction);
+    if (!previous || rewardInstant(transaction.createdAt) < rewardInstant(previous.createdAt)) transactions.set(idempotencyKey, transaction);
   });
   return Array.from(transactions.values()).sort((a, b) => (
-    a.createdAt.localeCompare(b.createdAt) || a.idempotencyKey.localeCompare(b.idempotencyKey)
+    rewardInstant(a.createdAt) - rewardInstant(b.createdAt)
+      || Number(LAURELS_RESET_REASONS.includes(a.reason as LaurelsResetReason)) - Number(LAURELS_RESET_REASONS.includes(b.reason as LaurelsResetReason))
+      || a.idempotencyKey.localeCompare(b.idempotencyKey)
   ));
 }
 

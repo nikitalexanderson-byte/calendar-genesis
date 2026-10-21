@@ -2,7 +2,7 @@ import type {CustomFieldCommand,CustomFieldDraft,CustomFieldPreview,SharedCustom
 
 type ExpectedField=CustomFieldPreview['field'];
 export type CustomFieldReceipt={field:SharedCustomField;previousFieldId:string|null};
-export type CustomFieldDeviceDraft={version:1;spaceId:string;projectId:string;draft:CustomFieldDraft;
+export type CustomFieldDeviceDraft={version:1;spaceId:string;projectId:string;draft:CustomFieldDraft;positionInput?:string;
  phase:'editing'|'pending'|'rejected'|'received';commandJson:string|null;expected:ExpectedField|null;attempts:number;receipt:CustomFieldReceipt|null;error:string|null};
 const object=(value:unknown):value is Record<string,unknown>=>Boolean(value)&&typeof value==='object'&&!Array.isArray(value);
 const keys=(value:Record<string,unknown>,allowed:string[])=>Object.keys(value).length===allowed.length&&Object.keys(value).every(key=>allowed.includes(key));
@@ -21,14 +21,19 @@ const equal=(a:unknown,b:unknown):boolean=>{
  return object(a)&&object(b)&&Object.keys(a).length===Object.keys(b).length&&Object.keys(a).every(key=>Object.hasOwn(b,key)&&equal(a[key],b[key]));
 };
 function requireValid(value:unknown):asserts value{if(!value)throw new Error('CUSTOM_FIELD_DEVICE_DRAFT_INVALID');}
+export function customFieldPositionValue(value:string):number|null{
+ const number=Number(value);return /^-?\d+$/.test(value)&&Number.isSafeInteger(number)&&Math.abs(number)<=100000?number:null;
+}
 export function validateCustomFieldDeviceDraft(raw:unknown,spaceId:string,projectId:string):CustomFieldDeviceDraft{
- requireValid(object(raw)&&keys(raw,['version','spaceId','projectId','draft','phase','commandJson','expected','attempts','receipt','error']));
+ requireValid(object(raw)&&keys(raw,['version','spaceId','projectId','draft','phase','commandJson','expected','attempts','receipt','error',...(Object.hasOwn(raw,'positionInput')?['positionInput']:[])]));
+ requireValid(raw.positionInput===undefined||text(raw.positionInput,100));
  requireValid(raw.version===1&&raw.spaceId===spaceId&&id(spaceId)&&raw.projectId===projectId&&id(projectId));
  requireValid(object(raw.draft)&&keys(raw.draft,[...fieldKeys,'expectedRevision'])&&field(raw.draft)&&integer(raw.draft.expectedRevision));
  requireValid(['editing','pending','rejected','received'].includes(String(raw.phase))&&integer(raw.attempts));
  requireValid(raw.error===null||text(raw.error,100));
  if(raw.phase==='editing')requireValid(raw.commandJson===null&&raw.expected===null&&raw.attempts===0&&raw.receipt===null&&raw.error===null);
  else{
+  requireValid(raw.positionInput===undefined||customFieldPositionValue(raw.positionInput as string)===(raw.draft as CustomFieldDraft).position);
   requireValid(text(raw.commandJson,1_000_000)&&object(raw.expected)&&keys(raw.expected,[...fieldKeys,'spaceId'])&&field(raw.expected)&&raw.expected.spaceId===spaceId);
   let command:unknown;try{command=JSON.parse(raw.commandJson as string);}catch{throw new Error('CUSTOM_FIELD_DEVICE_DRAFT_INVALID');}
   requireValid(object(command)&&keys(command,[...fieldKeys,'expectedRevision','operationId','fingerprint','replaceType'])&&field(command)&&integer(command.expectedRevision)&&typeof command.operationId==='string'&&/^[a-zA-Z0-9:_-]{1,100}$/.test(command.operationId)&&typeof command.fingerprint==='string'&&/^[a-f0-9]{64}$/.test(command.fingerprint)&&typeof command.replaceType==='boolean');
@@ -39,11 +44,12 @@ export function validateCustomFieldDeviceDraft(raw:unknown,spaceId:string,projec
  }
  return structuredClone(raw) as CustomFieldDeviceDraft;
 }
-export function customFieldDeviceEdit(spaceId:string,projectId:string,draft:CustomFieldDraft):CustomFieldDeviceDraft{
- return validateCustomFieldDeviceDraft({version:1,spaceId,projectId,draft,phase:'editing',commandJson:null,expected:null,attempts:0,receipt:null,error:null},spaceId,projectId);
+export function customFieldDeviceEdit(spaceId:string,projectId:string,draft:CustomFieldDraft,positionInput=String(draft.position)):CustomFieldDeviceDraft{
+ return validateCustomFieldDeviceDraft({version:1,spaceId,projectId,draft,positionInput,phase:'editing',commandJson:null,expected:null,attempts:0,receipt:null,error:null},spaceId,projectId);
 }
 export function prepareCustomFieldDeviceDraft(input:CustomFieldDeviceDraft,preview:CustomFieldPreview,confirmed:boolean,operationId:string):CustomFieldDeviceDraft{
  requireValid(input.phase==='editing'&&preview.field.id===input.draft.id&&preview.field.spaceId===input.spaceId&&preview.previousRevision===input.draft.expectedRevision&&(!preview.replaceType||confirmed));
+ requireValid(customFieldPositionValue(input.positionInput??String(input.draft.position))===input.draft.position);
  const command:CustomFieldCommand={...input.draft,fingerprint:preview.fingerprint,operationId,replaceType:preview.replaceType};
  return validateCustomFieldDeviceDraft({...input,phase:'pending',commandJson:JSON.stringify(command),expected:preview.field},input.spaceId,input.projectId);
 }
@@ -76,5 +82,5 @@ export function rebaseCustomFieldDeviceDraft(input:CustomFieldDeviceDraft,latest
  const original=validateCustomFieldDeviceDraft(input,input.spaceId,input.projectId);
  requireValid(original.phase==='editing'||original.phase==='rejected'&&original.attempts===1||original.phase==='pending'&&original.attempts===0);
  requireValid(field(latest)&&latest.id===original.draft.id&&latest.spaceId===original.spaceId&&integer(latest.revision)&&latest.revision>=Math.max(1,original.draft.expectedRevision));
- return customFieldDeviceEdit(original.spaceId,original.projectId,{...original.draft,expectedRevision:latest.revision});
+ return customFieldDeviceEdit(original.spaceId,original.projectId,{...original.draft,expectedRevision:latest.revision},original.positionInput);
 }

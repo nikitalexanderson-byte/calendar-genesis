@@ -54,7 +54,7 @@ class HabitCoreTest {
                 assertEquals(1,entries.size)
                 val c=entries.single()
                 assertEquals(line,listOf(mode,v[1],v[2],c.score,c.xpAwarded,c.entity.version,c.entity.syncState).joinToString("|"))
-                assertEquals("test-completion",c.entity.id)
+                assertEquals("habit-completion:h1:2026-09-23",c.entity.id)
             }
         }
     }

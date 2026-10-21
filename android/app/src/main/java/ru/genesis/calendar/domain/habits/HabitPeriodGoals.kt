@@ -56,12 +56,16 @@ object HabitPeriodGoals {
         val today = now.atZone(ZoneId.of(goal.context.timeZone)).toLocalDate()
         val first = maxOf(period.start,habit.createdDate,rule.effectiveDate)
         val engine = HabitEngine(GenesisCalendar(ZoneId.of(goal.context.timeZone),goal.context.version,goal.context.gregorianYearStart))
-        val scheduledHabit=habit.copy(active=true,ruleHistory=emptyList(),schedule=rule.schedule)
+        val scheduledHabit=habit.copy(active=true,ruleHistory=emptyList(),schedule=rule.schedule,lifecycleHistory=emptyList())
         val allowed = mutableListOf<LocalDate>()
-        var value = 0L; var qualified = 0L; var reward = 0L; var conflicts = ruleState.conflicts.isNotEmpty()
+        var value = 0L; var qualified = 0L; var reward = 0L; var conflicts = ruleState.conflicts.isNotEmpty();var interrupted=false
         var day = first
         while (day < period.end) {
-            if (HabitMeasurements.rule(habit,day).id == rule.id && engine.isScheduled(scheduledHabit,day)) {
+            val life=HabitLifecycle.state(habit,day)
+            val planned=engine.isScheduled(scheduledHabit,day)
+            val sameRule=HabitMeasurements.rule(habit,day).id==rule.id
+            if(planned && (!sameRule || life.status!="active" || life.conflict)) interrupted=true
+            if (sameRule && planned && life.status=="active" && !life.conflict) {
                 allowed += day
                 if (day <= today) {
                     val entry = completions.firstOrNull { it.habitId == habit.id && it.date == day }
@@ -97,11 +101,11 @@ object HabitPeriodGoals {
             day = day.plusDays(1)
         }
         val deadline = allowed.lastOrNull()
-        val partial = first > period.start || rule.schedule.endDate?.let { it < period.end.minusDays(1) } == true
+        val partial = interrupted || first > period.start || rule.schedule.endDate?.let { it < period.end.minusDays(1) } == true
         val unattainable = goal.metric == "days" && allowed.size < goal.target
         val completed = qualified >= goal.target && !conflicts
         val status = when {
-            !habit.active || ruleState.conflicts.isNotEmpty() || (partial || unattainable) && !completed || deadline == null -> "neutral"
+            ruleState.conflicts.isNotEmpty() || (partial || unattainable) && !completed || deadline == null -> "neutral"
             completed -> "completed"
             today > deadline -> "missed"
             else -> "open"

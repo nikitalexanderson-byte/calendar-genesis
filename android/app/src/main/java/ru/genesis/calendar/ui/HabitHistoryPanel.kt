@@ -1,6 +1,8 @@
 package ru.genesis.calendar.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.material3.*
 import androidx.compose.material3.Text as MaterialText
 import androidx.compose.runtime.*
@@ -19,7 +21,7 @@ import ru.genesis.calendar.domain.GenesisCalendar
 import ru.genesis.calendar.domain.habits.*
 
 @Composable internal fun HabitHistoryPanel(workspace: LocalHabitWorkspace, repository: HabitsRepository,
-    mode: ru.genesis.calendar.domain.CalendarMode) {
+    mode: ru.genesis.calendar.domain.CalendarMode, focus: Pair<String,LocalDate>? = null, onFocusConsumed: () -> Unit = {}) {
     val app = LocalContext.current.applicationContext as GenesisApplication
     val preferences = remember(app) { LocalPreferences(app, app.workspaceScope) }
     val prefs by preferences.values.collectAsState(initial = UiPreferences())
@@ -27,9 +29,14 @@ import ru.genesis.calendar.domain.habits.*
     var expanded by rememberSaveable { mutableStateOf(false) }
     var selected by rememberSaveable { mutableStateOf(workspace.habits.firstOrNull()?.id.orEmpty()) }
     val habit = workspace.habits.firstOrNull { it.id == selected } ?: workspace.habits.firstOrNull()
-    var dateValue by rememberSaveable(selected) { mutableStateOf("") }
+    var dateValue by rememberSaveable { mutableStateOf("") }
+    val historyFocus = remember { BringIntoViewRequester() }
+    var requestedFocus by remember { mutableStateOf(false) }
+    LaunchedEffect(focus) { focus?.let { selected=it.first;dateValue=it.second.toString();expanded=true;requestedFocus=true;onFocusConsumed() } }
+    LaunchedEffect(requestedFocus, expanded) { if (requestedFocus && expanded) { withFrameNanos { }; historyFocus.bringIntoView(); requestedFocus=false } }
     var visible by rememberSaveable { mutableIntStateOf(30) }
-    TextButton(onClick = { expanded = !expanded }) { Text("Исправить историю") }
+    TextButton(onClick = { expanded = !expanded }, shape = AffairsLayout.shape,
+        modifier = Modifier.heightIn(min = 48.dp).bringIntoViewRequester(historyFocus).testTag("habit-history-toggle")) { Text("Исправить историю") }
     if (expanded && habit != null) {
         val rule = HabitMeasurements.rule(habit, dateValue.takeIf { it.isNotEmpty() }?.let(LocalDate::parse) ?: habit.createdDate)
         val yesterday = LocalDate.now(ZoneId.of(rule.schedule.timezone)).minusDays(1)
@@ -57,7 +64,7 @@ import ru.genesis.calendar.domain.habits.*
     var open by remember { mutableStateOf(false) }
     Column {
         Text(label, style = MaterialTheme.typography.labelLarge)
-        OutlinedButton(onClick = { open = true }, modifier = Modifier.fillMaxWidth()) { if(userContent) MaterialText(selected) else Text(selected) }
+        OutlinedButton(onClick = { open = true }, shape = AffairsLayout.shape, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { if(userContent) MaterialText(selected) else Text(selected) }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             choices.forEach { (id, title) -> DropdownMenuItem(text = { if(userContent) MaterialText(title) else Text(title) }, onClick = { open = false; onChange(id) }) }
         }

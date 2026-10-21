@@ -33,7 +33,7 @@ internal object AffairsLayout {
     val shape = RoundedCornerShape(16.dp)
 }
 
-internal enum class AffairsAction { BACK, MORE, CLOSE, SEARCH, FILTER, SORT, EXPAND, COLLAPSE, REFRESH, MOVE, ADD, EDIT, SETTINGS, DELETE, REPORT, IMPORT, HISTORY, VIEW, UNDO, TEMPLATE, SUBTASK, DECREASE, TASK, AUTOMATION }
+internal enum class AffairsAction { BACK, NEXT, MORE, CLOSE, SEARCH, FILTER, SORT, EXPAND, COLLAPSE, REFRESH, MOVE, ADD, EDIT, SETTINGS, DELETE, REPORT, IMPORT, HISTORY, VIEW, UNDO, TEMPLATE, SUBTASK, DECREASE, TASK, AUTOMATION, PAUSE, RESUME, ARCHIVE, RESTORE, TIMER }
 
 @Composable internal fun GenesisAccountFooter(status: String) {
     Text(status, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
@@ -57,6 +57,7 @@ internal enum class AffairsAction { BACK, MORE, CLOSE, SEARCH, FILTER, SORT, EXP
                 move(18f, 4f); line(18f, 20f); move(14f, 16f); line(18f, 20f); line(22f, 16f)
             }
             AffairsAction.BACK -> { move(14f, 5f); line(7f, 12f); line(14f, 19f) }
+            AffairsAction.NEXT -> { move(10f, 5f); line(17f, 12f); line(10f, 19f) }
             AffairsAction.CLOSE -> { move(6f, 6f); line(18f, 18f); move(18f, 6f); line(6f, 18f) }
             AffairsAction.DELETE -> {
                 move(4f, 7f); line(20f, 7f); move(9f, 7f); line(9f, 3f); line(15f, 3f); line(15f, 7f)
@@ -92,7 +93,7 @@ internal enum class AffairsAction { BACK, MORE, CLOSE, SEARCH, FILTER, SORT, EXP
                 move(2f, 12f); curve(7f, 3f, 17f, 3f, 22f, 12f); curve(17f, 21f, 7f, 21f, 2f, 12f)
                 drawCircle(ink, 3f * unit, Offset(12f * unit, 12f * unit), style = Stroke(1.8f * unit))
             }
-            AffairsAction.UNDO -> {
+            AffairsAction.UNDO, AffairsAction.RESTORE -> {
                 move(8f, 5f); line(3f, 10f); line(8f, 15f); move(3f, 10f)
                 curve(16f, 5f, 23f, 12f, 20f, 20f)
             }
@@ -107,6 +108,20 @@ internal enum class AffairsAction { BACK, MORE, CLOSE, SEARCH, FILTER, SORT, EXP
             AffairsAction.AUTOMATION -> {
                 move(13f, 2f); line(4f, 14f); line(11f, 14f); line(10f, 22f)
                 line(20f, 9f); line(13f, 9f); line(13f, 2f)
+            }
+            AffairsAction.PAUSE -> {
+                move(8f, 5f); line(8f, 19f); move(16f, 5f); line(16f, 19f)
+            }
+            AffairsAction.RESUME -> { move(7f, 4f); line(20f, 12f); line(7f, 20f); line(7f, 4f) }
+            AffairsAction.ARCHIVE -> {
+                move(4f, 9f); line(4f, 21f); line(20f, 21f); line(20f, 9f)
+                move(3f, 4f); line(21f, 4f); line(21f, 9f); line(3f, 9f); line(3f, 4f)
+                move(10f, 13f); line(14f, 13f)
+            }
+            AffairsAction.TIMER -> {
+                drawCircle(ink, 8f * unit, Offset(12f * unit, 13f * unit), style = Stroke(1.8f * unit))
+                move(10f, 2f); line(14f, 2f); move(12f, 2f); line(12f, 5f)
+                move(12f, 13f); line(15f, 10f)
             }
             AffairsAction.SETTINGS -> {
                 for ((y, x) in listOf(6f to 13f, 12f to 8f, 18f to 16f)) {

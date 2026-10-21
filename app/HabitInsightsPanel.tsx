@@ -1,12 +1,15 @@
 "use client";
 
 import { habitDisplayText } from "./habit-display-text";
+import { HabitGoalAnalysisPanel } from "./HabitGoalAnalysisPanel";
+import { buildAnalyzedHabitPersonalRecord, buildHabitGoalComparison } from "./habit-insight-analysis";
+import type { HabitDayDecisionCommand } from "./habit-day-decision";
+import type { TimeFormat } from "./time-format";
 import type { CalendarContext } from "./calendar-context";
 
 import { useId, useMemo, useState, type CSSProperties } from "react";
 import {
   calendarMonthKey,
-  calendarMonthRange,
   calendarYearRange,
   calendarYearLabel,
   formatCalendarDateValue,
@@ -15,12 +18,8 @@ import {
 } from "./calendar-data";
 import { translateText, type Language } from "./i18n";
 import "./habit-report.css";
-import { useSacredFeaturesEnabled } from "./sacred-features";
-import { dateValuesBetween, isHabitScheduledForDate, type HabitWorkspace } from "./habits";
-import { habitRuleForDate } from "./habit-measurement";
-import { habitPeriodSettlement, habitPeriodStreak, habitQuestCompletions } from "./habit-period-progress";
+import type { HabitWorkspace } from "./habits";
 import {
-  buildHabitPersonalRecord,
   buildHabitYearMosaic,
   buildWeeklyHabitSummary,
   type HabitWeeklySummary,
@@ -31,7 +30,10 @@ type HabitInsightsPanelProps = {
   date: string;
   language: Language;
   calendarMode: CalendarMode;
-  showCompletionCalendar?: boolean;
+  timeFormat?: TimeFormat;
+  scope?: string;
+  onOpenHistory?: (date: string, habitId?: string) => void;
+  onDayDecision?: (command: HabitDayDecisionCommand, scope: string) => Promise<void>;
   reportContext?: CalendarContext;
 };
 
@@ -42,36 +44,29 @@ function rhythmLabel(score: number, isEnglish: boolean) {
   return isEnglish ? "Beginning the rhythm" : "Начало ритма";
 }
 
-function comparisonCopy(summary: HabitWeeklySummary, language: Language) {
+function comparisonCopy(summary: Pick<HabitWeeklySummary, "changePercent" | "absoluteChange">, language: Language) {
   const t = (text: string) => translateText(text, language);
   if (summary.changePercent === null) return `${summary.absoluteChange > 0 ? "+" : ""}${summary.absoluteChange}`;
   if (!summary.absoluteChange) return t("Без изменений");
-  return `${summary.changePercent > 0 ? "+" : ""}${summary.changePercent}%`;
+  return `${summary.changePercent > 0 ? "+" : ""}${new Intl.NumberFormat(language, { maximumFractionDigits: 1 }).format(summary.changePercent)}%`;
 }
 
-export function HabitInsightsPanel({ workspace, date, language, calendarMode, reportContext, showCompletionCalendar = false }: HabitInsightsPanelProps) {
+export function HabitInsightsPanel({ workspace, date, language, calendarMode, reportContext, timeFormat, scope, onOpenHistory, onDayDecision }: HabitInsightsPanelProps) {
   const isEnglish = language === "en";
   const [mosaicOpen, setMosaicOpen] = useState(false);
-  const sacredFeaturesEnabled = useSacredFeaturesEnabled();
-  const [savedCompletionCalendarMode, setCompletionCalendarMode] = useState<CalendarMode>(calendarMode);
-  const completionCalendarMode = !sacredFeaturesEnabled && savedCompletionCalendarMode === "sacred" ? "profane" : savedCompletionCalendarMode;
   const mosaicBodyId = useId();
   const weekly = useMemo(() => buildWeeklyHabitSummary(workspace, date, calendarMode, reportContext), [calendarMode, date, reportContext, workspace]);
+  const weeklyGoals = useMemo(() => buildHabitGoalComparison(workspace, date, calendarMode, reportContext), [calendarMode, date, reportContext, workspace]);
   const mosaicRange = useMemo(() => calendarYearRange(date, calendarMode, reportContext), [calendarMode, date, reportContext]);
   const mosaic = useMemo(() => buildHabitYearMosaic(workspace.dailyGoalRecords, date, mosaicRange), [date, mosaicRange, workspace.dailyGoalRecords]);
   const records = useMemo(() => [...workspace.habits]
     .sort((left, right) => right.priority - left.priority || left.title.localeCompare(right.title))
     .map((habit) => {
-      const goal = habitRuleForDate(habit,date).periodGoal;
-      const now = new Date();
-      const completions = goal ? habitQuestCompletions([habit],workspace,habit.createdDate,date,now,false) : workspace.habitCompletions;
-      const record = buildHabitPersonalRecord(habit, completions, date, calendarMode,
-        goal ? (value,day) => Boolean(habitPeriodSettlement(value,day,workspace,now)) : isHabitScheduledForDate, (value) => ({
+      const record = buildAnalyzedHabitPersonalRecord(workspace, habit, date, calendarMode, (value) => ({
         key: calendarMonthKey(value, calendarMode, reportContext),
         label: formatCalendarMonthValue(value, calendarMode, reportContext),
       }));
-      const streak = goal ? habitPeriodStreak(habit,date,workspace,now) : record.currentStreak;
-      return { habit, record: { ...record, periodUnit: goal?.period, currentStreak: streak, longestStreak: Math.max(record.longestStreak,streak) } };
+      return { habit, record };
     }), [calendarMode, date, reportContext, workspace]);
   const bestHabit = workspace.habits.find(habit => habit.id === weekly.bestHabitId);
   const rhythm = workspace.userProgress.rhythmScore;
@@ -79,48 +74,27 @@ export function HabitInsightsPanel({ workspace, date, language, calendarMode, re
   const qualifiedDays = mosaic.filter((cell) => cell.status === "qualified" || cell.status === "perfect").length;
   const yearLabel = calendarYearLabel(date, calendarMode, reportContext);
   const mosaicWeeks = Math.max(1, ...mosaic.map((cell) => cell.week));
-  const completionRange = useMemo(() => calendarMonthRange(date, completionCalendarMode, reportContext), [date, completionCalendarMode, reportContext]);
-  const completionDates = useMemo(() => dateValuesBetween(completionRange.start, completionRange.end), [completionRange]);
-  const completionCalendarOptions: { mode: CalendarMode; ru: string }[] = [
-    { mode: "profane", ru: "Григорианский" },
-    { mode: "sacred", ru: "Сакральный" },
-    { mode: "lunar", ru: "Лунный" },
-  ];
   const localized = (value: string) => translateText(value, language);
 
   return (
     <div className="habit-phase-k-insights">
-      {showCompletionCalendar ? <section className="habit-completion-calendar" aria-labelledby="habit-completion-calendar-title">
-        <header>
-          <div><span className="eyebrow">{localized("Наблюдение привычек")}</span><h3 id="habit-completion-calendar-title">{localized("Календарь выполнения привычек")}</h3><p>{formatCalendarDateValue(completionRange.start, completionCalendarMode)} — {formatCalendarDateValue(completionRange.end, completionCalendarMode)}</p></div>
-          <div className="habit-completion-modes" role="group" aria-label={localized("Календарь просмотра")}>
-            {completionCalendarOptions.filter(option=>sacredFeaturesEnabled||option.mode!=="sacred").map((option) => <button type="button" key={option.mode} className={completionCalendarMode === option.mode ? "active" : ""} aria-pressed={completionCalendarMode === option.mode} onClick={() => setCompletionCalendarMode(option.mode)}>{localized(option.ru)}</button>)}
-          </div>
-        </header>
-        {workspace.habits.length ? <div className="habit-completion-list">{workspace.habits.map((habit) => {
-          const marks = new Set(workspace.habitCompletions.filter((entry) => entry.habitId === habit.id && entry.completed).map((entry) => entry.date));
-          const scheduled = completionDates.filter((value) => value <= date && habit.active && isHabitScheduledForDate(habit, value, completionCalendarMode)).length;
-          const completed = completionDates.filter((value) => value <= date && marks.has(value)).length;
-          return <article key={habit.id} style={{ "--habit-color": habit.color } as CSSProperties}>
-            <div><strong data-no-translate>{habit.emoji} {habitDisplayText(habit, language).title}</strong><small>{completed}/{scheduled} · {scheduled ? Math.round(completed / scheduled * 100) : 0}%</small></div>
-            <div className="habit-completion-days" style={{ "--habit-day-columns": completionCalendarMode === "sacred" ? 5 : 7 } as CSSProperties}>
-              {completionDates.map((value) => { const done = marks.has(value); const planned = value <= date && habit.active && isHabitScheduledForDate(habit, value, completionCalendarMode); const status = localized(done ? "Выполнено" : planned ? "Запланировано" : "Отдых"); return <span key={value} className={done ? "done" : planned ? "planned" : "rest"} title={`${formatCalendarDateValue(value, completionCalendarMode, true)} · ${status}`} aria-label={`${formatCalendarDateValue(value, completionCalendarMode, true)}: ${status}`} />; })}
-            </div>
-          </article>;
-        })}</div> : <p>{localized("Создайте привычку, чтобы увидеть её историю.")}</p>}
-        <footer><i className="done" />{localized("Выполнено")}<i className="planned" />{localized("Запланировано")}<i className="rest" />{localized("Отдых")}</footer>
-      </section> : null}
+      <HabitGoalAnalysisPanel key={scope} workspace={workspace} date={date} language={language} calendarMode={calendarMode} reportContext={reportContext}
+        timeFormat={timeFormat} scope={scope} onOpenHistory={onOpenHistory} onDayDecision={onDayDecision} />
       <section className="habit-weekly-summary" aria-labelledby="habit-weekly-summary-title">
         <header>
           <div><h3 id="habit-weekly-summary-title">{localized("Итоги периода")}</h3><p>{formatCalendarDateValue(weekly.startDate, calendarMode, false, reportContext)} — {formatCalendarDateValue(weekly.endDate, calendarMode, false, reportContext)}</p></div>
-          <div className={`habit-weekly-change ${weekly.absoluteChange > 0 ? "positive" : weekly.absoluteChange < 0 ? "negative" : "neutral"}`} aria-label={localized("Изменение числа выполнений")}>
-            <strong>{comparisonCopy(weekly, language)}</strong>
-            <small>{localized(!weekly.previousHasData ? "Нет данных предыдущего периода" : weekly.changePercent === null ? "Нет базы для процентного сравнения" : "Сравнение одинаковых промежутков")}</small>
+          <div className={`habit-weekly-change ${weeklyGoals.absoluteChange > 0 ? "positive" : weeklyGoals.absoluteChange < 0 ? "negative" : "neutral"}`} aria-label={localized("Успешные закрытые цели")}>
+            <strong>{weeklyGoals.current.planned ? comparisonCopy(weeklyGoals, language) : "—"}</strong>
+            <small>{localized(!weeklyGoals.current.planned ? "Нет закрытых целей для сравнения" : weeklyGoals.changePercent === null ? "Нет базы для процентного сравнения" : "Сравнение одинаковых промежутков")}</small>
           </div>
         </header>
-        <p className="habit-comparison-explanation">{localized("Предыдущий промежуток")}: {formatCalendarDateValue(weekly.previousStartDate, calendarMode, false, reportContext)} — {formatCalendarDateValue(weekly.previousEndDate, calendarMode, false, reportContext)} · {weekly.previousCompleted}. {localized("Сравниваются только прошедшие дни обоих периодов.")}</p>
+        <p className="habit-comparison-explanation">{localized("Успешные закрытые цели")}: {weeklyGoals.current.completed}/{weeklyGoals.current.planned}.
+          {weeklyGoals.previousEnd ? <> {localized("Предыдущий промежуток")}: {formatCalendarDateValue(weeklyGoals.previousStart, calendarMode, false, reportContext)} — {formatCalendarDateValue(weeklyGoals.previousEnd, calendarMode, false, reportContext)} · {weeklyGoals.previous.completed}/{weeklyGoals.previous.planned}.</> : null}
+          {" "}{localized("Сравниваются только прошедшие дни обоих периодов.")}
+          {weeklyGoals.open ? <> {localized("Открытые цели")}: {weeklyGoals.open}.</> : null}
+          {weeklyGoals.current.unknown || weeklyGoals.previous.unknown ? <> {localized("Даты с неизвестной историей пауз исключены из сравнения.")}</> : null}</p>
         <div className="habit-weekly-grid">
-          <article><span>{isEnglish ? "Habits completed" : "Привычек выполнено"}</span><strong>{weekly.completed}</strong><small>{isEnglish ? "real completion marks" : "реальных отметок"}</small></article>
+          <article><span>{localized("Дни с выполненной активностью")}</span><strong>{weekly.completed}</strong><small>{localized("Цели периода учитываются отдельно.")}</small></article>
           <article><span>{isEnglish ? "Daily goals" : "Дневных целей"}</span><strong>{weekly.dailyGoals}</strong><small>{isEnglish ? "of the days elapsed" : "за прошедшие дни"}</small></article>
           <article><span>{isEnglish ? "Perfect Days" : "Идеальных дней"}</span><strong>{weekly.perfectDays}</strong><small>Perfect Day</small></article>
           <article><span>{isEnglish ? "Experience" : "Опыт"}</span><strong>+{weekly.xp} XP</strong><small>{isEnglish ? "from actual completions" : "за реальные выполнения"}</small></article>
@@ -161,7 +135,16 @@ export function HabitInsightsPanel({ workspace, date, language, calendarMode, re
         <div className="habit-personal-record-grid">{records.map(({ habit, record }) => (
           <article style={{ "--habit-color": habit.color, "--mastery-progress": record.milestoneProgress } as CSSProperties} key={habit.id}>
             <header><span aria-hidden="true">{habit.emoji}</span><div><h4 data-no-translate>{habitDisplayText(habit, language).title}</h4><small>{isEnglish ? "Started" : "Начало"} {formatCalendarDateValue(record.startedAt, calendarMode, true)}</small></div><div className="habit-mastery-ring"><strong>{record.totalCompletions}</strong><small>{isEnglish ? "done" : "всего"}</small></div></header>
-            <div className="habit-record-metrics"><div><span>{isEnglish ? "Current streak" : "Текущая серия"}</span><strong>{record.currentStreak}{record.periodUnit ? ` ${translateText("периодов",language)}` : ""}</strong></div><div><span>{isEnglish ? "Best streak" : "Лучшая серия"}</span><strong>{record.longestStreak}{record.periodUnit ? ` ${translateText("периодов",language)}` : ""}</strong></div><div><span>{isEnglish ? "Completion" : "Выполнение"}</span><strong>{record.completionRate === null ? "—" : `${record.completionRate}%`}</strong><small>{!habit.active ? localized("На паузе") : <>{localized("Выполнено по расписанию")}: {record.scheduledCompletedCount}/{record.scheduledCount}</>}</small>{habit.active && record.unscheduledCompletions ? <small>{localized("Вне расписания")}: {record.unscheduledCompletions}</small> : null}</div><div><span>{isEnglish ? "Best month" : "Лучший месяц"}</span><strong>{record.bestMonth ?? "—"}</strong><small>{record.bestMonthCompletions || ""}</small></div></div>
+            <div className="habit-record-metrics">
+              <div><span>{localized("Текущая серия")}</span><strong>{record.currentStreak}{record.periodUnit ? ` ${localized("периодов")}` : ""}</strong></div>
+              <div><span>{localized("Лучшая серия")}</span><strong>{record.longestStreak}{record.periodUnit ? ` ${localized("периодов")}` : ""}</strong></div>
+              <div><span>{localized("Успешные закрытые цели")}</span><strong>{record.completionRate === null ? "—" : `${new Intl.NumberFormat(language).format(record.completionRate)}%`}</strong>
+                <small>{record.scheduledCompletedCount}/{record.scheduledCount}</small>
+                {record.unknownDays ? <small>{localized("Доступность неизвестна")}: {record.unknownDays}</small> : null}
+                {record.unscheduledCompletions ? <small>{localized("Выполнения вне процента")}: {record.unscheduledCompletions}</small> : null}
+              </div>
+              <div><span>{localized("Лучший месяц")}</span><strong>{record.bestMonth ?? "—"}</strong><small>{record.bestMonthCompletions || ""}</small></div>
+            </div>
             <footer><div><span>{record.reachedMilestone ? (isEnglish ? `Milestone ${record.reachedMilestone}` : `Рубеж ${record.reachedMilestone}`) : (isEnglish ? "First milestone" : "Первый рубеж")}</span><div><i /></div></div><strong>{record.nextMilestone ? (isEnglish ? `${record.nextMilestone - record.totalCompletions} to ${record.nextMilestone}` : `${record.nextMilestone - record.totalCompletions} до ${record.nextMilestone}`) : (isEnglish ? "Highest milestone reached" : "Высший рубеж достигнут")}</strong></footer>
           </article>
         ))}</div>

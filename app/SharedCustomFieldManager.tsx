@@ -7,7 +7,7 @@ import { IconActionButton } from "./IconActionButton";
 import {useSharedWorkDrafts} from './use-shared-work-drafts';
 import {WorkDraftError,type WorkDraft} from './shared-work-draft-journal';
 import {workflowDraftError,workflowDraftText} from './workflow-draft-copy';
-import {customFieldDeviceEdit,rebaseCustomFieldDeviceDraft,prepareCustomFieldDeviceDraft,sendCustomFieldDeviceDraft,validateCustomFieldDeviceDraft,type CustomFieldDeviceDraft} from './custom-field-device-drafts';
+import {customFieldDeviceEdit,customFieldPositionValue,rebaseCustomFieldDeviceDraft,prepareCustomFieldDeviceDraft,sendCustomFieldDeviceDraft,validateCustomFieldDeviceDraft,type CustomFieldDeviceDraft} from './custom-field-device-drafts';
 import "./shared-custom-fields.css";
 
 export function SharedCustomFieldManager({userId,spaceId,projectId,language,onChanged,onDirtyChange}:{userId:string;spaceId:string;projectId:string;language:Language;onChanged:()=>Promise<void>;onDirtyChange:(dirty:boolean)=>void}){
@@ -38,7 +38,7 @@ export function SharedCustomFieldManager({userId,spaceId,projectId,language,onCh
   finally{lock.current=false;if(live.current)setBusy(false);}
  };
  const refresh=async()=>{const value=await listSharedCustomFields(spaceId,projectId);if(live.current){setFields(value);setLoaded(true);}};
- const edit=(next:CustomFieldDraft)=>{if(lock.current||locked)return;let value:CustomFieldDeviceDraft;try{value=customFieldDeviceEdit(spaceId,projectId,next);}catch{setError(t('Проверьте название, тип и настройки поля.'));return;}setRecord(value);setPreview(null);setConfirm(false);setError("");setErrorCode("");setHistory([]);void stage(value).catch(()=>undefined);};
+ const edit=(next:CustomFieldDraft,positionInput=next.position===draft?.position?document?.positionInput:undefined)=>{if(lock.current||locked)return;let value:CustomFieldDeviceDraft;try{value=customFieldDeviceEdit(spaceId,projectId,next,positionInput);}catch{setError(t('Проверьте название, тип и настройки поля.'));return;}setRecord(value);setPreview(null);setConfirm(false);setError("");setErrorCode("");setHistory([]);void stage(value).catch(()=>undefined);};
  const choose=(field:SharedCustomField|null)=>{
   if(locked||!ready)return;
   if(draft&&!window.confirm(t("Отменить несохранённые изменения поля?")))return;
@@ -94,7 +94,7 @@ export function SharedCustomFieldManager({userId,spaceId,projectId,language,onCh
     <p className="shared-custom-field-help">{t("Поля доступны читателям задачи. Видимость в карточке и списке меняет отображение, а не права доступа.")}</p>
    </section>
    <div className="shared-custom-field-detail">
-   {draft?<form className="shared-custom-field-form" onSubmit={event=>{event.preventDefault();if(locked)return;void run(async()=>{const record=customFieldDeviceEdit(spaceId,projectId,draft);await persist(record);const value=await previewSharedCustomField(spaceId,draft);if(live.current){setPreview(value);setReviewOptionPage(0);}});}}>
+   {draft?<form className="shared-custom-field-form" onSubmit={event=>{event.preventDefault();if(locked)return;if(customFieldPositionValue(document?.positionInput??String(draft.position))!==draft.position){setError(t('Проверьте название, тип и настройки поля.'));return;}void run(async()=>{const record=customFieldDeviceEdit(spaceId,projectId,draft,document?.positionInput);await persist(record);const value=await previewSharedCustomField(spaceId,draft);if(live.current){setPreview(value);setReviewOptionPage(0);}});}}>
     <div className="shared-custom-field-actions shared-custom-field-editor-tools">
      <IconActionButton icon="map-back" label={t("Отмена")} disabled={busy||locked} onClick={cancel}/>
      <IconActionButton icon="map-refresh" label={t("Обновить")} disabled={busy} onClick={()=>void run(refresh)}/>
@@ -104,7 +104,10 @@ export function SharedCustomFieldManager({userId,spaceId,projectId,language,onCh
      <label className="shared-custom-field-name">{t("Название")}<input value={draft.title} maxLength={160} required onChange={event=>edit({...draft,title:event.target.value})}/></label>
      <label>{t("Тип поля")}<select value={draft.type} onChange={event=>{edit({...draft,type:event.target.value as CustomFieldType,options:[]});setOptionPage(0);setOptionsOpen(true);}}>{Object.entries(customFieldTypes).map(([value,label])=><option key={value} value={value}>{t(label)}</option>)}</select></label>
      <label>{t("Область поля")}<select value={draft.projectId??""} onChange={event=>edit({...draft,projectId:event.target.value||null})}><option value={projectId}>{t("Этот проект")}</option><option value="">{t("Всё пространство")}</option></select></label>
-     <label>{t("Порядок")}<input type="number" min={-100000} max={100000} step={1} value={draft.position} required onChange={event=>edit({...draft,position:event.target.valueAsNumber})}/></label>
+     <label>{t("Порядок")}<input type="text" inputMode="numeric" pattern="-?[0-9]+" maxLength={100} value={document?.positionInput??String(draft.position)} required
+       aria-invalid={customFieldPositionValue(document?.positionInput??String(draft.position))===null}
+       ref={element=>{element?.setCustomValidity(customFieldPositionValue(document?.positionInput??String(draft.position))===null?t('Проверьте название, тип и настройки поля.'):'');}}
+       onChange={event=>{const raw=event.target.value;edit({...draft,position:customFieldPositionValue(raw)??draft.position},raw);}}/></label>
     </div></fieldset>
     <fieldset disabled={busy||locked||!ready}><legend>{t("Отображение и заполнение")}</legend>
      {([['required','Обязательное поле'],['showCard','Показывать в карточке'],['showList','Показывать в списке'],['archived','Архивировать поле']] as const).map(([key,label])=><label className="shared-custom-field-check" key={key}><input type="checkbox" checked={draft[key]} onChange={event=>edit({...draft,[key]:event.target.checked})}/>{t(label)}</label>)}

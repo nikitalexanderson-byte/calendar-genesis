@@ -3,6 +3,8 @@ package ru.genesis.calendar.auth
 import org.json.JSONArray
 import org.json.JSONObject
 import ru.genesis.calendar.domain.habits.HabitTimers
+import ru.genesis.calendar.domain.habits.HabitLifecycle
+import ru.genesis.calendar.data.HabitLifecycleCodec
 
 /** Conservative three-way patch for the web's encrypted schema-16 workspace. */
 internal object WorkspacePatch {
@@ -48,6 +50,7 @@ internal object WorkspacePatch {
         conflictPolicy: ConflictPolicy = ConflictPolicy.STOP): Result {
         require(base.optInt("trackerSchemaVersion") == 16 && remote.optInt("trackerSchemaVersion") == 16)
         require(remoteVersion >= 0 && deviceId.isNotBlank())
+        val sameGeneration=HabitTimers.epoch(local.optString("habitTimerEpoch"))==HabitTimers.epoch(remote.optString("habitTimerEpoch"))
         val output = JSONObject(remote.toString())
         val metadata = JSONObject(output.optJSONObject("syncMetadata")?.toString() ?: "{}")
         metadata.put("schemaVersion", 1)
@@ -86,7 +89,7 @@ internal object WorkspacePatch {
                             val remoteConfirmed=current.optString("qualityConfirmedAt").let { it.isNotBlank() && it!="null" }
                             if(localConfirmed && remoteConfirmed && !same(localQuality,remoteQuality) && conflictPolicy==ConflictPolicy.STOP)
                                 throw Conflict("$key/$id/qualityValue")
-                            JSONObject(edited.toString()).put("xpAwarded",maxOf(edited.optInt("xpAwarded"),current.optInt("xpAwarded"))).apply {
+                            JSONObject(edited.toString()).put("xpAwarded",if(sameGeneration) maxOf(edited.optInt("xpAwarded"),current.optInt("xpAwarded")) else edited.optInt("xpAwarded")).apply {
                                 if(remoteConfirmed && (!localConfirmed || conflictPolicy==ConflictPolicy.KEEP_REMOTE)) {
                                     put("qualityValue",remoteQuality);put("qualityConfirmedAt",current.opt("qualityConfirmedAt"))
                                 }
@@ -126,7 +129,7 @@ internal object WorkspacePatch {
                 if (sameKnown(old, edited)) continue
                 val current = output.opt(key)
                 val merged = if (old is JSONObject && edited is JSONObject && current is JSONObject)
-                    patchObject(old, edited, current, key, conflictPolicy)
+                    patchObject(old, edited, current, key, conflictPolicy,sameGeneration)
                 else {
                     if (!same(old, current) && !same(edited, current) && conflictPolicy == ConflictPolicy.STOP)
                         throw Conflict(key)
@@ -138,9 +141,20 @@ internal object WorkspacePatch {
                 if (!same(current, merged)) fields.put(key, nextRevision(fields.optJSONObject(key), remoteVersion, timestamp, deviceId))
             }
         }
+        if(sameGeneration) {
+            val progress=output.optJSONObject("userProgress")
+            val xp=maxOf(local.optJSONObject("userProgress")?.optInt("lifetimeXp") ?: 0,remote.optJSONObject("userProgress")?.optInt("lifetimeXp") ?: 0)
+            if(progress!=null && progress.optInt("lifetimeXp")<xp) {
+                progress.put("lifetimeXp",xp);changed=true;fields.put("userProgress",nextRevision(fields.optJSONObject("userProgress"),remoteVersion,timestamp,deviceId))
+            }
+        }
         val epoch = HabitTimers.epoch(output.optString("habitTimerEpoch"))
         val history = output.optJSONArray("habitHistory") ?: JSONArray()
-        val markedEpoch = HabitTimers.workspaceEpoch(epoch, (0 until history.length()).any { history.getJSONObject(it).getString("epoch") == epoch })
+        val lifecycleHabits=output.optJSONArray("habits") ?: JSONArray()
+        val markedEpoch = HabitTimers.workspaceEpoch(epoch, (0 until history.length()).any { history.getJSONObject(it).getString("epoch") == epoch },
+            (0 until lifecycleHabits.length()).any { (lifecycleHabits.getJSONObject(it).optJSONArray("lifecycleHistory")?.length() ?: 0)>0 }
+                || (0 until history.length()).any { history.getJSONObject(it).optString("source")=="decision" }
+                || output.optJSONArray("habitCompletions")?.let { rows -> (0 until rows.length()).any { !rows.getJSONObject(it).isNull("skippedAt") } }==true)
         if(output.optString("habitTimerEpoch") != markedEpoch) {
             output.put("habitTimerEpoch", markedEpoch); fields.put("habitTimerEpoch",nextRevision(fields.optJSONObject("habitTimerEpoch"),remoteVersion,timestamp,deviceId));changed=true
         }
@@ -177,7 +191,7 @@ internal object WorkspacePatch {
     }
 
     private fun patchObject(base: JSONObject, local: JSONObject, remote: JSONObject, path: String,
-        conflictPolicy: ConflictPolicy): JSONObject {
+        conflictPolicy: ConflictPolicy, sameGeneration: Boolean = true): JSONObject {
         val output = JSONObject(remote.toString())
         // Native codecs intentionally omit web-only properties; omission is never a deletion.
         for (key in local.keys().asSequence().toList()) {
@@ -188,7 +202,12 @@ internal object WorkspacePatch {
             // Two devices may recalculate an identical goal/progress independently.
             // Its clock is not an author edit and must not block the entire outbox.
             val projectionClock = key == "updatedAt" && (path == "userProgress" || path.startsWith("dailyGoalRecords/"))
-            val merged = if (projectionClock && edited is String && current is String) {
+            val merged = if(path=="userProgress" && key=="lifetimeXp" && sameGeneration && edited is Number && current is Number) {
+                maxOf(edited.toInt(),current.toInt())
+            } else if (key == "lifecycleHistory" && edited is JSONArray) {
+                HabitLifecycleCodec.encode(HabitLifecycle.merge(HabitLifecycleCodec.decode(edited),
+                    HabitLifecycleCodec.decode(current as? JSONArray ?: JSONArray())))
+            } else if (projectionClock && edited is String && current is String) {
                 listOf(edited, current).maxByOrNull { value ->
                     runCatching { java.time.Instant.parse(value) }.getOrDefault(java.time.Instant.MIN)
                 }
@@ -204,7 +223,7 @@ internal object WorkspacePatch {
                 JSONArray(versions.values.sortedWith(compareBy<JSONObject> { it.getString("effectiveDate") }
                     .thenBy { it.getString("recordedAt") }.thenBy { it.getString("id") }))
             } else if (old is JSONObject && edited is JSONObject && current is JSONObject)
-                patchObject(old, edited, current, "$path/$key", conflictPolicy)
+                patchObject(old, edited, current, "$path/$key", conflictPolicy,sameGeneration)
             else {
                 if (!same(old, current) && !same(edited, current) && conflictPolicy == ConflictPolicy.STOP)
                     throw Conflict("$path/$key")
@@ -212,6 +231,10 @@ internal object WorkspacePatch {
                     current else edited
             }
             if (merged == null) output.remove(key) else output.put(key, merged)
+        }
+        if(output.has("lifecycleHistory") && output.has("active") && output.has("id")) {
+            val state=HabitLifecycle.state(output.getString("id"),output.getBoolean("active"),HabitLifecycleCodec.decode(output.getJSONArray("lifecycleHistory")))
+            output.put("active",state.status=="active" && !state.conflict)
         }
         return output
     }

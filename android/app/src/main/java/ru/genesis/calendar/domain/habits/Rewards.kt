@@ -7,6 +7,7 @@ data class RewardTransaction(val id: String, val amount: Int, val reason: String
 
 /** Port of app/rewards.ts. Rewards are immutable ledger entries, not a mutable counter. */
 object Rewards {
+    private fun instant(value: String): Long = runCatching { java.time.Instant.parse(value).toEpochMilli() }.getOrDefault(Long.MIN_VALUE)
     const val DAILY_GOAL_LAURELS = 5
     const val PERFECT_DAY_LAURELS = 3
     val resetReasons = setOf("habit-deleted-reset")
@@ -24,9 +25,10 @@ object Rewards {
             if(key.isEmpty() || source.isEmpty() || item.currency != "laurels" || item.reason !in reasons) return@forEach
             if(item.amount == 0 && item.reason !in resetReasons && item.reason != "habit-mastery-retained") return@forEach
             val transaction = item.copy(id=item.id.ifEmpty { "reward:$key" },sourceId=source,idempotencyKey=key,userId="self")
-            if(result[key]?.let { transaction.createdAt < it.createdAt } != false) result[key]=transaction
+            if(result[key]?.let { instant(transaction.createdAt) < instant(it.createdAt) } != false) result[key]=transaction
         }
-        return result.values.sortedWith(compareBy<RewardTransaction> { it.createdAt }.thenBy { it.idempotencyKey })
+        return result.values.sortedWith(compareBy<RewardTransaction> { instant(it.createdAt) }
+            .thenBy { if(it.reason in resetReasons) 1 else 0 }.thenBy { it.idempotencyKey })
     }
 
     fun balance(items: List<RewardTransaction>): Int = normalize(items).fold(0) { balance, tx ->

@@ -20,6 +20,7 @@ import {
 } from "./habits";
 import { clearAllTrackerAnalyticsCaches, clearTrackerAnalyticsCache } from "./tracker-cache";
 import {clearMessagingVault} from "./private-message-vault";
+import {clearHabitRestoreJournal} from "./habit-restore-journal";
 import { acceptAuthenticatedLogin, clearPrivateDeviceStorage, hasLocalSignOut, LOCAL_SIGN_OUT_KEY, markLocalSignOut, prepareLocalSignIn, privateDeviceAccessBlocked } from "./local-sign-out";
 import {
   mergeWorkspaceDocuments,
@@ -1159,6 +1160,8 @@ async function decryptWorkspace(envelope: WorkspaceEnvelope | null): Promise<Enc
 }
 
 function workspaceMinimumWriterProtocol(structure: EncryptedWorkspaceStructure) {
+  if (structure.habits.some(habit => habit.lifecycleHistory?.length) || structure.habitHistory.some(row => row.source === "decision")
+    || structure.habitCompletions.some(row => row.skippedAt)) return 7;
   if (structure.habitHistory.length) return 6;
   if (structure.habitTimers.length || structure.habitTimerEpoch) return 5;
   if (structure.habits.some(habit => habit.ruleHistory?.some(rule => rule.supersedes !== undefined || rule.selectedRuleId))) return 4;
@@ -1199,7 +1202,7 @@ async function encryptWorkspace(
       iv: bytesToBase64(iv),
       version: workspaceVersion + 1,
       expectedVersion: workspaceVersion,
-      writerProtocol: 6,
+      writerProtocol: 7,
       minimumWriterProtocol: workspaceMinimumWriterProtocol(structure),
       ...await habitReminderProjection(structure),
     },
@@ -1225,7 +1228,7 @@ async function encryptWorkspaceDocument(
     iv: bytesToBase64(iv),
     version: expectedVersion + 1,
     expectedVersion,
-    writerProtocol: 6,
+    writerProtocol: 7,
     minimumWriterProtocol: workspaceMinimumWriterProtocol(structure),
     ...await habitReminderProjection(structure),
   };
@@ -1561,6 +1564,7 @@ export async function signOutFromGoogle() {
   activeAuthProvider = "google";
   try { await clearAllTrackerAnalyticsCaches(); } catch { localCleared = false; }
   try { await clearMessagingVault(); } catch { localCleared = false; }
+  try { await clearHabitRestoreJournal(); } catch { localCleared = false; }
   if ("serviceWorker" in navigator) {
     const registration = await navigator.serviceWorker.getRegistration().catch(() => undefined);
     const notifications = await registration?.getNotifications().catch(() => []);
@@ -1581,6 +1585,7 @@ export async function deleteGenesisAccount(userId?: string) {
   const result = await api<{ ok: boolean; deleted: boolean }>("/account", { method: "DELETE", body: "{}" });
   if (!result.deleted) throw new Error("Сервер не подтвердил полное удаление аккаунта.");
   await clearMessagingVault();
+  await clearHabitRestoreJournal();
   if (deletedUserId) {
     localStorage.removeItem(`${WORKSPACE_DEVICE_KEY_PREFIX}${deletedUserId}`);
     localStorage.removeItem(`${WORKSPACE_DEVICE_ID_PREFIX}${deletedUserId}`);

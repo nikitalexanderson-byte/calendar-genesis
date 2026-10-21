@@ -289,7 +289,7 @@ class HabitDocumentTest {
         assertEquals(listOf("daily-plan"), decoded.hiddenDefaultTemplates)
     }
 
-    @Test fun deletionRemovesHabitHistoryAndAppliesWebLaurelThreshold() {
+    @Test fun deletionPreservesRecoverableHistoryAndAppliesWebLaurelThreshold() {
         val h = habit()
         fun completions(count: Int) = (0 until count).map { offset ->
             HabitCompletion(TrackerEntity("c$offset",stamp,stamp),h.id,day.plusDays(offset.toLong()),true,
@@ -298,8 +298,8 @@ class HabitDocumentTest {
         val reward = Rewards.create(25.0,"comeback","seed","seed-reward",stamp)
         val early = deleteHabitFromWorkspace(LocalHabitWorkspace(habits=listOf(h),
             completions=completions(49),rewards=listOf(reward)),h.id,"2026-09-26T10:00:00Z")
-        assertTrue(early.habits.isEmpty())
-        assertTrue(early.completions.isEmpty())
+        assertEquals("deleted",HabitLifecycle.state(early.habits.single()).status)
+        assertEquals(49,early.completions.size)
         assertEquals(0,Rewards.balance(early.rewards))
         assertTrue(early.rewards.any { it.reason=="habit-deleted-reset" })
 

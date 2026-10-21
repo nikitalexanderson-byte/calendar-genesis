@@ -144,6 +144,7 @@ sacredRussian.forEach((match, index) => {
   sacred[decodeKotlinString(match[2])] = sacredEnglish[index].description;
 });
 const supplemental=JSON.parse(await readFile(path.join(ROOT,"app/ui-translations/en.json"),"utf8"));
+const habitReports=JSON.parse(await readFile(path.join(ROOT,"app/habit-report-translations.json"),"utf8"));
 const workCopy=JSON.parse(await readFile(path.join(ROOT,"app/shared-work-translations/en.json"),"utf8"));
 const exportCopy = JSON.parse(await readFile(path.join(ROOT, "app/native-data-export-translations.json"), "utf8"));
 const exportKeys = Object.keys(exportCopy.ru ?? {});
@@ -223,7 +224,11 @@ for (const language of ["ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "s
     if (typeof value !== "string" || !value.trim() || (!["ru", "sr", "uk"].includes(language) && CYRILLIC.test(value))) throw new Error(`Invalid field recovery: ${language}: ${key}`);
   }
 }
-const translations = { ...web, ...curated, ...supplemental, ...sacred, ...native, ...workCopy, ...exportCopy.en, ...importCopy.en, ...bulkCopy.en, ...templateCopy.en, ...automationsCopy.en, ...savedViewsCopy.en, ...fieldRecoveryCopy.en };
+const translations = { ...web, ...curated, ...supplemental, ...sacred, ...native, ...workCopy, ...exportCopy.en, ...importCopy.en, ...bulkCopy.en, ...templateCopy.en, ...automationsCopy.en, ...savedViewsCopy.en, ...fieldRecoveryCopy.en, ...habitReports.en };
+for(const language of ["en","el","de","fr","es","it","pt","pl","sr","uk","zh","tr","ja"])for(const key of Object.keys(habitReports.en)){
+  const value=habitReports[language]?.[key];
+  if(typeof value!=="string"||!value.trim()||(!["sr","uk"].includes(language)&&CYRILLIC.test(value)))throw Error(`Incomplete native habit report copy: ${language}: ${key}`);
+}
 const affairs = JSON.parse(await readFile(path.join(ROOT, "app/native-affairs-translations.json"), "utf8"));
 const affairKeys = Object.keys(affairs.en ?? {});
 if (affairKeys.length !== 41) throw new Error("Native supplemental copy must contain all 41 labels.");

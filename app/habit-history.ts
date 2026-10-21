@@ -5,12 +5,12 @@ import type { Habit, HabitCompletion, HabitWorkspace } from "./habits";
 import type { TrackerEntity } from "./tracker-core";
 
 export type HabitHistoryValue = Pick<HabitCompletion, "completed" | "qualityValue" | "note"> & {
-  completedTimes: string[]; qualityConfirmedAt: string | null;
+  completedTimes: string[]; qualityConfirmedAt: string | null; skippedAt?: string;
 };
 export type HabitHistoryEdit = TrackerEntity & {
   habitId: string; date: string; ruleId: string; epoch: string;
   replaces: string[]; value: HabitHistoryValue; baseline: HabitCompletion | null;
-  source: "history" | "import";
+  source: "history" | "import" | "decision";
 };
 const canonical=(value:unknown):string=>value&&typeof value==="object"
   ? Array.isArray(value)?`[${value.map(canonical).join(",")}]`
@@ -24,10 +24,12 @@ export function habitHistoryValue(value:unknown):HabitHistoryValue {
   if(!object(value)||typeof value.completed!=="boolean"||typeof value.note!=="string"||value.note.length>2000
     ||value.qualityValue!==null&&(!Number.isFinite(value.qualityValue)||Number(value.qualityValue)<-5||Number(value.qualityValue)>10)
     ||value.qualityConfirmedAt!==null&&!instant(value.qualityConfirmedAt)||!Array.isArray(value.completedTimes)
-    ||value.completedTimes.length>1440||value.completedTimes.some(time=>typeof time!=="string"||!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time)))
+    ||value.completedTimes.length>1440||value.completedTimes.some(time=>typeof time!=="string"||!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time))
+    ||value.skippedAt!=null&&(!instant(value.skippedAt)||value.completed))
     throw new RangeError("INVALID_HABIT_HISTORY");
   return {completed:value.completed,qualityValue:value.qualityValue as number|null,note:value.note,
-    qualityConfirmedAt:value.qualityConfirmedAt as string|null,completedTimes:[...new Set(value.completedTimes as string[])].sort()};
+    qualityConfirmedAt:value.qualityConfirmedAt as string|null,completedTimes:[...new Set(value.completedTimes as string[])].sort(),
+    ...(value.skippedAt ? {skippedAt:value.skippedAt as string} : {})};
 }
 
 /** Immutable history events survive merge/replay; identical IDs cannot change their meaning. */
@@ -40,7 +42,7 @@ export function mergeHabitHistoryEdits(...sources:unknown[]):HabitHistoryEdit[] 
         ||typeof value.date!=="string"||!isCivilDate(value.date)||typeof value.epoch!=="string"||value.epoch.length>160
         ||!instant(value.createdAt)||!instant(value.updatedAt)||value.createdAt!==value.updatedAt
         ||value.version!==1||!["local","pending","synced"].includes(String(value.syncState))
-        ||!["history","import"].includes(String(value.source))||!Array.isArray(value.replaces)
+        ||!["history","import","decision"].includes(String(value.source))||!Array.isArray(value.replaces)
         ||value.replaces.some(id=>!identifier(id)||id===value.id))throw new RangeError("INVALID_HABIT_HISTORY");
       const baseline=value.baseline;
       if(baseline!==null&&(!object(baseline)||baseline.habitId!==value.habitId||baseline.date!==value.date
@@ -58,7 +60,7 @@ export function mergeHabitHistoryEdits(...sources:unknown[]):HabitHistoryEdit[] 
   const byId=new Map(rows.map(row=>[row.id,row]));
   for(const row of rows)for(const id of row.replaces){
     const parent=byId.get(id);
-    if(!parent||parent.habitId!==row.habitId||parent.date!==row.date||parent.epoch!==row.epoch||parent.createdAt>row.createdAt)
+      if(!parent||parent.habitId!==row.habitId||parent.date!==row.date||parent.epoch!==row.epoch||Date.parse(parent.createdAt)>Date.parse(row.createdAt))
       throw new RangeError("INVALID_HABIT_HISTORY");
   }
   const visiting=new Set<string>(),visited=new Set<string>();
@@ -85,7 +87,12 @@ export function projectHabitHistory(habits:readonly Habit[],events:readonly Habi
   for(const row of days.values()){
     const habit=habits.find(item=>item.id===row.habitId);if(!habit||row.date<habit.createdDate)continue;
     const state=habitHistoryState(events,row.habitId,row.date),current=output.find(item=>item.habitId===row.habitId&&item.date===row.date);
-    const edit=state.current,value=edit?.value??(state.baseline&&habitHistoryValue({...state.baseline,
+    const edit=state.current,latestMeasurement=Math.max(0,...measurements.filter(item=>item.habitId===habit.id&&item.date===row.date).map(item=>Date.parse(item.createdAt)));
+    const newActivity=edit?.source==="decision"&&latestMeasurement>Date.parse(edit.createdAt);
+    const useCurrent=edit?.source==="decision"&&current&&(newActivity||Date.parse(current.updatedAt)>Date.parse(edit.createdAt));
+    const value=useCurrent
+      ? habitHistoryValue({...current,skippedAt:newActivity?undefined:current.skippedAt,completedTimes:current.completedTimes??[],qualityConfirmedAt:current.qualityConfirmedAt??null})
+      :edit?.value??(state.baseline&&habitHistoryValue({...state.baseline,
       completedTimes:state.baseline.completedTimes??[],qualityConfirmedAt:state.baseline.qualityConfirmedAt??null}));
     output.splice(0,output.length,...output.filter(item=>item.habitId!==row.habitId||item.date!==row.date));
     if(!value){if(current?.xpAwarded)output.push({...current,completed:false,score:0});continue;}
@@ -93,8 +100,9 @@ export function projectHabitHistory(habits:readonly Habit[],events:readonly Habi
     if(effectiveHabitMeasurement(habitRuleForDate(habit,row.date)))completed=habitMeasurementProgress(habit,row.date,measurements).completed
       &&(habit.qualityScale==="none"||Boolean(value.qualityConfirmedAt));
     output.push({...state.baseline,...current,id:state.baseline?.id??current?.id??`habit-completion:${habit.id}:${row.date}`,
-      createdAt:state.baseline?.createdAt??state.rows[0].createdAt,updatedAt:edit?.createdAt??state.rows.at(-1)!.createdAt,
-      version:Math.max(current?.version??0,state.rows.length),syncState:"local",habitId:habit.id,date:row.date,...value,completed,
+      createdAt:state.baseline?.createdAt??state.rows[0].createdAt,updatedAt:useCurrent&&newActivity&&latestMeasurement>Date.parse(current!.updatedAt)
+        ? new Date(latestMeasurement).toISOString():useCurrent?current!.updatedAt:edit?.createdAt??state.rows.at(-1)!.createdAt,
+      version:Math.max(current?.version??0,state.rows.length),syncState:"local",habitId:habit.id,date:row.date,...value,completed,skippedAt:value.skippedAt??null,
       score:scoreHabitFormula(habit.scoringMode,completed,value.qualityValue),xpAwarded:Math.max(state.baseline?.xpAwarded??0,current?.xpAwarded??0)});
   }
   return output;
@@ -103,11 +111,13 @@ export function projectHabitHistory(habits:readonly Habit[],events:readonly Habi
 /** Reward calculators see the pre-correction record; statistics see the corrected history. */
 export function habitEconomyHistory<T extends Pick<HabitWorkspace,"habitHistory"|"habitCompletions"|"habitMeasurements">>(workspace:T):T {
   if(!workspace.habitHistory?.length)return workspace;
-  const days=new Map(workspace.habitHistory.map(row=>[`${row.habitId}:${row.date}`,row]));
+  const days=new Map(workspace.habitHistory.filter(row=>row.source!=="decision").map(row=>[`${row.habitId}:${row.date}`,row]));
   const completions=workspace.habitCompletions.filter(row=>!days.has(`${row.habitId}:${row.date}`));
   for(const row of days.values()){
-    const baseline=habitHistoryState(workspace.habitHistory,row.habitId,row.date).baseline;
-    if(baseline)completions.push(baseline);
+    const baselines=workspace.habitHistory.filter(item=>item.habitId===row.habitId&&item.date===row.date&&item.source!=="decision")
+      .map(item=>item.baseline).filter((item):item is HabitCompletion=>Boolean(item));
+    const baseline=baselines.find(item=>item.completed)??baselines[0];
+    if(baseline)completions.push({...baseline,completed:baselines.some(item=>item.completed),xpAwarded:Math.max(...baselines.map(item=>item.xpAwarded))});
   }
   return {...workspace,habitCompletions:completions,habitMeasurements:workspace.habitMeasurements.filter(row=>!row.historical)};
 }
