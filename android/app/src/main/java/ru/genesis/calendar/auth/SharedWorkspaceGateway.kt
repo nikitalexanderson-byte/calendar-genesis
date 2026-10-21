@@ -5,6 +5,15 @@ import java.util.UUID
 
 /** Shared workspace operations implemented by the authenticated controller. */
 interface SharedWorkspaceGateway {
+    suspend fun sharedSavedViews(cursor: String? = null): JSONObject = throw UnsupportedOperationException("sharedSavedViews")
+    suspend fun sharedSavedView(id: String): JSONObject = throw UnsupportedOperationException("sharedSavedView")
+    suspend fun sharedSavedViewFields(space: String): JSONObject = throw UnsupportedOperationException("sharedSavedViewFields")
+    suspend fun sharedSavedViewDraft(): JSONObject? = null
+    suspend fun saveSharedSavedViewDraft(stamp: String?, edit: JSONObject): JSONObject = throw UnsupportedOperationException("saveSharedSavedViewDraft")
+    suspend fun prepareSharedSavedViewDraft(stamp: String): JSONObject = throw UnsupportedOperationException("prepareSharedSavedViewDraft")
+    suspend fun sendSharedSavedViewDraft(stamp: String): JSONObject = throw UnsupportedOperationException("sendSharedSavedViewDraft")
+    suspend fun rebaseSharedSavedViewDraft(stamp: String): JSONObject = throw UnsupportedOperationException("rebaseSharedSavedViewDraft")
+    suspend fun removeSharedSavedViewDraft(stamp: String): Unit = throw UnsupportedOperationException("removeSharedSavedViewDraft")
     suspend fun sharedFieldEditor(project: String): JSONObject? = null
     suspend fun saveSharedFieldEditor(project: String, stamp: String?, edit: JSONObject): JSONObject = throw UnsupportedOperationException("saveSharedFieldEditor")
     suspend fun previewSharedFieldEditor(project: String, stamp: String): JSONObject = throw UnsupportedOperationException("previewSharedFieldEditor")

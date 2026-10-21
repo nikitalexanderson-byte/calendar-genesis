@@ -19,8 +19,11 @@ internal open class AuthFailure(val kind: Kind, val httpStatus: Int? = null) : E
 internal class AuthApiError(val code: String) : Exception(code)
 
 internal fun allowedSharedRoute(method: String, path: String): Boolean {
+    if (path.matches(Regex("/shared/views(?:\\?cursor=[A-Za-z0-9%+_.~*-]+)?"))) return method == "GET" || path == "/shared/views" && method == "POST"
+    if (path.matches(Regex("/shared/views/[a-f0-9-]{36}"))) return method in setOf("GET", "PATCH", "DELETE")
     if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/custom-fields"))) return method == "PUT"
     if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/custom-fields\\?projectId=[a-f0-9-]{36}&archived=(?:true|false)"))) return method == "GET"
+    if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/custom-fields\\?archived=true"))) return method == "GET"
     if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/custom-fields/preview"))) return method == "POST"
     if (path.matches(Regex("/shared/custom-fields/[A-Za-z0-9_-]{1,100}/history"))) return method == "GET"
     val templateLanguage = "(?:ru|en|el|de|fr|es|it|pt|pl|sr|uk|zh|tr|ja)"
@@ -258,6 +261,26 @@ internal class AuthSessionClient(context: Context) {
     fun saveSharedFieldDefinition(expected: Long, space: String, payload: JSONObject): JSONObject =
         request(expected, "/shared/spaces/${CustomFieldProtocol.id(space)}/custom-fields", payload, method = "PUT")
     fun sharedTaskLists(expected: Long): JSONObject = request(expected, "/shared/task-lists", null)
+    fun sharedSavedViews(expected: Long, cursor: String?): JSONObject = SavedViewProtocol.page(request(expected,
+        "/shared/views" + (cursor?.let { "?cursor=" + java.net.URLEncoder.encode(it, "UTF-8") } ?: ""), null))
+    fun sharedSavedView(expected: Long, id: String): JSONObject = SavedViewProtocol.view(request(expected,
+        "/shared/views/${CustomFieldProtocol.id(id)}", null).getJSONObject("view")).also { require(it.getString("id") == id) { "VIEW_PROTOCOL" } }
+    fun sharedSavedViewFields(expected: Long, space: String): JSONObject {
+        val response = request(expected, "/shared/spaces/${CustomFieldProtocol.id(space)}/custom-fields?archived=true", null)
+        val fields = response.getJSONArray("fields"); val ids = mutableSetOf<String>()
+        for (index in 0 until fields.length()) {
+            val field = fields.getJSONObject(index)
+            val parsed = CustomFieldProtocol.definitions(space, field.optString("projectId").takeUnless { it == "null" || it.isBlank() } ?: SavedViewProtocol.SCOPE, JSONArray().put(field)).single()
+            require(ids.add(parsed.getString("id"))) { "CUSTOM_FIELD_PROTOCOL" }; fields.put(index, parsed)
+        }
+        return response
+    }
+    fun sendSharedSavedView(expected: Long, command: JSONObject): JSONObject {
+        val kind = command.getString("kind")
+        require(kind in setOf("view-create", "view-update", "view-delete")) { "VIEW_INVALID" }
+        val path = "/shared/views" + (if (kind == "view-create") "" else "/${CustomFieldProtocol.id(command.getString("sprintId"))}")
+        return request(expected, path, command.getJSONObject("body"), method = when (kind) { "view-create" -> "POST"; "view-delete" -> "DELETE"; else -> "PATCH" })
+    }
     fun sharedCalendarTasks(expected: Long, from: String, to: String): JSONObject =
         request(expected, "/shared/calendar/tasks?from=$from&to=$to", null)
     fun createSharedSpace(expected: Long, body: JSONObject): JSONObject =
@@ -575,7 +598,8 @@ internal class AuthSessionClient(context: Context) {
                         val payload = JSONObject(output.toString(Charsets.UTF_8.name()))
                         val code = payload.optString("error")
                         if (path.contains("/templates") && code in SharedTemplateProtocol.errors && !code.startsWith("WORKFLOW_") && !code.startsWith("CUSTOM_FIELD_") ||
-                            path.startsWith("/shared/tasks?") && code in CustomFieldQueryProtocol.errors ||
+                            path.startsWith("/shared/tasks?") && code in SavedViewProtocol.errors ||
+                            path.startsWith("/shared/views") && code in SavedViewProtocol.errors ||
                             path.endsWith("/data-export") && code in DataExportProtocol.errors ||
                             (path.startsWith("/shared/data/") || path.startsWith("/shared/data-imports/")) && DataImportProtocol.errorCode(code) ||
                             path.startsWith("/shared/reports") && (code in TeamReportProtocol.errors || code.startsWith("CUSTOM_FIELD_")) ||

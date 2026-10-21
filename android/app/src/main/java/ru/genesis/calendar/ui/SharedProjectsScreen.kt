@@ -436,7 +436,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                 selectProject(targetProject); taskId = targetTask
             }
         })
-    val automationDestination = rememberSharedAutomationNavigation(controller, preferences, spaceId, projectId, onLost = {
+    val automationDestination = rememberSharedAutomationNavigation(controller, preferences, spaceId, projectId, spaces, onLost = {
             snapshot = null; taskPage = null; openedTask = null; taskId = ""; projectId = ""
             message = teamReportNoAccess; run { refreshProjects(spaceId) }
         }, onChanged = { run { if (projectId.isNotBlank()) refreshProject(projectId) } }, onTask = { targetProject, targetTask ->
@@ -1197,6 +1197,8 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                     AffairsIconButton("Дополнительные действия", AffairsAction.MORE, { actionsOpen = true },
                         Modifier.testTag("shared-actions"))
                     DropdownMenu(actionsOpen, { actionsOpen = false }) {
+                        DropdownMenuItem(text = { Text("Сохранённые представления") }, leadingIcon = { AffairsActionIcon(AffairsAction.VIEW) },
+                            modifier = Modifier.testTag("shared-saved-views-open"), onClick = { actionsOpen = false; automationDestination.views.value = true })
                         if (spaceId.isNotBlank()) DropdownMenuItem(text = { Text("Экспорт данных") },
                             modifier = Modifier.testTag("shared-export-open"), onClick = { actionsOpen = false; dataExportOpen = true })
                         if (projectId.isNotBlank()) {

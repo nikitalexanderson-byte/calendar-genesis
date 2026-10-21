@@ -74,6 +74,9 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
     private val automationEditorMutex = Mutex()
     private val fieldEditorJournal = PlanningJournal(PlanningDraftStore(context.applicationContext, "field-editor"), contract = CustomFieldEditorJournalContract)
     private val fieldEditorMutex = Mutex()
+    private val savedViewStorage = PlanningDraftStore(context.applicationContext, "saved-views")
+    private val savedViewJournal = PlanningJournal(savedViewStorage, contract = SavedViewJournalContract)
+    private val savedViewMutex = Mutex()
     private val importStorage = PlanningDraftStore(context.applicationContext, "data-import")
     private val importJournal = PlanningJournal(importStorage, contract = DataImportJournalContract)
     private val importUndoJournal = DataImportUndoJournal(importStorage)
@@ -228,6 +231,33 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
         return withContext(Dispatchers.IO) { current(); action(client, generation).also { current() } }
     }
     override suspend fun sharedFieldDefinitions(space: String, project: String, archived: Boolean) = sharedOnlineCall { api, generation -> api.sharedFieldDefinitions(generation, space, project, archived) }
+    override suspend fun sharedSavedViews(cursor: String?) = sharedOnlineCall { api, generation -> api.sharedSavedViews(generation, cursor) }
+    override suspend fun sharedSavedView(id: String) = sharedOnlineCall { api, generation -> api.sharedSavedView(generation, id) }
+    override suspend fun sharedSavedViewFields(space: String) = sharedOnlineCall { api, generation -> api.sharedSavedViewFields(generation, space) }
+    private suspend fun <T> savedViewCall(action: (SavedViewDraftService) -> T): T {
+        val initial = mutableState.value; val account = initial.user?.uid ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
+        if (!initial.ready || initial.accountSettings?.sharedProjectsEnabled != true) throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
+        val generation = client.currentGeneration(); val caller = currentCoroutineContext()
+        fun current() {
+            caller.ensureActive(); val state = mutableState.value
+            if (!client.isCurrent(generation) || !state.ready || state.user?.uid != account || state.accountSettings?.sharedProjectsEnabled != true ||
+                app.workspaceScope != CloudAccountSnapshot.scopeFor(account)) throw CancellationException()
+        }
+        val access = object : SavedViewAccess {
+            override fun check() = current()
+            private fun online() { current(); if (mutableState.value.requiresSignIn) throw AuthFailure(AuthFailure.Kind.NETWORK) }
+            override fun view(id: String): JSONObject { online(); return client.sharedSavedView(generation, id).also { current() } }
+            override fun preview(definition: JSONObject) { online(); client.querySharedTasks(generation, JSONObject().put("viewDefinition", definition), null); current() }
+            override fun send(command: JSONObject): JSONObject { online(); return client.sendSharedSavedView(generation, command).also { current() } }
+        }
+        return withContext(Dispatchers.IO) { savedViewMutex.withLock { current(); action(SavedViewDraftService(savedViewJournal, account, access)).also { current() } } }
+    }
+    override suspend fun sharedSavedViewDraft() = savedViewCall { it.load() }
+    override suspend fun saveSharedSavedViewDraft(stamp: String?, edit: JSONObject) = savedViewCall { it.save(stamp, edit) }
+    override suspend fun prepareSharedSavedViewDraft(stamp: String) = savedViewCall { it.prepare(stamp) }
+    override suspend fun sendSharedSavedViewDraft(stamp: String) = savedViewCall { it.send(stamp) }
+    override suspend fun rebaseSharedSavedViewDraft(stamp: String) = savedViewCall { it.rebase(stamp) }
+    override suspend fun removeSharedSavedViewDraft(stamp: String): Unit = savedViewCall { it.remove(stamp) }
     override suspend fun sharedFieldHistory(space: String, id: String) = sharedOnlineCall { api, generation -> api.sharedFieldHistory(generation, space, id) }
     override suspend fun previewSharedFieldDefinition(space: String, project: String, body: JSONObject) = sharedOnlineCall { api, generation -> api.previewSharedFieldDefinition(generation, space, project, body) }
     private suspend fun <T> fieldEditorCall(action: (SharedFieldEditorService) -> T): T {
@@ -1175,6 +1205,7 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
             else "Вход удалён с устройства. Отзыв серверной сессии не подтверждён; локальные черновики сохранены."
         withContext(Dispatchers.IO) {
             mutableState.value.user?.uid?.let(sharedOffline::clear)
+            savedViewStorage.clear()
             CachedAccountEntry(app).clear(previousScope)
             app.scheduler.deactivate(previousScope)
         }

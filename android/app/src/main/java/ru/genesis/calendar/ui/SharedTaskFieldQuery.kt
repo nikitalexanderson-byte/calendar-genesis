@@ -135,7 +135,8 @@ internal fun customFieldOperationLabel(op: String) = when (op) {
     }
 }
 
-@Composable internal fun SharedTaskFieldFilterEditor(query: SharedTaskFieldQuery, fields: List<JSONObject>) {
+@Composable internal fun SharedTaskFieldFilterEditor(query: SharedTaskFieldQuery, fields: List<JSONObject>,
+    onCalendar: ((SharedCustomCalendar) -> Unit)? = null) {
     var fieldId by rememberSaveable { mutableStateOf("") }
     var op by rememberSaveable { mutableStateOf("eq") }
     var input by rememberSaveable { mutableStateOf("{}") }
@@ -159,7 +160,7 @@ internal fun customFieldOperationLabel(op: String) = when (op) {
                 SharedCustomField(searchable, CustomFieldDraft.fromTask(JSONObject().put("customFields", JSONObject(input))), null, false,
                     query.calendar, true, query.count >= 20, Modifier, { id, next ->
                         input = JSONObject(input).put(id, next ?: JSONObject.NULL).toString(); failure = false
-                    }, { input = "{}" }, { query.calendarJson = it.saved().toString() })
+                    }, { input = "{}" }, { query.calendarJson = it.saved().toString(); onCalendar?.invoke(it) })
             }
             val criterion = runCatching { CustomFieldQueryProtocol.criterion(field, op, value) }.getOrNull()
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

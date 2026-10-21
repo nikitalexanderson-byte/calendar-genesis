@@ -203,7 +203,17 @@ for (const language of ["ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "s
     }
   }
 }
-const translations = { ...web, ...curated, ...supplemental, ...sacred, ...native, ...workCopy, ...exportCopy.en, ...importCopy.en, ...bulkCopy.en, ...templateCopy.en, ...automationsCopy.en };
+const savedViewsCopy = JSON.parse(await readFile(path.join(ROOT, "app/native-saved-views-translations.json"), "utf8"));
+const savedViewKeys = Object.keys(savedViewsCopy.ru ?? {});
+if (savedViewKeys.length !== 21) throw new Error("Native saved views must contain all 21 supplemental labels.");
+for (const language of ["ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja"]) {
+  if (Object.keys(savedViewsCopy[language] ?? {}).sort().join("\n") !== [...savedViewKeys].sort().join("\n")) throw new Error(`Incomplete native saved views: ${language}`);
+  for (const key of savedViewKeys) {
+    const value = savedViewsCopy[language]?.[key];
+    if (typeof value !== "string" || !value.trim() || (!["ru", "sr", "uk"].includes(language) && CYRILLIC.test(value))) throw new Error(`Invalid saved-view copy: ${language}: ${key}`);
+  }
+}
+const translations = { ...web, ...curated, ...supplemental, ...sacred, ...native, ...workCopy, ...exportCopy.en, ...importCopy.en, ...bulkCopy.en, ...templateCopy.en, ...automationsCopy.en, ...savedViewsCopy.en };
 const affairs = JSON.parse(await readFile(path.join(ROOT, "app/native-affairs-translations.json"), "utf8"));
 const affairKeys = Object.keys(affairs.en ?? {});
 if (affairKeys.length !== 41) throw new Error("Native supplemental copy must contain all 41 labels.");
