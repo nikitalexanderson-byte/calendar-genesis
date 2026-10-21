@@ -248,7 +248,10 @@ jobs:
           export GENESIS_ANDROID_SIGNING_STORE="$RUNNER_TEMP/genesis-signing/release.jks"
           printf '%s' "$SIGNING_KEYSTORE_B64" | base64 -d > "$GENESIS_ANDROID_SIGNING_STORE"
           export GENESIS_YANDEX_CLIENT_ID=""
-          (cd android && bash ./gradlew :app:testDebugUnitTest :app:assembleRelease :app:bundlePlay :app:assemblePlay --no-daemon --console=plain)
+          (cd android && bash ./gradlew :app:testDebugUnitTest :app:assembleRelease :app:bundlePlay :app:assemblePlay \
+            --no-daemon --console=plain --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8')
           APK=android/app/build/outputs/apk/release/app-release.apk
           test -s "$APK"
           "$ANDROID_HOME/build-tools/37.0.0/apksigner" verify --verbose --print-certs "$APK" \
