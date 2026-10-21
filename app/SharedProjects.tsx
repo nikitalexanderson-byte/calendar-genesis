@@ -1846,7 +1846,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       </section> : null}
 
       {canWrite?<button type="button" className="secondary-button" disabled={customFieldDraftOpen} onClick={()=>{setCreateModal(null);setTemplateScope({context:snapshot,source:{title:snapshot.project.title}});}}><ExperimentalIcon name="copy"/>{translateText("Сохранить проект как шаблон")}</button>:null}
-      {["owner","admin"].includes(snapshot.project.spaceRole??"")?<Suspense fallback={null}><SharedCustomFieldManager key={snapshot.project.id} spaceId={snapshot.project.spaceId} projectId={snapshot.project.id} language={language as import("./i18n").Language} onChanged={()=>refreshProject(snapshot.project.id)} onDirtyChange={setCustomFieldDraftOpen}/></Suspense>:null}
+      {["owner","admin"].includes(snapshot.project.spaceRole??"")?<Suspense fallback={null}><SharedCustomFieldManager key={`${userId}:${snapshot.project.id}`} userId={userId} spaceId={snapshot.project.spaceId} projectId={snapshot.project.id} language={language as import("./i18n").Language} onChanged={()=>refreshProject(snapshot.project.id)} onDirtyChange={setCustomFieldDraftOpen}/></Suspense>:null}
 </> : null}
         {createModal === "team" && teamSnapshot ? <>
           {["owner", "admin"].includes(teamSnapshot.project.spaceRole ?? "") ? <SharedTeamPermissions key={teamSnapshot.project.spaceId} spaceId={teamSnapshot.project.spaceId} english={english} language={language as import("./i18n").Language} onChanged={async () => { setTeamSnapshot(await loadSharedProject(teamSnapshot.project.id)); await refreshSpaces(); await refreshProjects(teamSnapshot.project.spaceId); if (projectId) await refreshProject(projectId); }} /> : null}

@@ -52,6 +52,11 @@
 .shared-custom-field-history ol { padding:0; list-style:none; }
 .shared-custom-field-history time { display:block; margin-top:4px; font-size:.875rem; color:var(--ink-soft); }
 .shared-custom-field-empty-detail { display:none; }
+.shared-custom-field-device { display:grid; gap:12px; }
+.shared-custom-field-device:empty { display:none; }
+.shared-custom-field-device li { display:flex; align-items:center; gap:12px; }
+.shared-custom-field-device li > div:first-child { flex:1; min-width:0; }
+.shared-custom-field-device time { display:block; margin-top:4px; color:var(--ink-soft); font-size:.875rem; }
 @container field-manager (min-width:700px) {
  .shared-custom-field-workspace { grid-template-columns:minmax(200px, .7fr) minmax(0, 1.3fr); }
  .shared-custom-field-detail { padding-inline-start:24px; border-inline-start:1px solid var(--line); }
