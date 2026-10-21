@@ -4,6 +4,7 @@ import { CalendarDatePicker } from "./CalendarDatePicker";
 import { calendarContext, civilDateCarrier } from "./calendar-context";
 import type { CalendarMode } from "./calendar-data";
 import { DialogCloseButton } from "./DialogCloseButton";
+import { IconActionButton } from "./IconActionButton";
 import { SharedTaskPageControls } from "./SharedTaskPageControls";
 import { runtimeLocale, translateText as t } from "./i18n";
 import { privateDeviceAccessBlocked } from "./local-sign-out";
@@ -187,8 +188,8 @@ export function SharedBulkActions({userId,filter,page,sort,mode,online,loading,q
   const openOperation=(id:string)=>{watchController.current?.abort();++generation.current;persist({operationId:id});setView({id,trail:[0]});setResult(null);setViewReload(previous=>previous+1);setError("");};
   const closeReport=()=>{watchController.current?.abort();++generation.current;persist({});setView(null);setResult(null);setError("");setPicked({key:selectionKey,all:false,ids:[]});setSelecting(false);};
   return <section className="shared-bulk" aria-label={t("Массовые действия")}>
-    <div className="bulk-toolbar">{filter&&page?.total?<button type="button" className="secondary-button" disabled={frozen||!online} aria-pressed={selecting} onClick={()=>{setSelecting(value=>!value);setPicked({key:selectionKey,all:false,ids:[]});}}>{t(selecting?"Отменить выбор":"Выбрать задачи")}</button>:null}
-      <button type="button" className="secondary-button" aria-expanded={historyOpen} disabled={busy} onClick={()=>setHistoryOpen(value=>!value)}>{t("История массовых действий")}</button>
+    <div className="bulk-toolbar">{filter&&page?.total?<IconActionButton icon={selecting?"close":"check"} label={t(selecting?"Отменить выбор":"Выбрать задачи")} disabled={frozen||!online} aria-pressed={selecting} onClick={()=>{setSelecting(value=>!value);setPicked({key:selectionKey,all:false,ids:[]});}}/>:null}
+      <IconActionButton icon="history" label={t("История массовых действий")} aria-expanded={historyOpen} disabled={busy} onClick={()=>setHistoryOpen(value=>!value)}/>
     </div>
     {historyOpen?<div className="bulk-history"><h3>{t("История массовых действий")}</h3>{historyBusy?<p role="status">{t("Загрузка…")}</p>:null}
       {history&&!history.operations.length?<p>{t("Массовых действий пока нет")}</p>:null}

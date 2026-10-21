@@ -1,6 +1,20 @@
 .shared-projects-modal.shared-saved-views { width:min(1040px,calc(100vw - 32px)); max-height:calc(100dvh - 32px); min-width:0; }
 .saved-views-content { display:grid; gap:24px; min-width:0; }
+.saved-view-device { display:grid; gap:12px; min-width:0; }
+.saved-view-device:empty { display:none; }
+.saved-view-device ul { list-style:none; margin:0; padding:0; }
+.saved-view-device li { display:flex; align-items:center; gap:12px; padding-block:12px; border-bottom:1px solid var(--line); }
+.saved-view-device li > div:first-child { flex:1; min-width:0; overflow-wrap:anywhere; }
+.saved-view-device time { display:block; margin-top:4px; color:var(--ink-soft); font-size:.875rem; }
+.saved-view-input-calendar > summary { min-height:44px; padding-block:12px; cursor:pointer; font-weight:600; }
 .saved-view-intro { margin:0; max-width:70ch; color:var(--ink-soft); line-height:1.6; }
+.saved-view-library-panel { min-width:0; border-block:1px solid var(--line); }
+.saved-view-library-panel > summary { min-height:48px; padding-block:12px; cursor:pointer; color:var(--ink); font-weight:600; }
+.saved-view-library-panel[open] > summary { margin-bottom:12px; }
+.saved-view-library-panel .saved-view-library { padding-bottom:20px; }
+.saved-view-current { display:flex; align-items:center; gap:16px; min-width:0; }
+.saved-view-current > strong { flex:1; min-width:0; overflow-wrap:anywhere; font:600 18px/1.5 var(--font-ui); }
+.saved-view-current .icon-action-button { flex:none; }
 .saved-view-library { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.4fr); gap:24px; }
 .saved-view-library > section { display:grid; align-content:start; gap:12px; min-width:0; }
 .saved-view-library :is(h3,p) { margin:0; }
@@ -30,6 +44,7 @@
 .shared-saved-views button:focus-visible { outline:2px solid var(--ui-accent); outline-offset:3px; }
 @media(max-width:767px) {
  .saved-view-library,.saved-view-fields,.saved-view-dates { grid-template-columns:minmax(0,1fr); }
- .saved-view-actions > button,.saved-view-presets > button { flex:1 1 140px; }
+.saved-view-actions > button,.saved-view-presets > button { flex:1 1 140px; }
+ .saved-view-actions > .icon-action-button { flex:0 0 44px; width:44px; min-width:44px; }
  .saved-view-fields :is(input:not([type=checkbox]),select) { font-size:16px; }
 }

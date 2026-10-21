@@ -4,6 +4,8 @@
 
 Последнее указание: завершить **все этапы**, прежняя граница половины не является точкой остановки. Realme временно отключён; новые проверки выполняются на эмуляторах API28/API35. [Native сохранённые представления](genesis-native-saved-views-2026-10-21.md) прошли локальную source-приёмку:670 JVM/665 выполнены/5 skips, по7 HTTPS/UI сценариев,108 final PNG и unsigned release/R8/36-holder ART. [Browser C3 recovery](genesis-web-field-recovery-2026-10-21.md) сохранён в рабочей ветке `39c04c8`: encrypted input/frozen PUT/receipt,372 tests и реальный lost-reply/reload/409/replay. Browser B5 durable/legacy recovery и native cross-project bulk продолжаются; общий выпуск и21 частичный ID ещё не закрыты.
 
+[Browser B5 recovery](genesis-web-view-recovery-2026-10-21.md) завершил локальную приёмку:384 tests,12 новых writer/migration cases, реальные create/rename/delete lost-reply/reload/replay, malformed receipt, поздний409, legacy повреждённый ввод, его выгрузка и offline invalidation.32 final PNG/обе схемы/4 ширины, input-calendar independence, frozen install/lint/build прошли. Native срез сохранён как `a278949`; следующий конкретный остаток — native bulk из сквозных представлений и дальнейшие G/C/B-интеграции. Master/production438f941/health.ok=true и APK95 не заменялись.
+
 Последний подтверждённый веб-релиз — [PR239](https://github.com/nikitalexanderson-byte/calendar-genesis/pull/239), master/production `438f94149cae474ac1cd38ccec20f16608821ec0`. Опубликованный Android остаётся2.9.0/95. Новые нативные экраны ниже являются исходниками следующего выпуска; локальная проверка не означает их появления в установленном2.9.0.
 
 ## Уже сделано
