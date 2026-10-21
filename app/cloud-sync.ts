@@ -1728,9 +1728,9 @@ export async function saveSharedSavedView(input: { requestId:string; spaceId:str
   const result=await api<{view:SharedSavedView}>(`/shared/views${id ? `/${encodeURIComponent(id)}` : ""}`, { method:id ? "PATCH" : "POST", body:JSON.stringify(input) });
   window.dispatchEvent(new Event("genesis:shared-updates"));return result.view;
 }
-export async function deleteSharedSavedView(view:SharedSavedView, requestId:string) {
-  await api(`/shared/views/${encodeURIComponent(view.id)}`, { method:"DELETE",body:JSON.stringify({requestId,expectedRevision:view.revision}) });
-  window.dispatchEvent(new Event("genesis:shared-updates"));
+export async function deleteSharedSavedView(view:Pick<SharedSavedView,'id'|'revision'>, requestId:string) {
+  const receipt=await api<{ok:true}>(`/shared/views/${encodeURIComponent(view.id)}`, { method:"DELETE",body:JSON.stringify({requestId,expectedRevision:view.revision}) });
+  window.dispatchEvent(new Event("genesis:shared-updates"));return receipt;
 }
 export type SharedTaskPage = { tasks: SharedTask[]; total: number; hasMore: boolean; nextCursor: string | null;
   statusCounts: Record<string, number>; dateCounts: Record<string, number>; consistency: "restart-on-change"; queryVersion: string; bounds?: {first: string | null; last: string | null} };

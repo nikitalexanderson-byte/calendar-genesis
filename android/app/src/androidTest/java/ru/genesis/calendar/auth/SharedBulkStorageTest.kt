@@ -12,7 +12,7 @@ import java.util.UUID
 class SharedBulkStorageTest {
     @Test fun coldBulkJournalKeepsFrozenRequestAndRejectsAnotherAccountProjectOrPurpose() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        assumeTrue("Separate QA installation required", context.packageName.endsWith(".c5qa.debug"))
+        assumeTrue("Separate QA installation required", context.packageName in setOf("ru.genesis.calendar.c5qa.debug", "ru.genesis.calendar.ghttps.debug"))
         val actor = "bulk-storage-${UUID.randomUUID()}"; val project = "synthetic-project"
         val key = "bulk-v1:${actor.length}:$actor:${project.length}:$project"
         val other = "other-project"; val otherKey = "bulk-v1:${actor.length}:$actor:${other.length}:$other"

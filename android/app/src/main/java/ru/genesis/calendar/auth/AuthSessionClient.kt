@@ -19,18 +19,38 @@ internal open class AuthFailure(val kind: Kind, val httpStatus: Int? = null) : E
 internal class AuthApiError(val code: String) : Exception(code)
 
 internal fun allowedSharedRoute(method: String, path: String): Boolean {
+    if (path.matches(Regex("/shared/views(?:\\?cursor=[A-Za-z0-9%+_.~*-]+)?"))) return method == "GET" || path == "/shared/views" && method == "POST"
+    if (path.matches(Regex("/shared/views/[a-f0-9-]{36}"))) return method in setOf("GET", "PATCH", "DELETE")
+    if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/custom-fields"))) return method == "PUT"
+    if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/custom-fields\\?projectId=[a-f0-9-]{36}&archived=(?:true|false)"))) return method == "GET"
+    if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/custom-fields\\?archived=true"))) return method == "GET"
+    if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/custom-fields/preview"))) return method == "POST"
+    if (path.matches(Regex("/shared/custom-fields/[A-Za-z0-9_-]{1,100}/history"))) return method == "GET"
+    val templateLanguage = "(?:ru|en|el|de|fr|es|it|pt|pl|sr|uk|zh|tr|ja)"
+    val templateKey = "(?:[a-f0-9-]{36}|system%3A(?:event|publication|launch|control))"
+    if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/templates\\?language=$templateLanguage&deleted=(?:true|false)(?:&cursor=[A-Za-z0-9%+_.~*-]+)?"))) return method == "GET"
+    if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/templates"))) return method == "POST"
+    if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/templates/[a-f0-9-]{36}"))) return method == "PATCH"
+    if (path.matches(Regex("/shared/templates/$templateKey\\?language=$templateLanguage&deleted=(?:true|false)"))) return method == "GET"
+    if (path.matches(Regex("/shared/templates/$templateKey/(?:preview|apply)"))) return method == "POST"
     if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}"))) return method == "GET"
     if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/members/[A-Za-z0-9_-]{1,100}/project-access"))) return method in setOf("GET", "POST", "PATCH")
     if (path in setOf("/shared/reports", "/shared/reports/check", "/shared/reports/tasks")) return method == "POST"
     if (path in setOf("/shared/spaces", "/shared/invitations", "/shared/invitations/accept",
             "/shared/notifications", "/shared/notifications/read")) return method in setOf("GET", "POST")
     if (method == "GET" && path.matches(Regex("/shared/calendar/tasks\\?from=\\d{4}-\\d{2}-\\d{2}&to=\\d{4}-\\d{2}-\\d{2}"))) return true
-    if (method == "GET" && path.matches(Regex("/shared/tasks\\?filter=[A-Za-z0-9%+_.~-]+(?:&cursor=[A-Za-z0-9%+_.~-]+)?(?:&sort=(?:position|createdAt|createdAtAsc|dueDate|updatedAt|title|priority))?"))) return true
+    if (method == "GET" && path.matches(Regex("/shared/tasks\\?filter=[A-Za-z0-9%+_.~-]+(?:&cursor=[A-Za-z0-9%+_.~-]+)?(?:&sort=(?:position|createdAt|createdAtAsc|dueDate|updatedAt|title|priority|custom%3A[A-Za-z0-9_-]{1,100}%3A(?:asc|desc)))?"))) return true
     if (path in setOf("/shared/bulk/scope", "/shared/bulk/preview")) return method == "POST"
     if (path.matches(Regex("/shared/bulk(?:\\?cursor=[A-Za-z0-9%+_.~*-]+)?"))) return method == "GET"
     if (path.matches(Regex("/shared/bulk/[a-f0-9-]{36}\\?after=(?:0|[1-9][0-9]{0,15})"))) return method == "GET"
     if (path.matches(Regex("/shared/bulk/[a-f0-9-]{36}/(?:confirm|cancel|advance|resume)"))) return method == "POST"
     if (path.matches(Regex("/shared/views/options\\?kind=(?:projects|statuses|assignees|labels)&filter=[A-Za-z0-9%+_.~*-]+(?:&cursor=[A-Za-z0-9%+_.~*-]+)?"))) return method == "GET"
+    if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/automations\\?deleted=(?:true|false)(?:&cursor=[a-f0-9-]{36})?"))) return method == "GET"
+    if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/automations(?:/preview)?"))) return method == "POST"
+    if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/automations/[a-f0-9-]{36}"))) return method in setOf("GET", "PATCH")
+    if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/automations/[a-f0-9-]{36}/runs(?:\\?cursor=[a-f0-9-]{36})?"))) return method == "GET"
+    if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/automations/[a-f0-9-]{36}/runs/[a-f0-9-]{36}/retry"))) return method == "POST"
+    if (path.matches(Regex("/shared/templates/[A-Za-z0-9_%.-]{1,300}\\?language=(?:ru|en|el|de|fr|es|it|pt|pl|sr|uk|zh|tr|ja)"))) return method == "GET"
     if (path == "/shared/notification-settings") return method in setOf("GET", "PUT")
     if (path == "/shared/notification-settings/retry") return method == "POST"
     if (path.matches(Regex("/shared/invitations/[a-f0-9-]{36}"))) return method == "POST"
@@ -217,7 +237,50 @@ internal class AuthSessionClient(context: Context) {
     fun inviteSharedSpaceMember(expected: Long, spaceId: String, email: String, role: String): JSONObject =
         request(expected, "/shared/spaces/$spaceId/invitations", JSONObject().put("email", email).put("role", role))
     fun sharedSpaces(expected: Long): JSONObject = request(expected, "/shared/spaces", null)
+    fun sharedFieldDefinitions(expected: Long, space: String, project: String, archived: Boolean): JSONObject =
+        CustomFieldDefinitionProtocol.catalog(space, project, request(expected,
+            "/shared/spaces/${SharedTemplateProtocol.id(space)}/custom-fields?projectId=${SharedTemplateProtocol.id(project)}&archived=$archived", null), archived)
+    fun sharedFieldHistory(expected: Long, space: String, id: String): JSONObject {
+        SharedTemplateProtocol.id(space)
+        return CustomFieldDefinitionProtocol.history(space, id, request(expected, "/shared/custom-fields/${CustomFieldProtocol.id(id)}/history", null))
+    }
+    fun previewSharedFieldDefinition(expected: Long, space: String, project: String, body: JSONObject): JSONObject {
+        SharedTemplateProtocol.id(space); SharedTemplateProtocol.id(project)
+        val snapshot = JSONObject(body.toString())
+        return CustomFieldDefinitionProtocol.preview(space, project, snapshot,
+            request(expected, "/shared/spaces/$space/custom-fields/preview", snapshot))
+    }
+    fun sharedFieldEditorContext(expected: Long, space: String, project: String): JSONObject {
+        CustomFieldProtocol.id(space); CustomFieldProtocol.id(project)
+        val raw = sharedProject(expected, project); val child = raw.getJSONObject("project")
+        val data = JSONObject().put("project", child).put("space", JSONObject().put("id", child.getString("spaceId")).put("role", child.getString("spaceRole")))
+        require(!raw.optBoolean("offlineCache")) { "CUSTOM_FIELD_SCOPE_CHANGED" }
+        CustomFieldEditorProtocol.authorize(space, project, data)
+        return data
+    }
+    fun saveSharedFieldDefinition(expected: Long, space: String, payload: JSONObject): JSONObject =
+        request(expected, "/shared/spaces/${CustomFieldProtocol.id(space)}/custom-fields", payload, method = "PUT")
     fun sharedTaskLists(expected: Long): JSONObject = request(expected, "/shared/task-lists", null)
+    fun sharedSavedViews(expected: Long, cursor: String?): JSONObject = SavedViewProtocol.page(request(expected,
+        "/shared/views" + (cursor?.let { "?cursor=" + java.net.URLEncoder.encode(it, "UTF-8") } ?: ""), null))
+    fun sharedSavedView(expected: Long, id: String): JSONObject = SavedViewProtocol.view(request(expected,
+        "/shared/views/${CustomFieldProtocol.id(id)}", null).getJSONObject("view")).also { require(it.getString("id") == id) { "VIEW_PROTOCOL" } }
+    fun sharedSavedViewFields(expected: Long, space: String): JSONObject {
+        val response = request(expected, "/shared/spaces/${CustomFieldProtocol.id(space)}/custom-fields?archived=true", null)
+        val fields = response.getJSONArray("fields"); val ids = mutableSetOf<String>()
+        for (index in 0 until fields.length()) {
+            val field = fields.getJSONObject(index)
+            val parsed = CustomFieldProtocol.definitions(space, field.optString("projectId").takeUnless { it == "null" || it.isBlank() } ?: SavedViewProtocol.SCOPE, JSONArray().put(field)).single()
+            require(ids.add(parsed.getString("id"))) { "CUSTOM_FIELD_PROTOCOL" }; fields.put(index, parsed)
+        }
+        return response
+    }
+    fun sendSharedSavedView(expected: Long, command: JSONObject): JSONObject {
+        val kind = command.getString("kind")
+        require(kind in setOf("view-create", "view-update", "view-delete")) { "VIEW_INVALID" }
+        val path = "/shared/views" + (if (kind == "view-create") "" else "/${CustomFieldProtocol.id(command.getString("sprintId"))}")
+        return request(expected, path, command.getJSONObject("body"), method = when (kind) { "view-create" -> "POST"; "view-delete" -> "DELETE"; else -> "PATCH" })
+    }
     fun sharedCalendarTasks(expected: Long, from: String, to: String): JSONObject =
         request(expected, "/shared/calendar/tasks?from=$from&to=$to", null)
     fun createSharedSpace(expected: Long, body: JSONObject): JSONObject =
@@ -234,6 +297,31 @@ internal class AuthSessionClient(context: Context) {
         val query = java.net.URLEncoder.encode(filter.toString(), "UTF-8")
         val continuation = cursor?.let { "&cursor=" + java.net.URLEncoder.encode(it, "UTF-8") } ?: ""
         return request(expected, "/shared/tasks?filter=$query$continuation&sort=${java.net.URLEncoder.encode(sort,"UTF-8")}", null)
+    }
+    fun sharedAutomations(expected: Long, project: String, deleted: Boolean, cursor: String?): JSONObject = SharedAutomationProtocol.list(request(expected,
+        "/shared/projects/${SharedAutomationProtocol.id(project)}/automations?deleted=$deleted" + (cursor?.let { "&cursor=${SharedAutomationProtocol.id(it)}" } ?: ""), null), project)
+    fun sharedAutomation(expected: Long, project: String, rule: String): JSONObject {
+        val response = request(expected, "/shared/projects/${SharedAutomationProtocol.id(project)}/automations/${SharedAutomationProtocol.id(rule)}", null)
+        require(response.keys().asSequence().toSet() == setOf("rule")) { "AUTOMATION_PROTOCOL" }
+        return JSONObject().put("rule", SharedAutomationProtocol.rule(response.getJSONObject("rule"), project).also { require(it.getString("id") == rule) { "AUTOMATION_SCOPE_CHANGED" } })
+    }
+    fun sharedAutomationRuns(expected: Long, project: String, rule: String, cursor: String?): JSONObject = SharedAutomationProtocol.runs(request(expected,
+        "/shared/projects/${SharedAutomationProtocol.id(project)}/automations/${SharedAutomationProtocol.id(rule)}/runs" + (cursor?.let { "?cursor=${SharedAutomationProtocol.id(it)}" } ?: ""), null), rule)
+    fun sharedAutomationCommand(expected: Long, project: String, rule: String, run: String?, body: JSONObject): JSONObject = request(expected,
+        "/shared/projects/${SharedAutomationProtocol.id(project)}/automations/${SharedAutomationProtocol.id(rule)}" + (run?.let { "/runs/${SharedAutomationProtocol.id(it)}/retry" } ?: ""),
+        body, method = if (run == null) "PATCH" else "POST")
+    fun saveSharedAutomation(expected: Long, project: String, rule: String?, payload: JSONObject): JSONObject = request(expected,
+        "/shared/projects/${SharedAutomationProtocol.id(project)}/automations" + (rule?.let { "/${SharedAutomationProtocol.id(it)}" } ?: ""),
+        payload, method = if (rule == null) "POST" else "PATCH")
+    fun previewSharedAutomation(expected: Long, project: String, definition: JSONObject, owner: String, task: String?): JSONObject =
+        SharedAutomationProtocol.preview(request(expected, "/shared/projects/${SharedAutomationProtocol.id(project)}/automations/preview",
+            JSONObject().put("definition", SharedAutomationProtocol.definition(definition)).put("ownerId", SharedAutomationProtocol.id(owner))
+                .put("taskId", task?.let(SharedAutomationProtocol::id) ?: JSONObject.NULL)), owner, task)
+    fun sharedAutomationTemplate(expected: Long, template: String, language: String): JSONObject {
+        require(language in setOf("ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja"))
+        val raw = request(expected, "/shared/templates/" + java.net.URLEncoder.encode(SharedAutomationProtocol.templateId(template), "UTF-8") + "?language=$language", null).getJSONObject("template")
+        require(raw.optString("id") == template && raw.optString("kind") == "task" && raw.opt("title") is String && raw.getString("title").length <= 5000) { "AUTOMATION_PROTOCOL" }
+        return JSONObject().put("id", template).put("title", raw.getString("title"))
     }
     fun sharedBulkScope(expected: Long, selection: JSONObject, cursor: String?): JSONObject = SharedBulkProtocol.scope(request(expected,
         "/shared/bulk/scope", JSONObject().put("selection", SharedBulkProtocol.selection(selection)).apply { if (cursor != null) put("cursor", SharedBulkProtocol.cursor(cursor)) }))
@@ -266,6 +354,30 @@ internal class AuthSessionClient(context: Context) {
         request(expected, "/shared/projects/$projectId", null)
     fun sharedPlanning(expected: Long, projectId: String): JSONObject =
         request(expected, "/shared/projects/$projectId/planning", null)
+    fun sharedTemplates(expected: Long, space: String, language: String, deleted: Boolean, cursor: String?): JSONObject {
+        val path = "/shared/spaces/${SharedTemplateProtocol.id(space)}/templates?language=${SharedTemplateProtocol.language(language)}&deleted=$deleted" +
+            (SharedTemplateProtocol.cursor(cursor)?.let { "&cursor=${java.net.URLEncoder.encode(it, "UTF-8")}" } ?: "")
+        return request(expected, path, null)
+    }
+    private fun templatePath(id: String): String = "/shared/templates/" + java.net.URLEncoder.encode(SharedTemplateProtocol.templateId(id), "UTF-8")
+    fun sharedTemplate(expected: Long, space: String, id: String, language: String, deleted: Boolean): JSONObject =
+        SharedTemplateProtocol.source(space, id, request(expected, "${templatePath(id)}?language=${SharedTemplateProtocol.language(language)}&deleted=$deleted", null).getJSONObject("template"))
+    fun previewSharedTemplate(expected: Long, space: String, id: String, input: JSONObject): JSONObject =
+        SharedTemplateProtocol.preview(space, id, input, request(expected, "${templatePath(id)}/preview", SharedTemplateProtocol.options(input)))
+    fun sharedTemplateCommand(expected: Long, command: JSONObject): JSONObject {
+        val body = command.getJSONObject("body"); val space = SharedTemplateProtocol.id(body.getString("spaceId"))
+        val input = body.getJSONObject("request")
+        require(input.getString("operationId") == body.getString("requestId")) { "TEMPLATE_DRAFT_INVALID" }
+        val response = when (command.getString("kind")) {
+            "template-save" -> {
+                val suffix = if (command.isNull("sprintId")) "" else "/${SharedTemplateProtocol.id(command.getString("sprintId"))}"
+                request(expected, "/shared/spaces/$space/templates$suffix", input, method = if (suffix.isEmpty()) "POST" else "PATCH")
+            }
+            "template-apply" -> request(expected, "${templatePath(command.getString("sprintId"))}/apply", input)
+            else -> throw AuthFailure(AuthFailure.Kind.PROTOCOL)
+        }
+        return SharedTemplateProtocol.receipt(command, response)
+    }
     fun sharedSprintReport(expected: Long, projectId: String, sprintId: String, unit: String): JSONObject {
         require(unit in SprintReportProtocol.units)
         return request(expected, "/shared/projects/$projectId/planning/sprints/$sprintId/report", JSONObject().put("unit", unit))
@@ -446,7 +558,7 @@ internal class AuthSessionClient(context: Context) {
         try {
             connection.instanceFollowRedirects = false
             connection.connectTimeout = 15_000
-            connection.readTimeout = if (path == "/bootstrap" || path.startsWith("/shared/data/") || path.startsWith("/shared/reports")) 120_000 else 30_000
+            connection.readTimeout = if (path == "/bootstrap" || path.startsWith("/shared/data/") || path.startsWith("/shared/reports") || path.startsWith("/shared/") && path.contains("/templates")) 120_000 else 30_000
             connection.useCaches = false
             connection.requestMethod = method
             connection.setRequestProperty("Accept", "application/json")
@@ -485,11 +597,15 @@ internal class AuthSessionClient(context: Context) {
                         }
                         val payload = JSONObject(output.toString(Charsets.UTF_8.name()))
                         val code = payload.optString("error")
-                        if (path.endsWith("/data-export") && code in DataExportProtocol.errors ||
+                        if (path.contains("/templates") && code in SharedTemplateProtocol.errors && !code.startsWith("WORKFLOW_") && !code.startsWith("CUSTOM_FIELD_") ||
+                            path.startsWith("/shared/tasks?") && code in SavedViewProtocol.errors ||
+                            path.startsWith("/shared/views") && code in SavedViewProtocol.errors ||
+                            path.endsWith("/data-export") && code in DataExportProtocol.errors ||
                             (path.startsWith("/shared/data/") || path.startsWith("/shared/data-imports/")) && DataImportProtocol.errorCode(code) ||
                             path.startsWith("/shared/reports") && (code in TeamReportProtocol.errors || code.startsWith("CUSTOM_FIELD_")) ||
                             path.endsWith("/project-access") && code in ProjectAccessProtocol.errors ||
-                            (path.startsWith("/shared/bulk") || path.startsWith("/shared/views/options")) && SharedBulkProtocol.errorCode(code)) AuthApiError(code)
+                            (path.startsWith("/shared/bulk") || path.startsWith("/shared/views/options")) && SharedBulkProtocol.errorCode(code) ||
+                            path.contains("/automations") && SharedAutomationProtocol.errorCode(code)) AuthApiError(code)
                         else customFieldFailure(status, payload) ?: workflowFailure(status, payload)
                     }.getOrNull()
                     if (failure != null) throw failure

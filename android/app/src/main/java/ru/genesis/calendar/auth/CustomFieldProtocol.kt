@@ -11,7 +11,7 @@ internal object CustomFieldProtocol {
     val types = setOf("text", "number", "date", "select", "multi", "checkbox", "url")
     val errors = setOf("CUSTOM_FIELD_INVALID", "CUSTOM_FIELD_VALUE_INVALID", "CUSTOM_FIELD_URL_INVALID", "CUSTOM_FIELD_OPTION_UNAVAILABLE",
         "CUSTOM_FIELD_UNAVAILABLE", "CUSTOM_FIELD_REQUIRED", "CUSTOM_FIELD_CONFLICT", "CUSTOM_FIELD_SCOPE_HAS_VALUES", "CUSTOM_FIELD_TYPE_TRANSITION_REQUIRED",
-        "CUSTOM_FIELD_LIMIT", "CUSTOM_FIELD_OPERATION_REUSED")
+        "CUSTOM_FIELD_LIMIT", "CUSTOM_FIELD_OPTIONS_LIMIT", "CUSTOM_FIELD_OPERATION_REUSED")
     private fun valid(ok: Boolean, code: String = "CUSTOM_FIELD_VALUE_INVALID") { require(ok) { code } }
     fun id(value: String) = value.also { valid(Regex("[A-Za-z0-9_-]{1,100}").matches(it), "CUSTOM_FIELD_INVALID") }
     private fun count(value: Any, min: Int, max: Int): Int {
@@ -35,7 +35,7 @@ internal object CustomFieldProtocol {
             count(field.get("position"), -100000, 100000); count(field.get("revision"), 1, Int.MAX_VALUE)
             for (key in listOf("required", "showCard", "showList", "archived")) bool(field.get(key))
             valid(field.has("predecessorId") && (field.isNull("predecessorId") || runCatching { id(field.getString("predecessorId")) }.isSuccess), "CUSTOM_FIELD_INVALID")
-            val options = PlanningLifecycle.rows(field.getJSONArray("options")); valid(options.size <= 200, "CUSTOM_FIELD_INVALID")
+            val options = PlanningLifecycle.rows(field.getJSONArray("options")); valid(field.toString().toByteArray(Charsets.UTF_8).size <= 1_000_000 && options.count { !it.getBoolean("archived") } <= 200, "CUSTOM_FIELD_INVALID")
             valid(field.getString("type") in setOf("select", "multi") || options.isEmpty(), "CUSTOM_FIELD_INVALID")
             options.forEach { option -> id(option.getString("id")); text(option.get("title"), 160); bool(option.get("archived")) }
             valid(options.map { it.getString("id") }.distinct().size == options.size, "CUSTOM_FIELD_INVALID")

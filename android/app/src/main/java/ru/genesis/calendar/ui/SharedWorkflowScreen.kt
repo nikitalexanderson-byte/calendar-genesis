@@ -41,7 +41,9 @@ import java.util.Locale
     return remember(all, language) { all.optJSONObject(language) ?: all.getJSONObject("ru") }
 }
 
-internal fun workflowAccessLost(failure: Exception): Boolean = failure is AuthFailure && failure.kind in setOf(AuthFailure.Kind.UNAUTHORIZED, AuthFailure.Kind.NOT_DEPLOYED)
+internal fun workflowAccessLost(failure: Exception): Boolean =
+    failure is AuthFailure && failure.kind in setOf(AuthFailure.Kind.UNAUTHORIZED, AuthFailure.Kind.NOT_DEPLOYED) ||
+        failure is AuthApiError && failure.code in setOf("SHARED_PROJECT_FORBIDDEN", "SHARED_PROJECT_NOT_FOUND", "SHARED_PROJECTS_DISABLED", "SHARED_FORBIDDEN", "UNAUTHORIZED")
 internal fun workflowMessage(code: String, copy: JSONObject): String? { return copy.optString(when (code) {
     "WORKFLOW_WIP_LIMIT" -> "wipError"
     "WORKFLOW_REQUIRED_FIELDS" -> "requiredError"

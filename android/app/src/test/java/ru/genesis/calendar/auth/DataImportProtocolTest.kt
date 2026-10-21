@@ -6,6 +6,18 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class DataImportProtocolTest {
+    @Test fun legacyArchivedChoiceMetadataAndMappingsRemainReadableInRestorePreview() {
+        val raw = preview()
+        val choices = JSONArray((0..200).map { index -> JSONObject().put("id", if (index == 0) "choice" else "option-$index").put("title", "Choice $index").put("archived", index == 0) })
+        raw.getJSONObject("data").getJSONArray("fields").getJSONObject(0).put("options", choices)
+        raw.getJSONArray("destinationFields").getJSONObject(0).put("options", JSONArray(choices.toString()))
+        raw.getJSONObject("optionMap").put("source", JSONObject().apply { for (index in 0 until choices.length()) put(choices.getJSONObject(index).getString("id"), JSONObject.NULL) })
+        val parsed = DataImportProtocol.preview(raw)
+        assertEquals(201, parsed.getJSONArray("destinationFields").getJSONObject(0).getJSONArray("options").length())
+        choices.getJSONObject(0).put("archived", false)
+        assertThrows(Exception::class.java) { DataImportProtocol.preview(raw) }
+    }
+
     private fun field(id: String, type: String, source: Boolean = false): JSONObject = JSONObject()
         .put(if (source) "key" else "id", id).put("title", "Field $id").put("type", type).put("required", true).put("archived", false)
         .put("projectKey", JSONObject.NULL).put("options", if (type in setOf("select", "multi")) JSONArray()

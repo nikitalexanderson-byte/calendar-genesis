@@ -1,9 +1,11 @@
 "use client";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { CalendarDatePicker } from "./CalendarDatePicker";
+import {RecordCalendarChoice} from './RecordCalendarChoice';
 import { calendarContext, type CalendarContext } from "./calendar-context";
 import { type CalendarMode } from "./calendar-data";
 import { DialogCloseButton } from "./DialogCloseButton";
+import { IconActionButton } from "./IconActionButton";
 import { useSacredFeaturesEnabled } from "./sacred-features";
 import { SharedBulkActions } from "./SharedBulkActions";
 import { useSharedTaskPage } from "./use-shared-task-page";
@@ -13,54 +15,40 @@ import { translateText as t } from "./i18n";
 import { getRuntimeLanguage } from "./i18n";
 import { SharedCustomFieldFilter } from "./SharedCustomFieldFilter";
 import { customFieldsError, type SharedCustomField } from "./shared-custom-fields";
-import { GenesisNetworkTimeoutError, deleteSharedSavedView, listSharedSavedViews, loadSharedSavedView, loadSharedViewOptions, saveSharedSavedView, listSharedCustomFields,
+import {useSavedViewDrafts} from './use-saved-view-drafts';
+import {WorkDraftError} from './shared-work-draft-journal';
+import {workflowDraftText,workflowDraftError} from './workflow-draft-copy';
+import {prepareSavedViewDeviceDraft,savedViewPayload,sendSavedViewDeviceDraft,type SavedViewEditorDraft} from './saved-view-device-drafts';
+import { GenesisApiError, GenesisNetworkTimeoutError, deleteSharedSavedView, listSharedSavedViews, loadSharedSavedView, loadSharedViewOptions, saveSharedSavedView, listSharedCustomFields,
   type SharedSavedView, type SharedSavedViewDefinition, type SharedSavedViewPage, type SharedSpace, type SharedTask,
   type SharedTaskCriteria, type SharedTaskFilter, type SharedViewOptionKind, type SharedViewOptionsPage } from "./cloud-sync";
 import "./shared-saved-views.css";
 
-type Draft = { definition:SharedSavedViewDefinition|null; damagedDefinition?:unknown; id?:string; revision?:number; spaceId:string|null; visibility:"personal"|"shared"; dirty:boolean; tagsInput?:string };
-const fresh=(mode:CalendarMode):Draft=>({definition:{version:1,title:"",filter:{},sort:"position",relative:"none",calendarMode:mode,calendarContext:calendarContext()},spaceId:null,visibility:"personal",dirty:false});
-function restoreDraft(key:string,mode:CalendarMode):Draft {
-  try {
-    const saved=typeof window!=="undefined"?JSON.parse(localStorage.getItem(key)||"null"):null;
-    if(saved===null)return fresh(mode);
-    if((saved?.spaceId===null||typeof saved?.spaceId==="string")
-      && ["personal","shared"].includes(saved?.visibility) && typeof saved?.dirty==="boolean"
-      && (saved.id===undefined||(typeof saved.id==="string"&&Number.isSafeInteger(saved.revision)&&saved.revision>0))
-      && (saved.tagsInput===undefined||typeof saved.tagsInput==="string")){
-      if(editableSharedViewDefinition(saved.definition))return saved;
-      return {...saved,definition:null,damagedDefinition:saved.definition,dirty:true};
-    }
-  } catch { /* Preserve the damaged stored draft until the user explicitly replaces it. */ }
-  return {definition:null,spaceId:null,visibility:"personal",dirty:true};
-}
+type Draft = SavedViewEditorDraft;
+const fresh=(mode:CalendarMode,inputMode:CalendarMode):Draft=>({definition:{version:1,title:"",filter:{},sort:"position",relative:"none",calendarMode:mode,calendarContext:calendarContext()},inputCalendar:{mode:inputMode,context:calendarContext()},spaceId:null,visibility:"personal",dirty:false});
 const message=(error:unknown,fallback="Не удалось загрузить данные")=>error instanceof TypeError||error instanceof GenesisNetworkTimeoutError?t(fallback):customFieldsError(error)??sharedTaskDetailsError(error)??t(error instanceof Error?error.message:fallback);
 const strings=(value:unknown)=>Array.isArray(value)?value.filter((item):item is string=>typeof item==="string"):[];
 const subscribeOnline=(callback:()=>void)=>{window.addEventListener("online",callback);window.addEventListener("offline",callback);return()=>{window.removeEventListener("online",callback);window.removeEventListener("offline",callback);};};
 const onlineSnapshot=()=>navigator.onLine;
 const serverOnline=()=>true;
 function payload(draft:Draft):SharedSavedViewDefinition {
-  const definition=draft.definition;
-  if(!definition)throw new Error("VIEW_INVALID");
-  const filter={...definition.filter};
-  if(draft.spaceId)filter.spaceId=draft.spaceId;else delete filter.spaceId;
-  if(definition.relative!=="none"){delete filter.dueFrom;delete filter.dueTo;}
-  return {...definition,title:definition.title.trim()||t("Представление"),filter};
+  const value=savedViewPayload(draft);return {...value,title:value.title||t('Представление')};
 }
 
 export function ViewChoice({kind,label,filter,value,onChange,online}:{kind:SharedViewOptionKind;label:string;filter:Pick<SharedTaskCriteria,"spaceId"|"projectIds">;value:string[];onChange:(value:string[])=>void;online:boolean}) {
   const key=JSON.stringify(filter),[state,setState]=useState<{key:string;page:SharedViewOptionsPage}|null>(null),[failure,setFailure]=useState<{key:string;text:string}|null>(null),[pending,setPending]=useState<{key:string;id:number}|null>(null);
   const generation=useRef(0),moreController=useRef<AbortController|null>(null);
+  useEffect(()=>{const clear=()=>{setState(null);setFailure(null);};window.addEventListener('offline',clear);return()=>window.removeEventListener('offline',clear);},[]);
   useEffect(()=>{
     if(!online)return;
     const controller=new AbortController(),current=++generation.current;
     void loadSharedViewOptions(kind,JSON.parse(key),null,controller.signal).then(page=>{
       if(!controller.signal.aborted&&current===generation.current){setState({key,page});setFailure(null);}
-    }).catch(error=>{if(!controller.signal.aborted&&current===generation.current)setFailure({key,text:message(error)});});
+    }).catch(error=>{if(!controller.signal.aborted&&current===generation.current){setState(null);setFailure({key,text:message(error)});}});
     const invalidate=()=>{++generation.current;moreController.current?.abort();};
     return()=>{invalidate();controller.abort();};
   },[kind,key,online]);
-  const page=state?.key===key?state.page:null,error=failure?.key===key?failure.text:"",busy=pending?.key===key;
+  const page=online&&state?.key===key?state.page:null,error=failure?.key===key?failure.text:"",busy=pending?.key===key;
   const base=kind==="assignees"?[{id:"me",title:t("Назначено мне")},{id:"unassigned",title:t("Без исполнителя")}]:[];
   const options=[...base,...(page?.options??[])],missing=value.filter(id=>!options.some(option=>option.id===id));
   const more=async()=>{
@@ -69,7 +57,7 @@ export function ViewChoice({kind,label,filter,value,onChange,online}:{kind:Share
     try{
       const next=await loadSharedViewOptions(kind,JSON.parse(key),page.nextCursor,controller.signal);
       if(current===generation.current){setState({key,page:{...next,options:[...new Map([...page.options,...next.options].map(option=>[option.id,option])).values()]}});setFailure(null);}
-    }catch(error){if(current===generation.current&&!controller.signal.aborted)setFailure({key,text:message(error)});}
+    }catch(error){if(current===generation.current&&!controller.signal.aborted){setState(null);setFailure({key,text:message(error)});}}
     finally{setPending(previous=>previous?.id===current?null:previous);}
   };
   return <div className="saved-view-choice"><label>{label}<select multiple size={4} value={value} onChange={event=>onChange(Array.from(event.target.selectedOptions,option=>option.value))}>
@@ -79,12 +67,16 @@ export function ViewChoice({kind,label,filter,value,onChange,online}:{kind:Share
   </div>;
 }
 
-export function SharedSavedViews({userId,spaces,mode,opened,onClose,onOpen}:{userId:string;spaces:SharedSpace[];mode:CalendarMode;opened:boolean;onClose:()=>void;onOpen:(task:SharedTask)=>void}) {
-  const storageKey=`genesis.shared-views.draft.${userId}`;
-  const [draft,setDraft]=useState<Draft>(()=>restoreDraft(storageKey,mode));
-  const [editor,setEditor]=useState(draft.dirty),[list,setList]=useState<SharedSavedViewPage|null>(null),[error,setError]=useState(""),[busy,setBusy]=useState(false),[listLoading,setListLoading]=useState(false),[listError,setListError]=useState("");
+export function SharedSavedViews({userId,spaces,mode,inputMode=mode,opened,onClose,onOpen}:{userId:string;spaces:SharedSpace[];mode:CalendarMode;inputMode?:CalendarMode;opened:boolean;onClose:()=>void;onOpen:(task:SharedTask)=>void}) {
+  const writer=useSavedViewDrafts(userId,opened,()=>fresh(mode,inputMode)),draft=writer.draft;
+  const [deviceDraftsOpen,setDeviceDraftsOpen]=useState(false);
+  const setDraft=(value:Draft|((previous:Draft)=>Draft))=>{setDeviceDraftsOpen(false);if(typeof value==='function')writer.update(value);else writer.write(value);};
+  const d=(key:Parameters<typeof workflowDraftText>[0])=>workflowDraftText(key,getRuntimeLanguage());
+  const [editor,setEditor]=useState(draft.dirty),[libraryOpen,setLibraryOpen]=useState(true),[list,setList]=useState<SharedSavedViewPage|null>(null),[error,setError]=useState(""),[busy,setBusy]=useState(false),[listLoading,setListLoading]=useState(false),[listError,setListError]=useState("");
   const dialog=useRef<HTMLDialogElement>(null);
   const sacredFeaturesEnabled=useSacredFeaturesEnabled();
+  const inputCalendar=draft.inputCalendar??{mode:inputMode,context:calendarContext()};
+  const dateMode=sacredFeaturesEnabled?inputCalendar.mode:'profane';
   // Keep an unsaved hidden draft intact for re-enabling; display and submit the same visible mode.
   const effectiveDraft = !draft.id && draft.definition && !sacredFeaturesEnabled
     ? {...draft,definition:{...draft.definition,calendarMode:"profane" as const}} : draft;
@@ -92,126 +84,143 @@ export function SharedSavedViews({userId,spaces,mode,opened,onClose,onOpen}:{use
   const [metadata,setMetadata]=useState<SharedSavedView|null>(null),[filter,setFilter]=useState<SharedTaskFilter|null>(null),[optionsVersion,setOptionsVersion]=useState(0);
   const [customFields,setCustomFields]=useState<{spaceId:string;items:SharedCustomField[]}>({spaceId:"",items:[]});
   useEffect(()=>{if(!opened||!draft.spaceId)return;const controller=new AbortController(),spaceId=draft.spaceId;
-    void listSharedCustomFields(spaceId,undefined,controller.signal).then(items=>{if(!controller.signal.aborted)setCustomFields({spaceId,items});}).catch(error=>{if(!controller.signal.aborted)setError(message(error));});
+    void listSharedCustomFields(spaceId,undefined,controller.signal).then(items=>{if(!controller.signal.aborted)setCustomFields({spaceId,items});}).catch(error=>{if(!controller.signal.aborted){setCustomFields({spaceId:'',items:[]});setFilter(null);setError(message(error));}});
     return()=>controller.abort();},[opened,draft.spaceId,optionsVersion]);
   const rolesKey=spaces.map(space=>`${space.id}:${space.role}`).sort().join("|");
-  const requestKey=`${storageKey}.request`;
   const online=useSyncExternalStore(subscribeOnline,onlineSnapshot,serverOnline),operation=useRef(false),listGeneration=useRef(0);
-  const request=useRef<{body:string;id:string}|null>(null);
   const mounted=useRef(true);
   useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
-  const mutationId=(body:string)=>{
-    if(!request.current){try{const saved=JSON.parse(localStorage.getItem(requestKey)||"null");if(typeof saved?.body==="string"&&typeof saved?.id==="string")request.current=saved;}catch{/* Memory retry remains available. */}}
-    if(request.current?.body!==body)request.current={body,id:crypto.randomUUID()};
-    try{localStorage.setItem(requestKey,JSON.stringify(request.current));}catch{/* Preserve the in-memory request. */}
-    return request.current.id;
-  };
-  const clearRequest=()=>{request.current=null;try{localStorage.removeItem(requestKey);}catch{/* No persistent retry to clear. */}};
-  const persistResult=(next:Draft)=>{
-    setDraft(next);
-    try{localStorage.setItem(storageKey,JSON.stringify(next));clearRequest();}
-    catch{/* Keep the receipt ID when the completed result cannot yet be persisted. */}
-  };
   const refresh=useCallback(async(signal?:AbortSignal)=>{
     const generation=++listGeneration.current;setListLoading(true);
     try{const result=await listSharedSavedViews(null,signal);if(!signal?.aborted&&generation===listGeneration.current){setList(result);setListError("");}}
-    catch(error){if(!signal?.aborted&&generation===listGeneration.current){setList(null);setListError(message(error));}}
+    catch(error){if(!signal?.aborted&&generation===listGeneration.current){setList(null);setMetadata(null);setFilter(null);setCustomFields({spaceId:'',items:[]});setListError(message(error));setError(message(error));}}
     finally{if(generation===listGeneration.current)setListLoading(false);}
   },[]);
-  useEffect(()=>{if(!draft.definition)return;try{localStorage.setItem(storageKey,JSON.stringify(draft));}catch{/* Keep the in-memory draft when device storage is unavailable. */}},[draft,storageKey]);
   useEffect(()=>{if(!opened||!online)return;const controller=new AbortController();const initial=window.setTimeout(()=>void refresh(controller.signal),0),changed=()=>void refresh(controller.signal),invalidate=()=>{++listGeneration.current;};window.addEventListener("genesis:shared-updates",changed);return()=>{invalidate();controller.abort();window.clearTimeout(initial);window.removeEventListener("genesis:shared-updates",changed);};},[opened,refresh,online]);
   useEffect(()=>{
-    if(!draft.id||!online)return;
+    if(!opened||!draft.id||!online)return;
     const controller=new AbortController();let generation=0;
     const refreshMetadata=()=>{
       if(document.visibilityState!=="visible")return;
       const current=++generation;
       void loadSharedSavedView(draft.id!,controller.signal).then(view=>{if(!controller.signal.aborted&&generation===current)setMetadata(view);})
-        .catch(error=>{if(!controller.signal.aborted&&generation===current){setMetadata(null);setError(message(error));}});
+        .catch(error=>{if(!controller.signal.aborted&&generation===current){setMetadata(null);setFilter(null);setCustomFields({spaceId:'',items:[]});setError(message(error));}});
     };
     refreshMetadata();window.addEventListener("genesis:shared-updates",refreshMetadata);window.addEventListener("focus",refreshMetadata);
     document.addEventListener("visibilitychange",refreshMetadata);
     return()=>{controller.abort();window.removeEventListener("genesis:shared-updates",refreshMetadata);window.removeEventListener("focus",refreshMetadata);document.removeEventListener("visibilitychange",refreshMetadata);};
-  },[draft.id,online,rolesKey]);
-  const tasks=useSharedTaskPage(opened?filter:null);
+  },[opened,draft.id,online,rolesKey]);
+  useEffect(()=>{const clear=()=>{setList(null);setMetadata(null);setCustomFields({spaceId:'',items:[]});};window.addEventListener('offline',clear);return()=>window.removeEventListener('offline',clear);},[]);
+  const tasks=useSharedTaskPage(opened&&online?filter:null);
   const definition=effectiveDraft.definition;
-  const editDraft=(edit:(previous:Draft)=>Draft)=>{setFilter(null);setDraft(edit);};
+  const editDraft=(edit:(previous:Draft)=>Draft)=>{if(writer.locked||operation.current||!writer.ready)return;setFilter(null);setDraft(edit);};
   const update=(patch:Partial<SharedSavedViewDefinition>)=>editDraft(previous=>previous.definition?({...previous,dirty:true,definition:{...previous.definition,...patch}}):previous);
   const criteria=(patch:Partial<SharedTaskCriteria>)=>{if(definition)update({filter:{...definition.filter,...patch}});};
   const ids=(name:"projectIds"|"statusIds"|"assigneeIds"|"labelIds",value:string[])=>{if(!definition)return;const next={...definition.filter};if(value.length)next[name]=value;else delete next[name];update({filter:next});};
-  const replace=()=>!operation.current&&(!draft.dirty||window.confirm(t("Заменить несохранённые условия представления?")));
+  const replace=()=>!operation.current&&!writer.locked&&writer.ready&&(!draft.dirty||window.confirm(t("Заменить несохранённые условия представления?")));
   const openView=(view:SharedSavedView)=>{
     if(!replace())return;
     const editable=editableSharedViewDefinition(view.definition),invalid=view.invalid||!editable;
-    setMetadata(view);setDraft({definition:editable?view.definition:null,damagedDefinition:editable?undefined:view.definition,id:view.id,revision:view.revision,spaceId:view.spaceId,visibility:view.visibility,dirty:false});
+    setMetadata(view);setDraft({definition:editable?view.definition:null,damagedDefinition:editable?undefined:view.definition,id:view.id,revision:view.revision,spaceId:view.spaceId,visibility:view.visibility,dirty:false,inputCalendar:{mode:inputMode,context:calendarContext()}});
     setEditor(Boolean(invalid));setOptionsVersion(previous=>previous+1);setFilter(invalid?null:{savedViewId:view.id});setError(invalid?t("Часть условий больше недоступна. Исправьте представление перед открытием."):"");
+    setLibraryOpen(false);
   };
   const preset=(name:string,criteria:SharedTaskCriteria,relative:SharedSavedViewDefinition["relative"]="none")=>{
-    if(!replace())return;const next=fresh(mode);next.definition={...next.definition!,title:t(name),filter:criteria,relative};
-    setDraft(next);setMetadata(null);setEditor(false);setOptionsVersion(previous=>previous+1);setFilter({viewDefinition:payload(next)});setError("");
+    if(!replace())return;const next=fresh(mode,inputMode);next.definition={...next.definition!,title:t(name),filter:criteria,relative};
+    setDraft(next);setMetadata(null);setEditor(false);setLibraryOpen(false);setOptionsVersion(previous=>previous+1);setFilter({viewDefinition:payload(next)});setError("");
+  };
+  const runMutation=async(work:()=>Promise<void>)=>{
+    if(operation.current)return;operation.current=true;setBusy(true);setError('');
+    try{await work();}catch(error){if(mounted.current)setError(writer.current.current?.phase==='pending'?d('pending'):error instanceof WorkDraftError||error instanceof Error&&error.message.startsWith('DRAFT_')?workflowDraftError(error,getRuntimeLanguage()):message(error));}
+    finally{operation.current=false;if(mounted.current)setBusy(false);}
+  };
+  const finishMutation=async()=>{
+    const result=await writer.finish();if(!mounted.current)return;
+    const view=result.action==='save'?result.receipt as SharedSavedView:null;
+    setMetadata(view?.id===result.draft.id?view:null);setFilter(!result.draft.dirty&&result.draft.id?{savedViewId:result.draft.id}:null);
+    setEditor(result.draft.dirty);setError('');setOptionsVersion(value=>value+1);await refresh();
+  };
+  const sendPending=async()=>{
+    const record=writer.current.current;if(!record)return;
+    if(record.phase==='received'){await finishMutation();return;}
+    await sendSavedViewDeviceDraft(record,{persist:writer.persist,send:async command=>{
+      const body=JSON.parse(command.bodyJson);
+      return command.action==='delete'?deleteSharedSavedView({id:command.id!,revision:body.expectedRevision},body.requestId):saveSharedSavedView(body,command.id??undefined);
+    },definitiveRejection:error=>error instanceof GenesisApiError&&[400,403,404,409,422].includes(error.status)&&typeof error.payload?.error==='string'?error.payload.error:null});
+    if(mounted.current)await finishMutation();
   };
   const save=async(copy=false)=>{
-    if(operation.current)return;operation.current=true;setBusy(true);
-    try{if(!draft.definition?.title.trim())throw new Error("VIEW_INVALID");const definition=payload(effectiveDraft),id=copy?undefined:draft.id,visibility=copy&&!canShare?"personal":draft.visibility;
-      const body=JSON.stringify({spaceId:draft.spaceId,visibility,definition,expectedRevision:id?draft.revision:undefined,id});
-      const view=await saveSharedSavedView({requestId:mutationId(body),spaceId:draft.spaceId,visibility,definition,expectedRevision:id?draft.revision:undefined},id);
-      if(!mounted.current)return;
-      if(!editableSharedViewDefinition(view.definition)||view.invalid)throw new Error("VIEW_FILTER_UNAVAILABLE");
-      setMetadata(view);persistResult({definition:view.definition,id:view.id,revision:view.revision,spaceId:view.spaceId,visibility:view.visibility,dirty:false});setFilter({savedViewId:view.id});setEditor(false);setError("");await refresh();
-    }catch(error){setError(message(error,"Ответ о сохранении не получен. Черновик сохранён; повторите попытку."));}finally{operation.current=false;setBusy(false);}
+    if(writer.locked||!writer.ready)return;
+    await runMutation(async()=>{
+      if(!draft.definition?.title.trim())throw Error('VIEW_INVALID');const definition=payload(effectiveDraft),id=copy?null:draft.id??null,visibility=copy&&!canShare?'personal':draft.visibility;
+      if(id){const current=await loadSharedSavedView(id);if(!mounted.current)return;if(!current.canEdit)throw new GenesisApiError(403,{error:'SHARED_FORBIDDEN'},'SHARED_FORBIDDEN');if(current.revision!==draft.revision)throw new GenesisApiError(409,{error:'VIEW_CONFLICT'},'VIEW_CONFLICT');}
+      const command={action:'save' as const,id,bodyJson:JSON.stringify({requestId:crypto.randomUUID(),spaceId:draft.spaceId,visibility,definition,...(id?{expectedRevision:draft.revision}:{})})};
+      await writer.persist(prepareSavedViewDeviceDraft(draft,command));await sendPending();
+    });
   };
   const remove=async()=>{
-    if(operation.current||!metadata||metadata.id!==draft.id||!window.confirm(t("Удалить представление? Задачи сохранятся.")))return;
-    operation.current=true;setBusy(true);
-    try{
-      const revision=draft.revision??metadata.revision,requestId=mutationId(JSON.stringify({action:"delete",id:metadata.id,revision}));
-      await deleteSharedSavedView({...metadata,revision},requestId);if(!mounted.current)return;setFilter(null);setMetadata(null);
-      persistResult({...draft,id:undefined,revision:undefined,dirty:true,visibility:"personal"});setError("");await refresh();
-    }catch(error){setError(message(error,"Ответ об удалении не получен. Повторите попытку."));}finally{operation.current=false;setBusy(false);}
+    if(writer.locked||!writer.ready||!metadata||metadata.id!==draft.id||!window.confirm(t('Удалить представление? Задачи сохранятся.')))return;
+    await runMutation(async()=>{const current=await loadSharedSavedView(metadata.id);if(!mounted.current)return;if(!current.canEdit)throw new GenesisApiError(403,{error:'SHARED_FORBIDDEN'},'SHARED_FORBIDDEN');if(current.revision!==draft.revision)throw new GenesisApiError(409,{error:'VIEW_CONFLICT'},'VIEW_CONFLICT');
+      await writer.persist(prepareSavedViewDeviceDraft(draft,{action:'delete',id:current.id,bodyJson:JSON.stringify({requestId:crypto.randomUUID(),expectedRevision:draft.revision})}));await sendPending();});
   };
   const moreViews=async()=>{
     if(operation.current||!list?.nextCursor||listLoading)return;
     const generation=listGeneration.current;setListLoading(true);
     try{const next=await listSharedSavedViews(list.nextCursor);if(generation===listGeneration.current){setList({...next,views:[...new Map([...list.views,...next.views].map(view=>[view.id,view])).values()]});setListError("");}}
-    catch(error){if(generation===listGeneration.current)setListError(message(error));}
+    catch(error){if(generation===listGeneration.current){setList(null);setMetadata(null);setFilter(null);setCustomFields({spaceId:'',items:[]});setListError(message(error));setError(message(error));}}
     finally{if(generation===listGeneration.current)setListLoading(false);}
   };
-  let context:CalendarContext|undefined,zoneError="";
-  if(definition){try{context=calendarContext(definition.calendarContext);}catch{zoneError=t("Введите действительный часовой пояс IANA, например Europe/Moscow. Черновик сохранён.");}}
+  let zoneError="";
+  if(definition){try{calendarContext(definition.calendarContext);}catch{zoneError=t("Введите действительный часовой пояс IANA, например Europe/Moscow. Черновик сохранён.");}}
   const optionFilter={...(draft.spaceId?{spaceId:draft.spaceId}:{}),...(strings(definition?.filter.projectIds).length?{projectIds:strings(definition?.filter.projectIds)}:{})};
   const canShare=spaces.some(space=>space.id===draft.spaceId&&["owner","admin"].includes(space.role)),canEdit=!draft.id||(metadata?.id===draft.id&&metadata.canEdit);
   const scopeChanged=Boolean(draft.id&&metadata?.id===draft.id&&(metadata.spaceId!==draft.spaceId||metadata.visibility!==draft.visibility));
+  const blocked=busy||writer.locked||!writer.ready;
+  const damaged=writer.error instanceof WorkDraftError?writer.error.record:undefined;
+  const download=(raw:string,name:string)=>{const url=URL.createObjectURL(new Blob([raw],{type:'application/json'})),link=document.createElement('a');link.href=url;link.download=`genesis-view-draft-${name}.json`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
   const repairedContext=!definition?repairSharedViewContext(draft.damagedDefinition,calendarContext()):null;
   const sortOptions=[["position","Порядок на доске"],["createdAt","Новые вверху"],["createdAtAsc","Старые вверху"],["priority","Приоритет"],["dueDate","Срок"],["title","Название"],["updatedAt","Последнее изменение"]]as const;
   return <dialog ref={dialog} className="shared-projects-modal shared-saved-views" aria-labelledby="saved-views-title" aria-describedby="saved-views-help" onCancel={event=>{event.preventDefault();onClose();}} onClose={onClose}>
     <header><h2 id="saved-views-title">{t("Сохранённые представления")}</h2><DialogCloseButton aria-label={t("Закрыть")} onClick={onClose}/></header>
     {opened?<div className="saved-views-content">
+      <section className="saved-view-device" aria-label={d('heading')}>
+        {writer.status==='saving'||writer.status==='saved'&&draft.dirty?<p role="status" data-view-device-state={writer.status}>{d(writer.status)}</p>:null}
+        {writer.error?<div role="alert"><p>{workflowDraftError(writer.error,getRuntimeLanguage())}</p><div className="saved-view-actions"><IconActionButton icon="map-refresh" label={t('Обновить')} disabled={busy} onClick={()=>{writer.retryMigration();void writer.refresh();}}/>{damaged?<IconActionButton icon="export" label={d('download')} onClick={()=>download(damaged.raw,damaged.id)}/>:null}</div></div>:null}
+        {writer.rows.length?<details open={deviceDraftsOpen} onToggle={event=>{if(event.target===event.currentTarget)setDeviceDraftsOpen(event.currentTarget.open);}}><summary>{d('heading')} · {new Intl.NumberFormat(getRuntimeLanguage()).format(writer.rows.length)}</summary><ul>{writer.rows.map(row=><li key={row.id} data-view-device-draft={row.id}><div><strong data-no-translate>{row.value.edit.definition?.title||t('Представление')}</strong><time dateTime={row.at}>{new Intl.DateTimeFormat(getRuntimeLanguage(),{dateStyle:'medium',timeStyle:'short'}).format(new Date(row.at))}</time></div><div className="saved-view-actions"><IconActionButton icon="edit" label={d('restore')} disabled={blocked} onClick={()=>{if(!replace())return;void runMutation(async()=>{await writer.adopt(row);if(mounted.current){setDeviceDraftsOpen(false);setMetadata(null);setFilter(null);setEditor(true);setLibraryOpen(false);}});}}/><IconActionButton icon="delete" label={d('discard')} disabled={busy||['pending','damaged'].includes(row.value.phase)&&row.value.attempts>0} onClick={()=>{if(window.confirm(d('discard')))void runMutation(async()=>{await writer.remove(row);});}}/></div></li>)}</ul></details>:null}
+        {writer.record?.phase==='pending'?<div role={busy?'status':'alert'}><p>{busy?t('Загрузка…'):d('pending')}</p><div className="saved-view-actions"><button type="button" className="primary-button" disabled={busy||!online||!writer.ready} onClick={()=>void runMutation(sendPending)}>{t('Повторить')}</button>{writer.record.attempts===0?<button type="button" className="secondary-button" disabled={busy} onClick={()=>void runMutation(writer.resumeEditing)}>{d('edit')}</button>:null}</div></div>:null}
+        {writer.record?.phase==='rejected'?<div role="alert"><p>{message(new Error(writer.record.error??'VIEW_INVALID'))}</p><button type="button" className="secondary-button" disabled={busy} onClick={()=>void runMutation(writer.resumeEditing)}>{d('edit')}</button></div>:null}
+        {writer.record?.phase==='received'?<div role="status"><p>{t('Готово')}</p><button type="button" className="primary-button" disabled={busy} onClick={()=>void runMutation(finishMutation)}>{t('Продолжить')}</button></div>:null}
+        {writer.record?.phase==='damaged'?<div role="alert"><p>{d('invalid')}</p><IconActionButton icon="export" label={d('download')} onClick={()=>download(JSON.stringify(writer.record?.legacy),'legacy')}/></div>:null}
+      </section>
       <p id="saved-views-help" className="saved-view-intro">{t("Собирайте задачи из доступных проектов по нужным условиям. Представление сохраняет фильтры, а задачи остаются в своих проектах.")}</p>
+      <details className="saved-view-library-panel" open={libraryOpen} onToggle={event=>setLibraryOpen(event.currentTarget.open)}><summary>{t("Представления")}</summary>
       <div className="saved-view-library"><section aria-labelledby="saved-view-presets-title"><h3 id="saved-view-presets-title">{t("Быстрые подборки")}</h3>
       <div className="saved-view-presets" role="group" aria-label={t("Представления")}>
-        <button type="button" className="secondary-button" disabled={busy||!online} onClick={()=>preset("Назначено мне",{assigneeIds:["me"]})}>{t("Назначено мне")}</button>
-        <button type="button" className="secondary-button" disabled={busy||!online} onClick={()=>preset("Создано мной",{createdBy:"me"})}>{t("Создано мной")}</button>
-        <button type="button" className="secondary-button" disabled={busy||!online} onClick={()=>preset("Просрочено",{},"overdue")}>{t("Просрочено")}</button>
-        <button type="button" className="secondary-button" disabled={busy||!online} onClick={()=>preset("На этой неделе",{},"this-week")}>{t("На этой неделе")}</button>
-        <button type="button" className="secondary-button" disabled={busy||!online} onClick={()=>preset("Без исполнителя",{assigneeIds:["unassigned"]})}>{t("Без исполнителя")}</button>
-        <button type="button" className="secondary-button" disabled={busy||!online} onClick={()=>preset("Ожидает утверждения",{approvalPending:true})}>{t("Ожидает утверждения")}</button>
+        <button type="button" className="secondary-button" disabled={blocked||!online} onClick={()=>preset("Назначено мне",{assigneeIds:["me"]})}>{t("Назначено мне")}</button>
+        <button type="button" className="secondary-button" disabled={blocked||!online} onClick={()=>preset("Создано мной",{createdBy:"me"})}>{t("Создано мной")}</button>
+        <button type="button" className="secondary-button" disabled={blocked||!online} onClick={()=>preset("Просрочено",{},"overdue")}>{t("Просрочено")}</button>
+        <button type="button" className="secondary-button" disabled={blocked||!online} onClick={()=>preset("На этой неделе",{},"this-week")}>{t("На этой неделе")}</button>
+        <button type="button" className="secondary-button" disabled={blocked||!online} onClick={()=>preset("Без исполнителя",{assigneeIds:["unassigned"]})}>{t("Без исполнителя")}</button>
+        <button type="button" className="secondary-button" disabled={blocked||!online} onClick={()=>preset("Ожидает утверждения",{approvalPending:true})}>{t("Ожидает утверждения")}</button>
       </div>
       </section><section aria-labelledby="saved-view-library-title"><h3 id="saved-view-library-title">{t("Ваши подборки")}</h3>
       <p className="saved-view-hint">{t("Личное представление видно только вам. Общим представлением могут пользоваться участники пространства с доступом к выбранным проектам.")}</p>
       {listLoading&&online?<p role="status">{t("Загружаем данные…")}</p>:null}
       {list&&!list.total&&!listLoading?<p>{t("Сохранённых представлений пока нет")}</p>:null}
       {listError?<p role="alert">{listError}</p>:null}
-      <div className="saved-view-list">{list?.views.map(view=><button type="button" className="secondary-button" disabled={busy} key={view.id} onClick={()=>openView(view)} aria-pressed={filter?.savedViewId===view.id}><span data-no-translate>{typeof view.definition?.title==="string"?view.definition.title:t("Представление")}</span><small>{t(view.visibility==="shared"?"Общее":"Личное")}{view.invalid?` · ${t("Условия недоступны")}`:""}</small></button>)}</div>
+      <div className="saved-view-list">{list?.views.map(view=><button type="button" className="secondary-button" disabled={blocked} key={view.id} onClick={()=>openView(view)} aria-pressed={filter?.savedViewId===view.id}><span data-no-translate>{typeof view.definition?.title==="string"?view.definition.title:t("Представление")}</span><small>{t(view.visibility==="shared"?"Общее":"Личное")}{view.invalid?` · ${t("Условия недоступны")}`:""}</small></button>)}</div>
       {list?.hasMore?<button type="button" className="secondary-button" disabled={busy||listLoading||!online} onClick={()=>void moreViews()}>{t("Показать ещё")}</button>:null}
-      <div className="saved-view-actions"><button type="button" className="secondary-button" disabled={busy} onClick={()=>{if(replace()){setDraft(fresh(mode));setMetadata(null);setEditor(true);setFilter(null);setError("");}}}>{t("Новое представление")}</button><button type="button" className="secondary-button" disabled={busy} onClick={()=>{setFilter(null);setError("");}}>{t("Сбросить")}</button><button type="button" className="secondary-button" disabled={busy||listLoading||!online} onClick={()=>{void refresh();setOptionsVersion(previous=>previous+1);}}>{t("Обновить")}</button></div>
+      <div className="saved-view-actions"><IconActionButton icon="plus" label={t("Новое представление")} disabled={blocked} onClick={()=>{if(replace()){setDraft(fresh(mode,inputMode));setMetadata(null);setEditor(true);setLibraryOpen(false);setFilter(null);setError("");}}}/><IconActionButton icon="undo" label={t("Сбросить")} disabled={busy} onClick={()=>{setFilter(null);setError("");}}/><IconActionButton icon="map-refresh" label={t("Обновить")} disabled={busy||listLoading||!online} onClick={()=>{void refresh();setOptionsVersion(previous=>previous+1);}}/></div>
       </section></div>
-      {error?<p role="alert">{error}</p>:null}{!online?<p role="status">{t("Для сохранения нужно подключение к интернету")}</p>:null}
-      {definition||draft.damagedDefinition?<button type="button" className="secondary-button" disabled={busy} aria-expanded={editor} aria-controls="saved-view-conditions" onClick={()=>setEditor(previous=>!previous)}>{t(editor?"Свернуть":"Изменить условия")}</button>:null}
+      </details>
+      {error&&!(writer.record?.phase==='pending'&&error===d('pending'))?<p role="alert">{error}</p>:null}{!online?<p role="status">{t("Для сохранения нужно подключение к интернету")}</p>:null}
+      {definition||draft.damagedDefinition?<div className="saved-view-current"><strong data-no-translate>{definition?.title||t("Представление")}</strong><IconActionButton icon={editor?"map-up":"edit"} label={t(editor?"Свернуть":"Изменить условия")} disabled={busy} aria-expanded={editor} aria-controls="saved-view-conditions" onClick={()=>setEditor(previous=>!previous)}/></div>:null}
       <div id="saved-view-conditions" hidden={!editor}>
       {editor&&!definition?<div role="alert"><p>{t("Сохранённые условия повреждены. Создайте новое представление или откройте исправленную версию.")}</p>
+        {draft.damagedDefinition!==undefined?<IconActionButton icon="export" label={d('download')} onClick={()=>download(JSON.stringify(draft),'input')}/>:null}
         {repairedContext?<button type="button" className="secondary-button" disabled={busy} onClick={()=>editDraft(previous=>({...previous,definition:repairedContext,damagedDefinition:undefined,dirty:true}))}>{t("Восстановить календарь представления")}</button>:null}
         {draft.id&&canEdit?<button type="button" className="secondary-button" disabled={busy||!online} onClick={()=>void remove()}>{t("Удалить")}</button>:null}</div>:null}
-      {editor&&definition?<form className="saved-view-editor" onSubmit={event=>{event.preventDefault();void save();}}><fieldset disabled={busy}>
+      {editor&&definition?<form className="saved-view-editor" onSubmit={event=>{event.preventDefault();void save();}}><fieldset disabled={blocked}>
         <div className="saved-view-fields"><label>{t("Название")}<input required maxLength={160} value={definition.title} onChange={event=>update({title:event.target.value})}/></label>
           <label>{t("Пространство")}<select value={draft.spaceId??""} onChange={event=>editDraft(previous=>({...previous,spaceId:event.target.value||null,visibility:"personal",dirty:true}))}><option value="">{t("Все пространства")}</option>{spaces.map(space=><option key={space.id} value={space.id}>{space.title}</option>)}</select></label>
           <label>{t("Доступ")}<select value={draft.visibility} onChange={event=>editDraft(previous=>({...previous,visibility:event.target.value as Draft["visibility"],dirty:true}))}><option value="personal">{t("Личное")}</option><option value="shared" disabled={!canShare}>{t("Общее")}</option></select></label>
@@ -237,13 +246,14 @@ export function SharedSavedViews({userId,spaces,mode,opened,onClose,onOpen}:{use
           <label>{t("Часовой пояс")}<input value={definition.calendarContext.timeZone} aria-invalid={Boolean(zoneError)} aria-describedby={zoneError?"saved-view-zone-error":undefined} onChange={event=>update({calendarContext:{...definition.calendarContext,timeZone:event.target.value}})}/></label>
         </div>
         {zoneError?<p id="saved-view-zone-error" role="alert">{zoneError}</p>:null}
-        <SharedCustomFieldFilter fields={customFields.spaceId===draft.spaceId?customFields.items:[]} criteria={definition.filter.customFields??[]} onChange={customFields=>criteria({customFields})} language={getRuntimeLanguage()} mode={definition.calendarMode}/>
-        {definition.relative==="none"&&!zoneError?<div className="saved-view-dates">{([ ["dueFrom","Начало"],["dueTo","Окончание"]]as const).map(([key,label])=><label key={key}>{t(label)}<CalendarDatePicker mode={definition.calendarMode} calculationContext={context} value={definition.filter[key]??""} ariaLabel={t(label)} onChange={value=>{const filter={...definition.filter};if(value)filter[key]=value;else delete filter[key];update({filter});}}/></label>)}</div>:null}
+        {sacredFeaturesEnabled?<details className="saved-view-input-calendar"><summary>{t('Календарь ввода')}</summary><RecordCalendarChoice value={inputCalendar.mode} onChange={mode=>setDraft(previous=>({...previous,inputCalendar:{...inputCalendar,mode}}))}/></details>:null}
+        <SharedCustomFieldFilter fields={customFields.spaceId===draft.spaceId?customFields.items:[]} criteria={definition.filter.customFields??[]} onChange={customFields=>criteria({customFields})} language={getRuntimeLanguage()} mode={dateMode} calculationContext={inputCalendar.context} disabled={blocked}/>
+        {definition.relative==="none"&&!zoneError?<div className="saved-view-dates">{([ ["dueFrom","Начало"],["dueTo","Окончание"]]as const).map(([key,label])=><label key={key}>{t(label)}<CalendarDatePicker mode={dateMode} calculationContext={inputCalendar.context} value={definition.filter[key]??""} ariaLabel={t(label)} onChange={value=>{const filter={...definition.filter};if(value)filter[key]=value;else delete filter[key];update({filter});}}/></label>)}</div>:null}
         <div className="saved-view-actions"><button type="button" className="secondary-button" disabled={busy||!online||Boolean(zoneError)} onClick={()=>{setFilter({viewDefinition:payload(effectiveDraft)});setEditor(false);setError("");}}>{t("Показать задачи")}</button>
           <button type="submit" className="primary-button" disabled={busy||!online||!canEdit||scopeChanged||Boolean(zoneError)||Boolean(draft.id&&!draft.dirty)}>{t("Сохранить")}</button>
-          {draft.id?<button type="button" className="secondary-button" disabled={busy||!online||Boolean(zoneError)} onClick={()=>void save(true)}>{t("Сохранить как новое")}</button>:null}
-          <button type="button" className="secondary-button" onClick={()=>{update({filter:{},relative:"none"});setDraft(previous=>({...previous,tagsInput:undefined}));}}>{t("Сбросить условия")}</button>
-          {draft.id&&canEdit?<button type="button" className="secondary-button" disabled={busy||!online} onClick={()=>void remove()}>{t("Удалить")}</button>:null}
+          {draft.id?<IconActionButton icon="copy" label={t("Сохранить как новое")} disabled={busy||!online||Boolean(zoneError)} onClick={()=>void save(true)}/>:null}
+          <IconActionButton icon="undo" label={t("Сбросить условия")} onClick={()=>{update({filter:{},relative:"none"});setDraft(previous=>({...previous,tagsInput:undefined}));}}/>
+          {draft.id&&canEdit?<IconActionButton icon="delete" label={t("Удалить")} disabled={busy||!online} onClick={()=>void remove()}/>:null}
         </div>
       </fieldset></form>:null}
       </div>

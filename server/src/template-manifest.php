@@ -77,11 +77,12 @@ function genesisTemplateManifest(mixed $input):array
         if(isset($fields[$key])||$projectKey!==null&&!isset($projects[$projectKey])||!in_array($field['type']??null,['text','number','date','select','multi','checkbox','url'],true))throw new InvalidArgumentException('TEMPLATE_INVALID');
         foreach(['required','showCard','showList'] as $flag)if(!is_bool($field[$flag]??null))throw new InvalidArgumentException('TEMPLATE_INVALID');
         $position=$field['position']??0;if(!is_int($position)||abs($position)>100000)throw new InvalidArgumentException('TEMPLATE_INVALID');
-        $options=[];foreach(genesisTemplateList($field['options']??[],200) as $option){
+        $options=[];foreach(genesisTemplateList($field['options']??[],10000) as $option){
             if(!is_array($option)||!is_bool($option['archived']??null)||array_diff(array_keys($option),['id','title','archived']))throw new InvalidArgumentException('TEMPLATE_INVALID');
             $id=genesisTemplateKey($option['id']??null);if(isset($options[$id]))throw new InvalidArgumentException('TEMPLATE_REFERENCE_INVALID');
             $options[$id]=['id'=>$id,'title'=>genesisSharedTitle($option['title']??null,160),'archived'=>$option['archived']];
         }
+        if(count(array_filter($options,static fn($option)=>!$option['archived']))>200||strlen(json_encode(array_values($options),JSON_THROW_ON_ERROR))>1_000_000)throw new InvalidArgumentException('TEMPLATE_INVALID');
         if(!in_array($field['type'],['select','multi'],true)&&$options)throw new InvalidArgumentException('TEMPLATE_INVALID');
         $fields[$key]=['key'=>$key,'projectKey'=>$projectKey,'title'=>genesisSharedTitle($field['title']??null),'type'=>$field['type'],'options'=>array_values($options),
             'required'=>$field['required'],'showCard'=>$field['showCard'],'showList'=>$field['showList'],'position'=>$position];

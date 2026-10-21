@@ -1,0 +1,11 @@
+# C3 task list / field queries — inline self-review
+
+Scope: existing native project task-list controls/rows and the corresponding browser field-filter block. This review is by the implementing agent, not an independent review. Starting checkpoint: `e332869`.
+
+The first visual batch covered both schemes at360/390/768/1440dp, plus the connected Realme RMX5000/API36. The one fix batch makes wide rows use wrapping field columns, localizes Gregorian display dates while preserving ISO predicates, and applies safeDrawing to the focused test Activity (the actual project surface already inherits app scaffolding). A confirmation matrix,14-language/font130 run at390dp and device evidence are recorded in `output/native-field-list/receipt.json` when sealed. The baseline is the incumbent row/toolbar in a focused test Activity, not an old full project walkthrough. No assets or calendar capabilities were removed.
+
+The site retains STANDART and existing IconActionButton. Field/operator controls form one logical group, values another, and adding/removing uses44px icons with translated labels/tooltips. Both themes/four browser widths were inspected. Final capture checks place the entire panel inside the viewport, avoiding scroll-restoration/loading artifacts in earlier capture attempts. Long user field names wrap. Historical choices remain selectable in a read filter; task-writing restrictions remain intact.
+
+Protocol checks distinguish missing/zero/false, restrict operators and sort types, preserve original titles/options, validate scope, reset pages on metadata/condition/order changes, and reject late responses. Native HTTPS exposed and fixed the missing encoded-sort allowlist branch and loss of the server's query-conflict code. No server or schema changes were needed. Bulk receives the same server predicates/order; month counts use matching predicates over the complete period.
+
+The scope does not include native saved-view field editing, all C/G/B integrations, signed release startup/Google exchange, TalkBack/hardware keyboard, new IME/landscape scenarios, or every extreme history/error state. Older Compose SlotWriter/startup instability is not claimed fixed. Release/lint results and any new limitations belong to the feature audit and evidence receipt. No overall C3/main-prompt completion or production rollout is implied.

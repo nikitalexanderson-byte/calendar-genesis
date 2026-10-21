@@ -1,0 +1,20 @@
+# C3 field definitions: finish review — 21 October 2026
+
+Scope: one native management screen and its durable writer, plus the corresponding desktop/mobile web manager. This is an inline self-review, not an independent review or completion of C3/the main prompt.
+
+The agreed STANDART world, assets, Affairs/Material and existing web IconActionButton remain. Catalog, settings, visibility/required state, choices, preview, history and copies have separate blocks. Phones switch list/detail with Back; large windows show both. Secondary actions use the common outlined icon controls with localized names/tooltips, 44px web / 48dp native. The primary confirmation retains a short label. User field names and choices bypass translation.
+
+The first batched inspection found a stretched web search label, inherited checkbox cards, invalid CSS token names and the existing narrow desktop modal preventing a real split layout. One batch corrected these; the confirmation matrix shows real desktop columns, no horizontal overflow, named 44×44 icon targets and readable native light/dark screens. No unrelated screen redesign or asset replacement occurred.
+
+Evidence:
+
+- Web:16 original before +24 final PNGs,360/390/768/1440 and both schemes; `output/field-editor-browser-final.log`. A real PHP browser flow saved list visibility, required consent for a successor, retained the previous task value and restored history to a draft with no old preview: `output/field-editor-browser-functional.log`.
+- Native:32 initial +32 final base PNGs;112 final font130 PNGs at390dp across14 languages and both schemes. These are full physical `screencap -p` originals, with hashes, logical bounds and APK origins, under `output/native-field-editor/{initial,final}`. No native pre-feature screen existed; initial images are the first implementation, not an invented old management UI.
+- Native functional:6 real HTTPS/Keystore/UI scenarios on each API28/API35. Includes all7 writers,0/false, omitted archived choices, confirmed successor/old value, actual project manager without space admin, exact lost-reply replay with Compose saved-state recreation, history-to-draft, revocation and delayed read cancellation.
+- JVM:646 cases,641 executed,5 opt-in skips,0 failures/errors. Frozen install/lint/364 web tests/i18n/build:beget passed;2 pre-existing img warnings. Full native lint, release/R8 and24 existing/new ART holders passed on both versions. The original C3 metadata/history/ACL and C2 lost-reply/recreation controls also passed on each API. The final SHA/geometry/binary evidence seal is `output/native-field-editor/receipt.json`.
+
+One API35 final capture crashed in Compose SlotWriter during Activity teardown. `dumpsys activity exit-info` identifies APP CRASH(EXCEPTION), not a startup ANR. The first initial matrix, both functional suites and the isolated final768/1440 retry passed. No code change is claimed to fix it; the cause and whether it is a product or test lifecycle defect remain unproven. The original failure is preserved at `output/native-field-editor/final/base/api35-first-final-teardown-failure.log`. Earlier C1/C2 startup/teardown instabilities also remain open. This is a release risk, not a reason to present repeated passing runs as a fix.
+
+Unverified/open: physical phones/tablets, signed MainActivity startup and Google exchange; new C3 landscape/IME, TalkBack/hardware keyboard and font130 outside390dp; full process kill/restart with pending; large real history/pagination and a complete empty/error/conflict/option/scope visual matrix. The browser layout pass does not implement durable browser command recovery. Native list values/filter/sort/value search and C/G/B integration acceptance remain. No production deployment, signed APK publication, SSH or manual production DB change occurred.
+
+The task audit is `docs/genesis-native-field-management-2026-10-21.md`; machine receipts and accepted binaries are under `output/native-field-editor/` and `output/native-field-editor-runtime/`. Do not validate an older C2 receipt against the mutable current APK output paths.

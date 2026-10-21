@@ -1,6 +1,6 @@
 # GENESIS: мобильный «Сегодня», шапка и действия привычек — 20 октября 2026
 
-Локальная приёмка завершена; [свежий полный finish review](../output/mobile-today-review/finish-review.md) дал `disposition: ship` без обязательных исправлений. Финальная сборка 116 использует `index-DSzF8wmT.js`; базовый master — `1e9663b6c1208bd4fc69255e9de353176743bb75`, ветка — `codex/mobile-today-header-fit`. Этот UI-пакет ещё ожидает merge и штатного deploy.
+Локальная приёмка завершена; [свежий полный finish review](../output/mobile-today-review/finish-review.md) дал `disposition: ship` без обязательных исправлений. Финальная сборка 116 использует `index-DSzF8wmT.js`; базовый master — `1e9663b6c1208bd4fc69255e9de353176743bb75`, ветка — `codex/mobile-today-header-fit`. Пакет опубликован через PR #237, master/production `ed5248db90104ee21c95e6245883de30c9a62052`.
 
 ## Принятое направление
 
@@ -34,9 +34,10 @@
 
 ## Публикация и пределы
 
+Текущий UI опубликован через [PR #237](https://github.com/nikitalexanderson-byte/calendar-genesis/pull/237), source `8f8592d`, [Deploy 39478903058](https://github.com/nikitalexanderson-byte/calendar-genesis/actions/runs/39478903058) success. [Production receipt](../output/mobile-today-production-check.json) подтверждает SHA `ed5248db90104ee21c95e6245883de30c9a62052`, health, все 90 текущих и 5 сохранённых JS/CSS ресурсов, измеряемую шапку, сетку habit actions, отсутствие старого pseudo-tooltip и простую молнию. Версия, код и SHA-256 публичного APK 2.9.0/95 не изменились.
+
 Простая молния уже опубликована отдельно через [PR #236](https://github.com/nikitalexanderson-byte/calendar-genesis/pull/236), source `ba637ad`, master/production `1e9663b6c1208bd4fc69255e9de353176743bb75`, [Deploy 39469948612](https://github.com/nikitalexanderson-byte/calendar-genesis/actions/runs/39469948612) success. [Receipt](../output/simple-bolt-production.json) подтверждает health, 90 ресурсов, plain bolt и неизменный Android 95; он не подтверждает публикацию текущего UI-пакета.
 
-Не проверены Safari/Firefox, физические браузеры и смартфон, полная матрица 14 языков/масштабов шрифта, полная AT/touch-приёмка, реальный Google-вход/синхронизация и production текущего UI. Смартфон отключён; текущие продолжения native проверяются только на эмуляторах. Native C1 checkpoint `a95b707` остаётся отдельным; публичный APK 2.9.0/95 не изменён. Все 21 частичный ID и 14 K/U/L остаются открытыми до своей сквозной приёмки.
+Не проверены Safari/Firefox, физические браузеры и смартфон, полная матрица 14 языков/масштабов шрифта, полная AT/touch-приёмка, реальный Google-вход/синхронизация и авторизованные интерактивные production-сценарии. Смартфон отключён; текущие продолжения native проверяются только на эмуляторах. Native C1 checkpoint `a95b707` остаётся отдельным; публичный APK 2.9.0/95 не изменён. Все 21 частичный ID и 14 K/U/L остаются открытыми до своей сквозной приёмки.
 
 Непрофильные прежние eyebrows, habit emoji, priority rails, Chaos/tree-stack drift не канонизированы и не исправлялись этим проходом. Нового растра нет, дополнительный raster provenance не требуется. SSH, ручное изменение production-БД, commit и deploy в документационном проходе не выполнялись.
-

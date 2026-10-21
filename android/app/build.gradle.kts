@@ -44,8 +44,8 @@ android {
         applicationId = "ru.genesis.calendar"
         minSdk = 26
         targetSdk = 37
-        versionCode = 95
-        versionName = "2.9.0"
+        versionCode = 96
+        versionName = "2.9.1"
         buildConfigField("boolean", "PLAY_DISTRIBUTION", "false")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -125,6 +125,11 @@ val genesisAssets = tasks.register<GenesisAssetsTask>("genesisAssets") {
     from(rootProject.file("../app/native-data-export-translations.json")) { into("i18n") }
     from(rootProject.file("../app/native-data-import-translations.json")) { into("i18n") }
     from(rootProject.file("../app/native-bulk-translations.json")) { into("i18n") }
+    from(rootProject.file("../app/native-template-translations.json")) { into("i18n") }
+    from(rootProject.file("../app/native-template-labels.json")) { into("i18n") }
+    from(rootProject.file("../app/native-automations-translations.json")) { into("i18n") }
+    from(rootProject.file("../app/native-saved-views-translations.json")) { into("i18n") }
+    from(rootProject.file("../app/custom-field-recovery-translations.json")) { into("i18n") }
     from(rootProject.file("../app/planning-translations.json")) { into("i18n") }
     from(rootProject.file("../app/sprint-report-translations.json")) { into("i18n") }
     from(rootProject.file("../app/workflow-draft-translations.json")) { into("i18n") }

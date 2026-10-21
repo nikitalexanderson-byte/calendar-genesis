@@ -1,8 +1,29 @@
 import test from 'node:test';
+import { readFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import { editableSharedViewDefinition, repairSharedViewContext } from '../app/shared-saved-view-model.ts';
 
 const definition = () => ({version:1,title:'Personal week',filter:{projectIds:['project-a'],priority:[0,3],approvalPending:false},sort:'priority',relative:'this-week',calendarMode:'lunar',calendarContext:{version:2,timeZone:'Europe/Moscow',gregorianYearStart:'march'}});
+
+test('native saved-view recovery copy ships in fourteen offline languages with all placeholders', async () => {
+  const copy = JSON.parse(await readFile(new URL('../app/native-saved-views-translations.json', import.meta.url), 'utf8'));
+  const languages = ['ru', 'en', 'el', 'de', 'fr', 'es', 'it', 'pt', 'pl', 'sr', 'uk', 'zh', 'tr', 'ja'];
+  assert.deepEqual(Object.keys(copy).sort(), languages.sort());
+  const keys = Object.keys(copy.ru).sort();
+  for (const language of languages) {
+    assert.deepEqual(Object.keys(copy[language]).sort(), keys);
+    for (const source of keys) {
+      const translated = copy[language][source];
+      assert.equal(typeof translated, 'string'); assert.ok(translated.trim());
+      assert.deepEqual([...translated.matchAll(/\{\w+\}/g)].map(match => match[0]).sort(), [...source.matchAll(/\{\w+\}/g)].map(match => match[0]).sort());
+      if (!['ru', 'sr', 'uk'].includes(language)) assert.doesNotMatch(translated, /[А-Яа-яЁё]/);
+    }
+  }
+  const gradle = await readFile(new URL('../android/app/build.gradle.kts', import.meta.url), 'utf8');
+  assert.ok(gradle.includes('../app/native-saved-views-translations.json'));
+  const native = await readFile(new URL('../android/app/src/main/java/ru/genesis/calendar/ui/GenesisI18n.kt', import.meta.url), 'utf8');
+  assert.equal(native.split('"native-saved-views-translations.json"').length - 1, 2);
+});
 
 test('a saved filter preserves neutral priority, explicit false, selected projects and calendar context', () => {
   const value=definition(),before=JSON.stringify(value);

@@ -171,9 +171,9 @@ for (const language of ["ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "s
 }
 const bulkCopy = JSON.parse(await readFile(path.join(ROOT, "app/native-bulk-translations.json"), "utf8"));
 const bulkKeys = Object.keys(bulkCopy.ru ?? {});
-if (bulkKeys.length !== 32) throw new Error("Native bulk copy must contain all 32 labels.");
+if (bulkKeys.length !== 36) throw new Error("Native bulk copy must contain all 36 labels.");
 for (const language of ["ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja"]) {
-  if (Object.keys(bulkCopy[language] ?? {}).length !== bulkKeys.length) throw new Error(`Incomplete native bulk catalog: ${language}`);
+  if (Object.keys(bulkCopy[language] ?? {}).sort().join("\n") !== [...bulkKeys].sort().join("\n")) throw new Error(`Incomplete native bulk catalog: ${language}`);
   for (const key of bulkKeys) {
     const value = bulkCopy[language]?.[key];
     if (typeof value !== "string" || !value.trim() || (!["ru", "sr", "uk"].includes(language) && CYRILLIC.test(value))) {
@@ -181,7 +181,49 @@ for (const language of ["ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "s
     }
   }
 }
-const translations = { ...web, ...curated, ...supplemental, ...sacred, ...native, ...workCopy, ...exportCopy.en, ...importCopy.en, ...bulkCopy.en };
+const templateCopy = JSON.parse(await readFile(path.join(ROOT, "app/native-template-labels.json"), "utf8"));
+const templateKeys = Object.keys(templateCopy.ru ?? {});
+if (templateKeys.length !== 40) throw new Error("Native template labels must contain all 40 labels.");
+for (const language of ["ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja"]) {
+  if (Object.keys(templateCopy[language] ?? {}).sort().join("\n") !== [...templateKeys].sort().join("\n")) throw new Error(`Incomplete native template labels: ${language}`);
+  for (const key of templateKeys) {
+    const value = templateCopy[language]?.[key];
+    if (typeof value !== "string" || !value.trim() || (!["ru", "sr", "uk"].includes(language) && CYRILLIC.test(value))) throw new Error(`Invalid native template label: ${language}: ${key}`);
+  }
+}
+const automationsCopy = JSON.parse(await readFile(path.join(ROOT, "app/native-automations-translations.json"), "utf8"));
+const automationsKeys = Object.keys(automationsCopy.ru ?? {});
+if (automationsKeys.length !== 83) throw new Error("Native automations copy must contain all 83 labels.");
+for (const language of ["ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja"]) {
+  if (Object.keys(automationsCopy[language] ?? {}).sort().join("\n") !== [...automationsKeys].sort().join("\n")) throw new Error(`Incomplete native automations catalog: ${language}`);
+  for (const key of automationsKeys) {
+    const value = automationsCopy[language]?.[key];
+    if (typeof value !== "string" || !value.trim() || (!["ru", "sr", "uk"].includes(language) && CYRILLIC.test(value))) {
+      throw new Error(`Incomplete native automations copy: ${language}: ${key}`);
+    }
+  }
+}
+const savedViewsCopy = JSON.parse(await readFile(path.join(ROOT, "app/native-saved-views-translations.json"), "utf8"));
+const savedViewKeys = Object.keys(savedViewsCopy.ru ?? {});
+if (savedViewKeys.length !== 21) throw new Error("Native saved views must contain all 21 supplemental labels.");
+for (const language of ["ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja"]) {
+  if (Object.keys(savedViewsCopy[language] ?? {}).sort().join("\n") !== [...savedViewKeys].sort().join("\n")) throw new Error(`Incomplete native saved views: ${language}`);
+  for (const key of savedViewKeys) {
+    const value = savedViewsCopy[language]?.[key];
+    if (typeof value !== "string" || !value.trim() || (!["ru", "sr", "uk"].includes(language) && CYRILLIC.test(value))) throw new Error(`Invalid saved-view copy: ${language}: ${key}`);
+  }
+}
+const fieldRecoveryCopy = JSON.parse(await readFile(path.join(ROOT, "app/custom-field-recovery-translations.json"), "utf8"));
+const fieldRecoveryKeys = Object.keys(fieldRecoveryCopy.ru ?? {});
+if (fieldRecoveryKeys.length !== 2) throw new Error("Custom field recovery needs two shared labels.");
+for (const language of ["ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja"]) {
+  if (Object.keys(fieldRecoveryCopy[language] ?? {}).sort().join("\n") !== [...fieldRecoveryKeys].sort().join("\n")) throw new Error(`Incomplete field recovery: ${language}`);
+  for (const key of fieldRecoveryKeys) {
+    const value = fieldRecoveryCopy[language]?.[key];
+    if (typeof value !== "string" || !value.trim() || (!["ru", "sr", "uk"].includes(language) && CYRILLIC.test(value))) throw new Error(`Invalid field recovery: ${language}: ${key}`);
+  }
+}
+const translations = { ...web, ...curated, ...supplemental, ...sacred, ...native, ...workCopy, ...exportCopy.en, ...importCopy.en, ...bulkCopy.en, ...templateCopy.en, ...automationsCopy.en, ...savedViewsCopy.en, ...fieldRecoveryCopy.en };
 const affairs = JSON.parse(await readFile(path.join(ROOT, "app/native-affairs-translations.json"), "utf8"));
 const affairKeys = Object.keys(affairs.en ?? {});
 if (affairKeys.length !== 41) throw new Error("Native supplemental copy must contain all 41 labels.");

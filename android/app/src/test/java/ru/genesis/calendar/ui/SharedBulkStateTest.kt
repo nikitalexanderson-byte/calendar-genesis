@@ -21,12 +21,16 @@ class SharedBulkStateTest {
     private class Gateway : SharedWorkspaceGateway {
         val storage = MemoryPlanningStorage(); var previewCalls = 0; var confirms = 0; var reads = 0; var lost = false; var queue = false; var unavailable = false; var offline = false
         var reportGate: CompletableDeferred<JSONObject>? = null
+        var reportFailure: String? = null
         var taskCount = 131; var revision = 1; var response = bulkReportFixture().put("expiresAt", "2099-10-20T12:00:00Z")
         val commands = mutableListOf<String>()
         private val access = object : SharedBulkAccess {
             override fun check() { }
             override fun hasTaskQueue() = queue
-            override fun scope(selection: JSONObject) = bulkScopeFixture().put("total", if (selection.getString("mode") == "all") taskCount else selection.getJSONArray("items").length())
+            override fun scope(selection: JSONObject): JSONObject {
+                val size = if (selection.getString("mode") == "all") taskCount else selection.getJSONArray("items").length()
+                return bulkScopeFixture().put("total", size).also { it.getJSONArray("projects").getJSONObject(0).put("taskCount", size) }
+            }
             override fun preview(body: JSONObject): JSONObject {
                 previewCalls++; val size = if (body.getJSONObject("selection").getString("mode") == "all") taskCount else body.getJSONObject("selection").getJSONArray("items").length()
                 response = bulkReportFixture().put("expiresAt", "2099-10-20T12:00:00Z").put("action", body.getJSONObject("action")).put("mode", body.getJSONObject("selection").getString("mode"))
@@ -50,7 +54,7 @@ class SharedBulkStateTest {
         override suspend fun prepareSharedBulkDraft(projectId: String, stamp: String) = service().prepare(projectId, stamp)
         override suspend fun sendSharedBulkDraft(projectId: String, stamp: String) = service().send(projectId, stamp)
         override suspend fun removeSharedBulkDraft(projectId: String, stamp: String) = service().remove(projectId, stamp)
-        override suspend fun sharedBulkReport(id: String, after: Long): JSONObject { if (unavailable) throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED); return reportGate?.await() ?: JSONObject(response.toString()) }
+        override suspend fun sharedBulkReport(id: String, after: Long): JSONObject { if (unavailable) throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED); reportFailure?.let { throw AuthApiError(it) }; return reportGate?.await() ?: JSONObject(response.toString()) }
         override suspend fun sharedBulkCommand(id: String, command: String, after: Long): JSONObject {
             commands += command; if (command == "confirm" && queue) error("BULK_LOCAL_QUEUE")
             when (command) {
@@ -69,6 +73,15 @@ class SharedBulkStateTest {
         JSONObject().put("projectIds", JSONArray().put("project")).put("q", "literal"), "priority", saved, operation, {}, {}, lost, {})
     private suspend fun prepared(gateway: Gateway): SharedBulkState {
         val state = state(gateway); state.load(); state.change(state.form.toggle(state.tasks!!.getJSONArray("tasks").getJSONObject(0))); state.configure(); state.preview(); return state
+    }
+    @Test fun typedProjectAccessErrorsClearBulkNamesAndCloseTheRevokedScope() = runBlocking {
+        for (code in listOf("SHARED_PROJECT_FORBIDDEN", "SHARED_PROJECT_NOT_FOUND", "SHARED_PROJECTS_DISABLED")) {
+            val gateway = Gateway(); var lost = 0; val state = state(gateway, operation = bulkOperationFixture, lost = { lost++ })
+            state.load(); assertNotNull(state.report); gateway.reportFailure = code; state.refresh()
+            assertEquals(1, lost); assertNull(state.report); assertNull(state.project); assertNull(state.tasks); assertNull(state.history)
+        }
+        assertFalse(workflowAccessLost(AuthApiError("AUTOMATION_CONFLICT")))
+        assertFalse(workflowAccessLost(AuthApiError("CUSTOM_FIELD_UNAVAILABLE")))
     }
     @Test fun selectingAllUsesFrozenQueryInsteadOfDownloadingTheOtherTaskPages() = runBlocking {
         val gateway = Gateway(); val state = state(gateway); state.load(); state.selectAll(); state.configure(); state.preview()

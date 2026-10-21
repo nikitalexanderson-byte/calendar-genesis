@@ -7,6 +7,9 @@ import ru.genesis.calendar.auth.CustomFieldProtocol
 import ru.genesis.calendar.data.UiPreferences
 import ru.genesis.calendar.domain.CalendarContext
 import ru.genesis.calendar.domain.CalendarMode
+import java.time.Instant
+import java.time.ZoneId
+import java.time.ZoneOffset
 
 internal const val SHARED_CUSTOM_DRAFT_KEY = "_genesisCustomFieldDraft"
 internal const val SHARED_CUSTOM_CALENDAR_KEY = "_genesisCustomCalendar"
@@ -16,8 +19,13 @@ internal data class SharedCustomCalendar(val mode: CalendarMode, val context: Ca
     fun saved(): JSONObject = JSONObject().put("mode", mode.wireValue).put("version", context.version)
         .put("timeZone", context.timeZone).put("gregorianYearStart", context.gregorianYearStart)
     companion object {
-        fun initial(prefs: UiPreferences) = SharedCustomCalendar(prefs.input,
-            CalendarContext(gregorianYearStart = if (prefs.gregorianYearStartsInMarch) "march" else "january"))
+        fun initial(prefs: UiPreferences, zone: ZoneId = ZoneId.systemDefault()): SharedCustomCalendar {
+            // Some Android versions report the zero-offset GMT/Z alias instead of an IANA ID.
+            // UTC has identical rules and satisfies the portable server calendar contract.
+            val timeZone = if (zone.rules.isFixedOffset && zone.rules.getOffset(Instant.EPOCH) == ZoneOffset.UTC) "UTC" else zone.id
+            return SharedCustomCalendar(prefs.input, CalendarContext(timeZone = timeZone,
+                gregorianYearStart = if (prefs.gregorianYearStartsInMarch) "march" else "january"))
+        }
         fun restore(raw: JSONObject): SharedCustomCalendar {
             require(raw.keys().asSequence().toSet() == setOf("mode", "version", "timeZone", "gregorianYearStart")) { "CUSTOM_FIELD_INVALID" }
             val mode = CalendarMode.entries.singleOrNull { it.wireValue == raw.getString("mode") }
@@ -91,3 +99,7 @@ internal fun customFieldMessage(code: String): String? = when (code) {
     "CUSTOM_FIELD_OPERATION_REUSED" -> "Эта операция уже использована. Обновите предпросмотр и повторите."
     else -> null
 }
+
+/** Isolate the composable catalog loop from the workspace's near-limit bytecode method. */
+@androidx.compose.runtime.Composable internal fun sharedCustomFieldFailureMessages(): Map<String, String> =
+    CustomFieldProtocol.errors.associateWith { genesisTranslate(customFieldMessage(it).orEmpty()) }

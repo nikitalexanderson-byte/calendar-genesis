@@ -1,6 +1,6 @@
 # GENESIS: календарь, адаптивная шапка и единые подсказки — 20 октября 2026
 
-Срез прошёл локальную приёмку и передаётся в штатную публикацию через GitHub Actions. Работа ведётся в `codex/g1-g4-completion`, отдельном checkout; незаконченная native C1 foundation и чужой `.impeccable/review/` сохраняются отдельно.
+Срез опубликован в PR #234: master/production `9b49669657d43e011fbb267aa07eef254ed06a12`, Deploy `39431344190` success. `/deploy-meta.json` совпадает с master, `/api/health` отвечает успешно; все90 JS/CSS из опубликованной страницы возвращают200 и непустое содержимое. Публичный Android остаётся2.9.0/95. Работа выполнена в `codex/g1-g4-completion`, отдельном checkout; незаконченная native C1 foundation и чужой `.impeccable/review/` в публикацию не вошли.
 
 ## Согласованные изменения
 

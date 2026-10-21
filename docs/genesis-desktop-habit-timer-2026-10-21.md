@@ -39,6 +39,14 @@ Shipped-роль `impeccable_documenter` сверила финальные ис�
 
 До этой задачи sidecar уже расходился с текущим `DESIGN.md`: его `keyCharacteristics` помещает «Хаос» ниже дерева на узком экране, тогда как текущие документ и CSS располагают его сверху до 1040 px. Это сторонний drift, он не исправлялся и не превращался в правило новой поверхности. Старые fallback-размеры/Arial в `globals.css` также не канонизированы: актуальный слой STANDART задаёт для карточек Inter 15 px/600 и подписи 13 px/400. Подробный результат: `output/desktop-habit-timer-documentation-check.md`.
 
+После публикации проверка документации повторно сверила пять исходников и 40 изображений с manifest: все исходные SHA-256 и размеры изображений по-прежнему совпадают. Web-код после finish review не менялся; `DESIGN.md` и sidecar сохраняют прежние SHA-256. Повторный просмотр финального test log подтверждает прежние 364/364; новый запуск тестов в этом документирующем проходе не выполнялся.
+
 ## Публикация
 
-Независимый finish review завершён с `disposition: ship`, без material fixes: `output/desktop-habit-timer-finish-review.md`. Проверка документации завершена. Публикация пока не выполнена: остаются commit/push/merge через существующий GitHub Actions deploy и проверка production. Публичный Android2.9.0/95 не обновляется.
+Независимый finish review завершён с `disposition: ship`, без material fixes: `output/desktop-habit-timer-finish-review.md`. Проверка документации завершена.
+
+[PR #239](https://github.com/nikitalexanderson-byte/calendar-genesis/pull/239) объединён в `master` коммитом `438f94149cae474ac1cd38ccec20f16608821ec0`. Существующий [Deploy #39506104350](https://github.com/nikitalexanderson-byte/calendar-genesis/actions/runs/39506104350) завершён успешно; GitHub connector подтвердил `Complete job / success`. Публикация зафиксирована в `2026-10-20T22:18:45Z`.
+
+Production-проверка `2026-10-20T22:24:38.051Z` сохранена в `output/desktop-habit-timer-production-check.json`: `/deploy-meta.json` содержит точный SHA merge-коммита, `/api/health` отвечает `ok: true`. Доступны 90 актуальных entry-ассетов и 94 ассета вместе с сохранёнными предыдущими; среди них текущий и прежний lazy CSS `HabitTracker`. В текущем CSS подтверждены desktop-порог и группировка таймера справа. Это проверка публикации и файлов, без нового production browser-прогона.
+
+Публичный Android остаётся `2.9.0/95`. SSH не использовался. Непроверенные состояния выше остаются открытыми; успешный deploy не расширяет функциональную проверку.
