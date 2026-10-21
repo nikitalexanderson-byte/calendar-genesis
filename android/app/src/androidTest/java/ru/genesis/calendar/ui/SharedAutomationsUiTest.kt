@@ -36,6 +36,8 @@ private class AutomationUiFixture : SharedWorkspaceGateway {
     }
     var fresh = automationUiRule(); var count = 7; var runCount = 7; var lose = false; var offline = false; var forbidden = false
     var sends = 0; var taskReads = 0; var workerAt: String? = Instant.now().toString()
+    var delayedProjectRead = false
+    var delayedListRead = false
     val sent = mutableListOf<String>(); private val receipts = mutableMapOf<String, JSONObject>(); private val retried = mutableSetOf<String>()
     private fun checkAccess() { if (offline) throw AuthFailure(AuthFailure.Kind.NETWORK); if (forbidden) throw AuthApiError("SHARED_PROJECT_FORBIDDEN") }
     private val access = object : SharedAutomationAccess {
@@ -61,6 +63,7 @@ private class AutomationUiFixture : SharedWorkspaceGateway {
     override suspend fun sendSharedAutomationDraft(projectId: String, stamp: String) = service().send(projectId, stamp)
     override suspend fun removeSharedAutomationDraft(projectId: String, stamp: String) = service().remove(projectId, stamp)
     override suspend fun sharedProject(projectId: String): JSONObject {
+        if (delayedProjectRead) kotlinx.coroutines.delay(100)
         checkAccess(); return JSONObject().put("project", JSONObject().put("id", automationUiProject).put("spaceId", "automation-space").put("title", "План команды"))
             .put("members", JSONArray().put(JSONObject().put("userId", "owner").put("displayName", "Александр")))
             .put("statuses", JSONArray().put(JSONObject().put("id", "done").put("title", "Готово")))
@@ -69,6 +72,7 @@ private class AutomationUiFixture : SharedWorkspaceGateway {
                 .put("archived", false).put("predecessorId", JSONObject.NULL).put("options", JSONArray())))
     }
     override suspend fun sharedAutomations(projectId: String, deleted: Boolean, cursor: String?): JSONObject {
+        if (delayedListRead) kotlinx.coroutines.delay(100)
         checkAccess(); val start = cursor?.substringAfterLast('-')?.toInt()?.plus(1) ?: 0; val end = minOf(count, start + 50)
         return JSONObject().put("rules", JSONArray((start until end).map { index -> JSONObject(fresh.toString()).apply { remove("definition") }
             .put("id", "auto-rule-$index").put("title", if (index == 0) fresh.getString("title") else "Правило команды ${index + 1}")
@@ -112,12 +116,34 @@ class SharedAutomationsUiTest {
     private fun choose() { compose.onNodeWithTag("automation-rule-auto-rule-0").performScrollTo().performClick(); compose.waitUntil(10000) { compose.onAllNodesWithTag("automation-enabled").fetchSemanticsNodes().isNotEmpty() } }
     private fun expand(tag: String) { compose.onNode(hasClickAction() and hasAnyAncestor(hasTestTag(tag))).performScrollTo().performClick() }
     private fun confirm(fixture: AutomationUiFixture, expected: Int = 1) { compose.onNodeWithTag("automation-confirm-command").performClick(); compose.waitUntil(10000) { fixture.sends == expected && compose.onAllNodesWithTag("automation-working").fetchSemanticsNodes().isEmpty() } }
+    @Test fun selectingARuleKeepsLoadingAfterTheLibraryLeavesComposition() {
+        val fixture = AutomationUiFixture(); open(fixture); fixture.delayedProjectRead = true
+        choose(); compose.onNodeWithTag("automation-enabled").assertIsOn().assertIsEnabled()
+    }
+    @Test fun asynchronouslyLoadedLibrarySurvivesChangingTheInterfaceLanguage() {
+        val fixture = AutomationUiFixture().apply { delayedProjectRead = true; delayedListRead = true }
+        var locale by mutableStateOf("ru"); var epoch by mutableIntStateOf(0)
+        compose.setContent { key(epoch, locale) { CompositionLocalProvider(LocalGenesisLanguage provides locale) {
+            MaterialTheme(colorScheme = standart) { SharedAutomationsScreen(fixture, automationUiProject, {}, {}, {}, {}) }
+        } } }
+        for (next in listOf("ru", "en", "de")) {
+            compose.runOnIdle { locale = next; epoch++ }
+            compose.waitForIdle()
+            compose.waitUntil(10000) { compose.onAllNodesWithTag("automation-rule-auto-rule-0").fetchSemanticsNodes().isNotEmpty() }
+            choose()
+        }
+        assertEquals(0, fixture.sends)
+    }
     @Test fun libraryAndRunsDiscloseFiveRowsAtATimeAndServerPagingCanGoBack() {
         val fixture = AutomationUiFixture().apply { count = 51; runCount = 51 }; open(fixture)
         compose.onNodeWithTag("automation-rule-auto-rule-5").assertDoesNotExist(); compose.onNodeWithTag("automation-more-rules").performScrollTo().performClick()
         compose.onNodeWithTag("automation-rule-auto-rule-5").assertExists()
-        compose.onNodeWithTag("automation-rules-next").performScrollTo().performClick(); compose.onNodeWithTag("automation-rule-auto-rule-50").assertExists()
-        compose.onNodeWithTag("automation-rules-previous").performScrollTo().performClick(); choose(); expand("automation-runs")
+        compose.runOnIdle { fixture.delayedProjectRead = true; fixture.delayedListRead = true }
+        compose.onNodeWithTag("automation-rules-next").performScrollTo().performClick()
+        compose.waitUntil(10000) { compose.onAllNodesWithTag("automation-rule-auto-rule-50").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("automation-rules-previous").performScrollTo().performClick()
+        compose.waitUntil(10000) { compose.onAllNodesWithTag("automation-rule-auto-rule-0").fetchSemanticsNodes().isNotEmpty() }
+        choose(); expand("automation-runs")
         compose.onNodeWithTag("automation-run-auto-run-5").assertDoesNotExist(); compose.onNodeWithTag("automation-more-runs").performScrollTo().performClick()
         compose.onNodeWithTag("automation-run-auto-run-5").assertExists(); assertEquals(0, fixture.sends)
     }
@@ -160,8 +186,9 @@ class SharedAutomationsUiTest {
         assertEquals(1, fixture.sends)
     }
     @Test fun deletedRulesRestorePausedAndFailedRunsUseTheSameVersionAndBoundedRetry() {
-        val fixture = AutomationUiFixture().apply { fresh.put("deleted", true).put("enabled", false) }; open(fixture)
+        val fixture = AutomationUiFixture().apply { fresh.put("deleted", true).put("enabled", false); delayedProjectRead = true; delayedListRead = true }; open(fixture)
         compose.onNodeWithTag("automation-filter").performClick(); compose.onNodeWithTag("automation-filter-true").performClick()
+        compose.waitUntil(10000) { compose.onAllNodesWithTag("automation-rule-auto-rule-0").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("automation-rule-auto-rule-0").performScrollTo().performClick()
         compose.waitUntil(10000) { compose.onAllNodesWithTag("automation-delete-restore").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("automation-delete-restore").performClick(); confirm(fixture)

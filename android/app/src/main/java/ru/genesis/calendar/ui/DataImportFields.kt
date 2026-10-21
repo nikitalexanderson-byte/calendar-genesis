@@ -29,6 +29,10 @@ internal fun importMapValue(map: JSONObject?, key: String, fallback: String = "@
     var open by remember { mutableStateOf(false) }; var search by remember { mutableStateOf("") }; var limit by remember { mutableIntStateOf(50) }
     val selected = choices.firstOrNull { it.first == value }?.second ?: genesisTranslate("Не задано")
     val description = (if (userLabel) label else genesisTranslate(label)) + ": " + selected
+    if (LocalTemplateInspection.current && !enabled) {
+        TemplateInspectionValue(if (userLabel) label else genesisTranslate(label), selected, tag)
+        return
+    }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (showLabel) {
             if (userLabel) androidx.compose.material3.Text(label, style = MaterialTheme.typography.titleSmall) else Text(label, style = MaterialTheme.typography.titleSmall)

@@ -67,13 +67,7 @@ import java.util.Locale
             BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Surface(Modifier.widthIn(max = AffairsLayout.formMaxWidth).fillMaxWidth().padding(12.dp).heightIn(max = maxHeight * .94f), shape = AffairsLayout.shape) {
                     Column(Modifier.testTag("shared-automations-screen")) {
-                        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text("Автоматизации", Modifier.weight(1f).semantics { heading() }, style = MaterialTheme.typography.titleLarge)
-                            if (state.ruleId.isNotEmpty()) AffairsIconButton("К списку правил", AffairsAction.BACK, { scope.launch { state.list() } },
-                                Modifier.testTag("automation-back"), enabled = !state.busy && state.record == null)
-                            AffairsIconButton("Обновить", AffairsAction.REFRESH, { scope.launch { state.refresh() } }, Modifier.testTag("automation-refresh"), enabled = !state.busy)
-                            AffairsIconButton("Закрыть", AffairsAction.CLOSE, onClose, Modifier.testTag("automation-close"))
-                        }
+                        AutomationHeader(state, { scope.launch { state.list() } }, { scope.launch { state.refresh() } }, onClose)
                         HorizontalDivider()
                         val scroll = rememberScrollState()
                         LaunchedEffect(state.ruleId, state.cursor, state.runCursor, state.deleted) { scroll.scrollTo(0) }
@@ -81,8 +75,13 @@ import java.util.Locale
                             verticalArrangement = Arrangement.spacedBy(16.dp)) {
                             state.project?.let { androidx.compose.material3.Text(it.getString("title"), style = MaterialTheme.typography.titleMedium) }
                             if (!state.loaded) Text("Загрузка…")
-                            else if (state.ruleId.isEmpty()) AutomationLibrary(state) { writerRule = ""; writerMode = "new" }
-                            else state.rule?.let { rule -> key(rule.getString("id")) { AutomationDetails(state, rule, t,
+                            else if (state.ruleId.isEmpty()) state.page?.let { page ->
+                                AutomationLibrary(state, page, onSelect = { id -> scope.launch { state.choose(id) } },
+                                    onCreate = { writerRule = ""; writerMode = "new" },
+                                    onFilter = { deleted -> scope.launch { state.list(deleted) } },
+                                    onPage = { next -> scope.launch { state.page(false, next) } })
+                            }
+                            else state.rule?.let { rule -> key(rule.getString("id")) { AutomationDetails(state, rule, t, preferences,
                                 { kind, value, run -> confirmation = JSONObject().put("kind", kind).put("value", value ?: JSONObject.NULL).put("runId", run ?: JSONObject.NULL)
                                     .put("ruleId", rule.getString("id")).put("revision", rule.getInt("revision")) },
                                 { id -> scope.launch { state.openTask(id) { onTask(id) } } },
@@ -140,17 +139,35 @@ import java.util.Locale
     }
 }
 
-@Composable private fun AutomationLibrary(state: SharedAutomationsState, onCreate: () -> Unit) {
-    val scope = rememberCoroutineScope(); val page = state.page ?: return
+@Composable private fun AutomationHeader(state: SharedAutomationsState, onList: () -> Unit, onRefresh: () -> Unit, onClose: () -> Unit) {
+    val actions: @Composable RowScope.() -> Unit = {
+        if (state.ruleId.isNotEmpty()) AffairsIconButton("К списку правил", AffairsAction.BACK, onList,
+            Modifier.testTag("automation-back"), enabled = !state.busy && state.record == null)
+        AffairsIconButton("Обновить", AffairsAction.REFRESH, onRefresh, Modifier.testTag("automation-refresh"), enabled = !state.busy)
+        AffairsIconButton("Закрыть", AffairsAction.CLOSE, onClose, Modifier.testTag("automation-close"))
+    }
+    BoxWithConstraints(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp)) {
+        if (maxWidth < 480.dp) Column(Modifier.fillMaxWidth()) {
+            Text("Автоматизации", Modifier.fillMaxWidth().padding(end = 12.dp).semantics { heading() }, style = MaterialTheme.typography.titleLarge)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically, content = actions)
+        } else Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("Автоматизации", Modifier.weight(1f).semantics { heading() }, style = MaterialTheme.typography.titleLarge)
+            actions()
+        }
+    }
+}
+
+@Composable private fun AutomationLibrary(state: SharedAutomationsState, page: JSONObject, onSelect: (String) -> Unit,
+    onCreate: () -> Unit, onFilter: (Boolean) -> Unit, onPage: (Boolean) -> Unit) {
     if (page.getBoolean("canCreate")) Button(onCreate, enabled = !state.busy && state.record == null, shape = AffairsLayout.shape,
         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("automation-create")) {
         AffairsActionIcon(AffairsAction.ADD); Spacer(Modifier.width(8.dp)); Text("Создать правило")
     }
     ImportChoice("Показывать", state.deleted.toString(), listOf("false" to genesisTranslate("Действующие правила"), "true" to genesisTranslate("Удалённые правила")),
-        !state.busy && state.record == null, "automation-filter") { scope.launch { state.list(it.toBooleanStrict()) } }
+        !state.busy && state.record == null, "automation-filter") { onFilter(it.toBooleanStrict()) }
     val rows = importRows(page.getJSONArray("rules")); var limit by rememberSaveable(state.cursor, state.deleted) { mutableIntStateOf(5) }
     if (rows.isEmpty()) Text("Правил пока нет.")
-    rows.take(limit).forEach { rule -> OutlinedButton({ scope.launch { state.choose(rule.getString("id")) } }, enabled = !state.busy && state.record == null,
+    rows.take(limit).forEach { rule -> OutlinedButton({ onSelect(rule.getString("id")) }, enabled = !state.busy && state.record == null,
         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("automation-rule-${rule.getString("id")}")) {
         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             androidx.compose.material3.Text(rule.getString("title"), style = MaterialTheme.typography.titleSmall)
@@ -158,7 +175,7 @@ import java.util.Locale
         }
     } }
     if (rows.size > limit) OutlinedButton({ limit += 5 }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("automation-more-rules")) { Text("Показать ещё") }
-    AutomationPages(!page.isNull("nextCursor"), state.previousPages.size, !state.busy, "automation-rules") { next -> scope.launch { state.page(false, next) } }
+    AutomationPages(!page.isNull("nextCursor"), state.previousPages.size, !state.busy, "automation-rules", onPage)
 }
 
 @Composable private fun AutomationFact(label: String, value: String, modifier: Modifier = Modifier) {
@@ -168,7 +185,7 @@ import java.util.Locale
     }
 }
 
-@Composable private fun AutomationDetails(state: SharedAutomationsState, rule: JSONObject, t: (String) -> String,
+@Composable private fun AutomationDetails(state: SharedAutomationsState, rule: JSONObject, t: (String) -> String, preferences: UiPreferences,
     onCommand: (String, Boolean?, String?) -> Unit, onTask: (String) -> Unit, onEdit: (Boolean) -> Unit) {
     val definition = rule.getJSONObject("definition"); val parameters = automationCanReadParameters(state)
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -209,7 +226,19 @@ import java.util.Locale
     }
     AffairsDisclosure("Действия", Modifier.testTag("automation-actions")) {
         val actions = importRows(definition.getJSONArray("actions")); var count by rememberSaveable { mutableIntStateOf(5) }
-        actions.take(count).forEach { action -> AutomationFact(automationActionLabel(action.getString("type")), automationActionValue(state, action, t).text) }
+        actions.take(count).forEachIndexed { index, action ->
+            AutomationFact(automationActionLabel(action.getString("type")), automationActionValue(state, action, t).text)
+            state.templateInspection(action)?.let { inspection ->
+                AffairsDisclosure("Предпросмотр применения", Modifier.testTag("automation-template-parameters-$index")) {
+                    AutomationFact("Место создания", state.project?.getString("title").orEmpty())
+                    AutomationFact("Язык", Locale.forLanguageTag(inspection.language).getDisplayLanguage(Locale.forLanguageTag(state.language)))
+                    AutomationFact("Базовая дата", automationCivilDate(inspection.anchorDate, state.language))
+                    CompositionLocalProvider(LocalTemplateInspection provides true) {
+                        SharedTemplateApplyEditor(inspection.form(SharedCustomCalendar.initial(preferences)), preferences, listOfNotNull(state.project), automationRun = true)
+                    }
+                }
+            }
+        }
         if (actions.size > count) OutlinedButton({ count += 5 }, Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Показать ещё") }
     }
     AffairsDisclosure("Журнал запусков", Modifier.testTag("automation-runs")) {

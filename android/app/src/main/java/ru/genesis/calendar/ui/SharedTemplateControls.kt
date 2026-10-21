@@ -18,7 +18,11 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.toggleableState
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import org.json.JSONArray
@@ -27,6 +31,16 @@ import ru.genesis.calendar.auth.CustomFieldDraft
 import ru.genesis.calendar.auth.SharedTemplateManifest
 import java.text.NumberFormat
 import java.util.Locale
+
+/** Readable facts for template inspection; ordinary editors retain their existing controls. */
+internal val LocalTemplateInspection = staticCompositionLocalOf { false }
+
+@Composable internal fun TemplateInspectionValue(label: String, value: String, tag: String) {
+    Column(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag(tag).semantics(mergeDescendants = true) { disabled() }, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        androidx.compose.material3.Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        androidx.compose.material3.Text(value.ifBlank { genesisTranslate("Не задано") }, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+    }
+}
 
 @Composable internal fun sharedTemplateCopy(): JSONObject {
     val context = LocalContext.current; val language = LocalGenesisLanguage.current
@@ -49,6 +63,10 @@ internal fun templateIssueMessage(code: String, copy: JSONObject) = copy.getJSON
     lines: Int = 1, number: Boolean = false, maxLength: Int = if (lines == 1) 160 else 20000,
     labelIsLocalized: Boolean = false, error: String? = null, onChange: (String) -> Unit) {
     val description = if (labelIsLocalized) label else genesisTranslate(label)
+    if (LocalTemplateInspection.current && !enabled) {
+        TemplateInspectionValue(description, value, tag)
+        return
+    }
     val bringIntoView = remember { BringIntoViewRequester() }
     var focused by remember { mutableStateOf(false) }
     val imeBottom = WindowInsets.ime.getBottom(LocalDensity.current)
@@ -76,6 +94,15 @@ internal fun templateIssueMessage(code: String, copy: JSONObject) = copy.getJSON
 @Composable internal fun TemplateToggle(label: String, selected: Boolean, enabled: Boolean, tag: String,
     labelIsLocalized: Boolean = false, onChange: (Boolean) -> Unit) {
     val description = if (labelIsLocalized) label else genesisTranslate(label)
+    if (LocalTemplateInspection.current && !enabled) {
+        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag(tag).semantics(mergeDescendants = true) {
+            contentDescription = description; role = Role.Switch; toggleableState = if (selected) ToggleableState.On else ToggleableState.Off; disabled()
+        }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            androidx.compose.material3.Text(description, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+            Text(if (selected) "Да" else "Нет", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface)
+        }
+        return
+    }
     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag(tag)
         .toggleable(selected, enabled = enabled, role = Role.Switch, onValueChange = onChange)
         .semantics(mergeDescendants = true) { contentDescription = description }, verticalAlignment = Alignment.CenterVertically,

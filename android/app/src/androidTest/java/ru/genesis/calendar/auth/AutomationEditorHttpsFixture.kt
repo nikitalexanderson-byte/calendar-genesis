@@ -14,9 +14,11 @@ internal class AutomationEditorHttpsFixture : AutoCloseable {
     var loseReply = false; var forbidden = false; var writable = true
     var emptyTemplateCatalog = false
     var editorSends = 0; var templateSends = 0; var previews = 0
+    var managementSends = 0; var loseManagementReply = false
     val sent = mutableListOf<String>()
     private var opened = false
     private val journal by lazy { PlanningJournal(PlanningDraftStore(base.app, "automation-editor"), contract = SharedAutomationEditorJournalContract) }
+    private val managementJournal by lazy { PlanningJournal(PlanningDraftStore(base.app, "automations"), contract = SharedAutomationJournalContract) }
     fun open() { base.open(); opened = true }
     fun labels(): JSONArray {
         val rows = JSONArray(); var cursor: String? = null
@@ -50,12 +52,28 @@ internal class AutomationEditorHttpsFixture : AutoCloseable {
             previews++; return base.client.previewSharedAutomation(base.generation, project, definition, owner, task)
         }
     })
+    fun management() = SharedAutomationDraftService(managementJournal, actor, object : SharedAutomationAccess {
+        override fun check() { check(base.client.currentGeneration() == base.generation) }
+        override fun rule(project: String, rule: String) = base.client.sharedAutomation(base.generation, project, rule)
+        override fun send(project: String, rule: String, run: String?, body: JSONObject): JSONObject {
+            managementSends++
+            val response = base.client.sharedAutomationCommand(base.generation, project, rule, run, body)
+            if (loseManagementReply) { loseManagementReply = false; throw AuthFailure(AuthFailure.Kind.NETWORK) }
+            return response
+        }
+    })
     val gateway = object : SharedWorkspaceGateway by base.gateway {
         private suspend fun <T> io(block: () -> T): T = withContext(Dispatchers.IO) { block() }
         override suspend fun sharedProject(projectId: String) = io { snapshot() }
         override suspend fun sharedAutomation(projectId: String, ruleId: String) = io { base.client.sharedAutomation(base.generation, projectId, ruleId) }
         override suspend fun sharedAutomations(projectId: String, deleted: Boolean, cursor: String?) = io { base.client.sharedAutomations(base.generation, projectId, deleted, cursor) }
         override suspend fun sharedAutomationRuns(projectId: String, ruleId: String, cursor: String?) = io { base.client.sharedAutomationRuns(base.generation, projectId, ruleId, cursor) }
+        override suspend fun sharedAutomationTemplate(templateId: String, language: String) = io { base.client.sharedAutomationTemplate(base.generation, templateId, language) }
+        override suspend fun sharedAutomationDraft(projectId: String) = io { management().load(projectId) }
+        override suspend fun saveSharedAutomationDraft(projectId: String, stamp: String?, edit: JSONObject) = io { management().save(projectId, stamp, edit) }
+        override suspend fun prepareSharedAutomationDraft(projectId: String, stamp: String) = io { management().prepare(projectId, stamp) }
+        override suspend fun sendSharedAutomationDraft(projectId: String, stamp: String) = io { management().send(projectId, stamp) }
+        override suspend fun removeSharedAutomationDraft(projectId: String, stamp: String) = io { management().remove(projectId, stamp) }
         override suspend fun sharedTemplates(space: String, language: String, deleted: Boolean, cursor: String?) = io {
             base.client.sharedTemplates(base.generation, space, language, deleted, cursor).apply {
                 // The real empty workspace still has built-in templates. Inject the valid empty-read state explicitly.
@@ -80,6 +98,7 @@ internal class AutomationEditorHttpsFixture : AutoCloseable {
         if (!opened) { base.close(); return }
         try {
             service().load(project)?.takeIf { it.getString("phase") in setOf("editing", "received", "rejected") || it.getInt("attempts") == 0 }?.let { service().remove(project, it.getString("stamp")) }
+            management().load(project)?.takeIf { it.getString("phase") in setOf("editing", "received", "rejected") || it.getInt("attempts") == 0 }?.let { management().remove(project, it.getString("stamp")) }
         } finally { base.close() }
     }
 }

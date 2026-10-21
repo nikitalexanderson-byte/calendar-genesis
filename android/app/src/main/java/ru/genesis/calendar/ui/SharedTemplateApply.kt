@@ -56,7 +56,7 @@ private fun templateApplyForm(state: SharedTemplateState) = SharedTemplateApplyF
             AuthorDatePicker(options.getString("anchorDate"), calendar.mode, calculationContext = calendar.context, enabled = enabled,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-apply-anchor")) { value -> change { it.put("anchorDate", value) } }
         }
-        AffairsDisclosure("Календарь ввода") { EditorCalendarModePicker(calendar.mode, { state.changeDateInput(calendar.copy(mode = it)) }, enabled, preferredMode = calendar.mode, tag = "template-apply-input-calendar") }
+        if (!LocalTemplateInspection.current) AffairsDisclosure("Календарь ввода") { EditorCalendarModePicker(calendar.mode, { state.changeDateInput(calendar.copy(mode = it)) }, enabled, preferredMode = calendar.mode, tag = "template-apply-input-calendar") }
         TemplateField("Название нового объекта", options.optString("title").takeUnless { it == "null" }.orEmpty(), enabled, "template-apply-title", onChange = state::changeTitle)
         AffairsDisclosure("Переносимые данные", initiallyExpanded = true) {
             for (flag in SharedTemplateProtocol.transfer) TemplateToggle(copy.getJSONObject("options").getString(flag), options.getJSONObject("include").getBoolean(flag), enabled, "template-transfer-$flag", labelIsLocalized = true) { value -> change {
@@ -86,7 +86,7 @@ private fun templateApplyForm(state: SharedTemplateState) = SharedTemplateApplyF
     fun mapped(name: String, key: String) = options.getJSONObject(name).let { if (!it.has(key)) "@auto" else it.optString(key).takeUnless { value -> value == "null" }.orEmpty().ifBlank { "@none" } }
     val language = LocalGenesisLanguage.current; val number = remember(language) { NumberFormat.getIntegerInstance(Locale.forLanguageTag(language)) }
     AffairsDisclosure("Сопоставление данных", Modifier.testTag("template-mappings")) {
-        TemplateOutlinedButton({ val edit = SharedTemplateEdits.copy(requireNotNull(state.edit)); for (key in listOf("statusMap", "categoryMap", "fieldMap", "optionMap", "memberMap", "fieldValues")) edit.getJSONObject("request").put(key, JSONObject()); state.change(edit) }, enabled = enabled, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Сбросить") }
+        if (!LocalTemplateInspection.current) TemplateOutlinedButton({ val edit = SharedTemplateEdits.copy(requireNotNull(state.edit)); for (key in listOf("statusMap", "categoryMap", "fieldMap", "optionMap", "memberMap", "fieldValues")) edit.getJSONObject("request").put(key, JSONObject()); state.change(edit) }, enabled = enabled, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Сбросить") }
         if (source.getString("kind") == "task") {
             SharedTemplateEdits.rows(root.getJSONArray("statuses")).forEach { status -> ImportChoice(status.getString("title"), mapped("statusMap", status.getString("key")),
                 listOf("@auto" to genesisTranslate("Автоматически")) + SharedTemplateEdits.rows(preview.getJSONArray("statuses")).filter { !it.getBoolean("isDone") }.map { it.getString("id") to it.getString("title") }, enabled, "template-status-map-${status.getString("key")}", userLabel = true) { map("statusMap", status.getString("key"), it) } }

@@ -21,6 +21,7 @@ internal class SharedAutomationsState(private val gateway: SharedWorkspaceGatewa
     var runs by mutableStateOf<JSONObject?>(null); private set
     var labels by mutableStateOf(emptyMap<String, String>()); private set
     var templates by mutableStateOf(emptyMap<String, String>()); private set
+    private var templateInspections by mutableStateOf(emptyMap<String, SharedAutomationTemplateInspection>())
     var record by mutableStateOf<JSONObject?>(null); private set
     var cursor by mutableStateOf<String?>(null); private set
     var runCursor by mutableStateOf<String?>(null); private set
@@ -41,12 +42,14 @@ internal class SharedAutomationsState(private val gateway: SharedWorkspaceGatewa
     fun member(id: String?) = id?.let { target -> context?.optJSONArray("members")?.let(::importRows)?.firstOrNull { it.optString("userId") == target }?.optString("displayName") }
     fun status(id: String) = context?.optJSONArray("statuses")?.let(::importRows)?.firstOrNull { it.optString("id") == id }?.optString("title")
     fun field(id: String) = context?.optJSONArray("customFieldDefinitions")?.let(::importRows)?.firstOrNull { it.optString("id") == id }
+    fun templateInspection(action: JSONObject) = if (action.optString("type") != "createTemplate" || action.optBoolean("unavailable") || !templates.containsKey(action.optString("templateId"))) null
+        else templateInspections[SharedAutomationTemplateInspection.key(action)]?.takeIf { it.matches(action) }
     private fun current(ticket: Int) { if (closed || ticket != epoch) throw CancellationException() }
-    private fun clearLive() { context = null; page = null; rule = null; runs = null; labels = emptyMap(); templates = emptyMap(); observedAt = 0 }
+    private fun clearLive() { context = null; page = null; rule = null; runs = null; labels = emptyMap(); templates = emptyMap(); templateInspections = emptyMap(); observedAt = 0 }
     private fun adopt(saved: JSONObject?) {
         record = saved
         val target = saved?.getJSONObject("edit")?.getString("ruleId") ?: return
-        if (ruleId != target) { ruleId = target; rule = null; runs = null; labels = emptyMap(); templates = emptyMap(); runCursor = null; previousRunPages = emptyList(); onSelection(ruleId, deleted) }
+        if (ruleId != target) { ruleId = target; rule = null; runs = null; labels = emptyMap(); templates = emptyMap(); templateInspections = emptyMap(); runCursor = null; previousRunPages = emptyList(); onSelection(ruleId, deleted) }
     }
     fun close() { closed = true; epoch++; clearLive(); busy = false }
     fun pause() { epoch++; clearLive(); busy = false }
@@ -108,18 +111,39 @@ internal class SharedAutomationsState(private val gateway: SharedWorkspaceGatewa
         }
         labels = names
         val sources = mutableMapOf<String, String>()
+        val inspections = mutableMapOf<String, SharedAutomationTemplateInspection>()
         for (action in actions.filter { it.getString("type") == "createTemplate" && !it.optBoolean("unavailable") }) {
-            val id = action.getString("templateId"); if (sources.containsKey(id)) continue
+            val id = action.getString("templateId")
             try {
-                val fresh = gateway.sharedAutomationTemplate(id, language); current(ticket)
-                require(fresh.optString("id") == id && fresh.opt("title") is String) { "AUTOMATION_PROTOCOL" }; sources[id] = fresh.getString("title")
+                if (!sources.containsKey(id)) {
+                    val fresh = gateway.sharedAutomationTemplate(id, language); current(ticket)
+                    require(fresh.optString("id") == id && fresh.opt("title") is String) { "AUTOMATION_PROTOCOL" }; sources[id] = fresh.getString("title")
+                }
+                if (action.getJSONObject("options").length() > 0) {
+                    val key = SharedAutomationTemplateInspection.key(action)
+                    if (!inspections.containsKey(key)) try {
+                        inspections[key] = SharedAutomationTemplateInspection.read(gateway, requireNotNull(project).getString("spaceId"), projectId, definition, action, { current(ticket) })
+                    } catch (invalid: IllegalArgumentException) {
+                        current(ticket) // Unknown or incompatible options stay unreadable and cannot enable a rule.
+                    } catch (invalid: AuthApiError) {
+                        current(ticket)
+                        // A changed mapping blocks execution, but the rule must remain editable and disableable.
+                        // Access loss and transport failures still go through the outer guarded read.
+                        if (invalid.code !in setOf("TEMPLATE_INVALID", "TEMPLATE_REFERENCE_INVALID", "TEMPLATE_DATE_INVALID",
+                                "TEMPLATE_DATE_OUTSIDE_RANGE", "TEMPLATE_LANGUAGE_INVALID", "TEMPLATE_DESTINATION_INVALID",
+                                "TEMPLATE_STATUS_MAPPING_INVALID", "TEMPLATE_CATEGORY_MAPPING_INVALID", "TEMPLATE_FIELD_MAPPING_INVALID",
+                                "TEMPLATE_PREVIEW_CHANGED", "INVALID_CALENDAR_TIME_ZONE", "INVALID_BOARD_DISPLAY")) throw invalid
+                    }
+                }
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (failure: Exception) {
                 current(ticket)
-                if (!(failure is AuthFailure && failure.httpStatus in setOf(403, 404) || failure is AuthApiError && failure.code in setOf("TEMPLATE_NOT_FOUND", "SHARED_FORBIDDEN"))) throw failure
+                if (!(failure is AuthFailure && failure.httpStatus in setOf(403, 404) || failure is AuthApiError && failure.code in setOf("TEMPLATE_NOT_FOUND", "SHARED_FORBIDDEN", "TEMPLATE_FORBIDDEN", "TEMPLATE_UNAVAILABLE", "TEMPLATE_SOURCE_UNAVAILABLE", "TEMPLATE_SOURCE_SCOPE_UNAVAILABLE"))) throw failure
+                sources.remove(id)
             }
         }
         templates = sources
+        templateInspections = inspections
     }
     suspend fun load() = work { ticket ->
         clearLive(); val saved = gateway.sharedAutomationDraft(projectId); current(ticket); adopt(saved); loaded = true
@@ -135,7 +159,7 @@ internal class SharedAutomationsState(private val gateway: SharedWorkspaceGatewa
     } }
     suspend fun choose(id: String) = work { ticket ->
         require(record == null) { "PLANNING_DRAFT_PENDING" }; ruleId = SharedAutomationProtocol.id(id); onSelection(ruleId, deleted)
-        rule = null; runs = null; runCursor = null; previousRunPages = emptyList(); labels = emptyMap(); templates = emptyMap()
+        rule = null; runs = null; runCursor = null; previousRunPages = emptyList(); labels = emptyMap(); templates = emptyMap(); templateInspections = emptyMap()
         readContext(ticket); readRule(ticket)
     }
     suspend fun list(deleted: Boolean = this.deleted) = work { ticket ->
