@@ -25,6 +25,19 @@ class NativeFieldEditorHttpsTest {
         val received = service.send(fixture.project, pending.getString("stamp")); val field = received.getJSONObject("receipt").getJSONObject("field")
         service.remove(fixture.project, received.getString("stamp")); return field
     }
+    @Test fun normalizationCannotAddArchivedChoicesBeyondTheLimitOrChangeThePreviousTaskValue() {
+        val initial = save(draft("select"))
+        val status = fixture.snapshot().getJSONArray("statuses").getJSONObject(0).getString("id")
+        val task = fixture.base.client.createSharedTask(fixture.base.generation, fixture.project, JSONObject().put("title", "Retain old choice")
+            .put("statusId", status).put("customFields", JSONObject().put(initial.getString("id"), "first"))).getJSONObject("task")
+        val edited = draft("select", initial).apply { getJSONObject("draft").put("options", JSONArray((1..200).map { index -> JSONObject().put("id", "new-$index").put("title", "New $index").put("archived", false) })) }
+        val service = fixture.service(); val own = service.save(fixture.project, null, edited)
+        val failure = runCatching { service.preview(fixture.project, own.getString("stamp")) }.exceptionOrNull()
+        assertEquals("CUSTOM_FIELD_OPTIONS_LIMIT", when (failure) { is AuthApiError -> failure.code; is CustomFieldFailure -> failure.code; else -> failure?.message })
+        assertEquals("editing", service.load(fixture.project)!!.getString("phase")); assertEquals(1, fixture.bodies.size)
+        val fresh = fixture.base.client.sharedTask(fixture.base.generation, fixture.project, task.getString("id")).getJSONObject("task")
+        assertEquals("first", fresh.getJSONObject("customFields").getString(initial.getString("id")))
+    }
     @Test fun keystoreLostReplyAndSuccessorKeepTheExactPutAndPreviousTaskValue() {
         val service = fixture.service(); val reviewed = review(draft("number")); val pending = service.prepare(fixture.project, reviewed.getString("stamp"))
         fixture.loseReply = true

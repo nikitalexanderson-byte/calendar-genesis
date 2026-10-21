@@ -12,7 +12,7 @@ const integer=(value:unknown)=>typeof value==='number'&&Number.isSafeInteger(val
 const fieldKeys=['id','title','type','projectId','options','position','required','showCard','showList','archived'];
 function field(value:unknown):boolean{
  if(!object(value)||!id(value.id)||!text(value.title,160)||!['text','number','date','select','multi','checkbox','url'].includes(String(value.type))||value.projectId!==null&&!id(value.projectId)||typeof value.position!=='number'||!Number.isSafeInteger(value.position)||Math.abs(value.position)>100000)return false;
- if(!['required','showCard','showList','archived'].every(key=>typeof value[key]==='boolean')||!Array.isArray(value.options)||value.options.length>200)return false;
+ if(!['required','showCard','showList','archived'].every(key=>typeof value[key]==='boolean')||!Array.isArray(value.options)||value.options.filter(row=>object(row)&&row.archived===false).length>200||new TextEncoder().encode(JSON.stringify(value)).length>1_000_000)return false;
  return value.options.every(row=>object(row)&&keys(row,['id','title','archived'])&&id(row.id)&&text(row.title,160)&&typeof row.archived==='boolean')&&new Set(value.options.map(row=>row.id)).size===value.options.length;
 }
 const equal=(a:unknown,b:unknown):boolean=>{
@@ -29,13 +29,13 @@ export function validateCustomFieldDeviceDraft(raw:unknown,spaceId:string,projec
  requireValid(raw.error===null||text(raw.error,100));
  if(raw.phase==='editing')requireValid(raw.commandJson===null&&raw.expected===null&&raw.attempts===0&&raw.receipt===null&&raw.error===null);
  else{
-  requireValid(text(raw.commandJson,100000)&&object(raw.expected)&&keys(raw.expected,[...fieldKeys,'spaceId'])&&field(raw.expected)&&raw.expected.spaceId===spaceId);
+  requireValid(text(raw.commandJson,1_000_000)&&object(raw.expected)&&keys(raw.expected,[...fieldKeys,'spaceId'])&&field(raw.expected)&&raw.expected.spaceId===spaceId);
   let command:unknown;try{command=JSON.parse(raw.commandJson as string);}catch{throw new Error('CUSTOM_FIELD_DEVICE_DRAFT_INVALID');}
   requireValid(object(command)&&keys(command,[...fieldKeys,'expectedRevision','operationId','fingerprint','replaceType'])&&field(command)&&integer(command.expectedRevision)&&typeof command.operationId==='string'&&/^[a-zA-Z0-9:_-]{1,100}$/.test(command.operationId)&&typeof command.fingerprint==='string'&&/^[a-f0-9]{64}$/.test(command.fingerprint)&&typeof command.replaceType==='boolean');
   requireValid(equal(Object.fromEntries([...fieldKeys,'expectedRevision'].map(key=>[key,command[key]])),raw.draft));
   requireValid(raw.expected.id===command.id);
   if(raw.phase==='received'){requireValid((raw.attempts as number)>0&&raw.error===null);confirmCustomFieldReceipt(raw as CustomFieldDeviceDraft,raw.receipt);}
-  else requireValid(raw.receipt===null&&(raw.phase!=='rejected'||(raw.attempts as number)>0&&raw.error!==null));
+  else requireValid(raw.receipt===null&&(raw.phase!=='rejected'||raw.attempts===1&&raw.error!==null));
  }
  return structuredClone(raw) as CustomFieldDeviceDraft;
 }
@@ -69,4 +69,12 @@ export async function sendCustomFieldDeviceDraft(input:CustomFieldDeviceDraft,ac
   if(code)await access.persist({...attempted,phase:'rejected',error:code});throw error;
  }
  const received:CustomFieldDeviceDraft={...attempted,phase:'received',receipt};await access.persist(received);return received;
+}
+
+/** Explicit fresh base only; own settings survive and a new preview is always required. */
+export function rebaseCustomFieldDeviceDraft(input:CustomFieldDeviceDraft,latest:SharedCustomField):CustomFieldDeviceDraft{
+ const original=validateCustomFieldDeviceDraft(input,input.spaceId,input.projectId);
+ requireValid(original.phase==='editing'||original.phase==='rejected'&&original.attempts===1||original.phase==='pending'&&original.attempts===0);
+ requireValid(field(latest)&&latest.id===original.draft.id&&latest.spaceId===original.spaceId&&integer(latest.revision)&&latest.revision>=Math.max(1,original.draft.expectedRevision));
+ return customFieldDeviceEdit(original.spaceId,original.projectId,{...original.draft,expectedRevision:latest.revision});
 }

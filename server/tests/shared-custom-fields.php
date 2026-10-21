@@ -68,6 +68,24 @@ try{
     $oldField=genesisSharedCustomFieldAccess($owner,$number['id']);cfCheck($oldField['archived'],'Previous type not archived');
     cfSave($owner,$spaceId,cfEdit($oldField,['archived'=>false]));
     $checks[]='choice-tombstones-type-successor-restoration-history-and-replay';
+    $normal=cfSave($owner,$spaceId,cfDraft('select',$a['id'],['options'=>[['id'=>'kept','title'=>'Kept option','archived'=>false]]]));
+    $newOptions=array_map(static fn($n)=>['id'=>'new-'.$n,'title'=>'New '.$n,'archived'=>false],range(1,200));
+    cfReject(fn()=>cfSave($owner,$spaceId,cfEdit($normal,['options'=>$newOptions])),'CUSTOM_FIELD_OPTIONS_LIMIT');
+    cfCheck(genesisSharedCustomFieldAccess($owner,$normal['id'])['revision']===$normal['revision'],'Rejected normalized201 changed the field');
+    $legacy=cfSave($owner,$spaceId,cfDraft('select',$a['id'],['options'=>[['id'=>'legacy-old','title'=>'Original label','archived'=>false]]]));
+    $legacyTask=genesisSharedTask($owner,$a['id'],['title'=>'Legacy archived selection','statusId'=>$status,'customFields'=>[$legacy['id']=>'legacy-old']]);
+    $legacyOptions=[['id'=>'legacy-old','title'=>'Original label','archived'=>true],...$newOptions];
+    // Only this isolated synthetic row reproduces the former normalizer output.
+    $db->prepare('UPDATE shared_custom_fields SET definition_json=? WHERE id=?')->execute([json_encode(['title'=>$legacy['title'],'options'=>$legacyOptions],JSON_THROW_ON_ERROR),$legacy['id']]);
+    $legacy=genesisSharedCustomFieldAccess($owner,$legacy['id']);
+    $legacy=cfSave($owner,$spaceId,cfEdit($legacy,['title'=>'Renamed legacy choices']));
+    cfCheck(count($legacy['options'])===201&&$legacy['options'][0]['id']==='legacy-old'&&$legacy['options'][0]['archived'],'Legacy archived options were not preserved');
+    cfCheck(((array)genesisSharedGetTask($owner,$a['id'],$legacyTask['id'])['customFields'])[$legacy['id']]==='legacy-old','Legacy task value changed');
+    cfReject(fn()=>cfSave($owner,$spaceId,cfEdit($legacy,['options'=>[...$legacyOptions,['id'=>'extra','title'=>'Extra','archived'=>true]]])),'CUSTOM_FIELD_OPTIONS_LIMIT');
+    $unarchive=$legacyOptions;$unarchive[0]['archived']=false;
+    cfReject(fn()=>cfSave($owner,$spaceId,cfEdit($legacy,['options'=>$unarchive])),'CUSTOM_FIELD_OPTIONS_LIMIT');
+    cfCheck(genesisSharedCustomFieldAccess($owner,$legacy['id'])['revision']===$legacy['revision'],'Rejected legacy growth changed revision');
+    $checks[]='normalized-option-bound-legacy201-preservation-and-no-growth';
     $required=cfSave($owner,$spaceId,cfDraft('checkbox',$a['id'],['required'=>true]));
     cfReject(fn()=>genesisSharedTask($owner,$a['id'],['title'=>'C3 missing required','statusId'=>$status]),'CUSTOM_FIELD_REQUIRED');
     genesisSharedTask($owner,$a['id'],['title'=>'C3 false is present','statusId'=>$status,'customFields'=>[$required['id']=>false]]);

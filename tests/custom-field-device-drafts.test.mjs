@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {customFieldDeviceEdit,validateCustomFieldDeviceDraft,prepareCustomFieldDeviceDraft,confirmCustomFieldReceipt,sendCustomFieldDeviceDraft} from '../app/custom-field-device-drafts.ts';
+import {customFieldDeviceEdit,validateCustomFieldDeviceDraft,prepareCustomFieldDeviceDraft,confirmCustomFieldReceipt,sendCustomFieldDeviceDraft,rebaseCustomFieldDeviceDraft} from '../app/custom-field-device-drafts.ts';
 import {SharedWorkDraftJournal} from '../app/shared-work-draft-journal.ts';
 const draft=()=>({id:'field-a',title:'  Своё название 🌿  ',type:'number',projectId:'project-a',options:[],position:0,required:false,showCard:true,showList:true,archived:false,expectedRevision:3});
 const edit=()=>customFieldDeviceEdit('space-a','project-a',draft());
@@ -53,4 +53,31 @@ test('encrypted journal preserves exact command with separate account/project/pu
  const access={check(){},async seal(value,scope){const iv=crypto.getRandomValues(new Uint8Array(12));return {iv:Buffer.from(iv).toString('base64'),ciphertext:Buffer.from(await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:new TextEncoder().encode(scope)},key,new TextEncoder().encode(JSON.stringify(value)))).toString('base64')};},async open(value,scope){return JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:Buffer.from(value.iv,'base64'),additionalData:new TextEncoder().encode(scope)},key,Buffer.from(value.ciphertext,'base64'))));}};
  const options={storage,access,userId:'user-a',projectId:'project-a',purpose:'custom-fields',validate:value=>validateCustomFieldDeviceDraft(value,'space-a','project-a')};const first=new SharedWorkDraftJournal(options);await first.write({...pending(),attempts:1});first.dispose();assert.ok(![...data.values()].join('').includes('operation-stable'));
  const next=new SharedWorkDraftJournal(options);assert.equal((await next.list())[0].value.commandJson,pending().commandJson);assert.equal((await new SharedWorkDraftJournal({...options,purpose:'workflow'}).list()).length,0);assert.equal((await new SharedWorkDraftJournal({...options,userId:'other'}).list()).length,0);
+});
+
+
+test('explicit rebase preserves own settings and requires a fresh preview at the new revision',()=>{
+ const input=edit(),latest={...receipt(pending()).field,revision:7,title:'Changed elsewhere'};
+ const rebased=rebaseCustomFieldDeviceDraft(input,latest);
+ assert.equal(rebased.phase,'editing');assert.equal(rebased.draft.expectedRevision,7);assert.equal(rebased.draft.title,input.draft.title);
+ assert.equal(rebased.commandJson,null);assert.equal(rebased.expected,null);assert.equal(input.draft.expectedRevision,3);
+ assert.throws(()=>prepareCustomFieldDeviceDraft(rebased,preview(input),false,'new-op'),/INVALID/);
+ assert.equal(prepareCustomFieldDeviceDraft(rebased,preview(rebased),false,'new-op').phase,'pending');
+});
+test('unknown attempted commands cannot be rebased by a later rejection or a stale replacement',()=>{
+ const input=pending(),latest={...receipt(input).field,revision:7};
+ assert.throws(()=>rebaseCustomFieldDeviceDraft({...input,attempts:1},latest),/INVALID/);
+ assert.throws(()=>rebaseCustomFieldDeviceDraft({...input,phase:'received',attempts:1,receipt:receipt(input)},latest),/INVALID/);
+ assert.throws(()=>rebaseCustomFieldDeviceDraft({...input,phase:'rejected',attempts:2,error:'CUSTOM_FIELD_CONFLICT'},latest),/INVALID/);
+ for(const bad of [{...latest,id:'another'},{...latest,spaceId:'another'},{...latest,revision:2}])assert.throws(()=>rebaseCustomFieldDeviceDraft(input,bad),/INVALID/);
+ const rejected={...input,phase:'rejected',attempts:1,error:'CUSTOM_FIELD_CONFLICT'};
+ assert.equal(rebaseCustomFieldDeviceDraft(rejected,latest).draft.expectedRevision,7);
+});
+test('legacy archived choices survive own input, preview and receipt while active choices remain bounded',()=>{
+ const options=Array.from({length:201},(_,index)=>({id:`option-${index}`,title:`Choice ${index}`,archived:index===0}));
+ const input=customFieldDeviceEdit('space-a','project-a',{...draft(),type:'select',options});
+ const prepared=prepareCustomFieldDeviceDraft(input,preview(input),false,'legacy-operation');
+ const accepted=confirmCustomFieldReceipt(prepared,receipt(prepared));assert.equal(accepted.field.options.length,201);assert.equal(accepted.field.options[0].archived,true);
+ const tooMany=structuredClone(input);tooMany.draft.options[0].archived=false;assert.throws(()=>validateCustomFieldDeviceDraft(tooMany,'space-a','project-a'),/INVALID/);
+
 });

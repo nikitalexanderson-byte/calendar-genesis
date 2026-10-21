@@ -35,7 +35,8 @@ internal object DataImportPreview {
     }
     private fun field(row: JSONObject): Set<String> {
         valid(row.opt("type") in types && row.opt("archived") is Boolean && row.opt("required") is Boolean)
-        val options = rows(row.opt("options"), 200, "id")
+        val options = rows(row.opt("options"), 10000, "id")
+        check(options.values.count { it.opt("archived") == false } <= 200 && row.toString().toByteArray(Charsets.UTF_8).size <= 1_000_000)
         options.values.forEach { valid(it.opt("archived") is Boolean) }
         valid(row.getString("type") in setOf("select", "multi") || options.isEmpty())
         return options.keys

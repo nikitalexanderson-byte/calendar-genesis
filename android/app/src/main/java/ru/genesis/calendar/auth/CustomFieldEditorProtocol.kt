@@ -36,7 +36,7 @@ internal object CustomFieldEditorProtocol {
     /** Empty titles and an unfinished position survive recreation, but cannot become a command. */
     fun edit(raw: JSONObject): JSONObject {
         val value = copy(raw)
-        valid(value.toString().toByteArray(Charsets.UTF_8).size <= 1_000_000)
+        valid(value.toString().toByteArray(Charsets.UTF_8).size <= 4_000_000)
         keys(value, setOf("kind", "spaceId", "projectId", "base", "draft", "positionInput", "review", "confirmReplacement"))
         valid(value.opt("kind") == "field-definition-save")
         val space = CustomFieldProtocol.id(value.getString("spaceId")); val project = CustomFieldProtocol.id(value.getString("projectId"))
@@ -48,7 +48,7 @@ internal object CustomFieldEditorProtocol {
         text(input.opt("title"), 160); valid(input.opt("type") in CustomFieldProtocol.types)
         integer(input.opt("position"), -100000, 100000); text(value.opt("positionInput"), 8)
         for (key in listOf("required", "showCard", "showList", "archived")) valid(input.opt(key) is Boolean)
-        val options = PlanningLifecycle.rows(input.getJSONArray("options")); valid(options.size <= 200)
+        val options = PlanningLifecycle.rows(input.getJSONArray("options")); valid(input.toString().toByteArray(Charsets.UTF_8).size <= 1_000_000 && options.count { it.opt("archived") == false } <= 200)
         valid(input.getString("type") in setOf("select", "multi") || options.isEmpty())
         options.forEach { option ->
             keys(option, setOf("id", "title", "archived")); CustomFieldProtocol.id(option.getString("id"))

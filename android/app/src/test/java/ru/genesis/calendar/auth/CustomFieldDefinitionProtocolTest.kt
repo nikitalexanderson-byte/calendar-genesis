@@ -6,6 +6,19 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class CustomFieldDefinitionProtocolTest {
+    @Test fun legacyArchivedOptionsSurviveCatalogAndOwnEditorWithoutAllowing201ActiveChoices() {
+        val source = JSONObject(customDefinitions().first { it.getString("type") == "select" }.toString())
+        val options = JSONArray((0..200).map { index -> JSONObject().put("id", "option-$index").put("title", "Legacy choice $index").put("archived", index == 0) })
+        source.put("options", options)
+        val space = source.getString("spaceId"); val project = source.getString("projectId")
+        val parsed = CustomFieldProtocol.definitions(space, project, JSONArray().put(source)).single()
+        assertEquals(201, parsed.getJSONArray("options").length()); assertTrue(parsed.getJSONArray("options").getJSONObject(0).getBoolean("archived"))
+        val own = CustomFieldEditorProtocol.newEdit(space, project, parsed)
+        assertEquals(201, CustomFieldEditorProtocol.edit(own).getJSONObject("draft").getJSONArray("options").length())
+        options.getJSONObject(0).put("archived", false)
+        assertThrows(Exception::class.java) { CustomFieldProtocol.definitions(space, project, JSONArray().put(source)) }
+    }
+
     private val fields = customDefinitions()
     private val sample = fields.first { it.getString("type") == "number" }
     private val space = sample.getString("spaceId")

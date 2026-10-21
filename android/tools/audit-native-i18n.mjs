@@ -213,7 +213,17 @@ for (const language of ["ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "s
     if (typeof value !== "string" || !value.trim() || (!["ru", "sr", "uk"].includes(language) && CYRILLIC.test(value))) throw new Error(`Invalid saved-view copy: ${language}: ${key}`);
   }
 }
-const translations = { ...web, ...curated, ...supplemental, ...sacred, ...native, ...workCopy, ...exportCopy.en, ...importCopy.en, ...bulkCopy.en, ...templateCopy.en, ...automationsCopy.en, ...savedViewsCopy.en };
+const fieldRecoveryCopy = JSON.parse(await readFile(path.join(ROOT, "app/custom-field-recovery-translations.json"), "utf8"));
+const fieldRecoveryKeys = Object.keys(fieldRecoveryCopy.ru ?? {});
+if (fieldRecoveryKeys.length !== 2) throw new Error("Custom field recovery needs two shared labels.");
+for (const language of ["ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja"]) {
+  if (Object.keys(fieldRecoveryCopy[language] ?? {}).sort().join("\n") !== [...fieldRecoveryKeys].sort().join("\n")) throw new Error(`Incomplete field recovery: ${language}`);
+  for (const key of fieldRecoveryKeys) {
+    const value = fieldRecoveryCopy[language]?.[key];
+    if (typeof value !== "string" || !value.trim() || (!["ru", "sr", "uk"].includes(language) && CYRILLIC.test(value))) throw new Error(`Invalid field recovery: ${language}: ${key}`);
+  }
+}
+const translations = { ...web, ...curated, ...supplemental, ...sacred, ...native, ...workCopy, ...exportCopy.en, ...importCopy.en, ...bulkCopy.en, ...templateCopy.en, ...automationsCopy.en, ...savedViewsCopy.en, ...fieldRecoveryCopy.en };
 const affairs = JSON.parse(await readFile(path.join(ROOT, "app/native-affairs-translations.json"), "utf8"));
 const affairKeys = Object.keys(affairs.en ?? {});
 if (affairKeys.length !== 41) throw new Error("Native supplemental copy must contain all 41 labels.");

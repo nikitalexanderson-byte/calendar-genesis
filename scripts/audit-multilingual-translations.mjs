@@ -5,7 +5,8 @@ const english = { ...JSON.parse(await readFile(new URL("../app/ui-translations/e
   ...JSON.parse(await readFile(new URL("../app/curated-translations.en.json", import.meta.url), "utf8")) };
 const missing = [];
 const habitReportCopy = JSON.parse(await readFile(new URL("../app/habit-report-translations.json", import.meta.url), "utf8"));
-Object.assign(english, habitReportCopy.en);
+const fieldRecoveryCopy = JSON.parse(await readFile(new URL("../app/custom-field-recovery-translations.json", import.meta.url), "utf8"));
+Object.assign(english, habitReportCopy.en, fieldRecoveryCopy.en);
 Object.assign(english,JSON.parse(await readFile(new URL("../app/shared-work-translations/en.json",import.meta.url),"utf8")));
 const welcomeParagraphs = [
   "GENESIS — приложение для планирования личных и рабочих задач, проектов, подпроектов, повторений и напоминаний. Календарь помогает составлять план дня, связывать действия и отмечать выполненное на компьютере или телефоне.",
@@ -103,7 +104,7 @@ for (const language of languages) {
     : ["ja", "de", "fr"].includes(language) ? [language, `${language}.b`] : [language];
   const catalog = Object.assign({}, ...await Promise.all(files.map(async (name) =>
     JSON.parse(await readFile(new URL(`../app/translations.${name}.json`, import.meta.url), "utf8")))));
-  Object.assign(catalog, JSON.parse(await readFile(new URL(`../app/ui-translations/${language}.json`, import.meta.url), "utf8")));
+  Object.assign(catalog, JSON.parse(await readFile(new URL(`../app/ui-translations/${language}.json`, import.meta.url), "utf8")), fieldRecoveryCopy[language]);
   Object.assign(catalog, habitReportCopy[language]);
   Object.assign(catalog,JSON.parse(await readFile(new URL(`../app/shared-work-translations/${language}.json`,import.meta.url),"utf8")));
   const affairs = JSON.parse(await readFile(new URL("../app/native-affairs-translations.json", import.meta.url), "utf8"))[language];

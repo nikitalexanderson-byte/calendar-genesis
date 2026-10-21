@@ -128,6 +128,27 @@ class SharedFieldsUiTest {
                 .put("screenWidthDp", compose.activity.resources.configuration.screenWidthDp).put("capture", "screencap-physical-display").toString())
         } finally { bitmap.recycle() }
     }
+    @Test fun optionLimitPreviewKeepsOwnInputAndExplainsTheArchivedChoiceBound() {
+        val args = InstrumentationRegistry.getArguments()
+        val capture = args.getString("genesisFieldLimitCapture") == "true"
+        val languages = if (capture && args.getString("genesisFieldLanguages") == "true") SharedTemplateProtocol.languages else setOf("ru")
+        compose.setContent { Content() }
+        for (locale in languages) for (night in if (capture) listOf(false, true) else listOf(false)) {
+            fixture.service().load(fixture.project)?.let { fixture.service().remove(fixture.project, it.getString("stamp")) }
+            val source = ru.genesis.calendar.auth.PlanningLifecycle.rows(fixture.base.client.sharedFieldDefinitions(fixture.base.generation, fixture.space, fixture.project, true).getJSONArray("fields"))
+                .single { it.getString("id") == ids.getValue("select") }
+            val own = CustomFieldEditorProtocol.newEdit(fixture.space, fixture.project, source).apply { getJSONObject("draft").put("options",
+                JSONArray((1..200).map { index -> JSONObject().put("id", "new-$index").put("title", "Вариант $index").put("archived", false) })) }
+            fixture.service().save(fixture.project, null, own)
+            compose.runOnIdle { language = locale; dark = night; epoch++ }; await("field-preview")
+            click("field-preview"); await("field-error")
+            assertEquals("editing", fixture.service().load(fixture.project)!!.getString("phase"))
+            assertEquals(200, fixture.service().load(fixture.project)!!.getJSONObject("edit").getJSONObject("draft").getJSONArray("options").length())
+            assertTrue(fixture.bodies.isEmpty())
+            if (capture) screenshot("limits-${args.getString("genesisFieldWidth")}-${locale}-${if (night) "dark" else "light"}")
+            else compose.onNodeWithTag("field-error").assertTextEquals("Лимит — 200 вариантов, включая архивные. Для новых вариантов создайте другое поле.")
+        }
+    }
     @Test fun captureFieldManagement() {
         val args = InstrumentationRegistry.getArguments(); assumeTrue(args.getString("genesisFieldCapture") == "true")
         val width = requireNotNull(args.getString("genesisFieldWidth"))

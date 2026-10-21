@@ -17,6 +17,18 @@ internal fun templateSave(manifest: JSONObject = templateRich()): JSONObject = S
 internal fun templateOptions() = JSONObject().put("spaceId", templateSpace).put("language", "ru").put("anchorDate", "2026-10-20")
 
 class SharedTemplateProtocolTest {
+    @Test fun archivedLegacyChoicesRemainPortableWithoutAllowingMoreActiveChoices() {
+        val manifest = templateRich()
+        val field = JSONObject().put("key", "legacy-extra").put("projectKey", manifest.getJSONArray("projects").getJSONObject(0).getString("key"))
+            .put("title", "Legacy choices").put("type", "select").put("required", false).put("showCard", true).put("showList", true).put("position", 0)
+            .put("options", JSONArray((0..200).map { index -> JSONObject().put("id", "legacy-$index").put("title", "Choice $index").put("archived", index == 0) }))
+        manifest.getJSONArray("fields").put(field)
+        val parsed = SharedTemplateManifest.validate(manifest)
+        assertEquals(201, parsed.getJSONArray("fields").getJSONObject(parsed.getJSONArray("fields").length() - 1).getJSONArray("options").length())
+        field.getJSONArray("options").getJSONObject(0).put("archived", false)
+        assertThrows(Exception::class.java) { SharedTemplateManifest.validate(manifest) }
+    }
+
     private fun rejected(block: () -> Unit) { assertTrue(runCatching(block).isFailure) }
     private fun summary(index: Int) = JSONObject(templateStarters().getJSONObject(0).toString()).put("id", UUID.nameUUIDFromBytes("template-$index".toByteArray()).toString())
         .put("system", false).put("canEdit", true).put("spaceId", templateSpace).put("projectId", templateProject).put("ownerId", "synthetic-owner")

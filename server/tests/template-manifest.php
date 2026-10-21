@@ -20,6 +20,11 @@ $manifest=['schemaVersion'=>1,'kind'=>'task','calendarMode'=>'lunar','calendarCo
    'customValues'=>['points'=>0,'flag'=>false],'due'=>['amount'=>1,'unit'=>'month'],
    'checklists'=>[['key'=>'checklist','title'=>'Контроль','items'=>[['key'=>'item','title'=>'Связанный пункт','linkedTaskKey'=>'child']]]]],
   ['key'=>'child','projectKey'=>'project-a','parentKey'=>'root','title'=>'Подзадача','statusKey'=>'open','customValues'=>['flag'=>true]]]];
+$legacy=$manifest;
+$legacy['fields'][]=['key'=>'legacy-extra','projectKey'=>'project-a','title'=>'Legacy choices','type'=>'select','required'=>false,'showCard'=>true,'showList'=>true,
+    'options'=>array_map(static fn($i)=>['id'=>'legacy-'.$i,'title'=>'Choice '.$i,'archived'=>$i===0],range(0,200))];
+$legacyNormal=genesisTemplateManifest($legacy);tmCheck(count($legacyNormal['fields'][2]['options'])===201,'Legacy archived choices were dropped from a template');
+$legacy['fields'][2]['options'][0]['archived']=false;tmReject(fn()=>genesisTemplateManifest($legacy),'TEMPLATE_INVALID');
 $normal=genesisTemplateManifest($manifest);
 tmCheck(json_encode(genesisTemplateManifest($normal))===json_encode($normal),'Manifest normalization not idempotent');
 tmCheck((array)$normal['tasks'][0]['customValues']===['points'=>0,'flag'=>false],'Manifest lost0/false');

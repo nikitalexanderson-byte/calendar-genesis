@@ -113,7 +113,8 @@ internal object SharedTemplateManifest {
             text(field.opt("title"), 160, complete); valid(field.opt("type") in CustomFieldProtocol.types)
             for (flag in listOf("required", "showCard", "showList")) valid(field.opt(flag) is Boolean)
             integer(field.opt("position"), -100000, 100000)
-            val options = rows(field.getJSONArray("options"), 200)
+            val options = rows(field.getJSONArray("options"), 10000)
+            require(options.count { it.opt("archived") == false } <= 200 && field.toString().toByteArray(Charsets.UTF_8).size <= 1_000_000) { "TEMPLATE_INVALID" }
             valid(field.getString("type") in setOf("select", "multi") || options.isEmpty())
             valid(options.map { key(it.getString("id")) }.distinct().size == options.size, "TEMPLATE_REFERENCE_INVALID")
             options.forEach { option -> keys(option, setOf("id", "title", "archived")); text(option.opt("title"), 160, complete); valid(option.opt("archived") is Boolean) }
@@ -180,9 +181,9 @@ internal object SharedTemplateManifest {
     fun inputId(key: String): String = "tpl_" + MessageDigest.getInstance("SHA-256").digest(key.toByteArray()).joinToString("") { "%02x".format(it) }
     fun fieldAdapter(field: JSONObject): JSONObject = copy(field).put("id", inputId(field.getString("key")))
         .put("archived", false)
-        .put("options", JSONArray(rows(field.getJSONArray("options"), 200).map { copy(it).put("id", inputId(it.getString("id"))) }))
+        .put("options", JSONArray(rows(field.getJSONArray("options"), 10000).map { copy(it).put("id", inputId(it.getString("id"))) }))
     fun optionValue(field: JSONObject, value: Any?, toInput: Boolean): Any {
-        fun convert(id: String): String = if (toInput) inputId(id) else rows(field.getJSONArray("options"), 200).firstOrNull { inputId(it.getString("id")) == id }?.getString("id") ?: error("CUSTOM_FIELD_OPTION_UNAVAILABLE")
+        fun convert(id: String): String = if (toInput) inputId(id) else rows(field.getJSONArray("options"), 10000).firstOrNull { inputId(it.getString("id")) == id }?.getString("id") ?: error("CUSTOM_FIELD_OPTION_UNAVAILABLE")
         return when {
             value == null || value == JSONObject.NULL -> JSONObject.NULL
             field.opt("type") == "select" && value is String -> convert(value)

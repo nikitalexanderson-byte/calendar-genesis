@@ -40,7 +40,12 @@ function genesisSharedCustomFieldInput(string $spaceId,array $input,?array $old)
     if($project!==null&&!is_string($project))throw new InvalidArgumentException('CUSTOM_FIELD_INVALID');
     if($project!==null){$q=genesisDb()->prepare('SELECT 1 FROM shared_projects WHERE id=? AND space_id=?');$q->execute([$project,$spaceId]);if(!$q->fetchColumn())throw new GenesisSharedAccessException();}
     $options=$input['options']??null;
-    if(!is_array($options)||!array_is_list($options)||count($options)>200)throw new InvalidArgumentException('CUSTOM_FIELD_INVALID');
+    // Old normalization could retain archived IDs beyond 200. Preserve that history without allowing further growth.
+    // Only the existing transactional import scope may temporarily unarchive historical choices while restoring values.
+    $historicalRestore=class_exists(GenesisDataHistoricalScope::class,false)&&GenesisDataHistoricalScope::active();
+    $optionLimit=$historicalRestore?10000:($old&&$old['type']===$input['type']?max(200,count($old['options'])):200);
+    if(!is_array($options)||!array_is_list($options))throw new InvalidArgumentException('CUSTOM_FIELD_INVALID');
+    if(count($options)>$optionLimit)throw new InvalidArgumentException('CUSTOM_FIELD_OPTIONS_LIMIT');
     if(!in_array($input['type'],['select','multi'],true)&&$options)throw new InvalidArgumentException('CUSTOM_FIELD_INVALID');
     $normalized=[];
     foreach($options as $option){
@@ -48,9 +53,11 @@ function genesisSharedCustomFieldInput(string $spaceId,array $input,?array $old)
             ||!preg_match('/^[a-zA-Z0-9_-]{1,100}$/D',$option['id'])||isset($normalized[$option['id']])||array_diff(array_keys($option),['id','title','archived']))throw new InvalidArgumentException('CUSTOM_FIELD_INVALID');
         $normalized[$option['id']]=['id'=>$option['id'],'title'=>genesisSharedTitle($option['title']??null,160),'archived'=>$option['archived']];
     }
+    if(!$historicalRestore&&count(array_filter($normalized,static fn($option)=>!$option['archived']))>200)throw new InvalidArgumentException('CUSTOM_FIELD_OPTIONS_LIMIT');
     if($old&&$old['type']===$input['type'])foreach($old['options'] as $option){
         if(!isset($normalized[$option['id']]))$normalized[$option['id']]=[...$option,'archived'=>true];
     }
+    if(count($normalized)>$optionLimit)throw new InvalidArgumentException('CUSTOM_FIELD_OPTIONS_LIMIT');
     return ['id'=>$input['id'],'spaceId'=>$spaceId,'projectId'=>$project,'title'=>genesisSharedTitle($input['title']??null,160),
         'type'=>$input['type'],'options'=>array_values($normalized),'position'=>$input['position'],'required'=>$input['required'],
         'showCard'=>$input['showCard'],'showList'=>$input['showList'],'archived'=>$input['archived']];

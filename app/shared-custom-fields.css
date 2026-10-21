@@ -89,3 +89,10 @@ html[data-genesis-theme] .genesis-app .shared-projects-modal .shared-custom-fiel
 .shared-custom-field-filter-add { display:flex; align-items:center; justify-content:space-between; gap:16px; grid-column:1 / -1; padding-block-start:12px; border-block-start:1px solid var(--line); }
 @container field-filter (min-width:520px) { .shared-custom-field-filter > fieldset { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media(max-width:600px){ .shared-custom-field-option { grid-template-columns:minmax(0,1fr); } }
+
+.shared-custom-field-options-disclosure { border:0; border-top:1px solid var(--line); padding-block:4px; background:transparent; }
+.shared-custom-field-options-disclosure > summary { min-height:44px; padding-block:12px; }
+.shared-custom-field-option-navigation > span { font-variant-numeric:tabular-nums; }
+.shared-custom-field-reviewed-options ul { display:grid; gap:8px; margin:12px 0; padding-inline-start:20px; }
+.shared-custom-field-reviewed-options li { overflow-wrap:anywhere; }
+.shared-custom-field-reviewed-options li small { margin-inline-start:12px; color:var(--ink-soft); }

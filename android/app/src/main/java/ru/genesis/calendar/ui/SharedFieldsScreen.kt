@@ -39,6 +39,7 @@ internal fun fieldTypeLabel(type: String) = when (type) {
     "multi" -> "Множественный выбор"; "checkbox" -> "Флажок"; "url" -> "Ссылка"; else -> "Недоступно"
 }
 internal fun fieldEditorMessage(code: String, hasRecord: Boolean = true): String = customFieldMessage(code) ?: when (code) {
+    "CUSTOM_FIELD_OPTIONS_LIMIT" -> "Лимит — 200 вариантов, включая архивные. Для новых вариантов создайте другое поле."
     "CUSTOM_FIELD_POSITION_INVALID" -> "Порядок должен быть целым числом от −100000 до 100000."
     "CUSTOM_FIELD_PREVIEW_REQUIRED" -> "Сначала проверьте изменения в предпросмотре."
     "CUSTOM_FIELD_LOCAL_QUEUE" -> "Сначала синхронизируйте изменения задач. Черновик поля сохранён."

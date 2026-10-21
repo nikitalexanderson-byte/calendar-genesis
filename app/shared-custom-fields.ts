@@ -1,6 +1,9 @@
+import recoveryCopy from "./custom-field-recovery-translations.json";
 import { GenesisApiError } from "./cloud-sync";
 import { workflowError } from './workflow-copy';
-import { translateText as t, type Language } from "./i18n";
+import { translateText as t, runtimeLocale, type Language } from "./i18n";
+export const customFieldRecoveryText=(source:keyof typeof recoveryCopy.ru,language:Language=runtimeLocale().split("-")[0] as Language)=>recoveryCopy[language][source];
+
 export type CustomFieldType = "text"|"number"|"date"|"select"|"multi"|"checkbox"|"url";
 export type CustomFieldValue = string|number|boolean|string[];
 export type CustomFieldValues = Record<string,CustomFieldValue|null>;
@@ -30,6 +33,7 @@ export function customFieldsError(error:unknown,language?:Language):string|null 
     CUSTOM_FIELD_INVALID:"Проверьте название, тип и настройки поля.",CUSTOM_FIELD_OPERATION_REUSED:"Эта операция уже использована. Обновите предпросмотр и повторите.",
     CUSTOM_FIELD_FILTER_INVALID:"Условия выборки недействительны. Исправьте или сбросьте фильтр.",CUSTOM_FIELD_SORT_INVALID:"Условия выборки недействительны. Исправьте или сбросьте фильтр.",
   };
+  if(code==='CUSTOM_FIELD_OPTIONS_LIMIT')return customFieldRecoveryText('Лимит — 200 вариантов, включая архивные. Для новых вариантов создайте другое поле.',language);
   return copy[code]?t(copy[code],language):null;
 }
 export function customFieldText(field:SharedCustomField,value:CustomFieldValue|null|undefined,language:Language):string {
