@@ -153,7 +153,7 @@ test("need modes and individual cards cannot silently fall back to a shared gene
   }
 });
 
-test("myths cite specific primary texts and explicitly distinguish modern GENESIS interpretation", () => {
+test("myths cite specific primary texts and attribute the interpretation to the Order of Aurora", () => {
   for (const sector of content.sectors) {
     const myth = sector.myth;
     bilingual(myth.title, `${sector.id}.myth.title`);
@@ -167,8 +167,8 @@ test("myths cite specific primary texts and explicitly distinguish modern GENESI
     const primaryText = (url.hostname === "www.theoi.com" && url.pathname.startsWith("/Text/"))
       || (url.hostname === "www.perseus.tufts.edu" && url.pathname === "/hopper/text" && url.searchParams.has("doc"));
     assert.ok(primaryText, `${sector.id}: use a primary text on Theoi or Perseus`);
-    assert.match(myth.body.ru, /Авторское прочтение GENESIS/u, `${sector.id}: distinguish the modern interpretation`);
-    assert.match(myth.body.en, /GENESIS's contemporary interpretation/u, `${sector.id}: distinguish the modern interpretation`);
+    assert.match(myth.body.ru, /Согласно представлениям Ордена Авроры/u, `${sector.id}: attribute the interpretation`);
+    assert.match(myth.body.en, /According to the views of the Order of Aurora/u, `${sector.id}: attribute the interpretation`);
   }
 });
 

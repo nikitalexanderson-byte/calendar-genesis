@@ -58,12 +58,13 @@ test("all fourteen interface locales cover every control and all six categories"
 
 test("published advice has complete titles and bodies in all fourteen languages and distinct real artwork", async () => {
   const result = await verifyDailyAdvice();
-  assert.deepEqual(result, { published: 152, drafts: 8, languages: 14, illustrations: 152 });
+  assert.deepEqual(result, { published: 160, drafts: 0, languages: 14, illustrations: 160 });
   const catalog = JSON.parse(await readFile(new URL("../server/content/daily-advice.json", import.meta.url), "utf8"));
   assert.equal(catalog.items[18].title, "Точность Прямодействия");
   assert.ok(catalog.items[18].body.endsWith("Любая задача, которую ты решил довести до конца, должна выполняться с предельной интенсивностью, без оглядки на усталость."));
   assert.equal(catalog.items[18].status, undefined);
-  assert.deepEqual(catalog.items.map((entry, index) => entry.status === "draft" ? index + 1 : null).filter(Boolean), [26, 60, 65, 70, 97, 98, 99, 100]);
+  assert.equal(catalog.items[25].id, "advice-a981fcbe698a094088afcbd5");
+  assert.deepEqual(catalog.items.map((entry, index) => entry.status === "draft" ? index + 1 : null).filter(Boolean), []);
 });
 
 test("smart affinity uses only active, current habits and keeps all six numeric scores private", () => {

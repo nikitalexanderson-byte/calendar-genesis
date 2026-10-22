@@ -127,14 +127,15 @@ try {
     adviceExpect(genesisDailyAdvice($alice, [], $items)['advice'] === null, 'Disabled advice still returned content');
     genesisUpdateAccountPreferences($alice, ['advicePreferences' => ['enabled' => true]]);
     adviceExpect(genesisDailyAdvice($alice, [], $items)['advice']['id'] === $card['id'], 'Re-enabling rerolled the day');
-    $versioned = genesisAdviceCatalog()[0];
-    $localizedRow = ['day_key' => $card['dayKey'], 'entry_json' => json_encode($versioned, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), 'dismissed_at' => genesisNow()];
-    foreach (GENESIS_ADVICE_LANGUAGES as $language) {
-        $localized = genesisAdviceForClient($localizedRow, $language);
-        $expected = json_decode(file_get_contents(__DIR__ . '/../content/daily-advice/' . $versioned['contentVersion'] . '/' . $language . '.json'), true, 32, JSON_THROW_ON_ERROR)[$versioned['id']];
-        adviceExpect($localized['id'] === $versioned['id'] && $localized['dismissed'] && $localized['dayKey'] === $card['dayKey'], 'Changing language changed identity or dismissal');
-        adviceExpect($localized['language'] === $language && $localized['title'] === $expected['title'] && $localized['body'] === $expected['body'], 'Incomplete or wrong daily advice translation');
-        adviceExpect(array_intersect(['contentVersion', 'topics', 'schedule', 'status'], array_keys($localized)) === [], 'Internal publishing metadata leaked');
+    foreach ([genesisAdviceCatalog()[0], genesisAdviceCatalog()[25]] as $versioned) {
+        $localizedRow = ['day_key' => $card['dayKey'], 'entry_json' => json_encode($versioned, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), 'dismissed_at' => genesisNow()];
+        foreach (GENESIS_ADVICE_LANGUAGES as $language) {
+            $localized = genesisAdviceForClient($localizedRow, $language);
+            $expected = json_decode(file_get_contents(__DIR__ . '/../content/daily-advice/' . $versioned['contentVersion'] . '/' . $language . '.json'), true, 32, JSON_THROW_ON_ERROR)[$versioned['id']];
+            adviceExpect($localized['id'] === $versioned['id'] && $localized['dismissed'] && $localized['dayKey'] === $card['dayKey'], 'Changing language changed identity or dismissal');
+            adviceExpect($localized['language'] === $language && $localized['title'] === $expected['title'] && $localized['body'] === $expected['body'], 'Incomplete or wrong daily advice translation');
+            adviceExpect(array_intersect(['contentVersion', 'topics', 'schedule', 'status'], array_keys($localized)) === [], 'Internal publishing metadata leaked');
+        }
     }
     $db->prepare('UPDATE daily_advice_days SET advice_id=?,entry_json=? WHERE user_id=?')->execute([$versioned['id'], $localizedRow['entry_json'], $alice]);
     foreach (GENESIS_ADVICE_LANGUAGES as $language) {
