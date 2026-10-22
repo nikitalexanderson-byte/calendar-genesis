@@ -2,6 +2,8 @@
 
 Указание пользователя от 22 октября: продолжать все пункты локально, не выполнять публикацию до отдельного разрешения. После завершённой проверки Samsung пользователь отключил телефон; дальнейшая работа выполняется только в эмуляторах. Рабочая ветка — `codex/post-release-acceptance-no-deploy` от `origin/master` `6287f2aea1d7d5ba9a3e948476f90375529a01d0`. Исходный OneDrive checkout не изменяется.
 
+Затем в эту же рабочую ветку интегрированы опубликованные в GitHub изменения до `origin/master` `8dcecdcfd58c1ad19153c5b9bda2e0bca8a9f986`. Интеграция и проверки не выполняют merge в master или деплой. Актуальные результаты после интеграции приведены ниже; прежние числа сохранены как датированные срезы.
+
 ## Сайт и Samsung: завершённый срез A4
 
 По явному выбору пользователя «Копия сохраненная на сайте!» в production Android 2.9.4/code99 применено штатное действие «Оставить изменения сайта». Перед выбором повторно раскрыты все 26 конфликтов. Использован fingerprint guard приложения, без доступа к приватной БД, токенам и ручного SQL.
@@ -56,7 +58,9 @@
 
 Дополнительная узкая API28 матрица прошла 8/8: 360/390dp, обе темы, базовый font100 и длинные названия при font130. Сохранены 16 физических restore/source PNG и metrics; контактный лист просмотрен, stress-кадры дополнительно открыты в исходном размере. Длинное название переносится в общей прокрутке; footer и edit action доступны и имеют ≥48dp, наложений не обнаружено. Настройки дисплея восстановлены. Receipt: `output/native-ui-acceptance/phone-edges-api28/receipt.json`, кадры и `contact.png` рядом. Это отдельные synthetic UI-профили, не новое применение копии или проверка production-данных.
 
-Повтор [Native CI39769544156](https://github.com/nikitalexanderson-byte/calendar-genesis/actions/runs/39769544156) по`809063b` выполняет прежнюю полную33-case матрицу на каждой API. Android15 restore paint до получения и просмотра новых PNG остаётся открытым.
+Повтор [Native CI39769544156](https://github.com/nikitalexanderson-byte/calendar-genesis/actions/runs/39769544156) по `809063b` завершился success на обеих API: по 33 UI-запуска, 124 PNG и 738 JVM cases (730 executed, 8 прежних skips, 0 failures/errors). Все 248 физических PNG проверены на отсутствие одного Activity/OS backdrop; 16 Habit PNG дополнительно независимо сопоставлены с настоящим Material Surface и metrics/SHA. Все получены с первой попытки; rejected diagnostics — 0. API35 использовал RenderThread commit во всех восьми Habit кадрах. Surface занимает 94.37–98.64% на API35 и 64.87–73.65% на API28. Настройки дисплея восстановлены.
+
+Просмотрены все 12 контактных листов; четыре ранее пустых Android15 restore-состояния отдельно открыты в исходном размере. Дополнительно открыты два API35 source и два Welcome original с enabled/disabled Google control при font130. Пустых кадров или системных ANR-окон в текущем наборе не обнаружено. **Остаток Android15 restore capture закрыт для этих synthetic widget-профилей.** Артефакты: `output/native-ui-acceptance/ci-frame-commit-api{28,35}/artifact-verification.json`, оригиналы и `review/contact-{1..6}.png` рядом. Автоматическая проверка и просмотр контактов не объявляются полной приёмкой всех экранов, локалей или signed MainActivity. В светлом debug widget host системные бары не используются как доказательство оформления production MainActivity.
 
 ## Общая проверка TypeScript и совместимый диалог
 
@@ -82,6 +86,16 @@
 
 Восемь PNG планирования/отчёта: обе схемы при360/390/768/1440px, `output/playwright/post-release-integrated-{standart,standart-dark}-{360,390,768,1440}.png`. Receipt: `output/post-release-integrated-final.json`. Обе созданные этим проходом локальные QA spaces удалены штатным API; отсутствие проверено (`output/post-release-integrated-cleanup.json`, deletedLocalTestSpaces=2, productionDataChanged=false). Прежние тестовые пространства не затрагивались.
 
+## Совместимость со свежим master
+
+В рабочую ветку без конфликтов интегрированы PR247–251: web-диалог/готовность черновика/ряд действий Стойхейона и ежедневные советы. Это сохранение параллельной работы из master; эти функции не приписываются текущим исправлениям. Merge checkpoint `bf83aa7` включает `ffcc4e5`; следующий `5d25092` включает `8dcecdc`. Второй merge меняет только advice PHP/test/doc, без изменений web/Android inputs.
+
+После первого merge повторно прошли frozen install, TypeScript, lint (0 errors, 2 прежних image warnings), **493/493 web tests** с i18n audit и build:beget. Receipt: `output/integrated-no-deploy-web-gates.json`, логи рядом. Эти 493 — текущий полный набор, к прежним 484 их не прибавляют. [Backend CI39772059115](https://github.com/nikitalexanderson-byte/calendar-genesis/actions/runs/39772059115) по `bf83aa7`: те же 8 suites PASS на свежей SQLite для каждого файла, включая текущие миграции master. Логи: `output/backend-acceptance/integrated-final/`.
+
+После второго merge отдельно прошёл изменённый `server/tests/daily-advice.php`: loopback-only конфигурация подтверждена программным guard до запуска, реальные аккаунты/production не используются. Лог: `output/integrated-no-deploy-daily-advice.log`. Diff подтвердил неизменность web/Android/build inputs относительно `bf83aa7`; успешный native run по `809063b` также проверяет неизменные Android sources/bundled assets текущей ветки. Финальный [Backend CI39773491153](https://github.com/nikitalexanderson-byte/calendar-genesis/actions/runs/39773491153) по `5d25092` прошёл все восемь suites на свежей SQLite для каждого файла; артефакты: `output/backend-acceptance/integrated-master-8dcecdc/`. Последующие изменения отчётов не затрагивают исполняемый код.
+
+Read-only наблюдение production: в 11:39 UTC `/deploy-meta.json` показывал commit `7f9c97975a4b1330b6090f168e44fc63318afc91`, run39762762912; `/api/health` в 11:38 UTC — ok=true. В этот момент master уже был `8dcecdc`, его отдельный deploy39772072016 выполнялся в другой работе; прежний ffcc4e5 run39767280277 был cancelled. Эти наблюдения не являются проверкой production `8dcecdc` или публикацией текущего PR. Receipt: `output/no-deploy-public-observation.json`. Этот чат не запускал и не перезапускал публикующий workflow.
+
 ## Границы текущего среза
 
 Нового деплоя, push/merge в master, перезапуска публикующего workflow и операторского SSH в этом срезе нет. Draft[PR246](https://github.com/nikitalexanderson-byte/calendar-genesis/pull/246) открыт для review, не merged. Samsung после отключения не используется. Завершённый реальный выбор данных и проверка двух Google Tasks связей не закрывают автоматически21 частичный функциональный ID и14 сквозных K/U/L. Актуальная [матрица46 ID](genesis-improvements-progress-2026-10-14.md) различает работающую реализацию и незавершённую общую приёмку; строгий счёт остаётся11/32 принятых.
@@ -93,4 +107,4 @@
 - Текущий Hostinger worker/notifications/cron и настоящая внешняя доставка уведомлений.
 - Настоящий iOS Safari, VoiceOver и TalkBack.
 - Полная native Welcome paint matrix ещё12 локалей сверх RU/EN; наличие каталога и i18n gate не заменяет такой просмотр.
-- Новый Android15 restore paint до завершения указанного CI и просмотра его кадров; прежний пустой набор не принят.
+- Полная визуальная/state/calendar матрица всех новых функций: принятые здесь профили и закрытый blank-capture дефект не заменяют её. Прежний пустой набор остаётся отвергнутым.
