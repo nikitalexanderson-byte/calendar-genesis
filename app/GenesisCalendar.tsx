@@ -1,4 +1,5 @@
 "use client";
+import { TodayAdvice } from "./TodayAdvice";
 import { DialogCloseButton } from "./DialogCloseButton";
 import { useMobileLayout, useCompactHeader } from "./use-mobile-layout";
 import { useHeaderControlSize } from "./use-header-control-size";
@@ -5219,6 +5220,8 @@ export function GenesisCalendar() {
           <DeviceClock timeFormat={activeTimeFormat} />
           </div>
         </section>
+
+        {cloudUser ? <TodayAdvice key={cloudUser.uid} user={cloudUser} habits={habitWorkspace.habits} day={todayDateValue} ready={hydrated && syncStatus !== "syncing"} /> : null}
 
         {cloudUser ? <TodayAdBlock key={`${cloudUser.uid}:${language}`} language={language} userId={cloudUser.uid} /> : null}
 

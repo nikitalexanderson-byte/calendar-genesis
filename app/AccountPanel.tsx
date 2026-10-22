@@ -1,5 +1,6 @@
 "use client";
 import { DialogCloseButton } from "./DialogCloseButton";
+import { DailyAdviceSettings } from "./DailyAdviceSettings";
 import { SharedNotificationPreferencesDialog } from "./SharedNotificationPreferences";
 import { HabitReminderSettings } from "./HabitReminderSettings";
 import { sharedNotificationLabel } from "./notification-settings-model";
@@ -868,6 +869,8 @@ export function AccountPanel({ user, guideSharedProjects = false, onClose, onSig
             {user.stoicheionDivinationDisabled ? "Гадания выключены" : "Гадания доступны"}
           </p>
         </section> : null}
+
+        <DailyAdviceSettings user={user} onUserChange={onUserChange} />
 
         <section className="account-preferences" aria-labelledby="account-habits-title" data-settings-group="habits">
           <div>

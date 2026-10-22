@@ -1,0 +1,33 @@
+.daily-advice-card {
+  min-width: 0;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--ui-radius, 12px);
+  background: var(--surface);
+  color: var(--ink);
+}
+.daily-advice-card > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.daily-advice-card > header > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; min-width: 0; }
+.daily-advice-card h2 { margin: 0; font: 400 20px/1.3 var(--font-heading); color: var(--ink); }
+.daily-advice-category-name { font: 500 12px/1.6 var(--font-ui); color: var(--gold); overflow-wrap: anywhere; }
+.daily-advice-hide { display: grid; place-items: center; flex: 0 0 44px; width: 44px; height: 44px; margin: -8px -8px 0 0; border: 0; border-radius: 8px; background: transparent; color: var(--ink-soft); cursor: pointer; }
+.daily-advice-hide svg { width: 18px; height: 18px; }
+.daily-advice-hide:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); color: var(--ink); }
+.daily-advice-hide:focus-visible, .daily-advice-category input:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+.daily-advice-hide:disabled { opacity: .55; cursor: wait; }
+.daily-advice-card .daily-advice-body { max-width: 75ch; margin: 8px 0 0; line-height: 1.65; white-space: pre-line; overflow-wrap: anywhere; }
+.daily-advice-card footer { display: grid; gap: 4px; margin-top: 12px; font: 400 12px/1.6 var(--font-ui); color: var(--ink-soft); overflow-wrap: anywhere; }
+.daily-advice-settings > div > p, .daily-advice-settings .daily-advice-note { color: var(--ink-soft); font-size: 13px; line-height: 1.6; }
+.daily-advice-settings .daily-advice-categories { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 20px; min-width: 0; margin: 0; padding: 12px 0 0; border: 0; }
+.daily-advice-categories legend { color: var(--ink); font-weight: 500; }
+.daily-advice-category { display: flex; align-items: flex-start; gap: 10px; min-width: 0; padding: 12px 0; cursor: pointer; }
+.daily-advice-category input { flex: 0 0 18px; width: 18px; height: 18px; margin-top: 3px; accent-color: var(--teal); }
+.daily-advice-category span { min-width: 0; overflow-wrap: anywhere; }
+.daily-advice-category strong, .daily-advice-category small { display: block; }
+.daily-advice-category strong { color: var(--ink); font-size: 14px; font-weight: 500; }
+.daily-advice-category small { margin-top: 4px; color: var(--ink-soft); font-size: 12px; line-height: 1.6; }
+.daily-advice-categories > p { grid-column: 1 / -1; }
+@media (max-width: 600px) {
+  .daily-advice-card { padding: 16px; }
+  .daily-advice-settings .daily-advice-categories { grid-template-columns: minmax(0, 1fr); }
+}
