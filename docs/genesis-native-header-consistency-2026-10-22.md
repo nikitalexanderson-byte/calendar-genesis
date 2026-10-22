@@ -1,0 +1,13 @@
+# Android: общие кнопки шапки
+
+Обновление и микрофон в общей шапке сохраняли отдельный круглый фон и видимый размер38/44dp. Теперь оба действия используют существующий Material OutlinedIconButton, общий controlShape10dp и touchTarget48dp. Цвета остаются из текущей STANDART-схемы. Круглый логотип и все ассеты сохраняются.
+
+Высота строки остаётся56dp; compact mode продолжает выбирать типографику бренда. Имена, обработчики, disabled/progress состояния и управление голосом не меняются. Публикуемый кандидат — Android2.9.3/98. Кандидат97 не был опубликован: первый deploy остановился на сетевом SSH timeout до передачи файлов, повтор отменён до публикации.
+
+Проверки среза от PR242: BrandHeaderFooterTest и ResponsiveWorkspaceTest PASS2/2 на Samsung и API28, по18 актуальных PNG на устройство. API28 сначала получил forceRedraw/idle timeout при параллельной сборке; повтор после её окончания прошёл без изменения продукта. На API35 BrandHeaderFooterTest PASS: обе схемы и оба варианта подписей навигации,4 PNG. ResponsiveWorkspaceTest не принят: qemu-system-x86_64-headless.exe завершался Windows access violation0xc0000005 при повороте; повтор с отключённым Vulkan не устранил сбой. Данные AVD не очищались; выполнен обычный перезапуск для ART-проверки.
+
+JVM/lint/R8 PASS:723 cases/715 executed/8 opt-in skips, `output/a4-header-native.log`;68-holder ART на трёх устройствах PASS, `output/a4-header-art.log`, `output/a4-header-release-runtime/receipt.json`. Byte parity PASS:552 public originals/1 native-only/102 catalogs, `output/a4-header-assets.log`. Frozen install/lint/457 web tests/14-language audit/build PASS, `output/a4-header-{frozen,lint,tests,build}.log`. Эти receipts относятся к срезу PR242 плюс шапка; свежий master со Стойхейоном требует отдельной итоговой сборки.
+
+Production до завершения нового workflow остаётся d4922d6/Android2.9.1/96 с успешным health. В живой существующей веб-сессии видны два связанных Google-аккаунта и маршрутизация; новый Google OAuth и двусторонний обмен с обоими аккаунтами этим не подтверждены. Настоящий Samsung conflict сохраняется без выбора стороны.
+
+Непроверенные состояния: signed98 до выпуска; fresh Google OAuth; two-account round trip; tablet rotation после аварии эмулятора; визуально пустой tablet restore capture; исторические TypeScript diagnostics. SSH-аутентификация и удалённые команды оператором не использовались; для диагностики ошибки workflow проверена только TCP-доступность известного SSH-порта Hostinger.

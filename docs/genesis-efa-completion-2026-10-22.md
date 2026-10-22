@@ -1,6 +1,6 @@
 # E4/E5/F1–F3 и общая приёмка A4: текущий срез
 
-Рабочая ветка `codex/habit-lifecycle-completion`; checkpoint `bb7eb96`, затем merge актуального `origin/master` с исправлением памяти CI. Подготовлен кандидат Android2.9.2/97, ещё не опубликован. Production остаётся `d4922d6eef7d4edc63c8474bba770d85210be306`, Android2.9.1/96.
+Рабочая ветка `codex/habit-lifecycle-completion`; checkpoint `bb7eb96`, затем merge актуального `origin/master` с исправлением памяти CI. Подготовлен кандидат Android2.9.3/98, ещё не опубликован. Production остаётся `d4922d6eef7d4edc63c8474bba770d85210be306`, Android2.9.1/96.
 
 ## Реализовано и проверено
 
@@ -36,6 +36,6 @@ STANDART, ассеты и Universal UI сохранены. Restore choices ук�
 
 Дополнительный UI проход унифицировал native control corners10dp/minimum48dp, восстановление по смысловым блокам и icon actions. Source/font130 повторно визуально приняты на Samsung и tablet в обеих темах; tablet restore PNG по-прежнему пустые при успешных semantics/bounds и не приняты визуально. Сообщения, desktop priority alignment и восстановление символов описаны в [UI/reliability audit](genesis-ui-reliability-audit-2026-10-22.md).
 
-Живой Google-вход с нуля, два связанных настоящих аккаунта, финальный signed97 и полный production walkthrough ещё не подтверждены. Прежние TypeScript diagnostics вне этого среза остаются: `output/a4-final-typecheck.log`; typecheck PASS не заявляется. Количество полностью принятых ID до выпуска не уменьшалось.
+Живой Google-вход с нуля, два связанных настоящих аккаунта, финальный signed98 и полный production walkthrough ещё не подтверждены. Прежние TypeScript diagnostics вне этого среза остаются: `output/a4-final-typecheck.log`; typecheck PASS не заявляется. Количество полностью принятых ID до выпуска не уменьшалось.
 
 Операторский SSH и ручные изменения production-БД не использовались. Независимый review не проводился; проверки выполнялись inline.
