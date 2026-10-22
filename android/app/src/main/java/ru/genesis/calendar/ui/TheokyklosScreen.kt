@@ -38,6 +38,7 @@ import ru.genesis.calendar.domain.GenesisCalendar
 import ru.genesis.calendar.domain.TheokyklosCatalogSource
 import ru.genesis.calendar.domain.TheokyklosPractice
 import ru.genesis.calendar.domain.TheokyklosSector
+import ru.genesis.calendar.domain.StoicheionRestorationCatalogSource
 import ru.genesis.calendar.domain.habits.Habit
 import ru.genesis.calendar.domain.habits.HabitEngine
 import ru.genesis.calendar.domain.habits.HabitReminder
@@ -248,6 +249,11 @@ private fun TheokyklosDetail(sector: TheokyklosSector, practices: List<Theokyklo
     workspace: LocalHabitWorkspace?, storageError: String?, actionError: String?, busy: Boolean, english: Boolean,
     onClose: () -> Unit, onOpenHabits: () -> Unit,
     onPractice: (TheokyklosPractice, Habit?, String) -> Unit) {
+    val context = LocalContext.current
+    val language = LocalGenesisLanguage.current
+    val restoration = remember(context, language) {
+        runCatching { StoicheionRestorationCatalogSource.load(context, language) }.getOrNull()
+    }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.widthIn(max = 840.dp).fillMaxWidth().fillMaxHeight(.92f).padding(12.dp), shape = RoundedCornerShape(20.dp),
             color = MaterialTheme.colorScheme.surface) {
@@ -271,6 +277,31 @@ private fun TheokyklosDetail(sector: TheokyklosSector, practices: List<Theokyklo
                         style = MaterialTheme.typography.titleMedium)
                     Text(if (english) sector.description.en else sector.description.ru,
                         style = MaterialTheme.typography.bodyMedium)
+                    restoration?.let { catalog ->
+                        val primary = catalog.sectors[sector.id]
+                        val auxiliary = catalog.auxiliaries.firstOrNull { it.id == sector.id }
+                        if (primary != null || auxiliary != null) Surface(Modifier.fillMaxWidth()
+                            .testTag("theokyklos-restoration-context-${sector.id}"),
+                            shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerLow) {
+                            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(catalog.copy("title"), style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.primary)
+                                if (primary != null) {
+                                    Text(catalog.copy("field"), style = MaterialTheme.typography.labelLarge)
+                                    Text(primary.field, style = MaterialTheme.typography.bodyMedium)
+                                    Text(catalog.copy("ambivalence"), style = MaterialTheme.typography.labelLarge)
+                                    Text(primary.ambivalence, style = MaterialTheme.typography.bodyMedium)
+                                }
+                                if (auxiliary != null) {
+                                    Text(catalog.copy("supports"), style = MaterialTheme.typography.labelLarge)
+                                    Text(auxiliary.purpose, style = MaterialTheme.typography.bodyMedium)
+                                    Text("${auxiliary.word} · ${ru.genesis.calendar.domain.StoicheionRestoration.isopsephy(auxiliary.word)}",
+                                        style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+                                }
+                                RestorationFrameworkDisclosure(catalog)
+                            }
+                        }
+                    }
                     HorizontalDivider()
                     Text("Заклинания Божеств", style = MaterialTheme.typography.titleMedium)
                     Text("Произносите каждое слово осознанно, переходя от смысла к звучанию.",

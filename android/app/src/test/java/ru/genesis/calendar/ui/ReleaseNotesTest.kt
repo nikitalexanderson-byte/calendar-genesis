@@ -9,7 +9,7 @@ class ReleaseNotesTest {
         assertEquals(setOf("ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja"), notes.keys)
         notes.forEach { (language, copy) ->
             assertTrue(language, copy.title.isNotBlank() && copy.close.isNotBlank())
-            assertEquals(language, 5, copy.changes.size)
+            assertEquals(language, 6, copy.changes.size)
             assertTrue(language, copy.changes.all { it.isNotBlank() })
         }
         assertTrue(notes.getValue("el").changes.none {

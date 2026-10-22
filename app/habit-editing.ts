@@ -68,6 +68,7 @@ export function applyEditableHabitUpdate(previous: Habit, candidate: Habit): Hab
     sourceTemplateId: previous.sourceTemplateId,
     sacredPracticeId: previous.sacredPracticeId,
     sacredSectorId: previous.sacredSectorId,
+    stoicheionRestoration: previous.stoicheionRestoration,
     scoringMode: previous.scoringMode,
     qualityScale: previous.qualityScale,
     schedule,

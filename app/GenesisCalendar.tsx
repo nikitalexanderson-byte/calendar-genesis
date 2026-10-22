@@ -7067,6 +7067,11 @@ export function GenesisCalendar() {
                 <Suspense fallback={<DeferredViewFallback label={language === "en" ? "Opening Stoicheion…" : "Открываем Стойхейон…"} />}>
                   <StoicheionView
                     key={cloudUser?.stoicheionDivinationDisabled ? "divination-disabled" : "divination-enabled"}
+                    workspace={habitWorkspace}
+                    calendarMode={activeTaskCalendarMode}
+                    todayDate={todayDateValue}
+                    onWorkspaceChange={(next) => updateHabitWorkspace(next, true)}
+                    onOpenHabits={() => navigateTo("habits")}
                     divinationDisabled={Boolean(cloudUser?.stoicheionDivinationDisabled)}
                     onOpenTheokyklosSector={openTheokyklosSector}
                     sacredPracticesEnabled={habitWorkspace.habitSettings.enabled}

@@ -9,6 +9,7 @@ import ru.genesis.calendar.domain.GenesisCalendar
 import ru.genesis.calendar.domain.RecurrenceConfig
 import ru.genesis.calendar.domain.RecurrenceEngine
 import ru.genesis.calendar.domain.CalendarMode
+import ru.genesis.calendar.domain.StoicheionRestorationSnapshot
 
 internal fun jsRound(value: Double): Int = if (value.isFinite()) floor(value + 0.5).toInt() else 0
 internal fun safeCount(value: Double): Int = jsRound(value).coerceAtLeast(0)
@@ -40,6 +41,7 @@ data class Habit(
     val measurement: HabitMeasurement? = null, val ruleHistory: List<HabitRuleVersion> = emptyList(),
     val periodGoal: HabitPeriodGoal? = null,
     val lifecycleHistory: List<HabitLifecycleEvent> = emptyList(),
+    val stoicheionRestoration: StoicheionRestorationSnapshot? = null,
 ) {
     init { require(periodGoal?.metric != "sum" || measurement != null) { "HABIT_PERIOD_MEASUREMENT_REQUIRED" } }
     val id: String get() = entity.id
@@ -69,6 +71,7 @@ fun preserveHabitCreationSettings(candidate: Habit, previous: Habit?, today: Loc
             .distinctBy { it.id }.sortedWith(compareBy<HabitRuleVersion> { it.effectiveDate }.thenBy { it.recordedAt }.thenBy { it.id })
     } else previous.ruleHistory
     return candidate.copy(
+        stoicheionRestoration = candidate.stoicheionRestoration ?: previous.stoicheionRestoration,
         ruleHistory = rules,
         createdDate = previous.createdDate,
         scoringMode = previous.scoringMode,

@@ -44,8 +44,8 @@ android {
         applicationId = "ru.genesis.calendar"
         minSdk = 26
         targetSdk = 37
-        versionCode = 97
-        versionName = "2.9.2"
+        versionCode = 98
+        versionName = "2.9.3"
         buildConfigField("boolean", "PLAY_DISTRIBUTION", "false")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -139,6 +139,8 @@ val genesisAssets = tasks.register<GenesisAssetsTask>("genesisAssets") {
     from(rootProject.file("../app/emoji-full-catalog.json")) { into("i18n") }
     from(rootProject.file("../app")) { include("calendar-days.*.json"); into("i18n") }
     from(rootProject.file("../app/stoicheion.en.json")) { into("i18n") }
+    from(rootProject.file("../app/stoicheion-restoration-content.json")) { into("catalogs") }
+    from(rootProject.file("../app/stoicheion-restoration-ui.json")) { into("catalogs") }
     from(rootProject.file("../app/catalog-translations")) {
         include("*.json")
         into("i18n/catalog-translations")

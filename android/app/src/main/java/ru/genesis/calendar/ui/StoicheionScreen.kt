@@ -28,7 +28,13 @@ import androidx.compose.ui.graphics.Color
 import ru.genesis.calendar.GenesisApplication
 import ru.genesis.calendar.data.StoicheionDrawRepository
 import ru.genesis.calendar.data.StoicheionDraws
+import ru.genesis.calendar.data.HabitsRepository
+import ru.genesis.calendar.data.LocalHabitWorkspace
 import ru.genesis.calendar.domain.StoicheionReading
+import ru.genesis.calendar.domain.RestorationDrawCard
+import ru.genesis.calendar.domain.StoicheionRestoration
+import ru.genesis.calendar.domain.StoicheionRestorationCatalogSource
+import ru.genesis.calendar.domain.CalendarMode
 import ru.genesis.calendar.domain.TheokyklosCatalogSource
 import java.time.LocalDate
 
@@ -40,11 +46,21 @@ internal data class StoicheionLetter(val id: String, val order: Int, val name: S
 @Composable
 fun StoicheionScreen(app: GenesisApplication, divinationDisabled: Boolean,
     onOpenTheokyklosSector: (String) -> Unit = {}, initialCardId: String? = null,
-    onInitialCardOpened: () -> Unit = {}) {
+    onInitialCardOpened: () -> Unit = {}, onOpenHabits: () -> Unit = {},
+    inputCalendarMode: CalendarMode = CalendarMode.SACRED) {
     val context = LocalContext.current
     val language = LocalGenesisLanguage.current
     val english = language == "en"
     val repository = remember(app) { StoicheionDrawRepository(app) }
+    val habitsRepository = remember(app) { HabitsRepository(app) }
+    val habitWorkspace by produceState<LocalHabitWorkspace?>(null, habitsRepository) {
+        try { habitsRepository.workspace.collect { value = it } }
+        catch (error: CancellationException) { throw error }
+        catch (_: Exception) { value = null }
+    }
+    val restorationCatalog = remember(context, language) {
+        runCatching { StoicheionRestorationCatalogSource.load(context, language) }.getOrNull()
+    }
     val scope = rememberCoroutineScope()
     val today by produceState(LocalDate.now()) {
         while (true) { delay(60_000L); value = LocalDate.now() }
@@ -86,6 +102,22 @@ fun StoicheionScreen(app: GenesisApplication, divinationDisabled: Boolean,
         }
     }
     var selected by remember { mutableStateOf<StoicheionSelection?>(null) }
+    var restorationOpen by remember { mutableStateOf(false) }
+    var restorationSource by remember { mutableStateOf<RestorationSource?>(null) }
+    var restorationSectorId by remember { mutableStateOf<String?>(null) }
+    var restorationHabitId by remember { mutableStateOf<String?>(null) }
+    val openRestoration: (String?) -> Unit = { sectorId ->
+        val spread = draws?.spread
+        val cards = letters?.let { loaded -> spread?.let { StoicheionReading.spread(loaded, it.seed) } }
+        restorationSource = if (spread != null && cards != null) RestorationSource(spread.dayKey, spread.seed,
+            cards.map { RestorationDrawCard(it.first.id, it.second) }) else null
+        restorationSectorId = sectorId
+        restorationHabitId = if (sectorId == null || spread == null) null else StoicheionRestoration.visibleHabits(habitWorkspace?.habits.orEmpty()).firstOrNull {
+            it.stoicheionRestoration?.let { snapshot -> snapshot.sourceDate == spread.dayKey && snapshot.sourceSeed == spread.seed && snapshot.sectorId == sectorId } == true
+        }?.id
+        selected = null
+        restorationOpen = true
+    }
     LaunchedEffect(initialCardId, letters) {
         if(initialCardId!=null) letters?.firstOrNull { it.id==initialCardId }?.let { letter ->
             selected=StoicheionSelection(letter)
@@ -106,6 +138,13 @@ fun StoicheionScreen(app: GenesisApplication, divinationDisabled: Boolean,
     }
     val beginMotion: (String) -> Unit = { mode ->
         if (!saving && !divinationDisabled) { drawError = null; motionMode = mode }
+    }
+    if (restorationOpen && !divinationDisabled && restorationCatalog != null && theokyklos != null && letters?.size == 24) {
+        StoicheionRestorationScreen(restorationSource, letters!!, restorationCatalog, theokyklos,
+            habitWorkspace, habitsRepository, restorationSectorId, restorationHabitId, inputCalendarMode,
+            onBack = { restorationOpen = false }, onOpenHabits = onOpenHabits,
+            onOpenTheokyklos = { restorationOpen = false; onOpenTheokyklosSector(it) })
+        return
     }
     LazyVerticalGrid(columns = GridCells.Adaptive(140.dp), modifier = Modifier.fillMaxSize().testTag("stoicheion-grid"),
         contentPadding = PaddingValues(12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -142,7 +181,32 @@ fun StoicheionScreen(app: GenesisApplication, divinationDisabled: Boolean,
                                     style = MaterialTheme.typography.bodySmall)
                             }
                         } else StoicheionDrawPanel(loaded, draws, now, saving, drawError,
-                            onBegin = beginMotion, onSelect = { selected = it })
+                            onBegin = beginMotion, onSelect = { selected = it },
+                            restorationLabel = restorationCatalog?.copy("begin"),
+                            onRestore = if (restorationCatalog == null) null else { { openRestoration(null) } })
+                        if (!divinationDisabled && restorationCatalog != null) {
+                            val cycles = StoicheionRestoration.visibleHabits(habitWorkspace?.habits.orEmpty())
+                            if (cycles.isNotEmpty()) {
+                                Text(restorationCatalog.copy("history"), style = MaterialTheme.typography.titleMedium)
+                                cycles.forEach { habit ->
+                                    val snapshot = habit.stoicheionRestoration!!
+                                    val completed = StoicheionRestoration.completionDates(snapshot, habit.id,
+                                        habitWorkspace?.completions.orEmpty(), today).size
+                                    OutlinedCard(onClick = {
+                                        restorationSource = null; restorationSectorId = null
+                                        restorationHabitId = habit.id; restorationOpen = true
+                                    }, modifier = Modifier.fillMaxWidth().testTag("stoicheion-restoration-cycle-${habit.id}")) {
+                                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                            Text("${loaded.first { it.id == snapshot.letterId }.symbol} · ${restorationCatalog.sectors.getValue(snapshot.sectorId).title}",
+                                                style = MaterialTheme.typography.titleSmall)
+                                            Text("${habit.emoji} ${habit.title}", style = MaterialTheme.typography.bodySmall)
+                                            Text("${snapshot.sourceDate} · ${restorationCatalog.copy(if (completed == 10) "completed" else "progress")} $completed/10",
+                                                style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         Text("Основной греческий ряд · 24", style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary)
                         Text("Выберите букву", style = MaterialTheme.typography.titleLarge)
@@ -190,6 +254,12 @@ fun StoicheionScreen(app: GenesisApplication, divinationDisabled: Boolean,
                             HorizontalDivider()
                             Text("${position.direction} · сектор расклада", style = MaterialTheme.typography.titleMedium)
                             Text(position.meaning, style = MaterialTheme.typography.bodyMedium)
+                            if (reading.reversed == true && restorationCatalog != null && !divinationDisabled) {
+                                Button(onClick = { openRestoration(position.id) },
+                                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("stoicheion-card-restoration")) {
+                                    Text(restorationCatalog.copy("begin"))
+                                }
+                            }
                             theokyklos?.byId?.get(position.id)?.let { sector ->
                                 Text(if (english) "${sector.patrons.en} · ${sector.essence.en}"
                                     else "${sector.patrons.ru} · ${sector.essence.ru}",

@@ -1,0 +1,120 @@
+.stoicheion-inner:has(> .restoration) { grid-template-columns: minmax(0,1fr); }
+.restoration {
+  --restoration-accent: color-mix(in srgb,var(--gold, #8c672b) 88%,var(--ink, #132426));
+  color: var(--ink, #132426);
+  min-width: 0;
+  max-width: 100%;
+  background: var(--ui-surface-canvas, var(--paper, #eee9dc));
+  padding: clamp(20px, 3vw, 36px);
+  margin-top: 32px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  scroll-margin-top: 32px;
+  font: 400 15px/1.65 Inter, "Source Sans 3", sans-serif;
+}
+.restoration *, .restoration *::before, .restoration *::after { box-sizing: border-box; }
+.restoration :is(h2,h3,p,fieldset) { max-width: 72ch; }
+.restoration h2 { margin: 0; font: 400 clamp(25px, 3vw, 36px)/1.2 "Source Serif 4", Georgia, serif; color: var(--ink); }
+.restoration h3 { margin: 24px 0 8px; font: 400 21px/1.3 "Source Serif 4", Georgia, serif; color: var(--ink); }
+.restoration p { margin: 8px 0 16px; color: var(--ink-soft); font-size: 15px; line-height: 1.65; }
+.restoration button { font-family: inherit; white-space: normal; min-height: 44px; }
+.restoration :is(button,a,input,select,textarea,summary):focus-visible { outline: 2px solid var(--restoration-accent); outline-offset: 4px; }
+.restoration button:disabled { cursor: not-allowed; opacity: .58; }
+.restoration button svg, .restoration a svg { width: 19px; height: 19px; flex: 0 0 19px; }
+.restoration .primary-button, .restoration .secondary-button { display: inline-flex; gap: 8px; justify-content: center; align-items: center; padding: 10px 16px; font-size: 14px; }
+.restoration-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; }
+.restoration-heading > div { flex: 1; min-width: 0; }
+.restoration .restoration-heading p { color: var(--ink-soft); }
+.restoration-heading > button { flex: 0 0 auto; }
+.restoration-selection { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 20px; border-bottom: 1px solid var(--line); }
+.restoration-selection > span { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.restoration-selection > span > b { font: 400 36px/1 Georgia,serif; color: var(--restoration-accent); }
+.restoration-selection > span > span { display: grid; gap: 3px; }
+.restoration-selection > button { flex: 0 1 auto; }
+.restoration fieldset { border: 0; padding: 0; margin: 24px 0; min-width: 0; }
+.restoration legend, .restoration-field > span { font-weight: 600; font-size: 15px; color: var(--ink); margin-bottom: 8px; }
+.restoration-card-picker, .restoration-resources { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,220px),1fr)); gap: 10px; }
+.restoration-card-picker > p { grid-column: 1 / -1; }
+.restoration :is(.restoration-card-picker,.restoration-resources) > button {
+  display: grid; grid-template-columns: 36px minmax(0,1fr); align-items: center; text-align: start; gap: 12px;
+  border: 1px solid var(--line); border-radius: 10px; padding: 14px;
+  background: var(--ui-surface-item, var(--paper)); color: var(--ink);
+}
+.restoration :is(.restoration-card-picker,.restoration-resources) > button:hover { border-color: var(--restoration-accent); }
+.restoration :is(.restoration-card-picker,.restoration-resources) > button[aria-pressed="true"] {
+  border-color: var(--restoration-accent); background: color-mix(in srgb,var(--restoration-accent) 12%,var(--paper));
+}
+.restoration :is(.restoration-card-picker,.restoration-resources) > button > b { font: 400 34px/1 Georgia,serif; color: var(--restoration-accent); }
+.restoration :is(.restoration-card-picker,.restoration-resources) > button > span { display: grid; gap: 4px; min-width: 0; overflow-wrap: anywhere; }
+.restoration small { font-size: 13px; line-height: 1.5; color: var(--ink-soft); }
+.restoration-steps { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); border-bottom: 1px solid var(--line); gap: 8px; margin: 26px 0; }
+.restoration-steps button { border: 0; background: transparent; color: var(--ink-soft); padding: 12px 3px; display: flex; gap: 8px; align-items: center; justify-content: center; overflow-wrap: anywhere; }
+.restoration-steps button span { border: 1px solid var(--line); border-radius: 50%; width: 25px; height: 25px; display: grid; place-items: center; flex: 0 0 25px; font-variant-numeric: tabular-nums; }
+.restoration-steps button[aria-current="step"] { color: var(--ink); box-shadow: inset 0 -2px var(--restoration-accent); font-weight: 600; }
+.restoration-steps button[aria-current="step"] span { color: var(--restoration-accent); border-color: currentColor; }
+.restoration-columns { display: grid; grid-template-columns: minmax(0,1.6fr) minmax(230px,1fr); gap: clamp(24px,4vw,48px); align-items: start; }
+.restoration-main { min-width: 0; }
+.restoration-main > h3:first-child { margin-top: 0; }
+.restoration-main > a { display: inline-flex; gap: 7px; align-items: center; color: var(--restoration-accent); text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
+.restoration-needs { display: flex; flex-wrap: wrap; gap: 8px; }
+.restoration-needs > p { width: 100%; flex-basis: 100%; }
+.restoration-needs label { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; }
+.restoration input { accent-color: var(--restoration-accent); width: 18px; height: 18px; flex: 0 0 18px; }
+.restoration-supports label { display: flex; align-items: flex-start; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--line); cursor: pointer; }
+.restoration-supports label span { display: grid; gap: 4px; }
+.restoration-supports input { margin-top: 4px; }
+.restoration .restoration-note { font-size: 13px; line-height: 1.65; }
+.restoration-equation, .restoration-tetractys { border-inline-start: 1px solid var(--line); padding-inline-start: clamp(20px,3vw,32px); min-width: 0; }
+.restoration-equation h3, .restoration-tetractys h3 { margin-top: 0; }
+.restoration .restoration-formula { font: 400 24px/1.4 "Source Serif 4",Georgia,serif; color: var(--restoration-accent); }
+.restoration dl { margin: 20px 0; }
+.restoration dl > div { display: flex; gap: 16px; justify-content: space-between; border-bottom: 1px solid var(--line); padding: 10px 0; }
+.restoration dt { color: var(--ink-soft); font-size: 13px; overflow-wrap: anywhere; }
+.restoration dd { margin: 0; text-align: end; font-variant-numeric: tabular-nums; }
+.restoration .restoration-key { display: flex; justify-content: space-between; gap: 12px; margin: 8px 0; }
+.restoration .restoration-result { color: var(--ink); font-size: 19px; line-height: 1.6; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.restoration-field { display: grid; gap: 8px; margin: 24px 0 16px; }
+.restoration :is(textarea,select) { width: 100%; min-width: 0; max-width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 12px; background: var(--ui-surface-item,var(--paper)); color: var(--ink); font: inherit; font-size: 16px; }
+.restoration textarea { resize: vertical; min-height: 96px; }
+.restoration-navigation { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--line); }
+.restoration-cycle-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; margin: 20px 0; }
+.restoration-cycle-heading > strong { font: 400 32px/1.2 "Source Serif 4",Georgia,serif; color: var(--restoration-accent); white-space: nowrap; }
+.restoration-triangle { margin: 28px auto; width: max-content; }
+.restoration-triangle > div { display: flex; gap: 14px; justify-content: center; margin: 12px 0; }
+.restoration-triangle i { width: 17px; height: 17px; border: 1px solid var(--restoration-accent); border-radius: 50%; transition: background-color 180ms ease-out; }
+.restoration-triangle i.is-complete { background: var(--restoration-accent); }
+.restoration-tetractys ol { color: var(--ink-soft); padding-inline-start: 20px; }
+.restoration summary { cursor: pointer; padding: 12px 0; min-height: 44px; }
+.restoration-history { border-top: 1px solid var(--line); margin-top: 24px; }
+.restoration-history > div { display: grid; gap: 8px; padding: 8px 0; }
+.restoration-history button { justify-content: flex-start; text-align: start; }
+.restoration-history button > span { display: grid; gap: 3px; }
+.restoration .restoration-error { color: var(--danger, #a5543f); }
+@media (max-width: 900px) {
+  .restoration-columns { grid-template-columns: minmax(0,1fr); }
+  .restoration-equation, .restoration-tetractys { border-inline-start: 0; border-top: 1px solid var(--line); padding-inline-start: 0; padding-top: 24px; }
+  .restoration-step-2 .restoration-equation { order: -1; border: 0; padding-top: 0; }
+  .restoration-step-0 .restoration-equation, .restoration-step-1 .restoration-equation { display: none; }
+}
+@media (max-width: 520px) {
+  .restoration { padding: 18px; margin-top: 24px; }
+  .restoration-heading { flex-direction: column; gap: 12px; }
+  .restoration-heading > button { width: 100%; }
+  .restoration-selection { flex-wrap: wrap; gap: 12px; }
+  .restoration-steps { gap: 2px; }
+  .restoration-steps button { font-size: 12px; flex-direction: column; gap: 5px; }
+  html[data-genesis-theme] .genesis-app .restoration .restoration-steps button { font-size: 12px; line-height: 1.4; overflow-wrap: normal; }
+  .restoration h3 { font-size: 20px; }
+  .restoration-navigation > button { flex: 1; }
+  .restoration-main > .primary-button { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) { .restoration-triangle i { transition: none; } }
+@media (max-width: 420px) {
+  .restoration-steps { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 4px 8px; }
+  .restoration-steps button { flex-direction: row; justify-content: flex-start; text-align: start; gap: 8px; }
+}
+.restoration-context { margin: 24px 0; padding: 20px 0; border-block: 1px solid var(--line); }
+.restoration-context h3 { margin: 0 0 12px; }
+.restoration-context p { line-height: 1.7; }
+.restoration-context summary { cursor: pointer; padding: 12px 0; min-height: 44px; }
+.restoration-context a { text-underline-offset: 3px; }

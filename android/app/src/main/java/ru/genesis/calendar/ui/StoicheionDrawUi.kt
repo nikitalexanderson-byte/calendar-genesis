@@ -56,7 +56,8 @@ private fun countdown(seconds: Int) = "%02d:%02d".format(seconds / 60, seconds %
 
 @Composable
 internal fun StoicheionDrawPanel(letters: List<StoicheionLetter>, draws: StoicheionDraws?, now: Long,
-    busy: Boolean, error: String?, onBegin: (String) -> Unit, onSelect: (StoicheionSelection) -> Unit) {
+    busy: Boolean, error: String?, onBegin: (String) -> Unit, onSelect: (StoicheionSelection) -> Unit,
+    restorationLabel: String? = null, onRestore: (() -> Unit)? = null) {
     val daily = draws?.daily
     val dailyLetter = daily?.let { StoicheionReading.cardOfDay(letters, it.seed) }
     val spread = draws?.spread
@@ -127,6 +128,10 @@ internal fun StoicheionDrawPanel(letters: List<StoicheionLetter>, draws: Stoiche
                             style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
                         Text("Числовые значения девяти букв складываются до корня от 1 до 9.",
                             style = MaterialTheme.typography.bodySmall)
+                        if (onRestore != null && cards.any { it.second }) OutlinedButton(onClick = onRestore,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("stoicheion-restoration-begin")) {
+                            Text(restorationLabel.orEmpty())
+                        }
                     }
                 }
                 RerollAction(spread, now, busy, "Перебросить расклад") { onBegin("spread") }
