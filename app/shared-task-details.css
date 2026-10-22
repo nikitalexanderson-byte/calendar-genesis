@@ -1,4 +1,5 @@
 .shared-task-details-editor { min-width: 0; display: grid; gap: 16px; }
+.shared-task-card-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
 .shared-task-details-editor fieldset { min-width: 0; margin: 16px 0; padding: 12px 0; border: 0; border-top: 1px solid var(--line); }
 .shared-task-details-editor legend { padding: 0; color: var(--ink-soft); font-size: var(--type-caption); }
 .shared-task-details-editor .shared-checklist-heading { display: flex; align-items: end; gap: 8px; flex-wrap: wrap; }

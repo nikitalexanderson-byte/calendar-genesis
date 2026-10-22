@@ -329,7 +329,7 @@ export const THEOKYKLOS_SEGMENTS: readonly TheokyklosSegment[] = [
   },
 ] as const;
 
-export const THEOKYKLOS_DIRECTION_IDS: readonly TheokyklosSegmentId[] = [
+export const THEOKYKLOS_DIRECTION_IDS = [
   "north",
   "northeast",
   "east",
@@ -338,4 +338,4 @@ export const THEOKYKLOS_DIRECTION_IDS: readonly TheokyklosSegmentId[] = [
   "southwest",
   "west",
   "northwest",
-];
+] as const satisfies readonly TheokyklosSegmentId[];

@@ -4,6 +4,7 @@ import {planningText} from './shared-planning';
 import {workflowDraftText,workflowDraftError} from './workflow-draft-copy';
 import {WorkDraftError,type WorkDraft} from './shared-work-draft-journal';
 import type {PlanningDeviceDraft} from './planning-device-drafts';
+import {IconActionButton} from './IconActionButton';
 
 export function SharedPlanningDrafts({rows,status,error,blocked,editing,onRestore,onRemove,onRefresh,language}:{rows:WorkDraft<PlanningDeviceDraft>[];status:'idle'|'saving'|'saved'|'error';error:unknown;blocked:boolean;editing:boolean;onRestore:(row:WorkDraft<PlanningDeviceDraft>)=>void;onRemove:(row:{id:string;raw:string})=>void;onRefresh:()=>void;language:Language}){
  const t=(key:Parameters<typeof workflowDraftText>[0])=>workflowDraftText(key,language),g=(text:string)=>translateText(text,language),damaged=error instanceof WorkDraftError?error.record:undefined;
@@ -13,8 +14,9 @@ export function SharedPlanningDrafts({rows,status,error,blocked,editing,onRestor
   {status==='saving'||status==='saved'?<p role="status" data-planning-device-state={status}>{t(status)}</p>:null}
   {error?<div role="alert"><p>{workflowDraftError(error,language)}</p><div className="shared-planning-actions"><button type="button" className="secondary-button" disabled={blocked} onClick={onRefresh}>{g('Обновить')}</button>{damaged?<><button type="button" className="secondary-button" disabled={blocked} onClick={download}>{t('download')}</button><button type="button" className="secondary-button" disabled={blocked} onClick={()=>onRemove(damaged)}>{t('discard')}</button></>:null}</div></div>:null}
   {rows.length?<details open><summary>{t('heading')} · {new Intl.NumberFormat(language).format(rows.length)}</summary><ul>{rows.map(row=><li key={row.id} data-planning-device-draft={row.id}>
-   <div><time dateTime={row.at}>{new Intl.DateTimeFormat(language,{dateStyle:'medium',timeStyle:'medium'}).format(new Date(row.at))}</time><small>{row.value.pending?t('pending'):planningText(row.value.completion?'finishSprint':row.value.form?'sprint':'heading',language)}</small></div>
-   <div className="shared-planning-actions"><button type="button" className="secondary-button" disabled={blocked||editing||error instanceof Error&&error.message==='DRAFT_CHANGED'} onClick={()=>onRestore(row)}>{t('restore')}</button><button type="button" className="secondary-button" disabled={blocked} onClick={()=>onRemove(row)}>{t('discard')}</button></div>
+   <time dateTime={row.at}>{new Intl.DateTimeFormat(language,{dateStyle:'medium',timeStyle:'medium'}).format(new Date(row.at))}</time>
+   <div className="shared-planning-actions shared-work-draft-actions"><IconActionButton icon="edit" label={t('restore')} disabled={blocked||editing||error instanceof Error&&error.message==='DRAFT_CHANGED'} onClick={()=>onRestore(row)}/><IconActionButton icon="delete" label={t('discard')} disabled={blocked||Boolean(row.value.pending)} onClick={()=>{if(!row.value.pending)onRemove(row);}}/></div>
+   <small>{row.value.pending?t('pending'):planningText(row.value.completion?'finishSprint':row.value.form?'sprint':'heading',language)}</small>
   </li>)}</ul></details>:null}
  </section>;
 }

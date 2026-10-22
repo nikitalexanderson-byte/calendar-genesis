@@ -39,6 +39,10 @@ export function validatePlanningDeviceDraft(value:unknown,projectId:string):Plan
  if(!object(value)||!keys(value,['version','projectId','observedAt','form','completion','pending'])||value.version!==1||value.projectId!==projectId||typeof value.observedAt!=='string'||!Number.isFinite(Date.parse(value.observedAt))||value.form!==null&&!editor(value.form)||value.completion!==null&&!completion(value.completion)||value.pending!==null&&!command(value.pending)||value.form!==null&&value.completion!==null)throw new Error('PLANNING_DEVICE_DRAFT_INVALID');
  return structuredClone(value) as PlanningDeviceDraft;
 }
+/** Called only after a definitive rejection; an uncertain send must retain its command. */
+export function planningDraftAfterRejectedCommand(value:PlanningDeviceDraft):PlanningDeviceDraft|null{
+ return value.form||value.completion?{...structuredClone(value),pending:null}:null;
+}
 /** Preserve only decisions still referring to the same task revision after an explicit refresh. */
 export function planningCompletionChoices(previous:PlanningCompletionDraft|null,tasks:{id:string;revision:number}[],sprints:{id:string;state:string}[],source:string){
  const choices:Record<string,string>={},targets=new Set(sprints.filter(row=>row.id!==source&&row.state!=='completed').map(row=>row.id)),revisions=new Map(previous?.tasks.map(row=>[row.id,row.revision]));

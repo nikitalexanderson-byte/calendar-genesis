@@ -29,18 +29,36 @@ function genesisEmailHtml(string $title,string $text,string $url,string $action,
         .'<p style="font-size:13px;color:#526263">'.$escape($footer).'</p></main></body></html>';
 }
 
+/** RFC 2047 words stay below 75 bytes without splitting a UTF-8 character. */
+function genesisEmailEncodeHeader(string $value): string
+{
+    if(preg_match('/[\x00-\x1F\x7F]/',$value))throw new InvalidArgumentException('INVALID_EMAIL_MESSAGE');
+    $characters=preg_split('//u',$value,-1,PREG_SPLIT_NO_EMPTY);
+    if($characters===false)throw new InvalidArgumentException('INVALID_EMAIL_MESSAGE');
+    $words=[];$chunk='';
+    foreach($characters as $character){
+        // 42 bytes produce a 68-byte word, leaving room for the Subject prefix.
+        if(strlen($chunk)+strlen($character)>42){
+            $words[]='=?UTF-8?B?'.base64_encode($chunk).'?=';$chunk='';
+        }
+        $chunk.=$character;
+    }
+    if($chunk!=='')$words[]='=?UTF-8?B?'.base64_encode($chunk).'?=';
+    return implode("\r\n ",$words);
+}
+
 /** Stable Message-ID permits provider deduplication after an ambiguous network failure. */
 function genesisEmailSend(string $to,string $subject,string $text,string $id,?string $html=null): string
 {
     if(!filter_var($to,FILTER_VALIDATE_EMAIL)||preg_match('/[\r\n]/',$to.$subject.$id))throw new InvalidArgumentException('INVALID_EMAIL_MESSAGE');
+    $encodedSubject=genesisEmailEncodeHeader($subject);
     $configuration=genesisEmailConfiguration();if(!$configuration['available'])throw new RuntimeException('EMAIL_TRANSPORT_UNCONFIGURED');
     $mail=$configuration['settings'];
     if(!filter_var($to,FILTER_VALIDATE_EMAIL)||preg_match('/[\r\n]/',$to.$subject.$id.$mail['from']))throw new InvalidArgumentException('INVALID_EMAIL_MESSAGE');
     $host=(string)parse_url(genesisConfig()['app_url'],PHP_URL_HOST);
     if(!preg_match('/\A[a-zA-Z0-9.-]+\z/D',$host))throw new RuntimeException('EMAIL_ORIGIN_INVALID');
     $messageId='<genesis-'.hash('sha256',$id).'@'.$host.'>';
-    $encode=static fn(string $value):string=>'=?UTF-8?B?'.base64_encode($value).'?=';
-    $from=$encode((string)($mail['from_name']??'GENESIS')).' <'.$mail['from'].'>';
+    $from=genesisEmailEncodeHeader((string)($mail['from_name']??'GENESIS')).' <'.$mail['from'].'>';
     $headers=['From'=>$from,'MIME-Version'=>'1.0','Date'=>gmdate('D, d M Y H:i:s').' +0000','Message-ID'=>$messageId,'Auto-Submitted'=>'auto-generated'];
     if($html!==null){
         $boundary='genesis-'.bin2hex(random_bytes(18));$headers['Content-Type']='multipart/alternative; boundary="'.$boundary.'"';
@@ -48,9 +66,9 @@ function genesisEmailSend(string $to,string $subject,string $text,string $id,?st
             ."\r\n--".$boundary."\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n".quoted_printable_encode($html)."\r\n--".$boundary."--\r\n";
     }else{$headers['Content-Type']='text/plain; charset=UTF-8';$headers['Content-Transfer-Encoding']='quoted-printable';$body=quoted_printable_encode($text);}
     if($mail['transport']==='mail'){
-        if(!mail($to,$encode($subject),$body,$headers))throw new RuntimeException('EMAIL_RETRY');return 'accepted';
+        if(!mail($to,$encodedSubject,$body,$headers))throw new RuntimeException('EMAIL_RETRY');return 'accepted';
     }
-    $lines=['To: <'.$to.'>','Subject: '.$encode($subject)];foreach($headers as$key=>$value)$lines[]=$key.': '.$value;
+    $lines=['To: <'.$to.'>','Subject: '.$encodedSubject];foreach($headers as$key=>$value)$lines[]=$key.': '.$value;
     $wire=implode("\r\n",$lines)."\r\n\r\n".$body;
     $stream=fopen('php://temp','w+');fwrite($stream,$wire);rewind($stream);
     $curl=curl_init(($mail['encryption']==='ssl'?'smtps':'smtp').'://'.$mail['host'].':'.$mail['port']);

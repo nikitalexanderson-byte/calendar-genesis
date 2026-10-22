@@ -1,0 +1,60 @@
+name: Backend acceptance (no deploy)
+
+on:
+  push:
+    branches: [codex/post-release-acceptance-no-deploy]
+    paths: ['server/**', '.github/workflows/backend-acceptance.yml']
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths: ['server/**', '.github/workflows/backend-acceptance.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  move-history:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GENESIS_IMPROVEMENTS_TEST: isolated
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Check mutation history and related integrations in fresh SQLite
+        env:
+          GENESIS_SMOKE_ROOT: ${{ runner.temp }}/genesis-move-acceptance
+        run: |
+          set -euo pipefail
+          test ! -e server/config.php
+          mkdir -p "$GENESIS_SMOKE_ROOT/sessions" output/backend-acceptance
+          trap 'rm -f server/config.php' EXIT
+          php -r '
+            foreach (["pdo_sqlite", "sodium", "mbstring"] as $extension) {
+              if (!extension_loaded($extension)) throw new RuntimeException("Missing extension: " . $extension);
+            }
+            $root = getenv("GENESIS_SMOKE_ROOT");
+            $config = ["app_url" => "https://localhost.invalid", "google_client_id" => "", "google_client_secret" => "",
+              "gigachat_enabled" => false, "gigachat_authorization_key" => "", "gemini_enabled" => false, "gemini_api_key" => "",
+              "crypto_key" => base64_encode(random_bytes(32)), "db_path" => $root . "/genesis.sqlite",
+              "session_path" => $root . "/sessions", "cookie_secure" => false, "timezone" => "Europe/Moscow", "admin_email" => "qa@example.invalid"];
+            if (file_put_contents("server/config.php", "<?php\nreturn " . var_export($config, true) . ";\n", LOCK_EX) === false) {
+              throw new RuntimeException("Could not create isolated configuration");
+            }
+          '
+          php -l server/src/shared-projects.php
+          php -l server/tests/shared-sprint-reports.php
+          for name in shared-sprint-reports shared-sprint-flow-model shared-reports-history shared-reports-integration shared-workflows workflow-integrations shared-automations shared-notifications; do
+            # Each test owns a fresh disposable database; no runtime account data is used.
+            rm -f -- "$GENESIS_SMOKE_ROOT/genesis.sqlite" "$GENESIS_SMOKE_ROOT/genesis.sqlite-wal" "$GENESIS_SMOKE_ROOT/genesis.sqlite-shm"
+            php "server/tests/$name.php" | tee "output/backend-acceptance/$name.log"
+          done
+      - name: Save test diagnostics
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-move-${{ github.run_id }}
+          path: output/backend-acceptance/
+          retention-days: 3

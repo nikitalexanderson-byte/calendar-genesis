@@ -853,9 +853,8 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       await refreshProjects(spaceId);
     });
   };
-  const statusLabel = (title: string) => english ? ({
-    "К выполнению": "To do", "В работе": "In progress", "Готово": "Done",
-  })[title] ?? title : title;
+  // Board names are stored user content, even when they match interface labels.
+  const statusLabel = (title: string) => title;
   const submitProjectEdit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!snapshot) return;
@@ -1134,7 +1133,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
             <SharedTaskReview task={task} userId={userId} onChanged={async()=>{await refreshProject(task.projectId);}}/>
             <div className="shared-task-card-controls">
             {activeView !== "board" && snapshot.project.canOrganizeTasks ? <select aria-label={english ? "Status" : "Статус"} value={task.statusId} disabled={busy} onChange={(event) => moveTask(task, event.target.value)}>
-              {snapshot.statuses.map((item) => <option key={item.id} value={item.id}>{statusLabel(item.title)}</option>)}
+              {snapshot.statuses.map((item) => <option key={item.id} value={item.id} data-no-translate>{statusLabel(item.title)}</option>)}
             </select> : null}
             {renderTaskActions(task, snapshot)}
             </div>
@@ -1237,7 +1236,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       {task.priority ? <span className="shared-priority">{sharedPriorityLabel(task.priority)}</span> : null}
       <strong data-no-translate>{task.title}</strong>
       {task.entryType && task.entryType !== "task" ? <span className="entry-type-badge">{entryTypeLabel(task.entryType,english)}</span> : null}
-      <span className="shared-calendar-task-status">{statusLabel(snapshot.statuses.find((status) => status.id === task.statusId)?.title ?? "")}</span>
+      <span className="shared-calendar-task-status" data-no-translate>{statusLabel(snapshot.statuses.find((status) => status.id === task.statusId)?.title ?? "")}</span>
       {task.startTime ? <span>{formatTimeValue(task.startTime, timeFormat)}{task.endTime ? ` — ${formatTimeValue(task.endTime, timeFormat)}` : ""}</span> : null}
     </button>
     {renderTaskActions(task, snapshot)}
@@ -1492,7 +1491,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
               aria-pressed={calendarScale === scale} choiceHint onClick={() => onCalendarScale(scale)}/>;
           })}
         </div>
-      </div> : activeView !== "gantt" ? <SharedTaskPageControls page={snapshot.taskPage} loaded={snapshot.tasks.length} busy={projectPage.busy} onMore={() => void projectPage.more()} onRefresh={() => void projectPage.refresh()} error={projectPage.error} showCount={activeView === "calendar"}/> : null}
+      </div> : activeView !== "gantt" ? <SharedTaskPageControls page={snapshot.taskPage} loaded={snapshot.tasks.length} busy={projectPage.busy} onMore={() => void projectPage.more()} onRefresh={() => void projectPage.refresh()} error={projectPage.error} showCount={false}/> : null}
       {activeView === "gantt" ? <SharedGantt snapshot={snapshot} english={english} calendarMode={calendarMode} timeFormat={timeFormat} initialDay={ganttDay} onOpen={openTask} onCreate={schedule=>{openCreateTask(snapshot.project);setNewPlan({startDate:schedule.startDate,startTime:schedule.startTime||"",endTime:schedule.endTime||"",dependsOnIds:[]});setNewTaskDueDate(schedule.dueDate);}} onSchedule={scheduleTask} onReturn={returnGanttTask} resolveReturn={resolveGanttReturn} onReturnTarget={setGanttReturnTarget} busy={busy} externalDrop={sharedDrag.target?.schedule} externalDropRow={sharedDrag.target?.ganttRow}/> : activeView === "calendar" ? <section className={`shared-projects-calendar${calendarMode === "profane" ? " weekday-tinted-calendar" : ""}`} style={{ "--month-accent": MONTHS[getSacredDate(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 15, 12)).monthIndex].color } as CSSProperties} aria-label={english ? "Project calendar" : "Календарь проекта"}>
         <div className="shared-projects-calendar-head">
           <button type="button" aria-label={english ? "Previous month" : "Предыдущий месяц"} onClick={() => { setCalendarMonth(calendarPeriod.previous); setCalendarDay(localDateKey(calendarPeriod.previous)); }}>←</button>
@@ -1527,23 +1526,23 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
           data-shared-drop-status={status.id}
           style={{ "--shared-board-color": status.color ?? "#2d6c68" } as CSSProperties}
           data-drop-active={dropTarget?.statusId === status.id || undefined}
-          aria-label={status.title}>
+          aria-labelledby={`shared-board-title-${status.id}`}>
           <header className="shared-board-header" style={{ borderColor: status.color ?? "#2d6c68" }}>
-            <h2>{canManage ? boardTitleEdit?.id === status.id ? <input className="shared-board-title-input"
+            <h2 id={`shared-board-title-${status.id}`}>{canManage ? boardTitleEdit?.id === status.id ? <input className="shared-board-title-input"
               aria-label={english ? "Board name" : "Название доски"} maxLength={80} value={boardTitleEdit.title}
               ref={(element) => { if (element && document.activeElement !== element) { element.focus(); element.select(); } }}
               onChange={(event) => setBoardTitleEdit({ id: status.id, title: event.target.value })}
               onBlur={() => saveBoardTitle(status)} onKeyDown={(event) => {
                 if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); }
                 if (event.key === "Escape") { cancelledBoardTitleRef.current = true; setBoardTitleEdit(null); }
-              }} /> : <button type="button" className="shared-board-title" disabled={busy}
+              }} /> : <button type="button" className="shared-board-title" disabled={busy} data-no-translate
                 title={statusLabel(status.title)}
-                aria-label={english ? `Rename board ${status.title}` : `Переименовать доску «${status.title}»`}
+                aria-label={`${translateText("Переименовать",language as import("./i18n").Language)} «${status.title}»`}
                 onClick={() => { cancelledBoardTitleRef.current = false; setBoardTitleEdit({ id: status.id, title: statusLabel(status.title) }); }}>{statusLabel(status.title)}</button>
-              : statusLabel(status.title)}</h2>
+              : <span data-no-translate>{statusLabel(status.title)}</span>}</h2>
             {snapshot.taskPage ? <SharedTaskPageCount loaded={group.recent.length + group.older.length} total={snapshot.taskPage.statusCounts[status.id] ?? 0}/>
               : <small className="shared-board-task-count" aria-label={english ? "Task count" : "Количество задач"} data-no-translate>{formatTaskCount(group.recent.length + group.older.length, language as import("./i18n").Language)}</small>}
-          {canWrite || canManage ? <div className="shared-board-create-actions" role="group" aria-label={statusLabel(status.title)}>
+          {canWrite || canManage ? <div className="shared-board-create-actions" role="group" aria-labelledby={`shared-board-title-${status.id}`}>
             {canWrite ? <><div className="shared-board-create-work">
             <button type="button" className="shared-board-create-task" onClick={() => openCreateTask(snapshot.project, status)}
               aria-label={english ? "Create task" : "Создать задачу"}>
@@ -1570,7 +1569,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
               <SharedLabelBadges labels={labels} ids={child.labelIds}/>
             </button>
             {["owner", "manager"].includes(child.role) ? <label>{english ? "Boards" : "Доски"}<select value={child.boardStatusId ?? snapshot.statuses[0]?.id} onChange={(event) => placeContainer(child, event.target.value)}>
-              {snapshot.statuses.map((board) => <option key={board.id} value={board.id}>{statusLabel(board.title)}</option>)}
+              {snapshot.statuses.map((board) => <option key={board.id} value={board.id} data-no-translate>{statusLabel(board.title)}</option>)}
             </select></label> : null}
           </article>)}
           {group.recent.map(task => renderBoardTask(task, status))}
@@ -1648,7 +1647,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       onPointerDown={(event) => { if (window.innerWidth > 760 && event.target === event.currentTarget) { const r = event.currentTarget.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) event.currentTarget.close(); } }}
       onClose={closeTask} onCancel={(event) => { if (busy) event.preventDefault(); }}>
       {selectedTask && taskSnapshot ? <>
-        <header><h2 id="shared-task-title">{selectedTask.title}</h2><DialogCloseButton type="button" className="shared-projects-close" disabled={busy} onClick={closeTask} aria-label={english ? "Close task" : "Закрыть задачу"} /></header>
+        <header><h2 id="shared-task-title" data-no-translate>{selectedTask.title}</h2><DialogCloseButton type="button" className="shared-projects-close" disabled={busy} onClick={closeTask} aria-label={english ? "Close task" : "Закрыть задачу"} /></header>
         <SharedTaskWatch key={`${taskSnapshot.project.id}:${selectedTask.id}`} userId={userId} projectId={taskSnapshot.project.id} taskId={selectedTask.id}/>
         {message ? <p className="shared-task-feedback" role="status">{message}</p> : null}
         <div className="shared-task-sections" role="tablist" tabIndex={-1} aria-label={english ? "Task details" : "Карточка задачи"} onKeyDown={event => {
@@ -1666,7 +1665,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
           <dl><div><dt>{english ? "Created by" : "Создатель"}</dt><dd data-no-translate>{taskSnapshot.members.find(member=>member.userId===selectedTask.createdBy)?.displayName || "—"}</dd></div>
           <div><dt>{english ? "Created" : "Создано"}</dt><dd>{selectedTask.createdAt ? new Intl.DateTimeFormat(language,{dateStyle:"medium",timeStyle:"short"}).format(new Date(selectedTask.createdAt)) : "—"}</dd></div>
           <div><dt>{english ? "Updated" : "Обновлено"}</dt><dd>{new Intl.DateTimeFormat(language,{dateStyle:"medium",timeStyle:"short"}).format(new Date(selectedTask.updatedAt))}</dd></div></dl>
-          {canEditTask ? <><button type="button" className="secondary-button" onClick={()=>openTask(selectedTask,taskSnapshot,true)}><ExperimentalIcon name="edit"/>{english ? "Edit" : "Редактировать"}</button><button type="button" className="secondary-button" disabled={selectedTask.pending} onClick={()=>{closeTask();setTemplateScope({context:taskSnapshot,source:{taskId:selectedTask.id,title:selectedTask.title}});}}><ExperimentalIcon name="copy"/>{translateText("Сохранить как шаблон")}</button></> : null}
+          {canEditTask ? <div className="shared-task-card-actions"><IconActionButton icon="edit" label={translateText("Редактировать",language as import("./i18n").Language)} onClick={()=>openTask(selectedTask,taskSnapshot,true)}/><IconActionButton icon="copy" label={translateText("Сохранить как шаблон",language as import("./i18n").Language)} disabled={selectedTask.pending} onClick={()=>{closeTask();setTemplateScope({context:taskSnapshot,source:{taskId:selectedTask.id,title:selectedTask.title}});}}/></div> : null}
         </section> : null}
         {selectedTask.archivedAt ? <p>{translateText("Архив задач")}</p> : <SharedTaskReview task={selectedTask} userId={userId} onChanged={async()=>{await refreshTaskProject(selectedTask.projectId);await refreshProject(selectedTask.projectId);}}/>}
         {selectedTask.approvalRequired ? <section className="shared-task-approval-status">
@@ -1678,14 +1677,14 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
         {!selectedTask.archivedAt && taskSnapshot.project.canOrganizeTasks ? <div className="shared-projects-detail-move">
           {!taskSnapshot.project.isInbox ? <label>{english ? "Board" : "Доска"}<select value={selectedTask.statusId} disabled={busy}
             onChange={(event) => moveTask(selectedTask, event.target.value)}>
-            {taskSnapshot.statuses.map((status) => <option key={status.id} value={status.id}>{statusLabel(status.title)}</option>)}
+            {taskSnapshot.statuses.map((status) => <option key={status.id} value={status.id} data-no-translate>{statusLabel(status.title)}</option>)}
           </select></label> : null}
 
         </div> : null}
 
         {canEditTask ? <label>{english ? "Assigned to" : "Исполнитель"}<select value={selectedTask.assigneeId ?? ""} disabled={busy} onChange={(event) => assignTask(selectedTask, event.target.value)}>
           <option value="">{english ? "Unassigned" : "Не назначен"}</option>
-          {taskSnapshot.members.map((member) => <option key={member.userId} value={member.userId}>{member.displayName}</option>)}
+          {taskSnapshot.members.map((member) => <option key={member.userId} value={member.userId} data-no-translate>{member.displayName}</option>)}
         </select></label> : null}
         </div>
         {taskEditing && canEditTask ? <form id="shared-task-edit-form" onSubmit={submitTaskEdit}>
@@ -1740,7 +1739,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
             onChange={(event) => moveTaskTo(selectedTask, event.target.value)}>
             {projects.filter(project => project.isInbox).map(project => <option key={project.id} value={project.id}>
               {english ? "Shared inbox" : "Хаос-бокс"} · {formatTaskCount(project.taskCount ?? 0, language as import("./i18n").Language)}</option>)}
-            {sharedProjectTree(projects).map(({ project, depth }) => <option key={project.id} value={project.id}>
+            {sharedProjectTree(projects).map(({ project, depth }) => <option key={project.id} value={project.id} data-no-translate>
               {depth ? `${"\u00a0\u00a0".repeat(depth)}↳ ` : ""}{project.title} · {formatTaskCount(project.taskCount ?? 0, language as import("./i18n").Language)}</option>)}
           </select></label>
           </details> : null}
@@ -1898,7 +1897,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
           <details className="shared-board-delete"><summary><ExperimentalIcon name="close" />{english ? "Delete board" : "Удалить доску"}</summary>
             <label>{english ? "Move its contents to" : "Переместить содержимое в"}<select value={statusDestinations[editingBoard.id] ?? snapshot.statuses.find((item) => item.id !== editingBoard.id)?.id ?? ""}
               onChange={(event) => setStatusDestinations((current) => ({ ...current, [editingBoard.id]: event.target.value }))}>
-              {snapshot.statuses.filter((item) => item.id !== editingBoard.id).map((item) => <option key={item.id} value={item.id}>{statusLabel(item.title)}</option>)}
+              {snapshot.statuses.filter((item) => item.id !== editingBoard.id).map((item) => <option key={item.id} value={item.id} data-no-translate>{statusLabel(item.title)}</option>)}
             </select></label>
             <button type="button" className="shared-board-delete-confirm" disabled={busy || snapshot.statuses.length < 2} onClick={() => {
               removeStatus(editingBoard.id, editingBoard.revision, statusDestinations[editingBoard.id] ?? snapshot.statuses.find((item) => item.id !== editingBoard.id)?.id ?? "");
