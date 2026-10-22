@@ -12,7 +12,7 @@ test("logout clears keys, personal/team drafts and analytics receipts across acc
   const device = storage();
   for (const key of ["genesis-calendar-v1", "genesis-last-user-v2", "genesis-calendar-v2:a", "genesis-calendar-v2:b",
     "genesis-workspace-device-key-v2:a", "genesis-workspace-sync-state-v1:a", "genesis-workspace-device-id-v1:a",
-    "genesis-pending-mutations-v2:a", "genesis-pending-mutations-v2-deleted:a", "genesis-shared-offline-v1:a",
+    "genesis-pending-mutations-v2:a", "genesis-pending-mutations-v2-deleted:a", "genesis-shared-offline-v1:a", "genesis-shared-offline-v1:a:read-epoch",
     "genesis-moon-reminders-v1:a", "genesis-habit-notifications-delivered-v1", "genesis-stoicheion-draws-v2:a",
     "genesis-shared-place-v1:a", "genesis-affairs-area-v1:a", "genesis-hidden-invitations:a",
     "genesis-comment-notices:a", "genesis-project-import:a:copy", "genesis-solar-place-v1",
