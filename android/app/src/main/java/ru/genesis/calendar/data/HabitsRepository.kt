@@ -129,6 +129,17 @@ class HabitsRepository(private val app: GenesisApplication) {
         require(habit.scoringMode in setOf("none","binary","quality-ten","quality-bipolar"))
         val previous=workspace.habits.firstOrNull { it.id==habit.id }
         require(previous==null || previous.entity.version==habit.entity.version) { "Привычка изменилась. Откройте её заново." }
+        habit.stoicheionRestoration?.let { snapshot ->
+            require(StoicheionRestorationCodec.decode(StoicheionRestorationCodec.encode(snapshot)) == snapshot) {
+                "STOICHEION_RESTORATION_INVALID_SNAPSHOT"
+            }
+            require(previous?.stoicheionRestoration == null || previous.stoicheionRestoration.cycleId == snapshot.cycleId) {
+                "STOICHEION_RESTORATION_HABIT_ALREADY_LINKED"
+            }
+            require(StoicheionRestoration.canAttach(workspace.habits, habit.id, previous?.stoicheionRestoration, snapshot)) {
+                "STOICHEION_RESTORATION_CYCLE_EXISTS"
+            }
+        }
         require(previous==null || (previous.scoringMode==habit.scoringMode && previous.qualityScale==habit.qualityScale)) {
             "Начисление XP фиксируется при создании привычки. Для другой формулы создайте новую привычку."
         }
@@ -383,7 +394,11 @@ internal object HabitDocument {
     }
     private fun habit(h: Habit): JSONObject = entity(h.entity).put("title",h.title).put("description",h.description).put("createdDate",h.createdDate.toString())
         .put("measurement",h.measurement?.let(::measurement) ?: JSONObject.NULL).put("ruleHistory",JSONArray(h.ruleHistory.map(::rule)))
-        .apply { h.periodGoal?.let { put("periodGoal",periodGoal(it)) }; put("lifecycleHistory",HabitLifecycleCodec.encode(h.lifecycleHistory)) }
+        .apply {
+            h.periodGoal?.let { put("periodGoal",periodGoal(it)) }
+            put("lifecycleHistory",HabitLifecycleCodec.encode(h.lifecycleHistory))
+            h.stoicheionRestoration?.let { put("stoicheionRestoration",StoicheionRestorationCodec.encode(it)) }
+        }
         .put("emoji",h.emoji).put("priority",h.priority).put("isKeyHabit",h.isKeyHabit).put("ritualId",h.ritualId).put("ritualName",h.ritualName).put("color",h.color)
         .put("active",h.active).put("sourceTemplateId",h.sourceTemplateId ?: JSONObject.NULL).put("sacredPracticeId",h.sacredPracticeId ?: JSONObject.NULL)
         .put("sacredSectorId",h.sacredSectorId ?: JSONObject.NULL).put("preferredTime",h.preferredTime).put("scoringMode",h.scoringMode).put("qualityScale",h.qualityScale)
@@ -407,6 +422,7 @@ internal object HabitDocument {
                 r.optInt("minutesBefore",0).coerceIn(0,1440),r.optBoolean("allowDuringQuietHours",false)))
             .copy(measurement = optionalMeasurement(v), ruleHistory = optionalRules(v), periodGoal = optionalPeriodGoal(v),
                 lifecycleHistory = if(v.has("lifecycleHistory")) HabitLifecycleCodec.decode(v.getJSONArray("lifecycleHistory")) else emptyList(),
+                stoicheionRestoration = StoicheionRestorationCodec.decode(v.optJSONObject("stoicheionRestoration")),
                 intervalSchedule = v.optJSONObject("intervalSchedule")?.let { interval ->
                 HabitIntervalSchedule(interval.optInt("intervalMinutes"),interval.optString("startTime"),
                     interval.optString("endTime"),if(interval.optString("completionMode")=="day") "day" else "each").takeIf { it.valid() } }))

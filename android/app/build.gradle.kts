@@ -139,6 +139,8 @@ val genesisAssets = tasks.register<GenesisAssetsTask>("genesisAssets") {
     from(rootProject.file("../app/emoji-full-catalog.json")) { into("i18n") }
     from(rootProject.file("../app")) { include("calendar-days.*.json"); into("i18n") }
     from(rootProject.file("../app/stoicheion.en.json")) { into("i18n") }
+    from(rootProject.file("../app/stoicheion-restoration-content.json")) { into("catalogs") }
+    from(rootProject.file("../app/stoicheion-restoration-ui.json")) { into("catalogs") }
     from(rootProject.file("../app/catalog-translations")) {
         include("*.json")
         into("i18n/catalog-translations")

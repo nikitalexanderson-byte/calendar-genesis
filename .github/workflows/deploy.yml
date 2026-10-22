@@ -440,7 +440,7 @@ jobs:
           SOURCE: "dist-beget/public_html/"
           TARGET: "/home/h/haiirodw/genesis-calendar/public_html/"
           ARGS: "-rlztvO --delete"
-          EXCLUDE: ${{ env.DEPLOY_ANDROID != 'true' && 'downloads/, android-update.json' || '/downloads/GENESIS-Android-Native-2.9.0.apk, /downloads/GENESIS-Android-Play-2.9.0.aab, /downloads/GENESIS-Android-Play-2.9.0.aab.sha256, /downloads/GENESIS-Android-Native-2.9.1.apk, /downloads/GENESIS-Android-Play-2.9.1.aab, /downloads/GENESIS-Android-Play-2.9.1.aab.sha256' }}
+          EXCLUDE: ${{ env.DEPLOY_ANDROID != 'true' && 'downloads/, android-update.json' || '/downloads/GENESIS-Android-Native-2.9.0.apk, /downloads/GENESIS-Android-Play-2.9.0.aab, /downloads/GENESIS-Android-Play-2.9.0.aab.sha256, /downloads/GENESIS-Android-Native-2.9.1.apk, /downloads/GENESIS-Android-Play-2.9.1.aab, /downloads/GENESIS-Android-Play-2.9.1.aab.sha256, /downloads/GENESIS-Android-Native-2.9.2.apk, /downloads/GENESIS-Android-Play-2.9.2.aab, /downloads/GENESIS-Android-Play-2.9.2.aab.sha256' }}
 
       - name: Back up Hostinger runtime state
         if: vars.GENESIS_DEPLOY_TARGET == 'hostinger'
@@ -502,8 +502,8 @@ jobs:
           SOURCE: "dist-beget/public_html/"
           TARGET: "/home/u531952483/domains/genesiscalendar.com/public_html/"
           ARGS: "-rlztvO --delete-delay --delay-updates"
-          # Published immutable 2.9.0 and 2.9.1 URLs remain usable by installed clients.
-          EXCLUDE: ${{ env.DEPLOY_ANDROID != 'true' && 'assets/, downloads/, android-update.json' || 'assets/, /downloads/GENESIS-Android-Native-2.9.0.apk, /downloads/GENESIS-Android-Play-2.9.0.aab, /downloads/GENESIS-Android-Play-2.9.0.aab.sha256, /downloads/GENESIS-Android-Native-2.9.1.apk, /downloads/GENESIS-Android-Play-2.9.1.aab, /downloads/GENESIS-Android-Play-2.9.1.aab.sha256' }}
+          # Published immutable 2.9.0, 2.9.1 and 2.9.2 URLs remain usable by installed clients.
+          EXCLUDE: ${{ env.DEPLOY_ANDROID != 'true' && 'assets/, downloads/, android-update.json' || 'assets/, /downloads/GENESIS-Android-Native-2.9.0.apk, /downloads/GENESIS-Android-Play-2.9.0.aab, /downloads/GENESIS-Android-Play-2.9.0.aab.sha256, /downloads/GENESIS-Android-Native-2.9.1.apk, /downloads/GENESIS-Android-Play-2.9.1.aab, /downloads/GENESIS-Android-Play-2.9.1.aab.sha256, /downloads/GENESIS-Android-Native-2.9.2.apk, /downloads/GENESIS-Android-Play-2.9.2.aab, /downloads/GENESIS-Android-Play-2.9.2.aab.sha256' }}
           SCRIPT_AFTER: |
             set -eu
             php /home/u531952483/domains/genesiscalendar.com/ops/retain-web-assets.php \
