@@ -29,6 +29,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ru.genesis.calendar.GenesisApplication
 import ru.genesis.calendar.BuildConfig
 import ru.genesis.calendar.ui.Text
+import ru.genesis.calendar.ui.Button
+import ru.genesis.calendar.ui.OutlinedButton
+import ru.genesis.calendar.ui.TextButton
 import ru.genesis.calendar.ui.genesisTranslate
 import java.time.Instant
 import java.time.ZoneId
@@ -58,8 +61,7 @@ fun AuthPanel(app: GenesisApplication, localLanguage: String) {
             YandexAuthResult.Cancelled -> Unit
         }
     } else null
-    var confirmKeepLocal by remember { mutableStateOf(false) }
-    var confirmKeepRemote by remember { mutableStateOf(false) }
+    var conflictReview by remember(state.user?.uid) { mutableStateOf<Pair<String, WorkspaceConflictPreview>?>(null) }
     var confirmDiscardSharedDrafts by remember { mutableIntStateOf(0) }
     val yandexAccounts = state.accountSettings?.accounts.orEmpty().filter { it.provider == "yandex" }
     var selectedYandexId by remember(state.user?.uid) { mutableStateOf(yandexAccounts.firstOrNull()?.id.orEmpty()) }
@@ -171,10 +173,9 @@ fun AuthPanel(app: GenesisApplication, localLanguage: String) {
             if (state.workspaceConflictPath != null) {
                 Text("Одно и то же поле изменено на сайте и на телефоне. Обычная синхронизация остановлена; обе копии сохранены.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                OutlinedButton(onClick = { confirmKeepLocal = true },
-                    modifier = Modifier.fillMaxWidth().testTag("auth-resolve-keep-local")) { Text("Оставить изменения телефона") }
-                OutlinedButton(onClick = { confirmKeepRemote = true },
-                    modifier = Modifier.fillMaxWidth().testTag("auth-resolve-keep-remote")) { Text("Оставить изменения сайта") }
+                WorkspaceConflictSummary(state.workspaceConflictPreview, state.busy) {
+                    state.user?.uid?.let { uid -> state.workspaceConflictPreview?.let { conflictReview = uid to it } }
+                }
             }
         }
 
@@ -235,18 +236,10 @@ fun AuthPanel(app: GenesisApplication, localLanguage: String) {
             Text(if (localLanguage == "en") "Sign out and delete" else "Выйти и удалить") } },
         dismissButton = { TextButton(onClick = { confirmDiscardSharedDrafts = 0 }) {
             Text(if (localLanguage == "en") "Cancel" else "Отмена") } })
-    if (confirmKeepLocal) AlertDialog(onDismissRequest = { confirmKeepLocal = false },
-        title = { Text("Оставить версию телефона?") },
-        text = { Text("Совпавшее поле на сайте будет заменено вашей локальной версией. Остальные изменения сайта сохранятся. Задачи это действие не затрагивает.") },
-        confirmButton = { TextButton(onClick = { confirmKeepLocal = false; controller.keepLocalWorkspaceChanges() }) {
-            Text("Оставить на телефоне") } },
-        dismissButton = { TextButton(onClick = { confirmKeepLocal = false }) { Text("Отмена") } })
-    if (confirmKeepRemote) AlertDialog(onDismissRequest = { confirmKeepRemote = false },
-        title = { Text("Оставить версию сайта?") },
-        text = { Text("Только совпавшие изменения телефона будут заменены версией сайта. Остальные ваши изменения и задачи сохранятся.") },
-        confirmButton = { TextButton(onClick = { confirmKeepRemote = false; controller.keepRemoteWorkspaceChanges() }) {
-            Text("Оставить на сайте") } },
-        dismissButton = { TextButton(onClick = { confirmKeepRemote = false }) { Text("Отмена") } })
+    conflictReview?.let { (uid, preview) -> WorkspaceConflictDialog(preview, state.busy,
+        onKeepLocal = { conflictReview = null; controller.keepLocalWorkspaceChanges(uid, preview.fingerprint) },
+        onKeepRemote = { conflictReview = null; controller.keepRemoteWorkspaceChanges(uid, preview.fingerprint) },
+        onDismiss = { conflictReview = null }) }
 }
 
 @Composable

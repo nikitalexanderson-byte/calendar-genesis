@@ -86,7 +86,7 @@ internal fun templateIssueMessage(code: String, copy: JSONObject) = copy.getJSON
 }
 
 @Composable internal fun TemplateOutlinedButton(onClick: () -> Unit, modifier: Modifier = Modifier,
-    enabled: Boolean = true, shape: androidx.compose.ui.graphics.Shape = AffairsLayout.shape,
+    enabled: Boolean = true, shape: androidx.compose.ui.graphics.Shape = AffairsLayout.controlShape,
     content: @Composable RowScope.() -> Unit) {
     OutlinedButton(onClick, modifier.heightIn(min = 48.dp), enabled = enabled, shape = shape, content = content)
 }
@@ -117,7 +117,7 @@ internal fun templateIssueMessage(code: String, copy: JSONObject) = copy.getJSON
     val description = genesisTranslate(label)
     Box(modifier.semantics(mergeDescendants = true) { contentDescription = description; this.selected = selected }) {
       TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(), tooltip = { PlainTooltip { Text(label) } }, state = rememberTooltipState()) {
-        OutlinedIconButton(onClick, enabled = enabled, shape = AffairsLayout.shape,
+        OutlinedIconButton(onClick, enabled = enabled, shape = AffairsLayout.controlShape,
             colors = IconButtonDefaults.outlinedIconButtonColors(containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else androidx.compose.ui.graphics.Color.Transparent,
                 contentColor = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant),
             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).semantics { contentDescription = description; this.selected = selected }) { AffairsActionIcon(action) }

@@ -93,7 +93,7 @@ import ru.genesis.calendar.data.*
         if (expanded) {
             Text("Включает всю историю, независимо от выбранного периода отчёта.", style = MaterialTheme.typography.bodySmall)
             Text("Подключения Google не переносятся.", style = MaterialTheme.typography.bodySmall)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     AffairsIconButton("Экспорт всей истории CSV", AffairsAction.REPORT, { exportFormat = "csv"; csvPicker.launch("GENESIS-habits-history-${LocalDate.now()}.csv") }, Modifier.testTag("habit-export-csv"), !busy)
                     MaterialText("CSV", style = MaterialTheme.typography.labelSmall)
@@ -143,11 +143,11 @@ import ru.genesis.calendar.data.*
                     MaterialText(genesisTranslate("Текущая привычка") + ": " + row.currentTitle + " · " + number.format(row.currentRecords), style = MaterialTheme.typography.bodySmall)
                     MaterialText(row.changes.map { genesisTranslate(it) }.joinToString(" · "), style = MaterialTheme.typography.bodySmall)
                     Text("Выберите действие", style = MaterialTheme.typography.labelMedium)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         for ((choice, label) in listOf("keep" to "Оставить текущую", "copy" to "Копия")) {
                             val actionLabel = genesisTranslate(if (choice == "copy") "Восстановить отдельной копией" else label)
                             FilterChip(selected = draft.choices[row.id] == choice, onClick = { onChoice(row.id, choice) }, enabled = !busy,
-                                label = { Text(label) }, shape = AffairsLayout.shape,
+                                label = { Text(label) }, shape = AffairsLayout.controlShape,
                                 modifier = Modifier.heightIn(min = 48.dp).testTag("habit-restore-$choice-${row.id}").semantics { contentDescription = actionLabel })
                         }
                     }
@@ -155,13 +155,13 @@ import ru.genesis.calendar.data.*
                 HorizontalDivider()
             }
         }
-        if (preview.habits.size > visible) TextButton({ visible += 5 }, Modifier.heightIn(min = 48.dp).testTag("habit-restore-more")) { Text("Показать ещё") }
+        if (preview.habits.size > visible) AffairsIconButton("Показать ещё", AffairsAction.EXPAND, { visible += 5 }, Modifier.testTag("habit-restore-more"))
         if (draft.stale) {
             Text("Данные изменились. Проверьте копию заново.", color = MaterialTheme.colorScheme.error)
             AffairsIconButton("Обновить", AffairsAction.REFRESH, onRefresh, Modifier.testTag("habit-restore-refresh"), !busy)
         }
-        FlowRow(Modifier.testTag("habit-restore-footer"), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onApply, shape = AffairsLayout.shape, enabled = !busy && !draft.stale && preview.habits.none { it.kind == "conflict" && draft.choices[it.id] !in setOf("keep", "copy") }
+        FlowRow(Modifier.testTag("habit-restore-footer"), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onApply, enabled = !busy && !draft.stale && preview.habits.none { it.kind == "conflict" && draft.choices[it.id] !in setOf("keep", "copy") }
                 && preview.habits.any { it.kind == "new" || it.kind == "conflict" && draft.choices[it.id] == "copy" },
                 modifier = Modifier.heightIn(min = 48.dp).testTag("habit-restore-apply")) { Text("Восстановить") }
             AffairsIconButton("Отмена", AffairsAction.CLOSE, onCancel, Modifier.testTag("habit-restore-cancel"), !busy)

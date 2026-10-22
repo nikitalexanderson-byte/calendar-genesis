@@ -31,6 +31,7 @@ internal object AffairsLayout {
     val touchTarget = 48.dp
     val formMaxWidth = 720.dp
     val shape = RoundedCornerShape(16.dp)
+    val controlShape = RoundedCornerShape(10.dp)
 }
 
 internal enum class AffairsAction { BACK, NEXT, MORE, CLOSE, SEARCH, FILTER, SORT, EXPAND, COLLAPSE, REFRESH, MOVE, ADD, EDIT, SETTINGS, DELETE, REPORT, IMPORT, HISTORY, VIEW, UNDO, TEMPLATE, SUBTASK, DECREASE, TASK, AUTOMATION, PAUSE, RESUME, ARCHIVE, RESTORE, TIMER }
@@ -165,7 +166,7 @@ internal enum class AffairsAction { BACK, NEXT, MORE, CLOSE, SEARCH, FILTER, SOR
     val description = genesisTranslate(label)
     TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
         tooltip = { PlainTooltip { Text(label) } }, state = rememberTooltipState()) {
-        IconButton(onClick = onClick, enabled = enabled, modifier = modifier.size(AffairsLayout.touchTarget)
+        OutlinedIconButton(onClick = onClick, enabled = enabled, shape = AffairsLayout.controlShape, modifier = modifier.size(AffairsLayout.touchTarget)
             .semantics { contentDescription = description }) { AffairsActionIcon(action) }
     }
 }

@@ -27,7 +27,8 @@ internal class CloudWorkspaceSync(private val db: GenesisDatabase, private val t
     private val documentKinds = setOf("workspace-structure", "habits", "trackers")
 
     suspend fun flush(scope: String,
-        conflictPolicy: WorkspacePatch.ConflictPolicy = WorkspacePatch.ConflictPolicy.STOP): Int {
+        conflictPolicy: WorkspacePatch.ConflictPolicy = WorkspacePatch.ConflictPolicy.STOP,
+        expectedConflictFingerprint: String? = null): Int {
         require(scope.startsWith("account-") && scope.length == 40)
         val dao = db.dao()
         val cipher = LocalCipher()
@@ -50,8 +51,16 @@ internal class CloudWorkspaceSync(private val db: GenesisDatabase, private val t
                 require(baseRow == null || remote.version >= baseRow.revision) {
                     "Remote workspace version moved backwards"
                 }
-                val patch = WorkspacePatch.apply(base, local, remote.document,
-                    pending.map { it.entityId }.toSet(), remote.version, timestamp, deviceId, conflictPolicy)
+                val conflicts = mutableListOf<WorkspaceConflictField>()
+                val dirty = pending.map { it.entityId }.toSet()
+                val inspected = WorkspacePatch.apply(base, local, remote.document, dirty, remote.version, timestamp, deviceId,
+                    WorkspacePatch.ConflictPolicy.STOP, conflicts)
+                val patch = if (conflicts.isEmpty()) inspected else {
+                    val preview = WorkspaceConflictPreview.create(conflicts)
+                    if (conflictPolicy == WorkspacePatch.ConflictPolicy.STOP || preview.fingerprint != expectedConflictFingerprint)
+                        throw WorkspacePatch.Conflict(preview.fields.first().path, preview)
+                    WorkspacePatch.apply(base, local, remote.document, dirty, remote.version, timestamp, deviceId, conflictPolicy)
+                }
                 val document = projectMeasurements(patch.document,timestamp)
                 val changed = patch.changed || document.toString() != patch.document.toString()
                 val version = if (!changed) remote.version else {

@@ -8,7 +8,7 @@ import ru.genesis.calendar.data.HabitLifecycleCodec
 
 /** Conservative three-way patch for the web's encrypted schema-16 workspace. */
 internal object WorkspacePatch {
-    class Conflict(val field: String) : Exception("Workspace changed concurrently: $field")
+    class Conflict(val field: String, val preview: WorkspaceConflictPreview? = null) : Exception("Workspace changed concurrently: $field")
     enum class ConflictPolicy { STOP, KEEP_LOCAL, KEEP_REMOTE }
     data class Result(val document: JSONObject, val changed: Boolean)
 
@@ -47,7 +47,7 @@ internal object WorkspacePatch {
 
     fun apply(base: JSONObject, local: JSONObject, remote: JSONObject, dirtyKinds: Set<String>,
         remoteVersion: Long, timestamp: String, deviceId: String,
-        conflictPolicy: ConflictPolicy = ConflictPolicy.STOP): Result {
+        conflictPolicy: ConflictPolicy = ConflictPolicy.STOP, conflicts: MutableList<WorkspaceConflictField>? = null): Result {
         require(base.optInt("trackerSchemaVersion") == 16 && remote.optInt("trackerSchemaVersion") == 16)
         require(remoteVersion >= 0 && deviceId.isNotBlank())
         val sameGeneration=HabitTimers.epoch(local.optString("habitTimerEpoch"))==HabitTimers.epoch(remote.optString("habitTimerEpoch"))
@@ -88,7 +88,7 @@ internal object WorkspacePatch {
                             val localConfirmed=edited.optString("qualityConfirmedAt").let { it.isNotBlank() && it!="null" }
                             val remoteConfirmed=current.optString("qualityConfirmedAt").let { it.isNotBlank() && it!="null" }
                             if(localConfirmed && remoteConfirmed && !same(localQuality,remoteQuality) && conflictPolicy==ConflictPolicy.STOP)
-                                throw Conflict("$key/$id/qualityValue")
+                                recordConflict("$key/$id/qualityValue", old?.opt("qualityValue"), localQuality, remoteQuality, edited, conflicts)
                             JSONObject(edited.toString()).put("xpAwarded",if(sameGeneration) maxOf(edited.optInt("xpAwarded"),current.optInt("xpAwarded")) else edited.optInt("xpAwarded")).apply {
                                 if(remoteConfirmed && (!localConfirmed || conflictPolicy==ConflictPolicy.KEEP_REMOTE)) {
                                     put("qualityValue",remoteQuality);put("qualityConfirmedAt",current.opt("qualityConfirmedAt"))
@@ -97,20 +97,21 @@ internal object WorkspacePatch {
                         }
                         edited == null -> {
                             if (current != null && !same(current, old) && conflictPolicy == ConflictPolicy.STOP)
-                                throw Conflict("$key/$id")
+                                recordConflict("$key/$id", old, edited, current, old, conflicts)
                             if (current != null && !same(current, old) && conflictPolicy == ConflictPolicy.KEEP_REMOTE)
                                 current else null
                         }
                         old == null -> {
                             if (current != null && !same(current, edited) && conflictPolicy == ConflictPolicy.STOP)
-                                throw Conflict("$key/$id")
+                                recordConflict("$key/$id", old, edited, current, edited, conflicts)
                             if (current != null && !same(current, edited) && conflictPolicy == ConflictPolicy.KEEP_REMOTE)
                                 current else JSONObject(edited.toString())
                         }
-                        current == null -> if (conflictPolicy == ConflictPolicy.KEEP_LOCAL)
-                            JSONObject(edited.toString()) else if (conflictPolicy == ConflictPolicy.KEEP_REMOTE)
-                            null else throw Conflict("$key/$id")
-                        else -> patchObject(old, edited, current, "$key/$id", conflictPolicy)
+                        current == null -> {
+                            if (conflictPolicy == ConflictPolicy.STOP) recordConflict("$key/$id", old, edited, current, edited, conflicts)
+                            if (conflictPolicy == ConflictPolicy.KEEP_LOCAL) JSONObject(edited.toString()) else null
+                        }
+                        else -> patchObject(old, edited, current, "$key/$id", conflictPolicy, sameGeneration, conflicts)
                     }
                     if (merged == null) result.remove(id) else result[id] = merged
                     if (!same(current, merged)) changed = true
@@ -129,10 +130,10 @@ internal object WorkspacePatch {
                 if (sameKnown(old, edited)) continue
                 val current = output.opt(key)
                 val merged = if (old is JSONObject && edited is JSONObject && current is JSONObject)
-                    patchObject(old, edited, current, key, conflictPolicy,sameGeneration)
+                    patchObject(old, edited, current, key, conflictPolicy,sameGeneration,conflicts)
                 else {
                     if (!same(old, current) && !same(edited, current) && conflictPolicy == ConflictPolicy.STOP)
-                        throw Conflict(key)
+                        recordConflict(key, old, edited, current, edited as? JSONObject, conflicts)
                     if (!same(old, current) && !same(edited, current) && conflictPolicy == ConflictPolicy.KEEP_REMOTE)
                         current else edited
                 }
@@ -191,7 +192,7 @@ internal object WorkspacePatch {
     }
 
     private fun patchObject(base: JSONObject, local: JSONObject, remote: JSONObject, path: String,
-        conflictPolicy: ConflictPolicy, sameGeneration: Boolean = true): JSONObject {
+        conflictPolicy: ConflictPolicy, sameGeneration: Boolean = true, conflicts: MutableList<WorkspaceConflictField>? = null): JSONObject {
         val output = JSONObject(remote.toString())
         // Native codecs intentionally omit web-only properties; omission is never a deletion.
         for (key in local.keys().asSequence().toList()) {
@@ -223,10 +224,10 @@ internal object WorkspacePatch {
                 JSONArray(versions.values.sortedWith(compareBy<JSONObject> { it.getString("effectiveDate") }
                     .thenBy { it.getString("recordedAt") }.thenBy { it.getString("id") }))
             } else if (old is JSONObject && edited is JSONObject && current is JSONObject)
-                patchObject(old, edited, current, "$path/$key", conflictPolicy,sameGeneration)
+                patchObject(old, edited, current, "$path/$key", conflictPolicy,sameGeneration,conflicts)
             else {
                 if (!same(old, current) && !same(edited, current) && conflictPolicy == ConflictPolicy.STOP)
-                    throw Conflict("$path/$key")
+                    recordConflict("$path/$key", old, edited, current, local, conflicts)
                 if (!same(old, current) && !same(edited, current) && conflictPolicy == ConflictPolicy.KEEP_REMOTE)
                     current else edited
             }
@@ -243,6 +244,14 @@ internal object WorkspacePatch {
         JSONObject().put("version", maxOf((previous?.optLong("version") ?: 0) + 1, remoteVersion + 1))
             .put("updatedAt", timestamp).put("deviceId", deviceId)
 
+    private fun recordConflict(path: String, base: Any?, local: Any?, remote: Any?, row: JSONObject?,
+        conflicts: MutableList<WorkspaceConflictField>?) {
+        if (conflicts == null) throw Conflict(path)
+        val title = row?.optString("title")?.takeIf { it.isNotBlank() }
+            ?: row?.optString("date")?.takeIf { it.isNotBlank() }
+        conflicts += WorkspaceConflictField(path, title, workspaceConflictJson(base), workspaceConflictJson(local), workspaceConflictJson(remote))
+    }
+
     private fun same(a: Any?, b: Any?): Boolean = canonical(a) == canonical(b)
     private fun sameKnown(old: Any?, edited: Any?): Boolean {
         if (old is JSONObject && edited is JSONObject)
@@ -252,9 +261,10 @@ internal object WorkspacePatch {
     private fun canonical(value: Any?): String = when (value) {
         null, JSONObject.NULL -> "null"
         is JSONObject -> value.keys().asSequence().toList().filterNot { it == "syncState" || it == "syncMetadata" }
-            .sorted().joinToString(prefix = "{", postfix = "}") { "$it:${canonical(value.opt(it))}" }
+            .sorted().joinToString(prefix = "{", postfix = "}") { JSONObject.quote(it) + ":" + canonical(value.opt(it)) }
         is JSONArray -> (0 until value.length()).joinToString(prefix = "[", postfix = "]") { canonical(value.opt(it)) }
         is String -> JSONObject.quote(value)
+        is Number -> JSONObject.numberToString(value)
         else -> value.toString()
     }
 }

@@ -21,6 +21,7 @@ import {
 import { clearAllTrackerAnalyticsCaches, clearTrackerAnalyticsCache } from "./tracker-cache";
 import {clearMessagingVault} from "./private-message-vault";
 import {clearHabitRestoreJournal} from "./habit-restore-journal";
+import {clearSharedEditorDraftStorage} from "./shared-editor-indexed-storage";
 import { acceptAuthenticatedLogin, clearPrivateDeviceStorage, hasLocalSignOut, LOCAL_SIGN_OUT_KEY, markLocalSignOut, prepareLocalSignIn, privateDeviceAccessBlocked } from "./local-sign-out";
 import {
   mergeWorkspaceDocuments,
@@ -417,6 +418,7 @@ let sessionGeneration = 0;
 let localSessionEnded = privateDeviceAccessBlocked();
 const accountRequests = new Set<AbortController>();
 export const LOCAL_SESSION_ENDED_EVENT = "genesis-local-session-ended";
+export const PERSONAL_DOCUMENT_READY_EVENT = "genesis-personal-document-ready";
 
 function requireActiveLocalSession(generation = sessionGeneration) {
   if (localSessionEnded || privateDeviceAccessBlocked() || generation !== sessionGeneration) {
@@ -1004,6 +1006,7 @@ export function restoreOfflineWorkspaceSession(userId: string, provider: "google
   const stored = deviceWorkspaceKey(userId);
   workspaceKey = stored?.key ?? "";
   restoreWorkspaceSyncCache();
+  if (workspaceKey && typeof window !== "undefined") window.dispatchEvent(new Event(PERSONAL_DOCUMENT_READY_EVENT));
   return Boolean(workspaceKey);
 }
 
@@ -1331,6 +1334,7 @@ export async function loadGenesisWorkspace(): Promise<GenesisWorkspace> {
     structure = await decryptWorkspace(payload.workspace.envelope);
   }
   requireActiveLocalSession(generation);
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(PERSONAL_DOCUMENT_READY_EVENT));
   return {
     user: payload.user,
     csrf: payload.csrf,
@@ -1565,6 +1569,7 @@ export async function signOutFromGoogle() {
   try { await clearAllTrackerAnalyticsCaches(); } catch { localCleared = false; }
   try { await clearMessagingVault(); } catch { localCleared = false; }
   try { await clearHabitRestoreJournal(); } catch { localCleared = false; }
+  try { await clearSharedEditorDraftStorage(); } catch { localCleared = false; }
   if ("serviceWorker" in navigator) {
     const registration = await navigator.serviceWorker.getRegistration().catch(() => undefined);
     const notifications = await registration?.getNotifications().catch(() => []);
@@ -1586,6 +1591,7 @@ export async function deleteGenesisAccount(userId?: string) {
   if (!result.deleted) throw new Error("Сервер не подтвердил полное удаление аккаунта.");
   await clearMessagingVault();
   await clearHabitRestoreJournal();
+  await clearSharedEditorDraftStorage();
   if (deletedUserId) {
     localStorage.removeItem(`${WORKSPACE_DEVICE_KEY_PREFIX}${deletedUserId}`);
     localStorage.removeItem(`${WORKSPACE_DEVICE_ID_PREFIX}${deletedUserId}`);

@@ -2,7 +2,7 @@ import type {WorkflowCommand,WorkflowConfig,WorkflowContext,WorkflowSnapshot} fr
 
 export type WorkflowEditorDraft={config:WorkflowConfig;statusesKey:string};
 export type WorkflowDeviceSnapshot=Omit<WorkflowSnapshot,'context'>&{context:Omit<WorkflowContext,'customFieldDefinitions'>&{customFieldDefinitions:{id:string;title:string;archived:boolean}[]}};
-export type WorkflowDeviceDraft={version:1;projectId:string;observedAt:string;snapshot:WorkflowDeviceSnapshot;draft:WorkflowEditorDraft|null;pending:WorkflowCommand|null;fromStatusId:string};
+export type WorkflowDeviceDraft={version:1;projectId:string;observedAt:string;snapshot:WorkflowDeviceSnapshot;draft:WorkflowEditorDraft|null;pending:WorkflowCommand|null;fromStatusId:string;numberInputs?:Record<string,string>};
 const record=(value:unknown):value is Record<string,unknown>=>Boolean(value)&&typeof value==='object'&&!Array.isArray(value);
 const text=(value:unknown,max=400)=>typeof value==='string'&&[...value].length<=max;
 const id=(value:unknown)=>typeof value==='string'&&/^[a-zA-Z0-9_-]{1,200}$/.test(value);
@@ -42,6 +42,6 @@ export function workflowDeviceSnapshot(value:WorkflowSnapshot|WorkflowDeviceSnap
 }
 /** Validate stored bytes without rebasing or dropping an unfinished edit. */
 export function validateWorkflowDeviceDraft(value:unknown,projectId:string):WorkflowDeviceDraft{
- if(!record(value)||!keys(value,['version','projectId','observedAt','snapshot','draft','pending','fromStatusId'])||value.version!==1||value.projectId!==projectId||!text(value.observedAt,100)||!Number.isFinite(Date.parse(value.observedAt as string))||!snapshot(value.snapshot,projectId)||value.draft!==null&&!editorDraft(value.draft)||value.pending!==null&&!command(value.pending)||value.fromStatusId!==''&&!id(value.fromStatusId))throw new Error('WORKFLOW_DEVICE_DRAFT_INVALID');
+ if(!record(value)||!keys(value,['version','projectId','observedAt','snapshot','draft','pending','fromStatusId','numberInputs'])||value.version!==1||value.projectId!==projectId||!text(value.observedAt,100)||!Number.isFinite(Date.parse(value.observedAt as string))||!snapshot(value.snapshot,projectId)||value.draft!==null&&!editorDraft(value.draft)||value.pending!==null&&!command(value.pending)||value.fromStatusId!==''&&!id(value.fromStatusId)||value.numberInputs!==undefined&&(!record(value.numberInputs)||!Object.entries(value.numberInputs).every(([key,value])=>id(key)&&text(value,100))))throw new Error('WORKFLOW_DEVICE_DRAFT_INVALID');
  return structuredClone(value) as WorkflowDeviceDraft;
 }

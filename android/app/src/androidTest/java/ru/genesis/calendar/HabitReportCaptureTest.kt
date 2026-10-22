@@ -18,6 +18,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
 import java.io.File
 import java.time.LocalDate
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.*
@@ -63,6 +65,13 @@ class HabitReportCaptureTest {
         }
         fun capture(name: String, tags: List<String>) {
             compose.waitForIdle()
+            // Semantics can settle one compositor frame before a physical screenshot.
+            val painted = CountDownLatch(1)
+            compose.activity.runOnUiThread { compose.activity.window.decorView.postOnAnimation {
+                compose.activity.window.decorView.postOnAnimation { painted.countDown() }
+            } }
+            assertTrue("Window did not draw the settled state", painted.await(5, TimeUnit.SECONDS))
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync()
             val filename = "ef-$width-$language-${if (dark) "dark" else "light"}-font${(font * 100).toInt()}-${if (longTitle) "long-" else ""}$name"
             assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(File(folder, "$filename.png")))
             val root = compose.onNodeWithTag("ef-capture-root").fetchSemanticsNode().boundsInRoot

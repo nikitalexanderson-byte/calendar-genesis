@@ -3,6 +3,9 @@ package ru.genesis.calendar.ui
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -11,6 +14,31 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+
+/** STANDART controls keep Material behavior with the shared rectangular silhouette. */
+@Composable internal fun Button(onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true,
+    shape: Shape = AffairsLayout.controlShape, colors: ButtonColors = ButtonDefaults.buttonColors(),
+    elevation: ButtonElevation? = ButtonDefaults.buttonElevation(), border: BorderStroke? = null,
+    contentPadding: PaddingValues = ButtonDefaults.ContentPadding, interactionSource: MutableInteractionSource? = null,
+    content: @Composable RowScope.() -> Unit) {
+    androidx.compose.material3.Button(onClick, modifier.heightIn(min = 48.dp), enabled, shape, colors, elevation, border, contentPadding, interactionSource, content)
+}
+
+@Composable internal fun OutlinedButton(onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true,
+    shape: Shape = AffairsLayout.controlShape, colors: ButtonColors = ButtonDefaults.outlinedButtonColors(),
+    elevation: ButtonElevation? = null, border: BorderStroke? = ButtonDefaults.outlinedButtonBorder(enabled),
+    contentPadding: PaddingValues = ButtonDefaults.ContentPadding, interactionSource: MutableInteractionSource? = null,
+    content: @Composable RowScope.() -> Unit) {
+    androidx.compose.material3.OutlinedButton(onClick, modifier.heightIn(min = 48.dp), enabled, shape, colors, elevation, border, contentPadding, interactionSource, content)
+}
+
+@Composable internal fun TextButton(onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true,
+    shape: Shape = AffairsLayout.controlShape, colors: ButtonColors = ButtonDefaults.textButtonColors(),
+    elevation: ButtonElevation? = null, border: BorderStroke? = null,
+    contentPadding: PaddingValues = ButtonDefaults.TextButtonContentPadding, interactionSource: MutableInteractionSource? = null,
+    content: @Composable RowScope.() -> Unit) {
+    androidx.compose.material3.TextButton(onClick, modifier.heightIn(min = 48.dp), enabled, shape, colors, elevation, border, contentPadding, interactionSource, content)
+}
 
 /** Shared theme treatment also covers the original feature cards and their dialogs. */
 @Composable

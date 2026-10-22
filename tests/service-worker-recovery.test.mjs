@@ -7,7 +7,7 @@ const source = await readFile(new URL("../public/sw.js", import.meta.url), "utf8
 const origin = "https://genesiscalendar.com/";
 const assetUrl = `${origin}assets/account.js`;
 
-function worker({ assetHtml = false, cachedHtml = false, networkHtml = false } = {}) {
+function worker({ assetHtml = false, cachedHtml = false, networkHtml = false, networkStatus=200, offline=false } = {}) {
   const events = new Map();
   const records = new Map();
   let networkRequests = 0;
@@ -17,7 +17,7 @@ function worker({ assetHtml = false, cachedHtml = false, networkHtml = false } =
         headers: { "Content-Type": request.url === assetUrl && assetHtml ? "text/html" : "application/javascript" },
       }));
     },
-    async match(request) { return records.get(typeof request === "string" ? request : request.url)?.clone(); },
+    async match(request,options) { const key=typeof request === "string" ? request : request.url;return (records.get(key)??(options?.ignoreSearch?records.get(key.split('?')[0]):undefined))?.clone(); },
     async put(request, response) { records.set(typeof request === "string" ? request : request.url, response); },
     async delete(url) { return records.delete(url); },
   };
@@ -28,8 +28,8 @@ function worker({ assetHtml = false, cachedHtml = false, networkHtml = false } =
     addEventListener: (name, callback) => events.set(name, callback),
   };
   runInNewContext(source, {
-    self, URL, Request, Response, importScripts() {}, caches: { open: async () => cache },
-    fetch: async () => { networkRequests += 1; return new Response(networkHtml ? "<html>fallback</html>" : "export const ready = true;", { headers: { "Content-Type": networkHtml ? "text/html" : "application/javascript" } }); },
+    self, URL, Request, Response, importScripts() {}, caches: { open: async () => cache, match:(request,options)=>cache.match(request,options) },
+    fetch: async () => { networkRequests += 1;if(offline)throw Error('offline');return new Response(networkHtml ? "<html>fallback</html>" : "export const ready = true;", { status:networkStatus, headers: { "Content-Type": networkHtml ? "text/html" : "application/javascript" } }); },
   });
   return { events, records, networkRequests: () => networkRequests };
 }
@@ -71,4 +71,24 @@ test("a stale SPA rewrite cannot return or cache HTML as a module", async () => 
   assert.equal(response.status, 404);
   assert.equal(response.headers.get("Cache-Control"), "no-store");
   assert.equal(fixture.records.has(assetUrl), false);
+});
+
+const illustration=origin+'theokyklos-symbols/exit-eros-psyche.png';
+async function imageRequest(fixture,url=illustration){
+ const request=new Request(url);Object.defineProperty(request,'destination',{value:'image'});let pending;
+ fixture.events.get('fetch')({request,respondWith:promise=>{pending=promise;}});return pending;
+}
+test('a CDN 502 or HTML fallback displays the saved original illustration without poisoning its cache',async()=>{
+ for(const options of [{networkStatus:502},{networkHtml:true}]){
+  const fixture=worker(options);fixture.records.set(illustration,new Response('original PNG bytes',{headers:{'Content-Type':'image/png'}}));
+  const response=await imageRequest(fixture);assert.equal(response.status,200);assert.equal(response.headers.get('Content-Type'),'image/png');assert.equal(await response.text(),'original PNG bytes');assert.equal(await fixture.records.get(illustration).clone().text(),'original PNG bytes');
+ }
+});
+test('an offline bounded image retry finds the original precache entry despite its retry query',async()=>{
+ const fixture=worker({offline:true});fixture.records.set(illustration,new Response('saved original',{headers:{'Content-Type':'image/png'}}));
+ assert.equal(await (await imageRequest(fixture,illustration+'?genesis-symbol-retry=1')).text(),'saved original');
+});
+test('a failed image request never treats a saved HTML page as a successful illustration',async()=>{
+ const fixture=worker({networkStatus:502});fixture.records.set(illustration,new Response('<html>old fallback</html>',{headers:{'Content-Type':'text/html'}}));
+ assert.equal((await imageRequest(fixture)).status,502);assert.equal(fixture.records.get(illustration).headers.get('Content-Type'),'text/html');
 });

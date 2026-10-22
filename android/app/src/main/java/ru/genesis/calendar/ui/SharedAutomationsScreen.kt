@@ -159,7 +159,7 @@ import java.util.Locale
 
 @Composable private fun AutomationLibrary(state: SharedAutomationsState, page: JSONObject, onSelect: (String) -> Unit,
     onCreate: () -> Unit, onFilter: (Boolean) -> Unit, onPage: (Boolean) -> Unit) {
-    if (page.getBoolean("canCreate")) Button(onCreate, enabled = !state.busy && state.record == null, shape = AffairsLayout.shape,
+    if (page.getBoolean("canCreate")) Button(onCreate, enabled = !state.busy && state.record == null, shape = AffairsLayout.controlShape,
         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("automation-create")) {
         AffairsActionIcon(AffairsAction.ADD); Spacer(Modifier.width(8.dp)); Text("Создать правило")
     }

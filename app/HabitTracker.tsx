@@ -971,6 +971,7 @@ export function HabitDailyPanel({ workspace, date, language, timeFormat, calenda
                     {habitDisplayText(habit, language).description ? <small data-no-translate>{habitDisplayText(habit, language).description}</small> : null}
                   </div>
                   {onTimerCommand || habit.preferredTime || habit.intervalSchedule ? <div className="habit-check-timing">
+                    <em className="habit-priority-desktop">{isEnglish ? `Priority ${habit.priority}` : `Приоритет ${habit.priority}`}</em>
                     {onTimerCommand ? <button type="button" className="secondary-button habit-timer-launch" disabled={date !== today || !habit.active}
                       onClick={() => setTimerHabit(habit.id)} aria-expanded={timerHabit === habit.id}><HabitTimerIcon/>{translateText("Таймер", language)}</button> : null}
                     {habit.preferredTime ? <small className="habit-preferred-time">{isEnglish ? "Strict time" : "Строгое время"}: {formatTimeValue(habit.preferredTime, timeFormat)}</small> : null}

@@ -1896,7 +1896,7 @@ test("ships the complete interactive bilingual Theokyklos", async () => {
   assert.match(details, /THEOKYKLOS_DETAIL_ART\[segment\.id\]/);
   assert.match(details, /width="1680"[\s\S]*height="945"/);
   assert.match(component, /THEOKYKLOS_SYMBOL_ART\[segment\.id\]/);
-  assert.match(component, /<image className="theokyklos-mandala-icon/);
+  assert.match(component, /<(?:image|TheokyklosSymbolImage) className="theokyklos-mandala-icon/);
   assert.match(details, /<img src=\{THEOKYKLOS_SYMBOL_ART\[segment\.id\]\}/);
   assert.doesNotMatch(component, /theokyklos-segment-index/);
   assert.doesNotMatch(component, /theokyklos-threshold-row/);

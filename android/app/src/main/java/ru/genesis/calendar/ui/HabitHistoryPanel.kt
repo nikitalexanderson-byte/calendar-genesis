@@ -35,7 +35,7 @@ import ru.genesis.calendar.domain.habits.*
     LaunchedEffect(focus) { focus?.let { selected=it.first;dateValue=it.second.toString();expanded=true;requestedFocus=true;onFocusConsumed() } }
     LaunchedEffect(requestedFocus, expanded) { if (requestedFocus && expanded) { withFrameNanos { }; historyFocus.bringIntoView(); requestedFocus=false } }
     var visible by rememberSaveable { mutableIntStateOf(30) }
-    TextButton(onClick = { expanded = !expanded }, shape = AffairsLayout.shape,
+    TextButton(onClick = { expanded = !expanded }, shape = AffairsLayout.controlShape,
         modifier = Modifier.heightIn(min = 48.dp).bringIntoViewRequester(historyFocus).testTag("habit-history-toggle")) { Text("Исправить историю") }
     if (expanded && habit != null) {
         val rule = HabitMeasurements.rule(habit, dateValue.takeIf { it.isNotEmpty() }?.let(LocalDate::parse) ?: habit.createdDate)
@@ -64,7 +64,7 @@ import ru.genesis.calendar.domain.habits.*
     var open by remember { mutableStateOf(false) }
     Column {
         Text(label, style = MaterialTheme.typography.labelLarge)
-        OutlinedButton(onClick = { open = true }, shape = AffairsLayout.shape, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { if(userContent) MaterialText(selected) else Text(selected) }
+        OutlinedButton(onClick = { open = true }, shape = AffairsLayout.controlShape, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { if(userContent) MaterialText(selected) else Text(selected) }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             choices.forEach { (id, title) -> DropdownMenuItem(text = { if(userContent) MaterialText(title) else Text(title) }, onClick = { open = false; onChange(id) }) }
         }

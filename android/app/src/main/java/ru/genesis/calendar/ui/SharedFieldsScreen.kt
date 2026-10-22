@@ -164,8 +164,8 @@ internal fun fieldEditorMessage(code: String, hasRecord: Boolean = true): String
     }
     TemplateField("Поиск", query, state.loaded && !state.busy, "field-search", maxLength = 160) { query = it }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        FilterChip(!archive, { archive = false }, label = { Text("Действующие") }, shape = AffairsLayout.shape, modifier = Modifier.heightIn(min = 48.dp).testTag("field-active-filter"))
-        FilterChip(archive, { archive = true }, label = { Text("Архив") }, shape = AffairsLayout.shape, modifier = Modifier.heightIn(min = 48.dp).testTag("field-archive-filter"))
+        FilterChip(!archive, { archive = false }, label = { Text("Действующие") }, shape = AffairsLayout.controlShape, modifier = Modifier.heightIn(min = 48.dp).testTag("field-active-filter"))
+        FilterChip(archive, { archive = true }, label = { Text("Архив") }, shape = AffairsLayout.controlShape, modifier = Modifier.heightIn(min = 48.dp).testTag("field-archive-filter"))
     }
     val visible = state.fields.filter { it.getBoolean("archived") == archive && (query.isBlank() || it.getString("title").contains(query, ignoreCase = true)) }
     visible.take(limit).forEach { field -> key(field.getString("id")) {
@@ -308,12 +308,12 @@ internal fun fieldEditorMessage(code: String, hasRecord: Boolean = true): String
             "editing" -> {
                 TemplateIconButton("Предпросмотр изменений", AffairsAction.VIEW, state.canPreview, Modifier.size(48.dp).testTag("field-preview"), onClick = preview)
                 Spacer(Modifier.weight(1f))
-                Button(submit, enabled = state.canSave, shape = AffairsLayout.shape, modifier = Modifier.heightIn(min = 48.dp).testTag("field-save")) { Text("Применить") }
+                Button(submit, enabled = state.canSave, shape = AffairsLayout.controlShape, modifier = Modifier.heightIn(min = 48.dp).testTag("field-save")) { Text("Применить") }
             }
             "pending" -> {
                 if (state.record?.getInt("attempts") == 0) TemplateIconButton("Отмена", AffairsAction.UNDO, !state.busy && state.loaded, Modifier.size(48.dp), onClick = discard)
                 Spacer(Modifier.weight(1f))
-                Button(submit, enabled = !state.busy && state.loaded && !state.lost, shape = AffairsLayout.shape, modifier = Modifier.heightIn(min = 48.dp).testTag("field-retry")) { Text("Повторить") }
+                Button(submit, enabled = !state.busy && state.loaded && !state.lost, shape = AffairsLayout.controlShape, modifier = Modifier.heightIn(min = 48.dp).testTag("field-retry")) { Text("Повторить") }
             }
             "rejected" -> {
                 Text("Изменения не сохранены", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
@@ -321,7 +321,7 @@ internal fun fieldEditorMessage(code: String, hasRecord: Boolean = true): String
             }
             "received" -> {
                 Spacer(Modifier.weight(1f))
-                Button(done, enabled = !state.busy && !state.lost, shape = AffairsLayout.shape, modifier = Modifier.heightIn(min = 48.dp).testTag("field-done")) { Text("Готово") }
+                Button(done, enabled = !state.busy && !state.lost, shape = AffairsLayout.controlShape, modifier = Modifier.heightIn(min = 48.dp).testTag("field-done")) { Text("Готово") }
             }
         }
     }

@@ -9,6 +9,7 @@ import { inflateRawSync } from 'node:zlib';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'../..');
 const publicRoot=resolve(root,'public');
 const generatedRoot=resolve(root,'android/app/build/generated/genesisAssets/originals');
+const mainOriginalsRoot=resolve(root,'android/app/src/main/assets/originals');
 const manifestPath=resolve(root,'docs/android/ASSET_MANIFEST.json');
 const markdownPath=resolve(root,'docs/android/ASSET_MANIFEST.md');
 const args=process.argv.slice(2);
@@ -119,15 +120,46 @@ const slots={
   'month-frieze-v2.png':['Legacy combined month frieze','Preserved in APK but intentionally not rendered in Projects; sacred calendar uses individual original month-art-v4 images','PRESERVED_NOT_RENDERED'],
 };
 const files=walk(publicRoot);
-const originals=files.filter(included);
+// Existing main-source-set artwork is packaged alongside the generated public copies.
+const mainFiles=existsSync(mainOriginalsRoot)?walk(mainOriginalsRoot):[];
+const mainOriginals=mainFiles.filter((path)=>files.includes(path));
+const nativeOnlyOriginals=mainFiles.filter((path)=>!files.includes(path));
+check(nativeOnlyOriginals.every(path=>/\.(png|jpe?g|webp|svg|gif|avif|woff2?|ttf|otf)$/i.test(path)),'Unexpected non-media file in native-only originals');
+const originals=[...new Set([...files.filter(included),...mainOriginals])].sort();
 check(originals.length>0,'No selected original files');
 for(const pattern of includes)check(originals.some((p)=>pattern.endsWith('/**')?p.startsWith(pattern.slice(0,-2)):p===pattern),`Empty source include: ${pattern}`);
 const apk=existsSync(apkPath)?apkReader(apkPath):null;
 const sourceSet=new Set(originals);
+nativeOnlyOriginals.forEach(path=>sourceSet.add(path));
 // These reviewed text catalogs are declared separately from public images in Gradle.
 // Verify their bytes as well, while still rejecting any undeclared extra APK entry.
-const catalogs=Array.from(gradle.matchAll(/from\(rootProject\.file\("\.\.\/(app\/[^"/]+\.json)"\)\)\s*\{\s*into\("i18n"\)\s*\}/g),
-  (match)=>({source:match[1],asset:`i18n/${match[1].split('/').at(-1)}`}));
+const catalogByAsset=new Map();
+for(const match of gradle.matchAll(/from\(rootProject\.file\("\.\.\/(app(?:\/[^"\r\n]+)?)"\)\)\s*\{([^}]+)\}/g)) {
+  const source=match[1],block=match[2],destination=block.match(/\binto\("(i18n(?:\/[^"\r\n]+)?)"\)/)?.[1];
+  if(!destination)continue;
+  check(!source.includes('..')&&!destination.includes('..'),'Catalog paths must stay within app and i18n');
+  const path=resolve(root,source),names=[];
+  if(statSync(path).isFile()) {
+    check(source.endsWith('.json'),'Declared catalog must be JSON');names.push({source,name:source.split('/').at(-1)});
+  } else {
+    const includes=block.match(/\binclude\(([\s\S]*?)\)/);
+    check(includes,'Grouped catalog source needs literal include patterns');
+    const patterns=Array.from(includes[1].matchAll(/"([^"\r\n]+)"/g),item=>item[1]);
+    check(patterns.length>0&&patterns.every(p=>p.endsWith('.json')&&!p.includes('..')&&!p.includes('/')&&!p.includes('?')),'Unsupported catalog include pattern');
+    const filenames=readdirSync(path,{withFileTypes:true}).filter(item=>item.isFile()).map(item=>item.name);
+    for(const pattern of patterns) {
+      const expression=new RegExp('^'+pattern.split('*').map(part=>part.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('.*')+'$');
+      const selected=filenames.filter(name=>expression.test(name));check(selected.length>0,`Empty catalog pattern: ${source}/${pattern}`);
+      for(const name of selected)names.push({source:`${source}/${name}`,name});
+    }
+  }
+  for(const item of names) {
+    const asset=`${destination}/${item.name}`,previous=catalogByAsset.get(asset);
+    check(!previous||previous.source===item.source,`Catalog destination collision: ${asset}`);
+    catalogByAsset.set(asset,{source:item.source,asset});
+  }
+}
+const catalogs=[...catalogByAsset.values()].sort((a,b)=>a.asset.localeCompare(b.asset));
 const catalogPaths=new Set(catalogs.map((entry)=>entry.asset));
 const generatedFiles=existsSync(generatedRoot)?walk(generatedRoot):[];
 const extraGenerated=generatedFiles.filter((p)=>!sourceSet.has(p) && !catalogPaths.has(p));
@@ -144,10 +176,19 @@ const catalogVerification=catalogs.map(({source,asset})=>{
   if(!generatedPass || apkPass===false) failures.push(`Declared text catalog missing/mismatch: ${asset}`);
   return {source,asset,sha256:hash,generatedPass,apkPass};
 });
+const nativeOnlyVerification=nativeOnlyOriginals.map(path=>{
+  const source=resolve(mainOriginalsRoot,path),bytes=readFileSync(source),hash=sha(bytes);
+  let apkHash=null;
+  try{if(apk)apkHash=sha(apk.read(`assets/originals/${path}`,bytes.length).bytes);}catch{apkHash='INVALID';}
+  const apkPass=apk?apkHash===hash:null;
+  if(apkPass===false)failures.push(`Native-only original missing/mismatch: ${path}`);
+  return {source:localPath(source),asset:`originals/${path}`,sha256:hash,apkSha256:apkHash,apkPass};
+});
 const entries=originals.map((path)=>{
   const bytes=readFileSync(resolve(publicRoot,path));
   const hash=sha(bytes), family=path.includes('/')?path.split('/')[0]:path;
-  const generated=resolve(generatedRoot,path);
+  const generatedPath=resolve(generatedRoot,path);
+  const generated=existsSync(generatedPath)?generatedPath:resolve(mainOriginalsRoot,path);
   const copyHash=existsSync(generated)?sha(readFileSync(generated)):null;
   const copied=copyHash===hash;
   const apkEntry=`assets/originals/${path}`;
@@ -159,14 +200,14 @@ const entries=originals.map((path)=>{
   if(apk && apkStatus==='FAIL')failures.push(apkError??`APK entry missing/mismatch: ${path}`);
   const [webSlot,nativeSlot,uiStatus]=slots[family]??['Unmapped source family','Needs manual source/UI audit','NOT_REVIEWED'];
   return {source:`public/${path}`,asset:`originals/${path}`,apkEntry,family,bytes:bytes.length,sha256:hash,
-    generated:{status:copied?'PASS':'FAIL',sha256:copyHash},apk:{status:apkStatus,sha256:apkHash,compression:packaged?.method??null,compressedBytes:packaged?.compressedSize??null,error:apkError},
+    generated:{status:copied?'PASS':'FAIL',sha256:copyHash,path:localPath(generated),kind:generated===generatedPath?'generated':'main-source-set'},apk:{status:apkStatus,sha256:apkHash,compression:packaged?.method??null,compressedBytes:packaged?.compressedSize??null,error:apkError},
     webSlot,nativeSlot,uiStatus,visualParity:'NOT_RUN'};
 });
 if(extraGenerated.length)failures.push(`Unexpected generated originals: ${extraGenerated.length}`);
 if(extraApk.length)failures.push(`Unexpected APK originals: ${extraApk.length}`);
 if(requireApk&&!apk)failures.push('APK required but missing');
 const media=/\.(png|jpe?g|webp|svg|gif|avif|woff2?|ttf|otf)$/i;
-const omitted=files.filter((path)=>media.test(path)&&!included(path)).map((path)=>({source:`public/${path}`,bytes:statSync(resolve(publicRoot,path)).size,
+const omitted=files.filter((path)=>media.test(path)&&!sourceSet.has(path)).map((path)=>({source:`public/${path}`,bytes:statSync(resolve(publicRoot,path)).size,
   reason:'Not selected by current Gradle includes; relevance/legacy replacement must be assessed before release'}));
 const families=[...new Set(entries.map((e)=>e.family))].sort().map((family)=>{
   const list=entries.filter((e)=>e.family===family);
@@ -177,10 +218,10 @@ const report={schemaVersion:1,generatedAt:new Date().toISOString(),command:'node
   sourceRoot:'public',gradle:'android/app/build.gradle.kts',gradleSha256:sha(Buffer.from(gradle)),includes,
   generatedRoot:localPath(generatedRoot),apk:apk?{path:apk.path,size:apk.size,sha256:apk.sha256}:null,
   summary:{files:entries.length,originalBytes:entries.reduce((sum,e)=>sum+e.bytes,0),generatedPassed:entries.filter((e)=>e.generated.status==='PASS').length,
-    apkPassed:entries.filter((e)=>e.apk.status==='PASS').length,byteParity:failures.length?'FAIL':apk?'PASS':'PENDING_APK',visualParity:'NOT_RUN',omittedPublicMedia:omitted.length},
-  families,entries,catalogVerification,extraGenerated,extraApk,omitted,failures,
+    apkPassed:entries.filter((e)=>e.apk.status==='PASS').length,nativeOnlyOriginals:nativeOnlyVerification.length,catalogs:catalogVerification.length,byteParity:failures.length?'FAIL':apk?'PASS':'PENDING_APK',visualParity:'NOT_RUN',omittedPublicMedia:omitted.length},
+  families,entries,catalogVerification,nativeOnlyVerification,extraGenerated,extraApk,omitted,failures,
   limitations:['Byte parity is not proof of UI placement, visual parity, image decoding, licensing, or APK signature validity.',
-    'Only public originals selected by actual Gradle includes are hashed. No server/private data or non-public artwork source is read.',
+    'Public originals selected by actual Gradle includes or existing main source-set paths are hashed. Grouped and individual declared i18n catalogs are checked separately. No server/private data is read.',
     'Native OriginalImage currently uses BitmapFactory: copied SVG frames are not a working SVG renderer.',
     'No bundled public TTF/OTF/WOFF font is asserted ready; native font licensing/conversion and typography remain pending.',
     'Slot mapping is manually reviewed source evidence; mobile/tablet/font-scale and Standart/Experimental visual matrix is NOT_RUN.']};

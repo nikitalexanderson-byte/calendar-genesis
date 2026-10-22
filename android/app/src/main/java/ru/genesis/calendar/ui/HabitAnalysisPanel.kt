@@ -94,8 +94,8 @@ internal val habitActivityLabels = mapOf("completed" to "Выполнено", "a
             AffairsIconButton("Сегодня", AffairsAction.TIMER, { anchorValue = today.toString(); selectedDate = today.toString() }, Modifier.testTag("habit-analysis-today"))
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(!year, { year = false }, { Text("Месяц") }, shape = AffairsLayout.shape, modifier = Modifier.heightIn(min = 48.dp).testTag("habit-analysis-month"))
-            FilterChip(year, { year = true }, { Text("Год") }, shape = AffairsLayout.shape, modifier = Modifier.heightIn(min = 48.dp).testTag("habit-analysis-year"))
+            FilterChip(!year, { year = false }, { Text("Месяц") }, shape = AffairsLayout.controlShape, modifier = Modifier.heightIn(min = 48.dp).testTag("habit-analysis-month"))
+            FilterChip(year, { year = true }, { Text("Год") }, shape = AffairsLayout.controlShape, modifier = Modifier.heightIn(min = 48.dp).testTag("habit-analysis-year"))
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             AffairsIconButton("Назад", AffairsAction.BACK, { anchorValue = period.start.minusDays(1).toString(); selectedDate = "" }, Modifier.testTag("habit-analysis-previous"))
@@ -104,7 +104,7 @@ internal val habitActivityLabels = mapOf("completed" to "Выполнено", "a
         }
         if (habit == null) Text("Создайте привычку, чтобы увидеть её историю.") else {
             Box {
-                OutlinedButton({ choiceOpen = true }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("habit-analysis-habit"), shape = AffairsLayout.shape) { MaterialText(habitDisplayTitle(habit)) }
+                OutlinedButton({ choiceOpen = true }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("habit-analysis-habit"), shape = AffairsLayout.controlShape) { MaterialText(habitDisplayTitle(habit)) }
                 DropdownMenu(choiceOpen, { choiceOpen = false }) { workspace.habits.forEach { item ->
                     DropdownMenuItem({ MaterialText(habitDisplayTitle(item)) }, { selectedId = item.id; selectedDate = ""; choiceOpen = false })
                 } }
@@ -137,7 +137,7 @@ internal val habitActivityLabels = mapOf("completed" to "Выполнено", "a
                                 val ink = if (day.activity == "conflict") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
                                 Surface(shape = AffairsLayout.shape, color = if (selectedDate == day.date.toString()) MaterialTheme.colorScheme.primaryContainer
                                     else if (day.activity == "completed") MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow) {
-                                    TextButton({ selectedDate = day.date.toString() }, enabled = !day.future && !day.beforeCreation, shape = AffairsLayout.shape,
+                                    TextButton({ selectedDate = day.date.toString() }, enabled = !day.future && !day.beforeCreation, shape = AffairsLayout.controlShape,
                                         modifier = Modifier.size(48.dp).testTag("habit-analysis-day-${day.date}")
                                             .semantics { contentDescription = description; selected = selectedDate == day.date.toString() }, contentPadding = PaddingValues(4.dp)) {
                                         Column(horizontalAlignment = Alignment.CenterHorizontally) {

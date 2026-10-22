@@ -8,6 +8,9 @@ test('device projection excludes unrelated values and keeps zero and pending ide
  const input=document(),parsed=validateWorkflowDeviceDraft(input,'project-a');assert.deepEqual(parsed,input);assert.equal(parsed.draft.config.statuses[0].wipLimit,0);assert.equal(parsed.pending.expectedRevision,0);assert.equal(parsed.pending.requestId,'request-stable');assert.ok(!JSON.stringify(parsed).includes('PRIVATE_'));assert.equal(parsed.snapshot.context.customFieldDefinitions[0].archived,true);
  parsed.draft.config.statuses[0].wipLimit=9;assert.equal(input.draft.config.statuses[0].wipLimit,0);
 });
+test('unfinished WIP number text survives recovery without replacing the last valid limit',()=>{
+ for(const raw of ['','-','1000001','1.5']){const input=document();input.pending=null;input.numberInputs={todo:raw};const restored=validateWorkflowDeviceDraft(JSON.parse(JSON.stringify(input)),'project-a');assert.equal(restored.numberInputs.todo,raw);assert.equal(restored.draft.config.statuses[0].wipLimit,0);}
+});
 test('recovery preserves a stale or unfinished draft rather than silently rebasing it',()=>{
  const input=document();input.snapshot.config.revision=9;input.draft.config.transitions[0].roles=[];input.pending=null;input.snapshot.context.statuses=[];const parsed=validateWorkflowDeviceDraft(input,'project-a');assert.equal(parsed.draft.config.revision,0);assert.equal(parsed.snapshot.config.revision,9);assert.deepEqual(parsed.draft.config.transitions[0].roles,[]);assert.deepEqual(parsed.draft.config.statuses[0].requiredFields,['storyPoints','custom:old-field']);
  input.pending={enabled:false,expectedRevision:9,requestId:'disable-once'};assert.deepEqual(validateWorkflowDeviceDraft(input,'project-a').pending,input.pending);

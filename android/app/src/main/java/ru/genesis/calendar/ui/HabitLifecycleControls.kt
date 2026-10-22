@@ -85,7 +85,7 @@ internal fun habitLifecycleFailure(code: String?) = when (code) {
             val at = Instant.parse(head.at).atZone(ZoneId.of(habit.schedule.timezone))
             val timestamp = at.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale)) + " · " +
                 at.format(DateTimeFormatter.ofPattern(if (prefs.use24) "HH:mm" else "h:mm a", locale))
-            OutlinedButton({ onResolve(head.id) }, enabled = enabled, shape = AffairsLayout.shape,
+            OutlinedButton({ onResolve(head.id) }, enabled = enabled, shape = AffairsLayout.controlShape,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("resolve-habit-${habit.id}-${head.id}")) {
                 Text(genesisTranslate(habitLifecycleLabels.getValue(head.status)) + " · " + timestamp)
             }

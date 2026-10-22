@@ -5,6 +5,7 @@ import { translateText, type Language } from "./i18n";
 import type { HabitWorkspace } from "./habits";
 import type { TimeFormat } from "./time-format";
 import { IconActionButton } from "./IconActionButton";
+import { PERSONAL_DOCUMENT_READY_EVENT } from "./cloud-sync";
 import type { HabitRestoreJournal, HabitRestoreDraftRecord, HabitRestoreDeviceDraft, HabitRestoreEnvelope } from "./habit-restore-journal";
 
 export function HabitDataRestore({ workspace, language, scope, timeFormat = "24h", timeZone, onRestore, onPreview, onRecovery }: { workspace: HabitWorkspace; language: Language; scope: string;
@@ -21,26 +22,34 @@ export function HabitDataRestore({ workspace, language, scope, timeFormat = "24h
   const previewer = useRef(onPreview), recovery = useRef(onRecovery);
   const [records, setRecords] = useState<HabitRestoreDraftRecord[]>([]), [ready, setReady] = useState(false), [durable, setDurable] = useState(false);
   const [broken, setBroken] = useState<HabitRestoreEnvelope | null>(null);
+  const [initialization, retryInitialization] = useState(0);
   const invalidate = useCallback(() => { generation.current++; }, []);
   useEffect(() => { previewer.current = onPreview; recovery.current = onRecovery; }, [onPreview, onRecovery]);
   useEffect(() => {
-    let closed = false;
-    void (async () => {
+    let closed = false, loaded = false, attempt = 0;
+    const initialize = async () => {
+      const ticket = ++attempt;
+      try {
       const library = await import("./habit-restore-journal");
       const cipher = scope === "local" ? await library.localHabitRestoreCipher() : (await import("./cloud-sync")).personalDocumentAccess(scope);
       const value = new library.HabitRestoreJournal(scope, cipher);
-      if (closed) { value.dispose(); return; }
+      if (closed || ticket !== attempt) { value.dispose(); return; }
+      journal.current?.dispose();
       journal.current = value;
       const rows = await value.list();
-      if (closed) return;
-      setRecords(rows); setReady(true);
+      if (closed || ticket !== attempt) return;
+      loaded = true; setRecords(rows); setReady(true); setBroken(null); setError("");
       if (rows.length) recovery.current?.();
-    })().catch(reason => { if (!closed) {
+      } catch (reason) { if (!closed && ticket === attempt) {
       if (reason && typeof reason === "object" && "record" in reason) { setBroken(reason.record as HabitRestoreEnvelope); recovery.current?.(); }
       setError("Не удалось сохранить. Проверьте синхронизацию и повторите.");
-    } });
-    return () => { closed = true; invalidate(); journal.current?.dispose(); journal.current = null; };
-  }, [scope, invalidate]);
+      } }
+    };
+    const accessReady = () => { if (!loaded && !closed) void initialize(); };
+    window.addEventListener(PERSONAL_DOCUMENT_READY_EVENT, accessReady);
+    void initialize();
+    return () => { closed = true; window.removeEventListener(PERSONAL_DOCUMENT_READY_EVENT, accessReady); invalidate(); journal.current?.dispose(); journal.current = null; };
+  }, [scope, invalidate, initialization]);
   const persist = async (value: HabitRestoreDeviceDraft) => {
     setDurable(false);
     if (!journal.current) throw Error("HABIT_RESTORE_STORAGE_UNAVAILABLE");
@@ -157,6 +166,6 @@ export function HabitDataRestore({ workspace, language, scope, timeFormat = "24h
           .catch(() => setError("Не удалось сохранить. Проверьте синхронизацию и повторите.")).finally(() => { lock.current = false; setBusy(false); }); }} /></div>
     </div> : null}
     {busy ? <p role="status">{t("Загружаем данные…")}</p> : null}
-    {error ? <><p role="alert">{t(error)}</p>{lastFile ? <div className="habit-data-actions"><IconActionButton icon="map-refresh" label={t("Обновить")} disabled={busy} onClick={() => void read(lastFile)} /></div> : null}</> : null}{message ? <p role="status">{t(message)}</p> : null}
+    {error ? <><p role="alert">{t(error)}</p>{!broken ? <div className="habit-data-actions"><IconActionButton icon="map-refresh" label={t("Обновить")} disabled={busy} onClick={() => { if (!ready) retryInitialization(value => value + 1); else if (lastFile) void read(lastFile); }} /></div> : null}</> : null}{message ? <p role="status">{t(message)}</p> : null}
   </section>;
 }
