@@ -1,5 +1,6 @@
 package ru.genesis.calendar
 
+import android.os.ParcelFileDescriptor
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Box
@@ -39,7 +40,13 @@ class StoicheionRestorationFlowTest {
         compose.waitForIdle()
         val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
         device.waitForIdle()
-        assertTrue(device.takeScreenshot(File(context.getExternalFilesDir(null), "restoration-$name.png")))
+        val pixels = ParcelFileDescriptor.AutoCloseInputStream(InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand("screencap -p"))
+            .use { it.readBytes() }
+        File(context.getExternalFilesDir(null), "restoration-$name.png").writeBytes(pixels)
+        val root = compose.onRoot().fetchSemanticsNode()
+        File(context.getExternalFilesDir(null), "restoration-$name.metrics.json").writeText(JSONObject()
+            .put("capture", "screencap-physical-display").put("widthDp", root.boundsInWindow.width / root.layoutInfo.density.density)
+            .put("fontScale", root.layoutInfo.density.fontScale).toString())
     }
     private fun letters(): List<StoicheionLetter> {
         val data = JSONArray(context.assets.open("stoicheion.json").bufferedReader().use { it.readText() })
