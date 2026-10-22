@@ -189,23 +189,23 @@ function comebackCompletions(records: readonly DailyGoalRecord[], today: string)
   let runningStreak = 0;
   let active: { triggerDate: string; progress: number } | null = null;
   const completions: ComebackCompletion[] = [];
-  normalizeDailyGoalRecords(records).forEach((record) => {
-    if (record.date > today) return;
+  for (const record of normalizeDailyGoalRecords(records)) {
+    if (record.date > today) continue;
     if (record.status === "qualified" || record.status === "perfect") {
       runningStreak += 1;
-      if (!active) return;
+      if (!active) continue;
       active.progress += 1;
       if (active.progress >= COMEBACK_TARGET_DAYS) {
         completions.push({ triggerDate: active.triggerDate, completedDate: record.date });
         active = null;
       }
-      return;
+      continue;
     }
-    if (record.status !== "missed") return;
+    if (record.status !== "missed") continue;
     if (!active && runningStreak > 0) active = { triggerDate: record.date, progress: 0 };
     else if (active) active.progress = 0;
     runningStreak = 0;
-  });
+  }
   return { active, completions };
 }
 

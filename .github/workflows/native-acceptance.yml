@@ -1,0 +1,95 @@
+name: Native acceptance (no deploy)
+
+on:
+  push:
+    branches: [codex/post-release-acceptance-no-deploy]
+    paths:
+      - 'android/**'
+      - '.github/workflows/native-acceptance.yml'
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'android/**'
+      - '.github/workflows/native-acceptance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-acceptance-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native-ui:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [28, 35]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools emulator
+      - name: Build isolated debug app and tests
+        run: |
+          set -euo pipefail
+          sdkmanager "platforms;android-37.2" "build-tools;37.0.0"
+          cd android
+          bash ./gradlew '-PgenesisDebugApplicationIdSuffix=.g1qa.debug' \
+            :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest \
+            --no-daemon --console=plain --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8'
+      - name: Reclaim completed compilation scratch space
+        run: |
+          set -euo pipefail
+          # As in the release workflow, no Gradle tasks run after this point.
+          # Android 15 requires its full ~7.4 GB userdata partition at boot.
+          mapfile -t ACCEPTANCE_UNUSED_NDKS < <(sdkmanager --list_installed | awk -F'|' '/^[[:space:]]*ndk;/ {gsub(/[[:space:]]/, "", $1); print $1}')
+          if [ "${#ACCEPTANCE_UNUSED_NDKS[@]}" -gt 0 ]; then
+            sdkmanager --uninstall "${ACCEPTANCE_UNUSED_NDKS[@]}"
+          fi
+          test -s android/app/build/outputs/apk/debug/app-debug.apk
+          test -s android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          rm -rf -- android/app/build/intermediates android/app/build/tmp "$HOME/.gradle/caches"
+          df -h .
+          test "$(df --output=avail . | tail -1 | tr -d ' ')" -ge 12582912
+      - name: Enable runner KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Validate auth, Greek catalogs, restore and reports
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          profile: pixel_2
+          arch: x86_64
+          target: google_apis
+          ram-size: 2048M
+          disk-size: 6144M
+          emulator-boot-timeout: 300
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save -camera-back none -camera-front none
+          script: python3 android/tools/run-ui-acceptance.py --output output/native-ui-acceptance/api-${{ matrix.api }}
+      - name: Save synthetic diagnostics
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-ui-api-${{ matrix.api }}-${{ github.run_id }}
+          retention-days: 3
+          if-no-files-found: warn
+          path: |
+            output/native-ui-acceptance/
+            android/app/build/test-results/testDebugUnitTest/
