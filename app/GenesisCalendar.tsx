@@ -7801,12 +7801,6 @@ export function GenesisCalendar() {
         <YandexCalendarConnectDialog
           user={cloudUser}
           onClose={() => setYandexConnectPromptUserId(null)}
-          onConnected={(user) => {
-            setCloudUser(user);
-            if (!privateDeviceAccessBlocked()) localStorage.setItem(LAST_USER_KEY, JSON.stringify(user));
-            setYandexConnectPromptUserId(null);
-            window.location.reload();
-          }}
         />
       ) : null}
       {voiceLanguageEnabled && voiceAssistantOpen ? (

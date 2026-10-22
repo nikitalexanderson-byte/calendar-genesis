@@ -50,6 +50,20 @@ jobs:
             --no-daemon --console=plain --max-workers=1 \
             -Pkotlin.compiler.execution.strategy=in-process \
             '-Dorg.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8'
+      - name: Reclaim completed compilation scratch space
+        run: |
+          set -euo pipefail
+          # As in the release workflow, no Gradle tasks run after this point.
+          # Android 15 requires its full ~7.4 GB userdata partition at boot.
+          mapfile -t ACCEPTANCE_UNUSED_NDKS < <(sdkmanager --list_installed | awk -F'|' '/^[[:space:]]*ndk;/ {gsub(/[[:space:]]/, "", $1); print $1}')
+          if [ "${#ACCEPTANCE_UNUSED_NDKS[@]}" -gt 0 ]; then
+            sdkmanager --uninstall "${ACCEPTANCE_UNUSED_NDKS[@]}"
+          fi
+          test -s android/app/build/outputs/apk/debug/app-debug.apk
+          test -s android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          rm -rf -- android/app/build/intermediates android/app/build/tmp "$HOME/.gradle/caches"
+          df -h .
+          test "$(df --output=avail . | tail -1 | tr -d ' ')" -ge 12582912
       - name: Enable runner KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules

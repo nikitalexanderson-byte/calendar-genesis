@@ -239,7 +239,8 @@ private fun ProviderSignInIcon(provider: String, background: Color, foreground: 
         shape = AffairsLayout.controlShape,
         border = BorderStroke(1.dp, welcomeGold.copy(alpha = .42f)),
         contentPadding = PaddingValues(horizontal = 8.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = background, contentColor = foreground)) {
+        colors = ButtonDefaults.buttonColors(containerColor = background, contentColor = foreground,
+            disabledContainerColor = welcomeGreen, disabledContentColor = welcomeMuted)) {
         if (provider == "google") Image(painterResource(R.drawable.google_signin_mark), null,
             Modifier.size(30.dp))
         else Surface(Modifier.size(30.dp), shape = CircleShape, color = Color(0xFFE32924)) {
