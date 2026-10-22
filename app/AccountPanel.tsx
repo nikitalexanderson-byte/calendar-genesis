@@ -1,6 +1,6 @@
 "use client";
 import { DialogCloseButton } from "./DialogCloseButton";
-import { DailyAdviceSettings } from "./DailyAdviceSettings";
+import { AdvicePrivacyNotice, DailyAdviceSettings } from "./DailyAdviceSettings";
 import { SharedNotificationPreferencesDialog } from "./SharedNotificationPreferences";
 import { HabitReminderSettings } from "./HabitReminderSettings";
 import { sharedNotificationLabel } from "./notification-settings-model";
@@ -1101,6 +1101,7 @@ export function AccountPanel({ user, guideSharedProjects = false, onClose, onSig
           <a href="https://donate.stream/genesiscalendar" target="_blank" rel="noreferrer">{user.language === "en" ? "Support GENESIS · Donate.Stream" : "Поддержать GENESIS · Donate.Stream"}</a>
           <a href="/privacy">{user.language === "en" ? "Privacy policy" : "Политика конфиденциальности"}</a>
           <a href="/terms">{user.language === "en" ? "Terms of service" : "Пользовательское соглашение"}</a>
+          <AdvicePrivacyNotice language={user.language} />
         </section>
 
         {user.authProvider === "google" ? <section className="account-preferences multi-account-preference" aria-labelledby="multi-account-title" data-settings-group="account">

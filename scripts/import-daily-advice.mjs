@@ -37,13 +37,13 @@ async function main() {
   const args = process.argv.slice(2);
   const option = name => { const index = args.indexOf(name); return index < 0 ? undefined : args[index + 1]; };
   if (args.includes("--help")) {
-    console.log("node scripts/import-daily-advice.mjs --category hermetica --input advice.txt [--language ru] [--source-work WORK --source-author AUTHOR] [--write]\nWithout --write, only reports the import. Separate posts with a blank line."); return;
+    console.log("node scripts/import-daily-advice.mjs --category hermetica --input advice.txt [--language ru] [--source-work WORK --source-author AUTHOR] [--write]\nWithout --write, only reports the import. Separate posts with a blank line. New raw posts are private drafts until titles, artwork and all translations are prepared."); return;
   }
   const category = option("--category"), input = option("--input");
   if (!input || !category) throw new Error("Both --category and --input are required; use --help");
   const catalogPath = fileURLToPath(new URL("../server/content/daily-advice.json", import.meta.url));
   const sources = option("--source-work") ? [{ work: option("--source-work"), ...(option("--source-author") ? { author: option("--source-author") } : {}), kind: "inspired" }] : [];
-  const entries = parseAdviceParagraphs(await readFile(resolve(input), "utf8"), category, { language: option("--language") || "ru", sources });
+  const entries = parseAdviceParagraphs(await readFile(resolve(input), "utf8"), category, { language: option("--language") || "ru", sources }).map(entry => ({ ...entry, status: "draft" }));
   const catalog = JSON.parse(await readFile(catalogPath, "utf8"));
   const merged = mergeAdviceCatalog(catalog, entries);
   if (args.includes("--write")) await writeFile(catalogPath, JSON.stringify(merged, null, 2) + "\n");

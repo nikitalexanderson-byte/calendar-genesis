@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { parseAdviceParagraphs, mergeAdviceCatalog, adviceCategories } from "../scripts/import-daily-advice.mjs";
-import { adviceHabitScores, advicePreferences } from "../app/daily-advice.ts";
+import { adviceAvailableCategories, adviceHabitScores, adviceHabitTopicScores, advicePreferences } from "../app/daily-advice.ts";
+import { verifyDailyAdvice } from "../scripts/verify-daily-advice.mjs";
 
 test("paragraph import preserves text and stable IDs across reorder, BOM, CRLF, and reflow", () => {
   const entries = parseAdviceParagraphs("\uFEFFFirst line\r\ncontinued.\r\n\r\nSecond post.\r\n", "hermetica");
@@ -16,6 +17,23 @@ test("paragraph import preserves text and stable IDs across reorder, BOM, CRLF, 
   assert.deepEqual(merged.tradition, catalog.tradition);
   assert.equal(merged.items[0].body, "First line\ncontinued.");
   assert.deepEqual(merged.items[0].sources, []);
+});
+
+test("nutrition matching covers supported scripts and ignores paused or future habits", () => {
+  const habit = title => ({ id: "food", title, description: "", ritualName: "", createdDate: "2026-01-01", active: true,
+    priority: 1, isKeyHabit: false, sourceTemplateId: null, sacredSectorId: null, schedule: { startDate: "2026-01-01", endDate: null } });
+  for (const title of ["Пищевые привычки", "Balanced nutrition", "Διατροφή", "Gesunde Ernährung", "Alimentation", "Alimentación",
+    "Alimentazione", "Alimentação", "Zdrowe odżywianie", "Здрава исхрана", "Здорове харчування", "每天规律饮食", "Dengeli beslenme", "毎日の食事"]) {
+    assert.ok(adviceHabitTopicScores([habit(title)], "2026-10-22").nutrition > 0, title);
+  }
+  const food = habit("Пищевые привычки");
+  assert.deepEqual(Object.keys(adviceHabitTopicScores([food], "2026-10-22")), ["nutrition", "training", "recovery", "discipline"]);
+  for (const changes of [{ active: false }, { createdDate: "2027-01-01" }, { schedule: { startDate: "2027-01-01", endDate: null } }]) {
+    assert.ok(Object.values(adviceHabitTopicScores([{ ...food, ...changes }], "2026-10-22")).every(score => score === 0));
+  }
+  assert.deepEqual(adviceAvailableCategories(), ["aretology"]);
+  assert.deepEqual(adviceAvailableCategories(["aretology", "kourotrophy"]), ["aretology", "kourotrophy"]);
+  assert.deepEqual(adviceAvailableCategories([]), []);
 });
 
 test("invalid imports fail before writing content or inventing citations", () => {
@@ -36,6 +54,16 @@ test("all fourteen interface locales cover every control and all six categories"
     assert.equal(locale.categoryHints.length, adviceCategories.length);
     assert.ok(Object.values(locale).every(value => typeof value === "string" ? value.length > 0 : value.every(Boolean)));
   }
+});
+
+test("published advice has complete titles and bodies in all fourteen languages and distinct real artwork", async () => {
+  const result = await verifyDailyAdvice();
+  assert.deepEqual(result, { published: 152, drafts: 8, languages: 14, illustrations: 152 });
+  const catalog = JSON.parse(await readFile(new URL("../server/content/daily-advice.json", import.meta.url), "utf8"));
+  assert.equal(catalog.items[18].title, "Точность Прямодействия");
+  assert.ok(catalog.items[18].body.endsWith("Любая задача, которую ты решил довести до конца, должна выполняться с предельной интенсивностью, без оглядки на усталость."));
+  assert.equal(catalog.items[18].status, undefined);
+  assert.deepEqual(catalog.items.map((entry, index) => entry.status === "draft" ? index + 1 : null).filter(Boolean), [26, 60, 65, 70, 97, 98, 99, 100]);
 });
 
 test("smart affinity uses only active, current habits and keeps all six numeric scores private", () => {
