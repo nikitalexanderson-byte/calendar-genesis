@@ -17,13 +17,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      GENESIS_SMOKE_ROOT: ${{ runner.temp }}/genesis-move-acceptance
       GENESIS_IMPROVEMENTS_TEST: isolated
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Check mutation history and related integrations in fresh SQLite
+        env:
+          GENESIS_SMOKE_ROOT: ${{ runner.temp }}/genesis-move-acceptance
         run: |
           set -euo pipefail
           test ! -e server/config.php
