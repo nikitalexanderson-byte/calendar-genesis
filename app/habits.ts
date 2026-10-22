@@ -1,4 +1,5 @@
 import type { CalendarMode } from "./calendar-data";
+import { normalizeRestorationSnapshot, type RestorationSnapshot } from "./stoicheion-restoration-state";
 import { catalogText } from "./catalog-i18n";
 
 /** Begin documenting legacy availability at the first real edit, without inventing past pauses. */
@@ -226,6 +227,7 @@ export type Habit = TrackerEntity & {
   lifecycleHistory?: HabitLifecycleEvent[];
   sacredPracticeId: string | null;
   sacredSectorId: SacredPracticeSectorId | null;
+  stoicheionRestoration?: RestorationSnapshot | null;
   preferredTime: string;
   intervalSchedule?: HabitIntervalSchedule | null;
   measurement?: HabitMeasurement | null;
@@ -313,6 +315,7 @@ type LegacyHabit = Partial<TrackerEntity> & {
   sourceTemplateId?: HabitTemplateId | null;
   sacredPracticeId?: string | null;
   sacredSectorId?: SacredPracticeSectorId | null;
+  stoicheionRestoration?: RestorationSnapshot | null;
   preferredTime?: string;
   intervalSchedule?: HabitIntervalSchedule | null;
   measurement?: HabitMeasurement | null;
@@ -522,6 +525,7 @@ function normalizeHabit(value: LegacyHabit, fallbackDate: string, calendarMode: 
     sourceTemplateId,
     sacredPracticeId,
     sacredSectorId,
+    stoicheionRestoration: normalizeRestorationSnapshot(value.stoicheionRestoration),
     preferredTime: TIME_PATTERN.test(value.preferredTime ?? "") ? value.preferredTime! : "",
     intervalSchedule: normalizeHabitInterval(value.intervalSchedule),
     measurement,

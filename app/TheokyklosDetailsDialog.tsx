@@ -19,6 +19,7 @@ import { THEOKYKLOS_DETAIL_ART, THEOKYKLOS_SYMBOL_ART } from "./theokyklos-asset
 import type { TheokyklosLocalizedText, TheokyklosSegment } from "./theokyklos-data";
 import { markTrackerEntityChanged } from "./tracker-core";
 import { useDialogAccessibility } from "./use-dialog-accessibility";
+import { TheokyklosRestorationContext } from "./TheokyklosRestorationContext";
 
 function localized(copy: TheokyklosLocalizedText, language: Language) {
   return catalogText(copy, language);
@@ -95,6 +96,7 @@ export function TheokyklosDetailsDialog({ segment, language, workspace, date, ca
         </figure>
         <p className="theokyklos-essence" data-no-translate>{localized(segment.essence, language)}</p>
         <p className="theokyklos-description" data-no-translate>{localized(segment.description, language)}</p>
+        <TheokyklosRestorationContext sectorId={segment.id} language={language} />
         <section className="theokyklos-incantation" aria-labelledby="theokyklos-incantation-title">
           <div>
             <span className="eyebrow">{language === "en" ? "Sacred utterance" : "Священные слова"}</span>
