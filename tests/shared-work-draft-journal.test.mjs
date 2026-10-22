@@ -62,3 +62,51 @@ test('disposing a view blocks a delayed storage write',async()=>{
  const slow={...access,async seal(value,scope){const result=await access.seal(value,scope);entered();await gate;return result;}};
  const a=journal(storage,slow),pending=a.write(payload('closed editor'));await started;a.dispose();release();await assert.rejects(pending,/DRAFT_CLOSED/);assert.equal(storage.length,0);
 });
+
+function durableStore(legacy){
+ const data=new Map();return {data,fail:false,beforeCommit:async()=>{},
+  async keys(prefix){return [...new Set([...data.keys(),...legacy.data.keys()])].filter(key=>key.startsWith(prefix));},
+  async read(key){return data.get(key)??legacy.getItem(key);},
+  async write(key,raw,previous,prefix,limit,check){await this.beforeCommit();check();if(this.fail)throw new DOMException('disk full','QuotaExceededError');if((data.get(key)??null)!==previous)throw Error('DRAFT_CHANGED');if(!data.has(key)&&(await this.keys(prefix)).length>=limit)throw Error('DRAFT_LIMIT');check();data.set(key,raw);},
+  async remove(key,expected,check){await this.beforeCommit();check();const current=await this.read(key);if(current!==null&&current!==expected)throw Error('DRAFT_CHANGED');data.delete(key);if(legacy.getItem(key)===expected)legacy.removeItem(key);},
+ };
+}
+
+test('a valid five-megabyte template and duplicated pending snapshots fit the encrypted async journal',async()=>{
+ const storage=new MemoryStorage(),asyncStorage=durableStore(storage),access=await cipher(),text='я'.repeat(2_300_000);
+ const input={text,pending:{requestId:'stable',manifest:text,original:text}};
+ const a=journal(storage,access,'large',{purpose:'templates',asyncStorage,maxBytes:20_000_000});await a.write(input);
+ assert.equal(storage.length,0);assert.equal(asyncStorage.data.size,1);assert.ok(![...asyncStorage.data.values()][0].includes('stable'));
+ const b=journal(storage,access,'cold',{purpose:'templates',asyncStorage,maxBytes:20_000_000});assert.deepEqual((await b.list())[0].value,input);
+ assert.throws(()=>journal(storage,access).write(input),/DRAFT_TOO_LARGE/);
+ assert.throws(()=>a.write(payload('я'.repeat(10_000_001))),/DRAFT_TOO_LARGE/);
+});
+
+test('legacy recovery keeps its original bytes until the new async writer is durable',async()=>{
+ const storage=new MemoryStorage(),access=await cipher(),old=journal(storage,access,'legacy',{purpose:'templates'});
+ const saved=await old.write(payload('old own input','stable-request')),asyncStorage=durableStore(storage);
+ const next=journal(storage,access,'new',{purpose:'templates',asyncStorage});assert.deepEqual((await next.list())[0].value,saved.value);
+ asyncStorage.fail=true;await assert.rejects(next.write(saved.value),error=>error.name==='QuotaExceededError');assert.equal(storage.length,1);assert.equal([...storage.data.values()][0],saved.raw);
+ asyncStorage.fail=false;await next.write(saved.value);assert.equal((await next.list()).length,2);await next.remove(saved);
+ assert.equal(storage.length,0);assert.equal((await next.list())[0].value.pending.requestId,'stable-request');
+});
+
+test('async compare-and-put rejects a writer changed while encryption was pending',async()=>{
+ const storage=new MemoryStorage(),access=await cipher(),asyncStorage=durableStore(storage),a=journal(storage,access,'same',{asyncStorage});await a.write(payload('original'));
+ asyncStorage.beforeCommit=async()=>{asyncStorage.beforeCommit=async()=>{};const b=journal(storage,access,'same',{asyncStorage});await b.write(payload('other tab'));};
+ await assert.rejects(a.write(payload('stale overwrite')),/DRAFT_CHANGED/);assert.equal((await a.list())[0].value.text,'other tab');
+});
+
+test('async commit rechecks account access after crypto and before touching durable storage',async()=>{
+ const storage=new MemoryStorage(),access=await cipher(),asyncStorage=durableStore(storage),a=journal(storage,access,'writer',{asyncStorage});
+ asyncStorage.beforeCommit=async()=>access.revoke();await assert.rejects(a.write(payload('late')),/SESSION_ENDED/);assert.equal(asyncStorage.data.size,0);
+});
+
+test('legacy and async drafts share the twenty-record limit and stale removal preserves the latest input',async()=>{
+ const storage=new MemoryStorage(),access=await cipher(),asyncStorage=durableStore(storage);
+ for(let i=0;i<10;i++)await journal(storage,access,'legacy-'+i).write(payload('old '+i));
+ for(let i=0;i<10;i++)await journal(storage,access,'new-'+i,{asyncStorage}).write(payload('new '+i));
+ const a=journal(storage,access,'overflow',{asyncStorage});assert.equal((await a.list()).length,20);await assert.rejects(a.write(payload('extra')),/DRAFT_LIMIT/);
+ const b=journal(storage,access,'new-0',{asyncStorage}),old=(await b.list()).find(row=>row.id==='new-0');await b.write(payload('updated'));
+ await assert.rejects(a.remove(old),/DRAFT_CHANGED/);assert.equal(storage.length+asyncStorage.data.size,20);
+});

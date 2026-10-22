@@ -20,6 +20,8 @@ import {
 } from "./habits";
 import { clearAllTrackerAnalyticsCaches, clearTrackerAnalyticsCache } from "./tracker-cache";
 import {clearMessagingVault} from "./private-message-vault";
+import {clearHabitRestoreJournal} from "./habit-restore-journal";
+import {clearSharedEditorDraftStorage} from "./shared-editor-indexed-storage";
 import { acceptAuthenticatedLogin, clearPrivateDeviceStorage, hasLocalSignOut, LOCAL_SIGN_OUT_KEY, markLocalSignOut, prepareLocalSignIn, privateDeviceAccessBlocked } from "./local-sign-out";
 import {
   mergeWorkspaceDocuments,
@@ -416,6 +418,7 @@ let sessionGeneration = 0;
 let localSessionEnded = privateDeviceAccessBlocked();
 const accountRequests = new Set<AbortController>();
 export const LOCAL_SESSION_ENDED_EVENT = "genesis-local-session-ended";
+export const PERSONAL_DOCUMENT_READY_EVENT = "genesis-personal-document-ready";
 
 function requireActiveLocalSession(generation = sessionGeneration) {
   if (localSessionEnded || privateDeviceAccessBlocked() || generation !== sessionGeneration) {
@@ -1003,6 +1006,7 @@ export function restoreOfflineWorkspaceSession(userId: string, provider: "google
   const stored = deviceWorkspaceKey(userId);
   workspaceKey = stored?.key ?? "";
   restoreWorkspaceSyncCache();
+  if (workspaceKey && typeof window !== "undefined") window.dispatchEvent(new Event(PERSONAL_DOCUMENT_READY_EVENT));
   return Boolean(workspaceKey);
 }
 
@@ -1159,6 +1163,8 @@ async function decryptWorkspace(envelope: WorkspaceEnvelope | null): Promise<Enc
 }
 
 function workspaceMinimumWriterProtocol(structure: EncryptedWorkspaceStructure) {
+  if (structure.habits.some(habit => habit.lifecycleHistory?.length) || structure.habitHistory.some(row => row.source === "decision")
+    || structure.habitCompletions.some(row => row.skippedAt)) return 7;
   if (structure.habitHistory.length) return 6;
   if (structure.habitTimers.length || structure.habitTimerEpoch) return 5;
   if (structure.habits.some(habit => habit.ruleHistory?.some(rule => rule.supersedes !== undefined || rule.selectedRuleId))) return 4;
@@ -1199,7 +1205,7 @@ async function encryptWorkspace(
       iv: bytesToBase64(iv),
       version: workspaceVersion + 1,
       expectedVersion: workspaceVersion,
-      writerProtocol: 6,
+      writerProtocol: 7,
       minimumWriterProtocol: workspaceMinimumWriterProtocol(structure),
       ...await habitReminderProjection(structure),
     },
@@ -1225,7 +1231,7 @@ async function encryptWorkspaceDocument(
     iv: bytesToBase64(iv),
     version: expectedVersion + 1,
     expectedVersion,
-    writerProtocol: 6,
+    writerProtocol: 7,
     minimumWriterProtocol: workspaceMinimumWriterProtocol(structure),
     ...await habitReminderProjection(structure),
   };
@@ -1328,6 +1334,7 @@ export async function loadGenesisWorkspace(): Promise<GenesisWorkspace> {
     structure = await decryptWorkspace(payload.workspace.envelope);
   }
   requireActiveLocalSession(generation);
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(PERSONAL_DOCUMENT_READY_EVENT));
   return {
     user: payload.user,
     csrf: payload.csrf,
@@ -1561,6 +1568,8 @@ export async function signOutFromGoogle() {
   activeAuthProvider = "google";
   try { await clearAllTrackerAnalyticsCaches(); } catch { localCleared = false; }
   try { await clearMessagingVault(); } catch { localCleared = false; }
+  try { await clearHabitRestoreJournal(); } catch { localCleared = false; }
+  try { await clearSharedEditorDraftStorage(); } catch { localCleared = false; }
   if ("serviceWorker" in navigator) {
     const registration = await navigator.serviceWorker.getRegistration().catch(() => undefined);
     const notifications = await registration?.getNotifications().catch(() => []);
@@ -1581,6 +1590,8 @@ export async function deleteGenesisAccount(userId?: string) {
   const result = await api<{ ok: boolean; deleted: boolean }>("/account", { method: "DELETE", body: "{}" });
   if (!result.deleted) throw new Error("Сервер не подтвердил полное удаление аккаунта.");
   await clearMessagingVault();
+  await clearHabitRestoreJournal();
+  await clearSharedEditorDraftStorage();
   if (deletedUserId) {
     localStorage.removeItem(`${WORKSPACE_DEVICE_KEY_PREFIX}${deletedUserId}`);
     localStorage.removeItem(`${WORKSPACE_DEVICE_ID_PREFIX}${deletedUserId}`);

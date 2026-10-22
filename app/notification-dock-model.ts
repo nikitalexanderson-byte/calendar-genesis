@@ -26,11 +26,21 @@ export function dockSavedPosition(x: number, y: number, bounds: DockBounds, widt
     y: bounds.top + Math.max(0, bounds.bottom - bounds.top - height) * y / 10000 }, bounds, width, height);
 }
 
-export function dockPositionToLayout(position: DockPosition, bounds: DockBounds) {
-  const fraction = (value: number, start: number, end: number) => Math.max(0, Math.min(10000,
-    Math.round((value - start) / Math.max(1, end - start - 56) * 10000)));
-  return { notificationDockX: fraction(position.x, bounds.left, bounds.right),
-    notificationDockY: fraction(position.y, bounds.top, bounds.bottom) };
+export function dockPositionToLayout(position: DockPosition, bounds: DockBounds, width=56, height=56) {
+  const fraction = (value: number, start: number, end: number, extent:number) => Math.max(0, Math.min(10000,
+    Math.round((value - start) / Math.max(1, end - start - extent) * 10000)));
+  return { notificationDockX: fraction(position.x, bounds.left, bounds.right,width),
+    notificationDockY: fraction(position.y, bounds.top, bounds.bottom,height) };
+}
+
+const PANEL_SIZE_PREFIX='genesis.notification-panel.v1:';
+const DEFAULT_PANEL_SIZE:DockSize={width:360,height:560};
+export function loadNotificationPanelSize(storage:Pick<Storage,'getItem'>|null,userId:string):DockSize{
+ try{const row=JSON.parse(storage?.getItem(PANEL_SIZE_PREFIX+(userId||'guest'))??'null');if(row&&Number.isInteger(row.width)&&Number.isInteger(row.height)&&row.width>=320&&row.width<=760&&row.height>=240&&row.height<=820)return {width:row.width,height:row.height};}catch{/* Use the standard panel if preferences are unavailable. */}
+ return {...DEFAULT_PANEL_SIZE};
+}
+export function saveNotificationPanelSize(storage:Pick<Storage,'setItem'>,userId:string,size:DockSize){
+ try{storage.setItem(PANEL_SIZE_PREFIX+(userId||'guest'),JSON.stringify({width:Math.round(size.width),height:Math.round(size.height)}));}catch{/* Geometry stays usable without persistent preferences. */}
 }
 
 /** Each unread event previews once per mounted account; collapsing never reads it. */

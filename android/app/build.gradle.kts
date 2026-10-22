@@ -44,8 +44,8 @@ android {
         applicationId = "ru.genesis.calendar"
         minSdk = 26
         targetSdk = 37
-        versionCode = 96
-        versionName = "2.9.1"
+        versionCode = 97
+        versionName = "2.9.2"
         buildConfigField("boolean", "PLAY_DISTRIBUTION", "false")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -134,6 +134,7 @@ val genesisAssets = tasks.register<GenesisAssetsTask>("genesisAssets") {
     from(rootProject.file("../app/sprint-report-translations.json")) { into("i18n") }
     from(rootProject.file("../app/workflow-draft-translations.json")) { into("i18n") }
     from(rootProject.file("../app/workflow-translations.json")) { into("i18n") }
+    from(rootProject.file("../app/habit-report-translations.json")) { into("i18n") }
     from(rootProject.file("../app/emoji-catalog.json")) { into("i18n") }
     from(rootProject.file("../app/emoji-full-catalog.json")) { into("i18n") }
     from(rootProject.file("../app")) { include("calendar-days.*.json"); into("i18n") }

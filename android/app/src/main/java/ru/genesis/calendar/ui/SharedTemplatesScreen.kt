@@ -150,7 +150,7 @@ import java.util.UUID
                                     val records = SharedTemplateEdits.rows(library.getJSONArray(collection)).filter { search.isBlank() || it.getString("title").contains(search.trim(), ignoreCase = true) }
                                     var limit by rememberSaveable(collection, state.deleted, search) { mutableIntStateOf(5) }
                                     if (records.isNotEmpty()) Text(title, style = MaterialTheme.typography.titleMedium)
-                                    records.take(limit).forEach { row -> TemplateOutlinedButton({ run { state.open(row.getString("id")) } }, enabled = !state.busy && state.edit == null && !state.lost, shape = AffairsLayout.shape,
+                                    records.take(limit).forEach { row -> TemplateOutlinedButton({ run { state.open(row.getString("id")) } }, enabled = !state.busy && state.edit == null && !state.lost, shape = AffairsLayout.controlShape,
                                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-source-${row.getString("id")}")) {
                                         androidx.compose.material3.Text(row.getString("title"), Modifier.fillMaxWidth(), style = MaterialTheme.typography.bodyMedium)
                                     } }
@@ -228,7 +228,7 @@ import java.util.UUID
                                         rows.take(limit).forEach { row -> androidx.compose.material3.Text(row.getString("title"), style = if (collection == "projects") MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium) }
                                         if (rows.size > limit) TemplateOutlinedButton({ limit += 5 }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-source-$collection-more")) { Text("Показать ещё") }
                                     }
-                                    if (!source.getBoolean("deleted")) Button(::applySource, enabled = available && (if (source.getString("kind") == "project") canCreate else canWrite), shape = AffairsLayout.shape, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-apply-open")) { Text("Применить шаблон") }
+                                    if (!source.getBoolean("deleted")) Button(::applySource, enabled = available && (if (source.getString("kind") == "project") canCreate else canWrite), shape = AffairsLayout.controlShape, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-apply-open")) { Text("Применить шаблон") }
                                     TemplateIssues(source.getJSONArray("notices"), copy, "Изменения и пропуски", "template-source-notices")
                                 } else Text("Выберите шаблон, чтобы посмотреть структуру и применить его.", style = MaterialTheme.typography.bodyMedium)
                                 if (compactIme && state.edit != null && !state.lost && state.phase == "editing") LocalActions()
@@ -248,16 +248,16 @@ import java.util.UUID
                         HorizontalDivider()
                         Column(Modifier.fillMaxWidth().padding(if (compactIme) 4.dp else 16.dp).testTag("template-footer"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             when (state.phase) {
-                                "received" -> Button({ run { state.discard(); state.loadLibrary() } }, enabled = !state.busy, shape = AffairsLayout.shape, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-done")) { Text("Готово") }
+                                "received" -> Button({ run { state.discard(); state.loadLibrary() } }, enabled = !state.busy, shape = AffairsLayout.controlShape, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-done")) { Text("Готово") }
                                 "editing" -> {
                                     if (!compactIme && state.edit?.getString("kind") == "template-apply") TemplateOutlinedButton({ run { state.review() } }, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-review")) { Text("Предпросмотр применения") }
-                                    Button(::submit, enabled = state.editable && (state.edit?.getString("kind") != "template-apply" || state.previewCurrent && state.preview?.optBoolean("canApply") == true), shape = AffairsLayout.shape, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-submit")) {
+                                    Button(::submit, enabled = state.editable && (state.edit?.getString("kind") != "template-apply" || state.previewCurrent && state.preview?.optBoolean("canApply") == true), shape = AffairsLayout.controlShape, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-submit")) {
                                         Text(if (state.edit?.getString("kind") == "template-apply") "Создать из шаблона" else if (state.edit?.getJSONObject("request")?.optBoolean("deleted") == true) "Удалить шаблон" else "Сохранить шаблон")
                                     }
                                     if (!compactIme) TextButton({ erase = true }, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-discard")) { Text(draftCopy.getString("discard")) }
                                 }
                                 else -> {
-                                    Button(::submit, enabled = !state.busy && state.phase == "pending", shape = AffairsLayout.shape, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-retry")) { Text("Повторить") }
+                                    Button(::submit, enabled = !state.busy && state.phase == "pending", shape = AffairsLayout.controlShape, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-retry")) { Text("Повторить") }
                                     if (state.phase == "rejected" || state.phase == "pending" && state.record?.optInt("attempts") == 0) TemplateOutlinedButton({ run { state.resumeEditing() } }, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Изменить") }
                                 }
                             }

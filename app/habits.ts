@@ -1,5 +1,24 @@
 import type { CalendarMode } from "./calendar-data";
 import { catalogText } from "./catalog-i18n";
+
+/** Begin documenting legacy availability at the first real edit, without inventing past pauses. */
+export function observeChangedHabitAvailability(previous: HabitWorkspace, next: HabitWorkspace, at: string): HabitWorkspace {
+  const records = (workspace: HabitWorkspace, id: string) => JSON.stringify([
+    workspace.habitCompletions.filter(row => row.habitId === id),
+    workspace.habitMeasurements.filter(row => row.habitId === id),
+    workspace.habitHistory.filter(row => row.habitId === id),
+    workspace.habitTimers.filter(row => row.habitId === id),
+  ]);
+  let changed = false;
+  const habits = next.habits.map(habit => {
+    if (habit.lifecycleHistory?.length) return habit;
+    const old = previous.habits.find(row => row.id === habit.id);
+    if (old && JSON.stringify(old) === JSON.stringify(habit) && records(previous, habit.id) === records(next, habit.id)) return habit;
+    changed = true;
+    return applyHabitLifecycleCommand(habit, { id: `habit-observed:${crypto.randomUUID()}`, habitId: habit.id, at, action: "observe", heads: [] });
+  });
+  return changed ? { ...next, habits } : next;
+}
 import type { Language } from "./i18n";
 import { habitIntervalTimes, habitIntervalMarks, normalizeHabitInterval, normalizeHabitCompletedTimes, type HabitIntervalSchedule } from "./habit-interval";
 import { effectiveHabitMeasurement, habitMeasurementProgress, habitRuleForDate, mergeHabitMeasurementEvents, newHabitMeasurementEvent,
@@ -8,9 +27,11 @@ import { effectiveHabitMeasurement, habitMeasurementProgress, habitRuleForDate, 
 import { normalizeHabitPeriodGoal, type HabitPeriodGoal } from "./habit-period-goal";
 import { habitPeriodSettlement, habitQuestCompletions } from "./habit-period-progress";
 import { isCivilDate, momentCivilDate, resolveCalendarWallTime } from "./calendar-context";
-import { mergeHabitTimerOperations, habitTimerEpoch, habitWorkspaceEpoch, habitTimerMeasurementIds, habitTimerSessions, type HabitTimerOperation } from "./habit-timer";
+import { appendHabitTimerOperation, mergeHabitTimerOperations, habitTimerEpoch, habitWorkspaceEpoch, habitTimerMeasurementIds, habitTimerSessions, type HabitTimerOperation } from "./habit-timer";
 import { habitRuleState } from "./habit-rule-history";
 import { habitEconomyHistory, mergeHabitHistoryEdits, projectHabitHistory, type HabitHistoryEdit } from "./habit-history";
+import { applyHabitLifecycleCommand, habitLifecycleState, mergeHabitLifecycleEvents, projectHabitLifecycle,
+  type HabitLifecycleEvent, type HabitLifecycleCommand } from "./habit-lifecycle";
 import {
   normalizeAddictionEntry,
   normalizeAddictionTracker,
@@ -202,6 +223,7 @@ export type Habit = TrackerEntity & {
   color: string;
   active: boolean;
   sourceTemplateId: HabitTemplateId | null;
+  lifecycleHistory?: HabitLifecycleEvent[];
   sacredPracticeId: string | null;
   sacredSectorId: SacredPracticeSectorId | null;
   preferredTime: string;
@@ -219,6 +241,7 @@ export type HabitCompletion = TrackerEntity & {
   habitId: string;
   date: string;
   completed: boolean;
+  skippedAt?: string | null;
   completedTimes?: string[];
   qualityValue: number | null;
   qualityConfirmedAt?: string | null;
@@ -274,6 +297,7 @@ type LegacyHabitSchedule = {
 };
 
 type LegacyHabit = Partial<TrackerEntity> & {
+  lifecycleHistory?: HabitLifecycleEvent[];
   id?: string;
   title?: string;
   description?: string;
@@ -305,6 +329,7 @@ type LegacyHabit = Partial<TrackerEntity> & {
 };
 
 type LegacyHabitEntry = Partial<TrackerEntity> & {
+  skippedAt?: string | null;
   qualityConfirmedAt?: string | null;
   id?: string;
   habitId?: string;
@@ -493,6 +518,7 @@ function normalizeHabit(value: LegacyHabit, fallbackDate: string, calendarMode: 
     ritualName: normalizeHabitRitualName(value.ritualName),
     color: normalizeHabitColor(value.color, HABIT_COLORS[0]),
     active: value.active !== false,
+    lifecycleHistory: mergeHabitLifecycleEvents(value.lifecycleHistory),
     sourceTemplateId,
     sacredPracticeId,
     sacredSectorId,
@@ -520,11 +546,14 @@ export function updateHabitCompletion(
   today = habitDateKey(new Date()),
 ) {
   if (!canRecordHabitOnDate(habit.createdDate, date, today)) return workspace;
+  const currentHabit = workspace.habits.find(row => row.id === habit.id);
+  if (!currentHabit?.active || !isHabitScheduledForDate(currentHabit, date)) return workspace;
+  habit = currentHabit;
   if (habitRuleState(habit, date).conflicts.length) throw new RangeError("HABIT_RULE_CONFLICT");
   const current = workspace.habitCompletions.find((entry) => entry.habitId === habit.id && entry.date === date);
   const base: HabitCompletion = current ?? {
     ...newTrackerEntity("habit-completion"),
-    ...(effectiveHabitMeasurement(habitRuleForDate(habit, date)) ? { id: `habit-completion:${habit.id}:${date}` } : {}),
+    id: `habit-completion:${habit.id}:${date}`,
     habitId: habit.id,
     date,
     completed: false,
@@ -534,6 +563,7 @@ export function updateHabitCompletion(
     note: "",
   };
   const patched = markTrackerEntityChanged({ ...base, ...patch,
+    ...(patch.completed === true ? { skippedAt: null } : {}),
     ...(habit.intervalSchedule?.completionMode === "each" && patch.completed !== undefined ? {
       completedTimes: patch.completedTimes !== undefined ? normalizeHabitCompletedTimes(patch.completedTimes)
         : patch.completed ? habitIntervalTimes(habit.intervalSchedule) : [],
@@ -563,6 +593,9 @@ export function updateHabitCompletion(
 export function recordHabitMeasurement(workspace: HabitWorkspace, habit: Habit, date: string,
   value: number | null, options: Parameters<typeof newHabitMeasurementEvent>[3] = {},
   today = habitDateKey(new Date())): HabitWorkspace {
+  const currentHabit = workspace.habits.find(row => row.id === habit.id);
+  if (!currentHabit?.active) throw new RangeError("HABIT_MEASUREMENT_DATE_UNAVAILABLE");
+  habit = currentHabit;
   const timerHistory = options.source === "timer" && isCivilDate(date) && date >= habit.createdDate && date <= today;
   if ((!canRecordHabitOnDate(habit.createdDate, date, today) && !timerHistory) || !isHabitScheduledForDate(habit, date))
     throw new RangeError("HABIT_MEASUREMENT_DATE_UNAVAILABLE");
@@ -609,6 +642,7 @@ function normalizeHabitCompletion(value: LegacyHabitEntry, habits: Map<string, H
   const date = typeof value.date === "string" ? value.date : "";
   const habit = habits.get(habitId);
   if (!habit || !DATE_PATTERN.test(date) || date < habit.createdDate) return null;
+  if (value.skippedAt != null && (typeof value.skippedAt !== "string" || !Number.isFinite(Date.parse(value.skippedAt)))) throw new RangeError("INVALID_HABIT_HISTORY");
   const qualityValue = typeof value.qualityValue === "number"
     ? value.qualityValue
     : typeof value.quality === "number" ? value.quality : null;
@@ -623,6 +657,7 @@ function normalizeHabitCompletion(value: LegacyHabitEntry, habits: Map<string, H
     date,
     ...completion,
     completedTimes: normalizeHabitCompletedTimes(value.completedTimes),
+    ...(value.skippedAt ? { skippedAt: value.skippedAt } : {}),
     qualityConfirmedAt: typeof value.qualityConfirmedAt === "string" ? value.qualityConfirmedAt : null,
     score,
     xpAwarded: typeof value.xpAwarded === "number"
@@ -771,7 +806,7 @@ export function normalizeHabitWorkspace(
   const regularRaw = rawHabits.filter((habit) => !["negative", "sleep", "wake"].includes(habit.kind ?? "positive"));
   const habits = normalizeKeyHabitSelection(regularRaw
     .map((habit) => normalizeHabit(habit, fallbackDate, calendarMode))
-    .filter((habit): habit is Habit => habit !== null));
+    .filter((habit): habit is Habit => habit !== null).map(projectHabitLifecycle));
   const habitMap = new Map(habits.map((habit) => [habit.id, habit]));
   const timerEpoch = habitTimerEpoch(value.habitTimerEpoch);
   const habitTimers = mergeHabitTimerOperations(value.habitTimers ?? []).filter(op => op.epoch === timerEpoch);
@@ -863,7 +898,8 @@ export function normalizeHabitWorkspace(
     habitMeasurements,
     habitTimers,
     habitHistory,
-    habitTimerEpoch: habitWorkspaceEpoch(timerEpoch, habitHistory.length > 0),
+    habitTimerEpoch: habitWorkspaceEpoch(value.habitTimerEpoch, habitHistory.length > 0, habits.some(habit => habit.lifecycleHistory?.length)
+      || habitHistory.some(row => row.source === "decision") || habitCompletions.some(row => row.skippedAt)),
     sleepPlans,
     sleepEntries: [...explicitSleepEntries, ...migratedSleepEntries],
     moodEntries: normalizeMoodEntries(value.moodEntries),
@@ -883,7 +919,8 @@ export function normalizeHabitWorkspace(
 
 export function isHabitScheduledForDate(habit: Habit, value: string, calendarMode: CalendarMode = "sacred") {
   const state = habitRuleState(habit, value);
-  return habit.active && !state.conflicts.length && isTrackerScheduledForDate(state.rule.schedule, value, calendarMode);
+  const lifecycle = habitLifecycleState(habit, value);
+  return lifecycle.status === "active" && !lifecycle.conflict && !state.conflicts.length && isTrackerScheduledForDate(state.rule.schedule, value, calendarMode);
 }
 
 export function habitScore(habit: Habit, entry: HabitCompletion | undefined, value: string, _today?: string, calendarMode: CalendarMode = "sacred") {
@@ -898,7 +935,7 @@ export function calculateHabitTotal(workspace: HabitWorkspace) {
 function dailyGoalCounts(workspace: HabitWorkspace, date: string, calendarMode: CalendarMode, today: string) {
   let scheduledCount = 0, completedCount = 0, rewardCompletedCount = 0;
   for (const habit of workspace.habits) {
-    if (!habit.active) continue;
+    if (habitLifecycleState(habit, date).status !== "active") continue;
     const goal = habitRuleForDate(habit, date).periodGoal;
     if (goal) {
       const settlement = habitPeriodSettlement(habit, date, workspace, resolveCalendarWallTime(today, "12:00", goal.context.timeZone).instant);
@@ -1197,28 +1234,28 @@ export function removeHabitFromWorkspace(
 ): HabitWorkspace {
   const habit = workspace.habits.find((item) => item.id === habitId);
   if (!habit) return workspace;
-  const habitCompletions = workspace.habitCompletions.filter((entry) => entry.habitId !== habitId);
-  const rewardTransactions = applyHabitDeletionLaurelPolicy(
-    workspace.rewardTransactions,
-    workspace.habitCompletions,
-    habitId,
-    timestamp,
-  ).transactions;
-  return {
-    ...workspace,
-    habits: workspace.habits.filter((item) => item.id !== habitId),
-    habitCompletions,
-    habitMeasurements: (workspace.habitMeasurements ?? []).filter(event => event.habitId !== habitId),
-    rewardTransactions,
-    userProgress: reconcileUserProgress(
-      workspace.userProgress,
-      habitCompletions,
-      timestamp,
-      undefined,
-      calculateLaurelsBalance(rewardTransactions),
-      calculateStreakFreezeCount(workspace.streakFreezeTransactions),
-    ),
-  };
+  if (habitLifecycleState(habit).status === "deleted") return workspace;
+  return applyHabitLifecycleToWorkspace(workspace, { id: `habit-delete:${crypto.randomUUID()}`, habitId,
+    action: "delete", at: timestamp, heads: habitLifecycleState(habit).heads.map(row => row.id) });
+}
+
+/** Lifecycle commands preserve evidence and credits; only explicit deletion invokes the established reset. */
+export function applyHabitLifecycleToWorkspace(workspace: HabitWorkspace, command: HabitLifecycleCommand): HabitWorkspace {
+  const habit = workspace.habits.find(row => row.id === command.habitId);
+  if (!habit) throw new RangeError("HABIT_LIFECYCLE_TRANSITION_UNAVAILABLE");
+  const updated = applyHabitLifecycleCommand(habit, command);
+  if (updated === habit) return workspace;
+  let habitTimers = workspace.habitTimers;
+  if (!updated.active) for (const session of habitTimerSessions(habitTimers).filter(row => row.root.habitId === habit.id)) {
+    if (!session.state) throw new RangeError("HABIT_TIMER_CONFLICT");
+    if (session.state.status === "running") habitTimers = appendHabitTimerOperation(habitTimers, session.id,
+      session.root.owner, "pause", { at: command.at, id: `${command.id}:timer:${session.id}` });
+  }
+  const rewardTransactions = command.action === "delete" ? applyHabitDeletionLaurelPolicy(workspace.rewardTransactions,
+    habitEconomyHistory(workspace).habitCompletions, habit.id, command.at, command.id).transactions : workspace.rewardTransactions;
+  return { ...workspace, habits: workspace.habits.map(row => row.id === habit.id ? markTrackerEntityChanged(updated) : row),
+    habitTimers, habitTimerEpoch: habitWorkspaceEpoch(workspace.habitTimerEpoch, workspace.habitHistory.length > 0, true),
+    rewardTransactions, userProgress: { ...workspace.userProgress, laurelsBalance: calculateLaurelsBalance(rewardTransactions) } };
 }
 
 export function setDailyGoalMode(

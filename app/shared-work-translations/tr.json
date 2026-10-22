@@ -515,5 +515,18 @@
   "Отображение и заполнение": "Görünüm ve giriş",
   "Варианты списка": "Liste seçenekleri",
   "Изменения не сохранены": "Değişiklikler kaydedilmedi",
-  "Не удалось выполнить действие. Проверьте соединение и повторите.": "İşlem tamamlanamadı. Bağlantınızı kontrol edip tekrar deneyin."
+  "Не удалось выполнить действие. Проверьте соединение и повторите.": "İşlem tamamlanamadı. Bağlantınızı kontrol edip tekrar deneyin.",
+  "Сравнить версии": "Sürümleri karşılaştır",
+  "Поля с конфликтом": "Çakışan alanlar",
+  "Версия телефона": "Telefon sürümü",
+  "Версия сайта": "Web sitesi sürümü",
+  "Исходная версия": "İlk sürüm",
+  "Какую версию оставить?": "Hangi sürüm korunsun?",
+  "Выбор относится ко всем показанным конфликтам. Остальные изменения сохранятся.": "Seçiminiz gösterilen tüm çakışmalar için geçerlidir. Diğer değişiklikler korunur.",
+  "Телефон": "Telefon",
+  "Сайт": "Web sitesi",
+  "Покажите все конфликты перед выбором.": "Sürüm seçmeden önce tüm çakışmaları gösterin.",
+  "Квесты": "Görevler",
+  "Награды": "Ödüller",
+  "Данные": "Veriler"
 }

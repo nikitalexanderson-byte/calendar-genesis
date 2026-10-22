@@ -1,6 +1,6 @@
 
 import { habitDisplayText } from "./habit-display-text";
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { CalendarDatePicker } from "./CalendarDatePicker";
 import { addCivilDays, momentCivilDate, type CalendarContext } from "./calendar-context";
 import { effectiveHabitMeasurement, formatHabitValue, habitMeasurementProgress, habitRuleForDate, parseHabitValue } from "./habit-measurement";
@@ -16,10 +16,13 @@ import type { CalendarMode } from "./calendar-data";
 import "./habit-history.css";
 
 type Props={workspace:HabitWorkspace;language:Language;calendarMode:CalendarMode;timeFormat:TimeFormat;
-  reportContext?:CalendarContext;requestedDate?:string;onCommand:(command:HabitHistoryCommand)=>Promise<void>};
+  reportContext?:CalendarContext;requestedDate?:string;requestedHabitId?:string;onDirtyChange?:(dirty:boolean)=>void;onCommand:(command:HabitHistoryCommand)=>Promise<void>};
 export function HabitHistoryPanel(props:Props){
   const {workspace,language,calendarMode,reportContext}=props,t=(text:string)=>translateText(text,language),id=useId();
-  const [habitId,setHabitId]=useState(workspace.habits[0]?.id??"");
+  const [habitId,setHabitId]=useState(props.requestedHabitId??workspace.habits[0]?.id??"");
+  const dirty=useRef(false);
+  const reportDirty=(value:boolean)=>{dirty.current=value;props.onDirtyChange?.(value);};
+  const allowChange=()=>!dirty.current||window.confirm(t("Вернуться без сохранения изменений?"));
   const habit=workspace.habits.find(row=>row.id===habitId)??workspace.habits[0];
   const [selected,setSelected]=useState(props.requestedDate??"");
   if(!habit)return null;
@@ -29,24 +32,28 @@ export function HabitHistoryPanel(props:Props){
     <summary>{t("Исправить историю")}</summary>
     <p>{t("Историческая корректировка меняет статистику и серии. XP и Лавры не начисляются; выданные награды и потраченная защита сохраняются.")}</p>
     <div className="habit-history-fields">
-      <label htmlFor={`${id}-habit`}><span>{t("Привычка")}</span><select id={`${id}-habit`} value={habit.id} onChange={event=>{setHabitId(event.target.value);setSelected("");}}>
+      <label htmlFor={`${id}-habit`}><span>{t("Привычка")}</span><select id={`${id}-habit`} value={habit.id} onChange={event=>{if(allowChange()){setHabitId(event.target.value);setSelected("");}}}>
         {workspace.habits.map(row=><option key={row.id} value={row.id} data-no-translate>{habitDisplayText(row, language).title}</option>)}
       </select></label>
       <div><span id={`${id}-date-label`}>{t("Прошлая дата")}</span><CalendarDatePicker ariaLabel={t("Прошлая дата")} value={date}
-        mode={calendarMode} calculationContext={reportContext} min={habit.createdDate} max={yesterday} showGregorianReference={false} onChange={setSelected}/></div>
+        mode={calendarMode} calculationContext={reportContext} min={habit.createdDate} max={yesterday} showGregorianReference={false} onChange={value=>{if(allowChange())setSelected(value);}}/></div>
     </div>
-    <HabitHistoryForm key={`${habit.id}:${date}`} {...props} habit={habit} date={date}/>
+    <HabitHistoryForm key={`${habit.id}:${date}`} {...props} onDirtyChange={reportDirty} habit={habit} date={date}/>
   </details>;
 }
 
-function HabitHistoryForm({workspace,habit,date,language,calendarMode,timeFormat,onCommand}:Props&{habit:Habit;date:string}){
+function HabitHistoryForm({workspace,habit,date,language,calendarMode,timeFormat,onCommand,onDirtyChange}:Props&{habit:Habit;date:string}){
   const t=(text:string)=>translateText(text,language),id=useId(),rule=habitRuleForDate(habit,date),definition=effectiveHabitMeasurement(rule);
   const history=habitHistoryState(workspace.habitHistory??[],habit.id,date);
   const progress=definition?habitMeasurementProgress(habit,date,workspace.habitMeasurements):null;
-  const [value,setValue]=useState<HabitHistoryValue>(()=>habitHistoryInitialValue(workspace,habit.id,date));
+  const [initialValue,setInitialValue]=useState<HabitHistoryValue>(()=>habitHistoryInitialValue(workspace,habit.id,date));
+  const [value,setValue]=useState<HabitHistoryValue>(initialValue);
   const [amount,setAmount]=useState(""),[entryId,setEntryId]=useState(""),[remove,setRemove]=useState(false);
   const [preview,setPreview]=useState<{command:HabitHistoryCommand;after:HabitWorkspace}|null>(null);
   const [busy,setBusy]=useState(false),[error,setError]=useState(""),[saved,setSaved]=useState(false);
+  const dirty=JSON.stringify(value)!==JSON.stringify(initialValue)||Boolean(amount||entryId||remove||preview);
+  useEffect(()=>{onDirtyChange?.(dirty);return()=>onDirtyChange?.(false);},[dirty,onDirtyChange]);
+  useEffect(()=>{if(!dirty)return;const guard=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue="";};window.addEventListener("beforeunload",guard);return()=>window.removeEventListener("beforeunload",guard);},[dirty]);
   const times=habit.intervalSchedule?.completionMode==="each"?habitIntervalTimes(habit.intervalSchedule):[];
   const change=(next:HabitHistoryValue)=>{setValue(next);setPreview(null);setError("");setSaved(false);};
   const entry=progress?.entries.find(row=>row.id===entryId);
@@ -58,6 +65,7 @@ function HabitHistoryForm({workspace,habit,date,language,calendarMode,timeFormat
     const at=new Date().toISOString();
     const next={...value,completed:definition?Boolean(progress?.completed):times.length?times.every(time=>value.completedTimes.includes(time)):value.completed,
       qualityConfirmedAt:habit.qualityScale!=="none"&&value.qualityValue!==null?at:null};
+    if(next.completed || next.completedTimes.length || !remove && amount)delete next.skippedAt;
     const command:HabitHistoryCommand={id:`habit-history-${crypto.randomUUID()}`,at,habitId:habit.id,date,ruleId:rule.id,
       heads:history.heads.map(row=>row.id),value:next};
     if(definition&&(remove||amount||!rule.measurement)){
@@ -74,7 +82,7 @@ function HabitHistoryForm({workspace,habit,date,language,calendarMode,timeFormat
   };
   const save=async()=>{
     if(!preview||busy)return;setBusy(true);setError("");
-    try{await onCommand(preview.command);setPreview(null);setAmount("");setEntryId("");setRemove(false);setSaved(true);}
+    try{await onCommand(preview.command);const next=habitHistoryInitialValue(preview.after,habit.id,date);setInitialValue(next);setValue(next);setPreview(null);setAmount("");setEntryId("");setRemove(false);setSaved(true);}
     catch{setError(t("Не удалось исправить историю. Обновите данные и повторите."));}
     finally{setBusy(false);}
   };
@@ -87,6 +95,7 @@ function HabitHistoryForm({workspace,habit,date,language,calendarMode,timeFormat
     <h3 data-no-translate>{habitDisplayText(habit, language).title}</h3><p>{formatCalendarDateValue(date,calendarMode)} · {rule.schedule.timezone}</p>
     {history.conflict||progress?.conflicts.length?<p role="alert">{t("Одновременные исправления. Выберите правильное значение.")}</p>:null}
     <fieldset disabled={busy}><legend>{t("Учёт выполнения")}</legend>
+      <label className="habit-history-check"><input type="checkbox" checked={Boolean(value.skippedAt)} disabled={Boolean(definition&&progress?.completed)} onChange={event=>{const next={...value};if(event.target.checked){next.skippedAt=new Date().toISOString();next.completed=false;next.completedTimes=[];}else delete next.skippedAt;change(next);}}/>{t("Осознанный пропуск")}</label>
       {definition?<div className="habit-history-fields">
         <label htmlFor={`${id}-entry`}><span>{t("Записи")}</span><select id={`${id}-entry`} value={entryId} onChange={event=>{
           const next=progress!.entries.find(row=>row.id===event.target.value);setEntryId(event.target.value);setAmount(next?.current?.value?String(next.current.value/1000):"");setRemove(false);setPreview(null);}}>

@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { GenesisApiError, applySharedTemplate, previewSharedTemplate } from "./cloud-sync";
 import { CalendarDatePicker } from "./CalendarDatePicker";
 import { todayCivilDate } from "./calendar-context";
@@ -7,6 +7,12 @@ import { formatCalendarDateValue } from "./calendar-data";
 import { translateText, type Language } from "./i18n";
 import { SharedCustomFieldInputs } from "./SharedCustomFieldInputs";
 import { templateOptions, templateFieldDefinition, templateError, templateIssueText, type SharedTemplate, type TemplateApplyOptions, type TemplateIssue, type TemplatePreview, type TemplateReceipt, type TemplateDestinationProject } from "./shared-templates";
+import {useSharedEditorDrafts} from './use-shared-editor-drafts';
+import {SharedEditorDraftRecovery} from './SharedEditorDraftRecovery';
+import {validateTemplateApplySnapshot,type TemplateApplySnapshot} from './template-apply-device-drafts';
+import {NumberDraftProvider,type NumberDrafts} from './DraftNumberInput';
+import type {WorkDraft} from './shared-work-draft-journal';
+import {editorDeviceEdit,type EditorDeviceDraft} from './shared-editor-device-drafts';
 
 export function SharedTemplateIssues({issues,language,record}:{issues:TemplateIssue[];language:Language;record?:SharedTemplate}){
  const [limit,setLimit]=useState(40),t=(s:string)=>translateText(s,language);
@@ -18,28 +24,40 @@ export function SharedTemplateIssues({issues,language,record}:{issues:TemplateIs
    {grouped.length>limit?<button type="button" onClick={()=>setLimit(limit+40)}>{t("Показать ещё")}</button>:null}</>;
 }
 
-export function SharedTemplateApply({record,spaceId,projectId,projects,language,onApplied,onDirtyChange,onConfigured,initialOptions}:{record:SharedTemplate;spaceId:string;projectId:string;projects:TemplateDestinationProject[];language:Language;onApplied:(receipt:TemplateReceipt)=>Promise<void>;onDirtyChange:(dirty:boolean)=>void;onConfigured?:(options:TemplateApplyOptions)=>void;initialOptions?:Partial<TemplateApplyOptions>}){
+export function SharedTemplateApply({userId,contextKey='library',restoreDraft,record,spaceId,projectId,projects,language,onApplied,onDirtyChange,onConfigured,initialOptions}:{userId:string;contextKey?:string;restoreDraft?:WorkDraft<EditorDeviceDraft<TemplateApplySnapshot>>|null;record:SharedTemplate;spaceId:string;projectId:string;projects:TemplateDestinationProject[];language:Language;onApplied:(receipt:TemplateReceipt)=>Promise<void>;onDirtyChange:(dirty:boolean)=>void;onConfigured?:(options:TemplateApplyOptions)=>void;initialOptions?:Partial<TemplateApplyOptions>}){
  const t=(s:string)=>translateText(s,language);
  const [options,setOptions]=useState<TemplateApplyOptions>(()=>({spaceId,projectId:record.kind==='task'?(projects.find(project=>project.id===projectId&&project.canWrite&&!project.archivedAt)?.id??projects.find(project=>project.canWrite&&!project.archivedAt)?.id??null):null,parentProjectId:null,language,anchorDate:todayCivilDate(record.manifest.calendarContext),include:{},...initialOptions}));
  const [preview,setPreview]=useState<TemplatePreview|null>(null),[receipt,setReceipt]=useState<TemplateReceipt|null>(null),[error,setError]=useState(""),[busy,setBusy]=useState(false),[pageIndex,setPageIndex]=useState(0),[previewRequest,setPreviewRequest]=useState("");
  const lock=useRef(false),pending=useRef<(TemplateApplyOptions&{operationId:string;fingerprint:string})|null>(null);
+ const [numbers,setNumbers]=useState<NumberDrafts>({}),[changed,setChanged]=useState(false),section=useRef<HTMLElement>(null),lastSnapshot=useRef(''),restored=useRef('');
+ const recovery=useSharedEditorDrafts(userId,spaceId,projectId,'template-apply',validateTemplateApplySnapshot);
+ const snapshot:TemplateApplySnapshot={templateId:record.id,contextKey,title:record.title,options,numbers},snapshotJson=JSON.stringify(snapshot);
+ const matchingRecovery={...recovery,rows:recovery.rows.filter(row=>row.value.editor.templateId===record.id&&row.value.editor.contextKey===contextKey)};
+ const dirtyCallback=useRef(onDirtyChange);
+ useEffect(()=>{dirtyCallback.current=onDirtyChange;},[onDirtyChange]);
+ const restoreEditor=useCallback((value:TemplateApplySnapshot)=>{setOptions(value.options);setNumbers(value.numbers);setChanged(true);setPreview(null);setPreviewRequest('');dirtyCallback.current(true);},[]);
+ useEffect(()=>{if(!changed||!recovery.device.ready||recovery.locked||lastSnapshot.current===snapshotJson)return;lastSnapshot.current=snapshotJson;recovery.update(JSON.parse(snapshotJson) as TemplateApplySnapshot);},[snapshotJson,changed,recovery]);
+ useEffect(()=>{if(!restoreDraft||restored.current===restoreDraft.raw||!recovery.device.ready)return;restored.current=restoreDraft.raw;void recovery.restore(restoreDraft).then(restoreEditor).catch(reason=>setError(templateError(reason,language)));},[restoreDraft,recovery,language,restoreEditor]);
+ useEffect(()=>{if(matchingRecovery.rows.length)dirtyCallback.current(true);},[matchingRecovery.rows.length]);
  const request={...options,language},current=JSON.stringify(request),fresh=Boolean(preview&&previewRequest===current&&preview.revision===record.revision);
- const change=(value:TemplateApplyOptions)=>{setOptions(value);pending.current=null;setError("");onDirtyChange(true);};
+ const change=(value:TemplateApplyOptions)=>{if(recovery.locked)return;setOptions(value);setChanged(true);pending.current=null;setError("");onDirtyChange(true);};
  const mappedValue=(mapping:Record<string,string|null>|undefined,key:string,fallback:string)=>Object.hasOwn(mapping??{},key)?mapping![key]??"":fallback;
  const run=async(work:()=>Promise<void>)=>{if(lock.current)return;lock.current=true;setBusy(true);setError("");try{await work();}catch(reason){setError(templateError(reason,language));if(reason instanceof GenesisApiError&&(reason.status===403||reason.status===404)){setPreview(null);setPreviewRequest("");pending.current=null;}}finally{lock.current=false;setBusy(false);}};
  const date=(value:string|null)=>value?formatCalendarDateValue(value,record.manifest.calendarMode,true,record.manifest.calendarContext):t("Без срока");
  const sourceMembers=[...new Set(record.manifest.tasks.flatMap(task=>[task.assigneeId,...task.approverIds,...task.checklists.flatMap(list=>list.items.map(item=>item.assigneeId))]).filter((value):value is string=>value!==null))];
  const shownTasks=preview?.tasks.slice(pageIndex*20,(pageIndex+1)*20)??[];
- const previewNow=()=>run(async()=>{const value=await previewSharedTemplate(record.id,request);setPreview(value);setPreviewRequest(current);pending.current=null;setPageIndex(0);});
+ const validInputs=()=>{const invalid=section.current?.querySelector<HTMLInputElement>('input:invalid,select:invalid,textarea:invalid');if(invalid){invalid.reportValidity();return false;}return true;};
+ const previewNow=()=>run(async()=>{if(recovery.locked||!validInputs())return;const value=await previewSharedTemplate(record.id,request);setPreview(value);setPreviewRequest(current);pending.current=null;setPageIndex(0);});
+ const finishSend=async()=>{const value=await recovery.send(request=>applySharedTemplate(request.id!,request.body as TemplateApplyOptions&{operationId:string;fingerprint:string})) as TemplateReceipt;setReceipt(value);await recovery.finish();setChanged(false);onDirtyChange(false);await onApplied(value);};
  const apply=()=>run(async()=>{
-  if(!preview||!fresh||!preview.canApply||receipt)return;
-  if(onConfigured){onConfigured(request);onDirtyChange(false);return;}
-  const command=pending.current??{...request,operationId:crypto.randomUUID(),fingerprint:preview.fingerprint};pending.current=command;
-  const value=await applySharedTemplate(record.id,command);setReceipt(value);onDirtyChange(false);await onApplied(value);
+  if(!preview||!fresh||!preview.canApply||receipt||recovery.locked||!validInputs())return;
+  if(onConfigured){await recovery.persist(editorDeviceEdit(spaceId,projectId,'template-apply',snapshot));await recovery.finish();setChanged(false);onDirtyChange(false);onConfigured(request);return;}
+  const command={...request,operationId:crypto.randomUUID(),fingerprint:preview.fingerprint};
+  await recovery.prepare(snapshot,{kind:'template.apply',id:record.id,body:command,expected:{taskCount:preview.tasks.length,projectCount:record.kind==='project'?preview.projects.length:0,taskKeys:preview.tasks.map(task=>task.key),projectKeys:preview.projects.map(project=>project.key)}});await finishSend();
  });
- return <section className="template-apply"><h3>{t("Применить шаблон")}</h3>
+ return <section ref={section} className="template-apply"><h3>{t("Применить шаблон")}</h3><SharedEditorDraftRecovery title={value=>value.title} controller={matchingRecovery} language={language} busy={busy} editing={changed} onRestore={restoreEditor} onRetry={()=>void run(finishSend)} onEdit={restoreEditor} onError={reason=>setError(templateError(reason,language))}/><NumberDraftProvider values={numbers} onChange={value=>{setNumbers(value);setChanged(true);onDirtyChange(true);}}>
   <p>{t("Будут созданы самостоятельные задачи. Файлы, обсуждения, права и подписки не копируются.")}</p>
-  <form noValidate onSubmit={event=>{event.preventDefault();void previewNow();}}><fieldset disabled={busy||Boolean(receipt)}>
+  <form noValidate onSubmit={event=>{event.preventDefault();void previewNow();}}><fieldset disabled={busy||recovery.locked||Boolean(receipt)}>
    <div className="template-grid"><label>{t("Назначение")}<select value={(record.kind==='task'?options.projectId:options.parentProjectId)??""} onChange={event=>change({...options,...(record.kind==='task'?{projectId:event.target.value||null}:{parentProjectId:event.target.value||null})})}>
     <option value="">{t(record.kind==='task'?"Выберите проект":"Корень пространства")}</option>{projects.filter(project=>project.canWrite&&!project.archivedAt).map(project=><option key={project.id} value={project.id} data-no-translate>{project.title}</option>)}</select></label>
     <div><span className="template-field-label">{t("Базовая дата")}</span><CalendarDatePicker mode={record.manifest.calendarMode} calculationContext={record.manifest.calendarContext} value={options.anchorDate} required ariaLabel={t("Базовая дата")} onChange={anchorDate=>change({...options,anchorDate})}/></div></div>
@@ -69,13 +87,13 @@ export function SharedTemplateApply({record,spaceId,projectId,projects,language,
       <dl><div><dt>{t("Исполнитель")}</dt><dd data-no-translate>{preview.members.find(member=>member.id===task.assigneeId)?.title??t("Не назначен")}</dd></div><div><dt>{t("Чек-листы")}</dt><dd>{new Intl.NumberFormat(language).format(task.checklists.length)}</dd></div><div><dt>{t("Статус")}</dt><dd data-no-translate>{record.kind==='project'?preview.projects.find(project=>project.key===task.projectKey)?.statuses.find(status=>status.key===task.statusRef)?.title:preview.statuses.find(status=>status.id===task.statusRef)?.title}</dd></div>
       {task.parentKey?<div><dt>{t("Родительская задача")}</dt><dd data-no-translate>{preview.tasks.find(row=>row.key===task.parentKey)?.title}</dd></div>:null}</dl>
       {task.description?<details><summary>{t("Описание")}</summary><p data-no-translate>{task.description}</p></details>:null}
-      {fields.length?<details open={preview.blockers.some(issue=>issue.taskKey===task.key&&issue.fieldRef!==undefined)}><summary>{t("Значения полей")}</summary><SharedCustomFieldInputs fields={fields} values={{...task.customValues,...options.fieldValues?.[task.key]}} mode={record.manifest.calendarMode} calculationContext={record.manifest.calendarContext} language={language} disabled={busy||Boolean(receipt)} onChange={values=>change({...options,fieldValues:{...options.fieldValues,[task.key]:values}})}/></details>:null}
+      {fields.length?<details open={preview.blockers.some(issue=>issue.taskKey===task.key&&issue.fieldRef!==undefined)}><summary>{t("Значения полей")}</summary><SharedCustomFieldInputs fields={fields} draftScope={`apply-task:${task.key}`} values={{...task.customValues,...options.fieldValues?.[task.key]}} mode={record.manifest.calendarMode} calculationContext={record.manifest.calendarContext} language={language} disabled={busy||recovery.locked||Boolean(receipt)} onChange={values=>change({...options,fieldValues:{...options.fieldValues,[task.key]:values}})}/></details>:null}
     </li>;
    })}</ol>
    {preview.tasks.length>20?<nav className="template-actions" aria-label={t("Страницы задач")}><button type="button" disabled={pageIndex===0} onClick={()=>setPageIndex(pageIndex-1)}>{t("Назад")}</button><span>{new Intl.NumberFormat(language).format(pageIndex+1)} / {new Intl.NumberFormat(language).format(Math.ceil(preview.tasks.length/20))}</span><button type="button" disabled={(pageIndex+1)*20>=preview.tasks.length} onClick={()=>setPageIndex(pageIndex+1)}>{t("Далее")}</button></nav>:null}
-   <button type="button" className="primary-button" disabled={busy||!fresh||!preview.canApply||Boolean(receipt)} onClick={()=>void apply()}>{t(onConfigured?"Сохранить настройки применения":"Создать из шаблона")}</button>
+   <button type="button" className="primary-button" disabled={busy||recovery.locked||!fresh||!preview.canApply||Boolean(receipt)} onClick={()=>void apply()}>{t(onConfigured?"Сохранить настройки применения":"Создать из шаблона")}</button>
   </section>:null}
   {receipt?<p role="status">{t("Шаблон применён.")} <button type="button" disabled={busy} onClick={()=>void run(()=>onApplied(receipt))}>{t("Открыть созданное")}</button></p>:null}
-  {busy?<p role="status">{t("Загрузка…")}</p>:null}{error?<p role="alert">{error}</p>:null}
+  </NumberDraftProvider>{busy?<p role="status">{t("Загрузка…")}</p>:null}{error?<p role="alert">{error}</p>:null}
  </section>;
 }

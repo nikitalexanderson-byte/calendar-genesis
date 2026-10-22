@@ -239,7 +239,7 @@ class CloudWorkspaceSyncTest {
                     return JSONObject().put("workspace", JSONObject().put("version", 3))
                 }
             }
-            assertThrows(WorkspacePatch.Conflict::class.java) {
+            val conflict = assertThrows(WorkspacePatch.Conflict::class.java) {
                 runBlocking { CloudWorkspaceSync(db, transport).flush(scope) }
             }
             assertEquals(1, db.dao().outbox(scope).size)
@@ -247,10 +247,31 @@ class CloudWorkspaceSyncTest {
             assertFalse(encrypted.encrypted.contains("Android edit"))
             assertEquals("Android edit", WorkspaceStructureCodec.decode(cipher.decrypt(encrypted.encrypted,
                 "$scope/structure")).projects.single().title)
+            val outbox = db.dao().outbox(scope)
+            assertEquals("\"Android edit\"", conflict.preview!!.fields.single().localJson)
+            assertEquals("\"Web edit\"", conflict.preview!!.fields.single().remoteJson)
+            // A newer website edit invalidates the exact comparison. No local or remote writes.
+            remote.getJSONArray("projects").getJSONObject(0).put("title", "New website edit")
+            remote.put("unknownWebSection", JSONObject().put("preserved", true))
+            val refreshed = assertThrows(WorkspacePatch.Conflict::class.java) {
+                runBlocking { CloudWorkspaceSync(db, transport).flush(scope,
+                    WorkspacePatch.ConflictPolicy.KEEP_LOCAL, conflict.preview!!.fingerprint) }
+            }
+            assertNull(confirmed)
+            assertEquals(encrypted, db.dao().document(scope, "structure"))
+            assertEquals(outbox, db.dao().outbox(scope))
+            assertNotEquals(conflict.preview!!.fingerprint, refreshed.preview!!.fingerprint)
+            // An unreviewed choice cannot bypass this guard either.
+            assertThrows(WorkspacePatch.Conflict::class.java) {
+                runBlocking { CloudWorkspaceSync(db, transport).flush(scope, WorkspacePatch.ConflictPolicy.KEEP_LOCAL) }
+            }
             assertEquals(1, CloudWorkspaceSync(db, transport).flush(scope,
-                WorkspacePatch.ConflictPolicy.KEEP_LOCAL))
+                WorkspacePatch.ConflictPolicy.KEEP_LOCAL, refreshed.preview!!.fingerprint))
             assertEquals("Android edit", confirmed!!.getJSONArray("projects").getJSONObject(0).getString("title"))
+            assertTrue(confirmed!!.getJSONObject("unknownWebSection").getBoolean("preserved"))
             assertTrue(db.dao().outbox(scope).isEmpty())
+            assertEquals(0, CloudWorkspaceSync(db, transport).flush(scope,
+                WorkspacePatch.ConflictPolicy.KEEP_LOCAL, refreshed.preview!!.fingerprint))
         } finally { db.close() }
     }
 
@@ -286,8 +307,11 @@ class CloudWorkspaceSyncTest {
                     return JSONObject().put("workspace", JSONObject().put("version", 3))
                 }
             }
+            val conflict = assertThrows(WorkspacePatch.Conflict::class.java) {
+                runBlocking { CloudWorkspaceSync(db, transport).flush(scope) }
+            }
             assertEquals(1, CloudWorkspaceSync(db, transport).flush(scope,
-                WorkspacePatch.ConflictPolicy.KEEP_REMOTE))
+                WorkspacePatch.ConflictPolicy.KEEP_REMOTE, conflict.preview!!.fingerprint))
             assertTrue(db.dao().outbox(scope).isEmpty())
             val saved = requireNotNull(db.dao().document(scope, "structure"))
             assertEquals("Website choice", WorkspaceStructureCodec.decode(cipher.decrypt(saved.encrypted,

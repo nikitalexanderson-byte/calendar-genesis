@@ -515,5 +515,18 @@
   "Отображение и заполнение": "Display and input",
   "Варианты списка": "List options",
   "Изменения не сохранены": "Changes were not saved",
-  "Не удалось выполнить действие. Проверьте соединение и повторите.": "The action could not be completed. Check your connection and try again."
+  "Не удалось выполнить действие. Проверьте соединение и повторите.": "The action could not be completed. Check your connection and try again.",
+  "Сравнить версии": "Compare versions",
+  "Поля с конфликтом": "Conflicting fields",
+  "Версия телефона": "Phone version",
+  "Версия сайта": "Website version",
+  "Исходная версия": "Original version",
+  "Какую версию оставить?": "Which version should be kept?",
+  "Выбор относится ко всем показанным конфликтам. Остальные изменения сохранятся.": "Your choice applies to all conflicts shown. Other changes are preserved.",
+  "Телефон": "Phone",
+  "Сайт": "Website",
+  "Покажите все конфликты перед выбором.": "Show all conflicts before choosing a version.",
+  "Квесты": "Quests",
+  "Награды": "Rewards",
+  "Данные": "Data"
 }

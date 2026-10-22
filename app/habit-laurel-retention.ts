@@ -29,11 +29,12 @@ export function applyHabitDeletionLaurelPolicy(
   completions: readonly CompletionEvidence[],
   habitId: string,
   timestamp = new Date().toISOString(),
+  operationId?: string,
 ) {
   const retained = habitRetainsLaurelsOnDeletion(completions, habitId);
   const transactions = retained
     ? recordHabitMasteryRetention(value, habitId, timestamp)
-    : resetLaurelsBalance(value, "habit-deleted-reset", habitId, `habit-deleted:self:${habitId}`, timestamp);
+    : resetLaurelsBalance(value, "habit-deleted-reset", habitId, `habit-deleted:self:${habitId}${operationId ? `:${operationId}` : ""}`, timestamp);
   return { retained, transactions };
 }
 

@@ -61,6 +61,8 @@ export function applyEditableHabitUpdate(previous: Habit, candidate: Habit): Hab
     periodGoal,
     ruleHistory,
     id: previous.id,
+    active: previous.active,
+    lifecycleHistory: previous.lifecycleHistory,
     createdAt: previous.createdAt,
     createdDate: previous.createdDate,
     sourceTemplateId: previous.sourceTemplateId,

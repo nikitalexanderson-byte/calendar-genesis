@@ -15,16 +15,17 @@ object HabitHistoryCodec {
     private fun value(value: HabitHistoryValue) = JSONObject().put("completed", value.completed)
         .put("completedTimes", JSONArray(value.completedTimes)).put("qualityValue", value.qualityValue ?: JSONObject.NULL)
         .put("qualityConfirmedAt", value.qualityConfirmedAt ?: JSONObject.NULL).put("note", value.note)
+        .apply { value.skippedAt?.let { put("skippedAt",it) } }
     private fun value(value: JSONObject) = HabitHistoryValue(value.getBoolean("completed").also { require(value.get("completed") is Boolean) }, strings(value.optJSONArray("completedTimes") ?: JSONArray()),
-        if (value.isNull("qualityValue")) null else value.getDouble("qualityValue"), nullable(value, "qualityConfirmedAt"), value.getString("note"))
+        if (value.isNull("qualityValue")) null else value.getDouble("qualityValue"), nullable(value, "qualityConfirmedAt"), value.getString("note"),nullable(value,"skippedAt"))
     private fun completion(value: HabitCompletion) = entity(value.entity).put("habitId", value.habitId).put("date", value.date.toString())
         .put("completed", value.completed).put("completedTimes", JSONArray(value.completedTimes))
         .put("qualityValue", value.qualityValue ?: JSONObject.NULL).put("qualityConfirmedAt", value.qualityConfirmedAt ?: JSONObject.NULL)
-        .put("score", value.score).put("xpAwarded", value.xpAwarded).put("note", value.note)
+        .put("score", value.score).put("xpAwarded", value.xpAwarded).put("note", value.note).apply { value.skippedAt?.let { put("skippedAt",it) } }
     private fun completion(json: JSONObject): HabitCompletion {
         val value = value(json)
         return HabitCompletion(entity(json), json.getString("habitId"), LocalDate.parse(json.getString("date")), value.completed,
-            value.qualityValue, whole(json, "score"), whole(json, "xpAwarded"), value.note, value.qualityConfirmedAt, value.completedTimes)
+            value.qualityValue, whole(json, "score"), whole(json, "xpAwarded"), value.note, value.qualityConfirmedAt, value.completedTimes,value.skippedAt)
     }
     fun encode(rows: List<HabitHistoryEdit>) = JSONArray(rows.map { row -> entity(row.entity).put("habitId", row.habitId)
         .put("date", row.date.toString()).put("ruleId", row.ruleId).put("epoch", row.epoch).put("replaces", JSONArray(row.replaces))

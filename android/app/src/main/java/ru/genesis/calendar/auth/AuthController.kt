@@ -45,6 +45,7 @@ data class AuthPanelState(
     val accountSettings: AccountSettings? = null,
     val preview: CloudWorkspacePreview.Summary? = null,
     val workspaceConflictPath: String? = null,
+    val workspaceConflictPreview: WorkspaceConflictPreview? = null,
     val outgoingSyncIssue: String? = null,
     val checkedAt: Long? = null,
     val offerGoogleServices: Boolean = false,
@@ -1412,10 +1413,14 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
         else -> "Не удалось безопасно синхронизировать карту с аккаунтом."
     }
 
-    fun keepLocalWorkspaceChanges() = syncPending(WorkspacePatch.ConflictPolicy.KEEP_LOCAL)
-    fun keepRemoteWorkspaceChanges() = syncPending(WorkspacePatch.ConflictPolicy.KEEP_REMOTE)
+    fun keepLocalWorkspaceChanges(userId: String, fingerprint: String) {
+        if (mutableState.value.user?.uid == userId) syncPending(WorkspacePatch.ConflictPolicy.KEEP_LOCAL, fingerprint)
+    }
+    fun keepRemoteWorkspaceChanges(userId: String, fingerprint: String) {
+        if (mutableState.value.user?.uid == userId) syncPending(WorkspacePatch.ConflictPolicy.KEEP_REMOTE, fingerprint)
+    }
 
-    private fun syncPending(conflictPolicy: WorkspacePatch.ConflictPolicy) {
+    private fun syncPending(conflictPolicy: WorkspacePatch.ConflictPolicy, expectedConflictFingerprint: String? = null) {
         val identity = mutableState.value.user ?: return
         val accountScope = CloudAccountSnapshot.scopeFor(identity.uid)
         if (app.workspaceScope != accountScope || mutableState.value.requiresSignIn || syncJob?.isActive == true) return
@@ -1427,6 +1432,7 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
             var sentWorkspace = 0
             var failure: String? = null
             var conflictPath: String? = null
+            var conflictPreview: WorkspaceConflictPreview? = null
             try { flushPendingPreferences(generation, identity.uid) }
             catch (e: CancellationException) { throw e }
             catch (error: Exception) {
@@ -1442,12 +1448,13 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
                         override fun get() = client.workspace(generation)
                         override fun put(body: JSONObject) = client.putWorkspace(generation, body)
                         override fun habitReminderConsent() = client.habitReminderStatus(generation).optBoolean("hasDevices",false)
-                    }).flush(accountScope, conflictPolicy)
+                    }).flush(accountScope, conflictPolicy, expectedConflictFingerprint)
                 }
             } catch (error: CancellationException) { throw error }
             catch (error: WorkspacePatch.Conflict) {
                 logCloudFailure("WORKSPACE_PUSH_CONFLICT", error)
                 conflictPath = error.field
+                conflictPreview = error.preview
                 failure = "Конфликт зашифрованного пространства: данные устройства сохранены. Решите, какую версию оставить."
             }
             catch (_: CloudWorkspacePreview.RecoveryRequired) { failure = "Для синхронизации нужен код восстановления пространства." }
@@ -1474,7 +1481,7 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
                 }
             }
             if (client.isCurrent(generation)) mutableState.value = mutableState.value.copy(
-                workspaceConflictPath = conflictPath, outgoingSyncIssue = failure, message = failure ?:
+                workspaceConflictPath = conflictPath, workspaceConflictPreview = conflictPreview, outgoingSyncIssue = failure, message = failure ?:
                 if (sentTasks + sentWorkspace > 0) "Синхронизировано: $sentTasks задач, $sentWorkspace изменений пространства."
                 else mutableState.value.message)
             AuthDiagnostics.event(if (failure == null) "SYNC_SUCCESS" else "SYNC_FAILED")
@@ -1522,6 +1529,7 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
             requiresSignIn = previous.requiresSignIn,
             accountSettings = previous.accountSettings, preview = previous.preview,
             workspaceConflictPath = previous.workspaceConflictPath,
+            workspaceConflictPreview = previous.workspaceConflictPreview,
             checkedAt = previous.checkedAt, message = message)
         operation = scope.launch {
             fun failed(message: String, retainIdentity: Boolean = true) {

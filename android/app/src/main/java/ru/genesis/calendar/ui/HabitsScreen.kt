@@ -29,6 +29,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -94,6 +95,8 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
     var catalogueOpen by rememberSaveable { mutableStateOf(false) }
     var heroPathOpen by rememberSaveable { mutableStateOf(false) }
     var timerHabitId by remember { mutableStateOf<String?>(null) }
+    var habitState by rememberSaveable { mutableStateOf("active") }
+    var analysisHistory by remember { mutableStateOf<Pair<String,LocalDate>?>(null) }
     LaunchedEffect(openHeroPath) {
         if (openHeroPath) { heroPathOpen=true;onHeroPathOpened() }
     }
@@ -104,12 +107,29 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
     val english = language == "en"
     val engine=HabitEngine(GenesisCalendar())
     suspend fun runAction(action: suspend () -> Unit) {
+        if (busy || storageError) return
         busy=true
         try { action(); error=null }
         catch(e: CancellationException) { throw e }
-        catch(e: IllegalArgumentException) { error=e.message ?: "Проверьте введённые данные." }
+        catch(e: IllegalArgumentException) { error=habitLifecycleFailure(e.message) ?: "Проверьте введённые данные." }
         catch(_: Exception) { error="Не удалось сохранить привычки. Данные формы сохранены на экране." }
         finally { busy=false }
+    }
+    suspend fun changeAvailability(habit: Habit, action: String, selectedId: String? = null) {
+        val command = HabitLifecycleCommand("habit-lifecycle:${java.util.UUID.randomUUID()}", habit.id,
+            Instant.now().toString(), action, HabitLifecycle.state(habit).heads.map { it.id }, selectedId)
+        val saved = repository.lifecycle(command).second.habits.first { it.id == habit.id }
+        if (action == "delete") { deleteCandidate=null; if (edit?.id==habit.id) editorOpen=false }
+        try {
+            if (!saved.active) externalSync.remove(saved)
+            else {
+                val linked = externalSync.apply(saved, habit, accountSettings, taskLists, inputCalendarMode)
+                if (linked.reminder != saved.reminder) repository.save(linked)
+            }
+        } catch (e: CancellationException) { throw e }
+        catch (_: Exception) {
+            throw IllegalArgumentException("Привычка сохранена на устройстве. Синхронизация Google пока не завершена — повторите сохранение.")
+        }
     }
     suspend fun completionFeedback(settings: HabitFeedbackSettings) {
         if (settings.haptics) hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -249,23 +269,34 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                 } }
             }
             Text("Мои привычки",style=MaterialTheme.typography.titleLarge)
+            HabitLifecycleFilters(current, habitState) { habitState=it }
             HabitTimerShelf(current, repository.timerOwner, timerHabitId, { timerHabitId = null }, !busy && !storageError) {
                 repository.applyTimer(it); Unit
             }
             if(current.habits.isEmpty()) Text("Здесь появятся ваши практики. Выберите идею из подборки или создайте свою.",
                 style=MaterialTheme.typography.bodyMedium)
-            AdaptiveCardGrid(current.habits.sortedByDescending { it.priority }, { it.id }) { habit ->
+            val listedHabits=current.habits.filter { HabitLifecycle.state(it).status==habitState }.sortedByDescending { it.priority }
+            if (current.habits.isNotEmpty() && listedHabits.isEmpty()) Text("Ничего не найдено")
+            if (habitState in setOf("archived", "deleted")) HabitRetiredRows(current, listedHabits, !busy && !storageError,
+                onRestore={habit -> scope.launch { runAction { changeAvailability(habit,"restore") } }},
+                onDelete={deleteCandidate=it}, onResolve={habit, selected -> scope.launch { runAction { changeAvailability(habit,"resolve",selected) } }})
+            else AdaptiveCardGrid(listedHabits, { it.id }) { habit ->
+              Column(Modifier.fillMaxWidth(), verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                val state=HabitLifecycle.state(habit)
+                HabitLifecycleResolution(habit, !busy && !storageError) { selected -> scope.launch { runAction { changeAvailability(habit,"resolve",selected) } } }
                 val entry=current.completions.firstOrNull { it.habitId==habit.id && it.date==today }
                 val scheduled=runCatching { engine.isScheduled(habit,today) }.getOrDefault(false)
                 val measured=HabitMeasurements.effective(HabitMeasurements.rule(habit,today))!=null
-                if (experimental) ExperimentalHabitCard(habit, entry, scheduled, busy || storageError,
+                if (experimental) ExperimentalHabitCard(habit, entry, scheduled, busy || storageError || state.conflict,
                     animate = current.settings.feedback.animations,
                     onComplete={checked,quality -> scope.launch { runAction {
                         recordCompletion(habit.id,checked,quality,current.settings.feedback)
                     } }},
                     onIntervalComplete={time,checked -> scope.launch { runAction { recordInterval(habit,time,checked,current.settings.feedback) } }},
                     onEdit={edit=habit;editorOpen=true},
-                    onToggle={scope.launch { runAction { repository.save(habit.copy(active=!habit.active)) } }},
+                    onToggle={scope.launch { runAction { changeAvailability(habit,if(habit.active) "pause" else "resume") } }},
+                    onArchive={scope.launch { runAction { changeAvailability(habit,"archive") } }},
+                    onTimer={timerHabitId=habit.id},
                     onDelete={deleteCandidate=habit})
                 else Card((if (current.settings.feedback.animations) Modifier.animateContentSize() else Modifier).fillMaxWidth()) { Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
                     Text("${habit.emoji} ${habitDisplayTitle(habit)}",style=MaterialTheme.typography.titleMedium)
@@ -288,20 +319,17 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                         Text(if(entry?.completed==true) "Выполнено · ${entry.score} баллов" else if(habit.intervalSchedule?.completionMode=="each") "Отметить все повторения" else "Отметить выполнение",Modifier.padding(top=12.dp))
                     }
                     HabitIntervalMarks(habit,entry,scheduled&&!busy&&!storageError) { time,checked -> scope.launch { runAction { recordInterval(habit,time,checked,current.settings.feedback) } } }
-                    Row {
-                        TextButton(enabled=!busy&&!storageError,onClick={edit=habit;editorOpen=true}) { Text("Изменить") }
-                        TextButton(enabled=!busy&&!storageError,onClick={scope.launch { runAction { repository.save(habit.copy(active=!habit.active)) } }}) { Text(if(habit.active) "Пауза" else "Продолжить") }
-                        TextButton(enabled=!busy&&!storageError,onClick={deleteCandidate=habit},
-                            colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.error),
-                            modifier=Modifier.testTag("delete-habit-${habit.id}")) { Text("Удалить") }
-                    }
+                    HabitCardActions(habit,!busy&&!storageError&&!state.conflict,scheduled,
+                        onEdit={edit=habit;editorOpen=true},
+                        onToggle={scope.launch { runAction { changeAvailability(habit,if(habit.active) "pause" else "resume") } }},
+                        onArchive={scope.launch { runAction { changeAvailability(habit,"archive") } }},
+                        onTimer={timerHabitId=habit.id},onDelete={deleteCandidate=habit})
                 } }
                 if(measured) HabitMeasurementInputs(habit,current.measurements,today,entry,scheduled&&!busy&&!storageError,
                     onRecord={amount,entryId,replaces,note -> repository.recordMeasurement(habit.id,today,amount,entryId,replaces,note);Unit},
                     onQuality={quality -> recordCompletion(habit.id,true,quality,current.settings.feedback)})
                 HabitPeriodGoalProgress(habit,current.measurements,current.completions,today)
-                TextButton(onClick = { timerHabitId = habit.id }, enabled = scheduled && !busy && !storageError,
-                    modifier = Modifier.testTag("habit-timer-open-${habit.id}")) { Text("Таймер") }
+              }
             }
             if (experimental && current.settings.feedback.gamificationWidgets) {
                 val motionEnabled = current.settings.feedback.animations
@@ -367,7 +395,8 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                     enter=if (current.settings.feedback.animations) fadeIn() + expandVertically() else EnterTransition.None,
                     exit=if (current.settings.feedback.animations) fadeOut() + shrinkVertically() else ExitTransition.None) {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    HabitCompletionCalendar(current, today, displayCalendarMode)
+                    HabitCompletionCalendar(current, today, displayCalendarMode,
+                        onOpenHistory={id,date -> analysisHistory=id to date},onDecision={command -> repository.decideDay(command)})
                     HabitArtGallery(current, today, busy,
                     onClaimAmphora = { rankId -> scope.launch { runAction { repository.claimHeroPathAmphora(rankId) } } },
                     onRevealHiddenPath = { scope.launch { runAction { repository.revealHiddenHeroicPath() } } },
@@ -385,10 +414,11 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                     recordCompletion(habit.id,checked,null,current.settings.feedback)
                 } } },
                 onToggle={ habit -> scope.launch { runAction { repository.save(habit.copy(active=!habit.active)) } } })
-            if(current.completions.isNotEmpty()) {
+            if(current.habits.isNotEmpty()) {
                 Text("История отметок",style=MaterialTheme.typography.titleMedium)
-                HabitHistoryPanel(current,repository,displayCalendarMode)
+                HabitHistoryPanel(current,repository,displayCalendarMode,analysisHistory) { analysisHistory=null }
             }
+            HabitBackupPanel(app,current)
         }
     }
     if(editorOpen) HabitEditor(edit,busy,error,inputCalendarMode,accountSettings,voiceDraftTitle,
@@ -415,22 +445,23 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
         } }
     })
     deleteCandidate?.let { habit ->
-        val completionCount = workspace?.let { habitCompletionCount(it.completions, habit.id) } ?: 0
+        val completionCount = workspace?.let { habitCompletionCount(HabitHistory.economy(it).completions, habit.id) } ?: 0
         val retainsLaurels = completionCount >= HABIT_LAUREL_RETENTION_COMPLETIONS
+        val confirmationHeight=(LocalConfiguration.current.screenHeightDp*0.4f).coerceAtLeast(64f).dp
         AlertDialog(onDismissRequest={if(!busy) deleteCandidate=null},
-            title={Text("Удалить привычку?")},
-            text={Text(if(retainsLaurels)
-                "«${habitDisplayTitle(habit)}» и все отметки будут удалены. Рубеж в $HABIT_LAUREL_RETENTION_COMPLETIONS выполнений достигнут — заработанные Лавры сохранятся."
-                else "«${habitDisplayTitle(habit)}» и все отметки будут удалены. Прогресс: $completionCount/$HABIT_LAUREL_RETENTION_COMPLETIONS; баланс Лавров будет обнулён.")},
+            title={Text("Удалить привычку")},
+            text={Column(Modifier.heightIn(max=confirmationHeight).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+                Text(if(retainsLaurels) "Рубеж 50 дней достигнут: Лавры сохранятся. История останется доступной для восстановления."
+                    else "Удаление до 50 уникальных дней выполнения обнуляет весь баланс Лавров. История останется доступной для восстановления.")
+                androidx.compose.material3.Text(habitDisplayTitle(habit))
+            }},
             confirmButton={TextButton(enabled=!busy,onClick={scope.launch {
                 runAction {
-                    repository.delete(habit.id)
-                    externalSync.remove(habit)
-                    deleteCandidate=null; if(edit?.id==habit.id) editorOpen=false
+                    changeAvailability(habit,"delete")
                 }
-            }},modifier=Modifier.testTag("confirm-delete-habit"),
+            }},modifier=Modifier.heightIn(min=48.dp).testTag("confirm-delete-habit"),
                 colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.error)) { Text("Удалить") }},
-            dismissButton={TextButton(enabled=!busy,onClick={deleteCandidate=null}) { Text("Отмена") }})
+            dismissButton={TextButton(enabled=!busy,onClick={deleteCandidate=null},modifier=Modifier.heightIn(min=48.dp).testTag("cancel-delete-habit")) { Text("Отмена") }})
     }
 }
 
@@ -438,7 +469,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
 private fun ExperimentalHabitCard(habit: Habit, entry: HabitCompletion?, scheduled: Boolean, disabled: Boolean,
     animate: Boolean, onComplete: (Boolean, Double?) -> Unit, onEdit: () -> Unit,
     onIntervalComplete: (String,Boolean) -> Unit,
-    onToggle: () -> Unit, onDelete: () -> Unit) {
+    onToggle: () -> Unit, onArchive: () -> Unit, onTimer: () -> Unit, onDelete: () -> Unit) {
     val measured = HabitMeasurements.effective(HabitMeasurements.rule(habit,LocalDate.now()))!=null
     val status = if (!habit.active) "На паузе" else if (scheduled) "Запланировано сегодня" else "Сегодня свободно"
     val calendar = when (habit.schedule.recurrence.mode) {
@@ -458,7 +489,7 @@ private fun ExperimentalHabitCard(habit: Habit, entry: HabitCompletion?, schedul
                     }
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(habitDisplayTitle(habit), style = MaterialTheme.typography.titleMedium, color = Color(0xff132426))
+                    androidx.compose.material3.Text(habitDisplayTitle(habit), style = MaterialTheme.typography.titleMedium, color = eveningInk(Color(0xff132426)))
                     Text(status, style = MaterialTheme.typography.labelMedium,
                         color = if (habit.active && scheduled) Color(0xff255b59) else Color(0xff596665))
                 }
@@ -509,13 +540,7 @@ private fun ExperimentalHabitCard(habit: Habit, entry: HabitCompletion?, schedul
             }
             HabitIntervalMarks(habit,entry,scheduled&&!disabled,onIntervalComplete)
             HorizontalDivider(color = Color(0xffd5cab4))
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
-                TextButton(enabled=!disabled,onClick=onEdit) { Text("Изменить") }
-                TextButton(enabled=!disabled,onClick=onToggle) { Text(if(habit.active) "Пауза" else "Продолжить") }
-                TextButton(enabled=!disabled,onClick=onDelete,
-                    colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.error),
-                    modifier=Modifier.testTag("delete-habit-${habit.id}")) { Text("Удалить") }
-            }
+            HabitCardActions(habit,!disabled,scheduled,onEdit,onToggle,onArchive,onTimer,onDelete)
         }
     }
 }

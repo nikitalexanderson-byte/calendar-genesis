@@ -1439,7 +1439,7 @@ private object TranslationCatalog {
                             Log.e("GenesisI18n", "Could not load $name: ${error.javaClass.simpleName}")
                         }
                     }
-                    listOf("native-data-export-translations.json", "native-data-import-translations.json", "native-bulk-translations.json", "native-template-labels.json", "native-automations-translations.json", "native-saved-views-translations.json", "custom-field-recovery-translations.json").forEach { name ->
+                    listOf("native-data-export-translations.json", "native-data-import-translations.json", "native-bulk-translations.json", "native-template-labels.json", "native-automations-translations.json", "native-saved-views-translations.json", "custom-field-recovery-translations.json", "habit-report-translations.json").forEach { name ->
                         objectAsset(name).getJSONObject("en").let { catalog -> catalog.keys().forEach { put(it, catalog.getString(it)) } }
                     }
                     runCatching {
@@ -1494,6 +1494,9 @@ private object TranslationCatalog {
                     }
                     context.assets.open("originals/i18n/ui-translations/$language.json").bufferedReader().use {reader->JSONObject(reader.readText()).let {json->json.keys().forEach {put(it,json.getString(it))}}}
                     context.assets.open("originals/i18n/shared-work-translations/$language.json").bufferedReader().use {reader->JSONObject(reader.readText()).let {json->json.keys().forEach {put(it,json.getString(it))}}}
+                    context.assets.open("originals/i18n/habit-report-translations.json").bufferedReader().use { reader ->
+                        JSONObject(reader.readText()).getJSONObject(language).let { json -> json.keys().forEach { put(it,json.getString(it)) } }
+                    }
                     context.assets.open("originals/i18n/native-affairs-translations.json")
                         .bufferedReader().use { reader ->
                             JSONObject(reader.readText()).optJSONObject(language)?.let { json ->

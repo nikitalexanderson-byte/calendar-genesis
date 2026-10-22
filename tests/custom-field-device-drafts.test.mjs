@@ -15,6 +15,20 @@ test('input is copied without trimming; corrupt scope, frozen body and unknown s
  for(const change of [v=>v.version=2,v=>v.projectId='other',v=>v.spaceId='other',v=>v.draft.required='false',v=>v.draft.unrecognized=true,v=>v.phase='pending']){const value=edit();change(value);assert.throws(()=>validateCustomFieldDeviceDraft(value,'space-a','project-a'),/INVALID/);}
  const frozen=pending();frozen.draft.title='different';assert.throws(()=>validateCustomFieldDeviceDraft(frozen,'space-a','project-a'),/INVALID/);
 });
+test('unfinished integer input survives encrypted recovery and cannot prepare a stale numeric value',async()=>{
+ for(const raw of ['', '-', '100001', '-100001', '1e2', '1.5']){
+  const value=customFieldDeviceEdit('space-a','project-a',draft(),raw);
+  const recovered=validateCustomFieldDeviceDraft(JSON.parse(JSON.stringify(value)),'space-a','project-a');
+  assert.equal(recovered.positionInput,raw);assert.equal(recovered.draft.position,0);
+  assert.throws(()=>prepareCustomFieldDeviceDraft(recovered,preview(),false,'not-sent'),/INVALID/);
+ }
+ const value=customFieldDeviceEdit('space-a','project-a',{...draft(),position:-12},'-0012');
+ const prepared=prepareCustomFieldDeviceDraft(value,preview(value),false,'position-stable');
+ assert.equal(JSON.parse(prepared.commandJson).position,-12);assert.equal(prepared.positionInput,'-0012');
+ const latest={...preview().field,id:'field-a',spaceId:'space-a',revision:5,predecessorId:null};
+ const partial=customFieldDeviceEdit('space-a','project-a',draft(),'-');
+ assert.equal(rebaseCustomFieldDeviceDraft(partial,latest).positionInput,'-');
+});
 
 test('preview needs explicit successor consent and its original revision',()=>{
  const value=preview();value.replaceType=true;assert.throws(()=>prepareCustomFieldDeviceDraft(edit(),value,false,'op'),/INVALID/);

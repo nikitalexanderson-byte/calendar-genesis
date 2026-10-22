@@ -1,6 +1,6 @@
 html[data-genesis-theme] .genesis-app .habit-library article > .habit-library-actions {
   display: grid;
-  grid-template-columns: repeat(4, 44px);
+  grid-template-columns: repeat(var(--habit-action-count, 4), 44px);
   justify-content: end;
   gap: 6px;
 }
@@ -12,5 +12,5 @@ html[data-genesis-theme] .genesis-app .habit-library-actions > .icon-action-butt
 }
 html[data-genesis-theme] .genesis-app .habit-library-actions > .icon-action-button[aria-pressed="true"] [data-icon="star"] { fill: currentColor; }
 @media (max-width: 767px) {
-  html[data-genesis-theme] .genesis-app .habit-library article > .habit-library-actions { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  html[data-genesis-theme] .genesis-app .habit-library article > .habit-library-actions { grid-template-columns: repeat(var(--habit-action-count, 4), minmax(44px, 1fr)); }
 }

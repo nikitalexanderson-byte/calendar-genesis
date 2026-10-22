@@ -102,27 +102,27 @@ import java.util.Locale
                     HorizontalDivider()
                     Column(Modifier.fillMaxWidth().padding(if (compactIme) 8.dp else 16.dp).testTag("automation-editor-footer"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (template != null) {
-                            Button({ template = null }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("automation-template-done"), shape = AffairsLayout.shape) { Text("Готово") }
+                            Button({ template = null }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("automation-template-done"), shape = AffairsLayout.controlShape) { Text("Готово") }
                         } else when (state.phase) {
                             "editing" -> {
                                 if (!compactIme) AutomationEditorLocalActions(canRefresh, canSaveCopy, canCreateCopy, canDiscard,
                                     { scope.launch { state.refresh() } }, { scope.launch { state.saveCopy() } }, { scope.launch { state.asNewCopy() } }, { discard = true })
-                                Button({ scope.launch { state.submit() } }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("automation-editor-save"), enabled = state.canSubmit, shape = AffairsLayout.shape) { Text("Сохранить правило") }
+                                Button({ scope.launch { state.submit() } }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("automation-editor-save"), enabled = state.canSubmit, shape = AffairsLayout.controlShape) { Text("Сохранить правило") }
                             }
                             "pending" -> {
                                 Text("Ответ сервера ещё не подтверждён. Повторяется только сохранённый запрос; его параметры нельзя заменить.", style = MaterialTheme.typography.bodyMedium)
-                                Button({ scope.launch { state.submit() } }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("automation-editor-retry"), enabled = !state.busy && !state.lost, shape = AffairsLayout.shape) { Text("Повторить запрос") }
+                                Button({ scope.launch { state.submit() } }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("automation-editor-retry"), enabled = !state.busy && !state.lost, shape = AffairsLayout.controlShape) { Text("Повторить запрос") }
                                 if (state.record?.optInt("attempts") == 0) TemplateOutlinedButton({ discard = true }, Modifier.fillMaxWidth(), !state.busy && !state.lost) { Text("Отменить") }
                             }
                             "rejected" -> {
                                 Text("Правило не сохранено. Оставьте свою копию или загрузите актуальную версию.", style = MaterialTheme.typography.bodyMedium)
                                 TemplateOutlinedButton({ scope.launch { state.asNewCopy() } }, Modifier.fillMaxWidth().testTag("automation-editor-conflict-copy"), !state.busy && !state.lost) { Text("Создать отдельную копию правила") }
-                                Button({ discard = true }, Modifier.fillMaxWidth().heightIn(min = 48.dp), enabled = !state.busy && !state.lost, shape = AffairsLayout.shape) { Text("Загрузить актуальную версию") }
+                                Button({ discard = true }, Modifier.fillMaxWidth().heightIn(min = 48.dp), enabled = !state.busy && !state.lost, shape = AffairsLayout.controlShape) { Text("Загрузить актуальную версию") }
                             }
                             "received" -> {
                                 Text("Правило сохранено. Повторная отправка не требуется.", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
                                 Button({ val id = state.record?.getJSONObject("receipt")?.getString("ruleId") ?: return@Button; scope.launch { state.discard(); if (state.record == null) onSaved(id) } },
-                                    Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("automation-editor-done"), enabled = !state.busy && !state.lost, shape = AffairsLayout.shape) { Text("Готово") }
+                                    Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("automation-editor-done"), enabled = !state.busy && !state.lost, shape = AffairsLayout.controlShape) { Text("Готово") }
                             }
                         }
                     }

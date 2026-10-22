@@ -13,6 +13,17 @@ import ru.genesis.calendar.domain.*
 import ru.genesis.calendar.domain.habits.*
 
 class HabitTimersInteropTest {
+    @Test fun utcAliasesSurviveTheCanonicalCalendarWireContextWithoutChangingTimerIdentity() {
+        for (zone in listOf("UTC","Etc/UTC","GMT","Etc/GMT","Zulu")) {
+            val plan=HabitTimerPlan("stopwatch",25,5,zone,"profane",CalendarContext(timeZone=zone),"Minutes","legacy:minutes")
+            val operations=HabitTimers.start(emptyList(),"minutes","device",plan,Instant.parse("2026-10-21T12:00:00Z"),"clock")
+            val wire=HabitTimerCodec.encode(operations)
+            assertEquals("UTC",wire.getJSONObject(0).getJSONObject("plan").getJSONObject("context").getString("timeZone"))
+            assertEquals(operations,HabitTimerCodec.decode(wire))
+            wire.getJSONObject(0).getJSONObject("plan").getJSONObject("context").put("timeZone","Europe/London")
+            assertThrows(IllegalArgumentException::class.java) { HabitTimerCodec.decode(wire) }
+        }
+    }
     private fun canonical(value: Any): String = when (value) {
         is JSONObject -> value.keys().asSequence().toList().sorted().joinToString(prefix = "{", postfix = "}") { JSONObject.quote(it) + ":" + canonical(value.get(it)) }
         is JSONArray -> (0 until value.length()).joinToString(prefix = "[", postfix = "]") { canonical(value.get(it)) }

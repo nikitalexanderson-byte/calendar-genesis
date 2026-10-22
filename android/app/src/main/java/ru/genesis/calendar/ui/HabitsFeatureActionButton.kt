@@ -3,10 +3,9 @@ package ru.genesis.calendar.ui
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -19,7 +18,7 @@ internal fun HabitsFeatureActionButton(label: String, onClick: () -> Unit,
     modifier: Modifier = Modifier, enabled: Boolean = true) {
     OutlinedButton(onClick=onClick, enabled=enabled,
         modifier=modifier.fillMaxWidth().heightIn(min=48.dp),
-        shape=RoundedCornerShape(14.dp), border=BorderStroke(1.dp,borderColor),
+        shape=AffairsLayout.controlShape, border=BorderStroke(1.dp,borderColor),
         colors=ButtonDefaults.outlinedButtonColors(containerColor=containerColor,
             contentColor=contentColor)) {
         Text(label, style=MaterialTheme.typography.labelLarge)

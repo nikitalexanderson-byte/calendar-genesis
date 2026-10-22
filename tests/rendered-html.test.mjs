@@ -635,9 +635,10 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.doesNotMatch(tracker, /Начать с завтрашнего дня/);
   assert.match(tracker, /setEditingHabit\(habit\)/);
   assert.match(tracker, /isExisting=\{workspace\.habits\.some/);
-  const habitActions = await readFile(new URL("../app/HabitLibraryActions.tsx", import.meta.url), "utf8");
-  assert.match(habitActions, /active \? t\("Пауза", "Pause"\) : t\("Включить", "Resume"\)/);
-  assert.match(tracker, /Можно изменять все настройки, кроме баллов и шкалы качества/);
+  assert.match(tracker, /<HabitLifecycleLibrary/);
+  const lifecycleLibrary = await readFile(new URL("../app/HabitLifecycleLibrary.tsx", import.meta.url), "utf8");
+  assert.match(lifecycleLibrary, /act\(habit, habit\.active \? "pause" : "resume"\)/);
+  assert.match(lifecycleLibrary, /Можно изменять все настройки, кроме баллов и шкалы качества/);
   assert.match(tracker, /applyEditableHabitUpdate/);
   assert.match(tracker, /MAX_HABIT_XP_PER_COMPLETION/);
   assert.match(tracker, /HabitPriorityControl/);
@@ -1895,7 +1896,7 @@ test("ships the complete interactive bilingual Theokyklos", async () => {
   assert.match(details, /THEOKYKLOS_DETAIL_ART\[segment\.id\]/);
   assert.match(details, /width="1680"[\s\S]*height="945"/);
   assert.match(component, /THEOKYKLOS_SYMBOL_ART\[segment\.id\]/);
-  assert.match(component, /<image className="theokyklos-mandala-icon/);
+  assert.match(component, /<(?:image|TheokyklosSymbolImage) className="theokyklos-mandala-icon/);
   assert.match(details, /<img src=\{THEOKYKLOS_SYMBOL_ART\[segment\.id\]\}/);
   assert.doesNotMatch(component, /theokyklos-segment-index/);
   assert.doesNotMatch(component, /theokyklos-threshold-row/);

@@ -167,14 +167,22 @@ export function completionXpAward(previousAward: unknown, completionScore: unkno
 
 export function reconcileUserProgress(
   value: Partial<UserProgress> | null | undefined,
-  sources: ReadonlyArray<{ xpAwarded?: number }>,
+  sources: ReadonlyArray<{ xpAwarded?: number; habitId?: string; date?: string }>,
   timestamp = new Date().toISOString(),
   streak?: { currentStreak: number; longestStreak: number; lastQualifiedDate: string | null },
   laurelsBalance = Math.round(Number(value?.laurelsBalance) || 0),
   streakFreezeCountValue = safeXp(value?.streakFreezeCount),
   rhythmScoreValue = safeXp(value?.rhythmScore),
 ): UserProgress {
-  const awardedXp = sources.reduce((total, source) => total + safeXp(source.xpAwarded), 0);
+  const dayCredits = new Map<string, number>();
+  let independentCredits = 0;
+  for (const source of sources) {
+    if (source.habitId && source.date) {
+      const key = `${source.habitId}:${source.date}`;
+      dayCredits.set(key, Math.max(dayCredits.get(key) ?? 0, safeXp(source.xpAwarded)));
+    } else independentCredits += safeXp(source.xpAwarded);
+  }
+  const awardedXp = independentCredits + [...dayCredits.values()].reduce((total, value) => total + value, 0);
   const lifetimeXp = Math.max(safeXp(value?.lifetimeXp), awardedXp);
   const currentRankId = highestRankForXp(lifetimeXp)?.id ?? null;
   const hiddenHeroicPathRevealedAt = typeof value?.hiddenHeroicPathRevealedAt === "string" && !Number.isNaN(Date.parse(value.hiddenHeroicPathRevealedAt))

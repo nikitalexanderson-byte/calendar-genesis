@@ -1,5 +1,5 @@
 import { momentCivilDate, isCivilDate } from "./calendar-context.ts";
-import { habitHistoryState, habitHistoryValue, mergeHabitHistoryEdits, projectHabitHistory, type HabitHistoryValue } from "./habit-history.ts";
+import { habitEconomyHistory, habitHistoryState, habitHistoryValue, mergeHabitHistoryEdits, projectHabitHistory, type HabitHistoryValue } from "./habit-history.ts";
 import { effectiveHabitMeasurement, habitMeasurementProgress, mergeHabitMeasurementEvents, newHabitMeasurementEvent } from "./habit-measurement.ts";
 import { habitRuleState } from "./habit-rule-history.ts";
 import { habitIntervalTimes } from "./habit-interval.ts";
@@ -54,7 +54,7 @@ export function applyHabitHistoryCommand(workspace:HabitWorkspace,command:HabitH
       replaces:input.replaces,note:input.note,source:"correction",historical:true,recordedAt:command.at});
     measurements=mergeHabitMeasurementEvents(measurements,[event]);habitMeasurementProgress(habit,command.date,measurements);
   }
-  const baseline=state.rows.length?state.baseline:workspace.habitCompletions.find(row=>row.habitId===habit.id&&row.date===command.date)??null;
+  const baseline=habitEconomyHistory(workspace).habitCompletions.find(row=>row.habitId===habit.id&&row.date===command.date)??null;
   const edit={id:command.id,createdAt:command.at,updatedAt:command.at,version:1,syncState:"local" as const,
     habitId:habit.id,date:command.date,ruleId:rule.id,epoch:habitTimerEpoch(workspace.habitTimerEpoch),replaces:command.heads,value,baseline,source:"history" as const};
   const habitHistory=mergeHabitHistoryEdits(workspace.habitHistory??[],[edit]);
@@ -70,5 +70,5 @@ export function applyHabitHistoryCommand(workspace:HabitWorkspace,command:HabitH
 export function habitHistoryInitialValue(workspace:HabitWorkspace,habitId:string,date:string):HabitHistoryValue {
   const entry=workspace.habitCompletions.find(row=>row.habitId===habitId&&row.date===date);
   return {completed:entry?.completed??false,completedTimes:entry?.completedTimes??[],qualityValue:entry?.qualityValue??null,
-    qualityConfirmedAt:entry?.qualityConfirmedAt??null,note:entry?.note??""};
+    qualityConfirmedAt:entry?.qualityConfirmedAt??null,note:entry?.note??"",...(entry?.skippedAt?{skippedAt:entry.skippedAt}:{})};
 }

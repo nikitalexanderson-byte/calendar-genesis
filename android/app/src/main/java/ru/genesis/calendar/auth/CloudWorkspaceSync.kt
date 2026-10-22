@@ -27,7 +27,8 @@ internal class CloudWorkspaceSync(private val db: GenesisDatabase, private val t
     private val documentKinds = setOf("workspace-structure", "habits", "trackers")
 
     suspend fun flush(scope: String,
-        conflictPolicy: WorkspacePatch.ConflictPolicy = WorkspacePatch.ConflictPolicy.STOP): Int {
+        conflictPolicy: WorkspacePatch.ConflictPolicy = WorkspacePatch.ConflictPolicy.STOP,
+        expectedConflictFingerprint: String? = null): Int {
         require(scope.startsWith("account-") && scope.length == 40)
         val dao = db.dao()
         val cipher = LocalCipher()
@@ -50,15 +51,23 @@ internal class CloudWorkspaceSync(private val db: GenesisDatabase, private val t
                 require(baseRow == null || remote.version >= baseRow.revision) {
                     "Remote workspace version moved backwards"
                 }
-                val patch = WorkspacePatch.apply(base, local, remote.document,
-                    pending.map { it.entityId }.toSet(), remote.version, timestamp, deviceId, conflictPolicy)
+                val conflicts = mutableListOf<WorkspaceConflictField>()
+                val dirty = pending.map { it.entityId }.toSet()
+                val inspected = WorkspacePatch.apply(base, local, remote.document, dirty, remote.version, timestamp, deviceId,
+                    WorkspacePatch.ConflictPolicy.STOP, conflicts)
+                val patch = if (conflicts.isEmpty()) inspected else {
+                    val preview = WorkspaceConflictPreview.create(conflicts)
+                    if (conflictPolicy == WorkspacePatch.ConflictPolicy.STOP || preview.fingerprint != expectedConflictFingerprint)
+                        throw WorkspacePatch.Conflict(preview.fields.first().path, preview)
+                    WorkspacePatch.apply(base, local, remote.document, dirty, remote.version, timestamp, deviceId, conflictPolicy)
+                }
                 val document = projectMeasurements(patch.document,timestamp)
                 val changed = patch.changed || document.toString() != patch.document.toString()
                 val version = if (!changed) remote.version else {
                     val encrypted = WorkspaceCipher.encrypt(document.toString().toByteArray(), remote.key)
                     val request = JSONObject().put("ciphertext", encrypted.ciphertext)
                         .put("iv", encrypted.iv).put("expectedVersion", remote.version)
-                        .put("writerProtocol",6).put("minimumWriterProtocol",minimumWriterProtocol(document))
+                        .put("writerProtocol",7).put("minimumWriterProtocol",minimumWriterProtocol(document))
                     if(reminderConsent)runCatching {
                         val habits=HabitDocument.decode(CloudAccountImporter.habitsDocument(document),remote.version)
                         request.put("habitReminderPlan",ru.genesis.calendar.reminders.habitReminderProjection(habits))
@@ -76,6 +85,12 @@ internal class CloudWorkspaceSync(private val db: GenesisDatabase, private val t
     }
 
     private fun minimumWriterProtocol(document: JSONObject): Int {
+        val decisions=document.optJSONArray("habitHistory")
+        val completions=document.optJSONArray("habitCompletions")
+        if ((0 until (decisions?.length() ?: 0)).any { decisions!!.getJSONObject(it).optString("source")=="decision" }
+            || (0 until (completions?.length() ?: 0)).any { !completions!!.getJSONObject(it).isNull("skippedAt") }) return 7
+        val lifecycleHabits=document.optJSONArray("habits")
+        if ((0 until (lifecycleHabits?.length() ?: 0)).any { (lifecycleHabits!!.getJSONObject(it).optJSONArray("lifecycleHistory")?.length() ?: 0)>0 }) return 7
         if ((document.optJSONArray("habitHistory")?.length() ?: 0) > 0) return 6
         if ((document.optJSONArray("habitTimers")?.length() ?: 0) > 0 || document.optString("habitTimerEpoch").isNotEmpty()) return 5
         val habits=document.optJSONArray("habits")
@@ -96,7 +111,7 @@ internal class CloudWorkspaceSync(private val db: GenesisDatabase, private val t
         val local=HabitDocument.decode(CloudAccountImporter.habitsDocument(document),0)
         val completions=HabitHistory.project(local.habits,local.history,
             HabitMeasurements.project(local.habits,local.measurements,local.completions,LocalDate.now(),timestamp),local.measurements)
-        val updated=local.copy(completions=completions,progress=HeroProgress.reconcile(local.progress,completions.map { it.xpAwarded },timestamp))
+        val updated=local.copy(completions=completions,progress=HeroProgress.reconcile(local.progress,ru.genesis.calendar.domain.habits.habitCompletionCredits(completions),timestamp))
         val encoded=JSONObject(HabitDocument.encode(updated))
         return JSONObject(document.toString()).put("habitCompletions",encoded.getJSONArray("completions"))
             .put("userProgress",encoded.getJSONObject("progress"))

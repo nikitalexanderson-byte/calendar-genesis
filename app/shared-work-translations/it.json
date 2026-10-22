@@ -515,5 +515,18 @@
   "Отображение и заполнение": "Visualizzazione e inserimento",
   "Варианты списка": "Opzioni elenco",
   "Изменения не сохранены": "Modifiche non salvate",
-  "Не удалось выполнить действие. Проверьте соединение и повторите.": "Impossibile completare l’azione. Controlla la connessione e riprova."
+  "Не удалось выполнить действие. Проверьте соединение и повторите.": "Impossibile completare l’azione. Controlla la connessione e riprova.",
+  "Сравнить версии": "Confronta le versioni",
+  "Поля с конфликтом": "Campi in conflitto",
+  "Версия телефона": "Versione del telefono",
+  "Версия сайта": "Versione del sito",
+  "Исходная версия": "Versione originale",
+  "Какую версию оставить?": "Quale versione vuoi mantenere?",
+  "Выбор относится ко всем показанным конфликтам. Остальные изменения сохранятся.": "La scelta si applica a tutti i conflitti mostrati. Le altre modifiche vengono conservate.",
+  "Телефон": "Telefono",
+  "Сайт": "Sito",
+  "Покажите все конфликты перед выбором.": "Mostra tutti i conflitti prima di scegliere una versione.",
+  "Квесты": "Missioni",
+  "Награды": "Ricompense",
+  "Данные": "Dati"
 }

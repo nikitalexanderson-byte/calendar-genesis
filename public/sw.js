@@ -199,14 +199,20 @@ self.addEventListener("fetch", (event) => {
 
   event.respondWith(
     fetch(request)
-      .then((response) => {
+      .then(async (response) => {
+        // A transient CDN failure must not replace an already saved illustration.
+        if (request.destination === "image" && (!response.ok || !response.headers.get("Content-Type")?.startsWith("image/"))) {
+          const saved = await caches.match(request, { ignoreSearch: true });
+          if (saved?.ok && saved.headers.get("Content-Type")?.startsWith("image/")) return saved;
+          return response;
+        }
         if (response.ok) {
           const copy = response.clone();
           void caches.open(CACHE).then((cache) => cache.put(request, copy));
         }
         return response;
       })
-      .catch(() => caches.match(request)),
+      .catch(() => caches.match(request, request.destination === "image" ? { ignoreSearch: true } : undefined)),
   );
 });
 

@@ -1,6 +1,8 @@
 package ru.genesis.calendar.data
 
 import java.time.LocalDate
+import java.time.ZoneId
+import java.time.ZoneOffset
 import org.json.JSONArray
 import org.json.JSONObject
 import ru.genesis.calendar.domain.habits.*
@@ -16,8 +18,14 @@ internal object HabitTimerCodec {
     }.toInt()
     fun decode(rows: JSONArray, epoch: String? = null): List<HabitTimerOperation> = HabitTimers.merge(rows.rows().map { row ->
         val plan = if (row.getString("action") == "start") row.getJSONObject("plan").let { value ->
+            val zone=value.getString("timeZone")
+            val context=requireNotNull(calendarContextFromJson(value.getJSONObject("context"))).let { context ->
+                // Calendar wire contexts canonicalize fixed UTC aliases. Preserve the timer's original plan identity.
+                if (context.timeZone!=zone && ZoneId.of(context.timeZone).normalized()==ZoneOffset.UTC && ZoneId.of(zone).normalized()==ZoneOffset.UTC)
+                    context.copy(timeZone=zone) else context
+            }
             HabitTimerPlan(value.getString("mode"), minutes(value, "workMinutes"), minutes(value, "breakMinutes"),
-                value.getString("timeZone"), value.getString("calendarMode"), requireNotNull(calendarContextFromJson(value.getJSONObject("context"))),
+                zone, value.getString("calendarMode"), context,
                 value.getString("habitTitle"), value.getString("ruleId"))
         } else null
         val allocations = if (row.getString("action") == "finish") row.getJSONArray("allocations").rows().map {

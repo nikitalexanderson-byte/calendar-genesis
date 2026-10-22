@@ -6,9 +6,10 @@ import { formatCalendarDate, type CalendarMode } from "./calendar-data";
 import { translateText as t, type Language } from "./i18n";
 import { customFieldText, type CustomFieldValues, type SharedCustomField } from "./shared-custom-fields";
 import "./shared-custom-fields.css";
+import {DraftNumberInput} from './DraftNumberInput';
 
-export function SharedCustomFieldInputs({fields,values,onChange,language,mode,calculationContext,disabled=false}:{fields:SharedCustomField[];values:CustomFieldValues;
-  onChange:(values:CustomFieldValues)=>void;language:Language;mode:CalendarMode;calculationContext?:CalendarContext;disabled?:boolean}){
+export function SharedCustomFieldInputs({fields,values,onChange,language,mode,calculationContext,disabled=false,draftScope='values'}:{fields:SharedCustomField[];values:CustomFieldValues;
+  onChange:(values:CustomFieldValues)=>void;language:Language;mode:CalendarMode;calculationContext?:CalendarContext;disabled?:boolean;draftScope?:string}){
   const prefix=useId(),active=fields.filter(field=>!field.archived);
   if(!active.length)return null;
   const update=(id:string,value:CustomFieldValues[string])=>onChange({...values,[id]:value});
@@ -25,9 +26,10 @@ export function SharedCustomFieldInputs({fields,values,onChange,language,mode,ca
           {field.type==="select"?<option value="">{t("Не задано",language)}</option>:null}
           {field.options.filter(option=>!option.archived||value===option.id||Array.isArray(value)&&value.includes(option.id)).map(option=><option key={option.id} value={option.id} disabled={option.archived} data-no-translate>{option.title}{option.archived?` · ${t("Архив",language)}`:""}</option>)}
         </select>
-        :<input id={id} type={field.type==="number"?"number":field.type==="url"?"url":"text"} required={required} step={field.type==="number"?"any":undefined}
-          value={typeof value==="number"||typeof value==="string"?value:""} maxLength={field.type==="number"?undefined:5000}
-          onChange={event=>update(field.id,field.type==="number"?(event.target.value===""?null:event.target.valueAsNumber):event.target.value||null)}/>}
+        :field.type==='number'?<DraftNumberInput id={id} draftKey={`${draftScope}:${field.id}`} value={typeof value==='number'?value:null} optional={!required} required={required} invalidMessage={t("Проверьте тип и значение пользовательского поля.",language)} onValue={next=>update(field.id,next)}/>
+        :<input id={id} type={field.type==="url"?"url":"text"} required={required}
+          value={typeof value==="string"?value:""} maxLength={5000}
+          onChange={event=>update(field.id,event.target.value||null)}/>}
       </div>;
     })}
   </fieldset>;

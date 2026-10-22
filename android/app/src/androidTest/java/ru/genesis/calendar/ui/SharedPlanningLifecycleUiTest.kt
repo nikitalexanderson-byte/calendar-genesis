@@ -163,6 +163,23 @@ class SharedPlanningLifecycleUiTest {
         node.performClick()
     }
     private fun waitSaved() { compose.waitUntil(10_000) { compose.onAllNodesWithTag("planning-device-saved").fetchSemanticsNodes().isNotEmpty() } }
+    private fun enterSprintTitle(text: String) {
+        val field = compose.onNodeWithTag("planning-sprint-title", useUnmergedTree = true).performScrollTo()
+        field.assertIsDisplayed()
+        field.performClick()
+        field.performTextReplacement(text)
+        field.assertTextContains(text)
+        hideKeyboard()
+        compose.onNodeWithTag("planning-sprint-title", useUnmergedTree = true).assertTextContains(text)
+    }
+    private fun restoredSprintTitle(expected: String) {
+        // Copy selection reads the encrypted journal on IO; a clipped field is absent
+        // from the merged tablet tree while its preceding page is still visible.
+        compose.waitUntil(10_000) {
+            runCatching { compose.onNodeWithTag("planning-sprint-title", useUnmergedTree = true).assertTextContains(expected) }.isSuccess
+        }
+        compose.onNodeWithTag("planning-sprint-title", useUnmergedTree = true).performScrollTo().assertTextContains(expected)
+    }
     private fun bucket(id: String) { click("planning-bucket"); compose.onNodeWithTag("planning-select-$id").performClick() }
     private fun hideKeyboard() {
         val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
@@ -221,14 +238,15 @@ class SharedPlanningLifecycleUiTest {
     }
     @Test fun diskFailureBlocksSendingAndBackUntilTheLatestInputIsSaved() {
         val fixture = LifecycleFixture(); var closed = 0; show(fixture) { closed++ }; click("planning-new-sprint")
-        fixture.diskFailure = true; compose.onNodeWithTag("planning-sprint-title").performTextReplacement("Не терять этот ввод")
+        fixture.diskFailure = true; enterSprintTitle("Не терять этот ввод")
         hideKeyboard(); click("planning-save-lifecycle")
         compose.waitUntil(10_000) { compose.onAllNodesWithTag("planning-lifecycle-error").fetchSemanticsNodes().isNotEmpty() }
         assertTrue(fixture.commands.isEmpty())
         compose.onNodeWithContentDescription("Назад").performClick(); compose.waitForIdle(); assertEquals(0, closed)
         fixture.diskFailure = false; compose.onNodeWithText("Повторить", useUnmergedTree = true).performScrollTo().performClick(); waitSaved()
+        assertEquals("Не терять этот ввод", fixture.service.load("project")!!.getJSONObject("edit").getJSONObject("draft").getString("title"))
         compose.onNodeWithContentDescription("Назад").performClick(); assertEquals(1, closed)
-        show(fixture); click("planning-restore-draft"); compose.onNodeWithTag("planning-sprint-title").assertTextContains("Не терять этот ввод")
+        show(fixture); click("planning-restore-draft"); restoredSprintTitle("Не терять этот ввод")
     }
     @Test fun revokedProjectAccessHidesTheProjectAndDraftTitlesWithoutDeletingTheDraft() {
         val fixture = LifecycleFixture(); show(fixture); click("planning-new-sprint")
@@ -240,7 +258,7 @@ class SharedPlanningLifecycleUiTest {
     }
     @Test fun twoEditorsKeepBothInputsAndTheUserExplicitlySelectsTheVersionToContinue() {
         val fixture = LifecycleFixture(); var closed = false; show(fixture) { closed = true }; click("planning-new-sprint")
-        compose.onNodeWithTag("planning-sprint-title").performTextReplacement("Мой ввод")
+        enterSprintTitle("Мой ввод")
         hideKeyboard(); waitSaved()
         val main = fixture.service.load("project")!!
         val other = JSONObject(main.getJSONObject("edit").toString()).apply { getJSONObject("draft").put("title", "Другое окно").put("goal", "Другой план") }
@@ -253,7 +271,7 @@ class SharedPlanningLifecycleUiTest {
         val savedCopy = fixture.service.copies("project").single()
         compose.onNodeWithContentDescription("Назад").performClick(); assertTrue(closed)
         show(fixture); click("planning-use-version-${savedCopy.getString("id")}")
-        compose.onNodeWithTag("planning-sprint-title").assertTextContains("Мой ввод")
+        restoredSprintTitle("Мой ввод")
         compose.onNodeWithTag("planning-sprint-goal").assertTextContains("Моя цель")
         assertEquals(setOf("Мой ввод", "Другое окно"), fixture.service.copies("project").map { it.getJSONObject("edit").getJSONObject("draft").getString("title") }.toSet())
     }

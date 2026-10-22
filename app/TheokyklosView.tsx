@@ -14,6 +14,7 @@ import type { CalendarMode } from "./calendar-data";
 import type { HabitWorkspace } from "./habits";
 import type { SacredPracticeSectorId } from "./sacred-practices";
 import { THEOKYKLOS_SYMBOL_ART } from "./theokyklos-assets";
+import { TheokyklosSymbolImage } from "./TheokyklosSymbolImage";
 import { TheokyklosDetailsDialog } from "./TheokyklosDetailsDialog";
 
 type Point = { x: number; y: number };
@@ -181,7 +182,7 @@ export function TheokyklosView({ language, workspace, date, calendarMode, initia
                     key={segment.id}
                   >
                     <path className="theokyklos-segment-shape" d={annularSectorPath(segment.angle!)} />
-                    <image className="theokyklos-mandala-icon theokyklos-direction-icon" href={THEOKYKLOS_SYMBOL_ART[segment.id]} x={label.x - 36} y={label.y - 58} width="72" height="72" preserveAspectRatio="xMidYMid meet" />
+                    <TheokyklosSymbolImage className="theokyklos-mandala-icon theokyklos-direction-icon" href={THEOKYKLOS_SYMBOL_ART[segment.id]} x={label.x - 36} y={label.y - 58} width="72" height="72" preserveAspectRatio="xMidYMid meet" />
                     <text className="theokyklos-segment-label" x={label.x} y={label.y + 28} textAnchor="middle">
                       <tspan className="theokyklos-segment-direction" x={label.x}>{directionLabel(segment.id, language)}</tspan>
                       {patronLines.map((line, index) => (
@@ -210,7 +211,7 @@ export function TheokyklosView({ language, workspace, date, calendarMode, initia
               >
                 <circle className="theokyklos-center-disc" cx={CENTER.x} cy={CENTER.y} r="86" />
                 <circle className="theokyklos-center-line" cx={CENTER.x} cy={CENTER.y} r="69" />
-                <image className="theokyklos-mandala-icon theokyklos-center-icon" href={THEOKYKLOS_SYMBOL_ART.center} x="406" y="342" width="88" height="88" preserveAspectRatio="xMidYMid meet" />
+                <TheokyklosSymbolImage className="theokyklos-mandala-icon theokyklos-center-icon" href={THEOKYKLOS_SYMBOL_ART.center} x="406" y="342" width="88" height="88" preserveAspectRatio="xMidYMid meet" />
                 <text className="theokyklos-center-label" x={CENTER.x} y="452" textAnchor="middle">
                   <tspan x={CENTER.x}>{localized(center.patrons, language)}</tspan>
                   <tspan className="theokyklos-center-caption" x={CENTER.x} dy="20">{localized(center.short, language)}</tspan>
@@ -222,7 +223,7 @@ export function TheokyklosView({ language, workspace, date, calendarMode, initia
                 className={`theokyklos-svg-segment axis-node zenith-node${selectedId === "zenith" ? " is-selected" : ""}`}
               >
                 <circle cx={zenithPoint.x} cy={zenithPoint.y} r={outerNodeRadius} />
-                <image className="theokyklos-mandala-icon theokyklos-axis-icon" href={THEOKYKLOS_SYMBOL_ART.zenith} x={zenithPoint.x - 26} y={zenithPoint.y - 46} width="52" height="52" preserveAspectRatio="xMidYMid meet" />
+                <TheokyklosSymbolImage className="theokyklos-mandala-icon theokyklos-axis-icon" href={THEOKYKLOS_SYMBOL_ART.zenith} x={zenithPoint.x - 26} y={zenithPoint.y - 46} width="52" height="52" preserveAspectRatio="xMidYMid meet" />
                 <text x={zenithPoint.x} y={zenithPoint.y + 25} textAnchor="middle">
                   <tspan x={zenithPoint.x}>{localized(zenith.short, language)}</tspan>
                   <tspan className="theokyklos-outer-node-patron" x={zenithPoint.x} dy="14">{localized(zenith.patrons, language)}</tspan>
@@ -233,7 +234,7 @@ export function TheokyklosView({ language, workspace, date, calendarMode, initia
                 className={`theokyklos-svg-segment axis-node nadir-node${selectedId === "nadir" ? " is-selected" : ""}`}
               >
                 <circle cx={nadirPoint.x} cy={nadirPoint.y} r={outerNodeRadius} />
-                <image className="theokyklos-mandala-icon theokyklos-axis-icon" href={THEOKYKLOS_SYMBOL_ART.nadir} x={nadirPoint.x - 26} y={nadirPoint.y - 46} width="52" height="52" preserveAspectRatio="xMidYMid meet" />
+                <TheokyklosSymbolImage className="theokyklos-mandala-icon theokyklos-axis-icon" href={THEOKYKLOS_SYMBOL_ART.nadir} x={nadirPoint.x - 26} y={nadirPoint.y - 46} width="52" height="52" preserveAspectRatio="xMidYMid meet" />
                 <text x={nadirPoint.x} y={nadirPoint.y + 25} textAnchor="middle">
                   <tspan x={nadirPoint.x}>{localized(nadir.short, language)}</tspan>
                   <tspan className="theokyklos-outer-node-patron" x={nadirPoint.x} dy="14" textLength="94" lengthAdjust="spacingAndGlyphs">{localized(nadir.patrons, language)}</tspan>
@@ -245,7 +246,7 @@ export function TheokyklosView({ language, workspace, date, calendarMode, initia
                 className={`theokyklos-svg-segment threshold-node entrance-node centered-threshold-node${selectedId === "entrance" ? " is-selected" : ""}`}
               >
                 <circle cx={entrancePoint.x} cy={entrancePoint.y} r={outerNodeRadius} />
-                <image className="theokyklos-mandala-icon theokyklos-threshold-icon" href={THEOKYKLOS_SYMBOL_ART.entrance} x={entrancePoint.x - 26} y={entrancePoint.y - 46} width="52" height="52" preserveAspectRatio="xMidYMid meet" />
+                <TheokyklosSymbolImage className="theokyklos-mandala-icon theokyklos-threshold-icon" href={THEOKYKLOS_SYMBOL_ART.entrance} x={entrancePoint.x - 26} y={entrancePoint.y - 46} width="52" height="52" preserveAspectRatio="xMidYMid meet" />
                 <text x={entrancePoint.x} y={entrancePoint.y + 25} textAnchor="middle">
                   <tspan x={entrancePoint.x}>{localized(entrance.short, language)}</tspan>
                   <tspan className="theokyklos-outer-node-patron" x={entrancePoint.x} dy="14">{localized(entrance.patrons, language)}</tspan>
@@ -256,7 +257,7 @@ export function TheokyklosView({ language, workspace, date, calendarMode, initia
                 className={`theokyklos-svg-segment threshold-node exit-node centered-threshold-node${selectedId === "exit" ? " is-selected" : ""}`}
               >
                 <circle cx={exitPoint.x} cy={exitPoint.y} r={outerNodeRadius} />
-                <image className="theokyklos-mandala-icon theokyklos-threshold-icon" href={THEOKYKLOS_SYMBOL_ART.exit} x={exitPoint.x - 26} y={exitPoint.y - 46} width="52" height="52" preserveAspectRatio="xMidYMid meet" />
+                <TheokyklosSymbolImage className="theokyklos-mandala-icon theokyklos-threshold-icon" href={THEOKYKLOS_SYMBOL_ART.exit} x={exitPoint.x - 26} y={exitPoint.y - 46} width="52" height="52" preserveAspectRatio="xMidYMid meet" />
                 <text x={exitPoint.x} y={exitPoint.y + 25} textAnchor="middle">
                   <tspan x={exitPoint.x}>{localized(exit.short, language)}</tspan>
                   <tspan className="theokyklos-outer-node-patron" x={exitPoint.x} dy="14">{localized(exit.patrons, language)}</tspan>

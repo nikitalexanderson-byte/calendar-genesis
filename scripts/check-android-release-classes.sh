@@ -20,7 +20,7 @@ javac --release 17 -cp "$platform" -d "$work/classes" "$root/scripts/android/Gen
 "$build_tools/d8" --lib "$platform" --min-api 26 --output "$work/dex" "$work/classes/GenesisDexVerifier.class"
 
 classes=()
-# Verify the released C/G/B surface and its journal/protocol holders on ART.
+# Verify the released C/G/B/E/F surfaces and their journal/protocol holders on ART.
 sources=(
   ru.genesis.calendar.ui.GenesisAppKt
   ru.genesis.calendar.ui.SharedProjectsScreenKt
@@ -58,6 +58,7 @@ sources=(
   ru.genesis.calendar.ui.SharedTaskListContext
   ru.genesis.calendar.auth.CustomFieldQueryProtocol
   ru.genesis.calendar.ui.AffairsComponentsKt
+  ru.genesis.calendar.ui.ThemeSurfacesKt
   ru.genesis.calendar.ui.SharedSavedViewsScreenKt
   ru.genesis.calendar.ui.SharedSavedViewsState
   ru.genesis.calendar.ui.SavedViewConditionsKt
@@ -77,6 +78,18 @@ sources=(
   ru.genesis.calendar.auth.CustomFieldDefinitionProtocol
   ru.genesis.calendar.auth.SharedTemplateManifest
   ru.genesis.calendar.auth.DataImportPreview
+  ru.genesis.calendar.ui.HabitLifecycleControlsKt
+  ru.genesis.calendar.ui.HabitBackupPanelKt
+  ru.genesis.calendar.ui.HabitAnalysisPanelKt
+  ru.genesis.calendar.ui.HabitHistoryPanelKt
+  ru.genesis.calendar.data.HabitBackupService
+  ru.genesis.calendar.data.HabitBackups
+  ru.genesis.calendar.data.HabitBackupRestore
+  ru.genesis.calendar.domain.habits.HabitAnalysis
+  ru.genesis.calendar.domain.habits.HabitLifecycle
+  ru.genesis.calendar.auth.WorkspaceConflictPanelKt
+  ru.genesis.calendar.auth.WorkspaceConflictPreview
+  ru.genesis.calendar.auth.WorkspaceConflictField
 )
 for source in "${sources[@]}"; do
   renamed="$(awk -v source="$source" '$1 == source && $2 == "->" { sub(/:$/, "", $3); print $3 }' "$mapping")"

@@ -13,7 +13,7 @@ class ReleaseNotesTest {
             assertTrue(language, copy.changes.all { it.isNotBlank() })
         }
         assertTrue(notes.getValue("el").changes.none {
-            "[A-Za-zА-Яа-яЁё]".toRegex().containsMatchIn(it.replace("Google", "").replace("Calendar", "").replace("Tasks", "").replace("GENESIS", ""))
+            "[A-Za-zА-Яа-яЁё]".toRegex().containsMatchIn(it.replace("Google", "").replace("Calendar", "").replace("Tasks", "").replace("GENESIS", "").replace("JSON", "").replace("CSV", ""))
         })
     }
 }
