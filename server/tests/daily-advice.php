@@ -50,6 +50,9 @@ for ($day = 1; $day <= 9; $day++) {
 }
 $newItem = adviceFixture('newly added', 'hermetica');
 adviceExpect(genesisChooseAdvice([...$items, $newItem], $preferences, $scores, $history, 'new')['id'] === $newItem['id'], 'New content did not take priority over repeats');
+array_unshift($history, ['advice_id' => $newItem['id'], 'day_key' => '2026-10-10', 'entry_json' => json_encode($newItem)]);
+adviceExpect(genesisChooseAdvice([...$items, $newItem], $preferences, $scores, $history, 'after-new')['id'] !== $newItem['id'],
+    'A newly read post repeated while catching up with older exposure counts');
 $manual = ['enabled' => true, 'smart' => false, 'categories' => ['aretology']];
 adviceExpect(genesisChooseAdvice($items, $manual, $scores, [], 'manual')['id'] === $items[2]['id'], 'Manual categories ignored');
 adviceExpect(genesisChooseAdvice($items, $preferences, genesisAdviceScores(['aretology' => 1]), [], 'smart')['id'] === $items[2]['id'], 'Smart categories ignored');
