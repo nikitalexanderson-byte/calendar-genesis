@@ -135,9 +135,9 @@ nativeOnlyOriginals.forEach(path=>sourceSet.add(path));
 // Verify their bytes as well, while still rejecting any undeclared extra APK entry.
 const catalogByAsset=new Map();
 for(const match of gradle.matchAll(/from\(rootProject\.file\("\.\.\/(app(?:\/[^"\r\n]+)?)"\)\)\s*\{([^}]+)\}/g)) {
-  const source=match[1],block=match[2],destination=block.match(/\binto\("(i18n(?:\/[^"\r\n]+)?)"\)/)?.[1];
+  const source=match[1],block=match[2],destination=block.match(/\binto\("((?:i18n|catalogs)(?:\/[^"\r\n]+)?)"\)/)?.[1];
   if(!destination)continue;
-  check(!source.includes('..')&&!destination.includes('..'),'Catalog paths must stay within app and i18n');
+  check(!source.includes('..')&&!destination.includes('..'),'Catalog paths must stay within app and declared catalog directories');
   const path=resolve(root,source),names=[];
   if(statSync(path).isFile()) {
     check(source.endsWith('.json'),'Declared catalog must be JSON');names.push({source,name:source.split('/').at(-1)});

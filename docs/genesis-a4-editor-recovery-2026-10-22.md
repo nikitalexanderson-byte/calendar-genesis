@@ -1,6 +1,8 @@
 # A4: восстановление редакторов и сравнение конфликтов
 
-Кандидат Android2.9.2/97 и web-код находятся в `codex/habit-lifecycle-completion`. Публикация этого среза ещё не завершена. Production на момент проверки: `d4922d6`, Android2.9.1/96.
+Кандидат Android2.9.4/99 и web-код находятся в `codex/native-header-consistency`, включая уже объединённый PR242 и свежий master `bad127b` со Стойхейоном. Публикация этого среза ещё не завершена. Последний подтверждённый production: `d4922d6`, Android2.9.1/96.
+
+Итоговая интегрированная сборка: frozen install, lint (0 errors/2 прежних image warnings),484 web tests/14 языков/build:beget PASS; Android733 JVM cases/725 executed/8 opt-in skips/0 failures/errors, lintRelease и production-origin R8 PASS.72-holder ART прошёл на API28 и Samsung;552 public originals/1 native-only/104 catalogs совпали с APK. Receipts: `output/a4-integrated-{frozen,lint,tests,build,native,assets,art-active}.log`, `output/a4-integrated-release-runtime/receipt.json`. Локальный API35 завершился аварией Windows QEMU; signed startup на API35 проверяет штатный CI до публикации. Прежние числа ниже относятся к историческим срезам, а не к дополнительным проверкам кандидата99.
 
 ## Изменения
 

@@ -104,13 +104,14 @@ internal val standart = lightColorScheme(primary=Color(0xff255b59),onPrimary=Col
     outline=Color(0xff9c927e),outlineVariant=Color(0xffd5cab4))
 
 @Composable
-private fun HeaderActionButton(kind: String, description: String, enabled: Boolean, compact: Boolean,
+private fun HeaderActionButton(kind: String, description: String, enabled: Boolean,
     tag: String, onClick: () -> Unit) {
     val accent=MaterialTheme.colorScheme.primary
-    IconButton(onClick=onClick,enabled=enabled,modifier=Modifier.padding(start=6.dp)
-        .size(if(compact) 38.dp else 44.dp).clip(CircleShape)
-        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha=.45f))
-        .border(1.dp,accent.copy(alpha=.35f),CircleShape).testTag(tag)
+    OutlinedIconButton(onClick=onClick,enabled=enabled,shape=AffairsLayout.controlShape,
+        colors=IconButtonDefaults.outlinedIconButtonColors(
+            containerColor=MaterialTheme.colorScheme.primaryContainer.copy(alpha=.45f),contentColor=accent),
+        border=androidx.compose.foundation.BorderStroke(1.dp,accent.copy(alpha=.35f)),
+        modifier=Modifier.padding(start=6.dp).size(AffairsLayout.touchTarget).testTag(tag)
         .semantics { contentDescription=description }) {
         if (!enabled) CircularProgressIndicator(Modifier.size(19.dp),strokeWidth=2.dp,color=accent)
         else Canvas(Modifier.size(21.dp)) {
@@ -750,10 +751,10 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         val refreshDescription = genesisTranslate(if (refreshBusy)
                             "Получаем изменения с сервера…" else "Обновить аккаунт")
                         HeaderActionButton("refresh",refreshDescription,!refreshBusy,
-                            compactHeader,"today-refresh",authController::refresh)
+                            "today-refresh",authController::refresh)
                     }
                     if (voiceLanguageEnabled) HeaderActionButton("mic",genesisTranslate("Голосовой помощник"),true,
-                        compactHeader,"voice-assistant-open") { voiceControlActive=false;voiceOpen=true }
+                        "voice-assistant-open") { voiceControlActive=false;voiceOpen=true }
                 }
                 if (voiceLanguageEnabled && voiceControlActive) VoiceControlBar(prefs.language=="en",
                     onCommand=::executeVoiceCommand,onStop={voiceControlActive=false})

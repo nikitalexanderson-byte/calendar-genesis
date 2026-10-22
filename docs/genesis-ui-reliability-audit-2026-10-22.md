@@ -1,6 +1,6 @@
 # GENESIS: UI и надёжность загрузки, 22 октября 2026
 
-Срез продолжает E/F/A4 и отдельные замечания пользователя. Проверки выполнялись inline, без субагентов. Публикация Android2.9.2/97 и production walkthrough ещё не завершены; основной промпт и21 частичный функциональный ID не объявляются закрытыми.
+Срез продолжает E/F/A4 и отдельные замечания пользователя. Проверки выполнялись inline, без субагентов. Публикация Android2.9.4/99 и production walkthrough ещё не завершены; основной промпт и21 частичный функциональный ID не объявляются закрытыми.
 
 ## Аудит и изменения
 
@@ -20,8 +20,14 @@
 -13/13 native planning functional cases на каждом API28/API35/Samsung PASS: `output/a4-native/final/*/planning-ux-functional.log`. Native conflict2/2 на каждом устройстве и9 PNG, E/F source/font1.3 в обеих темах на Samsung/tablet проверены до последних замен только радиуса.
 - Финальная production-origin native JVM/lint/R8 проверка после последних corner changes PASS:723 cases/715 executed/8 opt-in skips/0 failures, `output/a4-ui-publish-native.log`.68-holder ART на трёх устройствах PASS, `output/a4-ui-publish-art.log`, `output/a4-ux-release-runtime/receipt.json`. Asset byte parity552 public originals/1 native-only/102 catalogs PASS, `output/a4-ui-publish-assets.log`.
 
+## Интегрированный кандидат99
+
+База master `bad127b` сохраняет новый модуль Стойхейона. Frozen install/lint (0 errors/2 прежних image warnings)/484 web tests/14 языков/build:beget PASS. Android733 JVM cases/725 executed/8 opt-in skips/0 failures/errors, lintRelease/R8 PASS;72-holder ART PASS на API28 и Samsung. Asset gate проверил552 public originals/1 native-only/104 catalogs, включая два новых Gradle-declared JSON в `catalogs`. Материалы: `output/a4-integrated-*.log`, `output/a4-integrated-release-runtime/receipt.json`. Эти результаты заменяют прежние totals для новой сборки, не суммируются с ними.
+
+Дополнительно унифицированы кнопки обновления и микрофона общей Android-шапки:10dp/48dp, логотип сохранён.40 проверенных PNG относятся к неизменившемуся header component:18 Samsung,18 API28,4 API35. На API35 header test прошёл, но responsive rotation завершает сам Windows QEMU с access violation0xc0000005; новый72-holder APK проверен локально только на двух доступных устройствах. Данные AVD не очищались. Штатный CI выполняет signed startup на API35 перед публикацией.
+
 ## Непроверенные состояния
 
-Tablet restore PNG остаются пустыми при успешных semantics/bounds и повторном bounded capture; визуальная приёмка этих кадров не заявляется. Финальные signed97 startup/upgrade, Google-вход с нуля, два настоящих аккаунта и полный production walkthrough ещё не подтверждены. Реальные версии Samsung/site сохранены; сторона конфликта автоматически не выбиралась. Исторические TypeScript diagnostics не исправлялись и tsc PASS не заявляется.
+Tablet restore PNG остаются пустыми при успешных semantics/bounds и повторном bounded capture; визуальная приёмка этих кадров не заявляется. Финальные signed99 startup/upgrade, Google-вход с нуля, два настоящих аккаунта и полный production walkthrough ещё не подтверждены. Реальные версии Samsung/site сохранены; сторона конфликта автоматически не выбиралась. Исторические TypeScript diagnostics не исправлялись и tsc PASS не заявляется.
 
 SSH, чтение токенов/приватной production-БД и ручное изменение production-БД не использовались.

@@ -1,6 +1,8 @@
 # E4/E5/F1–F3 и общая приёмка A4: текущий срез
 
-Рабочая ветка `codex/habit-lifecycle-completion`; checkpoint `bb7eb96`, затем merge актуального `origin/master` с исправлением памяти CI. Подготовлен кандидат Android2.9.2/97, ещё не опубликован. Production остаётся `d4922d6eef7d4edc63c8474bba770d85210be306`, Android2.9.1/96.
+Итоговая рабочая ветка `codex/native-header-consistency`; checkpoint `bb7eb96`, затем PR242 и интеграция актуального `origin/master` (`bad127b`) со Стойхейоном. Подготовлен кандидат Android2.9.4/99, ещё не опубликован. Последний подтверждённый production — `d4922d6eef7d4edc63c8474bba770d85210be306`, Android2.9.1/96.
+
+Интегрированная проверка кандидата99: frozen install/lint/484 web tests/14-language audit/build:beget PASS;733 JVM cases/725 executed/8 opt-in skips/0 failures/errors, native lintRelease/R8 PASS.72-holder ART PASS на API28 и Samsung,552 public originals/1 native-only/104 catalogs — byte parity PASS. Материалы: `output/a4-integrated-*.log`, `output/a4-integrated-release-runtime/receipt.json`. Локальный API35 недоступен из-за Windows QEMU access violation; штатный release CI использует API35 и ещё должен завершиться. Исторические числа ниже сохранены с прежними receipts.
 
 ## Реализовано и проверено
 
@@ -36,6 +38,6 @@ STANDART, ассеты и Universal UI сохранены. Restore choices ук�
 
 Дополнительный UI проход унифицировал native control corners10dp/minimum48dp, восстановление по смысловым блокам и icon actions. Source/font130 повторно визуально приняты на Samsung и tablet в обеих темах; tablet restore PNG по-прежнему пустые при успешных semantics/bounds и не приняты визуально. Сообщения, desktop priority alignment и восстановление символов описаны в [UI/reliability audit](genesis-ui-reliability-audit-2026-10-22.md).
 
-Живой Google-вход с нуля, два связанных настоящих аккаунта, финальный signed97 и полный production walkthrough ещё не подтверждены. Прежние TypeScript diagnostics вне этого среза остаются: `output/a4-final-typecheck.log`; typecheck PASS не заявляется. Количество полностью принятых ID до выпуска не уменьшалось.
+Живой Google-вход с нуля, два связанных настоящих аккаунта, финальный signed99 и полный production walkthrough ещё не подтверждены. Прежние TypeScript diagnostics вне этого среза остаются: `output/a4-final-typecheck.log`; typecheck PASS не заявляется. Количество полностью принятых ID до выпуска не уменьшалось.
 
 Операторский SSH и ручные изменения production-БД не использовались. Независимый review не проводился; проверки выполнялись inline.

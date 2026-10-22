@@ -59,6 +59,10 @@ sources=(
   ru.genesis.calendar.auth.CustomFieldQueryProtocol
   ru.genesis.calendar.ui.AffairsComponentsKt
   ru.genesis.calendar.ui.ThemeSurfacesKt
+  ru.genesis.calendar.ui.StoicheionRestorationScreenKt
+  ru.genesis.calendar.data.StoicheionRestorationCodec
+  ru.genesis.calendar.domain.StoicheionRestoration
+  ru.genesis.calendar.domain.StoicheionRestorationCatalogSource
   ru.genesis.calendar.ui.SharedSavedViewsScreenKt
   ru.genesis.calendar.ui.SharedSavedViewsState
   ru.genesis.calendar.ui.SavedViewConditionsKt
