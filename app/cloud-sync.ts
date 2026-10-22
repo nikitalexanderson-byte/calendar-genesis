@@ -166,6 +166,8 @@ export type GenesisUser = {
   googleTasksImportReady: boolean;
   passwordEnabled: boolean;
   stoicheionDivinationDisabled: boolean;
+  advicePreferences?: import("./daily-advice").AdvicePreferences;
+  adviceCatalogAvailable?: boolean;
   isAdmin: boolean;
   sharedProjectsEligible?: boolean;
   sharedProjectsLifetimeAccess?: boolean;
@@ -1637,6 +1639,7 @@ export function disconnectYandexCalendar(accountId?: string) {
 }
 
 export async function updateAccountPreferences(preferences: Partial<{
+  advicePreferences: Partial<import("./daily-advice").AdvicePreferences>;
   calendarExplorationPending: false;
   sharedProjectsEnabled: boolean;
   uiVisibility: import("./ui-visibility").UiVisibility;
@@ -1664,6 +1667,13 @@ export async function updateAccountPreferences(preferences: Partial<{
     }
     throw error;
   }
+}
+
+export function loadDailyAdvice(scores: import("./daily-advice").AdviceScores, signal?: AbortSignal) {
+  return api<import("./daily-advice").DailyAdviceResponse>("/advice/today", { method: "POST", body: JSON.stringify({ scores }), signal });
+}
+export function recordDailyAdvice(advice: Pick<import("./daily-advice").DailyAdvice, "id" | "dayKey">, dismiss = false) {
+  return api<{ ok: true }>(dismiss ? "/advice/dismiss" : "/advice/view", { method: "POST", body: JSON.stringify({ id: advice.id, dayKey: advice.dayKey }) });
 }
 
 export type SharedPermissions = Record<"createProjects" | "editTasks" | "organizeTasks" | "comment" | "manageProjects" | "inviteMembers", boolean>;
