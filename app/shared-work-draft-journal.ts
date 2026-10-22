@@ -1,5 +1,5 @@
 export const SHARED_WORK_DRAFT_PREFIX='genesis-shared-work-drafts-v1:';
-export type SharedWorkDraftPurpose='workflow'|'planning'|'planning-tasks'|'custom-fields'|'saved-views'|'templates'|'template-apply'|'automations';
+export type SharedWorkDraftPurpose='workflow'|'planning'|'planning-tasks'|'custom-fields'|'saved-views'|'templates'|'template-apply'|'automations'|'stoicheion-restoration';
 const ID=/^[a-zA-Z0-9_-]{1,200}$/;
 const MAX_RECORDS=20,MAX_BYTES=2_000_000;
 type Sealed={iv:string;ciphertext:string};

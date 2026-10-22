@@ -7070,6 +7070,7 @@ export function GenesisCalendar() {
                     workspace={habitWorkspace}
                     calendarMode={activeTaskCalendarMode}
                     todayDate={todayDateValue}
+                    userId={cloudUser?.uid ?? ""}
                     onWorkspaceChange={(next) => updateHabitWorkspace(next, true)}
                     onOpenHabits={() => navigateTo("habits")}
                     divinationDisabled={Boolean(cloudUser?.stoicheionDivinationDisabled)}
