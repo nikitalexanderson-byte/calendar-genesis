@@ -1,6 +1,5 @@
 package ru.genesis.calendar
 
-import android.os.ParcelFileDescriptor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -81,8 +80,7 @@ class WelcomeRecoveryUiTest {
             assertTrue(painted.await(5, TimeUnit.SECONDS))
             instrumentation.waitForIdleSync()
             val name = "${if (captureOnly) "before" else "after"}-${config.screenWidthDp}-$language-${if (dark) "dark" else "light"}-font${(config.fontScale * 100).toInt()}-$scene"
-            val pixels = ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("screencap -p"))
-                .use { it.readBytes() }
+            val pixels = captureSystemScreenshot(instrumentation)
             File(folder, "$name.png").writeBytes(pixels)
             if (!captureOnly) {
                 status.assertTextEquals(expected).assertIsDisplayed()

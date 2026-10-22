@@ -1,6 +1,5 @@
 package ru.genesis.calendar
 
-import android.os.ParcelFileDescriptor
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Box
@@ -40,8 +39,7 @@ class StoicheionRestorationFlowTest {
         compose.waitForIdle()
         val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
         device.waitForIdle()
-        val pixels = ParcelFileDescriptor.AutoCloseInputStream(InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand("screencap -p"))
-            .use { it.readBytes() }
+        val pixels = captureSystemScreenshot(InstrumentationRegistry.getInstrumentation())
         File(context.getExternalFilesDir(null), "restoration-$name.png").writeBytes(pixels)
         val root = compose.onRoot().fetchSemanticsNode()
         File(context.getExternalFilesDir(null), "restoration-$name.metrics.json").writeText(JSONObject()

@@ -1,6 +1,5 @@
 package ru.genesis.calendar
 
-import android.os.ParcelFileDescriptor
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -82,8 +81,7 @@ class HabitReportCaptureTest {
                 assertEquals("Real system viewport", width.toFloat(), root.width / rendered.density, 1f)
                 assertEquals("Real system font scale", font, rendered.fontScale, .01f)
             }
-            val pixels = ParcelFileDescriptor.AutoCloseInputStream(InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand("screencap -p"))
-                .use { it.readBytes() }
+            val pixels = captureSystemScreenshot(InstrumentationRegistry.getInstrumentation())
             File(folder, "$filename.png").writeBytes(pixels)
             val controls = JSONArray()
             for (tag in tags) {
