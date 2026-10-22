@@ -38,9 +38,10 @@ import { useDialogAccessibility } from "./use-dialog-accessibility";
 import { privateDeviceAccessBlocked } from "./local-sign-out";
 import type { CalendarMode } from "./calendar-data";
 import type { HabitWorkspace } from "./habits";
-import { StoicheionRestoration } from "./StoicheionRestoration";
+import { StoicheionRestoration, type RestorationHandle, type RestorationPrimaryState } from "./StoicheionRestoration";
+import { StoicheionActionButton } from "./StoicheionActionButton";
 import { RESTORATION_SECTORS } from "./stoicheion-restoration-data";
-import restorationCopy from "./stoicheion-restoration-ui.json";
+import { restorationCopy, restorationLocal } from "./stoicheion-restoration-copy";
 import { habitLifecycleState } from "./habit-lifecycle";
 
 const LOCAL_DRAW_STORAGE_PREFIX = "genesis-stoicheion-draws-v2:";
@@ -344,6 +345,7 @@ function LetterDetails({
   onChooseSacredPractice,
   sacredPracticesEnabled,
   onStartRestoration,
+  restorationAction = "begin",
 }: {
   letter: StoicheionLetter;
   reversed: boolean | null;
@@ -353,9 +355,10 @@ function LetterDetails({
   onChooseSacredPractice?: (practiceId: string) => void;
   sacredPracticesEnabled: boolean;
   onStartRestoration?: (sectorId: StoicheionPracticeSectorId) => void;
+  restorationAction?: RestorationPrimaryState;
 }) {
   const language = getRuntimeLanguage();
-  const restorationText = restorationCopy[language as keyof typeof restorationCopy] ?? restorationCopy.en;
+  const restorationText = restorationCopy(language);
   const restorationSector = RESTORATION_SECTORS.find(item => item.id === position?.id);
   const sector = position ? THEOKYKLOS_SEGMENTS.find((segment) => segment.id === position.id) ?? null : null;
   const guidance = position ? sacredSectorGuidance(position.id) : null;
@@ -441,13 +444,13 @@ function LetterDetails({
             <h3>{sector ? catalogText(sector.title, language) : position.direction}</h3>
             {sector ? <strong data-no-translate>{catalogText(sector.patrons, language)}</strong> : null}
             <p>{position.meaning}</p>
-            {restorationSector ? <p data-no-translate>{language === "ru" ? restorationSector.ambivalence.ru : restorationSector.ambivalence.en}</p> : null}
+            {restorationSector ? <p data-no-translate>{restorationLocal(restorationSector.ambivalence, language)}</p> : null}
             {sector ? <p data-no-translate>{catalogText(sector.description, language)}</p> : null}
           </section> : null}
           {drawReading ? <>
             <div className="stoicheion-orientation-readings">{orientationSections.map(renderSection)}</div>
             {reversed && position ? <section className="stoicheion-recommended-practices">{onStartRestoration
-              ? <button type="button" className="primary-button" onClick={() => { onClose(); onStartRestoration(position.id); }}><ExperimentalIcon name="stoicheion" />{restorationText.begin}</button>
+              ? <StoicheionActionButton icon="restoration" className="primary-button" data-no-translate disabled={restorationAction === "preparing"} onClick={() => { onClose(); requestAnimationFrame(() => onStartRestoration(position.id)); }}>{restorationText[restorationAction]}</StoicheionActionButton>
               : practiceActions(true)}</section> : null}
             <details className="stoicheion-reading-more" open={readingMoreOpen} onToggle={event => setReadingMoreOpen(event.currentTarget.open)}>
               <summary>{translateText("Полная информация о карте", language)}</summary>
@@ -462,10 +465,11 @@ function LetterDetails({
 }
 
 type StoicheionViewProps = {
+  userId?: string;
   workspace?: HabitWorkspace;
   calendarMode?: CalendarMode;
   todayDate?: string;
-  onWorkspaceChange?: (workspace: HabitWorkspace) => void;
+  onWorkspaceChange?: (workspace: HabitWorkspace) => void | Promise<void>;
   onOpenHabits?: () => void;
   divinationDisabled?: boolean;
   onOpenTheokyklosSector?: (sectorId: StoicheionPracticeSectorId) => void;
@@ -479,7 +483,7 @@ type StoicheionViewProps = {
 
 export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSector,
   onChooseSacredPractice, sacredPracticesEnabled = true,
-  workspace, calendarMode = "sacred", todayDate, onWorkspaceChange, onOpenHabits,
+  workspace, calendarMode = "sacred", todayDate, userId = "", onWorkspaceChange, onOpenHabits,
   initialCardId = null, onInitialCardOpened, voiceDrawKind = null, onVoiceDrawHandled }: StoicheionViewProps) {
   const locale = runtimeLocale();
   const language = getRuntimeLanguage();
@@ -493,15 +497,11 @@ export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSec
   const [spreadDraw, setSpreadDraw] = useState<ClientDrawRecord | null>(null);
   const [motion, setMotion] = useState<{ mode: MotionMode; progress: number } | null>(null);
   const [selectedReading, setSelectedReading] = useState<SelectedReading | null>(null);
-  const [restorationRequest, setRestorationRequest] = useState<{sectorId: string | null; token: number} | null>(null);
-  const restorationText = restorationCopy[language as keyof typeof restorationCopy] ?? restorationCopy.en;
+  const restorationRef = useRef<RestorationHandle>(null);
+  const [restorationPrimary, setRestorationPrimary] = useState<RestorationPrimaryState>("preparing");
+  const restorationText = restorationCopy(language);
   const startRestoration = (sectorId: string | null) => {
-    setRestorationRequest({ sectorId, token: Date.now() });
-    requestAnimationFrame(() => {
-      const region = document.getElementById("stoicheion-restoration");
-      region?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
-      region?.focus({ preventScroll: true });
-    });
+    restorationRef.current?.activate(sectorId);
   };
   useEffect(() => {
     if (!initialCardId) return;
@@ -819,11 +819,10 @@ export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSec
                 <h3>{dailyLetter.tagline}</h3>
                 <p>Выбор сохранён. Нажмите на букву, чтобы прочитать полное описание, или продолжите к раскладу девяти ликов.</p>
                 <div className="stoicheion-result-actions">
-                  <button type="button" className="stoicheion-text-button" onClick={() => setSelectedReading({ letter: dailyLetter, reversed: dailyReversed, position: null })}>Прочитать о букве</button>
-                    <button type="button" className="stoicheion-redraw-button" disabled={!dailyCanReroll || savingKind !== null} onClick={(event) => beginMotion("daily", true, event.timeStamp)}>
-                      <span aria-hidden="true">↻</span>
-                      {dailyCanReroll ? `Перебросить · ${formatCountdown(dailyRemaining)}` : "Переброс на сегодня использован"}
-                    </button>
+                  <StoicheionActionButton icon="read" data-no-translate onClick={() => setSelectedReading({ letter: dailyLetter, reversed: dailyReversed, position: null })}>{restorationText.readLetter}</StoicheionActionButton>
+                  <StoicheionActionButton icon="reroll" data-no-translate disabled={!dailyCanReroll || savingKind !== null} onClick={(event) => beginMotion("daily", true, event.timeStamp)}>
+                    {dailyCanReroll ? `${restorationText.reroll} · ${formatCountdown(dailyRemaining)}` : restorationText.rerollUsed}
+                  </StoicheionActionButton>
                 </div>
               </div>
             </div>
@@ -854,11 +853,10 @@ export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSec
                 </div>
                 <p>Сумма числовых значений девяти букв последовательно складывается до числового корня от 1 до 9.</p>
                 <div className="stoicheion-spread-actions">
-                    {workspace && onWorkspaceChange ? <button type="button" className="primary-button" onClick={() => startRestoration(null)}><ExperimentalIcon name="stoicheion" />{restorationText.begin}</button> : null}
-                    <button type="button" className="stoicheion-redraw-button" disabled={!spreadCanReroll || savingKind !== null} onClick={(event) => beginMotion("spread", true, event.timeStamp)}>
-                      <span aria-hidden="true">↻</span>
-                      {spreadCanReroll ? `Перебросить расклад · ${formatCountdown(spreadRemaining)}` : "Переброс на сегодня использован"}
-                    </button>
+                    {workspace && onWorkspaceChange && spreadCards.some(card => card.reversed) ? <StoicheionActionButton icon="restoration" className="primary-button" data-no-translate disabled={restorationPrimary === "preparing"} onClick={() => startRestoration(null)}>{restorationText[restorationPrimary]}</StoicheionActionButton> : null}
+                    <StoicheionActionButton icon="reroll" data-no-translate disabled={!spreadCanReroll || savingKind !== null} onClick={(event) => beginMotion("spread", true, event.timeStamp)}>
+                      {spreadCanReroll ? `${restorationText.rerollSpread} · ${formatCountdown(spreadRemaining)}` : restorationText.rerollUsed}
+                    </StoicheionActionButton>
                 </div>
               </aside> : null}
             </header>
@@ -904,11 +902,10 @@ export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSec
         )}
 
         {!divinationDisabled && workspace && onWorkspaceChange && (spreadVisible || workspace.habits.some(habit => habit.stoicheionRestoration && habitLifecycleState(habit).status !== "deleted")) ? <StoicheionRestoration
-          key={restorationRequest?.token ?? "restoration"}
+          key={userId} ref={restorationRef} userId={userId} onPrimaryStateChange={setRestorationPrimary}
           cards={spreadVisible ? spreadCards.map(card => ({letterId:card.letter.id,reversed:card.reversed})) : []}
           sourceDate={spreadDraw?.dayKey ?? dayKey} sourceSeed={spreadSeed} today={todayDate ?? dayKey}
           workspace={workspace} calendarMode={calendarMode} onChange={onWorkspaceChange} onOpenHabits={onOpenHabits}
-          initialSectorId={restorationRequest?.sectorId} initiallyOpen={restorationRequest !== null}
         /> : null}
 
         <section className="stoicheion-alphabet-section" aria-labelledby="stoicheion-alphabet-title">
@@ -996,6 +993,7 @@ export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSec
           onClose={() => setSelectedReading(null)}
           onOpenTheokyklosSector={onOpenTheokyklosSector}
           onStartRestoration={workspace && onWorkspaceChange ? startRestoration : undefined}
+          restorationAction={restorationPrimary}
           onChooseSacredPractice={onChooseSacredPractice}
           sacredPracticesEnabled={sacredPracticesEnabled}
         />

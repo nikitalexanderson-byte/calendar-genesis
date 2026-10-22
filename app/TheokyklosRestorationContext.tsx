@@ -1,13 +1,13 @@
 import type { Language } from "./i18n";
 import { RESTORATION_AUXILIARIES, RESTORATION_FRAMEWORK, RESTORATION_SECTORS } from "./stoicheion-restoration-data";
-import copy from "./stoicheion-restoration-ui.json";
+import { restorationCopy, restorationLocal } from "./stoicheion-restoration-copy";
 import "./stoicheion-restoration.css";
 
 export function TheokyklosRestorationContext({ sectorId, language }: {sectorId: string; language: Language}) {
   const sector = RESTORATION_SECTORS.find(item => item.id === sectorId);
   const auxiliary = RESTORATION_AUXILIARIES.find(item => item.id === sectorId);
-  const t = copy[language as keyof typeof copy] ?? copy.en;
-  const local = (text: {ru:string;en:string}) => language === "ru" ? text.ru : text.en;
+  const t = restorationCopy(language);
+  const local = (text: {ru:string;en:string}) => restorationLocal(text, language);
   if (!sector && !auxiliary) return null;
   return <section className="restoration-context" data-no-translate>
     <h3>{sector ? t.ambivalence : t.supports}</h3>
