@@ -1497,9 +1497,14 @@ function genesisSharedMoveTask(string $userId, string $sourceProjectId, string $
         $reposition = $db->prepare('UPDATE shared_tasks SET position = :position WHERE id = :id');
         foreach ($ordered as $index => $id) $reposition->execute(['position' => $index, 'id' => $id]);
         genesisWorkflowTask($userId,$destinationId,$taskId,$task);
-        $moveDetails = ['taskId' => $taskId, 'objectTitle' => $task['title'], 'destinationBoardId' => $statusId, 'changes' => [
-            'statusId' => ['from' => $task['status_id'], 'to' => $statusId], 'projectId' => ['from' => $sourceProjectId, 'to' => $destinationId]] + genesisSharedChanges(['dueDate' => $task['due_date'], 'startDate' => $task['start_date'], 'startTime' => $task['start_time'], 'endTime' => $task['end_time']], ['dueDate' => $dueDate] + $schedule)];
-        genesisSharedAudit($sourceProjectId, $userId, 'task.moved_out', $taskId, $moveDetails + ['boardId' => $task['status_id']]);
+        $moveDetails = ['taskId' => $taskId, 'objectTitle' => $task['title'], 'destinationBoardId' => $statusId,
+            'reportBefore' => ['statusId' => $task['status_id'], 'completed' => $task['completed_at'] !== null],
+            'changes' => genesisSharedChanges(
+                ['statusId' => $task['status_id'], 'projectId' => $sourceProjectId, 'isDone' => $task['completed_at'] !== null,
+                    'dueDate' => $task['due_date'], 'startDate' => $task['start_date'], 'startTime' => $task['start_time'], 'endTime' => $task['end_time']],
+                ['statusId' => $statusId, 'projectId' => $destinationId, 'isDone' => $done, 'dueDate' => $dueDate] + $schedule)];
+        genesisSharedAudit($sourceProjectId, $userId, $changedProject ? 'task.moved_out' : 'task.updated', $taskId,
+            $moveDetails + ['boardId' => $changedProject ? $task['status_id'] : $statusId]);
         if ($changedProject) genesisSharedAudit($destinationId, $userId, 'task.moved_in', $taskId, $moveDetails + ['boardId' => $statusId]);
         $response = ['id' => $taskId, 'projectId' => $destinationId, 'statusId' => $statusId,
             'position' => min($position, count($ordered) - 1), 'revision' => $expected + 1,
