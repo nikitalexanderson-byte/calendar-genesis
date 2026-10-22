@@ -1,6 +1,7 @@
 package ru.genesis.calendar.data
 
 import java.time.LocalDate
+import java.time.ZoneId
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.*
@@ -10,11 +11,14 @@ import ru.genesis.calendar.domain.*
 import ru.genesis.calendar.domain.habits.*
 
 class StoicheionRestorationPersistenceTest {
+    // Wire encoding canonicalizes UTC aliases; round-trip fixtures must use a stable zone.
+    private val engine = HabitEngine(GenesisCalendar(ZoneId.of("Europe/Moscow")))
+
     @Test fun immutableSourceSnapshotSurvivesHabitEditsAndNativeWebNativeSynchronization() {
         val snapshot = StoicheionRestorationTest.fixture()
         val day = LocalDate.parse(snapshot.startedDate)
         val habit = Habit(TrackerEntity.create("habit", snapshot.startedAt, "restoration-habit"), "Synthetic practice", day,
-            HabitEngine(GenesisCalendar()).defaultSchedule(day, CalendarMode.PROFANE),
+            engine.defaultSchedule(day, CalendarMode.PROFANE),
             sacredPracticeId = snapshot.practiceId, sacredSectorId = snapshot.sectorId, stoicheionRestoration = snapshot)
         val workspace = LocalHabitWorkspace(habits = listOf(habit))
         val encoded = HabitDocument.encode(workspace)
@@ -46,7 +50,7 @@ class StoicheionRestorationPersistenceTest {
         val snapshot = StoicheionRestorationTest.fixture()
         val date = LocalDate.parse(snapshot.startedDate)
         val habit = Habit(TrackerEntity.create("habit", snapshot.startedAt, "test"), "Existing habit", date,
-            HabitEngine(GenesisCalendar()).defaultSchedule(date, CalendarMode.PROFANE))
+            engine.defaultSchedule(date, CalendarMode.PROFANE))
         val base = JSONObject(HabitDocument.encode(LocalHabitWorkspace(habits = listOf(habit))))
         val variants = listOf<Any>("wrong type", JSONObject().put("version", 99),
             StoicheionRestorationCodec.encode(snapshot).put("spreadTotal", 50),
