@@ -3,7 +3,15 @@
   "sourceDocument": "Аретология.docx",
   "sourceDocumentSha256": "1d6db7e6e94f135cca852f628e2cc9c5002a76f9d82b94d871821c14c1f54f51",
   "authorRevisions": [
-    19
+    19,
+    26,
+    60,
+    65,
+    70,
+    97,
+    98,
+    99,
+    100
   ],
   "entries": [
     {
@@ -185,8 +193,8 @@
       "number": 26,
       "id": "advice-a981fcbe698a094088afcbd5",
       "title": "Юстировка через Усилие",
-      "status": "draft",
-      "textSha256": "a981fcbe698a094088afcbd573ca75e28a03e54332f623f1e17654c12ba68010"
+      "status": "published",
+      "textSha256": "8949139247611afb3d48e5524ad7b72f986fb578e756cdf038a6c2076d629f2e"
     },
     {
       "number": 27,
@@ -423,8 +431,8 @@
       "number": 60,
       "id": "advice-4fa1bff2f6285af9eea7d97c",
       "title": "Контроль Пищевого Автоматизма",
-      "status": "draft",
-      "textSha256": "4fa1bff2f6285af9eea7d97c0334afd76001be51c4c41f010a8f442d863331b9"
+      "status": "published",
+      "textSha256": "b6558f3da4b431184012cf3dafa4727b48b9859cc63350dce708b859663af06b"
     },
     {
       "number": 61,
@@ -458,8 +466,8 @@
       "number": 65,
       "id": "advice-f76bd6cde85231279d4498c7",
       "title": "Практика \"Умного Голода\"",
-      "status": "draft",
-      "textSha256": "f76bd6cde85231279d4498c7b33a925dbee4edcbcff4956274a0effe83f3ec1e"
+      "status": "published",
+      "textSha256": "8f9ac703d01ced312bdbb2282085bbd091ba57011d7a097fb481bd3d300b5b6a"
     },
     {
       "number": 66,
@@ -493,8 +501,8 @@
       "number": 70,
       "id": "advice-ee04ba56f658caa669792477",
       "title": "Практика \"Чистой Воды\"",
-      "status": "draft",
-      "textSha256": "ee04ba56f658caa669792477e2f5b60f5683ab8ef2c0e261f1366d26b75e7fe9"
+      "status": "published",
+      "textSha256": "35c7ce32e6961ce86a880ce9d7d3794e7b2efdbad61ae7b54cb036085aa144ef"
     },
     {
       "number": 71,
@@ -682,29 +690,29 @@
       "number": 97,
       "id": "advice-b26231fd11e1c6c1172f8440",
       "title": "Практика \"Чистого Кристалла\"",
-      "status": "draft",
-      "textSha256": "b26231fd11e1c6c1172f844097e0485ba3e73ed6d2c58570ccb8654b59c3b110"
+      "status": "published",
+      "textSha256": "f823f344fb912f5912e2342c2cfcb29dc06f7a989d37fb9a6b3bbf4f43ae4ce6"
     },
     {
       "number": 98,
       "id": "advice-268fe6cae8a210cb0b181b1e",
       "title": "Инкубация Интеллектуального Меноса",
-      "status": "draft",
-      "textSha256": "268fe6cae8a210cb0b181b1ee6368eef042a898c5a6ec69699cbfafd6f70a103"
+      "status": "published",
+      "textSha256": "fb9c7162d8ee6eb57945df4d4dbbfbccbf0900fd926afce7396b4f0f24af22be"
     },
     {
       "number": 99,
       "id": "advice-5d1fe6aac20fbcc3b88c4dec",
       "title": "Практика Пневматического Питания",
-      "status": "draft",
-      "textSha256": "5d1fe6aac20fbcc3b88c4deca7fb5f590cfd68631836301126a4f9ccc5d55aa2"
+      "status": "published",
+      "textSha256": "2506411857a98544f781cfdc8e97e04bd7e014999e3cda8480d2b01ef73a32b0"
     },
     {
       "number": 100,
       "id": "advice-b6724e2aa3869613950ca22f",
       "title": "Контроль Биологической Жалости",
-      "status": "draft",
-      "textSha256": "b6724e2aa3869613950ca22f52329024b470b1479bbfa399f13076664568f759"
+      "status": "published",
+      "textSha256": "69153d363cdd7bf862d393fc01aa14ef584c395e57323fe54bab378a888a9c38"
     },
     {
       "number": 101,
