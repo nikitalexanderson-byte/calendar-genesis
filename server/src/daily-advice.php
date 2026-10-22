@@ -1,7 +1,10 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/calendar.php';
 
 const GENESIS_ADVICE_CATEGORIES = ['aretology', 'hermetica', 'kourotrophy', 'hestiology', 'aphrodisia', 'psychopompia'];
+const GENESIS_ADVICE_LANGUAGES = ['ru', 'en', 'el', 'de', 'fr', 'es', 'it', 'pt', 'pl', 'sr', 'uk', 'zh', 'tr', 'ja'];
+const GENESIS_ADVICE_TOPICS = ['nutrition', 'training', 'recovery', 'discipline'];
 
 function genesisAdvicePreferences(mixed $value): array
 {
@@ -37,19 +40,51 @@ function genesisAdviceCatalog(): array
             || !is_string($entry['language'] ?? null) || !is_array($entry['sources'] ?? null)) {
             throw new RuntimeException('INVALID_ADVICE_CATALOG_ENTRY');
         }
-        $ids[$entry['id']] = true; $items[] = $entry;
+        if (isset($entry['contentVersion'])) {
+            if (!is_string($entry['contentVersion']) || !preg_match('/^[a-z0-9-]{1,80}$/D', $entry['contentVersion'])
+                || !is_string($entry['title'] ?? null) || trim($entry['title']) === '' || strlen($entry['title']) > 2000
+                || !is_string($entry['image'] ?? null)
+                || !preg_match('~^/advice-art/[a-z0-9-]+/advice-[a-f0-9]{24}\.webp$~D', $entry['image'])
+                || !is_array($entry['topics'] ?? null) || array_diff($entry['topics'], GENESIS_ADVICE_TOPICS)
+                || !in_array($entry['status'] ?? 'published', ['published', 'draft'], true)) {
+                throw new RuntimeException('INVALID_ADVICE_CONTENT');
+            }
+        }
+        if (isset($entry['schedule']) && (!is_array($entry['schedule'])
+            || !is_array($entry['schedule']['phases'] ?? null) || $entry['schedule']['phases'] === []
+            || array_diff($entry['schedule']['phases'], ['new', 'full'])
+            || !is_array($entry['schedule']['leadDays'] ?? null) || $entry['schedule']['leadDays'] === []
+            || array_filter($entry['schedule']['leadDays'], static fn($day) => !is_int($day) || $day < 1 || $day > 3))) {
+            throw new RuntimeException('INVALID_ADVICE_SCHEDULE');
+        }
+        $ids[$entry['id']] = true;
+        if (($entry['status'] ?? 'published') !== 'draft') $items[] = $entry;
     }
     return $items;
 }
 
+function genesisAdviceAvailableCategories(?array $items = null): array
+{
+    $present = [];
+    foreach ($items ?? genesisAdviceCatalog() as $entry) {
+        if (($entry['status'] ?? 'published') !== 'draft') $present = [...$present, ...$entry['categories']];
+    }
+    return array_values(array_intersect(GENESIS_ADVICE_CATEGORIES, $present));
+}
+
 /** Use the server clock and the existing device time-zone header, never a client date. */
-function genesisAdviceDayKey(): string
+function genesisAdviceTimeZone(): string
 {
     $zone = $_SERVER['HTTP_X_GENESIS_TIME_ZONE'] ?? 'Europe/Moscow';
     if (!is_string($zone) || !in_array($zone, DateTimeZone::listIdentifiers(DateTimeZone::ALL_WITH_BC), true)) {
         $zone = 'Europe/Moscow';
     }
-    return (new DateTimeImmutable('now', new DateTimeZone($zone)))->format('Y-m-d');
+    return $zone;
+}
+
+function genesisAdviceDayKey(): string
+{
+    return (new DateTimeImmutable('now', new DateTimeZone(genesisAdviceTimeZone())))->format('Y-m-d');
 }
 
 function genesisAdviceScores(mixed $value): array
@@ -66,20 +101,71 @@ function genesisAdviceScores(mixed $value): array
     return $scores;
 }
 
-/** Unseen posts lead; then the least recently viewed eligible post starts the next turn. */
-function genesisChooseAdvice(array $items, array $preferences, array $scores, array $history, string $seed): ?array
+function genesisAdviceTopicScores(mixed $value): array
 {
-    $categories = $preferences['smart'] ? array_keys(array_filter($scores, static fn($weight) => $weight > 0)) : $preferences['categories'];
-    if ($preferences['smart'] && $categories === []) $categories = GENESIS_ADVICE_CATEGORIES;
-    $eligible = array_values(array_filter($items, static fn($entry) => array_intersect($entry['categories'], $categories) !== []));
+    if (!is_array($value) || array_diff(array_keys($value), GENESIS_ADVICE_TOPICS)) throw new InvalidArgumentException('INVALID_ADVICE_CONTEXT');
+    $scores = [];
+    foreach (GENESIS_ADVICE_TOPICS as $id) {
+        $score = $value[$id] ?? 0;
+        if ((!is_int($score) && !is_float($score)) || !is_finite((float)$score) || $score < 0 || $score > 1000) {
+            throw new InvalidArgumentException('INVALID_ADVICE_CONTEXT');
+        }
+        $scores[$id] = (float)$score;
+    }
+    return $scores;
+}
+
+/** Lunar windows use civil dates in the device zone and the server's existing ephemeris. */
+function genesisAdvicePhaseLeads(string $day, string $zone): array
+{
+    $data = genesisCalendarEphemeris(); $leads = [];
+    $start = genesisCalendarDate($day)->getTimestamp() * 1000 - 36 * 3600000;
+    foreach (['new' => 'newMoons', 'full' => 'fullMoons'] as $phase => $key) {
+        $moments = $data[$key]; $low = 0; $high = count($moments);
+        while ($low < $high) {
+            $mid = intdiv($low + $high, 2);
+            if ($moments[$mid] < $start) $low = $mid + 1; else $high = $mid;
+        }
+        for ($i = $low; isset($moments[$i]) && $moments[$i] <= $start + 6 * 86400000; $i++) {
+            $eventDay = genesisCalendarEventDate($moments[$i], ['timeZone' => $zone]);
+            $lead = genesisCalendarDayNumber($eventDay) - genesisCalendarDayNumber($day);
+            if ($lead >= 1 && $lead <= 3) $leads[$phase] = $lead;
+        }
+    }
+    return $leads;
+}
+
+function genesisAdviceScheduledFor(array $entry, array $phaseLeads): bool
+{
+    if (!isset($entry['schedule'])) return true;
+    foreach ($entry['schedule']['phases'] as $phase) {
+        if (in_array($phaseLeads[$phase] ?? null, $entry['schedule']['leadDays'], true)) return true;
+    }
+    return false;
+}
+
+/** Unseen posts lead; then the least recently viewed eligible post starts the next turn. */
+function genesisChooseAdvice(array $items, array $preferences, array $scores, array $history, string $seed,
+    array $topicScores = [], ?array $phaseLeads = null): ?array
+{
+    $available = genesisAdviceAvailableCategories($items);
+    $categories = $preferences['smart'] ? array_values(array_intersect($available,
+        array_keys(array_filter($scores, static fn($weight) => $weight > 0))))
+        : array_values(array_intersect($available, $preferences['categories']));
+    // Match the settings' effective selection when an older account selected only unpublished categories.
+    if ($categories === []) $categories = $preferences['smart'] ? $available : array_slice($available, 0, 1);
+    $phaseLeads ??= genesisAdvicePhaseLeads(genesisAdviceDayKey(), genesisAdviceTimeZone());
+    $eligible = array_values(array_filter($items, static fn($entry) => ($entry['status'] ?? 'published') !== 'draft'
+        && array_intersect($entry['categories'], $categories) !== [] && genesisAdviceScheduledFor($entry, $phaseLeads)));
     if ($eligible === []) return null;
-    $lastShown = []; $recentCategories = [];
+    $lastShown = []; $recentCategories = []; $recentTopics = [];
     foreach ($history as $index => $row) {
         $id = $row['advice_id'];
         $lastShown[$id] ??= $row['day_key'];
         if ($index < 3) {
             $entry = json_decode($row['entry_json'], true, 32, JSON_THROW_ON_ERROR);
             foreach ($entry['categories'] as $category) $recentCategories[$category] = ($recentCategories[$category] ?? 0) + 1;
+            foreach ($entry['topics'] ?? [] as $topic) $recentTopics[$topic] = ($recentTopics[$topic] ?? 0) + 1;
         }
     }
     $best = null; $bestRank = null;
@@ -89,22 +175,43 @@ function genesisChooseAdvice(array $items, array $preferences, array $scores, ar
             $affinity = max($affinity, $preferences['smart'] ? log(1 + ($scores[$category] ?? 0)) : 1.0);
             $recent = max($recent, $recentCategories[$category] ?? 0);
         }
-        // A completed round starts with the longest-unseen entries; new entries always lead.
-        $rank = [$lastShown[$entry['id']] ?? '', -($affinity / (1 + $recent)), hash('sha256', $seed . ':' . $entry['id'])];
+        $topicAffinity = 0.0;
+        if ($preferences['smart']) foreach ($entry['topics'] ?? [] as $topic) {
+            $topicAffinity = max($topicAffinity, log(1 + ($topicScores[$topic] ?? 0)) / (1 + ($recentTopics[$topic] ?? 0)));
+        }
+        // A completed round starts with the longest-unseen entries; context can never bypass history.
+        // During a lunar window, eligible unseen preparations lead ordinary unseen posts.
+        $rank = [$lastShown[$entry['id']] ?? '', -(int)isset($entry['schedule']),
+            -($affinity / (1 + $recent) + $topicAffinity), hash('sha256', $seed . ':' . $entry['id'])];
         if ($bestRank === null || $rank < $bestRank) { $best = $entry; $bestRank = $rank; }
     }
     return $best;
 }
 
-function genesisAdviceForClient(array $row): array
+function genesisAdviceForClient(array $row, string $language = 'ru'): array
 {
-    return [...json_decode($row['entry_json'], true, 32, JSON_THROW_ON_ERROR),
+    $entry = json_decode($row['entry_json'], true, 32, JSON_THROW_ON_ERROR);
+    if (isset($entry['contentVersion'])) {
+        $version = $entry['contentVersion'];
+        if (!is_string($version) || !preg_match('/^[a-z0-9-]{1,80}$/D', $version)) throw new RuntimeException('INVALID_ADVICE_CONTENT');
+        if (!in_array($language, GENESIS_ADVICE_LANGUAGES, true)) $language = 'ru';
+        static $locales = [];
+        $key = $version . ':' . $language;
+        $locales[$key] ??= json_decode(file_get_contents(dirname(__DIR__) . '/content/daily-advice/' . $version . '/' . $language . '.json'), true, 32, JSON_THROW_ON_ERROR);
+        $text = $locales[$key][$entry['id']] ?? null;
+        if (!is_array($text) || !is_string($text['title'] ?? null) || !is_string($text['body'] ?? null)
+            || trim($text['title']) === '' || trim($text['body']) === '') throw new RuntimeException('ADVICE_TRANSLATION_MISSING');
+        $entry = [...$entry, ...$text, 'language' => $language];
+    }
+    unset($entry['contentVersion'], $entry['topics'], $entry['schedule'], $entry['status']);
+    return [...$entry,
         'dayKey' => $row['day_key'], 'dismissed' => $row['dismissed_at'] !== null];
 }
 
 function genesisDailyAdvice(string $userId, array $payload, ?array $catalogFixture = null): array
 {
     $scores = genesisAdviceScores($payload['scores'] ?? []);
+    $topics = genesisAdviceTopicScores($payload['topics'] ?? []);
     $day = genesisAdviceDayKey(); $db = genesisDb();
     genesisBeginWriteTransaction($db);
     try {
@@ -120,7 +227,7 @@ function genesisDailyAdvice(string $userId, array $payload, ?array $catalogFixtu
                 $items = $catalogFixture ?? genesisAdviceCatalog();
                 $history = $db->prepare('SELECT advice_id, day_key, entry_json FROM daily_advice_days WHERE user_id = ? AND viewed_at IS NOT NULL ORDER BY day_key DESC');
                 $history->execute([$userId]);
-                $entry = genesisChooseAdvice($items, $preferences, $scores, $history->fetchAll(), $userId . ':' . $day);
+                $entry = genesisChooseAdvice($items, $preferences, $scores, $history->fetchAll(), $userId . ':' . $day, $topics);
                 if ($entry !== null) {
                     $row = ['day_key' => $day, 'entry_json' => json_encode($entry, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), 'dismissed_at' => null];
                     $db->prepare('INSERT INTO daily_advice_days(user_id, day_key, advice_id, entry_json, created_at) VALUES (?, ?, ?, ?, ?)')
@@ -128,7 +235,7 @@ function genesisDailyAdvice(string $userId, array $payload, ?array $catalogFixtu
                 }
                 $result['state'] = $items === [] ? 'empty' : 'no-match';
             }
-            if (is_array($row)) { $result['advice'] = genesisAdviceForClient($row); $result['state'] = 'ready'; }
+            if (is_array($row)) { $result['advice'] = genesisAdviceForClient($row, $user['language'] ?? 'ru'); $result['state'] = 'ready'; }
         }
         $db->commit(); return $result;
     } catch (Throwable $error) {

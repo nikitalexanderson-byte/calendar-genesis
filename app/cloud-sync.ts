@@ -168,6 +168,7 @@ export type GenesisUser = {
   stoicheionDivinationDisabled: boolean;
   advicePreferences?: import("./daily-advice").AdvicePreferences;
   adviceCatalogAvailable?: boolean;
+  adviceAvailableCategories?: import("./daily-advice").AdviceCategory[];
   isAdmin: boolean;
   sharedProjectsEligible?: boolean;
   sharedProjectsLifetimeAccess?: boolean;
@@ -1669,8 +1670,8 @@ export async function updateAccountPreferences(preferences: Partial<{
   }
 }
 
-export function loadDailyAdvice(scores: import("./daily-advice").AdviceScores, signal?: AbortSignal) {
-  return api<import("./daily-advice").DailyAdviceResponse>("/advice/today", { method: "POST", body: JSON.stringify({ scores }), signal });
+export function loadDailyAdvice(scores: import("./daily-advice").AdviceScores, signal?: AbortSignal, topics?: import("./daily-advice").AdviceTopicScores) {
+  return api<import("./daily-advice").DailyAdviceResponse>("/advice/today", { method: "POST", body: JSON.stringify({ scores, topics }), signal });
 }
 export function recordDailyAdvice(advice: Pick<import("./daily-advice").DailyAdvice, "id" | "dayKey">, dismiss = false) {
   return api<{ ok: true }>(dismiss ? "/advice/dismiss" : "/advice/view", { method: "POST", body: JSON.stringify({ id: advice.id, dayKey: advice.dayKey }) });

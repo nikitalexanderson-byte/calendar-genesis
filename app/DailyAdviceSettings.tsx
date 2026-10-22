@@ -2,13 +2,16 @@
 
 import { useState } from "react";
 import { updateAccountPreferences, type GenesisUser } from "./cloud-sync";
-import { ADVICE_CATEGORIES, advicePreferences, type AdvicePreferences } from "./daily-advice";
+import { ADVICE_CATEGORIES, adviceAvailableCategories, advicePreferences, type AdvicePreferences } from "./daily-advice";
 import labels from "./daily-advice-copy.json";
 import "./daily-advice.css";
 
 export function DailyAdviceSettings({ user, onUserChange }: { user: GenesisUser; onUserChange: (user: GenesisUser) => void }) {
   const copy = labels[user.language];
   const preferences = advicePreferences(user.advicePreferences);
+  const available = adviceAvailableCategories(user.adviceAvailableCategories);
+  const selected = available.filter(id => preferences.categories.includes(id));
+  const effective = selected.length ? selected : available.slice(0, 1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const change = async (patch: Partial<AdvicePreferences>) => {
@@ -33,16 +36,16 @@ export function DailyAdviceSettings({ user, onUserChange }: { user: GenesisUser;
     {preferences.enabled ? <>
       <label className="account-switch-row" htmlFor="advice-smart">
         <span><strong>{copy.smart}</strong><small>{copy.smartHint}</small></span>
-        <input id="advice-smart" aria-label={copy.smart} type="checkbox" role="switch" checked={preferences.smart} disabled={busy} onChange={event => void change({ smart: event.target.checked })} />
+        <input id="advice-smart" aria-label={copy.smart} type="checkbox" role="switch" checked={preferences.smart} disabled={busy || available.length === 0} onChange={event => void change({ smart: event.target.checked, categories: effective })} />
         <i aria-hidden="true" />
       </label>
       {preferences.smart ? <p className="daily-advice-note">{copy.fallback}</p> : <fieldset className="daily-advice-categories" aria-describedby="advice-category-hint">
         <legend>{copy.choose}</legend>
-        {ADVICE_CATEGORIES.map((category, index) => <label className="daily-advice-category" key={category} htmlFor={`advice-category-${category}`}>
-          <input id={`advice-category-${category}`} aria-label={copy.categories[index]} type="checkbox" checked={preferences.categories.includes(category)}
-            disabled={busy || (preferences.categories.length === 1 && preferences.categories[0] === category)}
-            onChange={event => void change({ categories: ADVICE_CATEGORIES.filter(id => id === category ? event.target.checked : preferences.categories.includes(id)) })} />
-          <span><strong>{copy.categories[index]}</strong><small>{copy.categoryHints[index]}</small></span>
+        {ADVICE_CATEGORIES.map((category, index) => <label className="daily-advice-category" data-unavailable={!available.includes(category)} key={category} htmlFor={`advice-category-${category}`}>
+          <input id={`advice-category-${category}`} aria-label={copy.categories[index]} aria-describedby={`advice-category-hint-${category}`} type="checkbox" checked={effective.includes(category)}
+            disabled={busy || !available.includes(category) || (effective.length === 1 && effective[0] === category)}
+            onChange={event => void change({ categories: available.filter(id => id === category ? event.target.checked : effective.includes(id)) })} />
+          <span><strong>{copy.categories[index]}</strong><small id={`advice-category-hint-${category}`}>{copy.categoryHints[index]}{!available.includes(category) ? ` · ${copy.comingSoon}` : ""}</small></span>
         </label>)}
         <p id="advice-category-hint" className="daily-advice-note">{copy.oneCategory}</p>
       </fieldset>}
@@ -50,5 +53,12 @@ export function DailyAdviceSettings({ user, onUserChange }: { user: GenesisUser;
       {user.adviceCatalogAvailable === false ? <p className="daily-advice-note" role="status">{copy.pending}</p> : null}
     </> : null}
     {error ? <p role="alert">{error}</p> : null}
+  </section>;
+}
+
+export function AdvicePrivacyNotice({ language }: { language: GenesisUser["language"] }) {
+  const copy = labels[language];
+  return <section className="daily-advice-privacy" aria-labelledby="advice-privacy-title" data-no-translate>
+    <h3 id="advice-privacy-title">{copy.privacyTitle}</h3><p>{copy.privacyNotice}</p>
   </section>;
 }

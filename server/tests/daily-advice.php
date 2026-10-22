@@ -56,8 +56,41 @@ adviceExpect(genesisChooseAdvice([...$items, $newItem], $preferences, $scores, $
 $manual = ['enabled' => true, 'smart' => false, 'categories' => ['aretology']];
 adviceExpect(genesisChooseAdvice($items, $manual, $scores, [], 'manual')['id'] === $items[2]['id'], 'Manual categories ignored');
 adviceExpect(genesisChooseAdvice($items, $preferences, genesisAdviceScores(['aretology' => 1]), [], 'smart')['id'] === $items[2]['id'], 'Smart categories ignored');
-adviceExpect(genesisChooseAdvice($items, ['enabled' => true, 'smart' => false, 'categories' => ['kourotrophy']], $scores, [], 'empty') === null, 'Unselected content leaked into the pool');
+adviceExpect(genesisChooseAdvice([], $manual, $scores, [], 'empty') === null, 'Empty corpus produced a fallback');
+adviceExpect(genesisChooseAdvice($items, ['enabled' => true, 'smart' => false, 'categories' => ['kourotrophy']], $scores, [], 'legacy-manual')['id'] === $items[2]['id'], 'Unavailable manual selection disagreed with the settings fallback');
+adviceExpect(in_array(genesisChooseAdvice($items, ['enabled' => true, 'smart' => false, 'categories' => ['hermetica', 'kourotrophy']], $scores, [], 'mixed-manual')['id'], [$items[0]['id'], $items[1]['id']], true), 'Available manual choices were replaced by fallback content');
 adviceExpect(genesisChooseAdvice($items, $preferences, genesisAdviceScores([]), [], 'fallback') !== null, 'No-habit fallback failed');
+
+// A habit in an unpublished category falls back to available content.
+adviceExpect(genesisChooseAdvice([$items[2]], $preferences, genesisAdviceScores(['hermetica' => 100]), [], 'available')['id'] === $items[2]['id'], 'Unavailable smart category suppressed available advice');
+$food = [...adviceFixture('food', 'aretology'), 'topics' => ['nutrition']];
+$workout = [...adviceFixture('workout', 'aretology'), 'topics' => ['training']];
+$topicScores = genesisAdviceTopicScores(['nutrition' => 100]);
+adviceExpect(genesisChooseAdvice([$food, $workout], $preferences, $scores, [], 'food', $topicScores, [])['id'] === $food['id'], 'Food habits did not favour food content');
+$foodHistory = [['advice_id' => $food['id'], 'day_key' => '2026-10-01', 'entry_json' => json_encode($food)]];
+adviceExpect(genesisChooseAdvice([$food, $workout], $preferences, $scores, $foodHistory, 'food-repeat', $topicScores, [])['id'] === $workout['id'], 'Food affinity bypassed unseen history');
+adviceReject(fn() => genesisAdviceTopicScores(['nutrition' => 'high']));
+adviceReject(fn() => genesisAdviceTopicScores(['habitNames' => ['Private text']]));
+$lunar = [...adviceFixture('lunar preparation', 'aretology'), 'schedule' => ['phases' => ['new', 'full'], 'leadDays' => [1, 2, 3]]];
+adviceExpect(genesisChooseAdvice([$food, $lunar], $manual, $scores, [], 'not-lunar', [], [])['id'] === $food['id'], 'Lunar preparation leaked outside its window');
+foreach (['new', 'full'] as $phase) foreach ([1, 2, 3] as $lead) {
+    adviceExpect(genesisChooseAdvice([$food, $lunar], $manual, $scores, [], 'lunar', [], [$phase => $lead])['id'] === $lunar['id'], 'Lunar preparation did not lead during its window');
+}
+foreach ([0, 4] as $lead) adviceExpect(!genesisAdviceScheduledFor($lunar, ['new' => $lead]), 'Wrong lunar boundary');
+adviceExpect(genesisChooseAdvice([[...$food, 'status' => 'draft']], $manual, $scores, [], 'draft') === null, 'Private draft entered the selection pool');
+$ephemeris = genesisCalendarEphemeris();
+foreach (['Europe/Moscow', 'Pacific/Kiritimati', 'America/Los_Angeles', 'Europe/Berlin'] as $zone) {
+    foreach (['new' => 'newMoons', 'full' => 'fullMoons'] as $phase => $key) {
+        $moment = array_values(array_filter($ephemeris[$key], static fn($moment) => $moment >= 1767225600000 && $moment < 1798761600000))[0];
+        $eventDay = genesisCalendarEventDate($moment, ['timeZone' => $zone]);
+        foreach ([1, 2, 3] as $lead) {
+            $before = genesisCalendarAddDays($eventDay, -$lead);
+            adviceExpect((genesisAdvicePhaseLeads($before, $zone)[$phase] ?? null) === $lead, 'Lunar window ignored local civil date');
+        }
+        foreach ([0, 1, -4] as $offset) adviceExpect(!isset(genesisAdvicePhaseLeads(genesisCalendarAddDays($eventDay, $offset), $zone)[$phase]), 'Lunar advice appeared on or after the phase or too early');
+    }
+}
+adviceExpect(genesisAdviceAvailableCategories() === ['aretology'], 'Unpublished categories became clickable');
 
 $db = genesisDb(); $ids = [];
 for ($index = 0; $index < 2; $index++) {
@@ -66,6 +99,10 @@ for ($index = 0; $index < 2; $index++) {
 }
 try {
     [$alice, $bob] = $ids;
+    genesisUpdateAccountPreferences($bob, ['advicePreferences' => ['smart' => false, 'categories' => ['hermetica']]]);
+    $legacyFallback = genesisDailyAdvice($bob, []);
+    adviceExpect($legacyFallback['state'] === 'ready' && $legacyFallback['advice']['categories'] === ['aretology'], 'Saved unavailable manual category suppressed the displayed Aretology selection');
+    adviceExpect(genesisAdvicePreferences(genesisFindUser($bob)['advice_preferences_json'])['categories'] === ['hermetica'], 'Reading advice unexpectedly rewrote legacy preferences');
     genesisUpdateAccountPreferences($alice, ['advicePreferences' => ['smart' => false, 'categories' => ['hermetica']]]);
     genesisUpdateAccountPreferences($alice, ['stoicheionDivinationDisabled' => true, 'uiVisibility' => ['sacredFeaturesEnabled' => false]]);
     $saved = genesisAdvicePreferences(genesisFindUser($alice)['advice_preferences_json']);
@@ -90,6 +127,21 @@ try {
     adviceExpect(genesisDailyAdvice($alice, [], $items)['advice'] === null, 'Disabled advice still returned content');
     genesisUpdateAccountPreferences($alice, ['advicePreferences' => ['enabled' => true]]);
     adviceExpect(genesisDailyAdvice($alice, [], $items)['advice']['id'] === $card['id'], 'Re-enabling rerolled the day');
+    $versioned = genesisAdviceCatalog()[0];
+    $localizedRow = ['day_key' => $card['dayKey'], 'entry_json' => json_encode($versioned, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), 'dismissed_at' => genesisNow()];
+    foreach (GENESIS_ADVICE_LANGUAGES as $language) {
+        $localized = genesisAdviceForClient($localizedRow, $language);
+        $expected = json_decode(file_get_contents(__DIR__ . '/../content/daily-advice/' . $versioned['contentVersion'] . '/' . $language . '.json'), true, 32, JSON_THROW_ON_ERROR)[$versioned['id']];
+        adviceExpect($localized['id'] === $versioned['id'] && $localized['dismissed'] && $localized['dayKey'] === $card['dayKey'], 'Changing language changed identity or dismissal');
+        adviceExpect($localized['language'] === $language && $localized['title'] === $expected['title'] && $localized['body'] === $expected['body'], 'Incomplete or wrong daily advice translation');
+        adviceExpect(array_intersect(['contentVersion', 'topics', 'schedule', 'status'], array_keys($localized)) === [], 'Internal publishing metadata leaked');
+    }
+    $db->prepare('UPDATE daily_advice_days SET advice_id=?,entry_json=? WHERE user_id=?')->execute([$versioned['id'], $localizedRow['entry_json'], $alice]);
+    foreach (GENESIS_ADVICE_LANGUAGES as $language) {
+        genesisUpdateAccountPreferences($alice, ['language' => $language]);
+        $translatedDay = genesisDailyAdvice($alice, [], $items)['advice'];
+        adviceExpect($translatedDay['id'] === $versioned['id'] && $translatedDay['language'] === $language && $translatedDay['dismissed'], 'Daily replay ignored account language or rerolled the post');
+    }
     $db->prepare('DELETE FROM users WHERE id=?')->execute([$alice]);
     adviceExpect((int)$db->query("SELECT COUNT(*) FROM daily_advice_days WHERE user_id=" . $db->quote($alice))->fetchColumn() === 0, 'Account removal retained advice history');
     $_SERVER['HTTP_X_GENESIS_TIME_ZONE'] = 'Pacific/Kiritimati';

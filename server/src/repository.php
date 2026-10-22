@@ -332,6 +332,7 @@ function genesisUserForClient(array $user): array
         'stoicheionDivinationDisabled' => !empty($user['stoicheion_divination_disabled']),
         'advicePreferences' => genesisAdvicePreferences($user['advice_preferences_json'] ?? '{}'),
         'adviceCatalogAvailable' => genesisAdviceCatalog() !== [],
+        'adviceAvailableCategories' => genesisAdviceAvailableCategories(),
         'isAdmin' => genesisIsAdminUser($user) && genesisSessionIsPrimaryGoogleUser($user),
         'sharedProjectsEligible' => genesisSharedEligible($user),
         'sharedProjectsLifetimeAccess' => genesisSharedTester($user),
