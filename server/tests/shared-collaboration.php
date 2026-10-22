@@ -88,7 +88,21 @@ try {
     $ct = [...$ct, ...genesisSharedMoveTask($co, $cp['id'], $ct['id'], [...$move, 'statusId' => $open, 'expectedRevision' => $ct['revision']])];
     $activity = genesisSharedActivity($co, $cp['id'], $ct['id'], null);
     sharedExpect(!array_filter($activity['events'], static fn($event) => !str_starts_with($event['action'], 'task.')), 'Task history includes comments or project activity.');
-    sharedExpect(count(array_filter($activity['events'], static fn($event) => str_starts_with($event['action'], 'task.moved_'))) === 2, 'Two board moves generated duplicate task history.');
+    sharedExpect(!array_filter($activity['events'], static fn($event) => str_starts_with($event['action'], 'task.moved_')), 'Board moves inside a project fabricated a project transfer.');
+    $boardChanges = array_values(array_filter($activity['events'], static fn($event) =>
+        $event['action'] === 'task.updated' && isset($event['details']['referenceIds']['statusId'])));
+    sharedExpect(count($boardChanges) === 2, 'Two board moves must produce exactly two task history entries.');
+    foreach ([[$open, $done, false, true], [$done, $open, true, false]] as [$from, $to, $wasDone, $isDone]) {
+        $matching = array_values(array_filter($boardChanges, static fn($event) =>
+            $event['details']['referenceIds']['statusId'] === ['from' => $from, 'to' => $to]));
+        sharedExpect(count($matching) === 1, 'Completion or reopening history was missing or duplicated.');
+        $event = $matching[0];
+        sharedExpect($event['boardId'] === $to && $event['details']['destinationBoardId'] === $to,
+            'Board transition history did not retain its destination.');
+        sharedExpect(($event['details']['changes']['isDone'] ?? null) === ['from' => $wasDone, 'to' => $isDone],
+            'Board transition history lost its completion change.');
+        sharedExpect(!isset($event['details']['referenceIds']['projectId']), 'An unchanged project was recorded as a project change.');
+    }
     sharedExpect((bool)array_filter(genesisSharedActivity($co, $cp['id'], null, $open)['events'], static fn($event) => $event['taskId'] === $ct['id']), 'Board arrival history was lost.');
     sharedExpect((bool)array_filter(genesisSharedActivity($co, $cp['id'], null, $done)['events'], static fn($event) => $event['taskId'] === $ct['id']), 'Board history omitted status changes.');
     for ($i = 0; $i < 53; $i++) genesisSharedAudit($cp['id'], $co, 'task.updated', $ct['id']);
