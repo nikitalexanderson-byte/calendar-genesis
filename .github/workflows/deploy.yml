@@ -517,18 +517,19 @@ jobs:
           EXPECTED_COMMIT: ${{ github.sha }}
         run: |
           for attempt in 1 2 3 4 5 6; do
-            if HEALTH="$(curl -fsS "$PRODUCTION_ORIGIN/api/health?run=${GITHUB_RUN_ID}")" && \
-               META="$(curl -fsS "$PRODUCTION_ORIGIN/deploy-meta.json?run=${GITHUB_RUN_ID}")"; then
+            if HEALTH="$(curl -fsS --max-time 20 -H 'Cache-Control: no-cache' "$PRODUCTION_ORIGIN/api/health?run=${GITHUB_RUN_ID}")" && \
+               META="$(curl -fsS --max-time 20 -H 'Cache-Control: no-cache' "$PRODUCTION_ORIGIN/deploy-meta.json?run=${GITHUB_RUN_ID}")" && \
+               printf '%s' "$HEALTH" | jq -e '.ok == true' >/dev/null 2>&1 && \
+               ACTUAL_COMMIT="$(printf '%s' "$META" | jq -er '.commit' 2>/dev/null)" && \
+               test "$ACTUAL_COMMIT" = "$EXPECTED_COMMIT"; then
               break
             fi
+            printf 'Production readiness attempt %s/6 did not confirm healthy JSON and the expected commit.\n' "$attempt"
             if [ "$attempt" -eq 6 ]; then
               exit 1
             fi
             sleep 5
           done
-          printf '%s' "$HEALTH" | jq -e '.ok == true' >/dev/null
-          ACTUAL_COMMIT="$(printf '%s' "$META" | jq -er '.commit')"
-          test "$ACTUAL_COMMIT" = "$EXPECTED_COMMIT"
           printf 'Production commit: %s\n' "$ACTUAL_COMMIT"
 
       - name: Assemble compatibility files for the previous origin
