@@ -23,6 +23,10 @@ html[data-genesis-theme] .genesis-app .shared-workflow input[type=checkbox] { fl
 .shared-workflow-device li { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 16px; padding-block:12px; border-top:1px solid var(--line); }
 .shared-workflow-device li>div { min-width:0; }
 .shared-workflow-device small { display:block; color:var(--ink-soft); margin-block-start:8px; }
+.shared-workflow-device :is([data-planning-device-draft],[data-planning-task-device-draft],[data-workflow-device-draft]) { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:start; gap:8px 16px; }
+.shared-workflow-device :is([data-planning-device-draft],[data-planning-task-device-draft],[data-workflow-device-draft]) > time { overflow-wrap:anywhere; }
+.shared-workflow-device :is([data-planning-device-draft],[data-planning-task-device-draft],[data-workflow-device-draft]) > small { grid-column:1/-1; margin-block-start:0; }
+.shared-workflow-device .shared-work-draft-actions { flex-wrap:nowrap; align-items:center; gap:8px; margin:0; }
 html[data-genesis-theme] .genesis-app .shared-workflow .shared-workflow-status { margin:0; padding:16px; border:1px solid var(--line); }
 html[data-genesis-theme] .genesis-app .shared-workflow .shared-workflow-checks { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:4px 16px; margin:16px 0 0; padding:0; }
 html[data-genesis-theme] .genesis-app .shared-workflow :is(.shared-workflow-checks label,.shared-workflow-edge legend label) { min-height:44px; padding:0; margin:0; border:0; border-radius:0; background:transparent; color:var(--ink); }

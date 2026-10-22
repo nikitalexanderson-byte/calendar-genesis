@@ -55,6 +55,42 @@ try{
     srCheck($points['flow']['summary']['plan']['value']===16.0&&$points['flow']['summary']['plan']['unestimated']===1&&$points['flow']['summary']['delivered']['unestimated']===1,'Zero/null effort changed in the API');
     srCheck($hours['flow']['summary']['plan']['value']===0.0&&$hours['flow']['summary']['plan']['unestimated']===9,'Hours inherited point values');$checks[]='real lifecycle, terminal carry, units and metric/event sources';
 
+    // The board drag/drop and completion checkbox use the move route even inside one project.
+    $moveProject=genesisSharedCreateProject($owner,$space,['title'=>'Move route history'])['id'];
+    $moveStatuses=genesisSharedProjectSnapshot($owner,$moveProject)['statuses'];
+    genesisSharedSavePlanning($owner,$moveProject,['requestId'=>genesisUuid(),'expectedRevision'=>0,'enabled'=>true,'estimateUnit'=>'points']);
+    $moveSprint=srSprint($owner,$moveProject,'Move route sprint');
+    $moveRule=genesisSharedSaveAutomation($owner,$moveProject,['operationId'=>genesisUuid(),'title'=>'Move completion signal','enabled'=>true,
+        'definition'=>['schemaVersion'=>1,'trigger'=>['type'=>'completed'],'conditions'=>[],'actions'=>[['type'=>'priority','value'=>1]],'calendarMode'=>'profane','calendarContext'=>['version'=>2,'timeZone'=>'UTC','gregorianYearStart'=>'march']]]);
+    $moving=genesisSharedTask($owner,$moveProject,['title'=>'Known zero through board moves','statusId'=>$moveStatuses[0]['id'],'sprintId'=>$moveSprint['id'],'storyPoints'=>0,'estimateHours'=>1.5]);
+    $moveSprint=srTransition($owner,$moveProject,$moveSprint,'start');
+    $moveWithin=static function(string $status)use($owner,$moveProject,&$moving):void{
+        $command=['requestId'=>genesisUuid(),'expectedRevision'=>$moving['revision'],'destinationProjectId'=>$moveProject,'statusId'=>$status,'position'=>0];
+        $result=genesisSharedMoveTask($owner,$moveProject,$moving['id'],$command);
+        srCheck(genesisSharedMoveTask($owner,$moveProject,$moving['id'],$command)===$result,'Move route replay changed its receipt');
+        $moving=genesisSharedGetTask($owner,$moveProject,$moving['id']);
+    };
+    $moveWithin($moveStatuses[1]['id']);$moveWithin($moveStatuses[2]['id']);$moveWithin($moveStatuses[2]['id']);
+    srCheck(count(genesisSharedAutomationRuns($owner,$moveProject,$moveRule['id'])['runs'])===1,'Move completion did not trigger exactly one automation; replay/reorder must not trigger again');
+    foreach(['tasks'=>1.0,'points'=>0.0,'hours'=>1.5] as $unit=>$value){
+        $movedReport=genesisSharedSprintReport($owner,$moveProject,$moveSprint['id'],['unit'=>$unit]);$summary=$movedReport['flow']['summary'];
+        srCheck($movedReport['flow']['historyComplete']&&$summary['delivered']['value']===$value&&$summary['remaining']['value']===0.0,'Same-project board/completion move lost truthful '.$unit.' delivery');
+        srCheck($summary['completionTransitions']===1&&$summary['completedTasksCount']===1&&$summary['removed']['tasks']===0,'Move replay/reorder fabricated a completion or scope exit');
+    }
+    $moveWithin($moveStatuses[0]['id']);
+    $reopened=genesisSharedSprintReport($owner,$moveProject,$moveSprint['id'],['unit'=>'tasks']);
+    srCheck($reopened['flow']['historyComplete']&&$reopened['flow']['summary']['remaining']['value']===1.0&&$reopened['flow']['summary']['reopenedTasksCount']===1,'Move route reopening lost its observation');
+    $moveWithin($moveStatuses[2]['id']);
+    srCheck(count(genesisSharedAutomationRuns($owner,$moveProject,$moveRule['id'])['runs'])===2,'Reopening/recompletion lost or duplicated the next automation trigger');
+    $again=genesisSharedSprintReport($owner,$moveProject,$moveSprint['id'],['unit'=>'tasks']);
+    srCheck($again['flow']['historyComplete']&&$again['flow']['summary']['delivered']['value']===1.0&&$again['flow']['summary']['completionTransitions']===2&&$again['flow']['summary']['completedTasksCount']===1,'Recompletion doubled unique delivered work');
+    $source=genesisSharedSprintReportSources($owner,$moveProject,$moveSprint['id'],['token'=>$again['token'],'kind'=>'tasks','metric'=>'delivered']);
+    srCheck($source['total']===1&&$source['items'][0]['id']===$moving['id'],'Move delivery drilldown differs from its metric');
+    genesisSharedMoveTask($owner,$moveProject,$moving['id'],['requestId'=>genesisUuid(),'expectedRevision'=>$moving['revision'],'destinationProjectId'=>$hidden,'statusId'=>genesisSharedProjectSnapshot($owner,$hidden)['statuses'][0]['id'],'position'=>0]);
+    $left=genesisSharedSprintReport($owner,$moveProject,$moveSprint['id'],['unit'=>'tasks']);
+    srCheck($left['flow']['historyComplete']&&$left['flow']['summary']['scope']['value']===0.0&&$left['flow']['summary']['removed']['tasks']===1,'A real project move no longer records a scope exit');
+    $checks[]='same-project move completion/reopen, exact replay, known zero, reorder and real project exit';
+
     for($i=0;$i<125;$i++)genesisSharedTask($owner,$project,['title'=>'Large source '.$i,'statusId'=>$todo,'sprintId'=>$b['id'],'storyPoints'=>1]);
     $b=srTransition($owner,$project,$b,'start');$large=genesisSharedSprintReport($viewer,$project,$b['id'],['unit'=>'tasks']);
     srCheck($large['flow']['summary']['plan']['value']===131.0&&$large['flow']['summary']['scope']['value']===131.0&&$large['flow']['historyComplete'],'More-than-100 report dropped scope or invented gaps');

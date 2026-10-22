@@ -1,9 +1,23 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {validatePlanningDeviceDraft,planningCompletionChoices} from '../app/planning-device-drafts.ts';
+import {validatePlanningDeviceDraft,planningCompletionChoices,planningDraftAfterRejectedCommand} from '../app/planning-device-drafts.ts';
 const sprint=()=>({title:'Новый · 計画',goal:'',startDate:'2026-10-19',endDate:'2026-11-01',calendarMode:'lunar',calendarContext:{version:2,timeZone:'Europe/Berlin',gregorianYearStart:'march'}});
 const completion=()=>({sprintId:'sprint-a',expectedRevision:2,fingerprint:'a'.repeat(64),tasks:[{id:'task-a',revision:0},{id:'task-b',revision:9}],choices:{'task-a':'backlog','task-b':'sprint-b'}});
 const doc=()=>({version:1,projectId:'project-a',observedAt:'2026-10-19T04:00:00.000Z',form:{sprintId:null,expectedRevision:0,draft:sprint()},completion:null,pending:null});
+
+test('definitively rejected direct commands leave no empty recovery editor',()=>{
+ for(const pending of [{kind:'settings',expectedRevision:0,requestId:'once-settings',config:{enabled:true,estimateUnit:'hours'}},{kind:'transition',sprintId:'sprint-a',expectedRevision:2,requestId:'once-start',fingerprint:'a'.repeat(64),action:'start'}]){
+  const source={...doc(),form:null,pending},original=structuredClone(source);assert.equal(planningDraftAfterRejectedCommand(source),null);assert.deepEqual(source,original);
+ }
+});
+test('rejected sprint save retains unfinished input and its original calendar context',()=>{
+ const source=doc();source.form.draft.title='';source.form.draft.startDate='';source.form.draft.goal='Мой ввод · 計画';source.pending={kind:'sprint',expectedRevision:0,requestId:'once-create',sprintId:null,draft:sprint()};
+ const remaining=planningDraftAfterRejectedCommand(source);assert.deepEqual(remaining,{...source,pending:null});remaining.form.draft.calendarContext.timeZone='UTC';assert.equal(source.form.draft.calendarContext.timeZone,'Europe/Berlin');assert.equal(source.pending.requestId,'once-create');
+});
+test('rejected completion preserves every explicit task decision without a replay command',()=>{
+ const source={...doc(),form:null,completion:completion(),pending:{kind:'transition',sprintId:'sprint-a',expectedRevision:2,requestId:'once-finish',fingerprint:'a'.repeat(64),action:'complete',outcomes:[]}};
+ const remaining=planningDraftAfterRejectedCommand(source);assert.deepEqual(remaining.completion,source.completion);assert.equal(remaining.pending,null);remaining.completion.choices['task-a']='sprint-b';assert.equal(source.completion.choices['task-a'],'backlog');assert.equal(source.pending.requestId,'once-finish');
+});
 
 test('unfinished sprint edits preserve ISO dates, calendar context and zero revision without rebasing',()=>{
  const source=doc();source.form.draft.title='';source.form.draft.startDate='';source.form.draft.endDate='2026-02-30';

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { DialogCloseButton } from "./DialogCloseButton";
-import { ExperimentalIcon } from "./ExperimentalIcon";
+import { IconActionButton } from "./IconActionButton";
 import { TimeClockPicker } from "./TimeClockPicker";
 import { translateText as t, runtimeLocale } from "./i18n";
 import { privateDeviceAccessBlocked } from "./local-sign-out";
@@ -31,8 +31,8 @@ export function SharedTaskWatch({userId,projectId,taskId}:{userId:string;project
     catch(error){if(permitted(alive.current,abort.signal))setFailure(notificationFailure(error));}finally{if(permitted(alive.current,abort.signal))setBusy(false);}
   };
   return <div className="notification-task-watch"><div className="notification-watch-row">
-    <button type="button" className="secondary-button" aria-label={t("Наблюдение за задачей")} aria-pressed={Boolean(watching)} disabled={watching===null||busy||!online} onClick={()=>void toggle()} title={t("Наблюдение сообщает об изменениях и комментариях задачи.")}><ExperimentalIcon name={watching?"check":"plus"}/>{t(watching?"Наблюдаю":"Наблюдать")}</button>
-    <button type="button" className="secondary-button" onClick={()=>setSettingsOpen(true)}><ExperimentalIcon name="mail"/>{t("Настройки уведомлений")}</button>
+    <IconActionButton icon={watching?"check":"eye"} label={t("Наблюдение за задачей")} aria-pressed={Boolean(watching)} disabled={watching===null||busy||!online} onClick={()=>void toggle()} aria-description={t("Наблюдение сообщает об изменениях и комментариях задачи.")}/>
+    <IconActionButton icon="mail" label={t("Настройки уведомлений")} onClick={()=>setSettingsOpen(true)}/>
   </div>{watching===null&&!failure?<small role="status">{t("Загрузка…")}</small>:null}{failure?<p role="alert">{failure} <button type="button" className="secondary-button" disabled={busy||!online} onClick={()=>setVersion(value=>value+1)}>{t("Повторить")}</button></p>:null}
     {settingsOpen?<SharedNotificationPreferencesDialog userId={userId} onClose={()=>setSettingsOpen(false)}/>:null}
   </div>;

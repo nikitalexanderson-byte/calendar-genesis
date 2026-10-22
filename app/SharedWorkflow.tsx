@@ -12,12 +12,13 @@ import {workflowDraftText} from './workflow-draft-copy';
 import type {WorkDraft} from './shared-work-draft-journal';
 import './shared-workflows.css';
 import {DraftNumberInput,NumberDraftProvider,type NumberDrafts} from './DraftNumberInput';
+import {IconActionButton} from './IconActionButton';
 
 type State=WorkflowDeviceSnapshot&{observedAt:string};
 type Draft=WorkflowEditorDraft;
 const roleLabels:Record<WorkflowRole,string>={owner:'Владелец',manager:'Менеджер',member:'Участник',commenter:'Комментатор',viewer:'Читатель'};
 
-export function SharedWorkflow({userId,projectId,language,disabled,onChanged,onAccessLost,initiallyExpanded=false}:{userId:string;projectId:string;language:Language;disabled:boolean;onChanged:()=>Promise<void>;onAccessLost:()=>void;initiallyExpanded?:boolean}) {
+export function SharedWorkflow({userId,projectId,language,disabled,writeDisabled=false,onChanged,onAccessLost,initiallyExpanded=false}:{userId:string;projectId:string;language:Language;disabled:boolean;writeDisabled?:boolean;onChanged:()=>Promise<void>;onAccessLost:()=>void;initiallyExpanded?:boolean}) {
  const g=(text:string)=>translateText(text,language),t=(key:Parameters<typeof workflowText>[0])=>workflowText(key,language),d=(key:Parameters<typeof workflowDraftText>[0])=>workflowDraftText(key,language);
  const [data,setData]=useState<State|null>(null),[draft,setDraft]=useState<Draft|null>(null),[from,setFrom]=useState(''),[error,setError]=useState<unknown>(null),[busy,setBusy]=useState(false),[retry,setRetry]=useState(false),[saved,setSaved]=useState(false);
  const [history,setHistory]=useState<{versions:WorkflowVersion[];nextCursor:number|null}|null>(null),[expanded,setExpanded]=useState(initiallyExpanded);
@@ -43,7 +44,7 @@ export function SharedWorkflow({userId,projectId,language,disabled,onChanged,onA
  useEffect(()=>{const connection=()=>{if(!navigator.onLine){verifiedNow.current=false;reads.current++;setVerified(false);}else if(expanded&&!lock.current)void load().catch(fail);};window.addEventListener('online',connection);window.addEventListener('offline',connection);return()=>{window.removeEventListener('online',connection);window.removeEventListener('offline',connection);};},[expanded,load,fail]);
  useEffect(()=>{if(!draft||deviceStatus!=='error'&&!(error instanceof Error&&error.message==='WORKFLOW_DEVICE_PERSIST'))return;const protect=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue='';};window.addEventListener('beforeunload',protect);return()=>window.removeEventListener('beforeunload',protect);},[draft,deviceStatus,error]);
  const canManage=Boolean(data?.context.project.permissions?.manageProjects);
- const blocked=disabled||busy||retry||!canManage||!verified||!deviceReady;
+ const blocked=disabled||writeDisabled||busy||retry||!canManage||!verified||!deviceReady;
  const stale=Boolean(draft&&data&&(draft.config.revision!==data.config.revision||draft.statusesKey!==workflowStatusesKey(data.context.statuses)));
  const fields=[['description',t('description')],['assigneeId',g('Исполнитель')],['dueDate',t('dueDate')],['startDate',t('startDate')],['categoryId',t('category')],['labels',g('Метки')],['storyPoints',planningText('points',language)],['estimateHours',planningText('hours',language)],
   ...(data?.context.customFieldDefinitions??[]).filter(field=>!field.archived).map(field=>['custom:'+field.id,field.title])];
@@ -57,7 +58,7 @@ export function SharedWorkflow({userId,projectId,language,disabled,onChanged,onA
  const discard=async()=>{if(lock.current||retry)return;try{await clearCurrent(null);setSource(null);setDraft(null);setError(null);setNotice(null);}catch(reason){setError(reason);}};
  const attempt=async(command:WorkflowCommand)=>{
   // Current ACL/storage failures cannot settle an earlier unconfirmed send.
-  if(lock.current||disabled||!verifiedNow.current||!navigator.onLine)return;const replaying=sent.current;lock.current=true;reads.current++;setBusy(true);setError(null);setSaved(false);let journaled=false,committed=false,original:WorkflowDeviceDraft|null=null;
+  if(lock.current||disabled||writeDisabled||!verifiedNow.current||!navigator.onLine)return;const replaying=sent.current;lock.current=true;reads.current++;setBusy(true);setError(null);setSaved(false);let journaled=false,committed=false,original:WorkflowDeviceDraft|null=null;
   try {
    original=deviceDocument(draft,command);await stage(original);journaled=true;sent.current=true;const result=await saveWorkflow(projectId,command);committed=true;const cleared=await clearCurrent(source);pending.current=null;sent.current=false;setSource(null);if(!live.current)return;
    setData(current=>current?{...current,...result}:current);setDraft(null);setRetry(false);setHistory(null);setSaved(true);
@@ -67,23 +68,24 @@ export function SharedWorkflow({userId,projectId,language,disabled,onChanged,onA
   finally{lock.current=false;if(live.current)setBusy(false);}
  };
  const run=(values:Omit<WorkflowCommand,'requestId'>)=>{if(blocked||pending.current)return;const command={...values,requestId:crypto.randomUUID()};pending.current=command;sent.current=false;void attempt(command);};
- const start=()=>{if(!data)return;numberRef.current={};setNumberInputs({});setError(null);editDraft({config:workflowDraft(data.config,data.context.statuses),statusesKey:workflowStatusesKey(data.context.statuses)},'');setSaved(false);setNotice(null);setFrom('');};
+ const start=()=>{if(!data||blocked)return;numberRef.current={};setNumberInputs({});setError(null);editDraft({config:workflowDraft(data.config,data.context.statuses),statusesKey:workflowStatusesKey(data.context.statuses)},'');setSaved(false);setNotice(null);setFrom('');};
  const submit=(event:FormEvent)=>{event.preventDefault();if(!draft||stale||!draft.config.transitions.every(edge=>edge.roles.length>0))return;run({enabled:true,expectedRevision:draft.config.revision,statuses:draft.config.statuses,transitions:draft.config.transitions});};
  const rebase=async()=>{if(lock.current||!draft)return;lock.current=true;setBusy(true);try{const fresh=await load();if(live.current)editDraft({config:workflowDraft({...draft.config,revision:fresh.config.revision},fresh.context.statuses),statusesKey:workflowStatusesKey(fresh.context.statuses)},from,{...workflowDeviceSnapshot(fresh),observedAt:new Date().toISOString()});}catch(reason){fail(reason);}finally{lock.current=false;if(live.current)setBusy(false);}};
  const moreHistory=async()=>{if(lock.current||history&&history.nextCursor===null)return;lock.current=true;setBusy(true);try{const next=await workflowHistory(projectId,history?.nextCursor??undefined);if(live.current)setHistory(current=>({versions:[...(current?.versions??[]),...next.versions],nextCursor:next.nextCursor}));}catch(reason){fail(reason);}finally{lock.current=false;if(live.current)setBusy(false);}};
- const retryCommand=async()=>{const command=pending.current;if(!command||lock.current)return;try{await load();if(pending.current?.requestId===command.requestId)await attempt(command);}catch(reason){fail(reason);}};
+ const retryCommand=async()=>{const command=pending.current;if(!command||lock.current||writeDisabled)return;try{await load();if(pending.current?.requestId===command.requestId)await attempt(command);}catch(reason){fail(reason);}};
  return <details className="shared-workflow" data-workflow-panel open={expanded} onToggle={event=>{if(event.target===event.currentTarget)setExpanded(event.currentTarget.open);}}>
   <summary>{t('heading')}</summary>
   <p>{t('hint')}</p>
   <SharedWorkflowDrafts rows={deviceRows.filter(row=>row.id!==writerId&&row.id!==source?.id)} status={deviceStatus} error={deviceError} blocked={busy||retry} editing={Boolean(draft)} language={language} onRestore={restore} onRemove={record=>{void removeDevice(record).catch(()=>undefined);}} onRefresh={()=>void refreshDevice()}/>
   {data&&!verified?<p role="status">{d('cached')} <time dateTime={data.observedAt}>{new Intl.DateTimeFormat(language,{dateStyle:'medium',timeStyle:'short'}).format(new Date(data.observedAt))}</time></p>:null}
   {notice?<p role="status">{d(notice)}</p>:null}
-  {error?<div role="alert"><p>{error instanceof Error&&error.message==='WORKFLOW_DEVICE_PENDING'?d('pending'):error instanceof Error&&error.message==='WORKFLOW_DEVICE_PERSIST'?d('error'):workflowError(error,language)??g('Не удалось получить ответ. Обновите отчёт или повторите запрос.')}</p>{retry?<button type="button" className="secondary-button" disabled={busy||disabled} onClick={()=>void retryCommand()}>{g('Повторить')}</button>:<button type="button" className="secondary-button" disabled={busy||disabled} onClick={()=>{setError(null);void load().catch(fail);}}>{g('Обновить')}</button>}</div>:null}
+  {error?<div role="alert"><p>{error instanceof Error&&error.message==='WORKFLOW_DEVICE_PENDING'?d('pending'):error instanceof Error&&error.message==='WORKFLOW_DEVICE_PERSIST'?d('error'):workflowError(error,language)??g('Не удалось получить ответ. Обновите отчёт или повторите запрос.')}</p>{retry?<button type="button" className="secondary-button" disabled={busy||disabled||writeDisabled} onClick={()=>void retryCommand()}>{g('Повторить')}</button>:<button type="button" className="secondary-button" disabled={busy||disabled} onClick={()=>{setError(null);void load().catch(fail);}}>{g('Обновить')}</button>}</div>:null}
   {saved?<p role="status">{t('saved')}</p>:null}
   {!data?<p role="status">{g('Загрузка…')}</p>:<>
    <p>{t(data.config.enabled?'enabled':'disabled')} · {t('revision')}: {new Intl.NumberFormat(language).format(data.config.revision)}</p>
-   {!draft&&canManage?<div className="shared-planning-actions"><button type="button" className="secondary-button" disabled={blocked} onClick={start}>{t('configure')}</button>{data.config.enabled?<button type="button" className="secondary-button" disabled={blocked} onClick={()=>run({enabled:false,expectedRevision:data.config.revision})}>{t('disable')}</button>:null}</div>:null}
+   {!draft&&canManage?<div className="shared-planning-actions"><IconActionButton icon="settings" label={t('configure')} disabled={blocked} onClick={start}/>{data.config.enabled?<button type="button" className="secondary-button" disabled={blocked} onClick={()=>run({enabled:false,expectedRevision:data.config.revision})}>{t('disable')}</button>:null}</div>:null}
    {!draft&&data.config.enabled?<dl className="shared-workflow-counts">{data.config.statuses.map(rule=><div key={rule.statusId}><dt>{data.context.statuses.find(status=>status.id===rule.statusId)?.title??g('Недоступно')}</dt><dd>{new Intl.NumberFormat(language).format(data.counts[rule.statusId]??0)}{rule.wipLimit!==null?` / ${new Intl.NumberFormat(language).format(rule.wipLimit)}`:''}</dd></div>)}</dl>:null}
+   {draft&&writeDisabled&&!disabled?<p role="status">{g('Нет доступа')}</p>:null}
    {draft?<form onSubmit={submit} aria-label={t('heading')}><NumberDraftProvider values={numberInputs} onChange={value=>{numberRef.current=value;setNumberInputs(value);void stage(deviceDocument(draft,null)).catch(()=>undefined);}}>
     <fieldset disabled={blocked}><legend>{g('Настройки')}</legend>
      <div className="shared-workflow-statuses">{draft.config.statuses.map((rule,index)=>{
@@ -106,8 +108,8 @@ export function SharedWorkflow({userId,projectId,language,disabled,onChanged,onA
      <p>{t('safety')}</p>
      {stale?<div role="status"><p>{t('conflict')}</p><button type="button" className="secondary-button" onClick={()=>void rebase()}>{t('rebase')}</button></div>:null}
      {draft.config.transitions.some(edge=>!edge.roles.length)?<p role="status">{t('invalidError')}</p>:null}
-     <div className="shared-planning-actions"><button type="submit" className="primary-button" disabled={stale||draft.config.transitions.some(edge=>!edge.roles.length)}>{data.config.enabled?g('Сохранить'):t('enable')}</button><button type="button" className="secondary-button" onClick={()=>void discard()}>{t('cancel')}</button></div>
     </fieldset>
+    <div className="shared-planning-actions"><button type="submit" className="primary-button" disabled={blocked||stale||draft.config.transitions.some(edge=>!edge.roles.length)}>{data.config.enabled?g('Сохранить'):t('enable')}</button><button type="button" className="secondary-button" disabled={busy||retry} onClick={()=>void discard()}>{t('cancel')}</button></div>
    </NumberDraftProvider></form>:null}
    <details className="shared-workflow-history"><summary>{g('История')}</summary>{history?.versions.map(version=><details key={version.revision}><summary>{t('revision')} {new Intl.NumberFormat(language).format(version.revision)} · {new Intl.DateTimeFormat(language,{dateStyle:'medium',timeStyle:'short'}).format(new Date(version.createdAt))} · {t(version.enabled?'enabled':'disabled')}</summary>
     <dl className="shared-workflow-counts">{version.statuses.map(rule=><div key={rule.statusId}><dt>{data.context.statuses.find(status=>status.id===rule.statusId)?.title??g('Недоступно')}</dt><dd>{t('limit')}: {rule.wipLimit??'—'} · {t('required')}: {rule.requiredFields.map(id=>fields.find(([key])=>key===id)?.[1]??g('Недоступно')).join(', ')||'—'}</dd></div>)}</dl>

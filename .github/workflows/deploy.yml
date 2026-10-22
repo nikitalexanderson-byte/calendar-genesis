@@ -170,6 +170,7 @@ jobs:
           php server/tests/shared-notifications.php
           php server/tests/habit-reminders.php
           php server/tests/habit-reminders-migration.php
+          php server/tests/email-transport.php
           php server/tests/account-email.php
           php server/tests/account-email-migration.php
           php server/tests/calendar-exploration.php
