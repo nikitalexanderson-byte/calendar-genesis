@@ -44,7 +44,7 @@ export const StoicheionRestoration = forwardRef<RestorationHandle, Props>(functi
   const local = (value: {ru: string; en: string}) => restorationLocal(value, language);
   const currentSource: RestorationSource | null = cards.length === 9 && sourceSeed !== null ? { cards, sourceDate, sourceSeed } : null;
   const journal = useSharedWorkDrafts(userId || "anonymous", RESTORATION_DRAFT_SCOPE, "stoicheion-restoration", true, validateRestorationStrategy);
-  const [hydrated, setHydrated] = useState(false);
+  const hydrated = journal.loaded;
   const [memory, setMemory] = useState<Record<string, RestorationStrategy>>({});
   const [staged, setStaged] = useState<Record<string, WorkDraft<RestorationStrategy>>>({});
   const [editingKey, setEditingKey] = useState<string | null>(null);
@@ -54,13 +54,7 @@ export const StoicheionRestoration = forwardRef<RestorationHandle, Props>(functi
   const cycles = workspace.habits.filter(habit => habit.stoicheionRestoration && habitLifecycleState(habit).status !== "deleted");
   const snapshots = cycles.map(habit => habit.stoicheionRestoration!);
   const groups = [...new Set(snapshots.map(restorationSourceKey))].map(key => ({ key, habits: cycles.filter(habit => restorationSourceKey(habit.stoicheionRestoration!) === key) }));
-  const { ready, refresh } = journal;
-  useEffect(() => {
-    if (!ready) return;
-    let active = true;
-    void refresh().finally(() => { if (active) setHydrated(true); });
-    return () => { active = false; };
-  }, [ready, refresh]);
+  const { refresh } = journal;
   const records = useMemo(() => {
     const bySource = new Map<string, WorkDraft<RestorationStrategy>>();
     for (const row of [...journal.rows, ...Object.values(staged)].sort((a,b) => b.at.localeCompare(a.at))) {
