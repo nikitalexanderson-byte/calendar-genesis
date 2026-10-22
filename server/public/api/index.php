@@ -1335,6 +1335,14 @@ try {
         genesisJson(['user' => genesisUserForClient($user)]);
     }
 
+    if ($method === 'POST' && in_array($path, ['advice/today', 'advice/view', 'advice/dismiss'], true)) {
+        $userId = genesisRequireUserId();
+        genesisRequireCsrf();
+        $payload = genesisReadJson();
+        genesisJson($path === 'advice/today' ? genesisDailyAdvice($userId, $payload)
+            : genesisRecordAdvice($userId, $payload, $path === 'advice/dismiss'));
+    }
+
     if ($method === 'GET' && $path === 'stoicheion/draws') {
         genesisJson(genesisStoicheionDraws(genesisRequireUserId()));
     }

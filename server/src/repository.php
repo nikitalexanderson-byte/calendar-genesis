@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/daily-advice.php';
 require_once __DIR__.'/account-email.php';
 require_once __DIR__.'/habit-reminders.php';
 
@@ -329,6 +330,8 @@ function genesisUserForClient(array $user): array
         'googleTasksImportReady' => $anyTasksConnected,
         'passwordEnabled' => !empty($user['password_hash']),
         'stoicheionDivinationDisabled' => !empty($user['stoicheion_divination_disabled']),
+        'advicePreferences' => genesisAdvicePreferences($user['advice_preferences_json'] ?? '{}'),
+        'adviceCatalogAvailable' => genesisAdviceCatalog() !== [],
         'isAdmin' => genesisIsAdminUser($user) && genesisSessionIsPrimaryGoogleUser($user),
         'sharedProjectsEligible' => genesisSharedEligible($user),
         'sharedProjectsLifetimeAccess' => genesisSharedTester($user),
@@ -1233,6 +1236,13 @@ function genesisUpdateAccountPreferencesInTransaction(string $userId, array $pay
     $updates = [];
     $values = ['updated_at' => genesisNow(), 'id' => $userId];
     $hasThemePreference = array_key_exists('theme', $payload);
+    if (array_key_exists('advicePreferences', $payload)) {
+        if (!is_array($payload['advicePreferences'])) throw new InvalidArgumentException('INVALID_ADVICE_PREFERENCES');
+        $saved = genesisAdvicePreferences($user['advice_preferences_json'] ?? '{}');
+        $preferences = genesisAdvicePreferences([...$saved, ...$payload['advicePreferences']]);
+        $updates[] = 'advice_preferences_json = :advice_preferences_json';
+        $values['advice_preferences_json'] = json_encode($preferences, JSON_THROW_ON_ERROR);
+    }
     if (array_key_exists('sharedProjectsEnabled', $payload)) {
         if (!is_bool($payload['sharedProjectsEnabled'])) {
             throw new InvalidArgumentException('INVALID_SHARED_PROJECT_PREFERENCE');

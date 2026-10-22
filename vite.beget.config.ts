@@ -132,6 +132,11 @@ export default defineConfig({
             { name: "mindmap-launch", test: /app[\\/]MindmapLaunchButton\.tsx$/, priority: 14 },
             { name: "affairs-copy", test: /app[\\/]native-affairs-translations\.json$/, priority: 46 },
             { name: "public-documents", test: /app[\\/](?:LegalPage\.tsx|legal-content\.ts)$/, priority: 14 },
+            ...["el","de","fr","es","it","pt","pl","sr","uk","zh","tr","ja"].map(locale => ({
+              name: `locale-restoration-${locale}`,
+              test: new RegExp(`stoicheion-restoration-locales[\\\\/]${locale}\\.json$`),
+              priority: 46,
+            })),
             {
               name: "shared-task-controls",
               test: /app[\\/](?:SharedTaskPageControls|SharedDependencyPicker|SharedArchivedTasks|SharedTaskDetailsEditor|SharedEntityPreview|SharedEntityComments)\.tsx$/,

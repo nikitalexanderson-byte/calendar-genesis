@@ -3244,7 +3244,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(stoicheion, /pythmenFromTotal/);
   assert.match(stoicheion, /Космический круг и девять ликов силы/);
   assert.match(stoicheion, /stoicheion-spread-grid/);
-  assert.match(stoicheion, /Перебросить/);
+  assert.match(stoicheion, /icon="reroll"/);
+  assert.equal(JSON.parse(await readFile(new URL("../app/stoicheion-restoration-web-ui.json", import.meta.url), "utf8")).ru.reroll, "Перебросить");
   assert.match(stoicheion, /beginMotion\("daily", true, event\.timeStamp\)/);
   assert.match(stoicheion, /MOTION_TRAVEL_REQUIRED = 4480/);
   assert.match(stoicheion, /loadStoicheionDraws/);
