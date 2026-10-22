@@ -66,27 +66,24 @@ function genesisAdviceScores(mixed $value): array
     return $scores;
 }
 
-/** Minimum exposure is a hard constraint; affinity and category variety only rank that unseen pool. */
+/** Unseen posts lead; then the least recently viewed eligible post starts the next turn. */
 function genesisChooseAdvice(array $items, array $preferences, array $scores, array $history, string $seed): ?array
 {
     $categories = $preferences['smart'] ? array_keys(array_filter($scores, static fn($weight) => $weight > 0)) : $preferences['categories'];
     if ($preferences['smart'] && $categories === []) $categories = GENESIS_ADVICE_CATEGORIES;
     $eligible = array_values(array_filter($items, static fn($entry) => array_intersect($entry['categories'], $categories) !== []));
     if ($eligible === []) return null;
-    $counts = []; $lastShown = []; $recentCategories = [];
+    $lastShown = []; $recentCategories = [];
     foreach ($history as $index => $row) {
         $id = $row['advice_id'];
-        $counts[$id] = ($counts[$id] ?? 0) + 1;
         $lastShown[$id] ??= $row['day_key'];
         if ($index < 3) {
             $entry = json_decode($row['entry_json'], true, 32, JSON_THROW_ON_ERROR);
             foreach ($entry['categories'] as $category) $recentCategories[$category] = ($recentCategories[$category] ?? 0) + 1;
         }
     }
-    $minimum = min(array_map(static fn($entry) => $counts[$entry['id']] ?? 0, $eligible));
     $best = null; $bestRank = null;
     foreach ($eligible as $entry) {
-        if (($counts[$entry['id']] ?? 0) !== $minimum) continue;
         $affinity = 0.0; $recent = 0;
         foreach (array_intersect($entry['categories'], $categories) as $category) {
             $affinity = max($affinity, $preferences['smart'] ? log(1 + ($scores[$category] ?? 0)) : 1.0);
