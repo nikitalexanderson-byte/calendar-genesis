@@ -1,5 +1,9 @@
 # Комплекс улучшений GENESIS — 14 октября 2026
 
+Актуализация 22 октября: **11 из32 функциональных ID приняты,21 остаётся частичным; отдельно14 сквозных K/U/L**. Частичный статус включает уже реализованные web/API/Android функции с незаконченной общей или release-приёмкой. Текущие исходники — `codex/post-release-acceptance-no-deploy`, draft [PR246](https://github.com/nikitalexanderson-byte/calendar-genesis/pull/246), опубликованная основа — `6287f2a`, Android2.9.4/99. **Новый деплой запрещён до отдельного указания пользователя; Samsung отключён, дальнейшие проверки только в эмуляторах.**
+
+Последний [протокол приёмки](genesis-post-release-acceptance-2026-10-22.md) содержит выбор копии сайта и проверку двух Google Tasks связей, исправления Android9/входа/типов и истории завершения задач,35 проверок общего UI-пути,80 browser-профилей и ссылки на test-only CI. Матрица ниже актуализирована; датированные записи вокруг неё сохраняют историю и не заменяют текущий статус. Полная визуальная приёмка Android15 ещё зависит от повторного захвата restore-кадров.
+
 19 октября native G3 прошёл локальную приёмку исходников: [процесс/WIP/роли/история и защищённое восстановление](genesis-native-workflow-2026-10-19.md). 343 JVM tests, 59 функциональных device-проверок, 144 принятых кадра и release/R8; официальный APK не выпускался. Далее native G4 и остальные интеграции. 21 частичный ID/14 K/U/L сохраняются.
 
 19 октября native G1 lifecycle опубликован в PR #211: master/production `91758a4a5a28e36b3d13dc3114acf29b5d784a3c`, workflow39264217160 success; SHA/health/старая вкладка/Android95 подтверждены. [Результат и непроверенные состояния](genesis-native-planning-lifecycle-2026-10-19.md). Начат [аудит одного native workflow/WIP-экрана](genesis-native-workflow-audit-2026-10-19.md); его реализация ещё впереди. Все21 функциональных ID остаются частичными, отдельно14 общих K/U/L. Ориентир60–100 часов активной работы сохраняется.
@@ -60,56 +64,56 @@
 
 ## Матрица покрытия
 
-Статусы: **аудит** — есть конкретное наблюдение, нужна реализация/проверка; **ожидает** — полный подпункт ещё не проверен; **в работе** — изменения выполняются; **готово** — весь подпункт реализован и подтверждён. Существующая часть не закрывает остальные критерии.
+Матрица актуальна на22 октября. **Принято/опубликовано** — ранее принятый функциональный ID; **реализовано, общая приёмка открыта** — работающая реализация с указанным оставшимся объёмом, а не отсутствующая функция. Локальный проход не закрывает непроверенные интеграции, внешние runtime-состояния и требуемую release-приёмку. Исторические ограничения отдельных выпусков перечислены в связанных протоколах.
 
 | ID | Состояние / имеющаяся основа | Решение, следующий шаг и проверка |
 |---|---|---|
 | A1 | Опубликовано | PR #162, master/production `7b1e49a`, Actions 38494317915 успешно; immutable assets/recovery, старая вкладка и 14 языков |
 | A2 | Опубликовано | PR #164/#165, production `fbe9e68`. ACL-курсоры, точные числа, direct reads; web/Android. PHP 499/500/501/4999/5000/5001/10000 и 50 проектов, browser pagination/search/day/references/races; оставшаяся визуальная матрица указана в журнале |
 | A3 | Опубликовано | PR #164/#165. Архив ветки, read-only, undo, корзина и explicit purge; retention/ACL/Google/receipts, browser archive/restore/comments/files/history/trash/undo. Ограничения приёмки указаны ниже |
-| A4 | В работе | Новые поля используют revision/receipt, шифрование и прежнюю очередь offline. Проверены два браузерных участника и сохранность черновика; общий пункт зависит от остальных новых функций |
-| B1 | Основной сценарий реализован | Чек-листы/пункты/порядок/сроки/исполнители/атомарная конверсия; sync/ACL/архив и старые клиенты проверены. Интеграции с будущими шаблонами/повторами/импортом остаются |
-| B2 | Основной сценарий реализован | Родители/дети, прогресс, direct navigation, защита циклов, completion/approval guard, атомарный архив/корзина. Связанный перенос требует отсоединения; повторы/шаблоны будут добавлены позднее |
+| A4 | Реализовано, общая приёмка открыта | Encrypted editing/pending/received journals, CAS, exact replay, конфликт с просмотром всех полей; [редакторы](genesis-a4-editor-recovery-2026-10-22.md). Выбор копии сайта и две Google Tasks связи подтверждены до отключения Samsung. Остались полный межклиентский проход новых функций, fresh OAuth/Calendar и новый совместимый выпуск после разрешения |
+| B1 | Реализовано, общая приёмка открыта | Именованные чек-листы, сроки/исполнители/порядок и атомарная конверсия. Общий35-check UI-путь подтвердил linked checklist в шаблоне; связи с C/G, повторами/импортом и права требуют общей приёмки |
+| B2 | Реализовано, общая приёмка открыта | Дерево, прогресс, защита циклов, completion/approval guard и lifecycle ветки. В общем UI-пути шаблон сохраняет parent/child, раннее завершение родителя не пишет revision, child→parent попадают в отчёт; полный набор интеграций ещё открыт |
 | B3 | Опубликовано | PR #167, master/production `9e68821`, Actions 38568549129 успешно. Три календаря, schedule/completion, instance/future, исключения/skip, pause/catch-up, tree/checklists, encrypted jobs; PHP/web/native и finish-review успешны. Естественный production heartbeat 14.10 в 13:10 UTC подтверждён |
-| B4 | Частично реализовано | Отдельный приоритет 0–3, web/native карточка, список/доска/календарь, серверная сортировка/фильтр. Массовые действия, шаблоны, автоматизации и экспорт остаются |
-| B5 | Web-срез опубликован; полный пункт открыт из-за C3 | PR #174, master/production `134200a`, Actions `38744426468` success, SHA/health подтверждены. Личные/общие фильтры, CRUD/copy, ACL, серверные страницы и relative dates; 221 tests и 32 UI-состояния. Фильтры пользовательских полей зависят от C3 |
+| B4 | Реализовано, общая приёмка открыта | Приоритет0–3, web/native, серверные фильтры/сортировка, bulk, templates/automations/export. В общем UI-пути значение сохраняется после применения шаблона. Полная межфункциональная и release-приёмка открыта |
+| B5 | Реализовано, общая приёмка открыта | Web/native saved views и типизированные C3 filters/sort/search уже реализованы: [native](genesis-native-saved-views-2026-10-21.md), [query bulk](genesis-native-query-bulk-2026-10-21.md), [web recovery](genesis-web-view-recovery-2026-10-21.md). Остались общий C/G/B проход и release-приёмка |
 | B6 | Опубликовано | PR #175, master/production `17ff401`, Actions `38780156926` success; SHA/health и cron подтверждены. SQL-снимок page/all, все действия, потомки, точные отчёты, ACL/revision и queue recovery. Large: 10001 selected / 10000 changes / один конфликт; ветка6000 за15,8с, peak14MiB. HTTP,14 языков ×3 календаря, logout/pagination race,26 UI-снимков и reviewer ship;224 tests и build прошли |
-| B7 | Web-срез опубликован; SMTP/VAPID runtime подключён | PR #176 — основной срез. Выпуски #182/#185 подключили SMTP/VAPID: health подтверждает push/email available=true, естественный cron после настройки 17.10 в04:30UTC. SMTP+IMAPS проверены на собственном noreply; физическая внешняя push-доставка остаётся непроверенной. [Срез E2](genesis-habit-reminders-2026-10-17.md) |
-| C1 | Ожидает: шаблоны | Save-as, preview, структура/relative dates/стартовые сценарии |
-| C2 | Ожидает: автоматизации | Конструктор, dry-run, журнал, права, циклы, проверенный worker |
-| C3 | Ожидает: пользовательские поля | Семь типов, lifecycle, валидация/search/filter/sort/history |
-| C4 | Ожидает: командная аналитика | Точная выборка/ACL, настоящая история, отсутствие вымышленных нулей |
-| C5 | Ожидает: перенос данных | Trello/CSV/JSON, mapping/preview/undo, round-trip и безопасность |
-| C6 | Ожидает: проектные разрешения | Ограниченные участники/наследование и единый ACL во всех каналах |
+| B7 | Реализовано, общая приёмка открыта | Web/native уведомления, unread/deep links/preferences и фоновые lease/retry. [Постоянная иконка и desktop-окно](genesis-ui-reliability-audit-2026-10-22.md); свежая backend CI проверяет watch/ACL/import/reminders. Реальная внешняя push-доставка и новый Hostinger runtime-проход открыты |
+| C1 | Реализовано, общая приёмка открыта | Web/API/native библиотека, preview, сохранение/применение и durable recovery; [IME/keyboard](genesis-native-template-keyboard-2026-10-21.md).35-check UI-путь связывает шаблон, поля, checklist, parent/child и спринт. Остались полный общий набор и release-приёмка |
+| C2 | Реализовано, общая приёмка открыта | Web/API/native конструктор, dry-run, журнал, exact retry и [параметры шаблонов](genesis-native-automation-template-options-2026-10-21.md). Backend CI проверяет worker/leases и completion/reopen trigger после исправления same-project move. Текущий Hostinger worker и общая release-приёмка открыты |
+| C3 | Реализовано, общая приёмка открыта | Семь типов, значения create/edit/list, definitions/options/archive/history, поиск/фильтр/сортировка и recovery; [управление](genesis-native-field-management-2026-10-21.md), [списки](genesis-native-field-lists-2026-10-21.md). Нули/false сохранены общим UI-путём; остаются общий C/G/B проход и release-приёмка |
+| C4 | Реализовано, общая приёмка открыта | Web/API/native отчёты, реальные события и точные task/event sources. Свежие history/integration suites проходят; исправлена ложная потеря scope при завершении внутри проекта. Полный cross-role walkthrough и release-приёмка открыты |
+| C5 | Реализовано, общая приёмка открыта | Trello/CSV/JSON, mapping/preview/receipt/undo, native [экспорт](genesis-native-data-export-audit-2026-10-19.md)/[импорт](genesis-native-data-import-audit-2026-10-20.md). Прежняя история не включается как новое событие. Остались общий Google/ACL walkthrough и release-приёмка |
+| C6 | Реализовано, общая приёмка открыта | Web/API/native [проектные разрешения](genesis-native-project-access-audit-2026-10-20.md), inherited/limited roles и server ACL. Локальные проверки отзыва и кеша не заменяют полный production/cross-role walkthrough |
 | D1 | Опубликовано | PR #177, master/production `2750688`, Actions `38833466614` success; SHA/health и Android 2.8.5/85 подтверждены. Количество/длительность, тысячные, события/исправления/история правил, web+Android. 243 web/250 native tests, 42 language-calendar cases, 44 UI вида и finish verdict. [Отчёт](genesis-d1-measurements-2026-10-16.md); полный D3/F3 открыты |
 | D2 | Опубликовано | PR #178, master/production `f05a4b1`, Actions `38883383125` success; SHA/health и hash Android 2.8.6/86 подтверждены. Разные дни / отдельные выполнения / сумма за неделю и месяц; собственный контекст и writer protocol 3. 258 web/260 JVM tests, Samsung 2/2 и API28 1/1 UI tests, 36 снимков, reviewer ship. [Отчёт](genesis-d2-period-goals-2026-10-16.md) |
 | D3 | Опубликовано | PR #179, Android 2.8.7/87, последующий master `d617d53` включает D3. История/конфликты правил и последние исправления UI проверены; см. docs/genesis-d3-history-and-ui-2026-10-16.md |
 | E1 | Выпущено 2.8.11/91, PR #184, master/production `9907e7e` | Stopwatch/Pomodoro, timestamps, durable review/save/retry, две вкладки/Web Locks/IDB, midnight/DST/четыре контекста, native/account round-trip, официальный APK Realme; [доказательства и ограничения](genesis-habit-timers-2026-10-17.md) |
 | E2 | Выпущено 2.8.12/92 | PR #185, master/production d4b517b, CI39000474521 success; official APK Realme, VAPID+SMTP available и естественный cron04:30 подтверждены. Web/native exact-day/input/snooze/frequency/consent, encrypted metadata/queue, quiet/DST/expiry;298 web tests/PHP/native/Realme, обе схемы ×4 ширины. [Доказательства и ограничения](genesis-habit-reminders-2026-10-17.md) |
 | E3 | Опубликовано 2.8.13/93, PR #186 | Master/production `d0e2f59`, Actions `39004416472` success, официальный APK установлен поверх прежнего на Realme без очистки. Append-only history/economy baseline, web/native preview, protocol6 и offline old-reader guard.304 web/282 JVM tests, lint/build, два offline-клиента binary/quantity, календарный переход/реальное Today, Realme1/1, обе темы ×4 ширины; fresh reviewer ship. [Отчёт и ограничения](genesis-habit-history-2026-10-17.md) |
-| E4 | Модель в отдельном checkpoint; интеграция открыта | `96ee6ff`, ветка `codex/habit-lifecycle`: независимые lifecycle models. Сохранение/синхронизация, UI, таймеры, экономика и совместимость ещё требуют интеграции и приёмки |
-| E5 | Ожидает: полный экспорт привычек | CSV/backup, preview/conflicts/round-trip без повторных наград |
-| F1 | Аудит: неполная неделя vs полная, +100% при базе 0 | Равные части периодов, absolute delta/no-baseline, локализованный UI |
-| F2 | Частично реализовано | Убран предел 370, год следует контексту; 384 дня и последняя дата проверены. Факт/план/знаменатели новых типов остаются |
-| F3 | Ожидает: существующая экономика | Проверить однократность для всех новых источников/редактирования |
-| G1 | Server/web опубликованы; первый native экран проверен | [Native чтение/перенос/точные суммы](genesis-native-planning-2026-10-19.md); native settings/lifecycle/durable journal, интеграции и общая приёмка открыты |
-| G2 | Server/web и durable rows опубликованы; native/интеграции открыты | PR #207, независимые points/часы,0/null/omitted, dirty-only rebase и multiple device editors; [границы](genesis-planning-task-drafts-2026-10-19.md) |
-| G3 | Server/web опубликованы; native/интеграции открыты | Workflow/WIP/поля/роли, archive/trash repair и durable recovery; PR #201/#204/#205 |
-| G4 | Server/web опубликованы; native/интеграции открыты | Burndown/CFD/scope/WIP и разрешённые event/task sources; PR #203, [границы](genesis-sprint-reports-2026-10-19.md) |
+| E4 | Реализовано, общая приёмка открыта | Web/native pause/archive/delete/restore, ID/history/rewards, таймеры, protocol6→7 и offline outbox. [E/F/A4 протокол](genesis-efa-completion-2026-10-22.md) фиксирует проверки и границы; полный межклиентский/production проход открыт |
+| E5 | Реализовано, общая приёмка открыта | Полный CSV/JSON, checksum/allowlist, preview/keep/copy, encrypted draft и atomic exact-once apply без новых наград. Process-death и protocol upgrade проверены в изоляции; текущий Android15 restore paint ещё перепроверяется, полный обмен открыт |
+| F1 | Реализовано, общая приёмка открыта | Сравнимые прошедшие части периодов, absolute delta/no-baseline, native UI и общие calendar/parity tests. Полная поверхность/межклиентская матрица открыта; [протокол](genesis-efa-completion-2026-10-22.md) |
+| F2 | Реализовано, общая приёмка открыта | Полный лунный год, независимые цели/объём/единицы, известный знаменатель, открытые периоды, источники и переход в историю. Базовые UI/storage пройдены; полный набор календарей/локалей/обмена открыт |
+| F3 | Реализовано, общая приёмка открыта | Существующая экономика, append-only источники и однократные начисления при restore/import/replay; protocol6/7 и timer parity. Полный end-to-end набор новых источников и release-приёмка открыты |
+| G1 | Реализовано, общая приёмка открыта | Web/API/native backlog, settings, sprints, перенос/запуск/завершение и journal; [lifecycle](genesis-native-planning-lifecycle-2026-10-19.md). Общий UI-путь дошёл от шаблона до закрытого спринта; полный C/B/native walkthrough открыт |
+| G2 | Реализовано, общая приёмка открыта | Web/API/native независимые points/hours,0/null/omitted, durable rows и rebase. Общий UI-путь сохранил points0/3 и hours1.5/0 в планировании и отчётах. Межклиентские пределы и release-приёмка открыты |
+| G3 | Реализовано, общая приёмка открыта | Web/API/native [workflow/WIP/роли/история](genesis-native-workflow-2026-10-19.md), required fields и guarded restore. Свежая backend CI подтверждает C1/C2/C5/bulk entry и atomicity; полный app flow и release-приёмка открыты |
+| G4 | Реализовано, общая приёмка открыта | Web/API/native [burndown/CFD/scope/WIP и sources](genesis-native-sprint-reports-2026-10-19.md). Исправлен same-project move event; completion/reopen/replay и35-check UI-путь подтверждают truthful delivery. Большие истории/общий app flow и release-приёмка открыты |
 | K1 | Реализовано в календарном ядре | Четыре конфигурации года, фактические равноденствие и 12/13 лунных месяцев; web/native/PHP |
 | K2 | Реализовано в календарном ядре | Общие astronomy/zone/range/cache, Apeiron и строгие inverse dates; спецификация calendar-context-v2.md |
-| K3 | Реализовано для существующих повторов | v1 сохраняет историю, v2 хранит собственную зону; skip, DST и next5 preview. Общие серии появятся в B3 |
-| K4 | В работе | Подключены существующие календарь/picker/повторы/годовые отчёты. Новые серии/цели/шаблоны/автоматизации/импорт/спринты ещё впереди |
-| K5 | Основной сценарий подтверждён | Browser: фактический 15 января при выбранном апреле, 24h/AMPM. Переходы из счётчиков проверены ранее в B; физический Android не проверен |
+| K3 | Реализовано; сквозная приёмка открыта | v1 сохраняет историю, v2 хранит собственную зону; skip/DST/next5 и общие B3 серии реализованы. Все новые источники проверяются вместе с соответствующими ID |
+| K4 | Реализовано; сквозная приёмка открыта | Календарные контексты используются в повторах/целях/шаблонах/автоматизациях/импорте/спринтах. Полная общая матрица четырёх конфигураций по новым функциям открыта |
+| K5 | Основной сценарий подтверждён; сквозная приёмка открыта | Today использует фактическую дату, календарные переходы идут в месяц,24h/AMPM сохраняются. Локальные web/native проверки описаны в соответствующих протоколах; полный набор новых сценариев открыт |
 | K6 | Основное ядро проверено | 193 общих вектора, round-trip/DST/long lunar/история/сохранение series context. Проверки будущих возможностей остаются обязательными |
-| U1 | Аудит: контракт выше | Сверить фактические компоненты и эталон до UI |
-| U2 | Ожидает | Повторное использование токенов всех новых экранов |
-| U3 | Ожидает | Ассеты/accessibility/states, Android block flow |
-| U4 | Ожидает | Первый UI — карточка; обе схемы × 4 ширины, screenshots |
-| L1 | Аудит: 14 языков | Все новые строки во всех 14 локалях |
-| L2 | Ожидает | UI/API/a11y/templates/notifications/export/native |
-| L3 | Ожидает | Параметры/plurals/locale/recipient context, черновик |
-| L4 | Ожидает | i18n:audit + браузерные сценарии 14 языков |
+| U1 | Реализовано по этапам; общая приёмка открыта | STANDART light/dark и Universal UI сохранены; аудит/реализация привязаны к одному экрану и существующим компонентам |
+| U2 | Реализовано по этапам; общая приёмка открыта | Общие controls,10px/dp corners, web44px/native48dp и компактные именованные иконки. Полная межэкранная проверка всех состояний открыта |
+| U3 | Реализовано по этапам; общая приёмка открыта | Ассеты сохранены, Android calendar blocks идут общим потоком, формы/preview/recovery разделены. Настоящие TalkBack/VoiceOver и вся state matrix ещё не подтверждены |
+| U4 | Частичные визуальные наборы приняты | Веб: обе схемы ×360/390/768/1440, включая80 legacy dialog профилей; Android: functional API28/API35, текущие restore кадры API35 перепроверяются. [Обязательная матрица](genesis-universal-ux-acceptance-2026-10-19.md) не закрыта одним набором |
+| L1 | Каталоги14 языков; общая приёмка открыта | ru/en/el/de/fr/es/it/pt/pl/sr/uk/zh/tr/ja; новые ключи проходят i18n gate, полный интерфейсный проход всех функций открыт |
+| L2 | Реализовано по этапам; общая приёмка открыта | UI/API/a11y/templates/notifications/export/native используют существующие каталоги; новые пользовательские названия не переводятся |
+| L3 | Реализовано по этапам; общая приёмка открыта | Параметры/locale/recipient context и сохранность черновиков проверяются тематическими тестами; полная визуальная и носительская вычитка не заявляется |
+| L4 | Аудит и отдельные UI-матрицы прошли | `pnpm i18n:audit` входит в484 web tests; legacy dialog принят на14 языках в Chromium/WebKit. Welcome native сверх RU/EN не принят полной paint matrix; общий L4 остаётся открытым |
 
 ## Журнал этапов
 

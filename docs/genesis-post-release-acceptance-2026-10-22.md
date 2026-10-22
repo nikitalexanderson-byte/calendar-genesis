@@ -32,7 +32,7 @@
 
 На API28 после исправления прошли все девять UI-запусков: обе темы Стойхейона при390/768dp иfont130, каталог14 локалей, восстановление/источник отчёта при768dp/font130 и1440dp/font100. Текущие28 кадров перечислены в `output/post-release-native-scenes/emulator-5554/fixed/accepted-frames.json`, результат — в соседнем `receipt.json`. Контактный лист и широкий кадр восстановления просмотрены; старые кадры в соседних каталогах в этот набор не входят.
 
-На API35 локальный QEMU дважды исчезал из ADB: как прежний планшетный профиль, так и существующий телефонный `Genesis_API35`, запущенный без очистки данных. Windows Application Event1000 в11:54:09 подтвердил падение `qemu-system-x86_64-headless.exe` с exception`c0000005`. Эти незавершённые UI-сценарии не считаются пройденными; ошибка процесса эмулятора отделяется от исправленного исключения приложения на API28. Для API35 подготовлен отдельный Linux CI `native-acceptance.yml` без публикации, production credentials и release signing; его завершение ещё ожидается.
+На API35 локальный QEMU дважды исчезал из ADB: как прежний планшетный профиль, так и существующий телефонный `Genesis_API35`, запущенный без очистки данных. Windows Application Event1000 в11:54:09 подтвердил падение `qemu-system-x86_64-headless.exe` с exception`c0000005`. Эти незавершённые UI-сценарии не считаются пройденными; ошибка процесса эмулятора отделяется от исправленного исключения приложения на API28. Для API35 используется отдельный Linux CI `native-acceptance.yml` без публикации, production credentials и release signing; результаты приведены ниже.
 
 В первом запуске широкая настройка API28 фактически дала1080dp вместо запрошенных1440dp. Эти четыре welcome-результата относятся только к1080dp;1440dp подтверждены тем прогоном лишь на API35. Добавлена обязательная проверка фактической ширины и изменён способ задания самого широкого профиля. Новый финальный welcome-повтор выполняется с текущим APK, в том числе с исправленным контрастом Google-кнопки. Для восстановления/отчёта1440dp уже подтверждены отдельными metrics. Физический API28 PNG имеет1080×1920 и содержит спроецированный логический viewport; его размер не используется вместо проверки логической геометрии.
 
@@ -40,9 +40,23 @@
 
 `pnpm install --frozen-lockfile`, `pnpm lint`, `pnpm test` (484/484) и `pnpm build:beget` прошли. Полный Android JVM-прогон:738 total/730 executed/8 прежних opt-in skips, без failures/errors. `lintDebug` завершился успешно (SARIF:0 errors, одно прежнее UseKtx warning). Debug APK и instrumentation APK собраны. Логи: `output/post-release-web-gates.json`, `output/post-release-final-native-gates.log`, `output/native-acceptance-runner-final-build.log`.
 
-Тестовый runner устанавливает только отдельный пакет `.g1qa.debug`, проверяет target instrumentation до установки, исключает физические устройства и восстанавливает настройки дисплея после завершения. Workflow запускается для рабочей ветки/PR; существующий `deploy.yml` не изменяется и по-прежнему запускается только дляmaster. Результаты этого CI добавляются после фактического выполнения.
+Тестовый runner устанавливает только отдельный пакет `.g1qa.debug`, проверяет target instrumentation до установки, исключает физические устройства и восстанавливает настройки дисплея после завершения. Workflow запускается для рабочей ветки/PR; существующий `deploy.yml` не изменяется и по-прежнему запускается только дляmaster.
 
-Первый завершённый Linux API35 job в run39757741734 успешно собрал код/проверил JVM, но не смог запустить эмулятор: `FATAL Not enough space to create userdata partition`, доступно5835.78MB при необходимых7372.80MB. Это ошибка подготовки CI до любого UI-теста. Добавлен уже применяемый в release CI порядок: после сборки удалить только ненужные SDK NDK и compilation scratch/cache, сохранить APK и отчёты, проверить свободное место. Production workflow не менялся. Повтор ещё ожидается.
+Первый завершённый Linux API35 job в run39757741734 успешно собрал код/проверил JVM, но не смог запустить эмулятор: `FATAL Not enough space to create userdata partition`, доступно5835.78MB при необходимых7372.80MB. Это ошибка подготовки CI до любого UI-теста. Добавлен уже применяемый в release CI порядок: после сборки удалить только ненужные SDK NDK и compilation scratch/cache, сохранить APK и отчёты, проверить свободное место. Production workflow не менялся. Следующий run39760454943 успешно запустил оба эмулятора.
+
+## Android CI и достоверность кадров
+
+[Native CI39760454943](https://github.com/nikitalexanderson-byte/calendar-genesis/actions/runs/39760454943), исходники`15da5ae`: оба job API28/API35 завершились success, по33 UI-запуска и124 PNG. На каждой API JVM:738 total/730 executed/8 прежних opt-in skips,0 failures/errors. Настройки дисплея восстановлены. Этот результат подтверждает функциональные assertions; он не означает автоматической визуальной приёмки248 кадров.
+
+Ручной просмотр обнаружил четыре пустых restore PNG на API35: снимок содержит лишь Activity background`(7,23,27)` и системные часы/иконки. Source PNG тех же запусков содержат настоящий Surface. Проверка одного лишь ImageStat/stddev ошибочно пропускала системную панель как содержимое. Прежние локальные`verified-summary.json` исправлены: поле`blankFrames:0` удалено, отдельно записаны scope и результат PNG recheck. Восемь Habit restore/source кадров API28 содержат Surface; на API35 из этих восьми четыре restore отвергнуты. Receipt: `output/native-ui-acceptance/ci-final-api{28,35}/habit-paint-recheck.json`. Остальные состояния не объявляются прошедшими полную визуальную приёмку на основании этой статистики.
+
+В test-only harness добавлено ожидание RenderThread frame commit на API29+; на API28 используется animation fallback. После ожидания декодируется физический `screencap` PNG: настоящий Material Surface должен занимать ≥15% изображения при допуске 2 RGB. Проверка не использует PixelCopy, captureToImage или сопоставление семантических координат с framebuffer. Пустой кадр сохраняется как rejected diagnostic; допустимы только три ограниченные попытки, затем тест падает. Она защищает от пустого кадра, но не заменяет просмотр элементов. Runner сохраняет surfaceFraction/attempts/frameSync/SHA и не отмечает весь case успешным до получения evidence.
+
+Локальный повтор текущего harness`809063b` на API28 прошёл4/4:768dp/font130 и1440dp/font100 в обеих темах, restore/source —8 PNG. Все восемь просмотрены;≥48dp и viewport bounds прошли, Surface занимает64.8–73.6%, все снимки получены с первой попытки. Настройки восстановлены, телефон не использовался. Receipt: `output/native-ui-acceptance/local-frame-commit-api28/receipt.json`.
+
+Дополнительная узкая API28 матрица прошла 8/8: 360/390dp, обе темы, базовый font100 и длинные названия при font130. Сохранены 16 физических restore/source PNG и metrics; контактный лист просмотрен, stress-кадры дополнительно открыты в исходном размере. Длинное название переносится в общей прокрутке; footer и edit action доступны и имеют ≥48dp, наложений не обнаружено. Настройки дисплея восстановлены. Receipt: `output/native-ui-acceptance/phone-edges-api28/receipt.json`, кадры и `contact.png` рядом. Это отдельные synthetic UI-профили, не новое применение копии или проверка production-данных.
+
+Повтор [Native CI39769544156](https://github.com/nikitalexanderson-byte/calendar-genesis/actions/runs/39769544156) по`809063b` выполняет прежнюю полную33-case матрицу на каждой API. Android15 restore paint до получения и просмотра новых PNG остаётся открытым.
 
 ## Общая проверка TypeScript и совместимый диалог
 
@@ -52,7 +66,7 @@
 
 В изолированной browser fixture прошли40 сочетаний: RU/EN при360/390/768/1440px в обеих схемах и остальные12 языков при390px в обеих схемах. Проверены отсутствие переполнения, видимость диалога, кнопки10px/≥44px, контраст основного абзаца≥6.28:1, передача именноID аккаунта, блокировка повторного старта, восстановление после ошибки навигации и Escape. Сохранены16 before и41 after PNG; before — изолированная старая поверхность, а не полный account walkthrough. Реальный провайдер не вызывался. Receipt: `output/playwright/legacy-calendar/receipt.json`. Текущие frozen install, TypeScript, lint (0 errors/2 прежних image warnings),484 web tests и build:beget PASS: `output/no-deploy-web-gates.json`.
 
-## Границы
+Дополнительно та же40-profile матрица прошла в мобильном WebKit: `output/playwright/legacy-calendar/webkit-receipt.json` и отдельные PNG. В сумме80 browser-профилей. Это эмуляция WebKit/iPhone; настоящий iOS Safari и VoiceOver этим не подтверждены.
 
 ## Сквозной сценарий и история перемещения
 
@@ -60,8 +74,23 @@
 
 Причина подтверждена в общем `genesisSharedMoveTask`: даже смена доски внутри одного проекта писала `task.moved_out`, который честно трактовался отчётами как выход из scope. Такой event также пропускал status/completed автоматизации. Теперь внутри проекта записывается `task.updated` с точными изменениями и прежним состоянием; настоящий переход в другой проект сохраняет moved_out/moved_in. Старые наблюдения и данные не переписываются, миграции нет.
 
-Новая PHP-регрессия сначала воспроизвела ошибку, затем прошла для задач/нулевых points/часов, завершения/повторного открытия, точного replay, reorder без второго завершения, двух completion automation triggers после reopen/recomplete и настоящего выхода в другой проект. Семь связанных локальных PHP-наборов прошли. В давно используемой общей fixture проверка imported reminder не прошла; она не объявляется зелёной. Отдельный test-only backend CI запускает восемь наборов на новой SQLite для каждого файла, без production credentials. Повтор общего UI-сценария после исправления ещё выполняется.
+Новая PHP-регрессия сначала воспроизвела ошибку, затем прошла для задач/нулевых points/часов, завершения/повторного открытия, точного replay, reorder без второго завершения, двух completion automation triggers после reopen/recomplete и настоящего выхода в другой проект. Семь связанных локальных PHP-наборов прошли. В давно используемой общей fixture проверка imported reminder не прошла; точная причина этого локального остатка не установлена и исправленной не объявляется.
+
+[Backend CI39766424510](https://github.com/nikitalexanderson-byte/calendar-genesis/actions/runs/39766424510), исходники`15c7377`: все8 suites прошли на новой SQLite для каждого файла — shared-sprint-reports, shared-sprint-flow-model, shared-reports-history, shared-reports-integration, shared-workflows, workflow-integrations, shared-automations, shared-notifications. Ephemeral config создаётся только на CI runner и удаляется; production credentials/БД не используются. Логи: `output/backend-acceptance/ci-final/`. Прохождение свежей fixture не подменяет объяснение прежнего локального failure.
+
+Повтор настоящего локального UI-пути после исправления завершился35/35 checks: шаблон→две связанные задачи→поля0/false/priority→points0/3 иhours1.5/0→создание/назначение/запуск спринта→parent guard→child/parent completion→закрытие спринта. Tasks/points/hours имеют истинные delivered/scope значения, нули сохраняются, ложного выхода/повторного завершения нет; каждый report source содержит ровно нужные две задачи, drilldown открывает исходную задачу. При быстром assignment→start был409; штатный Refresh сохранил данные и следующий start подтвердился. Устранение всех конкурирующих UI-состояний не заявляется.
+
+Восемь PNG планирования/отчёта: обе схемы при360/390/768/1440px, `output/playwright/post-release-integrated-{standart,standart-dark}-{360,390,768,1440}.png`. Receipt: `output/post-release-integrated-final.json`. Обе созданные этим проходом локальные QA spaces удалены штатным API; отсутствие проверено (`output/post-release-integrated-cleanup.json`, deletedLocalTestSpaces=2, productionDataChanged=false). Прежние тестовые пространства не затрагивались.
 
 ## Границы текущего среза
 
-Нового деплоя, push/merge в master, перезапуска публикующего workflow и операторского SSH в этом срезе нет. Samsung после отключения не используется. Завершённый реальный выбор данных и проверка двух Google Tasks связей не закрывают автоматически 21 частичный функциональный ID и 14 сквозных K/U/L; их интеграционные и предельные сценарии продолжаются.
+Нового деплоя, push/merge в master, перезапуска публикующего workflow и операторского SSH в этом срезе нет. Draft[PR246](https://github.com/nikitalexanderson-byte/calendar-genesis/pull/246) открыт для review, не merged. Samsung после отключения не используется. Завершённый реальный выбор данных и проверка двух Google Tasks связей не закрывают автоматически21 частичный функциональный ID и14 сквозных K/U/L. Актуальная [матрица46 ID](genesis-improvements-progress-2026-10-14.md) различает работающую реализацию и незавершённую общую приёмку; строгий счёт остаётся11/32 принятых.
+
+Явно не подтверждены в этом срезе:
+
+- Новый реальный OAuth-вход до конца и roundtrip событий Google Calendar.
+- Полный production/cross-role walkthrough новых функций и новый signed Android release с текущими исправлениями.
+- Текущий Hostinger worker/notifications/cron и настоящая внешняя доставка уведомлений.
+- Настоящий iOS Safari, VoiceOver и TalkBack.
+- Полная native Welcome paint matrix ещё12 локалей сверх RU/EN; наличие каталога и i18n gate не заменяет такой просмотр.
+- Новый Android15 restore paint до завершения указанного CI и просмотра его кадров; прежний пустой набор не принят.
