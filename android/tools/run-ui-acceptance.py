@@ -86,9 +86,9 @@ def main():
         (output / (case + ".log")).write_text(log, encoding="utf8")
         passed = "OK (1 test)" in log and not any(error in log for error in
             ["FAILURES!!!", "Process crashed", "INSTRUMENTATION_STATUS_CODE: -2", "INSTRUMENTATION_STATUS_CODE: -3", "INSTRUMENTATION_STATUS_CODE: -4"])
-        receipt["checks"].append({"case": case, "passed": passed})
+        result = {"case": case, "instrumentationPassed": passed, "passed": False}
+        receipt["checks"].append(result)
         (output / "receipt.json").write_text(json.dumps(receipt, indent=2), encoding="utf8")
-        print(f"API{receipt['sdk']} {case}: {'PASS' if passed else 'FAIL'}", flush=True)
         # Keep any frames drawn before a failure; a passing run must supply all evidence.
         for name, folder in captures:
             try:
@@ -96,7 +96,34 @@ def main():
             except (AssertionError, subprocess.TimeoutExpired):
                 if passed:
                     raise
+        if test_class == "ru.genesis.calendar.HabitReportCaptureTest":
+            # Retain failed physical frames too; they are diagnostics, never accepted evidence.
+            try:
+                names = command("shell", "ls", f"/sdcard/Android/data/{PACKAGE}/files/ef-captures").splitlines()
+                stems = {Path(name).stem for name, _ in captures if name.endswith(".png")}
+                for name in names:
+                    if any(name in {f"{stem}.rejected-{attempt}.png" for attempt in range(1, 4)} for stem in stems):
+                        pull(case, name, "ef-captures")
+            except (AssertionError, subprocess.TimeoutExpired):
+                if passed:
+                    raise
+            if passed:
+                result["paintedFrames"] = []
+                for name, _ in captures:
+                    if not name.endswith(".metrics.json"):
+                        continue
+                    metrics = json.loads((output / case / name).read_text(encoding="utf8"))
+                    assert metrics["surfaceFraction"] >= .15, f"{case}: missing app Surface"
+                    assert 1 <= metrics["captureAttempts"] <= 3, f"{case}: invalid capture attempts"
+                    assert metrics["frameSync"] in ["render-thread-commit", "animation-fallback"]
+                    png = name.removesuffix(".metrics.json") + ".png"
+                    result["paintedFrames"].append({"png": png,
+                        "sha256": hashlib.sha256((output / case / png).read_bytes()).hexdigest(),
+                        **{key: metrics[key] for key in ["surfaceFraction", "captureAttempts", "frameSync"]}})
         assert passed, log[-5000:]
+        result["passed"] = True
+        (output / "receipt.json").write_text(json.dumps(receipt, indent=2), encoding="utf8")
+        print(f"API{receipt['sdk']} {case}: PASS", flush=True)
 
     def pull(case, name, folder=""):
         target = output / case / name
