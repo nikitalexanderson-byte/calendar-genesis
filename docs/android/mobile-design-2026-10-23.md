@@ -40,7 +40,7 @@
 
 - `pnpm install --frozen-lockfile` — успешно.
 - `pnpm lint` — 0 ошибок; 2 прежних предупреждения `no-img-element` в web-файлах майндмепов.
-- `pnpm test` — 539 тестов прошли.
+- `pnpm test` — 542 теста прошли на актуальной базе `origin/master`.
 - `pnpm build:beget` — успешно, включая документы и offline precache.
 - `node android/tools/audit-native-i18n.mjs` — успешно; новые строки добавлены в нативный RU/EN-каталог.
 - Проверка diff на пробелы и незапланированные файлы.
