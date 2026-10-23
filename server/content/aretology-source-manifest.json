@@ -514,9 +514,15 @@
     {
       "number": 72,
       "id": "advice-fe0f86e475bc9350744f1095",
-      "title": "Практика \"Очага Гестии\"",
+      "title": "Воля и внутренний центр во время поста",
       "status": "published",
-      "textSha256": "fe0f86e475bc9350744f109515b85a759870477931597f299edc41f2a47a78e9"
+      "textSha256": "6663a0ece036403fb7a45a71fc055496d226ff8c649726ec7a560c1d5be65de0",
+      "sourceTitle": "Практика \"Очага Гестии\"",
+      "sourceTextSha256": "fe0f86e475bc9350744f109515b85a759870477931597f299edc41f2a47a78e9",
+      "titleCorrection": {
+        "date": "2026-10-24",
+        "reason": "The post concerns will, the inner centre and fasting; its title must not identify it as a practice about Hestia's hearth."
+      }
     },
     {
       "number": 73,
@@ -619,9 +625,15 @@
     {
       "number": 87,
       "id": "advice-9cf5caf429f740fc9e0bb42c",
-      "title": "Контроль Сосудов (Завет Гесиода)",
+      "title": "Посуда для трапезы (Завет Гесиода)",
       "status": "published",
-      "textSha256": "9cf5caf429f740fc9e0bb42ce4e9e74e197ec8bd383e36b7842dc0d2bc218fa8"
+      "textSha256": "e0dbdc09ba3194e51aa3e18bbc7d5a727499664eff0ec315f0de16a2939d6eb8",
+      "sourceTitle": "Контроль Сосудов (Завет Гесиода)",
+      "sourceTextSha256": "9cf5caf429f740fc9e0bb42ce4e9e74e197ec8bd383e36b7842dc0d2bc218fa8",
+      "titleCorrection": {
+        "date": "2026-10-24",
+        "reason": "Specify tableware for a meal, distinguishing this post from washing vessels and the metaphor of bodily vessels."
+      }
     },
     {
       "number": 88,
@@ -752,9 +764,15 @@
     {
       "number": 106,
       "id": "advice-120d3f1be19fb857f1e215f2",
-      "title": "Практика Внешних Зависимостей",
+      "title": "Свобода выбора при внешних ограничениях",
       "status": "published",
-      "textSha256": "120d3f1be19fb857f1e215f25dd40ea39d9412990d19323b112b8355e9b75229"
+      "textSha256": "bbaeb3ad1fff6130daad63db93a8c2dd0766afcbaf6f32a0872355284bfcaa5c",
+      "sourceTitle": "Практика Внешних Зависимостей",
+      "sourceTextSha256": "120d3f1be19fb857f1e215f25dd40ea39d9412990d19323b112b8355e9b75229",
+      "titleCorrection": {
+        "date": "2026-10-24",
+        "reason": "The body describes freedom of judgement amid external constraints, not practising dependence. Other locale titles already express that subject."
+      }
     },
     {
       "number": 107,
@@ -1018,9 +1036,15 @@
     {
       "number": 144,
       "id": "advice-3a0b96ed19225e780c08685d",
-      "title": "Контроль Сосудов (Принцип Гесиода)",
+      "title": "Сосуды и места для омовения (Принцип Гесиода)",
       "status": "published",
-      "textSha256": "3a0b96ed19225e780c08685dc58871433c00b095d82297ab589ccf38c443ae97"
+      "textSha256": "d69130ebefbb6f24add8cf0c826bbc2078bf57573f2c29e82f0d5679b42c497a",
+      "sourceTitle": "Контроль Сосудов (Принцип Гесиода)",
+      "sourceTextSha256": "3a0b96ed19225e780c08685dc58871433c00b095d82297ab589ccf38c443ae97",
+      "titleCorrection": {
+        "date": "2026-10-24",
+        "reason": "Specify vessels and places for ablution, separating this post from tableware advice and the bodily-vessel metaphor."
+      }
     },
     {
       "number": 145,

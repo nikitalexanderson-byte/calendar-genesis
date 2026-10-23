@@ -1023,9 +1023,15 @@
       "number": 128,
       "sourceParagraph": 39,
       "id": "advice-c59ad9983bfc61094ecec469",
-      "title": "Артефакт как инструмент власти",
+      "title": "Уход за обувью как практика прямодействия",
       "status": "published",
-      "textSha256": "2614f864b89fc63cbe679834231fbfeeb3c951ccc629022d31113509e0bdd2dc"
+      "textSha256": "2b47540e116a26b35357687f3235d90219ace3cfe945f66535f838f4902265fc",
+      "sourceTitle": "Артефакт как инструмент власти",
+      "sourceTextSha256": "2614f864b89fc63cbe679834231fbfeeb3c951ccc629022d31113509e0bdd2dc",
+      "titleCorrection": {
+        "date": "2026-10-24",
+        "reason": "The complete post concerns footwear and its care; name that subject instead of the generic artefact heading used by other advice."
+      }
     },
     {
       "number": 129,
