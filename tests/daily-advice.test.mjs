@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { parseAdviceParagraphs, mergeAdviceCatalog, adviceCategories } from "../scripts/import-daily-advice.mjs";
 import { ADVICE_TOPICS, adviceAvailableCategories, adviceHabitScores, adviceHabitTopicScores, adviceTaskContext, advicePreferences } from "../app/daily-advice.ts";
-import { verifyDailyAdvice } from "../scripts/verify-daily-advice.mjs";
+import { adviceLanguages, verifyAdvicePairing, verifyDailyAdvice } from "../scripts/verify-daily-advice.mjs";
 
 test("paragraph import preserves text and stable IDs across reorder, BOM, CRLF, and reflow", () => {
   const entries = parseAdviceParagraphs("\uFEFFFirst line\r\ncontinued.\r\n\r\nSecond post.\r\n", "hermetica");
@@ -91,6 +91,33 @@ test("published advice has complete titles and bodies in all fourteen languages 
   assert.equal(catalog.items[18].status, undefined);
   assert.equal(catalog.items[25].id, "advice-a981fcbe698a094088afcbd5");
   assert.deepEqual(catalog.items.map((entry, index) => entry.status === "draft" ? index + 1 : null).filter(Boolean), []);
+});
+
+test("reviewed locale pairs reject another advice's title or body in every language", async () => {
+  const catalog = JSON.parse(await readFile(new URL("../server/content/daily-advice.json", import.meta.url), "utf8"));
+  const review = JSON.parse(await readFile(new URL("../server/content/daily-advice-pairings.json", import.meta.url), "utf8"));
+  const fasting = catalog.items.find(entry => entry.id === "advice-fe0f86e475bc9350744f1095");
+  const other = catalog.items[0];
+  for (const language of adviceLanguages) {
+    const locale = JSON.parse(await readFile(new URL(`../server/content/daily-advice/${fasting.contentVersion}/${language}.json`, import.meta.url), "utf8"));
+    assert.doesNotThrow(() => verifyAdvicePairing(fasting, language, locale[fasting.id], review.entries[fasting.id]));
+    assert.throws(() => verifyAdvicePairing(fasting, language, { ...locale[fasting.id], title: locale[other.id].title }, review.entries[fasting.id]), /title\/body pairing/);
+    assert.throws(() => verifyAdvicePairing(fasting, language, { ...locale[fasting.id], body: locale[other.id].body }, review.entries[fasting.id]), /title\/body pairing/);
+    const formerTitle = review.titleCorrections.find(change => change.id === fasting.id).locales[language].before;
+    assert.throws(() => verifyAdvicePairing(fasting, language, { ...locale[fasting.id], title: formerTitle }, review.entries[fasting.id]), /title\/body pairing/);
+  }
+});
+
+test("reviewed advice identity also binds category, illustration, version and language", async () => {
+  const catalog = JSON.parse(await readFile(new URL("../server/content/daily-advice.json", import.meta.url), "utf8"));
+  const review = JSON.parse(await readFile(new URL("../server/content/daily-advice-pairings.json", import.meta.url), "utf8"));
+  const entry = catalog.items[0], other = catalog.items[1];
+  const content = { title: entry.title, body: entry.body };
+  for (const change of [{ id: other.id }, { categories: ["hestiology"] }, { image: other.image }, { contentVersion: "other-version" }]) {
+    assert.throws(() => verifyAdvicePairing({ ...entry, ...change }, "ru", content, review.entries[entry.id]), /title\/body pairing/);
+  }
+  assert.throws(() => verifyAdvicePairing(entry, "en", content, review.entries[entry.id]), /title\/body pairing/);
+  assert.throws(() => verifyAdvicePairing(entry, "ru", content, undefined), /title\/body pairing/);
 });
 
 test("smart affinity uses only active, current habits and keeps all six numeric scores private", () => {

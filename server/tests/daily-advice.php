@@ -195,7 +195,7 @@ try {
     adviceExpect(genesisDailyAdvice($alice, [], $items)['advice'] === null, 'Disabled advice still returned content');
     genesisUpdateAccountPreferences($alice, ['advicePreferences' => ['enabled' => true]]);
     adviceExpect(genesisDailyAdvice($alice, [], $items)['advice']['id'] === $card['id'], 'Re-enabling rerolled the day');
-    foreach ([genesisAdviceCatalog()[0], genesisAdviceCatalog()[25]] as $versioned) {
+    foreach (genesisAdviceCatalog() as $versioned) {
         $localizedRow = ['day_key' => $card['dayKey'], 'entry_json' => json_encode($versioned, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), 'dismissed_at' => genesisNow()];
         foreach (GENESIS_ADVICE_LANGUAGES as $language) {
             $localized = genesisAdviceForClient($localizedRow, $language);
@@ -204,6 +204,16 @@ try {
             adviceExpect($localized['language'] === $language && $localized['title'] === $expected['title'] && $localized['body'] === $expected['body'], 'Incomplete or wrong daily advice translation');
             adviceExpect(array_intersect(['contentVersion', 'topics', 'schedule', 'status'], array_keys($localized)) === [], 'Internal publishing metadata leaked');
         }
+    }
+    // Existing daily snapshots must resolve the corrected title by ID, even when their stored title is old.
+    $fastingPost = array_values(array_filter(genesisAdviceCatalog(), static fn($entry) => $entry['id'] === 'advice-fe0f86e475bc9350744f1095'))[0];
+    $oldFastingSnapshot = [...$fastingPost, 'title' => 'Практика "Очага Гестии"'];
+    $oldFastingRow = ['day_key' => $card['dayKey'], 'entry_json' => json_encode($oldFastingSnapshot, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), 'dismissed_at' => null];
+    foreach (GENESIS_ADVICE_LANGUAGES as $language) {
+        $resolved = genesisAdviceForClient($oldFastingRow, $language);
+        $translation = json_decode(file_get_contents(__DIR__ . '/../content/daily-advice/' . $fastingPost['contentVersion'] . '/' . $language . '.json'), true, 32, JSON_THROW_ON_ERROR)[$fastingPost['id']];
+        adviceExpect($resolved['title'] === $translation['title'] && $resolved['body'] === $translation['body'], 'Historical daily advice retained an obsolete title or mismatched body');
+        adviceExpect($resolved['id'] === $fastingPost['id'] && $resolved['image'] === $fastingPost['image'] && $resolved['categories'] === ['aretology'], 'Correcting a historical title changed its identity or illustration');
     }
     $db->prepare('UPDATE daily_advice_days SET advice_id=?,entry_json=? WHERE user_id=?')->execute([$versioned['id'], $localizedRow['entry_json'], $alice]);
     foreach (GENESIS_ADVICE_LANGUAGES as $language) {
