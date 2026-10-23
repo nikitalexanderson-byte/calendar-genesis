@@ -19,6 +19,8 @@
 .shared-task-details-editor .shared-checklist-item-main { display: grid; grid-template-columns: var(--ui-control-height) minmax(0, 1fr); align-items: center; gap: 8px; }
 .shared-task-details-editor .shared-checklist-toggle { display: grid; place-items: center; min-height: var(--ui-control-height); margin: 0; }
 .shared-task-details-editor .shared-checklist-toggle input { width: 20px; height: 20px; margin: 0; }
+.shared-task-details-editor summary { min-height: var(--ui-control-height); align-content: center; cursor: pointer; overflow-wrap: anywhere; }
+.shared-task-details-editor :is(input,select,button) { max-width: 100%; }
 .shared-checklist-item-main > span { overflow-wrap: anywhere; }
 .shared-checklist-items details { margin-top: 8px; }
 .shared-checklist-items details > :not(summary) { margin-block: 12px; }

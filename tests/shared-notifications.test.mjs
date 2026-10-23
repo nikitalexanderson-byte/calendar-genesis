@@ -4,6 +4,34 @@ import test from 'node:test';
 import {runInNewContext} from 'node:vm';
 import {clearPrivateDeviceStorage} from '../app/local-sign-out.ts';
 import {waitForSharedPush} from '../app/shared-push-device.ts';
+import {rebaseNotificationPreferences} from '../app/notification-preferences-rebase.ts';
+
+const preferenceFixture=()=>({types:{assignment:true,mentions:true,changes:true},channels:{inbox:true,push:false,email:false},frequency:'immediate',digestTime:'09:00',quiet:{enabled:false,start:'22:00',end:'08:00'},timeZone:'Europe/Moscow',timeZoneMode:'fixed',reminderDays:1});
+test('notification refresh preserves own input and loads independent changes without enabling an external channel',()=>{
+ const base=preferenceFixture(),draft=structuredClone(base),latest=structuredClone(base);
+ draft.types.mentions=false;draft.quiet.start='23:00';draft.timeZone='Bad/typed-zone';
+ latest.types.assignment=false;latest.quiet.end='10:00';latest.reminderDays=3;
+ const originals=JSON.stringify({base,draft,latest}),rebased=rebaseNotificationPreferences(base,draft,latest);
+ assert.equal(rebased.types.mentions,false);assert.equal(rebased.types.assignment,false);
+ assert.equal(rebased.quiet.start,'23:00');assert.equal(rebased.quiet.end,'10:00');assert.equal(rebased.reminderDays,3);
+ assert.equal(rebased.timeZone,'Bad/typed-zone');assert.deepEqual(rebased.channels,{inbox:true,push:false,email:false});
+ assert.equal(JSON.stringify({base,draft,latest}),originals);
+});
+test('notification conflict refresh keeps an explicit zero and false for the subsequent Save',()=>{
+ const base=preferenceFixture(),draft=structuredClone(base),latest=structuredClone(base);
+ draft.reminderDays=0;draft.types.changes=false;latest.reminderDays=7;latest.types.changes=true;latest.channels.email=true;
+ const next=rebaseNotificationPreferences(base,draft,latest);
+ assert.equal(next.reminderDays,0);assert.equal(next.types.changes,false);assert.equal(next.channels.email,true);
+ const refreshed=structuredClone(next);refreshed.frequency='daily';refreshed.quiet.end='11:00';
+ assert.deepEqual(rebaseNotificationPreferences(next,next,refreshed),refreshed);
+});
+test('notification refresh retains newly supplied per-email settings and later edits without sharing object references',()=>{
+ const base=preferenceFixture(),draft=structuredClone(base),latest=structuredClone(base);
+ draft.frequency='hourly';latest.emailTypes={...latest.types,messages:false};
+ const next=rebaseNotificationPreferences(base,draft,latest);
+ assert.deepEqual(next.emailTypes,latest.emailTypes);assert.equal(next.frequency,'hourly');
+ next.emailTypes.messages=true;next.quiet.enabled=true;assert.equal(latest.emailTypes.messages,false);assert.equal(draft.quiet.enabled,false);
+});
 
 const source=fs.readFileSync(new URL('../public/sw.js',import.meta.url),'utf8'),origin='https://genesiscalendar.com/';
 function pushWorker({status=200,displayAllowed=true,externalUrl=false,stores=new Map()}={}){
