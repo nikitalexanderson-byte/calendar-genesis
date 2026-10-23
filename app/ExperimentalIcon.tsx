@@ -39,6 +39,7 @@ export function ExperimentalIcon({ name, className = "" }: { name: string; class
     {name === "map-pin" ? <><path d="m8 3 8 0-1 6 3 4H6l3-4-1-6ZM12 13v8"/></> : null}
     {name === "map-archive" || name === "archive" ? <><rect x="3" y="3" width="18" height="5" rx="1"/><path d="M5 8v13h14V8M9 12h6"/></> : null}
     {name === "save" ? <><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12l4 4v12a2 2 0 0 1-2 2Z"/><path d="M7 3v6h9V3M7 21v-8h10v8"/></> : null}
+    {name === "download" ? <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M12 3v12m-5-5 5 5 5-5"/></> : null}
     {name === "delete" ? <path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/> : null}
     {name === "copy" ? <><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></> : null}
     {name === "history" ? <><path d="M3 11a9 9 0 1 1 2.6 7M3 4v7h7M12 7v5l3 2"/></> : null}

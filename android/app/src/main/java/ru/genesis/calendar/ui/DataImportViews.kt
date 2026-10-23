@@ -108,6 +108,7 @@ import java.util.Locale
 }
 
 internal fun importIssueText(code: String): String = when (code) {
+    "DATA_ORGANIZE_REQUIRED" -> "Для импорта этих статусов нужно право перемещать задачи. Обратитесь к владельцу пространства."
     "DATA_MEMBER_MAPPING_REQUIRED" -> "Сопоставьте участника или явно выберите «Без исполнителя»."
     "DATA_MEMBER_UNAVAILABLE" -> "Участник недоступен в назначении."
     "DATA_MEMBER_UNASSIGNED" -> "Назначение участника не переносится."

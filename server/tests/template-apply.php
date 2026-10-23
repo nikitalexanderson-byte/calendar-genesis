@@ -130,6 +130,8 @@ try{
     $edited=genesisSharedTemplateSource($user,$former['id']);$edited['manifest']['tasks'][0]['approverIds'][]=$member;
     genesisSharedSaveTemplate($user,$spaceId,$library['id'],['operationId'=>genesisUuid(),'title'=>'Explicit replacement','expectedRevision'=>1,'manifest'=>$edited['manifest']],$former['id']);
     taCheck(genesisSharedPreviewTemplate($user,$former['id'],$formerOptions)['canApply'],'Explicit replacement of the former approver not accepted');
+    require __DIR__.'/task-graph-integrations.php';
+    taGraphIntegrations($user,$spaceId,$library['id'],$member,$context);
     echo "Templates apply: read-only preview, relative dates, typed values and ID maps, atomic late rollback, replay/CAS, required/mapped fields, structure/relations/approval resets and C6 destination inheritance passed.\n";
 }finally{
     if($db->inTransaction())$db->rollBack();$db->exec('DROP TRIGGER IF EXISTS c1_apply_failure');

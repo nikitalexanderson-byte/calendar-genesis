@@ -41,7 +41,12 @@ function genesisDataImportPlan(string $actor,array $parsed):array{
     $permissions=$new?genesisSharedPermissions($space['member_role'],$space['permissions_json'],(bool)$space['can_organize_tasks'],'owner',(bool)$space['project_access_restricted']):$destination['project']['permissions'];
     if($data['tasks']&&!$permissions['editTasks']||$data['comments']&&!$permissions['comment']||array_filter($data['projects'],static fn($p)=>(bool)$p['categories'])&&!$permissions['manageProjects'])$issue('SHARED_PROJECT_FORBIDDEN');
     $members=array_column($destination['members'],null,'id');$memberMap=[];foreach($data['members'] as $member){$key=$member['key'];$mapped=$options['memberMap'][$key]??(isset($members[$key])?$key:null);if(!array_key_exists($key,$options['memberMap'])&&!isset($members[$key]))$issue('DATA_MEMBER_MAPPING_REQUIRED',$key);if($mapped!==null&&!isset($members[$mapped]))$issue('DATA_MEMBER_UNAVAILABLE',$key);if($mapped===null)$notices[]=['code'=>'DATA_MEMBER_UNASSIGNED','field'=>$member['title']];$memberMap[$key]=$mapped;}
-    $statusMap=[];$targetStatuses=array_column($destination['statuses'],null,'id');$sourceStatuses=[];
+    $statusMap=[];$targetStatuses=array_column($destination['statuses'],null,'id');$sourceStatuses=[];$initialStatuses=[];
+    $destinationOpen=null;foreach($destination['statuses'] as $status)if(!(bool)$status['isDone']){$destinationOpen=$status['id'];break;}
+    foreach($data['projects'] as $project){
+        $initialStatuses[$project['key']]=$destinationOpen;
+        if($new)foreach($project['statuses'] as $status)if(!$status['isDone']){$initialStatuses[$project['key']]=$status['key'];break;}
+    }
     foreach($data['projects'] as $project)foreach($project['statuses'] as $status){$sourceStatuses[$status['key']]=$status;if($new){$statusMap[$status['key']]=$status['key'];continue;}$target=$options['statusMap'][$status['key']]??null;
         if($target===null)$issue('DATA_STATUS_MAPPING_REQUIRED',$status['key']);elseif(!isset($targetStatuses[$target]))$issue('DATA_STATUS_UNAVAILABLE',$status['key']);elseif((bool)$targetStatuses[$target]['isDone']!==$status['isDone'])$issue('DATA_STATUS_KIND_MISMATCH',$status['key']);$statusMap[$status['key']]=$target;
     }
@@ -60,7 +65,11 @@ function genesisDataImportPlan(string $actor,array $parsed):array{
     $defaults=[];foreach($options['fieldDefaults'] as $id=>$value){if(!isset($targetFields[$id]))genesisDataInvalid('CUSTOM_FIELD_UNAVAILABLE');$normalized=genesisSharedCustomValue($targetFields[$id],$value);if($normalized!==null)$defaults[$id]=$normalized;}
     if($fieldCount+$destination['fieldCount']>200)$issue('CUSTOM_FIELD_LIMIT');
     $tasks=array_column($data['tasks'],null,'key');$children=[];foreach($tasks as $task)if($task['parentKey']!==null)$children[$task['parentKey']][]=$task['key'];
-    $targetValues=[];foreach($tasks as $task){$key=$task['key'];$targetValues[$key]=$defaults;$assignedFields=[];try{genesisSharedSchedule($task,null,$task['dueDate']);}catch(InvalidArgumentException $error){$issue($error->getMessage(),$key);}if(count($task['dependsOnKeys'])>50)$issue('INVALID_DEPENDENCIES',$key);
+    $targetValues=[];$organizationBlocked=false;foreach($tasks as $task){$key=$task['key'];$targetValues[$key]=$defaults;$assignedFields=[];try{genesisSharedSchedule($task,null,$task['dueDate']);}catch(InvalidArgumentException $error){$issue($error->getMessage(),$key);}if(count($task['dependsOnKeys'])>50)$issue('INVALID_DEPENDENCIES',$key);
+        // Apply stages every task in the first open status, then restores its mapped status.
+        // That second mutation requires organizeTasks, even for a different unfinished status.
+        $targetStatus=$statusMap[$task['statusKey']]??null;
+        if(!$permissions['organizeTasks']&&$targetStatus!==null&&$targetStatus!==$initialStatuses[$task['projectKey']]&&!$organizationBlocked){$issue('DATA_ORGANIZE_REQUIRED');$organizationBlocked=true;}
         foreach($task['dependsOnKeys'] as $ref)if($tasks[$ref]['projectKey']!==$task['projectKey'])$issue('DATA_REFERENCE_INVALID',$key);
         foreach($fields[$task['projectKey']]??[] as $field)if(!$field['archived']&&$field['required']&&!array_key_exists($field['key'],(array)$task['customValues']))$issue('CUSTOM_FIELD_REQUIRED',$key);
         foreach($fields[$task['projectKey']]??[] as $source=>$field){$target=$field['targetId'];if($target===null)continue;if(isset($assignedFields[$target]))$issue('TEMPLATE_FIELD_MAPPING_COLLISION',$field['title']);$assignedFields[$target]=true;$values=(array)$task['customValues'];if(!array_key_exists($source,$values))continue;$value=$values[$source];

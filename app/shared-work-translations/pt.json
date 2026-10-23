@@ -528,5 +528,7 @@
   "Покажите все конфликты перед выбором.": "Mostre todos os conflitos antes de escolher uma versão.",
   "Квесты": "Missões",
   "Награды": "Recompensas",
-  "Данные": "Dados"
+  "Данные": "Dados",
+  "Для импорта этих статусов нужно право перемещать задачи. Обратитесь к владельцу пространства.": "Para importar estes estados, precisa de permissão para mover tarefas. Contacte o proprietário do espaço.",
+  "Место импорта": "Destino da importação"
 }

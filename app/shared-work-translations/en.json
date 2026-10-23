@@ -528,5 +528,7 @@
   "Покажите все конфликты перед выбором.": "Show all conflicts before choosing a version.",
   "Квесты": "Quests",
   "Награды": "Rewards",
-  "Данные": "Data"
+  "Данные": "Data",
+  "Для импорта этих статусов нужно право перемещать задачи. Обратитесь к владельцу пространства.": "Importing these statuses requires permission to move tasks. Contact the space owner.",
+  "Место импорта": "Import destination"
 }

@@ -504,6 +504,7 @@ function endLocalSession() {
   workspaceBase = null;
   workspaceBaseMetadata = null;
   workspaceSyncMetadata = null;
+  sharedReadCacheBlocked.clear();
   encryptedHabitWorkspace = normalizeHabitWorkspace(EMPTY_HABIT_WORKSPACE);
   if (typeof window !== "undefined") window.dispatchEvent(new Event(LOCAL_SESSION_ENDED_EVENT));
 }
@@ -1895,15 +1896,41 @@ export type SharedGoogleSettings = { tasksEnabled: boolean; calendarEnabled: boo
 type SharedQueuedMutation = { requestId: string; projectId: string; path: string;
   method: "POST" | "PATCH"; kind: "create" | "update" | "move"; taskId?: string;
   body: string; title: string; dueDate: string | null; queuedAt: string; error?: string };
-type SharedOfflineStore = { cache: Record<string, { savedAt: number; payload: unknown }>;
+type SharedOfflineStore = { cacheEpoch?: string; cache: Record<string, { savedAt: number; payload: unknown }>;
   queue: SharedQueuedMutation[] };
 const SHARED_OFFLINE_PREFIX = "genesis-shared-offline-v1:";
 let sharedOfflineLock: Promise<void> = Promise.resolve();
 let sharedLastReadFromCache = false;
+const sharedReadCacheBlocked = new Set<string>();
 
 function sharedOfflineKey(userId = workspaceUserId) {
   if (!userId) throw new Error("AUTH_REQUIRED");
   return `${SHARED_OFFLINE_PREFIX}${userId}`;
+}
+
+function sharedReadCacheEpoch(userId = workspaceUserId): string | null {
+  if (!userId || typeof window === "undefined" || sharedReadCacheBlocked.has(userId)) return null;
+  try {
+    const key = `${sharedOfflineKey(userId)}:read-epoch`;
+    if (sessionStorage.getItem(key)) return null;
+    return localStorage.getItem(key) ?? "";
+  }
+  catch { return null; }
+}
+
+function invalidateSharedReadCache(userId: string) {
+  // Publish before waiting for crypto/the write lock, so other tabs and late responses see it.
+  // This marker contains no content; it shares the private namespace cleared on sign-out.
+  const key = `${sharedOfflineKey(userId)}:read-epoch`;
+  sharedReadCacheBlocked.add(userId);
+  try {
+    localStorage.setItem(key, bytesToBase64(crypto.getRandomValues(new Uint8Array(18))));
+    sessionStorage.removeItem(key);
+    sharedReadCacheBlocked.delete(userId);
+  } catch {
+    // Preserve the queue even when localStorage is full; keep the fail-closed state on reload.
+    try { sessionStorage.setItem(key, "blocked"); } catch { /* Memory still blocks this session. */ }
+  }
 }
 
 async function readSharedOfflineStore(): Promise<SharedOfflineStore> {
@@ -1920,6 +1947,8 @@ async function readSharedOfflineStore(): Promise<SharedOfflineStore> {
   if (!decoded || typeof decoded.cache !== "object" || !Array.isArray(decoded.queue)) {
     throw new Error("SHARED_OFFLINE_CACHE_INVALID");
   }
+  const epoch = sharedReadCacheEpoch();
+  if (epoch === null || (decoded.cacheEpoch ?? "") !== epoch) decoded.cache = {};
   return decoded;
 }
 
@@ -1932,7 +1961,11 @@ async function changeSharedOfflineStore(change: (store: SharedOfflineStore) => v
   try {
     const store = await readSharedOfflineStore();
     requireActiveLocalSession(generation);
+    const epoch = sharedReadCacheEpoch();
+    if (epoch === null || (store.cacheEpoch ?? "") !== epoch) store.cache = {};
     change(store);
+    if (epoch === null) store.cache = {};
+    store.cacheEpoch = epoch ?? "";
     const entries = Object.entries(store.cache).sort((a, b) => b[1].savedAt - a[1].savedAt).slice(0, 12);
     store.cache = Object.fromEntries(entries);
     if (store.queue.length > 100) throw new Error("SHARED_OFFLINE_QUEUE_FULL");
@@ -1959,25 +1992,48 @@ export function canRestoreOfflineSession(error: unknown) {
 }
 
 async function sharedCachedRequest<T>(path: string, signal?: AbortSignal): Promise<T> {
-  try {
-    const payload = await api<T>(path, {signal});
-    sharedLastReadFromCache = false;
-    await changeSharedOfflineStore((store) => { store.cache[path] = { savedAt: Date.now(), payload }; })
-      .catch(() => undefined);
-    return payload;
-  } catch (error) {
-    if (error instanceof GenesisApiError && [401, 403, 404].includes(error.status)) {
-      if (workspaceUserId) await changeSharedOfflineStore((store) => {
-        // A revoked task/project can also be present in cached query pages and references.
-        // Keep unsent drafts, but do not leave alternate cached routes to denied content.
-        store.cache = {};
-      }).catch(() => undefined);
+  const generation = sessionGeneration;
+  const owner = workspaceUserId;
+  const active = () => {
+    requireActiveLocalSession(generation);
+    if (owner !== workspaceUserId) throw new GenesisApiError(401, null, "AUTH_REQUIRED");
+  };
+  let epoch = sharedReadCacheEpoch(owner);
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      const payload = await api<T>(path, {signal});
+      active();
+      if (signal?.aborted) throw signal.reason ?? new DOMException("Aborted", "AbortError");
+      if (epoch === sharedReadCacheEpoch(owner)) {
+        sharedLastReadFromCache = false;
+        if (epoch !== null) await changeSharedOfflineStore((store) => {
+          if (epoch === sharedReadCacheEpoch(owner)) store.cache[path] = { savedAt: Date.now(), payload };
+        }).catch(() => undefined);
+        active();
+        if (signal?.aborted) throw signal.reason ?? new DOMException("Aborted", "AbortError");
+        if (epoch === sharedReadCacheEpoch(owner)) return payload;
+      }
+      // A denial may affect any cached query/reference. Revalidate an unrelated allowed read
+      // once, rather than returning the old response or permanently disabling its offline copy.
+      if (attempt > 0) throw new GenesisApiError(409, { error: "SHARED_QUERY_CHANGED" }, "SHARED_QUERY_CHANGED");
+      epoch = sharedReadCacheEpoch(owner);
+    } catch (error) {
+      active();
+      if (error instanceof GenesisApiError && [401, 403, 404].includes(error.status) && owner) {
+        invalidateSharedReadCache(owner);
+        await changeSharedOfflineStore((store) => {
+          // Denied content can also be present in cached pages and references; retain drafts.
+          store.cache = {};
+        }).catch(() => undefined);
+      }
+      if (signal?.aborted || !sharedNetworkFailure(error)) throw error;
+      const saved = (await readSharedOfflineStore()).cache[path];
+      active();
+      if (signal?.aborted || epoch === null || epoch !== sharedReadCacheEpoch(owner)
+        || !saved || Date.now() - saved.savedAt > 30 * 24 * 60 * 60 * 1000) throw error;
+      sharedLastReadFromCache = true;
+      return saved.payload as T;
     }
-    if (signal?.aborted || !sharedNetworkFailure(error)) throw error;
-    const saved = (await readSharedOfflineStore()).cache[path];
-    if (!saved || Date.now() - saved.savedAt > 30 * 24 * 60 * 60 * 1000) throw error;
-    sharedLastReadFromCache = true;
-    return saved.payload as T;
   }
 }
 

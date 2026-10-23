@@ -528,5 +528,7 @@
   "Покажите все конфликты перед выбором.": "Sürüm seçmeden önce tüm çakışmaları gösterin.",
   "Квесты": "Görevler",
   "Награды": "Ödüller",
-  "Данные": "Veriler"
+  "Данные": "Veriler",
+  "Для импорта этих статусов нужно право перемещать задачи. Обратитесь к владельцу пространства.": "Bu durumları içe aktarmak için görevleri taşıma izni gerekir. Alan sahibiyle iletişime geçin.",
+  "Место импорта": "İçe aktarma hedefi"
 }

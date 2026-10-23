@@ -82,7 +82,7 @@ internal fun importMapValue(map: JSONObject?, key: String, fallback: String = "@
         if (canWrite) add("tasks" to genesisTranslate("Добавить задачи в текущий проект"))
     }
     val destination = if (!selection.isNull("projectId")) "tasks" else if (!selection.isNull("parentProjectId")) "child" else "tree"
-    if (destinations.isNotEmpty()) ImportChoice("Назначение", destination, destinations, editable, "import-destination") { next ->
+    if (destinations.isNotEmpty()) ImportChoice("Место импорта", destination, destinations, editable, "import-destination") { next ->
         val host = state.hostProject
         importEdit(state) { it.put("projectId", if (next == "tasks") host else JSONObject.NULL).put("parentProjectId", if (next == "child") host else JSONObject.NULL)
             for (key in listOf("memberMap", "statusMap", "labelMap", "fieldMap", "optionMap", "fieldDefaults")) it.put(key, JSONObject()) }
