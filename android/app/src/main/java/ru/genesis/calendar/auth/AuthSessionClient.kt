@@ -53,6 +53,8 @@ internal fun allowedSharedRoute(method: String, path: String): Boolean {
     if (path.matches(Regex("/shared/templates/[A-Za-z0-9_%.-]{1,300}\\?language=(?:ru|en|el|de|fr|es|it|pt|pl|sr|uk|zh|tr|ja)"))) return method == "GET"
     if (path == "/shared/notification-settings") return method in setOf("GET", "PUT")
     if (path == "/shared/notification-settings/retry") return method == "POST"
+    if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/tasks/[a-f0-9-]{36}/watch"))) return method in setOf("GET", "PUT")
+    if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/tasks/[a-f0-9-]{36}/convert-checklist"))) return method == "POST"
     if (path.matches(Regex("/shared/invitations/[a-f0-9-]{36}"))) return method == "POST"
     if (path == "/shared/task-lists") return method == "GET"
     if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/data-export"))) return method == "POST"
@@ -344,6 +346,12 @@ internal class AuthSessionClient(context: Context) {
     fun readSharedTaskUpdates(expected:Long,projectId:String,taskId:String,commentIds:List<String>):JSONObject=
         request(expected,"/shared/projects/$projectId/tasks/$taskId/read",JSONObject().put("commentIds",org.json.JSONArray(commentIds)))
     fun notificationSettings(expected:Long):JSONObject=request(expected,"/shared/notification-settings",null)
+    fun convertSharedChecklist(expected:Long,project:String,task:String,item:String,revision:Int,requestId:String):JSONObject = request(expected,
+        "/shared/projects/${SharedTemplateProtocol.id(project)}/tasks/${SharedTemplateProtocol.id(task)}/convert-checklist",
+        JSONObject().put("itemId",item).put("expectedRevision",revision).put("requestId",SharedTemplateProtocol.id(requestId)))
+    fun sharedTaskWatch(expected:Long,project:String,task:String,watching:Boolean?):JSONObject = request(expected,
+        "/shared/projects/${SharedTemplateProtocol.id(project)}/tasks/${SharedTemplateProtocol.id(task)}/watch",
+        watching?.let { JSONObject().put("watching",it) },method=if(watching==null)"GET" else "PUT")
     fun saveNotificationSettings(expected:Long,settings:JSONObject,revision:Int):JSONObject=
         request(expected,"/shared/notification-settings",JSONObject().put("settings",settings).put("expectedRevision",revision),method="PUT")
     fun sharedTask(expected: Long, projectId: String, taskId: String): JSONObject =

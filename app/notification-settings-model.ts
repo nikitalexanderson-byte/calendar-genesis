@@ -2,6 +2,7 @@ import { translateText as t } from "./i18n";
 import type { Language } from "./i18n";
 import type { CalendarMode } from "./calendar-data";
 import type { TimeFormat } from "./time-format";
+export { rebaseNotificationPreferences } from "./notification-preferences-rebase";
 
 export const notificationKindLabels = {
   created:"Новая задача", projects:"Новый проект", comments:"Новый комментарий", assignment:"Назначение исполнителя",
@@ -21,6 +22,7 @@ export type SharedNotificationSettings = {
   subscriptions:{id:string;lastError:string|null}[]; delivery:{channel:"push"|"email";state:"pending"|"failed";count:number}[];
   context:{language:Language;calendarMode:CalendarMode;gregorianYearStart:"january"|"march";timeFormat:TimeFormat};
 };
+
 export const notificationErrorLabels:Record<string,string> = {
   INVALID_NOTIFICATION_SETTINGS:"Проверьте настройки уведомлений и время тихих часов.",
   INVALID_NOTIFICATION_TIMEZONE:"Введите действительный часовой пояс IANA, например Europe/Moscow. Черновик сохранён.",

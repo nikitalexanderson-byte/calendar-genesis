@@ -14,7 +14,8 @@ html[data-genesis-theme] .genesis-app .notification-setting-note { margin:0 0 12
 html[data-genesis-theme] .genesis-app .notification-advanced { margin:24px 0; border-block:1px solid var(--line); padding:12px 0; }
 html[data-genesis-theme] .genesis-app .notification-advanced > summary { min-height:44px; align-content:center; color:var(--ink); cursor:pointer; }
 html[data-genesis-theme] .genesis-app .notification-preference-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; margin:16px 0; }
-html[data-genesis-theme] .genesis-app .notification-preference-fields > label { display:grid; align-content:start; min-width:0; gap:8px; margin:0; color:var(--ink); font:400 14px/1.5 var(--font-ui); }
+html[data-genesis-theme] .genesis-app .notification-zone-field { display:grid; align-content:start; min-width:0; gap:12px; }
+html[data-genesis-theme] .genesis-app :is(.notification-preference-fields > label,.notification-zone-field > label) { display:grid; align-content:start; min-width:0; gap:8px; margin:0; color:var(--ink); font:400 14px/1.5 var(--font-ui); }
 html[data-genesis-theme] .genesis-app .notification-preference-fields :is(input,select,button) { max-width:100%; min-width:0; min-height:44px; font-size:16px; }
 html[data-genesis-theme] .genesis-app .notification-preference-buttons { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin:12px 0; }
 html[data-genesis-theme] .genesis-app .notification-preference-buttons > button { min-height:44px; max-width:100%; white-space:normal; overflow-wrap:anywhere; }

@@ -213,6 +213,10 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
     override suspend fun readSharedTaskUpdates(projectId:String,taskId:String,commentIds:List<String>):JSONObject =
         sharedCall { api,generation->api.readSharedTaskUpdates(generation,projectId,taskId,commentIds) }
     override suspend fun notificationSettings():JSONObject=sharedCall { api,generation->api.notificationSettings(generation) }
+    override suspend fun convertSharedChecklist(projectId:String,taskId:String,itemId:String,revision:Int,requestId:String):JSONObject =
+        sharedOnlineCall { api,generation->api.convertSharedChecklist(generation,projectId,taskId,itemId,revision,requestId) }
+    override suspend fun sharedTaskWatch(projectId:String,taskId:String,watching:Boolean?):JSONObject =
+        sharedOnlineCall { api,generation->api.sharedTaskWatch(generation,projectId,taskId,watching) }
     override suspend fun saveNotificationSettings(settings:JSONObject,revision:Int):JSONObject=sharedCall { api,generation->api.saveNotificationSettings(generation,settings,revision) }
     override suspend fun sharedTask(projectId: String, taskId: String): JSONObject =
         sharedCachedCall("task:$projectId:$taskId") { api, generation -> api.sharedTask(generation, projectId, taskId) }

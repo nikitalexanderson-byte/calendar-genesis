@@ -77,12 +77,21 @@ export function SharedTaskDetailsEditor({ task, value, onChange, members, mode, 
   const changeLists = (checklists: SharedChecklist[]) => onChange({ ...value, checklists });
   const updateList = (id: string, update: Partial<SharedChecklist>) => changeLists(value.checklists.map(list => list.id === id ? { ...list, ...update } : list));
   const updateItem = (list: SharedChecklist, id: string, update: Partial<SharedChecklistItem>) => updateList(list.id, { items: list.items.map(item => item.id === id ? { ...item, ...update } : item) });
+  const itemCount = value.checklists.reduce((total, list) => total + list.items.length, 0);
   const addItem = (list: SharedChecklist) => {
+    if (disabled || pending || itemCount >= 300) return;
     const id = crypto.randomUUID();
     updateList(list.id, { items: [...list.items, { id, title: "", done: false, assigneeId: null, dueDate: null, linkedTaskId: null }] });
     window.requestAnimationFrame(() => document.getElementById(`checklist-item-${id}`)?.focus());
   };
   const working = disabled || pending;
+  const createChild = async () => {
+    if (working || !saved || !childTitle.trim() || task.completedAt) return;
+    setError(null); setPending(true);
+    try { await onCreateChild(childTitle.trim()); setChildTitle(""); }
+    catch (error) { setError(error); }
+    finally { setPending(false); }
+  };
   return <section className="shared-task-details-editor">
     {!readOnly ? <label>{t("Приоритет")}<select value={value.priority} disabled={working} onChange={event => onChange({ ...value, priority: Number(event.target.value) })}>
       {[0, 1, 2, 3].map(priority => <option key={priority} value={priority}>{sharedPriorityLabel(priority)}</option>)}
@@ -104,11 +113,11 @@ export function SharedTaskDetailsEditor({ task, value, onChange, members, mode, 
         <SharedTaskPageControls page={choices} loaded={choices?.tasks.length ?? 0} busy={choicesPage.busy} onMore={()=>void choicesPage.more()} onRefresh={()=>void choicesPage.refresh()} error={choicesPage.error}/>
       </details> : null}
       <ul className="shared-child-list">{children?.tasks.map(child => <li key={child.id}><button type="button" disabled={working || !saved} onClick={() => onOpen(child.projectId, child.id)}>
-        <span>{child.archivedAt ? t("Архив задач") : child.completedAt ? t("Выполнено") : t("В работе")}</span><strong data-no-translate>{child.title}</strong><small>{child.dueDate ? formatCalendarDate(new Date(`${child.dueDate}T12:00:00`), mode) : t("Без срока")}</small>
+        <span>{child.archivedAt ? t("Архив задач") : child.completedAt ? t("Выполнено") : t("В работе")}</span><strong data-no-translate>{child.title}</strong><small><span data-no-translate>{members.find(member => member.userId === child.assigneeId)?.displayName ?? t(child.assigneeId ? "Бывший участник" : "Не назначен")}</span>{" · "}{child.dueDate ? formatCalendarDate(new Date(`${child.dueDate}T12:00:00`), mode) : t("Без срока")}</small>
       </button></li>)}</ul>
       <SharedTaskPageControls page={children} loaded={children?.tasks.length ?? 0} busy={childPage.busy} onMore={()=>void childPage.more()} onRefresh={()=>void childPage.refresh()} error={childPage.error}/>
-      {!readOnly ? <div className="shared-child-create" aria-busy={pending}><label>{t("Новая подзадача")}<input value={childTitle} disabled={working} maxLength={160} onChange={event => setChildTitle(event.target.value)} onKeyDown={event => { if (event.key === "Enter") event.preventDefault(); }} /></label>
-        <IconActionButton icon="plus" label={t("Добавить подзадачу")} disabled={working || !saved || !childTitle.trim() || Boolean(task.completedAt)} onClick={async () => { setError(null); setPending(true); try { await onCreateChild(childTitle.trim()); setChildTitle(""); } catch (error) { setError(error); } finally { setPending(false); } }}/></div> : null}
+      {!readOnly ? <div className="shared-child-create" aria-busy={pending}><label>{t("Новая подзадача")}<input value={childTitle} disabled={working} maxLength={160} onChange={event => setChildTitle(event.target.value)} onKeyDown={event => { if (event.key === "Enter" && !event.nativeEvent.isComposing && event.keyCode !== 229) { event.preventDefault(); void createChild(); } }} /></label>
+        <IconActionButton icon="plus" label={t("Добавить подзадачу")} disabled={working || !saved || !childTitle.trim() || Boolean(task.completedAt)} onClick={() => void createChild()}/></div> : null}
     </details>
     <details className="task-advanced-fields shared-task-checklists" open={value.checklists.length > 0 || undefined}>
       <summary>{t("Чек-листы")} · {progressLabel(value.checklists.flatMap(list => list.items).filter(item => item.done).length, value.checklists.reduce((total, list) => total + list.items.length, 0))}</summary>
@@ -122,11 +131,11 @@ export function SharedTaskDetailsEditor({ task, value, onChange, members, mode, 
         </div>
         <ol className="shared-checklist-items">{list.items.map((item, itemIndex) => <li key={item.id}>
           <div className="shared-checklist-item-main"><label className="shared-checklist-toggle"><input type="checkbox" checked={item.done} disabled={readOnly || Boolean(item.linkedTaskId) || item.linkUnavailable} aria-label={`${t("Выполнено")}: ${item.title}`} onChange={event => updateItem(list, item.id, { done: event.target.checked })} /></label>
-            {readOnly ? <span data-no-translate>{item.title}</span> : <input id={`checklist-item-${item.id}`} value={item.title} required maxLength={500} aria-label={t("Название пункта")} onChange={event => updateItem(list, item.id, { title: event.target.value })} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); if (item.title.trim()) addItem(list); } }} />}
+            {readOnly ? <span data-no-translate>{item.title}</span> : <input id={`checklist-item-${item.id}`} value={item.title} required maxLength={500} aria-label={t("Название пункта")} onChange={event => updateItem(list, item.id, { title: event.target.value })} onKeyDown={event => { if (event.key === "Enter" && !event.nativeEvent.isComposing && event.keyCode !== 229) { event.preventDefault(); if (item.title.trim()) addItem(list); } }} />}
           </div>
           <details><summary>{t("Срок, исполнитель и действия")}</summary>
             {readOnly ? <p>{members.find(member => member.userId === item.assigneeId)?.displayName ?? t("Не назначен")}{item.dueDate ? ` · ${formatCalendarDate(new Date(`${item.dueDate}T12:00:00`), mode)}` : ""}</p> : <div className="shared-checklist-item-fields">
-              <label>{t("Исполнитель")}<select value={item.assigneeId ?? ""} onChange={event => updateItem(list, item.id, { assigneeId: event.target.value || null })}><option value="">{t("Не назначен")}</option>{members.map(member => <option key={member.userId} value={member.userId}>{member.displayName}</option>)}</select></label>
+              <label>{t("Исполнитель")}<select value={item.assigneeId ?? ""} onChange={event => updateItem(list, item.id, { assigneeId: event.target.value || null })}><option value="">{t("Не назначен")}</option>{item.assigneeId&&!members.some(member=>member.userId===item.assigneeId)?<option value={item.assigneeId}>{t("Бывший участник")}</option>:null}{members.map(member => <option key={member.userId} value={member.userId}>{member.displayName}</option>)}</select></label>
               <div className="shared-projects-date-field"><span>{t("Срок пункта")}</span><CalendarDatePicker value={item.dueDate ?? ""} mode={mode} ariaLabel={t("Срок пункта")} onChange={dueDate => updateItem(list, item.id, { dueDate: dueDate || null })} />{item.dueDate ? <IconActionButton icon="close" label={t("Убрать дату")} onClick={() => updateItem(list, item.id, { dueDate: null })}/> : null}</div>
             </div>}
             <div className="shared-detail-actions shared-checklist-item-actions">
@@ -134,13 +143,13 @@ export function SharedTaskDetailsEditor({ task, value, onChange, members, mode, 
               <IconActionButton icon="delete" label={t("Удалить пункт")} onClick={() => updateList(list.id, { items: list.items.filter(current => current.id !== item.id) })}/></> : null}
             {item.linkedTaskId && item.linkedProjectId ? <IconActionButton icon="open" label={t("Открыть связанную задачу")} disabled={!saved} onClick={() => onOpen(item.linkedProjectId!, item.linkedTaskId!)}/>
               : item.linkUnavailable ? <p>{t("Связанная задача недоступна")}</p>
-                : !readOnly ? <button type="button" className="secondary-button" disabled={!saved || Boolean(task.completedAt)} onClick={() => onConvert(item.id)}>{t("Превратить в задачу")}</button> : null}
+                : !readOnly ? <IconActionButton icon="thought-affair" label={t("Превратить в задачу")} disabled={!saved || Boolean(task.completedAt)} onClick={() => onConvert(item.id)}/> : null}
             </div>
           </details>
         </li>)}</ol>
-        {!readOnly ? <IconActionButton icon="plus" label={t("Добавить пункт")} onClick={() => addItem(list)}/> : null}
+        {!readOnly ? <IconActionButton icon="plus" label={t("Добавить пункт")} disabled={itemCount >= 300} onClick={() => addItem(list)}/> : null}
       </fieldset>)}
-      {!readOnly ? <button type="button" className="secondary-button" disabled={working || value.checklists.length >= 20} onClick={() => changeLists([...value.checklists, { id: crypto.randomUUID(), title: t("Чек-лист"), items: [] }])}><ExperimentalIcon name="plus"/>{t("Добавить чек-лист")}</button> : null}
+      {!readOnly ? <IconActionButton icon="plus" label={t("Добавить чек-лист")} disabled={working || value.checklists.length >= 20} onClick={() => changeLists([...value.checklists, { id: crypto.randomUUID(), title: t("Чек-лист"), items: [] }])}/> : null}
     </details>
     {!readOnly && !saved ? <p className="shared-detail-help" role="status">{t("Сохраните изменения перед созданием подзадачи или превращением пункта в задачу.")}</p> : null}
     {parentError ? <p role="alert">{parentError}</p> : null}

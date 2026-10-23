@@ -1,12 +1,12 @@
 "use client";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { DialogCloseButton } from "./DialogCloseButton";
 import { IconActionButton } from "./IconActionButton";
 import { TimeClockPicker } from "./TimeClockPicker";
 import { translateText as t, runtimeLocale } from "./i18n";
 import { privateDeviceAccessBlocked } from "./local-sign-out";
 import { waitForSharedPush } from "./shared-push-device";
-import { notificationKindLabels, notificationErrorLabels, notificationFailure, sharedPushDeviceKey, supportsSharedPush, type SharedNotificationPreferences, type SharedNotificationSettings } from "./notification-settings-model";
+import { notificationKindLabels, notificationErrorLabels, notificationFailure, rebaseNotificationPreferences, sharedPushDeviceKey, supportsSharedPush, type SharedNotificationPreferences, type SharedNotificationSettings } from "./notification-settings-model";
 import { deleteSharedPushSubscription, loadSharedNotificationSettings, loadSharedTaskWatch, registerSharedPushSubscription, retrySharedNotificationDeliveries, saveSharedNotificationSettings, updateSharedTaskWatch } from "./cloud-sync";
 import "./notification-preferences.css";
 
@@ -41,13 +41,21 @@ export function SharedTaskWatch({userId,projectId,taskId}:{userId:string;project
 export function SharedNotificationPreferencesDialog({userId,onClose}:{userId:string;onClose:()=>void}) {
   const [data,setData]=useState<SharedNotificationSettings|null>(null),[draft,setDraft]=useState<SharedNotificationPreferences|null>(null),[failure,setFailure]=useState(""),[message,setMessage]=useState(""),[busy,setBusy]=useState(false),[version,setVersion]=useState(0),[deviceId,setDeviceId]=useState("");
   const dialog=useRef<HTMLDialogElement>(null),alive=useRef(false),controller=useRef<AbortController|null>(null),online=useSyncExternalStore(subscribeOnline,onlineSnapshot,serverOnline);
+  const latest=useRef({userId,data,draft});
+  useEffect(()=>{latest.current={userId,data,draft};},[userId,data,draft]);
+  const receive=useCallback((value:SharedNotificationSettings)=>{
+    const previous=latest.current;
+    setData(value);
+    setDraft(previous.userId===userId&&previous.data&&previous.draft
+      ?rebaseNotificationPreferences(previous.data.settings,previous.draft,value.settings):structuredClone(value.settings));
+  },[userId]);
   useEffect(()=>{const element=dialog.current;element?.showModal();return()=>element?.close();},[]);
   useEffect(()=>{
     alive.current=true;const abort=new AbortController();controller.current=abort;
-    void loadSharedNotificationSettings(abort.signal).then(value=>{if(permitted(alive.current,abort.signal)){setData(value);setDraft(structuredClone(value.settings));setFailure("");setBusy(false);try{setDeviceId(localStorage.getItem(sharedPushDeviceKey(userId))??"");}catch{/* Connection can still be managed through the browser. */}}})
+    void loadSharedNotificationSettings(abort.signal).then(value=>{if(permitted(alive.current,abort.signal)){receive(value);setFailure("");setBusy(false);try{setDeviceId(localStorage.getItem(sharedPushDeviceKey(userId))??"");}catch{/* Connection can still be managed through the browser. */}}})
       .catch(error=>{if(permitted(alive.current,abort.signal)){setFailure(notificationFailure(error));setBusy(false);if(error&&typeof error==="object"&&"status"in error&&[401,403,404].includes(Number(error.status))){setData(null);setDraft(null);}}});
     return()=>{alive.current=false;abort.abort();controller.current?.abort();};
-  },[userId,version]);
+  },[userId,version,receive]);
   const update=(patch:Partial<SharedNotificationPreferences>)=>{setDraft(previous=>previous?{...previous,...patch}:previous);setMessage("");};
   const changed=Boolean(data&&draft&&JSON.stringify(data.settings)!==JSON.stringify(draft));
   const run=async(action:(signal:AbortSignal)=>Promise<void>)=>{if(busy||!online)return;const abort=new AbortController();controller.current=abort;setBusy(true);setFailure("");setMessage("");try{await action(abort.signal);}catch(error){if(permitted(alive.current,abort.signal))setFailure(notificationFailure(error));}finally{if(permitted(alive.current,abort.signal))setBusy(false);}};
@@ -65,8 +73,8 @@ export function SharedNotificationPreferencesDialog({userId,onClose}:{userId:str
     try{localStorage.setItem(sharedPushDeviceKey(userId),linked.id);}catch{/* The explicit connection remains recoverable through the server. */}setDeviceId(linked.id);
     const settings={...draft,channels:{...draft.channels,push:true}},next=await saveSharedNotificationSettings(settings,data.revision,signal);if(permitted(alive.current,signal)){setData(next);setDraft(structuredClone(next.settings));setMessage(t("Это устройство подключено."));}
   });
-  const disconnect=()=>run(async signal=>{await deleteSharedPushSubscription(deviceId,signal);if(!permitted(alive.current,signal))return;const registration=await navigator.serviceWorker.getRegistration();await(await registration?.pushManager.getSubscription())?.unsubscribe();const next=await loadSharedNotificationSettings(signal);if(!permitted(alive.current,signal))return;try{localStorage.removeItem(sharedPushDeviceKey(userId));}catch{/* Server and browser subscription were removed. */}setDeviceId("");setData(next);setMessage(t("Это устройство отключено."));});
-  const retry=()=>run(async signal=>{const result=await retrySharedNotificationDeliveries(signal);const next=await loadSharedNotificationSettings(signal);if(permitted(alive.current,signal)){setData(next);setMessage(t("Возобновлено отправок: {count}").replace("{count}",result.resumed.toLocaleString(runtimeLocale())));}});
+  const disconnect=()=>run(async signal=>{await deleteSharedPushSubscription(deviceId,signal);if(!permitted(alive.current,signal))return;const registration=await navigator.serviceWorker.getRegistration();await(await registration?.pushManager.getSubscription())?.unsubscribe();const next=await loadSharedNotificationSettings(signal);if(!permitted(alive.current,signal))return;try{localStorage.removeItem(sharedPushDeviceKey(userId));}catch{/* Server and browser subscription were removed. */}setDeviceId("");receive(next);setMessage(t("Это устройство отключено."));});
+  const retry=()=>run(async signal=>{const result=await retrySharedNotificationDeliveries(signal);const next=await loadSharedNotificationSettings(signal);if(permitted(alive.current,signal)){receive(next);setMessage(t("Возобновлено отправок: {count}").replace("{count}",result.resumed.toLocaleString(runtimeLocale())));}});
   const connected=Boolean(deviceId&&data?.subscriptions.some(item=>item.id===deviceId));
   return <dialog ref={dialog} className="shared-projects-modal notification-preferences" aria-labelledby="notification-preferences-title" onCancel={event=>{if(dialog.current?.querySelector('[aria-modal="true"]'))event.preventDefault();else onClose();}} onClose={onClose}>
     <header><h2 id="notification-preferences-title">{t("Настройки уведомлений")}</h2><DialogCloseButton aria-label={t("Закрыть настройки уведомлений")} onClick={onClose}/></header>
@@ -87,14 +95,14 @@ export function SharedNotificationPreferencesDialog({userId,onClose}:{userId:str
         <label>{t("Частота отправки")}<select value={draft.frequency} onChange={event=>update({frequency:event.target.value as SharedNotificationPreferences["frequency"]})}><option value="immediate">{t("Сразу")}</option><option value="hourly">{t("Раз в час")}</option><option value="daily">{t("Ежедневная сводка")}</option></select></label>
         {draft.frequency==="daily"?<label>{t("Время сводки")}<TimeClockPicker value={draft.digestTime} ariaLabel={t("Время сводки")} onChange={digestTime=>update({digestTime})}/></label>:null}
         <label>{t("За сколько дней напоминать о сроке")}<input type="number" min={0} max={30} step={1} required value={draft.reminderDays} onChange={event=>update({reminderDays:Number(event.target.value)})}/></label>
-        <label>{t("Часовой пояс")}<select value={draft.timeZoneMode??"fixed"} onChange={event=>update({timeZoneMode:event.target.value as "device"|"fixed",...(event.target.value==="device"?{timeZone:deviceZone()}:{})})}><option value="device">{t("Часовой пояс устройства")}</option><option value="fixed">{t("Выбрать часовой пояс")}</option></select><input aria-label={t("Часовой пояс IANA")} required maxLength={80} value={draft.timeZone} disabled={draft.timeZoneMode==="device"} onChange={event=>update({timeZone:event.target.value})}/></label>
+        <div className="notification-zone-field"><label>{t("Часовой пояс")}<select value={draft.timeZoneMode??"fixed"} onChange={event=>update({timeZoneMode:event.target.value as "device"|"fixed",...(event.target.value==="device"?{timeZone:deviceZone()}:{})})}><option value="device">{t("Часовой пояс устройства")}</option><option value="fixed">{t("Выбрать часовой пояс")}</option></select></label><label>{t("Часовой пояс IANA")}<input required maxLength={80} value={draft.timeZone} disabled={draft.timeZoneMode==="device"} onChange={event=>update({timeZone:event.target.value})}/></label></div>
       </div><label className="notification-option"><input type="checkbox" checked={draft.quiet.enabled} onChange={event=>update({quiet:{...draft.quiet,enabled:event.target.checked}})}/><span>{t("Тихие часы")}</span></label>
         {draft.quiet.enabled?<div className="notification-preference-fields"><label>{t("Начало тихих часов")}<TimeClockPicker value={draft.quiet.start} ariaLabel={t("Начало тихих часов")} onChange={start=>update({quiet:{...draft.quiet,start}})}/></label><label>{t("Окончание тихих часов")}<TimeClockPicker value={draft.quiet.end} ariaLabel={t("Окончание тихих часов")} onChange={end=>update({quiet:{...draft.quiet,end}})}/></label></div>:null}
       </details>
       {data.delivery.some(item=>item.state==="failed")?<div className="notification-delivery-failure"><p>{t("Некоторые уведомления не отправлены. Проверьте доступность канала и повторите отправку.")}</p><button type="button" className="secondary-button" onClick={()=>void retry()}>{t("Повторить отправку")}</button></div>:null}
       <footer className="notification-preference-buttons"><button type="submit" className="primary-button" disabled={!changed}>{t("Сохранить")}</button><button type="button" className="secondary-button" onClick={onClose}>{t("Отмена")}</button></footer>
     </fieldset></form>}
-    {draft&&failure?<p role="alert">{failure}</p>:null}{failure?<button type="button" className="secondary-button" disabled={busy||!online} onClick={()=>setVersion(value=>value+1)}>{t("Обновить настройки")}</button>:null}
+    {draft&&failure?<p role="alert">{failure}</p>:null}{failure?<IconActionButton icon="map-refresh" label={t("Обновить настройки")} disabled={busy||!online} onClick={()=>setVersion(value=>value+1)}/>:null}
     {message?<p role="status">{message}</p>:null}{!online?<p role="status">{t("Для сохранения нужно подключение к интернету")}</p>:null}
   </dialog>;
 }

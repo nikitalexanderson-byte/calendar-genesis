@@ -6,6 +6,17 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class SharedTaskPageTest {
+    @Test fun incompleteAndOversizedChecklistInputCannotBeSubmittedAsAValidTask() {
+        fun draft(count:Int,title:String="Пункт")=JSONObject().put("checklists",JSONArray().put(JSONObject().put("id","list").put("title","Чек-лист")
+            .put("items",JSONArray((0 until count).map { JSONObject().put("id","item-$it").put("title",title).put("done",false) }))))
+        assertTrue(sharedTaskChecklistsValid(draft(300)))
+        assertFalse(sharedTaskChecklistsValid(draft(301)))
+        assertFalse(sharedTaskChecklistsValid(draft(1,"  ")))
+        assertFalse(sharedTaskChecklistsValid(draft(1,"x".repeat(501))))
+        val duplicate=draft(2);duplicate.getJSONArray("checklists").getJSONObject(0).getJSONArray("items").getJSONObject(1).put("id","item-0")
+        assertFalse(sharedTaskChecklistsValid(duplicate))
+        val before=duplicate.toString();sharedTaskChecklistsValid(duplicate);assertEquals(before,duplicate.toString())
+    }
     private fun page(version: String, ids: List<String>, cursor: String? = null) = JSONObject()
         .put("queryVersion", version).put("total", 130).put("hasMore", cursor != null)
         .put("nextCursor", cursor ?: JSONObject.NULL)

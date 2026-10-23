@@ -11,6 +11,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import ru.genesis.calendar.auth.SharedWorkspaceGateway
+import ru.genesis.calendar.auth.rebaseNotificationSettings
 
 @Composable internal fun EmailNotificationSettings(controller:SharedWorkspaceGateway,use24:Boolean) {
     val userId=LocalGenesisUserId.current;val en=LocalGenesisLanguage.current=="en";val scope=rememberCoroutineScope()
@@ -20,7 +21,9 @@ import ru.genesis.calendar.auth.SharedWorkspaceGateway
     var version by remember { mutableIntStateOf(0) };var frequencyMenu by remember { mutableStateOf(false) }
     LaunchedEffect(controller,userId,version){
         error=false
-        try{data=controller.notificationSettings();draft=JSONObject(data!!.getJSONObject("settings").toString()).apply { if(!has("emailTypes"))put("emailTypes",JSONObject(getJSONObject("types").toString()).put("messages",true)) }}
+        try{val next=controller.notificationSettings();val previous=data;val own=draft
+            draft=if(previous!=null&&own!=null)rebaseNotificationSettings(previous.getJSONObject("settings"),own,next.getJSONObject("settings")) else JSONObject(next.getJSONObject("settings").toString())
+            draft=draft!!.apply { if(!has("emailTypes"))put("emailTypes",JSONObject(getJSONObject("types").toString()).put("messages",true)) };data=next}
         catch(cancel:CancellationException){throw cancel}catch(_:Exception){error=true}
     }
     fun update(change:(JSONObject)->Unit){draft=draft?.let { JSONObject(it.toString()).apply(change) }}
@@ -32,6 +35,22 @@ import ru.genesis.calendar.auth.SharedWorkspaceGateway
             if(error)TextButton(onClick={version++}){Text(if(en)"Retry" else "Повторить")}
         }else{
             val channels=settings.getJSONObject("channels")
+            val kinds=listOf(Triple("messages","Личные сообщения","Private messages"),Triple("comments","Новые комментарии","New comments"),
+                Triple("mentions","Упоминание в комментарии","Comment mentions"),Triple("created","Новая задача","New tasks"),
+                Triple("projects","Новый проект","New projects"),Triple("assignment","Назначение исполнителя","Assignments"),
+                Triple("dueSoon","Приближение срока","Upcoming due dates"),Triple("overdue","Просроченная задача","Overdue tasks"),
+                Triple("approvalRequest","Запрос подтверждения","Approval requests"),Triple("approvalResult","Результат подтверждения","Approval results"),
+                Triple("changes","Изменения","Other changes"))
+            AffairsDisclosure("События во входящих и на устройстве") {
+                Row(Modifier.fillMaxWidth().heightIn(min=48.dp),verticalAlignment=Alignment.CenterVertically) {
+                    Text("Входящие GENESIS",Modifier.weight(1f));Switch(checked=channels.optBoolean("inbox"),enabled=!busy,
+                        onCheckedChange={value->update { it.getJSONObject("channels").put("inbox",value) }})
+                }
+                kinds.filter { it.first!="messages" }.forEach { (key,ru,english)->Row(Modifier.fillMaxWidth().heightIn(min=48.dp),verticalAlignment=Alignment.CenterVertically) {
+                    Text(if(en)english else ru,Modifier.weight(1f));Switch(checked=settings.getJSONObject("types").optBoolean(key),enabled=!busy,
+                        onCheckedChange={value->update { it.getJSONObject("types").put(key,value) }})
+                } }
+            }
             val available=data?.optJSONObject("capabilities")?.optJSONObject("email")?.optBoolean("available")==true
             Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
                 Text(if(en)"Email notifications" else "Получать уведомления на email",Modifier.weight(1f))
@@ -40,12 +59,6 @@ import ru.genesis.calendar.auth.SharedWorkspaceGateway
             }
             if(!available)Text(if(en)"Email delivery is not configured yet." else "Отправка писем пока не настроена.",style=MaterialTheme.typography.bodySmall)
             Text(if(en)"Registration confirmation is sent once when a new account is created on the website." else "Подтверждение регистрации отправляется один раз при создании аккаунта на сайте.",style=MaterialTheme.typography.bodySmall)
-            val kinds=listOf(Triple("messages","Личные сообщения","Private messages"),Triple("comments","Новые комментарии","New comments"),
-                Triple("mentions","Упоминание в комментарии","Comment mentions"),Triple("created","Новая задача","New tasks"),
-                Triple("projects","Новый проект","New projects"),Triple("assignment","Назначение исполнителя","Assignments"),
-                Triple("dueSoon","Приближение срока","Upcoming due dates"),Triple("overdue","Просроченная задача","Overdue tasks"),
-                Triple("approvalRequest","Запрос подтверждения","Approval requests"),Triple("approvalResult","Результат подтверждения","Approval results"),
-                Triple("changes","Изменения","Other changes"))
             Text(if(en)"Email types" else "События писем",style=MaterialTheme.typography.titleSmall)
             kinds.forEach { (key,ru,english)->Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
                 Text(if(en)english else ru,Modifier.weight(1f),style=MaterialTheme.typography.bodyMedium)
@@ -66,6 +79,14 @@ import ru.genesis.calendar.auth.SharedWorkspaceGateway
             if(quiet.getBoolean("enabled")){
                 Text(if(en)"From" else "С");AuthorTimePicker(quiet.getString("start"),use24){value->update { it.getJSONObject("quiet").put("start",value) }}
                 Text(if(en)"Until" else "До");AuthorTimePicker(quiet.getString("end"),use24){value->update { it.getJSONObject("quiet").put("end",value) }}
+            }
+            AffairsDisclosure("Время и частота") {
+                ImportChoice("Часовой пояс",settings.optString("timeZoneMode","fixed"),listOf("device" to genesisTranslate("Часовой пояс устройства"),"fixed" to genesisTranslate("Выбрать часовой пояс")),!busy,"notification-zone-mode") { value ->
+                    update { it.put("timeZoneMode",value);if(value=="device")it.put("timeZone",java.util.TimeZone.getDefault().id) }
+                }
+                OutlinedTextField(settings.optString("timeZone"),{value->if(value.length<=80)update { it.put("timeZone",value) }},enabled=!busy&&settings.optString("timeZoneMode")!="device",
+                    label={Text("Часовой пояс IANA")},modifier=Modifier.fillMaxWidth())
+                ImportChoice("За сколько дней напоминать о сроке",settings.optInt("reminderDays").toString(),(0..30).map { it.toString() to it.toString() },!busy,"notification-reminder-days") { value -> update { it.put("reminderDays",value.toInt()) } }
             }
             Button(onClick={scope.launch{
                 busy=true;error=false
