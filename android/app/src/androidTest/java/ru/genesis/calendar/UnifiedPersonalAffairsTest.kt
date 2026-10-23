@@ -90,15 +90,19 @@ class UnifiedPersonalAffairsTest {
             }
         }
         compose.waitUntil(10_000) { compose.onAllNodesWithTag("projects-screen").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("personal-create-task").assertDoesNotExist()
+        compose.onNodeWithTag("personal-actions").performClick()
+        val createTaskTop = compose.onNodeWithTag("personal-create-task").fetchSemanticsNode().boundsInRoot.top
+        val createListTop = compose.onNodeWithTag("personal-create-list").fetchSemanticsNode().boundsInRoot.top
+        val createProjectTop = compose.onNodeWithTag("create-project").fetchSemanticsNode().boundsInRoot.top
+        assertTrue(createTaskTop < createListTop && createListTop < createProjectTop)
         compose.onNodeWithTag("personal-create-task").performClick()
         assertNull(requestedTaskProject)
         compose.onNodeWithTag("personal-actions").performClick()
         compose.onNodeWithTag("personal-create-list").performClick()
         assertTrue(listRequested)
         val screen = compose.onNodeWithTag("projects-screen")
-        // On tablets the Chaos box is in the adjacent tools pane.
-        if (compose.onAllNodesWithTag("project-tools-pane").fetchSemanticsNodes().isEmpty())
-            screen.performScrollToNode(hasTestTag("personal-task-list-${list.id}"))
+        screen.performScrollToNode(hasTestTag("personal-task-list-${list.id}"))
         compose.onNodeWithTag("personal-task-list-${list.id}")
             .assert(hasAnyAncestor(hasTestTag("project-inbox")))
         compose.onNodeWithTag("task-${listed.id}").assertDoesNotExist()

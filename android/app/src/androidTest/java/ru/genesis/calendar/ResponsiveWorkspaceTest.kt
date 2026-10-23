@@ -51,6 +51,7 @@ class ResponsiveWorkspaceTest {
                 val tasks = compose.onNodeWithTag("navigation-Проекты")
                 if (!tasks.isDisplayed()) tasks.performScrollTo()
                 tasks.performClick()
+                compose.onNodeWithTag("personal-actions").performClick()
                 compose.onNodeWithTag("personal-create-task").performClick()
                 compose.onNodeWithTag("task-title").performTextInput("Проверка адаптивной формы")
                 compose.onNodeWithTag("close-task-editor").assertIsDisplayed()

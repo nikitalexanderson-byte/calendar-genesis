@@ -7,11 +7,12 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -38,23 +39,29 @@ internal fun habitLifecycleFailure(code: String?) = when (code) {
 
 @Composable internal fun HabitLifecycleFilters(workspace: LocalHabitWorkspace, selected: String, onSelect: (String) -> Unit) {
     val number = NumberFormat.getIntegerInstance(Locale.forLanguageTag(LocalGenesisLanguage.current))
+    var menuOpen by remember { mutableStateOf(false) }
+    val counts = workspace.habits.groupingBy { HabitLifecycle.state(it).status }.eachCount()
+    val selectedLabel = genesisTranslate(habitLifecycleLabels.getValue(selected)) + " · " + number.format(counts[selected] ?: 0)
+    val displayLabel = genesisTranslate("Показывать привычки")
     Column(Modifier.fillMaxWidth().testTag("habit-lifecycle-filters"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Пауза выключает расписание и напоминания. Архив сохраняет историю и награды.",
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            for ((status, label) in habitLifecycleLabels) {
-                val count = workspace.habits.count { HabitLifecycle.state(it).status == status }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Surface(shape = AffairsLayout.shape, color = if (selected == status) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface) {
-                        AffairsIconButton(genesisTranslate(label) + ": " + number.format(count), when (status) {
-                            "active" -> AffairsAction.RESUME; "paused" -> AffairsAction.PAUSE; "archived" -> AffairsAction.ARCHIVE; else -> AffairsAction.DELETE
-                        }, { onSelect(status) }, Modifier.testTag("habit-state-$status").semantics { this.selected = selected == status })
-                    }
-                    Text(number.format(count), style = MaterialTheme.typography.labelSmall)
+        Box(Modifier.fillMaxWidth()) {
+            OutlinedButton(onClick = { menuOpen = true }, modifier = Modifier.fillMaxWidth()
+                .testTag("habit-state-choice").semantics { stateDescription = selectedLabel }) {
+                Text("$displayLabel: $selectedLabel", Modifier.weight(1f))
+                Spacer(Modifier.width(8.dp))
+                AffairsActionIcon(if (menuOpen) AffairsAction.COLLAPSE else AffairsAction.EXPAND)
+            }
+            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                for ((status, label) in habitLifecycleLabels) {
+                    DropdownMenuItem(text = {
+                        Text(genesisTranslate(label) + " · " + number.format(counts[status] ?: 0))
+                    }, onClick = { onSelect(status); menuOpen = false },
+                        modifier = Modifier.testTag("habit-state-$status").semantics { this.selected = selected == status })
                 }
             }
         }
-        Text(habitLifecycleLabels.getValue(selected), Modifier.semantics { heading() }, style = MaterialTheme.typography.titleSmall)
+        Text("Пауза выключает расписание и напоминания. Архив сохраняет историю и награды.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

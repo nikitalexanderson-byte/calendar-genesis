@@ -55,7 +55,13 @@ class HabitLifecycleCaptureTest {
                 mapOf("paused" to "pause","archived" to "archive","deleted" to "delete").getValue(status),emptyList()))
         }
         val folder=File(app.getExternalFilesDir(null),"e4-captures").apply { mkdirs() }
-        fun click(tag: String) { compose.onNodeWithTag(tag).performScrollTo().performClick();compose.waitForIdle() }
+        fun click(tag: String) {
+            if (tag.startsWith("habit-state-")) {
+                compose.onNodeWithTag("habit-state-choice").performScrollTo().performClick()
+                compose.onNodeWithTag(tag).performClick()
+            } else compose.onNodeWithTag(tag).performScrollTo().performClick()
+            compose.waitForIdle()
+        }
         val problems=mutableListOf<String>()
         fun capture(scene: String, tags: List<String>, dialog: Boolean=false) {
             compose.waitForIdle()

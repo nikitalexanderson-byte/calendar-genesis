@@ -170,6 +170,8 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
     }
     val structure = loadedStructure!!
     val (taskSort,setTaskSort)=rememberTaskListSort("personal")
+    val (inboxLayout, setInboxLayout) = rememberPersonalInboxLayout(app)
+    val projectStartIndex = if (!inboxLayout.hidden && !inboxLayout.atBottom) 2 else 1
     val orderedTasks=remember(tasks,taskSort){orderPersonalTasks(tasks,taskSort)}
     var searchQuery by rememberSaveable(app.workspaceScope) { mutableStateOf("") }
     var createActionsOpen by remember { mutableStateOf(false) }
@@ -255,7 +257,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
         searchQuery = ""
         selectCategory(null);selectedProject=target.id
         val index=ordered.indexOfFirst {it.first.id==target.id}
-        if(index>=0)listState.scrollToItem(index+3)
+        if(index>=0)listState.requestScrollToItem(index + projectStartIndex)
         onInitialProjectConsumed()
     }
     LaunchedEffect(initialListId, knownLists, structure) {
@@ -265,7 +267,9 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
         selectCategory(null)
         selectedProject = listProjectId(list)
         val index = selectedProject?.let { id -> ordered.indexOfFirst { it.first.id == id } }
-        listState.scrollToItem(if (index != null && index >= 0) index + 3 else 1)
+        if (selectedProject == null && inboxLayout.hidden) setInboxLayout(inboxLayout.copy(hidden = false))
+        listState.requestScrollToItem(if (index != null && index >= 0) index + projectStartIndex
+            else if (inboxLayout.atBottom) 1 + maxOf(1, ordered.size) else 1)
         onInitialListConsumed()
     }
     LaunchedEffect(voiceRequest, knownLists, structure) {
@@ -326,8 +330,21 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
         dropBounds.clear()
     }
 
-    BoxWithConstraints(Modifier.fillMaxSize().onGloballyPositioned { workspaceBounds = it.boundsInRoot() }) {
-    val wide = maxWidth >= 840.dp
+    Box(Modifier.fillMaxSize().onGloballyPositioned { workspaceBounds = it.boundsInRoot() }) {
+    val inboxContent: @Composable () -> Unit = {
+        InboxProjectCard(inbox, structure.projects, experimental, pickup?.id,
+            onPickup, onDrag, onRelease, onOpenTask, moveTask,
+            onDeleteClick = { deleteTaskCandidate = it }, listCount = inboxLists.size,
+            atBottom = inboxLayout.atBottom,
+            onMove = {
+                val atBottom = !inboxLayout.atBottom
+                setInboxLayout(inboxLayout.copy(atBottom = atBottom))
+                listState.requestScrollToItem(if (atBottom) 1 + maxOf(1, visible.size) else 1)
+            },
+            onHide = { setInboxLayout(inboxLayout.copy(hidden = true)) }) {
+            inboxLists.forEach { list -> key(list.accountId, list.id) { listCard(list) } }
+        }
+    }
     val categoriesContent: @Composable () -> Unit = {
             Card(Modifier.fillMaxWidth().testTag("life-categories-card"), shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
@@ -393,8 +410,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
                 }
             }
     }
-    Row(Modifier.fillMaxSize()) {
-    LazyColumn(state = listState, modifier = Modifier.weight(if (wide) 1.4f else 1f).fillMaxHeight().testTag("projects-screen"), contentPadding = PaddingValues(16.dp),
+    LazyColumn(state = listState, modifier = Modifier.fillMaxSize().testTag("projects-screen"), contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item(key = "personal-controls") {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -403,24 +419,42 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
                         AffairsIconButton("Дополнительные действия", AffairsAction.MORE,
                             { createActionsOpen = true }, Modifier.testTag("personal-actions"))
                         DropdownMenu(createActionsOpen, { createActionsOpen = false }) {
-                            DropdownMenuItem(text = { Text("Создать проект") }, onClick = {
-                                createActionsOpen = false; creating = true; editing = null; error = null
-                            }, modifier = Modifier.testTag("create-project"))
+                            DropdownMenuItem(text = { Text("Создать задачу") }, onClick = {
+                                createActionsOpen = false; onCreateTask(null)
+                            }, modifier = Modifier.testTag("personal-create-task"))
                             DropdownMenuItem(text = { Text("Создать список") }, onClick = {
                                 createActionsOpen = false; onCreateList()
                             }, modifier = Modifier.testTag("personal-create-list"))
+                            DropdownMenuItem(text = { Text("Создать проект") }, onClick = {
+                                createActionsOpen = false; creating = true; editing = null; error = null
+                            }, modifier = Modifier.testTag("create-project"))
+                            HorizontalDivider()
+                            DropdownMenuItem(text = { Text(if (inboxLayout.hidden) "Показать хаос-бокс" else "Скрыть хаос-бокс") },
+                                leadingIcon = { AffairsActionIcon(if (inboxLayout.hidden) AffairsAction.VIEW else AffairsAction.HIDE) },
+                                onClick = {
+                                    createActionsOpen = false; setInboxLayout(inboxLayout.copy(hidden = !inboxLayout.hidden))
+                                }, modifier = Modifier.testTag("personal-toggle-inbox"))
                         }
                     }
                 }
-                Button(onClick = { onCreateTask(null) }, modifier = Modifier.fillMaxWidth()
-                    .heightIn(min = 48.dp).testTag("personal-create-task")) { Text("Создать задачу") }
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilledTonalButton(onClick = { onMindmaps(null) }, modifier = Modifier.widthIn(min = 140.dp)
-                        .heightIn(min = 48.dp).testTag("personal-mindmaps")) { Text("Майндмепы", maxLines = 1, softWrap = false) }
-                    TaskListSortChoice(taskSort, setTaskSort, Modifier.widthIn(min = 172.dp), compact = true)
+                FilledTonalButton(onClick = { onMindmaps(null) }, modifier = Modifier.fillMaxWidth()
+                    .testTag("personal-mindmaps")) {
+                    AffairsActionIcon(AffairsAction.MINDMAP)
+                    Spacer(Modifier.width(10.dp))
+                    Text("Майндмепы")
                 }
-                AffairsSearchField(searchQuery, { searchQuery = it.take(200) }, "Поиск задач",
-                    Modifier.testTag("personal-task-search"))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    AffairsSearchField(searchQuery, { searchQuery = it.take(200) }, "Поиск задач",
+                        Modifier.weight(1f).testTag("personal-task-search"))
+                    TaskListSortChoice(taskSort, setTaskSort, Modifier, compact = true, iconOnly = true)
+                }
+                if (inboxLayout.hidden) OutlinedButton(onClick = { setInboxLayout(inboxLayout.copy(hidden = false)) },
+                    modifier = Modifier.fillMaxWidth().testTag("personal-show-inbox")) {
+                    AffairsActionIcon(AffairsAction.VIEW)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Показать хаос-бокс")
+                }
                 structure.categories.firstOrNull { it.id == selectedCategory }?.let { category ->
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         androidx.compose.material3.Text(category.name, Modifier.weight(1f),
@@ -440,14 +474,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
                 NativeTaskCard(task, use24, structure, onCompleteTask, onOpenTask)
             }
         } else {
-        if (!wide) item {
-            InboxProjectCard(inbox, structure.projects, experimental, pickup?.id,
-                onPickup, onDrag, onRelease, onOpenTask, onCreateTask, moveTask,
-                onDeleteClick = { deleteTaskCandidate = it }, listCount = inboxLists.size) {
-                inboxLists.forEach { list -> key(list.accountId, list.id) { listCard(list) } }
-            }
-        }
-        if (!wide) item { categoriesContent() }
+        if (!inboxLayout.hidden && !inboxLayout.atBottom) item(key = "personal-inbox") { inboxContent() }
         if (visible.isEmpty()) item { Text("В этом разделе пока нет проектов.") }
         items(visible, key = { it.first.id }) { (project, depth) ->
             val count = tasksByProject[project.id].orEmpty().size
@@ -523,6 +550,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
                 }
             }
         }
+        if (!inboxLayout.hidden && inboxLayout.atBottom) item(key = "personal-inbox") { inboxContent() }
         }
         error?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.error) } }
         moveAnnouncement?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.primary,
@@ -531,18 +559,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
             Text("Проекты, задачи и списки объединены в личных делах.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-    }
-
-    if (wide && searchQuery.isBlank()) Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())
-        .padding(top = 16.dp, end = 16.dp, bottom = 16.dp).testTag("project-tools-pane"),
-        verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        InboxProjectCard(inbox, structure.projects, experimental, pickup?.id,
-            onPickup, onDrag, onRelease, onOpenTask, onCreateTask, moveTask,
-            onDeleteClick = { deleteTaskCandidate = it }, listCount = inboxLists.size) {
-            inboxLists.forEach { list -> key(list.accountId, list.id) { listCard(list) } }
-        }
-        categoriesContent()
-    }
+        if (searchQuery.isBlank()) item(key = "life-categories") { categoriesContent() }
     }
     pickup?.let { held ->
         ProjectDropOverlay(held, structure.projects, experimental, workspaceBounds, dropBounds)
@@ -653,9 +670,10 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
 private fun InboxProjectCard(inbox: List<LocalTask>, projects: List<GenesisProject>, experimental: Boolean,
     pickedUpId: String?,
     onPickup: (LocalTask, Offset) -> Unit, onDrag: (Offset) -> Unit, onRelease: (Boolean) -> Unit,
-    onOpenTask: (String) -> Unit, onCreateTask: (String?) -> Unit,
+    onOpenTask: (String) -> Unit,
     onMoveTask: (String, String) -> Unit, onDeleteClick: (LocalTask) -> Unit,
-    listCount: Int = 0, listsContent: @Composable () -> Unit = {}) {
+    listCount: Int = 0, atBottom: Boolean, onMove: () -> Unit, onHide: () -> Unit,
+    listsContent: @Composable () -> Unit = {}) {
     val background = if (experimental) Color(0xff103632) else MaterialTheme.colorScheme.surface
     val foreground = if (experimental) Color(0xfff8f3e8) else MaterialTheme.colorScheme.onSurface
     val secondary = if (experimental) Color(0xffb8ccc5) else MaterialTheme.colorScheme.onSurfaceVariant
@@ -665,14 +683,21 @@ private fun InboxProjectCard(inbox: List<LocalTask>, projects: List<GenesisProje
         tonalElevation = if (experimental) 0.dp else 1.dp
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Column(Modifier.weight(1f)) {
                     Text("Хаос-бокс", color = foreground,
                         style = MaterialTheme.typography.titleMedium)
                     Text("${inbox.size} задач · ${genesisTranslate("Списки задач")}: $listCount", color = secondary,
                         style = MaterialTheme.typography.bodySmall)
                 }
-
+                CompositionLocalProvider(LocalContentColor provides foreground) {
+                    AffairsIconButton(if (atBottom) "Переместить хаос-бокс вверх" else "Переместить хаос-бокс вниз",
+                        if (atBottom) AffairsAction.MOVE_UP else AffairsAction.MOVE_DOWN, onMove,
+                        Modifier.testTag("personal-move-inbox"), contentColor = foreground)
+                    AffairsIconButton("Скрыть хаос-бокс", AffairsAction.HIDE, onHide,
+                        Modifier.testTag("personal-hide-inbox"), contentColor = foreground)
+                }
             }
             if (experimental) Text("Удерживайте задачу и перетащите её в проект. Здесь можно вернуть задачу обратно.",
                 color = secondary, style = MaterialTheme.typography.bodySmall)
@@ -692,10 +717,6 @@ private fun InboxProjectCard(inbox: List<LocalTask>, projects: List<GenesisProje
                     }
                 }
                 listsContent()
-                TextButton(onClick = { onCreateTask(null) },
-                    colors = ButtonDefaults.textButtonColors(contentColor = foreground)) {
-                    Text("Создать задачу")
-                }
             }
         }
     }
