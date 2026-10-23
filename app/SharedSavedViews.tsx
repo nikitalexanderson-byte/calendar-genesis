@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { CalendarDatePicker } from "./CalendarDatePicker";
 import {RecordCalendarChoice} from './RecordCalendarChoice';
 import { calendarContext, type CalendarContext } from "./calendar-context";
@@ -36,34 +36,44 @@ function payload(draft:Draft):SharedSavedViewDefinition {
 }
 
 export function ViewChoice({kind,label,filter,value,onChange,online}:{kind:SharedViewOptionKind;label:string;filter:Pick<SharedTaskCriteria,"spaceId"|"projectIds">;value:string[];onChange:(value:string[])=>void;online:boolean}) {
-  const key=JSON.stringify(filter),[state,setState]=useState<{key:string;page:SharedViewOptionsPage}|null>(null),[failure,setFailure]=useState<{key:string;text:string}|null>(null),[pending,setPending]=useState<{key:string;id:number}|null>(null);
-  const generation=useRef(0),moreController=useRef<AbortController|null>(null);
-  useEffect(()=>{const clear=()=>{setState(null);setFailure(null);};window.addEventListener('offline',clear);return()=>window.removeEventListener('offline',clear);},[]);
+  const key=JSON.stringify([kind,filter]),[state,setState]=useState<{key:string;page:SharedViewOptionsPage}|null>(null),[failure,setFailure]=useState<{key:string;reason:unknown}|null>(null),[pending,setPending]=useState<{key:string;id:number}|null>(null),[retry,setRetry]=useState(0);
+  const generation=useRef(0),requestController=useRef<AbortController|null>(null),feedbackId=useId();
+  const load=useCallback((cursor:string|null,signal:AbortSignal)=>{
+    const [optionKind,scope]=JSON.parse(key) as [SharedViewOptionKind,Pick<SharedTaskCriteria,"spaceId"|"projectIds">];
+    return loadSharedViewOptions(optionKind,scope,cursor,signal);
+  },[key]);
+  useEffect(()=>{const clear=()=>{++generation.current;requestController.current?.abort();requestController.current=null;setState(null);setFailure(null);setPending(null);};window.addEventListener('offline',clear);return()=>window.removeEventListener('offline',clear);},[]);
   useEffect(()=>{
     if(!online)return;
-    const controller=new AbortController(),current=++generation.current;
-    void loadSharedViewOptions(kind,JSON.parse(key),null,controller.signal).then(page=>{
+    const controller=new AbortController(),current=++generation.current;requestController.current=controller;
+    void load(null,controller.signal).then(page=>{
       if(!controller.signal.aborted&&current===generation.current){setState({key,page});setFailure(null);}
-    }).catch(error=>{if(!controller.signal.aborted&&current===generation.current){setState(null);setFailure({key,text:message(error)});}});
-    const invalidate=()=>{++generation.current;moreController.current?.abort();};
+    }).catch(reason=>{if(!controller.signal.aborted&&current===generation.current){setState(null);setFailure({key,reason});}}).finally(()=>{if(requestController.current===controller)requestController.current=null;});
+    const invalidate=()=>{++generation.current;requestController.current?.abort();requestController.current=null;};
     return()=>{invalidate();controller.abort();};
-  },[kind,key,online]);
-  const page=online&&state?.key===key?state.page:null,error=failure?.key===key?failure.text:"",busy=pending?.key===key;
+  },[key,load,online,retry]);
+  const page=online&&state?.key===key?state.page:null,activeFailure=online&&failure?.key===key?failure:null,reason=activeFailure?.reason;
+  const error=activeFailure?reason instanceof GenesisApiError&&(reason.status===408||reason.status>=500)?t("Не удалось загрузить данные"):message(reason):"",busy=online&&pending?.key===key,loading=online&&(!page&&!error||busy);
   const base=kind==="assignees"?[{id:"me",title:t("Назначено мне")},{id:"unassigned",title:t("Без исполнителя")}]:[];
   const options=[...base,...(page?.options??[])],missing=value.filter(id=>!options.some(option=>option.id===id));
   const more=async()=>{
-    if(!page?.nextCursor||busy||!online)return;
-    const current=generation.current,controller=new AbortController();moreController.current=controller;setPending({key,id:current});
+    if(!page?.nextCursor||busy||!online||requestController.current)return;
+    const current=generation.current,controller=new AbortController();requestController.current=controller;setPending({key,id:current});setFailure(null);
     try{
-      const next=await loadSharedViewOptions(kind,JSON.parse(key),page.nextCursor,controller.signal);
-      if(current===generation.current){setState({key,page:{...next,options:[...new Map([...page.options,...next.options].map(option=>[option.id,option])).values()]}});setFailure(null);}
-    }catch(error){if(current===generation.current&&!controller.signal.aborted){setState(null);setFailure({key,text:message(error)});}}
-    finally{setPending(previous=>previous?.id===current?null:previous);}
+      const next=await load(page.nextCursor,controller.signal);
+      if(!controller.signal.aborted&&current===generation.current){setState({key,page:{...next,options:[...new Map([...page.options,...next.options].map(option=>[option.id,option])).values()]}});setFailure(null);}
+    }catch(reason){if(current===generation.current&&!controller.signal.aborted){
+      // Only temporary transport/server failures may keep authorized picker pages.
+      if(!(reason instanceof TypeError||reason instanceof GenesisNetworkTimeoutError||reason instanceof GenesisApiError&&(reason.status===408||reason.status===429||reason.status>=500)))setState(null);
+      setFailure({key,reason});
+    }}
+    finally{if(requestController.current===controller)requestController.current=null;setPending(previous=>previous?.id===current?null:previous);}
   };
-  return <div className="saved-view-choice"><label>{label}<select multiple size={4} value={value} onChange={event=>onChange(Array.from(event.target.selectedOptions,option=>option.value))}>
+  const reload=()=>{if(page?.nextCursor)void more();else if(!requestController.current){setFailure(null);setRetry(previous=>previous+1);}};
+  return <div className="saved-view-choice" aria-busy={loading}><label>{label}<select multiple size={4} value={value} aria-describedby={error||loading?feedbackId:undefined} onChange={event=>onChange(Array.from(event.target.selectedOptions,option=>option.value))}>
     {missing.map(id=><option key={id} value={id} data-no-translate>{t("Выбрано")} · {id.slice(0,8)}</option>)}{options.map(option=><option key={option.id} value={option.id} data-no-translate>{option.title}</option>)}
-  </select></label>{!page&&!error&&online?<small role="status">{t("Загружаем данные…")}</small>:null}{error?<p role="alert">{error}</p>:null}
-    {page?.hasMore?<button type="button" className="secondary-button" disabled={busy||!online} onClick={()=>void more()}>{t("Показать ещё")}</button>:null}
+  </select></label>{loading?<small id={feedbackId} role="status">{t("Загружаем данные…")}</small>:null}{error?<p id={feedbackId} className="shared-error" role="alert">{error}</p>:null}
+    {error?<IconActionButton icon="map-refresh" label={t("Повторить загрузку")} disabled={busy||!online} onClick={reload}/>:page?.hasMore?<IconActionButton icon="chevron-down" label={t("Показать ещё")} disabled={busy||!online} onClick={()=>void more()}/>:null}
   </div>;
 }
 
