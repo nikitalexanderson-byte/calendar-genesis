@@ -25,6 +25,18 @@ class DailyAdviceProtocolTest {
         val wire = response(); wire.getJSONObject("advice").put("image", "https://outside.invalid/image")
         assertNull(DailyAdviceProtocol.parse(wire).advice!!.image)
     }
+    @Test fun rotationKeepsTheServerDailyBudgetAndHestiologyArtwork() {
+        val wire = response().put("sequence", 2).put("dailyLimit", 3).put("canNext", true)
+        wire.getJSONObject("advice").put("categories", JSONArray().put("hestiology"))
+            .put("image", "/advice-art/hestiology/advice-" + "a".repeat(24) + ".webp")
+        val parsed = DailyAdviceProtocol.parse(wire)
+        assertEquals(2, parsed.sequence); assertEquals(3, parsed.dailyLimit); assertTrue(parsed.canNext)
+        assertEquals(listOf("hestiology"), parsed.advice!!.categories)
+        assertTrue(parsed.advice.image!!.contains("/hestiology/"))
+        assertFalse(DailyAdviceProtocol.parse(wire.put("sequence", 3).put("canNext", false)).canNext)
+        assertTrue(runCatching { DailyAdviceProtocol.parse(wire.put("canNext", true)) }.isFailure)
+        assertTrue(runCatching { DailyAdviceProtocol.parse(wire.put("dailyLimit", 7)) }.isFailure)
+    }
     @Test fun malformedOrCrossDayDataIsRejected() {
         for (mutate in listOf<(JSONObject) -> Unit>(
             { it.getJSONObject("advice").put("dayKey", "2026-10-24") },

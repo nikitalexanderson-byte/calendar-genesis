@@ -140,6 +140,11 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
             checkAdviceAccount(uid)
             check(result.optBoolean("ok"))
         }
+        override suspend fun next(context: JSONObject, id: String, day: String): JSONObject {
+            checkAdviceAccount(uid)
+            val generation = client.currentGeneration()
+            return withContext(Dispatchers.IO) { client.nextDailyAdvice(generation, context, id, day) }.also { checkAdviceAccount(uid) }
+        }
     }
 
     internal suspend fun saveAdvicePreferences(uid: String, patch: JSONObject): AdvicePreferences {

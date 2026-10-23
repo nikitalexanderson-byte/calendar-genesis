@@ -36,8 +36,11 @@ import org.json.JSONArray
 import org.json.JSONObject
 import ru.genesis.calendar.auth.*
 import ru.genesis.calendar.domain.habits.AdviceAffinity
+import ru.genesis.calendar.domain.habits.AdviceTaskSignal
 import ru.genesis.calendar.domain.habits.Habit
+import ru.genesis.calendar.data.LocalTask
 import java.time.LocalDate
+import java.time.LocalDateTime
 import kotlin.math.max
 import kotlin.math.min
 
@@ -50,7 +53,7 @@ import kotlin.math.min
 }
 
 @Composable internal fun TodayAdvicePanel(gateway: DailyAdviceGateway, userId: String, day: String, language: String,
-    preferences: AdvicePreferences, habits: List<Habit>, reloadToken: Long? = null) {
+    preferences: AdvicePreferences, habits: List<Habit>, reloadToken: Long? = null, tasks: List<LocalTask> = emptyList()) {
     if (!preferences.enabled) return
     key(userId, day, language, preferences) {
         val context = LocalContext.current
@@ -72,21 +75,37 @@ import kotlin.math.min
         var response by remember { mutableStateOf<DailyAdviceResponse?>(null) }
         var failed by remember { mutableStateOf(false) }
         var loading by remember { mutableStateOf(false) }
-        LaunchedEffect(gateway, habits, attempt, resumed, reloadToken) {
-            if (!resumed) return@LaunchedEffect
+        var changing by remember { mutableStateOf(false) }
+        var signals by remember { mutableStateOf(JSONObject()) }
+        var serial by remember { mutableIntStateOf(0) }
+        fun timeKey(): String {
+            val now = LocalDateTime.now()
+            val period = if (now.hour < 5 || now.hour >= 18) "evening" else if (now.hour < 12) "morning" else "day"
+            return "${now.toLocalDate()}:$period:${java.time.ZoneId.systemDefault()}"
+        }
+        var clockBand by remember { mutableStateOf(timeKey()) }
+        LaunchedEffect(resumed) {
+            if (resumed) { clockBand = timeKey(); while (true) { delay(60_000); clockBand = timeKey() } }
+        }
+        LaunchedEffect(gateway, habits, tasks, attempt, resumed, reloadToken, clockBand, changing) {
+            if (!resumed || changing) return@LaunchedEffect
             loading = true
+            val request = ++serial
             try {
-                val signals = withContext(Dispatchers.Default) {
+                val contextSignals = withContext(Dispatchers.Default) {
                     fun asset(name: String) = context.assets.open("originals/catalogs/" + name)
                         .bufferedReader(Charsets.UTF_8).use { JSONObject(it.readText()) }
                     AdviceAffinity.context(habits, LocalDate.parse(day), preferences.smart,
                         if (preferences.smart) asset("daily-advice-affinity.json") else JSONObject(),
-                        if (preferences.smart) asset("daily-advice-topics.json") else JSONObject())
+                        if (preferences.smart || tasks.isNotEmpty()) asset("daily-advice-topics.json") else JSONObject(),
+                        tasks.map { task -> AdviceTaskSignal(task.title, task.description, task.done, task.date,
+                            runCatching { JSONObject(task.sourceFieldsJson).optString("entryType", "task") }.getOrDefault("task")) })
                 }
-                val result = DailyAdviceProtocol.parse(gateway.today(signals))
+                signals = contextSignals
+                val result = DailyAdviceProtocol.parse(gateway.today(contextSignals))
                 // The service owns the daily publication boundary; it can differ from the device's date.
                 check(result.advice == null || result.advice.language == language)
-                response = result; failed = false
+                if (request == serial) { response = result; failed = false }
             } catch (cancel: CancellationException) { throw cancel }
             catch (_: Exception) { failed = true }
             finally { loading = false }
@@ -114,6 +133,7 @@ import kotlin.math.min
             }
             var dismissing by remember(card.id) { mutableStateOf(false) }
             var hideError by remember(card.id) { mutableStateOf(false) }
+            var nextError by remember(card.id) { mutableStateOf(false) }
             val scope = rememberCoroutineScope()
             val bitmap by produceState<Bitmap?>(null, card.image, attempt) {
                 try {
@@ -123,11 +143,25 @@ import kotlin.math.min
                 } catch (cancel: CancellationException) { throw cancel }
                 catch (_: Exception) { value = null }
             }
-            DailyAdviceCard(card, copy, bitmap, dismissing, hideError, Modifier.onGloballyPositioned { coordinates ->
+            DailyAdviceCard(card, copy, bitmap, dismissing || loading || changing, hideError, Modifier.onGloballyPositioned { coordinates ->
                 val bounds = coordinates.boundsInWindow()
                 val width = min(bounds.right, view.width.toFloat()) - max(bounds.left, 0f)
                 val height = min(bounds.bottom, view.height.toFloat()) - max(bounds.top, 0f)
                 visible = width > 0 && height > 0 && height >= min(bounds.height, view.height.toFloat()) * .1f
+            }, rotation = response, nextError = nextError, onNext = {
+                if (!loading && !changing && !dismissing && response?.canNext == true) {
+                    changing = true; nextError = false
+                    val request = ++serial
+                    scope.launch {
+                        try {
+                            val result = DailyAdviceProtocol.parse(gateway.next(signals, card.id, card.day))
+                            check(result.advice == null || result.advice.language == language)
+                            if (request == serial) response = result
+                        } catch (cancel: CancellationException) { throw cancel }
+                        catch (_: Exception) { if (request == serial) nextError = true }
+                        finally { changing = false }
+                    }
+                }
             }) {
                 if (!dismissing) {
                     dismissing = true; hideError = false
@@ -146,7 +180,8 @@ import kotlin.math.min
 }
 
 @Composable internal fun DailyAdviceCard(card: DailyAdvice, copy: JSONObject, bitmap: Bitmap?, busy: Boolean,
-    hideError: Boolean, modifier: Modifier = Modifier, onDismiss: () -> Unit) {
+    hideError: Boolean, modifier: Modifier = Modifier, rotation: DailyAdviceResponse? = null,
+    nextError: Boolean = false, onNext: (() -> Unit)? = null, onDismiss: () -> Unit) {
     val surface = MaterialTheme.colorScheme.surface
     Surface(modifier.fillMaxWidth().testTag("today-daily-advice"), shape = AffairsLayout.shape) {
         Box {
@@ -176,6 +211,19 @@ import kotlin.math.min
                         listOf(source.author, source.work, source.reference).filter { it.isNotBlank() }.joinToString(" · "),
                         style = MaterialTheme.typography.bodySmall)
                 }
+                if (rotation != null && rotation.dailyLimit > 1) {
+                    OutlinedButton(onClick = { onNext?.invoke() }, enabled = !busy && rotation.canNext,
+                        modifier = Modifier.heightIn(min = 48.dp).testTag("daily-advice-next")) {
+                        NativeText(copy.getString("next"))
+                    }
+                    NativeText(copy.getString("position").replace("{current}", rotation.sequence.toString())
+                        .replace("{limit}", rotation.dailyLimit.toString()) +
+                        (if (!rotation.canNext) " · " + copy.getString("limitReached") else ""),
+                        modifier = Modifier.testTag("daily-advice-position").semantics { liveRegion = LiveRegionMode.Polite },
+                        style = MaterialTheme.typography.bodySmall)
+                }
+                if (nextError) NativeText(copy.getString("nextError"), color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
                 if (hideError) NativeText(copy.getString("hideError"), color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.testTag("daily-advice-hide-error").semantics { liveRegion = LiveRegionMode.Polite })
             }

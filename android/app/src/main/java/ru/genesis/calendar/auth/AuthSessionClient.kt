@@ -180,6 +180,8 @@ internal class AuthSessionClient(context: Context) {
     fun session(expected: Long): JSONObject = request(expected, "/session", null)
     fun providers(expected: Long): JSONObject = request(expected, "/auth/providers", null)
     fun dailyAdvice(expected: Long, context: JSONObject): JSONObject = request(expected, "/advice/today", context)
+    fun nextDailyAdvice(expected: Long, context: JSONObject, id: String, day: String): JSONObject =
+        request(expected, "/advice/next", JSONObject(context.toString()).put("fromId", id).put("dayKey", day))
     fun recordAdvice(expected: Long, id: String, day: String, dismiss: Boolean): JSONObject =
         request(expected, if (dismiss) "/advice/dismiss" else "/advice/view", DailyAdviceProtocol.record(id, day))
     fun workspace(expected: Long): JSONObject = request(expected, "/workspace", null)

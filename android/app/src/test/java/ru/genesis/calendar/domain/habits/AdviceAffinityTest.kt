@@ -38,4 +38,22 @@ class AdviceAffinityTest {
         val manual = AdviceAffinity.context(listOf(habit("private")), day, false, JSONObject(), JSONObject())
         assertEquals(0, manual.getJSONObject("scores").length()); assertEquals(0, manual.getJSONObject("topics").length())
     }
+    @Test fun privateTaskIntentionsWorkInManualModeAndIgnoreFinishedOrDistantPlans() {
+        val topics = rules(adviceTopics, emptyList()).apply {
+            put("clothing", JSONObject().put("words", JSONArray().put("clothes"))
+                .put("shoppingWords", JSONArray().put("shopping")).put("shoppingExclusions", JSONArray().put("groceries")))
+            put("cleaning", JSONObject().put("words", JSONArray().put("уборк")))
+        }
+        fun signals(title: String, done: Boolean = false, date: String = day.toString(), type: String = "task") =
+            AdviceAffinity.context(emptyList(), day, false, JSONObject(), topics,
+                listOf(AdviceTaskSignal(title, "", done, date, type))).getJSONObject("topics")
+        assertTrue(signals("Buy clothes").getDouble("clothing") > 0)
+        assertTrue(signals("Запланировать уборку").getDouble("cleaning") > 0)
+        assertTrue(signals("Go shopping").getDouble("clothing") > 0)
+        assertEquals(0.0, signals("Shopping for groceries").getDouble("clothing"), 0.0)
+        assertTrue(signals("Shopping for clothes and groceries").getDouble("clothing") > 0)
+        assertEquals(0.0, signals("Buy clothes", done = true).getDouble("clothing"), 0.0)
+        assertEquals(0.0, signals("Buy clothes", date = day.plusDays(31).toString()).getDouble("clothing"), 0.0)
+        assertEquals(0.0, signals("Buy clothes", type = "birthday").getDouble("clothing"), 0.0)
+    }
 }

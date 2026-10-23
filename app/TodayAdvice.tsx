@@ -3,21 +3,32 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { loadDailyAdvice, recordDailyAdvice, type GenesisUser } from "./cloud-sync";
-import { ADVICE_CATEGORIES, adviceHabitScores, adviceHabitTopicScores, advicePreferences, type AdviceScores, type AdviceTopicScores, type DailyAdviceResponse } from "./daily-advice";
+import { ADVICE_CATEGORIES, ADVICE_TOPICS, adviceHabitScores, adviceHabitTopicScores, adviceTaskContext, advicePreferences, type AdviceScores, type AdviceTopicScores, type AdvicePersonalTask, type DailyAdviceResponse } from "./daily-advice";
 import type { Habit } from "./habits";
 import labels from "./daily-advice-copy.json";
 import "./daily-advice.css";
 
-export function TodayAdvice({ user, habits, day, ready }: { user: GenesisUser; habits: readonly Habit[]; day: string; ready: boolean }) {
+export function TodayAdvice({ user, habits, tasks, day, ready }: { user: GenesisUser; habits: readonly Habit[]; tasks: readonly AdvicePersonalTask[]; day: string; ready: boolean }) {
   const preferences = advicePreferences(user.advicePreferences);
-  const scores = useMemo(() => adviceHabitScores(habits, day), [habits, day]);
-  const topics = useMemo(() => adviceHabitTopicScores(habits, day), [habits, day]);
-  const context = JSON.stringify(preferences.smart ? { scores, topics } : { scores: {}, topics: {} });
+  const taskContext = useMemo(() => adviceTaskContext(tasks, day), [tasks, day]);
+  const scores = useMemo(() => {
+    const values = adviceHabitScores(habits, day);
+    for (const category of ADVICE_CATEGORIES) values[category] = Math.min(1000, values[category] + taskContext.scores[category]);
+    return values;
+  }, [habits, day, taskContext]);
+  const topics = useMemo(() => {
+    const values = adviceHabitTopicScores(habits, day);
+    for (const topic of ADVICE_TOPICS) values[topic] = Math.min(1000, values[topic] + taskContext.topics[topic]);
+    return values;
+  }, [habits, day, taskContext]);
+  const context = JSON.stringify(preferences.smart ? { scores, topics } : { scores: {}, topics: taskContext.topics });
   const requestKey = `${user.uid}:${day}:${user.language}:${JSON.stringify(preferences)}`;
   const [saved, setSaved] = useState<{ key: string; result: DailyAdviceResponse } | null>(null);
   const [retry, setRetry] = useState(0);
   const [busy, setBusy] = useState(false);
   const [hideError, setHideError] = useState(false);
+  const [nextError, setNextError] = useState(false);
+  const requestSerial = useRef(0);
   const container = useRef<HTMLElement>(null);
   const copy = labels[user.language];
   const advice = saved?.key === requestKey ? saved.result.advice : null;
@@ -25,19 +36,29 @@ export function TodayAdvice({ user, habits, day, ready }: { user: GenesisUser; h
 
   useEffect(() => {
     const online = () => setRetry(value => value + 1);
+    const visible = () => { if (document.visibilityState === "visible") online(); };
+    const timeKey = () => {
+      const now = new Date(), hour = now.getHours();
+      return `${now.toDateString()}:${hour < 5 || hour >= 18 ? "evening" : hour < 12 ? "morning" : "day"}:${Intl.DateTimeFormat().resolvedOptions().timeZone}`;
+    };
+    let clock = timeKey();
+    const timer = window.setInterval(() => { const next = timeKey(); if (next !== clock) { clock = next; visible(); } }, 60000);
     window.addEventListener("online", online);
-    return () => window.removeEventListener("online", online);
+    window.addEventListener("focus", visible);
+    document.addEventListener("visibilitychange", visible);
+    return () => { window.clearInterval(timer); window.removeEventListener("online", online); window.removeEventListener("focus", visible); document.removeEventListener("visibilitychange", visible); };
   }, []);
 
   useEffect(() => {
-    if (!ready || !preferences.enabled) return;
+    if (!ready || !preferences.enabled || busy) return;
     const controller = new AbortController();
+    const serial = ++requestSerial.current;
     const payload = JSON.parse(context) as { scores: AdviceScores; topics: AdviceTopicScores };
     void loadDailyAdvice(payload.scores, controller.signal, payload.topics).then(result => {
-      if (!controller.signal.aborted) setSaved({ key: requestKey, result });
+      if (!controller.signal.aborted && serial === requestSerial.current) setSaved({ key: requestKey, result });
     }).catch(() => { /* No offline draw: daily identity and history belong to the account on the server. */ });
     return () => controller.abort();
-  }, [ready, preferences.enabled, context, requestKey, retry]);
+  }, [ready, preferences.enabled, context, requestKey, retry, busy]);
 
   useEffect(() => {
     if (!shown || !container.current) return;
@@ -63,9 +84,20 @@ export function TodayAdvice({ user, habits, day, ready }: { user: GenesisUser; h
     } catch { setHideError(true); }
     finally { setBusy(false); }
   };
+  const next = async () => {
+    if (busy || !saved?.result.canNext) return;
+    const serial = ++requestSerial.current;
+    setBusy(true); setNextError(false); setHideError(false);
+    try {
+      const payload = JSON.parse(context) as { scores: AdviceScores; topics: AdviceTopicScores };
+      const result = await loadDailyAdvice(payload.scores, undefined, payload.topics, advice);
+      if (serial === requestSerial.current) setSaved({ key: requestKey, result });
+    } catch { if (serial === requestSerial.current) setNextError(true); }
+    finally { setBusy(false); }
+  };
   const base = (process.env.NEXT_PUBLIC_GENESIS_BASE_PATH?.trim() || "").replace(/\/$/, "");
   const artwork = advice.image && /^\/advice-art\/[a-z0-9-]+\/advice-[a-f0-9]{24}\.webp$/.test(advice.image) ? `${base}${advice.image}` : null;
-  return <aside ref={container} className={`daily-advice-card${artwork ? " daily-advice-illustrated" : ""}`} aria-labelledby="daily-advice-title" data-no-translate>
+  return <aside ref={container} className={`daily-advice-card${artwork ? " daily-advice-illustrated" : ""}`} aria-labelledby="daily-advice-title" aria-busy={busy} data-no-translate>
     {artwork ? <img className="daily-advice-art" src={artwork} alt="" aria-hidden="true" loading="lazy" decoding="async" /> : null}
     <div className="daily-advice-reading">
     <header>
@@ -79,6 +111,13 @@ export function TodayAdvice({ user, habits, day, ready }: { user: GenesisUser; h
     {advice.sources.map((source, index) => <span key={index} lang={advice.language}>
       {source.kind === "quote" ? copy.source : copy.inspired}: {[source.author, source.work, source.reference].filter(Boolean).join(" · ")}
     </span>)}</footer>
+    {typeof saved?.result.dailyLimit === "number" ? <div className="daily-advice-actions">
+      <button type="button" className="secondary-button daily-advice-next" onClick={() => void next()} disabled={busy || !saved.result.canNext} title={saved.result.canNext ? copy.next : copy.limitReached}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5" /><path d="M6 7a7 7 0 0 1 12-1l2 3M18 17a7 7 0 0 1-12 1l-2-3" /></svg>{copy.next}
+      </button>
+      <span role="status" aria-live="polite">{copy.position.replace("{current}", String(saved.result.sequence ?? 1)).replace("{limit}", String(saved.result.dailyLimit))}{!saved.result.canNext ? ` · ${copy.limitReached}` : ""}</span>
+    </div> : null}
+    {nextError ? <p role="alert">{copy.nextError}</p> : null}
     {hideError ? <p role="alert">{copy.hideError}</p> : null}
     </div>
   </aside>;

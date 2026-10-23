@@ -10,12 +10,15 @@ const root = fileURLToPath(new URL("../", import.meta.url));
 export async function verifyDailyAdvice(base = root) {
   const catalog = JSON.parse(await readFile(resolve(base, "server/content/daily-advice.json"), "utf8"));
   if (catalog.version !== 1 || !Array.isArray(catalog.items)) throw new Error("Unsupported daily advice catalog");
-  const source = JSON.parse(await readFile(resolve(base, "server/content/aretology-source-manifest.json"), "utf8"));
   const catalogById = new Map(catalog.items.map(entry => [entry.id, entry]));
-  for (const original of source.entries) {
-    const entry = catalogById.get(original.id);
-    if (!entry || createHash("sha256").update(`${entry.title}. ${entry.body}`).digest("hex") !== original.textSha256
-      || (entry.status ?? "published") !== original.status) throw new Error(`Author's source changed: ${original.number}`);
+  for (const category of ["aretology", "hestiology"]) {
+    if (!catalog.items.some(entry => entry.categories.includes(category))) continue;
+    const source = JSON.parse(await readFile(resolve(base, `server/content/${category}-source-manifest.json`), "utf8"));
+    for (const original of source.entries) {
+      const entry = catalogById.get(original.id);
+      if (!entry || !entry.categories.includes(category) || createHash("sha256").update(`${entry.title}. ${entry.body}`).digest("hex") !== original.textSha256
+        || (entry.status ?? "published") !== original.status) throw new Error(`Author's ${category} source changed: ${original.number}`);
+    }
   }
   const ids = new Set(); const images = new Set(); const imageHashes = new Set(); const locales = new Map();
   let published = 0, drafts = 0;
@@ -44,6 +47,8 @@ export async function verifyDailyAdvice(base = root) {
     }
     if (entry.schedule && (!entry.schedule.phases?.length || entry.schedule.phases.some(phase => !["new", "full"].includes(phase))
       || !entry.schedule.leadDays?.length || entry.schedule.leadDays.some(day => ![1, 2, 3].includes(day)))) throw new Error(`Invalid lunar window: ${entry.id}`);
+    if (entry.timeOfDay !== undefined && !["morning", "evening"].includes(entry.timeOfDay)) throw new Error(`Invalid local time window: ${entry.id}`);
+    if (entry.priority !== undefined && typeof entry.priority !== "boolean") throw new Error(`Invalid advice priority: ${entry.id}`);
   }
   return { published, drafts, languages: adviceLanguages.length, illustrations: images.size };
 }

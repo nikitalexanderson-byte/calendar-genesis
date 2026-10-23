@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { parseAdviceParagraphs, mergeAdviceCatalog, adviceCategories } from "../scripts/import-daily-advice.mjs";
-import { adviceAvailableCategories, adviceHabitScores, adviceHabitTopicScores, advicePreferences } from "../app/daily-advice.ts";
+import { ADVICE_TOPICS, adviceAvailableCategories, adviceHabitScores, adviceHabitTopicScores, adviceTaskContext, advicePreferences } from "../app/daily-advice.ts";
 import { verifyDailyAdvice } from "../scripts/verify-daily-advice.mjs";
 
 test("paragraph import preserves text and stable IDs across reorder, BOM, CRLF, and reflow", () => {
@@ -27,13 +27,37 @@ test("nutrition matching covers supported scripts and ignores paused or future h
     assert.ok(adviceHabitTopicScores([habit(title)], "2026-10-22").nutrition > 0, title);
   }
   const food = habit("Пищевые привычки");
-  assert.deepEqual(Object.keys(adviceHabitTopicScores([food], "2026-10-22")), ["nutrition", "training", "recovery", "discipline"]);
+  assert.deepEqual(Object.keys(adviceHabitTopicScores([food], "2026-10-22")), [...ADVICE_TOPICS]);
   for (const changes of [{ active: false }, { createdDate: "2027-01-01" }, { schedule: { startDate: "2027-01-01", endDate: null } }]) {
     assert.ok(Object.values(adviceHabitTopicScores([{ ...food, ...changes }], "2026-10-22")).every(score => score === 0));
   }
-  assert.deepEqual(adviceAvailableCategories(), ["aretology"]);
+  assert.deepEqual(adviceAvailableCategories(), ["aretology", "hestiology"]);
   assert.deepEqual(adviceAvailableCategories(["aretology", "kourotrophy"]), ["aretology", "kourotrophy"]);
   assert.deepEqual(adviceAvailableCategories([]), []);
+});
+
+test("private task intentions match clothing, attributes and cleaning in supported scripts without leaking text", () => {
+  const task = title => ({ title, description: "", done: false, dueDate: "2026-10-23" });
+  for (const title of ["Купить одежду", "Сходить пошопиться", "Buy clothes", "Acheter des chaussures", "Kleidung kaufen", "Comprar ropa", "Comprare scarpe", "Comprar roupas", "Kupić ubrania", "Купити одећу", "Купити одяг", "Kıyafet alışverişi", "买衣服", "服を買う", "Αγορά ρούχων"]) {
+    const result = adviceTaskContext([task(title)], "2026-10-23");
+    assert.ok(result.topics.clothing > 0 && result.scores.hestiology > 0, title);
+    assert.ok(!JSON.stringify(result).includes(title));
+  }
+  assert.ok(adviceTaskContext([task("Купить какой-то атрибут")], "2026-10-23").topics.attributes > 0);
+  for (const title of ["Купить куртку", "Buy a jacket", "Acheter un manteau", "Kupić płaszcz", "新しいコートを買う", "买袜子"])
+    assert.ok(adviceTaskContext([task(title)], "2026-10-23").topics.clothing > 0, title);
+  assert.ok(adviceTaskContext([task("Купить браслет")], "2026-10-23").topics.attributes > 0);
+  for (const title of ["Shopping for groceries", "Lebensmittel einkaufen", "Compras de alimentos", "Сходить на шопинг за продуктами", "食品の買い物"])
+    assert.equal(adviceTaskContext([task(title)], "2026-10-23").topics.clothing, 0, title);
+  for (const title of ["为客户提供服务", "薬を服用する"])
+    assert.equal(adviceTaskContext([task(title)], "2026-10-23").topics.clothing, 0, title);
+  assert.ok(adviceTaskContext([task("Shopping for a shirt and groceries")], "2026-10-23").topics.clothing > 0);
+  for (const title of ["Organise a meeting", "Разобрать задачи"])
+    assert.equal(adviceTaskContext([task(title)], "2026-10-23").topics.cleaning, 0, title);
+  for (const title of ["Запланировать уборку", "Clean the kitchen", "Nettoyer la maison", "Wohnung aufräumen", "Limpiar la casa", "Pulire la casa", "Limpeza da casa", "Sprzątanie", "Чишћење стана", "Прибирання", "Ev temizliği", "打扫房间", "部屋の掃除", "Καθαρισμός σπιτιού"])
+    assert.ok(adviceTaskContext([task(title)], "2026-10-23").topics.cleaning > 0, title);
+  for (const changes of [{ done: true }, { entryType: "birthday" }, { dueDate: "2027-01-01" }])
+    assert.ok(Object.values(adviceTaskContext([{ ...task("Купить одежду"), ...changes }], "2026-10-23").topics).every(score => score === 0));
 });
 
 test("invalid imports fail before writing content or inventing citations", () => {
@@ -58,8 +82,10 @@ test("all fourteen interface locales cover every control and all six categories"
 
 test("published advice has complete titles and bodies in all fourteen languages and distinct real artwork", async () => {
   const result = await verifyDailyAdvice();
-  assert.deepEqual(result, { published: 160, drafts: 0, languages: 14, illustrations: 160 });
+  assert.deepEqual(result, { published: 312, drafts: 0, languages: 14, illustrations: 312 });
   const catalog = JSON.parse(await readFile(new URL("../server/content/daily-advice.json", import.meta.url), "utf8"));
+  assert.equal(catalog.items.filter(entry => entry.categories.includes("hestiology")).length, 152);
+  assert.deepEqual([...new Set(catalog.items.flatMap(entry => entry.categories))].sort(), ["aretology", "hestiology"]);
   assert.equal(catalog.items[18].title, "Точность Прямодействия");
   assert.ok(catalog.items[18].body.endsWith("Любая задача, которую ты решил довести до конца, должна выполняться с предельной интенсивностью, без оглядки на усталость."));
   assert.equal(catalog.items[18].status, undefined);

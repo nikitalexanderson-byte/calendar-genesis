@@ -7,13 +7,13 @@ export const ADVICE_CATEGORIES = ["aretology", "hermetica", "kourotrophy", "hest
 export type AdviceCategory = typeof ADVICE_CATEGORIES[number];
 export type AdvicePreferences = { enabled: boolean; smart: boolean; categories: AdviceCategory[] };
 export type AdviceScores = Record<AdviceCategory, number>;
-export const ADVICE_TOPICS = ["nutrition", "training", "recovery", "discipline"] as const;
+export const ADVICE_TOPICS = ["nutrition", "training", "recovery", "discipline", "clothing", "attributes", "cleaning", "home_order"] as const;
 export type AdviceTopicScores = Record<typeof ADVICE_TOPICS[number], number>;
 export type DailyAdvice = {
   id: string; dayKey: string; categories: AdviceCategory[]; title?: string; image?: string; body: string; language: string; dismissed: boolean;
   sources: { author?: string; work: string; reference?: string; kind: "inspired" | "quote" }[];
 };
-export type DailyAdviceResponse = { dayKey: string; advice: DailyAdvice | null; state: "disabled" | "empty" | "no-match" | "ready" };
+export type DailyAdviceResponse = { dayKey: string; advice: DailyAdvice | null; state: "disabled" | "empty" | "no-match" | "ready"; sequence?: number; dailyLimit?: number; remaining?: number; canNext?: boolean };
 
 export function advicePreferences(value?: Partial<AdvicePreferences> | null): AdvicePreferences {
   const categories = ADVICE_CATEGORIES.filter(id => !value?.categories || value.categories.includes(id));
@@ -68,7 +68,33 @@ export function adviceHabitTopicScores(habits: readonly Habit[], day: string): A
   return scores;
 }
 
+export type AdvicePersonalTask = { title: string; description?: string; done: boolean; entryType?: string; dueDate?: string };
+
+/** This input is the private task collection, never shared-project tasks. Only numeric scores leave the device. */
+export function adviceTaskContext(tasks: readonly AdvicePersonalTask[], day: string) {
+  const scores = Object.fromEntries(ADVICE_CATEGORIES.map(id => [id, 0])) as AdviceScores;
+  const topics = Object.fromEntries(ADVICE_TOPICS.map(id => [id, 0])) as AdviceTopicScores;
+  for (const task of tasks) {
+    if (task.done || (task.entryType && task.entryType !== "task")) continue;
+    // Unscheduled, current, overdue and near-future intentions matter; distant plans do not dominate today.
+    if (task.dueDate && task.dueDate > day && (Date.parse(task.dueDate) - Date.parse(day)) / 86400000 > 30) continue;
+    const tokens = `${task.title} ${task.description ?? ""}`.normalize("NFKC").toLocaleLowerCase().split(/[^\p{L}\p{N}]+/u);
+    for (const topic of ["clothing", "attributes", "cleaning", "home_order"] as const) {
+      let count = adviceWordMatches(tokens, topicAffinity[topic].words);
+      if (topic === "clothing" && !adviceWordMatches(tokens, topicAffinity.clothing.shoppingExclusions)) {
+        count += adviceWordMatches(tokens, topicAffinity.clothing.shoppingWords);
+      }
+      if (count) { topics[topic] = Math.min(1000, topics[topic] + Math.min(3, count) * 4); scores.hestiology = Math.min(1000, scores.hestiology + 4); }
+    }
+    const buying = adviceWordMatches(tokens, topicAffinity.attributes.purchaseWords);
+    if (buying && adviceWordMatches(tokens, topicAffinity.attributes.genericWords)) {
+      topics.attributes = Math.min(1000, topics.attributes + 8); scores.hestiology = Math.min(1000, scores.hestiology + 4);
+    }
+  }
+  return { scores, topics };
+}
+
 export function adviceAvailableCategories(value?: readonly AdviceCategory[]): AdviceCategory[] {
   // A cached account from before this release has no availability metadata yet.
-  return ADVICE_CATEGORIES.filter(id => (value ?? ["aretology"]).includes(id));
+  return ADVICE_CATEGORIES.filter(id => (value ?? ["aretology", "hestiology"]).includes(id));
 }
