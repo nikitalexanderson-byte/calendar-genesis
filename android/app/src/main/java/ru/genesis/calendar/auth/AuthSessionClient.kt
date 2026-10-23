@@ -179,6 +179,9 @@ internal class AuthSessionClient(context: Context) {
 
     fun session(expected: Long): JSONObject = request(expected, "/session", null)
     fun providers(expected: Long): JSONObject = request(expected, "/auth/providers", null)
+    fun dailyAdvice(expected: Long, context: JSONObject): JSONObject = request(expected, "/advice/today", context)
+    fun recordAdvice(expected: Long, id: String, day: String, dismiss: Boolean): JSONObject =
+        request(expected, if (dismiss) "/advice/dismiss" else "/advice/view", DailyAdviceProtocol.record(id, day))
     fun workspace(expected: Long): JSONObject = request(expected, "/workspace", null)
     fun habitReminderStatus(expected: Long): JSONObject = request(expected, "/habit-reminders/status", null)
     fun mindmaps(expected: Long, path:String, body:JSONObject?=null):JSONObject = request(expected,path,body,method=if(body==null)"GET" else "PUT")
@@ -551,6 +554,7 @@ internal class AuthSessionClient(context: Context) {
             "/auth/google/native", "/auth/google/native/services/config", "/auth/google/native/services",
             "/auth/logout", "/account/preferences", "/admin/stats", "/feature-usage") ||
             (method == "GET" && path.matches(Regex("/ads/today\\?language=[a-z]{2}&country=[A-Z]{0,2}&platform=android"))) ||
+            (method == "POST" && path in setOf("/advice/today", "/advice/view", "/advice/dismiss")) ||
             (path == "/task-lists" && method == "POST") ||
             (method in setOf("PATCH", "DELETE") && path.matches(Regex("/task-lists/[A-Za-z0-9_%.-]{1,1500}"))) ||
             (method in setOf("PUT", "DELETE") && path.matches(Regex("/tasks/[A-Za-z0-9_-]{1,100}"))) ||
@@ -614,6 +618,7 @@ internal class AuthSessionClient(context: Context) {
                             path.endsWith("/project-access") && code in ProjectAccessProtocol.errors ||
                             (path.startsWith("/shared/bulk") || path.startsWith("/shared/views/options")) && SharedBulkProtocol.errorCode(code) ||
                             path.contains("/automations") && SharedAutomationProtocol.errorCode(code)) AuthApiError(code)
+                        else if (path.startsWith("/shared/projects/") && path.contains("/tasks") && code in sharedTaskDetailErrors) AuthApiError(code)
                         else customFieldFailure(status, payload) ?: workflowFailure(status, payload)
                     }.getOrNull()
                     if (failure != null) throw failure

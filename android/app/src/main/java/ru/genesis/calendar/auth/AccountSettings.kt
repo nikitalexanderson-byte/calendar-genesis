@@ -81,6 +81,9 @@ data class AccountSettings(
     val sharedProjectsLifetimeAccess: Boolean = false,
     val sharedProjectsEnabled: Boolean = false,
     val uiVisibility: UiVisibility = UiVisibility(),
+    val advicePreferences: AdvicePreferences = AdvicePreferences(),
+    val adviceAvailableCategories: List<String> = listOf("aretology"),
+    val adviceCatalogAvailable: Boolean = true,
 ) {
     companion object {
         fun fromResponse(response: JSONObject): AccountSettings? {
@@ -124,7 +127,10 @@ data class AccountSettings(
                 user.optString("authProvider", "google"), user.optBoolean("calendarConnected"),
                 user.optBoolean("sharedProjectsEligible"), user.optBoolean("sharedProjectsLifetimeAccess"),
                 user.optBoolean("sharedProjectsEnabled"),
-                UiVisibility.fromJson(user.optJSONObject("uiVisibility")))
+                UiVisibility.fromJson(user.optJSONObject("uiVisibility")),
+                AdvicePreferences.fromJson(user.optJSONObject("advicePreferences")),
+                user.optJSONArray("adviceAvailableCategories")?.strings()?.filter { it in adviceCategories } ?: listOf("aretology"),
+                user.optBoolean("adviceCatalogAvailable", true))
         }
     }
 }

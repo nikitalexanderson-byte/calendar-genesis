@@ -85,7 +85,7 @@ import ru.genesis.calendar.auth.rebaseNotificationSettings
                     update { it.put("timeZoneMode",value);if(value=="device")it.put("timeZone",java.util.TimeZone.getDefault().id) }
                 }
                 OutlinedTextField(settings.optString("timeZone"),{value->if(value.length<=80)update { it.put("timeZone",value) }},enabled=!busy&&settings.optString("timeZoneMode")!="device",
-                    label={Text("Часовой пояс IANA")},modifier=Modifier.fillMaxWidth())
+                    label={Text("Часовой пояс IANA")},modifier=Modifier.fillMaxWidth().testTag("notification-zone-input"))
                 ImportChoice("За сколько дней напоминать о сроке",settings.optInt("reminderDays").toString(),(0..30).map { it.toString() to it.toString() },!busy,"notification-reminder-days") { value -> update { it.put("reminderDays",value.toInt()) } }
             }
             Button(onClick={scope.launch{
@@ -95,7 +95,7 @@ import ru.genesis.calendar.auth.rebaseNotificationSettings
             }},enabled=!busy&&settings.toString()!=data?.optJSONObject("settings")?.toString(),modifier=Modifier.heightIn(min=48.dp).testTag("email-settings-save")){Text(if(en)"Save" else "Сохранить")}
             if(error){
                 Text(if(en)"Could not save the settings. Reload and try again." else "Не удалось сохранить настройки. Обновите их и повторите попытку.",color=MaterialTheme.colorScheme.error)
-                TextButton(onClick={version++},enabled=!busy){Text(if(en)"Reload settings" else "Обновить настройки")}
+                AffairsIconButton(if(en)"Reload settings" else "Обновить настройки",AffairsAction.REFRESH,{version++},enabled=!busy)
             }
         }
     }

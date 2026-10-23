@@ -25,6 +25,7 @@ private fun sharedTaskDetailCore(task: JSONObject): JSONObject = JSONObject()
 
 internal fun sharedTaskDetailDraft(task: JSONObject, prefs: UiPreferences = UiPreferences()): JSONObject = initialSharedTaskCustom(task,
     sharedTaskWithEstimates(sharedTaskDetailCore(task), SharedTaskEstimateDraft.fromTask(task)), prefs)
+        .put(SHARED_TASK_CORE_BASE, sharedTaskCoreBaseline(task))
 
 internal fun sharedTaskDetailChanges(task: JSONObject, details: JSONObject, includeEstimates: Boolean,
     customFields: List<JSONObject> = emptyList()): JSONObject =
@@ -105,7 +106,7 @@ internal fun SharedTaskDetailsFields(task: JSONObject, draft: JSONObject, onChan
     Text("Приоритет", style = MaterialTheme.typography.titleSmall)
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         listOf("Без приоритета", "Низкий приоритет", "Средний приоритет", "Высокий приоритет").forEachIndexed { priority, label ->
-            FilterChip(selected = draft.optInt("priority") == priority, enabled = !disabled && !readOnly,modifier=Modifier.heightIn(min=48.dp),
+            FilterChip(selected = draft.optInt("priority") == priority, enabled = !disabled && !readOnly,modifier=Modifier.heightIn(min=48.dp),shape=AffairsLayout.controlShape,
                 onClick = { onChange(JSONObject(draft.toString()).put("priority", priority)) }, label = { Text(label) })
         }
     }

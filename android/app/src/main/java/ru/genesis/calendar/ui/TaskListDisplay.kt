@@ -50,13 +50,15 @@ internal fun orderPersonalTasks(tasks:List<LocalTask>,sort:TaskListSort):List<Lo
     val label=(if(en) "Sort tasks: " else "Сортировка задач: ")+(if(en)value.en else value.ru)
     val description=genesisTranslate(label)
     Box(modifier) {
-        if (iconOnly) AffairsIconButton(label, AffairsAction.SORT, { open = true },
-            Modifier.testTag("task-sort-control"))
-        else
-        OutlinedButton(onClick={open=true},modifier=Modifier.heightIn(min=48.dp)
+        if (iconOnly) {
+            AffairsIconButton(label, AffairsAction.SORT, { open = true },
+                Modifier.testTag("task-sort-control"))
+        } else {
+            OutlinedButton(onClick={open=true},modifier=Modifier.heightIn(min=48.dp)
             .then(if(compact)Modifier.fillMaxWidth() else Modifier).testTag("task-sort-control")
             .semantics { contentDescription=description }) {
-            Text(if(compact)(if(en)value.en else value.ru) else label)
+                Text(if(compact)(if(en)value.en else value.ru) else label)
+            }
         }
         DropdownMenu(expanded=open,onDismissRequest={open=false}) {
             TaskListSort.entries.forEach { order->DropdownMenuItem(text={Text(if(en)order.en else order.ru)},

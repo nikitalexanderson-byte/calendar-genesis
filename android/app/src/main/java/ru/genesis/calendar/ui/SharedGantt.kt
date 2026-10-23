@@ -213,7 +213,7 @@ private val ganttRowHeight = 64.dp
                 if (today in 0.0..periods.size.toDouble()) drawLine(todayInk,
                     Offset((today * ganttCellWidth.toPx()).toFloat(), 0f), Offset((today * ganttCellWidth.toPx()).toFloat(), size.height), 2.dp.toPx())
             }
-            Box(Modifier.offset(x = touchX.dp)
+            Box(Modifier.offset(x = touchX.dp).testTag("gantt-bar-" + taskKey)
                 .width(max(48f, ((end * ganttCellWidth.value) - touchX).toFloat()).dp).height(48.dp)
                 .pointerInput(task.optString("id"), task.optInt("revision"), periods, editable) {
                     if (editable) detectDragGesturesAfterLongPress(onDragStart = { dragCells = 0.0 },

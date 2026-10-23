@@ -48,7 +48,9 @@ class NotificationReliabilityTest {
         for (channel in listOf(taskChannel, habitChannel)) {
             app.contentResolver.openInputStream(channel.sound).use { stream ->
                 assertNotNull("Notification sound must resolve", stream)
-                assertEquals("RIFF", String(requireNotNull(stream).readNBytes(4)))
+                val header = ByteArray(4)
+                java.io.DataInputStream(requireNotNull(stream)).readFully(header)
+                assertEquals("RIFF", String(header, Charsets.US_ASCII))
             }
         }
         println("GENESIS_DISTINCT_TASK_HABIT_NOTIFICATIONS_VERIFIED")

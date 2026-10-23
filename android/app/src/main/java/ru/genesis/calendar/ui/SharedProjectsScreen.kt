@@ -1150,7 +1150,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     val saveTask: () -> Unit = { run {
         val current = requireNotNull(selectedTask)
         check(canEditTask && !taskPending && !taskArchived && taskFieldsChanged && estimateDraft?.valid != false &&
-            customDraft?.valid == true && sharedTaskChecklistsValid(editTaskDetails) && (estimateDraft?.dirty != true || planningEnabled) && current.optInt("revision") == editTaskRevision)
+            customDraft?.valid == true && sharedTaskCoreResolved(editTaskDetails) && sharedTaskChecklistsValid(editTaskDetails) && (estimateDraft?.dirty != true || planningEnabled) && current.optInt("revision") == editTaskRevision)
         val fields = sharedTaskDetailChanges(current, editTaskDetails, planningEnabled, customDraft.fields)
             .put("title", editTaskTitle.trim()).put("description", editTaskDescription.trim())
             .put("dueDate", editTaskDueDate.ifBlank { null } ?: JSONObject.NULL)
@@ -1655,13 +1655,26 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                             Text(if (en) "Changed elsewhere. Your draft is kept." else "Изменено другим участником. Черновик сохранён.",
                                 color = MaterialTheme.colorScheme.error)
                             TextButton(onClick = {
-                                editTaskDetails = rebaseSharedTaskDetailDraft(selectedTask, editTaskDetails, customDraft?.fields.orEmpty())
-                                editTaskTitle = selectedTask.optString("title")
-                                editTaskDescription = selectedTask.optString("description")
-                                editTaskDueDate = selectedTask.optString("dueDate").takeUnless { it == "null" } ?: ""
-                                editTaskCategoryId = selectedTask.optString("categoryId").takeUnless { it == "null" } ?: ""
+                                val rebased = rebaseSharedTaskEditor(selectedTask, editTaskDetails,
+                                    sharedTaskEditorFields(editTaskTitle, editTaskDescription, editTaskDueDate, editTaskCategoryId),
+                                    customDraft?.fields.orEmpty())
+                                editTaskDetails = rebased.details
+                                editTaskTitle = rebased.fields.optString("title")
+                                editTaskDescription = rebased.fields.optString("description")
+                                editTaskDueDate = rebased.fields.optString("dueDate").takeUnless { it == "null" }.orEmpty()
+                                editTaskCategoryId = rebased.fields.optString("categoryId").takeUnless { it == "null" }.orEmpty()
                                 editTaskRevision = selectedTask.optInt("revision")
                             }) { Text(if (en) "Reload fields" else "Обновить поля") }
+                        }
+                        if (!sharedTaskCoreResolved(editTaskDetails)) SharedTaskCoreConflict(editTaskDetails, !busy && !taskPending &&
+                            selectedTask.optInt("revision") == editTaskRevision) { keepLocal ->
+                            val resolved = resolveSharedTaskEditor(editTaskDetails,
+                                sharedTaskEditorFields(editTaskTitle, editTaskDescription, editTaskDueDate, editTaskCategoryId), keepLocal, selectedTask)
+                            editTaskDetails = resolved.details
+                            editTaskTitle = resolved.fields.optString("title")
+                            editTaskDescription = resolved.fields.optString("description")
+                            editTaskDueDate = resolved.fields.optString("dueDate").takeUnless { it == "null" }.orEmpty()
+                            editTaskCategoryId = resolved.fields.optString("categoryId").takeUnless { it == "null" }.orEmpty()
                         }
                     } else {
                         if (selectedTask.optString("description").isNotBlank()) androidx.compose.material3.Text(selectedTask.getString("description"))
@@ -1690,7 +1703,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).testTag("shared-feedback"),
         color = if (messageIsError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
     if (taskId.isNotBlank() && selectedTask != null && canEditTask) AffairsSaveBar(saveTask,
-        enabled = taskFieldsChanged && !taskPending && !taskArchived && estimateDraft?.valid != false && customDraft?.valid == true && sharedTaskChecklistsValid(editTaskDetails) &&
+        enabled = taskFieldsChanged && !taskPending && !taskArchived && estimateDraft?.valid != false && customDraft?.valid == true && sharedTaskCoreResolved(editTaskDetails) && sharedTaskChecklistsValid(editTaskDetails) &&
             (estimateDraft?.dirty != true || planningEnabled) && editTaskTitle.isNotBlank() && dateValid && selectedTask.optInt("revision") == editTaskRevision &&
             draftTaskKey == "$projectId:$taskId", busy = busy)
     }

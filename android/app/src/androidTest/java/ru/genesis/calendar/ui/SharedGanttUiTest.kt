@@ -21,6 +21,27 @@ class SharedGanttUiTest {
         .put("statusId", "todo").put("revision", 4)
     private val statuses = listOf(JSONObject().put("id", "todo").put("isDone", 0), JSONObject().put("id", "done").put("isDone", 1))
 
+    @Test fun longPressMovesDatesWhilePreservingDurationAndTaskIdentity() {
+        val start = java.time.LocalDate.now().let { it.minusDays(it.dayOfWeek.value - 1L) }
+        val scheduled = JSONObject(task.toString()).put("startDate", start.toString()).put("dueDate", start.plusDays(1).toString())
+        var saved: JSONObject? = null
+        compose.setContent { MaterialTheme(colorScheme = standart) { Surface {
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                SharedGanttView(listOf(scheduled), statuses, CalendarMode.PROFANE, CalendarMode.PROFANE, true, true, false,
+                    onOpen = {}, onSchedule = { row, patch -> assertEquals("qa-gantt", row.getString("id")); saved = patch })
+            }
+        } } }
+        compose.onNodeWithTag("gantt-bar-qa-gantt").performScrollTo().performTouchInput { down(center) }
+        compose.mainClock.advanceTimeBy(800)
+        compose.onNodeWithTag("gantt-bar-qa-gantt").performTouchInput {
+            moveBy(androidx.compose.ui.geometry.Offset(width * 2f, 0f)); up()
+        }
+        compose.waitUntil(5000) { saved != null }
+        assertEquals(start.plusDays(7).toString(), saved!!.getString("startDate"))
+        assertEquals(start.plusDays(8).toString(), saved!!.getString("dueDate"))
+        assertEquals(start.toString(), scheduled.getString("startDate"))
+    }
+
     @Test fun unscheduledTaskUsesTheExistingCalendarFormAndKeepsItsIdentity() {
         var savedTask: JSONObject? = null
         var savedPatch: JSONObject? = null
@@ -35,7 +56,9 @@ class SharedGanttUiTest {
         compose.onNodeWithTag("gantt-end-date").assertExists()
         compose.onNodeWithTag("gantt-save-schedule").performClick()
         compose.waitUntil { savedPatch != null }
-        assertSame(task, savedTask)
+        assertEquals(task.toString(), savedTask!!.toString())
+        assertEquals(4, savedTask!!.getInt("revision"))
+        assertEquals(4, task.getInt("revision"))
         assertEquals(savedPatch!!.getString("startDate"), savedPatch!!.getString("dueDate"))
         assertTrue(savedPatch!!.isNull("startTime"))
         compose.onNodeWithTag("gantt-save-schedule").assertDoesNotExist()

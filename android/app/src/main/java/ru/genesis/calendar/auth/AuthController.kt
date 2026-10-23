@@ -121,6 +121,42 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
         return withContext(Dispatchers.IO) { client.todayAds(generation, language, country) }
     }
 
+    private fun checkAdviceAccount(uid: String) {
+        val current = mutableState.value
+        check(current.ready && !current.requiresSignIn && current.user?.uid == uid &&
+            app.workspaceScope == CloudAccountSnapshot.scopeFor(uid))
+    }
+
+    internal fun dailyAdviceTransport(uid: String): DailyAdviceGateway = object : DailyAdviceGateway {
+        override suspend fun today(context: JSONObject): JSONObject {
+            checkAdviceAccount(uid)
+            val generation = client.currentGeneration()
+            return withContext(Dispatchers.IO) { client.dailyAdvice(generation, context) }.also { checkAdviceAccount(uid) }
+        }
+        override suspend fun record(id: String, day: String, dismiss: Boolean) {
+            checkAdviceAccount(uid)
+            val generation = client.currentGeneration()
+            val result = withContext(Dispatchers.IO) { client.recordAdvice(generation, id, day, dismiss) }
+            checkAdviceAccount(uid)
+            check(result.optBoolean("ok"))
+        }
+    }
+
+    internal suspend fun saveAdvicePreferences(uid: String, patch: JSONObject): AdvicePreferences {
+        checkAdviceAccount(uid)
+        require(patch.length() > 0 && patch.keys().asSequence().all { it in setOf("enabled", "smart", "categories") })
+        val generation = client.currentGeneration()
+        val response = withContext(Dispatchers.IO) { client.updatePreferences(generation, JSONObject().put("advicePreferences", patch)) }
+        checkAdviceAccount(uid)
+        val identity = AuthProtocol.identity(response) ?: throw AuthFailure(AuthFailure.Kind.PROTOCOL)
+        val settings = AccountSettings.fromResponse(response) ?: throw AuthFailure(AuthFailure.Kind.PROTOCOL)
+        require(identity.uid == uid)
+        val saved = settings.advicePreferences.toJson()
+        require(patch.keys().asSequence().all { key -> saved.get(key).toString() == patch.get(key).toString() })
+        publish(generation, mutableState.value.copy(user = identity, accountSettings = settings, checkedAt = System.currentTimeMillis()))
+        return settings.advicePreferences
+    }
+
     private suspend fun sharedCall(action: (AuthSessionClient, Long) -> JSONObject): JSONObject {
         val snapshot = mutableState.value
         check(snapshot.ready && !snapshot.requiresSignIn && snapshot.user != null &&
