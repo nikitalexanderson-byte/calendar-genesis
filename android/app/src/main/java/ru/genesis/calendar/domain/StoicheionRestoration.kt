@@ -95,11 +95,11 @@ object StoicheionRestoration {
     }
     fun habitById(habits: List<Habit>, habitId: String?) = visibleHabits(habits).firstOrNull { it.id == habitId }
     fun eligibleHabits(habits: List<Habit>) = habits.filter {
-        it.active && HabitLifecycle.state(it).status == "active" && it.stoicheionRestoration == null &&
+        it.active && HabitLifecycle.state(it).status == "active" && it.stoicheionRestoration == null && it.practiceGoal == null &&
             it.schedule.recurrence.enabled && it.measurement == null && it.intervalSchedule == null &&
             it.periodGoal == null && it.scoringMode in listOf("none", "binary")
     }
-    /** Restoration needs ten future opportunities; ordinary sacred one-off actions stay unchanged. */
+    /** Every day inside the finite practice window remains an opportunity until completion. */
     fun dailySchedule(schedule: TrackerSchedule): TrackerSchedule {
         val recurrence = schedule.recurrence
         val (pattern, days) = when (recurrence.mode) {

@@ -11,6 +11,10 @@ import { normalizeRestorationSnapshot, RESTORATION_POSITION_IDS } from "./stoich
 import { restorationPlanEquation, restorationPlanReady, reversedSectors, snapshotMatchesSource,
   validateRestorationStrategy, type RestorationStrategy, type RestorationPlan, type RestorationSource } from "./stoicheion-restoration-strategy";
 import { markTrackerEntityChanged } from "./tracker-core";
+import { defaultPracticeGoal } from "./habit-practice-goal";
+import { habitRuleForDate, normalizeHabitRuleHistory } from "./habit-measurement";
+import { habitRuleFrontier } from "./habit-rule-history";
+import { calendarModeForRecurrence } from "./task-recurrence";
 
 export function restorationRecommendation(source: RestorationSource, sectorId: string, plan: RestorationPlan, language: Language) {
   const local = (value: { ru: string; en: string }) => restorationLocal(value, language);
@@ -65,7 +69,18 @@ export function materializeRestorationStrategy(input: RestorationStrategy, works
     if (plan.linkedHabitId) {
       const previous = workspace.habits.find(habit => habit.id === plan.linkedHabitId && isEligibleRestorationHabit(habit));
       if (!previous) throw new Error("RESTORATION_HABIT_UNAVAILABLE");
-      updates.push(markTrackerEntityChanged({ ...previous, stoicheionRestoration: snapshot }));
+      const practice = SACRED_PRACTICES.find(item => item.id === snapshot.practiceId)!;
+      const finite = createRestorationHabit(practice, snapshot, calendarModeForRecurrence(previous.schedule.recurrence.mode), options.language, previous.title);
+      const baseline = habitRuleForDate(previous, previous.createdDate), heads = habitRuleFrontier(previous);
+      if (heads.length > 1) throw new Error("RESTORATION_HABIT_UNAVAILABLE");
+      const schedule = { ...finite.schedule, startDate: previous.schedule.startDate,
+        recurrence: { ...finite.schedule.recurrence, rangeStart: previous.schedule.startDate } };
+      updates.push(markTrackerEntityChanged({ ...previous, stoicheionRestoration: snapshot,
+        practiceGoal: defaultPracticeGoal(options.today), schedule, ruleHistory: normalizeHabitRuleHistory([
+          ...(previous.ruleHistory?.length ? previous.ruleHistory : [baseline]),
+          { id: `practice-rule:${snapshot.cycleId}`, effectiveDate: options.today, recordedAt: options.startedAt,
+            measurement: null, schedule, supersedes: (heads.length ? heads : [baseline]).map(row => row.id) },
+        ]) }));
     } else {
       const practice = SACRED_PRACTICES.find(item => item.id === snapshot.practiceId)!;
       const letter = letters.find(item => item.id === card.letterId)!;

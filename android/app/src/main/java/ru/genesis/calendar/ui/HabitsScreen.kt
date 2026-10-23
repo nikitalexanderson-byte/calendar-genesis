@@ -275,7 +275,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
             }
             if(current.habits.isEmpty()) Text("Здесь появятся ваши практики. Выберите идею из подборки или создайте свою.",
                 style=MaterialTheme.typography.bodyMedium)
-            val listedHabits=current.habits.filter { HabitLifecycle.state(it).status==habitState }.sortedByDescending { it.priority }
+            val listedHabits=current.habits.filter { habitPracticeLibraryStatus(it,current.completions)==habitState }.sortedByDescending { it.priority }
             if (current.habits.isNotEmpty() && listedHabits.isEmpty()) Text("Ничего не найдено")
             if (habitState in setOf("archived", "deleted")) HabitRetiredRows(current, listedHabits, !busy && !storageError,
                 onRestore={habit -> scope.launch { runAction { changeAvailability(habit,"restore") } }},
@@ -285,7 +285,8 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                 val state=HabitLifecycle.state(habit)
                 HabitLifecycleResolution(habit, !busy && !storageError) { selected -> scope.launch { runAction { changeAvailability(habit,"resolve",selected) } } }
                 val entry=current.completions.firstOrNull { it.habitId==habit.id && it.date==today }
-                val scheduled=runCatching { engine.isScheduled(habit,today) }.getOrDefault(false)
+                val scheduled=runCatching { engine.isScheduled(habit,today,current.completions) }.getOrDefault(false)
+                HabitPracticeStatus(habit,current.completions)
                 val measured=HabitMeasurements.effective(HabitMeasurements.rule(habit,today))!=null
                 if (experimental) ExperimentalHabitCard(habit, entry, scheduled, busy || storageError || state.conflict,
                     animate = current.settings.feedback.animations,
@@ -450,7 +451,8 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
         AlertDialog(onDismissRequest={if(!busy) deleteCandidate=null},
             title={Text("Удалить привычку")},
             text={Column(Modifier.heightIn(max=confirmationHeight).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-                Text(if(retainsLaurels) "Рубеж 50 дней достигнут: Лавры сохранятся. История останется доступной для восстановления."
+                if(HabitPracticeGoals.progress(habit,workspace?.completions.orEmpty(),LocalDate.now()) != null) androidx.compose.material3.Text(habitPracticeCopy().getString("deleteNotice"))
+                else Text(if(retainsLaurels) "Рубеж 50 дней достигнут: Лавры сохранятся. История останется доступной для восстановления."
                     else "Удаление до 50 уникальных дней выполнения обнуляет весь баланс Лавров. История останется доступной для восстановления.")
                 androidx.compose.material3.Text(habitDisplayTitle(habit))
             }},
@@ -608,6 +610,10 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
                 }
             }
             EditorSection("Основное") {
+            if(initial.practiceGoal != null) {
+                androidx.compose.material3.Text(habitPracticeCopy().getString("warning"),style=MaterialTheme.typography.bodySmall)
+                androidx.compose.material3.Text(habitPracticeCopy().getString("deadline") + ": $end · ${initial.schedule.timezone}")
+            }
             OutlinedTextField(title,{title=it},label={Text("Название")},modifier=Modifier.fillMaxWidth(),enabled=!busy)
             OutlinedTextField(description,{description=it},label={Text("Описание")},modifier=Modifier.fillMaxWidth(),enabled=!busy)
             HabitMeasurementFields(measurement,existing!=null,onChange={measurement=it},onValidity={measurementValid=it},periodGoal=periodGoal,
@@ -653,7 +659,7 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
                     modifier=Modifier.testTag("habit-start-locked"))
                 Text("🔒 Дата начала зафиксирована при создании.",style=MaterialTheme.typography.bodySmall)
             }
-            Row { Checkbox(checked=end.isNotEmpty(),enabled=!busy,onCheckedChange={end=if(it) start else ""}); Text("Ограничить срок",Modifier.padding(top=12.dp)) }
+            if(initial.practiceGoal==null) Row { Checkbox(checked=end.isNotEmpty(),enabled=!busy,onCheckedChange={end=if(it) start else ""}); Text("Ограничить срок",Modifier.padding(top=12.dp)) }
             if(end.isNotEmpty()) AuthorDatePicker(end,formCalendarMode,minDate=LocalDate.parse(start)) { if(!busy) end=it }
             }
             EditorSection("Повторение") {
@@ -783,7 +789,7 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
                 TextButton(enabled=!busy,onClick=onDismiss) { Text("Отмена") }
                 Button(enabled=!busy&&HabitRuleHistory.state(initial,LocalDate.MAX).conflicts.isEmpty()&&measurementValid&&periodValid&&title.isNotBlank()&&normalizedHabitColor(color)!=null&&normalizedHabitEmoji(emoji)!=null&&
                     (ritualId!="custom"||ritualName.isNotBlank())&&
-                    (limit==0||config.days.isNotEmpty())&&(end.isEmpty()||end>=start)&&intervalSchedule?.valid()!=false,onClick={
+                    (limit==0||config.days.isNotEmpty())&&(end.isEmpty()||end>=start)&&(initial.practiceGoal==null||end.isNotEmpty())&&intervalSchedule?.valid()!=false,onClick={
                     onSave(initial.copy(title=if (title.trim() == editorInitialTitle) initial.title else title.trim(),description=description,priority=priority,scoringMode=scoring,
                         createdDate=if(existing==null) LocalDate.parse(start) else initial.createdDate,
                         emoji=requireNotNull(normalizedHabitEmoji(emoji)),color=requireNotNull(normalizedHabitColor(color)),

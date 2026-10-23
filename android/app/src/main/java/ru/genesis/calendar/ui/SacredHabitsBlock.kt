@@ -148,7 +148,7 @@ internal fun SacredHabitsBlock(workspace: LocalHabitWorkspace, today: LocalDate,
                         val habit=workspace.habits.firstOrNull { it.sacredPracticeId==practice.id }
                         val entry=habit?.let { found -> workspace.completions.firstOrNull {
                             it.habitId==found.id && it.date==today } }
-                        val scheduled=habit?.let { runCatching { engine.isScheduled(it,today) }.getOrDefault(false) } == true
+                        val scheduled=habit?.let { runCatching { engine.isScheduled(it,today,workspace.completions) }.getOrDefault(false) } == true
                         Card(Modifier.fillMaxWidth().testTag("sacred-practice-${practice.id}"),
                             colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainerHigh)) {
                             Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(7.dp)) {
@@ -168,8 +168,9 @@ internal fun SacredHabitsBlock(workspace: LocalHabitWorkspace, today: LocalDate,
                                     else "${if(habit.active)"Активна" else "На паузе"} · " +
                                         (if(scheduled)"запланирована сегодня" else "сегодня не запланирована")
                                 },style=MaterialTheme.typography.labelSmall)
-                                if(habit==null) Button(onClick={onStart(practice)},enabled=!disabled) {
-                                    Text(if(english)"Begin practice" else "Начать практику")
+                                if(habit==null) {
+                                    androidx.compose.material3.Text(habitPracticeCopy().getString("warning"),style=MaterialTheme.typography.bodySmall)
+                                    Button(onClick={onStart(practice)},enabled=!disabled) { Text(if(english)"Begin practice" else "Начать практику") }
                                 } else {
                                     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
                                         TextButton(onClick={selectedId=null;onEdit(habit)},enabled=!disabled) {

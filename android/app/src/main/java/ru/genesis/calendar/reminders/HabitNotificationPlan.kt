@@ -31,7 +31,7 @@ internal fun planHabitNotifications(workspace: LocalHabitWorkspace, today: Local
     val horizon=now.plusSeconds(days*86400L)
     return (-2 until days+2).flatMap { offset ->
         val date = today.plusDays(offset.toLong())
-        val planned = workspace.habits.filter { runCatching { engine.isScheduled(it, date) }.getOrDefault(false) }
+        val planned = workspace.habits.filter { runCatching { engine.isScheduled(it, date, workspace.completions) }.getOrDefault(false) }
         val completed = workspace.completions.filter { it.date == date && it.completed }.mapTo(hashSetOf()) { it.habitId }
         val candidates = planned.filter { it.reminder.enabled && it.id !in completed
             && !(it.reminder.syncToGoogleTasks && !it.reminder.googleTaskId.isNullOrBlank())

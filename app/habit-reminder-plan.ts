@@ -46,7 +46,7 @@ export function habitReminderAction(workspace: Pick<HabitWorkspace, "habits" | "
   const rule = habitRuleForDate(habit, target.date);
   if (target.date !== momentCivilDate(now, rule.schedule.timezone) || Date.parse(target.at) > now.getTime() + 1000
     || target.ruleId !== rule.id || habitRuleState(habit, target.date).conflicts.length
-    || !isHabitScheduledForDate(habit, target.date)
+    || !isHabitScheduledForDate(habit, target.date, "sacred", workspace.habitCompletions)
     || !habitReminderTimes(habit).some(time => (!target.intervalTime || time === target.intervalTime)
       && occurrence(habit, target.date, time).getTime() === Date.parse(target.at))) return "stale";
   const entry = workspace.habitCompletions.find(item => item.habitId === habit.id && item.date === target.date);
@@ -111,7 +111,7 @@ export function buildHabitReminderPlan(workspace: HabitWorkspace, now = new Date
   if (workspace.habitSettings.enabled) for (let offset = -2; offset <= horizonDays + 2; offset++) {
     const date = addCivilDays(firstDay, offset);
     for (const habit of workspace.habits) {
-      if (!habit.active || !habit.reminder.enabled || !isHabitScheduledForDate(habit, date)
+      if (!habit.active || !habit.reminder.enabled || !isHabitScheduledForDate(habit, date, "sacred", workspace.habitCompletions)
         || habit.reminder.syncToGoogleTasks && habit.reminder.googleTaskId
         || habit.reminder.showInGoogleCalendar && habit.reminder.googleEventId
         || workspace.habitCompletions.some(item => item.habitId === habit.id && item.date === date && item.completed)

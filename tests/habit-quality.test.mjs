@@ -23,16 +23,16 @@ const intervals=load(resolve(root,"app/habit-interval.ts"));
 const reminderTimes=load(resolve(root,"app/habit-reminder-time.ts"));
 const sacred=load(resolve(root,"app/sacred-practices.ts"));
 
-test("every sacred practice starts as one dated action and keeps its calendar anchor",()=>{
+test("every sacred practice defaults to one completion in a two-day window and keeps its calendar anchor",()=>{
   const start="2026-10-15";
   for(const mode of ["profane","sacred","lunar"]) for(const practice of sacred.SACRED_PRACTICES){
     const habit=habits.createHabitFromSacredPractice(practice,start,mode);
-    assert.equal(habit.schedule.recurrence.enabled,false);
+    assert.equal(habit.practiceGoal.requiredCompletions,1);
     assert.equal(habit.sacredSectorId,practice.sectorId);
     assert.equal(habit.schedule.startDate,start);
     for(const display of ["profane","sacred","lunar"]){
       assert.equal(habits.isHabitScheduledForDate(habit,start,display),true);
-      assert.equal(habits.isHabitScheduledForDate(habit,"2026-10-16",display),false);
+      assert.equal(habits.isHabitScheduledForDate(habit,"2026-10-16",display),true);
       assert.equal(habits.isHabitScheduledForDate(habit,"2026-10-14",display),false);
     }
   }

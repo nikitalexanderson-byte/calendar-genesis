@@ -33,7 +33,7 @@ internal fun habitReminderProjection(workspace: LocalHabitWorkspace, now: Instan
     if (workspace.settings.enabled) for (offset in -2..days+2) {
         val date = first.plusDays(offset.toLong())
         for (habit in workspace.habits) {
-            if (!habit.active || !habit.reminder.enabled || !engine.isScheduled(habit,date)
+            if (!habit.active || !habit.reminder.enabled || !engine.isScheduled(habit,date,workspace.completions)
                 || habit.reminder.syncToGoogleTasks && !habit.reminder.googleTaskId.isNullOrBlank()
                 || habit.reminder.showInGoogleCalendar && !habit.reminder.googleEventId.isNullOrBlank()
                 || workspace.completions.any { it.habitId == habit.id && it.date == date && it.completed }
