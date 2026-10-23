@@ -148,7 +148,8 @@ class StoicheionRestorationFlowTest {
         assertTrue(saved!!.schedule.recurrence.enabled)
         val engine = ru.genesis.calendar.domain.habits.HabitEngine(GenesisCalendar())
         assertTrue(engine.isScheduled(saved!!, LocalDate.now().plusDays(1)))
-        assertTrue(engine.isScheduled(saved!!, LocalDate.now().plusDays(10)))
+        assertFalse(engine.isScheduled(saved!!, LocalDate.now().plusDays(10)))
+        assertEquals(1,saved!!.practiceGoal!!.requiredCompletions)
         assertEquals(listOf("entrance", "zenith"), saved!!.stoicheionRestoration!!.supportIds)
         for (id in saved!!.stoicheionRestoration!!.supportIds) {
             val helper = theokyklos.practices.first { it.id == catalog.auxiliaries.first { it.id == id }.practiceId }
@@ -159,7 +160,8 @@ class StoicheionRestorationFlowTest {
         compose.onNodeWithTag("restoration-cycle-scroll").performScrollToNode(hasTestTag("restoration-complete-today"))
         compose.onNodeWithTag("restoration-complete-today").performClick()
         compose.onNodeWithTag("restoration-cycle-scroll").performScrollToIndex(0)
-        compose.onNodeWithText("Выполнено · 1/10").assertExists()
+        compose.onNodeWithText("Выполнено · 1/1").assertExists()
+        compose.onNodeWithTag("restoration-complete-today").assertDoesNotExist()
         screenshot("$scheme-cycle")
         compose.onNodeWithTag("restoration-cycle-scroll").performScrollToNode(hasTestTag("restoration-reflection"))
         compose.onNodeWithTag("restoration-reflection").performTextInput("Сделан один посильный шаг")
@@ -167,6 +169,6 @@ class StoicheionRestorationFlowTest {
         compose.onNodeWithText("Наблюдение сохранено").assertExists()
     }
 
-    @Test fun lightJourneyKeepsTheDrawAndTurnsActionIntoOneTetractysPoint() = journey(false)
-    @Test fun darkJourneyKeepsTheDrawAndTurnsActionIntoOneTetractysPoint() = journey(true)
+    @Test fun lightJourneyKeepsTheDrawAndCompletesThePracticeOnce() = journey(false)
+    @Test fun darkJourneyKeepsTheDrawAndCompletesThePracticeOnce() = journey(true)
 }

@@ -172,7 +172,7 @@ class HabitsRepository(private val app: GenesisApplication) {
             val habit=workspace.habits.firstOrNull { it.id==id } ?: error("Привычка не найдена")
             val today=LocalDate.now()
             require(date == today) { "Отметьте привычку в день выполнения." }
-            require(engine().isScheduled(habit,date)) { "На этот день привычка не запланирована." }
+            require(engine().isScheduled(habit,date,workspace.completions)) { "На этот день привычка не запланирована." }
             val existing=workspace.completions.firstOrNull { it.habitId==id && it.date==date }
             val measurementState = if(HabitMeasurements.effective(HabitMeasurements.rule(habit,date)) != null)
                 HabitMeasurements.progress(habit,date,workspace.measurements) else null
@@ -224,7 +224,7 @@ class HabitsRepository(private val app: GenesisApplication) {
             val habit = workspace.habits.firstOrNull { it.id == id } ?: error("Привычка не найдена")
             require(HabitMeasurements.effective(HabitMeasurements.rule(habit,date)) == null)
             require(date == LocalDate.now()) { "Отметьте привычку в день выполнения." }
-            require(engine().isScheduled(habit,date)) { "На этот день привычка не запланирована." }
+            require(engine().isScheduled(habit,date,workspace.completions)) { "На этот день привычка не запланирована." }
             workspace.copy(completions = engine().updateIntervalCompletion(workspace.completions,
                 habit,date,LocalDate.now(),time,completed))
         }
@@ -240,7 +240,7 @@ class HabitsRepository(private val app: GenesisApplication) {
             check(app.workspaceScope == scope) { "HABIT_REMINDER_SCOPE_CHANGED" }
             require(reminderTarget.habitId == id && reminderTarget.date == date &&
                 habitReminderAction(habit, reminderTarget, workspace.completions, workspace.measurements) == "input") { "HABIT_REMINDER_stale" }
-        } else require(date == LocalDate.now() && engine().isScheduled(habit,date)) { "На этот день привычка не запланирована." }
+        } else require(date == LocalDate.now() && engine().isScheduled(habit,date,workspace.completions)) { "На этот день привычка не запланирована." }
         val measurements = HabitMeasurements.append(habit,date,value,workspace.measurements,entryId,replaces,note,operationId)
         workspace.copy(measurements = measurements, completions = HabitMeasurements.project(workspace.habits,
             measurements,workspace.completions,LocalDate.now(),Instant.now().toString()))
@@ -321,12 +321,13 @@ class HabitsRepository(private val app: GenesisApplication) {
             rewardGoals,today,timestamp) { habit,date ->
                 val goal=HabitMeasurements.rule(habit,date).periodGoal
                 if(goal!=null) HabitPeriodGoals.settlement(habit,date,economy.measurements,economy.completions,
-                    today.atTime(12,0).atZone(ZoneId.of(goal.context.timeZone)).toInstant())!=null else engine().isScheduled(habit,date)
+                    today.atTime(12,0).atZone(ZoneId.of(goal.context.timeZone)).toInstant())!=null else engine().isScheduled(habit,date,workspace.completions)
             } else workspace.quests
+        val practiceLedger=HabitPracticeGoals.penalties(workspace.habits,workspace.completions,workspace.rewards,today,Instant.parse(timestamp))
         val nonQuestLedger=StreakProtection.reconcileComeback(rewardGoals,
-            StreakRewards.reconcile(rewardGoals,Rewards.reconcileDailyGoals(rewardGoals,workspace.rewards,today)),today)
+            StreakRewards.reconcile(rewardGoals,Rewards.reconcileDailyGoals(rewardGoals,practiceLedger,today)),today)
         val ledger=if (questsEnabled) HabitQuests.reconcileRewards(quests,nonQuestLedger) else nonQuestLedger
-        val progress=HeroProgress.reconcile(workspace.progress,habitCompletionCredits(workspace.completions),timestamp,
+        val progress=HeroProgress.reconcile(workspace.progress,habitCompletionCredits(HabitPracticeGoals.xpEntries(workspace.habits,workspace.completions)),timestamp,
             DailyGoals.streak(goals,today),Rewards.balance(ledger),streakFreezeCount=StreakProtection.count(freezes),
             rhythmScore=DailyGoals.rhythmScore(goals,today))
         val unlocks=Achievements.reconcile(workspace.achievementUnlocks,projected,rewardGoals,
@@ -398,6 +399,8 @@ internal object HabitDocument {
             h.periodGoal?.let { put("periodGoal",periodGoal(it)) }
             put("lifecycleHistory",HabitLifecycleCodec.encode(h.lifecycleHistory))
             h.stoicheionRestoration?.let { put("stoicheionRestoration",StoicheionRestorationCodec.encode(it)) }
+            h.practiceGoal?.let { put("practiceGoal",JSONObject().put("version",it.version).put("requiredCompletions",it.requiredCompletions).put("penaltyLaurels",it.penaltyLaurels)
+                .apply { it.startDate?.let { start -> put("startDate",start.toString()) } }) }
         }
         .put("emoji",h.emoji).put("priority",h.priority).put("isKeyHabit",h.isKeyHabit).put("ritualId",h.ritualId).put("ritualName",h.ritualName).put("color",h.color)
         .put("active",h.active).put("sourceTemplateId",h.sourceTemplateId ?: JSONObject.NULL).put("sacredPracticeId",h.sacredPracticeId ?: JSONObject.NULL)
@@ -423,6 +426,7 @@ internal object HabitDocument {
             .copy(measurement = optionalMeasurement(v), ruleHistory = optionalRules(v), periodGoal = optionalPeriodGoal(v),
                 lifecycleHistory = if(v.has("lifecycleHistory")) HabitLifecycleCodec.decode(v.getJSONArray("lifecycleHistory")) else emptyList(),
                 stoicheionRestoration = StoicheionRestorationCodec.decode(v.optJSONObject("stoicheionRestoration")),
+                practiceGoal = v.optJSONObject("practiceGoal")?.let { HabitPracticeGoal(it.getInt("version"),it.getInt("requiredCompletions"),it.getInt("penaltyLaurels"),it.nullable("startDate")?.let(LocalDate::parse)) },
                 intervalSchedule = v.optJSONObject("intervalSchedule")?.let { interval ->
                 HabitIntervalSchedule(interval.optInt("intervalMinutes"),interval.optString("startTime"),
                     interval.optString("endTime"),if(interval.optString("completionMode")=="day") "day" else "each").takeIf { it.valid() } }))

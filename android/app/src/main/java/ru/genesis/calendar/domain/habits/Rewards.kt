@@ -13,7 +13,7 @@ object Rewards {
     val resetReasons = setOf("habit-deleted-reset")
     private val reasons = setOf("daily-goal","perfect-day","daily-quest","weekly-quest","epic-quest",
         "streak-milestone","rank-up","achievement","comeback","hero-path-amphora","hestia-spark",
-        "habit-mastery-retained","habit-deleted-reset")
+        "habit-mastery-retained","habit-deleted-reset","practice-expired")
 
     fun create(amount: Double, reason: String, sourceId: String, key: String, timestamp: String) =
         RewardTransaction("reward:$key",jsRound(amount),reason,sourceId,key,timestamp)

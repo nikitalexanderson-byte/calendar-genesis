@@ -150,6 +150,8 @@ import type { HabitHistoryCommand } from "./habit-history-workspace";
 import { habitLifecycleState, type HabitLifecycleCommand } from "./habit-lifecycle";
 import { applyHabitLifecycleToWorkspace } from "./habits";
 import { HabitLifecycleLibrary } from "./HabitLifecycleLibrary";
+import { practiceCopy } from "./habit-practice-copy";
+import { HabitPracticeNotice } from "./HabitPracticeNotice";
 
 type DailyPanelProps = {
   workspace: HabitWorkspace;
@@ -531,6 +533,7 @@ function rewardReasonLabel(reason: RewardReason, isEnglish: boolean) {
   if (reason === "hero-path-amphora") return isEnglish ? "Path checkpoint amphora" : "Амфора Пути Героя";
   if (reason === "habit-mastery-retained") return isEnglish ? "Habit milestone · Laurels retained" : "Рубеж привычки · Лавры сохранены";
   if (reason === "habit-deleted-reset") return isEnglish ? "Habit deleted · Laurels reset" : "Привычка удалена · Лавры обнулены";
+  if (reason === "practice-expired") return practiceCopy(isEnglish ? "en" : "ru").missed;
   return isEnglish ? "Hestia Spark" : "Искра Гестии";
 }
 
@@ -869,7 +872,7 @@ export function HabitDailyPanel({ workspace, date, language, timeFormat, calenda
   const [timerHabit, setTimerHabit] = useState<string | null>(null);
   const today = habitDateKey(new Date());
   const dueHabits = workspace.habits
-    .filter((habit) => isHabitScheduledForDate(habit, date, calendarMode) || habit.active && date >= habit.createdDate && Boolean(habitRuleForDate(habit, date).periodGoal))
+    .filter((habit) => isHabitScheduledForDate(habit, date, calendarMode, workspace.habitCompletions) || habit.active && date >= habit.createdDate && Boolean(habitRuleForDate(habit, date).periodGoal))
     .sort((left, right) => Number(right.isKeyHabit) - Number(left.isKeyHabit) || right.priority - left.priority || left.title.localeCompare(right.title));
   const ritualGroups = groupHabitsByRitual(dueHabits, isEnglish);
   const dueSleepPlans = workspace.sleepPlans.filter((plan) => plan.active && isTrackerScheduledForDate(plan.schedule, date, calendarMode));
@@ -912,7 +915,7 @@ export function HabitDailyPanel({ workspace, date, language, timeFormat, calenda
       {workspace.habits.length ? (
         <div className={`daily-goal-guidance state-${goalRecord.status}`}>
           <div><span>{isEnglish ? "Daily goal" : "Дневная цель"}</span><strong>{dailyGoalModeLabel(goalRecord.mode, isEnglish)} · {goalRecord.targetCount}/{goalRecord.scheduledCount}</strong></div>
-          <p>{dailyGoalGuidance(goalRecord, isEnglish)}</p>
+          <p>{!goalRecord.scheduledCount && dueHabits.some(habit => habit.practiceGoal) ? practiceCopy(language).openWindow : dailyGoalGuidance(goalRecord, isEnglish)}</p>
           <div className="daily-goal-actions">
             {workspace.habitSettings.feedback.gamificationWidgets ? <div><small>+{Math.max(0, dayPoints)} {isEnglish ? "pts today" : "баллов сегодня"}</small>{awardedLaurels > 0 ? <strong>♕ +{awardedLaurels} {isEnglish ? "Laurels awarded" : "Лавров начислено"}</strong> : <strong className="pending">♕ {isEnglish ? "5 + 3 for Perfect Day" : "5 + 3 за идеальный день"}</strong>}</div> : null}
             {(date > today || plannedRest) && goalRecord.scheduledCount ? <button type="button" onClick={() => onChange(setPlannedRestDay(workspace, date, !plannedRest, calendarMode, today))}>{plannedRest ? (isEnglish ? "Cancel rest" : "Отменить отдых") : (isEnglish ? "Plan rest" : "Запланировать отдых")}</button> : null}
@@ -945,7 +948,7 @@ export function HabitDailyPanel({ workspace, date, language, timeFormat, calenda
           {group.habits.map((habit) => {
             const entry = completionFor(workspace, habit.id, date);
             const score = entry ? scoreHabitCompletion(habit, entry) : 0;
-            const canRecord = canRecordHabitOnDate(habit.createdDate, date, today) && isHabitScheduledForDate(habit, date, calendarMode);
+            const canRecord = canRecordHabitOnDate(habit.createdDate, date, today) && isHabitScheduledForDate(habit, date, calendarMode, workspace.habitCompletions);
             const draftKey=`${date}:${habit.id}`;
             const choosingQuality=Boolean(qualityDrafts[draftKey]);
             const measured = effectiveHabitMeasurement(habitRuleForDate(habit, date));
@@ -1092,6 +1095,7 @@ function HabitEditor({ habit, isExisting, language, calendarMode, timeFormat, go
   const dialogRef = useDialogAccessibility<HTMLFormElement>(onClose);
   const earliestStart = habitDateKey(new Date());
   const scoringDisabled = draft.scoringMode === "none";
+  const finiteCopy = practiceCopy(language);
   const setQualityScale = (qualityScale: HabitQualityScale) => {
     const scoringMode: HabitScoringMode = qualityScale === "ten" ? "quality-ten" : qualityScale === "bipolar" ? "quality-bipolar" : "binary";
     setDraft((current) => ({ ...current, qualityScale, scoringMode }));
@@ -1114,12 +1118,18 @@ function HabitEditor({ habit, isExisting, language, calendarMode, timeFormat, go
         <HabitEmojiField value={draft.emoji} language={language} onChange={(emoji) => setDraft((current) => ({ ...current, emoji }))} />
         <HabitPriorityControl value={draft.priority} language={language} onChange={(priority) => setDraft((current) => ({ ...current, priority }))} />
         <HabitRoleFields habit={draft} language={language} onChange={(patch) => setDraft((current) => ({ ...current, ...patch }))} />
+        {draft.practiceGoal ? <>
+          <HabitPracticeNotice language={language} deadline={draft.schedule.endDate ?? ""} timezone={draft.schedule.timezone}/>
+          {!isExisting ? <label><span>{finiteCopy.target}</span><input type="number" inputMode="numeric" min={1} max={366} step={1}
+            value={draft.practiceGoal.requiredCompletions} onChange={event => { const value = Number(event.target.value); if (Number.isInteger(value) && value >= 1 && value <= 366)
+              setDraft(current => ({ ...current, practiceGoal: { ...current.practiceGoal!, requiredCompletions: value } })); }}/></label> : null}
+        </> : null}
         <details className="habit-editor-section habit-editor-disclosure" data-habit-editor-section="rhythm">
           <summary><span><ExperimentalIcon name="calendar" />{isEnglish ? "Rhythm and calendar" : "Ритм и календарь"}</span><ExperimentalIcon name="chevron-down" /></summary>
           <div className="habit-editor-disclosure-body">
             <p className="habit-rhythm-start-note">{isExisting ? (isEnglish ? "The start date and scoring are fixed; the other settings can be changed." : "Дата начала и система баллов зафиксированы; остальные настройки можно менять.") : (isEnglish ? "Choose today or a future start date. After saving, the start date and scoring formula are fixed." : "Выберите сегодня или будущую дату начала. После сохранения дата начала и система баллов будут зафиксированы.")}</p>
           <RecurrenceBuilder
-            headerControls={<label className="habit-switch"><span><strong>{isEnglish ? "Track indefinitely" : "Отслеживать всегда"}</strong><small>{isEnglish ? "No final date" : "Без даты окончания"}</small></span><input type="checkbox" role="switch" aria-label={isEnglish ? "Track indefinitely" : "Отслеживать всегда"} checked={forever} onChange={(event) => { setForever(event.target.checked); setDraft((current) => ({ ...current, schedule: { ...current.schedule, endDate: event.target.checked ? null : current.schedule.recurrence.rangeEnd || current.schedule.startDate } })); }} /><i /></label>}
+            headerControls={draft.practiceGoal ? undefined : <label className="habit-switch"><span><strong>{isEnglish ? "Track indefinitely" : "Отслеживать всегда"}</strong><small>{isEnglish ? "No final date" : "Без даты окончания"}</small></span><input type="checkbox" role="switch" aria-label={isEnglish ? "Track indefinitely" : "Отслеживать всегда"} checked={forever} onChange={(event) => { setForever(event.target.checked); setDraft((current) => ({ ...current, schedule: { ...current.schedule, endDate: event.target.checked ? null : current.schedule.recurrence.rangeEnd || current.schedule.startDate } })); }} /><i /></label>}
             value={draft.schedule.recurrence}
             footerControls={<HabitGoogleChoices reminder={draft.reminder} isEnglish={isEnglish} googleTasksReady={googleTasksReady} googleCalendarReady={googleCalendarReady} onChange={reminder=>setDraft(current=>({...current,reminder}))}/>}
             startDate={isExisting ? habit.createdDate : earliestStart}
@@ -1406,7 +1416,7 @@ function SacredHabitLibrary({
           {practices.map((practice) => {
           const habit = workspace.habits.find((item) => item.sacredPracticeId === practice.id);
           const entry = habit ? completionFor(workspace, habit.id, date) : undefined;
-          const canTrack = habit?.active && isHabitScheduledForDate(habit, date, calendarMode) && canRecordHabitOnDate(habit.createdDate, date, habitDateKey(new Date()));
+          const canTrack = habit?.active && isHabitScheduledForDate(habit, date, calendarMode, workspace.habitCompletions) && canRecordHabitOnDate(habit.createdDate, date, habitDateKey(new Date()));
           const timeLabel = habit
             ? (habit.preferredTime ? `${isEnglish ? "Strict time" : "Строго"} ${habit.preferredTime}` : (isEnglish ? "No strict time" : "Без строгого времени"))
             : `${isEnglish ? "Suggested" : "Рекомендуется"} ${practice.suggestedTime}`;

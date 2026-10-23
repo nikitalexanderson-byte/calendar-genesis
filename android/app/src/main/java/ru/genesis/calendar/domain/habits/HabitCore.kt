@@ -42,6 +42,7 @@ data class Habit(
     val periodGoal: HabitPeriodGoal? = null,
     val lifecycleHistory: List<HabitLifecycleEvent> = emptyList(),
     val stoicheionRestoration: StoicheionRestorationSnapshot? = null,
+    val practiceGoal: HabitPracticeGoal? = null,
 ) {
     init { require(periodGoal?.metric != "sum" || measurement != null) { "HABIT_PERIOD_MEASUREMENT_REQUIRED" } }
     val id: String get() = entity.id
@@ -52,17 +53,20 @@ fun preserveHabitCreationSettings(candidate: Habit, previous: Habit?, today: Loc
     timestamp: String = Instant.now().toString()): Habit {
     if (previous == null) {
         require(candidate.schedule.startDate >= today) { "Начало привычки не может быть в прошлом." }
-        val created=candidate.copy(createdDate = candidate.schedule.startDate)
+        val created=candidate.copy(createdDate = candidate.schedule.startDate,
+            practiceGoal = candidate.practiceGoal?.copy(startDate = candidate.schedule.startDate))
         return if(created.lifecycleHistory.isNotEmpty()) created else HabitLifecycle.apply(created.copy(active=!created.active),
             HabitLifecycleCommand("habit-created:${created.id}",created.id,timestamp,if(created.active) "resume" else "pause",emptyList()))
     }
     val schedule = candidate.schedule.copy(startDate = previous.schedule.startDate,
         recurrence = candidate.schedule.recurrence.copy(rangeStart = previous.schedule.recurrence.rangeStart))
+    if (previous.practiceGoal != null) require(schedule.endDate != null && schedule.endDate >= schedule.startDate
+        && (previous.schedule.endDate == null || today <= previous.schedule.endDate || schedule == previous.schedule)) { "PRACTICE_CLOSED_OR_DEADLINE_REQUIRED" }
     require(candidate.periodGoal?.metric != "sum" || candidate.measurement != null) { "HABIT_PERIOD_MEASUREMENT_REQUIRED" }
     val heads=HabitRuleHistory.state(previous,LocalDate.MAX).frontier
     require(heads.size<=1) { "HABIT_RULE_CONFLICT" }
     val transitionGoal = HabitMeasurements.rule(previous,today).periodGoal ?: candidate.periodGoal
-    val effective = transitionGoal?.let { HabitPeriodGoals.period(it,today).end } ?: today.plusDays(1)
+    val effective = transitionGoal?.let { HabitPeriodGoals.period(it,today).end } ?: if(previous.practiceGoal != null || candidate.practiceGoal != null) today else today.plusDays(1)
     val rules = if (candidate.measurement != previous.measurement || schedule != previous.schedule || candidate.periodGoal != previous.periodGoal) {
         (previous.ruleHistory.ifEmpty { listOf(HabitMeasurements.rule(previous, previous.createdDate)) }
             + HabitRuleVersion("rule:${UUID.randomUUID()}",
@@ -72,6 +76,7 @@ fun preserveHabitCreationSettings(candidate: Habit, previous: Habit?, today: Loc
     } else previous.ruleHistory
     return candidate.copy(
         stoicheionRestoration = candidate.stoicheionRestoration ?: previous.stoicheionRestoration,
+        practiceGoal = previous.practiceGoal ?: candidate.practiceGoal?.takeIf { previous.stoicheionRestoration == null && candidate.stoicheionRestoration != null },
         ruleHistory = rules,
         createdDate = previous.createdDate,
         scoringMode = previous.scoringMode,
@@ -119,7 +124,8 @@ class HabitEngine(private val calendar: GenesisCalendar) {
     }
 
     /** Saved schedule owns its mode. The account display calendar is intentionally absent. */
-    fun isScheduled(habit: Habit, date: LocalDate): Boolean {
+    fun isScheduled(habit: Habit, date: LocalDate, completions: List<HabitCompletion> = emptyList()): Boolean {
+        if (!HabitPracticeGoals.allowsDate(habit, completions, date)) return false
         if(HabitRuleHistory.state(habit,date).conflicts.isNotEmpty()) return false
         val schedule = HabitMeasurements.rule(habit, date).schedule
         val availability = HabitLifecycle.state(habit.id, habit.active, habit.lifecycleHistory, date)
@@ -142,7 +148,7 @@ class HabitEngine(private val calendar: GenesisCalendar) {
         timestamp: String = Instant.now().toString(), newId: String = "habit-completion-${UUID.randomUUID()}",
         completedTimes: List<String>? = null, measurementCompleted: Boolean? = null,
         measurementRewardEligible: Boolean = false): List<HabitCompletion> {
-        if (date != today || date < habit.createdDate) return entries
+        if (date != today || date < habit.createdDate || habit.practiceGoal != null && !isScheduled(habit,date,entries)) return entries
         val current = entries.firstOrNull { it.habitId == habit.id && it.date == date }
         val measured = HabitMeasurements.effective(HabitMeasurements.rule(habit, date)) != null
         val base = current ?: HabitCompletion(TrackerEntity.create("habit-completion",timestamp,
@@ -176,6 +182,13 @@ class HabitEngine(private val calendar: GenesisCalendar) {
         measurements: List<HabitMeasurementEvent> = emptyList(), today: LocalDate = LocalDate.now(), rewardsOnly: Boolean = false): Pair<Int,Int> {
         var scheduled = 0; var completed = 0
         habits.filter { it.active }.forEach { habit ->
+            val practice = HabitPracticeGoals.progress(habit, entries, today)
+            if (practice != null && date >= (habit.practiceGoal?.startDate ?: habit.schedule.startDate)) {
+                if (practice.status != "conflict" && (practice.completedDate == date || practice.completedDate == null && practice.deadline == date)) {
+                    scheduled++; if (practice.completedDate != null) completed++
+                }
+                return@forEach
+            }
             val goal = HabitMeasurements.rule(habit,date).periodGoal
             if(goal != null) {
                 val now = today.atTime(12,0).atZone(ZoneId.of(goal.context.timeZone)).toInstant()

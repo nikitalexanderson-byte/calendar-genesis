@@ -11,6 +11,7 @@ import { getStoicheionLetters } from "./stoicheion-data";
 import { isEligibleRestorationHabit } from "./stoicheion-restoration-habits";
 import { RESTORATION_AUXILIARIES, RESTORATION_FRAMEWORK, RESTORATION_LETTER_FOCI, RESTORATION_SECTORS } from "./stoicheion-restoration-data";
 import { restorationCopy, restorationLocal } from "./stoicheion-restoration-copy";
+import { practiceCopy } from "./habit-practice-copy";
 import { restorationTrace, type RestorationNeed } from "./stoicheion-restoration-math";
 import { RESTORATION_POSITION_IDS } from "./stoicheion-restoration-state";
 import { restorationPlanEquation, restorationPlanReady, restorationPreparedCount, reversedSectors, snapshotMatchesSource, validateRestorationStrategy,
@@ -123,7 +124,8 @@ export function RestorationStrategyDialog({userId, open, draft, recovered, works
       const next = materializeRestorationStrategy(draft, workspace, {today, startedAt:new Date().toISOString(), calendarMode, language});
       await onChange(next);
     } catch (reason) {
-      setError(reason instanceof Error && reason.message === "RESTORATION_DUPLICATE_HABIT" ? t.duplicateHabit : t.error); setSaving(false); return;
+      setError(reason instanceof Error && reason.message === "PRACTICE_DIVINATION_EXPIRED" ? practiceCopy(language).divinationExpired
+        : reason instanceof Error && reason.message === "RESTORATION_DUPLICATE_HABIT" ? t.duplicateHabit : t.error); setSaving(false); return;
     }
     let cleanupError = false;
     try { await journal.clearCurrent(sourceRef.current); } catch { cleanupError = !unavailable; }
@@ -149,7 +151,7 @@ export function RestorationStrategyDialog({userId, open, draft, recovered, works
           <button type="button" className="secondary-button restoration-review-button" aria-pressed={review} onClick={() => { setReview(true); focusMain(); }} disabled={saving}><ExperimentalIcon name="check" />{t.reviewStrategy}</button>
         </aside><div className="restoration-editor">
           {review ? <div className="restoration-review" ref={mainRef} tabIndex={-1}>
-            <h3>{t.allSelected}</h3><p>{t.reviewHelp}</p>
+            <h3>{t.allSelected}</h3><p>{t.reviewHelp}</p><p className="restoration-note" role="note">{practiceCopy(language).warning}</p>
             {sectors.map(id => {
               const snapshot = savedFor(id);
               const item = draft.cards[RESTORATION_POSITION_IDS.indexOf(id as typeof RESTORATION_POSITION_IDS[number])];

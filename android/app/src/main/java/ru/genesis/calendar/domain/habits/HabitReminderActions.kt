@@ -24,7 +24,7 @@ fun habitReminderAction(habit: Habit?, target: HabitReminderTarget, completions:
     if (target.date != today || target.at > now.plusSeconds(1)) return "stale"
     val engine = HabitEngine(GenesisCalendar(ZoneId.of(rule.schedule.timezone)))
     if (rule.id != target.ruleId || HabitRuleHistory.state(habit, target.date).conflicts.isNotEmpty()
-        || !engine.isScheduled(habit, target.date)) return "stale"
+        || !engine.isScheduled(habit, target.date, completions)) return "stale"
     if (habitReminderOccurrences(habit, target.date).none { (time, at) -> at.toInstant() == target.at
             && (target.intervalTime == null || time.toString() == target.intervalTime) }) return "stale"
     val entry = completions.firstOrNull { it.habitId == habit.id && it.date == target.date }

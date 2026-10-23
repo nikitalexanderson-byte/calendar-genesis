@@ -39,9 +39,11 @@ import ru.genesis.calendar.domain.TheokyklosCatalogSource
 import ru.genesis.calendar.domain.TheokyklosPractice
 import ru.genesis.calendar.domain.TheokyklosSector
 import ru.genesis.calendar.domain.StoicheionRestorationCatalogSource
+import ru.genesis.calendar.domain.StoicheionRestoration
 import ru.genesis.calendar.domain.habits.Habit
 import ru.genesis.calendar.domain.habits.HabitEngine
 import ru.genesis.calendar.domain.habits.HabitReminder
+import ru.genesis.calendar.domain.habits.HabitPracticeGoal
 import ru.genesis.calendar.domain.habits.TrackerEntity
 import java.time.LocalDate
 import kotlin.math.cos
@@ -331,7 +333,7 @@ private fun TheokyklosDetail(sector: TheokyklosSector, practices: List<Theokyklo
                         val completed = existing?.let { habit -> workspace?.completions?.any {
                             it.habitId == habit.id && it.date == LocalDate.now() && it.completed } } == true
                         val scheduled = existing?.let { habit ->
-                            runCatching { HabitEngine(GenesisCalendar()).isScheduled(habit, LocalDate.now()) }
+                            runCatching { HabitEngine(GenesisCalendar()).isScheduled(habit, LocalDate.now(), workspace?.completions.orEmpty()) }
                                 .getOrDefault(false)
                         } == true
                         Card(Modifier.fillMaxWidth()) {
@@ -348,8 +350,11 @@ private fun TheokyklosDetail(sector: TheokyklosSector, practices: List<Theokyklo
                                         (if (scheduled) "запланирована сегодня" else "сегодня не запланирована") +
                                         " · ${existing.preferredTime}",
                                     style = MaterialTheme.typography.labelSmall)
-                                if(existing == null) Button(onClick = { onPractice(practice, null, "begin") },
-                                    enabled = workspace != null && !busy) { Text("Начать") }
+                                if(existing == null) {
+                                    androidx.compose.material3.Text(habitPracticeCopy().getString("warning"), style = MaterialTheme.typography.bodySmall)
+                                    Button(onClick = { onPractice(practice, null, "begin") },
+                                        enabled = workspace != null && !busy) { Text("Начать") }
+                                }
                                 else Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     if(existing.active) {
                                         Button(onClick = { onPractice(practice, existing, "complete") },
@@ -374,7 +379,8 @@ private fun TheokyklosDetail(sector: TheokyklosSector, practices: List<Theokyklo
 internal fun TheokyklosPractice.toHabit(mode: CalendarMode, english: Boolean = false): Habit {
     val today = LocalDate.now()
     val baseSchedule = HabitEngine(GenesisCalendar()).defaultSchedule(today, mode)
-    val schedule = baseSchedule.copy(recurrence = baseSchedule.recurrence.copy(enabled = false))
+    val schedule = StoicheionRestoration.dailySchedule(baseSchedule).let { it.copy(endDate = today.plusDays(1),
+        recurrence = it.recurrence.copy(rangeEnd = today.plusDays(1).toString())) }
     return Habit(TrackerEntity.create("habit"), if (english) title.en else title.ru, today, schedule,
         description = if (english) description.en else description.ru, emoji = emoji, priority = priority,
         color = color, sacredPracticeId = id, sacredSectorId = sectorId,
@@ -384,5 +390,5 @@ internal fun TheokyklosPractice.toHabit(mode: CalendarMode, english: Boolean = f
             in 18..23 -> "evening"
             else -> "day"
         },
-        reminder = HabitReminder(time = suggestedTime))
+        reminder = HabitReminder(time = suggestedTime), practiceGoal = HabitPracticeGoal(startDate = today))
 }

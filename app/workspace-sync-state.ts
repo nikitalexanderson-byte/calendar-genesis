@@ -457,6 +457,8 @@ export function mergeWorkspaceDocuments(input: {
           winner = { ...winner, ruleHistory, lifecycleHistory,
           // An old draft has neither the definition nor its history. Recover it without erasing remote values.
           measurement: latestRule ? latestRule.measurement : winner.measurement ?? leftItem.measurement ?? rightItem.measurement ?? null,
+          // Finite practice policy is fixed at creation; an older client must not erase it.
+          practiceGoal: winner.practiceGoal ?? leftItem.practiceGoal ?? rightItem.practiceGoal ?? null,
           ...(latestRule ? { schedule: latestRule.schedule, periodGoal: latestRule.periodGoal ?? null } : {}),
           };
           if (lifecycleHistory.length) winner = projectHabitLifecycle(winner as Parameters<typeof projectHabitLifecycle>[0]) as unknown as Record<string, unknown>;

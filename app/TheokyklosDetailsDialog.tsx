@@ -6,6 +6,7 @@ import { DialogCloseButton } from "./DialogCloseButton";
 import { useEffect, type CSSProperties } from "react";
 import type { CalendarMode } from "./calendar-data";
 import { translateText, type Language } from "./i18n";
+import { practiceCopy } from "./habit-practice-copy";
 import { catalogText, sacredWordCopy } from "./catalog-i18n";
 import {
   createHabitFromSacredPractice,
@@ -137,9 +138,10 @@ export function TheokyklosDetailsDialog({ segment, language, workspace, date, ca
                 .filter((item) => item.practice)
                 .map(({ habit, practice }) => {
                   const completion = habit ? workspace.habitCompletions.find((entry) => entry.habitId === habit.id && entry.date === date) : undefined;
-                  const canTrack = Boolean(workspace.habitSettings.enabled && habit?.active && isHabitScheduledForDate(habit, date, calendarMode) && habit.createdDate <= date && date === habitDateKey(new Date()));
+                  const canTrack = Boolean(workspace.habitSettings.enabled && habit?.active && isHabitScheduledForDate(habit, date, calendarMode, workspace.habitCompletions) && habit.createdDate <= date && date === habitDateKey(new Date()));
                   return (
                     <article className={`${habit ? "started" : "suggested"}${habit && !habit.active ? " paused" : ""}`} style={{ "--practice-color": habit?.color ?? practice!.color } as CSSProperties} key={habit?.id ?? practice!.id}>
+                      {!habit ? <p className="restoration-note" role="note">{practiceCopy(language).warning}</p> : null}
                       <span aria-hidden="true">{habit?.emoji ?? practice!.emoji}</span>
                       <div><small>{habit ? (habit.active ? (language === "en" ? "Active practice" : "Активная практика") : (language === "en" ? "Paused" : "На паузе")) : (language === "en" ? "Suggested practice" : "Предлагаемая практика")}</small><strong data-no-translate>{habit ? habitDisplayText(habit, language).title : catalogText(practice!.title, language)}</strong><p data-no-translate>{habit ? habitDisplayText(habit, language).description : catalogText(practice!.description, language)}</p><blockquote data-no-translate>{catalogText(practice!.myth, language)}</blockquote></div>
                       {habit ? (

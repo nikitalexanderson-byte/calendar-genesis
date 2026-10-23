@@ -145,7 +145,25 @@ function genesisSharedExistingGoogleTasks(array $user, string $listId): array
 }
 
 /** A bounded user-initiated batch avoids sharing through another member's Google account. */
+/** Releasing the PHP session must not permit duplicate Google writes from parallel tabs. */
+function genesisSharedGoogleWithSyncLock(string $userId, callable $operation): array
+{
+    $path=genesisGoogleCacheDirectory().'/shared-'.hash('sha256',$userId).'.lock';
+    $lock=fopen($path,'c+');
+    if($lock===false)throw new RuntimeException('Google sync lock is unavailable.');
+    @chmod($path,0600);
+    if(!flock($lock,LOCK_EX|LOCK_NB)){fclose($lock);return ['synced'=>0,'pending'=>1,'busy'=>true];}
+    try{return $operation();}
+    finally{flock($lock,LOCK_UN);fclose($lock);}
+}
+
 function genesisSharedSyncGoogle(string $userId, string $projectId, int $batchSize = 20): array
+{
+    genesisSharedProjectAccess($projectId,$userId);
+    return genesisSharedGoogleWithSyncLock($userId,static fn():array=>genesisSharedSyncGoogleLocked($userId,$projectId,$batchSize));
+}
+
+function genesisSharedSyncGoogleLocked(string $userId, string $projectId, int $batchSize): array
 {
     $settings = genesisSharedGoogleSettings($userId, $projectId);
     genesisSharedCleanGoogleCopies($userId, 5);
