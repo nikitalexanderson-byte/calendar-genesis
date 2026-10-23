@@ -224,7 +224,7 @@ test("ordinary habit editing preserves cycle provenance against stale or replace
   }
 });
 
-test("new restoration habits can complete all ten days in their chosen input calendar", () => {
+test("new restoration habits default to one completion in the divination's two-day window", () => {
   const snapshot = state.normalizeRestorationSnapshot(fixture());
   const practice = sacred.SACRED_PRACTICES.find(candidate => candidate.id === snapshot.practiceId);
   for (const mode of ["profane", "sacred", "lunar"]) {
@@ -235,12 +235,13 @@ test("new restoration habits can complete all ten days in their chosen input cal
     for (let offset = 0; offset < 35; offset++) {
       const date = new Date(`${snapshot.startedDate}T12:00:00Z`);
       date.setUTCDate(date.getUTCDate() + offset);
-      assert.equal(habits.isHabitScheduledForDate(habit, date.toISOString().slice(0,10), "profane"), true, `${mode}, day ${offset+1}`);
+      assert.equal(habits.isHabitScheduledForDate(habit, date.toISOString().slice(0,10), "profane"), offset < 2, `${mode}, day ${offset+1}`);
     }
     const ordinary = habits.createHabitFromSacredPractice(practice, snapshot.startedDate, mode);
-    assert.equal(ordinary.schedule.recurrence.enabled, false, "The ordinary one-off sacred practice is preserved");
-    assert.equal(cycleHabits.isEligibleRestorationHabit(ordinary), false, "A one-off action cannot host ten future completions");
-    const recurring = {...habit,stoicheionRestoration:null};
+    assert.equal(ordinary.practiceGoal.requiredCompletions, 1);
+    assert.equal(ordinary.schedule.endDate, "2026-10-23");
+    assert.equal(cycleHabits.isEligibleRestorationHabit(ordinary), false, "A finite practice cannot be reused as an ordinary recurring host");
+    const recurring = {...habit,stoicheionRestoration:null,practiceGoal:null};
     assert.equal(cycleHabits.isEligibleRestorationHabit(recurring), true);
     assert.equal(cycleHabits.isEligibleRestorationHabit({...recurring,active:false}), false);
   }

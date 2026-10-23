@@ -4,6 +4,7 @@ import { addCivilDays, momentCivilDate } from "./calendar-context.ts";
 import { normalizeHabitMeasurement, habitRuleForDate, normalizeHabitRuleHistory } from "./habit-measurement.ts";
 import { habitGoalPeriod, normalizeHabitPeriodGoal } from "./habit-period-goal.ts";
 import { habitRuleFrontier } from "./habit-rule-history.ts";
+import { normalizePracticeGoal } from "./habit-practice-policy.ts";
 
 /** Selects the first tracking day before the habit is saved for the first time. */
 export function setNewHabitStartDate(habit: Habit, startDate: string, earliestDate: string): Habit {
@@ -13,6 +14,7 @@ export function setNewHabitStartDate(habit: Habit, startDate: string, earliestDa
   return {
     ...habit,
     createdDate: startDate,
+    ...(habit.practiceGoal ? { practiceGoal: { ...habit.practiceGoal, startDate } } : {}),
     schedule: {
       ...habit.schedule,
       startDate,
@@ -33,6 +35,10 @@ export function setNewHabitStartDate(habit: Habit, startDate: string, earliestDa
  * cannot silently change the XP formula after a habit has been created.
  */
 export function applyEditableHabitUpdate(previous: Habit, candidate: Habit): Habit {
+  if (previous.practiceGoal && (!candidate.schedule.endDate || candidate.schedule.endDate < candidate.schedule.startDate
+    || previous.schedule.endDate && momentCivilDate(new Date(), previous.schedule.timezone) > previous.schedule.endDate
+      && JSON.stringify(previous.schedule) !== JSON.stringify(candidate.schedule)))
+    throw new RangeError("PRACTICE_CLOSED_OR_DEADLINE_REQUIRED");
   const frontier = habitRuleFrontier(previous);
   if (frontier.length > 1) throw new RangeError("HABIT_RULE_CONFLICT");
   const measurement = normalizeHabitMeasurement(candidate.measurement);
@@ -48,6 +54,7 @@ export function applyEditableHabitUpdate(previous: Habit, candidate: Habit): Hab
   const transitionGoal = habitRuleForDate(previous, momentCivilDate(new Date(), previous.schedule.timezone)).periodGoal ?? periodGoal;
   const effectiveDate = transitionGoal
     ? habitGoalPeriod(transitionGoal, momentCivilDate(new Date(), transitionGoal.context.timeZone)).end
+    : previous.practiceGoal ? momentCivilDate(new Date(), previous.schedule.timezone)
     : addCivilDays(momentCivilDate(new Date(), previous.schedule.timezone), 1);
   const ruleHistory = ruleChanged ? normalizeHabitRuleHistory([
     ...(previousRules.length ? previousRules : [baseline]),
@@ -69,6 +76,7 @@ export function applyEditableHabitUpdate(previous: Habit, candidate: Habit): Hab
     sacredPracticeId: previous.sacredPracticeId,
     sacredSectorId: previous.sacredSectorId,
     stoicheionRestoration: previous.stoicheionRestoration,
+    ...(previous.practiceGoal ? { practiceGoal: normalizePracticeGoal(previous.practiceGoal) } : { practiceGoal: null }),
     scoringMode: previous.scoringMode,
     qualityScale: previous.qualityScale,
     schedule,

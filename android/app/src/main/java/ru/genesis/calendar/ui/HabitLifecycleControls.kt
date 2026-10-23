@@ -40,21 +40,23 @@ internal fun habitLifecycleFailure(code: String?) = when (code) {
 @Composable internal fun HabitLifecycleFilters(workspace: LocalHabitWorkspace, selected: String, onSelect: (String) -> Unit) {
     val number = NumberFormat.getIntegerInstance(Locale.forLanguageTag(LocalGenesisLanguage.current))
     var menuOpen by remember { mutableStateOf(false) }
-    val counts = workspace.habits.groupingBy { HabitLifecycle.state(it).status }.eachCount()
-    val selectedLabel = genesisTranslate(habitLifecycleLabels.getValue(selected)) + " · " + number.format(counts[selected] ?: 0)
+    val finiteCopy=habitPracticeCopy()
+    val choices=habitLifecycleLabels.mapValues { genesisTranslate(it.value) } + mapOf("completed" to finiteCopy.getString("completedFilter"),"missed" to finiteCopy.getString("missedFilter"))
+    val counts = workspace.habits.groupingBy { habitPracticeLibraryStatus(it,workspace.completions) }.eachCount()
+    val selectedLabel = choices.getValue(selected) + " · " + number.format(counts[selected] ?: 0)
     val displayLabel = genesisTranslate("Показывать привычки")
     Column(Modifier.fillMaxWidth().testTag("habit-lifecycle-filters"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Box(Modifier.fillMaxWidth()) {
-            OutlinedButton(onClick = { menuOpen = true }, modifier = Modifier.fillMaxWidth()
+            OutlinedButton(onClick = { menuOpen = true }, shape=AffairsLayout.controlShape, modifier = Modifier.fillMaxWidth().heightIn(min=48.dp)
                 .testTag("habit-state-choice").semantics { stateDescription = selectedLabel }) {
                 Text("$displayLabel: $selectedLabel", Modifier.weight(1f))
                 Spacer(Modifier.width(8.dp))
                 AffairsActionIcon(if (menuOpen) AffairsAction.COLLAPSE else AffairsAction.EXPAND)
             }
             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                for ((status, label) in habitLifecycleLabels) {
+                for ((status, label) in choices) {
                     DropdownMenuItem(text = {
-                        Text(genesisTranslate(label) + " · " + number.format(counts[status] ?: 0))
+                        Text(label + " · " + number.format(counts[status] ?: 0))
                     }, onClick = { onSelect(status); menuOpen = false },
                         modifier = Modifier.testTag("habit-state-$status").semantics { this.selected = selected == status })
                 }
@@ -109,8 +111,9 @@ internal fun habitLifecycleFailure(code: String?) = when (code) {
         val state = HabitLifecycle.state(habit)
         Column(Modifier.fillMaxWidth().testTag("retired-habit-${habit.id}").padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             androidx.compose.material3.Text(habit.emoji + " " + habitDisplayTitle(habit), style = MaterialTheme.typography.titleMedium)
-            Text(genesisTranslate("Выполнено дней") + ": " + number.format(habitCompletionCount(economy.completions, habit.id)) + "/" +
-                number.format(HABIT_LAUREL_RETENTION_COMPLETIONS), style = MaterialTheme.typography.bodySmall)
+            if(habit.practiceGoal != null) HabitPracticeStatus(habit,workspace.completions)
+            else Text(genesisTranslate("Выполнено дней") + ": " + number.format(habitCompletionCount(economy.completions, habit.id)) + " · " +
+                habitPracticeCopy().getString("retention"), style = MaterialTheme.typography.bodySmall)
             HabitLifecycleResolution(habit, enabled) { onResolve(habit, it) }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 AffairsIconButton("Восстановить", AffairsAction.RESTORE, { onRestore(habit) }, Modifier.testTag("restore-habit-${habit.id}"), enabled && !state.conflict)

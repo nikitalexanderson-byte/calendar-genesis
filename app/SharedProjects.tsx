@@ -1,6 +1,7 @@
 /* eslint-disable @next/next/no-img-element -- User-provided board pictures remain native img elements. */
 "use client";
 import { DialogCloseButton } from "./DialogCloseButton";
+import { foregroundRefresh } from "./foreground-refresh";
 import { useSacredFeaturesEnabled } from "./sacred-features";
 import { getSolarEvent } from "./calendar-data";
 import { useMobileLayout } from "./use-mobile-layout";
@@ -116,6 +117,17 @@ const compactQuery = () => window.matchMedia("(max-width: 1099px)");
 const subscribeCompact = (listener: () => void) => { const query = compactQuery(); query.addEventListener("change", listener); return () => query.removeEventListener("change", listener); };
 const compactSnapshot = () => compactQuery().matches;
 const serverCompactSnapshot = () => false;
+const SHARED_RETRY_EVENT = "genesis:shared-retry";
+function watchSharedRead(operation: (signal: AbortSignal) => Promise<unknown>, success: () => void,
+  failure: (error: unknown) => void, settled?: () => void) {
+  // The first visible read may restore the protected cache while already offline.
+  const refresh = foregroundRefresh(operation, { available: initial => (initial || navigator.onLine) && document.visibilityState === "visible", success, failure, settled });
+  const trigger = () => void refresh.trigger();
+  window.addEventListener("focus", trigger); window.addEventListener("online", trigger);
+  window.addEventListener(SHARED_RETRY_EVENT, trigger); document.addEventListener("visibilitychange", trigger);
+  return () => { refresh.stop(); window.removeEventListener("focus", trigger); window.removeEventListener("online", trigger);
+    window.removeEventListener(SHARED_RETRY_EVENT, trigger); document.removeEventListener("visibilitychange", trigger); };
+}
 import type { SharedInvitationDestination } from "./SharedInvitationNotices";
 
 type Props = { userId: string; language: string; enabledCalendars: CalendarMode[]; experimentalTheme?: boolean; timeFormat?: TimeFormat;
@@ -274,6 +286,9 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   const [editTaskCategoryId, setEditTaskCategoryId] = useState("");
   const [editTaskRevision, setEditTaskRevision] = useState(0);
   const [message, setMessage] = useState("");
+  const [readErrors, setReadErrors] = useState<Record<string, { key: string; message: string } | undefined>>({});
+  const readError = readErrors.spaces?.message || (readErrors.projects?.key === spaceId ? readErrors.projects.message : "")
+    || (readErrors.project?.key === projectId ? readErrors.project.message : "");
   const [offline, setOffline] = useState(() => typeof navigator !== "undefined" && !navigator.onLine);
   const [pendingCreates, setPendingCreates] = useState<Awaited<ReturnType<typeof queuedSharedMutations>>>([]);
   const [busy, setBusy] = useState(false);
@@ -414,17 +429,18 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
     if (!taskOpen && dialog.open) dialog.close();
   }, [taskOpen]);
 
-  const refreshSpaces = useCallback(async () => {
+  const refreshSpaces = useCallback(async (signal?: AbortSignal) => {
     const request = ++spacesRequest.current;
-    const items = await listSharedSpaces();
-    if (request !== spacesRequest.current) return;
-    if (sharedDataCameFromOfflineCache()) setOffline(true);
+    const items = await listSharedSpaces(signal);
+    if (signal?.aborted || request !== spacesRequest.current) return;
+    setOffline(sharedDataCameFromOfflineCache() || !navigator.onLine);
     setSpaces((current) => JSON.stringify(current) === JSON.stringify(items) ? current : items);
     setSpaceId((current) => items.some((item) => item.id === current) ? current : "");
   }, []);
-  const refreshProjects = useCallback(async (id: string) => {
-    const [items, archived, spaceLabels, categories] = await Promise.all([listSharedProjects(id), listArchivedSharedProjects(id), listSharedLabels(id), listSharedProjectCategories(id)]);
-    if (spaceIdRef.current !== id) return;
+  const refreshProjects = useCallback(async (id: string, signal?: AbortSignal) => {
+    const [items, archived, spaceLabels, categories] = await Promise.all([listSharedProjects(id, signal), listArchivedSharedProjects(id, signal), listSharedLabels(id, signal), listSharedProjectCategories(id, signal)]);
+    if (signal?.aborted || spaceIdRef.current !== id) return;
+    setOffline(sharedDataCameFromOfflineCache() || !navigator.onLine);
     setProjects((current) => JSON.stringify(current) === JSON.stringify(items) ? current : items);
     setArchivedProjects((current) => JSON.stringify(current) === JSON.stringify(archived) ? current : archived);
     setLabels(spaceLabels);
@@ -432,11 +448,11 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
     if (!items.length) setSnapshot(null);
     setProjectId((current) => items.some((item) => item.id === current) ? current : "");
   }, []);
-  const refreshProject = useCallback(async (id: string) => {
+  const refreshProject = useCallback(async (id: string, signal?: AbortSignal) => {
     try {
-      const result = await loadSharedProject(id);
-      if (projectIdRef.current !== id) return;
-      if (sharedDataCameFromOfflineCache()) setOffline(true);
+      const result = await loadSharedProject(id, undefined, null, "position", signal);
+      if (signal?.aborted || projectIdRef.current !== id) return;
+      setOffline(sharedDataCameFromOfflineCache() || !navigator.onLine);
       setSnapshot((current) => JSON.stringify(current) === JSON.stringify(result) ? current : result);
       if (result.project.isInbox) setInboxPreview(result);
     } catch(error) {
@@ -458,50 +474,19 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   };
 
   useEffect(() => {
-    let live = true;
-    let pending = false;
-    const refresh = async () => {
-      if (pending || !navigator.onLine || document.visibilityState !== "visible") return;
-      pending = true;
-      try { await refreshSpaces(); } catch { /* Keep the current list while the connection recovers. */ }
-      finally { pending = false; }
-    };
-    const timer = window.setTimeout(() => {
-      void refreshSpaces().catch((error: unknown) => {
-        if (live) setMessage(error instanceof Error ? error.message : String(error));
-      }).finally(() => { if (live) setLoading(false); });
-    }, 0);
-    const poll = window.setInterval(() => void refresh(), 5000);
-    window.addEventListener("focus", refresh); window.addEventListener("online", refresh);
-    document.addEventListener("visibilitychange", refresh);
-    return () => {
-      live = false; window.clearTimeout(timer); window.clearInterval(poll);
-      window.removeEventListener("focus", refresh); window.removeEventListener("online", refresh);
-      document.removeEventListener("visibilitychange", refresh);
-    };
+    return watchSharedRead(refreshSpaces, () => setReadErrors(current => ({ ...current, spaces: undefined })),
+      error => setReadErrors(current => ({ ...current, spaces: { key: userId, message: error instanceof Error ? error.message : String(error) } })),
+      () => setLoading(false));
   }, [refreshSpaces, userId]);
   useEffect(() => {
     if (!spaceId) return;
-    const timer = window.setTimeout(() => {
-      void refreshProjects(spaceId).catch((error: unknown) => setMessage(error instanceof Error ? error.message : String(error)));
-    }, 0);
-    const poll = window.setInterval(() => {
-      if (document.visibilityState === "visible" && navigator.onLine)
-        void refreshProjects(spaceId).catch(() => undefined);
-    }, 5000);
-    return () => { window.clearTimeout(timer); window.clearInterval(poll); };
+    return watchSharedRead(signal => refreshProjects(spaceId, signal), () => setReadErrors(current => ({ ...current, projects: undefined })),
+      error => setReadErrors(current => ({ ...current, projects: { key: spaceId, message: error instanceof Error ? error.message : String(error) } })));
   }, [spaceId, refreshProjects]);
   useEffect(() => {
     if (!projectId) return;
-    const initial = window.setTimeout(() => {
-      void refreshProject(projectId).catch((error: unknown) => setMessage(error instanceof Error ? error.message : String(error)));
-    }, 0);
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === "visible" && navigator.onLine) {
-        void refreshProject(projectId).catch(() => undefined);
-      }
-    }, 5000);
-    return () => { window.clearTimeout(initial); window.clearInterval(timer); };
+    return watchSharedRead(signal => refreshProject(projectId, signal), () => setReadErrors(current => ({ ...current, project: undefined })),
+      error => setReadErrors(current => ({ ...current, project: { key: projectId, message: error instanceof Error ? error.message : String(error) } })));
   }, [projectId, refreshProject]);
   useEffect(() => {
     if (!projectId) return;
@@ -518,9 +503,12 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   }, [projectId]);
   useEffect(() => {
     if (!projectId || !googleSettings?.tasksEnabled && !googleSettings?.calendarEnabled) return;
+    let pending = false;
     const timer = window.setInterval(() => {
-      if (document.visibilityState === "visible" && navigator.onLine)
-        void syncSharedGoogle(projectId).catch(() => undefined);
+      if (!pending && document.visibilityState === "visible" && navigator.onLine) {
+        pending = true;
+        void syncSharedGoogle(projectId).catch(() => undefined).finally(() => { pending = false; });
+      }
     }, 30000);
     return () => window.clearInterval(timer);
   }, [projectId, googleSettings?.tasksEnabled, googleSettings?.calendarEnabled]);
@@ -1337,6 +1325,8 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
     <ActionNotice message={notice}/>
     {projectToComplete ? <ProjectCompletionDialog fileRetentionWarning title={projectToComplete.title} onCancel={() => setProjectToComplete(null)} onConfirm={confirmProjectCompletion} /> : null}
     {message ? <p className="shared-projects-message" role="status">{message}</p> : null}
+    {readError ? <div className="shared-projects-message shared-projects-read-error" role="status"><span>{readError}</span>
+      <IconActionButton icon="map-refresh" label={translateText("Повторить")} onClick={() => window.dispatchEvent(new Event(SHARED_RETRY_EVENT))}/></div> : null}
     {offline ? <p className="shared-projects-offline-status" role="status">{english
       ? "Offline: showing the last protected team snapshot. Changes may be out of date."
       : "Нет связи: показана последняя защищённая копия команды. Данные могут устареть."}</p> : null}

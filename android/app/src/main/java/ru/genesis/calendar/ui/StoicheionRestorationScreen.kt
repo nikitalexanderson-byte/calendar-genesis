@@ -30,6 +30,8 @@ import ru.genesis.calendar.data.LocalHabitWorkspace
 import ru.genesis.calendar.domain.*
 import ru.genesis.calendar.domain.habits.Habit
 import ru.genesis.calendar.domain.habits.HabitEngine
+import ru.genesis.calendar.domain.habits.HabitPracticeGoal
+import ru.genesis.calendar.domain.habits.HabitPracticeGoals
 
 internal data class RestorationSource(val date: String, val seed: Long, val cards: List<RestorationDrawCard>)
 
@@ -87,13 +89,15 @@ internal fun StoicheionRestorationScreen(source: RestorationSource?, letters: Li
                     item { Text(catalog.copy("history"), style = MaterialTheme.typography.headlineSmall) }
                     StoicheionRestoration.visibleHabits(workspace?.habits.orEmpty()).forEach { habit -> item(key = habit.id) {
                         val snapshot = habit.stoicheionRestoration!!
-                        val count = StoicheionRestoration.completionDates(snapshot, habit.id, workspace?.completions.orEmpty(), today).size
+                        val finite = HabitPracticeGoals.progress(habit,workspace?.completions.orEmpty(),today)
+                        val count = finite?.dates?.size ?: StoicheionRestoration.completionDates(snapshot, habit.id, workspace?.completions.orEmpty(), today).size
+                        val target = finite?.goal?.requiredCompletions ?: 10
                         OutlinedCard(onClick = { habitId = habit.id }, modifier = Modifier.fillMaxWidth().testTag("restoration-history-${habit.id}")) {
                             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Text(catalog.sectors.getValue(snapshot.sectorId).title, style = MaterialTheme.typography.titleMedium)
                                 Text("${snapshot.sourceDate} · ${letters.first { it.id == snapshot.letterId }.name}")
                                 Text("${habit.emoji} ${habit.title}", style = MaterialTheme.typography.bodySmall)
-                                Text("${catalog.copy(if (count == 10) "completed" else "progress")} · $count/10",
+                                Text("${catalog.copy(if (count == target) "completed" else "progress")} · $count/$target",
                                     color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
                             }
                         }
@@ -308,9 +312,11 @@ internal fun RestorationJourney(source: RestorationSource, letters: List<Stoiche
                         RestorationChoice(existingId == habit.id, "${habit.emoji} ${habit.title}", "restoration-link-${habit.id}") { existingId = habit.id }
                     }
                 }
-                Text(catalog.copy("cycleHelp"), style = MaterialTheme.typography.bodySmall)
+                androidx.compose.material3.Text(habitPracticeCopy().getString("warning"), style = MaterialTheme.typography.bodySmall)
                 if (!enabled) Text(catalog.copy("disabled"), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (prior != null) Text(catalog.copy("snapshot"), color = MaterialTheme.colorScheme.primary)
+                if (LocalDate.now() !in LocalDate.parse(source.date)..LocalDate.parse(source.date).plusDays(1))
+                    androidx.compose.material3.Text(habitPracticeCopy().getString("divinationExpired"),color=MaterialTheme.colorScheme.error)
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 Button(onClick = {
                     val snapshot = StoicheionRestorationSnapshot(
@@ -327,8 +333,13 @@ internal fun RestorationJourney(source: RestorationSource, letters: List<Stoiche
                         else practice.toHabit(inputCalendarMode, english).let { created -> created.copy(
                             schedule = StoicheionRestoration.dailySchedule(created.schedule),
                             description = "${snapshot.action}\n\n${snapshot.practiceText}") }
-                    onSave(base.copy(stoicheionRestoration = snapshot))
+                    val deadline = LocalDate.parse(source.date).plusDays(1)
+                    val finiteSchedule = StoicheionRestoration.dailySchedule(base.schedule).let { it.copy(endDate = deadline,
+                        recurrence = it.recurrence.copy(rangeEnd = deadline.toString())) }
+                    onSave(base.copy(stoicheionRestoration = snapshot, schedule = finiteSchedule,
+                        practiceGoal = HabitPracticeGoal(startDate = LocalDate.now())))
                 }, enabled = enabled && !busy && prior == null && intention.isNotBlank() && action.isNotBlank()
+                    && LocalDate.now() in LocalDate.parse(source.date)..LocalDate.parse(source.date).plusDays(1)
                     && action.length <= 1600 && practiceText.length <= 1600
                     && (!useExisting || eligible.any { it.id == existingId }),
                     modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("restoration-start-cycle")) {
@@ -352,9 +363,12 @@ internal fun RestorationCycle(habit: Habit, workspace: LocalHabitWorkspace, lett
     onComplete: () -> Unit, onReflection: (String) -> Unit, onOpenHabits: () -> Unit) {
     val snapshot = habit.stoicheionRestoration!!
     val dates = StoicheionRestoration.completionDates(snapshot, habit.id, workspace.completions, today)
-    val count = dates.size
+    val finite = HabitPracticeGoals.progress(habit,workspace.completions,today)
+    val count = finite?.dates?.size ?: dates.size
+    val target = finite?.goal?.requiredCompletions ?: 10
+    val finiteCopy = habitPracticeCopy()
     val done = workspace.completions.firstOrNull { it.habitId == habit.id && it.date == today }?.completed == true
-    val scheduled = HabitEngine(GenesisCalendar()).isScheduled(habit, today)
+    val scheduled = HabitEngine(GenesisCalendar()).isScheduled(habit, today, workspace.completions)
     val simple = habit.scoringMode in listOf("none", "binary") && habit.measurement == null && habit.periodGoal == null && habit.intervalSchedule == null
     var reflection by rememberSaveable(habit.id, snapshot.reflection) { mutableStateOf(snapshot.reflection) }
     var sourceOpen by rememberSaveable(habit.id) { mutableStateOf(false) }
@@ -362,12 +376,14 @@ internal fun RestorationCycle(habit: Habit, workspace: LocalHabitWorkspace, lett
     val letter = letters.first { it.id == snapshot.letterId }
     LazyColumn(Modifier.fillMaxSize().testTag("restoration-cycle-scroll"), contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        item { RestorationBlock(catalog.copy(if (count == 10) "completed" else "cycle")) {
+        item { RestorationBlock(if(finite?.status == "missed") finiteCopy.getString("missed") else catalog.copy(if (count == target) "completed" else "cycle")) {
             Text(sector.title, style = MaterialTheme.typography.titleMedium)
             Text("${letter.symbol} · ${letter.name} · ${snapshot.sourceDate}", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("${catalog.copy("progress")} · $count/10", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
-            RestorationTetractys(count, catalog)
-            Text(catalog.copy("cycleHelp"), style = MaterialTheme.typography.bodySmall)
+            Text("${catalog.copy("progress")} · $count/$target", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
+            if(finite != null) {
+                androidx.compose.material3.Text(finiteCopy.getString("deadline") + ": ${finite.deadline} · ${habit.schedule.timezone}")
+                androidx.compose.material3.Text(finiteCopy.getString("warning"),style=MaterialTheme.typography.bodySmall)
+            } else { RestorationTetractys(count, catalog); Text(catalog.copy("cycleHelp"), style = MaterialTheme.typography.bodySmall) }
         } }
         item { RestorationBlock(catalog.copy("practice")) {
             Text(snapshot.intention, style = MaterialTheme.typography.titleMedium)
@@ -380,7 +396,7 @@ internal fun RestorationCycle(habit: Habit, workspace: LocalHabitWorkspace, lett
             if (done && today !in dates && count < 10) Text(catalog.copy("todayEarlier"), style = MaterialTheme.typography.bodySmall)
             if (!scheduled || !habit.active) Text(catalog.copy("notScheduled"), style = MaterialTheme.typography.bodySmall)
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            if (simple && count < 10) Button(onClick = onComplete,
+            if (simple && count < target && finite?.status != "missed") Button(onClick = onComplete,
                 enabled = !busy && workspace.settings.enabled && scheduled && habit.active && !done,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("restoration-complete-today")) {
                 Text(catalog.copy(if (done) "doneToday" else "completeToday"))

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { foregroundRefresh } from "../app/foreground-refresh.ts";
 import test from "node:test";
 import { setImmediate } from "node:timers/promises";
 import { clearPrivateDeviceStorage } from "../app/local-sign-out.ts";
@@ -13,6 +14,68 @@ const denied = status => Response.json({ error: "SHARED_PROJECT_FORBIDDEN" }, { 
 const cacheEntry = (payload, savedAt = Date.now()) => ({ savedAt, payload });
 const queryFilter = { projectIds: ["cache-project"] };
 const queryPath = `/shared/tasks?filter=${encodeURIComponent(JSON.stringify(queryFilter))}&sort=position`;
+
+for (const status of [502, 503, 504]) test(`HTTP ${status} keeps the protected read snapshot without replaying writes`, async () => {
+  const fixture = await cloudSyncClient();
+  await fixture.seedStore({ cache: { [taskPath]: cacheEntry({ task }) }, queue: [draft] });
+  fixture.respond(() => new Response("<html>Gateway unavailable</html>", { status }));
+  assert.deepEqual(JSON.parse(JSON.stringify(await fixture.client.loadSharedTask("cache-project", "cache-task"))), task);
+  assert.equal(fixture.client.sharedDataCameFromOfflineCache(), true);
+  assert.equal(fixture.requests.length, 1);
+  assert.deepEqual((await fixture.readStore()).queue, [draft]);
+  fixture.respond(() => ok({ task: { ...task, revision: 2 } }));
+  assert.equal((await fixture.client.loadSharedTask("cache-project", "cache-task")).revision, 2);
+  assert.equal(fixture.client.sharedDataCameFromOfflineCache(), false);
+});
+
+test("opening a shared view offline restores its cache once and reconnect refreshes it", async () => {
+  const fixture = await cloudSyncClient();
+  await fixture.seedStore({ cache: { [taskPath]: cacheEntry({ task }) }, queue: [draft] });
+  fixture.respond(() => { throw new TypeError("Synthetic offline"); });
+  fixture.navigator.onLine = false;
+  let visible = false, snapshot, failure;
+  const refresh = foregroundRefresh(async () => { snapshot = await fixture.client.loadSharedTask("cache-project", "cache-task"); }, {
+    available: initial => visible && (initial || fixture.navigator.onLine), success() {}, failure(error) { failure = error; },
+  });
+  try {
+    await refresh.trigger();
+    assert.equal(fixture.requests.length, 0);
+    visible = true; await refresh.trigger();
+    assert.equal(snapshot.id, task.id);
+    assert.equal(fixture.client.sharedDataCameFromOfflineCache(), true);
+    await refresh.trigger(); await refresh.trigger();
+    assert.equal(fixture.requests.length, 1);
+    fixture.respond(() => ok({ task: { ...task, revision: 2 } }));
+    fixture.navigator.onLine = true; await refresh.trigger();
+    assert.equal(snapshot.revision, 2);
+    assert.equal(fixture.client.sharedDataCameFromOfflineCache(), false);
+    assert.equal(failure, undefined);
+    assert.deepEqual((await fixture.readStore()).queue, [draft]);
+  } finally { refresh.stop(); }
+});
+
+test("a gateway timeout without a cache has a readable error and retains its HTTP status", async () => {
+  const fixture = await cloudSyncClient();
+  fixture.respond(() => new Response("Gateway Timeout", { status: 504 }));
+  await assert.rejects(fixture.client.loadSharedTask("cache-project", "cache-task"), error => {
+    assert.equal(error.status, 504);
+    assert.match(error.message, /Сервер временно не отвечает/);
+    assert.doesNotMatch(error.message, /GENESIS API/);
+    return true;
+  });
+  assert.equal(fixture.requests.length, 1);
+});
+
+test("one live parallel read does not hide another stale snapshot and recovery clears its marker", async () => {
+  const fixture = await cloudSyncClient();
+  await fixture.seedStore({ cache: { [taskPath]: cacheEntry({ task }), "/shared/spaces": cacheEntry({ spaces: [] }) }, queue: [] });
+  fixture.respond(url => url.endsWith("/shared/spaces") ? ok({ spaces: [] }) : new Response("Gateway Timeout", { status: 504 }));
+  await Promise.all([fixture.client.loadSharedTask("cache-project", "cache-task"),fixture.client.listSharedSpaces()]);
+  assert.equal(fixture.client.sharedDataCameFromOfflineCache(), true);
+  fixture.respond(() => ok({ task }));
+  await fixture.client.loadSharedTask("cache-project", "cache-task");
+  assert.equal(fixture.client.sharedDataCameFromOfflineCache(), false);
+});
 
 for (const status of [401, 403, 404]) test(`a late successful read cannot restore content after HTTP ${status}`, async () => {
   const fixture = await cloudSyncClient();

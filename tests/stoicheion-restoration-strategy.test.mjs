@@ -66,7 +66,7 @@ test("provenance compares all nine cards, and saved copies remain independent", 
 test("one existing habit cannot be assigned to two different cards", () => {
   const source=fixture(),before=workspace();
   const initial=commit.materializeRestorationStrategy(source,before,options).habits[0];
-  const habit={...initial,id:crypto.randomUUID(),stoicheionRestoration:undefined};
+  const habit={...initial,id:crypto.randomUUID(),stoicheionRestoration:undefined,practiceGoal:null};
   const [a,b]=model.reversedSectors(source);source.plans[a].linkedHabitId=habit.id;source.plans[b].linkedHabitId=habit.id;
   assert.throws(()=>commit.materializeRestorationStrategy(source,{...before,habits:[habit]},options),/DUPLICATE_HABIT/);
   assert.equal(habit.stoicheionRestoration,undefined);

@@ -14,6 +14,7 @@ export type RewardReason =
   | "hero-path-amphora"
   | "hestia-spark"
   | "habit-mastery-retained"
+  | "practice-expired"
   | "habit-deleted-reset";
 
 export type LaurelsResetReason = Extract<RewardReason, "habit-deleted-reset">;
@@ -45,6 +46,7 @@ const REWARD_REASONS: readonly RewardReason[] = [
   "hero-path-amphora",
   "hestia-spark",
   "habit-mastery-retained",
+  "practice-expired",
   "habit-deleted-reset",
 ];
 

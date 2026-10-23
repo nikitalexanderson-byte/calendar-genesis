@@ -1,6 +1,7 @@
 import { recurrenceDatesForTask, type RecurrenceMode, type RecurrencePattern } from "./task-recurrence";
 import { normalizeCalendarDateNote, type CalendarMode } from "./calendar-data";
 import type { Language } from "./i18n";
+import { apiUnavailableMessage, isTemporaryApiStatus } from "./api-availability";
 import type { SharedChecklist, SharedTaskDetailsDraft } from "./shared-task-details";
 import { legacyReminderMinutes, normalizeTaskReminders, type TaskReminder } from "./task-reminders";
 import type { TimeFormat } from "./time-format";
@@ -761,7 +762,8 @@ async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     if (generation !== sessionGeneration) throw new GenesisApiError(401, null, "AUTH_REQUIRED");
     if (requestController.signal.aborted) throw requestController.signal.reason;
     if (!response.ok) {
-      const message = response.status === 413 ? "Запрос превышает допустимый размер. Уменьшите объём данных или вложений."
+      const message = isTemporaryApiStatus(response.status) ? apiUnavailableMessage()
+        : response.status === 413 ? "Запрос превышает допустимый размер. Уменьшите объём данных или вложений."
         : response.status === 429 ? "Слишком много запросов. Повторите позже."
         : payload?.error === "STORAGE_QUOTA_EXCEEDED" ? "Достигнут лимит данных. Экспортируйте и удалите ненужные данные или обратитесь в поддержку."
         : payload?.error || `GENESIS API ${response.status}`;
@@ -2040,7 +2042,13 @@ type SharedOfflineStore = { cacheEpoch?: string; cache: Record<string, { savedAt
   queue: SharedQueuedMutation[] };
 const SHARED_OFFLINE_PREFIX = "genesis-shared-offline-v1:";
 let sharedOfflineLock: Promise<void> = Promise.resolve();
-let sharedLastReadFromCache = false;
+let sharedReadAvailabilityKey = "";
+const sharedStalePaths = new Set<string>();
+function sharedReadAvailability() {
+  const key = `${sessionGeneration}:${workspaceUserId ?? ""}`;
+  if (sharedReadAvailabilityKey !== key) { sharedReadAvailabilityKey = key; sharedStalePaths.clear(); }
+  return sharedStalePaths;
+}
 const sharedReadCacheBlocked = new Set<string>();
 
 function sharedOfflineKey(userId = workspaceUserId) {
@@ -2145,7 +2153,7 @@ async function sharedCachedRequest<T>(path: string, signal?: AbortSignal): Promi
       active();
       if (signal?.aborted) throw signal.reason ?? new DOMException("Aborted", "AbortError");
       if (epoch === sharedReadCacheEpoch(owner)) {
-        sharedLastReadFromCache = false;
+        sharedReadAvailability().delete(path);
         if (epoch !== null) await changeSharedOfflineStore((store) => {
           if (epoch === sharedReadCacheEpoch(owner)) store.cache[path] = { savedAt: Date.now(), payload };
         }).catch(() => undefined);
@@ -2160,24 +2168,25 @@ async function sharedCachedRequest<T>(path: string, signal?: AbortSignal): Promi
     } catch (error) {
       active();
       if (error instanceof GenesisApiError && [401, 403, 404].includes(error.status) && owner) {
+        sharedReadAvailability().clear();
         invalidateSharedReadCache(owner);
         await changeSharedOfflineStore((store) => {
           // Denied content can also be present in cached pages and references; retain drafts.
           store.cache = {};
         }).catch(() => undefined);
       }
-      if (signal?.aborted || !sharedNetworkFailure(error)) throw error;
+      if (signal?.aborted || !(sharedNetworkFailure(error) || error instanceof GenesisApiError && isTemporaryApiStatus(error.status))) throw error;
       const saved = (await readSharedOfflineStore()).cache[path];
       active();
       if (signal?.aborted || epoch === null || epoch !== sharedReadCacheEpoch(owner)
         || !saved || Date.now() - saved.savedAt > 30 * 24 * 60 * 60 * 1000) throw error;
-      sharedLastReadFromCache = true;
+      sharedReadAvailability().add(path);
       return saved.payload as T;
     }
   }
 }
 
-export function sharedDataCameFromOfflineCache() { return sharedLastReadFromCache; }
+export function sharedDataCameFromOfflineCache() { return sharedReadAvailability().size > 0; }
 
 export async function queuedSharedMutations(projectId: string) {
   return (await readSharedOfflineStore()).queue.filter((item) => item.projectId === projectId)
@@ -2260,8 +2269,8 @@ async function sendSharedMutation<T extends { pending?: boolean }>(item: SharedQ
   }
 }
 
-export async function listSharedSpaces() {
-  return (await sharedCachedRequest<{ spaces: SharedSpace[] }>("/shared/spaces")).spaces;
+export async function listSharedSpaces(signal?: AbortSignal) {
+  return (await sharedCachedRequest<{ spaces: SharedSpace[] }>("/shared/spaces", signal)).spaces;
 }
 /** Uses the normal session, CSRF protection and account-generation cancellation. */
 export function sharedCollaborationRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -2293,12 +2302,12 @@ export function setSharedSpaceMemberPermissions(spaceId: string, userId: string,
 export function revokeSharedSpaceInvitation(spaceId: string, invitationId: string) {
   return api<{ ok: true }>(`/shared/spaces/${encodeURIComponent(spaceId)}/invitations/${encodeURIComponent(invitationId)}`, { method: "DELETE" });
 }
-export async function listSharedProjects(spaceId: string) {
-  return (await sharedCachedRequest<{ projects: SharedProject[] }>(`/shared/spaces/${encodeURIComponent(spaceId)}/projects`)).projects;
+export async function listSharedProjects(spaceId: string, signal?: AbortSignal) {
+  return (await sharedCachedRequest<{ projects: SharedProject[] }>(`/shared/spaces/${encodeURIComponent(spaceId)}/projects`, signal)).projects;
 }
-export async function listArchivedSharedProjects(spaceId: string) {
+export async function listArchivedSharedProjects(spaceId: string, signal?: AbortSignal) {
   return (await sharedCachedRequest<{ projects: (SharedProject & { archivedAt: string })[] }>(
-    `/shared/spaces/${encodeURIComponent(spaceId)}/archived-projects`)).projects;
+    `/shared/spaces/${encodeURIComponent(spaceId)}/archived-projects`, signal)).projects;
 }
 export type SharedAffairSearch = { projects: SharedProject[]; tasks: { id: string; title: string; projectId: string; projectTitle: string; tags: string[]; completedAt: string | null }[]; total?: number; projectTotal?: number; nextCursor?: string | null; hasMore?: boolean };
 export function searchSharedAffairs(spaceId: string, query: string, signal?: AbortSignal, cursor?: string | null) {
@@ -2330,12 +2339,12 @@ export async function importSharedProject(spaceId: string, input: SharedProjectI
     { method: "POST", body: JSON.stringify(input) },
   )).receipt;
 }
-export async function loadSharedProject(projectId: string, filter?: SharedTaskFilter, cursor?: string | null, sort: SharedTaskSort = "position") {
+export async function loadSharedProject(projectId: string, filter?: SharedTaskFilter, cursor?: string | null, sort: SharedTaskSort = "position", signal?: AbortSignal) {
   const query = new URLSearchParams();
   if (filter && Object.keys(filter).length) query.set("filter", JSON.stringify(filter));
   if (cursor) query.set("cursor", cursor);
   if (sort !== "position") query.set("sort", sort);
-  return sharedCachedRequest<SharedProjectSnapshot>(`/shared/projects/${encodeURIComponent(projectId)}${query.size ? `?${query}` : ""}`);
+  return sharedCachedRequest<SharedProjectSnapshot>(`/shared/projects/${encodeURIComponent(projectId)}${query.size ? `?${query}` : ""}`, signal);
 }
 export async function loadSharedGoogleSettings(projectId: string) {
   return (await api<{ settings: SharedGoogleSettings }>(
@@ -2390,8 +2399,8 @@ export async function createSharedCategory(projectId: string, title: string, col
     method: "POST", body: JSON.stringify({ title, color }),
   })).category;
 }
-export async function listSharedProjectCategories(spaceId: string) {
-  return (await sharedCachedRequest<{ categories: SharedCategory[] }>(`/shared/spaces/${encodeURIComponent(spaceId)}/project-categories`)).categories;
+export async function listSharedProjectCategories(spaceId: string, signal?: AbortSignal) {
+  return (await sharedCachedRequest<{ categories: SharedCategory[] }>(`/shared/spaces/${encodeURIComponent(spaceId)}/project-categories`, signal)).categories;
 }
 export async function saveSharedProjectCategory(spaceId: string, input: { title: string; color: string; expectedRevision?: number }, id?: string) {
   return (await api<{ category: SharedCategory }>(`/shared/spaces/${encodeURIComponent(spaceId)}/project-categories${id ? `/${encodeURIComponent(id)}` : ""}`, {
@@ -2608,8 +2617,8 @@ export async function addSharedComment(projectId: string, taskId: string, body: 
     })).comment;
 }
 
-export async function listSharedLabels(spaceId: string) {
-  return (await sharedCachedRequest<{ labels: SharedLabel[] }>(`/shared/spaces/${encodeURIComponent(spaceId)}/labels`)).labels;
+export async function listSharedLabels(spaceId: string, signal?: AbortSignal) {
+  return (await sharedCachedRequest<{ labels: SharedLabel[] }>(`/shared/spaces/${encodeURIComponent(spaceId)}/labels`, signal)).labels;
 }
 export async function saveSharedLabel(spaceId: string, title: string, color: string, label?: SharedLabel) {
   return (await api<{ label: SharedLabel }>(`/shared/spaces/${encodeURIComponent(spaceId)}/labels${label ? `/${encodeURIComponent(label.id)}` : ""}`, {

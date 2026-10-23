@@ -671,8 +671,9 @@ try {
     }
 
     if (($segments[0] ?? null) === 'shared') {
-        $userId = genesisRequireUserId();
-        if ($method !== 'GET') genesisRequireCsrf();
+        // Shared routes do not write the session. Release its file lock before
+        // Google I/O, downloads or queries so parallel reads are not queued behind them.
+        $userId = genesisSharedRequestUserId($method);
         if ($path === 'shared/messaging/key') {
             if ($method === 'GET') genesisJson(genesisSharedMessagingKey($userId));
             if ($method === 'POST') genesisJson(genesisSharedMessagingKey($userId,genesisReadJson()));
@@ -734,14 +735,12 @@ try {
         }
         if ($method === 'GET' && count($segments) === 4 && $segments[1] === 'tasks' && $segments[3] === 'image') {
             $image = genesisSharedReadTaskImage($userId, $segments[2]);
-            session_write_close();
             header('Content-Type: ' . $image['type']); header('Cache-Control: private, no-store');
             header('X-Content-Type-Options: nosniff'); header('Referrer-Policy: no-referrer');
             header('Content-Length: ' . strlen($image['bytes'])); echo $image['bytes']; exit;
         }
         if ($method === 'GET' && count($segments) === 5 && $segments[1] === 'tasks' && $segments[3] === 'attachments') {
             $file = genesisSharedReadTaskAttachment($userId, $segments[2], $segments[4]);
-            session_write_close();
             header('Content-Type: ' . $file['type']); header('Cache-Control: private, no-store');
             header('X-Content-Type-Options: nosniff'); header('Referrer-Policy: no-referrer');
             header("Content-Disposition: attachment; filename=\"download\"; filename*=UTF-8''" . rawurlencode($file['name']));
@@ -1013,7 +1012,7 @@ try {
         }
         if (count($segments) === 5 && $segments[1] === 'projects' && $segments[3] === 'google'
             && $segments[4] === 'sync' && $method === 'POST') {
-            genesisJson(genesisSharedSyncGoogle($userId, $segments[2]));
+            genesisJson(genesisSharedSyncGoogle($userId, $segments[2], 3));
         }
         if (count($segments) === 3 && $segments[1] === 'projects' && in_array($method, ['PATCH', 'POST'], true)) {
             genesisJson(['project' => genesisSharedUpdateProject($userId, $segments[2], genesisReadJson())]);

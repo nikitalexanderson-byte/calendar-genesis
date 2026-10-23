@@ -28,7 +28,8 @@ internal object HabitLifecycleWorkspace {
             if(state.status=="running") timers=HabitTimers.append(timers,session.id,session.root.owner,"pause",Instant.parse(command.at),
                 "${command.id}:timer:${session.id}")
         }
-        val rewards=if(command.action!="delete") workspace.rewards
+        val finite=HabitPracticeGoals.progress(habit,workspace.completions,java.time.LocalDate.parse(command.at.take(10)))
+        val rewards=if(command.action!="delete" || finite != null) workspace.rewards
             else if(habitCompletionCount(HabitHistory.economy(workspace).completions,habit.id)>=HABIT_LAUREL_RETENTION_COMPLETIONS)
                 Rewards.retainMastery(workspace.rewards,habit.id,command.at)
             else Rewards.reset(workspace.rewards,"habit-deleted-reset",habit.id,"habit-deleted:self:${habit.id}:${command.id}",command.at)

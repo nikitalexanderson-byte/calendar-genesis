@@ -270,6 +270,15 @@ function genesisRequireCsrf(): void
     }
 }
 
+/** The authenticated shared API never writes session state after this boundary. */
+function genesisSharedRequestUserId(string $method): string
+{
+    $userId = genesisRequireUserId();
+    if ($method !== 'GET') genesisRequireCsrf();
+    if (session_status() === PHP_SESSION_ACTIVE) session_write_close();
+    return $userId;
+}
+
 function genesisEncrypt(?string $plain): ?string
 {
     if ($plain === null || $plain === '') {

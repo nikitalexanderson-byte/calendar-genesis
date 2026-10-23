@@ -1,5 +1,8 @@
 import type { CalendarMode } from "./calendar-data";
 import { normalizeRestorationSnapshot, type RestorationSnapshot } from "./stoicheion-restoration-state";
+import { convertTrackerRecurrenceCalendar } from "./task-recurrence";
+import { defaultPracticeGoal, habitPracticeProgress, normalizePracticeGoal, practiceAllowsDate, practiceXpSources,
+  reconcilePracticePenalties, type HabitPracticeGoal } from "./habit-practice-goal";
 import { catalogText } from "./catalog-i18n";
 
 /** Begin documenting legacy availability at the first real edit, without inventing past pauses. */
@@ -228,6 +231,7 @@ export type Habit = TrackerEntity & {
   sacredPracticeId: string | null;
   sacredSectorId: SacredPracticeSectorId | null;
   stoicheionRestoration?: RestorationSnapshot | null;
+  practiceGoal?: HabitPracticeGoal | null;
   preferredTime: string;
   intervalSchedule?: HabitIntervalSchedule | null;
   measurement?: HabitMeasurement | null;
@@ -316,6 +320,7 @@ type LegacyHabit = Partial<TrackerEntity> & {
   sacredPracticeId?: string | null;
   sacredSectorId?: SacredPracticeSectorId | null;
   stoicheionRestoration?: RestorationSnapshot | null;
+  practiceGoal?: HabitPracticeGoal | null;
   preferredTime?: string;
   intervalSchedule?: HabitIntervalSchedule | null;
   measurement?: HabitMeasurement | null;
@@ -526,6 +531,7 @@ function normalizeHabit(value: LegacyHabit, fallbackDate: string, calendarMode: 
     sacredPracticeId,
     sacredSectorId,
     stoicheionRestoration: normalizeRestorationSnapshot(value.stoicheionRestoration),
+    ...(value.practiceGoal ? { practiceGoal: normalizePracticeGoal(value.practiceGoal) } : {}),
     preferredTime: TIME_PATTERN.test(value.preferredTime ?? "") ? value.preferredTime! : "",
     intervalSchedule: normalizeHabitInterval(value.intervalSchedule),
     measurement,
@@ -551,7 +557,7 @@ export function updateHabitCompletion(
 ) {
   if (!canRecordHabitOnDate(habit.createdDate, date, today)) return workspace;
   const currentHabit = workspace.habits.find(row => row.id === habit.id);
-  if (!currentHabit?.active || !isHabitScheduledForDate(currentHabit, date)) return workspace;
+  if (!currentHabit?.active || !isHabitScheduledForDate(currentHabit, date, "sacred", workspace.habitCompletions)) return workspace;
   habit = currentHabit;
   if (habitRuleState(habit, date).conflicts.length) throw new RangeError("HABIT_RULE_CONFLICT");
   const current = workspace.habitCompletions.find((entry) => entry.habitId === habit.id && entry.date === date);
@@ -855,7 +861,7 @@ export function normalizeHabitWorkspace(
   const achievementUnlocks = normalizeAchievementUnlocks(value.achievementUnlocks);
   const userProgress = reconcileUserProgress(
     value.userProgress,
-    habitCompletions,
+    practiceXpSources(habits, habitCompletions),
     new Date().toISOString(),
     undefined,
     calculateLaurelsBalance(rewardTransactions),
@@ -921,10 +927,11 @@ export function normalizeHabitWorkspace(
   return ensureDailyGoalProgress(workspace, calendarMode);
 }
 
-export function isHabitScheduledForDate(habit: Habit, value: string, calendarMode: CalendarMode = "sacred") {
+export function isHabitScheduledForDate(habit: Habit, value: string, calendarMode: CalendarMode = "sacred", completions: readonly HabitCompletion[] = []) {
   const state = habitRuleState(habit, value);
   const lifecycle = habitLifecycleState(habit, value);
-  return lifecycle.status === "active" && !lifecycle.conflict && !state.conflicts.length && isTrackerScheduledForDate(state.rule.schedule, value, calendarMode);
+  return lifecycle.status === "active" && !lifecycle.conflict && !state.conflicts.length
+    && practiceAllowsDate(habit, completions, value) && isTrackerScheduledForDate(state.rule.schedule, value, calendarMode);
 }
 
 export function habitScore(habit: Habit, entry: HabitCompletion | undefined, value: string, _today?: string, calendarMode: CalendarMode = "sacred") {
@@ -940,6 +947,13 @@ function dailyGoalCounts(workspace: HabitWorkspace, date: string, calendarMode: 
   let scheduledCount = 0, completedCount = 0, rewardCompletedCount = 0;
   for (const habit of workspace.habits) {
     if (habitLifecycleState(habit, date).status !== "active") continue;
+    const practice = habitPracticeProgress(habit, workspace.habitCompletions, today);
+    if (practice && date >= practice.start) {
+      if (practice.status !== "conflict" && (practice.completedDate === date || !practice.completedDate && practice.deadline === date)) {
+        scheduledCount++; if (practice.completedDate) { completedCount++; rewardCompletedCount++; }
+      }
+      continue;
+    }
     const goal = habitRuleForDate(habit, date).periodGoal;
     if (goal) {
       const settlement = habitPeriodSettlement(habit, date, workspace, resolveCalendarWallTime(today, "12:00", goal.context.timeZone).instant);
@@ -1069,7 +1083,7 @@ function withDailyGoalStreak(
     rewardTransactions,
     userProgress: reconcileUserProgress(
       workspace.userProgress,
-      workspace.habitCompletions,
+      practiceXpSources(workspace.habits, workspace.habitCompletions),
       timestamp,
       streak,
       calculateLaurelsBalance(rewardTransactions),
@@ -1102,6 +1116,8 @@ export function ensureDailyGoalProgress(
   calendarMode: CalendarMode,
   today = habitDateKey(new Date()),
 ): HabitWorkspace {
+  workspace = { ...workspace, rewardTransactions: reconcilePracticePenalties(workspace.habits, workspace.habitCompletions, workspace.rewardTransactions, today,
+    today === habitDateKey(new Date()) ? new Date() : undefined) };
   const currentTimezone = trackerTimeZone();
   const normalizedRecords = normalizeDailyGoalRecords(workspace.dailyGoalRecords);
   const previousCurrentRecord = normalizedRecords.filter((record) => record.date <= today).at(-1);
@@ -1172,7 +1188,7 @@ export function buyHestiaSpark(
     streakFreezeTransactions: purchase.streakFreezeTransactions,
     userProgress: reconcileUserProgress(
       workspace.userProgress,
-      workspace.habitCompletions,
+      practiceXpSources(workspace.habits, workspace.habitCompletions),
       timestamp,
       undefined,
       calculateLaurelsBalance(purchase.rewardTransactions),
@@ -1207,7 +1223,7 @@ export function claimHeroPathAmphora(
     rewardTransactions,
     userProgress: reconcileUserProgress(
       workspace.userProgress,
-      workspace.habitCompletions,
+      practiceXpSources(workspace.habits, workspace.habitCompletions),
       timestamp,
       undefined,
       calculateLaurelsBalance(rewardTransactions),
@@ -1255,7 +1271,8 @@ export function applyHabitLifecycleToWorkspace(workspace: HabitWorkspace, comman
     if (session.state.status === "running") habitTimers = appendHabitTimerOperation(habitTimers, session.id,
       session.root.owner, "pause", { at: command.at, id: `${command.id}:timer:${session.id}` });
   }
-  const rewardTransactions = command.action === "delete" ? applyHabitDeletionLaurelPolicy(workspace.rewardTransactions,
+  const finitePractice = habitPracticeProgress(habit, workspace.habitCompletions, command.at.slice(0, 10));
+  const rewardTransactions = command.action === "delete" && !finitePractice ? applyHabitDeletionLaurelPolicy(workspace.rewardTransactions,
     habitEconomyHistory(workspace).habitCompletions, habit.id, command.at, command.id).transactions : workspace.rewardTransactions;
   return { ...workspace, habits: workspace.habits.map(row => row.id === habit.id ? markTrackerEntityChanged(updated) : row),
     habitTimers, habitTimerEpoch: habitWorkspaceEpoch(workspace.habitTimerEpoch, workspace.habitHistory.length > 0, true),
@@ -1416,7 +1433,9 @@ export function createHabitFromSacredPractice(
   const habit = defaultHabit(startDate, calendarMode);
   return {
     ...habit,
-    schedule: { ...habit.schedule, recurrence: { ...habit.schedule.recurrence, enabled: false } },
+    practiceGoal: defaultPracticeGoal(startDate),
+    schedule: { ...habit.schedule, endDate: addHabitDays(startDate, 1), recurrence: convertTrackerRecurrenceCalendar({ ...habit.schedule.recurrence,
+      enabled: true, mode: "classic", pattern: "daily", interval: 1, days: [1], months: [], pyatas: [], rangeEnd: addHabitDays(startDate, 1) }, calendarMode, startDate) },
     sacredPracticeId: practice.id,
     sacredSectorId: practice.sectorId,
     emoji: normalizeHabitEmoji(practice.emoji),

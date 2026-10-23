@@ -9,6 +9,8 @@ import { isHabitScheduledForDate, updateHabitCompletion, type Habit, type HabitW
 import { markTrackerEntityChanged } from "./tracker-core";
 import { RESTORATION_AUXILIARIES, RESTORATION_SECTORS } from "./stoicheion-restoration-data";
 import { restorationCopy, restorationLocal } from "./stoicheion-restoration-copy";
+import { habitPracticeProgress } from "./habit-practice-goal";
+import { practiceCopy } from "./habit-practice-copy";
 import { restorationCompletionDates, RESTORATION_POSITION_IDS, RESTORATION_STAGES, type RestorationDrawCard } from "./stoicheion-restoration-state";
 import { restorationPlanEquation, restorationPreparedCount, restorationSourceKey, reversedSectors, snapshotMatchesSource, validateRestorationStrategy,
   type RestorationSource, type RestorationStrategy } from "./stoicheion-restoration-strategy";
@@ -134,7 +136,9 @@ function RestorationCycle({ habit, workspace, calendarMode, today, onChange }: {
   const resource = letters.find(item => item.id === snapshot.resourceLetterId)!;
   const progress = restorationCompletionDates(snapshot, habit.id, workspace.habitCompletions, today);
   const todayEntry = workspace.habitCompletions.some(entry => entry.habitId === habit.id && entry.date === today && entry.completed);
-  const scheduled = isHabitScheduledForDate(habit, today, calendarMode) && habitLifecycleState(habit).status === "active";
+  const scheduled = isHabitScheduledForDate(habit, today, calendarMode, workspace.habitCompletions) && habitLifecycleState(habit).status === "active";
+  const finite = habitPracticeProgress(habit, workspace.habitCompletions, today), finiteCopy = practiceCopy(language);
+  const target = finite?.goal.requiredCompletions ?? 10, count = finite?.dates.length ?? progress.length;
   const enabled = workspace.habitSettings.enabled;
   const [reflection, setReflection] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
@@ -166,13 +170,14 @@ function RestorationCycle({ habit, workspace, calendarMode, today, onChange }: {
       }}><ExperimentalIcon name="save" />{t.saveReflection}</button>
       {notice ? <p role="status">{notice}</p> : null}{error ? <p className="restoration-error" role="alert">{error}</p> : null}
     </div><aside className="restoration-tetractys" aria-label={t.practiceProgress}>
-      <h4>{progress.length === 10 ? t.completed : t.practiceProgress}</h4><p className="restoration-progress" aria-live="polite">{progress.length} / 10</p>
+      <h4>{finite?.status === "missed" ? finiteCopy.missed : count === target ? t.completed : t.practiceProgress}</h4><p className="restoration-progress" aria-live="polite">{count} / {target}</p>
+      {finite ? <><p>{finiteCopy.deadline}: <time dateTime={finite.deadline}>{finite.deadline}</time> · {habit.schedule.timezone}</p><p className="restoration-note">{finiteCopy.warning}</p></> : <>
       <div className="restoration-triangle" aria-hidden="true">{RESTORATION_STAGES.map((stage,row) => <div key={stage.id}>{Array.from({length:stage.count},(_,index) => <i key={index} className={progress.length > row*(row+1)/2+index ? "is-complete" : undefined} />)}</div>)}</div>
-      <p>{t.tetractys}</p><ol>{RESTORATION_STAGES.map(stage => <li key={stage.id}>{stage.count} · {t[stage.id]}</li>)}</ol><p className="restoration-note">{t.cycleHelp}</p>
-      {progress.length < 10 ? <button type="button" className="primary-button" disabled={saving || !enabled || !scheduled || todayEntry} onClick={() => {
+      <p>{t.tetractys}</p><ol>{RESTORATION_STAGES.map(stage => <li key={stage.id}>{stage.count} · {t[stage.id]}</li>)}</ol><p className="restoration-note">{t.cycleHelp}</p></>}
+      {count < target && finite?.status !== "missed" ? <button type="button" className="primary-button" disabled={saving || !enabled || !scheduled || todayEntry} onClick={() => {
         try { void commit(updateHabitCompletion(workspace, habit, today, { completed: true }, today)); } catch { setError(t.error); }
       }}><ExperimentalIcon name="check" />{todayEntry ? t.doneToday : t.completeToday}</button> : null}
-      {!scheduled && progress.length < 10 ? <p className="restoration-note">{t.notScheduled}</p> : null}
+      {!scheduled && count < target && finite?.status !== "missed" ? <p className="restoration-note">{t.notScheduled}</p> : null}
       {todayEntry && !progress.includes(today) ? <p className="restoration-note">{t.todayEarlier}</p> : null}
     </aside></div>
   </article>;
