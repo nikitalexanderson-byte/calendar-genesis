@@ -723,6 +723,25 @@ async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
         ...init.headers,
       },
     });
+    if (generation !== sessionGeneration) throw new GenesisApiError(401, null, "AUTH_REQUIRED");
+    if (requestController.signal.aborted) throw requestController.signal.reason;
+    const payload = (await response.json().catch((error: unknown) => {
+      if (requestController.signal.aborted) throw requestController.signal.reason ?? error;
+      return null;
+    })) as ({ error?: string } & Record<string, unknown>) | null;
+    if (generation !== sessionGeneration) throw new GenesisApiError(401, null, "AUTH_REQUIRED");
+    if (requestController.signal.aborted) throw requestController.signal.reason;
+    if (!response.ok) {
+      const message = response.status === 413 ? "Запрос превышает допустимый размер. Уменьшите объём данных или вложений."
+        : response.status === 429 ? "Слишком много запросов. Повторите позже."
+        : payload?.error === "STORAGE_QUOTA_EXCEEDED" ? "Достигнут лимит данных. Экспортируйте и удалите ненужные данные или обратитесь в поддержку."
+        : payload?.error || `GENESIS API ${response.status}`;
+      throw new GenesisApiError(response.status, payload, message);
+    }
+    if (payload === null) {
+      throw new Error("Сервис GENESIS временно недоступен.");
+    }
+    return payload as T;
   } catch (error) {
     if (timedOut) throw new GenesisNetworkTimeoutError("Сервер GENESIS не ответил за 20 секунд. Изменения сохранены на устройстве и будут синхронизированы позже.");
     throw error;
@@ -731,20 +750,6 @@ async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     accountRequests.delete(requestController);
     callerSignal?.removeEventListener("abort", abortFromCaller);
   }
-  if (generation !== sessionGeneration) throw new GenesisApiError(401, null, "AUTH_REQUIRED");
-  const payload = (await response.json().catch(() => null)) as ({ error?: string } & Record<string, unknown>) | null;
-  if (generation !== sessionGeneration) throw new GenesisApiError(401, null, "AUTH_REQUIRED");
-  if (!response.ok) {
-    const message = response.status === 413 ? "Запрос превышает допустимый размер. Уменьшите объём данных или вложений."
-      : response.status === 429 ? "Слишком много запросов. Повторите позже."
-      : payload?.error === "STORAGE_QUOTA_EXCEEDED" ? "Достигнут лимит данных. Экспортируйте и удалите ненужные данные или обратитесь в поддержку."
-      : payload?.error || `GENESIS API ${response.status}`;
-    throw new GenesisApiError(response.status, payload, message);
-  }
-  if (payload === null) {
-    throw new Error("Сервис GENESIS временно недоступен.");
-  }
-  return payload as T;
 }
 
 async function flushPendingMutations() {

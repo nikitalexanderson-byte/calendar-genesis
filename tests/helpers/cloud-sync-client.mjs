@@ -26,7 +26,7 @@ export function deferred() {
 }
 
 // Each instance is a separate tab: real cloud-sync code and WebCrypto, no live network or account.
-export async function cloudSyncClient({ storage = new MemoryStorage(), sessionStorage = new MemoryStorage(), userId = "cache-qa-user", key } = {}) {
+export async function cloudSyncClient({ storage = new MemoryStorage(), sessionStorage = new MemoryStorage(), userId = "cache-qa-user", key, withDataExchange = false, timers = { setTimeout, clearTimeout } } = {}) {
   key ??= Buffer.from(webcrypto.getRandomValues(new Uint8Array(32))).toString("base64");
   const deviceKey = `genesis-workspace-device-key-v2:${userId}`, keyRecord = JSON.stringify({ key, recoveryCode: key });
   if (storage.getItem(deviceKey) !== keyRecord) storage.setItem(deviceKey, keyRecord);
@@ -61,7 +61,7 @@ export async function cloudSyncClient({ storage = new MemoryStorage(), sessionSt
     console, TextEncoder, TextDecoder, Uint8Array, ArrayBuffer, Event, EventTarget,
     Error, TypeError, DOMException, AbortController, AbortSignal, URL, URLSearchParams,
     Response, Request, Headers, Blob, FormData, atob, btoa, structuredClone,
-    setTimeout, clearTimeout, setInterval, clearInterval, queueMicrotask,
+    setTimeout: timers.setTimeout, clearTimeout: timers.clearTimeout, setInterval, clearInterval, queueMicrotask,
   });
   const modules = new Map();
   function load(file) {
@@ -86,6 +86,7 @@ export async function cloudSyncClient({ storage = new MemoryStorage(), sessionSt
   const importedKey = await webcrypto.subtle.importKey("raw", Buffer.from(key, "base64"), "AES-GCM", false, ["encrypt", "decrypt"]);
   return {
     client, storage, sessionStorage, userId, key, requests, window, navigator,
+    dataExchange: withDataExchange ? load(resolve(root, "app/shared-data-exchange.ts")) : undefined,
     respond(handler) { fetchResponse = handler; },
     holdCrypto(method) {
       const gate = { entered: deferred(), release: deferred() };
