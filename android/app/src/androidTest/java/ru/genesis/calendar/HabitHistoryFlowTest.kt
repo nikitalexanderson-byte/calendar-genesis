@@ -63,6 +63,9 @@ class HabitHistoryFlowTest {
                     }
                 }
             }
+            compose.onNodeWithTag("habit-history-content").assertDoesNotExist()
+            compose.onNodeWithText("Исправить историю").assertDoesNotExist()
+            compose.onNodeWithTag("habit-history-disclosure").performClick()
             compose.onNodeWithText("Исправить историю").performClick()
             compose.onAllNodes(isToggleable()).onFirst().performScrollTo().performClick()
             compose.onNodeWithText("Заметка").performScrollTo().performTextReplacement("Синтетическая историческая запись")

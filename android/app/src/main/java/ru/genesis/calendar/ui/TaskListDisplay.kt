@@ -9,6 +9,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.unit.dp
 import org.json.JSONObject
 import ru.genesis.calendar.GenesisApplication
@@ -44,11 +45,14 @@ internal fun orderPersonalTasks(tasks:List<LocalTask>,sort:TaskListSort):List<Lo
     return value to { next->value=next;prefs.edit().putString(key,next.wire).apply() }
 }
 @Composable internal fun TaskListSortChoice(value:TaskListSort,onChange:(TaskListSort)->Unit,
-    modifier:Modifier,compact:Boolean) {
+    modifier:Modifier,compact:Boolean,iconOnly:Boolean=false) {
     var open by remember { mutableStateOf(false) };val en=LocalGenesisLanguage.current=="en"
     val label=(if(en) "Sort tasks: " else "Сортировка задач: ")+(if(en)value.en else value.ru)
     val description=genesisTranslate(label)
     Box(modifier) {
+        if (iconOnly) AffairsIconButton(label, AffairsAction.SORT, { open = true },
+            Modifier.testTag("task-sort-control"))
+        else
         OutlinedButton(onClick={open=true},modifier=Modifier.heightIn(min=48.dp)
             .then(if(compact)Modifier.fillMaxWidth() else Modifier).testTag("task-sort-control")
             .semantics { contentDescription=description }) {
@@ -56,7 +60,8 @@ internal fun orderPersonalTasks(tasks:List<LocalTask>,sort:TaskListSort):List<Lo
         }
         DropdownMenu(expanded=open,onDismissRequest={open=false}) {
             TaskListSort.entries.forEach { order->DropdownMenuItem(text={Text(if(en)order.en else order.ru)},
-                onClick={onChange(order);open=false},modifier=Modifier.testTag("task-sort-${order.wire}")) }
+                onClick={onChange(order);open=false},modifier=Modifier.testTag("task-sort-${order.wire}")
+                    .semantics { selected = value == order }) }
         }
     }
 }

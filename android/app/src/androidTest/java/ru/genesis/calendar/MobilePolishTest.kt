@@ -98,6 +98,7 @@ class MobilePolishTest {
     @Test fun taskCloseRemainsAtTopRightAfterScrollingAndDoesNotSaveDraft() {
         val draft = "Несохранённая задача полировки"
         compose.onNodeWithTag("navigation-Проекты").performClick()
+        compose.onNodeWithTag("personal-actions").performClick()
         compose.onNodeWithTag("personal-create-task").performClick()
         compose.onNodeWithTag("task-title").performTextInput(draft)
         UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()

@@ -415,7 +415,6 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                 } } },
                 onToggle={ habit -> scope.launch { runAction { repository.save(habit.copy(active=!habit.active)) } } })
             if(current.habits.isNotEmpty()) {
-                Text("История отметок",style=MaterialTheme.typography.titleMedium)
                 HabitHistoryPanel(current,repository,displayCalendarMode,analysisHistory) { analysisHistory=null }
             }
             HabitBackupPanel(app,current)

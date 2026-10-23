@@ -179,15 +179,15 @@ internal fun customFieldOperationLabel(op: String) = when (op) {
 }
 
 @Composable internal fun SharedTaskFieldSort(default: TaskListSort, onDefault: (TaskListSort) -> Unit,
-    query: SharedTaskFieldQuery, fields: List<JSONObject>, modifier: Modifier = Modifier) {
+    query: SharedTaskFieldQuery, fields: List<JSONObject>, modifier: Modifier = Modifier, iconOnly: Boolean = false) {
     var open by rememberSaveable { mutableStateOf(false) }
     val current = query.customSort.split(':')
     val field = current.getOrNull(1)?.let { id -> fields.find { it.getString("id") == id } }
     val label = if (query.customSort.isBlank()) genesisTranslate(default.ru) else
         (field?.getString("title") ?: genesisTranslate("Недоступно")) + " · " + genesisTranslate(if (current.lastOrNull() == "desc") "По убыванию" else "По возрастанию")
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        androidx.compose.material3.Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-        AffairsIconButton("Сортировка", AffairsAction.SORT, { open = true }, Modifier.testTag("shared-field-sort"))
+        if (!iconOnly) androidx.compose.material3.Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+        AffairsIconButton(genesisTranslate("Сортировка") + ": " + label, AffairsAction.SORT, { open = true }, Modifier.testTag("shared-field-sort"))
     }
     if (open) AlertDialog(onDismissRequest = { open = false }, title = { Text("Сортировка") },
         text = { Column(Modifier.fillMaxWidth().heightIn(max = 440.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {

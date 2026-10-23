@@ -7,9 +7,12 @@ import androidx.compose.material3.*
 import androidx.compose.material3.Text as MaterialText
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import java.time.*
 import java.util.UUID
@@ -26,38 +29,53 @@ import ru.genesis.calendar.domain.habits.*
     val preferences = remember(app) { LocalPreferences(app, app.workspaceScope) }
     val prefs by preferences.values.collectAsState(initial = UiPreferences())
     val use24 = prefs.use24
+    var historyVisible by rememberSaveable(app.workspaceScope) { mutableStateOf(false) }
+    val historyState = rememberSaveableStateHolder()
     var expanded by rememberSaveable { mutableStateOf(false) }
     var selected by rememberSaveable { mutableStateOf(workspace.habits.firstOrNull()?.id.orEmpty()) }
     val habit = workspace.habits.firstOrNull { it.id == selected } ?: workspace.habits.firstOrNull()
     var dateValue by rememberSaveable { mutableStateOf("") }
     val historyFocus = remember { BringIntoViewRequester() }
     var requestedFocus by remember { mutableStateOf(false) }
-    LaunchedEffect(focus) { focus?.let { selected=it.first;dateValue=it.second.toString();expanded=true;requestedFocus=true;onFocusConsumed() } }
-    LaunchedEffect(requestedFocus, expanded) { if (requestedFocus && expanded) { withFrameNanos { }; historyFocus.bringIntoView(); requestedFocus=false } }
+    LaunchedEffect(focus) { focus?.let { historyVisible=true;selected=it.first;dateValue=it.second.toString();expanded=true;requestedFocus=true;onFocusConsumed() } }
+    LaunchedEffect(requestedFocus, expanded, historyVisible) { if (requestedFocus && expanded && historyVisible) { withFrameNanos { }; historyFocus.bringIntoView(); requestedFocus=false } }
     var visible by rememberSaveable { mutableIntStateOf(30) }
-    TextButton(onClick = { expanded = !expanded }, shape = AffairsLayout.controlShape,
-        modifier = Modifier.heightIn(min = 48.dp).bringIntoViewRequester(historyFocus).testTag("habit-history-toggle")) { Text("Исправить историю") }
-    if (expanded && habit != null) {
-        val rule = HabitMeasurements.rule(habit, dateValue.takeIf { it.isNotEmpty() }?.let(LocalDate::parse) ?: habit.createdDate)
-        val yesterday = LocalDate.now(ZoneId.of(rule.schedule.timezone)).minusDays(1)
-        val date = dateValue.takeIf { it.isNotEmpty() }?.let(LocalDate::parse) ?: yesterday
-        Text("Историческая корректировка меняет статистику и серии. XP и Лавры не начисляются; выданные награды и потраченная защита сохраняются.",
-            style = MaterialTheme.typography.bodySmall)
-        HistoryChoice("Привычка", habitDisplayTitle(habit), workspace.habits.map { it.id to habitDisplayTitle(it) }, userContent = true) { selected = it; dateValue = "" }
-        Text("Прошлая дата", style = MaterialTheme.typography.labelLarge)
-        if (yesterday >= habit.createdDate) AuthorDatePicker(date.toString(), mode, minDate = habit.createdDate, maxDate = yesterday,
-            calculationContext = ru.genesis.calendar.domain.CalendarContext(timeZone = rule.schedule.timezone,
-                gregorianYearStart = if(prefs.gregorianYearStartsInMarch) "march" else "january")) { dateValue = it }
-        key(habit.id, date) { HabitHistoryForm(workspace, repository, habit, date, mode, use24) }
-    }
-    workspace.completions.sortedByDescending { it.date }.take(visible).forEach { entry ->
-        val target = workspace.habits.firstOrNull { it.id == entry.habitId } ?: return@forEach
-        TextButton(onClick = { selected = target.id; dateValue = entry.date.toString(); expanded = true }) {
-            Text("${entry.date} · ${target.title} · ${if (entry.completed) genesisTranslate("Выполнено") else genesisTranslate("Отметка снята")}",
-                style = MaterialTheme.typography.bodySmall)
+    val disclosureState = genesisTranslate(if (historyVisible) "Развёрнуто" else "Свёрнуто")
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(onClick = { historyVisible = !historyVisible },
+            modifier = Modifier.fillMaxWidth().testTag("habit-history-disclosure")
+                .semantics { stateDescription = disclosureState }) {
+            Text("История отметок", Modifier.weight(1f))
+            AffairsActionIcon(if (historyVisible) AffairsAction.COLLAPSE else AffairsAction.EXPAND)
+        }
+        if (historyVisible) historyState.SaveableStateProvider("history") {
+            Column(Modifier.fillMaxWidth().testTag("habit-history-content"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = { expanded = !expanded }, shape = AffairsLayout.controlShape,
+                    modifier = Modifier.heightIn(min = 48.dp).bringIntoViewRequester(historyFocus).testTag("habit-history-toggle")) { Text("Исправить историю") }
+                if (expanded && habit != null) {
+                    val rule = HabitMeasurements.rule(habit, dateValue.takeIf { it.isNotEmpty() }?.let(LocalDate::parse) ?: habit.createdDate)
+                    val yesterday = LocalDate.now(ZoneId.of(rule.schedule.timezone)).minusDays(1)
+                    val date = dateValue.takeIf { it.isNotEmpty() }?.let(LocalDate::parse) ?: yesterday
+                    Text("Историческая корректировка меняет статистику и серии. XP и Лавры не начисляются; выданные награды и потраченная защита сохраняются.",
+                        style = MaterialTheme.typography.bodySmall)
+                    HistoryChoice("Привычка", habitDisplayTitle(habit), workspace.habits.map { it.id to habitDisplayTitle(it) }, userContent = true) { selected = it; dateValue = "" }
+                    Text("Прошлая дата", style = MaterialTheme.typography.labelLarge)
+                    if (yesterday >= habit.createdDate) AuthorDatePicker(date.toString(), mode, minDate = habit.createdDate, maxDate = yesterday,
+                        calculationContext = ru.genesis.calendar.domain.CalendarContext(timeZone = rule.schedule.timezone,
+                            gregorianYearStart = if(prefs.gregorianYearStartsInMarch) "march" else "january")) { dateValue = it }
+                    key(habit.id, date) { HabitHistoryForm(workspace, repository, habit, date, mode, use24) }
+                }
+                workspace.completions.sortedByDescending { it.date }.take(visible).forEach { entry ->
+                    val target = workspace.habits.firstOrNull { it.id == entry.habitId } ?: return@forEach
+                    TextButton(onClick = { selected = target.id; dateValue = entry.date.toString(); expanded = true }) {
+                        Text("${entry.date} · ${target.title} · ${if (entry.completed) genesisTranslate("Выполнено") else genesisTranslate("Отметка снята")}",
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                if (workspace.completions.size > visible) TextButton(onClick = { visible += 30 }) { Text("Показать ещё") }
+            }
         }
     }
-    if (workspace.completions.size > visible) TextButton(onClick = { visible += 30 }) { Text("Показать ещё") }
 }
 
 @Composable private fun HistoryChoice(label: String, selected: String, choices: List<Pair<String, String>>, userContent: Boolean = false, onChange: (String) -> Unit) {

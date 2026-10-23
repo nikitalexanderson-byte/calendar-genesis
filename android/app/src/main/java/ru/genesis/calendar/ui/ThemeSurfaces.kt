@@ -32,6 +32,14 @@ import androidx.compose.ui.unit.dp
     androidx.compose.material3.OutlinedButton(onClick, modifier.heightIn(min = 48.dp), enabled, shape, colors, elevation, border, contentPadding, interactionSource, content)
 }
 
+@Composable internal fun FilledTonalButton(onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true,
+    shape: Shape = AffairsLayout.controlShape, colors: ButtonColors = ButtonDefaults.filledTonalButtonColors(),
+    elevation: ButtonElevation? = ButtonDefaults.filledTonalButtonElevation(), border: BorderStroke? = null,
+    contentPadding: PaddingValues = ButtonDefaults.ContentPadding, interactionSource: MutableInteractionSource? = null,
+    content: @Composable RowScope.() -> Unit) {
+    androidx.compose.material3.FilledTonalButton(onClick, modifier.heightIn(min = 48.dp), enabled, shape, colors, elevation, border, contentPadding, interactionSource, content)
+}
+
 @Composable internal fun TextButton(onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true,
     shape: Shape = AffairsLayout.controlShape, colors: ButtonColors = ButtonDefaults.textButtonColors(),
     elevation: ButtonElevation? = null, border: BorderStroke? = null,
