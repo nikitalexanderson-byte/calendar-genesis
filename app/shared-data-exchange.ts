@@ -3,6 +3,8 @@ import { translateText, type Language } from "./i18n";
 import type { CalendarContext } from "./calendar-context";
 import type { CalendarMode } from "./calendar-data";
 import { customFieldsError, type CustomFieldValues, type SharedCustomField } from './shared-custom-fields';
+import {WorkDraftError} from './shared-work-draft-journal';
+import {workflowDraftError} from './workflow-draft-copy';
 
 export const DATA_FILE_LIMIT=20*1024*1024;
 export const dataColumns={key:"ID",title:"Название",description:"Описание",project:"Проект",status:"Статус",done:"Выполнено",assignee:"Исполнитель",priority:"Приоритет",labels:"Метки",dueDate:"Срок",startDate:"Начало",startTime:"Время начала",endTime:"Время окончания",parentKey:"Родительская задача",storyPoints:"Story points",estimateHours:"Часы"} as const;
@@ -38,4 +40,4 @@ export function dataIssueText(issue:DataIssue,language:Language):string{
  const fieldError=customFieldsError(new Error(issue.code),language);if(!messages[issue.code]&&fieldError)return fieldError;
  const text=messages[issue.code]??(['SHARED_PROJECT_NOT_FOUND','SHARED_PROJECT_FORBIDDEN','SHARED_SPACE_FORBIDDEN'].includes(issue.code)?'Нет доступа':['TASK_CHILDREN_INCOMPLETE','TASK_CHECKLIST_INCOMPLETE'].includes(issue.code)?'Перед завершением выполните подзадачи и чек-листы.':'Проверьте файл, даты, поля и связи. Исправьте ошибки и обновите предпросмотр.');return translateText(text,language);
 }
-export function dataError(reason:unknown,language:Language){return reason instanceof GenesisApiError?dataIssueText({code:String(reason.payload?.error??reason.message),field:''},language):translateText('Не удалось выполнить действие. Черновик сохранён; повторите попытку.',language);}
+export function dataError(reason:unknown,language:Language){if(reason instanceof WorkDraftError||reason instanceof Error&&/^(DRAFT_|SHARED_EDITOR_)/.test(reason.message))return workflowDraftError(reason,language);return reason instanceof GenesisApiError?dataIssueText({code:String(reason.payload?.error??reason.message),field:''},language):translateText('Не удалось выполнить действие. Черновик сохранён; повторите попытку.',language);}

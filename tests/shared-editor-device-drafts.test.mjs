@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {editorDeviceEdit,validateEditorDeviceDraft,confirmEditorReceipt,sendEditorDeviceDraft} from '../app/shared-editor-device-drafts.ts';
+import {editorDeviceEdit,validateEditorDeviceDraft,confirmEditorReceipt,sendEditorDeviceDraft,canDiscardEditorDraft} from '../app/shared-editor-device-drafts.ts';
+import {validateProjectAccessEditor,validateDataImportEditor} from '../app/c-workflow-device-drafts.ts';
 import {SharedWorkDraftJournal} from '../app/shared-work-draft-journal.ts';
 const editor={title:'  Свой текст 🌿 <script>  ',numbers:{offset:'-',leadDays:''},zone:'Europe/'};
 const edit=(purpose='templates')=>editorDeviceEdit('space-a','project-a',purpose,editor);
@@ -60,4 +61,47 @@ test('two encrypted tab journals retain independent drafts and CAS cleanup never
  const make=writerId=>new SharedWorkDraftJournal({storage,access,userId:'user-a',projectId:'project-a',purpose:'templates',writerId,validate});
  const a=make('tab-a'),b=make('tab-b');const first=await a.write(edit());await b.write({...edit(),editor:{...editor,title:'Other tab'}});assert.equal((await a.list()).length,2);
  await a.write({...edit(),editor:{...editor,title:'Later edit'}});await assert.rejects(a.remove(first),/DRAFT_CHANGED/);assert.equal((await b.list()).length,2);
+});
+
+test('recovery never discards an attempted command while its result is unknown',()=>{
+ for(const purpose of ['templates','template-apply','automations','project-access','data-import']) {
+  assert.equal(canDiscardEditorDraft({...edit(purpose),phase:'pending',attempts:1}),false);
+  assert.equal(canDiscardEditorDraft({...edit(purpose),phase:'pending',attempts:4}),false);
+  assert.equal(canDiscardEditorDraft({...edit(purpose),phase:'pending',attempts:0}),true);
+  assert.equal(canDiscardEditorDraft({...edit(purpose),phase:'rejected',attempts:1}),true);
+ }
+});
+const accessDraft=()=>{
+ const editor={targetUserId:'contractor',draft:{allProjects:false,grants:[{projectId:'project-a',role:'viewer',includeDescendants:true}]}};
+ return {...editorDeviceEdit('space-a','space-a','project-access',editor),phase:'pending',operation:{kind:'project-access.save',id:'contractor',body:{...editor.draft,expectedFingerprint:'a'.repeat(64),operationId:'access-stable'},expected:{revision:7}}};
+};
+test('access recovery binds the target member, requested grants and acknowledged revision',()=>{
+ const value=accessDraft(),validate=v=>validateEditorDeviceDraft(v,'space-a','space-a','project-access',validateProjectAccessEditor);
+ assert.deepEqual(validate(value),value);
+ for(const change of [v=>v.operation.id='different-member',v=>v.operation.body.grants[0].role='member',v=>v.operation.expected.revision=-1]){const next=structuredClone(value);change(next);assert.throws(()=>validate(next));}
+ const result={operationId:'access-stable',revision:8,changed:1,allProjects:false,grants:value.editor.draft.grants};assert.deepEqual(confirmEditorReceipt(value,result),result);
+ for(const change of [v=>v.operationId='other',v=>v.revision=9,v=>v.grants=[],v=>v.allProjects=true]){const next=structuredClone(result);change(next);assert.throws(()=>confirmEditorReceipt(value,next));}
+});
+test('lost access reply survives serialization and repeats precisely one permission change',async()=>{
+ let disk=accessDraft(),writes=0;const commands=[],receipt={operationId:'access-stable',revision:8,changed:1,allProjects:false,grants:disk.editor.draft.grants};
+ const persist=async value=>{disk=structuredClone(value);},send=async command=>{commands.push(JSON.stringify(command));if(++writes===1)throw Error('reply lost after permission commit');return receipt;};
+ await assert.rejects(sendEditorDeviceDraft(disk,{persist,send,definitiveRejection:()=>null}));
+ const restored=validateEditorDeviceDraft(JSON.parse(JSON.stringify(disk)),'space-a','space-a','project-access',validateProjectAccessEditor);
+ await sendEditorDeviceDraft(restored,{persist,send,definitiveRejection:()=>null});assert.equal(commands[0],commands[1]);assert.equal(disk.phase,'received');assert.equal(disk.receipt.revision,8);
+});
+const importDraft=()=>{
+ const command={spaceId:'space-a',projectId:'project-a',parentProjectId:null,format:'csv',parse:{title:'Own import',calendarMode:'profane',calendarContext:{timeZone:'Europe/Moscow'}},memberMap:{},statusMap:{},labelMap:{},fieldMap:{},optionMap:{},fieldDefaults:{quantity:0,confirmed:false}};
+ const editor={file:{id:'file-a',name:'Свои данные.csv',content:'title,quantity,confirmed\nOwn,0,false'},command,numbers:{'values:quantity':'-','values:optional':''}};
+ return {...editorDeviceEdit('space-a','project-a','data-import',editor),phase:'pending',operation:{kind:'data.apply',body:{...command,operationId:'import-stable',fingerprint:'b'.repeat(64)},expected:{taskCount:1,projectCount:0}}};
+};
+test('import snapshot keeps original file, zero, false and destination; file bytes are stored only once',()=>{
+ const value=importDraft(),validate=v=>validateEditorDeviceDraft(v,'space-a','project-a','data-import',e=>validateDataImportEditor(e,'space-a','project-a'));
+ const next=validate(JSON.parse(JSON.stringify(value)));assert.deepEqual(next.editor.command.fieldDefaults,{quantity:0,confirmed:false});assert.equal(next.editor.file.content,value.editor.file.content);assert.deepEqual(next.editor.numbers,{'values:quantity':'-','values:optional':''});assert.equal(Object.hasOwn(next.operation.body,'content'),false);
+ for(const change of [v=>v.editor.command.spaceId='another',v=>v.operation.body.projectId='another',v=>v.operation.body.content='different bytes']){const bad=structuredClone(value);change(bad);assert.throws(()=>validate(bad));}
+});
+test('import receipt rejects missing task mappings and mismatched results while accepting explicit server deduplication',()=>{
+ const value=importDraft(),receipt={importId:'receipt-a',operationId:'import-stable',rootProjectId:'project-a',projectIds:{source:'project-a'},taskIds:{source:'task-a'},projectCount:0,taskCount:1,notices:[],state:'active',canUndo:true,duplicate:false};
+ assert.deepEqual(confirmEditorReceipt(value,receipt),receipt);
+ for(const change of [v=>v.taskIds={},v=>v.taskIds.extra='task-a',v=>v.rootProjectId='unmapped',v=>v.taskCount=2,v=>v.operationId='other']){const bad=structuredClone(receipt);change(bad);assert.throws(()=>confirmEditorReceipt(value,bad));}
+ assert.equal(confirmEditorReceipt(value,{...receipt,operationId:'earlier-file-import',duplicate:true}).duplicate,true);
 });

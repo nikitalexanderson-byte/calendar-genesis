@@ -8,7 +8,7 @@ import {ExperimentalIcon} from "./ExperimentalIcon";
 import {SharedProjectAccessPanel} from "./SharedProjectAccessPanel";
 import type {Language} from "./i18n";
 
-export function SharedTeamPermissions({spaceId,english,language,onChanged}: {spaceId:string;english:boolean;language:Language;onChanged:()=>Promise<void>}) {
+export function SharedTeamPermissions({spaceId,userId,english,language,onChanged}: {spaceId:string;userId:string;english:boolean;language:Language;onChanged:()=>Promise<void>}) {
   const [settings,setSettings]=useState<SharedSpaceSettings|null>(null);
   const [categories,setCategories]=useState<SharedMemberCategory[]>([]);
   const [busy,setBusy]=useState(false),[error,setError]=useState("");
@@ -42,7 +42,7 @@ export function SharedTeamPermissions({spaceId,english,language,onChanged}: {spa
             <PermissionChecks language={english?"en":"ru"} value={member.permissions} disabled={busy||!owner||Boolean(member.categoryId)}
               onChange={next=>void run(async()=>{await assignSharedMemberPermissions(spaceId,member.userId,null,next);})}/>
             {member.categoryId?<p className="shared-permissions-note">{english?"Permissions update automatically with the category.":"Права обновляются автоматически вместе с категорией."}</p>:null}
-            {owner&&member.role!=="admin"?<SharedProjectAccessPanel key={`${spaceId}:${member.userId}`} spaceId={spaceId} userId={member.userId} language={language} disabled={busy} onChanged={async()=>{await refresh();await onChanged();}}/>:null}
+            {owner&&member.role!=="admin"?<SharedProjectAccessPanel key={`${spaceId}:${member.userId}`} spaceId={spaceId} userId={member.userId} actorId={userId} language={language} disabled={busy} onChanged={async()=>{await refresh();await onChanged();}}/>:null}
           </>:null}
         </article>)}
       </section>

@@ -5,6 +5,7 @@ import {IconActionButton} from './IconActionButton';
 import {workflowDraftText,workflowDraftError} from './workflow-draft-copy';
 import {WorkDraftError} from './shared-work-draft-journal';
 import type {SharedEditorDraftController} from './use-shared-editor-drafts';
+import {canDiscardEditorDraft} from './shared-editor-device-drafts';
 
 export function SharedEditorDraftRecovery<T>({controller,language,busy,editing,onRestore,onRetry,onEdit,onError,title}:{controller:SharedEditorDraftController<T>;language:Language;busy:boolean;editing:boolean;onRestore:(value:T)=>void;onRetry:()=>void;onEdit:(value:T)=>void;onError:(reason:unknown)=>void;title:(value:T)=>string}){
  const {device,document,rows}=controller,t=(s:string)=>translateText(s,language),d=(key:Parameters<typeof workflowDraftText>[0])=>workflowDraftText(key,language);
@@ -24,7 +25,7 @@ export function SharedEditorDraftRecovery<T>({controller,language,busy,editing,o
   {rows.length?<details open><summary>{d('heading')} · {new Intl.NumberFormat(language).format(rows.length)}</summary><ul>{rows.map(row=><li key={row.id} data-editor-device-draft={row.id}>
    <div className="shared-editor-draft-copy"><strong data-no-translate>{title(row.value.editor)}</strong><time dateTime={row.at}>{new Intl.DateTimeFormat(language,{dateStyle:'medium',timeStyle:'medium'}).format(new Date(row.at))}</time></div><div className="template-actions">
     <IconActionButton icon="edit" label={d('restore')} disabled={busy||editing||Boolean(document)} onClick={()=>attempt(async()=>onRestore(await controller.restore(row)))}/>
-    <IconActionButton icon="delete" label={d('discard')} disabled={busy} onClick={()=>{if(window.confirm(d('discard')))attempt(()=>device.remove(row));}}/>
+    <IconActionButton icon="delete" label={d('discard')} disabled={busy||!canDiscardEditorDraft(row.value)} onClick={()=>{if(canDiscardEditorDraft(row.value)&&window.confirm(d('discard')))attempt(()=>device.remove(row));}}/>
    </div></li>)}</ul></details>:null}
  </section>;
 }
