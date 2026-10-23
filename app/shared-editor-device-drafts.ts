@@ -1,6 +1,6 @@
 /** Private editor recovery. A command and its durable attempt always precede HTTP. */
-export type EditorPurpose='templates'|'template-apply'|'automations';
-export type EditorOperation={kind:'template.save'|'template.apply'|'automation.save'|'automation.retry';id?:string;runId?:string;body:Record<string,unknown>;expected?:Record<string,unknown>};
+export type EditorPurpose='templates'|'template-apply'|'automations'|'project-access'|'data-import';
+export type EditorOperation={kind:'template.save'|'template.apply'|'automation.save'|'automation.retry'|'project-access.save'|'data.apply';id?:string;runId?:string;body:Record<string,unknown>;expected?:Record<string,unknown>};
 export type EditorDeviceDraft<T>={version:1;spaceId:string;projectId:string;purpose:EditorPurpose;editor:T;phase:'editing'|'pending'|'rejected'|'received';operation:EditorOperation|null;attempts:number;receipt:unknown;error:string|null};
 const object=(value:unknown):value is Record<string,unknown>=>Boolean(value)&&typeof value==='object'&&!Array.isArray(value);
 const id=(value:unknown)=>typeof value==='string'&&/^[a-zA-Z0-9_-]{1,200}$/.test(value);
@@ -19,11 +19,13 @@ function operation(raw:unknown,purpose:EditorPurpose):asserts raw is EditorOpera
  valid(raw.id===undefined||id(raw.id)||raw.kind==='template.apply'&&typeof raw.id==='string'&&/^system:[a-zA-Z0-9_-]+$/.test(raw.id));valid(raw.runId===undefined||id(raw.runId));
  const body=raw.body;
  valid(typeof body.operationId==='string'&&/^[a-zA-Z0-9:_-]{1,100}$/.test(body.operationId));
- valid(purpose==='templates'?raw.kind==='template.save':purpose==='template-apply'?raw.kind==='template.apply':['automation.save','automation.retry'].includes(String(raw.kind)));
+ valid(purpose==='templates'?raw.kind==='template.save':purpose==='template-apply'?raw.kind==='template.apply':purpose==='project-access'?raw.kind==='project-access.save':purpose==='data-import'?raw.kind==='data.apply':['automation.save','automation.retry'].includes(String(raw.kind)));
  if(raw.kind==='template.save')valid(id(body.projectId)&&typeof body.title==='string'&&revision(body.expectedRevision??0)&&keys(body,['operationId','projectId','title','expectedRevision','manifest','deleted','cloneTemplateId','sourceProjectId','sourceTaskId','capture']));
  if(raw.kind==='template.apply')valid(typeof raw.id==='string'&&(id(raw.id)||/^system:[a-zA-Z0-9_-]+$/.test(raw.id))&&typeof body.fingerprint==='string'&&/^[a-f0-9]{64}$/.test(body.fingerprint)&&object(raw.expected));
  if(raw.kind==='automation.save')valid(revision(body.expectedRevision??0)&&keys(body,['operationId','expectedRevision','title','ownerId','enabled','deleted','definition']));
  if(raw.kind==='automation.retry')valid(id(raw.id)&&id(raw.runId)&&revision(body.expectedRevision)&&keys(body,['operationId','expectedRevision'])&&object(raw.expected)&&revision(raw.expected.retryCount));
+ if(raw.kind==='project-access.save')valid(id(raw.id)&&typeof body.allProjects==='boolean'&&Array.isArray(body.grants)&&typeof body.expectedFingerprint==='string'&&/^[a-f0-9]{64}$/.test(body.expectedFingerprint)&&keys(body,['allProjects','grants','expectedFingerprint','operationId'])&&object(raw.expected)&&revision(raw.expected.revision));
+ if(raw.kind==='data.apply')valid(id(body.spaceId)&&typeof body.fingerprint==='string'&&/^[a-f0-9]{64}$/.test(body.fingerprint)&&!Object.hasOwn(body,'content')&&object(raw.expected)&&revision(raw.expected.taskCount)&&revision(raw.expected.projectCount));
 }
 /** Compare submitted values while permitting server-added normalized defaults. */
 function contains(expected:unknown,actual:unknown):boolean {
@@ -44,6 +46,14 @@ export function confirmEditorReceipt<T>(input:EditorDeviceDraft<T>,raw:unknown):
   if(body.definition!==undefined)valid(contains(body.definition,raw.definition));
  }
  if(request.kind==='automation.retry')valid(keys(raw,['id','state','retryCount'])&&raw.id===request.runId&&raw.state==='pending'&&raw.retryCount===Number(request.expected?.retryCount)+1);
+ if(request.kind==='project-access.save'){
+  const grants=(value:unknown)=>Array.isArray(value)?[...value].sort((a,b)=>String(a.projectId).localeCompare(String(b.projectId))):null;
+  valid(raw.operationId===body.operationId&&raw.revision===Number(request.expected?.revision)+1&&revision(raw.changed)&&raw.allProjects===body.allProjects&&contains(grants(body.grants),grants(raw.grants)));
+ }
+ if(request.kind==='data.apply'){
+  valid(id(raw.importId)&&id(raw.rootProjectId)&&typeof raw.duplicate==='boolean'&&(raw.duplicate||raw.operationId===body.operationId)&&typeof raw.canUndo==='boolean'&&['active','undone','removed'].includes(String(raw.state))&&Array.isArray(raw.notices));
+  valid(raw.taskCount===request.expected?.taskCount&&raw.projectCount===request.expected?.projectCount&&object(raw.taskIds)&&object(raw.projectIds)&&Object.values(raw.taskIds).every(id)&&Object.values(raw.projectIds).every(id)&&Object.keys(raw.taskIds).length===raw.taskCount&&new Set(Object.values(raw.taskIds)).size===raw.taskCount&&Object.values(raw.projectIds).includes(raw.rootProjectId));
+ }
  if(request.kind==='template.apply'){
   const expected=request.expected!;
   valid(raw.operationId===body.operationId&&raw.templateId===request.id&&id(raw.rootProjectId)&&object(raw.taskIds)&&object(raw.projectIds)&&Array.isArray(raw.notices));
@@ -62,6 +72,8 @@ export function validateEditorDeviceDraft<T>(raw:unknown,spaceId:string,projectI
  if(raw.phase==='editing')valid(raw.operation===null&&raw.attempts===0&&raw.receipt===null&&raw.error===null);
  else{
   operation(raw.operation,purpose);
+  if(purpose==='project-access')valid(object(editor)&&recordAccessMatches(editor,raw.operation));
+  if(purpose==='data-import')valid(object(editor)&&object(editor.command)&&contains(editor.command,Object.fromEntries(Object.entries(raw.operation.body).filter(([key])=>!['operationId','fingerprint'].includes(key)))));
   if(raw.phase==='received'){valid(Number(raw.attempts)>0&&raw.error===null);confirmEditorReceipt(raw as EditorDeviceDraft<T>,raw.receipt);}
   else valid(raw.receipt===null&&(raw.phase!=='rejected'||raw.attempts===1&&raw.error!==null));
  }
@@ -69,6 +81,14 @@ export function validateEditorDeviceDraft<T>(raw:unknown,spaceId:string,projectI
 }
 export function editorDeviceEdit<T>(spaceId:string,projectId:string,purpose:EditorPurpose,editor:T):EditorDeviceDraft<T>{
  return {version:1,spaceId,projectId,purpose,editor:structuredClone(editor),phase:'editing',operation:null,attempts:0,receipt:null,error:null};
+}
+function recordAccessMatches(editor:Record<string,unknown>,request:EditorOperation):boolean {
+ if(request.id!==editor.targetUserId||!object(editor.draft)||request.body.allProjects!==editor.draft.allProjects)return false;
+ return request.body.allProjects===true||contains(editor.draft.grants,request.body.grants);
+}
+/** An attempted command with an unknown result must retain its original identity. */
+export function canDiscardEditorDraft(value:Pick<EditorDeviceDraft<unknown>,'phase'|'attempts'>):boolean {
+ return value.phase!=='pending'||value.attempts===0;
 }
 export async function sendEditorDeviceDraft<T>(input:EditorDeviceDraft<T>,access:{persist:(value:EditorDeviceDraft<T>)=>Promise<unknown>;send:(request:EditorOperation)=>Promise<unknown>;definitiveRejection:(error:unknown)=>string|null}):Promise<EditorDeviceDraft<T>>{
  valid(input.phase==='pending'&&input.operation);const original=structuredClone(input),attempted={...original,attempts:original.attempts+1};

@@ -17,3 +17,5 @@
 .shared-project-access-preview ul { padding:0; margin:16px 0; list-style:none; max-height:360px; overflow:auto; }
 .shared-project-access-preview li { display:grid; gap:6px; padding-block:12px; border-bottom:1px solid var(--line); }
 @media(max-width:600px) { .shared-project-access-rule { grid-template-columns:minmax(0,1fr); }.shared-project-access button { width:100%; } }
+.shared-project-access button.icon-action-button { width:44px; flex:none; }
+.shared-project-access .shared-project-access-check { min-height:44px; box-sizing:border-box; }

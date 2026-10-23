@@ -11,8 +11,8 @@ export function useSharedWorkDrafts<T>(userId:string,projectId:string,purpose:Sh
  useEffect(()=>{validator.current=validate;},[validate]);
  useEffect(()=>{
   const generation=++epoch.current;
-  const largeEditor=['templates','template-apply','automations'].includes(purpose);
-  const value=new SharedWorkDraftJournal<T>({storage:localStorage,...(largeEditor?{asyncStorage:sharedEditorIndexedStorage(localStorage),maxBytes:SHARED_EDITOR_DRAFT_MAX_BYTES}:{}),access:personalDocumentAccess(userId),userId,projectId,purpose,validate:value=>validator.current(value)});
+  const largeEditor=['templates','template-apply','automations','data-import'].includes(purpose);
+  const value=new SharedWorkDraftJournal<T>({storage:localStorage,...(largeEditor?{asyncStorage:sharedEditorIndexedStorage(localStorage),maxBytes:purpose==='data-import'?44_000_000:SHARED_EDITOR_DRAFT_MAX_BYTES}:{}),access:personalDocumentAccess(userId),userId,projectId,purpose,validate:value=>validator.current(value)});
   currentJournal.current=value;own.current=null;reads.current++;setJournal(value);setRows([]);setError(null);setStatus('idle');setLoaded(false);
   const beforeUnload=(event:BeforeUnloadEvent)=>{if(pending.current){event.preventDefault();event.returnValue='';}};window.addEventListener('beforeunload',beforeUnload);
   return()=>{epoch.current=generation+1;currentJournal.current=null;window.removeEventListener('beforeunload',beforeUnload);void value.flush().catch(()=>undefined).finally(()=>value.dispose());};

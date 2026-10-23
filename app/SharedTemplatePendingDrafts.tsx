@@ -4,7 +4,7 @@ import {translateText,type Language} from './i18n';
 import {workflowDraftText,workflowDraftError} from './workflow-draft-copy';
 import {useSharedWorkDrafts} from './use-shared-work-drafts';
 import {validateTemplateApplyDeviceDraft,type TemplateApplySnapshot} from './template-apply-device-drafts';
-import type {EditorDeviceDraft} from './shared-editor-device-drafts';
+import {canDiscardEditorDraft,type EditorDeviceDraft} from './shared-editor-device-drafts';
 import {WorkDraftError,type WorkDraft} from './shared-work-draft-journal';
 import {IconActionButton} from './IconActionButton';
 
@@ -20,7 +20,7 @@ export function SharedTemplatePendingDrafts({userId,spaceId,projectId,language,o
  return <section className="shared-editor-recovery" aria-label={d('heading')}>
   {device.error?<div role="alert"><p>{workflowDraftError(device.error,language)}</p><div className="template-actions"><IconActionButton icon="map-refresh" label={translateText('Обновить',language)} disabled={busy} onClick={()=>void device.refresh().catch(onError)}/>{damaged?<><IconActionButton icon="file" label={d('download')} disabled={busy} onClick={download}/><IconActionButton icon="delete" label={d('discard')} disabled={busy} onClick={()=>{if(window.confirm(d('discard')))void device.remove(damaged).catch(onError);}}/></>:null}</div></div>:null}
   {!opened&&rows.length?<details open><summary>{d('heading')} · {new Intl.NumberFormat(language).format(rows.length)}</summary><ul>{rows.map(row=><li key={row.id} data-template-apply-recovery={row.id}><div className="shared-editor-draft-copy"><strong data-no-translate>{row.value.editor.title}</strong><time dateTime={row.at}>{new Intl.DateTimeFormat(language,{dateStyle:'medium',timeStyle:'medium'}).format(new Date(row.at))}</time></div><div className="template-actions">
-   <IconActionButton icon="edit" label={d('restore')} disabled={busy} onClick={()=>onOpen(row)}/><IconActionButton icon="delete" label={d('discard')} disabled={busy} onClick={()=>{if(window.confirm(d('discard')))void device.remove(row).catch(onError);}}/>
+   <IconActionButton icon="edit" label={d('restore')} disabled={busy} onClick={()=>onOpen(row)}/><IconActionButton icon="delete" label={d('discard')} disabled={busy||!canDiscardEditorDraft(row.value)} onClick={()=>{if(canDiscardEditorDraft(row.value)&&window.confirm(d('discard')))void device.remove(row).catch(onError);}}/>
   </div></li>)}</ul></details>:null}
  </section>;
 }
