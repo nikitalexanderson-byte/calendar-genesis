@@ -24,6 +24,7 @@ export function dataCsvHeaders(content:string,delimiter:string):string[]{
 }
 export function dataIssueText(issue:DataIssue,language:Language):string{
  const messages:Record<string,string>={
+  DATA_ORGANIZE_REQUIRED:'Для импорта этих статусов нужно право перемещать задачи. Обратитесь к владельцу пространства.',
   DATA_DESTINATION_FIELDS_UNCHANGED:'Определение поля назначения сохраняется. Проверьте сопоставление вариантов.',
   DATA_INBOX_AS_PROJECT:'Общий входящий список переносится как обычный проект; входящий список назначения сохраняется.',
   DATA_IMPORT_REMOVED:'Запрос изменился. Обновите предпросмотр и повторите.',
