@@ -492,6 +492,8 @@ export function sharedMindmapDocumentAccess(userId: string, spaceId: string) {
 }
 
 function endLocalSession() {
+  cancelWorkspaceConflict?.();
+  dismissedWorkspaceConflict = "";
   localSessionEnded = true;
   sessionGeneration += 1;
   accountRequests.forEach((controller) => controller.abort());
@@ -504,6 +506,8 @@ function endLocalSession() {
   workspaceBase = null;
   workspaceBaseMetadata = null;
   workspaceSyncMetadata = null;
+  workspaceDraftSource = null;
+  workspaceQueueId = "";
   sharedReadCacheBlocked.clear();
   encryptedHabitWorkspace = normalizeHabitWorkspace(EMPTY_HABIT_WORKSPACE);
   if (typeof window !== "undefined") window.dispatchEvent(new Event(LOCAL_SESSION_ENDED_EVENT));
@@ -551,6 +555,7 @@ let workspaceDeviceId = "";
 let workspaceBase: EncryptedWorkspaceStructure | null = null;
 let workspaceBaseMetadata: WorkspaceSyncMetadata | null = null;
 let workspaceSyncMetadata: WorkspaceSyncMetadata | null = null;
+let workspaceDraftSource: string | null = null;
 let encryptedHabitWorkspace: HabitWorkspace = EMPTY_HABIT_WORKSPACE;
 let workspaceMutationLock: Promise<void> = Promise.resolve();
 let workspaceRecoveryRequestHandler: WorkspaceRecoveryRequestHandler | null = null;
@@ -601,7 +606,13 @@ type PendingMutation = {
   path: string;
   method: "PUT" | "DELETE" | "POST";
   body?: string;
+  /** Client-only, encrypted original for a three-way retry, atomically stored with the draft. */
+  workspaceBase?: WorkspaceEnvelope;
+  queuedAt?: number;
 };
+let workspaceQueueId = "";
+function isWorkspaceMutation(row: PendingMutation) { return row.key === "workspace" || row.key.startsWith("workspace:"); }
+function workspaceJournalPrefix() { return `${pendingStorageKey()}:workspace:`; }
 
 function pendingStorageKey(userId = workspaceUserId) {
   return `${PENDING_KEY}:${userId || "anonymous"}`;
@@ -616,12 +627,19 @@ function readPending(): PendingMutation[] {
       localStorage.removeItem(PENDING_KEY);
     }
     const parsed = JSON.parse(localStorage.getItem(storageKey) || "[]") as unknown;
-    return Array.isArray(parsed) ? parsed.filter((item): item is PendingMutation => (
+    const journal: PendingMutation[] = [];
+    for (let index = 0; index < localStorage.length; index++) {
+      const key = localStorage.key(index);
+      if (!key?.startsWith(workspaceJournalPrefix())) continue;
+      const row = JSON.parse(localStorage.getItem(key) || "null");
+      if (row?.key && key === workspaceJournalPrefix() + row.key) journal.push(row);
+    }
+    return [...(Array.isArray(parsed) ? parsed : []), ...journal].filter((item): item is PendingMutation => (
       Boolean(item) && typeof item === "object" &&
       typeof (item as PendingMutation).key === "string" &&
       typeof (item as PendingMutation).path === "string" &&
       ["PUT", "DELETE", "POST"].includes((item as PendingMutation).method)
-    )) : [];
+    )).sort((a, b) => (a.queuedAt ?? 0) - (b.queuedAt ?? 0));
   } catch {
     return [];
   }
@@ -630,17 +648,28 @@ function readPending(): PendingMutation[] {
 function writePending(items: PendingMutation[]) {
   if (localSessionEnded || privateDeviceAccessBlocked()) return;
   if (typeof window !== "undefined") {
-    localStorage.setItem(pendingStorageKey(), JSON.stringify(items.slice(-2000)));
+    localStorage.setItem(pendingStorageKey(), JSON.stringify(items.filter(row => !row.key.startsWith("workspace:")).slice(-2000)));
   }
 }
 
 function queueMutation(mutation: PendingMutation) {
+  if (isWorkspaceMutation(mutation) && mutation.key !== "workspace") {
+    requireActiveLocalSession();
+    localStorage.setItem(workspaceJournalPrefix() + mutation.key, JSON.stringify(mutation));
+    return;
+  }
   const current = readPending().filter((item) => item.key !== mutation.key);
   current.push(mutation);
   writePending(current);
 }
 
 function clearMutation(key: string, sent?: PendingMutation) {
+  if (key.startsWith("workspace:")) {
+    const stored = localStorage.getItem(workspaceJournalPrefix() + key);
+    const row = stored ? JSON.parse(stored) as PendingMutation : null;
+    if (row && (!sent || row.body === sent.body)) localStorage.removeItem(workspaceJournalPrefix() + key);
+    return;
+  }
   writePending(readPending().filter((item) => item.key !== key
     || Boolean(sent && (item.method !== sent.method || item.body !== sent.body))));
 }
@@ -754,17 +783,17 @@ async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 async function flushPendingMutations() {
   for (const mutation of readPending()) {
-    if (mutation.key === "workspace" && mutation.body) {
+    if (isWorkspaceMutation(mutation) && mutation.body) {
       await withWorkspaceMutationLock(async () => {
-        const queued = readPending().find((item) => item.key === "workspace" && item.body);
+        const queued = readPending().find((item) => item.key === mutation.key && item.body);
         if (!queued?.body) return;
         const body = JSON.parse(queued.body) as WorkspaceEnvelopeRequest;
         const local = await decryptWorkspaceEnvelope({ ...body, updatedAt: new Date().toISOString() });
-        const result = await sendWorkspaceMutation(body);
+        const result = await sendWorkspaceMutation(body, queued);
         if (workspaceVersion < result.workspace.version) {
           adoptSavedWorkspace(local.structure, local.metadata, result.workspace);
         }
-        clearMutation(queued.key);
+        clearMutation(queued.key, queued);
       });
       continue;
     }
@@ -927,6 +956,7 @@ function deviceWorkspaceId(userId: string) {
 
 function workspaceDocument(structure: EncryptedWorkspaceStructure, metadata = workspaceSyncMetadata) {
   return {
+    ...structure,
     projects: structure.projects,
     categories: structure.categories,
     taskListLinks: structure.taskListLinks,
@@ -959,6 +989,7 @@ function workspaceDocument(structure: EncryptedWorkspaceStructure, metadata = wo
 function structureFromDocument(document: SyncableWorkspaceDocument): EncryptedWorkspaceStructure {
   const normalized = normalizeHabitWorkspace(document as Parameters<typeof normalizeHabitWorkspace>[0]);
   return {
+    ...document,
     projects: Array.isArray(document.projects) ? document.projects as GenesisProject[] : [],
     categories: Array.isArray(document.categories) ? document.categories as GenesisCategory[] : [],
     taskListLinks: Array.isArray(document.taskListLinks) ? document.taskListLinks as TaskListProjectLink[] : [],
@@ -1130,6 +1161,7 @@ async function importWorkspaceKey() {
 async function decryptWorkspaceEnvelope(envelope: WorkspaceEnvelope): Promise<{
   structure: EncryptedWorkspaceStructure;
   metadata: WorkspaceSyncMetadata;
+  document: SyncableWorkspaceDocument;
 }> {
   const generation = sessionGeneration;
   requireActiveLocalSession(generation);
@@ -1145,7 +1177,7 @@ async function decryptWorkspaceEnvelope(envelope: WorkspaceEnvelope): Promise<{
     decoded.syncMetadata,
     syncFallback(envelope.version, envelope.updatedAt, "legacy"),
   );
-  return { structure: structureFromDocument(decoded), metadata };
+  return { structure: structureFromDocument(decoded), metadata, document: decoded };
 }
 
 async function decryptWorkspace(envelope: WorkspaceEnvelope | null): Promise<EncryptedWorkspaceStructure> {
@@ -1191,7 +1223,7 @@ async function encryptWorkspace(
   const generation = sessionGeneration;
   requireActiveLocalSession(generation);
   if (habitWorkspace) encryptedHabitWorkspace = normalizeHabitWorkspace(habitWorkspace);
-  const current: EncryptedWorkspaceStructure = { projects, categories, taskListLinks,
+  const current: EncryptedWorkspaceStructure = { ...workspaceBase, projects, categories, taskListLinks,
     taskLists: taskLists ?? workspaceBase?.taskLists ?? [], ...encryptedHabitWorkspace };
   const timestamp = new Date().toISOString();
   const prepared = prepareWorkspaceForSync({
@@ -1260,52 +1292,141 @@ function adoptSavedWorkspace(
   workspaceBase = structure;
   workspaceBaseMetadata = metadata;
   workspaceSyncMetadata = metadata;
+  workspaceDraftSource = null;
   encryptedHabitWorkspace = normalizeHabitWorkspace(structure);
   persistWorkspaceSyncCache();
 }
 
-async function resolveWorkspaceConflict(body: WorkspaceEnvelopeRequest) {
-  const remoteEnvelope = await fetchWorkspaceEnvelope();
-  if (!remoteEnvelope) throw new Error("WORKSPACE_CONFLICT_WITHOUT_REMOTE");
-  const [local, remote] = await Promise.all([
-    decryptWorkspaceEnvelope({ ...body, updatedAt: new Date().toISOString() }),
-    decryptWorkspaceEnvelope(remoteEnvelope),
-  ]);
-  const merged = mergeWorkspaceDocuments({
-    left: workspaceDocument(local.structure, local.metadata),
-    right: workspaceDocument(remote.structure, remote.metadata),
-    leftFallback: syncFallback(body.version, new Date().toISOString(), workspaceDeviceId),
-    rightFallback: syncFallback(remoteEnvelope.version, remoteEnvelope.updatedAt, "remote"),
-  });
-  const mergedStructure = structureFromDocument(merged.document);
-  const envelope = await encryptWorkspaceDocument(mergedStructure, merged.metadata, remoteEnvelope.version);
-  const retryBody: WorkspaceEnvelopeRequest = {
-    ...envelope,
-    metrics: { ...body.metrics, projectCount: mergedStructure.projects.length },
-  };
-  const serialized = JSON.stringify(retryBody);
-  queueMutation({ key: "workspace", path: "/workspace", method: "PUT", body: serialized });
-  const response = await api<WorkspaceSaveResponse>("/workspace", { method: "PUT", body: serialized });
-  adoptSavedWorkspace(mergedStructure, merged.metadata, response.workspace);
-  clearMutation("workspace");
-  publishWorkspaceUpdate(mergedStructure);
+export type WorkspaceConflictReviewRequest = {
+  conflicts: import("./workspace-sync-state").WorkspaceFieldConflict[];
+  confirm: (choices: import("./workspace-sync-state").WorkspaceConflictChoices) => Promise<void>;
+  refresh: () => Promise<WorkspaceConflictReviewRequest>;
+  cancel: () => void;
+};
+let workspaceConflictHandler: ((request: WorkspaceConflictReviewRequest) => void) | null = null;
+let cancelWorkspaceConflict: (() => void) | null = null;
+let dismissedWorkspaceConflict = "";
+
+export function registerWorkspaceConflictReviewHandler(handler: (request: WorkspaceConflictReviewRequest) => void) {
+  workspaceConflictHandler = handler;
+  return () => { if (workspaceConflictHandler === handler) { cancelWorkspaceConflict?.(); workspaceConflictHandler = null; } };
+}
+
+export async function retryPendingWorkspaceSync() {
+  dismissedWorkspaceConflict = "";
+  await flushPendingMutations();
+  await refreshWorkspaceFromCloud();
+}
+
+function requireWorkspaceReceipt(response: WorkspaceSaveResponse, body: WorkspaceEnvelopeRequest) {
+  if (!response?.workspace || !Number.isSafeInteger(response.workspace.version)
+    || response.workspace.version !== body.version || !Number.isFinite(Date.parse(response.workspace.updatedAt))) {
+    throw new Error("WORKSPACE_SAVE_UNCONFIRMED");
+  }
   return response;
 }
 
-async function sendWorkspaceMutation(body: WorkspaceEnvelopeRequest) {
-  try {
-    const response = await api<WorkspaceSaveResponse>("/workspace", { method: "PUT", body: JSON.stringify(body) });
+const workspaceFingerprint = (envelope: WorkspaceEnvelope) => JSON.stringify([envelope.version, envelope.iv, envelope.ciphertext, envelope.minimumWriterProtocol]);
+
+async function resolveWorkspaceConflict(body: WorkspaceEnvelopeRequest, pending: PendingMutation) {
+  const generation = sessionGeneration, owner = workspaceUserId;
+  const check = () => {
+    requireActiveLocalSession(generation);
+    if (workspaceUserId !== owner || readPending().find(row => row.key === pending.key)?.body !== pending.body) throw new Error("WORKSPACE_REVIEW_STALE");
+  };
+  const local = await decryptWorkspaceEnvelope({ ...body, updatedAt: new Date().toISOString() });
+  const base = pending.workspaceBase ? await decryptWorkspaceEnvelope(pending.workspaceBase) : null;
+  const snapshot = async () => {
+    check();
+    const envelope = await fetchWorkspaceEnvelope();
+    check();
+    if (!envelope) throw new Error("WORKSPACE_CONFLICT_WITHOUT_REMOTE");
+    if ((envelope.minimumWriterProtocol ?? 1) > 7) throw new Error("WORKSPACE_UPGRADE_REQUIRED");
+    return { envelope, remote: await decryptWorkspaceEnvelope(envelope) };
+  };
+  const reconcile = (remote: Awaited<ReturnType<typeof snapshot>>, choices?: import("./workspace-sync-state").WorkspaceConflictChoices) => mergeWorkspaceDocuments({
+    left: local.document, right: remote.remote.document, base: base?.document,
+    leftFallback: syncFallback(body.version, new Date().toISOString(), workspaceDeviceId),
+    rightFallback: syncFallback(remote.envelope.version, remote.envelope.updatedAt, "remote"),
+    reviewConflicts: true, choices,
+  });
+  const commit = async (remote: Awaited<ReturnType<typeof snapshot>>, choices?: import("./workspace-sync-state").WorkspaceConflictChoices) => {
+    check();
+    const merged = reconcile(remote, choices);
+    if (merged.conflicts.length) throw new Error("WORKSPACE_CONFLICT_PENDING");
+    const prepared = prepareWorkspaceForSync({ current: merged.document, base: remote.remote.document,
+      metadata: merged.metadata, baseMetadata: remote.remote.metadata, clock: syncFallback(remote.envelope.version + 1) });
+    const structure = structureFromDocument(prepared.document);
+    const envelope = await encryptWorkspaceDocument(structure, prepared.metadata, remote.envelope.version);
+    check();
+    const retryBody = { ...envelope, metrics: { ...body.metrics, projectCount: structure.projects.length } };
+    const next: PendingMutation = { ...pending, body: JSON.stringify(retryBody), workspaceBase: remote.envelope };
+    queueMutation(next);
+    const response = requireWorkspaceReceipt(await api<WorkspaceSaveResponse>("/workspace", { method: "PUT", body: next.body }), retryBody);
+    requireActiveLocalSession(generation);
+    if (workspaceUserId !== owner) throw new Error("AUTH_REQUIRED");
+    adoptSavedWorkspace(structure, prepared.metadata, response.workspace);
+    clearMutation(next.key, next);
+    publishWorkspaceUpdate(structure);
     return response;
+  };
+  const remote = await snapshot();
+  // A lost HTTP reply must not cause the already committed envelope to be applied twice.
+  if (remote.envelope.iv === body.iv && remote.envelope.ciphertext === body.ciphertext) {
+    check();
+    adoptSavedWorkspace(local.structure, local.metadata, remote.envelope);
+    clearMutation(pending.key, pending);
+    publishWorkspaceUpdate(local.structure);
+    return { ok: true, workspace: remote.envelope };
+  }
+  if (!reconcile(remote).conflicts.length) return commit(remote);
+  const dismissedKey = `${owner}:${pending.body}:${workspaceFingerprint(remote.envelope)}`;
+  if (!workspaceConflictHandler || dismissedWorkspaceConflict === dismissedKey) throw new Error("WORKSPACE_CONFLICT_PENDING");
+  return new Promise<WorkspaceSaveResponse>((resolve, reject) => {
+    let settled = false;
+    const cancel = () => {
+      if (settled) return;
+      settled = true; dismissedWorkspaceConflict = dismissedKey; cancelWorkspaceConflict = null;
+      reject(new Error("WORKSPACE_CONFLICT_PENDING"));
+    };
+    cancelWorkspaceConflict = cancel;
+    const review = (current: Awaited<ReturnType<typeof snapshot>>): WorkspaceConflictReviewRequest => ({
+      conflicts: reconcile(current).conflicts, cancel,
+      refresh: async () => { if (settled) throw new Error("WORKSPACE_REVIEW_STALE"); return review(await snapshot()); },
+      confirm: async choices => {
+        if (settled) throw new Error("WORKSPACE_REVIEW_STALE");
+        const latest = await snapshot();
+        if (workspaceFingerprint(latest.envelope) !== workspaceFingerprint(current.envelope)) throw new Error("WORKSPACE_REVIEW_STALE");
+        try {
+          const result = await commit(current, choices);
+          settled = true; cancelWorkspaceConflict = null; dismissedWorkspaceConflict = ""; resolve(result);
+        } catch (error) {
+          // The retry was durably replaced before HTTP. Release the queue on a failed send.
+          if (readPending().find(row => row.key === pending.key)?.body !== pending.body) {
+            settled = true; cancelWorkspaceConflict = null; reject(error);
+            throw new Error("WORKSPACE_REVIEW_RETRY");
+          }
+          throw error;
+        }
+      },
+    });
+    workspaceConflictHandler?.(review(remote));
+  });
+}
+
+async function sendWorkspaceMutation(body: WorkspaceEnvelopeRequest, pending: PendingMutation) {
+  try {
+    return requireWorkspaceReceipt(await api<WorkspaceSaveResponse>("/workspace", { method: "PUT", body: JSON.stringify(body) }), body);
   } catch (error) {
     if (error instanceof GenesisApiError && error.status === 409
-      && ["WORKSPACE_VERSION_CONFLICT", "WORKSPACE_UPGRADE_REQUIRED"].includes(String(error.payload?.error))) return resolveWorkspaceConflict(body);
+      && ["WORKSPACE_VERSION_CONFLICT", "WORKSPACE_UPGRADE_REQUIRED"].includes(String(error.payload?.error))) return resolveWorkspaceConflict(body, pending);
     throw error;
   }
 }
 
 async function refreshWorkspaceFromCloud() {
   await withWorkspaceMutationLock(async () => {
-    if (readPending().some((mutation) => mutation.key === "workspace")) return;
+    if (readPending().some(isWorkspaceMutation)) return;
     const envelope = await fetchWorkspaceEnvelope();
     if (!envelope || envelope.version <= workspaceVersion) return;
     const remote = await decryptWorkspaceEnvelope(envelope);
@@ -1343,6 +1464,15 @@ export async function loadGenesisWorkspace(): Promise<GenesisWorkspace> {
     structure = await decryptWorkspace(payload.workspace.envelope);
   }
   requireActiveLocalSession(generation);
+  const pending = readPending().filter(row => isWorkspaceMutation(row) && row.body).at(-1);
+  if (pending?.body) {
+    const draft = await decryptWorkspaceEnvelope({ ...JSON.parse(pending.body), updatedAt: new Date().toISOString() });
+    requireActiveLocalSession(generation);
+    structure = draft.structure;
+    workspaceDraftSource = pending.body;
+    encryptedHabitWorkspace = normalizeHabitWorkspace(structure);
+    workspaceSyncMetadata = draft.metadata;
+  }
   if (typeof window !== "undefined") window.dispatchEvent(new Event(PERSONAL_DOCUMENT_READY_EVENT));
   return {
     user: payload.user,
@@ -1606,6 +1736,9 @@ export async function deleteGenesisAccount(userId?: string) {
     localStorage.removeItem(`${WORKSPACE_DEVICE_ID_PREFIX}${deletedUserId}`);
     localStorage.removeItem(`${WORKSPACE_SYNC_STATE_PREFIX}${deletedUserId}`);
     localStorage.removeItem(pendingStorageKey(deletedUserId));
+    const prefix = `${pendingStorageKey(deletedUserId)}:workspace:`;
+    const journals = Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index)).filter((key): key is string => Boolean(key?.startsWith(prefix)));
+    journals.forEach(key => localStorage.removeItem(key));
     localStorage.removeItem(sharedOfflineKey(deletedUserId));
     localStorage.removeItem(`${GENESIS_USER_WORKSPACE_STORAGE_PREFIX}${deletedUserId}`);
     await clearTrackerAnalyticsCache(deletedUserId);
@@ -2572,7 +2705,7 @@ export async function mergeLocalWorkspace(
   local: Pick<GenesisWorkspace, "tasks" | "projects" | "categories" | "taskListLinks" | "taskLists"> & Partial<HabitWorkspace>,
 ) {
   const remote = await loadGenesisWorkspace();
-  if (readPending().some((mutation) => mutation.key === "workspace")) {
+  if (readPending().some(isWorkspaceMutation)) {
     await flushPendingMutations();
   } else if (shouldSeedRemoteWorkspace(remote.hasRemoteStructure,
     local.projects.length + local.categories.length + local.taskListLinks.length
@@ -2693,16 +2826,31 @@ export async function saveWorkspaceStructure(
   onQueued?: () => void,
 ) {
   return withWorkspaceMutationLock(async () => {
+    workspaceQueueId ||= `workspace:${crypto.randomUUID()}`;
+    const waiting = readPending().filter(isWorkspaceMutation);
+    const previous = waiting.find(row => row.key === workspaceQueueId);
+    const preceding = previous ? null : waiting.find(row => row.body === workspaceDraftSource);
+    const baseStructure = workspaceBase;
+    const baseMetadata = workspaceBaseMetadata;
+    const baseVersion = workspaceVersion;
     const encrypted = await encryptWorkspace(projects, categories, taskListLinks, habitWorkspace, taskLists);
-    const request: WorkspaceEnvelopeRequest = { ...encrypted.envelope, metrics };
+    const previousBody = previous?.body ? JSON.parse(previous.body) as WorkspaceEnvelopeRequest : null;
+    const request: WorkspaceEnvelopeRequest = { ...encrypted.envelope, metrics,
+      ...(previousBody ? { expectedVersion: previousBody.expectedVersion, version: previousBody.version }
+        : preceding ? { expectedVersion: 0, version: 1 } : {}),
+    };
     const body = JSON.stringify(request);
-    queueMutation({ key: "workspace", path: "/workspace", method: "PUT", body });
+    const original = previous?.workspaceBase ?? (preceding?.body ? { ...JSON.parse(preceding.body), updatedAt: new Date().toISOString() } : null) ?? (baseStructure && baseMetadata ? {
+      ...await encryptWorkspaceDocument(baseStructure, baseMetadata, baseVersion), version: baseVersion, updatedAt: new Date().toISOString(),
+    } : undefined);
+    const pending: PendingMutation = { key: workspaceQueueId, path: "/workspace", method: "PUT", body, workspaceBase: original, queuedAt: previous?.queuedAt ?? Date.now() };
+    queueMutation(pending);
     onQueued?.();
-    const result = await sendWorkspaceMutation(request);
+    const result = await sendWorkspaceMutation(request, pending);
     if (workspaceVersion < result.workspace.version) {
       adoptSavedWorkspace(encrypted.structure, encrypted.metadata, result.workspace);
     }
-    clearMutation("workspace");
+    clearMutation(pending.key, pending);
     return result;
   });
 }
@@ -2752,7 +2900,7 @@ export async function deleteHabitReminderDevice(device: NonNullable<HabitReminde
 /** Use the final accepted/merged document under the encrypted workspace mutation lock. */
 export async function refreshHabitReminderPlan() {
   return withWorkspaceMutationLock(async () => {
-    if (!habitReminderProjectionWanted || !workspaceBase || readPending().some(item => item.key === "workspace")) return false;
+    if (!habitReminderProjectionWanted || !workspaceBase || readPending().some(isWorkspaceMutation)) return false;
     const generation = sessionGeneration;
     const remote = await fetchWorkspaceEnvelope();
     requireActiveLocalSession(generation);

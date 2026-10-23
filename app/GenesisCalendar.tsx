@@ -30,6 +30,7 @@ import { habitTimerEpoch } from "./habit-timer";
 import { habitReminderTime } from "./habit-reminder-time";
 const HabitReminderBridge = lazy(() => import("./HabitReminderBridge"));
 const PersonalEntityPreview=lazy(()=>import("./PersonalEntityPreview"));
+const WorkspaceConflictReview=lazy(()=>import("./WorkspaceConflictReview"));
 import type { MindmapTaskRequest } from "./Mindmaps";
 import { captureAccountSessionGuard, createCloudTaskOnce } from "./cloud-sync";
 import ukrainianSynthemaNames from "./weekday-synthema.uk.json";
@@ -7744,6 +7745,7 @@ export function GenesisCalendar() {
           onCancel={cancelWorkspaceRecovery}
         />
       ) : null}
+      {cloudUser ? <Suspense fallback={null}><WorkspaceConflictReview language={language} /></Suspense> : null}
       {accountOpen && cloudUser ? (
         <Suspense fallback={<DeferredDialogFallback label={language === "en" ? "Opening account…" : "Открываем личный кабинет…"} />}>
           <AccountPanel

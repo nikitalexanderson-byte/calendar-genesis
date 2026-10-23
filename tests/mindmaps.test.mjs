@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {resolve} from 'node:path';
+import {cloudSyncClient,deferred} from './helpers/cloud-sync-client.mjs';
 const require = createRequire(import.meta.url);
 const ts = require('typescript');
 const modules = new Map();
@@ -57,18 +58,15 @@ test('notification positions survive viewport changes and account layout keeps p
 });
 
 test('workspace save acknowledges the encrypted journal before network, and refuses a failed device write',async()=>{
- const source=readFileSync(resolve('app/cloud-sync.ts'),'utf8');
- const start=source.indexOf('export async function saveWorkspaceStructure('),end=source.indexOf('export async function createGoogleTaskList(',start);
- const code=ts.transpileModule(source.slice(start,end),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
- const loaded={exports:{}},events=[];let networkResolve,failWrite=false;
- new Function('module','exports','withWorkspaceMutationLock','encryptWorkspace','queueMutation','sendWorkspaceMutation','workspaceVersion','adoptSavedWorkspace','clearMutation',code)(
-  loaded,loaded.exports,fn=>fn(),async()=>({envelope:{ciphertext:'encrypted',iv:'iv',version:1,expectedVersion:0},structure:{},metadata:{}}),
-  mutation=>{if(failWrite)throw Error('Quota exceeded');assert.equal(JSON.parse(mutation.body).ciphertext,'encrypted');assert.equal(mutation.body.includes('secret title'),false);events.push('journal');},
-  ()=>{events.push('network');return new Promise(resolve=>{networkResolve=resolve;});},0,()=>events.push('adopt'),()=>events.push('clear'));
- const save=loaded.exports.saveWorkspaceStructure([],[],[],{}, {habits:[{title:'secret title'}]},undefined,()=>events.push('acknowledged'));
- await new Promise(resolve=>setImmediate(resolve));assert.deepEqual(events,['journal','acknowledged','network']);
- networkResolve({workspace:{version:1}});await save;assert.deepEqual(events,['journal','acknowledged','network','adopt','clear']);
- events.length=0;failWrite=true;await assert.rejects(loaded.exports.saveWorkspaceStructure([],[],[],{},undefined,undefined,()=>events.push('acknowledged')),/Quota exceeded/);assert.deepEqual(events,[]);
+ const tab=await cloudSyncClient(),events=[],entered=deferred(),release=deferred();let failWrite=false;
+ const write=tab.storage.setItem.bind(tab.storage);
+ tab.storage.setItem=(key,value)=>{if(key.includes(':workspace:')){if(failWrite)throw Error('Quota exceeded');assert.equal(value.includes('secret title'),false);events.push('journal');}write(key,value);};
+ tab.respond(async()=>{events.push('network');entered.resolve();await release.promise;return new Response(JSON.stringify({workspace:{version:1,updatedAt:new Date().toISOString()}}));});
+ const project={id:'secret-project',title:'secret title',tags:[],status:'active',position:0};
+ const save=tab.client.saveWorkspaceStructure([project],[],[],{},undefined,undefined,()=>events.push('acknowledged'));
+ await entered.promise;assert.deepEqual(events,['journal','acknowledged','network']);release.resolve();await save;
+ assert.equal([...tab.storage.data.keys()].some(key=>key.includes(':workspace:')),false);
+ events.length=0;failWrite=true;await assert.rejects(tab.client.saveWorkspaceStructure([project],[],[],{},undefined,undefined,()=>events.push('acknowledged')),/Quota exceeded/);assert.deepEqual(events,[]);
 });
 
 test('deleting one thought preserves child branches, sibling order and live task references',()=>{
