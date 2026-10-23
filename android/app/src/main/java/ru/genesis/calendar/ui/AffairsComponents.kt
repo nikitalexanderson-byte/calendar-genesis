@@ -12,13 +12,17 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -34,7 +38,7 @@ internal object AffairsLayout {
     val controlShape = RoundedCornerShape(10.dp)
 }
 
-internal enum class AffairsAction { BACK, NEXT, MORE, CLOSE, SEARCH, FILTER, SORT, EXPAND, COLLAPSE, REFRESH, MOVE, ADD, EDIT, SETTINGS, DELETE, REPORT, IMPORT, HISTORY, VIEW, UNDO, TEMPLATE, SUBTASK, DECREASE, TASK, AUTOMATION, PAUSE, RESUME, ARCHIVE, RESTORE, TIMER }
+internal enum class AffairsAction { BACK, NEXT, MORE, CLOSE, SEARCH, FILTER, SORT, EXPAND, COLLAPSE, REFRESH, MOVE, MOVE_UP, MOVE_DOWN, ADD, EDIT, SETTINGS, DELETE, REPORT, IMPORT, HISTORY, VIEW, HIDE, MINDMAP, LIST, BOARD, CALENDAR, GANTT, PROJECT, TASK_LIST, UNDO, TEMPLATE, SUBTASK, DECREASE, TASK, AUTOMATION, PAUSE, RESUME, ARCHIVE, RESTORE, TIMER }
 
 @Composable internal fun GenesisAccountFooter(status: String) {
     Text(status, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
@@ -72,6 +76,33 @@ internal enum class AffairsAction { BACK, NEXT, MORE, CLOSE, SEARCH, FILTER, SOR
                 move(5f, 8f); line(6f, 10f); line(9f, 6f); move(14f, 7f); line(21f, 7f)
                 move(14f, 11f); line(19f, 11f); move(3f, 17f); line(21f, 17f); move(3f, 21f); line(16f, 21f)
             }
+            AffairsAction.LIST, AffairsAction.TASK_LIST -> {
+                for (y in listOf(5f, 12f, 19f)) {
+                    move(9f, y); line(21f, y)
+                    move(3f, y - 1f); line(4f, y + 1f); line(6f, y - 2f)
+                }
+            }
+            AffairsAction.BOARD -> {
+                for (x in listOf(3f, 10f, 17f)) {
+                    move(x, 4f); line(x + 4f, 4f); line(x + 4f, 20f); line(x, 20f); line(x, 4f)
+                    move(x, 9f); line(x + 4f, 9f)
+                }
+            }
+            AffairsAction.CALENDAR -> {
+                move(3f, 5f); line(21f, 5f); line(21f, 21f); line(3f, 21f); line(3f, 5f)
+                move(3f, 10f); line(21f, 10f); move(7f, 3f); line(7f, 7f); move(17f, 3f); line(17f, 7f)
+                for (x in listOf(8f, 16f)) for (y in listOf(14f, 18f))
+                    drawCircle(ink, .8f * unit, Offset(x * unit, y * unit))
+            }
+            AffairsAction.GANTT -> {
+                move(3f, 3f); line(3f, 21f); line(22f, 21f)
+                move(6f, 6f); line(14f, 6f); move(10f, 11f); line(19f, 11f)
+                move(14f, 16f); line(22f, 16f)
+            }
+            AffairsAction.PROJECT -> {
+                move(3f, 6f); line(10f, 6f); line(12f, 9f); line(21f, 9f); line(21f, 21f); line(3f, 21f); line(3f, 6f)
+                move(12f, 12f); line(12f, 18f); move(9f, 15f); line(15f, 15f)
+            }
             AffairsAction.TEMPLATE -> {
                 move(8f, 3f); line(21f, 3f); line(21f, 17f); move(17f, 7f); line(3f, 7f); line(3f, 21f); line(17f, 21f); line(17f, 7f)
                 move(6f, 11f); line(13f, 11f); move(6f, 15f); line(11f, 15f)
@@ -90,9 +121,26 @@ internal enum class AffairsAction { BACK, NEXT, MORE, CLOSE, SEARCH, FILTER, SOR
                 move(3f, 8f); curve(5f, 2f, 15f, 1f, 20f, 7f); curve(25f, 15f, 16f, 25f, 8f, 20f)
                 move(3f, 3f); line(3f, 8f); line(8f, 8f); move(12f, 7f); line(12f, 12f); line(16f, 15f)
             }
-            AffairsAction.VIEW -> {
+            AffairsAction.VIEW, AffairsAction.HIDE -> {
                 move(2f, 12f); curve(7f, 3f, 17f, 3f, 22f, 12f); curve(17f, 21f, 7f, 21f, 2f, 12f)
                 drawCircle(ink, 3f * unit, Offset(12f * unit, 12f * unit), style = Stroke(1.8f * unit))
+                if (action == AffairsAction.HIDE) { move(3f, 3f); line(21f, 21f) }
+            }
+            AffairsAction.MINDMAP -> {
+                move(9f, 9f); line(5.5f, 5.5f); move(15f, 9f); line(18.5f, 5.5f)
+                move(9f, 15f); line(5.5f, 18.5f); move(15f, 15f); line(18.5f, 18.5f)
+                for (x in listOf(4f, 20f)) for (y in listOf(4f, 20f))
+                    drawCircle(ink, 1.9f * unit, Offset(x * unit, y * unit), style = Stroke(1.8f * unit))
+                drawRoundRect(ink, Offset(9f * unit, 9f * unit), Size(6f * unit, 6f * unit),
+                    CornerRadius(1.8f * unit), style = Stroke(1.8f * unit))
+            }
+            AffairsAction.MOVE_UP, AffairsAction.MOVE_DOWN -> {
+                val up = action == AffairsAction.MOVE_UP
+                val tip = if (up) 4f else 20f
+                val tail = if (up) 20f else 4f
+                val shoulder = if (up) 9f else 15f
+                move(12f, tail); line(12f, tip)
+                move(7f, shoulder); line(12f, tip); line(17f, shoulder)
             }
             AffairsAction.UNDO, AffairsAction.RESTORE -> {
                 move(8f, 5f); line(3f, 10f); line(8f, 15f); move(3f, 10f)
@@ -162,12 +210,20 @@ internal enum class AffairsAction { BACK, NEXT, MORE, CLOSE, SEARCH, FILTER, SOR
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable internal fun AffairsIconButton(label: String, action: AffairsAction, onClick: () -> Unit,
-    modifier: Modifier = Modifier, enabled: Boolean = true) {
+    modifier: Modifier = Modifier, enabled: Boolean = true, fillWidth: Boolean = false, selected: Boolean? = null,
+    contentColor: Color = Color.Unspecified) {
     val description = genesisTranslate(label)
     TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
         tooltip = { PlainTooltip { Text(label) } }, state = rememberTooltipState()) {
-        OutlinedIconButton(onClick = onClick, enabled = enabled, shape = AffairsLayout.controlShape, modifier = modifier.size(AffairsLayout.touchTarget)
-            .semantics { contentDescription = description }) { AffairsActionIcon(action) }
+        OutlinedIconButton(onClick = onClick, enabled = enabled, shape = AffairsLayout.controlShape,
+            colors = if (selected == true) IconButtonDefaults.outlinedIconButtonColors(
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
+                else if (contentColor != Color.Unspecified) IconButtonDefaults.outlinedIconButtonColors(contentColor = contentColor)
+                else IconButtonDefaults.outlinedIconButtonColors(),
+            modifier = modifier.then(if (fillWidth) Modifier.fillMaxWidth().heightIn(min = AffairsLayout.touchTarget)
+                else Modifier.size(AffairsLayout.touchTarget))
+                .semantics { contentDescription = description; if (selected != null) this.selected = selected }) { AffairsActionIcon(action) }
     }
 }
 

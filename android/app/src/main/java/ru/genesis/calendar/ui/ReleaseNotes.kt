@@ -130,7 +130,7 @@ internal fun releaseNotesTitle(): String = notes[LocalGenesisLanguage.current]?.
 
 @Composable
 internal fun ReleaseNotesDialog(onDismiss: () -> Unit) {
-    val copy = notes[LocalGenesisLanguage.current] ?: notes.getValue("ru")
+    val copy = (notes[LocalGenesisLanguage.current] ?: notes.getValue("ru")).copy(changes = mobileReleaseChanges)
     AlertDialog(onDismissRequest = onDismiss,
         modifier = Modifier.testTag("release-notes-dialog"),
         title = { Text("${copy.title} · ${BuildConfig.VERSION_NAME}") },

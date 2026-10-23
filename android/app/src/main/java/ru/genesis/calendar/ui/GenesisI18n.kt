@@ -833,6 +833,14 @@ private val nativeCopy = mapOf(
     "Задачи дня ·" to "Tasks for the day ·", "И ещё" to "And",
     // Projects and drag destinations.
     "Хаос-бокс" to "Chaos box", "Категории жизни" to "Life categories", "Управлять" to "Manage",
+    "Показать хаос-бокс" to "Show chaos box", "Скрыть хаос-бокс" to "Hide chaos box",
+    "Переместить хаос-бокс вверх" to "Move chaos box up", "Переместить хаос-бокс вниз" to "Move chaos box down",
+    "Показывать привычки" to "Show habits", "Развёрнуто" to "Expanded", "Свёрнуто" to "Collapsed",
+    "Не удалось сохранить сроки. Обновите задачи и повторите попытку." to "Could not save the schedule. Refresh tasks and try again.",
+    "К первой задаче" to "First scheduled task",
+    "Удерживайте полосу и перемещайте сроки. Кнопка календаря меняет начало, окончание и длительность." to "Hold a bar to move its dates. The calendar button changes the start, end and duration.",
+    "На выбранный период задач нет." to "There are no tasks in this period.", "Задачи вне периода" to "Tasks outside this period",
+    "Запланировать задачу" to "Schedule task", "Изменить сроки задачи" to "Edit task dates", "Указать время" to "Set time",
     "Свернуть" to "Collapse", "Открыть" to "Open", "Добавить категорию" to "Add category",
     "В этом разделе пока нет проектов." to "There are no projects in this section yet.",
     "Создать задачу в проекте" to "Create a task in this project", "Изменить проект" to "Edit project",
@@ -1439,7 +1447,7 @@ private object TranslationCatalog {
                             Log.e("GenesisI18n", "Could not load $name: ${error.javaClass.simpleName}")
                         }
                     }
-                    listOf("native-data-export-translations.json", "native-data-import-translations.json", "native-bulk-translations.json", "native-template-labels.json", "native-automations-translations.json", "native-saved-views-translations.json", "custom-field-recovery-translations.json", "habit-report-translations.json").forEach { name ->
+                    listOf("native-data-export-translations.json", "native-data-import-translations.json", "native-bulk-translations.json", "native-template-labels.json", "native-automations-translations.json", "native-saved-views-translations.json", "custom-field-recovery-translations.json", "habit-report-translations.json", "native-mobile-design-translations.json").forEach { name ->
                         objectAsset(name).getJSONObject("en").let { catalog -> catalog.keys().forEach { put(it, catalog.getString(it)) } }
                     }
                     runCatching {
@@ -1503,7 +1511,7 @@ private object TranslationCatalog {
                                 json.keys().forEach { put(it, json.getString(it)) }
                             }
                         }
-                    listOf("native-data-export-translations.json", "native-data-import-translations.json", "native-bulk-translations.json", "native-template-labels.json", "native-automations-translations.json", "native-saved-views-translations.json", "custom-field-recovery-translations.json").forEach { name ->
+                    listOf("native-data-export-translations.json", "native-data-import-translations.json", "native-bulk-translations.json", "native-template-labels.json", "native-automations-translations.json", "native-saved-views-translations.json", "custom-field-recovery-translations.json", "native-mobile-design-translations.json").forEach { name ->
                       context.assets.open("originals/i18n/$name").bufferedReader().use { reader ->
                             JSONObject(reader.readText()).getJSONObject(language).let { json ->
                                 json.keys().forEach { put(it, json.getString(it)) }

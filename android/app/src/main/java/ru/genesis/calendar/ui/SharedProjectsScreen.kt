@@ -1150,7 +1150,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     val saveTask: () -> Unit = { run {
         val current = requireNotNull(selectedTask)
         check(canEditTask && !taskPending && !taskArchived && taskFieldsChanged && estimateDraft?.valid != false &&
-            customDraft?.valid == true && sharedTaskChecklistsValid(editTaskDetails) && (estimateDraft?.dirty != true || planningEnabled) && current.optInt("revision") == editTaskRevision)
+            customDraft?.valid == true && sharedTaskCoreResolved(editTaskDetails) && sharedTaskChecklistsValid(editTaskDetails) && (estimateDraft?.dirty != true || planningEnabled) && current.optInt("revision") == editTaskRevision)
         val fields = sharedTaskDetailChanges(current, editTaskDetails, planningEnabled, customDraft.fields)
             .put("title", editTaskTitle.trim()).put("description", editTaskDescription.trim())
             .put("dueDate", editTaskDueDate.ifBlank { null } ?: JSONObject.NULL)
@@ -1240,13 +1240,6 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                                 actionsOpen = false; managementPage = "project"; showManagement = true })
                             DropdownMenuItem(text = { Text("Участники и роли") }, onClick = {
                                 actionsOpen = false; managementPage = "team"; showManagement = true })
-                            if (canWrite) {
-                                DropdownMenuItem(text = { Text("Создать список задач") }, enabled = !busy && statuses.size < 30,
-                                    onClick = { actionsOpen = false; createModal = "status" })
-                                DropdownMenuItem(text = { Text("Добавить проект") }, enabled = !busy, onClick = {
-                                    actionsOpen = false; createKind = "project"; parentId = projectId
-                                    parentBoardId = ""; createModal = "project" })
-                            }
                         } else {
                             DropdownMenuItem(text = { Text("Создать пространство") }, enabled = !busy,
                                 onClick = { actionsOpen = false; createModal = "space" })
@@ -1359,17 +1352,25 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         if (projectId.isNotBlank() && project == null) LinearProgressIndicator(Modifier.fillMaxWidth())
         if (project != null) {
             if (taskId.isBlank()) {
-                if (canWrite && statuses.isNotEmpty()) Button(onClick = {
-                    newTaskStatusId = statuses.first().optString("id")
-                    newTaskCategoryId = ""; newTaskAssigneeId = ""; createCustomProjectId = projectId; createModal = "task"
-                }, enabled = !busy && canEditTask, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("shared-create-task")) {
-                    Text("Добавить задачу")
+                if (canWrite) Row(Modifier.fillMaxWidth().testTag("shared-create-actions"),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(Modifier.weight(1f)) { AffairsIconButton("Создать задачу", AffairsAction.TASK, {
+                        newTaskStatusId = statuses.firstOrNull()?.optString("id").orEmpty()
+                        newTaskCategoryId = ""; newTaskAssigneeId = ""; createCustomProjectId = projectId; createModal = "task"
+                    }, enabled = !busy && canEditTask && statuses.isNotEmpty(),
+                        modifier = Modifier.testTag("shared-create-task"), fillWidth = true) }
+                    Box(Modifier.weight(1f)) { AffairsIconButton("Создать список задач", AffairsAction.TASK_LIST,
+                        { createModal = "status" }, enabled = !busy && statuses.size < 30,
+                        modifier = Modifier.testTag("shared-create-list"), fillWidth = true) }
+                    Box(Modifier.weight(1f)) { AffairsIconButton("Создать проект", AffairsAction.PROJECT, {
+                        createKind = "project"; parentId = projectId; parentBoardId = ""; createModal = "project"
+                    }, enabled = !busy, modifier = Modifier.testTag("shared-create-project"), fillWidth = true) }
                 }
-                AffairsSearchField(taskSearch, { taskSearch = it.take(200) }, "Поиск задач",
-                    Modifier.testTag("shared-task-search"))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                    SharedTaskFieldSort(taskSort, setTaskSort, listContext.query, listContext.catalog.fields, Modifier.weight(1f))
+                    AffairsSearchField(taskSearch, { taskSearch = it.take(200) }, "Поиск задач",
+                        Modifier.weight(1f).testTag("shared-task-search"))
+                    SharedTaskFieldSort(taskSort, setTaskSort, listContext.query, listContext.catalog.fields, iconOnly = true)
                     BadgedBox(badge = { if (filterCount > 0) Badge { Text(filterCount.toString()) } }) {
                         AffairsIconButton("Фильтры", AffairsAction.FILTER, { filtersOpen = true }, Modifier.testTag("shared-filters"))
                     }
@@ -1393,14 +1394,15 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                     if (priorityFilter >= 0) InputChip(true, { priorityFilter = -1 }, label = {
                         Text(listOf("Без приоритета", "Низкий приоритет", "Средний приоритет", "Высокий приоритет")[priorityFilter]) })
                 }
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("list", "board", "calendar").forEach { view ->
-                        FilterChip(selected = activeView == view, onClick = { viewOverride = view },
-                            modifier = Modifier.heightIn(min = 48.dp).testTag("shared-view-$view"),
-                            label = { Text(when (view) { "board" -> "Доска"; "calendar" -> "Календарь"; else -> "Список" }, maxLines = 1, softWrap = false) })
+                Row(Modifier.fillMaxWidth().testTag("shared-view-actions"), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("list", "board", "calendar", "gantt").forEach { view ->
+                        Box(Modifier.weight(1f)) { AffairsIconButton(
+                            when (view) { "board" -> "Доска"; "calendar" -> "Календарь"; "gantt" -> "Диаграмма Ганта"; else -> "Список" },
+                            when (view) { "board" -> AffairsAction.BOARD; "calendar" -> AffairsAction.CALENDAR; "gantt" -> AffairsAction.GANTT; else -> AffairsAction.LIST },
+                            { viewOverride = view }, Modifier.testTag("shared-view-$view"), fillWidth = true, selected = activeView == view) }
                     }
                 }
-                if (activeView == "calendar" && enabledCalendars.size > 1) Row(
+                if (activeView in setOf("calendar", "gantt") && enabledCalendars.size > 1) Row(
                     Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     CalendarMode.entries.filter { it in enabledCalendars }.forEach { mode ->
                         FilterChip(selected = calendarMode == mode, onClick = {
@@ -1413,7 +1415,35 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                 }
                 if (taskPage == null && listContext.valid && listContext.reader.error.isBlank()) LinearProgressIndicator(Modifier.fillMaxWidth())
                 else if (taskPage != null && tasks.isEmpty()) Text("По вашему запросу ничего не найдено.", style = MaterialTheme.typography.bodyMedium)
-            if (activeView == "calendar") {
+            if (activeView == "gantt") key(projectId) {
+                SharedGanttView(tasks.map { task -> if (sharedTaskHasPending(task.optString("id"), pendingTasks))
+                    JSONObject(task.toString()).put("pending", true) else task }, statuses,
+                    calendarMode, preferences.input, preferences.use24, canEditTask, busy,
+                    onOpen = { task -> taskId = task.getString("id") },
+                    onSchedule = { task, changes ->
+                        val ownerProject = task.getString("projectId")
+                        val ownerTask = task.getString("id")
+                        check(ownerProject == projectId && canEditTask && !busy &&
+                            !sharedTaskHasPending(ownerTask, pendingTasks) && !task.optBoolean("pending"))
+                        val patch = JSONObject(changes.toString()).put("expectedRevision", task.getInt("revision"))
+                        val changed = controller.updateSharedTask(ownerProject, ownerTask, patch).getJSONObject("task")
+                        require(changed.optString("id") == ownerTask && changed.optString("projectId") == ownerProject)
+                        if (projectId == ownerProject) {
+                            pendingTasks = controller.queuedSharedTasks(ownerProject)
+                            val updated = if (changed.optBoolean("pending")) sharedPendingTask(task, changed, patch) else changed
+                            taskPage = taskPage?.let { page -> JSONObject(page.toString()).put("tasks",
+                                JSONArray(page.optJSONArray("tasks")?.rows().orEmpty().map {
+                                    if (it.optString("id") == ownerTask) updated else it
+                                })) }
+                            if (!changed.optBoolean("pending")) listContext.reader.refresh()
+                            else {
+                                messageIsError = false
+                                message = if (en) "Change saved on this device. It will sync when connected."
+                                    else "Изменение сохранено на устройстве и синхронизируется после подключения."
+                            }
+                        }
+                    })
+            } else if (activeView == "calendar") {
                 val locale = if (en) Locale.US else Locale.forLanguageTag("ru-RU")
                 val range = calendarEngine.monthRange(calendarAnchor, calendarMode)
                 val periodDates = range.dates()
@@ -1625,13 +1655,26 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                             Text(if (en) "Changed elsewhere. Your draft is kept." else "Изменено другим участником. Черновик сохранён.",
                                 color = MaterialTheme.colorScheme.error)
                             TextButton(onClick = {
-                                editTaskDetails = rebaseSharedTaskDetailDraft(selectedTask, editTaskDetails, customDraft?.fields.orEmpty())
-                                editTaskTitle = selectedTask.optString("title")
-                                editTaskDescription = selectedTask.optString("description")
-                                editTaskDueDate = selectedTask.optString("dueDate").takeUnless { it == "null" } ?: ""
-                                editTaskCategoryId = selectedTask.optString("categoryId").takeUnless { it == "null" } ?: ""
+                                val rebased = rebaseSharedTaskEditor(selectedTask, editTaskDetails,
+                                    sharedTaskEditorFields(editTaskTitle, editTaskDescription, editTaskDueDate, editTaskCategoryId),
+                                    customDraft?.fields.orEmpty())
+                                editTaskDetails = rebased.details
+                                editTaskTitle = rebased.fields.optString("title")
+                                editTaskDescription = rebased.fields.optString("description")
+                                editTaskDueDate = rebased.fields.optString("dueDate").takeUnless { it == "null" }.orEmpty()
+                                editTaskCategoryId = rebased.fields.optString("categoryId").takeUnless { it == "null" }.orEmpty()
                                 editTaskRevision = selectedTask.optInt("revision")
                             }) { Text(if (en) "Reload fields" else "Обновить поля") }
+                        }
+                        if (!sharedTaskCoreResolved(editTaskDetails)) SharedTaskCoreConflict(editTaskDetails, !busy && !taskPending &&
+                            selectedTask.optInt("revision") == editTaskRevision) { keepLocal ->
+                            val resolved = resolveSharedTaskEditor(editTaskDetails,
+                                sharedTaskEditorFields(editTaskTitle, editTaskDescription, editTaskDueDate, editTaskCategoryId), keepLocal, selectedTask)
+                            editTaskDetails = resolved.details
+                            editTaskTitle = resolved.fields.optString("title")
+                            editTaskDescription = resolved.fields.optString("description")
+                            editTaskDueDate = resolved.fields.optString("dueDate").takeUnless { it == "null" }.orEmpty()
+                            editTaskCategoryId = resolved.fields.optString("categoryId").takeUnless { it == "null" }.orEmpty()
                         }
                     } else {
                         if (selectedTask.optString("description").isNotBlank()) androidx.compose.material3.Text(selectedTask.getString("description"))
@@ -1660,7 +1703,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).testTag("shared-feedback"),
         color = if (messageIsError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
     if (taskId.isNotBlank() && selectedTask != null && canEditTask) AffairsSaveBar(saveTask,
-        enabled = taskFieldsChanged && !taskPending && !taskArchived && estimateDraft?.valid != false && customDraft?.valid == true && sharedTaskChecklistsValid(editTaskDetails) &&
+        enabled = taskFieldsChanged && !taskPending && !taskArchived && estimateDraft?.valid != false && customDraft?.valid == true && sharedTaskCoreResolved(editTaskDetails) && sharedTaskChecklistsValid(editTaskDetails) &&
             (estimateDraft?.dirty != true || planningEnabled) && editTaskTitle.isNotBlank() && dateValid && selectedTask.optInt("revision") == editTaskRevision &&
             draftTaskKey == "$projectId:$taskId", busy = busy)
     }

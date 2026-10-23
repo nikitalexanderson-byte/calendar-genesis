@@ -19,6 +19,8 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import ru.genesis.calendar.data.*
+import ru.genesis.calendar.domain.*
+import ru.genesis.calendar.domain.habits.*
 import ru.genesis.calendar.ui.completedTaskInk
 
 /** Real interactions in the debug workspace; never changes a signed-in account. */
@@ -37,8 +39,68 @@ class MobilePolishTest {
 
     private fun capture(name: String) {
         compose.waitForIdle()
-        assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
-            File(app.getExternalFilesDir(null), "2.3.4-$name.png")))
+        val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+        device.waitForIdle(1000)
+        assertTrue(device.takeScreenshot(File(app.getExternalFilesDir(null), "2.3.4-$name.png")))
+    }
+
+    @Test fun compactPersonalControlsMoveHideAndRestoreInboxWithoutChangingTasks() {
+        val layout = app.getSharedPreferences("genesis.personal-layout.v1", 0)
+        val prefix = app.workspaceScope + ":inbox:"
+        val old = listOf("hidden", "bottom").associateWith { if (layout.contains(prefix + it)) layout.getBoolean(prefix + it, false) else null }
+        layout.edit().putBoolean(prefix + "hidden", false).putBoolean(prefix + "bottom", false).commit()
+        try {
+            compose.onNodeWithTag("navigation-Проекты").performClick()
+            compose.onNodeWithTag("personal-mindmaps").assertWidthIsAtLeast(300.dp).assertHeightIsAtLeast(48.dp)
+            compose.onNodeWithTag("personal-actions").performClick()
+            val task = compose.onNodeWithTag("personal-create-task").fetchSemanticsNode().boundsInRoot
+            val list = compose.onNodeWithTag("personal-create-list").fetchSemanticsNode().boundsInRoot
+            val project = compose.onNodeWithTag("create-project").fetchSemanticsNode().boundsInRoot
+            assertTrue(task.bottom <= list.top && list.bottom <= project.top)
+            UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
+            compose.onNodeWithTag("personal-move-inbox").performScrollTo().performClick()
+            compose.waitUntil { layout.getBoolean(prefix + "bottom", false) }
+            compose.onNodeWithTag("personal-hide-inbox").performScrollTo().performClick()
+            compose.onNodeWithTag("project-inbox").assertDoesNotExist()
+            compose.onNodeWithTag("personal-show-inbox").performScrollTo().performClick()
+            compose.onNodeWithTag("project-inbox").performScrollTo().assertIsDisplayed()
+            compose.onNodeWithTag("task-sort-control").performScrollTo().performClick()
+            compose.onNodeWithTag("task-sort-title").performClick()
+            compose.onNodeWithTag("personal-actions").performScrollTo()
+            capture("personal-mobile-design")
+        } finally {
+            layout.edit().apply { old.forEach { (key, value) -> if (value == null) remove(prefix + key) else putBoolean(prefix + key, value) } }.commit()
+        }
+    }
+
+    @Test fun historyDisclosureAndNamedHabitStatesStayUsableWithBackNavigation() {
+        val scopedApp = app
+        val repository = HabitsRepository(scopedApp)
+        val day = LocalDate.now()
+        val habit = Habit(TrackerEntity.create("habit", id = "mobile-history-" + UUID.randomUUID()),
+            "Проверка истории", day, HabitEngine(GenesisCalendar()).defaultSchedule(day, CalendarMode.PROFANE))
+        runBlocking { repository.save(habit) }
+        try {
+        compose.onNodeWithTag("navigation-Привычки").performClick()
+        compose.waitUntil(10000) { compose.onAllNodesWithTag("habit-history-disclosure").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("habit-history-content").assertDoesNotExist()
+        compose.onNodeWithTag("habit-history-disclosure").performScrollTo().assertHeightIsAtLeast(48.dp).performClick()
+        compose.onNodeWithTag("habit-history-content").assertExists()
+        capture("habit-history-mobile-design")
+        compose.onNodeWithTag("habit-history-disclosure").performScrollTo().performClick()
+        compose.onNodeWithTag("habit-history-content").assertDoesNotExist()
+        compose.onNodeWithTag("habit-state-choice").performScrollTo().assertHeightIsAtLeast(48.dp).performClick()
+        compose.onNodeWithTag("habit-state-paused").performClick()
+        compose.onNodeWithTag("habit-state-choice").assertTextContains("Пауза", substring = true)
+        compose.onNodeWithTag("habit-state-choice").performClick()
+        compose.onNodeWithTag("habit-state-active").assertExists()
+        InstrumentationRegistry.getInstrumentation().uiAutomation.waitForIdle(350, 5000)
+        UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
+        compose.onNodeWithTag("habit-state-active").assertDoesNotExist()
+        capture("habits-mobile-design")
+        compose.onNodeWithTag("habit-state-choice").performClick()
+        compose.onNodeWithTag("habit-state-active").performClick()
+        } finally { runBlocking { repository.delete(habit.id) } }
     }
 
     @Test fun todayDetailsButtonUsesFullCardWidth() {
@@ -98,6 +160,7 @@ class MobilePolishTest {
     @Test fun taskCloseRemainsAtTopRightAfterScrollingAndDoesNotSaveDraft() {
         val draft = "Несохранённая задача полировки"
         compose.onNodeWithTag("navigation-Проекты").performClick()
+        compose.onNodeWithTag("personal-actions").performClick()
         compose.onNodeWithTag("personal-create-task").performClick()
         compose.onNodeWithTag("task-title").performTextInput(draft)
         UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()

@@ -71,7 +71,12 @@ class HabitLifecycleFlowTest {
         compose.waitUntil(30_000) { compose.onAllNodesWithTag("archive-habit-${habit.id}").fetchSemanticsNodes().isNotEmpty() && read().revision>=2 }
         check(app.workspaceScope==localScope)
     }
-    private fun click(tag: String) { compose.onNodeWithTag(tag).performScrollTo().assertIsEnabled().performClick() }
+    private fun click(tag: String) {
+        if (tag.startsWith("habit-state-")) {
+            compose.onNodeWithTag("habit-state-choice").performScrollTo().performClick()
+            compose.onNodeWithTag(tag).assertIsEnabled().performClick()
+        } else compose.onNodeWithTag(tag).performScrollTo().assertIsEnabled().performClick()
+    }
     private fun awaitState(habit: Habit, state: String) {
         compose.waitUntil(30_000) { read().habits.firstOrNull { it.id==habit.id }?.let { HabitLifecycle.state(it).status==state } == true }
         compose.waitForIdle()

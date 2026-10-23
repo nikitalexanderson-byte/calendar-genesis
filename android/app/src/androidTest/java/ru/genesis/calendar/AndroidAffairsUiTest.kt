@@ -35,6 +35,7 @@ class AndroidAffairsUiTest {
         compose.onNodeWithTag("personal-affairs-view").assertDoesNotExist()
         compose.onNodeWithTag("submenu-tasks").assertDoesNotExist()
         compose.onNodeWithTag("submenu-lists").assertDoesNotExist()
+        compose.onNodeWithTag("personal-actions").performClick()
         compose.onNodeWithTag("personal-create-task").performClick()
         compose.onNodeWithTag("task-title").assertExists()
         compose.onNodeWithText("Отмена").performScrollTo().performClick()

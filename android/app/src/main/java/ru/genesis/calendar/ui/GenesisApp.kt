@@ -934,6 +934,14 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                                         if (!testWorkspace && authState.user != null) authController.updateSharedPreference("display", next.wireValue)
                                         else scope.launch { prefsStore.set("display", next.wireValue) }
                                     }, showDetails = prefs.display == CalendarMode.SACRED && "details" !in uiVisibility.hiddenTodayBlocks)
+                                if (!testWorkspace && authState.ready && !authState.requiresSignIn) {
+                                    authState.user?.uid?.let { uid ->
+                                        val adviceGateway = remember(authController, uid) { authController.dailyAdviceTransport(uid) }
+                                        TodayAdvicePanel(adviceGateway, uid, todayPageDate, prefs.language,
+                                            authState.accountSettings?.advicePreferences ?: ru.genesis.calendar.auth.AdvicePreferences(),
+                                            habitWorkspace.habits, authState.checkedAt)
+                                    }
+                                }
                                 if (!testWorkspace && authState.ready)
                                     TodayAdPanel(authController, authState.user?.uid, prefs.language)
                                 AnimatedVisibility(visible = prefs.display == CalendarMode.SACRED && dayDetailsExpanded && "details" !in uiVisibility.hiddenTodayBlocks,
@@ -1954,6 +1962,15 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sectionId:
                     onCheckedChange={onSet("stoicheionDivinationDisabled",(!it).toString())},
                     enabled=!sharedBusy,
                     modifier=Modifier.testTag("stoicheion-divination-setting"))
+            }
+        }
+        if (accountSettings != null && sharedController != null) {
+            val adviceUser = sharedController.state.collectAsStateWithLifecycle().value.user?.uid
+            if (adviceUser != null) key(adviceUser) {
+                DailyAdviceSettings(accountSettings.advicePreferences, accountSettings.adviceAvailableCategories,
+                    accountSettings.adviceCatalogAvailable, prefs.language, !sharedBusy) { patch ->
+                    sharedController.saveAdvicePreferences(adviceUser, patch)
+                }
             }
         }
         SettingsSection("!", "Пропущенные задачи", "Напоминание внутри раздела «Сегодня»",

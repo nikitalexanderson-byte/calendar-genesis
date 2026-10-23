@@ -430,6 +430,37 @@ class SharedWorkspaceUiTest {
         assertEquals(setOf(customId("number")), fixture.lastMutation!!.getJSONObject("customFields").keys().asSequence().toSet())
     }
 
+    @Test fun coreConflictBlocksSaveUntilAChoiceAndKeepsIndependentDraftFieldsAfterRotation() {
+        val fixture = WorkspaceFixture(withTasks = true, planning = true)
+        val restoration = StateRestorationTester(compose)
+        openEstimateTask(fixture, restoration)
+        compose.onNodeWithText("Дополнительные параметры задачи").performScrollTo().performClick()
+        compose.onNodeWithTag("shared-task-title-input").performTextReplacement("Моё название")
+        compose.onNodeWithText("Без приоритета").performScrollTo().performClick()
+        compose.runOnIdle {
+            fixture.records.single().put("title", "Название на сайте").put("priority", 3)
+                .put("description", "Независимая правка описания").put("revision", 2)
+        }
+        awaitFixturePoll(fixture) { compose.onAllNodesWithText("Обновить поля").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("affairs-save").assertIsNotEnabled()
+        compose.onNodeWithText("Обновить поля").performScrollTo().performClick()
+        compose.onNodeWithTag("shared-task-core-conflict").assertExists()
+        compose.onNodeWithTag("affairs-save").assertIsNotEnabled()
+        restoration.emulateSavedInstanceStateRestore()
+        compose.onNodeWithTag("affairs-save").assertIsNotEnabled()
+        compose.onNodeWithTag("shared-core-use-server").performScrollTo().performClick()
+        compose.onNodeWithTag("shared-task-title-input").assert(SemanticsMatcher.expectValue(
+            SemanticsProperties.EditableText, AnnotatedString("Название на сайте")))
+        compose.onNodeWithTag("shared-task-core-conflict").assertDoesNotExist()
+        compose.onNodeWithTag("affairs-save").assertIsNotEnabled()
+        compose.onNodeWithText("Без приоритета").performScrollTo().performClick()
+        compose.onNodeWithTag("affairs-save").performClick()
+        compose.waitUntil(10000) { fixture.updates == 1 }
+        assertEquals(0, fixture.lastMutation!!.getInt("priority"))
+        assertEquals("Название на сайте", fixture.records.single().getString("title"))
+        assertEquals("Независимая правка описания", fixture.records.single().getString("description"))
+    }
+
     @Test fun customPendingCommandKeepsItsIdentityAndDoesNotAllowAnotherEdit() {
         val fixture = WorkspaceFixture(withTasks = true, planning = true, custom = true)
         openEstimateTask(fixture)
@@ -1033,7 +1064,8 @@ class SharedWorkspaceUiTest {
         compose.onNodeWithTag("shared-task-search").performTextInput("обзор")
         compose.waitUntil(5_000) { fixture.queries.last().optString("q") == "обзор" }
         compose.onNodeWithTag("shared-filters").performClick()
-        compose.onNodeWithTag("shared-filter-completion-completed").performClick()
+        compose.onNodeWithTag("shared-filter-completion").performClick()
+        compose.onNodeWithText("Завершённые", substring = false).performClick()
         compose.onNodeWithTag("affairs-apply-filters").performClick()
         compose.waitUntil(5_000) { fixture.queries.last().optString("completion") == "completed" }
         compose.onNodeWithTag("shared-task-qa-task").assertDoesNotExist()

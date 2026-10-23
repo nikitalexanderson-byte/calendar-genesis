@@ -224,7 +224,16 @@ for (const language of ["ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "s
     if (typeof value !== "string" || !value.trim() || (!["ru", "sr", "uk"].includes(language) && CYRILLIC.test(value))) throw new Error(`Invalid field recovery: ${language}: ${key}`);
   }
 }
-const translations = { ...web, ...curated, ...supplemental, ...sacred, ...native, ...workCopy, ...exportCopy.en, ...importCopy.en, ...bulkCopy.en, ...templateCopy.en, ...automationsCopy.en, ...savedViewsCopy.en, ...fieldRecoveryCopy.en, ...habitReports.en };
+const mobileDesignCopy = JSON.parse(await readFile(path.join(ROOT, "app/native-mobile-design-translations.json"), "utf8"));
+const mobileDesignKeys = Object.keys(mobileDesignCopy.ru ?? {}).sort();
+for (const language of ["ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja"]) {
+  if (Object.keys(mobileDesignCopy[language] ?? {}).sort().join("\n") !== mobileDesignKeys.join("\n")) throw new Error("Incomplete native mobile design copy: " + language);
+  for (const key of mobileDesignKeys) {
+    const value = mobileDesignCopy[language][key];
+    if (typeof value !== "string" || !value.trim() || (!["ru", "sr", "uk"].includes(language) && CYRILLIC.test(value))) throw new Error("Invalid native mobile design copy: " + language + ": " + key);
+  }
+}
+const translations = { ...web, ...curated, ...supplemental, ...sacred, ...native, ...workCopy, ...exportCopy.en, ...importCopy.en, ...bulkCopy.en, ...templateCopy.en, ...automationsCopy.en, ...savedViewsCopy.en, ...fieldRecoveryCopy.en, ...habitReports.en, ...mobileDesignCopy.en };
 for(const language of ["en","el","de","fr","es","it","pt","pl","sr","uk","zh","tr","ja"])for(const key of Object.keys(habitReports.en)){
   const value=habitReports[language]?.[key];
   if(typeof value!=="string"||!value.trim()||(!["sr","uk"].includes(language)&&CYRILLIC.test(value)))throw Error(`Incomplete native habit report copy: ${language}: ${key}`);

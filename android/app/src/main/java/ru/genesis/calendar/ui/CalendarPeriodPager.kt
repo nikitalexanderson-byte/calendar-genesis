@@ -9,7 +9,6 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -174,7 +173,7 @@ private fun PeriodArrow(direction: Int, period: String, onClick: () -> Unit) {
     val pressed by interaction.collectIsPressedAsState()
     val shift by animateFloatAsState(if (pressed) direction * 3f else 0f, spring(stiffness = Spring.StiffnessLow), label = "arrow-press")
     val ink = MaterialTheme.colorScheme.primary
-    androidx.compose.material3.Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainerLowest,
+    androidx.compose.material3.Surface(shape = AffairsLayout.controlShape, color = MaterialTheme.colorScheme.surfaceContainerLowest,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = .35f))) {
         IconButton(onClick, Modifier.size(48.dp).testTag("calendar-$period-${if (direction < 0) "previous" else "next"}")
             .semantics { contentDescription = label }, interactionSource = interaction) {

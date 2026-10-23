@@ -44,8 +44,8 @@ android {
         applicationId = "ru.genesis.calendar"
         minSdk = 26
         targetSdk = 37
-        versionCode = 99
-        versionName = "2.9.4"
+        versionCode = 100
+        versionName = "2.9.5"
         buildConfigField("boolean", "PLAY_DISTRIBUTION", "false")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -131,6 +131,10 @@ val genesisAssets = tasks.register<GenesisAssetsTask>("genesisAssets") {
     from(rootProject.file("../app/native-saved-views-translations.json")) { into("i18n") }
     from(rootProject.file("../app/custom-field-recovery-translations.json")) { into("i18n") }
     from(rootProject.file("../app/planning-translations.json")) { into("i18n") }
+    from(rootProject.file("../app/daily-advice-copy.json")) { into("i18n") }
+    from(rootProject.file("../app/native-mobile-design-translations.json")) { into("i18n") }
+    from(rootProject.file("../app/daily-advice-affinity.json")) { into("catalogs") }
+    from(rootProject.file("../app/daily-advice-topics.json")) { into("catalogs") }
     from(rootProject.file("../app/sprint-report-translations.json")) { into("i18n") }
     from(rootProject.file("../app/workflow-draft-translations.json")) { into("i18n") }
     from(rootProject.file("../app/workflow-translations.json")) { into("i18n") }
