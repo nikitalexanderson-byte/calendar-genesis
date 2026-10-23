@@ -62,6 +62,44 @@ export type SyncableWorkspaceDocument = Record<string, unknown> & {
   syncMetadata?: WorkspaceSyncMetadata;
 };
 
+export type WorkspaceFieldConflict = {
+  key: string;
+  collection: string;
+  entityId: string;
+  title: string;
+  field: string;
+  local: unknown;
+  remote: unknown;
+};
+export type WorkspaceConflictChoices = Record<string, "local" | "remote">;
+
+/** Missing properties in an older writer are not explicit deletions. null/false/0 are values. */
+function mergeWorkspaceValue(base: unknown, local: unknown, remote: unknown, path: string[],
+  context: Omit<WorkspaceFieldConflict, "key" | "field" | "local" | "remote">,
+  conflicts: WorkspaceFieldConflict[], choices?: WorkspaceConflictChoices): unknown {
+  if (local === undefined) return remote;
+  if (remote === undefined) return local;
+  if (canonical(local) === canonical(remote)) return local;
+  if (base !== undefined && canonical(local) === canonical(base)) return remote;
+  if (base !== undefined && canonical(remote) === canonical(base)) return local;
+  if (local && remote && typeof local === "object" && typeof remote === "object"
+    && !Array.isArray(local) && !Array.isArray(remote)) {
+    const left = local as Record<string, unknown>, right = remote as Record<string, unknown>;
+    const original = base && typeof base === "object" ? base as Record<string, unknown> : {};
+    return Object.fromEntries([...new Set([...Object.keys(left), ...Object.keys(right)])].map(field => [field,
+      // These projections have their own domain mergers below.
+      (["updatedAt", "version", "deviceId", "syncState", "xpAwarded", "lifetimeXp", "ruleHistory", "lifecycleHistory"].includes(field)
+        || (context.collection === "habits" && (Array.isArray(left.ruleHistory) && left.ruleHistory.length > 0 || Array.isArray(right.ruleHistory) && right.ruleHistory.length > 0)
+          && ["measurement", "schedule", "periodGoal"].includes(field)))
+        ? right[field] ?? left[field]
+        : mergeWorkspaceValue(original[field], left[field], right[field], [...path, field], context, conflicts, choices),
+    ]));
+  }
+  const key = JSON.stringify(path);
+  if (!choices?.[key]) conflicts.push({ ...context, key, field: path.slice(2).join(" / "), local, remote });
+  return choices?.[key] === "local" ? local : remote;
+}
+
 type WorkspaceClock = {
   version: number;
   updatedAt: string;
@@ -232,6 +270,10 @@ export function prepareWorkspaceForSync(input: {
   delete current.syncMetadata;
   const base = input.base ? { ...input.base } : null;
   if (base) delete base.syncMetadata;
+  // Partial writers must not turn an absent collection/field into a deletion.
+  if (base) Object.entries(base).forEach(([field, value]) => {
+    if (!(field in current)) current[field] = value;
+  });
   let metadata = metadataWithDocumentDefaults(current, normalizeWorkspaceSyncMetadata(input.metadata, input.clock), input.clock);
   const baseMetadata = base
     ? metadataWithDocumentDefaults(base, normalizeWorkspaceSyncMetadata(input.baseMetadata, input.clock), input.clock)
@@ -314,7 +356,11 @@ export function mergeWorkspaceDocuments(input: {
   right: SyncableWorkspaceDocument;
   leftFallback: WorkspaceClock;
   rightFallback: WorkspaceClock;
+  base?: SyncableWorkspaceDocument | null;
+  reviewConflicts?: boolean;
+  choices?: WorkspaceConflictChoices;
 }) {
+  const conflicts: WorkspaceFieldConflict[] = [];
   const leftMetadata = metadataWithDocumentDefaults(
     input.left,
     normalizeWorkspaceSyncMetadata(input.left.syncMetadata, input.leftFallback),
@@ -330,11 +376,18 @@ export function mergeWorkspaceDocuments(input: {
     updatedAt: input.leftFallback.updatedAt >= input.rightFallback.updatedAt ? input.leftFallback.updatedAt : input.rightFallback.updatedAt,
     deviceId: input.leftFallback.deviceId >= input.rightFallback.deviceId ? input.leftFallback.deviceId : input.rightFallback.deviceId,
   });
-  const merged: SyncableWorkspaceDocument = {};
+  const merged: SyncableWorkspaceDocument = { ...input.left, ...input.right };
+  if (input.reviewConflicts) Object.keys(merged).forEach(field => {
+    if (field === "syncMetadata" || WORKSPACE_SYNC_COLLECTIONS.includes(field as WorkspaceSyncCollection)
+      || WORKSPACE_SYNC_FIELDS.includes(field as WorkspaceSyncField)) return;
+    merged[field] = mergeWorkspaceValue(input.base?.[field], input.left[field], input.right[field],
+      [field, "settings"], { collection: field, entityId: "", title: field }, conflicts, input.choices);
+  });
 
   WORKSPACE_SYNC_COLLECTIONS.forEach((collection) => {
     const leftItems = collectionMap(input.left, collection);
     const rightItems = collectionMap(input.right, collection);
+    const baseItems = collectionMap(input.base, collection);
     const historyRows = collection === "habitHistory" ? new Map(mergeHabitHistoryEdits([...leftItems.values()], [...rightItems.values()]).map(row => [row.id, row])) : null;
     const ids = new Set([...leftItems.keys(), ...rightItems.keys()]);
     const tombstones = new Map(mergedMetadata.tombstones
@@ -362,6 +415,27 @@ export function mergeWorkspaceDocuments(input: {
         winnerRevision = rightRevision;
       }
       if (!winner) return;
+      const domainEvents = ["habitHistory", "habitMeasurements", "habitTimers"].includes(collection);
+      if (input.reviewConflicts && !domainEvents) {
+        const baseItem = baseItems.get(id);
+        const leftDeleted = leftMetadata.tombstones.some(row => row.collection === collection && row.id === id);
+        const rightDeleted = rightMetadata.tombstones.some(row => row.collection === collection && row.id === id);
+        const context = { collection, entityId: id, title: String(leftItem?.title ?? rightItem?.title ?? leftItem?.name ?? rightItem?.name ?? id) };
+        if (leftItem && rightItem) {
+          winner = mergeWorkspaceValue(baseItem, leftItem, rightItem, [collection, id], context, conflicts, input.choices) as Record<string, unknown>;
+        } else if (leftDeleted || rightDeleted) {
+          const remaining = leftItem ?? rightItem;
+          // Delete against an unchanged record is safe; delete against an edit needs a decision.
+          if (baseItem && canonical(remaining) === canonical(baseItem)) return;
+          const key = JSON.stringify([collection, id]);
+          if (!input.choices?.[key]) conflicts.push({ ...context, key, field: "", local: leftDeleted ? null : leftItem, remote: rightDeleted ? null : rightItem });
+          winner = input.choices?.[key] === "local" ? (leftDeleted ? undefined : leftItem) : (rightDeleted ? undefined : rightItem);
+          if (!winner) return;
+          mergedMetadata.tombstones = mergedMetadata.tombstones.filter(row => row.collection !== collection || row.id !== id);
+          tombstones.delete(id);
+          winnerRevision = nextRevision(newestRevision(leftRevision, rightRevision, input.leftFallback), input.leftFallback);
+        }
+      }
       if (collection === "habitCompletions" && leftItem && rightItem
         && habitTimerEpoch(input.left.habitTimerEpoch) === habitTimerEpoch(input.right.habitTimerEpoch)) winner = { ...winner,
         xpAwarded: Math.max(Number(leftItem.xpAwarded) || 0, Number(rightItem.xpAwarded) || 0) };
@@ -413,6 +487,8 @@ export function mergeWorkspaceDocuments(input: {
     if (order > 0) merged[field] = input.left[field];
     else if (order < 0) merged[field] = input.right[field];
     else merged[field] = canonical(input.left[field]) >= canonical(input.right[field]) ? input.left[field] : input.right[field];
+    if (input.reviewConflicts) merged[field] = mergeWorkspaceValue(input.base?.[field], input.left[field], input.right[field],
+      [field, "settings"], { collection: field, entityId: "", title: field }, conflicts, input.choices);
   });
   const history = Array.isArray(merged.habitHistory) ? merged.habitHistory : [];
   if (habitTimerEpoch(input.left.habitTimerEpoch) === habitTimerEpoch(input.right.habitTimerEpoch)
@@ -425,7 +501,7 @@ export function mergeWorkspaceDocuments(input: {
     Array.isArray(merged.habits) && merged.habits.some(row => Array.isArray(row.lifecycleHistory) && row.lifecycleHistory.length > 0)
       || history.some(row => row?.source === "decision") || Array.isArray(merged.habitCompletions) && merged.habitCompletions.some(row => row.skippedAt));
   merged.syncMetadata = mergedMetadata;
-  return { document: merged, metadata: mergedMetadata };
+  return { document: merged, metadata: mergedMetadata, conflicts };
 }
 
 /** Import two formerly independent accounts without applying either account's tombstones. */

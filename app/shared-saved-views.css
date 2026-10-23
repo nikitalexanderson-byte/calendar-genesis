@@ -32,9 +32,10 @@
 .saved-view-fields label,.saved-view-dates label { display:grid; gap:8px; min-width:0; font-size:14px; }
 .saved-view-fields .saved-view-toggle { display:flex; align-items:center; justify-content:space-between; min-height:44px; }
 .saved-view-fields :is(input:not([type=checkbox]),select) { width:100%; min-width:0; max-width:100%; }
-.saved-view-choice { min-width:0; }
+.saved-view-choice { display:grid; align-content:start; gap:8px; min-width:0; }
 .saved-view-choice select[multiple] { min-height:128px; }
-.saved-view-choice > button { margin-top:8px; }
+.saved-view-choice > :is(p,small) { margin:0; overflow-wrap:anywhere; }
+.saved-view-choice > button { justify-self:start; }
 .saved-view-dates { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
 .saved-view-task-list { display:grid; gap:8px; }
 .saved-view-task-list > button { display:grid; gap:4px; min-width:0; width:100%; text-align:start; overflow-wrap:anywhere; }

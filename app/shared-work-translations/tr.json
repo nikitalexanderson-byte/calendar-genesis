@@ -530,5 +530,8 @@
   "Награды": "Ödüller",
   "Данные": "Veriler",
   "Для импорта этих статусов нужно право перемещать задачи. Обратитесь к владельцу пространства.": "Bu durumları içe aktarmak için görevleri taşıma izni gerekir. Alan sahibiyle iletişime geçin.",
-  "Место импорта": "İçe aktarma hedefi"
+  "Место импорта": "İçe aktarma hedefi",
+  "Подготовка экспорта…": "Dışa aktarma hazırlanıyor…",
+  "Отменить экспорт": "Dışa aktarmayı iptal et",
+  "Экспорт отменён.": "Dışa aktarma iptal edildi."
 }

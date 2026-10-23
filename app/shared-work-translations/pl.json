@@ -530,5 +530,8 @@
   "Награды": "Nagrody",
   "Данные": "Dane",
   "Для импорта этих статусов нужно право перемещать задачи. Обратитесь к владельцу пространства.": "Import tych statusów wymaga uprawnienia do przenoszenia zadań. Skontaktuj się z właścicielem przestrzeni.",
-  "Место импорта": "Miejsce importu"
+  "Место импорта": "Miejsce importu",
+  "Подготовка экспорта…": "Przygotowywanie eksportu…",
+  "Отменить экспорт": "Anuluj eksport",
+  "Экспорт отменён.": "Eksport anulowany."
 }

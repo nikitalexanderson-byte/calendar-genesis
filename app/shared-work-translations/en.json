@@ -530,5 +530,8 @@
   "Награды": "Rewards",
   "Данные": "Data",
   "Для импорта этих статусов нужно право перемещать задачи. Обратитесь к владельцу пространства.": "Importing these statuses requires permission to move tasks. Contact the space owner.",
-  "Место импорта": "Import destination"
+  "Место импорта": "Import destination",
+  "Подготовка экспорта…": "Preparing export…",
+  "Отменить экспорт": "Cancel export",
+  "Экспорт отменён.": "Export cancelled."
 }
