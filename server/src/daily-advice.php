@@ -4,7 +4,7 @@ require_once __DIR__ . '/calendar.php';
 
 const GENESIS_ADVICE_CATEGORIES = ['aretology', 'hermetica', 'kourotrophy', 'hestiology', 'aphrodisia', 'psychopompia'];
 const GENESIS_ADVICE_LANGUAGES = ['ru', 'en', 'el', 'de', 'fr', 'es', 'it', 'pt', 'pl', 'sr', 'uk', 'zh', 'tr', 'ja'];
-const GENESIS_ADVICE_TOPICS = ['nutrition', 'training', 'recovery', 'discipline'];
+const GENESIS_ADVICE_TOPICS = ['nutrition', 'training', 'recovery', 'discipline', 'clothing', 'attributes', 'cleaning', 'home_order'];
 
 function genesisAdvicePreferences(mixed $value): array
 {
@@ -57,6 +57,8 @@ function genesisAdviceCatalog(): array
             || array_filter($entry['schedule']['leadDays'], static fn($day) => !is_int($day) || $day < 1 || $day > 3))) {
             throw new RuntimeException('INVALID_ADVICE_SCHEDULE');
         }
+        if (isset($entry['timeOfDay']) && !in_array($entry['timeOfDay'], ['morning', 'evening'], true)) throw new RuntimeException('INVALID_ADVICE_TIME');
+        if (isset($entry['priority']) && !is_bool($entry['priority'])) throw new RuntimeException('INVALID_ADVICE_PRIORITY');
         $ids[$entry['id']] = true;
         if (($entry['status'] ?? 'published') !== 'draft') $items[] = $entry;
     }
@@ -145,28 +147,80 @@ function genesisAdviceScheduledFor(array $entry, array $phaseLeads): bool
 }
 
 /** Unseen posts lead; then the least recently viewed eligible post starts the next turn. */
-function genesisChooseAdvice(array $items, array $preferences, array $scores, array $history, string $seed,
-    array $topicScores = [], ?array $phaseLeads = null): ?array
+function genesisAdviceTimeMatches(array $entry, int $hour): bool
+{
+    return match ($entry['timeOfDay'] ?? '') {
+        'morning' => $hour >= 5 && $hour < 12,
+        'evening' => $hour >= 18 || $hour < 5,
+        default => true,
+    };
+}
+
+function genesisAdviceClothing(array $entry): bool
+{
+    return array_intersect($entry['topics'] ?? [], ['clothing', 'attributes']) !== [];
+}
+
+function genesisAdviceDailyLimit(array $preferences, array $items): int
 {
     $available = genesisAdviceAvailableCategories($items);
-    $categories = $preferences['smart'] ? array_values(array_intersect($available,
-        array_keys(array_filter($scores, static fn($weight) => $weight > 0))))
+    return min(6, max(3, count($preferences['smart'] ? $available : array_intersect($available, $preferences['categories']))));
+}
+
+function genesisChooseAdvice(array $items, array $preferences, array $scores, array $history, string $seed,
+    array $topicScores = [], ?array $phaseLeads = null, array $localContext = []): ?array
+{
+    $available = genesisAdviceAvailableCategories($items);
+    $categories = $preferences['smart'] ? $available
         : array_values(array_intersect($available, $preferences['categories']));
     // Match the settings' effective selection when an older account selected only unpublished categories.
     if ($categories === []) $categories = $preferences['smart'] ? $available : array_slice($available, 0, 1);
     $phaseLeads ??= genesisAdvicePhaseLeads(genesisAdviceDayKey(), genesisAdviceTimeZone());
+    $day = $localContext['day'] ?? genesisAdviceDayKey();
+    $hour = $localContext['hour'] ?? (int)(new DateTimeImmutable('now', new DateTimeZone(genesisAdviceTimeZone())))->format('G');
+    $excluded = $localContext['excluded'] ?? [];
     $eligible = array_values(array_filter($items, static fn($entry) => ($entry['status'] ?? 'published') !== 'draft'
-        && array_intersect($entry['categories'], $categories) !== [] && genesisAdviceScheduledFor($entry, $phaseLeads)));
+        && !in_array($entry['id'], $excluded, true) && array_intersect($entry['categories'], $categories) !== []
+        && genesisAdviceScheduledFor($entry, $phaseLeads)
+        && (!$preferences['smart'] || genesisAdviceTimeMatches($entry, $hour))));
     if ($eligible === []) return null;
-    $lastShown = []; $recentCategories = []; $recentTopics = [];
+    $lastShown = []; $shownCounts = []; $exposures = []; $recentCategories = []; $recentTopics = [];
     foreach ($history as $index => $row) {
         $id = $row['advice_id'];
         $lastShown[$id] ??= $row['day_key'];
+        $exposure = $id . ':' . $row['day_key'];
+        if (!isset($exposures[$exposure])) { $shownCounts[$id] = ($shownCounts[$id] ?? 0) + 1; $exposures[$exposure] = true; }
         if ($index < 3) {
             $entry = json_decode($row['entry_json'], true, 32, JSON_THROW_ON_ERROR);
             foreach ($entry['categories'] as $category) $recentCategories[$category] = ($recentCategories[$category] ?? 0) + 1;
             foreach ($entry['topics'] ?? [] as $topic) $recentTopics[$topic] = ($recentTopics[$topic] ?? 0) + 1;
         }
+    }
+    // Clothes and personal attributes are a combined rare pool unless there is an explicit local interest.
+    $clothingInterest = ($topicScores['clothing'] ?? 0) + ($topicScores['attributes'] ?? 0) > 0;
+    if (!$clothingInterest) {
+        $ordinaryUnseen = false;
+        foreach ($items as $entry) if (($entry['status'] ?? 'published') !== 'draft'
+            && in_array('hestiology', $entry['categories'], true) && !genesisAdviceClothing($entry)
+            && !isset($lastShown[$entry['id']])) { $ordinaryUnseen = true; break; }
+        $recentClothing = false;
+        $cutoff = (new DateTimeImmutable($day))->modify('-30 days')->format('Y-m-d');
+        $monthStart = substr($day, 0, 7) . '-01';
+        foreach ($history as $row) if (($row['day_key'] > $cutoff || $row['day_key'] >= $monthStart)
+            && genesisAdviceClothing(json_decode($row['entry_json'], true, 32, JSON_THROW_ON_ERROR))) { $recentClothing = true; break; }
+        $previousClothing = isset($history[0]) && genesisAdviceClothing(json_decode($history[0]['entry_json'], true, 32, JSON_THROW_ON_ERROR));
+        // Stable per account/day: refreshing or rotating cannot fish for a different probability.
+        $rareDay = hexdec(substr(hash('sha256', ($localContext['user'] ?? $seed) . ':' . $day . ':clothing'), 0, 4)) % 4 === 0;
+        if ($ordinaryUnseen || $recentClothing || $previousClothing || !$rareDay) {
+            $eligible = array_values(array_filter($eligible, static fn($entry) => !genesisAdviceClothing($entry)));
+        }
+    }
+    // Explicit Next alternates categories within the least-shown round, preserving no-repeat history.
+    if ($eligible !== [] && ($localContext['previousCategories'] ?? []) !== []) {
+        $minimum = min(array_map(static fn($entry) => $shownCounts[$entry['id']] ?? 0, $eligible));
+        $round = array_values(array_filter($eligible, static fn($entry) => ($shownCounts[$entry['id']] ?? 0) === $minimum));
+        $different = array_values(array_filter($round, static fn($entry) => array_diff($entry['categories'], $localContext['previousCategories']) !== []));
+        $eligible = $different !== [] ? $different : $round;
     }
     $best = null; $bestRank = null;
     foreach ($eligible as $entry) {
@@ -176,13 +230,15 @@ function genesisChooseAdvice(array $items, array $preferences, array $scores, ar
             $recent = max($recent, $recentCategories[$category] ?? 0);
         }
         $topicAffinity = 0.0;
-        if ($preferences['smart']) foreach ($entry['topics'] ?? [] as $topic) {
-            $topicAffinity = max($topicAffinity, log(1 + ($topicScores[$topic] ?? 0)) / (1 + ($recentTopics[$topic] ?? 0)));
+        foreach ($entry['topics'] ?? [] as $topic) {
+            if ($preferences['smart'] || in_array($topic, ['clothing', 'attributes', 'cleaning', 'home_order'], true)) {
+                $topicAffinity = max($topicAffinity, log(1 + ($topicScores[$topic] ?? 0)) / (1 + ($recentTopics[$topic] ?? 0)));
+            }
         }
         // A completed round starts with the longest-unseen entries; context can never bypass history.
         // During a lunar window, eligible unseen preparations lead ordinary unseen posts.
-        $rank = [$lastShown[$entry['id']] ?? '', -(int)isset($entry['schedule']),
-            -($affinity / (1 + $recent) + $topicAffinity), hash('sha256', $seed . ':' . $entry['id'])];
+        $rank = [$lastShown[$entry['id']] ?? '', -(int)isset($entry['schedule']), -($affinity / (1 + $recent) + $topicAffinity),
+            -(int)($preferences['smart'] && isset($entry['timeOfDay'])), -(int)($entry['priority'] ?? false), hash('sha256', $seed . ':' . $entry['id'])];
         if ($bestRank === null || $rank < $bestRank) { $best = $entry; $bestRank = $rank; }
     }
     return $best;
@@ -203,13 +259,16 @@ function genesisAdviceForClient(array $row, string $language = 'ru'): array
             || trim($text['title']) === '' || trim($text['body']) === '') throw new RuntimeException('ADVICE_TRANSLATION_MISSING');
         $entry = [...$entry, ...$text, 'language' => $language];
     }
-    unset($entry['contentVersion'], $entry['topics'], $entry['schedule'], $entry['status']);
+    unset($entry['contentVersion'], $entry['topics'], $entry['schedule'], $entry['status'], $entry['timeOfDay'], $entry['priority']);
     return [...$entry,
         'dayKey' => $row['day_key'], 'dismissed' => $row['dismissed_at'] !== null];
 }
 
-function genesisDailyAdvice(string $userId, array $payload, ?array $catalogFixture = null): array
+function genesisDailyAdvice(string $userId, array $payload, ?array $catalogFixture = null, bool $advance = false): array
 {
+    if (array_diff(array_keys($payload), ['scores', 'topics', 'fromId', 'dayKey'])) throw new InvalidArgumentException('INVALID_ADVICE_CONTEXT');
+    if ($advance && (!is_string($payload['fromId'] ?? null) || !preg_match('/^advice-[a-f0-9]{24}$/D', $payload['fromId'])
+        || !is_string($payload['dayKey'] ?? null) || !preg_match('/^\d{4}-\d{2}-\d{2}$/D', $payload['dayKey']))) throw new InvalidArgumentException('INVALID_ADVICE_VIEW');
     $scores = genesisAdviceScores($payload['scores'] ?? []);
     $topics = genesisAdviceTopicScores($payload['topics'] ?? []);
     $day = genesisAdviceDayKey(); $db = genesisDb();
@@ -218,24 +277,49 @@ function genesisDailyAdvice(string $userId, array $payload, ?array $catalogFixtu
         $user = genesisFindUser($userId);
         if ($user === null) throw new DomainException('AUTH_REQUIRED');
         $preferences = genesisAdvicePreferences($user['advice_preferences_json'] ?? '{}');
-        $result = ['dayKey' => $day, 'advice' => null, 'state' => 'disabled'];
+        $result = ['dayKey' => $day, 'advice' => null, 'state' => 'disabled', 'sequence' => 0, 'dailyLimit' => 3, 'remaining' => 0, 'canNext' => false];
         if ($preferences['enabled']) {
+            $items = $catalogFixture ?? genesisAdviceCatalog();
             $query = $db->prepare('SELECT * FROM daily_advice_days WHERE user_id = ? AND day_key = ?');
             $query->execute([$userId, $day]); $row = $query->fetch();
-            if (!is_array($row)) {
+            $drawPreferences = is_array($row) ? genesisAdvicePreferences($row['selection_json']) : $preferences;
+            $slots = $db->prepare('SELECT advice_id FROM daily_advice_entries WHERE user_id=? AND day_key=? ORDER BY slot');
+            $slots->execute([$userId, $day]); $todayIds = $slots->fetchAll(PDO::FETCH_COLUMN);
+            $limit = is_array($row) ? (int)$row['draw_limit'] : genesisAdviceDailyLimit($drawPreferences, $items);
+            $history = $db->prepare('SELECT advice_id,day_key,entry_json FROM daily_advice_entries WHERE user_id=? AND viewed_at IS NOT NULL ORDER BY day_key DESC,slot DESC');
+            $history->execute([$userId]); $viewed = $history->fetchAll();
+            $local = ['day' => $day, 'hour' => (int)(new DateTimeImmutable('now', new DateTimeZone(genesisAdviceTimeZone())))->format('G'), 'excluded' => $todayIds, 'user' => $userId];
+            $oldEntry = is_array($row) ? json_decode($row['entry_json'], true, 32, JSON_THROW_ON_ERROR) : null;
+            $timeChanged = is_array($oldEntry) && $drawPreferences['smart'] && !genesisAdviceTimeMatches($oldEntry, $local['hour']);
+            $requestedNext = $advance && is_array($row) && $payload['fromId'] === $row['advice_id'] && $payload['dayKey'] === $day;
+            if ($requestedNext) $local['previousCategories'] = $oldEntry['categories'];
+            if (!is_array($row) || (($requestedNext || $timeChanged) && $row['dismissed_at'] === null && count($todayIds) < $limit)) {
                 // The optional fixture is used only by isolated backend tests, never by HTTP input.
-                $items = $catalogFixture ?? genesisAdviceCatalog();
-                $history = $db->prepare('SELECT advice_id, day_key, entry_json FROM daily_advice_days WHERE user_id = ? AND viewed_at IS NOT NULL ORDER BY day_key DESC');
-                $history->execute([$userId]);
-                $entry = genesisChooseAdvice($items, $preferences, $scores, $history->fetchAll(), $userId . ':' . $day, $topics);
-                if ($entry !== null) {
-                    $row = ['day_key' => $day, 'entry_json' => json_encode($entry, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), 'dismissed_at' => null];
-                    $db->prepare('INSERT INTO daily_advice_days(user_id, day_key, advice_id, entry_json, created_at) VALUES (?, ?, ?, ?, ?)')
-                        ->execute([$userId, $day, $entry['id'], $row['entry_json'], genesisNow()]);
+                if ($requestedNext) {
+                    foreach (['daily_advice_days', 'daily_advice_entries'] as $table) {
+                        $db->prepare("UPDATE $table SET viewed_at=COALESCE(viewed_at,?) WHERE user_id=? AND day_key=? AND advice_id=?")
+                            ->execute([genesisNow(), $userId, $day, $row['advice_id']]);
+                    }
+                    array_unshift($viewed, ['advice_id' => $row['advice_id'], 'day_key' => $day, 'entry_json' => $row['entry_json']]);
                 }
-                $result['state'] = $items === [] ? 'empty' : 'no-match';
+                $entry = genesisChooseAdvice($items, $drawPreferences, $scores, $viewed, $userId . ':' . $day . ':' . count($todayIds), $topics, null, $local);
+                if ($entry !== null) {
+                    $row = ['day_key' => $day, 'advice_id' => $entry['id'], 'entry_json' => json_encode($entry, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), 'dismissed_at' => null, 'draw_limit' => $limit];
+                    $db->prepare('INSERT INTO daily_advice_entries(user_id,day_key,slot,advice_id,entry_json,created_at) VALUES (?,?,?,?,?,?)')
+                        ->execute([$userId, $day, count($todayIds) + 1, $entry['id'], $row['entry_json'], genesisNow()]);
+                    $db->prepare('INSERT INTO daily_advice_days(user_id,day_key,advice_id,entry_json,created_at,draw_limit,selection_json) VALUES (?,?,?,?,?,?,?) ON CONFLICT(user_id,day_key) DO UPDATE SET advice_id=excluded.advice_id,entry_json=excluded.entry_json,created_at=excluded.created_at,viewed_at=NULL,dismissed_at=NULL')
+                        ->execute([$userId, $day, $entry['id'], $row['entry_json'], genesisNow(), $limit, json_encode($drawPreferences, JSON_THROW_ON_ERROR)]);
+                    $todayIds[] = $entry['id']; $local['excluded'] = $todayIds; $timeChanged = false;
+                }
             }
-            if (is_array($row)) { $result['advice'] = genesisAdviceForClient($row, $user['language'] ?? 'ru'); $result['state'] = 'ready'; }
+            $result['state'] = $items === [] ? 'empty' : 'no-match';
+            $result['sequence'] = count($todayIds); $result['dailyLimit'] = $limit;
+            $result['remaining'] = max(0, $limit - count($todayIds));
+            if (is_array($row) && !$timeChanged) {
+                $result['advice'] = genesisAdviceForClient($row, $user['language'] ?? 'ru'); $result['state'] = 'ready';
+                $result['canNext'] = $row['dismissed_at'] === null && $result['remaining'] > 0
+                    && genesisChooseAdvice($items, $drawPreferences, $scores, $viewed, $userId . ':' . $day, $topics, null, $local) !== null;
+            }
         }
         $db->commit(); return $result;
     } catch (Throwable $error) {
@@ -250,7 +334,9 @@ function genesisRecordAdvice(string $userId, array $payload, bool $dismiss): arr
     $day = $payload['dayKey'] ?? null; $id = $payload['id'] ?? null;
     if (!is_string($day) || !preg_match('/^\d{4}-\d{2}-\d{2}$/D', $day) || !is_string($id)) throw new InvalidArgumentException('INVALID_ADVICE_VIEW');
     $sql = $dismiss ? 'viewed_at = COALESCE(viewed_at, :now), dismissed_at = COALESCE(dismissed_at, :now)' : 'viewed_at = COALESCE(viewed_at, :now)';
-    $query = genesisDb()->prepare("UPDATE daily_advice_days SET $sql WHERE user_id = :user AND day_key = :day AND advice_id = :id");
-    $query->execute(['now' => genesisNow(), 'user' => $userId, 'day' => $day, 'id' => $id]);
+    foreach (['daily_advice_days', 'daily_advice_entries'] as $table) {
+        $query = genesisDb()->prepare("UPDATE $table SET $sql WHERE user_id = :user AND day_key = :day AND advice_id = :id");
+        $query->execute(['now' => genesisNow(), 'user' => $userId, 'day' => $day, 'id' => $id]);
+    }
     return ['ok' => true];
 }

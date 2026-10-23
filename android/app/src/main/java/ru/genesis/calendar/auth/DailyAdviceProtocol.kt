@@ -5,7 +5,7 @@ import org.json.JSONObject
 import java.time.LocalDate
 
 internal val adviceCategories = listOf("aretology", "hermetica", "kourotrophy", "hestiology", "aphrodisia", "psychopompia")
-internal val adviceTopics = listOf("nutrition", "training", "recovery", "discipline")
+internal val adviceTopics = listOf("nutrition", "training", "recovery", "discipline", "clothing", "attributes", "cleaning", "home_order")
 
 data class AdvicePreferences(val enabled: Boolean = true, val smart: Boolean = true,
     val categories: List<String> = adviceCategories) {
@@ -22,6 +22,7 @@ data class AdvicePreferences(val enabled: Boolean = true, val smart: Boolean = t
 
 internal interface DailyAdviceGateway {
     suspend fun today(context: JSONObject): JSONObject
+    suspend fun next(context: JSONObject, id: String, day: String): JSONObject = throw UnsupportedOperationException("ADVICE_ROTATION_UNAVAILABLE")
     suspend fun record(id: String, day: String, dismiss: Boolean = false)
 }
 
@@ -29,7 +30,8 @@ internal data class DailyAdviceSource(val kind: String, val author: String, val 
 internal data class DailyAdvice(val id: String, val day: String, val title: String, val body: String,
     val language: String, val categories: List<String>, val image: String?, val dismissed: Boolean,
     val sources: List<DailyAdviceSource>)
-internal data class DailyAdviceResponse(val day: String, val state: String, val advice: DailyAdvice?)
+internal data class DailyAdviceResponse(val day: String, val state: String, val advice: DailyAdvice?,
+    val sequence: Int = 1, val dailyLimit: Int = 1, val canNext: Boolean = false)
 
 internal object DailyAdviceProtocol {
     private val idPattern = Regex("advice-[a-f0-9]{24}")
@@ -43,10 +45,14 @@ internal object DailyAdviceProtocol {
         val day = value.getString("dayKey")
         require(LocalDate.parse(day).toString() == day)
         val state = value.getString("state")
+        val sequence = value.optInt("sequence", 1)
+        val limit = value.optInt("dailyLimit", 1)
+        val canNext = value.optBoolean("canNext", false)
+        require(limit in 1..6 && sequence in 0..limit && (!canNext || sequence < limit))
         require(state in setOf("disabled", "empty", "no-match", "ready"))
         if (value.isNull("advice")) {
             require(state != "ready")
-            return DailyAdviceResponse(day, state, null)
+            return DailyAdviceResponse(day, state, null, sequence, limit, canNext)
         }
         require(state == "ready")
         val row = value.getJSONObject("advice")
@@ -70,6 +76,6 @@ internal object DailyAdviceProtocol {
             }
         }
         return DailyAdviceResponse(day, state, DailyAdvice(id, day, title, body, row.getString("language"),
-            categories, row.optString("image").takeIf { artworkPattern.matches(it) }, row.getBoolean("dismissed"), sources))
+            categories, row.optString("image").takeIf { artworkPattern.matches(it) }, row.getBoolean("dismissed"), sources), sequence, limit, canNext)
     }
 }

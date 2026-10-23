@@ -35,6 +35,32 @@ try {
     adviceExpect(!in_array('advice_preferences_json', array_column($backup->query('PRAGMA table_info(users)')->fetchAll(PDO::FETCH_ASSOC), 'name'), true), 'Backup includes post-migration schema');
 } finally { $backup = null; if (is_file($backupPath)) unlink($backupPath); }
 
+// Rotation is additive: preserve today's pointer, all seen/dismissed history and account choices.
+$legacyEntry = adviceFixture('migration-81-current', 'aretology');
+$legacy->prepare('UPDATE users SET advice_preferences_json=? WHERE id=?')->execute([
+    json_encode(['enabled' => true, 'smart' => false, 'categories' => ['aretology', 'hestiology']]), 'advice-legacy']);
+$legacy->prepare('INSERT INTO daily_advice_days(user_id,day_key,advice_id,entry_json,created_at,viewed_at,dismissed_at) VALUES (?,?,?,?,?,?,?)')
+    ->execute(['advice-legacy', '2026-10-23', $legacyEntry['id'], json_encode($legacyEntry), 'created', 'seen', 'hidden']);
+$rotationBackupPath = tempnam(sys_get_temp_dir(), 'genesis-advice-81-');
+try {
+    $legacy->exec('VACUUM INTO ' . $legacy->quote($rotationBackupPath));
+    $legacy->beginTransaction();
+    $legacy->exec(file_get_contents(dirname(__DIR__) . '/migrations/081_daily_advice_rotation.sql'));
+    $legacy->commit();
+    $migrated = $legacy->query('SELECT * FROM daily_advice_entries')->fetch(PDO::FETCH_ASSOC);
+    adviceExpect($migrated['advice_id'] === $legacyEntry['id'] && (int)$migrated['slot'] === 1
+        && $migrated['viewed_at'] === 'seen' && $migrated['dismissed_at'] === 'hidden', 'Rotation migration lost exposure or dismissal');
+    $pointer = $legacy->query('SELECT * FROM daily_advice_days')->fetch(PDO::FETCH_ASSOC);
+    adviceExpect((int)$pointer['draw_limit'] === 3 && json_decode($pointer['selection_json'], true)['categories'] === ['aretology', 'hestiology'], 'Rotation migration lost the day selection');
+    // The previous release's SELECT and UPDATE remain valid without any destructive database rollback.
+    $legacy->exec("UPDATE daily_advice_days SET viewed_at='legacy-client' WHERE user_id='advice-legacy'");
+    adviceExpect($legacy->query('SELECT advice_id FROM daily_advice_days')->fetchColumn() === $legacyEntry['id'], 'Previous code cannot read its current-day pointer');
+    $rotationBackup = new PDO('sqlite:' . $rotationBackupPath);
+    adviceExpect($rotationBackup->query('PRAGMA integrity_check')->fetchColumn() === 'ok', 'Rotation backup is inconsistent');
+    adviceExpect($rotationBackup->query('SELECT viewed_at FROM daily_advice_days')->fetchColumn() === 'seen', 'Rotation backup did not preserve original history');
+    adviceExpect(!in_array('draw_limit', array_column($rotationBackup->query('PRAGMA table_info(daily_advice_days)')->fetchAll(PDO::FETCH_ASSOC), 'name'), true), 'Rotation backup contains the later schema');
+} finally { $rotationBackup = null; if (is_file($rotationBackupPath)) unlink($rotationBackupPath); }
+
 $preferences = genesisAdvicePreferences([]);
 adviceExpect($preferences['enabled'] && $preferences['smart'] && count($preferences['categories']) === 6, 'Wrong defaults');
 foreach ([['enabled' => 'false'], ['smart' => false, 'categories' => []], ['categories' => ['unknown']], ['unknown' => true]] as $input) adviceReject(fn() => genesisAdvicePreferences($input));
@@ -90,15 +116,57 @@ foreach (['Europe/Moscow', 'Pacific/Kiritimati', 'America/Los_Angeles', 'Europe/
         foreach ([0, 1, -4] as $offset) adviceExpect(!isset(genesisAdvicePhaseLeads(genesisCalendarAddDays($eventDay, $offset), $zone)[$phase]), 'Lunar advice appeared on or after the phase or too early');
     }
 }
-adviceExpect(genesisAdviceAvailableCategories() === ['aretology'], 'Unpublished categories became clickable');
+adviceExpect(genesisAdviceAvailableCategories() === ['aretology', 'hestiology'], 'Available settings categories do not match the two published collections');
+
+// Time-specific practices use the local hour; manual browsing can still read the chosen category.
+$home = [...adviceFixture('home ordinary', 'hestiology'), 'topics' => ['home_order']];
+$morning = [...adviceFixture('home morning', 'hestiology'), 'timeOfDay' => 'morning'];
+$evening = [...adviceFixture('home evening', 'hestiology'), 'timeOfDay' => 'evening'];
+$smartHome = genesisAdviceScores(['hestiology' => 10]);
+foreach ([5, 8, 11] as $hour) adviceExpect(genesisChooseAdvice([$home, $morning, $evening], $preferences, $smartHome, [], 'time', [], [], ['hour' => $hour])['id'] === $morning['id'], 'Morning advice missed its local window');
+foreach ([18, 23, 0, 4] as $hour) adviceExpect(genesisChooseAdvice([$home, $morning, $evening], $preferences, $smartHome, [], 'time', [], [], ['hour' => $hour])['id'] === $evening['id'], 'Evening advice missed its local window');
+foreach ([12, 17] as $hour) adviceExpect(genesisChooseAdvice([$home, $morning, $evening], $preferences, $smartHome, [], 'time', [], [], ['hour' => $hour])['id'] === $home['id'], 'A timed practice leaked into the wrong period');
+$allCategories = array_map(static fn($category) => adviceFixture('limit ' . $category, $category), GENESIS_ADVICE_CATEGORIES);
+foreach ([1 => 3, 2 => 3, 3 => 3, 4 => 4, 5 => 5, 6 => 6] as $selected => $expectedLimit) adviceExpect(genesisAdviceDailyLimit(['smart' => false, 'categories' => array_slice(GENESIS_ADVICE_CATEGORIES, 0, $selected)], $allCategories) === $expectedLimit, 'Wrong selected-category daily limit');
+$clothing = [...adviceFixture('home clothing', 'hestiology'), 'topics' => ['clothing']];
+$attributes = [...adviceFixture('home attributes', 'hestiology'), 'topics' => ['attributes']];
+$homeManual = ['enabled' => true, 'smart' => false, 'categories' => ['hestiology']];
+$homeHistory = [['advice_id' => $home['id'], 'day_key' => '2026-10-01', 'entry_json' => json_encode($home)]];
+$rareUser = '';
+for ($i = 0; $i < 100; $i++) if (hexdec(substr(hash('sha256', 'rare-' . $i . ':2026-10-23:clothing'), 0, 4)) % 4 === 0) { $rareUser = 'rare-' . $i; break; }
+$rareContext = ['day' => '2026-10-23', 'user' => $rareUser];
+adviceExpect(genesisChooseAdvice([$home, $clothing], $homeManual, $smartHome, [], 'rare', [], [], $rareContext)['id'] === $home['id'], 'Clothing appeared before ordinary Hestiology was exhausted');
+adviceExpect(genesisChooseAdvice([$home, $clothing], $homeManual, $smartHome, $homeHistory, 'rare', [], [], $rareContext)['id'] === $clothing['id'], 'Rare clothing never becomes eligible after exhaustion');
+$clothingHistory = [...$homeHistory, ['advice_id' => $clothing['id'], 'day_key' => '2026-10-02', 'entry_json' => json_encode($clothing)]];
+adviceExpect(genesisChooseAdvice([$home, $clothing, $attributes], $homeManual, $smartHome, $clothingHistory, 'rare', [], [], $rareContext)['id'] === $home['id'], 'Clothing and attributes did not share the 30-day cooldown');
+$monthHistory = [...$homeHistory, ['advice_id' => $clothing['id'], 'day_key' => '2026-10-01', 'entry_json' => json_encode($clothing)]];
+adviceExpect(genesisChooseAdvice([$home, $clothing, $attributes], $homeManual, $smartHome, $monthHistory, 'month', [], [], ['day' => '2026-10-31', 'user' => $rareUser])['id'] === $home['id'], 'Two clothing posts appeared in the same calendar month');
+adviceExpect(genesisChooseAdvice([$home, $clothing], $preferences, $smartHome, [], 'interest', ['clothing' => 10], [], $rareContext)['id'] === $clothing['id'], 'An explicit clothing intention did not raise relevant advice');
+adviceExpect(genesisChooseAdvice([$morning, $clothing], $preferences, $smartHome, [], 'shopping-now', ['clothing' => 10], [], ['hour' => 8])['id'] === $clothing['id'], 'Generic morning priority suppressed an explicit shopping intention');
+$cleaning = [...adviceFixture('active cleaning', 'hestiology'), 'topics' => ['cleaning']];
+adviceExpect(genesisChooseAdvice([$evening, $cleaning], $preferences, $smartHome, [], 'cleaning-now', ['cleaning' => 10], [], ['hour' => 19])['id'] === $cleaning['id'], 'Generic evening priority suppressed an explicit cleaning intention');
+
+// Next alternates available categories without bypassing unread rounds, time or rarity gates.
+$afterHome = ['previousCategories' => ['hestiology'], 'hour' => 15];
+adviceExpect(genesisChooseAdvice([$home, $food], $preferences, $smartHome, [], 'alternate', [], [], $afterHome)['id'] === $food['id'], 'Next did not choose a different eligible category');
+adviceExpect(genesisChooseAdvice([$home, $food], $homeManual, $smartHome, [], 'one-category', [], [], $afterHome)['id'] === $home['id'], 'A single-category selection could not rotate');
+$readFood = [['advice_id' => $food['id'], 'day_key' => '2026-10-01', 'entry_json' => json_encode($food)]];
+adviceExpect(genesisChooseAdvice([$home, $food], $preferences, $smartHome, $readFood, 'unread-round', [], [], $afterHome)['id'] === $home['id'], 'Category alternation repeated a read post before the unread pool was exhausted');
+$readBoth = [...$homeHistory, ...$readFood];
+adviceExpect(genesisChooseAdvice([$home, $food], $preferences, $smartHome, $readBoth, 'repeat-round', [], [], $afterHome)['id'] === $food['id'], 'Category alternation stopped after the first complete round');
+$twiceReadFood = [...$readBoth, ['advice_id' => $food['id'], 'day_key' => '2026-10-02', 'entry_json' => json_encode($food)]];
+adviceExpect(genesisChooseAdvice([$home, $food], $preferences, $smartHome, $twiceReadFood, 'finish-round', [], [], $afterHome)['id'] === $home['id'], 'Category alternation bypassed a less-viewed repeat round');
+$afterAretology = ['previousCategories' => ['aretology'], 'hour' => 15];
+adviceExpect(genesisChooseAdvice([$morning, $food], $preferences, $smartHome, [], 'timed-alternation', [], [], $afterAretology)['id'] === $food['id'], 'Category alternation ignored the local practice window');
+adviceExpect(genesisChooseAdvice([$clothing, $food], $preferences, $smartHome, [], 'rare-alternation', [], [], $afterAretology)['id'] === $food['id'], 'Category alternation bypassed the rare clothing gate');
 
 $db = genesisDb(); $ids = [];
-for ($index = 0; $index < 2; $index++) {
+for ($index = 0; $index < 3; $index++) {
     $id = 'advice-test-' . bin2hex(random_bytes(8)); $ids[] = $id;
     $db->prepare('INSERT INTO users(id,google_sub,email,created_at,updated_at) VALUES (?,?,?,?,?)')->execute([$id, $id, $id . '@example.invalid', genesisNow(), genesisNow()]);
 }
 try {
-    [$alice, $bob] = $ids;
+    [$alice, $bob, $charlie] = $ids;
     genesisUpdateAccountPreferences($bob, ['advicePreferences' => ['smart' => false, 'categories' => ['hermetica']]]);
     $legacyFallback = genesisDailyAdvice($bob, []);
     adviceExpect($legacyFallback['state'] === 'ready' && $legacyFallback['advice']['categories'] === ['aretology'], 'Saved unavailable manual category suppressed the displayed Aretology selection');
@@ -143,13 +211,60 @@ try {
         $translatedDay = genesisDailyAdvice($alice, [], $items)['advice'];
         adviceExpect($translatedDay['id'] === $versioned['id'] && $translatedDay['language'] === $language && $translatedDay['dismissed'], 'Daily replay ignored account language or rerolled the post');
     }
+    // The database owns one global limit, and stale/retried next requests cannot spend another slot.
+    $db->prepare('DELETE FROM daily_advice_entries WHERE user_id=?')->execute([$bob]);
+    $db->prepare('DELETE FROM daily_advice_days WHERE user_id=?')->execute([$bob]);
+    genesisUpdateAccountPreferences($bob, ['advicePreferences' => ['enabled' => true, 'smart' => false, 'categories' => ['aretology']]]);
+    $rotationPool = array_map(static fn($n) => adviceFixture('rotation ' . $n, 'aretology'), range(1, 6));
+    $first = genesisDailyAdvice($bob, [], $rotationPool);
+    adviceExpect($first['sequence'] === 1 && $first['dailyLimit'] === 3 && $first['canNext'], 'Rotation did not start at 1 of 3');
+    $nextPayload = ['fromId' => $first['advice']['id'], 'dayKey' => $first['dayKey']];
+    $second = genesisDailyAdvice($bob, $nextPayload, $rotationPool, true);
+    adviceExpect($second['sequence'] === 2 && $second['advice']['id'] !== $first['advice']['id'], 'Next did not advance once');
+    adviceExpect(genesisDailyAdvice($bob, $nextPayload, $rotationPool, true)['sequence'] === 2, 'A retried next spent another slot');
+    adviceExpect(genesisDailyAdvice($bob, [], $rotationPool)['advice']['id'] === $second['advice']['id'], 'A reload rerolled the current advice');
+    genesisUpdateAccountPreferences($bob, ['advicePreferences' => ['categories' => GENESIS_ADVICE_CATEGORIES]]);
+    $third = genesisDailyAdvice($bob, ['fromId' => $second['advice']['id'], 'dayKey' => $second['dayKey']], $rotationPool, true);
+    adviceExpect($third['sequence'] === 3 && !$third['canNext'] && $third['remaining'] === 0, 'The last daily slot remained clickable');
+    $limited = genesisDailyAdvice($bob, ['fromId' => $third['advice']['id'], 'dayKey' => $third['dayKey']], $rotationPool, true);
+    adviceExpect($limited['sequence'] === 3 && $limited['advice']['id'] === $third['advice']['id'], 'Category toggles or a fourth request bypassed the daily limit');
+    adviceExpect((int)$db->query('SELECT COUNT(*) FROM daily_advice_entries WHERE user_id=' . $db->quote($bob))->fetchColumn() === 3, 'Wrong account/day slot count');
+    genesisUpdateAccountPreferences($charlie, ['advicePreferences' => ['smart' => false, 'categories' => ['aretology', 'hestiology']]]);
+    $alternatingPool = [adviceFixture('alternate A1', 'aretology'), adviceFixture('alternate H1', 'hestiology'),
+        adviceFixture('alternate A2', 'aretology'), adviceFixture('alternate H2', 'hestiology')];
+    $alternatingFirst = genesisDailyAdvice($charlie, [], $alternatingPool);
+    $alternatingSecond = genesisDailyAdvice($charlie, ['fromId' => $alternatingFirst['advice']['id'], 'dayKey' => $alternatingFirst['dayKey']], $alternatingPool, true);
+    $alternatingThird = genesisDailyAdvice($charlie, ['fromId' => $alternatingSecond['advice']['id'], 'dayKey' => $alternatingSecond['dayKey']], $alternatingPool, true);
+    adviceExpect(array_intersect($alternatingFirst['advice']['categories'], $alternatingSecond['advice']['categories']) === []
+        && array_intersect($alternatingSecond['advice']['categories'], $alternatingThird['advice']['categories']) === [], 'Persisted Next did not alternate categories');
+    adviceExpect($alternatingThird['sequence'] === 3 && !$alternatingThird['canNext'] && count(array_unique([
+        $alternatingFirst['advice']['id'], $alternatingSecond['advice']['id'], $alternatingThird['advice']['id']])) === 3, 'Category alternation changed the day budget or repeated a post');
+    // A saved timed card is replaced when its local period ends, within the same persisted budget.
+    $db->prepare('DELETE FROM daily_advice_entries WHERE user_id=?')->execute([$bob]);
+    $db->prepare('DELETE FROM daily_advice_days WHERE user_id=?')->execute([$bob]);
+    genesisUpdateAccountPreferences($bob, ['advicePreferences' => ['smart' => true]]);
+    $hour = (int)(new DateTimeImmutable('now', new DateTimeZone(genesisAdviceTimeZone())))->format('G');
+    $expired = [...adviceFixture('expired period', 'hestiology'), 'timeOfDay' => $hour >= 5 && $hour < 12 ? 'evening' : 'morning'];
+    $current = adviceFixture('current period', 'hestiology'); $dayKey = genesisAdviceDayKey();
+    $selection = json_encode(['enabled' => true, 'smart' => true, 'categories' => ['hestiology']]);
+    $db->prepare('INSERT INTO daily_advice_days(user_id,day_key,advice_id,entry_json,created_at,draw_limit,selection_json) VALUES (?,?,?,?,?,3,?)')
+        ->execute([$bob, $dayKey, $expired['id'], json_encode($expired), genesisNow(), $selection]);
+    $db->prepare('INSERT INTO daily_advice_entries(user_id,day_key,slot,advice_id,entry_json,created_at) VALUES (?,?,1,?,?,?)')
+        ->execute([$bob, $dayKey, $expired['id'], json_encode($expired), genesisNow()]);
+    $periodResponse = genesisDailyAdvice($bob, [], [$expired, $current]);
+    adviceExpect($periodResponse['sequence'] === 2 && $periodResponse['advice']['id'] === $current['id'], 'A timed card remained visible after its local period');
+    adviceExpect(genesisDailyAdvice($bob, [], [$expired, $current])['sequence'] === 2, 'Period refresh repeatedly consumed slots');
+    $db->prepare('UPDATE daily_advice_days SET advice_id=?,entry_json=?,draw_limit=2 WHERE user_id=?')
+        ->execute([$expired['id'], json_encode($expired), $bob]);
+    $exhaustedPeriod = genesisDailyAdvice($bob, [], [$expired, $current]);
+    adviceExpect($exhaustedPeriod['advice'] === null && $exhaustedPeriod['sequence'] === 2 && !$exhaustedPeriod['canNext'], 'An expired timed card bypassed the exhausted budget');
     $db->prepare('DELETE FROM users WHERE id=?')->execute([$alice]);
     adviceExpect((int)$db->query("SELECT COUNT(*) FROM daily_advice_days WHERE user_id=" . $db->quote($alice))->fetchColumn() === 0, 'Account removal retained advice history');
     $_SERVER['HTTP_X_GENESIS_TIME_ZONE'] = 'Pacific/Kiritimati';
     adviceExpect(genesisAdviceDayKey() === (new DateTimeImmutable('now', new DateTimeZone('Pacific/Kiritimati')))->format('Y-m-d'), 'Server ignored the device day');
     $_SERVER['HTTP_X_GENESIS_TIME_ZONE'] = 'invalid';
     adviceExpect(genesisAdviceDayKey() === (new DateTimeImmutable('now', new DateTimeZone('Europe/Moscow')))->format('Y-m-d'), 'Invalid time zone had no safe fallback');
-    echo "Daily advice: backup, additive rollback, preferences, empty corpus, ranking cycles, new content, manual/smart selection, daily replay, view acknowledgement, account isolation, dismissal and cascade passed.\n";
+    echo "Daily advice: backup, additive rollback, preferences, empty corpus, ranking cycles, category alternation, new content, manual/smart selection, daily replay, view acknowledgement, account isolation, dismissal and cascade passed.\n";
 } finally {
     foreach ($ids as $id) $db->prepare('DELETE FROM users WHERE id=?')->execute([$id]);
 }

@@ -939,7 +939,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                                         val adviceGateway = remember(authController, uid) { authController.dailyAdviceTransport(uid) }
                                         TodayAdvicePanel(adviceGateway, uid, todayPageDate, prefs.language,
                                             authState.accountSettings?.advicePreferences ?: ru.genesis.calendar.auth.AdvicePreferences(),
-                                            habitWorkspace.habits, authState.checkedAt)
+                                            habitWorkspace.habits, authState.checkedAt, tasks = tasks)
                                     }
                                 }
                                 if (!testWorkspace && authState.ready)

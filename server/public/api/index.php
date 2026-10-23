@@ -1335,11 +1335,11 @@ try {
         genesisJson(['user' => genesisUserForClient($user)]);
     }
 
-    if ($method === 'POST' && in_array($path, ['advice/today', 'advice/view', 'advice/dismiss'], true)) {
+    if ($method === 'POST' && in_array($path, ['advice/today', 'advice/next', 'advice/view', 'advice/dismiss'], true)) {
         $userId = genesisRequireUserId();
         genesisRequireCsrf();
         $payload = genesisReadJson();
-        genesisJson($path === 'advice/today' ? genesisDailyAdvice($userId, $payload)
+        genesisJson(in_array($path, ['advice/today', 'advice/next'], true) ? genesisDailyAdvice($userId, $payload, null, $path === 'advice/next')
             : genesisRecordAdvice($userId, $payload, $path === 'advice/dismiss'));
     }
 

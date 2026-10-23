@@ -82,7 +82,7 @@ data class AccountSettings(
     val sharedProjectsEnabled: Boolean = false,
     val uiVisibility: UiVisibility = UiVisibility(),
     val advicePreferences: AdvicePreferences = AdvicePreferences(),
-    val adviceAvailableCategories: List<String> = listOf("aretology"),
+    val adviceAvailableCategories: List<String> = listOf("aretology", "hestiology"),
     val adviceCatalogAvailable: Boolean = true,
 ) {
     companion object {
@@ -129,7 +129,7 @@ data class AccountSettings(
                 user.optBoolean("sharedProjectsEnabled"),
                 UiVisibility.fromJson(user.optJSONObject("uiVisibility")),
                 AdvicePreferences.fromJson(user.optJSONObject("advicePreferences")),
-                user.optJSONArray("adviceAvailableCategories")?.strings()?.filter { it in adviceCategories } ?: listOf("aretology"),
+                user.optJSONArray("adviceAvailableCategories")?.strings()?.filter { it in adviceCategories } ?: listOf("aretology", "hestiology"),
                 user.optBoolean("adviceCatalogAvailable", true))
         }
     }
