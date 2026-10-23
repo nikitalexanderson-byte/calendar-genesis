@@ -27,6 +27,8 @@ import "./shared-saved-views.css";
 type Draft = SavedViewEditorDraft;
 const fresh=(mode:CalendarMode,inputMode:CalendarMode):Draft=>({definition:{version:1,title:"",filter:{},sort:"position",relative:"none",calendarMode:mode,calendarContext:calendarContext()},inputCalendar:{mode:inputMode,context:calendarContext()},spaceId:null,visibility:"personal",dirty:false});
 const message=(error:unknown,fallback="Не удалось загрузить данные")=>error instanceof TypeError||error instanceof GenesisNetworkTimeoutError?t(fallback):customFieldsError(error)??sharedTaskDetailsError(error)??t(error instanceof Error?error.message:fallback);
+const temporaryViewReadFailure=(reason:unknown)=>reason instanceof TypeError||reason instanceof GenesisNetworkTimeoutError||reason instanceof GenesisApiError&&(reason.status===408||reason.status===429||reason.status>=500);
+const viewReadMessage=(reason:unknown)=>reason instanceof GenesisApiError&&(reason.status===408||reason.status>=500)?t("Не удалось загрузить данные"):message(reason);
 const strings=(value:unknown)=>Array.isArray(value)?value.filter((item):item is string=>typeof item==="string"):[];
 const subscribeOnline=(callback:()=>void)=>{window.addEventListener("online",callback);window.addEventListener("offline",callback);return()=>{window.removeEventListener("online",callback);window.removeEventListener("offline",callback);};};
 const onlineSnapshot=()=>navigator.onLine;
@@ -53,7 +55,7 @@ export function ViewChoice({kind,label,filter,value,onChange,online}:{kind:Share
     return()=>{invalidate();controller.abort();};
   },[key,load,online,retry]);
   const page=online&&state?.key===key?state.page:null,activeFailure=online&&failure?.key===key?failure:null,reason=activeFailure?.reason;
-  const error=activeFailure?reason instanceof GenesisApiError&&(reason.status===408||reason.status>=500)?t("Не удалось загрузить данные"):message(reason):"",busy=online&&pending?.key===key,loading=online&&(!page&&!error||busy);
+  const error=activeFailure?viewReadMessage(reason):"",busy=online&&pending?.key===key,loading=online&&(!page&&!error||busy);
   const base=kind==="assignees"?[{id:"me",title:t("Назначено мне")},{id:"unassigned",title:t("Без исполнителя")}]:[];
   const options=[...base,...(page?.options??[])],missing=value.filter(id=>!options.some(option=>option.id===id));
   const more=async()=>{
@@ -64,7 +66,7 @@ export function ViewChoice({kind,label,filter,value,onChange,online}:{kind:Share
       if(!controller.signal.aborted&&current===generation.current){setState({key,page:{...next,options:[...new Map([...page.options,...next.options].map(option=>[option.id,option])).values()]}});setFailure(null);}
     }catch(reason){if(current===generation.current&&!controller.signal.aborted){
       // Only temporary transport/server failures may keep authorized picker pages.
-      if(!(reason instanceof TypeError||reason instanceof GenesisNetworkTimeoutError||reason instanceof GenesisApiError&&(reason.status===408||reason.status===429||reason.status>=500)))setState(null);
+      if(!temporaryViewReadFailure(reason))setState(null);
       setFailure({key,reason});
     }}
     finally{if(requestController.current===controller)requestController.current=null;setPending(previous=>previous?.id===current?null:previous);}
@@ -82,7 +84,7 @@ export function SharedSavedViews({userId,spaces,mode,inputMode=mode,opened,onClo
   const [deviceDraftsOpen,setDeviceDraftsOpen]=useState(false);
   const setDraft=(value:Draft|((previous:Draft)=>Draft))=>{setDeviceDraftsOpen(false);if(typeof value==='function')writer.update(value);else writer.write(value);};
   const d=(key:Parameters<typeof workflowDraftText>[0])=>workflowDraftText(key,getRuntimeLanguage());
-  const [editor,setEditor]=useState(draft.dirty),[libraryOpen,setLibraryOpen]=useState(true),[list,setList]=useState<SharedSavedViewPage|null>(null),[error,setError]=useState(""),[busy,setBusy]=useState(false),[listLoading,setListLoading]=useState(false),[listError,setListError]=useState("");
+  const [editor,setEditor]=useState(draft.dirty),[libraryOpen,setLibraryOpen]=useState(true),[list,setList]=useState<SharedSavedViewPage|null>(null),[error,setError]=useState(""),[busy,setBusy]=useState(false),[listLoading,setListLoading]=useState(false),[listError,setListError]=useState<{reason:unknown;more:boolean}|null>(null);
   const dialog=useRef<HTMLDialogElement>(null);
   const sacredFeaturesEnabled=useSacredFeaturesEnabled();
   const inputCalendar=draft.inputCalendar??{mode:inputMode,context:calendarContext()};
@@ -97,16 +99,18 @@ export function SharedSavedViews({userId,spaces,mode,inputMode=mode,opened,onClo
     void listSharedCustomFields(spaceId,undefined,controller.signal).then(items=>{if(!controller.signal.aborted)setCustomFields({spaceId,items});}).catch(error=>{if(!controller.signal.aborted){setCustomFields({spaceId:'',items:[]});setFilter(null);setError(message(error));}});
     return()=>controller.abort();},[opened,draft.spaceId,optionsVersion]);
   const rolesKey=spaces.map(space=>`${space.id}:${space.role}`).sort().join("|");
-  const online=useSyncExternalStore(subscribeOnline,onlineSnapshot,serverOnline),operation=useRef(false),listGeneration=useRef(0);
+  const online=useSyncExternalStore(subscribeOnline,onlineSnapshot,serverOnline),operation=useRef(false),listGeneration=useRef(0),listController=useRef<AbortController|null>(null);
   const mounted=useRef(true);
   useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
   const refresh=useCallback(async(signal?:AbortSignal)=>{
-    const generation=++listGeneration.current;setListLoading(true);
-    try{const result=await listSharedSavedViews(null,signal);if(!signal?.aborted&&generation===listGeneration.current){setList(result);setListError("");}}
-    catch(error){if(!signal?.aborted&&generation===listGeneration.current){setList(null);setMetadata(null);setFilter(null);setCustomFields({spaceId:'',items:[]});setListError(message(error));setError(message(error));}}
-    finally{if(generation===listGeneration.current)setListLoading(false);}
+    if(signal?.aborted)return;
+    const controller=new AbortController(),abort=()=>controller.abort();listController.current?.abort();listController.current=controller;signal?.addEventListener('abort',abort,{once:true});
+    const generation=++listGeneration.current;setListLoading(true);setListError(null);
+    try{const result=await listSharedSavedViews(null,controller.signal);if(!controller.signal.aborted&&generation===listGeneration.current){setList(result);setListError(null);}}
+    catch(reason){if(!controller.signal.aborted&&generation===listGeneration.current){if(!temporaryViewReadFailure(reason)){setList(null);setMetadata(null);setFilter(null);setCustomFields({spaceId:'',items:[]});}setListError({reason,more:false});}}
+    finally{signal?.removeEventListener('abort',abort);if(listController.current===controller)listController.current=null;if(generation===listGeneration.current)setListLoading(false);}
   },[]);
-  useEffect(()=>{if(!opened||!online)return;const controller=new AbortController();const initial=window.setTimeout(()=>void refresh(controller.signal),0),changed=()=>void refresh(controller.signal),invalidate=()=>{++listGeneration.current;};window.addEventListener("genesis:shared-updates",changed);return()=>{invalidate();controller.abort();window.clearTimeout(initial);window.removeEventListener("genesis:shared-updates",changed);};},[opened,refresh,online]);
+  useEffect(()=>{if(!opened||!online)return;const controller=new AbortController();const initial=window.setTimeout(()=>void refresh(controller.signal),0),changed=()=>void refresh(controller.signal),invalidate=()=>{++listGeneration.current;listController.current?.abort();};window.addEventListener("genesis:shared-updates",changed);return()=>{invalidate();controller.abort();window.clearTimeout(initial);window.removeEventListener("genesis:shared-updates",changed);};},[opened,refresh,online]);
   useEffect(()=>{
     if(!opened||!draft.id||!online)return;
     const controller=new AbortController();let generation=0;
@@ -120,7 +124,7 @@ export function SharedSavedViews({userId,spaces,mode,inputMode=mode,opened,onClo
     document.addEventListener("visibilitychange",refreshMetadata);
     return()=>{controller.abort();window.removeEventListener("genesis:shared-updates",refreshMetadata);window.removeEventListener("focus",refreshMetadata);document.removeEventListener("visibilitychange",refreshMetadata);};
   },[opened,draft.id,online,rolesKey]);
-  useEffect(()=>{const clear=()=>{setList(null);setMetadata(null);setCustomFields({spaceId:'',items:[]});};window.addEventListener('offline',clear);return()=>window.removeEventListener('offline',clear);},[]);
+  useEffect(()=>{const clear=()=>{++listGeneration.current;listController.current?.abort();listController.current=null;setListLoading(false);setListError(null);setList(null);setMetadata(null);setCustomFields({spaceId:'',items:[]});};window.addEventListener('offline',clear);return()=>window.removeEventListener('offline',clear);},[]);
   const tasks=useSharedTaskPage(opened&&online?filter:null);
   const definition=effectiveDraft.definition;
   const editDraft=(edit:(previous:Draft)=>Draft)=>{if(writer.locked||operation.current||!writer.ready)return;setFilter(null);setDraft(edit);};
@@ -174,12 +178,14 @@ export function SharedSavedViews({userId,spaces,mode,inputMode=mode,opened,onClo
       await writer.persist(prepareSavedViewDeviceDraft(draft,{action:'delete',id:current.id,bodyJson:JSON.stringify({requestId:crypto.randomUUID(),expectedRevision:draft.revision})}));await sendPending();});
   };
   const moreViews=async()=>{
-    if(operation.current||!list?.nextCursor||listLoading)return;
-    const generation=listGeneration.current;setListLoading(true);
-    try{const next=await listSharedSavedViews(list.nextCursor);if(generation===listGeneration.current){setList({...next,views:[...new Map([...list.views,...next.views].map(view=>[view.id,view])).values()]});setListError("");}}
-    catch(error){if(generation===listGeneration.current){setList(null);setMetadata(null);setFilter(null);setCustomFields({spaceId:'',items:[]});setListError(message(error));setError(message(error));}}
-    finally{if(generation===listGeneration.current)setListLoading(false);}
+    if(operation.current||!list?.nextCursor||listLoading||!online||listController.current)return;
+    const controller=new AbortController();listController.current=controller;
+    const generation=listGeneration.current;setListLoading(true);setListError(null);
+    try{const next=await listSharedSavedViews(list.nextCursor,controller.signal);if(!controller.signal.aborted&&generation===listGeneration.current){setList({...next,views:[...new Map([...list.views,...next.views].map(view=>[view.id,view])).values()]});setListError(null);}}
+    catch(reason){if(!controller.signal.aborted&&generation===listGeneration.current){if(!temporaryViewReadFailure(reason)){setList(null);setMetadata(null);setFilter(null);setCustomFields({spaceId:'',items:[]});}setListError({reason,more:true});}}
+    finally{if(listController.current===controller)listController.current=null;if(generation===listGeneration.current)setListLoading(false);}
   };
+  const listFailure=online&&listError!==null?viewReadMessage(listError.reason):"";
   let zoneError="";
   if(definition){try{calendarContext(definition.calendarContext);}catch{zoneError=t("Введите действительный часовой пояс IANA, например Europe/Moscow. Черновик сохранён.");}}
   const optionFilter={...(draft.spaceId?{spaceId:draft.spaceId}:{}),...(strings(definition?.filter.projectIds).length?{projectIds:strings(definition?.filter.projectIds)}:{})};
@@ -213,14 +219,14 @@ export function SharedSavedViews({userId,spaces,mode,inputMode=mode,opened,onClo
         <button type="button" className="secondary-button" disabled={blocked||!online} onClick={()=>preset("Без исполнителя",{assigneeIds:["unassigned"]})}>{t("Без исполнителя")}</button>
         <button type="button" className="secondary-button" disabled={blocked||!online} onClick={()=>preset("Ожидает утверждения",{approvalPending:true})}>{t("Ожидает утверждения")}</button>
       </div>
-      </section><section aria-labelledby="saved-view-library-title"><h3 id="saved-view-library-title">{t("Ваши подборки")}</h3>
+      </section><section aria-labelledby="saved-view-library-title" aria-busy={listLoading&&online}><h3 id="saved-view-library-title">{t("Ваши подборки")}</h3>
       <p className="saved-view-hint">{t("Личное представление видно только вам. Общим представлением могут пользоваться участники пространства с доступом к выбранным проектам.")}</p>
       {listLoading&&online?<p role="status">{t("Загружаем данные…")}</p>:null}
       {list&&!list.total&&!listLoading?<p>{t("Сохранённых представлений пока нет")}</p>:null}
-      {listError?<p role="alert">{listError}</p>:null}
+      {listFailure?<p className="shared-error" role="alert">{listFailure}</p>:null}
       <div className="saved-view-list">{list?.views.map(view=><button type="button" className="secondary-button" disabled={blocked} key={view.id} onClick={()=>openView(view)} aria-pressed={filter?.savedViewId===view.id}><span data-no-translate>{typeof view.definition?.title==="string"?view.definition.title:t("Представление")}</span><small>{t(view.visibility==="shared"?"Общее":"Личное")}{view.invalid?` · ${t("Условия недоступны")}`:""}</small></button>)}</div>
-      {list?.hasMore?<button type="button" className="secondary-button" disabled={busy||listLoading||!online} onClick={()=>void moreViews()}>{t("Показать ещё")}</button>:null}
-      <div className="saved-view-actions"><IconActionButton icon="plus" label={t("Новое представление")} disabled={blocked} onClick={()=>{if(replace()){setDraft(fresh(mode,inputMode));setMetadata(null);setEditor(true);setLibraryOpen(false);setFilter(null);setError("");}}}/><IconActionButton icon="undo" label={t("Сбросить")} disabled={busy} onClick={()=>{setFilter(null);setError("");}}/><IconActionButton icon="map-refresh" label={t("Обновить")} disabled={busy||listLoading||!online} onClick={()=>{void refresh();setOptionsVersion(previous=>previous+1);}}/></div>
+      {list?.hasMore?<IconActionButton icon={listFailure&&listError?.more?"map-refresh":"chevron-down"} label={t(listFailure&&listError?.more?"Повторить загрузку":"Показать ещё")} disabled={busy||listLoading||!online} onClick={()=>void moreViews()}/>:null}
+      <div className="saved-view-actions"><IconActionButton icon="plus" label={t("Новое представление")} disabled={blocked} onClick={()=>{if(replace()){setDraft(fresh(mode,inputMode));setMetadata(null);setEditor(true);setLibraryOpen(false);setFilter(null);setError("");}}}/><IconActionButton icon="undo" label={t("Сбросить")} disabled={busy} onClick={()=>{setFilter(null);setError("");}}/><IconActionButton icon="map-refresh" label={t(listFailure&&(!list||!listError?.more)?"Повторить загрузку":"Обновить")} disabled={busy||listLoading||!online} onClick={()=>{void refresh();setOptionsVersion(previous=>previous+1);}}/></div>
       </section></div>
       </details>
       {error&&!(writer.record?.phase==='pending'&&error===d('pending'))?<p role="alert">{error}</p>:null}{!online?<p role="status">{t("Для сохранения нужно подключение к интернету")}</p>:null}
