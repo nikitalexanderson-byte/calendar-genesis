@@ -14,7 +14,7 @@
 
 ## Серверная граница
 
-`server/public/api/index.php` устанавливает доверенный `channel=native` при native Google login, а `channel=web` — при browser Google callback. Подключение native services не меняет channel. `genesisPhysisRequireOwner()` допускает только web channel, verified primary Google identity, точный email из allowlist и соответствующий owner. User-Agent, ширина экрана, заголовок или поле запроса не дают доступ native-сессии.
+`server/public/api/index.php` устанавливает доверенный `channel=native` при native Google login, а `channel=web` — при browser Google callback. Подключение native services не меняет channel. `genesisPhysisRequireOwner()` допускает общую primary Google-сессию сайта и точный email серверного аккаунта из allowlist. Старые валидные сессии без channel допускаются; explicit native и нестандартный channel запрещены. User-Agent, ширина экрана, заголовок или поле запроса не дают доступ native-сессии.
 
 Прежний незарегистрированный BrowserLauncherActivity открывал CustomTabs или внешний ACTION_VIEW: это браузер со своей сессией. Текущие ссылки «веб-версия» также открывают внешний браузер без переноса native cookies. По последнему поручению пользователя такой доступ к сайту разрешён, в том числе с телефона.
 
@@ -22,7 +22,7 @@
 
 Git-controlled `GENESIS_PHYSIS_WEB_ENABLED=true` включает браузерный пилот, если private config не содержит override. Явный boolean `physis_enabled=false` отключает чтение и запись без удаления ciphertext. Любой non-boolean override, включая null, строку `'true'` и число 1, закрывает доступ. Existing deploy.yml сохраняет private config; после выпуска требуется подтвердить эффективный флаг, поскольку анонимный 403 не отличает выключенный модуль от корректно закрытого доступа.
 
-Старые web-сессии без доверенных identity claims закрыты. Для доступа после обновления нужно выйти и снова войти через Google одним из трёх аккаунтов. Настройки Фюзиса доступны в личном кабинете → «Аккаунт GENESIS».
+Старые валидные primary web-сессии работают без повторного входа. Фюзис использует общий ключ аккаунта без отдельного пароля; совместимый перенос старых записей описан в physis-api.md. Настройки Фюзиса доступны в личном кабинете → «Аккаунт GENESIS».
 
 ## Проверки и ограничения
 

@@ -22,6 +22,6 @@ export function usePhysisAccess(userId: string) {
     };
   }, [userId]);
   const status = userId && result.owner === userId ? result.status : 'checking';
-  return { available: status === 'ready', showEntry: status === 'ready' || status === 'reauth', status,
+  return { available: status === 'ready', showEntry: status === 'ready', status,
     retry: () => { void check.current?.refresh(); } };
 }

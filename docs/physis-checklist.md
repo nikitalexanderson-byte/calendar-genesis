@@ -4,7 +4,7 @@
 
 Архитектура и карта интеграции: [physis-architecture.md](physis-architecture.md). Точный контракт, криптография, миграция и лимиты: [physis-api.md](physis-api.md).
 
-Последующее исправление невидимого пункта для старых сессий и повторной проверки сети: [physis-access-recovery.md](physis-access-recovery.md). Legacy primary tester получает только предложение подтвердить Google-вход; это не доступ к данным.
+Актуальное уточнение пользователя: [единый вход и ключ аккаунта](physis-unified-login.md). Отдельный OAuth и пароль отменены; старые primary-сессии сайта открывают раздел сразу.
 
 Обозначения: **Т** — поведение подтверждено автоматическим тестом; **К** — проверен код; **Б** — требуется отдельный результат браузерного сценария; **О** — ограничение или незавершённый критерий. Тест домена не считается проверкой кликов, реального OAuth или production.
 
@@ -12,11 +12,11 @@
 
 | ID | Требование / реализация | Доказательство и статус |
 | --- | --- | --- |
-| S01 | Три точные verified Google identity; текущий primary Google subject и доверенный web channel | **Т/К:** `nikitalexanderson@gmail.com`, `jurijjlogvinov@gmail.com`, `picishina@gmail.com` (третий адрес добавлен по прямому поручению 24 октября). `server/src/physis.php`, `server/tests/physis-security.php`: aliases, anonymous, third-party, linked, native и старые сессии без claims отвергаются. Настоящий OAuth — **Б**. |
+| S01 | Три точных Google-аккаунта; общая primary-сессия сайта | **Т/К:** `nikitalexanderson@gmail.com`, `jurijjlogvinov@gmail.com`, `picishina@gmail.com` (третий адрес добавлен по прямому поручению 24 октября). `server/src/physis.php`, `server/tests/physis-security.php`: aliases, anonymous, third-party, linked и explicit native отвергаются; старые валидные primary-сессии разрешены. Настоящий OAuth — **Б**. |
 | S02 | Owner каждой операции берётся из серверной сессии; чтение/изменение чужого ID не раскрывает запись | **Т/К:** security suite, включая подмену owner/email/ID и все маршруты namespace. Отдельных публичных attachment/export endpoints нет; браузер экспортирует только записи своего API. |
-| S03 | Feature flag закрывает namespace и сохраняет данные | **Т/К:** браузерный пилот включён default-константой в Git; явный `physis_enabled=false` отзывает чтение/запись без удаления данных. 167 security checks, включая отказ для null/строки/числа. Активация поручена пользователем после проверки S04. |
+| S03 | Feature flag закрывает namespace и сохраняет данные | **Т/К:** браузерный пилот включён default-константой в Git; явный `physis_enabled=false` отзывает чтение/запись без удаления данных. 151 security checks, включая отказ для null/строки/числа. Активация поручена пользователем после проверки S04. |
 | S04 | Раздел не появляется в опубликованном Android-клиенте | **Т/К:** проверен APK 2.9.7/102 с SHA из публичного update manifest: launcher — нативная MainActivity, прежний BrowserLauncherActivity не зарегистрирован. Native Google channel отвергается всеми Physis endpoints, allowlist клиента их исключает. Открытие сайта во внешнем браузере разрешено пользователем. Доказательства и ограничения: [physis-browser-access.md](physis-browser-access.md). |
-| S05 | Отдельный ключ AES-256-GCM, wrapping паролем и recovery, уникальный nonce, owner/ID/versions в AAD | **Т/К:** `crypto.ts`, `physis-crypto.test.mjs`. PBKDF2-HMAC-SHA256, 600000 итераций; случайный recovery key 256 bit. Google-вход не служит паролем шифрования. |
+| S05 | Ключ AES-256-GCM, wrapping общим ключом GENESIS, уникальный nonce, owner/ID/versions в AAD | **Т/К:** `crypto.ts`, `physis-crypto.test.mjs`. Vault v2 открывается общим аккаунтом. Legacy v1 сохраняет поддержку PBKDF2/recovery для однократного переноса и старых backups; physis-account.test.mjs проверяет новый сценарий. |
 | S06 | Новое устройство, неверный ключ/повреждение, смена пароля и ротация не уничтожают данные | **Т:** WebCrypto/store tests; восстановление из пароля/recovery, AAD tampering, rewrap, атомарная ротация более 100 записей и неизвестный результат запроса. **Б:** повторить на двух настоящих браузерах с реальными аккаунтами. |
 | S07 | Plaintext/ключи только в памяти; logout не возвращает данные из запоздалого ответа | **Т/К:** store test с запрещённым browser storage, in-flight logout; `PhysisPage.tsx`. API отвечает `no-store`; существующий service worker исключает `/api/`. Проверка реального CDN/SW/network trace — **Б**. |
 | S08 | БД хранит ciphertext и технические метаданные, без открытых kind, медицинских значений или персональных catalog IDs | **Т/К:** synthetic DB security suite. Receipt содержит только metadata ответа, без копий ciphertext каждого автосохранения. Проверка production-логов/backup среды не выполнялась. |

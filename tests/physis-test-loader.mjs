@@ -35,7 +35,7 @@ export function physisModules(cryptoOverride = webcrypto) {
     }, { filename: path });
     return loaded.exports;
   }
-  return { crypto: load(resolve(root, 'app/physis/crypto.ts')), store: () => load(resolve(root, 'app/physis/store.ts')) };
+  return { crypto: load(resolve(root, 'app/physis/crypto.ts')), account: () => load(resolve(root, 'app/physis/account-session.ts')), store: () => load(resolve(root, 'app/physis/store.ts')) };
 }
 
 export function settingsRecord(overrides = {}) {

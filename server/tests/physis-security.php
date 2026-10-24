@@ -60,18 +60,20 @@ try {
     $owner = genesisFindUser('owner-a');
     genesisEstablishGoogleSession($owner, 'owner-a-sub', ['sub' => 'owner-a-sub', 'email' => '  NIKITALEXANDERSON@GMAIL.COM ', 'email_verified' => true], 'web');
     physisExpect(genesisPhysisRequireOwner() === 'owner-a', 'Verified normalized primary web identity denied.');
-    foreach ([
-        ['email_verified' => false], ['email' => 'nikitalexanderson+alias@gmail.com'], ['email' => 'nikita.lexanderson@gmail.com'],
-        ['email' => 'picishina+alias@gmail.com'], ['email' => 'pici.shina@gmail.com'],
-        ['channel' => 'native'], ['channel' => 'unknown'], ['email' => 'outsider@example.org'],
-    ] as $change) {
-        $saved = $_SESSION['auth_identity']; $_SESSION['auth_identity'] = $change + $saved;
+    foreach (['native', 'invalid'] as $channel) {
+        $saved = $_SESSION['auth_identity']; $_SESSION['auth_identity']['channel'] = $channel;
         physisFailure(static fn() => genesisPhysisRequireOwner(), 403, 'PHYSIS_UNAVAILABLE'); $_SESSION['auth_identity'] = $saved;
     }
+    // Like admin access, the validated primary account is authoritative, not newer cookie fields.
+    foreach (['nikitalexanderson+alias@gmail.com', 'nikita.lexanderson@gmail.com', 'picishina+alias@gmail.com', 'pici.shina@gmail.com', 'outsider-two@example.org'] as $email) {
+        $db->prepare('UPDATE users SET email=:email WHERE id=:id')->execute(['email' => $email, 'id' => 'owner-a']);
+        physisFailure(static fn() => genesisPhysisRequireOwner(), 403, 'PHYSIS_UNAVAILABLE');
+    }
+    $db->prepare('UPDATE users SET email=:email WHERE id=:id')->execute(['email' => GENESIS_PHYSIS_EMAILS[0], 'id' => 'owner-a']);
     genesisEstablishGoogleSession($owner, 'linked-sub', ['sub' => 'linked-sub', 'email' => GENESIS_PHYSIS_EMAILS[0], 'email_verified' => true], 'web');
     physisFailure(static fn() => genesisPhysisRequireOwner(), 403, 'PHYSIS_UNAVAILABLE');
     genesisEstablishGoogleSession($owner, 'owner-a-sub');
-    physisFailure(static fn() => genesisPhysisRequireOwner(), 403, 'PHYSIS_UNAVAILABLE');
+    physisExpect(genesisPhysisRequireOwner() === 'owner-a', 'Normal primary site session denied.');
 
     $makeCookie = static function (string $user, array $claims = [], string $channel = 'web', ?string $sub = null, bool $legacyClaims = false) use ($fixture): array {
         $profile = $claims + ['sub' => $sub ?? $user . '-sub', 'email' => genesisFindUser($user)['email'], 'email_verified' => true];
@@ -111,7 +113,7 @@ try {
         preg_match('/^HTTP\/\S+ (\d+)/', ($http_response_header ?? [])[0] ?? '', $status);
         return ['status' => (int)($status[1] ?? 0), 'data' => json_decode($bytes ?: '{}', true), 'headers' => $http_response_header ?? []];
     };
-    foreach ([$other, $native, $unverified, $cUnverified, $linked, $old, $legacyNoClaims, []] as $denied) {
+    foreach ([$other, $otherOld, $native, $linked, []] as $denied) {
         foreach ([['GET', 'access'], ['GET', 'vault'], ['GET', 'records'], ['POST', 'records'], ['PUT', 'vault'], ['POST', 'rotate'], ['GET', 'export'], ['GET', 'records/foreign-id']] as [$method, $path]) {
             $reply = $request('physis/v1/' . $path, $denied, $method, $method === 'GET' ? null : '{}');
             physisExpect($reply['status'] === 403 && ($reply['data']['error'] ?? '') === 'PHYSIS_UNAVAILABLE', 'Denied identity reached ' . $path . ': ' . json_encode($reply['data']));
@@ -120,15 +122,14 @@ try {
     physisExpect($request('physis/v1/access', $a)['data']['ownerId'] === 'owner-a', 'Access identity mismatch.');
     physisExpect($request('physis/v1/access', $b)['data']['ownerId'] === 'owner-b', 'Second allowed owner denied.');
     physisExpect($request('physis/v1/access', $c)['data']['ownerId'] === 'owner-c', 'Third allowed owner denied.');
-    $legacyAccess = $request('physis/v1/access', $old);
-    physisExpect($legacyAccess['status'] === 403 && ($legacyAccess['data']['reauthRequired'] ?? false) === true, 'Legacy primary tester has no browser reauthentication hint.');
-    physisExpect(!array_key_exists('ownerId', $legacyAccess['data']) && !array_key_exists('vault', $legacyAccess['data']), 'Reauthentication hint disclosed private data.');
-    physisExpect(($request('physis/v1/access', $legacyNoClaims)['data']['reauthRequired'] ?? false) === true, 'Session created before trusted claims has no confirmation entry.');
-    foreach ([$native, $linked, $unverified, $other, $otherOld, []] as $deniedHint) {
-        physisExpect(!isset($request('physis/v1/access', $deniedHint)['data']['reauthRequired']), 'Ineligible session received tester reauthentication hint.');
+    foreach ([$old, $legacyNoClaims, $unverified] as $normal) {
+        $reply = $request('physis/v1/access', $normal);
+        physisExpect($reply['status'] === 200 && $reply['data']['ownerId'] === 'owner-a', 'Normal site login required extra confirmation.');
+        physisExpect($request('physis/v1/vault', $normal)['status'] === 200, 'Normal login cannot open vault.');
     }
-    foreach (['vault', 'records', 'export'] as $privatePath) {
-        physisExpect(!isset($request('physis/v1/' . $privatePath, $old)['data']['reauthRequired']), 'Private route changed its denial response.');
+    physisExpect($request('physis/v1/access', $cUnverified)['data']['ownerId'] === 'owner-c', 'Primary third account denied.');
+    foreach ([$native, $linked, $other, $otherOld, []] as $deniedHint) {
+        physisExpect(!isset($request('physis/v1/access', $deniedHint)['data']['reauthRequired']), 'Unexpected separate login flow.');
     }
     $deniedCsrf = ['csrf' => 'wrong'] + $a;
     physisExpect($request('physis/v1/records', $deniedCsrf, 'POST', '{}')['status'] === 403, 'CSRF bypass.');
@@ -216,6 +217,18 @@ try {
     physisExpect(genesisPhysisSaveVault('owner-a', $rewrap)['revision'] === 3, 'Password/recovery rewrap failed.');
     physisFailure(static fn() => genesisPhysisSaveVault('owner-a', ['requestId' => genesisUuid(), 'expectedRevision' => 3, 'vault' => physisTestVault(3)]), 409, 'PHYSIS_KEY_VERSION_CONFLICT');
 
+    // Account wrappers need no schema migration and preserve legacy records byte for byte.
+    $beforeAccountMigration = genesisPhysisRecords('owner-a', []);
+    $accountVault = ['version' => 2, 'keyVersion' => 2, 'account' => ['iv' => base64_encode(random_bytes(12)), 'ciphertext' => base64_encode(random_bytes(62))]];
+    $accountWrite = ['requestId' => genesisUuid(), 'expectedRevision' => 3, 'vault' => $accountVault];
+    physisExpect(genesisPhysisSaveVault('owner-a', $accountWrite)['revision'] === 4, 'Account migration failed.');
+    physisExpect(genesisPhysisRecords('owner-a', []) === $beforeAccountMigration, 'Account migration changed records.');
+    physisExpect(genesisPhysisVault('owner-a')['vault'] === $accountVault, 'Account wrapper did not round trip.');
+    physisExpect(genesisPhysisSaveVault('owner-a', $accountWrite)['revision'] === 4, 'Account retry changed revision.');
+    $invalidAccount = $accountVault; $invalidAccount['account']['ciphertext'] = base64_encode(random_bytes(32));
+    physisFailure(static fn() => genesisPhysisValidateVault($invalidAccount, 2), 400, 'PHYSIS_INVALID_ENVELOPE');
+    physisExpect(genesisPhysisVault('owner-b')['vault']['version'] === 1, 'Migration changed another account.');
+
     foreach (['physis_owners', 'physis_records', 'physis_receipts', 'physis_used_ids'] as $table) {
         $dump = json_encode($db->query('SELECT * FROM ' . $table)->fetchAll(), JSON_THROW_ON_ERROR);
         physisExpect(!str_contains($dump, 'PRIVATE_PHYSIS_TRAINING_DRUG_METRIC_2026') && !str_contains($dump, 'private-drug') && !str_contains($dump, '"kind"'), 'Plaintext leaked into ' . $table);
@@ -234,7 +247,7 @@ try {
         physisExpect($request('physis/v1/access', $allowedBrowser)['status'] === 200, 'Released browser pilot denied an allowed verified account.');
     }
     // The Git-controlled rollout must never enable the same account's native session.
-    foreach ([$native, $other, $unverified, $cUnverified, $linked, $old, []] as $denied) {
+    foreach ([$native, $other, $linked, []] as $denied) {
         foreach ([['GET', 'access'], ['GET', 'vault'], ['GET', 'records'], ['POST', 'records'], ['PUT', 'vault'], ['POST', 'rotate']] as [$method, $path]) {
             physisExpect($request('physis/v1/' . $path, $denied, $method, $method === 'GET' ? null : '{}')['status'] === 403, 'Default browser rollout bypassed identity/channel guard.');
         }
