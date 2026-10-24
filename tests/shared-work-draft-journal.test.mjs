@@ -76,7 +76,8 @@ test('a valid five-megabyte template and duplicated pending snapshots fit the en
  const storage=new MemoryStorage(),asyncStorage=durableStore(storage),access=await cipher(),text='я'.repeat(2_300_000);
  const input={text,pending:{requestId:'stable',manifest:text,original:text}};
  const a=journal(storage,access,'large',{purpose:'templates',asyncStorage,maxBytes:20_000_000});await a.write(input);
- assert.equal(storage.length,0);assert.equal(asyncStorage.data.size,1);assert.ok(![...asyncStorage.data.values()][0].includes('stable'));
+ // Base64 ciphertext can contain the letters stable by chance; only the quoted JSON value indicates plaintext.
+ assert.equal(storage.length,0);assert.equal(asyncStorage.data.size,1);assert.ok(![...asyncStorage.data.values()][0].includes(JSON.stringify(input.pending.requestId)));
  const b=journal(storage,access,'cold',{purpose:'templates',asyncStorage,maxBytes:20_000_000});assert.deepEqual((await b.list())[0].value,input);
  assert.throws(()=>journal(storage,access).write(input),/DRAFT_TOO_LARGE/);
  assert.throws(()=>a.write(payload('я'.repeat(10_000_001))),/DRAFT_TOO_LARGE/);
