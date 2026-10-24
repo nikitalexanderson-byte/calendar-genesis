@@ -2,6 +2,7 @@
 export function ExperimentalIcon({ name, className = "" }: { name: string; className?: string }) {
   return <svg className={`experimental-icon ${className}`} data-icon={name} viewBox="0 0 24 24" fill="none" stroke="currentColor"
     strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+    {name === "physis" ? <><path d="M3 17c2 3 5 4 9 4 5 0 9-3 9-7 0-3-2-5-5-5-2 0-3 1-4 3L9 7l2-2-1-2H6L3 7l2 8"/><path d="m5 15 4-2c2-1 5 0 6 2M6 7l2 1M14 12c1-1 3-1 4 0"/></> : null}
     {name === "today" || name === "sun" ? <><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2m-7.07-15.07 1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></> : null}
     {name === "moon" ? <path d="M19.79 15.5A8 8 0 0 1 8.5 4.21 8 8 0 1 0 19.79 15.5Z"/> : null}
     {name === "theme-contrast" ? <><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 4h5a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3h-5Z" fill="currentColor" stroke="none"/><path d="M12 4v16"/></> : null}

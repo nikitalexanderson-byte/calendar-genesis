@@ -1,4 +1,6 @@
 "use client";
+import { usePhysisAccess } from "./physis/access";
+const PhysisPage = lazy(() => import("./physis/PhysisPage").then(module => ({ default: module.PhysisPage })));
 import { TodayAdvice } from "./TodayAdvice";
 import { DialogCloseButton } from "./DialogCloseButton";
 import { useMobileLayout, useCompactHeader } from "./use-mobile-layout";
@@ -279,7 +281,7 @@ const TheokyklosView = lazy(() => import("./TheokyklosView").then((module) => ({
 const WEB_THEME_AVAILABLE = true;
 
 
-type ViewName = "today" | "calendar" | "projects" | "year" | "all-tasks" | "habits" | "stoicheion" | "theokyklos" | "admin";
+type ViewName = "today" | "calendar" | "projects" | "year" | "all-tasks" | "habits" | "stoicheion" | "theokyklos" | "admin" | "physis";
 
 const WebVoiceControl = lazy(() => import("./WebVoiceControl").then((module) => ({ default: module.WebVoiceControl })));
 
@@ -567,7 +569,7 @@ const SOLAR_EVENT_COPY: Record<NonNullable<ReturnType<typeof getSolarEvent>>["id
   },
 };
 
-const VIEW_NAMES = new Set<ViewName>(["today", "calendar", "projects", "year", "all-tasks", "habits", "stoicheion", "theokyklos", "admin"]);
+const VIEW_NAMES = new Set<ViewName>(["today", "calendar", "projects", "year", "all-tasks", "habits", "stoicheion", "theokyklos", "admin", "physis"]);
 const HABIT_REMINDER_LOOKAHEAD_DAYS = 20_000;
 
 function nextHabitReminderDate(habit: Habit, fromDate: string, calendarMode: CalendarMode) {
@@ -1220,6 +1222,8 @@ export function GenesisCalendar() {
   const voiceLanguageEnabled = hydrated && (language === "ru" || language === "en");
   const [authResolved, setAuthResolved] = useState(!isGoogleSyncConfigured);
   const [cloudUser, setCloudUser] = useState<GenesisUser | null>(null);
+  const physisAvailable = usePhysisAccess(cloudUser?.uid ?? "");
+  const [physisSettingsRequest, setPhysisSettingsRequest] = useState(0);
   const personalTaskDisplay=usePersonalTaskDisplay(cloudUser?.uid??"local");
   const [sharedCalendarCounts, setSharedCalendarCounts] = useState<Record<string,number>>({});
   const [calendarTaskListDate, setCalendarTaskListDate] = useState("");
@@ -1915,6 +1919,7 @@ export function GenesisCalendar() {
   };
 
   const navigateTo = (nextView: ViewName, replace = false, sharedDestination?: SharedTaskDestination, revealInvitedWorkspace = false) => {
+    if (nextView === "physis" && !physisAvailable) nextView = "today";
     if (nextView === "all-tasks") nextView = "projects";
     if (!viewIsVisible(nextView, visibility) && !revealInvitedWorkspace) nextView = "today";
     setOpenDayTaskPopover("");
@@ -4343,7 +4348,7 @@ export function GenesisCalendar() {
   const executeWebVoiceCommand = async (command: string): Promise<string> => {
     const { runWebVoiceCommand } = await import("./web-voice-executor");
     return runWebVoiceCommand(command, {
-      language, calendarMode: activeTaskCalendarMode, currentView: view,
+      language, calendarMode: activeTaskCalendarMode, currentView: view === "physis" ? "today" : view,
       today: todayDateValue, timeZone: deviceTimeZone,
       persistentWorkspace: Boolean(cloudUser) || !isGoogleSyncConfigured,
       divinationDisabled: Boolean(cloudUser?.stoicheionDivinationDisabled),
@@ -6751,9 +6756,10 @@ export function GenesisCalendar() {
 
   const visibleNavigation = NAVIGATION.filter((item) =>
     (habitWorkspace.habitSettings.enabled || item.id !== "habits") && (item.id === "stoicheion" ? viewIsVisible("stoicheion", visibility) || viewIsVisible("theokyklos", visibility) : item.id === "calendar" ? viewIsVisible("calendar", visibility) || viewIsVisible("year", visibility) : viewIsVisible(item.id, visibility)));
+  const physisNavigation = physisAvailable ? [...visibleNavigation, { id: "physis" as const, label: "Фюзис", symbol: "" }] : visibleNavigation;
   const navigation = cloudUser?.isAdmin
-    ? [...visibleNavigation, { id: "admin" as const, label: "Админ", symbol: "Σ" }]
-    : visibleNavigation;
+    ? [...physisNavigation, { id: "admin" as const, label: "Админ", symbol: "Σ" }]
+    : physisNavigation;
   const pendingDeletionTask = tasks.find((task) => task.id === pendingTaskDeletion?.taskId);
   const pendingDeletionHasSeries = pendingDeletionTask ? taskHasSeries(pendingDeletionTask) : false;
 
@@ -6982,6 +6988,7 @@ export function GenesisCalendar() {
             ) : null}
             <ViewErrorBoundary resetKey={view}>
               {view === "today" ? renderToday() : null}
+              {physisAvailable && cloudUser ? <div hidden={view !== "physis"}><Suspense fallback={<DeferredViewFallback label="Открываем Фюзис…" />}><PhysisPage key={cloudUser.uid} owner={cloudUser.uid} language={language} calendarMode={activeCalendarMode} inputCalendarMode={activeTaskCalendarMode} timeZone={deviceTimeZone} settingsRequest={physisSettingsRequest} /></Suspense></div> : view === "physis" ? <p role="status">Раздел недоступен для текущей сессии.</p> : null}
               {view === "calendar" || view === "year" ? <>
                 {cloudUser && sacredFeaturesEnabled ? <Suspense fallback={null}><CalendarExploreNotice key={cloudUser.uid}
                   userId={cloudUser.uid} pending={cloudUser.calendarExplorationPending === true} language={language}
@@ -7757,6 +7764,7 @@ export function GenesisCalendar() {
           <AccountPanel
             key={cloudUser.uid}
             user={cloudUser}
+            onOpenPhysis={physisAvailable ? () => { setAccountOpen(false); setPhysisSettingsRequest(value => value + 1); navigateTo("physis"); } : undefined}
             guideSharedProjects={accountGuideUserId === cloudUser.uid}
             onExportCalendar={exportCalendar}
             calendarExportAvailable={tasks.length > 0}

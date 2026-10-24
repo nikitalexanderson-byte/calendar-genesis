@@ -1,0 +1,1002 @@
+[
+  {
+    "fdcId": 171688,
+    "description": "Apples, raw, with skin (Includes foods for USDA's Food Distribution Program)",
+    "dataType": "SR Legacy",
+    "publicationDate": "4/1/2019",
+    "foodNutrients": [
+      {
+        "nutrient": {
+          "id": 1008,
+          "name": "Energy",
+          "unitName": "kcal"
+        },
+        "amount": 52.0,
+        "foodNutrientDerivation": {
+          "description": "Calculated"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1003,
+          "name": "Protein",
+          "unitName": "g"
+        },
+        "amount": 0.26,
+        "foodNutrientDerivation": {
+          "description": "Analytical"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1004,
+          "name": "Total lipid (fat)",
+          "unitName": "g"
+        },
+        "amount": 0.17,
+        "foodNutrientDerivation": {
+          "description": "Analytical"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1005,
+          "name": "Carbohydrate, by difference",
+          "unitName": "g"
+        },
+        "amount": 13.81,
+        "foodNutrientDerivation": {
+          "description": "Calculated"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1079,
+          "name": "Fiber, total dietary",
+          "unitName": "g"
+        },
+        "amount": 2.4,
+        "foodNutrientDerivation": {
+          "description": "Analytical"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 2000,
+          "name": "Total Sugars",
+          "unitName": "g"
+        },
+        "amount": 10.39,
+        "foodNutrientDerivation": {
+          "description": "Analytical"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1087,
+          "name": "Calcium, Ca",
+          "unitName": "mg"
+        },
+        "amount": 6.0,
+        "foodNutrientDerivation": {
+          "description": "Analytical"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1089,
+          "name": "Iron, Fe",
+          "unitName": "mg"
+        },
+        "amount": 0.12,
+        "foodNutrientDerivation": {
+          "description": "Analytical"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1090,
+          "name": "Magnesium, Mg",
+          "unitName": "mg"
+        },
+        "amount": 5.0,
+        "foodNutrientDerivation": {
+          "description": "Analytical"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1092,
+          "name": "Potassium, K",
+          "unitName": "mg"
+        },
+        "amount": 107.0,
+        "foodNutrientDerivation": {
+          "description": "Analytical"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1093,
+          "name": "Sodium, Na",
+          "unitName": "mg"
+        },
+        "amount": 1.0,
+        "foodNutrientDerivation": {
+          "description": "Analytical"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1095,
+          "name": "Zinc, Zn",
+          "unitName": "mg"
+        },
+        "amount": 0.04,
+        "foodNutrientDerivation": {
+          "description": "Analytical"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1103,
+          "name": "Selenium, Se",
+          "unitName": "µg"
+        },
+        "amount": 0.0,
+        "foodNutrientDerivation": {
+          "description": "Analytical"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1162,
+          "name": "Vitamin C, total ascorbic acid",
+          "unitName": "mg"
+        },
+        "amount": 4.6,
+        "foodNutrientDerivation": {
+          "description": "Analytical"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1177,
+          "name": "Folate, total",
+          "unitName": "µg"
+        },
+        "amount": 3.0,
+        "foodNutrientDerivation": {
+          "description": null
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1178,
+          "name": "Vitamin B-12",
+          "unitName": "µg"
+        },
+        "amount": 0.0,
+        "foodNutrientDerivation": {
+          "description": "Assumed zero (Insignificant amount or not naturally occurring in a food, such as fiber in meat)"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1114,
+          "name": "Vitamin D (D2 + D3)",
+          "unitName": "µg"
+        },
+        "amount": 0.0,
+        "foodNutrientDerivation": {
+          "description": "Assumed zero (Insignificant amount or not naturally occurring in a food, such as fiber in meat)"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1258,
+          "name": "Fatty acids, total saturated",
+          "unitName": "g"
+        },
+        "amount": 0.028,
+        "foodNutrientDerivation": {
+          "description": "Calculated"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1278,
+          "name": "PUFA 20:5 n-3 (EPA)",
+          "unitName": "g"
+        },
+        "amount": 0.0,
+        "foodNutrientDerivation": {
+          "description": null
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1272,
+          "name": "PUFA 22:6 n-3 (DHA)",
+          "unitName": "g"
+        },
+        "amount": 0.0,
+        "foodNutrientDerivation": {
+          "description": null
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1257,
+          "name": "Fatty acids, total trans",
+          "unitName": "g"
+        },
+        "amount": 0.0,
+        "foodNutrientDerivation": {
+          "description": "Assumed zero (Insignificant amount or not naturally occurring in a food, such as fiber in meat)"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1213,
+          "name": "Leucine",
+          "unitName": "g"
+        },
+        "amount": 0.013,
+        "foodNutrientDerivation": {
+          "description": "Analytical"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1214,
+          "name": "Lysine",
+          "unitName": "g"
+        },
+        "amount": 0.012,
+        "foodNutrientDerivation": {
+          "description": "Analytical"
+        }
+      }
+    ]
+  },
+  {
+    "fdcId": 171077,
+    "description": "Chicken, broiler or fryers, breast, skinless, boneless, meat only, raw",
+    "dataType": "SR Legacy",
+    "publicationDate": "4/1/2019",
+    "foodNutrients": [
+      {
+        "nutrient": {
+          "id": 1008,
+          "name": "Energy",
+          "unitName": "kcal"
+        },
+        "amount": 120.0,
+        "foodNutrientDerivation": {
+          "description": "Calculated"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1003,
+          "name": "Protein",
+          "unitName": "g"
+        },
+        "amount": 22.5,
+        "foodNutrientDerivation": {
+          "description": "Analytical"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1004,
+          "name": "Total lipid (fat)",
+          "unitName": "g"
+        },
+        "amount": 2.62,
+        "foodNutrientDerivation": {
+          "description": "Analytical"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1005,
+          "name": "Carbohydrate, by difference",
+          "unitName": "g"
+        },
+        "amount": 0.0,
+        "foodNutrientDerivation": {
+          "description": "Assumed zero (Insignificant amount or not naturally occurring in a food, such as fiber in meat)"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1079,
+          "name": "Fiber, total dietary",
+          "unitName": "g"
+        },
+        "amount": 0.0,
+        "foodNutrientDerivation": {
+          "description": "Assumed zero (Insignificant amount or not naturally occurring in a food, such as fiber in meat)"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 2000,
+          "name": "Total Sugars",
+          "unitName": "g"
+        },
+        "amount": 0.0,
+        "foodNutrientDerivation": {
+          "description": "Assumed zero (Insignificant amount or not naturally occurring in a food, such as fiber in meat)"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1087,
+          "name": "Calcium, Ca",
+          "unitName": "mg"
+        },
+        "amount": 5.0,
+        "foodNutrientDerivation": {
+          "description": "Analytical"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1089,
+          "name": "Iron, Fe",
+          "unitName": "mg"
+        },
+        "amount": 0.37,
+        "foodNutrientDerivation": {
+          "description": "Analytical"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1090,
+          "name": "Magnesium, Mg",
+          "unitName": "mg"
+        },
+        "amount": 28.0,
+        "foodNutrientDerivation": {
+          "description": "Analytical"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1092,
+          "name": "Potassium, K",
+          "unitName": "mg"
+        },
+        "amount": 334.0,
+        "foodNutrientDerivation": {
+          "description": "Analytical"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1093,
+          "name": "Sodium, Na",
+          "unitName": "mg"
+        },
+        "amount": 45.0,
+        "foodNutrientDerivation": {
+          "description": "Analytical"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1095,
+          "name": "Zinc, Zn",
+          "unitName": "mg"
+        },
+        "amount": 0.68,
+        "foodNutrientDerivation": {
+          "description": "Analytical"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1103,
+          "name": "Selenium, Se",
+          "unitName": "µg"
+        },
+        "amount": 22.8,
+        "foodNutrientDerivation": {
+          "description": "Analytical"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1162,
+          "name": "Vitamin C, total ascorbic acid",
+          "unitName": "mg"
+        },
+        "amount": 0.0,
+        "foodNutrientDerivation": {
+          "description": "Assumed zero (Insignificant amount or not naturally occurring in a food, such as fiber in meat)"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1177,
+          "name": "Folate, total",
+          "unitName": "µg"
+        },
+        "amount": 9.0,
+        "foodNutrientDerivation": {
+          "description": "Based on another form of the food or similar food; Concentration adjustment; Protein; Retention factors not used"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1178,
+          "name": "Vitamin B-12",
+          "unitName": "µg"
+        },
+        "amount": 0.21,
+        "foodNutrientDerivation": {
+          "description": "Analytical"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1114,
+          "name": "Vitamin D (D2 + D3)",
+          "unitName": "µg"
+        },
+        "amount": 0.0,
+        "foodNutrientDerivation": {
+          "description": null
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1258,
+          "name": "Fatty acids, total saturated",
+          "unitName": "g"
+        },
+        "amount": 0.563,
+        "foodNutrientDerivation": {
+          "description": "Calculated"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1404,
+          "name": "PUFA 18:3 n-3 c,c,c (ALA)",
+          "unitName": "g"
+        },
+        "amount": 0.013,
+        "foodNutrientDerivation": {
+          "description": "Analytical"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1278,
+          "name": "PUFA 20:5 n-3 (EPA)",
+          "unitName": "g"
+        },
+        "amount": 0.003,
+        "foodNutrientDerivation": {
+          "description": "Analytical"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1272,
+          "name": "PUFA 22:6 n-3 (DHA)",
+          "unitName": "g"
+        },
+        "amount": 0.004,
+        "foodNutrientDerivation": {
+          "description": "Analytical"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1257,
+          "name": "Fatty acids, total trans",
+          "unitName": "g"
+        },
+        "amount": 0.007,
+        "foodNutrientDerivation": {
+          "description": "Calculated"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1213,
+          "name": "Leucine",
+          "unitName": "g"
+        },
+        "amount": 1.861,
+        "foodNutrientDerivation": {
+          "description": "Analytical"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1214,
+          "name": "Lysine",
+          "unitName": "g"
+        },
+        "amount": 2.163,
+        "foodNutrientDerivation": {
+          "description": "Analytical"
+        }
+      }
+    ]
+  },
+  {
+    "fdcId": 169705,
+    "description": "Oats (Includes foods for USDA's Food Distribution Program)",
+    "dataType": "SR Legacy",
+    "publicationDate": "4/1/2019",
+    "foodNutrients": [
+      {
+        "nutrient": {
+          "id": 1008,
+          "name": "Energy",
+          "unitName": "kcal"
+        },
+        "amount": 389.0,
+        "foodNutrientDerivation": {
+          "description": "Calculated"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1003,
+          "name": "Protein",
+          "unitName": "g"
+        },
+        "amount": 16.89,
+        "foodNutrientDerivation": {
+          "description": null
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1004,
+          "name": "Total lipid (fat)",
+          "unitName": "g"
+        },
+        "amount": 6.9,
+        "foodNutrientDerivation": {
+          "description": null
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1005,
+          "name": "Carbohydrate, by difference",
+          "unitName": "g"
+        },
+        "amount": 66.27,
+        "foodNutrientDerivation": {
+          "description": "Calculated"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1079,
+          "name": "Fiber, total dietary",
+          "unitName": "g"
+        },
+        "amount": 10.6,
+        "foodNutrientDerivation": {
+          "description": null
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1087,
+          "name": "Calcium, Ca",
+          "unitName": "mg"
+        },
+        "amount": 54.0,
+        "foodNutrientDerivation": {
+          "description": null
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1089,
+          "name": "Iron, Fe",
+          "unitName": "mg"
+        },
+        "amount": 4.72,
+        "foodNutrientDerivation": {
+          "description": null
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1090,
+          "name": "Magnesium, Mg",
+          "unitName": "mg"
+        },
+        "amount": 177.0,
+        "foodNutrientDerivation": {
+          "description": null
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1092,
+          "name": "Potassium, K",
+          "unitName": "mg"
+        },
+        "amount": 429.0,
+        "foodNutrientDerivation": {
+          "description": null
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1093,
+          "name": "Sodium, Na",
+          "unitName": "mg"
+        },
+        "amount": 2.0,
+        "foodNutrientDerivation": {
+          "description": null
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1095,
+          "name": "Zinc, Zn",
+          "unitName": "mg"
+        },
+        "amount": 3.97,
+        "foodNutrientDerivation": {
+          "description": null
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1162,
+          "name": "Vitamin C, total ascorbic acid",
+          "unitName": "mg"
+        },
+        "amount": 0.0,
+        "foodNutrientDerivation": {
+          "description": null
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1177,
+          "name": "Folate, total",
+          "unitName": "µg"
+        },
+        "amount": 56.0,
+        "foodNutrientDerivation": {
+          "description": null
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1178,
+          "name": "Vitamin B-12",
+          "unitName": "µg"
+        },
+        "amount": 0.0,
+        "foodNutrientDerivation": {
+          "description": "Assumed zero (Insignificant amount or not naturally occurring in a food, such as fiber in meat)"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1114,
+          "name": "Vitamin D (D2 + D3)",
+          "unitName": "µg"
+        },
+        "amount": 0.0,
+        "foodNutrientDerivation": {
+          "description": "Assumed zero (Insignificant amount or not naturally occurring in a food, such as fiber in meat)"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1258,
+          "name": "Fatty acids, total saturated",
+          "unitName": "g"
+        },
+        "amount": 1.217,
+        "foodNutrientDerivation": {
+          "description": null
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1213,
+          "name": "Leucine",
+          "unitName": "g"
+        },
+        "amount": 1.284,
+        "foodNutrientDerivation": {
+          "description": null
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1214,
+          "name": "Lysine",
+          "unitName": "g"
+        },
+        "amount": 0.701,
+        "foodNutrientDerivation": {
+          "description": null
+        }
+      }
+    ]
+  },
+  {
+    "fdcId": 172421,
+    "description": "Lentils, mature seeds, cooked, boiled, without salt",
+    "dataType": "SR Legacy",
+    "publicationDate": "4/1/2019",
+    "foodNutrients": [
+      {
+        "nutrient": {
+          "id": 1008,
+          "name": "Energy",
+          "unitName": "kcal"
+        },
+        "amount": 116.0,
+        "foodNutrientDerivation": {
+          "description": "Calculated"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1003,
+          "name": "Protein",
+          "unitName": "g"
+        },
+        "amount": 9.02,
+        "foodNutrientDerivation": {
+          "description": null
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1004,
+          "name": "Total lipid (fat)",
+          "unitName": "g"
+        },
+        "amount": 0.38,
+        "foodNutrientDerivation": {
+          "description": null
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1005,
+          "name": "Carbohydrate, by difference",
+          "unitName": "g"
+        },
+        "amount": 20.13,
+        "foodNutrientDerivation": {
+          "description": "Calculated"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1079,
+          "name": "Fiber, total dietary",
+          "unitName": "g"
+        },
+        "amount": 7.9,
+        "foodNutrientDerivation": {
+          "description": null
+        }
+      },
+      {
+        "nutrient": {
+          "id": 2000,
+          "name": "Total Sugars",
+          "unitName": "g"
+        },
+        "amount": 1.8,
+        "foodNutrientDerivation": {
+          "description": "Taken from another source--other tables of food composition"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1087,
+          "name": "Calcium, Ca",
+          "unitName": "mg"
+        },
+        "amount": 19.0,
+        "foodNutrientDerivation": {
+          "description": null
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1089,
+          "name": "Iron, Fe",
+          "unitName": "mg"
+        },
+        "amount": 3.33,
+        "foodNutrientDerivation": {
+          "description": null
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1090,
+          "name": "Magnesium, Mg",
+          "unitName": "mg"
+        },
+        "amount": 36.0,
+        "foodNutrientDerivation": {
+          "description": null
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1092,
+          "name": "Potassium, K",
+          "unitName": "mg"
+        },
+        "amount": 369.0,
+        "foodNutrientDerivation": {
+          "description": null
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1093,
+          "name": "Sodium, Na",
+          "unitName": "mg"
+        },
+        "amount": 2.0,
+        "foodNutrientDerivation": {
+          "description": null
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1095,
+          "name": "Zinc, Zn",
+          "unitName": "mg"
+        },
+        "amount": 1.27,
+        "foodNutrientDerivation": {
+          "description": null
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1103,
+          "name": "Selenium, Se",
+          "unitName": "µg"
+        },
+        "amount": 2.8,
+        "foodNutrientDerivation": {
+          "description": "Based on another form of the food or similar food; Concentration adjustment; Solids; Retention factors not used"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1162,
+          "name": "Vitamin C, total ascorbic acid",
+          "unitName": "mg"
+        },
+        "amount": 1.5,
+        "foodNutrientDerivation": {
+          "description": null
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1177,
+          "name": "Folate, total",
+          "unitName": "µg"
+        },
+        "amount": 181.0,
+        "foodNutrientDerivation": {
+          "description": null
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1178,
+          "name": "Vitamin B-12",
+          "unitName": "µg"
+        },
+        "amount": 0.0,
+        "foodNutrientDerivation": {
+          "description": null
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1114,
+          "name": "Vitamin D (D2 + D3)",
+          "unitName": "µg"
+        },
+        "amount": 0.0,
+        "foodNutrientDerivation": {
+          "description": "Assumed zero (Insignificant amount or not naturally occurring in a food, such as fiber in meat)"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1258,
+          "name": "Fatty acids, total saturated",
+          "unitName": "g"
+        },
+        "amount": 0.053,
+        "foodNutrientDerivation": {
+          "description": null
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1278,
+          "name": "PUFA 20:5 n-3 (EPA)",
+          "unitName": "g"
+        },
+        "amount": 0.0,
+        "foodNutrientDerivation": {
+          "description": null
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1272,
+          "name": "PUFA 22:6 n-3 (DHA)",
+          "unitName": "g"
+        },
+        "amount": 0.0,
+        "foodNutrientDerivation": {
+          "description": null
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1257,
+          "name": "Fatty acids, total trans",
+          "unitName": "g"
+        },
+        "amount": 0.0,
+        "foodNutrientDerivation": {
+          "description": "Assumed zero (Insignificant amount or not naturally occurring in a food, such as fiber in meat)"
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1213,
+          "name": "Leucine",
+          "unitName": "g"
+        },
+        "amount": 0.654,
+        "foodNutrientDerivation": {
+          "description": null
+        }
+      },
+      {
+        "nutrient": {
+          "id": 1214,
+          "name": "Lysine",
+          "unitName": "g"
+        },
+        "amount": 0.63,
+        "foodNutrientDerivation": {
+          "description": null
+        }
+      }
+    ]
+  }
+]

@@ -64,6 +64,7 @@ jobs:
       - name: Test native Google token verification
         run: |
           php server/tests/native-auth.php
+          php server/tests/physis-security.php
           php server/tests/relocation.php
           php -l public/legacy-home.php
           php server/tests/legacy-home.php

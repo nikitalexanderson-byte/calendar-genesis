@@ -19,6 +19,9 @@ function genesisBeginWriteTransaction(PDO $db): void
 
 function genesisJsonBodyLimit(string $path): int
 {
+    if ($path === 'physis/v1/rotate') return 48 * 1024 * 1024;
+    if ($path === 'physis/v1/records') return 2 * 1024 * 1024;
+    if ($path === 'physis/v1/vault') return 4096;
     // Include base64 overhead and metadata; decoded files retain their existing limits.
     if ($path === 'workspace') return 11_600_000;
     if ($path === 'habit-reminders/plan') return 1_500_000;

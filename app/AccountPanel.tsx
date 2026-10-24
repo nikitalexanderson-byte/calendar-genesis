@@ -66,6 +66,7 @@ const TODAY_SETTINGS = [
 ] as const;
 
 type AccountPanelProps = {
+  onOpenPhysis?: () => void;
   user: GenesisUser;
   guideSharedProjects?: boolean;
   onClose: () => void;
@@ -129,7 +130,7 @@ function createHabitResetChallenge(): HabitResetChallenge {
   };
 }
 
-export function AccountPanel({ user, guideSharedProjects = false, onClose, onSignOut, onReconnectGoogle, onConnectAdditionalGoogle, onLanguageChange, onUserChange, themeState, onThemeChange, habitTrackingEnabled, onHabitTrackingChange, habitNotificationSettings, notificationPermission, onHabitNotificationSettingsChange, habitFeedbackSettings, onHabitFeedbackSettingsChange, onRequestHabitNotifications, hiddenHabitTemplateCount, onRestoreHabitTemplates, onResetHabitTracking, onExportCalendar, calendarExportAvailable, categories }: AccountPanelProps) {
+export function AccountPanel({ user, onOpenPhysis, guideSharedProjects = false, onClose, onSignOut, onReconnectGoogle, onConnectAdditionalGoogle, onLanguageChange, onUserChange, themeState, onThemeChange, habitTrackingEnabled, onHabitTrackingChange, habitNotificationSettings, notificationPermission, onHabitNotificationSettingsChange, habitFeedbackSettings, onHabitFeedbackSettingsChange, onRequestHabitNotifications, hiddenHabitTemplateCount, onRestoreHabitTemplates, onResetHabitTracking, onExportCalendar, calendarExportAvailable, categories }: AccountPanelProps) {
   const [sharedNotificationSettingsOpen,setSharedNotificationSettingsOpen]=useState(false);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -572,6 +573,7 @@ export function AccountPanel({ user, guideSharedProjects = false, onClose, onSig
         </div>
 
         <section className="account-preferences" data-settings-group="account" aria-labelledby="calendar-export-title" data-exp-ui="panel">
+          {onOpenPhysis ? <div className="account-physis-settings"><h3>Фюзис</h3><p>Питание, единицы, давление, сахар, другие показатели и защита личных данных.</p><button type="button" onClick={onOpenPhysis}>Открыть настройки Фюзиса</button></div> : null}
           <h3 id="calendar-export-title">{translateText("Экспорт календаря .ics", user.language)}</h3>
           <p>{translateText("Скачайте задачи и встречи для переноса в другой календарь.", user.language)}</p>
           <button type="button" className="secondary-button" disabled={!calendarExportAvailable} onClick={onExportCalendar}>

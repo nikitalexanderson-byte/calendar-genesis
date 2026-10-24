@@ -4,6 +4,9 @@ declare(strict_types=1);
 return [
     'app_url' => 'https://genesiscalendar.com',
     'google_only' => true,
+    // Remains disabled until legacy WebView entry-point isolation is verified.
+    // Exact initial allowlist is in src/physis.php; never infer it from owner email.
+    'physis_enabled' => false,
     'google_client_id' => '',
     'google_client_secret' => '',
     // Yandex ID sign-in remains unavailable until both values are configured.
