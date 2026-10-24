@@ -12,3 +12,10 @@ export function zoomSolarCamera(camera: SolarCamera, factor: number): SolarCamer
   const size = Math.max(320, Math.min(5000, camera.size * factor));
   return clampSolarCamera({ x: camera.x + (camera.size - size) / 2, y: camera.y + (camera.size - size) / 2, size });
 }
+
+/** Match the square SVG's centred `meet` projection inside any viewport. */
+export function solarCameraTransform(camera: SolarCamera, width: number, height: number) {
+  const scale = 5000 / camera.size, unit = Math.min(width, height) / camera.size;
+  const insetX = (width - Math.min(width, height)) / 2, insetY = (height - Math.min(width, height)) / 2;
+  return { scale, x: insetX * (1 - scale) - camera.x * unit, y: insetY * (1 - scale) - camera.y * unit };
+}

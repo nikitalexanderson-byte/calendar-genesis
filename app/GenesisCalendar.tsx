@@ -6484,7 +6484,7 @@ export function GenesisCalendar() {
             <div><dt>4</dt><dd>солнечных праздника года</dd></div>
           </dl>
           <p>Равноденствия и солнцестояния образуют четыре праздничные опоры. После завершения двенадцатого месяца наступает Апейрон — несколько дней вне обычного счёта, пространство тишины перед новым весенним началом.</p>
-          <button type="button" className="year-details-button" onClick={() => setSacredYearDetailsOpen(true)}>
+          <div className="year-description-actions"><button type="button" className="year-details-button" onClick={() => setSacredYearDetailsOpen(true)}>
             <span aria-hidden="true">✦</span>
             <span><strong>Подробнее</strong><small>Сакральная геометрия времени</small></span>
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -6496,6 +6496,7 @@ export function GenesisCalendar() {
             <span><strong>Круг GENESIS</strong><small>Интерактивная модель календаря</small></span>
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12h13M13 7l5 5-5 5" /></svg>
           </button>
+          </div>
         </article>
       </section>
     </div>

@@ -40,6 +40,51 @@ test('supplied solar SVG retains every calendar target and contains only local v
  }
 });
 
+test('solar compositor projection preserves hit coordinates on wide and tall viewports',async()=>{
+ const {solarCameraTransform}=await import('../app/solar-calendar-camera.ts');
+ for(const [width,height] of [[1046,658],[318,780],[390,390]])for(const camera of [{x:0,y:0,size:5000},{x:1200,y:2300,size:500},{x:4680,y:0,size:320}]){
+  const m=solarCameraTransform(camera,width,height),unit=Math.min(width,height)/5000;
+  const insetX=(width-Math.min(width,height))/2,insetY=(height-Math.min(width,height))/2;
+  for(const [x,y]of [[camera.x+camera.size/2,camera.y+camera.size/2],[camera.x,camera.y]]){
+   const screenX=(insetX+x*unit)*m.scale+m.x,screenY=(insetY+y*unit)*m.scale+m.y;
+   assert.ok(Math.abs(screenX-(insetX+(x-camera.x)*Math.min(width,height)/camera.size))<1e-8);
+   assert.ok(Math.abs(screenY-(insetY+(y-camera.y)*Math.min(width,height)/camera.size))<1e-8);
+  }
+ }
+});
+
+test('solar motion coalesces gesture bursts, releases work at rest, and cancels on close',async()=>{
+ const {createSolarCameraMotion}=await import('../app/solar-calendar-motion.ts');
+ let now=0,id=0,reduced=false;const frames=new Map(),timers=new Map(),renders=[],moving=[],settled=[];
+ const controller=createSolarCameraMotion({now:()=>now,requestFrame:fn=>{frames.set(++id,fn);return id;},cancelFrame:key=>frames.delete(key),
+  delay:(fn,ms)=>{timers.set(++id,{fn,at:now+ms});return id;},clearDelay:key=>timers.delete(key),reducedMotion:()=>reduced,
+  render:camera=>renders.push({...camera}),onMoving:value=>moving.push(value),onSettled:camera=>settled.push({...camera})});
+ const step=ms=>{now+=ms;const pending=[...frames.values()];frames.clear();for(const fn of pending)fn(now);for(const [key,timer]of [...timers])if(timer.at<=now){timers.delete(key);timer.fn();}};
+ for(let i=0;i<80;i++)controller.move({x:i,y:100,size:1000},false);
+ assert.equal(frames.size,1);assert.equal(timers.size,1);assert.equal(renders.length,0);assert.equal(controller.current.x,79);
+ step(16);assert.equal(renders.length,1);assert.equal(frames.size,0);step(140);
+ assert.deepEqual(moving,[true,false]);assert.equal(frames.size+timers.size,0);assert.equal(settled.length,1);
+ controller.move({x:2000,y:2000,size:500});step(100);assert.ok(controller.current.size<1000&&controller.current.size>500);
+ controller.interrupt();assert.equal(frames.size+timers.size,0);
+ reduced=true;controller.move({x:0,y:0,size:5000});assert.deepEqual(controller.current,{x:0,y:0,size:5000});assert.equal(frames.size,0);
+ reduced=false;controller.move({x:300,y:400,size:1000});controller.dispose();const count=renders.length;step(1000);
+ assert.equal(frames.size+timers.size,0);assert.equal(renders.length,count);assert.equal(moving.at(-1),false);
+});
+
+test('solar native animation uses no JS frame loop and ignores cancelled completions',async()=>{
+ const {createSolarCameraMotion}=await import('../app/solar-calendar-motion.ts');
+ const finishes=[],cancelled=[],renders=[],moving=[];let sampled={x:100,y:200,size:2000};
+ const controller=createSolarCameraMotion({now:()=>0,requestFrame:()=>{throw Error('Native zoom must not schedule JS frames');},cancelFrame:()=>{},
+  delay:()=>{throw Error('Native zoom must not poll');},clearDelay:()=>{},reducedMotion:()=>false,
+  render:value=>renders.push(value),onMoving:value=>moving.push(value),onSettled:()=>{},
+  animate:(_from,_to,finished)=>{const id=finishes.length;finishes.push(finished);return{current:()=>({...sampled}),cancel:()=>cancelled.push(id)};}});
+ controller.move({x:2000,y:2000,size:500});assert.deepEqual(controller.current,sampled);
+ controller.interrupt();assert.deepEqual(cancelled,[0]);assert.deepEqual(moving,[true,false]);
+ finishes[0]();assert.deepEqual(controller.current,sampled);
+ const target={x:1000,y:1500,size:700};controller.move(target);finishes[1]();assert.deepEqual(controller.current,target);assert.deepEqual(cancelled,[0,1]);
+ controller.move({x:10,y:20,size:1000});controller.dispose();const count=renders.length;finishes[2]();assert.equal(renders.length,count);assert.equal(moving.at(-1),false);
+});
+
 test('all four display years share exact boundaries with goals, reports and the full mosaic in every zone',()=>{
  for(const [mode,gregorianYearStart]of configurations)for(const timeZone of zones)for(const date of dates){
   const context=c.calendarContext({timeZone,gregorianYearStart}),year=a.calendarPeriod(date,mode,'year',context),last=c.addCivilDays(year.end,-1);
