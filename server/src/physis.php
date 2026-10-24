@@ -41,7 +41,15 @@ function genesisPhysisRoute(string $method, string $path): never
 {
     header('Cache-Control: private, no-store');
     header('Vary: Cookie');
-    $owner = genesisPhysisRequireOwner();
+    try { $owner = genesisPhysisRequireOwner(); }
+    catch (GenesisPhysisException $error) {
+        // A verified existing primary session may predate the browser-only claims.
+        // This is a sign-in hint only: it never grants access to the vault or records.
+        if ($method === 'GET' && $path === 'physis/v1/access' && genesisPhysisNeedsReauthentication()) {
+            genesisJson(['error' => 'PHYSIS_UNAVAILABLE', 'reauthRequired' => true], 403);
+        }
+        throw $error;
+    }
     genesisEnforceApiBudget($method, $path, $owner);
     $csrf = (string)($_SESSION['csrf'] ?? '');
     if (!in_array($method, ['GET', 'HEAD'], true)) {
@@ -59,6 +67,20 @@ function genesisPhysisRoute(string $method, string $path): never
     if ($method === 'POST' && $path === 'physis/v1/records') genesisJson(genesisPhysisSaveRecords($owner, genesisReadJson()));
     if ($method === 'POST' && $path === 'physis/v1/rotate') genesisJson(genesisPhysisRotate($owner, genesisReadJson()));
     throw new GenesisPhysisException(404, 'NOT_FOUND');
+}
+
+function genesisPhysisNeedsReauthentication(): bool
+{
+    $config = genesisConfig();
+    if ((array_key_exists('physis_enabled', $config) ? $config['physis_enabled'] : GENESIS_PHYSIS_WEB_ENABLED) !== true) return false;
+    $id = genesisCurrentUserId();
+    $identity = $_SESSION['auth_identity'] ?? [];
+    if ($id === null || !is_array($identity) || ($identity['kind'] ?? '') !== 'primary'
+        || !in_array($identity['channel'] ?? 'unknown', ['unknown'], true)) return false;
+    $user = genesisFindUser($id);
+    return $user !== null && genesisUserProvider($user) === 'google'
+        && hash_equals((string)$user['google_sub'], (string)($identity['sub'] ?? ''))
+        && in_array(strtolower(trim((string)$user['email'])), GENESIS_PHYSIS_EMAILS, true);
 }
 
 function genesisPhysisKeys(array $value, array $keys): void

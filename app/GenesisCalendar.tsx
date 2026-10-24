@@ -1,5 +1,6 @@
 "use client";
 import { usePhysisAccess } from "./physis/access";
+import { PhysisAccessNotice } from "./physis/AccessNotice";
 const PhysisPage = lazy(() => import("./physis/PhysisPage").then(module => ({ default: module.PhysisPage })));
 import { TodayAdvice } from "./TodayAdvice";
 import { DialogCloseButton } from "./DialogCloseButton";
@@ -1222,7 +1223,8 @@ export function GenesisCalendar() {
   const voiceLanguageEnabled = hydrated && (language === "ru" || language === "en");
   const [authResolved, setAuthResolved] = useState(!isGoogleSyncConfigured);
   const [cloudUser, setCloudUser] = useState<GenesisUser | null>(null);
-  const physisAvailable = usePhysisAccess(cloudUser?.uid ?? "");
+  const physisAccess = usePhysisAccess(cloudUser?.uid ?? "");
+  const physisAvailable = physisAccess.available;
   const [physisSettingsRequest, setPhysisSettingsRequest] = useState(0);
   const personalTaskDisplay=usePersonalTaskDisplay(cloudUser?.uid??"local");
   const [sharedCalendarCounts, setSharedCalendarCounts] = useState<Record<string,number>>({});
@@ -1919,7 +1921,6 @@ export function GenesisCalendar() {
   };
 
   const navigateTo = (nextView: ViewName, replace = false, sharedDestination?: SharedTaskDestination, revealInvitedWorkspace = false) => {
-    if (nextView === "physis" && !physisAvailable) nextView = "today";
     if (nextView === "all-tasks") nextView = "projects";
     if (!viewIsVisible(nextView, visibility) && !revealInvitedWorkspace) nextView = "today";
     setOpenDayTaskPopover("");
@@ -6756,7 +6757,7 @@ export function GenesisCalendar() {
 
   const visibleNavigation = NAVIGATION.filter((item) =>
     (habitWorkspace.habitSettings.enabled || item.id !== "habits") && (item.id === "stoicheion" ? viewIsVisible("stoicheion", visibility) || viewIsVisible("theokyklos", visibility) : item.id === "calendar" ? viewIsVisible("calendar", visibility) || viewIsVisible("year", visibility) : viewIsVisible(item.id, visibility)));
-  const physisNavigation = physisAvailable ? [...visibleNavigation, { id: "physis" as const, label: "Фюзис", symbol: "" }] : visibleNavigation;
+  const physisNavigation = physisAccess.showEntry ? [...visibleNavigation, { id: "physis" as const, label: "Фюзис", symbol: "" }] : visibleNavigation;
   const navigation = cloudUser?.isAdmin
     ? [...physisNavigation, { id: "admin" as const, label: "Админ", symbol: "Σ" }]
     : physisNavigation;
@@ -6988,7 +6989,7 @@ export function GenesisCalendar() {
             ) : null}
             <ViewErrorBoundary resetKey={view}>
               {view === "today" ? renderToday() : null}
-              {physisAvailable && cloudUser ? <div hidden={view !== "physis"}><Suspense fallback={<DeferredViewFallback label="Открываем Фюзис…" />}><PhysisPage key={cloudUser.uid} owner={cloudUser.uid} language={language} calendarMode={activeCalendarMode} inputCalendarMode={activeTaskCalendarMode} timeZone={deviceTimeZone} settingsRequest={physisSettingsRequest} /></Suspense></div> : view === "physis" ? <p role="status">Раздел недоступен для текущей сессии.</p> : null}
+              {physisAvailable && cloudUser ? <div hidden={view !== "physis"}><Suspense fallback={<DeferredViewFallback label="Открываем Фюзис…" />}><PhysisPage key={cloudUser.uid} owner={cloudUser.uid} language={language} calendarMode={activeCalendarMode} inputCalendarMode={activeTaskCalendarMode} timeZone={deviceTimeZone} settingsRequest={physisSettingsRequest} /></Suspense></div> : view === "physis" ? <PhysisAccessNotice status={physisAccess.status} retry={physisAccess.retry} language={language} /> : null}
               {view === "calendar" || view === "year" ? <>
                 {cloudUser && sacredFeaturesEnabled ? <Suspense fallback={null}><CalendarExploreNotice key={cloudUser.uid}
                   userId={cloudUser.uid} pending={cloudUser.calendarExplorationPending === true} language={language}
@@ -7764,7 +7765,7 @@ export function GenesisCalendar() {
           <AccountPanel
             key={cloudUser.uid}
             user={cloudUser}
-            onOpenPhysis={physisAvailable ? () => { setAccountOpen(false); setPhysisSettingsRequest(value => value + 1); navigateTo("physis"); } : undefined}
+            onOpenPhysis={physisAccess.showEntry ? () => { setAccountOpen(false); setPhysisSettingsRequest(value => value + 1); navigateTo("physis"); } : undefined}
             guideSharedProjects={accountGuideUserId === cloudUser.uid}
             onExportCalendar={exportCalendar}
             calendarExportAvailable={tasks.length > 0}
