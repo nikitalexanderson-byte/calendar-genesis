@@ -937,5 +937,13 @@
   "Лучший расчётный 1ПМ": "Best estimated 1RM",
   "Файл превышает 128 МиБ.": "File exceeds 128 MiB.",
   "Некорректная резервная копия или превышен предел записей.": "Invalid backup or record limit exceeded.",
-  "Удалить время приёма": "Remove intake time"
+  "Удалить время приёма": "Remove intake time",
+  "Подтвердите вход через Google, чтобы открыть Фюзис. Ваша текущая сессия создана до подключения раздела.": "Confirm your Google sign-in to open Physis. Your current session was created before this section became available.",
+  "Проверяем доступ…": "Checking access…",
+  "Не удалось проверить доступ. Проверьте соединение и повторите попытку.": "Could not check access. Check your connection and try again.",
+  "Фюзис недоступен для этой сессии.": "Physis is unavailable for this session.",
+  "Не удалось открыть вход Google. Повторите попытку.": "Could not start Google sign-in. Please try again.",
+  "Открываем Google…": "Opening Google…",
+  "Подтвердить вход Google": "Confirm Google sign-in",
+  "Проверить снова": "Check again"
 }

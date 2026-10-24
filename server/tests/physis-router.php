@@ -22,6 +22,11 @@ if (getenv('GENESIS_PHYSIS_BROWSER_FIXTURE') === '1' && ($_GET['path'] ?? '') ==
     session_regenerate_id(true);
     genesisEstablishGoogleSession($fixtureUser, $fixtureUser['google_sub'],
         ['sub' => $fixtureUser['google_sub'], 'email' => $fixtureUser['email'], 'email_verified' => true], 'web');
+    if (($_GET['session'] ?? '') === 'legacy') {
+        unset($_SESSION['auth_identity']['channel'], $_SESSION['auth_identity']['email'], $_SESSION['auth_identity']['email_verified']);
+    } elseif (($_GET['session'] ?? '') === 'native') {
+        $_SESSION['auth_identity']['channel'] = 'native';
+    }
     genesisJson(['ok' => true, 'fixture' => true, 'csrf' => $_SESSION['csrf']]);
 }
 require dirname(__DIR__) . '/public/api/index.php';

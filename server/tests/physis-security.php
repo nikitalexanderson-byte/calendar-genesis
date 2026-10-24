@@ -73,9 +73,10 @@ try {
     genesisEstablishGoogleSession($owner, 'owner-a-sub');
     physisFailure(static fn() => genesisPhysisRequireOwner(), 403, 'PHYSIS_UNAVAILABLE');
 
-    $makeCookie = static function (string $user, array $claims = [], string $channel = 'web', ?string $sub = null) use ($fixture): array {
+    $makeCookie = static function (string $user, array $claims = [], string $channel = 'web', ?string $sub = null, bool $legacyClaims = false) use ($fixture): array {
         $profile = $claims + ['sub' => $sub ?? $user . '-sub', 'email' => genesisFindUser($user)['email'], 'email_verified' => true];
         genesisEstablishGoogleSession(genesisFindUser($user), $profile['sub'], $profile, $channel);
+        if ($legacyClaims) unset($_SESSION['auth_identity']['channel'], $_SESSION['auth_identity']['email'], $_SESSION['auth_identity']['email_verified']);
         $sessionId = bin2hex(random_bytes(24)); $encoded = '';
         foreach ($_SESSION as $key => $value) $encoded .= $key . '|' . serialize($value);
         file_put_contents($fixture . '/sessions/sess_' . $sessionId, $encoded);
@@ -86,6 +87,8 @@ try {
     $native = $makeCookie('owner-a', [], 'native'); $unverified = $makeCookie('owner-a', ['email_verified' => false]);
     $linked = $makeCookie('owner-a', ['email' => GENESIS_PHYSIS_EMAILS[0]], 'web', 'linked-sub');
     $old = $makeCookie('owner-a', [], 'unknown');
+    $otherOld = $makeCookie('other', [], 'unknown');
+    $legacyNoClaims = $makeCookie('owner-a', [], 'web', null, true);
     session_write_close();
 
     $listener = stream_socket_server('tcp://127.0.0.1:0', $errno, $error);
@@ -108,7 +111,7 @@ try {
         preg_match('/^HTTP\/\S+ (\d+)/', ($http_response_header ?? [])[0] ?? '', $status);
         return ['status' => (int)($status[1] ?? 0), 'data' => json_decode($bytes ?: '{}', true), 'headers' => $http_response_header ?? []];
     };
-    foreach ([$other, $native, $unverified, $cUnverified, $linked, $old, []] as $denied) {
+    foreach ([$other, $native, $unverified, $cUnverified, $linked, $old, $legacyNoClaims, []] as $denied) {
         foreach ([['GET', 'access'], ['GET', 'vault'], ['GET', 'records'], ['POST', 'records'], ['PUT', 'vault'], ['POST', 'rotate'], ['GET', 'export'], ['GET', 'records/foreign-id']] as [$method, $path]) {
             $reply = $request('physis/v1/' . $path, $denied, $method, $method === 'GET' ? null : '{}');
             physisExpect($reply['status'] === 403 && ($reply['data']['error'] ?? '') === 'PHYSIS_UNAVAILABLE', 'Denied identity reached ' . $path . ': ' . json_encode($reply['data']));
@@ -117,6 +120,16 @@ try {
     physisExpect($request('physis/v1/access', $a)['data']['ownerId'] === 'owner-a', 'Access identity mismatch.');
     physisExpect($request('physis/v1/access', $b)['data']['ownerId'] === 'owner-b', 'Second allowed owner denied.');
     physisExpect($request('physis/v1/access', $c)['data']['ownerId'] === 'owner-c', 'Third allowed owner denied.');
+    $legacyAccess = $request('physis/v1/access', $old);
+    physisExpect($legacyAccess['status'] === 403 && ($legacyAccess['data']['reauthRequired'] ?? false) === true, 'Legacy primary tester has no browser reauthentication hint.');
+    physisExpect(!array_key_exists('ownerId', $legacyAccess['data']) && !array_key_exists('vault', $legacyAccess['data']), 'Reauthentication hint disclosed private data.');
+    physisExpect(($request('physis/v1/access', $legacyNoClaims)['data']['reauthRequired'] ?? false) === true, 'Session created before trusted claims has no confirmation entry.');
+    foreach ([$native, $linked, $unverified, $other, $otherOld, []] as $deniedHint) {
+        physisExpect(!isset($request('physis/v1/access', $deniedHint)['data']['reauthRequired']), 'Ineligible session received tester reauthentication hint.');
+    }
+    foreach (['vault', 'records', 'export'] as $privatePath) {
+        physisExpect(!isset($request('physis/v1/' . $privatePath, $old)['data']['reauthRequired']), 'Private route changed its denial response.');
+    }
     $deniedCsrf = ['csrf' => 'wrong'] + $a;
     physisExpect($request('physis/v1/records', $deniedCsrf, 'POST', '{}')['status'] === 403, 'CSRF bypass.');
     physisExpect($request('physis/v1/records', $a, 'POST', '{}', 'text/plain')['status'] === 415, 'JSON content-type missing.');
@@ -215,6 +228,7 @@ try {
     file_put_contents($fixture . '/config.php', '<?php return ' . var_export($config, true) . ';');
     physisExpect($request('physis/v1/records', $a)['status'] === 403, 'Feature flag did not revoke reads.');
     physisExpect($request('physis/v1/records', $a, 'POST', '{}')['status'] === 403, 'Feature flag did not revoke writes.');
+    physisExpect(!isset($request('physis/v1/access', $old)['data']['reauthRequired']), 'Disabled pilot still exposed a reauthentication entry.');
     unset($config['physis_enabled']); file_put_contents($fixture . '/config.php', '<?php return ' . var_export($config, true) . ';');
     foreach ([$a, $b, $c] as $allowedBrowser) {
         physisExpect($request('physis/v1/access', $allowedBrowser)['status'] === 200, 'Released browser pilot denied an allowed verified account.');

@@ -1,13 +1,27 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { physisRequest } from '../cloud-sync';
+import { createPhysisAccessCheck, type PhysisAccessStatus } from './access-check';
 export function usePhysisAccess(userId: string) {
-  const [owner, setOwner] = useState('');
+  const [result, setResult] = useState<{ owner: string; status: PhysisAccessStatus }>({ owner: '', status: 'checking' });
+  const check = useRef<ReturnType<typeof createPhysisAccessCheck> | null>(null);
   useEffect(() => {
-    const controller = new AbortController();
-    if (userId) void physisRequest<{ available: boolean; ownerId: string }>('/access', { signal: controller.signal })
-      .then(result => { if (!controller.signal.aborted) setOwner(result.available && result.ownerId === userId ? userId : ''); })
-      .catch(() => { if (!controller.signal.aborted) setOwner(''); });
-    return () => controller.abort();
+    if (!userId) return;
+    const current = createPhysisAccessCheck(userId, signal => physisRequest('/access', { signal }),
+      status => setResult({ owner: userId, status }));
+    check.current = current;
+    const refresh = () => { if (document.visibilityState !== 'hidden') void current.refresh(); };
+    void current.refresh();
+    window.addEventListener('focus', refresh);
+    window.addEventListener('online', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      current.stop(); check.current = null;
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener('online', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
   }, [userId]);
-  return Boolean(userId && owner === userId);
+  const status = userId && result.owner === userId ? result.status : 'checking';
+  return { available: status === 'ready', showEntry: status === 'ready' || status === 'reauth', status,
+    retry: () => { void check.current?.refresh(); } };
 }
