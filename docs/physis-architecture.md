@@ -3,7 +3,7 @@
 ## Обследование и решения
 
 - Web: `beget/main.tsx`, `app/GenesisCalendar.tsx`; React 19/Vite, существующий GENESIS Universal UI. Настройки: `app/AccountPanel.tsx`. Новый интерфейс загружается отдельно после серверной проверки доступа.
-- Android: самостоятельный Kotlin/Compose-клиент в `android/app/src/main/java/ru/genesis/calendar`. Его исходники, ресурсы и сборка не меняются. Native Google-вход — отдельный `/auth/google/native`. Для старых недифференцированных WebView нельзя доказать изоляцию по User-Agent: production-флаг по умолчанию выключен до проверки их точки входа.
+- Android: самостоятельный Kotlin/Compose-клиент в `android/app/src/main/java/ru/genesis/calendar`. Его исходники, ресурсы и сборка не меняются. Native Google-вход — отдельный `/auth/google/native`. Проверен опубликованный APK 2.9.7/102: launcher — `MainActivity`, старый `BrowserLauncherActivity` не зарегистрирован. Нативная cookie-сессия и маршруты отделены от браузерных; Фюзис разрешён только подтверждённым web-сессиям. Внешняя браузерная ссылка из приложения открывает именно сайт. Доказательства: [physis-browser-access.md](physis-browser-access.md).
 - API: `server/public/api/index.php`; PHP/PDO SQLite; миграции `server/migrations`, существующий session cookie + CSRF. Новый namespace `/api/physis/v1`, без подключения к Google Calendar, общим делам и Android bootstrap.
 - Дни: `app/calendar-context.ts` — ISO civil date, `addCivilDays`, IANA timezone, `resolveCalendarWallTime`. Отображение: `app/calendar-data.ts` и `CalendarDatePicker.tsx`; sacred/lunar/profane остаются адаптерами тех же записей. Исторический локальный день факта фиксируется отдельно от timestamp и не меняется при смене timezone.
 - Существующий `app/cloud-sync.ts` шифрует workspace AES-GCM, но поддерживает account/legacy/client режимы и постоянный device key. Серверное `genesisEncrypt` — sodium secretbox с серверным ключом. Поэтому эти режимы нельзя без оговорок называть E2EE и нельзя использовать для строгих требований Фюзиса.
@@ -37,4 +37,4 @@
 
 ## Выпуск/откат
 
-Аддитивная миграция не меняет старые таблицы данных. Existing deploy.yml делает runtime backup config/SQLite. Перед включением флага необходимы behavioral/security проверки и подтверждение границы legacy WebView. Отключение флага не удаляет ciphertext. Code rollback через git revert; schema/данные остаются для последующего forward-fix. Production-БД вручную не восстанавливается.
+Аддитивная миграция не меняет старые таблицы данных. Existing deploy.yml делает runtime backup config/SQLite. После проверки APK и серверной границы пользователь поручил включить браузерный пилот; Git-controlled `GENESIS_PHYSIS_WEB_ENABLED=true` задаёт default, явный `physis_enabled=false` в server config отключает его. Отключение не удаляет ciphertext. Code rollback через git revert; schema/данные остаются для последующего forward-fix. Production-БД вручную не восстанавливается.
