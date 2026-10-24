@@ -1,4 +1,6 @@
-.solar-model-backdrop { z-index:160; padding:16px; }
+.solar-model-backdrop { z-index:160; padding:16px; backdrop-filter:none; }
+/* Background decoration must not keep repainting through this large diagram. */
+.genesis-app:has(.solar-model-dialog) :is(.voice-microphone-icon,.solar-glyph > i) { animation-play-state:paused; }
 .solar-model-dialog { --solar-model-paper:var(--surface); display:flex; flex-direction:column; width:min(1480px,100%); max-height:calc(100dvh - 32px); padding:24px; overflow:auto; color:var(--ink); background:var(--surface); border:1px solid var(--line); border-radius:var(--ui-radius); box-shadow:0 24px 80px #0005; }
 .solar-model-header { position:sticky; top:0; z-index:4; display:flex; flex:none; align-items:flex-start; justify-content:space-between; gap:24px; padding-bottom:20px; background:var(--surface); }
 .solar-model-header h2 { margin:0; font:400 clamp(26px,3vw,38px)/1.15 var(--font-display,var(--font-ui)); }
@@ -16,13 +18,13 @@
 .solar-model-toolbar > div > button { display:grid; place-items:center; width:44px; padding:10px; }
 .solar-model-toolbar svg { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; }
 .solar-model-toolbar output { min-width:60px; text-align:center; font:500 13px/1 var(--font-ui); font-variant-numeric:tabular-nums; color:var(--ink-soft); }
-.solar-svg-host { width:100%; height:min(66dvh,780px); min-height:280px; overflow:hidden; border:1px solid var(--line); border-radius:var(--ui-radius); background:var(--paper); touch-action:none; cursor:grab; user-select:none; }
+.solar-svg-host { position:relative; contain:layout paint style; width:100%; height:min(66dvh,780px); min-height:280px; overflow:hidden; border:1px solid var(--line); border-radius:var(--ui-radius); background:var(--paper); touch-action:none; cursor:grab; user-select:none; }
 .solar-svg-host:active { cursor:grabbing; }
-.solar-svg-host > svg { display:block; width:100%; height:100%; }
-.solar-svg-host [data-kind] { cursor:pointer; outline:none; transform-box:fill-box; transform-origin:center; transition:transform 180ms ease-out; }
-.solar-svg-host [data-kind] > :is(path,circle) { transition:fill-opacity 180ms ease-out,stroke 180ms ease-out,stroke-width 180ms ease-out; }
+.solar-svg-layer { position:absolute; inset:0; transform-origin:0 0; }
+.solar-svg-layer > svg { display:block; width:100%; height:100%; }
+.solar-svg-host [data-kind] { cursor:pointer; outline:none; }
+.solar-svg-host [data-kind] > :is(path,circle) { pointer-events:fill; }
 .solar-svg-host [data-kind]:is([data-hovered],[data-selected],:focus-visible) > :is(path,circle):first-of-type { fill-opacity:.45; stroke:var(--gold); stroke-width:5; }
-.solar-svg-host [data-kind][data-hovered] { transform:scale(1.012); filter:drop-shadow(0 6px 8px color-mix(in srgb,var(--gold) 24%,transparent)); }
 .solar-svg-host [data-kind][data-selected] > :is(path,circle):first-of-type { fill-opacity:.6; stroke-width:7; }
 .solar-svg-host [data-kind]:focus-visible > :is(path,circle):first-of-type { stroke-width:9; }
 .solar-model-help { margin:12px 0 0; color:var(--ink-soft); font:13px/1.5 var(--font-ui); }
