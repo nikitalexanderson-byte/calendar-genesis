@@ -38,14 +38,13 @@ export function SharedLabelsDialog({spaceId,labels,english,onClose,onChanged}:{s
     catch {setError(english ? "Could not save labels. Refresh the workspace and try again." : "Не удалось сохранить метки. Обновите пространство и повторите попытку.");}
     finally {setBusy(false);}
   };
-  return <dialog ref={dialog} className="shared-projects-modal shared-labels-modal" aria-labelledby="shared-labels-title" onClose={onClose}
-    onPointerDown={event=>{if(innerWidth>760 && event.target===event.currentTarget){const r=event.currentTarget.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom) event.currentTarget.close();}}}>
+  return <dialog ref={dialog} className="shared-projects-modal shared-labels-modal" aria-labelledby="shared-labels-title" onClose={onClose}>
     <header><h2 id="shared-labels-title">{english ? "Workspace labels" : "Метки пространства"}</h2><DialogCloseButton type="button" className="shared-projects-close" disabled={busy} aria-label={english ? "Close" : "Закрыть"} onClick={()=>dialog.current?.close()} /></header>
     <p>{english ? "Use several labels to mark types, priorities or departments. Everyone in the workspace shares this set." : "Назначайте несколько меток по типам, приоритетам или отделам. Набор меток общий для участников пространства."}</p>
     {error ? <p role="alert">{error}</p> : null}
     <div className="shared-label-manager-list">{labels.map(label=><div key={label.id}><SharedLabelBadges labels={[label]} ids={[label.id]}/>
-      <button type="button" disabled={busy} onClick={()=>{setEditing(label);setTitle(label.title);setColor(label.color);}}>{english ? "Edit" : "Изменить"}</button>
-      <button type="button" disabled={busy} onClick={()=>{if(window.confirm(english ? "Delete this label from all projects and tasks?" : "Удалить эту метку из всех проектов и задач?")) void run(()=>deleteSharedLabel(spaceId,label));}}>{english ? "Delete" : "Удалить"}</button>
+      <button type="button" className="secondary-button" disabled={busy} onClick={()=>{setEditing(label);setTitle(label.title);setColor(label.color);}}>{english ? "Edit" : "Изменить"}</button>
+      <button type="button" className="secondary-button danger-button" disabled={busy} onClick={()=>{if(window.confirm(english ? "Delete this label from all projects and tasks?" : "Удалить эту метку из всех проектов и задач?")) void run(()=>deleteSharedLabel(spaceId,label));}}>{english ? "Delete" : "Удалить"}</button>
     </div>)}</div>
     <form onSubmit={event=>{event.preventDefault();void run(()=>saveSharedLabel(spaceId,title,color,editing));}}>
       <h3>{editing ? (english ? "Edit label" : "Изменить метку") : (english ? "New label" : "Новая метка")}</h3>

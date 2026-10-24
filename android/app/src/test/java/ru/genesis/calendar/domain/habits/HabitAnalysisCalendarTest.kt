@@ -9,6 +9,20 @@ import ru.genesis.calendar.data.LocalHabitWorkspace
 import ru.genesis.calendar.domain.*
 
 class HabitAnalysisCalendarTest {
+    @Test fun allFourYearContextsKeepEveryReportDayAndLeaveTheSavedWorkspaceUnchanged() {
+        val dates = listOf("2024-01-01", "2024-02-28", "2024-02-29", "2024-03-01", "2024-03-19", "2024-03-20", "2026-04-16")
+        val configurations = listOf(CalendarMode.PROFANE to "january", CalendarMode.PROFANE to "march", CalendarMode.SACRED to "january", CalendarMode.LUNAR to "january")
+        for (zone in listOf("UTC", "Europe/Moscow", "America/New_York", "Pacific/Auckland")) for ((mode, start) in configurations) for (date in dates) {
+            val calendar = GenesisCalendar(ZoneId.of(zone), 2, start)
+            val range = calendar.yearRange(LocalDate.parse(date), mode)
+            val h = habit(range.start, zone); val workspace = LocalHabitWorkspace(habits = listOf(h)); val before = workspace.copy()
+            val report = HabitAnalysis.range(workspace, h, HabitGoalPeriod(range.start, range.end.plusDays(1)), range.end.plusDays(1).atStartOfDay(ZoneId.of(zone)).toInstant())
+            assertEquals(range.dates().size, report.days.size)
+            assertEquals(range.start, report.days.first().date); assertEquals(range.end, report.days.last().date)
+            assertEquals(report.days.size, report.days.map { it.date }.distinct().size)
+            assertEquals(before, workspace)
+        }
+    }
     private fun habit(start: LocalDate, zone: String = "UTC"): Habit {
         val at = start.atStartOfDay(ZoneId.of(zone)).toInstant().toString()
         val habit = Habit(TrackerEntity("calendar-analysis", at, at), "Сохранённая практика", start,

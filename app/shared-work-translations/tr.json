@@ -533,5 +533,16 @@
   "Место импорта": "İçe aktarma hedefi",
   "Подготовка экспорта…": "Dışa aktarma hazırlanıyor…",
   "Отменить экспорт": "Dışa aktarmayı iptal et",
-  "Экспорт отменён.": "Dışa aktarma iptal edildi."
+  "Экспорт отменён.": "Dışa aktarma iptal edildi.",
+  "Шаблон создаёт новые задачи и проекты по образцу. Сначала выберите шаблон, затем проверьте состав, место и даты перед применением.": "Şablon, bir örnekten yeni görevler ve projeler oluşturur. Önce şablonu seçin, uygulamadan önce içeriğini, hedefini ve tarihlerini kontrol edin.",
+  "Применение создаёт рабочую копию. Для изменения самого образца сначала создайте редактируемую копию.": "Uygulama bir çalışma kopyası oluşturur. Şablonun kendisini değiştirmek için önce düzenlenebilir bir kopya oluşturun.",
+  "Быстрые подборки сразу показывают задачи. Их условия можно изменить и сохранить как своё представление.": "Hızlı seçimler görevleri hemen gösterir. Koşullarını değiştirip kendi görünümünüz olarak kaydedebilirsiniz.",
+  "Выберите сохранённую подборку или создайте новую. Задачи останутся в своих проектах.": "Kayıtlı bir görünüm seçin veya yeni bir görünüm oluşturun. Görevler kendi projelerinde kalır.",
+  "Условия определяют состав списка. Нажмите «Показать задачи», чтобы проверить результат, затем сохраните представление.": "Koşullar listeyi belirler. Sonucu kontrol etmek için “Görevleri göster” seçeneğini kullanın, ardından görünümü kaydedin.",
+  "Выберите событие запуска, добавьте нужные условия и укажите действия. Проверьте правило без изменений перед включением.": "Tetikleyici olayı seçin, gerekli koşulları ekleyin ve eylemleri belirtin. Etkinleştirmeden önce kuralı değişiklik yapmadan test edin.",
+  "Выберите период истории и нажмите «Обновить отчёт». Дополнительные фильтры сужают список; нажмите на показатель, чтобы открыть его задачи.": "Geçmiş dönemini seçin ve raporu yenileyin. Ek filtreler listeyi daraltır; ilgili görevleri açmak için bir göstergeye tıklayın.",
+  "Выбрать представление": "Görünüm seç",
+  "Состав шаблона": "Şablon içeriği",
+  "Часть изменений сохранена. Повторите сохранение, чтобы завершить.": "Bazı değişiklikler kaydedildi. Tamamlamak için yeniden kaydedin.",
+  "Выбрать шаблон": "Şablon seç"
 }

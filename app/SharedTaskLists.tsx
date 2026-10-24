@@ -167,7 +167,7 @@ export function SharedTaskLists({ language, enabledCalendars, onOpenProject, emb
         </div>
       </div> : null}
     </article>)}</div>
-    <dialog ref={dialog} className="shared-task-lists-dialog" onPointerDown={(event) => { if (window.innerWidth > 760 && event.target === event.currentTarget) { const r = event.currentTarget.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) close(); } }} onClose={() => { setModal(null); setTarget(null); }}>
+    <dialog ref={dialog} className="shared-task-lists-dialog" onClose={() => { setModal(null); setTarget(null); }}>
       {modalContent}
     </dialog>
   </section>;

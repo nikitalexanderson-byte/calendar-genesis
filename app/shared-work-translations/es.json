@@ -533,5 +533,16 @@
   "Место импорта": "Destino de la importación",
   "Подготовка экспорта…": "Preparando la exportación…",
   "Отменить экспорт": "Cancelar exportación",
-  "Экспорт отменён.": "Exportación cancelada."
+  "Экспорт отменён.": "Exportación cancelada.",
+  "Шаблон создаёт новые задачи и проекты по образцу. Сначала выберите шаблон, затем проверьте состав, место и даты перед применением.": "Una plantilla crea tareas y proyectos nuevos a partir de un ejemplo. Elija una plantilla y revise su contenido, destino y fechas antes de aplicarla.",
+  "Применение создаёт рабочую копию. Для изменения самого образца сначала создайте редактируемую копию.": "Al aplicarla se crea una copia de trabajo. Para cambiar la plantilla, cree primero una copia editable.",
+  "Быстрые подборки сразу показывают задачи. Их условия можно изменить и сохранить как своё представление.": "Las selecciones rápidas muestran las tareas al instante. Puede cambiar sus condiciones y guardar su propia vista.",
+  "Выберите сохранённую подборку или создайте новую. Задачи останутся в своих проектах.": "Elija una vista guardada o cree una nueva. Las tareas permanecen en sus proyectos.",
+  "Условия определяют состав списка. Нажмите «Показать задачи», чтобы проверить результат, затем сохраните представление.": "Las condiciones definen la lista. Pulse «Mostrar tareas» para comprobar el resultado y después guarde la vista.",
+  "Выберите событие запуска, добавьте нужные условия и укажите действия. Проверьте правило без изменений перед включением.": "Elija un desencadenante, añada las condiciones necesarias y defina las acciones. Pruebe la regla sin cambios antes de activarla.",
+  "Выберите период истории и нажмите «Обновить отчёт». Дополнительные фильтры сужают список; нажмите на показатель, чтобы открыть его задачи.": "Elija el período del historial y actualice el informe. Los filtros adicionales acotan la lista; seleccione un indicador para abrir sus tareas.",
+  "Выбрать представление": "Elegir una vista",
+  "Состав шаблона": "Contenido de la plantilla",
+  "Часть изменений сохранена. Повторите сохранение, чтобы завершить.": "Se guardaron algunos cambios. Vuelva a guardar para completar la operación.",
+  "Выбрать шаблон": "Elegir plantilla"
 }

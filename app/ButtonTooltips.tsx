@@ -26,7 +26,7 @@ export function ButtonTooltips() {
   const current = useRef<Hint | null>(null);
   useEffect(() => {
     let hovered: HTMLElement | null = null, focused: HTMLElement | null = null, pointerType = "mouse";
-    let keyboardFrame = 0;
+    let keyboardFrame = 0, tabFocusPending = false, focusedHint = false;
     const muted = new Map<HTMLElement, { title: string | null; addedLabel: string | null }>();
     const originalTitle = (control: HTMLElement) => muted.get(control)?.title ?? control.getAttribute("title");
     const release = (control: HTMLElement | null) => {
@@ -67,32 +67,39 @@ export function ButtonTooltips() {
     const leave = (event: PointerEvent) => {
       if (candidate(event.relatedTarget) === hovered) return;
       const previous = hovered; hovered = null; release(previous);
-      if (focused && focused.matches(":focus-visible")) show(focused); else close();
+      if (focusedHint && focused && focused.matches(":focus-visible")) show(focused); else close();
     };
     const focus = (event: FocusEvent) => {
       const previous = focused; focused = candidate(event.target); release(previous);
-      if (focused?.matches(":focus-visible") || pointerType !== "touch") show(focused);
+      // showModal() and focus restoration focus controls programmatically too.
+      // Only an actual Tab gesture should expose a keyboard hint on entry.
+      focusedHint = tabFocusPending && Boolean(focused?.matches(":focus-visible"));
+      if (focusedHint) show(focused); else close();
+      tabFocusPending = false;
     };
     const blur = () => {
-      const previous = focused; focused = null; release(previous);
+      const previous = focused; focused = null; focusedHint = false; release(previous);
       if (hovered) show(hovered); else close();
     };
-    const down = (event: PointerEvent) => { pointerType = event.pointerType; close(); };
+    const down = (event: PointerEvent) => { pointerType = event.pointerType; tabFocusPending = false; focusedHint = false; close(); };
     const click = (event: MouseEvent) => {
       const control = candidate(event.target);
       if (control?.hasAttribute("data-tooltip-choice")) show(control); else close();
     };
     const key = (event: KeyboardEvent) => {
       if (event.key === "Tab") {
+        tabFocusPending = true;
         pointerType = "keyboard";
         cancelAnimationFrame(keyboardFrame);
         // A one-control focus trap may keep the same node when touch becomes keyboard input.
         keyboardFrame = requestAnimationFrame(() => {
           keyboardFrame = 0;
           const previous = focused; focused = candidate(document.activeElement); release(previous); show(focused);
+          focusedHint = Boolean(focused);
+          tabFocusPending = false;
         });
-      }
-      if (event.key === "Escape" && current.current) { event.preventDefault(); event.stopPropagation(); close(); }
+      } else tabFocusPending = false;
+      if (event.key === "Escape" && current.current) { event.preventDefault(); event.stopPropagation(); focusedHint = false; close(); }
     };
     document.addEventListener("pointerover", enter);
     document.addEventListener("pointerout", leave);

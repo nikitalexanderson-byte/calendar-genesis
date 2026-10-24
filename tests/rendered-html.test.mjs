@@ -2264,7 +2264,7 @@ test("habit dates follow the selected calendar while canonical day keys stay sta
   assert.doesNotMatch(tracker, /created \$\{habit\.createdDate\}/);
   assert.match(insightsPanel, /calendarYearRange\(date, calendarMode, reportContext\)/);
   assert.match(insightsPanel, /calendarMonthKey\(value, calendarMode, reportContext\)/);
-  assert.match(insightsPanel, /formatCalendarDateValue\(cell\.date, calendarMode, true\)/);
+  assert.match(insightsPanel, /formatCalendarDateValue\(cell\.date, calendarMode, true, reportContext\)/);
   assert.match(insights, /monthPresentation/);
   assert.match(insights, /range\?: \{ start: string; end: string \}/);
   assert.match(habits, /calendarStarts\?: \{ month: string; quarter: string; year: string \}/);

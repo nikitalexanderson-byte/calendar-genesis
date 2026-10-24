@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { GenesisCalendar } from "../app/GenesisCalendar";
 import { AppUrlCleaner } from "../app/AppUrlCleaner";
 import { ButtonTooltips } from "../app/ButtonTooltips";
+import { DialogDismissal } from "../app/DialogDismissal";
 import "../app/globals.css";
 import "../app/dark-theme.css";
 import "../app/tablet-layout.css";
@@ -36,6 +37,7 @@ createRoot(root).render(
   <StrictMode>
     <AppUrlCleaner />
     <ButtonTooltips />
+    <DialogDismissal />
     <GenesisCalendar />
   </StrictMode>,
 );

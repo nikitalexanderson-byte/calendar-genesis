@@ -15,7 +15,7 @@ const activeDialogStack: HTMLElement[] = [];
 
 function focusableElements(dialog: HTMLElement) {
   return Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
-    .filter((element) => !element.hidden && element.getAttribute("aria-hidden") !== "true");
+    .filter((element) => !element.hidden && !element.matches(":disabled") && element.getClientRects().length > 0 && element.getAttribute("aria-hidden") !== "true");
 }
 
 export function useDialogAccessibility<T extends HTMLElement>(onClose: () => void, active = true) {
@@ -35,6 +35,7 @@ export function useDialogAccessibility<T extends HTMLElement>(onClose: () => voi
     const dialog = dialogRef.current;
     if (!dialog) return;
     activeDialogStack.push(dialog);
+    dialog.dataset.genesisDialogManaged = "true";
     returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const frame = window.requestAnimationFrame(() => {
       const initial = dialog.querySelector<HTMLElement>("[data-dialog-initial-focus]") ?? focusableElements(dialog)[0];
@@ -66,23 +67,39 @@ export function useDialogAccessibility<T extends HTMLElement>(onClose: () => voi
         first.focus();
       }
     };
-    const handleOutsidePointerDown = (event: PointerEvent) => {
-      if (window.innerWidth <= 760 || activeDialogStack.at(-1) !== dialog || event.button !== 0) return;
+    const outside = (event: PointerEvent) => {
+      if (activeDialogStack.at(-1) !== dialog || event.button !== 0) return false;
       const nativeDialog = event.target instanceof Element ? event.target.closest("dialog[open]") : null;
-      if (nativeDialog && nativeDialog !== dialog && !dialog.contains(nativeDialog) && !nativeDialog.contains(dialog)) return;
+      if (nativeDialog && nativeDialog !== dialog && !dialog.contains(nativeDialog) && !nativeDialog.contains(dialog)) return false;
+      if (dialog instanceof HTMLDialogElement && event.target === dialog) {
+        const bounds = dialog.getBoundingClientRect();
+        return event.clientX < bounds.left || event.clientX >= bounds.right || event.clientY < bounds.top || event.clientY >= bounds.bottom;
+      }
       const content = dialog.matches(".modal-backdrop, .stoicheion-letter-dialog")
         ? dialog.firstElementChild : dialog;
-      if (!(event.target instanceof Node) || content?.contains(event.target)) return;
+      return event.target instanceof Node && !content?.contains(event.target);
+    };
+    let outsidePointer: number | null = null;
+    const handleOutsidePointerDown = (event: PointerEvent) => { outsidePointer = outside(event) ? event.pointerId : null; };
+    const handleOutsidePointerUp = (event: PointerEvent) => {
+      const dismiss = outsidePointer === event.pointerId && outside(event); outsidePointer = null;
+      if (!dismiss) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       closeRef.current();
     };
+    const cancelOutsidePointer = () => { outsidePointer = null; };
     document.addEventListener("keydown", handleKeyDown);
     document.addEventListener("pointerdown", handleOutsidePointerDown, true);
+    document.addEventListener("pointerup", handleOutsidePointerUp, true);
+    document.addEventListener("pointercancel", cancelOutsidePointer, true);
     return () => {
       window.cancelAnimationFrame(frame);
       document.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("pointerdown", handleOutsidePointerDown, true);
+      document.removeEventListener("pointerup", handleOutsidePointerUp, true);
+      document.removeEventListener("pointercancel", cancelOutsidePointer, true);
+      delete dialog.dataset.genesisDialogManaged;
       const stackIndex = activeDialogStack.lastIndexOf(dialog);
       if (stackIndex >= 0) activeDialogStack.splice(stackIndex, 1);
       const trigger = returnFocusRef.current;

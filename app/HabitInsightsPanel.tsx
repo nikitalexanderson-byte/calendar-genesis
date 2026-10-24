@@ -16,7 +16,7 @@ import {
   formatCalendarMonthValue,
   type CalendarMode,
 } from "./calendar-data";
-import { translateText, type Language } from "./i18n";
+import { formatTranslatedText, translateText, type Language } from "./i18n";
 import "./habit-report.css";
 import type { HabitWorkspace } from "./habits";
 import {
@@ -37,22 +37,22 @@ type HabitInsightsPanelProps = {
   reportContext?: CalendarContext;
 };
 
-function rhythmLabel(score: number, isEnglish: boolean) {
-  if (score >= 80) return isEnglish ? "Steady rhythm" : "Устойчивый ритм";
-  if (score >= 60) return isEnglish ? "Rhythm is growing" : "Ритм укрепляется";
-  if (score >= 35) return isEnglish ? "Rhythm is returning" : "Ритм возвращается";
-  return isEnglish ? "Beginning the rhythm" : "Начало ритма";
+function rhythmLabel(score: number) {
+  if (score >= 80) return "Устойчивый ритм";
+  if (score >= 60) return "Ритм укрепляется";
+  if (score >= 35) return "Ритм возвращается";
+  return "Начало ритма";
 }
 
 function comparisonCopy(summary: Pick<HabitWeeklySummary, "changePercent" | "absoluteChange">, language: Language) {
   const t = (text: string) => translateText(text, language);
-  if (summary.changePercent === null) return `${summary.absoluteChange > 0 ? "+" : ""}${summary.absoluteChange}`;
+  if (summary.changePercent === null) return `${summary.absoluteChange > 0 ? "+" : ""}${new Intl.NumberFormat(language).format(summary.absoluteChange)}`;
   if (!summary.absoluteChange) return t("Без изменений");
   return `${summary.changePercent > 0 ? "+" : ""}${new Intl.NumberFormat(language, { maximumFractionDigits: 1 }).format(summary.changePercent)}%`;
 }
 
 export function HabitInsightsPanel({ workspace, date, language, calendarMode, reportContext, timeFormat, scope, onOpenHistory, onDayDecision }: HabitInsightsPanelProps) {
-  const isEnglish = language === "en";
+  const number = new Intl.NumberFormat(language);
   const [mosaicOpen, setMosaicOpen] = useState(false);
   const mosaicBodyId = useId();
   const weekly = useMemo(() => buildWeeklyHabitSummary(workspace, date, calendarMode, reportContext), [calendarMode, date, reportContext, workspace]);
@@ -75,6 +75,8 @@ export function HabitInsightsPanel({ workspace, date, language, calendarMode, re
   const yearLabel = calendarYearLabel(date, calendarMode, reportContext);
   const mosaicWeeks = Math.max(1, ...mosaic.map((cell) => cell.week));
   const localized = (value: string) => translateText(value, language);
+  const copy = (value: string, values: Record<string, string | number>) => formatTranslatedText(value, language, values);
+  const mosaicSummary = copy("{year} · дней с целью: {qualified} · идеальных: {perfect}", { year: yearLabel, qualified: number.format(qualifiedDays), perfect: number.format(perfectDays) });
 
   return (
     <div className="habit-phase-k-insights">
@@ -88,24 +90,24 @@ export function HabitInsightsPanel({ workspace, date, language, calendarMode, re
             <small>{localized(!weeklyGoals.current.planned ? "Нет закрытых целей для сравнения" : weeklyGoals.changePercent === null ? "Нет базы для процентного сравнения" : "Сравнение одинаковых промежутков")}</small>
           </div>
         </header>
-        <p className="habit-comparison-explanation">{localized("Успешные закрытые цели")}: {weeklyGoals.current.completed}/{weeklyGoals.current.planned}.
-          {weeklyGoals.previousEnd ? <> {localized("Предыдущий промежуток")}: {formatCalendarDateValue(weeklyGoals.previousStart, calendarMode, false, reportContext)} — {formatCalendarDateValue(weeklyGoals.previousEnd, calendarMode, false, reportContext)} · {weeklyGoals.previous.completed}/{weeklyGoals.previous.planned}.</> : null}
+        <p className="habit-comparison-explanation">{localized("Успешные закрытые цели")}: {number.format(weeklyGoals.current.completed)}/{number.format(weeklyGoals.current.planned)}.
+          {weeklyGoals.previousEnd ? <> {localized("Предыдущий промежуток")}: {formatCalendarDateValue(weeklyGoals.previousStart, calendarMode, false, reportContext)} — {formatCalendarDateValue(weeklyGoals.previousEnd, calendarMode, false, reportContext)} · {number.format(weeklyGoals.previous.completed)}/{number.format(weeklyGoals.previous.planned)}.</> : null}
           {" "}{localized("Сравниваются только прошедшие дни обоих периодов.")}
-          {weeklyGoals.open ? <> {localized("Открытые цели")}: {weeklyGoals.open}.</> : null}
+          {weeklyGoals.open ? <> {localized("Открытые цели")}: {number.format(weeklyGoals.open)}.</> : null}
           {weeklyGoals.current.unknown || weeklyGoals.previous.unknown ? <> {localized("Даты с неизвестной историей пауз исключены из сравнения.")}</> : null}</p>
         <div className="habit-weekly-grid">
-          <article><span>{localized("Дни с выполненной активностью")}</span><strong>{weekly.completed}</strong><small>{localized("Цели периода учитываются отдельно.")}</small></article>
-          <article><span>{isEnglish ? "Daily goals" : "Дневных целей"}</span><strong>{weekly.dailyGoals}</strong><small>{isEnglish ? "of the days elapsed" : "за прошедшие дни"}</small></article>
-          <article><span>{isEnglish ? "Perfect Days" : "Идеальных дней"}</span><strong>{weekly.perfectDays}</strong><small>Perfect Day</small></article>
-          <article><span>{isEnglish ? "Experience" : "Опыт"}</span><strong>+{weekly.xp} XP</strong><small>{isEnglish ? "from actual completions" : "за реальные выполнения"}</small></article>
-          <article><span>{isEnglish ? "Laurels earned" : "Лавров начислено"}</span><strong>♕ {weekly.laurels}</strong><small>{isEnglish ? "positive ledger entries" : "положительные записи журнала"}</small></article>
-          <article><span>{isEnglish ? "Best habit" : "Лучшая привычка"}</span><strong data-no-translate>{bestHabit ? habitDisplayText(bestHabit, language).title : weekly.bestHabitTitle ?? "—"}</strong><small>{weekly.bestHabitCompleted ? (isEnglish ? `${weekly.bestHabitCompleted} completions` : `${weekly.bestHabitCompleted} выполнений`) : (isEnglish ? "No leader yet" : "Лидера пока нет")}</small></article>
+          <article><span>{localized("Дни с выполненной активностью")}</span><strong>{number.format(weekly.completed)}</strong><small>{localized("Цели периода учитываются отдельно.")}</small></article>
+          <article><span>{localized("Дневных целей")}</span><strong>{number.format(weekly.dailyGoals)}</strong><small>{localized("за прошедшие дни")}</small></article>
+          <article><span>{localized("Идеальных дней")}</span><strong>{number.format(weekly.perfectDays)}</strong><small>Perfect Day</small></article>
+          <article><span>{localized("Опыт")}</span><strong>+{number.format(weekly.xp)} XP</strong><small>{localized("за реальные выполнения")}</small></article>
+          <article><span>{localized("Лавров начислено")}</span><strong>♕ {number.format(weekly.laurels)}</strong><small>{localized("положительные записи журнала")}</small></article>
+          <article><span>{localized("Лучшая привычка")}</span><strong data-no-translate>{bestHabit ? habitDisplayText(bestHabit, language).title : weekly.bestHabitTitle ?? "—"}</strong><small>{weekly.bestHabitCompleted ? copy("Выполнено: {count}", { count: number.format(weekly.bestHabitCompleted) }) : localized("Лидера пока нет")}</small></article>
         </div>
       </section>
 
       <section className="habit-rhythm-index" aria-labelledby="habit-rhythm-index-title" style={{ "--rhythm-score": rhythm } as CSSProperties}>
-        <div className="habit-rhythm-gauge" aria-label={isEnglish ? `Rhythm index ${rhythm} of 100` : `Индекс Ритма ${rhythm} из 100`}><span><strong>{rhythm}</strong><small>/100</small></span></div>
-        <div><span className="eyebrow">{isEnglish ? "Recent 28 days" : "Последние 28 дней"}</span><h3 id="habit-rhythm-index-title">{isEnglish ? "Rhythm index" : "Индекс Ритма"}</h3><strong>{rhythmLabel(rhythm, isEnglish)}</strong><p>{isEnglish ? "A client-side consistency indicator. Recent days weigh more, so returning to practice becomes visible quickly." : "Клиентский показатель последовательности. Недавние дни имеют больший вес, поэтому возвращение к практике становится заметно быстро."}</p></div>
+        <div className="habit-rhythm-gauge" role="img" aria-label={copy("Индекс Ритма {value} из 100", { value: number.format(rhythm) })}><span><strong>{number.format(rhythm)}</strong><small>/100</small></span></div>
+        <div><span className="eyebrow">{localized("Последние 28 дней")}</span><h3 id="habit-rhythm-index-title">{localized("Индекс Ритма")}</h3><strong>{localized(rhythmLabel(rhythm))}</strong><p>{localized("Клиентский показатель последовательности. Недавние дни имеют больший вес, поэтому возвращение к практике становится заметно быстро.")}</p></div>
       </section>
 
       <section className={`habit-year-mosaic${mosaicOpen ? " open" : ""}`}>
@@ -116,36 +118,36 @@ export function HabitInsightsPanel({ workspace, date, language, calendarMode, re
           aria-controls={mosaicBodyId}
           onClick={() => setMosaicOpen((current) => !current)}
         >
-          <span><small>{isEnglish ? "Year perspective" : "Перспектива года"}</small><strong>{isEnglish ? "Year mosaic" : "Мозаика года"}</strong></span>
-          <span className="habit-year-mosaic-meta">{yearLabel} · {qualifiedDays} {isEnglish ? "goal days" : "дней с целью"} · {perfectDays} Perfect</span>
+          <span><small>{localized("Перспектива года")}</small><strong>{localized("Мозаика года")}</strong></span>
+          <span className="habit-year-mosaic-meta">{mosaicSummary}</span>
           <svg className={`disclosure-chevron${mosaicOpen ? " open" : ""}`} viewBox="0 0 20 20" aria-hidden="true">
             <path d="m5.5 7.5 4.5 4.5 4.5-4.5" />
           </svg>
         </button>
         {mosaicOpen ? <div className="habit-year-mosaic-body" id={mosaicBodyId}>
-          <div className="habit-year-mosaic-grid" role="img" aria-label={isEnglish ? `Habit activity mosaic for ${yearLabel}` : `Мозаика активности привычек за ${yearLabel} год`} style={{ "--mosaic-weeks": mosaicWeeks } as CSSProperties}>
-            {mosaic.map((cell) => <i className={cell.status} style={{ "--mosaic-week": cell.week, "--mosaic-weekday": cell.weekday } as CSSProperties} title={`${formatCalendarDateValue(cell.date, calendarMode, true)}: ${cell.completed}/${cell.scheduled}`} key={cell.date} />)}
+          <div className="habit-year-mosaic-grid" role="img" aria-label={`${copy("Мозаика активности привычек за {year} год", { year: yearLabel })}. ${mosaicSummary}`} style={{ "--mosaic-weeks": mosaicWeeks } as CSSProperties}>
+            {mosaic.map((cell) => <i className={cell.status} style={{ "--mosaic-week": cell.week, "--mosaic-weekday": cell.weekday } as CSSProperties} title={`${formatCalendarDateValue(cell.date, calendarMode, true, reportContext)}: ${number.format(cell.completed)}/${number.format(cell.scheduled)}`} key={cell.date} />)}
           </div>
-          <footer><span>{isEnglish ? "No activity" : "Нет активности"}</span><i className="none" /><i className="partial" /><i className="qualified" /><i className="perfect" /><span>{isEnglish ? "Perfect Day" : "Идеальный день"}</span></footer>
+          <footer><span>{localized("Нет активности")}</span><i className="none" /><i className="partial" /><i className="qualified" /><i className="perfect" /><span>{localized("Идеальный день")}</span></footer>
         </div> : null}
       </section>
 
       {records.length ? <section className="habit-personal-records" aria-labelledby="habit-personal-records-title">
-        <header><div><span className="eyebrow">{isEnglish ? "Compete with yourself" : "Соревнование с собой"}</span><h3 id="habit-personal-records-title">{isEnglish ? "Personal records and mastery" : "Личные рекорды и мастерство"}</h3><p>{isEnglish ? "Progress for each habit is separate from your overall heroic rank." : "Прогресс каждой привычки существует отдельно от общего героического ранга."}</p></div></header>
+        <header><div><span className="eyebrow">{localized("Соревнование с собой")}</span><h3 id="habit-personal-records-title">{localized("Личные рекорды и мастерство")}</h3><p>{localized("Прогресс каждой привычки существует отдельно от общего героического ранга.")}</p></div></header>
         <div className="habit-personal-record-grid">{records.map(({ habit, record }) => (
           <article style={{ "--habit-color": habit.color, "--mastery-progress": record.milestoneProgress } as CSSProperties} key={habit.id}>
-            <header><span aria-hidden="true">{habit.emoji}</span><div><h4 data-no-translate>{habitDisplayText(habit, language).title}</h4><small>{isEnglish ? "Started" : "Начало"} {formatCalendarDateValue(record.startedAt, calendarMode, true)}</small></div><div className="habit-mastery-ring"><strong>{record.totalCompletions}</strong><small>{isEnglish ? "done" : "всего"}</small></div></header>
+            <header><span aria-hidden="true">{habit.emoji}</span><div><h4 data-no-translate>{habitDisplayText(habit, language).title}</h4><small>{localized("Начало")} {formatCalendarDateValue(record.startedAt, calendarMode, true, reportContext)}</small></div><div className="habit-mastery-ring"><strong>{number.format(record.totalCompletions)}</strong><small>{localized("всего")}</small></div></header>
             <div className="habit-record-metrics">
-              <div><span>{localized("Текущая серия")}</span><strong>{record.currentStreak}{record.periodUnit ? ` ${localized("периодов")}` : ""}</strong></div>
-              <div><span>{localized("Лучшая серия")}</span><strong>{record.longestStreak}{record.periodUnit ? ` ${localized("периодов")}` : ""}</strong></div>
+              <div><span>{localized("Текущая серия")}</span><strong>{number.format(record.currentStreak)}{record.periodUnit ? ` ${localized("периодов")}` : ""}</strong></div>
+              <div><span>{localized("Лучшая серия")}</span><strong>{number.format(record.longestStreak)}{record.periodUnit ? ` ${localized("периодов")}` : ""}</strong></div>
               <div><span>{localized("Успешные закрытые цели")}</span><strong>{record.completionRate === null ? "—" : `${new Intl.NumberFormat(language).format(record.completionRate)}%`}</strong>
-                <small>{record.scheduledCompletedCount}/{record.scheduledCount}</small>
-                {record.unknownDays ? <small>{localized("Доступность неизвестна")}: {record.unknownDays}</small> : null}
-                {record.unscheduledCompletions ? <small>{localized("Выполнения вне процента")}: {record.unscheduledCompletions}</small> : null}
+                <small>{number.format(record.scheduledCompletedCount)}/{number.format(record.scheduledCount)}</small>
+                {record.unknownDays ? <small>{localized("Доступность неизвестна")}: {number.format(record.unknownDays)}</small> : null}
+                {record.unscheduledCompletions ? <small>{localized("Выполнения вне процента")}: {number.format(record.unscheduledCompletions)}</small> : null}
               </div>
-              <div><span>{localized("Лучший месяц")}</span><strong>{record.bestMonth ?? "—"}</strong><small>{record.bestMonthCompletions || ""}</small></div>
+              <div><span>{localized("Лучший месяц")}</span><strong>{record.bestMonth ?? "—"}</strong><small>{record.bestMonthCompletions ? number.format(record.bestMonthCompletions) : ""}</small></div>
             </div>
-            <footer><div><span>{record.reachedMilestone ? (isEnglish ? `Milestone ${record.reachedMilestone}` : `Рубеж ${record.reachedMilestone}`) : (isEnglish ? "First milestone" : "Первый рубеж")}</span><div><i /></div></div><strong>{record.nextMilestone ? (isEnglish ? `${record.nextMilestone - record.totalCompletions} to ${record.nextMilestone}` : `${record.nextMilestone - record.totalCompletions} до ${record.nextMilestone}`) : (isEnglish ? "Highest milestone reached" : "Высший рубеж достигнут")}</strong></footer>
+            <footer><div><span>{record.reachedMilestone ? copy("Рубеж {count}", { count: number.format(record.reachedMilestone) }) : localized("Первый рубеж")}</span><div><i /></div></div><strong>{record.nextMilestone ? copy("{count} до {target}", { count: number.format(record.nextMilestone - record.totalCompletions), target: number.format(record.nextMilestone) }) : localized("Высший рубеж достигнут")}</strong></footer>
           </article>
         ))}</div>
       </section> : null}

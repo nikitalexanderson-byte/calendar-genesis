@@ -151,8 +151,9 @@ function RestorationCycle({ habit, workspace, calendarMode, today, onChange }: {
     finally { setSaving(false); }
   }
   return <article id={`restoration-cycle-${habit.id}`} className="restoration-cycle" tabIndex={-1}>
-    <header className="restoration-cycle-heading"><span className="restoration-letter-mark" aria-hidden="true">{letter.symbol}</span><div><h3>{letter.name} · {local(sector.title)}</h3><p>{snapshot.intention}</p></div>
-      <span className="restoration-status"><ExperimentalIcon name="check" />{t.strategyReady}</span></header>
+    <header className="restoration-cycle-heading"><span className="restoration-letter-mark" aria-hidden="true">{letter.symbol}</span><div><h3>{letter.name} · {local(sector.title)}</h3></div>
+      <span className="restoration-status"><ExperimentalIcon name="check" />{t.strategyReady}</span>
+      <p className="restoration-cycle-intention">{snapshot.intention}</p></header>
     <div className="restoration-columns"><div className="restoration-main">
       <h4>{t.contemplation}</h4>{snapshot.practiceText.split("\n\n").map((paragraph,index) => <p key={index}>{paragraph}</p>)}
       <h4>{t.action}</h4>{snapshot.action.split("\n\n").map((paragraph,index) => <p key={index}>{paragraph}</p>)}

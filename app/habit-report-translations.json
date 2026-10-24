@@ -118,7 +118,13 @@
     "Сохранить файл": "Save file",
     "Удалить черновик": "Delete draft",
     "Копия": "Copy",
-    "Не удалось сохранить файл на устройстве. Освободите место и повторите.": "Could not save the file on this device. Free up space and try again."
+    "Не удалось сохранить файл на устройстве. Освободите место и повторите.": "Could not save the file on this device. Free up space and try again.",
+    "Выполнено: {count}": "Completed: {count}",
+    "Индекс Ритма {value} из 100": "Rhythm index {value} of 100",
+    "{year} · дней с целью: {qualified} · идеальных: {perfect}": "{year} · goal days: {qualified} · perfect days: {perfect}",
+    "Мозаика активности привычек за {year} год": "Habit activity mosaic for {year}",
+    "Рубеж {count}": "Milestone {count}",
+    "{count} до {target}": "{count} to {target}"
   },
   "el": {
     "Итоги периода": "Σύνοψη περιόδου",
@@ -239,7 +245,13 @@
     "Сохранить файл": "Αποθήκευση αρχείου",
     "Удалить черновик": "Διαγραφή πρόχειρου",
     "Копия": "Αντίγραφο",
-    "Не удалось сохранить файл на устройстве. Освободите место и повторите.": "Δεν ήταν δυνατή η αποθήκευση στη συσκευή. Ελευθερώστε χώρο και δοκιμάστε ξανά."
+    "Не удалось сохранить файл на устройстве. Освободите место и повторите.": "Δεν ήταν δυνατή η αποθήκευση στη συσκευή. Ελευθερώστε χώρο και δοκιμάστε ξανά.",
+    "Выполнено: {count}": "Ολοκληρώσεις: {count}",
+    "Индекс Ритма {value} из 100": "Δείκτης ρυθμού {value} από 100",
+    "{year} · дней с целью: {qualified} · идеальных: {perfect}": "{year} · ημέρες με στόχο: {qualified} · τέλειες ημέρες: {perfect}",
+    "Мозаика активности привычек за {year} год": "Μωσαϊκό δραστηριότητας συνηθειών για το {year}",
+    "Рубеж {count}": "Ορόσημο {count}",
+    "{count} до {target}": "Απομένουν {count} έως το {target}"
   },
   "de": {
     "Итоги периода": "Zeitraumübersicht",
@@ -360,7 +372,13 @@
     "Сохранить файл": "Datei speichern",
     "Удалить черновик": "Entwurf löschen",
     "Копия": "Kopie",
-    "Не удалось сохранить файл на устройстве. Освободите место и повторите.": "Datei konnte nicht gespeichert werden. Geben Sie Speicherplatz frei und versuchen Sie es erneut."
+    "Не удалось сохранить файл на устройстве. Освободите место и повторите.": "Datei konnte nicht gespeichert werden. Geben Sie Speicherplatz frei und versuchen Sie es erneut.",
+    "Выполнено: {count}": "Abgeschlossen: {count}",
+    "Индекс Ритма {value} из 100": "Rhythmusindex {value} von 100",
+    "{year} · дней с целью: {qualified} · идеальных: {perfect}": "{year} · Zieltage: {qualified} · perfekte Tage: {perfect}",
+    "Мозаика активности привычек за {year} год": "Aktivitätsmosaik der Gewohnheiten für {year}",
+    "Рубеж {count}": "Meilenstein {count}",
+    "{count} до {target}": "Noch {count} bis {target}"
   },
   "fr": {
     "Итоги периода": "Bilan de la période",
@@ -481,7 +499,13 @@
     "Сохранить файл": "Enregistrer le fichier",
     "Удалить черновик": "Supprimer le brouillon",
     "Копия": "Copie",
-    "Не удалось сохранить файл на устройстве. Освободите место и повторите.": "Impossible d’enregistrer le fichier. Libérez de l’espace et réessayez."
+    "Не удалось сохранить файл на устройстве. Освободите место и повторите.": "Impossible d’enregistrer le fichier. Libérez de l’espace et réessayez.",
+    "Выполнено: {count}": "Réalisations : {count}",
+    "Индекс Ритма {value} из 100": "Indice de rythme : {value} sur 100",
+    "{year} · дней с целью: {qualified} · идеальных: {perfect}": "{year} · jours avec objectif : {qualified} · jours parfaits : {perfect}",
+    "Мозаика активности привычек за {year} год": "Mosaïque d’activité des habitudes pour {year}",
+    "Рубеж {count}": "Palier {count}",
+    "{count} до {target}": "Encore {count} pour atteindre {target}"
   },
   "es": {
     "Итоги периода": "Resumen del período",
@@ -602,7 +626,13 @@
     "Сохранить файл": "Guardar archivo",
     "Удалить черновик": "Eliminar borrador",
     "Копия": "Copia",
-    "Не удалось сохранить файл на устройстве. Освободите место и повторите.": "No se pudo guardar el archivo. Libera espacio e inténtalo de nuevo."
+    "Не удалось сохранить файл на устройстве. Освободите место и повторите.": "No se pudo guardar el archivo. Libera espacio e inténtalo de nuevo.",
+    "Выполнено: {count}": "Realizaciones: {count}",
+    "Индекс Ритма {value} из 100": "Índice de ritmo: {value} de 100",
+    "{year} · дней с целью: {qualified} · идеальных: {perfect}": "{year} · días con objetivo: {qualified} · días perfectos: {perfect}",
+    "Мозаика активности привычек за {year} год": "Mosaico de actividad de hábitos de {year}",
+    "Рубеж {count}": "Hito {count}",
+    "{count} до {target}": "Faltan {count} para {target}"
   },
   "it": {
     "Итоги периода": "Riepilogo del periodo",
@@ -723,7 +753,13 @@
     "Сохранить файл": "Salva file",
     "Удалить черновик": "Elimina bozza",
     "Копия": "Copia",
-    "Не удалось сохранить файл на устройстве. Освободите место и повторите.": "Impossibile salvare il file. Libera spazio e riprova."
+    "Не удалось сохранить файл на устройстве. Освободите место и повторите.": "Impossibile salvare il file. Libera spazio e riprova.",
+    "Выполнено: {count}": "Completamenti: {count}",
+    "Индекс Ритма {value} из 100": "Indice del ritmo: {value} su 100",
+    "{year} · дней с целью: {qualified} · идеальных: {perfect}": "{year} · giorni con obiettivo: {qualified} · giorni perfetti: {perfect}",
+    "Мозаика активности привычек за {year} год": "Mosaico delle attività delle abitudini per {year}",
+    "Рубеж {count}": "Traguardo {count}",
+    "{count} до {target}": "Mancano {count} per arrivare a {target}"
   },
   "pt": {
     "Итоги периода": "Resumo do período",
@@ -844,7 +880,13 @@
     "Сохранить файл": "Guardar ficheiro",
     "Удалить черновик": "Eliminar rascunho",
     "Копия": "Cópia",
-    "Не удалось сохранить файл на устройстве. Освободите место и повторите.": "Não foi possível guardar o ficheiro. Liberte espaço e tente novamente."
+    "Не удалось сохранить файл на устройстве. Освободите место и повторите.": "Não foi possível guardar o ficheiro. Liberte espaço e tente novamente.",
+    "Выполнено: {count}": "Conclusões: {count}",
+    "Индекс Ритма {value} из 100": "Índice de ritmo: {value} de 100",
+    "{year} · дней с целью: {qualified} · идеальных: {perfect}": "{year} · dias com objetivo: {qualified} · dias perfeitos: {perfect}",
+    "Мозаика активности привычек за {year} год": "Mosaico de atividade dos hábitos de {year}",
+    "Рубеж {count}": "Marco {count}",
+    "{count} до {target}": "Faltam {count} para {target}"
   },
   "pl": {
     "Итоги периода": "Podsumowanie okresu",
@@ -965,7 +1007,13 @@
     "Сохранить файл": "Zapisz plik",
     "Удалить черновик": "Usuń szkic",
     "Копия": "Kopia",
-    "Не удалось сохранить файл на устройстве. Освободите место и повторите.": "Nie można zapisać pliku. Zwolnij miejsce i spróbuj ponownie."
+    "Не удалось сохранить файл на устройстве. Освободите место и повторите.": "Nie można zapisać pliku. Zwolnij miejsce i spróbuj ponownie.",
+    "Выполнено: {count}": "Ukończenia: {count}",
+    "Индекс Ритма {value} из 100": "Wskaźnik rytmu: {value} ze 100",
+    "{year} · дней с целью: {qualified} · идеальных: {perfect}": "{year} · dni z celem: {qualified} · dni idealne: {perfect}",
+    "Мозаика активности привычек за {year} год": "Mozaika aktywności nawyków w roku {year}",
+    "Рубеж {count}": "Kamień milowy {count}",
+    "{count} до {target}": "Jeszcze {count} do {target}"
   },
   "sr": {
     "Итоги периода": "Преглед периода",
@@ -1086,7 +1134,13 @@
     "Сохранить файл": "Сачувај датотеку",
     "Удалить черновик": "Обриши нацрт",
     "Копия": "Копија",
-    "Не удалось сохранить файл на устройстве. Освободите место и повторите.": "Датотека није сачувана. Ослободите простор и покушајте поново."
+    "Не удалось сохранить файл на устройстве. Освободите место и повторите.": "Датотека није сачувана. Ослободите простор и покушајте поново.",
+    "Выполнено: {count}": "Завршено: {count}",
+    "Индекс Ритма {value} из 100": "Индекс ритма {value} од 100",
+    "{year} · дней с целью: {qualified} · идеальных: {perfect}": "{year} · дана са циљем: {qualified} · савршених дана: {perfect}",
+    "Мозаика активности привычек за {year} год": "Мозаик активности навика за {year}. годину",
+    "Рубеж {count}": "Прекретница {count}",
+    "{count} до {target}": "Још {count} до {target}"
   },
   "uk": {
     "Итоги периода": "Підсумки періоду",
@@ -1207,7 +1261,13 @@
     "Сохранить файл": "Зберегти файл",
     "Удалить черновик": "Видалити чернетку",
     "Копия": "Копія",
-    "Не удалось сохранить файл на устройстве. Освободите место и повторите.": "Не вдалося зберегти файл на пристрої. Звільніть місце й повторіть."
+    "Не удалось сохранить файл на устройстве. Освободите место и повторите.": "Не вдалося зберегти файл на пристрої. Звільніть місце й повторіть.",
+    "Выполнено: {count}": "Виконано: {count}",
+    "Индекс Ритма {value} из 100": "Індекс ритму {value} зі 100",
+    "{year} · дней с целью: {qualified} · идеальных: {perfect}": "{year} · днів із ціллю: {qualified} · ідеальних: {perfect}",
+    "Мозаика активности привычек за {year} год": "Мозаїка активності звичок за {year} рік",
+    "Рубеж {count}": "Рубіж {count}",
+    "{count} до {target}": "Ще {count} до {target}"
   },
   "zh": {
     "Итоги периода": "时段总结",
@@ -1328,7 +1388,13 @@
     "Сохранить файл": "保存文件",
     "Удалить черновик": "删除草稿",
     "Копия": "副本",
-    "Не удалось сохранить файл на устройстве. Освободите место и повторите.": "无法在设备上保存文件。请释放空间后重试。"
+    "Не удалось сохранить файл на устройстве. Освободите место и повторите.": "无法在设备上保存文件。请释放空间后重试。",
+    "Выполнено: {count}": "完成次数：{count}",
+    "Индекс Ритма {value} из 100": "节律指数：{value}/100",
+    "{year} · дней с целью: {qualified} · идеальных: {perfect}": "{year} · 达标天数：{qualified} · 完美天数：{perfect}",
+    "Мозаика активности привычек за {year} год": "{year} 年习惯活动图",
+    "Рубеж {count}": "里程碑 {count}",
+    "{count} до {target}": "还需 {count} 次达到 {target}"
   },
   "tr": {
     "Итоги периода": "Dönem özeti",
@@ -1449,7 +1515,13 @@
     "Сохранить файл": "Dosyayı kaydet",
     "Удалить черновик": "Taslağı sil",
     "Копия": "Kopya",
-    "Не удалось сохранить файл на устройстве. Освободите место и повторите.": "Dosya cihaza kaydedilemedi. Yer açıp yeniden deneyin."
+    "Не удалось сохранить файл на устройстве. Освободите место и повторите.": "Dosya cihaza kaydedilemedi. Yer açıp yeniden deneyin.",
+    "Выполнено: {count}": "Tamamlanan: {count}",
+    "Индекс Ритма {value} из 100": "Ritim endeksi: 100 üzerinden {value}",
+    "{year} · дней с целью: {qualified} · идеальных: {perfect}": "{year} · hedefe ulaşılan gün: {qualified} · kusursuz gün: {perfect}",
+    "Мозаика активности привычек за {year} год": "{year} yılı alışkanlık etkinlik mozaiği",
+    "Рубеж {count}": "Dönüm noktası {count}",
+    "{count} до {target}": "{target} hedefine {count} kaldı"
   },
   "ja": {
     "Итоги периода": "期間のまとめ",
@@ -1570,6 +1642,12 @@
     "Сохранить файл": "ファイルを保存",
     "Удалить черновик": "下書きを削除",
     "Копия": "コピー",
-    "Не удалось сохранить файл на устройстве. Освободите место и повторите.": "端末に保存できませんでした。空き容量を確保して再試行してください。"
+    "Не удалось сохранить файл на устройстве. Освободите место и повторите.": "端末に保存できませんでした。空き容量を確保して再試行してください。",
+    "Выполнено: {count}": "完了回数：{count}",
+    "Индекс Ритма {value} из 100": "リズム指数：100点中{value}点",
+    "{year} · дней с целью: {qualified} · идеальных: {perfect}": "{year} · 目標達成日数：{qualified} · パーフェクト日数：{perfect}",
+    "Мозаика активности привычек за {year} год": "{year}年の習慣アクティビティモザイク",
+    "Рубеж {count}": "マイルストーン {count}",
+    "{count} до {target}": "{target}まであと{count}回"
   }
 }

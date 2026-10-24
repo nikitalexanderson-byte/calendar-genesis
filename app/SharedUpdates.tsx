@@ -75,7 +75,7 @@ export function SharedWorkspaceSummary({ userId, english, spaceId, workspaceActi
     </button>
     {summaryError ? <button type="button" className="shared-summary-retry" onClick={refresh}>{english ? "Refresh summary" : "Обновить сводку"}</button> : null}
     <dialog className="shared-projects-modal shared-updates-dialog" ref={dialog} onCancel={() => setOpen(false)}
-      aria-labelledby="shared-updates-title" onPointerDown={event => { if (event.target === event.currentTarget) { const box = event.currentTarget.getBoundingClientRect(); if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) setOpen(false); } }}>
+      aria-labelledby="shared-updates-title">
       <header><h2 id="shared-updates-title">{english ? "New in shared affairs" : "Новое в общих делах"}</h2>
         <DialogCloseButton type="button" className="shared-updates-close" aria-label={english ? "Close updates" : "Закрыть обновления"} onClick={() => setOpen(false)} /></header>
       <div className="shared-updates-toolbar"><div className="shared-updates-filter" role="group" aria-label={english ? "Updates filter" : "Фильтр обновлений"}>

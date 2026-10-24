@@ -2599,5 +2599,7 @@
   "пяты": "quintas",
   "ПЯТА": "QUINTA",
   "Дни пяты": "Jours de la Quinta",
-  "22 октября 2026 года": "22 octobre 2026"
+  "22 октября 2026 года": "22 octobre 2026",
+  "Показать боковую панель": "Afficher le menu latéral",
+  "Панель скрывается целиком после ухода указателя. Наведите на полосу у левого края или выберите её с клавиатуры, чтобы открыть меню поверх страницы. Ширина меняется только перетаскиванием границы.": "Le panneau se masque entièrement lorsque le pointeur le quitte. Survolez la bande à gauche ou sélectionnez-la au clavier pour ouvrir le menu au-dessus de la page. Seul le déplacement de sa bordure change sa largeur."
 }

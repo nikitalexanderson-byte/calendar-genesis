@@ -1,5 +1,6 @@
 /* eslint-disable @next/next/no-img-element -- User-provided board pictures remain native img elements. */
 "use client";
+import "./shared-dialog-ui.css";
 import { DialogCloseButton } from "./DialogCloseButton";
 import { foregroundRefresh } from "./foreground-refresh";
 import { useSacredFeaturesEnabled } from "./sacred-features";
@@ -345,12 +346,9 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   const taskOpen = Boolean(selectedTask);
   useEffect(()=>{if(!taskOpen||!taskEditing||taskFieldsSaved)return;const guard=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue="";};window.addEventListener('beforeunload',guard);return()=>window.removeEventListener('beforeunload',guard);},[taskOpen,taskEditing,taskFieldsSaved]);
   const closeTask = () => {
-    if(taskOpen&&taskEditing&&!taskFieldsSaved&&!window.confirm(translateText("Закрыть карточку без сохранения изменений?"))){taskDialogRef.current?.showModal();return;}
-    if (seriesDirty && !window.confirm(translateText("Закрыть карточку без сохранения настроек серии?"))) { taskDialogRef.current?.showModal(); return; }
     setTaskEditing(false);setTaskId(""); setTaskSnapshot(null); setComments([]); setCommentId("");
   };
   const closeCreateModal=()=>{
-    if(createModal!==null&&(customFieldDraftOpen||createModal==='task'&&Object.values(newCustomFields).some(value=>value!==null&&value!==undefined))&&!window.confirm(translateText(customFieldDraftOpen?"Отменить несохранённые изменения поля?":"Закрыть карточку без сохранения изменений?"))){createDialogRef.current?.showModal();return;}
     setCustomFieldDraftOpen(false);setCreateModal(null);setNewTaskDestination(null);setNewTaskRootProjectId("");
   };
 
@@ -1635,7 +1633,6 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       style={{ left: dragPreview.x + 14, top: dragPreview.y + 14 }}>{dragPreview.item.title}</div> : null}
     {previewProjectId?<Suspense fallback={null}><SharedEntityPreview key={previewProjectId} id={previewProjectId} language={language} onClose={()=>setPreviewProjectId("")} onEdit={data=>{setProjectId(data.project.id);setSnapshot(data);setEditProjectLabelIds(data.project.labelIds||[]);setCreateModal("settings");}}/></Suspense>:null}
     <dialog ref={taskDialogRef} className="shared-projects-modal shared-task-modal" aria-labelledby="shared-task-title"
-      onPointerDown={(event) => { if (window.innerWidth > 760 && event.target === event.currentTarget) { const r = event.currentTarget.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) event.currentTarget.close(); } }}
       onClose={closeTask} onCancel={(event) => { if (busy) event.preventDefault(); }}>
       {selectedTask && taskSnapshot ? <>
         <header><h2 id="shared-task-title" data-no-translate>{selectedTask.title}</h2><DialogCloseButton type="button" className="shared-projects-close" disabled={busy} onClick={closeTask} aria-label={english ? "Close task" : "Закрыть задачу"} /></header>
@@ -1775,7 +1772,6 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       </> : null}
     </dialog>
     <dialog ref={createDialogRef} className="shared-projects-modal" aria-labelledby="shared-projects-modal-title"
-      onPointerDown={(event) => { if (window.innerWidth > 760 && event.target === event.currentTarget) { const r = event.currentTarget.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) event.currentTarget.close(); } }}
       onClose={closeCreateModal}>
       {createModal ? <>
         <header><h2 id="shared-projects-modal-title">{({
@@ -1814,7 +1810,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
                   await rejectSharedInvitation(invitation.id); setInvitations(await listSharedInvitations());
                 })}>{english ? "Decline" : "Отклонить"}</button></div></article>)}
         </div> : null}
-        {createModal === "settings" && snapshot ? <><SharedReviewSettings projectId={snapshot.project.id}/>{canManage ? <button type="button" className="danger-button" disabled={customFieldDraftOpen} onClick={()=>{setCreateModal(null);setTrashTarget({kind:"project",project:snapshot.project});}}>Удалить проект</button> : null}      {canInvite && !snapshot.project.isInbox ? <section className="shared-modal-section">
+        {createModal === "settings" && snapshot ? <><SharedReviewSettings projectId={snapshot.project.id}/>      {canManage && !snapshot.project.isInbox ? <section className="shared-modal-section">
         <h3>{english ? "Project settings" : "Настройки проекта"}</h3>
         <form key={`${snapshot.project.id}:${snapshot.project.revision}`} onSubmit={submitProjectEdit}>
           <label>{english ? "Name" : "Название"}<input name="title" defaultValue={snapshot.project.title} maxLength={160} required /></label>
@@ -1830,7 +1826,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
             <option value="">{english ? "Top level" : "Верхний уровень"}</option>
             {sharedProjectTree(projects.filter(project => project.id !== snapshot.project.id)).map(({ project, depth }) => <option key={project.id} value={project.id}>{depth ? `${"\u00a0\u00a0".repeat(depth)}↳ ` : ""}{project.title} · {formatTaskCount(project.taskCount ?? 0, language as import("./i18n").Language)}</option>)}
           </select></label>
-          <button type="submit" disabled={busy||customFieldDraftOpen}>{english ? "Save project" : "Сохранить проект"}</button>
+          <footer className="space-settings-actions">{canManage ? <button type="button" className="danger-button" disabled={customFieldDraftOpen} onClick={()=>{setCreateModal(null);setTrashTarget({kind:"project",project:snapshot.project});}}>Удалить проект</button> : null}<button type="submit" className="primary-button" disabled={busy||customFieldDraftOpen}>{english ? "Save project" : "Сохранить проект"}</button></footer>
         </form>
         {snapshot.project.role === "owner" ? <button type="button" className="shared-projects-archive" disabled={busy||customFieldDraftOpen} onClick={archiveProject}>{english ? "Complete project" : "Завершить проект"}</button> : null}
       </section> : null}
