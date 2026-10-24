@@ -12,6 +12,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.runtime.snapshotFlow
@@ -56,6 +57,22 @@ class MenuSwipeState {
         }
     }
 }
+
+/** Keep the selected submenu when Android recreates the activity after a font-size change. */
+internal val MenuSwipeStateSaver = listSaver<MenuSwipeState, String>(
+    save = { listOf(it.tasks, it.personalView, it.projects, it.projectArea, it.calendar,
+        it.habits, it.sacred, it.settings) },
+    restore = { saved -> MenuSwipeState().apply {
+        saved.getOrNull(0)?.let { tasks = it }
+        saved.getOrNull(1)?.let { personalView = it }
+        saved.getOrNull(2)?.let { projects = it }
+        saved.getOrNull(3)?.let { projectArea = it }
+        saved.getOrNull(4)?.let { calendar = it }
+        saved.getOrNull(5)?.let { habits = it }
+        saved.getOrNull(6)?.let { sacred = it }
+        saved.getOrNull(7)?.let { settings = it }
+    } }
+)
 
 internal fun menuSwipeSequence(includeSubmenus: Boolean, habitsEnabled: Boolean,
     sharedProjectsEnabled: Boolean = false, hiddenMenuItems: Set<String> = emptySet(),

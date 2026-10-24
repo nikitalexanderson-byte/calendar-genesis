@@ -165,7 +165,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
         display = savedPrefs.display.takeIf { it.wireValue in visibleCalendarChoices } ?: fallbackCalendar,
         input = savedPrefs.input.takeIf { it.wireValue in visibleCalendarChoices } ?: fallbackCalendar)
     val pendingPreferences by prefsStore.pending.collectAsStateWithLifecycle(emptyMap())
-    val menuSwipeState = remember(activeScope) { MenuSwipeState() }
+    val menuSwipeState = rememberSaveable(activeScope, saver = MenuSwipeStateSaver) { MenuSwipeState() }
     val settingsScrollStates = remember(activeScope) { mutableMapOf<String, ScrollState>() }
     var menuVisibilityExpanded by rememberSaveable(activeScope) { mutableStateOf(false) }
     val habitSettingsRepository = remember(app, activeScope) { HabitsRepository(app) }

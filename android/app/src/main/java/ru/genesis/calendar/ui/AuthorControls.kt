@@ -36,12 +36,15 @@ internal fun priorityForPosition(x: Float, width: Int): Int =
 @Composable
 fun PriorityControl(value: Int, onChange: (Int) -> Unit) {
     Column(Modifier.fillMaxWidth()) {
-        Text("Приоритет · ${priorityNames[value - 1]} · $value из 10",
+        val bounded = value.coerceIn(1, 10)
+        val description = genesisTranslate("Приоритет $bounded, ${priorityNames[bounded - 1]}")
+        Text("Приоритет · ${priorityNames[bounded - 1]} · $bounded из 10",
             modifier = Modifier.fillMaxWidth(), fontSize = 12.sp, maxLines = 1,
             softWrap = false, overflow = TextOverflow.Ellipsis)
         Row(Modifier.fillMaxWidth().height(72.dp).testTag("priority-scale")
             .semantics {
-                progressBarRangeInfo = ProgressBarRangeInfo(value.toFloat(), 1f..10f, 8)
+                contentDescription = description
+                progressBarRangeInfo = ProgressBarRangeInfo(bounded.toFloat(), 1f..10f, 8)
                 setProgress { requested -> onChange(requested.roundToInt().coerceIn(1, 10)); true }
             }
             .pointerInput(onChange) {
@@ -52,20 +55,30 @@ fun PriorityControl(value: Int, onChange: (Int) -> Unit) {
                 selectAt(change.position.x)
                 change.consume()
             }
+        }.pointerInput(onChange) {
+            detectTapGestures { onChange(priorityForPosition(it.x, size.width)) }
         }, verticalAlignment = Alignment.Bottom) {
             (1..10).forEach { step ->
-                val stepDescription = genesisTranslate("Приоритет $step, ${priorityNames[step - 1]}")
-                Box(Modifier.weight(1f).fillMaxHeight().clickable { onChange(step) }
-                    .semantics { contentDescription = stepDescription; selected = value == step },
+                Box(Modifier.weight(1f).fillMaxHeight().clearAndSetSemantics { },
                     contentAlignment = Alignment.BottomCenter) {
                     Box(Modifier.padding(horizontal = 2.dp, vertical = 8.dp).fillMaxWidth()
                         .height((7 + step * 4).dp)
-                        .border(if (step == value) 2.dp else 0.dp, MaterialTheme.colorScheme.onSurface, RoundedCornerShape(3.dp))
+                        .border(if (step == bounded) 2.dp else 0.dp, MaterialTheme.colorScheme.onSurface, RoundedCornerShape(3.dp))
                         .background((if(LocalEveningTheme.current) priorityColors[step - 1].let {
                             Color(it.red*.72f,it.green*.72f,it.blue*.72f) } else priorityColors[step - 1])
-                            .copy(alpha = if (step <= value) 1f else .35f), RoundedCornerShape(3.dp)))
+                            .copy(alpha = if (step <= bounded) 1f else .35f), RoundedCornerShape(3.dp)))
                 }
             }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically) {
+            val lower = (bounded - 1).coerceAtLeast(1)
+            val higher = (bounded + 1).coerceAtMost(10)
+            AffairsIconButton("Приоритет $lower, ${priorityNames[lower - 1]}", AffairsAction.DECREASE,
+                { onChange(lower) }, Modifier.testTag("priority-decrease"), enabled = bounded > 1)
+            Text("$bounded / 10", style = MaterialTheme.typography.labelLarge)
+            AffairsIconButton("Приоритет $higher, ${priorityNames[higher - 1]}", AffairsAction.ADD,
+                { onChange(higher) }, Modifier.testTag("priority-increase"), enabled = bounded < 10)
         }
     }
 }

@@ -15,6 +15,7 @@ import { privateDeviceAccessBlocked } from "./local-sign-out";
 import { SharedInvitationNotices, type SharedInvitationDestination } from "./SharedInvitationNotices";
 import { useReminderNotices } from "./ReminderNotices";
 import { translateText, type Language } from "./i18n";
+import { collaborationText } from "./collaboration-copy";
 import { clampDockPosition, clampDockSize, dockHome, dockSavedPosition, dockPositionToLayout, loadNotificationPanelSize, saveNotificationPanelSize, newestUnseenToken, NOTIFICATION_PREVIEW_MS, type DockBounds, type DockPosition, type DockSize, type NoticeActivity } from "./notification-dock-model";
 import "./notification-dock.css";
 const PrivateNotices = lazy(() => import("./SharedSpaceCollaboration").then(module => ({ default: module.SharedPrivateNotices })));
@@ -29,10 +30,12 @@ export default function NotificationDock({ userId, language, mode, appBase, shar
   const [privateActivity, setPrivateActivity] = useState(emptyActivity), [invitationActivity, setInvitationActivity] = useState(emptyActivity);
   const [open, setOpen] = useState(false), [position, setPosition] = useState<DockPosition | null>(null);
   const [settingsOpen,setSettingsOpen]=useState(false),[linkError,setLinkError]=useState(false);
+  const [pane,setPane]=useState<'updates'|'messages'>('updates');
   const [bounds, setBounds] = useState<DockBounds>({ left: 12, top: 12, right: 372, bottom: 720 });
   const [size, setSize] = useState({ width: 56, height: 56 }), [mobile, setMobile] = useState(false);
   const [panelSize,setPanelSize]=useState<DockSize>(()=>loadNotificationPanelSize(typeof window==='undefined'?null:window.localStorage,userId));
   const [preview, setPreview] = useState<{ token: string; title: string } | null>(null), [busy, setBusy] = useState(""), [readFailed, setReadFailed] = useState(false);
+  const openMessages=useCallback(()=>{setPane('messages');setOpen(true);setPreview(null);},[]);
   const root = useRef<HTMLElement>(null), toggle = useRef<HTMLButtonElement>(null), panel = useRef<HTMLDivElement>(null), toast = useRef<HTMLDivElement>(null);
   const seen = useRef(new Set<string>());
   const openDestination=useRef(onOpen),actionController=useRef<AbortController|null>(null),alive=useRef(false);
@@ -77,7 +80,7 @@ export default function NotificationDock({ userId, language, mode, appBase, shar
     measure(); const observer = new ResizeObserver(measure); observer.observe(element);
     return () => observer.disconnect();
   }, [expanded, bounds]);
-  useEffect(()=>{const showHistory=()=>{setUnreadOnly(false);setOpen(true);setPreview(null);};window.addEventListener("genesis:notification-inbox-open",showHistory);return()=>window.removeEventListener("genesis:notification-inbox-open",showHistory);},[setUnreadOnly]);
+  useEffect(()=>{const showHistory=()=>{setPane('updates');setUnreadOnly(false);setOpen(true);setPreview(null);};window.addEventListener("genesis:notification-inbox-open",showHistory);return()=>window.removeEventListener("genesis:notification-inbox-open",showHistory);},[setUnreadOnly]);
   useEffect(()=>{
     if(!userId||!sharedEnabled)return;const url=new URL(window.location.href),id=url.searchParams.get("notice");if(!id||!/^[-a-f0-9]{36}$/.test(id))return;
     const abort=new AbortController();void loadSharedPushDelivery(id,abort.signal).then(result=>{if(abort.signal.aborted||privateDeviceAccessBlocked())return;url.searchParams.delete("notice");window.history.replaceState(window.history.state,"",url);if(result.message.count===1)openDestination.current(result.destination);else{setUnreadOnly(true);setOpen(true);}}).catch(()=>{if(!abort.signal.aborted)setLinkError(true);});return()=>abort.abort();
@@ -160,7 +163,7 @@ export default function NotificationDock({ userId, language, mode, appBase, shar
   };
   const openItem=async(id:string)=>{if(busy)return;const abort=new AbortController();actionController.current=abort;setBusy(id);setReadFailed(false);try{const destination=await resolveSharedNotification(id,abort.signal);if(!alive.current||abort.signal.aborted||privateDeviceAccessBlocked())return;collapse();openDestination.current(destination);if(!destination.taskId)await markRead([id]);}catch{if(alive.current&&!abort.signal.aborted)setReadFailed(true);}finally{if(alive.current)setBusy("");}};
   const anchor = headerTarget?.getBoundingClientRect();
-  const emptyInbox=!loading&&!count&&!notifications.length&&!error&&!readFailed;
+  const emptyInbox=pane==='updates'&&!loading&&!count&&!notifications.length&&!error&&!readFailed;
   const dimensions=clampDockSize(mobile?{width:360,height:emptyInbox?280:560}:panelSize,bounds);
   const anchored=anchor?clampDockPosition({x:anchor.right-dimensions.width,y:anchor.bottom+8},bounds,dimensions.width,dimensions.height):dockHome(bounds,dimensions.width,dimensions.height);
   const home=layout.notificationDockX>=0&&layout.notificationDockY>=0?dockSavedPosition(layout.notificationDockX,layout.notificationDockY,bounds,dimensions.width,dimensions.height):anchored;
@@ -174,14 +177,19 @@ export default function NotificationDock({ userId, language, mode, appBase, shar
 
   return <>
     {headerTarget ? createPortal(toggleButton,headerTarget) : null}
-    <aside ref={root} className="notification-dock" data-expanded={expanded} hidden={!expanded} aria-label={t("Уведомления и сообщения")}
+    <aside ref={root} className="notification-dock" data-expanded={expanded} data-pane={pane} hidden={!expanded} aria-label={t("Уведомления и сообщения")}
       style={{ left: place.x, top: place.y, width:dimensions?.width, height:dimensions?.height, maxWidth: bounds.right - bounds.left, maxHeight:expanded?dimensions?.height:bounds.bottom-bounds.top }}>
       <div ref={panel} id="notification-dock-panel" className="notification-dock-panel" hidden={!expanded} tabIndex={-1}>
-        <header className="notification-dock-header" tabIndex={mobile?undefined:0} aria-label={mobile?undefined:t("Переместить уведомления")} title={mobile?undefined:t("Перетащите блок или используйте стрелки и Home")} {...dragProps}><h2>{t(unreadOnly?"Непрочитанные":"Уведомления")}</h2>
+        <header className="notification-dock-header" tabIndex={mobile?undefined:0} aria-label={mobile?undefined:t("Переместить уведомления")} title={mobile?undefined:t("Перетащите блок или используйте стрелки и Home")} {...dragProps}><h2>{pane==='messages'?collaborationText('messageTab',language):t(unreadOnly?"Непрочитанные":"Уведомления")}</h2>
           <div className="notification-dock-header-actions">
           {sharedEnabled?<button type="button" className="notification-drag-handle" aria-label={t("Настройки уведомлений")} title={t("Настройки уведомлений")} onClick={()=>setSettingsOpen(true)}><ExperimentalIcon name="settings"/></button>:null}
           <DialogCloseButton aria-label={t("Свернуть уведомления")} onClick={() => { collapse(); requestAnimationFrame(() => toggle.current?.focus({ preventScroll: true })); }} /></div></header>
+        {sharedEnabled?<div className="notification-pane-tabs" role="group" aria-label={t("Уведомления и сообщения")}>
+          <button type="button" className="secondary-button" aria-pressed={pane==='updates'} onClick={()=>setPane('updates')}><ExperimentalIcon name="list"/><span>{t("Уведомления")}</span></button>
+          <button type="button" className="secondary-button" aria-pressed={pane==='messages'} onClick={openMessages}><ExperimentalIcon name="mail"/><span>{collaborationText('messageTab',language)}</span></button>
+        </div>:null}
         <div className="notification-dock-list">
+          <div className="notification-updates" hidden={pane==='messages'}>
           {sharedEnabled?<div className="notification-inbox-filter" role="group" aria-label={t("Фильтр обновлений")}><button type="button" className="secondary-button" aria-pressed={unreadOnly} disabled={Boolean(busy)} onClick={()=>setUnreadOnly(true)}>{t("Непрочитанные")}</button><button type="button" className="secondary-button" aria-pressed={!unreadOnly} disabled={Boolean(busy)} onClick={()=>setUnreadOnly(false)}>{t("Все")}</button></div>:null}
           {readFailed || sharedEnabled && (error || moreError) ? <p role="alert">{t("Не удалось обновить уведомления. Повторите попытку.")} <button type="button" className="secondary-button" onClick={refresh}>{t("Обновить")}</button></p> : null}
           {notes.map(note => <article className="notification-reminder" key={note.id}><ExperimentalIcon name={note.kind === "task" ? "check" : "habits"} /><div><strong>{t(note.kind === "task" ? "Задача" : "Привычка")}</strong><p data-no-translate>{note.title}</p><small data-no-translate>{note.body}</small></div><button type="button" className="notification-read" aria-label={`${t("Убрать напоминание")}: ${note.title}`} onClick={() => dismiss(note.id)}><ExperimentalIcon name="check" /></button></article>)}
@@ -195,7 +203,8 @@ export default function NotificationDock({ userId, language, mode, appBase, shar
           {loading?<p role="status">{t("Загрузка…")}</p>:!notifications.length&&!count&&!error?<p>{t("Здесь пока нет обновлений.")}</p>:null}
           {nextCursor ? <button type="button" className="secondary-button notification-load-more" disabled={loadingMore} onClick={() => void loadMore()}>{t(loadingMore ? "Загрузка…" : "Показать ещё")}</button> : null}
           {invitationsEnabled ? <SharedInvitationNotices userId={userId} english={language === "en"} persistent onActivity={setInvitationActivity} onAccepted={destination => { collapse(); onAccepted(destination); }} /> : null}
-          {sharedEnabled ? <Suspense fallback={null}><PrivateNotices userId={userId} language={language} embedded onActivity={setPrivateActivity} onNavigate={collapse} /></Suspense> : null}
+          </div>
+          {sharedEnabled ? <Suspense fallback={null}><PrivateNotices key={userId} userId={userId} language={language} embedded active={expanded} view={pane==='messages'?'contacts':'notices'} onActivity={setPrivateActivity} onConversationOpen={openMessages} /></Suspense> : null}
         </div>
         {!mobile?<button type="button" className="notification-resize-handle" aria-label={t("Изменить размер уведомлений")} title={t("Потяните угол или используйте стрелки")} onPointerDown={startResize} onPointerMove={moveResize} onPointerUp={endResize} onPointerCancel={endResize} onKeyDown={resizeWithKeyboard}><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M4 13 13 4M9 13l4-4"/></svg></button>:null}
       </div>

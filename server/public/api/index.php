@@ -685,6 +685,7 @@ try {
             if ($method === 'POST') genesisJson(genesisSharedMessagingKey($userId,genesisReadJson()));
         }
         if ($method === 'GET' && $path === 'shared/messaging/inbox') genesisJson(genesisSharedPrivateInbox($userId));
+        if ($method === 'GET' && $path === 'shared/messaging/contacts') genesisJson(genesisSharedPrivateContacts($userId,$_GET['q'] ?? '',$_GET['cursor'] ?? null));
         if (count($segments) === 3 && $segments[1] === 'private-conversations' && $method === 'GET') genesisJson(genesisSharedPrivateDestination($userId,$segments[2]));
         if (count($segments) === 4 && $segments[1] === 'spaces' && $segments[3] === 'private-conversations' && $method === 'POST') {
             genesisJson(genesisSharedPrivateConversation($userId,$segments[2],genesisReadJson()));
