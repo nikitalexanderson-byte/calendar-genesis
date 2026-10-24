@@ -130,6 +130,9 @@ export default defineConfig({
             { name: "shared-updates-state", test: /app[\\/]SharedUpdatesProvider\.tsx$/, priority: 14 },
             { name: "task-display", test: /app[\\/](?:task-list-order|use-personal-task-display)\.ts$/, priority: 45 },
             { name: "mindmap-launch", test: /app[\\/]MindmapLaunchButton\.tsx$/, priority: 14 },
+            // Keep account settings (including the Physis entry) outside the main
+            // application chunk, including production builds with mindmaps enabled.
+            { name: "account-settings", test: /app[\\/]AccountPanel\.tsx$/, priority: 14 },
             { name: "affairs-copy", test: /app[\\/]native-affairs-translations\.json$/, priority: 46 },
             { name: "public-documents", test: /app[\\/](?:LegalPage\.tsx|legal-content\.ts)$/, priority: 14 },
             ...["el","de","fr","es","it","pt","pl","sr","uk","zh","tr","ja"].map(locale => ({
