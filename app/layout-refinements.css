@@ -658,7 +658,8 @@ html[data-genesis-theme] .genesis-app .shared-task-image-input > small { margin:
 html[data-genesis-theme] .genesis-app .shared-team-members { display: grid; gap: 12px; min-width: 0; }
 html[data-genesis-theme] .genesis-app .shared-team-member { display: grid; gap: 16px; min-width: 0; padding: 16px; border: 1px solid var(--line); border-radius: var(--ui-surface-radius); background: var(--surface); }
 html[data-genesis-theme] .genesis-app .shared-team-member-identity { display: flex; align-items: center; justify-content: flex-start; gap: 12px; padding: 0; border: 0; background: transparent; }
-html[data-genesis-theme] .genesis-app .shared-team-member-identity > div { min-width: 0; }
+html[data-genesis-theme] .genesis-app .shared-team-member-identity > div { min-width: 0; flex: 1; }
+html[data-genesis-theme] .genesis-app .shared-team-member-identity > .shared-member-message { margin-inline-start: auto; }
 html[data-genesis-theme] .genesis-app .shared-team-member-identity h4 { margin: 0 0 4px; font: 600 15px/1.5 var(--font-ui); overflow-wrap: anywhere; }
 html[data-genesis-theme] .genesis-app .shared-team-member-identity span { color: var(--ink-soft); font: 400 13px/1.5 var(--font-ui); }
 html[data-genesis-theme] .genesis-app .shared-team-member-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 12px; min-width: 0; }

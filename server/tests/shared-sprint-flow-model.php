@@ -97,4 +97,17 @@ sfCheck(genesisSprintFlowTask(['taskId'=>'bad','statusId'=>'todo','done'=>false,
 $badPlan=sfStart([]);$badPlan['plan']=['taskId'=>'not-a-list'];sfCheck(!genesisSprintFlowFold('sprint-a','tasks',$badPlan,null,[],$asOf)['available'],'A malformed plan invented an unavailable task count');
 $badRow=genesisSprintFlowFold('sprint-a','tasks',sfStart(['not-a-task']),null,[],$asOf);sfCheck($badRow['summary']['plan']['value']===null,'A malformed plan entry became known zero');$checks[]='corrupt observation bounds and shapes';
 
+// The supported event ceiling over three years: aggregate actual observations without truncating days.
+$longStart=sfStart([sfTask('long',1,0)]);$longStart['at']='2023-01-01T00:00:00Z';$longEvents=[];
+for($i=1;$i<=20000;$i++){
+    $done=$i%2===0;$state=sfTask('long',($i%20)/2,0,['revision'=>$i+1,'statusId'=>$done?'done':'todo','done'=>$done]);
+    $time=gmdate('Y-m-d\TH:i:s\Z',strtotime($longStart['at'])+$i*4800);
+    $longEvents[]=sfEvent(10+$i,$state,'task.updated',$time);
+}
+$long=genesisSprintFlowFold('sprint-a','points',$longStart,null,$longEvents,'2026-02-01T00:00:00Z',null,['resolution'=>'day','timeZone'=>'Europe/Moscow']);
+sfCheck($long['historyComplete']&&count($long['series'])>1000,'Multi-year history was truncated or lost coverage');
+sfCheck($long['summary']['completionTransitions']===10000&&$long['summary']['scope']['value']===0.0&&$long['summary']['scope']['unestimated']===0,'Reopening, zero estimates or event ordering corrupted a large history');
+sfCheck(array_sum(array_column(array_filter($long['series'],static fn($sample)=>$sample['sourceKind']==='event'),'sourceCount'))===20000,'Day buckets lost underlying source observations');
+$checks[]='20000 actual events over three years, exact reopening/zero estimates and source coverage';
+
 echo json_encode(['pass'=>true,'groups'=>count($checks),'checks'=>$checks],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)."\n";

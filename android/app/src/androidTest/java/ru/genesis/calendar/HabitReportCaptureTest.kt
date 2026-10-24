@@ -1,5 +1,6 @@
 package ru.genesis.calendar
 
+import android.os.ParcelFileDescriptor
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -15,7 +16,6 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.test.platform.app.InstrumentationRegistry
-import androidx.test.uiautomator.UiDevice
 import java.io.File
 import java.time.LocalDate
 import java.util.concurrent.CountDownLatch
@@ -65,6 +65,9 @@ class HabitReportCaptureTest {
         }
         fun capture(name: String, tags: List<String>) {
             compose.waitForIdle()
+            // PixelCopy waits for this Compose surface's buffer; frame callbacks alone can
+            // precede the first RenderThread submission on API35's software renderer.
+            compose.onNodeWithTag("ef-capture-root").captureToImage()
             // Semantics can settle one compositor frame before a physical screenshot.
             val painted = CountDownLatch(1)
             compose.activity.runOnUiThread { compose.activity.window.decorView.postOnAnimation {
@@ -73,8 +76,16 @@ class HabitReportCaptureTest {
             assertTrue("Window did not draw the settled state", painted.await(5, TimeUnit.SECONDS))
             InstrumentationRegistry.getInstrumentation().waitForIdleSync()
             val filename = "ef-$width-$language-${if (dark) "dark" else "light"}-font${(font * 100).toInt()}-${if (longTitle) "long-" else ""}$name"
-            assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(File(folder, "$filename.png")))
-            val root = compose.onNodeWithTag("ef-capture-root").fetchSemanticsNode().boundsInRoot
+            // UiDevice.takeScreenshot crops a changed logical display on API28. Shell screencap
+            // captures the complete physical display, including the emulator's letterboxing.
+            val target = File(folder, "$filename.png")
+            val pipe = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand("screencap -p")
+            ParcelFileDescriptor.AutoCloseInputStream(pipe).use { input -> target.outputStream().use(input::copyTo) }
+            assertTrue(target.length() > 0)
+            val rootNode = compose.onNodeWithTag("ef-capture-root").fetchSemanticsNode()
+            val root = rootNode.boundsInRoot
+            val actualWidth = root.width / rootNode.layoutInfo.density.density
+            assertEquals("Actual Compose width must match the requested profile", width.toFloat(), actualWidth, 1f)
             val controls = JSONArray()
             for (tag in tags) {
                 val node = compose.onNodeWithTag(tag); node.assertIsDisplayed()
@@ -83,7 +94,7 @@ class HabitReportCaptureTest {
                     && bounds.left >= root.left - 1 && bounds.right <= root.right + 1 && bounds.top >= root.top - 1 && bounds.bottom <= root.bottom + 1)
                 controls.put(JSONObject().put("tag", tag).put("bounds", bounds.toString()).put("widthDp", bounds.width / renderedDensity).put("heightDp", bounds.height / renderedDensity))
             }
-            File(folder, "$filename.metrics.json").writeText(JSONObject().put("width", width).put("language", language).put("dark", dark).put("fontScale", font)
+            File(folder, "$filename.metrics.json").writeText(JSONObject().put("width", width).put("actualWidthDp", actualWidth).put("language", language).put("dark", dark).put("fontScale", font)
                 .put("controls", controls).put("capture", "screencap-physical-display").toString())
         }
         compose.onNodeWithTag("habit-restore-footer").performScrollTo()

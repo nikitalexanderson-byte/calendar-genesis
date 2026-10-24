@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom';
 import { ExperimentalIcon } from './ExperimentalIcon';
 import { translateText } from './i18n';
 import { collaborationText } from './collaboration-copy';
+import { PRIVATE_MESSAGE_OPEN, type PrivateMessagePeer } from './SharedMemberMessageButton';
 import { spaceParticipants,messagingKey,openConversation,respondPrivateInvitation,privateMessages,privateInbox,privateConversationDestination,savePrivateMessage,deletePrivateMessage,readPrivateMessages,clearPrivateConversation,uploadPrivateFileChunk,loadPrivateFileChunk,discardPrivateFile,type SpaceParticipant,type PrivateMessage,type PrivateNotice,type PrivateInvitation,type PrivateConversation } from './private-messages-api';
 import { createMessagingIdentity,keyFingerprint,conversationKey,encryptPrivateMessage,decryptPrivateMessage,securityCode,exportMessagingBackup,importMessagingBackup,encryptPrivateFile,decryptPrivateFile,decodePrivateContent,PRIVATE_FILE_LIMIT,type PrivateFile,type MessagingIdentity } from './private-message-crypto';
 import {loadMessagingIdentity,saveMessagingIdentity,claimMessagingIdentity,pinPeerKey} from './private-message-vault';
@@ -119,6 +120,14 @@ export default function SharedSpaceCollaboration({userId,spaceId,language}:{user
   const [members,setMembers]=useState<SpaceParticipant[]>([]),[error,setError]=useState(false),[peer,setPeer]=useState<Peer|null>(null),[keysOpen,setKeysOpen]=useState(false),[identity,setIdentity]=useState<MessagingIdentity|null>(null),[missing,setMissing]=useState(false);
   const c=(key:Parameters<typeof collaborationText>[0])=>collaborationText(key,language);
   useEffect(()=>{const controller=new AbortController();let inFlight=false;const refresh=()=>{if(inFlight||!navigator.onLine)return;inFlight=true;void spaceParticipants(spaceId,document.visibilityState==='visible',controller.signal,clientId).then(result=>{if(!controller.signal.aborted){setMembers(result.members);setError(false);}}).catch(()=>{if(!controller.signal.aborted){setMembers([]);setError(true);}}).finally(()=>{inFlight=false;});};refresh();const timer=setInterval(refresh,30000);document.addEventListener('visibilitychange',refresh);window.addEventListener('focus',refresh);return()=>{controller.abort();clearInterval(timer);document.removeEventListener('visibilitychange',refresh);window.removeEventListener('focus',refresh);void spaceParticipants(spaceId,false,undefined,clientId).catch(()=>{});};},[spaceId,clientId]);
+  useEffect(()=>{
+    const open=(event:Event)=>{
+      const peer=(event as CustomEvent<PrivateMessagePeer>).detail;
+      if(peer?.spaceId===spaceId && typeof peer.userId==="string" && peer.userId!==userId && typeof peer.displayName==="string")setPeer(peer);
+    };
+    window.addEventListener(PRIVATE_MESSAGE_OPEN,open);
+    return()=>window.removeEventListener(PRIVATE_MESSAGE_OPEN,open);
+  },[spaceId,userId]);
   return <section className="shared-space-collaboration" data-no-translate><details className="shared-space-participants"><summary><ExperimentalIcon name="chevron"/><span className="shared-participants-heading"><ExperimentalIcon name="team"/>{c('participants')} · {members.length}</span><span>{c('viewing')} · {members.filter(member=>member.viewing).length}</span></summary>{error?<p role="alert">{c('failure')}</p>:null}
     <ul>{members.map(member=><li key={member.userId}><strong>{member.displayName}</strong><span>{translateText(({owner:'Владелец',admin:'Администратор',member:'Участник',guest:'Гость'} as Record<string,string>)[member.role]??'Участник',language as import('./i18n').Language)}</span>{member.viewing?<small>{c('viewing')}</small>:null}{member.userId!==userId?<button type="button" className="secondary-button" onClick={()=>setPeer({spaceId,userId:member.userId,displayName:member.displayName})}><ExperimentalIcon name="mail"/>{c('write')}</button>:null}</li>)}</ul>
     <button type="button" className="secondary-button" onClick={()=>{setKeysOpen(true);void identityFor(userId).then(setIdentity).catch(()=>setMissing(true));}}>{c('enable')}</button>{keysOpen?<KeyRecovery userId={userId} identity={identity} missing={missing} language={language} onReady={key=>{setIdentity(key);setMissing(false);}}/>:null}
