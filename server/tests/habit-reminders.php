@@ -5,14 +5,22 @@ require dirname(__DIR__).'/src/bootstrap.php';require dirname(__DIR__).'/src/rep
 $db=genesisDb();$user='test-habit-reminders';$other='test-habit-reminders-other';$now=genesisNow();
 function hrAssert(bool $ok,string $message): void{if(!$ok)throw new RuntimeException($message);}
 function hrReject(callable $action,string $code): void{try{$action();}catch(InvalidArgumentException|DomainException $e){hrAssert($e->getMessage()===$code,'Unexpected rejection: '.$e->getMessage());return;}throw new RuntimeException('Missing rejection: '.$code);}
+// Positive snooze/retry fixtures need room before their local day ends. Production
+// correctly rejects a ten-minute snooze at 23:55; CI must not assume otherwise.
+function hrFixtureZone(string $at): string { $hour=(int)gmdate('G',strtotime($at));return $hour>=2&&$hour<22?'UTC':'Pacific/Honolulu'; }
+$testZone=hrFixtureZone($now);
+foreach(['2026-10-23T23:55:00Z','2026-10-24T00:00:00Z','2026-10-24T01:59:59Z','2026-10-24T12:00:00Z','2026-10-24T21:59:59Z'] as $fixtureAt){
+ $local=(new DateTimeImmutable($fixtureAt))->setTimezone(new DateTimeZone(hrFixtureZone($fixtureAt)));
+ hrAssert($local->format('Y-m-d')===$local->modify('+15 minutes')->format('Y-m-d'),'Positive fixture crosses its local day');
+}
 function hrPlan(int $count=1): array{
- $now=new DateTimeImmutable(genesisNow());$rows=[];
- for($i=0;$i<$count;$i++)$rows[]=['id'=>'event-'.$i,'kind'=>'habit','date'=>$now->format('Y-m-d'),'at'=>$now->modify('-5 seconds')->format('Y-m-d\TH:i:s.v\Z'),'timeZone'=>'UTC','allowDuringQuietHours'=>false,'habitId'=>'opaque-'.$i,'ruleId'=>'rule-1','action'=>'complete'];
- return ['version'=>1,'generatedAt'=>$now->modify('-1 minute')->format('Y-m-d\TH:i:s.v\Z'),'expiresAt'=>$now->modify('+2 days')->format('Y-m-d\TH:i:s.v\Z'),'timeZone'=>'UTC','tone'=>'heroic','quietHoursStart'=>'00:00','quietHoursEnd'=>'00:00','rows'=>$rows];
+ global $testZone;$now=new DateTimeImmutable(genesisNow());$date=$now->setTimezone(new DateTimeZone($testZone))->format('Y-m-d');$rows=[];
+ for($i=0;$i<$count;$i++)$rows[]=['id'=>'event-'.$i,'kind'=>'habit','date'=>$date,'at'=>$now->modify('-5 seconds')->format('Y-m-d\TH:i:s.v\Z'),'timeZone'=>$testZone,'allowDuringQuietHours'=>false,'habitId'=>'opaque-'.$i,'ruleId'=>'rule-1','action'=>'complete'];
+ return ['version'=>1,'generatedAt'=>$now->modify('-1 minute')->format('Y-m-d\TH:i:s.v\Z'),'expiresAt'=>$now->modify('+2 days')->format('Y-m-d\TH:i:s.v\Z'),'timeZone'=>$testZone,'tone'=>'heroic','quietHoursStart'=>'00:00','quietHoursEnd'=>'00:00','rows'=>$rows];
 }
 foreach([$user,$other] as $id)$db->prepare('INSERT INTO users(id,google_sub,email,language,created_at,updated_at) VALUES(?,?,?,?,?,?)')->execute([$id,$id,$id.'@example.invalid','en',$now,$now]);
 $key=openssl_pkey_new(['private_key_type'=>OPENSSL_KEYTYPE_EC,'curve_name'=>'prime256v1']);$ec=openssl_pkey_get_details($key)['ec'];
-$registration=['deviceKey'=>'synthetic-device-1234','requestId'=>'synthetic-request-1234','consent'=>true,'expectedRevision'=>0,'timeZone'=>'UTC','maxPerDay'=>128,'snoozeMinutes'=>10,
+$registration=['deviceKey'=>'synthetic-device-1234','requestId'=>'synthetic-request-1234','consent'=>true,'expectedRevision'=>0,'timeZone'=>$testZone,'maxPerDay'=>128,'snoozeMinutes'=>10,
  'subscription'=>['endpoint'=>'https://fcm.googleapis.com/synthetic-habit','keys'=>['p256dh'=>genesisPushBase64("\x04".$ec['x'].$ec['y']),'auth'=>genesisPushBase64(random_bytes(16))]]];
 $cap=['available'=>true];$body=['ciphertext'=>base64_encode('opaque personal content'),'iv'=>base64_encode(random_bytes(12))];
 try{

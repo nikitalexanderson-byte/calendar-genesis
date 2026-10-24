@@ -1,10 +1,10 @@
 .shared-projects { display: grid; gap: 1rem; min-width: 0; }
-.shared-projects-hero { display: flex; align-items: center; gap: 1.25rem; min-width: 0; padding: 1.5rem; border-radius: 1.25rem; border: 1px solid rgba(216,189,128,.22); color: #eee6d8; background: radial-gradient(circle at 82% 14%,rgba(210,175,102,.16),transparent 28%),linear-gradient(135deg,#0b2428,#07171b); }
+.shared-projects-hero { display: flex; align-items: center; gap: 1.25rem; min-width: 0; padding: 1.5rem; border-radius: var(--ui-surface-radius); border: 1px solid rgba(216,189,128,.22); color: #eee6d8; background: radial-gradient(circle at 82% 14%,rgba(210,175,102,.16),transparent 28%),linear-gradient(135deg,#0b2428,#07171b); }
 .shared-projects-hero h1 { margin: .15rem 0 .4rem; overflow-wrap: anywhere; }
 .shared-projects-hero > div { min-width: 0; }
 .shared-projects-hero p { margin: 0; max-width: 65ch; color: #c8d9d4; }
 .shared-projects-current-title { display: block; margin-bottom: .35rem; color: #dfc17e; overflow-wrap: anywhere; }
-.shared-projects-privacy, .shared-projects-message { margin: 0; padding: .75rem 1rem; border-radius: .75rem; background: var(--surface, #fffdf7); border: 1px solid var(--line, #d4c9b0); }
+.shared-projects-privacy, .shared-projects-message { margin: 0; padding: .75rem 1rem; border-radius: var(--ui-surface-radius); background: var(--surface, #fffdf7); border: 1px solid var(--line, #d4c9b0); }
 .shared-projects-read-error { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
 .shared-projects-read-error > span { min-width: 0; overflow-wrap: anywhere; }
 .shared-projects-read-error > button { flex: 0 0 auto; }
@@ -17,30 +17,30 @@
 .shared-projects :is(form > button, .shared-projects-close) { border: 1px solid #255b59; border-radius: .7rem; background: #255b59; color: #fffdf8; padding: .55rem 1rem; font-weight: 700; }
 .shared-projects button:disabled { opacity: .55; cursor: not-allowed; }
 .shared-projects :is(button, input, select, textarea, summary):focus-visible { outline: 3px solid #a77738; outline-offset: 2px; }
-.shared-projects-create, .shared-projects-invite, .shared-projects-detail { padding: 1rem; border: 1px solid var(--line, #d4c9b0); border-radius: 1rem; background: var(--surface, #fffdf7); }
+.shared-projects-create, .shared-projects-invite, .shared-projects-detail { padding: 1rem; border: 1px solid var(--line, #d4c9b0); border-radius: var(--ui-surface-radius); background: var(--surface, #fffdf7); }
 .shared-projects-create summary, .shared-projects-invite summary { cursor: pointer; font-weight: 700; padding: .25rem; }
 .shared-projects-create form, .shared-projects-invite form { margin-top: .75rem; }
 .shared-projects-members { display: grid; gap: .5rem; margin-top: .75rem; }
-.shared-projects-member { display: flex; align-items: end; flex-wrap: wrap; gap: .7rem; padding: .6rem; border: 1px solid var(--line, #d4c9b0); border-radius: .7rem; }
+.shared-projects-member { display: flex; align-items: end; flex-wrap: wrap; gap: .7rem; padding: .6rem; border: 1px solid var(--line, #d4c9b0); border-radius: var(--ui-surface-radius); }
 .shared-projects-member > span:first-child { flex: 1 1 12rem; overflow-wrap: anywhere; }
 .shared-projects-member label { flex: 0 1 11rem; }
 .shared-projects-member button { border: 1px solid #9a5449; border-radius: .65rem; background: transparent; color: inherit; padding: .5rem .8rem; }
-.shared-projects-status-settings { display: flex; flex-wrap: wrap; align-items: end; gap: .65rem; padding: .65rem; border: 1px solid var(--line, #d4c9b0); border-radius: .7rem; }
+.shared-projects-status-settings { display: flex; flex-wrap: wrap; align-items: end; gap: .65rem; padding: .65rem; border: 1px solid var(--line, #d4c9b0); border-radius: var(--ui-surface-radius); }
 .shared-projects-status-settings form { display: flex; flex: 1 1 15rem; align-items: end; gap: .5rem; }
 .shared-projects-status-settings > label { flex: 1 1 10rem; }
 .shared-projects-status-settings > button { border: 1px solid #9a5449; border-radius: .65rem; background: transparent; color: inherit; padding: .5rem .8rem; }
 .shared-projects-checkbox { display: flex !important; flex: 0 1 auto !important; align-items: center; gap: .4rem; }
 .shared-projects-checkbox input { width: 1.2rem; min-height: 1.2rem; }
-.shared-projects-create-task, .shared-projects-invite-accept { padding: 1rem; border: 1px solid var(--line, #d4c9b0); border-radius: 1rem; background: var(--surface, #fffdf7); }
+.shared-projects-create-task, .shared-projects-invite-accept { padding: 1rem; border: 1px solid var(--line, #d4c9b0); border-radius: var(--ui-surface-radius); background: var(--surface, #fffdf7); }
 .shared-projects-meta { display: flex; flex-wrap: wrap; gap: .5rem; }
 .shared-projects-meta span { padding: .35rem .7rem; border-radius: 2rem; background: var(--surface, #fffdf7); border: 1px solid var(--line, #d4c9b0); }
 .shared-projects-board-hint { margin: 0; font-size: .9rem; opacity: .75; }
 .shared-projects-board { display: flex; align-items: flex-start; gap: .8rem; overflow-x: auto; padding-bottom: .5rem; scroll-snap-type: x proximity; }
 .shared-projects-board .shared-projects-column { flex: 0 0 min(19rem, 82vw); scroll-snap-align: start; }
 .shared-projects-list { display: grid; gap: .75rem; }
-.shared-projects-column { min-width: 0; padding: .8rem; border-radius: 1rem; background: var(--surface, #fffdf7); border: 1px solid var(--line, #d4c9b0); }
+.shared-projects-column { min-width: 0; padding: .8rem; border-radius: var(--ui-surface-radius); background: var(--surface, #fffdf7); border: 1px solid var(--line, #d4c9b0); }
 .shared-projects-column h2 { display: flex; justify-content: space-between; gap: 1rem; margin: 0 0 .65rem; font-size: 1.1rem; }
-.shared-projects-task { display: grid; gap: .45rem; padding: .65rem; margin-top: .5rem; border: 1px solid var(--line, #d4c9b0); border-radius: .7rem; }
+.shared-projects-task { display: grid; gap: .45rem; padding: .65rem; margin-top: .5rem; border: 1px solid var(--line, #d4c9b0); border-radius: var(--ui-surface-radius); }
 .shared-projects-task-open { display: grid; gap: .2rem; text-align: left; border: 0; background: transparent; padding: .2rem; overflow-wrap: anywhere; }
 .shared-projects-task-open small { opacity: .7; }
 .shared-projects-category-tag { display: inline-flex; align-items: center; gap: .4rem; }
@@ -53,7 +53,7 @@
 .shared-projects-view-switch { display: flex; flex-wrap: wrap; gap: .4rem; }
 .shared-projects-view-switch button { border: 1px solid var(--line, #d4c9b0); border-radius: .7rem; background: var(--surface, #fffdf7); color: inherit; padding: .5rem .8rem; }
 .shared-projects-view-switch button[aria-pressed="true"] { border-color: #255b59; box-shadow: inset 0 0 0 1px #255b59; font-weight: 700; }
-.shared-projects-calendar { min-width: 0; padding: 1rem; border: 1px solid var(--line, #d4c9b0); border-radius: 1rem; background: var(--surface, #fffdf7); }
+.shared-projects-calendar { min-width: 0; padding: 1rem; border: 1px solid var(--line, #d4c9b0); border-radius: var(--ui-surface-radius); background: var(--surface, #fffdf7); }
 .shared-projects-calendar-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
 .shared-projects-calendar-head h2 { margin: 0; text-align: center; font-size: 1.2rem; text-transform: capitalize; }
 .shared-projects-calendar-head button { min-width: 2.75rem; border: 1px solid var(--line, #d4c9b0); border-radius: .6rem; background: transparent; color: inherit; }

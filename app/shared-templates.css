@@ -1,4 +1,4 @@
-.shared-templates-dialog { --template-dialog-block-inset:24px; --template-dialog-inline-inset:24px; width:min(1120px,calc(100vw - 32px)); max-width:none; max-height:calc(100dvh - 32px); margin:auto; padding:var(--template-dialog-block-inset) var(--template-dialog-inline-inset); border:1px solid var(--line); border-radius:16px; color:var(--ink); background:var(--surface); overflow:auto; }
+.shared-templates-dialog { --template-dialog-block-inset:24px; --template-dialog-inline-inset:24px; width:min(1120px,calc(100vw - 32px)); max-width:none; max-height:calc(100dvh - 32px); margin:auto; padding:var(--template-dialog-block-inset) var(--template-dialog-inline-inset); border:1px solid var(--line); border-radius: var(--ui-surface-radius); color:var(--ink); background:var(--surface); overflow:auto; }
 .shared-templates-dialog::backdrop { background:rgb(0 0 0 / .52); }
 .template-dialog-heading { position:sticky; top:calc(-1 * var(--template-dialog-block-inset,24px)); z-index:2; background:var(--surface); display:flex; align-items:center; justify-content:space-between; gap:16px; margin-inline:calc(-1 * var(--template-dialog-inline-inset,24px)); margin-bottom:24px; padding:12px var(--template-dialog-inline-inset,24px); }
 .template-dialog-heading h2 { margin:0; font-size:1.5rem; }
@@ -56,7 +56,7 @@
 .template-issues li { margin-block:12px; }
 .template-result { margin-top:32px; border-top:1px solid var(--line); padding-top:8px; }
 @media(max-width:767px){
- .shared-templates-dialog { --template-dialog-block-inset:20px; --template-dialog-inline-inset:16px; width:calc(100vw - 16px); max-height:calc(100dvh - 16px); border-radius:12px; }
+ .shared-templates-dialog { --template-dialog-block-inset:20px; --template-dialog-inline-inset:16px; width:calc(100vw - 16px); max-height:calc(100dvh - 16px); border-radius: var(--ui-surface-radius); }
  .template-library-layout { grid-template-columns:minmax(0,1fr); gap:24px; }
  .template-library { border-inline-end:0; border-bottom:1px solid var(--line); padding:0 0 24px; }
  .template-library ul { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 12px; }

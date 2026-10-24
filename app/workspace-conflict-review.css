@@ -10,7 +10,7 @@
 .workspace-conflict-fields legend strong { display: block; font-size: 17px; }
 .workspace-conflict-fields legend span { display: block; padding-top: 4px; font-size: 14px; color: var(--ink-soft); }
 .workspace-conflict-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.workspace-conflict-options label { min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; }
+.workspace-conflict-options label { min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: var(--ui-surface-radius); cursor: pointer; }
 .workspace-conflict-options label.selected { border-color: var(--ui-accent); background: color-mix(in srgb, var(--ui-accent) 7%, var(--surface)); }
 .workspace-conflict-options label > span { display: flex; align-items: center; min-height: 44px; gap: 10px; }
 .workspace-conflict-options input { width: 20px; height: 20px; margin: 0; flex-shrink: 0; accent-color: var(--ui-accent); }
@@ -24,8 +24,8 @@ html[data-genesis-theme] .genesis-app .workspace-conflict-dialog :is(#workspace-
 .workspace-conflict-refresh svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .workspace-conflict-dialog :is(button, input):focus-visible, .workspace-conflict-options label:has(input:focus-visible) { outline: 2px solid var(--ui-accent); outline-offset: 3px; }
 .workspace-conflict-dialog button:disabled { opacity: .55; cursor: default; }
-.workspace-conflict-error { color: var(--ink); padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; }
-.workspace-conflict-pending { position: fixed; z-index: 200; inset-inline-end: 20px; bottom: calc(84px + env(safe-area-inset-bottom)); max-width: calc(100% - 40px); min-height: 44px; padding: 10px 16px; color: var(--ui-on-accent); background: var(--ui-accent); border: 0; border-radius: 10px; font: inherit; cursor: pointer; }
+.workspace-conflict-error { color: var(--ink); padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--ui-surface-radius); }
+.workspace-conflict-pending { position: fixed; z-index: 200; inset-inline-end: 20px; bottom: calc(84px + env(safe-area-inset-bottom)); max-width: calc(100% - 40px); min-height: 44px; padding: 10px 16px; color: var(--ui-on-accent); background: var(--ui-accent); border: 0; border-radius: var(--ui-surface-radius); font: inherit; cursor: pointer; }
 @media (max-width: 600px) {
   .workspace-conflict-backdrop { padding: 10px; }
   .workspace-conflict-dialog { padding: 16px; max-height: calc(100dvh - 20px); gap: 16px; }
