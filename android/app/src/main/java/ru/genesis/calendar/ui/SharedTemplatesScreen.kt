@@ -98,6 +98,7 @@ import java.util.UUID
     DisposableEffect(state) { onDispose { scope.launch(NonCancellable) { try { if (state.dirty) state.save() } finally { state.close() } } } }
     Dialog(onDismissRequest = ::back, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing), contentAlignment = Alignment.Center) {
+            DialogBackdrop(::back, Modifier.matchParentSize())
             val compactIme = WindowInsets.ime.getBottom(LocalDensity.current) > 0 && maxHeight < 360.dp
             Surface(Modifier.widthIn(max = 1120.dp).fillMaxWidth().padding(horizontal = 12.dp, vertical = if (compactIme) 4.dp else 12.dp)
                 .heightIn(max = if (compactIme) maxHeight else maxHeight * .96f).imePadding(), shape = AffairsLayout.shape) {

@@ -80,6 +80,7 @@ internal fun fieldEditorMessage(code: String, hasRecord: Boolean = true): String
     Dialog(onDismissRequest = ::close, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         BackHandler(onBack = ::back)
         BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing), contentAlignment = Alignment.Center) {
+            DialogBackdrop(::close, Modifier.matchParentSize())
             val compactIme = WindowInsets.ime.getBottom(LocalDensity.current) > 0 && maxHeight < 360.dp
             val wideWindow = maxWidth >= 864.dp && !compactIme
             Surface(Modifier.widthIn(max = 1120.dp).fillMaxWidth().padding(horizontal = 12.dp, vertical = if (compactIme) 4.dp else 12.dp)

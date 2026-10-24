@@ -67,6 +67,7 @@ internal fun savedViewMessage(code: String): String = when (code) {
     Dialog(onDismissRequest = ::close, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         BackHandler { if (conditions) conditions = false else if (detail) detail = false else close() }
         BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing), contentAlignment = Alignment.Center) {
+            DialogBackdrop(::close, Modifier.matchParentSize())
             val wide = maxWidth >= 864.dp
             Surface(Modifier.widthIn(max = 1120.dp).fillMaxWidth().padding(12.dp).heightIn(max = maxHeight * .96f).imePadding(), shape = AffairsLayout.shape) {
                 Column(Modifier.testTag("saved-views-screen")) {

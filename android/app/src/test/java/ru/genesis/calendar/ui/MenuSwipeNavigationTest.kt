@@ -1,11 +1,31 @@
 package ru.genesis.calendar.ui
 
+import androidx.compose.runtime.saveable.SaverScope
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNull
 import org.junit.Test
 
 class MenuSwipeNavigationTest {
+    @Test fun selectedSubmenusSurviveActivityRecreation() {
+        val original = MenuSwipeState().apply {
+            tasks = "lists"; personalView = "projects"; projects = "archived"
+            projectArea = "shared"; calendar = "year"; habits = "Сон и настроение"
+            sacred = "theokyklos"; settings = "reminders"
+        }
+        val scope = object : SaverScope { override fun canBeSaved(value: Any) = true }
+        val saved = with(MenuSwipeStateSaver) { scope.save(original) }
+        val restored = requireNotNull(MenuSwipeStateSaver.restore(requireNotNull(saved)))
+        assertEquals("year", restored.section("Календарь"))
+        assertEquals("shared", restored.section("Проекты"))
+        assertEquals("Сон и настроение", restored.section("Привычки"))
+        assertEquals("theokyklos", restored.section("Сакральное"))
+        assertEquals("reminders", restored.section("Настройки"))
+        assertEquals(original.tasks, restored.tasks)
+        assertEquals(original.personalView, restored.personalView)
+        assertEquals(original.projects, restored.projects)
+    }
+
     @Test fun mainPagesIgnoreSubmenusWhenOptionIsOff() {
         val pages = menuSwipeSequence(false, true)
         assertEquals(listOf("Сегодня", "Проекты", "Календарь", "Привычки",

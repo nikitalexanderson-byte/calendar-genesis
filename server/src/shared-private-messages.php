@@ -126,6 +126,38 @@ function genesisSharedPrivateInbox(string $userId): array
     return ['conversations'=>$conversations,'invitations'=>$q->fetchAll()];
 }
 
+/** Accepted contacts remain available even with no messages or after all messages were read. */
+function genesisSharedPrivateContacts(string $userId, mixed $search = '', mixed $cursor = null): array
+{
+    genesisSharedRequireEnabled($userId);
+    if (!is_string($search) || mb_strlen($search, 'UTF-8') > 120 || ($cursor !== null &&
+        (!is_string($cursor) || !preg_match('/\A[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\z/D', $cursor)))) {
+        throw new InvalidArgumentException('INVALID_MESSAGE_CURSOR');
+    }
+    $search = str_replace('ё', 'е', mb_strtolower(trim($search), 'UTF-8'));
+    $q = genesisDb()->prepare('SELECT c.id,c.space_id AS spaceId,s.title AS spaceTitle,
+        CASE WHEN c.user_a=:user THEN c.user_b ELSE c.user_a END AS peerId,
+        COALESCE(NULLIF(u.display_name,\'\'),\'GENESIS\') AS peerName,
+        COUNT(m.seq) AS unread,COALESCE(MAX(m.seq),0) AS latestSeq
+        FROM shared_private_conversations c JOIN shared_spaces s ON s.id=c.space_id
+        JOIN shared_space_members a ON a.space_id=c.space_id AND a.user_id=c.user_a
+        JOIN shared_space_members b ON b.space_id=c.space_id AND b.user_id=c.user_b
+        JOIN users u ON u.id=CASE WHEN c.user_a=:user THEN c.user_b ELSE c.user_a END
+        LEFT JOIN shared_private_conversation_invitations i ON i.conversation_id=c.id
+        LEFT JOIN shared_private_message_reads r ON r.conversation_id=c.id AND r.user_id=:user
+        LEFT JOIN shared_private_messages m ON m.conversation_id=c.id AND m.sender_id<>:user
+            AND m.seq>COALESCE(r.last_read_seq,0) AND m.deleted_at IS NULL
+        WHERE (c.user_a=:user OR c.user_b=:user) AND c.user_a<>c.user_b
+            AND (i.status IS NULL OR i.status=\'accepted\') AND c.id>:cursor
+            AND (:search=\'\' OR instr(genesis_fold(COALESCE(NULLIF(u.display_name,\'\'),\'GENESIS\')||\' \'||s.title),:search)>0)
+        GROUP BY c.id ORDER BY c.id LIMIT 51');
+    $q->execute(['user'=>$userId,'cursor'=>$cursor ?? '','search'=>$search]);
+    $rows = $q->fetchAll(); $more = count($rows) > 50; $rows = array_slice($rows,0,50);
+    return ['contacts'=>array_map(static function(array $row): array {
+        $row['unread']=(int)$row['unread']; $row['latestSeq']=(int)$row['latestSeq']; return $row;
+    },$rows),'nextCursor'=>$more ? $rows[49]['id'] : null];
+}
+
 function genesisSharedPrivateMessages(string $userId, string $conversationId, int $before = 0): array
 {
     genesisSharedPrivateAccess($userId,$conversationId);

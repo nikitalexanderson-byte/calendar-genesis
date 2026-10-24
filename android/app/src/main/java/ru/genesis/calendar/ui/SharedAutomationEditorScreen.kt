@@ -63,6 +63,7 @@ import java.util.Locale
     Dialog(onDismissRequest = ::close, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         BackHandler(onBack = ::close)
         BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing), contentAlignment = Alignment.Center) {
+            DialogBackdrop(::close, Modifier.matchParentSize())
             val compactIme = WindowInsets.ime.getBottom(LocalDensity.current) > 0 && maxHeight < 360.dp
             Surface(Modifier.widthIn(max = 1120.dp).fillMaxWidth().padding(horizontal = 12.dp, vertical = if (compactIme) 4.dp else 12.dp)
                 .heightIn(max = if (compactIme) maxHeight else maxHeight * .96f).imePadding(), shape = AffairsLayout.shape) {

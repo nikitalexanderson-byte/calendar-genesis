@@ -34,6 +34,7 @@ try{
   privateExpect(genesisSharedPrivateConversation($peer,$spaceId,['userId'=>$owner])['id']===$cid,'Pair created duplicate conversations.');
   $payload=['version'=>1,'iv'=>'AAAAAAAAAAAAAAAA','ciphertext'=>str_repeat('A',44),'keyIds'=>[$owner=>$a['keyId'],$peer=>$b['keyId']]];$id=genesisUuid();
   privateExpect($conversation['status']==='pending'&&$conversation['initiatorId']===$owner,'New dialogue did not request consent.');
+  privateExpect(genesisSharedPrivateContacts($owner)['contacts']===[]&&genesisSharedPrivateContacts($peer)['contacts']===[], 'Pending contacts escaped consent.');
   privateExpect(count(genesisSharedPrivateInbox($peer)['invitations'])===1&&genesisSharedPrivateInbox($owner)['invitations']===[]
     &&genesisSharedPrivateInbox($admin)['invitations']===[],'Invitation metadata escaped recipient ACL.');
   privateReject(fn()=>genesisSharedPrivateSave($owner,$cid,['id'=>$id,'payload'=>$payload]));
@@ -44,6 +45,14 @@ try{
   privateReject(fn()=>genesisSharedRespondPrivateInvitation($outsider,$cid,['accept'=>false]));
   privateReject(fn()=>genesisSharedRespondPrivateInvitation($peer,$cid,['accept'=>'true']));
   genesisSharedRespondPrivateInvitation($peer,$cid,['accept'=>true]);genesisSharedRespondPrivateInvitation($peer,$cid,['accept'=>true]);
+  $contact=genesisSharedPrivateContacts($owner)['contacts'];
+  privateExpect(count($contact)===1&&$contact[0]['id']===$cid&&$contact[0]['peerId']===$peer&&$contact[0]['unread']===0,'Accepted empty conversation disappeared.');
+  privateExpect(genesisSharedPrivateContacts($admin)['contacts']===[]&&genesisSharedPrivateContacts($outsider)['contacts']===[],'Contact metadata escaped participant ACL.');
+  privateExpect(!str_contains(json_encode($contact),'ciphertext')&&!str_contains(json_encode($contact),'publicKey'),'Contact list exposed content or keys.');
+  privateReject(fn()=>genesisSharedPrivateContacts($owner,[],null));
+  privateReject(fn()=>genesisSharedPrivateContacts($owner,'', 'not-a-cursor'));
+  privateReject(fn()=>genesisSharedPrivateContacts($owner,'',str_repeat('-',36)));
+  privateReject(fn()=>genesisSharedPrivateContacts($owner,str_repeat('Я',121)));
   privateExpect(genesisSharedPrivateConversation($owner,$spaceId,['userId'=>$peer])['status']==='accepted'
     &&genesisSharedPrivateInbox($peer)['invitations']===[],'Recipient acceptance did not persist.');
   privateReject(fn()=>genesisSharedRespondPrivateInvitation($peer,$cid,['accept'=>false]));
@@ -69,6 +78,7 @@ try{
   privateExpect(genesisSharedPrivateInbox($peer)['conversations'][0]['unread']===1&&genesisSharedPrivateInbox($admin)['conversations']===[],'Inbox violated privacy.');
   privateExpect(!str_contains(json_encode(genesisSharedPrivateInbox($peer)),'ciphertext'),'Notification leaked message body.');
   $message=genesisSharedPrivateMessages($peer,$cid)['messages'][0];genesisSharedPrivateRead($peer,$cid,['seq'=>$message['seq']]);privateExpect(genesisSharedPrivateInbox($peer)['conversations']===[],'Read receipt did not persist.');
+  privateExpect(genesisSharedPrivateContacts($peer)['contacts'][0]['id']===$cid&&genesisSharedPrivateContacts($peer)['contacts'][0]['unread']===0,'Reading all messages removed the accepted contact.');
   genesisSharedPrivateSave($owner,$cid,['expectedRevision'=>1,'payload'=>$payload],'PATCH',$id);privateExpect(genesisSharedPrivateMessages($peer,$cid)['messages'][0]['revision']===2,'Edit revision failed.');
   genesisSharedPrivateSave($owner,$cid,['expectedRevision'=>2],'DELETE',$id);$message=genesisSharedPrivateMessages($peer,$cid)['messages'][0];privateExpect($message['payload']===null&&$message['deletedAt']!==null,'Deleted ciphertext survived.');
   $fileId=genesisUuid();$cipher=rtrim(strtr(base64_encode(str_repeat('X',262144)),'+/','-_'),'=');
@@ -87,11 +97,25 @@ try{
   privateExpect((int)$db->query('SELECT COUNT(*) FROM shared_private_file_chunks')->fetchColumn()===0,'Message deletion retained chunks.');
   $next=genesisUuid();$fileId=genesisUuid();genesisSharedPrivateFileChunk($owner,$cid,$fileId,0,['ciphertext'=>$last,'chunks'=>1,'bytes'=>16]);genesisSharedPrivateSave($owner,$cid,['id'=>$next,'payload'=>$payload,'attachmentIds'=>[$fileId]]);
   genesisSharedPrivateClear($peer,$cid);privateExpect(genesisSharedPrivateMessages($owner,$cid)['messages']===[],'Conversation deletion retained messages.');privateExpect(genesisSharedPrivateInbox($peer)['conversations']===[],'Conversation deletion retained unread notifications.');
+  privateExpect(count(genesisSharedPrivateContacts($peer)['contacts'])===1,'Clearing history removed the connection.');
   privateReject(fn()=>genesisSharedPrivateFileChunk($owner,$cid,$fileId,0));
   genesisSharedPrivateSave($owner,$cid,['id'=>genesisUuid(),'payload'=>$payload]);privateExpect(count(genesisSharedPrivateMessages($peer,$cid)['messages'])===1,'Conversation could not resume after deletion.');
   genesisSharedProjectComments($owner,$project['id'],['body'=>'Project discussion']);genesisSharedProjectComments($owner,$project['id'],['body'=>'Board discussion','boardId'=>$status]);privateExpect(count(genesisSharedProjectComments($peer,$project['id'],null,$status))===1,'Board comments missing');privateReject(fn()=>genesisSharedProjectComments($owner,$project['id'],['body'=>'Bad board','boardId'=>'other']));privateExpect(count(genesisSharedProjectComments($peer,$project['id']))===1,'Project comments missing.');privateReject(fn()=>genesisSharedProjectComments($outsider,$project['id']));
   $pendingAgain=genesisSharedPrivateConversation($peer,$spaceId,['userId'=>$pending]);
+  // Contact pagination and Unicode search must include accepted dialogues with no messages.
+  for($contactIndex=0;$contactIndex<53;$contactIndex++){
+    $contactSpace=genesisSharedCreateSpace($owner,['title'=>'Пагинация Ёлка '.$contactIndex]);
+    $db->prepare('INSERT INTO shared_space_members(space_id,user_id,role,joined_at) VALUES(?,?,?,?)')->execute([$contactSpace['id'],$peer,'member',genesisNow()]);
+    [$contactA,$contactB]=strcmp($owner,$peer)<0?[$owner,$peer]:[$peer,$owner];
+    $db->prepare('INSERT INTO shared_private_conversations(id,space_id,user_a,user_b,created_at) VALUES(?,?,?,?,?)')->execute([genesisUuid(),$contactSpace['id'],$contactA,$contactB,genesisNow()]);
+  }
+  $firstContacts=genesisSharedPrivateContacts($peer,'ПАГИНАЦИЯ ЕЛКА');
+  $lastContacts=genesisSharedPrivateContacts($peer,'ПАГИНАЦИЯ ЕЛКА',$firstContacts['nextCursor']);
+  privateExpect(count($firstContacts['contacts'])===50&&count($lastContacts['contacts'])===3&&$lastContacts['nextCursor']===null,'Contact list lost pages or Unicode search.');
+  privateExpect(count(array_unique(array_column(array_merge($firstContacts['contacts'],$lastContacts['contacts']),'id')))===53,'Contact cursor repeated a row.');
+  privateExpect(genesisSharedPrivateContacts($peer,'NO MATCH')['contacts']===[],'Contact search leaked unrelated rows.');
   $db->prepare('DELETE FROM shared_space_members WHERE space_id=? AND user_id=?')->execute([$spaceId,$peer]);
+  privateExpect(!array_filter(genesisSharedPrivateContacts($owner)['contacts'],fn($item)=>$item['id']===$cid),'Revoked membership left the contact visible.');
   privateExpect(!array_filter(genesisSharedPrivateInbox($pending)['invitations'],fn($item)=>$item['id']===$pendingAgain['id']),'Revoked membership left a visible invitation.');
   privateReject(fn()=>genesisSharedRespondPrivateInvitation($pending,$pendingAgain['id'],['accept'=>false]));
   privateReject(fn()=>genesisSharedPrivateMessages($peer,$cid));privateReject(fn()=>genesisSharedPrivateMessages($owner,$cid));
