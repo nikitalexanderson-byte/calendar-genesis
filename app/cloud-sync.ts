@@ -436,7 +436,7 @@ export function captureAccountSessionGuard() {
   return () => requireActiveLocalSession(generation);
 }
 
-/** Physis uses the existing authenticated transport, but never the workspace key or offline queue. */
+/** Owner-scoped Physis transport; account wrapping uses personalDocumentAccess, with no offline queue. */
 export async function physisRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!/^\/(access|vault|records|rotate)(?:\?[A-Za-z0-9=&_-]*)?$/.test(path)) throw new Error("Invalid Physis path");
   try { return await api<T>(`/physis/v1${path}`, { ...init, cache: "no-store" }); }

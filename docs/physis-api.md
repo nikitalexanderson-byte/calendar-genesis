@@ -8,13 +8,7 @@ The browser pilot is enabled by the Git-controlled `GENESIS_PHYSIS_WEB_ENABLED=t
 
 `server/src/physis.php` contains the exact tester allowlist: `nikitalexanderson@gmail.com`, `jurijjlogvinov@gmail.com`, `picishina@gmail.com` (the third account was explicitly added by the user on 24 October 2026). Comparison permits case and surrounding whitespace only. It does not normalize Gmail dots or aliases. The guard runs for the whole namespace, including unknown, export and nested routes, before querying Physis records or parsing request bodies. Every unavailable identity receives the same `403 PHYSIS_UNAVAILABLE`.
 
-The existing server-side Google code exchange now records `auth_identity.email`, strict boolean `email_verified`, and `channel` together with the verified Google subject. Only a current primary Google identity with trusted verified allowlisted email and `channel=web` is admitted. Linked Google identities are denied even if their workspace owner's email is allowlisted. Native token login stamps `channel=native`; old sessions without claims/channel fail closed and require a new web sign-in. No client header, User-Agent or client-provided owner/email changes this decision.
-
-For an otherwise valid legacy primary tester session with missing/unknown channel, only `GET /access` adds `reauthRequired: true` to its existing 403 `PHYSIS_UNAVAILABLE`. It supplies no owner ID or private data and does not authorize any operation. The browser uses this hint to show the Google confirmation entry instead of silently hiding Physis. Native/linked/unverified web/outsider/anonymous and an explicitly disabled pilot do not receive it. All private routes preserve their identical denial. See [physis-access-recovery.md](physis-access-recovery.md).
-
-The published native 2.9.7/102 APK launches Compose `MainActivity`, has a separate encrypted cookie jar and an API route allowlist without Physis or browser OAuth. Its native Google session is denied by every Physis endpoint. The historical `BrowserLauncherActivity` is not registered in that APK; its old implementation opens an external browser/Custom Tab, using browser cookies. External browser use remains browser access even when opened from an app link. No User-Agent or screen-width heuristic is involved. No APK or Android source changes are part of this module.
-
-Mutations require the existing session cookie, `X-CSRF-Token` and `Content-Type: application/json`. The session file lock is released after authorization, so concurrency control is enforced by SQLite rather than serialized session access. Owner ID always comes from the current session. Request objects with additional keys such as `owner_id` are rejected.
+Admission reuses `genesisCurrentUserId()` and `genesisSessionIsPrimaryGoogleUser()`, as admin access does. The server-side primary account email must exactly match the allowlist. Older valid primary website sessions are admitted without a separate Google confirmation; newer optional email claims are not a second login requirement. Explicit `channel=native`, unknown nonstandard channels, linked identities, outsiders and anonymous requests remain denied. Missing/`unknown` channel is accepted for existing primary website sessions. User-Agent and client-supplied owner/email never authorize access.
 
 ## Objects and endpoints
 
@@ -26,18 +20,21 @@ type Envelope = {
   iv: string;          // exactly 12 random bytes
   ciphertext: string; // AES-GCM ciphertext with 16-byte tag; 17..262144 bytes
 };
-type Vault = {
+type LegacyVault = {
   version: 1; keyVersion: number;
   password: { salt: string; iterations: 600000; iv: string; ciphertext: string };
   recovery: { iv: string; ciphertext: string };
 };
+type Vault = LegacyVault | { version: 2; keyVersion: number; account: { iv: string; ciphertext: string } };
 type WireRecord = {
   id: string; revision: number; sequence: number;
   updatedAt: string; deletedAt: string | null; envelope: Envelope | null;
 };
 ```
 
-Password salt is 16 bytes. Both wrapped-key ciphertexts are 48 bytes (32-byte key plus 16-byte GCM tag). Both IVs are 12 bytes. The server validates shape and versions; only a client holding the key can verify GCM authenticity. It cannot inspect or repair malformed encrypted application data.
+New vaults use `{version:2,keyVersion,account:{iv,ciphertext}}`. The account wrapper is AES-GCM over the JSON string containing a base64-encoded 32-byte data key: 12-byte IV and exactly 62 ciphertext bytes. It reuses `personalDocumentAccess(owner)` and its shared GENESIS workspace key with scope `physis-vault:v2:{keyVersion}`. AAD is therefore `genesis-mindmap-v1:{owner}:physis-vault:v2:{keyVersion}`; this namespace comes from the existing generic personal-document adapter. The adapter checks the active account before and after encryption/decryption.
+
+Legacy v1 remains readable for migration and old backup imports. Password salt is 16 bytes. Both wrapped-key ciphertexts are 48 bytes (32-byte key plus 16-byte GCM tag). Both IVs are 12 bytes. The server validates shape and versions; only a client holding the key can verify GCM authenticity. It cannot inspect or repair malformed encrypted application data.
 
 | Request | Body / parameters | Result |
 | --- | --- | --- |
@@ -67,11 +64,13 @@ Tombstones and idempotency receipts are retained for at least 90 days, with lazy
 
 ## Encryption and visible metadata
 
-The web client uses a random AES-256-GCM data key and a fresh 96-bit nonce per encryption. Record AAD is `genesis:physis:v1:{owner}:{id}:{schemaVersion}:{keyVersion}`. Wrapping uses the same AAD format with record IDs `vault:password` and `vault:recovery`. Password wrapping derives AES-256 via PBKDF2-HMAC-SHA256 at 600000 iterations. The separate recovery code contains a random 256-bit wrapping key. Google credentials are never used as the vault password.
+The web client uses a random AES-256-GCM data key and fresh 96-bit nonces. Record AAD remains `genesis:physis:v1:{owner}:{id}:{schemaVersion}:{keyVersion}`. The normal site account unwraps the v2 data key automatically; there is no Physis password, recovery-code setup or lock button. This has the same trust model as the shared GENESIS account key (including its existing server-assisted recovery), not an independent zero-knowledge password vault.
 
-The server stores only the wrapped data key, ciphertext, stable owner ID, random record IDs, revisions, sequence cursors, key/schema versions, lengths and change/deletion timestamps. Record kind, historical fact dates, notes, metrics and product/drug/exercise references are inside ciphertext. An idempotency receipt temporarily retains only the response metadata for retry; deleting a record removes its live ciphertext immediately. An old key may still decrypt old backups if someone already possesses that key; rotation is not retroactive erasure.
+The server stores encrypted records and the account-wrapped data key. Record kind, historical fact dates, notes, metrics and references remain encrypted. The Physis data key/plaintext is not persisted in browser storage or analytics. The existing shared account-key storage policy is unchanged. Logout clears the Physis memory store and session guards reject stale asynchronous work.
 
-The server never receives the password, data key or recovery key. Losing both password and recovery key means the vault cannot be recovered by the server. Compromised client code or an unlocked browser can access decrypted data; this design does not protect against an active XSS or malicious server-delivered JavaScript. No Physis plaintext/key is put in browser persistent storage, analytics or server logs by this API.
+A populated v1 vault requires its original password or recovery code once. Migration only rewraps its existing data key through revision CAS; record ciphertext is unchanged. An empty v1 vault can atomically rotate to v2 without a password using both revision and cursor checks. Concurrent writes cause a retry rather than data replacement. A lost response is resolved by reading the committed vault. New encrypted exports open in the same GENESIS account; v1 exports still accept their original recovery code.
+
+No SQL migration or manual production DB operation is needed. Reverting the code preserves v2 data but older clients cannot open it; prefer a forward fix or disable the pilot while preserving storage. Never restore an older database automatically.
 
 ## Bounds, migration and rollback
 

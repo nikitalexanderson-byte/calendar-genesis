@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-/** The server is an opaque ciphertext store; it never receives a Physis key. */
+/** Physis records stay encrypted under the owner's shared GENESIS account. */
 final class GenesisPhysisException extends RuntimeException
 {
     public function __construct(public readonly int $status, string $code) { parent::__construct($code); }
@@ -17,21 +17,20 @@ const GENESIS_PHYSIS_RETENTION_DAYS = 90;
 
 function genesisPhysisRequireOwner(): string
 {
-    // Fail closed for old sessions, native auth, linked identities and invalid flags.
+    // Reuse the normal primary site login, including sessions predating the pilot.
     $config = genesisConfig();
     $enabled = array_key_exists('physis_enabled', $config) ? $config['physis_enabled'] : GENESIS_PHYSIS_WEB_ENABLED;
     if ($enabled !== true) throw new GenesisPhysisException(403, 'PHYSIS_UNAVAILABLE');
     $id = genesisCurrentUserId();
     $identity = $_SESSION['auth_identity'] ?? [];
     if ($id === null || !is_array($identity) || ($identity['kind'] ?? '') !== 'primary'
-        || ($identity['channel'] ?? '') !== 'web' || ($identity['email_verified'] ?? null) !== true
-        || !is_string($identity['email'] ?? null)
-        || !in_array(strtolower(trim($identity['email'])), GENESIS_PHYSIS_EMAILS, true)) {
+        || !in_array($identity['channel'] ?? 'unknown', ['web', 'unknown'], true)) {
         throw new GenesisPhysisException(403, 'PHYSIS_UNAVAILABLE');
     }
     $user = genesisFindUser($id);
     if ($user === null || genesisUserProvider($user) !== 'google'
-        || !hash_equals((string)$user['google_sub'], (string)($identity['sub'] ?? ''))) {
+        || !genesisSessionIsPrimaryGoogleUser($user)
+        || !in_array(strtolower(trim((string)$user['email'])), GENESIS_PHYSIS_EMAILS, true)) {
         throw new GenesisPhysisException(403, 'PHYSIS_UNAVAILABLE');
     }
     return $id;
@@ -41,15 +40,7 @@ function genesisPhysisRoute(string $method, string $path): never
 {
     header('Cache-Control: private, no-store');
     header('Vary: Cookie');
-    try { $owner = genesisPhysisRequireOwner(); }
-    catch (GenesisPhysisException $error) {
-        // A verified existing primary session may predate the browser-only claims.
-        // This is a sign-in hint only: it never grants access to the vault or records.
-        if ($method === 'GET' && $path === 'physis/v1/access' && genesisPhysisNeedsReauthentication()) {
-            genesisJson(['error' => 'PHYSIS_UNAVAILABLE', 'reauthRequired' => true], 403);
-        }
-        throw $error;
-    }
+    $owner = genesisPhysisRequireOwner();
     genesisEnforceApiBudget($method, $path, $owner);
     $csrf = (string)($_SESSION['csrf'] ?? '');
     if (!in_array($method, ['GET', 'HEAD'], true)) {
@@ -67,20 +58,6 @@ function genesisPhysisRoute(string $method, string $path): never
     if ($method === 'POST' && $path === 'physis/v1/records') genesisJson(genesisPhysisSaveRecords($owner, genesisReadJson()));
     if ($method === 'POST' && $path === 'physis/v1/rotate') genesisJson(genesisPhysisRotate($owner, genesisReadJson()));
     throw new GenesisPhysisException(404, 'NOT_FOUND');
-}
-
-function genesisPhysisNeedsReauthentication(): bool
-{
-    $config = genesisConfig();
-    if ((array_key_exists('physis_enabled', $config) ? $config['physis_enabled'] : GENESIS_PHYSIS_WEB_ENABLED) !== true) return false;
-    $id = genesisCurrentUserId();
-    $identity = $_SESSION['auth_identity'] ?? [];
-    if ($id === null || !is_array($identity) || ($identity['kind'] ?? '') !== 'primary'
-        || !in_array($identity['channel'] ?? 'unknown', ['unknown'], true)) return false;
-    $user = genesisFindUser($id);
-    return $user !== null && genesisUserProvider($user) === 'google'
-        && hash_equals((string)$user['google_sub'], (string)($identity['sub'] ?? ''))
-        && in_array(strtolower(trim((string)$user['email'])), GENESIS_PHYSIS_EMAILS, true);
 }
 
 function genesisPhysisKeys(array $value, array $keys): void
@@ -128,6 +105,15 @@ function genesisPhysisEnvelope(mixed $value, int $keyVersion): array
 function genesisPhysisValidateVault(mixed $value, int $keyVersion): array
 {
     if (!is_array($value)) throw new GenesisPhysisException(400, 'PHYSIS_INVALID_VAULT');
+    if (($value['version'] ?? null) === 2) {
+        genesisPhysisKeys($value, ['version', 'keyVersion', 'account']);
+        if ($value['keyVersion'] !== $keyVersion) throw new GenesisPhysisException(409, 'PHYSIS_KEY_VERSION_CONFLICT');
+        if (!is_array($value['account'])) throw new GenesisPhysisException(400, 'PHYSIS_INVALID_VAULT');
+        genesisPhysisKeys($value['account'], ['iv', 'ciphertext']);
+        return ['version' => 2, 'keyVersion' => $keyVersion, 'account' => [
+            'iv' => genesisPhysisBase64($value['account']['iv'], 12, 12),
+            'ciphertext' => genesisPhysisBase64($value['account']['ciphertext'], 62, 62)]];
+    }
     genesisPhysisKeys($value, ['version', 'keyVersion', 'password', 'recovery']);
     if ($value['version'] !== 1 || $value['keyVersion'] !== $keyVersion || !is_array($value['password']) || !is_array($value['recovery'])) {
         throw new GenesisPhysisException(409, 'PHYSIS_KEY_VERSION_CONFLICT');

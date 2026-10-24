@@ -1,10 +1,10 @@
 "use client";
 import { Fragment, useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { LOCAL_SESSION_ENDED_EVENT, captureAccountSessionGuard, physisRequest } from '../cloud-sync';
+import { LOCAL_SESSION_ENDED_EVENT, PERSONAL_DOCUMENT_READY_EVENT, captureAccountSessionGuard, personalDocumentAccess, physisRequest } from '../cloud-sync';
 import { calendarContext, todayCivilDate } from '../calendar-context';
 import type { CalendarMode } from '../calendar-data';
 import { NavigationIcon } from '../NavigationIcon';
-import { createPhysisVault, changePhysisPassword, unlockPhysisVault, validateVault, type PhysisVault } from './crypto';
+import { openPhysisAccount, type VaultState } from './account-session';
 import { PhysisMemoryStore } from './store';
 import { editPhysisRecord, newPhysisRecord, physisRecords, type PhysisFeatureProps, type PhysisSettings } from './types';
 import { METRICS, pendingIntakeEvents, type Intake, type Regimen } from './care-domain';
@@ -17,9 +17,7 @@ import { Field, NumberField, usePhysisAction } from './fields';
 import './physis.css';
 
 type PageName = 'overview' | 'control' | 'exercises' | 'diary' | 'foods' | 'intakes' | 'drugs' | 'settings';
-type VaultState = { vault: PhysisVault | null; revision: number };
 type KeyState = { key: CryptoKey; model: PhysisMemoryStore };
-type Candidate = Awaited<ReturnType<typeof createPhysisVault>> & { requestId: string };
 type Props = { owner: string; language: string; calendarMode: CalendarMode; inputCalendarMode: CalendarMode; timeZone: string; settingsRequest?: number };
 const GROUPS: { title: string; pages: [PageName, string][] }[] = [
   { title: 'Тренировки', pages: [['control', 'Контроль выполнения'], ['exercises', 'Справочник упражнений']] },
@@ -34,56 +32,54 @@ export const defaultPhysisSettings = (props: Pick<Props, 'calendarMode' | 'input
 export function PhysisPage(props: Props) {
   const [vaultState, setVaultState] = useState<VaultState | null>(null); const [keys, setKeys] = useState<KeyState | null>(null);
   const [method, setMethod] = useState<'password' | 'recovery'>('password'); const [secret, setSecret] = useState('');
-  const [candidate, setCandidate] = useState<Candidate | null>(null); const [recoverySaved, setRecoverySaved] = useState(false);
-  const action = usePhysisAction(); const keyRef = useRef<KeyState | null>(null); const generation = useRef(0);
-  const lock = useCallback((force = false) => {
-    if (!force && (keyRef.current?.model.hasPending || keyRef.current?.model.rotationPending) && !confirm('Есть несохранённые изменения или неподтвержденная смена ключа. Заблокировать раздел и потерять несохранённое?')) return;
-    generation.current++; keyRef.current?.model.destroy(); keyRef.current = null; setKeys(null); setSecret(''); setCandidate(null); setRecoverySaved(false);
-  }, []);
+  const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
+  const keyRef = useRef<KeyState | null>(null); const generation = useRef(0); const pending = useRef(false);
+  const open = useCallback(async (legacy?: { secret: string; method: 'password' | 'recovery' }) => {
+    if (pending.current || keyRef.current) return;
+    const epoch = generation.current; const active = captureAccountSessionGuard();
+    const check = () => { active(); if (epoch !== generation.current) throw new Error('PHYSIS_SESSION_ENDED'); };
+    pending.current = true; setBusy(true); setError('');
+    let model: PhysisMemoryStore | undefined;
+    try {
+      const access = personalDocumentAccess(props.owner); access.check();
+      const result = await openPhysisAccount(props.owner, access, physisRequest, check, legacy); check();
+      setVaultState(result.state);
+      if (result.key) {
+        model = new PhysisMemoryStore(props.owner, result.key, result.state.vault!.keyVersion);
+        await model.reload(); check();
+        keyRef.current = { key: result.key, model }; setKeys(keyRef.current); setSecret('');
+      }
+    } catch (failure) {
+      model?.destroy();
+      if (epoch === generation.current) setError(failure instanceof Error ? failure.message : 'Не удалось открыть Фюзис.');
+    } finally {
+      if (epoch === generation.current) { pending.current = false; setBusy(false); }
+    }
+  }, [props.owner]);
   useEffect(() => {
-    const controller = new AbortController();
-    const lifecycle = generation;
-    void physisRequest<VaultState>('/vault', { signal: controller.signal }).then(result => {
-      if (result.vault) validateVault(result.vault);
-      if (!controller.signal.aborted) setVaultState(result);
-    }).catch(error => { if (!controller.signal.aborted) action.setError(error instanceof Error ? error.message : 'Не удалось загрузить хранилище.'); });
-    const end = () => lock(true);
+    const end = () => { generation.current++; pending.current = false; keyRef.current?.model.destroy(); keyRef.current = null; setKeys(null); setVaultState(null); setSecret(''); };
+    const retry = () => { void open(); };
+    void open();
     window.addEventListener(LOCAL_SESSION_ENDED_EVENT, end);
-    return () => { controller.abort(); lifecycle.current++; keyRef.current?.model.destroy(); keyRef.current = null; window.removeEventListener(LOCAL_SESSION_ENDED_EVENT, end); };
-    // Account-keyed parent remounts this boundary on every owner change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.owner, lock]);
-  const enter = async (key: CryptoKey, vault: PhysisVault) => {
-    const check = captureAccountSessionGuard(); const epoch = generation.current;
-    const model = new PhysisMemoryStore(props.owner, key, vault.keyVersion);
-    try { await model.reload(); check(); if (epoch !== generation.current) throw new Error('PHYSIS_LOCKED'); }
-    catch (error) { model.destroy(); throw error; }
-    keyRef.current?.model.destroy(); keyRef.current = { key, model }; setKeys({ key, model }); setSecret(''); setCandidate(null); setRecoverySaved(false);
-  };
-  return <div className="physis" data-physis-private="true"><header className="physis-header"><div className="physis-row"><NavigationIcon name="physis" /><h1>Фюзис</h1></div>{keys ? <button onClick={() => lock()}>Заблокировать</button> : null}</header>
-    {!keys ? <section className="physis-panel physis-lock"><h2>{vaultState?.vault ? 'Разблокировать Фюзис' : 'Личное пространство Фюзиса'}</h2><p>Тренировки, дневник питания, приемы и измерения защищены отдельным ключом. Вход Google подтверждает аккаунт, а пароль Фюзиса открывает ваши данные.</p>
-      {!vaultState ? <p role="status">Загружаем защищённое хранилище…</p> : candidate ? <><h3>Сохраните код восстановления</h3><p>Он понадобится на новом устройстве или при потере пароля. Сервер не может восстановить ключ. Сохраните код отдельно от зашифрованной копии данных.</p><code className="physis-recovery">{candidate.recovery}</code><label className="physis-check"><input type="checkbox" checked={recoverySaved} onChange={e => setRecoverySaved(e.target.checked)} />Я сохранил код восстановления</label><div className="physis-actions"><button className="physis-primary" disabled={!recoverySaved || action.busy} onClick={() => void action.run(async () => {
-        const result = await physisRequest<{ revision: number }>('/vault', { method: 'PUT', body: JSON.stringify({ requestId: candidate.requestId, expectedRevision: 0, vault: candidate.vault }) });
-        setVaultState({ vault: candidate.vault, revision: result.revision }); await enter(candidate.key, candidate.vault);
-      })}>Создать защищённое пространство</button><button disabled={action.busy} onClick={() => { setCandidate(null); setRecoverySaved(false); }}>Отмена</button></div></> : <form className="physis-form" onSubmit={e => { e.preventDefault(); void action.run(async () => {
-        if (vaultState.vault) {
-          const latest = await physisRequest<VaultState>('/vault');
-          if (!latest.vault) throw new Error('PHYSIS_VAULT_UNAVAILABLE');
-          setVaultState(latest); await enter(await unlockPhysisVault(props.owner, latest.vault, secret, method), latest.vault);
-        }
-        else { const created = await createPhysisVault(props.owner, secret); setCandidate({ ...created, requestId: crypto.randomUUID() }); setSecret(''); }
-      }); }}>
-        {vaultState.vault ? <div className="physis-tabs"><button type="button" aria-pressed={method === 'password'} onClick={() => { setMethod('password'); setSecret(''); }}>Пароль</button><button type="button" aria-pressed={method === 'recovery'} onClick={() => { setMethod('recovery'); setSecret(''); }}>Код восстановления</button></div> : null}
-        <Field label={method === 'recovery' ? 'Код восстановления PHY1-…' : vaultState.vault ? 'Пароль Фюзиса' : 'Создайте пароль Фюзиса — минимум 12 символов'}><input type="password" required minLength={!vaultState.vault ? 12 : undefined} maxLength={1024} autoComplete={vaultState.vault ? 'current-password' : 'new-password'} value={secret} onChange={e => setSecret(e.target.value)} /></Field>
-        <button className="physis-primary" disabled={action.busy}>{action.busy ? 'Открываем…' : vaultState.vault ? 'Разблокировать' : 'Создать ключ'}</button>
-      </form>}
-      {action.error ? <p role="alert" className="physis-warning">{action.error}</p> : null}<p className="physis-muted">Ключ и расшифрованные данные находятся только в памяти этой вкладки. После закрытия потребуется разблокирование. Ошибка пароля не меняет сохранённые данные.</p>
-    </section> : <UnlockedPhysis {...props} keys={keys} vaultState={vaultState!} onVault={setVaultState} onReplaceKeys={enter} />}
+    window.addEventListener(PERSONAL_DOCUMENT_READY_EVENT, retry);
+    window.addEventListener('online', retry);
+    return () => { end(); window.removeEventListener(LOCAL_SESSION_ENDED_EVENT, end); window.removeEventListener(PERSONAL_DOCUMENT_READY_EVENT, retry); window.removeEventListener('online', retry); };
+  }, [open]);
+  return <div className="physis" data-physis-private="true"><header className="physis-header"><div className="physis-row"><NavigationIcon name="physis" /><h1>Фюзис</h1></div></header>
+    {keys ? <UnlockedPhysis {...props} keys={keys} vaultState={vaultState!} /> : <section className="physis-panel physis-lock">
+      {vaultState?.vault?.version === 1 ? <><h2>Перенести сохранённые данные</h2><p>Эти записи были сохранены со старым паролем Фюзиса. Введите его один раз, чтобы подключить их к общему аккаунту. После переноса Фюзис будет открываться вместе с сайтом.</p>
+        <form className="physis-form" onSubmit={e => { e.preventDefault(); void open({ secret, method }); }}>
+          <div className="physis-tabs"><button type="button" aria-pressed={method === 'password'} onClick={() => { setMethod('password'); setSecret(''); }}>Прежний пароль</button><button type="button" aria-pressed={method === 'recovery'} onClick={() => { setMethod('recovery'); setSecret(''); }}>Код восстановления</button></div>
+          <Field label={method === 'password' ? 'Прежний пароль Фюзиса' : 'Код восстановления PHY1-…'}><input type="password" required maxLength={1024} autoComplete="current-password" value={secret} onChange={e => setSecret(e.target.value)} /></Field>
+          <button className="physis-primary" disabled={busy}>{busy ? 'Переносим…' : 'Подключить данные к аккаунту'}</button>
+        </form></> : <p role="status">{busy ? 'Открываем Фюзис…' : 'Фюзис открывается вместе с вашим аккаунтом GENESIS.'}</p>}
+      {error ? <div role="alert" className="physis-warning"><p>{error}</p><button disabled={busy} onClick={() => void open()}>Повторить</button></div> : null}
+    </section>}
   </div>;
 }
 
-function UnlockedPhysis(props: Props & { keys: KeyState; vaultState: VaultState; onVault: (value: VaultState) => void; onReplaceKeys: (key: CryptoKey, vault: PhysisVault) => Promise<void> }) {
-  const { keys: { model, key }, vaultState } = props;
+function UnlockedPhysis(props: Props & { keys: KeyState; vaultState: VaultState }) {
+  const { keys: { model }, vaultState } = props;
   const store = useSyncExternalStore(model.subscribe, model.getSnapshot, model.getSnapshot);
   const [page, setPage] = useState<PageName>(props.settingsRequest ? 'settings' : 'overview');
   const [editorEpoch, setEditorEpoch] = useState(0);
@@ -120,7 +116,7 @@ function UnlockedPhysis(props: Props & { keys: KeyState; vaultState: VaultState;
     {page === 'diary' || page === 'foods' ? <PhysisNutrition {...feature} page={page} /> : null}
     {page === 'drugs' ? <PhysisDrugCatalog {...feature} /> : null}
     {page === 'intakes' ? <PhysisIntakes {...feature} owner={props.owner} /> : null}
-    <div hidden={page !== 'settings'}><PhysisSettingsForm {...feature} /><PhysisNutrition {...feature} page="settings" /><section className="physis-panel"><h2>Ключи, приватность и перенос данных</h2><p>Ключ Фюзиса не передаётся серверу. Сервер хранит ciphertext, технические ID, версии, размеры и времена изменения. Потеря пароля и кода восстановления означает потерю возможности расшифровки.</p><KeySettings owner={props.owner} model={model} dataKey={key} vaultState={vaultState} onVault={props.onVault} onReplaceKeys={props.onReplaceKeys} /><PhysisExchange store={store} exportEncrypted={exportEncrypted} /><p className="physis-muted">Удалённое содержимое убирается из активного хранилища. Журнал удалений и повторных запросов: 90 дней; минимальный реестр использованных ID сохраняется для защиты от восстановления старыми устройствами. Время удаления из резервных копий зависит от политики хранения оператора.</p></section><section className="physis-panel"><h2>Будущие подключения</h2><ul><li>Google Health API — планируется</li><li>Health Connect — планируется через отдельный Android-клиент</li><li>HealthKit — планируется через Apple-клиент</li><li>Garmin и Health Services — планируется</li></ul><p>Ни одно подключение не включено. Сейчас работают ручной учет и импорт/экспорт; данные не отправляются этим поставщикам.</p></section></div>
+    <div hidden={page !== 'settings'}><PhysisSettingsForm {...feature} /><PhysisNutrition {...feature} page="settings" /><section className="physis-panel"><h2>Данные и резервные копии</h2><p>Фюзис использует ваш общий аккаунт GENESIS. Данные сохраняются в зашифрованном виде и доступны после входа на сайт. Зашифрованная копия открывается в том же аккаунте.</p><PhysisExchange store={store} exportEncrypted={exportEncrypted} /><p className="physis-muted">Удалённое содержимое убирается из активного хранилища. Журнал удалений и повторных запросов: 90 дней; минимальный реестр использованных ID сохраняется для защиты от восстановления старыми устройствами. Время удаления из резервных копий зависит от политики хранения оператора.</p></section><section className="physis-panel"><h2>Будущие подключения</h2><ul><li>Google Health API — планируется</li><li>Health Connect — планируется через отдельный Android-клиент</li><li>HealthKit — планируется через Apple-клиент</li><li>Garmin и Health Services — планируется</li></ul><p>Ни одно подключение не включено. Сейчас работают ручной учет и импорт/экспорт; данные не отправляются этим поставщикам.</p></section></div>
     </Fragment>
   </>;
 }
@@ -141,27 +137,4 @@ function PhysisSettingsForm({ store, settings }: PhysisFeatureProps) {
     <p className="physis-wide physis-muted">Изменение timezone не переносит прошлые факты. Плановые дни — даты без времени; факты сохраняют момент, timezone и исторический локальный день. Внешние уведомления и offline cache не включены.</p>
     <div className="physis-actions"><button className="physis-primary" disabled={action.busy}>Сохранить настройки</button></div>{action.error ? <p role="alert" className="physis-warning">{action.error}</p> : null}
   </form></section>;
-}
-
-function KeySettings({ owner, model, dataKey, vaultState, onVault, onReplaceKeys }: {
-  owner: string; model: PhysisMemoryStore; dataKey: CryptoKey; vaultState: VaultState;
-  onVault: (state: VaultState) => void; onReplaceKeys: (key: CryptoKey, vault: PhysisVault) => Promise<void>;
-}) {
-  const [password, setPassword] = useState(''); const [candidate, setCandidate] = useState<Candidate | null>(null); const [accepted, setAccepted] = useState(false);
-  const [passwordRequest, setPasswordRequest] = useState<{ vault: PhysisVault; requestId: string; expectedRevision: number } | null>(null);
-  const action = usePhysisAction();
-  return <><form className="physis-form" onSubmit={e => { e.preventDefault(); void action.run(async () => {
-    const request = passwordRequest ?? { vault: await changePhysisPassword(owner, vaultState.vault!, dataKey, password), requestId: crypto.randomUUID(), expectedRevision: vaultState.revision };
-    setPasswordRequest(request);
-    const response = await physisRequest<{ revision: number }>('/vault', { method: 'PUT', body: JSON.stringify(request) });
-    onVault({ vault: request.vault, revision: response.revision }); setPassword(''); setPasswordRequest(null);
-  }); }}><Field label="Новый пароль Фюзиса"><input type="password" autoComplete="new-password" required minLength={12} maxLength={1024} disabled={!!passwordRequest} value={password} onChange={e => setPassword(e.target.value)} /></Field><button disabled={action.busy || !!candidate}>{passwordRequest ? 'Повторить сохранение пароля' : 'Сменить пароль'}</button><button type="button" disabled={action.busy || password.length < 12 || !!passwordRequest || !!candidate} onClick={() => void action.run(async () => {
-    const next = await createPhysisVault(owner, password, vaultState.vault!.keyVersion + 1); setCandidate({ ...next, requestId: crypto.randomUUID() }); setAccepted(false);
-  })}>Заменить ключ и код восстановления</button></form>
-    {candidate ? <><p>Сохраните новый код. Все текущие записи будут атомарно зашифрованы новым ключом. Для старой резервной копии по-прежнему нужен её прежний код.</p><code className="physis-recovery">{candidate.recovery}</code><label className="physis-check"><input type="checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)} />Новый код сохранён</label><button disabled={!accepted || action.busy} onClick={() => void action.run(async () => {
-      const result = await model.rotate(candidate.key, candidate.vault, vaultState.revision);
-      onVault({ vault: candidate.vault, revision: result.revision }); await onReplaceKeys(candidate.key, candidate.vault); setCandidate(null); setPassword('');
-    })}>Подтвердить / повторить замену ключа</button></> : null}
-    {action.error ? <p role="alert" className="physis-warning">{action.error}</p> : null}
-  </>;
 }

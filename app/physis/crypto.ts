@@ -1,9 +1,15 @@
 export type PhysisEnvelope = { version: 1; schemaVersion: 1; keyVersion: number; iv: string; ciphertext: string };
 export type WrappedKey = { iv: string; ciphertext: string };
-export type PhysisVault = {
+export type LegacyPhysisVault = {
   version: 1; keyVersion: number;
   password: WrappedKey & { salt: string; iterations: 600000 };
   recovery: WrappedKey;
+};
+export type AccountPhysisVault = { version: 2; keyVersion: number; account: WrappedKey };
+export type PhysisVault = LegacyPhysisVault | AccountPhysisVault;
+export type AccountKeyAccess = {
+  seal(value: unknown, scope: string): Promise<WrappedKey>;
+  open<T>(envelope: WrappedKey, scope: string): Promise<T>;
 };
 const KDF_ITERATIONS = 600000;
 export const MAX_PHYSIS_PLAINTEXT_BYTES = 256 * 1024 - 16;
@@ -39,8 +45,12 @@ function validateWrap(value: WrappedKey) {
   if (!value || fromBase64(value.iv).length !== 12 || fromBase64(value.ciphertext).length !== 48) throw new Error('PHYSIS_INVALID_VAULT');
 }
 export function validateVault(vault: PhysisVault) {
-  if (!vault || vault.version !== 1 || !Number.isSafeInteger(vault.keyVersion) || vault.keyVersion < 1 ||
-      vault.password?.iterations !== KDF_ITERATIONS || fromBase64(vault.password.salt).length !== 16) throw new Error('PHYSIS_INVALID_VAULT');
+  if (!vault || !Number.isSafeInteger(vault.keyVersion) || vault.keyVersion < 1) throw new Error('PHYSIS_INVALID_VAULT');
+  if (vault.version === 2) {
+    if (!vault.account || fromBase64(vault.account.iv).length !== 12 || fromBase64(vault.account.ciphertext).length !== 62) throw new Error('PHYSIS_INVALID_VAULT');
+    return;
+  }
+  if (vault.version !== 1 || vault.password?.iterations !== KDF_ITERATIONS || fromBase64(vault.password.salt).length !== 16) throw new Error('PHYSIS_INVALID_VAULT');
   validateWrap(vault.password); validateWrap(vault.recovery);
 }
 export async function createPhysisVault(owner: string, password: string, keyVersion = 1) {
@@ -50,7 +60,7 @@ export async function createPhysisVault(owner: string, password: string, keyVers
   const salt = toBase64(crypto.getRandomValues(new Uint8Array(16)));
   try {
     const key = await keyFromRaw(raw);
-    const vault: PhysisVault = { version: 1, keyVersion,
+    const vault: LegacyPhysisVault = { version: 1, keyVersion,
       password: { ...await wrap(raw, await passwordKey(password, salt), owner, 'password', keyVersion), salt, iterations: KDF_ITERATIONS },
       recovery: await wrap(raw, await keyFromRaw(recoveryRaw), owner, 'recovery', keyVersion) };
     const recovery = 'PHY1-' + toBase64(recoveryRaw).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -59,6 +69,7 @@ export async function createPhysisVault(owner: string, password: string, keyVers
 }
 export async function unlockPhysisVault(owner: string, vault: PhysisVault, secret: string, method: 'password' | 'recovery') {
   validateVault(vault);
+  if (vault.version !== 1) throw new Error('Эта копия открывается через аккаунт GENESIS.');
   let raw: Uint8Array<ArrayBuffer> | undefined;
   let recoveryRaw: Uint8Array<ArrayBuffer> | undefined;
   try {
@@ -74,12 +85,30 @@ export async function unlockPhysisVault(owner: string, vault: PhysisVault, secre
   } catch { throw new Error('Не удалось разблокировать Фюзис. Проверьте пароль или код восстановления. Данные не изменены.'); }
   finally { raw?.fill(0); recoveryRaw?.fill(0); }
 }
-export async function changePhysisPassword(owner: string, vault: PhysisVault, key: CryptoKey, password: string): Promise<PhysisVault> {
+export async function changePhysisPassword(owner: string, vault: LegacyPhysisVault, key: CryptoKey, password: string): Promise<LegacyPhysisVault> {
   if (password.length < 12 || password.length > 1024) throw new Error('Используйте пароль от 12 до 1024 символов.');
   const raw = new Uint8Array(await crypto.subtle.exportKey('raw', key));
   const salt = toBase64(crypto.getRandomValues(new Uint8Array(16)));
   try { return { ...vault, password: { ...await wrap(raw, await passwordKey(password, salt), owner, 'password', vault.keyVersion), salt, iterations: KDF_ITERATIONS } }; }
   finally { raw.fill(0); }
+}
+/** Wrap the existing record key with the same account key as the rest of GENESIS. */
+export async function accountPhysisVault(access: AccountKeyAccess, keyVersion = 1, existingKey?: CryptoKey) {
+  const raw = existingKey ? new Uint8Array(await crypto.subtle.exportKey('raw', existingKey)) : crypto.getRandomValues(new Uint8Array(32));
+  try {
+    const key = existingKey ?? await keyFromRaw(raw);
+    const vault: AccountPhysisVault = { version: 2, keyVersion, account: await access.seal(toBase64(raw), `physis-vault:v2:${keyVersion}`) };
+    validateVault(vault);
+    return { key, vault };
+  } finally { raw.fill(0); }
+}
+export async function openAccountPhysisVault(access: AccountKeyAccess, vault: AccountPhysisVault) {
+  validateVault(vault);
+  const raw = fromBase64(await access.open<string>(vault.account, `physis-vault:v2:${vault.keyVersion}`));
+  try {
+    if (raw.length !== 32) throw new Error('PHYSIS_INVALID_VAULT');
+    return await keyFromRaw(raw);
+  } finally { raw.fill(0); }
 }
 export async function sealPhysis(key: CryptoKey, owner: string, id: string, keyVersion: number, value: unknown): Promise<PhysisEnvelope> {
   const iv = crypto.getRandomValues(new Uint8Array(12));

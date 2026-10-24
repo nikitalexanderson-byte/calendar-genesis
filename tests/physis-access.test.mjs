@@ -22,13 +22,13 @@ test('an initial connection failure retries and makes the eligible menu availabl
   assert.deepEqual(f.states, ['error', 'ready']); assert.equal(f.timers.size, 0); f.stop();
 });
 
-test('only a strict server reauthentication hint opens the confirmation entry', async () => {
+test('denied sessions never create a separate sign-in flow', async () => {
   for (const error of [unavailable, { status: 401 }, { status: 403, payload: { reauthRequired: 'true' } }]) {
     const f = fixture(async () => { throw error; }); await f.refresh();
     assert.deepEqual(f.states, ['unavailable']); assert.equal(f.timers.size, 0); f.stop();
   }
   const f = fixture(async () => { throw { status: 403, payload: { reauthRequired: true } }; });
-  await f.refresh(); assert.deepEqual(f.states, ['reauth']); f.stop();
+  await f.refresh(); assert.deepEqual(f.states, ['unavailable']); f.stop();
 });
 
 test('another owner or a false availability never opens a vault', async () => {
@@ -66,5 +66,5 @@ test('returning to the page can recover a previously denied or legacy session', 
   let error = { status: 403, payload: { reauthRequired: true } };
   const f = fixture(async () => { if (error) throw error; return allowed; });
   await f.refresh(); error = null; await f.refresh();
-  assert.deepEqual(f.states, ['reauth', 'ready']); f.stop();
+  assert.deepEqual(f.states, ['unavailable', 'ready']); f.stop();
 });

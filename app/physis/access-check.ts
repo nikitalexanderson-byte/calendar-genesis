@@ -1,4 +1,4 @@
-export type PhysisAccessStatus = 'checking' | 'ready' | 'reauth' | 'unavailable' | 'error';
+export type PhysisAccessStatus = 'checking' | 'ready' | 'unavailable' | 'error';
 type AccessReply = { available: boolean; ownerId: string };
 
 /** Admission is server-owned. Network failures cannot erase an open unsaved vault. */
@@ -20,12 +20,12 @@ export function createPhysisAccessCheck(owner: string, request: (signal: AbortSi
       changed(status);
     } catch (error) {
       if (controller.signal.aborted) return;
-      const failure = error as { status?: number; payload?: { reauthRequired?: unknown } } | null;
+      const failure = error as { status?: number } | null;
       if (failure?.status === 403 || failure?.status === 401) {
-        status = failure.status === 403 && failure.payload?.reauthRequired === true ? 'reauth' : 'unavailable';
+        status = 'unavailable';
         changed(status);
       } else {
-        if (status !== 'ready' && status !== 'reauth') { status = 'error'; changed(status); }
+        if (status !== 'ready') { status = 'error'; changed(status); }
         retry = timers.schedule(() => void refresh(), delay);
         delay = Math.min(delay * 2, 30000);
       }
