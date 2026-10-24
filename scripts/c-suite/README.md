@@ -28,3 +28,5 @@
 Существующие `NativeTemplateHttpsIntegrationTest`, `NativeFieldDefinitionsHttpsTest`, `NativeFieldEditorHttpsTest`, `NativeTaskFieldQueryHttpsTest`, `NativeLegacyFieldOptionsHttpsTest` используют тот же стенд. Серверные CLI suites запускаются отдельно в собственной fresh SQLite, как в `deploy.yml`.
 
 Завершив работу, остановите только процессы стенда и выполните `php scripts/c-suite/setup.php cleanup` с тем же opt-in. Удаление конфигурации требует совпадения SHA-256 и точного пути тестовой БД. Сертификат/ключ и runtime не включаются в Git или deploy.
+
+Изолированные приёмки также допускают фиксированные `GENESIS_ACCEPTANCE_SUITE=efg-suite`, `kul-suite`, `audit-suite` и `audit-ui-suite`. У каждого свой ignored `output/<suite>/https/`; существующая БД не перезаписывается. Во всех процессах и при `cleanup` выбирайте один и тот же namespace. Два стенда не запускаются одновременно: конфигурация PHP общая, её принадлежность и точный путь БД проверяются по SHA-256.

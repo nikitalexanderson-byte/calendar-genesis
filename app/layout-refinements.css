@@ -2049,3 +2049,18 @@ html[data-genesis-theme$="-dark"] .genesis-app .civil-mini-calendar.mode-profane
 @media (prefers-reduced-motion: reduce) {
   html[data-genesis-theme] .genesis-app details > summary::before { transition: none; }
 }
+
+/* Main month controls keep full hit areas; compact year/mini views retain their geometry. */
+html[data-genesis-theme] .genesis-app #calendar-period-panel .month-calendar .calendar-day:has(> .calendar-day-task-control) { padding-bottom:4px; }
+html[data-genesis-theme] .genesis-app #calendar-period-panel .month-calendar .calendar-day > .calendar-day-task-control {
+  position:relative; inset:auto; display:flex; flex-direction:row; flex-wrap:wrap; justify-content:center;
+  width:100%; height:auto; min-height:44px; margin:4px 0 0; gap:4px;
+}
+html[data-genesis-theme] .genesis-app #calendar-period-panel .month-calendar :is(.calendar-day-task-count,.calendar-shared-task-count) {
+  position:static; flex:0 0 44px; width:44px; min-width:44px; height:44px; min-height:44px; padding:4px;
+  border-radius:var(--ui-radius);
+}
+@media(max-width:380px) {
+  html[data-genesis-theme] .genesis-app #calendar-period-panel .calendar-mode-calendar.mode-profane { padding:3px; }
+  html[data-genesis-theme] .genesis-app #calendar-period-panel .calendar-mode-calendar.mode-profane :is(.calendar-mode-days,.calendar-mode-weekdays) { gap:1px; }
+}
