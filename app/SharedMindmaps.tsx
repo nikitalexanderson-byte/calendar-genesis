@@ -38,10 +38,12 @@ function ConversionDialog({request,language,enabledCalendars,timeFormat,space,pr
 export default function SharedMindmaps(props:Props) {
   const [resolved,setResolved]=useState<SharedTask[]>([]);
   const [referenceIds,setReferenceIds]=useState<string[]>([]);
-  const [search,setSearch]=useState({q:"",inboxOnly:false,open:false});
-  const onTaskSearch=useCallback((q:string,inboxOnly:boolean,open:boolean)=>setSearch({q,inboxOnly,open}),[]);
+  const [search,setSearch]=useState({q:"",inboxOnly:false,open:false,completed:false});
+  const onTaskSearch=useCallback((q:string,inboxOnly:boolean,open:boolean,completed:boolean)=>setSearch({q,inboxOnly,open,completed}),[]);
   const referenceKey=JSON.stringify(referenceIds);
-  const searchPage=useSharedTaskPage(search.open ? {spaceId:props.space.id,q:search.q,...(search.inboxOnly ? {projectIds:props.projects.filter(project=>project.isInbox).map(project=>project.id)} : {})} : null,"title");
+  const searchFilter={spaceId:props.space.id,q:search.q,...(search.inboxOnly ? {projectIds:props.projects.filter(project=>project.isInbox).map(project=>project.id)} : {})};
+  const searchPage=useSharedTaskPage(search.open ? {...searchFilter,completion:"open"} : null,"title");
+  const completedPage=useSharedTaskPage(search.open&&search.completed ? {...searchFilter,completion:"completed"} : null,"title");
   const snapshots:SharedProjectSnapshot[]=props.projects.map(project=>({project,statuses:[],categories:[],members:[],tasks:resolved.filter(task=>task.projectId===project.id)}));
   const [loading,setLoading]=useState(true);const [error,setError]=useState("");const [conversion,setConversion]=useState<MindmapTaskRequest|null>(null);
   const live=useRef(true);const guard=useRef(captureAccountSessionGuard());
@@ -55,7 +57,7 @@ export default function SharedMindmaps(props:Props) {
   useEffect(()=>{const update=()=>{void refresh().catch(e=>{if(live.current)setError(String(e));});};window.addEventListener("genesis:shared-updates",update);return()=>window.removeEventListener("genesis:shared-updates",update);},[refresh]);
   const projects:GenesisProject[]=snapshots.filter(row=>!row.project.isInbox).map(({project},position)=>({id:project.id,parentId:project.parentId,
     categoryId:project.categoryId??null,title:project.title,description:project.description,tags:project.tags??[],status:"active",position}));
-  const allTasks=[...new Map([...resolved,...searchPage.page?.tasks ?? []].map(task=>[task.id,task])).values()];
+  const allTasks=[...new Map([...resolved,...searchPage.page?.tasks ?? [],...completedPage.page?.tasks ?? []].map(task=>[task.id,task])).values()];
   const mapKnown=(task:SharedTask)=>mapTask(task,snapshots.find(row=>row.project.id===task.projectId)!);
   const tasks=allTasks.filter(task=>snapshots.some(row=>row.project.id===task.projectId)).map(mapKnown);
   const find=async(task:GenesisTask)=>{if(!task.projectId)throw Error("TASK_NOT_FOUND");const [snapshot,source]=await Promise.all([loadSharedProject(task.projectId),loadSharedTask(task.projectId,task.id)]);return {snapshot,source};};
@@ -66,7 +68,7 @@ export default function SharedMindmaps(props:Props) {
     <Mindmaps key={props.space.id} userId={props.userId} spaceId={props.space.id} readOnly={!(props.space.permissions?.editTasks??props.space.role!=="guest")}
       afterWorkspace={props.afterWorkspace}
       onResolveTaskIds={setReferenceIds} onTaskSearch={onTaskSearch}
-      taskSearch={{tasks:(searchPage.page?.tasks ?? []).filter(task=>snapshots.some(row=>row.project.id===task.projectId)).map(mapKnown),footer:<SharedTaskPageControls page={searchPage.page} loaded={searchPage.page?.tasks.length ?? 0} busy={searchPage.busy} onMore={()=>void searchPage.more()} onRefresh={()=>void searchPage.refresh()} error={searchPage.error}/>}}
+      taskSearch={{tasks:(searchPage.page?.tasks ?? []).filter(task=>snapshots.some(row=>row.project.id===task.projectId)).map(mapKnown),footer:<SharedTaskPageControls page={searchPage.page} loaded={searchPage.page?.tasks.length ?? 0} busy={searchPage.busy} onMore={()=>void searchPage.more()} onRefresh={()=>void searchPage.refresh()} error={searchPage.error}/>,completedTasks:(completedPage.page?.tasks??[]).filter(task=>snapshots.some(row=>row.project.id===task.projectId)).map(mapKnown),completedFooter:<SharedTaskPageControls page={completedPage.page} loaded={completedPage.page?.tasks.length??0} busy={completedPage.busy} onMore={()=>void completedPage.more()} onRefresh={()=>void completedPage.refresh()} error={completedPage.error}/>}}
       tasks={tasks} projects={projects} projectId={null} projectForTask={task=>snapshots.find(row=>row.project.id===task.projectId)?.project.isInbox ? null : task.projectId}
       taskCanEdit={task=>{const project=snapshots.find(row=>row.project.id===task.projectId)?.project;return Boolean(project&&(project.permissions?.editTasks ?? ["owner","manager","member"].includes(project.role)));}}
       onClose={props.onClose} onCreateTask={setConversion}

@@ -635,9 +635,7 @@ export function AccountPanel({ user, guideSharedProjects = false, onClose, onSig
                 </option>)}
               </select>
             </label>
-            <p className="sidebar-auto-collapse-hint">{user.language === "en"
-              ? "The timer starts when you leave the sidebar. Drag its edge to adjust the width at any time."
-              : "Отсчёт начинается, когда вы уходите с панели. Перетаскивайте её границу, чтобы менять ширину меню в любой момент."}</p>
+            <p className="sidebar-auto-collapse-hint">{translateText("Панель скрывается целиком после ухода указателя. Наведите на полосу у левого края или выберите её с клавиатуры, чтобы открыть меню поверх страницы. Ширина меняется только перетаскиванием границы.",user.language)}</p>
           <details className="appearance-menu-details">
             <summary><span className="appearance-summary-title">{user.language === "en" ? "Menu item display" : "Отображение элементов меню"}</span>
               <span className="appearance-summary-action appearance-summary-closed">{user.language === "en" ? "Customize menu items" : "Настроить элементы"}<SettingsDisclosureChevron /></span>
@@ -1087,7 +1085,7 @@ export function AccountPanel({ user, guideSharedProjects = false, onClose, onSig
         {visibility.sacredFeaturesEnabled ? <MoonReminderSettings key={user.uid} accountId={user.uid} english={user.language === "en"} permission={notificationPermission} requestPermission={onRequestHabitNotifications} /> : null}
         <section className="account-preferences settings-reminders-panel" data-settings-group="reminders">
           <div className="account-email-preferences"><h3>{user.language==="en"?"Email notifications":"Уведомления по email"}</h3><p>{user.language==="en"?"Choose emails about messages, comments and tasks, and set their frequency and quiet hours.":"Выберите письма о сообщениях, комментариях и задачах, настройте частоту и тихие часы."}</p><button type="button" className="secondary-button" onClick={()=>setSharedNotificationSettingsOpen(true)}>{user.language==="en"?"Configure email notifications":"Настроить email-уведомления"}</button></div>
-          <div><span className="eyebrow">GENESIS</span><h3>{user.language === "en" ? "System reminders" : "Системные напоминания"}</h3>
+          <div className="account-system-reminders"><span className="eyebrow">GENESIS</span><h3>{translateText("Системные напоминания",user.language)}</h3>
             <p>{user.language === "en" ? "Browser notifications depend on your browser permission. Task reminders in Google Calendar and Tasks use the connected Google account." : "Уведомления браузера зависят от его разрешения. Напоминания задач в Google Calendar и Tasks работают через подключённый Google-аккаунт."}</p></div>
           <p>Уведомления задач и привычек используют разные звуки и значки. Звуковые сигналы сайта доступны после взаимодействия со страницей; браузер определяет вид системных уведомлений.</p>
           <p className="account-preference-status">{user.language === "en" ? "Browser permission" : "Разрешение браузера"}: {typeof Notification === "undefined" ? "—" : Notification.permission}</p>

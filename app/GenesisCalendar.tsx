@@ -1712,7 +1712,8 @@ export function GenesisCalendar() {
   }, []);
   const { layout: accountLayout, save: saveLayout, error: layoutError } = useAccountLayout(cloudUser, applyLayoutUser);
   const saveSidebarWidth = useCallback((sidebarWidth: number) => saveLayout({ sidebarWidth }), [saveLayout]);
-  const { width: sidebarWidth, collapsed: sidebarCollapsed, resizing: sidebarResizing, sidebarRef, resizeProps } = useSidebarCollapse(accountLayout.sidebarWidth, visibility.sidebarAutoCollapseSeconds, saveSidebarWidth);
+  const { width: sidebarWidth, collapsed: sidebarCollapsed, resizing: sidebarResizing, sidebarRef, resizeProps,
+    autoHide: sidebarAutoHide, hidden: sidebarHidden, revealRef: sidebarRevealRef, revealProps: sidebarRevealProps } = useSidebarCollapse(accountLayout.sidebarWidth, visibility.sidebarAutoCollapseSeconds, saveSidebarWidth);
   const personalProjectsVisible = !visibility.hiddenSubmenus.includes("projects.personal");
   const invitedWorkspaceOpen = Boolean(invitationDestination && cloudUser && view==="projects" && projectsArea==="shared" && invitationDestination.userId===cloudUser.uid);
   const sharedProjectsVisible = Boolean(cloudUser?.sharedProjectsEnabled) && (!visibility.hiddenSubmenus.includes("projects.shared") || invitedWorkspaceOpen);
@@ -6874,6 +6875,8 @@ export function GenesisCalendar() {
       data-sidebar-collapsed={sidebarCollapsed}
       data-sidebar-compact={sidebarWidth < 208}
       data-sidebar-resizing={sidebarResizing}
+      data-sidebar-auto-hide={sidebarAutoHide}
+      data-sidebar-hidden={sidebarHidden}
       style={{
         "--sidebar-current-width": `${sidebarWidth}px`,
         "--genesis-hero-image": !sacredFeaturesEnabled ? "none" : activeCalendarMode === "sacred"
@@ -6908,7 +6911,7 @@ export function GenesisCalendar() {
           if (project?.status === "active") toggleProject(project.id);
         }} /> : null}
       <a className="skip-link" href="#main-content">К основному содержанию</a>
-      <aside id="app-sidebar" ref={sidebarRef} className="app-sidebar" aria-label="Основная навигация" data-exp-ui="navigation">
+      <aside id="app-sidebar" ref={sidebarRef} className="app-sidebar" aria-label={translateText("Основная навигация",language)} data-exp-ui="navigation" inert={sidebarHidden} aria-hidden={sidebarHidden || undefined}>
         <button className="brand-mark" type="button" onClick={selectToday} aria-label="GENESIS — на главную">
           <span
             className="brand-icon"
@@ -6946,10 +6949,13 @@ export function GenesisCalendar() {
           </span>
         </div>
       </aside>
+      <button type="button" ref={sidebarRevealRef} className="sidebar-auto-hide-handle" aria-controls="app-sidebar"
+        aria-expanded={!sidebarHidden} aria-label={translateText("Показать боковую панель",language)}
+        title={translateText("Показать боковую панель",language)} {...sidebarRevealProps}><span aria-hidden="true" /></button>
       {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- WAI-ARIA adjustable separator supports arrow-key resizing. */}
       <div className="sidebar-resize-boundary" role="separator" tabIndex={0} aria-orientation="vertical"
         aria-controls="app-sidebar" aria-valuemin={56} aria-valuemax={240} aria-valuenow={sidebarWidth}
-        aria-label={language === "en" ? "Sidebar width" : "Ширина боковой панели"} {...resizeProps} />
+        aria-label={translateText("Ширина боковой панели",language)} {...resizeProps} />
 
       <section className="app-stage" data-exp-layout="stage">
         <header ref={compactHeaderRef} className="app-brand-header" data-compact-header={compactHeader || undefined}>

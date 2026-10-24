@@ -533,5 +533,16 @@
   "Место импорта": "Miejsce importu",
   "Подготовка экспорта…": "Przygotowywanie eksportu…",
   "Отменить экспорт": "Anuluj eksport",
-  "Экспорт отменён.": "Eksport anulowany."
+  "Экспорт отменён.": "Eksport anulowany.",
+  "Шаблон создаёт новые задачи и проекты по образцу. Сначала выберите шаблон, затем проверьте состав, место и даты перед применением.": "Szablon tworzy nowe zadania i projekty na podstawie wzoru. Wybierz szablon, a przed zastosowaniem sprawdź zawartość, miejsce docelowe i daty.",
+  "Применение создаёт рабочую копию. Для изменения самого образца сначала создайте редактируемую копию.": "Zastosowanie tworzy kopię roboczą. Aby zmienić sam szablon, najpierw utwórz kopię do edycji.",
+  "Быстрые подборки сразу показывают задачи. Их условия можно изменить и сохранить как своё представление.": "Szybkie zestawienia od razu pokazują zadania. Możesz zmienić warunki i zapisać własny widok.",
+  "Выберите сохранённую подборку или создайте новую. Задачи останутся в своих проектах.": "Wybierz zapisany widok lub utwórz nowy. Zadania pozostaną w swoich projektach.",
+  "Условия определяют состав списка. Нажмите «Показать задачи», чтобы проверить результат, затем сохраните представление.": "Warunki określają listę. Wybierz „Pokaż zadania”, aby sprawdzić wynik, a następnie zapisz widok.",
+  "Выберите событие запуска, добавьте нужные условия и укажите действия. Проверьте правило без изменений перед включением.": "Wybierz zdarzenie wyzwalające, dodaj potrzebne warunki i określ działania. Przed włączeniem przetestuj regułę bez zmian.",
+  "Выберите период истории и нажмите «Обновить отчёт». Дополнительные фильтры сужают список; нажмите на показатель, чтобы открыть его задачи.": "Wybierz okres historii i odśwież raport. Dodatkowe filtry zawężają listę; wybierz wskaźnik, aby otworzyć jego zadania.",
+  "Выбрать представление": "Wybierz widok",
+  "Состав шаблона": "Zawartość szablonu",
+  "Часть изменений сохранена. Повторите сохранение, чтобы завершить.": "Część zmian została zapisana. Zapisz ponownie, aby dokończyć.",
+  "Выбрать шаблон": "Wybierz szablon"
 }

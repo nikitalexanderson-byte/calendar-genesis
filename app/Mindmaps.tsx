@@ -29,8 +29,8 @@ type Props = { spaceId?: string; readOnly?: boolean; userId: string; tasks: Gene
   afterWorkspace?: ReactNode;
   taskCanEdit?: (task: GenesisTask) => boolean;
   onResolveTaskIds?: (ids: string[]) => void;
-  onTaskSearch?: (query: string, inboxOnly: boolean, open: boolean) => void;
-  taskSearch?: {tasks: GenesisTask[]; footer: ReactNode};
+  onTaskSearch?: (query: string, inboxOnly: boolean, open: boolean, completed: boolean) => void;
+  taskSearch?: {tasks: GenesisTask[]; footer: ReactNode; completedTasks?: GenesisTask[]; completedFooter?: ReactNode};
   projectForTask: (task: GenesisTask) => string | null;
   onClose: () => void; onCreateTask: (request: MindmapTaskRequest) => void; onEditTask: (task: GenesisTask, date?: string) => void;
   onToggleTask: (task: GenesisTask, date?: string) => void; onCalendar: (task: GenesisTask, date?: string) => void; onProject: (id: string) => void };
@@ -79,7 +79,15 @@ export default function Mindmaps(props: Props) {
   const [search, setSearch] = useState("");
   const [archived, setArchived] = useState(false);
   const [context, setContext] = useState(props.projectId ?? "");
-  const [dialog, setDialog] = useState<"create" | "node" | "link" | "add" | "paste" | "import" | "export" | "history" | "delete" | "remove-thought" | "delete-map" | null>(null);
+  type DialogKind = "create" | "node" | "link" | "add" | "paste" | "import" | "export" | "history" | "delete" | "remove-thought" | "delete-map" | null;
+  const [dialog, setDialogState] = useState<DialogKind>(null);
+  const nodeDialogBaseline = useRef<Mindmap | null>(null);
+  const setDialog = (next: DialogKind) => {
+    if (next !== "node" && nodeDialogBaseline.current) {
+      current.current = nodeDialogBaseline.current; setMap(nodeDialogBaseline.current); nodeDialogBaseline.current = null;
+    }
+    setDialogState(next);
+  };
   const [deleteRecord, setDeleteRecord] = useState<MapRecord | null>(null);
   const [title, setTitle] = useState("");
   const [template, setTemplate] = useState("empty");
@@ -93,10 +101,11 @@ export default function Mindmaps(props: Props) {
   const [tagDraft, setTagDraft] = useState("");
   const [pickerQuery, setPickerQuery] = useState("");
   const [chaosOnly, setChaosOnly] = useState(false);
+  const [completedPickerOpen, setCompletedPickerOpen] = useState(false);
   const {onResolveTaskIds,onTaskSearch} = props;
   const taskReferenceKey = JSON.stringify([...new Set([...records.flatMap(record=>record.document.nodes),...map?.nodes ?? [],...preview?.nodes ?? []].filter(node=>node.kind==="task").map(node=>node.refId).filter((id):id is string=>Boolean(id)))]);
   useEffect(()=>{ onResolveTaskIds?.(JSON.parse(taskReferenceKey)); },[taskReferenceKey,onResolveTaskIds]);
-  useEffect(()=>{ onTaskSearch?.(pickerQuery,chaosOnly,dialog==="add"); },[pickerQuery,chaosOnly,dialog,onTaskSearch]);
+  useEffect(()=>{ onTaskSearch?.(pickerQuery,chaosOnly,dialog==="add",completedPickerOpen); },[pickerQuery,chaosOnly,dialog,completedPickerOpen,onTaskSearch]);
   const [pickerTask, setPickerTask] = useState<GenesisTask | null>(null);
   const [pickerDate, setPickerDate] = useState("");
   const [importAsIdeas, setImportAsIdeas] = useState(false);
@@ -183,12 +192,16 @@ export default function Mindmaps(props: Props) {
   useEffect(() => repository.subscribeJournal(() => {
     if (current.current) void repository.conversions(current.current).then(ops => { if (alive.current) setJournal(ops); }).catch(fail);
   }), [repository]);
-  const change = (next: Mindmap, history = true, group = "") => {
+  const change = (next: Mindmap, history = true, group = "", commitDialog = false) => {
     if (props.readOnly) return;
     try {
       const checked = validateMindmap(next);
       const previous = current.current;
       if (ideaDraftRef.current) { current.current = checked; setMap(checked); setError(""); return; }
+      if (dialog === "node" && !commitDialog) {
+        nodeDialogBaseline.current ??= previous;
+        current.current = checked; setMap(checked); setError(""); return;
+      }
       if (history && previous) editHistory.record({ document: previous, positions: latestView.current.positions, selected },
         { document: checked, positions: latestView.current.positions, selected }, group);
       current.current = checked; setMap(checked); setError(""); setStatus("pending");
@@ -202,7 +215,7 @@ export default function Mindmaps(props: Props) {
     latestView.current = next; setView(next); if (map) void repository.saveView(map.id, next).catch(fail);
   };
   const applyHistory = (direction: "undo" | "redo") => {
-    if (!current.current || props.readOnly || ideaDraftRef.current || status === "conflict") return;
+    if (!current.current || props.readOnly || ideaDraftRef.current || nodeDialogBaseline.current || status === "conflict") return;
     const snapshot = editHistory.take(direction, { document: current.current, positions: latestView.current.positions, selected });
     if (!snapshot) return;
     change(snapshot.document, false);
@@ -288,10 +301,12 @@ export default function Mindmaps(props: Props) {
     setInlineNodeId(null); change(next); if (draft) changeView(view);
   };
   const finishIdea = () => {
-    const document = current.current; if (!document || !node?.text?.trim()) return;
-    const draft = ideaDraftRef.current; if (draft) {
-      current.current = draft.previous; ideaDraftRef.current = null; setIdeaDraft(null);
-      change(document); changeView(view);
+    const document = current.current; if (!document || !node || node.kind === "idea" && !node.text?.trim()) return;
+    const draft = ideaDraftRef.current;
+    const previous = nodeDialogBaseline.current ?? draft?.previous;
+    if (previous) {
+      current.current = previous; nodeDialogBaseline.current = null; ideaDraftRef.current = null; setIdeaDraft(null);
+      change(document, true, "", true); if (draft) changeView(view);
     }
     saveDialog();
   };
@@ -351,14 +366,14 @@ export default function Mindmaps(props: Props) {
       {node.kind === "idea" ? <IconActionButton label={translateText("Создать задачу из мысли")} icon="thought-task" disabled={props.readOnly || busy || !node.text?.trim()} onClick={() => void createTask()} /> : null}
       <IconActionButton label={translateText("Добавить дочернюю мысль")} icon="thought-child" disabled={props.readOnly} onClick={() => addIdea()} />
       <IconActionButton label={translateText("Добавить соседнюю мысль")} icon="thought-sibling" disabled={props.readOnly} onClick={() => addIdea(true)} />
-      <IconActionButton label={translateText("Добавить из дел")} icon="thought-affair" disabled={props.readOnly} onClick={() => { setPickerQuery(""); setPickerTask(null); setDialog("add"); }} />
+      <IconActionButton label={translateText("Добавить из дел")} icon="thought-affair" disabled={props.readOnly} onClick={() => { setPickerQuery(""); setPickerTask(null); setCompletedPickerOpen(false); setDialog("add"); }} />
       <IconActionButton label={translateText(view.focus ? "Вся карта" : "Фокус на ветке")} icon={view.focus ? "map-mode" : "thought-focus"} onClick={() => { changeView({ ...view, focus: view.focus ? null : node.id }); setDialog(null); }} />
       <IconActionButton label={translateText(view.collapsed.includes(node.id) ? "Развернуть ветку" : "Свернуть ветку")} icon="thought-fold" aria-pressed={view.collapsed.includes(node.id)} onClick={() => changeView({ ...view, collapsed: view.collapsed.includes(node.id) ? view.collapsed.filter(id => id !== node.id) : [...view.collapsed, node.id] })} />
     </div> : null}
     <fieldset disabled={props.readOnly} className="mindmap-edit-fields">
     {!ideaDraft && node.parentId ? <><label>Переместить в ветку<select value={parent} onChange={e => setParent(e.target.value)}><option value="">Выберите родителя</option>{map.nodes.filter(n => !branchIds.has(n.id)).map(n => <option key={n.id} value={n.id}>{titleFor(n)}</option>)}</select></label>
       <button type="button" disabled={!parent} onClick={() => { try { change(moveNode(map, node.id, parent)); setParent(""); } catch(e) { fail(e); } }}>Переместить узел</button>
-      <div className="mindmap-actions mindmap-order-actions">{[-1,1].map(direction => <MapAction key={direction} label={direction < 0 ? "Выше" : "Ниже"} icon={direction < 0 ? "map-up" : "map-down"} onClick={() => { const siblings = map.nodes.filter(n => n.parentId === node.parentId); const i = siblings.findIndex(n => n.id === node.id); const target = direction < 0 ? siblings[i-1] : siblings[i+2]; if ((direction < 0 && i > 0) || (direction > 0 && i < siblings.length-1)) change(moveNode(map,node.id,node.parentId!,target?.id)); }}/>)}<MapAction label="Убрать ветку с карты" icon="thought-unlink" danger onClick={() => setDialog("delete")}/></div></> : null}
+      <div className="mindmap-actions mindmap-order-actions">{[-1,1].map(direction => <MapAction key={direction} label={direction < 0 ? "Выше" : "Ниже"} icon={direction < 0 ? "map-up" : "map-down"} onClick={() => { const siblings = map.nodes.filter(n => n.parentId === node.parentId); const i = siblings.findIndex(n => n.id === node.id); const target = direction < 0 ? siblings[i-1] : siblings[i+2]; if ((direction < 0 && i > 0) || (direction > 0 && i < siblings.length-1)) change(moveNode(map,node.id,node.parentId!,target?.id)); }}/>)}<MapAction label="Убрать ветку с карты" shortLabel={translateText("Убрать")} icon="thought-unlink" danger onClick={() => setDialog("delete")}/></div></> : null}
     {!ideaDraft ? <details className="mindmap-links" open={linksOpen} onToggle={event => setLinksOpen(event.currentTarget.open)}><summary>Смысловые связи</summary><p>«Связано с» не меняет зависимости задач.</p>
       <label>Связать с<select value={linkTo} onChange={e => setLinkTo(e.target.value)}><option value="">Выберите узел</option>{map.nodes.filter(n => n.id !== node.id).map(n => <option key={n.id} value={n.id}>{titleFor(n)}</option>)}</select></label>
       <label>Подпись связи<input value={linkLabel} maxLength={240} onChange={e => setLinkLabel(e.target.value)} /></label>
@@ -366,7 +381,7 @@ export default function Mindmaps(props: Props) {
       {map.links.filter(l => l.from === node.id || l.to === node.id).map(l => <div key={l.id} className="mindmap-link-row" data-selected={selectedLink === l.id ? "true" : undefined}><span>{l.label || "Связано с"}: {titleFor(map.nodes.find(n => n.id === (l.from === node.id ? l.to : l.from))!)}</span><input type="color" aria-label="Цвет смысловой связи" value={l.color || "#8c672b"} onChange={e=>change({...map,links:map.links.map(link=>link.id===l.id ? {...link,color:e.target.value} : link)})}/><button type="button" aria-label="Убрать смысловую связь" onClick={() => { change({ ...map, links: map.links.filter(x => x.id !== l.id) }); if (selectedLink === l.id) setSelectedLink(null); }}>Убрать связь</button></div>)}
     </details> : null}
     </fieldset>
-    {node.kind === "idea" ? <div className="mindmap-thought-completion"><p data-no-translate>{mindmapCopy(ideaDraft ? "draftHelp" : "editHelp")}</p><div className="mindmap-actions"><button type="button" className="primary-button" disabled={props.readOnly || !node.text?.trim()} onClick={finishIdea} data-no-translate>{mindmapCopy(ideaDraft ? "createThought" : "done")}</button>{ideaDraft ? <button type="button" onClick={saveDialog} data-no-translate>{mindmapCopy("cancel")}</button> : null}</div></div> : null}
+    {node.kind === "idea" || dialog === "node" ? <div className="mindmap-thought-completion">{ideaDraft || dialog !== "node" ? <p data-no-translate>{mindmapCopy(ideaDraft ? "draftHelp" : "editHelp")}</p> : null}<div className="mindmap-actions"><button type="button" className="primary-button" disabled={props.readOnly || node.kind === "idea" && !node.text?.trim()} onClick={finishIdea} data-no-translate>{ideaDraft ? mindmapCopy("createThought") : dialog === "node" ? translateText("Сохранить") : mindmapCopy("done")}</button>{ideaDraft || dialog === "node" ? <button type="button" onClick={saveDialog} data-no-translate>{mindmapCopy("cancel")}</button> : null}</div></div> : null}
   </div> : null;
 
   const nodeSearch = <label className="mindmap-search mindmap-node-search"><input aria-label="Найти узел" value={search} onChange={e => setSearch(e.target.value)} placeholder="Найти узел" /><ExperimentalIcon name="search" /></label>;
@@ -397,7 +412,7 @@ export default function Mindmaps(props: Props) {
       {!loading && search && !records.some(r => r.document.archived === archived && (!context || r.document.projectId === context) && r.document.title.toLocaleLowerCase().includes(search.toLocaleLowerCase())) ? <p>Ничего не найдено. Измените запрос.</p> : null}
       {!loading && !records.some(r => r.document.archived === archived && (!context || r.document.projectId === context)) ? <div className="mindmap-empty"><h3>{archived ? "Архив пуст" : "Начните с одной мысли"}</h3><p>Карта помогает разобрать замысел. Задачи появятся в делах только после вашего подтверждения.</p></div> : null}
     </> : <>
-      <div className="mindmap-toolbar mindmap-primary-toolbar"><div className="mindmap-view-modes" role="group" aria-label="Представление карты"><MapAction label="Карта" icon="map-mode" pressed={view.mode === "map"} onClick={() => changeView({ ...view, mode: "map" })}/><MapAction label="Структура" icon="outline-mode" pressed={view.mode === "structure"} onClick={() => changeView({ ...view, mode: "structure" })}/></div>
+      <div className="mindmap-toolbar mindmap-primary-toolbar">
         <button type="button" className="primary-button mindmap-add-thought" disabled={props.readOnly} aria-label="Добавить мысль" title="Добавить мысль" onClick={() => addIdea()}><ExperimentalIcon name="thought-new"/><span>Добавить мысль</span></button><button type="button" className="mindmap-add-affair" disabled={props.readOnly} aria-label="Добавить из дел" title="Добавить из дел" onClick={() => { setPickerQuery(""); setPickerTask(null); setDialog("add"); }}><ExperimentalIcon name="thought-affair"/><span>Добавить из дел</span></button>
       <div className="mindmap-history-actions" role="group" aria-label={mindmapCopy("edits")}>
         <button type="button" disabled={props.readOnly || Boolean(ideaDraft) || status === "conflict" || !editHistory.canUndo}
@@ -424,6 +439,7 @@ export default function Mindmaps(props: Props) {
           <label>Контекстный проект<select disabled={props.readOnly} value={map.projectId || ""} onChange={e => change({ ...map, projectId: e.target.value || null })}><option value="">Без проекта</option>{props.projects.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}</select></label>
         </div> : null}
       {isMobile ? <div className="mindmap-canvas-search">{nodeSearch}</div> : null}
+      <div className="mindmap-view-modes mindmap-workspace-modes" role="group" aria-label="Представление карты"><MapAction label="Карта" icon="map-mode" pressed={view.mode === "map"} onClick={() => changeView({ ...view, mode: "map" })}/><MapAction label="Структура" icon="outline-mode" pressed={view.mode === "structure"} onClick={() => changeView({ ...view, mode: "structure" })}/></div>
       {search ? <div className="mindmap-search-results" aria-label="Найденные узлы">{!map.nodes.some(n => `${titleFor(n)} ${n.note} ${(n.tags ?? []).join(" ")}`.toLocaleLowerCase().includes(search.toLocaleLowerCase())) ? <p>Ничего не найдено. Измените запрос.</p> : null}{map.nodes.filter(n => `${titleFor(n)} ${n.note} ${(n.tags ?? []).join(" ")}`.toLocaleLowerCase().includes(search.toLocaleLowerCase())).map(n => <button type="button" key={n.id} onClick={() => { setSelected(n.id); changeView({ ...view, focus: n.id, collapsed: view.collapsed.filter(id => id !== n.id) }); setSearch(""); if (isMobile) setDialog("node"); }}>{titleFor(n)} · Показать ветку</button>)}</div> : null}
       <div className="mindmap-workspace"><div className="mindmap-editor">
         {view.mode === "map" ? <Suspense fallback={<p>Открываем полотно…</p>}><Canvas inlineNodeId={inlineNodeId} onCommitTitle={finishInlineTitle} onCancelTitle={() => { cancelIdeaDraft(); setInlineNodeId(null); }} onEditLink={editLink} onRemoveLink={removeLink} onLink={(from,to) => { if (!map.links.some(l => l.from===from && l.to===to || l.from===to && l.to===from)) change({...map,links:[...map.links,{id:mapId(),from,to,label:"Связано с"}]}); }} onSelectLink={selectLink} onEditNode={id => { selectNode(id); setDialog("node"); }} onDeleteSelection={deleteSelection} onPosition={(id,position) => changeView({ ...view, positions: {...view.positions,[id]:position} }, true)} readOnly={props.readOnly} onContextAction={(action,id) => {
@@ -466,8 +482,8 @@ export default function Mindmaps(props: Props) {
       }}>Удалить мысль</button></div></> : null}
       {dialog === "add" && map && node ? <><label>{props.spaceId ? "Поиск общих дел" : "Поиск личных дел"}<input value={pickerQuery} onChange={e => setPickerQuery(e.target.value)} /></label><label><input type="checkbox" checked={chaosOnly} onChange={e => setChaosOnly(e.target.checked)} />Только «Хаос»</label><p>Добавляется ссылка. Проект задачи и её зависимости сохраняются. Для повторяющейся задачи выберите конкретный день перед привязкой.</p>
         {pickerTask ? <div className="mindmap-occurrence-picker"><h3>{pickerTask.title}</h3><label>День повторения<select value={pickerDate} onChange={e => setPickerDate(e.target.value)}>{recurrenceDatesForTask(pickerTask).map(date => <option key={date} value={date}>{date}</option>)}</select></label><p>На карте будет только выбранный экземпляр.</p><button type="button" className="primary-button" disabled={!pickerDate} onClick={() => addTaskReference(pickerTask, pickerDate)}>Привязать этот день</button></div> : null}
-        <div className="mindmap-picker">{(props.taskSearch?.tasks ?? props.tasks).filter(t => (!chaosOnly || !props.projectForTask(t)) && t.title.toLowerCase().includes(pickerQuery.toLowerCase())).map(t => <button type="button" key={t.id} onClick={() => { if (t.recurrenceMode !== "none") { setPickerTask(t); setPickerDate(recurrenceDatesForTask(t)[0] || ""); } else addTaskReference(t); }}><strong>{t.title}</strong><span>{t.done ? "Выполнено" : "В работе"} · {t.dueDate || "Без срока"} · {props.projects.find(p=>p.id===props.projectForTask(t))?.title || "Хаос"}</span></button>)}
-        {!chaosOnly ? props.projects.filter(p=>p.title.toLowerCase().includes(pickerQuery.toLowerCase())).map(p=><button type="button" key={p.id} onClick={()=>{const ref:MapNode={id:mapId(),parentId:node.id,kind:"project",refId:p.id,note:""};change({...map,nodes:[...map.nodes,ref]});setSelected(ref.id);setDialog(null);}}><strong>{p.title}</strong><span>{props.spaceId ? "Общий проект" : "Личный проект"}</span></button>) : null}</div>{props.taskSearch?.footer}{!props.tasks.length && !props.projects.length ? <p>Пока нечего добавить. Создайте мысль, а затем задачу.</p> : null}</> : null}
+        <div className="mindmap-picker">{(props.taskSearch?.tasks ?? props.tasks).filter(t => !t.done && (!chaosOnly || !props.projectForTask(t)) && t.title.toLocaleLowerCase().includes(pickerQuery.toLocaleLowerCase())).map(t => <button type="button" key={t.id} onClick={() => { if (t.recurrenceMode !== "none") { setPickerTask(t); setPickerDate(recurrenceDatesForTask(t)[0] || ""); } else addTaskReference(t); }}><strong>{t.title}</strong><span>{t.done ? "Выполнено" : "В работе"} · {t.dueDate || "Без срока"} · {props.projects.find(p=>p.id===props.projectForTask(t))?.title || "Хаос"}</span></button>)}{props.projects.filter(p=>p.status!=="completed" && !chaosOnly && p.title.toLocaleLowerCase().includes(pickerQuery.toLocaleLowerCase())).map(p=><button type="button" key={p.id} onClick={()=>{const ref:MapNode={id:mapId(),parentId:node.id,kind:"project",refId:p.id,note:""};change({...map,nodes:[...map.nodes,ref]});setSelected(ref.id);setDialog(null);}}><strong>{p.title}</strong><span>{props.spaceId ? "Общий проект" : "Личный проект"}</span></button>)}</div>{props.taskSearch?.footer}
+        <details className="mindmap-picker-completed" open={completedPickerOpen} onToggle={event=>{if(event.target===event.currentTarget)setCompletedPickerOpen(event.currentTarget.open);}}><summary>{translateText("Завершённые")}</summary>{completedPickerOpen?<><div className="mindmap-picker">{(props.taskSearch?.completedTasks ?? props.tasks).filter(t=>t.done && (!chaosOnly || !props.projectForTask(t)) && t.title.toLocaleLowerCase().includes(pickerQuery.toLocaleLowerCase())).map(t=><button type="button" key={t.id} onClick={() => { if (t.recurrenceMode !== "none") { setPickerTask(t); setPickerDate(recurrenceDatesForTask(t)[0] || ""); } else addTaskReference(t); }}><strong>{t.title}</strong><span>{t.done ? "Выполнено" : "В работе"} · {t.dueDate || "Без срока"} · {props.projects.find(p=>p.id===props.projectForTask(t))?.title || "Хаос"}</span></button>)}{props.projects.filter(p=>p.status==="completed" && !chaosOnly && p.title.toLocaleLowerCase().includes(pickerQuery.toLocaleLowerCase())).map(p=><button type="button" key={p.id} onClick={()=>{const ref:MapNode={id:mapId(),parentId:node.id,kind:"project",refId:p.id,note:""};change({...map,nodes:[...map.nodes,ref]});setSelected(ref.id);setDialog(null);}}><strong>{p.title}</strong><span>{props.spaceId ? "Общий проект" : "Личный проект"}</span></button>)}</div>{props.taskSearch?.completedFooter}</>:null}</details>{!props.tasks.length && !props.projects.length ? <p>Пока нечего добавить. Создайте мысль, а затем задачу.</p> : null}</> : null}
       {dialog === "paste" && map && node ? <><p>Одна строка — одна мысль; два пробела или табуляция — один уровень. Пустые строки пропускаются. До 200 мыслей за вставку.</p><textarea aria-label="Текст для вставки" rows={8} value={text} maxLength={100000} onChange={e=>{setText(e.target.value);setPreview(null);}} /><button type="button" onClick={()=>{try {const nodes=parseOutline(text,node.id);setPreview(validateMindmap({...map,nodes:[...map.nodes,...nodes]}));}catch(e){fail(e);}}}>Предпросмотр вставки</button>{preview?.id===map.id ? <><pre>{mapMarkdown(preview,titleFor)}</pre><button type="button" className="primary-button" onClick={()=>{change(preview);setPreview(null);setDialog(null);}}>Добавить мысли</button></> : null}</> : null}
       {dialog === "import" ? <><p>Собственный JSON GENESIS v1, до 2 МБ. Импорт не создаёт задач и не предоставляет доступ.</p><input type="file" accept=".json,application/json" aria-label="Выберите JSON карты" onChange={async e=>{const file=e.target.files?.[0];if(!file)return;setPreview(null);try{if(file.size>2_000_000)throw new Error("Файл больше 2 МБ.");setPreview(importMindmap(await file.text()));}catch(e){fail(e);}}}/>{preview ? <><h3>{preview.title}</h3><p>{preview.nodes.length} узлов · {preview.links.length} связей. Недоступные ссылки останутся помеченными; прав они не дают.</p><pre>{mapMarkdown(preview,titleFor)}</pre><label><input type="checkbox" checked={importAsIdeas} onChange={e=>setImportAsIdeas(e.target.checked)}/>Превратить недоступные ссылки в мысли</label><button type="button" className="primary-button" onClick={()=>{const copy=validateMindmap({...preview,id:mapId(),nodes:preview.nodes.map(n=>importAsIdeas && ((n.kind==="task" && !resolveMapTask(n,props.tasks)) || (n.kind==="project" && !props.projects.some(p=>p.id===n.refId))) ? {id:n.id,parentId:n.parentId,kind:"idea",text:"Недоступная ссылка",note:n.note}:n),projectId:props.projects.some(p=>p.id===preview.projectId)?preview.projectId:null});setDialog(null);void open({document:copy,revision:0,updatedAt:""});change(copy,false);}}>Импортировать отдельную карту</button></> : null}</> : null}
       {dialog === "export" && map ? <><p>Файл будет незашифрованным. JSON содержит мысли, пояснения и ID ссылок; Markdown и SVG также содержат доступные названия задач и проектов. Храните файл в безопасном месте.</p><p>Для PDF выберите «Сохранить как PDF» в окне печати. Обзор сохраняет цвета и связи; структура содержит полные названия и пояснения.</p><div className="mindmap-export-group" role="group" aria-label={translateText("Экспортировать")}><strong>{translateText("Экспортировать")}</strong><div className="mindmap-export-formats">{["JSON","Markdown","SVG","PDF"].map(format=><button type="button" key={format} onClick={()=>{ if(format==="PDF"){try {printMindmap(map,titleFor,view);}catch(e){fail(e);}return;}download(`GENESIS-map.${format==='JSON'?'json':format==='SVG'?'svg':'md'}`,format==='JSON'?exportMindmap(map):format==='SVG'?mapSvg(map,titleFor,view):mapMarkdown(map,titleFor),format==='SVG'?'image/svg+xml':'text/plain;charset=utf-8');}} data-no-translate>{format}</button>)}</div></div></> : null}

@@ -951,7 +951,7 @@ html[data-genesis-theme] .genesis-app .shared-projects-calendar-undated > summar
   html[data-genesis-theme] .genesis-app .shared-calendar-task > .shared-task-actions { justify-self: end; }
 }
 /* Account layout: the boundary resizes the grid, keeping the content fluid. */
-.sidebar-resize-boundary { display:none; }
+.sidebar-resize-boundary, .sidebar-auto-hide-handle { display:none; }
 .sidebar-auto-collapse-setting { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; }
 .sidebar-auto-collapse-setting select { min-height:44px; padding:8px 12px; color:var(--ink); background:var(--surface); border:1px solid var(--line); border-radius:var(--ui-radius); }
 .sidebar-auto-collapse-hint { color:var(--ink-soft); font:13px/1.5 var(--font-ui); }
@@ -975,6 +975,20 @@ html[data-genesis-theme] .genesis-app .shared-projects-calendar-undated > summar
   html[data-genesis-theme] .genesis-app[data-sidebar-resizing="true"],
   html[data-genesis-theme] .genesis-app[data-sidebar-resizing="true"] * { cursor:col-resize !important; user-select:none; }
   html[data-genesis-theme] .genesis-app .workspace { width:100%; max-width:none; }
+  /* Autohide changes visibility, never the saved width or the content viewport. */
+  html[data-genesis-theme] .genesis-app[data-sidebar-auto-hide="true"] { grid-template-columns:8px minmax(0,1fr); }
+  html[data-genesis-theme] .genesis-app[data-sidebar-auto-hide="true"] .app-sidebar { position:fixed; inset:0 auto 0 0; height:100dvh; z-index:70; box-shadow:8px 0 24px #0003; transition:transform 180ms ease-out,visibility 180ms; }
+  html[data-genesis-theme] .genesis-app[data-sidebar-auto-hide="true"][data-sidebar-hidden="true"] .app-sidebar { transform:translateX(-100%); visibility:hidden; pointer-events:none; }
+  html[data-genesis-theme] .genesis-app[data-sidebar-auto-hide="true"] .app-stage { grid-column:2; }
+  html[data-genesis-theme] .genesis-app[data-sidebar-auto-hide="true"] .sidebar-resize-boundary { z-index:72; }
+  html[data-genesis-theme] .genesis-app[data-sidebar-auto-hide="true"][data-sidebar-hidden="true"] .sidebar-resize-boundary { display:none; }
+  html[data-genesis-theme] .genesis-app[data-sidebar-auto-hide="true"] .sidebar-auto-hide-handle { position:fixed; display:grid; place-items:center start; inset:calc(50dvh - 44px) auto auto 0; width:44px; height:88px; min-height:44px; margin:0; padding:0 0 0 2px; z-index:71; background:transparent; border:0; border-radius:var(--ui-radius); color:var(--ui-accent); cursor:pointer; }
+  html[data-genesis-theme] .genesis-app .sidebar-auto-hide-handle > span { width:6px; height:56px; border-radius:3px; background:var(--ui-accent); box-shadow:1px 0 3px #0003; }
+  html[data-genesis-theme] .genesis-app[data-sidebar-auto-hide="true"][data-sidebar-hidden="false"] .sidebar-auto-hide-handle { left:calc(var(--sidebar-current-width,240px) - 2px); opacity:0; pointer-events:none; }
+  html[data-genesis-theme] .genesis-app .sidebar-auto-hide-handle:focus-visible { opacity:1; outline:2px solid var(--ui-accent); outline-offset:-2px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  html[data-genesis-theme] .genesis-app[data-sidebar-auto-hide="true"] .app-sidebar { transition:none; }
 }
 
 /* The same movable inbox is used in personal and shared workspaces. */
@@ -1132,6 +1146,25 @@ html[data-genesis-theme] .genesis-app .shared-board-display-settings p { margin:
 }
 
 html[data-genesis-theme] .genesis-app .account-panel .appearance-menu-subsection { display:grid; gap:16px; padding:24px; }
+html[data-genesis-theme] .genesis-app .account-panel { --settings-panel-surface:color-mix(in srgb,var(--surface) 78%,var(--paper)); }
+html[data-genesis-theme] .genesis-app .account-panel :is(.account-preferences,.appearance-settings-subsection,.appearance-menu-subsection,.appearance-menu-details,.account-oauth-note) { background-color:var(--settings-panel-surface); }
+html[data-genesis-theme] .genesis-app .account-panel .settings-section-hero {
+  background:repeating-linear-gradient(135deg,transparent 0 8px,color-mix(in srgb,var(--gold) 4%,transparent) 8px 9px),var(--paper);
+  border-color:color-mix(in srgb,var(--gold) 26%,var(--line)); box-shadow:inset 0 1px 0 color-mix(in srgb,var(--ink) 9%,transparent),0 3px 8px #0001;
+}
+html[data-genesis-theme] .genesis-app .account-panel .settings-reminders-panel { display:grid; gap:24px; }
+html[data-genesis-theme] .genesis-app .account-panel .settings-reminders-panel > :is(div,p) { margin:0; }
+html[data-genesis-theme] .genesis-app .account-panel :is(.account-email-preferences,.account-system-reminders) { display:grid; gap:12px; min-width:0; }
+html[data-genesis-theme] .genesis-app .account-panel :is(.account-email-preferences,.account-system-reminders) > :is(h3,p) { margin:0; }
+html[data-genesis-theme] .genesis-app .account-panel .account-email-preferences > button { justify-self:start; max-width:100%; }
+html[data-genesis-theme] .genesis-app .account-panel .account-system-reminders { padding-top:24px; border-top:1px solid var(--line); }
+html[data-genesis-theme] .genesis-app .account-panel .week-start-choice { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+html[data-genesis-theme] .genesis-app .account-panel .week-start-choice > button { display:flex; align-items:center; justify-content:space-between; gap:12px; min-width:0; }
+html[data-genesis-theme] .genesis-app .account-panel .week-start-choice > button > small { flex:none; white-space:nowrap; }
+@media (max-width:600px) {
+  html[data-genesis-theme] .genesis-app .account-panel .week-start-choice { grid-template-columns:minmax(0,1fr); }
+  html[data-genesis-theme] .genesis-app .account-panel .week-start-choice > button > strong { white-space:nowrap; }
+}
 html[data-genesis-theme] .genesis-app .account-panel .appearance-settings-stack { margin-top: 20px; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 html[data-genesis-theme] .genesis-app .account-panel .settings-section-nav { display: flex; flex-wrap: nowrap; gap: 6px; overflow: visible; }
 html[data-genesis-theme] .genesis-app .account-panel .settings-section-nav button { display: grid; place-items: center; flex: 0 1 48px; width: 48px; min-width: 0; height: 48px; min-height: 48px; padding: 0; }
@@ -1510,6 +1543,8 @@ html[data-genesis-theme] .genesis-app .habit-daily-panel .daily-goal-actions str
 html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-ritual-group > header strong { font-size: 17px; line-height: 1.5; }
 html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-ritual-group > header span { font: 600 11px/1.5 var(--font-ui); letter-spacing: .04em; }
 html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-ritual-group > header em { font: 600 13px/1.5 var(--font-ui); font-variant-numeric: tabular-nums; }
+html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-ritual-group > header > div { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 12px; min-width:0; }
+html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-ritual-group > header > div > span { flex:none; }
 html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-check-list > article { grid-template-columns: 44px minmax(0,1fr) auto; align-items: start; gap: 12px; padding: 14px; }
 html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-check { width: 44px; height: 44px; }
 html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-check-heading { display: grid; grid-template-columns: 24px minmax(0,1fr) auto; align-items: start; gap: 4px 8px; }
@@ -1533,7 +1568,7 @@ html[data-genesis-theme] .genesis-app .habit-daily-panel .mood-summary strong { 
   html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-check-list > article > output { grid-column: 3; grid-row: 1; }
   html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-check-copy em { grid-column: 2; }
   html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-check-copy mark { grid-column: 2; width: fit-content; }
-  html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-ritual-group > header div { gap: 2px; }
+  html[data-genesis-theme] .genesis-app .habit-daily-panel .habit-ritual-group > header > div { flex-direction:row; gap:4px 12px; }
   html[data-genesis-theme] .genesis-app .habit-daily-panel .mood-summary { grid-template-columns: minmax(0,1fr) auto; gap: 4px 12px; }
   html[data-genesis-theme] .genesis-app .habit-daily-panel .mood-summary > span:first-child { grid-column: 1; grid-row: 1; text-align: start; }
   html[data-genesis-theme] .genesis-app .habit-daily-panel .mood-summary > strong { grid-column: 1; grid-row: 2; }

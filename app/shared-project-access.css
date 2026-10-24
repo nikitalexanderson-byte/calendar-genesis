@@ -19,3 +19,12 @@
 @media(max-width:600px) { .shared-project-access-rule { grid-template-columns:minmax(0,1fr); }.shared-project-access button { width:100%; } }
 .shared-project-access button.icon-action-button { width:44px; flex:none; }
 .shared-project-access .shared-project-access-check { min-height:44px; box-sizing:border-box; }
+.shared-project-access[open] > :not(summary) { margin-block:16px; }
+.shared-project-access[open] > p { margin-top:16px; margin-bottom:20px; }
+.shared-project-access fieldset { display:grid; gap:16px; }
+.shared-project-access fieldset > :is(p,button,label,.shared-project-access-rules) { margin-block:0; }
+.shared-project-access fieldset > button { justify-self:start; }
+.shared-project-access fieldset > .shared-project-access-check { align-items:center; gap:12px; padding:12px; border:1px solid var(--line); border-radius:var(--ui-radius); }
+.shared-project-access fieldset > .shared-project-access-check input { margin:0; }
+.shared-project-access-preview { display:grid; gap:16px; }
+.shared-project-access-preview > :is(p,ul) { margin-block:0; }

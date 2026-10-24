@@ -1060,6 +1060,12 @@ export function translateText(source: string, language: Language = runtimeLangua
     : preserveOuterWhitespace(source, pieces.map(piece => piece.text).join(""));
 }
 
+/** Translate the complete sentence before inserting values; never translate user data. */
+export function formatTranslatedText(source: string, language: Language, values: Record<string, string | number>) {
+  return translateText(source, language).replace(/\{(\w+)\}/g, (placeholder, key: string) =>
+    Object.hasOwn(values, key) ? String(values[key]) : placeholder);
+}
+
 function localizeTextNode(node: Text, language: Language) {
   const current = node.data;
   let record = textRecords.get(node);

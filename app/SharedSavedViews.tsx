@@ -199,6 +199,7 @@ export function SharedSavedViews({userId,spaces,mode,inputMode=mode,opened,onClo
   return <dialog ref={dialog} className="shared-projects-modal shared-saved-views" aria-labelledby="saved-views-title" aria-describedby="saved-views-help" onCancel={event=>{event.preventDefault();onClose();}} onClose={onClose}>
     <header><h2 id="saved-views-title">{t("Сохранённые представления")}</h2><DialogCloseButton aria-label={t("Закрыть")} onClick={onClose}/></header>
     {opened?<div className="saved-views-content">
+      <p id="saved-views-help" className="saved-view-intro">{t("Собирайте задачи из доступных проектов по нужным условиям. Представление сохраняет фильтры, а задачи остаются в своих проектах.")}</p>
       <section className="saved-view-device" aria-label={d('heading')}>
         {writer.status==='saving'||writer.status==='saved'&&draft.dirty?<p role="status" data-view-device-state={writer.status}>{d(writer.status)}</p>:null}
         {writer.error?<div role="alert"><p>{workflowDraftError(writer.error,getRuntimeLanguage())}</p><div className="saved-view-actions"><IconActionButton icon="map-refresh" label={t('Обновить')} disabled={busy} onClick={()=>{writer.retryMigration();void writer.refresh();}}/>{damaged?<IconActionButton icon="export" label={d('download')} onClick={()=>download(damaged.raw,damaged.id)}/>:null}</div></div>:null}
@@ -208,9 +209,9 @@ export function SharedSavedViews({userId,spaces,mode,inputMode=mode,opened,onClo
         {writer.record?.phase==='received'?<div role="status"><p>{t('Готово')}</p><button type="button" className="primary-button" disabled={busy} onClick={()=>void runMutation(finishMutation)}>{t('Продолжить')}</button></div>:null}
         {writer.record?.phase==='damaged'?<div role="alert"><p>{d('invalid')}</p><IconActionButton icon="export" label={d('download')} onClick={()=>download(JSON.stringify(writer.record?.legacy),'legacy')}/></div>:null}
       </section>
-      <p id="saved-views-help" className="saved-view-intro">{t("Собирайте задачи из доступных проектов по нужным условиям. Представление сохраняет фильтры, а задачи остаются в своих проектах.")}</p>
-      <details className="saved-view-library-panel" open={libraryOpen} onToggle={event=>setLibraryOpen(event.currentTarget.open)}><summary>{t("Представления")}</summary>
+      <details className="saved-view-library-panel" open={libraryOpen} onToggle={event=>setLibraryOpen(event.currentTarget.open)}><summary>{t("Выбрать представление")}</summary>
       <div className="saved-view-library"><section aria-labelledby="saved-view-presets-title"><h3 id="saved-view-presets-title">{t("Быстрые подборки")}</h3>
+      <p className="saved-view-hint">{t("Быстрые подборки сразу показывают задачи. Их условия можно изменить и сохранить как своё представление.")}</p>
       <div className="saved-view-presets" role="group" aria-label={t("Представления")}>
         <button type="button" className="secondary-button" disabled={blocked||!online} onClick={()=>preset("Назначено мне",{assigneeIds:["me"]})}>{t("Назначено мне")}</button>
         <button type="button" className="secondary-button" disabled={blocked||!online} onClick={()=>preset("Создано мной",{createdBy:"me"})}>{t("Создано мной")}</button>
@@ -220,23 +221,25 @@ export function SharedSavedViews({userId,spaces,mode,inputMode=mode,opened,onClo
         <button type="button" className="secondary-button" disabled={blocked||!online} onClick={()=>preset("Ожидает утверждения",{approvalPending:true})}>{t("Ожидает утверждения")}</button>
       </div>
       </section><section aria-labelledby="saved-view-library-title" aria-busy={listLoading&&online}><h3 id="saved-view-library-title">{t("Ваши подборки")}</h3>
+      <p className="saved-view-hint">{t("Выберите сохранённую подборку или создайте новую. Задачи останутся в своих проектах.")}</p>
       <p className="saved-view-hint">{t("Личное представление видно только вам. Общим представлением могут пользоваться участники пространства с доступом к выбранным проектам.")}</p>
       {listLoading&&online?<p role="status">{t("Загружаем данные…")}</p>:null}
       {list&&!list.total&&!listLoading?<p>{t("Сохранённых представлений пока нет")}</p>:null}
       {listFailure?<p className="shared-error" role="alert">{listFailure}</p>:null}
       <div className="saved-view-list">{list?.views.map(view=><button type="button" className="secondary-button" disabled={blocked} key={view.id} onClick={()=>openView(view)} aria-pressed={filter?.savedViewId===view.id}><span data-no-translate>{typeof view.definition?.title==="string"?view.definition.title:t("Представление")}</span><small>{t(view.visibility==="shared"?"Общее":"Личное")}{view.invalid?` · ${t("Условия недоступны")}`:""}</small></button>)}</div>
       {list?.hasMore?<IconActionButton icon={listFailure&&listError?.more?"map-refresh":"chevron-down"} label={t(listFailure&&listError?.more?"Повторить загрузку":"Показать ещё")} disabled={busy||listLoading||!online} onClick={()=>void moreViews()}/>:null}
-      <div className="saved-view-actions"><IconActionButton icon="plus" label={t("Новое представление")} disabled={blocked} onClick={()=>{if(replace()){setDraft(fresh(mode,inputMode));setMetadata(null);setEditor(true);setLibraryOpen(false);setFilter(null);setError("");}}}/><IconActionButton icon="undo" label={t("Сбросить")} disabled={busy} onClick={()=>{setFilter(null);setError("");}}/><IconActionButton icon="map-refresh" label={t(listFailure&&(!list||!listError?.more)?"Повторить загрузку":"Обновить")} disabled={busy||listLoading||!online} onClick={()=>{void refresh();setOptionsVersion(previous=>previous+1);}}/></div>
+      <div className="saved-view-actions"><IconActionButton icon="plus" showLabel label={t("Новое представление")} disabled={blocked} onClick={()=>{if(replace()){setDraft(fresh(mode,inputMode));setMetadata(null);setEditor(true);setLibraryOpen(false);setFilter(null);setError("");}}}/><IconActionButton icon="undo" label={t("Сбросить")} disabled={busy} onClick={()=>{setFilter(null);setError("");}}/><IconActionButton icon="map-refresh" label={t(listFailure&&(!list||!listError?.more)?"Повторить загрузку":"Обновить")} disabled={busy||listLoading||!online} onClick={()=>{void refresh();setOptionsVersion(previous=>previous+1);}}/></div>
       </section></div>
       </details>
       {error&&!(writer.record?.phase==='pending'&&error===d('pending'))?<p role="alert">{error}</p>:null}{!online?<p role="status">{t("Для сохранения нужно подключение к интернету")}</p>:null}
-      {definition||draft.damagedDefinition?<div className="saved-view-current"><strong data-no-translate>{definition?.title||t("Представление")}</strong><IconActionButton icon={editor?"map-up":"edit"} label={t(editor?"Свернуть":"Изменить условия")} disabled={busy} aria-expanded={editor} aria-controls="saved-view-conditions" onClick={()=>setEditor(previous=>!previous)}/></div>:null}
+      {editor||filter||draft.id?<div className="saved-view-current"><strong data-no-translate>{definition?.title||t("Представление")}</strong><IconActionButton icon={editor?"map-up":"edit"} label={t(editor?"Свернуть":"Изменить условия")} disabled={busy} aria-expanded={editor} aria-controls="saved-view-conditions" onClick={()=>setEditor(previous=>!previous)}/></div>:null}
       <div id="saved-view-conditions" hidden={!editor}>
       {editor&&!definition?<div role="alert"><p>{t("Сохранённые условия повреждены. Создайте новое представление или откройте исправленную версию.")}</p>
         {draft.damagedDefinition!==undefined?<IconActionButton icon="export" label={d('download')} onClick={()=>download(JSON.stringify(draft),'input')}/>:null}
         {repairedContext?<button type="button" className="secondary-button" disabled={busy} onClick={()=>editDraft(previous=>({...previous,definition:repairedContext,damagedDefinition:undefined,dirty:true}))}>{t("Восстановить календарь представления")}</button>:null}
         {draft.id&&canEdit?<button type="button" className="secondary-button" disabled={busy||!online} onClick={()=>void remove()}>{t("Удалить")}</button>:null}</div>:null}
       {editor&&definition?<form className="saved-view-editor" onSubmit={event=>{event.preventDefault();void save();}}><fieldset disabled={blocked}>
+        <legend>{t("Условия")}</legend><p className="saved-view-hint">{t("Условия определяют состав списка. Нажмите «Показать задачи», чтобы проверить результат, затем сохраните представление.")}</p>
         <div className="saved-view-fields"><label>{t("Название")}<input required maxLength={160} value={definition.title} onChange={event=>update({title:event.target.value})}/></label>
           <label>{t("Пространство")}<select value={draft.spaceId??""} onChange={event=>editDraft(previous=>({...previous,spaceId:event.target.value||null,visibility:"personal",dirty:true}))}><option value="">{t("Все пространства")}</option>{spaces.map(space=><option key={space.id} value={space.id}>{space.title}</option>)}</select></label>
           <label>{t("Доступ")}<select value={draft.visibility} onChange={event=>editDraft(previous=>({...previous,visibility:event.target.value as Draft["visibility"],dirty:true}))}><option value="personal">{t("Личное")}</option><option value="shared" disabled={!canShare}>{t("Общее")}</option></select></label>
@@ -273,7 +276,7 @@ export function SharedSavedViews({userId,spaces,mode,inputMode=mode,opened,onClo
         </div>
       </fieldset></form>:null}
       </div>
-      <SharedBulkActions key={userId} userId={userId} filter={filter} page={tasks.page} sort={definition?.sort??"position"} mode={mode} online={online} loading={tasks.busy} queryError={tasks.error} onMore={()=>void tasks.more()} onRefresh={()=>void tasks.refresh()} onOpen={onOpen}/>
+      {filter?<section className="saved-view-results" aria-label={t("Задачи")}><h3>{t("Задачи")}</h3><SharedBulkActions key={userId} userId={userId} filter={filter} page={tasks.page} sort={definition?.sort??"position"} mode={mode} online={online} loading={tasks.busy} queryError={tasks.error} onMore={()=>void tasks.more()} onRefresh={()=>void tasks.refresh()} onOpen={onOpen}/></section>:null}
     </div>:null}
   </dialog>;
 }

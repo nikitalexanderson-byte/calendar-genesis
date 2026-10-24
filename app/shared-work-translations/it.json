@@ -533,5 +533,16 @@
   "Место импорта": "Destinazione dell’importazione",
   "Подготовка экспорта…": "Preparazione dell’esportazione…",
   "Отменить экспорт": "Annulla esportazione",
-  "Экспорт отменён.": "Esportazione annullata."
+  "Экспорт отменён.": "Esportazione annullata.",
+  "Шаблон создаёт новые задачи и проекты по образцу. Сначала выберите шаблон, затем проверьте состав, место и даты перед применением.": "Un modello crea nuove attività e nuovi progetti da un esempio. Scegli un modello e controlla contenuto, destinazione e date prima di applicarlo.",
+  "Применение создаёт рабочую копию. Для изменения самого образца сначала создайте редактируемую копию.": "L’applicazione crea una copia di lavoro. Per cambiare il modello stesso, crea prima una copia modificabile.",
+  "Быстрые подборки сразу показывают задачи. Их условия можно изменить и сохранить как своё представление.": "Le selezioni rapide mostrano subito le attività. Puoi modificarne le condizioni e salvare una vista personale.",
+  "Выберите сохранённую подборку или создайте новую. Задачи останутся в своих проектах.": "Scegli una vista salvata o creane una nuova. Le attività restano nei loro progetti.",
+  "Условия определяют состав списка. Нажмите «Показать задачи», чтобы проверить результат, затем сохраните представление.": "Le condizioni definiscono l’elenco. Seleziona «Mostra attività» per controllare il risultato, poi salva la vista.",
+  "Выберите событие запуска, добавьте нужные условия и укажите действия. Проверьте правило без изменений перед включением.": "Scegli un evento di attivazione, aggiungi le condizioni necessarie e definisci le azioni. Prova la regola senza modifiche prima di attivarla.",
+  "Выберите период истории и нажмите «Обновить отчёт». Дополнительные фильтры сужают список; нажмите на показатель, чтобы открыть его задачи.": "Scegli il periodo della cronologia e aggiorna il rapporto. I filtri aggiuntivi restringono l’elenco; seleziona un indicatore per aprire le relative attività.",
+  "Выбрать представление": "Scegli una vista",
+  "Состав шаблона": "Contenuto del modello",
+  "Часть изменений сохранена. Повторите сохранение, чтобы завершить.": "Alcune modifiche sono state salvate. Salva di nuovo per completare.",
+  "Выбрать шаблон": "Scegli un modello"
 }

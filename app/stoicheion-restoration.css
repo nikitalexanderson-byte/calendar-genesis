@@ -77,9 +77,10 @@ html[data-genesis-theme] .genesis-app .restoration .restoration-result { color: 
 .restoration-saved-group > header h3 { margin: 0; }
 .restoration-saved-group > header span { color: var(--ink-soft); font-size: 13px; }
 .restoration-cycle { padding-block: 28px; border-bottom: 1px solid var(--line); scroll-margin-top: 24px; }
-.restoration-cycle-heading { display: flex; align-items: flex-start; gap: 16px; margin: 0 0 28px; }
-.restoration-cycle-heading > div { min-width: 0; flex: 1; }
+.restoration-cycle-heading { display: grid; grid-template-columns: 36px minmax(0,1fr) auto; align-items: start; gap: 12px 16px; margin: 0 0 28px; }
+.restoration-cycle-heading > div { min-width: 0; }
 .restoration-cycle-heading h3 { margin: 0; }
+.restoration-cycle-heading > .restoration-cycle-intention { grid-column: 2 / -1; margin: 0; }
 .restoration-status { color: var(--restoration-accent); display: inline-flex; align-items: center; gap: 7px; font-size: 13px; line-height: 1.5; }
 .restoration-status svg { width: 18px; height: 18px; flex: none; }
 html[data-genesis-theme] .genesis-app .restoration .restoration-progress { margin: 8px 0 20px; font: 400 32px/1.2 var(--font-heading,Georgia,serif) !important; color: var(--restoration-accent); font-variant-numeric: tabular-nums; }
@@ -217,12 +218,14 @@ html[data-genesis-theme] :is(.genesis-app,.stoicheion-letter-dialog) .stoicheion
   .restoration-draft-status > small { display: none; }
   .restoration-draft-status > small:last-child:not(:first-of-type) { display: block; }
   .restoration-heading > button { width: 100%; }
-  .restoration-cycle-heading { flex-wrap: wrap; }
-  .restoration-cycle-heading > .restoration-status { margin-inline-start: 52px; }
+  .restoration-cycle-heading { grid-template-columns: 36px minmax(0,1fr); }
+  .restoration-cycle-heading > .restoration-status { grid-column: 2; min-width: 0; }
+  .restoration-cycle-heading > .restoration-cycle-intention { grid-column: 1 / -1; }
   .restoration-review-item > header { flex-direction: column; gap: 8px; }
   html[data-genesis-theme] .genesis-app .stoicheion-isopsephy { padding-inline: 12px; }
   html[data-genesis-theme] .genesis-app .stoicheion-result-actions { flex-direction: column; gap: 12px; }
-  html[data-genesis-theme] .genesis-app .stoicheion-result-actions > button { width: 100%; }
+  /* With a column main axis, the desktop 180px basis becomes the button height. */
+  html[data-genesis-theme] .genesis-app .stoicheion-result-actions > button { flex: 0 0 auto; width: 100%; min-height: var(--ui-control-height,44px); padding-block: 10px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .restoration-triangle i, .restoration-icon-point, .restoration-icon-orbit, .stoicheion-action-button { transition: none !important; }

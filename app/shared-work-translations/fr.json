@@ -533,5 +533,16 @@
   "Место импорта": "Destination de l’importation",
   "Подготовка экспорта…": "Préparation de l’export…",
   "Отменить экспорт": "Annuler l’export",
-  "Экспорт отменён.": "Export annulé."
+  "Экспорт отменён.": "Export annulé.",
+  "Шаблон создаёт новые задачи и проекты по образцу. Сначала выберите шаблон, затем проверьте состав, место и даты перед применением.": "Un modèle crée de nouvelles tâches et de nouveaux projets à partir d’un exemple. Choisissez un modèle, puis vérifiez son contenu, sa destination et ses dates avant de l’appliquer.",
+  "Применение создаёт рабочую копию. Для изменения самого образца сначала создайте редактируемую копию.": "L’application crée une copie de travail. Pour modifier le modèle lui-même, créez d’abord une copie modifiable.",
+  "Быстрые подборки сразу показывают задачи. Их условия можно изменить и сохранить как своё представление.": "Les sélections rapides affichent les tâches immédiatement. Vous pouvez modifier leurs conditions et enregistrer votre propre vue.",
+  "Выберите сохранённую подборку или создайте новую. Задачи останутся в своих проектах.": "Choisissez une vue enregistrée ou créez-en une. Les tâches restent dans leurs projets.",
+  "Условия определяют состав списка. Нажмите «Показать задачи», чтобы проверить результат, затем сохраните представление.": "Les conditions définissent la liste. Choisissez « Afficher les tâches » pour vérifier le résultat, puis enregistrez la vue.",
+  "Выберите событие запуска, добавьте нужные условия и укажите действия. Проверьте правило без изменений перед включением.": "Choisissez un déclencheur, ajoutez les conditions nécessaires et définissez les actions. Testez la règle sans modifications avant de l’activer.",
+  "Выберите период истории и нажмите «Обновить отчёт». Дополнительные фильтры сужают список; нажмите на показатель, чтобы открыть его задачи.": "Choisissez la période historique et actualisez le rapport. Les filtres supplémentaires réduisent la liste ; sélectionnez un indicateur pour ouvrir ses tâches.",
+  "Выбрать представление": "Choisir une vue",
+  "Состав шаблона": "Contenu du modèle",
+  "Часть изменений сохранена. Повторите сохранение, чтобы завершить.": "Certaines modifications ont été enregistrées. Enregistrez à nouveau pour terminer.",
+  "Выбрать шаблон": "Choisir un modèle"
 }

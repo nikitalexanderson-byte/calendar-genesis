@@ -5,7 +5,7 @@ declare(strict_types=1);
 if (PHP_SAPI !== 'cli' || getenv('GENESIS_IMPROVEMENTS_TEST') !== 'isolated') throw new RuntimeException('Explicit isolated CLI required');
 $root = dirname(__DIR__, 2);
 $suite = getenv('GENESIS_ACCEPTANCE_SUITE') ?: 'c-suite';
-if (!in_array($suite, ['c-suite', 'efg-suite'], true)) throw new RuntimeException('Unknown isolated suite');
+if (!in_array($suite, ['c-suite', 'efg-suite', 'kul-suite'], true)) throw new RuntimeException('Unknown isolated suite');
 $runtime = $root . '/output/' . $suite . '/https';
 $path = $root . '/server/config.php';
 if (($argv[1] ?? '') === 'cleanup') {

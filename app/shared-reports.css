@@ -28,3 +28,10 @@
 .report-context-grid { align-items:start; }
 .report-zone-field > label { margin-block-end:0; }
 .report-zone-field > .shared-error { margin:8px 0 16px; }
+html[data-genesis-theme] .genesis-app .shared-reports-dialog .report-options { margin-top:20px; padding-top:20px; }
+.shared-reports-dialog .report-options > fieldset { margin-block:0; }
+.shared-reports-dialog .report-options > fieldset > h3 { margin-top:0; }
+.shared-reports-dialog .report-extra-filters { margin-top:20px; padding-top:16px; }
+.shared-reports-dialog .report-extra-filters > summary { margin-bottom:12px; }
+.shared-reports-dialog .report-extra-filters:not([open]) > summary { margin-bottom:0; }
+.shared-reports-dialog .report-summary { gap:16px; }
