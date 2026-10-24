@@ -284,7 +284,7 @@ html[data-genesis-theme] .genesis-app :is(.modal-close, .shared-projects-close, 
 .shared-projects-board > .shared-projects-column { border-top: 4px solid var(--shared-board-color); background: color-mix(in srgb, var(--shared-board-color) 8%, var(--paper)); }
 .shared-board-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 html[data-genesis-theme] .genesis-app .shared-board-header h2 { flex: 1; display: block; min-width: 0; margin: 0; font: 600 var(--type-label)/1.35 var(--font-ui); font-family: var(--font-ui) !important; }
-html[data-genesis-theme] .genesis-app .shared-board-title { display: block; min-width: 0; max-width: 100%; padding: 0; color: inherit; font: inherit; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: transparent; border: 0; box-shadow: none; }
+html[data-genesis-theme] .genesis-app .shared-board-title { display: block; min-width: 44px; min-height: 44px; max-width: 100%; padding: 0; color: inherit; font: inherit; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: transparent; border: 0; box-shadow: none; }
 .shared-board-title-input { width: 100%; min-width: 0; font: inherit; }
 .shared-board-tools { display: flex; flex: none; align-items: center; gap: 4px; }
 .shared-board-color { display: flex; }

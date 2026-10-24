@@ -9,6 +9,26 @@ const selection = () => ({ scope: "space", projectId: "export-project", format: 
   titles: { title: "Название", storyPoints: "Story points", estimateHours: "Часы" } });
 const result = { content: "Title\nSynthetic task\n", format: "csv", taskCount: 1, projectCount: 1, notices: [] };
 
+test("CSV custom mapping preserves independent positions for duplicate and empty headings", async () => {
+  const fixture = await cloudSyncClient({ withDataExchange: true }), exchange = fixture.dataExchange;
+  const headers = exchange.dataCsvHeaders('\uFEFFtitle,Effort,Effort,,   ,GENESIS CSV v1,Effort\r\nTask,2,3,a,b,,4', ',');
+  const choices = exchange.dataCsvCustomColumnChoices(headers);
+  assert.deepEqual(JSON.parse(JSON.stringify(choices)), [
+    { column: 0, title: 'title' }, { column: 1, title: 'Effort' }, { column: 2, title: 'Effort' },
+    { column: 3, title: '4' }, { column: 4, title: '5' }, { column: 6, title: 'Effort' },
+  ]);
+  const selected = { 1: 'number', 2: 'text', 3: 'checkbox', 6: 'number' };
+  const customColumns = choices.filter(({ column }) => selected[column]).map(row => ({ ...row, type: selected[row.column] }));
+  fixture.respond(() => Response.json({ canApply: true }));
+  await exchange.previewData({ format: 'csv', content: 'title,Effort,Effort,,   ,GENESIS CSV v1,Effort\nTask,2,3,true,b,,4',
+    spaceId: 'mapping-space', parse: { customColumns } });
+  assert.deepEqual(JSON.parse(fixture.requests[0].init.body).parse.customColumns, [
+    { column: 1, title: 'Effort', type: 'number' }, { column: 2, title: 'Effort', type: 'text' },
+    { column: 3, title: '4', type: 'checkbox' }, { column: 6, title: 'Effort', type: 'number' },
+  ]);
+  assert.deepEqual(JSON.parse(JSON.stringify(exchange.dataCsvCustomColumnChoices([]))), []);
+});
+
 test("a cancelled export aborts the active session request and can retry the same selection", async () => {
   const fixture = await cloudSyncClient({ withDataExchange: true });
   const entered = deferred(), response = deferred(), controller = new AbortController(), options = selection();

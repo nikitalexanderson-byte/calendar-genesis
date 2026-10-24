@@ -18,6 +18,7 @@ try {
  $archive=['archived'=>true,'expectedRevision'=>$parent['revision'],'requestId'=>genesisUuid()];
  $result=genesisSharedArchiveTask($owner,$pid,$parent['id'],$archive);
  lifecycleExpect($result['affected']===2,'Archive omitted child');lifecycleExpect(genesisSharedArchiveTask($owner,$pid,$parent['id'],$archive)===$result,'Archive retry duplicated changes');
+ lifecycleReject(fn()=>genesisSharedArchiveTask($owner,$pid,$parent['id'],[...$archive,'expectedRevision'=>$result['revision']]),'SHARED_REQUEST_ID_CONFLICT');
  lifecycleExpect(genesisSharedQueryTasks($owner,['projectIds'=>[$pid]])['total']===0,'Archive remains active');
  lifecycleExpect(genesisSharedQueryTasks($owner,['projectIds'=>[$pid],'archived'=>true])['total']===2,'Archive listing incomplete');
  lifecycleExpect(genesisSharedQueryTasks($owner,['projectIds'=>[$pid],'parentTaskId'=>$parent['id'],'includeArchived'=>true])['total']===1,'Archived child disappeared from parent navigation');
@@ -26,16 +27,26 @@ try {
  lifecycleExpect(count(genesisSharedActivity($manager,$pid,$parent['id'],null)['events'])>0,'Archived history cannot be read');
  $archivedChild=genesisSharedGetTask($owner,$pid,$child['id'],true);
  lifecycleReject(fn()=>genesisSharedArchiveTask($owner,$pid,$child['id'],['archived'=>false,'expectedRevision'=>$archivedChild['revision']]),'RESTORE_PARENT_FIRST');
- $restored=genesisSharedArchiveTask($owner,$pid,$parent['id'],['archived'=>false,'expectedRevision'=>$result['revision'],'requestId'=>genesisUuid()]);
+ $unarchive=['archived'=>false,'expectedRevision'=>$result['revision'],'requestId'=>genesisUuid()];
+ $restored=genesisSharedArchiveTask($owner,$pid,$parent['id'],$unarchive);
+ lifecycleExpect(genesisSharedArchiveTask($owner,$pid,$parent['id'],$unarchive)===$restored,'Unarchive retry changed response');
+ lifecycleReject(fn()=>genesisSharedArchiveTask($owner,$pid,$parent['id'],[...$unarchive,'expectedRevision'=>999]),'SHARED_REQUEST_ID_CONFLICT');
  lifecycleExpect($restored['affected']===2,'Restore omitted children');
  $current=genesisSharedGetTask($owner,$pid,$parent['id']);
  lifecycleExpect($current['priority']===3 && $current['checklists'][0]['title']==='Preserve','Archive changed fields');
  $trash=['expectedRevision'=>$current['revision'],'retentionDays'=>7,'requestId'=>genesisUuid()];$deleted=genesisSharedDeleteTask($owner,$pid,$parent['id'],$trash);
  lifecycleExpect($deleted['affected']===2,'Trash omitted child');lifecycleExpect(genesisSharedDeleteTask($owner,$pid,$parent['id'],$trash)===$deleted,'Trash retry changed response');
+ lifecycleReject(fn()=>genesisSharedDeleteTask($owner,$pid,$parent['id'],[...$trash,'retentionDays'=>14]),'SHARED_REQUEST_ID_CONFLICT');
  $items=genesisSharedTrashList($owner,$sid);lifecycleExpect(count($items)===1 && $items[0]['canPurge'],'Trash root list/permission wrong');
  lifecycleExpect(!genesisSharedTrashList($manager,$sid)[0]['canPurge'],'Manager received permanent delete permission');
+ $retention=['retentionDays'=>10,'expectedExpiresAt'=>$items[0]['expiresAt'],'requestId'=>genesisUuid()];
+ $retained=genesisSharedRestoreTrash($owner,$sid,'task',$parent['id'],$retention);
+ lifecycleExpect(genesisSharedRestoreTrash($owner,$sid,'task',$parent['id'],$retention)===$retained,'Retention retry changed response');
+ lifecycleReject(fn()=>genesisSharedRestoreTrash($owner,$sid,'task',$parent['id'],[...$retention,'retentionDays'=>12]),'SHARED_REQUEST_ID_CONFLICT');
+ $items=genesisSharedTrashList($owner,$sid);
  $restore=['expectedExpiresAt'=>$items[0]['expiresAt'],'requestId'=>genesisUuid()];$r=genesisSharedRestoreTrash($owner,$sid,'task',$parent['id'],$restore);
  lifecycleExpect(genesisSharedRestoreTrash($owner,$sid,'task',$parent['id'],$restore)===$r,'Restore retry not idempotent');
+ lifecycleReject(fn()=>genesisSharedRestoreTrash($owner,$sid,'task',$parent['id'],[...$restore,'expectedExpiresAt'=>'changed']),'SHARED_REQUEST_ID_CONFLICT');
  lifecycleExpect(genesisSharedGetTask($owner,$pid,$child['id'])['parentTaskId']===$parent['id'],'Restored relationship lost');
  $q=$db->prepare('SELECT body FROM shared_comments_read WHERE id=?');$q->execute([$comment]);lifecycleExpect($q->fetchColumn()==='Preserved comment','Comment lost');$q->closeCursor();
  $current=genesisSharedGetTask($owner,$pid,$parent['id']);genesisSharedTrashTask($owner,$pid,$parent['id'],['expectedRevision'=>$current['revision']]);$item=genesisSharedTrashList($owner,$sid)[0];
@@ -43,6 +54,7 @@ try {
  lifecycleReject(fn()=>genesisSharedPurgeTask($manager,$sid,$parent['id'],$purge),'SHARED_PROJECT_FORBIDDEN');
  lifecycleReject(fn()=>genesisSharedPurgeTask($owner,$sid,$parent['id'],['confirmPermanent'=>false]),'PERMANENT_DELETE_CONFIRMATION_REQUIRED');
  $purged=genesisSharedPurgeTask($owner,$sid,$parent['id'],$purge);lifecycleExpect($purged['affected']===2,'Purge omitted branch');lifecycleExpect(genesisSharedPurgeTask($owner,$sid,$parent['id'],$purge)===$purged,'Purge retry failed');
+ lifecycleReject(fn()=>genesisSharedPurgeTask($owner,$sid,$parent['id'],[...$purge,'expectedExpiresAt'=>'changed']),'SHARED_REQUEST_ID_CONFLICT');
  $q=$db->prepare('SELECT COUNT(*) FROM shared_comments WHERE id=?');$q->execute([$comment]);lifecycleExpect((int)$q->fetchColumn()===0,'Purge left comments');$q->closeCursor();
  lifecycleExpect(genesisSharedTrashList($owner,$sid)===[],'Purge left trash tombstones');
  // A child already in the trash keeps its own deadline when the parent is deleted later.

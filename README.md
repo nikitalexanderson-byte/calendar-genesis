@@ -217,6 +217,7 @@ pnpm build:beget
 - [Поддержка](https://genesiscalendar.com/support).
 - [Удаление аккаунта и данных](https://genesiscalendar.com/delete-account).
 - [Календарные контексты](docs/calendar-context-v2.md).
+- [Повторный аудит функций, читаемости и адаптации](docs/genesis-full-audit-2026-10-24.md) — исправления и фактическое покрытие всех46 требований, проверки и ограничения.
 - [Публикация Google OAuth](docs/GOOGLE-OAUTH-PUBLISHING.md).
 - [Инструкции Android / Google Play](docs/ANDROID-PLAY-MARKET.md).
 - [Историческая инструкция Beget](docs/BEGET-DEPLOYMENT.md) — для прежнего хостинга; старые домены и параметры в ней не заменяют текущую конфигурацию Hostinger.

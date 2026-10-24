@@ -432,8 +432,8 @@ html[data-genesis-theme] .genesis-app .workspace-inbox-header { display: flex; a
 html[data-genesis-theme] .genesis-app .workspace-inbox-header h2 { margin: 0; font: 500 24px/1.3 var(--font-heading); }
 html[data-genesis-theme] .genesis-app .workspace-inbox-header small { flex-shrink: 0; min-width: 28px; text-align: center; font: 600 14px/1.5 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--ink); }
 html[data-genesis-theme] .genesis-app .inbox-card > p { margin: 10px 0 16px; font: 400 14px/1.6 var(--font-ui); color: var(--ink-soft); }
-html[data-genesis-theme] .genesis-app .shared-projects-sidebar { align-self: stretch; align-content: start; grid-template-rows: minmax(min-content, 1fr) auto auto; }
-html[data-genesis-theme] .genesis-app .shared-projects-inbox-card { align-self: stretch; }
+html[data-genesis-theme] .genesis-app .shared-projects-sidebar { align-self: start; align-content: start; grid-template-rows: none; }
+html[data-genesis-theme] .genesis-app .shared-projects-inbox-card { align-self: start; }
 html[data-genesis-theme] .genesis-app .habit-daily-panel :is(h2, .daily-goal-ring strong, .daily-goal-guidance strong, .habit-ritual-group > header strong, .habit-check-list output) { font-family: var(--font-heading); font-weight: 500; }
 html[data-genesis-theme] .genesis-app .habit-daily-panel h2 { font-size: 24px; line-height: 1.3; }
 html[data-genesis-theme] .genesis-app .habit-ritual-group > header strong { font-size: 20px; line-height: 1.4; }
@@ -623,7 +623,7 @@ html[data-genesis-theme] .genesis-app .shared-projects-board .shared-task-card-t
 html[data-genesis-theme] .genesis-app .shared-task-card-controls { display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; }
 html[data-genesis-theme] .genesis-app .shared-projects-task.shared-affair-draggable[data-shared-task-id] .shared-task-card-controls > select[aria-label]:not([multiple]) { flex: 1 1 0; min-width: 0; width: 0; min-height: 32px; height: 32px; padding: 4px 28px 4px 8px; font-size: 12px; }
 html[data-genesis-theme] .genesis-app .shared-task-actions { display: flex; flex-wrap: nowrap; justify-content: flex-end; justify-self: end; align-self: start; gap: 4px; }
-html[data-genesis-theme] .genesis-app .shared-task-actions > button { display: inline-flex; flex: 0 0 32px; align-items: center; justify-content: center; width: 32px; height: 32px; min-width: 32px; min-height: 32px; padding: 6px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--ink); }
+html[data-genesis-theme] .genesis-app .shared-task-actions > button { display: inline-flex; flex: 0 0 44px; align-items: center; justify-content: center; width: 44px; height: 44px; min-width: 44px; min-height: 44px; padding: 10px; border: 1px solid var(--line); border-radius: var(--ui-radius); background: transparent; color: var(--ink); }
 html[data-genesis-theme] .genesis-app .shared-task-actions .experimental-icon { width: 16px; height: 16px; }
 @media (min-width: 1041px) {
   html[data-genesis-theme] .genesis-app .shared-projects-list .shared-projects-task { grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 4px 16px; min-height: 0; padding-block: 12px; }
@@ -689,7 +689,7 @@ html[data-genesis-theme] .genesis-app .shared-board-create-meeting { --shared-cr
 html[data-genesis-theme] .genesis-app .shared-board-create-event { --shared-create-color:#b16c7b; }
 html[data-genesis-theme] .genesis-app .shared-board-create-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; align-items:center; flex:0 1 auto; gap:6px; width:auto; max-width:100%; margin:0 0 0 auto; }
 html[data-genesis-theme] .genesis-app :is(.shared-board-create-events,.shared-board-create-work) { display:flex; align-items:center; gap:6px; }
-html[data-genesis-theme] .genesis-app .shared-board-create-actions button { position:relative; display:grid; place-items:center; flex:0 0 32px; width:32px; height:32px; min-width:32px; min-height:32px; padding:6px; border-radius:8px; border:1px solid color-mix(in srgb,var(--shared-create-color) 45%,var(--line)); background:color-mix(in srgb,var(--shared-create-color) 10%,var(--surface)); color:color-mix(in srgb,var(--shared-create-color) 80%,var(--ink)); }
+html[data-genesis-theme] .genesis-app .shared-board-create-actions button { position:relative; display:grid; place-items:center; flex:0 0 44px; width:44px; height:44px; min-width:44px; min-height:44px; padding:10px; border-radius:var(--ui-radius); border:1px solid color-mix(in srgb,var(--shared-create-color) 45%,var(--line)); background:color-mix(in srgb,var(--shared-create-color) 10%,var(--surface)); color:color-mix(in srgb,var(--shared-create-color) 80%,var(--ink)); }
 html[data-genesis-theme] .genesis-app .shared-board-create-actions .experimental-icon { width: 16px; height: 16px; }
 html[data-genesis-theme] .genesis-app .shared-board-create-actions button:hover:not(:disabled) { background: color-mix(in srgb, var(--shared-create-color) 25%, var(--surface)); border-color: color-mix(in srgb, var(--shared-create-color) 75%, var(--ink)); }
 html[data-genesis-theme] .genesis-app .shared-board-create-actions button:focus-visible { outline-color: var(--shared-create-color); }
@@ -1022,14 +1022,14 @@ html[data-genesis-theme] .genesis-app .shared-projects-sidebar .inbox-heading { 
 html[data-genesis-theme] .genesis-app .inbox-move-bar > small { flex-shrink:0; margin-left:4px; font:600 12px/1.4 var(--font-ui); font-variant-numeric:tabular-nums; }
 html[data-genesis-theme] .genesis-app :is(.inbox-drag-handle,.inbox-hide-button,.inbox-restore) svg { width:20px; height:20px; flex-shrink:0; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
 html[data-genesis-theme] .genesis-app .inbox-drag-handle svg { stroke-width:4; color:var(--ink-soft); }
-html[data-genesis-theme] .genesis-app .inbox-hide-button { display:grid; place-items:center; width:32px; height:32px; flex-shrink:0; border:0; border-radius:var(--ui-radius); color:var(--ink-soft); background:transparent; cursor:pointer; }
+html[data-genesis-theme] .genesis-app .inbox-hide-button { display:grid; place-items:center; width:44px; height:44px; min-width:44px; min-height:44px; flex-shrink:0; border:0; border-radius:var(--ui-radius); color:var(--ink-soft); background:transparent; cursor:pointer; }
 html[data-genesis-theme] .genesis-app .inbox-hide-button:hover { color:var(--ink); background:var(--surface); }
 html[data-genesis-theme] .genesis-app .inbox-toolbar-controls { display:grid; grid-template-columns:minmax(96px,.8fr) minmax(140px,1.2fr); align-items:stretch; gap:8px; max-width:420px; margin-bottom:12px; }
 html[data-genesis-theme] .genesis-app .inbox-control-group { display:grid; grid-template-rows:auto 1fr; align-content:start; gap:4px; min-width:0; margin:0; padding:8px; border:1px solid var(--line); border-radius:var(--ui-radius); background:var(--ui-surface-row); }
 html[data-genesis-theme] .genesis-app .inbox-control-label { color:var(--ink-soft); font:500 11px/1.4 var(--font-ui); }
 html[data-genesis-theme] .genesis-app .inbox-position-choice select { width:100%; min-width:0; min-height:36px; height:36px; padding:4px 8px; border:1px solid var(--line); border-radius:var(--ui-radius); background:var(--surface); color:var(--ink); font:500 12px/1.4 var(--font-ui); }
 html[data-genesis-theme] .genesis-app .inbox-display-switch { display:flex; min-width:0; border:1px solid var(--line); border-radius:var(--ui-radius); overflow:hidden; }
-html[data-genesis-theme] .genesis-app .inbox-display-switch button { flex:1 1 auto; min-width:0; padding:4px; min-height:34px; border:0; border-radius:0; background:var(--surface); color:var(--ink-soft); font:500 12px/1.4 var(--font-ui); white-space:nowrap; cursor:pointer; }
+html[data-genesis-theme] .genesis-app .inbox-display-switch button { flex:1 1 auto; min-width:44px; padding:4px; min-height:44px; border:0; border-radius:0; background:var(--surface); color:var(--ink-soft); font:500 12px/1.4 var(--font-ui); white-space:nowrap; cursor:pointer; }
 html[data-genesis-theme] .genesis-app .inbox-display-switch button[aria-pressed="true"] { background:var(--ui-accent); color:var(--ui-on-accent); }
 html[data-genesis-theme] .genesis-app .project-task-card.all-task-row { display:grid; grid-template-columns:36px minmax(0,1fr); align-items:start; gap:8px; min-height:0; padding:12px; }
 html[data-genesis-theme] .genesis-app .project-task-card.all-task-row .all-task-body { grid-column:2; grid-row:1; min-width:0; padding:0; }
@@ -1054,12 +1054,12 @@ html[data-genesis-theme] .genesis-app [data-inbox-compact="true"] .shared-inbox-
 html[data-genesis-theme] .genesis-app [data-inbox-compact="true"] .shared-inbox-task > button strong { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px; }
 html[data-genesis-theme] .genesis-app [data-inbox-compact="true"] .shared-inbox-task > button :is(em,small) { display:none; }
 html[data-genesis-theme] .genesis-app [data-inbox-compact="true"] .shared-task-actions { gap:4px; }
-html[data-genesis-theme] .genesis-app [data-inbox-compact="true"] .shared-task-actions > button { width:32px; height:32px; min-width:32px; min-height:32px; padding:6px; }
+html[data-genesis-theme] .genesis-app [data-inbox-compact="true"] .shared-task-actions > button { width:44px; height:44px; min-width:44px; min-height:44px; padding:10px; }
 html[data-genesis-theme] .genesis-app .inbox-restore { display:flex; align-items:center; justify-content:center; width:100%; gap:8px; margin:0 0 16px; }
 html[data-genesis-theme] .genesis-app .inbox-card { container:personal-inbox / inline-size; }
 @media (max-width:600px) {
   html[data-genesis-theme] .genesis-app .inbox-position-choice select { min-height:44px; height:44px; }
-  html[data-genesis-theme] .genesis-app .inbox-display-switch button { min-height:42px; }
+  html[data-genesis-theme] .genesis-app .inbox-display-switch button { min-height:44px; }
   html[data-genesis-theme] .genesis-app .project-task-card.all-task-row .all-task-tools .task-project-move select { min-height:44px; height:44px; }
   html[data-genesis-theme] .genesis-app .all-task-tools .all-task-actions :is(.icon-button,.task-delete) { flex-basis:44px; width:44px; height:44px; min-width:44px; min-height:44px; }
 }
@@ -1847,7 +1847,7 @@ html[data-genesis-theme] .genesis-app .account-plan { margin:0; color:var(--ink)
   html[data-genesis-theme] .genesis-app .shared-workspace-toolbar :is(select,input,.shared-mindmaps-open) { min-height:44px; height:44px; }
 }
 @media (min-width:1280px) and (max-width:1599px) and (pointer:fine) {
-  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar { --shared-toolbar-action-size:36px; gap:8px; padding-inline:12px; }
+  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar { --shared-toolbar-action-size:44px; gap:8px; padding-inline:12px; }
   html[data-genesis-theme] .genesis-app .shared-workspace-toolbar button.secondary-button { width:var(--shared-toolbar-action-size); min-width:var(--shared-toolbar-action-size); flex-basis:var(--shared-toolbar-action-size); padding:8px; }
   html[data-genesis-theme] .genesis-app .shared-workspace-toolbar .shared-project-toolbar-group { grid-template-columns:minmax(76px,1fr) repeat(3,var(--shared-toolbar-action-size)); }
   html[data-genesis-theme] .genesis-app .shared-workspace-toolbar .shared-project-toolbar-group:has(> .shared-create-first-project) { grid-template-columns:auto repeat(2,var(--shared-toolbar-action-size)); }
@@ -2048,4 +2048,19 @@ html[data-genesis-theme$="-dark"] .genesis-app .civil-mini-calendar.mode-profane
 }
 @media (prefers-reduced-motion: reduce) {
   html[data-genesis-theme] .genesis-app details > summary::before { transition: none; }
+}
+
+/* Main month controls keep full hit areas; compact year/mini views retain their geometry. */
+html[data-genesis-theme] .genesis-app #calendar-period-panel .month-calendar .calendar-day:has(> .calendar-day-task-control) { padding-bottom:4px; }
+html[data-genesis-theme] .genesis-app #calendar-period-panel .month-calendar .calendar-day > .calendar-day-task-control {
+  position:relative; inset:auto; display:flex; flex-direction:row; flex-wrap:wrap; justify-content:center;
+  width:100%; height:auto; min-height:44px; margin:4px 0 0; gap:4px;
+}
+html[data-genesis-theme] .genesis-app #calendar-period-panel .month-calendar :is(.calendar-day-task-count,.calendar-shared-task-count) {
+  position:static; flex:0 0 44px; width:44px; min-width:44px; height:44px; min-height:44px; padding:4px;
+  border-radius:var(--ui-radius);
+}
+@media(max-width:380px) {
+  html[data-genesis-theme] .genesis-app #calendar-period-panel .calendar-mode-calendar.mode-profane { padding:3px; }
+  html[data-genesis-theme] .genesis-app #calendar-period-panel .calendar-mode-calendar.mode-profane :is(.calendar-mode-days,.calendar-mode-weekdays) { gap:1px; }
 }

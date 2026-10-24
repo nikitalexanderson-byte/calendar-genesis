@@ -135,7 +135,8 @@ function genesisSharedViewSave(string $actor, array $input, ?string $id=null): a
         if($old && ($old['space_id']!==$space || $old['visibility']!==$visibility))throw new InvalidArgumentException('VIEW_SCOPE_IMMUTABLE');
         $request=genesisSharedRequestId($input);if(!$request)throw new InvalidArgumentException('VIEW_REQUEST_REQUIRED');
         $resource=$id??($visibility.':'.($space??$actor));$action=$id?'view.update':'view.create';
-        $receipt=genesisSharedMutationReceipt($db,$actor,$request,$action,$resource);if($receipt!==null){$db->commit();return $receipt;}
+        $payloadHash=genesisSharedMutationPayloadHash($action,$input);
+        $receipt=genesisSharedMutationReceipt($db,$actor,$request,$action,$resource, $payloadHash);if($receipt!==null){$db->commit();return $receipt;}
         if($old && ($old['deleted_at']!==null || ($input['expectedRevision']??null)!==(int)$old['revision']))throw new GenesisSharedAccessException('VIEW_CONFLICT',409);
         $definition=genesisSharedViewDefinition($input['definition']??null,$actor,$space);$now=genesisNow();
         if(!$old) {
@@ -148,7 +149,7 @@ function genesisSharedViewSave(string $actor, array $input, ?string $id=null): a
         if($old)$db->prepare('UPDATE shared_saved_views SET payload=?,revision=revision+1,updated_at=? WHERE id=?')->execute([$payload,$now,$id]);
         else $db->prepare('INSERT INTO shared_saved_views(id,owner_id,space_id,visibility,payload,created_at,updated_at) VALUES(?,?,?,?,?,?,?)')->execute([$id,$actor,$space,$visibility,$payload,$now,$now]);
         $result=genesisSharedViewRead(genesisSharedViewAccess($actor,$id),$actor);
-        genesisSharedSaveMutationReceipt($db,$actor,$request,$action,$resource,$result);$db->commit();return $result;
+        genesisSharedSaveMutationReceipt($db,$actor,$request,$action,$resource,$result, $payloadHash);$db->commit();return $result;
     }catch(Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
 }
 
@@ -157,10 +158,11 @@ function genesisSharedViewDelete(string $actor, string $id, array $input): array
     $db=genesisDb();genesisBeginWriteTransaction($db);
     try {
         $row=genesisSharedViewAccess($actor,$id,true,true);$request=genesisSharedRequestId($input);if(!$request)throw new InvalidArgumentException('VIEW_REQUEST_REQUIRED');
-        $receipt=genesisSharedMutationReceipt($db,$actor,$request,'view.delete',$id);if($receipt!==null){$db->commit();return $receipt;}
+        $payloadHash=genesisSharedMutationPayloadHash('view.delete',$input);
+        $receipt=genesisSharedMutationReceipt($db,$actor,$request,'view.delete',$id, $payloadHash);if($receipt!==null){$db->commit();return $receipt;}
         if($row['deleted_at']!==null || ($input['expectedRevision']??null)!==(int)$row['revision'])throw new GenesisSharedAccessException('VIEW_CONFLICT',409);
         $db->prepare('UPDATE shared_saved_views SET deleted_at=?,updated_at=?,revision=revision+1 WHERE id=?')->execute([genesisNow(),genesisNow(),$id]);
-        $result=['ok'=>true];genesisSharedSaveMutationReceipt($db,$actor,$request,'view.delete',$id,$result);$db->commit();return $result;
+        $result=['ok'=>true];genesisSharedSaveMutationReceipt($db,$actor,$request,'view.delete',$id,$result, $payloadHash);$db->commit();return $result;
     }catch(Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
 }
 

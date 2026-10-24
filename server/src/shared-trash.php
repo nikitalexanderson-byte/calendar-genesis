@@ -19,7 +19,8 @@ function genesisSharedTrashTask(string $userId,string $projectId,string $taskId,
  $db=genesisDb();$ownsTransaction=!$db->inTransaction();if($ownsTransaction)genesisBeginWriteTransaction($db);try{
   $project=genesisSharedTrashProjectAccess($userId,$projectId,'organizeTasks');
   $requestId=genesisSharedRequestId($input);
-  $receipt=genesisSharedMutationReceipt($db,$userId,$requestId,'task.trash',$taskId);if($receipt!==null){if($ownsTransaction)$db->commit();return $receipt;}
+  $payloadHash=genesisSharedMutationPayloadHash('task.trash',$input,['projectId'=>$projectId]);
+  $receipt=genesisSharedMutationReceipt($db,$userId,$requestId,'task.trash',$taskId, $payloadHash);if($receipt!==null){if($ownsTransaction)$db->commit();return $receipt;}
   $q=$db->prepare("SELECT 1 FROM shared_trash WHERE kind='task' AND object_id=? AND project_id=?");$q->execute([$taskId,$projectId]);if($q->fetchColumn()){if($ownsTransaction)$db->commit();return ['ok'=>true,'id'=>$taskId,'trashed'=>true];}
   genesisSharedProjectAccess($projectId,$userId,'organize');
   // The normal reader excludes expired or deleted objects and rejects stale cached writes.
@@ -30,7 +31,7 @@ function genesisSharedTrashTask(string $userId,string $projectId,string $taskId,
    if($q->rowCount()){$affected++;genesisSharedTrashGoogleCleanup($db,$row['id']);genesisSharedAudit($projectId,$userId,'task.deleted',$row['id'],['retentionDays'=>$days,'rootId'=>$taskId]);}
   }
   $result=['ok'=>true,'id'=>$taskId,'projectId'=>$projectId,'trashed'=>true,'affected'=>$affected,'expiresAt'=>$expires];
-  genesisSharedSaveMutationReceipt($db,$userId,$requestId,'task.trash',$taskId,$result);if($ownsTransaction)$db->commit();return $result;
+  genesisSharedSaveMutationReceipt($db,$userId,$requestId,'task.trash',$taskId,$result, $payloadHash);if($ownsTransaction)$db->commit();return $result;
  }catch(Throwable $e){if($ownsTransaction&&$db->inTransaction())$db->rollBack();throw $e;}
 }
 function genesisSharedTrashProject(string $userId,string $projectId,array $input):array {
@@ -55,7 +56,8 @@ function genesisSharedRestoreTrash(string $userId,string $spaceId,string $kind,s
  if(!in_array($kind,['task','project'],true))throw new InvalidArgumentException('INVALID_TRASH_KIND');
  $db=genesisDb();genesisBeginWriteTransaction($db);try{
   genesisSharedSpaceAccess($spaceId,$userId);$requestId=genesisSharedRequestId($input);$action=isset($input['retentionDays'])?'trash.retention':'trash.restore';
-  $receipt=genesisSharedMutationReceipt($db,$userId,$requestId,$action,$id);
+  $payloadHash=genesisSharedMutationPayloadHash($action,$input,['spaceId'=>$spaceId,'kind'=>$kind]);
+  $receipt=genesisSharedMutationReceipt($db,$userId,$requestId,$action,$id, $payloadHash);
   if($receipt!==null){genesisSharedTrashProjectAccess($userId,$receipt['projectId'],$kind==='project'?'manageProjects':'organizeTasks');$db->commit();return $receipt;}
   $q=$db->prepare('SELECT * FROM shared_trash WHERE kind=? AND object_id=? AND space_id=?');$q->execute([$kind,$id,$spaceId]);$row=$q->fetch();if(!$row)throw new GenesisSharedAccessException();
   if($row['root_id']!==$id)throw new GenesisSharedAccessException();
@@ -63,7 +65,7 @@ function genesisSharedRestoreTrash(string $userId,string $spaceId,string $kind,s
   $project=genesisSharedTrashProjectAccess($userId,$row['project_id'],$kind==='project'?'manageProjects':'organizeTasks');
   if(strtotime($row['expires_at'])<=time())throw new GenesisSharedAccessException('TRASH_EXPIRED',409);
   if(isset($input['retentionDays'])){$days=genesisSharedTrashDays($input['retentionDays']);$expires=genesisSharedTrashExpiry($row['deleted_at'],$days);if(strtotime($expires)<=time())throw new GenesisSharedAccessException('TRASH_EXPIRED',409);
-   $db->prepare('UPDATE shared_trash SET retention_days=?,expires_at=? WHERE kind=? AND root_id=? AND space_id=?')->execute([$days,$expires,$kind,$row['root_id'],$spaceId]);$result=['ok'=>true,'projectId'=>$row['project_id']];genesisSharedSaveMutationReceipt($db,$userId,$requestId,$action,$id,$result);$db->commit();return $result;}
+   $db->prepare('UPDATE shared_trash SET retention_days=?,expires_at=? WHERE kind=? AND root_id=? AND space_id=?')->execute([$days,$expires,$kind,$row['root_id'],$spaceId]);$result=['ok'=>true,'projectId'=>$row['project_id']];genesisSharedSaveMutationReceipt($db,$userId,$requestId,$action,$id,$result, $payloadHash);$db->commit();return $result;}
   if($kind==='project'){
    if($project['parent_id']!==null){$parent=$db->prepare('SELECT archived_at FROM shared_projects WHERE id=?');$parent->execute([$project['parent_id']]);$archived=$parent->fetchColumn();if($archived!==false&&$archived!==null)throw new GenesisSharedAccessException('RESTORE_PARENT_FIRST',409);}
    $q=$db->prepare("SELECT object_id,previous_archived_at FROM shared_trash WHERE kind='project' AND root_id=? AND space_id=?");$q->execute([$row['root_id'],$spaceId]);$restoredProjects=$q->fetchAll();foreach($restoredProjects as $child)$db->prepare('UPDATE shared_projects SET archived_at=?,revision=revision+1,updated_at=? WHERE id=?')->execute([$child['previous_archived_at'],genesisNow(),$child['object_id']]);
@@ -79,6 +81,6 @@ function genesisSharedRestoreTrash(string $userId,string $spaceId,string $kind,s
    foreach($restoredTasks as $child)genesisWorkflowTask($userId,$row['project_id'],$child['object_id'],null,true,false);
    genesisWorkflowAssertWip($row['project_id'],genesisWorkflowConfig($row['project_id']));
   }
-  genesisSharedAudit($row['project_id'],$userId,$kind.'.restored',$id);$result=['ok'=>true,'projectId'=>$row['project_id']];genesisSharedSaveMutationReceipt($db,$userId,$requestId,$action,$id,$result);$db->commit();return $result;
+  genesisSharedAudit($row['project_id'],$userId,$kind.'.restored',$id);$result=['ok'=>true,'projectId'=>$row['project_id']];genesisSharedSaveMutationReceipt($db,$userId,$requestId,$action,$id,$result, $payloadHash);$db->commit();return $result;
  }catch(Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
 }

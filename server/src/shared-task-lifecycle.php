@@ -11,7 +11,8 @@ function genesisSharedArchiveTask(string $userId,string $projectId,string $taskI
  $db=genesisDb();$ownsTransaction=!$db->inTransaction();if($ownsTransaction)genesisBeginWriteTransaction($db);try {
   genesisSharedProjectAccess($projectId,$userId,'organize');
   $requestId=genesisSharedRequestId($input);$action=$input['archived']?'task.archive':'task.unarchive';
-  $receipt=genesisSharedMutationReceipt($db,$userId,$requestId,$action,$taskId);
+  $payloadHash=genesisSharedMutationPayloadHash($action,$input,['projectId'=>$projectId]);
+  $receipt=genesisSharedMutationReceipt($db,$userId,$requestId,$action,$taskId, $payloadHash);
   if($receipt!==null){if($ownsTransaction)$db->commit();return $receipt;}
   $q=$db->prepare('SELECT * FROM shared_tasks_history_read WHERE id=? AND project_id=?');$q->execute([$taskId,$projectId]);$task=$q->fetch();
   if(!$task)throw new GenesisSharedAccessException();
@@ -39,7 +40,7 @@ function genesisSharedArchiveTask(string $userId,string $projectId,string $taskI
   }
   $q=$db->prepare('SELECT revision FROM shared_tasks WHERE id=?');$q->execute([$taskId]);
   $result=['ok'=>true,'id'=>$taskId,'projectId'=>$projectId,'revision'=>(int)$q->fetchColumn(),'affected'=>$affected,'archived'=>$archived];
-  genesisSharedSaveMutationReceipt($db,$userId,$requestId,$action,$taskId,$result);if($ownsTransaction)$db->commit();return $result;
+  genesisSharedSaveMutationReceipt($db,$userId,$requestId,$action,$taskId,$result, $payloadHash);if($ownsTransaction)$db->commit();return $result;
  }catch(Throwable $error){if($ownsTransaction&&$db->inTransaction())$db->rollBack();throw $error;}
 }
 function genesisSharedCanPurgeTasks(array $project):bool {
@@ -50,7 +51,8 @@ function genesisSharedPurgeTask(string $userId,string $spaceId,string $taskId,ar
  if(($input['confirmPermanent']??null)!==true)throw new InvalidArgumentException('PERMANENT_DELETE_CONFIRMATION_REQUIRED');
  $db=genesisDb();genesisBeginWriteTransaction($db);try {
   genesisSharedSpaceAccess($spaceId,$userId);$requestId=genesisSharedRequestId($input);
-  $receipt=genesisSharedMutationReceipt($db,$userId,$requestId,'task.purge',$taskId);
+  $payloadHash=genesisSharedMutationPayloadHash('task.purge',$input,['spaceId'=>$spaceId]);
+  $receipt=genesisSharedMutationReceipt($db,$userId,$requestId,'task.purge',$taskId, $payloadHash);
   if($receipt!==null){$p=genesisSharedTrashProjectAccess($userId,$receipt['projectId'],'manageProjects');if(!genesisSharedCanPurgeTasks($p))throw new GenesisSharedAccessException('SHARED_PROJECT_FORBIDDEN',403);$db->commit();return $receipt;}
   $q=$db->prepare("SELECT * FROM shared_trash WHERE kind='task' AND object_id=? AND space_id=? AND root_id=object_id");$q->execute([$taskId,$spaceId]);$row=$q->fetch();if(!$row)throw new GenesisSharedAccessException();
   $project=genesisSharedTrashProjectAccess($userId,$row['project_id'],'manageProjects');
@@ -60,7 +62,7 @@ function genesisSharedPurgeTask(string $userId,string $spaceId,string $taskId,ar
   foreach($ids as $id){genesisSharedTrashGoogleCleanup($db,$id);genesisSharedDetachDependencies($row['project_id'],$id,$userId);$db->prepare('DELETE FROM shared_tasks WHERE id=?')->execute([$id]);}
   $db->prepare("DELETE FROM shared_trash WHERE kind='task' AND root_id=? AND space_id=?")->execute([$taskId,$spaceId]);
   genesisSharedAudit($row['project_id'],$userId,'task.purged',$taskId,['count'=>count($ids)]);
-  $result=['ok'=>true,'id'=>$taskId,'projectId'=>$row['project_id'],'affected'=>count($ids)];genesisSharedSaveMutationReceipt($db,$userId,$requestId,'task.purge',$taskId,$result);
+  $result=['ok'=>true,'id'=>$taskId,'projectId'=>$row['project_id'],'affected'=>count($ids)];genesisSharedSaveMutationReceipt($db,$userId,$requestId,'task.purge',$taskId,$result, $payloadHash);
   $db->commit();return $result;
  }catch(Throwable $error){if($db->inTransaction())$db->rollBack();throw $error;}
 }

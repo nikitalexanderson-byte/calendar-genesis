@@ -140,5 +140,5 @@ html[data-genesis-theme] .genesis-app .shared-projects-guide > i {
   html[data-genesis-theme] .genesis-app nav.mobile-nav[data-exp-ui="mobile-nav"] { border: 2px solid color-mix(in srgb, var(--gold) 75%, var(--ink)); }
 }
 html[data-genesis-theme] .genesis-app .google-connect-banner { position: relative; }
-html[data-genesis-theme] .genesis-app .google-connect-banner > div { padding-inline-end: 40px; }
-html[data-genesis-theme] .genesis-app .google-connect-banner > .google-connect-dismiss { position: absolute; inset-block-start: 12px; inset-inline-end: 12px; min-width: 32px; width: 32px; min-height: 32px; height: 32px; padding: 6px; }
+html[data-genesis-theme] .genesis-app .google-connect-banner > div { padding-inline-end: 52px; }
+html[data-genesis-theme] .genesis-app .google-connect-banner > .google-connect-dismiss { position: absolute; inset-block-start: 12px; inset-inline-end: 12px; min-width: 44px; width: 44px; min-height: 44px; height: 44px; padding: 10px; }

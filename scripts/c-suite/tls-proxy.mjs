@@ -5,7 +5,7 @@ import crypto from 'node:crypto';
 
 if (process.env.GENESIS_IMPROVEMENTS_TEST !== 'isolated') throw Error('Explicit isolated environment required');
 const suite = process.env.GENESIS_ACCEPTANCE_SUITE || 'c-suite';
-if (!['c-suite', 'efg-suite', 'kul-suite'].includes(suite)) throw Error('Unknown isolated suite');
+if (!['c-suite', 'efg-suite', 'kul-suite', 'audit-suite', 'audit-ui-suite'].includes(suite)) throw Error('Unknown isolated suite');
 const runtime = new URL(`../../output/${suite}/https/`, import.meta.url);
 const server = https.createServer({key: fs.readFileSync(new URL('localhost.key', runtime)), cert: fs.readFileSync(new URL('localhost.crt', runtime))}, (request, response) => {
   const url = new URL(request.url, 'https://localhost:4443');

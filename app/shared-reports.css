@@ -35,3 +35,26 @@ html[data-genesis-theme] .genesis-app .shared-reports-dialog .report-options { m
 .shared-reports-dialog .report-extra-filters > summary { margin-bottom:12px; }
 .shared-reports-dialog .report-extra-filters:not([open]) > summary { margin-bottom:0; }
 .shared-reports-dialog .report-summary { gap:16px; }
+
+/* A report is a compact form followed by readable, consistently spaced data. */
+html[data-genesis-theme] .genesis-app .shared-reports-dialog { width:min(1040px,calc(100vw - 32px)); }
+html[data-genesis-theme] .genesis-app .shared-reports-dialog :is(h3,h4) { margin:0 0 12px; font:600 18px/1.4 var(--font-ui); }
+html[data-genesis-theme] .genesis-app .shared-reports-dialog p { margin-block:8px 16px; color:var(--ink-soft); font:400 14px/1.55 var(--font-ui); }
+html[data-genesis-theme] .genesis-app .shared-reports-dialog .dialog-intro { margin-bottom:8px; color:var(--ink); }
+html[data-genesis-theme] .genesis-app .shared-reports-dialog section { margin-top:24px; padding-top:20px; }
+html[data-genesis-theme] .genesis-app .shared-reports-dialog .report-options { margin-top:20px; padding-top:20px; }
+html[data-genesis-theme] .genesis-app .shared-reports-dialog label { margin-block:8px; font:500 14px/1.45 var(--font-ui); }
+html[data-genesis-theme] .genesis-app .shared-reports-dialog .template-grid > div { min-width:0; }
+html[data-genesis-theme] .genesis-app .shared-reports-dialog .template-grid > div > span { display:block; margin-bottom:8px; font-size:14px; }
+html[data-genesis-theme] .genesis-app .shared-reports-dialog .report-actions { margin-block:16px 8px; }
+html[data-genesis-theme] .genesis-app .shared-reports-dialog .report-actions > p { flex:1 1 240px; margin:0; }
+html[data-genesis-theme] .genesis-app .shared-reports-dialog .report-as-of { margin-block:8px 16px; font-size:13px; }
+html[data-genesis-theme] .genesis-app .shared-templates-dialog.shared-reports-dialog button.report-metric { min-width:52px; padding:8px 12px; font-variant-numeric:tabular-nums; }
+html[data-genesis-theme] .genesis-app .shared-reports-dialog :is(.report-summary,.report-age,.report-cycle) { gap:16px; margin-block:16px 24px; }
+html[data-genesis-theme] .genesis-app .shared-reports-dialog :is(.report-summary,.report-age,.report-cycle) > div { min-width:0; }
+html[data-genesis-theme] .genesis-app .shared-reports-dialog :is(dt,th,td) { font-size:14px; line-height:1.45; }
+html[data-genesis-theme] .genesis-app .shared-reports-dialog .report-extra-filters { margin-top:16px; padding-block:12px 0; }
+@media(max-width:600px) {
+  html[data-genesis-theme] .genesis-app .shared-reports-dialog .template-dialog-heading h2 { font-size:20px; }
+  html[data-genesis-theme] .genesis-app .shared-reports-dialog .report-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}

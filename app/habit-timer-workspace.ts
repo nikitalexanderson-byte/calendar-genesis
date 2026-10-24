@@ -1,11 +1,11 @@
 import { calendarContext, momentCivilDate } from "./calendar-context.ts";
-import { habitRuleForDate } from "./habit-measurement.ts";
+import { habitMeasurementProgress, habitRuleForDate } from "./habit-measurement.ts";
 import { habitRuleState } from "./habit-rule-history.ts";
 import { calendarModeForRecurrence } from "./task-recurrence.ts";
 import { normalizeHabitWorkspace, isHabitScheduledForDate, recordHabitMeasurement,
   type HabitWorkspace } from "./habits.ts";
 import { appendHabitTimerOperation, habitTimerDayAllocations, habitTimerSessions, startHabitTimer,
-  type HabitTimerOperation, type HabitTimerPlan } from "./habit-timer.ts";
+  type HabitTimerAllocation, type HabitTimerOperation, type HabitTimerPlan, type HabitTimerSession } from "./habit-timer.ts";
 
 export type HabitTimerCommand = {
   action: HabitTimerOperation["action"];
@@ -21,6 +21,35 @@ export type HabitTimerCommand = {
   timeOnly?: boolean;
 };
 
+/** The preview and commit share the same current-data projection. Nothing is written here. */
+function plannedHabitTimerAllocations(workspace: HabitWorkspace, session: HabitTimerSession, at: string): HabitTimerAllocation[] {
+  const habit = workspace.habits.find(item => item.id === session.root.habitId);
+  let completions = [...workspace.habitCompletions];
+  return habitTimerDayAllocations(session.state!, Date.parse(at)).map(row => {
+    const rule = habit ? habitRuleForDate(habit, row.date) : null;
+    const reason = !habit || !habit.active || rule?.id !== session.root.plan!.ruleId
+      || habitRuleState(habit, row.date).conflicts.length ? "rule-conflict"
+      : !isHabitScheduledForDate(habit, row.date, "sacred", completions) ? "not-scheduled"
+        : rule?.measurement?.kind === "duration" ? "duration" : "not-duration";
+    // A timely completion closes a finite practice before the next allocation,
+    // while all elapsed time stays in the session.
+    if (reason === "duration" && habit?.practiceGoal && row.value > 0) {
+      const progress = habitMeasurementProgress(habit, row.date, workspace.habitMeasurements);
+      const prior = completions.find(entry => entry.habitId === habit.id && entry.date === row.date);
+      if (!progress.conflicts.length && !progress.ruleConflicts.length && !progress.incompatible
+        && progress.total + row.value >= progress.target
+        && (habit.qualityScale === "none" || prior?.qualityConfirmedAt)) {
+        completions = completions.filter(entry => entry.habitId !== habit.id || entry.date !== row.date);
+        completions.push({ id: `timer-preview:${session.id}:${row.date}`, habitId: habit.id, date: row.date,
+          createdAt: at, updatedAt: at, version: 1, syncState: "local", completed: true,
+          qualityValue: prior?.qualityValue ?? null, qualityConfirmedAt: prior?.qualityConfirmedAt,
+          score: 0, xpAwarded: 0, note: "" });
+      }
+    }
+    return { ...row, ruleId: rule?.id ?? session.root.plan!.ruleId, reason };
+  });
+}
+
 /** One pure mutation is queued durably by the existing workspace adapter before the UI closes. */
 export function applyHabitTimerCommand(workspace: HabitWorkspace, command: HabitTimerCommand, now = new Date()): HabitWorkspace {
   const operations = workspace.habitTimers ?? [];
@@ -28,7 +57,7 @@ export function applyHabitTimerCommand(workspace: HabitWorkspace, command: Habit
     const habit = workspace.habits.find(item => item.id === command.habitId);
     if (!habit) throw new RangeError("HABIT_TIMER_GOAL_CHANGED");
     const date = momentCivilDate(new Date(command.at), habit.periodGoal?.context.timeZone ?? habit.schedule.timezone);
-    if (!isHabitScheduledForDate(habit, date)) throw new RangeError("HABIT_TIMER_DATE_UNAVAILABLE");
+    if (!isHabitScheduledForDate(habit, date, "sacred", workspace.habitCompletions)) throw new RangeError("HABIT_TIMER_DATE_UNAVAILABLE");
     const rule = habitRuleForDate(habit, date);
     const context = calendarContext({ ...(rule.periodGoal?.context ?? rule.schedule.recurrence.calendarContext),
       timeZone: rule.periodGoal?.context.timeZone ?? rule.schedule.timezone });
@@ -46,15 +75,7 @@ export function applyHabitTimerCommand(workspace: HabitWorkspace, command: Habit
     throw new RangeError("HABIT_TIMER_DATE_UNAVAILABLE");
   if (command.action === "finish") {
     if (state?.status === "finished" || state?.status === "saved") return workspace;
-    const habit = workspace.habits.find(item => item.id === session.root.habitId);
-    const allocations = habitTimerDayAllocations(state!, Date.parse(command.at)).map(row => {
-      const rule = habit ? habitRuleForDate(habit, row.date) : null;
-      const reason = !habit || !habit.active || rule?.id !== session.root.plan!.ruleId
-        || habitRuleState(habit, row.date).conflicts.length ? "rule-conflict"
-        : !isHabitScheduledForDate(habit, row.date) ? "not-scheduled"
-          : rule?.measurement?.kind === "duration" ? "duration" : "not-duration";
-      return { ...row, ruleId: rule?.id ?? session.root.plan!.ruleId, reason } as const;
-    });
+    const allocations = plannedHabitTimerAllocations(workspace, session, command.at);
     return { ...workspace, habitTimers: appendHabitTimerOperation(operations, session.id, command.owner,
       "finish", { at: command.at, id: command.id, allocations }) };
   }
@@ -63,12 +84,14 @@ export function applyHabitTimerCommand(workspace: HabitWorkspace, command: Habit
     if (state?.status !== "finished") throw new RangeError("HABIT_TIMER_NOT_FINISHED");
     let next = workspace;
     if (!command.timeOnly) {
+      const latest = plannedHabitTimerAllocations(workspace, session, state.finishedAt!);
+      if (JSON.stringify(latest) !== JSON.stringify(state.allocations)) throw new RangeError("HABIT_TIMER_GOAL_CHANGED");
       if (state.allocations?.some(row => row.reason === "rule-conflict")) throw new RangeError("HABIT_TIMER_GOAL_CHANGED");
       const habit = workspace.habits.find(item => item.id === session.root.habitId);
       const today = momentCivilDate(now, session.root.plan!.timeZone);
       for (const row of state.allocations ?? []) {
         if (row.reason !== "duration" || row.value === 0) continue;
-        if (!habit || !isHabitScheduledForDate(habit, row.date)
+        if (!habit || !isHabitScheduledForDate(habit, row.date, "sacred", next.habitCompletions)
           || habitRuleForDate(habit, row.date).id !== row.ruleId
           || habitRuleForDate(habit, row.date).measurement?.kind !== "duration")
           throw new RangeError("HABIT_TIMER_GOAL_CHANGED");

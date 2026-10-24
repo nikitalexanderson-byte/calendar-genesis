@@ -32,13 +32,17 @@ try{
     $input=['requestId'=>genesisUuid(),'visibility'=>'personal','definition'=>$definition];
     $view=genesisSharedViewSave($owner,$input);
     viewExpect(genesisSharedViewSave($owner,$input)['id']===$view['id'],'Retry duplicated a view');
+    viewReject(fn()=>genesisSharedViewSave($owner,[...$input,'definition'=>[...$definition,'title'=>'Changed retry']]),'SHARED_REQUEST_ID_CONFLICT');
     viewExpect(!str_contains((string)$db->query('SELECT payload FROM shared_saved_views WHERE id='.$db->quote($view['id']))->fetchColumn(),'Encrypted needle'),'Definition is not encrypted');
     viewReject(fn()=>genesisSharedViewAccess($viewer,$view['id']));
     $page=genesisSharedQueryTasks($owner,['savedViewId'=>$view['id']]);
     viewExpect($page['total']===121&&count($page['tasks'])===100&&$page['hasMore'],'Filter only covers a loaded subset');
     $last=genesisSharedQueryTasks($owner,['savedViewId'=>$view['id']],$page['nextCursor']);
     viewExpect(count($last['tasks'])===21&&!$last['hasMore'],'View continuation lost tasks');
-    $renamed=genesisSharedViewSave($owner,['requestId'=>genesisUuid(),'expectedRevision'=>$view['revision'],'definition'=>[...$definition,'title'=>'Renamed']],$view['id']);
+    $renameInput=['requestId'=>genesisUuid(),'expectedRevision'=>$view['revision'],'definition'=>[...$definition,'title'=>'Renamed']];
+    $renamed=genesisSharedViewSave($owner,$renameInput,$view['id']);
+    viewExpect(genesisSharedViewSave($owner,$renameInput,$view['id'])['id']===$renamed['id'],'Update retry changed the saved view');
+    viewReject(fn()=>genesisSharedViewSave($owner,[...$renameInput,'definition'=>[...$definition,'title'=>'Changed update retry']],$view['id']),'SHARED_REQUEST_ID_CONFLICT');
     viewReject(fn()=>genesisSharedQueryTasks($owner,['savedViewId'=>$view['id']],$page['nextCursor']),'SHARED_QUERY_CHANGED');
     viewReject(fn()=>genesisSharedViewSave($owner,['requestId'=>genesisUuid(),'expectedRevision'=>1,'definition'=>$definition],$view['id']),'VIEW_CONFLICT');
     $common=genesisSharedViewSave($owner,['requestId'=>genesisUuid(),'spaceId'=>$space['id'],'visibility'=>'shared','definition'=>$definition]);
@@ -92,6 +96,7 @@ try{
     viewReject(fn()=>genesisSharedViewSave($owner,['requestId'=>genesisUuid(),'spaceId'=>$second['id'],'visibility'=>'shared','definition'=>$definition]),'VIEW_LIMIT');
     $options=genesisSharedViewOptions($viewer,'projects');viewExpect(!in_array($secret['id'],array_column($options['options'],'id'),true),'Picker leaked an inaccessible project');
     $delete=['requestId'=>genesisUuid(),'expectedRevision'=>$renamed['revision']];genesisSharedViewDelete($owner,$renamed['id'],$delete);viewExpect(genesisSharedViewDelete($owner,$renamed['id'],$delete)['ok'],'Delete retry failed');
+    viewReject(fn()=>genesisSharedViewDelete($owner,$renamed['id'],[...$delete,'expectedRevision'=>999]),'SHARED_REQUEST_ID_CONFLICT');
     viewReject(fn()=>genesisSharedQueryTasks($owner,['savedViewId'=>$renamed['id']]));
     $db->prepare('DELETE FROM shared_space_members WHERE space_id=? AND user_id=?')->execute([$space['id'],$viewer]);
     viewReject(fn()=>genesisSharedQueryTasks($viewer,['savedViewId'=>$common['id']]));

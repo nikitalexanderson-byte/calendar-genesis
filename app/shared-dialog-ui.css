@@ -1,7 +1,7 @@
 /* Ordinary shared-work dialogs use the same Universal UI controls and spacing. */
 html[data-genesis-theme] .genesis-app :is(.shared-projects-modal,.shared-templates-dialog,.notification-preferences-dialog):not(.shared-private-dialog) { height:fit-content; max-height:calc(100dvh - 32px); margin:auto; }
 html[data-genesis-theme] .genesis-app :is(.shared-projects-modal,.shared-templates-dialog,.notification-preferences-dialog) button:not(.icon-action-button):not(.dialog-close-button) {
-  display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:var(--ui-control-height,44px); min-width:0; max-width:100%;
+  min-height:var(--ui-control-height,44px); min-width:0; max-width:100%;
   padding:10px 12px; border:1px solid var(--line); border-radius:var(--ui-radius); background:var(--surface); color:var(--ink);
   font:500 14px/1.45 var(--font-ui); letter-spacing:normal; text-transform:none; white-space:normal; cursor:pointer; box-shadow:none;
 }
@@ -10,6 +10,10 @@ html[data-genesis-theme] .genesis-app :is(.shared-projects-modal,.shared-templat
 html[data-genesis-theme] .genesis-app :is(.shared-projects-modal,.shared-templates-dialog,.notification-preferences-dialog) button:hover:not(:disabled) { border-color:var(--ui-accent); filter:brightness(1.05); }
 html[data-genesis-theme] .genesis-app :is(.shared-projects-modal,.shared-templates-dialog,.notification-preferences-dialog) button:focus-visible { outline:2px solid var(--ui-accent); outline-offset:3px; }
 html[data-genesis-theme] .genesis-app :is(.shared-projects-modal,.shared-templates-dialog,.notification-preferences-dialog) button:disabled { opacity:.55; cursor:default; }
+/* Clickable records keep their title and metadata on separate, aligned lines. */
+html[data-genesis-theme] .genesis-app :is(.shared-projects-modal,.shared-templates-dialog) :is(.saved-view-list > button,.bulk-history > button,.shared-child-list li > button,.report-selection li > button) {
+  display:grid; grid-template-columns:minmax(0,1fr); justify-items:start; align-items:start; gap:4px; text-align:start;
+}
 html[data-genesis-theme] .genesis-app .dialog-intro { max-width:72ch; margin:0 0 24px; color:var(--ink-soft); line-height:1.6; }
 html[data-genesis-theme] .genesis-app :is(.template-browser,.shared-automations-dialog) { width:min(1040px,calc(100vw - 32px)); min-height:0; height:fit-content; }
 html[data-genesis-theme] .genesis-app :is(.template-browser,.shared-automations-dialog)[data-editor-active="false"] { width:min(760px,calc(100vw - 32px)); }

@@ -145,7 +145,8 @@ function genesisSharedSeriesSave(string $actor,string $projectId,string $taskId,
         $requestId=genesisSharedRequestId($input);
         if($requestId===null)throw new InvalidArgumentException('SERIES_REQUEST_REQUIRED');
         $resource=$seriesId??$taskId;$action=$seriesId?'series.update':'series.create';
-        $receipt=genesisSharedMutationReceipt($db,$actor,$requestId,$action,$resource);
+        $payloadHash=genesisSharedMutationPayloadHash($action,$input,['projectId'=>$projectId,'taskId'=>$taskId]);
+        $receipt=genesisSharedMutationReceipt($db,$actor,$requestId,$action,$resource, $payloadHash);
         if($receipt!==null){$db->commit();return $receipt;}
         $old=$seriesId?genesisSharedSeriesAccess($actor,$projectId,$seriesId,true):null;
         if($old&&(!isset($input['expectedRevision'])||(int)$input['expectedRevision']!==(int)$old['revision']))throw new GenesisSharedAccessException('SERIES_CONFLICT',409);
@@ -176,7 +177,7 @@ function genesisSharedSeriesSave(string $actor,string $projectId,string $taskId,
         }
         genesisSharedAudit($projectId,$actor,$old?'series.updated':'series.created',$taskId,['seriesId'=>$id,'revision'=>$old?(int)$old['revision']+1:1,'paused'=>(bool)$paused]);
         $result=genesisSharedSeriesRead($actor,$projectId,$id);
-        genesisSharedSaveMutationReceipt($db,$actor,$requestId,$action,$resource,$result);
+        genesisSharedSaveMutationReceipt($db,$actor,$requestId,$action,$resource,$result, $payloadHash);
         $db->commit();return $result;
     }catch(Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
 }
@@ -206,7 +207,8 @@ function genesisSharedSeriesSkip(string $actor,string $projectId,string $taskId,
         $series=genesisSharedSeriesAccess($actor,$projectId,$seriesId,true);
         $request=genesisSharedRequestId($input);
         if($request===null)throw new InvalidArgumentException('SERIES_REQUEST_REQUIRED');
-        $receipt=genesisSharedMutationReceipt($db,$actor,$request,'series.skip',$taskId);
+        $payloadHash=genesisSharedMutationPayloadHash('series.skip',$input,['projectId'=>$projectId]);
+        $receipt=genesisSharedMutationReceipt($db,$actor,$request,'series.skip',$taskId, $payloadHash);
         if($receipt!==null){$db->commit();return $receipt;}
         if(($input['expectedRevision']??null)!==(int)$series['revision'])throw new GenesisSharedAccessException('SERIES_CONFLICT',409);
         $task=genesisSharedGetTask($actor,$projectId,$taskId);
@@ -220,7 +222,7 @@ function genesisSharedSeriesSkip(string $actor,string $projectId,string $taskId,
         $db->prepare('UPDATE shared_task_series SET revision=revision+1,updated_at=? WHERE id=?')->execute([genesisNow(),$seriesId]);
         genesisSharedAudit($projectId,$actor,'series.instance.skipped',$taskId,['seriesId'=>$seriesId]);
         $result=genesisSharedSeriesRead($actor,$projectId,$seriesId);
-        genesisSharedSaveMutationReceipt($db,$actor,$request,'series.skip',$taskId,$result);
+        genesisSharedSaveMutationReceipt($db,$actor,$request,'series.skip',$taskId,$result, $payloadHash);
         $db->commit();return $result;
     }catch(Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
 }

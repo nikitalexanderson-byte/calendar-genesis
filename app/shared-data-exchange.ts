@@ -24,6 +24,10 @@ export function downloadData(content:string,name:string,mime="application/json")
 export function dataCsvHeaders(content:string,delimiter:string):string[]{
  const row:string[]=[];let value='',quoted=false;const text=content.replace(/^\uFEFF/,'');for(let i=0;i<text.length;i++){const char=text[i];if(char==='"'){if(quoted&&text[i+1]==='"'){value+='"';i++;}else quoted=!quoted;}else if(!quoted&&char===delimiter){row.push(value);value='';}else if(!quoted&&(char==='\r'||char==='\n'))break;else value+=char;if(row.length>500||value.length>200000)throw Error('DATA_CSV_INVALID');}row.push(value);return row;
 }
+/** Column positions are identities: repeated or empty headings must remain independently mappable. */
+export function dataCsvCustomColumnChoices(headers:string[]):{column:number;title:string}[]{
+ return headers.flatMap((title,column)=>title==='GENESIS CSV v1'?[]:[{column,title:title.trim()?title:String(column+1)}]);
+}
 export function dataIssueText(issue:DataIssue,language:Language):string{
  const messages:Record<string,string>={
   DATA_ORGANIZE_REQUIRED:'Для импорта этих статусов нужно право перемещать задачи. Обратитесь к владельцу пространства.',

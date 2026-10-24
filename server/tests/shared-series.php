@@ -44,6 +44,7 @@ try{
     seriesExpect($preview['taskCount']===2&&$preview['checklistCount']===1&&!$preview['copiesFiles'],'Preview does not match tree');
     $series=genesisSharedSeriesSave($owner,$pid,$root['id'],$input);$sid=$series['id'];
     seriesExpect(genesisSharedSeriesSave($owner,$pid,$root['id'],$input)['id']===$sid,'Request created duplicate series');
+    seriesReject(fn()=>genesisSharedSeriesSave($owner,$pid,$root['id'],[...$input,'paused'=>true]),'SHARED_REQUEST_ID_CONFLICT');
     seriesReject(fn()=>genesisSharedSeriesSave($viewer,$pid,$root['id'],$input+['seriesId'=>$sid],$sid),'SHARED_PROJECT_FORBIDDEN');
     seriesReject(fn()=>genesisSharedSeriesRead($outsider,$pid,$sid),'SHARED_PROJECT_NOT_FOUND');
     $q=$db->prepare('SELECT template_json FROM shared_task_series WHERE id=?');$q->execute([$sid]);
@@ -64,6 +65,7 @@ try{
     $task=genesisSharedTask($owner,$pid,['description'=>'future snapshot','expectedRevision'=>$task['revision']],$task['id']);
     $save=['requestId'=>genesisUuid(),'taskRevision'=>$task['revision'],'expectedRevision'=>1,'settings'=>$settings,'paused'=>true,'refreshTemplate'=>true];
     $series=genesisSharedSeriesSave($owner,$pid,$task['id'],$save,$sid);
+    seriesReject(fn()=>genesisSharedSeriesSave($owner,$pid,$task['id'],[...$save,'paused'=>false],$sid),'SHARED_REQUEST_ID_CONFLICT');
     seriesRun($sid,1,$today);seriesRun($sid,2,$today);
     seriesExpect(genesisSharedSeriesRead($owner,$pid,$sid)['generatedCount']===6,'Stale/paused worker generated tasks');
     seriesReject(fn()=>genesisSharedSeriesSave($owner,$pid,$task['id'],array_merge($save,['requestId'=>genesisUuid()]),$sid),'SERIES_CONFLICT');
@@ -103,6 +105,7 @@ try{
     $skipped=genesisSharedSeriesSkip($owner,$pid,$nextTask['id'],$skipInput);
     seriesExpect($skipped['instances'][0]['state']==='skipped'&&genesisSharedGetTask($owner,$pid,$nextTask['id'],true)['archivedAt']!==null,'Explicit skip did not preserve archived task');
     seriesExpect(genesisSharedSeriesSkip($owner,$pid,$nextTask['id'],$skipInput)['revision']===2,'Repeated skip changed series twice');
+    seriesReject(fn()=>genesisSharedSeriesSkip($owner,$pid,$nextTask['id'],[...$skipInput,'taskRevision'=>999]),'SHARED_REQUEST_ID_CONFLICT');
     $candidate=genesisSharedSeriesAfterCandidate($db->query("SELECT * FROM shared_task_series WHERE id=".$db->quote($a['id']))->fetch(),$afterSettings);
     seriesExpect($candidate['date']===genesisCalendarAddDays($next['date'],2),'Skipped after-completion instance blocked chain');
     // Waiting series do not consume a daily job key, so completion can enqueue immediately that day.
