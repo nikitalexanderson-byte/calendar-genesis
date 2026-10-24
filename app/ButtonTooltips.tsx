@@ -99,7 +99,12 @@ export function ButtonTooltips() {
           tabFocusPending = false;
         });
       } else tabFocusPending = false;
-      if (event.key === "Escape" && current.current) { event.preventDefault(); event.stopPropagation(); focusedHint = false; close(); }
+      if (event.key === "Escape" && current.current) {
+        event.preventDefault();
+        // Let the active dialog handle Escape after its focused tooltip closes.
+        if (!(event.target instanceof Element && event.target.closest('dialog[open], [aria-modal="true"]'))) event.stopPropagation();
+        focusedHint = false; close();
+      }
     };
     document.addEventListener("pointerover", enter);
     document.addEventListener("pointerout", leave);

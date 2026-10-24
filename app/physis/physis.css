@@ -33,11 +33,23 @@
 .physis-empty { padding: 28px 0; color: var(--ink-soft); }
 .physis-tabs { display: flex; flex-wrap: wrap; gap: 6px; align-items: stretch; }
 .physis .physis-tabs button[aria-pressed=true], .physis .physis-tabs button[aria-current=page], .physis .physis-tabs button[aria-selected=true] { color: var(--ui-on-accent); background: var(--ui-accent); border-color: var(--ui-accent); }
-.physis-main-nav { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; border-bottom: 1px solid var(--line); padding-bottom: 20px; }
-.physis-main-nav > div { min-width: 0; }
-html[data-genesis-theme] .genesis-app .physis-main-nav h2 { font-size: 17px; line-height: 1.4; margin: 0 0 8px; }
-.physis-main-nav button { width: 100%; text-align: left; margin: 2px 0; }
-.physis-main-nav button[aria-current=page] { background: var(--ui-accent); color: var(--ui-on-accent); }
+html[data-genesis-theme] .genesis-app .physis-area-switch { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); width: 100%; margin: 0; }
+html[data-genesis-theme] .genesis-app .physis-area-switch > button { min-height: 48px; min-width: 0; padding: 10px 12px; }
+.physis-subnav { gap: 8px; }
+.physis-page-content { display: grid; gap: 24px; min-width: 0; }
+html[data-genesis-theme] .genesis-app .physis-hero h1 { margin: 0 0 12px; color: inherit; font-size: clamp(40px,5.2vw,64px); line-height: 1.05; }
+.physis-hero { overflow: clip; }
+.physis-hero-tools { display: grid; justify-items: end; gap: 20px; position: relative; z-index: 1; }
+.physis-hero-seal .genesis-nav-icon { width: 56px; height: 56px; }
+html[data-genesis-theme] .genesis-app .physis-hero .physis-status { color: inherit; font: 400 13px/1.5 var(--font-ui); margin: 20px 0 0; }
+html[data-genesis-theme] .genesis-app .physis-settings-button { width: 44px; height: 44px; min-width: 44px; min-height: 44px; padding: 10px; color: inherit; background: transparent; border-color: color-mix(in srgb,currentColor 35%,transparent); }
+html[data-genesis-theme] .genesis-app .physis-settings-button:hover { background: color-mix(in srgb,currentColor 10%,transparent); }
+.physis-settings-button:focus-visible { outline-color: currentColor; }
+.physis-settings-dialog { width: min(920px,calc(100vw - 32px)); max-width: none; max-height: calc(100dvh - 48px); margin: auto; padding: 0; overflow: auto; overscroll-behavior: contain; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); color: var(--ink); }
+.physis-settings-backdrop { padding: 12px; background: #07171bb3; }
+.physis-settings-heading { position: sticky; top: 0; z-index: 3; display: flex; align-items: center; gap: 16px; padding: 20px 24px; background: var(--paper); border-bottom: 1px solid var(--line); }
+.physis-settings-heading h2 { margin: 0; font-size: 24px; }
+.physis-settings-content { display: grid; gap: 20px; padding: 24px; min-width: 0; }
 .physis-table-wrap { max-width: 100%; overflow-x: auto; }
 .physis table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; font-size: 14px; }
 .physis :is(th,td) { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
@@ -60,9 +72,15 @@ html[data-genesis-theme] .genesis-app .physis-main-nav h2 { font-size: 17px; lin
 @media (max-width:600px) {
   .physis { gap: 20px; }
   .physis-panel { padding: 16px; }
-  .physis-main-nav { grid-template-columns: minmax(0,1fr); gap: 12px; }
-  .physis-main-nav .physis-tabs { flex-wrap: nowrap; }
-  .physis-main-nav .physis-tabs button { flex: 1 1 50%; }
+  .physis-hero { grid-template-columns: minmax(0,1fr) auto; gap: 16px; }
+  .physis-hero-tools { gap: 16px; }
+  .physis .physis-hero-seal { width: 62px; height: 62px; margin: 0; }
+  .physis-hero-seal .genesis-nav-icon { width: 32px; height: 32px; }
+  html[data-genesis-theme] .genesis-app .physis-area-switch > button { min-height: 60px; padding: 8px; }
+  .physis-settings-heading { padding: 16px; }
+  .physis-settings-heading h2 { font-size: 24px; }
+  .physis-settings-content { padding: 16px; }
+  .physis-settings-dialog { width: calc(100vw - 24px); max-height: calc(100dvh - 24px); }
   .physis-form { grid-template-columns: minmax(0,1fr); }
   .physis-actions { gap: 8px; }
   .physis-header { align-items: flex-start; }

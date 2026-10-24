@@ -953,7 +953,7 @@ html[data-genesis-theme] .genesis-app .shared-projects-calendar-undated > summar
 /* Account layout: the boundary resizes the grid, keeping the content fluid. */
 .sidebar-resize-boundary, .sidebar-auto-hide-handle { display:none; }
 .sidebar-auto-collapse-setting { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; }
-.sidebar-auto-collapse-setting select { min-height:44px; padding:8px 12px; color:var(--ink); background:var(--surface); border:1px solid var(--line); border-radius:var(--ui-radius); }
+.sidebar-auto-collapse-setting input[type="checkbox"] { width:20px; height:20px; min-height:20px; margin:0; accent-color:var(--ui-accent); }
 .sidebar-auto-collapse-hint { color:var(--ink-soft); font:13px/1.5 var(--font-ui); }
 @media (min-width:1200px) {
   html[data-genesis-theme] .genesis-app { grid-template-columns:var(--sidebar-current-width,240px) minmax(0,1fr); }
@@ -977,15 +977,15 @@ html[data-genesis-theme] .genesis-app .shared-projects-calendar-undated > summar
   html[data-genesis-theme] .genesis-app .workspace { width:100%; max-width:none; }
   /* Autohide changes visibility, never the saved width or the content viewport. */
   html[data-genesis-theme] .genesis-app[data-sidebar-auto-hide="true"] { grid-template-columns:8px minmax(0,1fr); }
-  html[data-genesis-theme] .genesis-app[data-sidebar-auto-hide="true"] .app-sidebar { position:fixed; inset:0 auto 0 0; height:100dvh; z-index:70; box-shadow:8px 0 24px #0003; transition:transform 180ms ease-out,visibility 180ms; }
+  html[data-genesis-theme] .genesis-app[data-sidebar-auto-hide="true"] .app-sidebar { position:fixed; inset:0 auto 0 0; height:100dvh; z-index:70; box-shadow:8px 0 24px #0003; transition:transform 180ms ease-out; }
   html[data-genesis-theme] .genesis-app[data-sidebar-auto-hide="true"][data-sidebar-hidden="true"] .app-sidebar { transform:translateX(-100%); visibility:hidden; pointer-events:none; }
   html[data-genesis-theme] .genesis-app[data-sidebar-auto-hide="true"] .app-stage { grid-column:2; }
   html[data-genesis-theme] .genesis-app[data-sidebar-auto-hide="true"] .sidebar-resize-boundary { z-index:72; }
   html[data-genesis-theme] .genesis-app[data-sidebar-auto-hide="true"][data-sidebar-hidden="true"] .sidebar-resize-boundary { display:none; }
-  html[data-genesis-theme] .genesis-app[data-sidebar-auto-hide="true"] .sidebar-auto-hide-handle { position:fixed; display:grid; place-items:center start; inset:calc(50dvh - 44px) auto auto 0; width:44px; height:88px; min-height:44px; margin:0; padding:0 0 0 2px; z-index:71; background:transparent; border:0; border-radius:var(--ui-radius); color:var(--ui-accent); cursor:pointer; }
+  html[data-genesis-theme] .genesis-app[data-sidebar-auto-hide="true"] .sidebar-auto-hide-handle { position:fixed; display:grid; place-items:center start; inset:calc(50dvh - 44px) auto auto 0; width:44px; height:88px; min-height:44px; margin:0; padding:0 0 0 2px; z-index:71; background:transparent; border:0; border-radius:var(--ui-radius); color:var(--ui-accent); cursor:pointer; transition:width 180ms ease-out,opacity 180ms ease-out; }
   html[data-genesis-theme] .genesis-app .sidebar-auto-hide-handle > span { width:6px; height:56px; border-radius:3px; background:var(--ui-accent); box-shadow:1px 0 3px #0003; }
-  html[data-genesis-theme] .genesis-app[data-sidebar-auto-hide="true"][data-sidebar-hidden="false"] .sidebar-auto-hide-handle { left:calc(var(--sidebar-current-width,240px) - 2px); opacity:0; pointer-events:none; }
-  html[data-genesis-theme] .genesis-app .sidebar-auto-hide-handle:focus-visible { opacity:1; outline:2px solid var(--ui-accent); outline-offset:-2px; }
+  html[data-genesis-theme] .genesis-app[data-sidebar-auto-hide="true"][data-sidebar-hidden="false"] .sidebar-auto-hide-handle { left:0; width:8px; opacity:0; pointer-events:auto; }
+  html[data-genesis-theme] .genesis-app .sidebar-auto-hide-handle:focus-visible { width:44px; opacity:1; outline:2px solid var(--ui-accent); outline-offset:-2px; }
 }
 @media (prefers-reduced-motion:reduce) {
   html[data-genesis-theme] .genesis-app[data-sidebar-auto-hide="true"] .app-sidebar { transition:none; }
@@ -1177,8 +1177,8 @@ html[data-genesis-theme] .genesis-app[data-sidebar-compact="true"][data-sidebar-
 html[data-genesis-theme] .genesis-app[data-sidebar-compact="true"][data-sidebar-collapsed="false"] .brand-mark .brand-motto { grid-column:1/-1; margin-top:6px; font-size:11px; letter-spacing:.015em; }
 html[data-genesis-theme] .genesis-app .account-panel .appearance-menu-controls { margin:0; padding:0; border:0; background:transparent; }
 html[data-genesis-theme] .genesis-app .account-panel .appearance-menu-controls h4 { margin:0; padding:0; border:0; border-radius:0; background:transparent; font:600 20px/1.3 var(--font-ui); color:var(--ink); }
-html[data-genesis-theme] .genesis-app .account-panel .sidebar-auto-collapse-setting { display:grid; grid-template-columns:minmax(0,1fr) minmax(160px,220px); gap:16px; align-items:center; margin:0; font:14px/1.5 var(--font-ui); }
-html[data-genesis-theme] .genesis-app .account-panel .sidebar-auto-collapse-setting select { width:100%; min-height:44px; margin:0; }
+html[data-genesis-theme] .genesis-app .account-panel .sidebar-auto-collapse-setting { display:grid; grid-template-columns:minmax(0,1fr) auto; min-height:44px; gap:16px; align-items:center; margin:0; font:14px/1.5 var(--font-ui); }
+html[data-genesis-theme] .genesis-app .account-panel .sidebar-auto-collapse-setting input[type="checkbox"] { width:20px; height:20px; min-height:20px; margin:0; }
 html[data-genesis-theme] .genesis-app .account-panel .sidebar-auto-collapse-hint { margin:-4px 0 0; max-width:70ch; color:var(--ink-soft); font:13px/1.6 var(--font-ui); }
 html[data-genesis-theme] .genesis-app .account-panel .appearance-menu-details { padding:0; margin:4px 0 0; border:0; border-top:1px solid var(--line); border-radius:0; background:transparent; }
 html[data-genesis-theme] .genesis-app .account-panel .appearance-menu-details > summary { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:20px 0 0; font:600 16px/1.4 var(--font-ui); text-align:left; list-style:none; }
@@ -1361,7 +1361,7 @@ html[data-genesis-theme] .genesis-app[data-sacred-features="false"] .year-month-
 @media (max-width:600px) {
   html[data-genesis-theme] .genesis-app .account-panel .appearance-language-details { padding:16px; }
   html[data-genesis-theme] .genesis-app .account-panel .appearance-menu-subsection { padding:16px; }
-  html[data-genesis-theme] .genesis-app .account-panel .sidebar-auto-collapse-setting { grid-template-columns:minmax(0,1fr); gap:8px; }
+  html[data-genesis-theme] .genesis-app .account-panel .sidebar-auto-collapse-setting { grid-template-columns:minmax(0,1fr) auto; gap:8px; }
   html[data-genesis-theme] .genesis-app .account-panel .appearance-menu-details > summary { align-items:flex-start; flex-direction:column; gap:12px; }
 }
 /* Personal affairs: a separate map action and one search field with the icon inside. */
@@ -2050,16 +2050,43 @@ html[data-genesis-theme$="-dark"] .genesis-app .civil-mini-calendar.mode-profane
   html[data-genesis-theme] .genesis-app details > summary::before { transition: none; }
 }
 
-/* Main month controls keep full hit areas; compact year/mini views retain their geometry. */
-html[data-genesis-theme] .genesis-app #calendar-period-panel .month-calendar .calendar-day:has(> .calendar-day-task-control) { padding-bottom:4px; }
+.solar-calendar-launch { margin-inline-start:12px; }
+.solar-calendar-launch > svg:first-child { flex:0 0 24px; }
+@media(max-width:900px) { .solar-calendar-launch { margin-inline-start:0; } }
+
+/* All month calendars use the same corners and preserve full task hit areas. */
+html[data-genesis-theme] .genesis-app #calendar-period-panel .month-calendar .calendar-day:has(> .calendar-day-task-control) { min-height:112px; grid-template-columns:minmax(0,1fr); padding-right:60px; }
+html[data-genesis-theme] .genesis-app #calendar-period-panel .month-calendar .calendar-day:has(> .calendar-day-task-control) .calendar-mode-primary { width:100%; max-width:100%; }
 html[data-genesis-theme] .genesis-app #calendar-period-panel .month-calendar .calendar-day > .calendar-day-task-control {
-  position:relative; inset:auto; display:flex; flex-direction:row; flex-wrap:wrap; justify-content:center;
-  width:100%; height:auto; min-height:44px; margin:4px 0 0; gap:4px;
+  position:absolute; inset:6px 6px auto auto; display:flex; flex-direction:column; flex-wrap:nowrap; justify-content:flex-start;
+  width:auto; height:auto; min-height:44px; margin:0; gap:4px;
 }
+html[data-genesis-theme] .genesis-app #calendar-period-panel .month-calendar .calendar-day > .calendar-shared-task-control { inset:auto 6px 6px auto; }
 html[data-genesis-theme] .genesis-app #calendar-period-panel .month-calendar :is(.calendar-day-task-count,.calendar-shared-task-count) {
   position:static; flex:0 0 44px; width:44px; min-width:44px; height:44px; min-height:44px; padding:4px;
   border-radius:var(--ui-radius);
 }
+html[data-genesis-theme] .genesis-app #calendar-period-panel .month-calendar .calendar-day.today:has(> .calendar-personal-task-control)::after { left:4px; right:auto; }
+@media(max-width:1040px) {
+  html[data-genesis-theme] .genesis-app #calendar-period-panel .month-calendar .calendar-day:has(> .calendar-day-task-control) { padding-right:10px; }
+  html[data-genesis-theme] .genesis-app #calendar-period-panel .month-calendar .calendar-day:has(> .calendar-personal-task-control) { padding-top:56px; }
+  html[data-genesis-theme] .genesis-app #calendar-period-panel .month-calendar .calendar-day:has(> .calendar-shared-task-control) { padding-bottom:56px; }
+}
+@media(max-width:760px) {
+  html[data-genesis-theme] .genesis-app #calendar-period-panel .month-calendar .calendar-day:has(> .calendar-day-task-control) { padding-inline:2px; }
+  html[data-genesis-theme] .genesis-app #calendar-period-panel .month-calendar .calendar-day > .calendar-day-task-control { top:2px; right:0; }
+  html[data-genesis-theme] .genesis-app #calendar-period-panel .month-calendar .calendar-day > .calendar-shared-task-control { top:auto; bottom:2px; }
+}
+
+/* Year indicators follow the same personal/shared corners at their compact size. */
+html[data-genesis-theme] .genesis-app .year-grid .mini-day-task-counts {
+  position:absolute; inset:-6px -6px auto auto; z-index:3; display:flex; flex-direction:row;
+  flex-wrap:nowrap; width:auto; gap:2px;
+}
+html[data-genesis-theme] .genesis-app .year-grid .mini-day-task-counts > .mini-day-task-count { position:static; inset:auto; transform:none; }
+html[data-genesis-theme] .genesis-app .lunar-year-day .calendar-personal-task-control { inset:4px 4px auto auto; flex-direction:row; }
+html[data-genesis-theme] .genesis-app .lunar-year-day:has(> .calendar-personal-task-control) { padding-top:26px; }
+html[data-genesis-theme] .genesis-app .lunar-year-day:has(> .calendar-shared-task-control) { padding-bottom:26px; }
 @media(max-width:380px) {
   html[data-genesis-theme] .genesis-app #calendar-period-panel .calendar-mode-calendar.mode-profane { padding:3px; }
   html[data-genesis-theme] .genesis-app #calendar-period-panel .calendar-mode-calendar.mode-profane :is(.calendar-mode-days,.calendar-mode-weekdays) { gap:1px; }

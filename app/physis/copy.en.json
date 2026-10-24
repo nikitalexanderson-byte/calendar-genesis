@@ -956,5 +956,9 @@
   "Подключить данные к аккаунту": "Connect data to account",
   "Фюзис открывается вместе с вашим аккаунтом GENESIS.": "Physis opens with your GENESIS account.",
   "Данные и резервные копии": "Data and backups",
-  "Фюзис использует ваш общий аккаунт GENESIS. Данные сохраняются в зашифрованном виде и доступны после входа на сайт. Зашифрованная копия открывается в том же аккаунте.": "Physis uses your shared GENESIS account. Data is encrypted and available after signing in to the website. Encrypted backups open in the same account."
+  "Фюзис использует ваш общий аккаунт GENESIS. Данные сохраняются в зашифрованном виде и доступны после входа на сайт. Зашифрованная копия открывается в том же аккаунте.": "Physis uses your shared GENESIS account. Data is encrypted and available after signing in to the website. Encrypted backups open in the same account.",
+  "Тренировки, дневник питания, БАДы и лекарства.": "Workouts, food diary, supplements and medicines.",
+  "Разделы Фюзиса": "Physis sections",
+  "Блок обзора выключен в настройках.": "This overview block is disabled in settings.",
+  "Общие настройки": "General settings"
 }

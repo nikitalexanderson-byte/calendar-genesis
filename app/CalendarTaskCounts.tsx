@@ -42,6 +42,7 @@ export function CalendarDayTaskCounts({ tasks, dateLabel, language, onOpen, expa
 
 export function CalendarYearTaskCounts({ tasks }: { tasks: readonly TaskState[] }) {
   const counts = taskCounts(tasks);
-  return counts.map(({ status, count }) => <span key={status} className="mini-day-task-count"
-    data-task-status={status} data-mixed={counts.length > 1 || undefined} aria-hidden="true">{count}</span>);
+  if (!counts.length) return null;
+  return <span className="mini-day-task-counts" aria-hidden="true">{counts.map(({ status, count }) => <span key={status} className="mini-day-task-count"
+    data-task-status={status} data-mixed={counts.length > 1 || undefined}>{count}</span>)}</span>;
 }

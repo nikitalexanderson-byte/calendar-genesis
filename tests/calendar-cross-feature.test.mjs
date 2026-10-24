@@ -9,6 +9,37 @@ const configurations=[['profane','january'],['profane','march'],['sacred','janua
 const zones=['UTC','Europe/Moscow','America/New_York','Pacific/Auckland'];
 const dates=['2024-01-01','2024-02-28','2024-02-29','2024-03-01','2024-03-19','2024-03-20','2025-03-29','2026-03-08','2026-03-19','2026-03-20','2026-04-16','2026-11-01'];
 
+test('solar model zoom preserves the focal centre and keeps edge selections inside the drawing',async()=>{
+ const {SOLAR_OVERVIEW,fitSolarElement,zoomSolarCamera,clampSolarCamera}=await import('../app/solar-calendar-camera.ts');
+ const overview={...SOLAR_OVERVIEW};
+ for(const factor of [.5,.25,.1]){
+  const zoom=zoomSolarCamera(overview,factor);
+  assert.equal(zoom.x+zoom.size/2,2500);assert.equal(zoom.y+zoom.size/2,2500);
+ }
+ for(const box of [{x:0,y:0,width:20,height:400},{x:4900,y:4900,width:80,height:80},{x:2300,y:3000,width:10,height:1}]){
+  const camera=fitSolarElement(box);
+  assert.ok(camera.x>=0&&camera.y>=0&&camera.x+camera.size<=5000&&camera.y+camera.size<=5000);
+  assert.ok(camera.x<=box.x&&camera.x+camera.size>=box.x+box.width);
+  assert.ok(camera.y<=box.y&&camera.y+camera.size>=box.y+box.height);
+ }
+ assert.deepEqual(zoomSolarCamera(overview,2),overview);
+ assert.equal(clampSolarCamera({x:-100,y:9000,size:1}).size,320);
+ assert.deepEqual(SOLAR_OVERVIEW,overview);
+});
+
+test('supplied solar SVG retains every calendar target and contains only local vector content',async()=>{
+ const {readFile}=await import('node:fs/promises');
+ const svg=await readFile(new URL('../public/calendar-art/genesis-sacred-calendar-v8.svg',import.meta.url),'utf8');
+ assert.equal((svg.match(/data-kind="month"/g)||[]).length,13);
+ assert.equal((svg.match(/data-kind="pentad"/g)||[]).length,72);
+ assert.equal((svg.match(/class="regular-day"/g)||[]).length,360);
+ assert.equal((svg.match(/class="apeiron-day"/g)||[]).length,6);
+ assert.doesNotMatch(svg,/<(?:script|foreignObject|image|a)\b|\son\w+=|(?:href|src)="(?:https?:|javascript:|data:)/i);
+ for(let month=1;month<=12;month++)for(let day=1;day<=30;day++){
+  assert.ok(svg.includes(`data-month="${month}" data-day="${day}"`));
+ }
+});
+
 test('all four display years share exact boundaries with goals, reports and the full mosaic in every zone',()=>{
  for(const [mode,gregorianYearStart]of configurations)for(const timeZone of zones)for(const date of dates){
   const context=c.calendarContext({timeZone,gregorianYearStart}),year=a.calendarPeriod(date,mode,'year',context),last=c.addCivilDays(year.end,-1);

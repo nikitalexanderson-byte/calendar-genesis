@@ -2,22 +2,24 @@ import { useEffect, useRef, useState, type PointerEvent, type KeyboardEvent } fr
 
 const clamp = (width: number) => Math.round(Math.max(56, Math.min(240, width)));
 
-export function useSidebarCollapse(savedWidth: number, delaySeconds: number, saveWidth: (width: number) => void) {
+export function useSidebarCollapse(savedWidth: number, autoHideSetting: number, saveWidth: (width: number) => void) {
   const [drag, setDrag] = useState<{ x: number; initial: number; width: number } | null>(null);
   const width = drag?.width ?? savedWidth;
   const sidebarRef = useRef<HTMLElement>(null);
   const revealRef = useRef<HTMLButtonElement>(null);
   const [hidden, setHidden] = useState(false);
   const [desktop, setDesktop] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const activated = useRef(false);
+  const keyboardMode = useRef(false);
+  const resizing = Boolean(drag);
   const escapeFocus = useRef(false);
-  const autoHide = delaySeconds > 0 && desktop;
-  const cancel = () => clearTimeout(timer.current);
-  const reveal = () => { cancel(); setHidden(false); };
+  // Keep existing saved positive delay values as the enabled flag; hiding has no timer.
+  const autoHide = autoHideSetting > 0 && desktop;
+  const reveal = () => setHidden(false);
 
   useEffect(() => {
     const media = window.matchMedia("(min-width: 1200px)");
-    const update = () => { setDesktop(media.matches); setHidden(false); };
+    const update = () => { setDesktop(media.matches); };
     update(); media.addEventListener("change", update);
     return () => media.removeEventListener("change", update);
   }, []);
@@ -25,43 +27,63 @@ export function useSidebarCollapse(savedWidth: number, delaySeconds: number, sav
   useEffect(() => {
     const sidebar = sidebarRef.current;
     const handle = revealRef.current;
-    if (!sidebar || !autoHide || drag) { setHidden(false); return; }
-    const surfaces = [sidebar, handle].filter((node): node is HTMLElement => Boolean(node));
-    const cancel = () => clearTimeout(timer.current);
-    const schedule = () => {
-      cancel();
-      if (surfaces.some(node => node.matches(":hover") || node.contains(document.activeElement))) return;
-      timer.current = setTimeout(() => setHidden(true), delaySeconds * 1000);
+    if (!sidebar || !autoHide) { activated.current = false; setHidden(false); return; }
+    if (resizing) return;
+    const boundary = sidebar.parentElement?.querySelector<HTMLElement>('.sidebar-resize-boundary');
+    const surfaces = [sidebar, handle, boundary].filter((node): node is HTMLElement => Boolean(node));
+    const contains = (target: Node | null) => surfaces.some(node => node.contains(target));
+    const keyboardFocus = () => keyboardMode.current && document.activeElement instanceof HTMLElement
+      && document.activeElement.matches(':focus-visible') && contains(document.activeElement);
+    const hide = () => {
+      if (sidebar.contains(document.activeElement) || boundary?.contains(document.activeElement)) {
+        escapeFocus.current = true; handle?.focus();
+        window.requestAnimationFrame(() => { escapeFocus.current = false; });
+      }
+      setHidden(true);
+    };
+    const hideIfOutside = () => {
+      if (!surfaces.some(node => node.matches(':hover')) && !keyboardFocus()) hide();
+    };
+    const onLeave = (event: globalThis.PointerEvent) => {
+      if (!contains(event.relatedTarget as Node | null) && !keyboardFocus()) hide();
     };
     const onBlur = (event: FocusEvent) => {
-      if (!surfaces.some(node => node.contains(event.relatedTarget as Node | null))) schedule();
+      if (!contains(event.relatedTarget as Node | null)) hideIfOutside();
     };
-    const onEnter = () => { cancel(); setHidden(false); };
+    const onEnter = () => { keyboardMode.current = false; setHidden(false); };
+    const onPointerDown = () => { keyboardMode.current = false; };
+    const onFocus = () => {
+      if (escapeFocus.current) return;
+      keyboardMode.current = document.activeElement instanceof HTMLElement && document.activeElement.matches(':focus-visible');
+      setHidden(false);
+    };
     const onEscape = (event: globalThis.KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      event.preventDefault(); cancel(); escapeFocus.current = true;
-      handle?.focus(); setHidden(true);
+      keyboardMode.current = true;
+      if (event.key !== 'Escape') return;
+      event.preventDefault(); escapeFocus.current = true; handle?.focus(); setHidden(true);
       window.requestAnimationFrame(() => { escapeFocus.current = false; });
     };
     for (const node of surfaces) {
-      node.addEventListener("pointerenter", onEnter);
-      node.addEventListener("pointerleave", schedule);
-      node.addEventListener("focusin", cancel);
-      node.addEventListener("focusout", onBlur);
+      node.addEventListener('pointerenter', onEnter);
+      node.addEventListener('pointerdown', onPointerDown);
+      node.addEventListener('pointerleave', onLeave);
+      node.addEventListener('focusin', onFocus);
+      node.addEventListener('focusout', onBlur);
     }
-    sidebar.addEventListener("keydown", onEscape);
-    schedule();
+    sidebar.addEventListener('keydown', onEscape);
+    if (!activated.current) hide(); else hideIfOutside();
+    activated.current = true;
     return () => {
-      cancel();
       for (const node of surfaces) {
-        node.removeEventListener("pointerenter", onEnter);
-        node.removeEventListener("pointerleave", schedule);
-        node.removeEventListener("focusin", cancel);
-        node.removeEventListener("focusout", onBlur);
+        node.removeEventListener('pointerenter', onEnter);
+        node.removeEventListener('pointerdown', onPointerDown);
+        node.removeEventListener('pointerleave', onLeave);
+        node.removeEventListener('focusin', onFocus);
+        node.removeEventListener('focusout', onBlur);
       }
-      sidebar.removeEventListener("keydown", onEscape);
+      sidebar.removeEventListener('keydown', onEscape);
     };
-  }, [drag, autoHide, delaySeconds]);
+  }, [resizing, autoHide]);
   const resizeProps = {
     onPointerDown: (event: PointerEvent<HTMLDivElement>) => {
       if (event.button !== 0) return;

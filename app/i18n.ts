@@ -3,6 +3,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 import englishTranslations from "./translations.en.json";
 import physisEnglish from "./physis/copy.en.json";
+import solarModelEnglish from "./solar-calendar-copy.en.json";
 import affairsTranslations from "./native-affairs-translations.json";
 import habitReportTranslations from "./habit-report-translations.json";
 import work_en from "./shared-work-translations/en.json";
@@ -928,6 +929,7 @@ const curatedTranslations: Record<string, string> = {
 
 const englishCatalog: Record<string, string> = {
   ...physisEnglish,
+  ...solarModelEnglish,
   ...(englishTranslations as Record<string, string>),
   ...ui_en,
   ...curatedTranslations,
@@ -947,6 +949,9 @@ for (const language of Object.keys(rawCatalogs) as Exclude<Language, "ru">[]) {
   // Physis is a web-only RU/EN pilot. Preserve existing translations elsewhere;
   // languages without a Physis translation use its reviewed English copy.
   for (const [source, translated] of Object.entries(physisEnglish)) {
+    if (!(source in rawCatalogs[language])) rawCatalogs[language][source] = translated;
+  }
+  for (const [source, translated] of Object.entries(solarModelEnglish)) {
     if (!(source in rawCatalogs[language])) rawCatalogs[language][source] = translated;
   }
   Object.assign(rawCatalogs[language], habitReportTranslations[language]);
