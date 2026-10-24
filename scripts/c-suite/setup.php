@@ -4,7 +4,9 @@ declare(strict_types=1);
 // Developer-only synthetic runtime. Never replaces an existing configuration.
 if (PHP_SAPI !== 'cli' || getenv('GENESIS_IMPROVEMENTS_TEST') !== 'isolated') throw new RuntimeException('Explicit isolated CLI required');
 $root = dirname(__DIR__, 2);
-$runtime = $root . '/output/c-suite/https';
+$suite = getenv('GENESIS_ACCEPTANCE_SUITE') ?: 'c-suite';
+if (!in_array($suite, ['c-suite', 'efg-suite'], true)) throw new RuntimeException('Unknown isolated suite');
+$runtime = $root . '/output/' . $suite . '/https';
 $path = $root . '/server/config.php';
 if (($argv[1] ?? '') === 'cleanup') {
     $expected = is_file($runtime . '/config-sha256.txt') ? trim(file_get_contents($runtime . '/config-sha256.txt')) : '';

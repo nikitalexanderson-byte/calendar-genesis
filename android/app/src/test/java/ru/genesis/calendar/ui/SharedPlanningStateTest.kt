@@ -6,6 +6,17 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class SharedPlanningStateTest {
+    @Test fun newSprintUsesAServerCompatibleDeviceZoneWithoutChangingItsCivilDuration() {
+        val original = java.util.TimeZone.getDefault()
+        try {
+            for (zone in listOf("GMT", "UTC", "Europe/Berlin", "Pacific/Kiritimati")) {
+                java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone(zone))
+                val draft = newPlanningSprint(ru.genesis.calendar.data.UiPreferences()).getJSONObject("draft")
+                assertEquals(if (zone == "GMT") "UTC" else zone, draft.getJSONObject("calendarContext").getString("timeZone"))
+                assertEquals(13L, java.time.temporal.ChronoUnit.DAYS.between(java.time.LocalDate.parse(draft.getString("startDate")), java.time.LocalDate.parse(draft.getString("endDate"))))
+            }
+        } finally { java.util.TimeZone.setDefault(original) }
+    }
     private fun totals() = JSONObject().put("count",131).put("completed",1)
         .put("points",JSONObject().put("value",0).put("unestimated",130))
         .put("hours",JSONObject().put("value",2.5).put("unestimated",129))

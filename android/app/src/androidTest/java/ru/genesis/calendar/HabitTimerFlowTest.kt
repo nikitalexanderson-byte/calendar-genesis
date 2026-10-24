@@ -1,6 +1,6 @@
 package ru.genesis.calendar
 
-import android.content.Intent
+import android.app.ActivityManager
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -71,8 +71,13 @@ class HabitTimerFlowTest {
         compose.waitUntil(15_000) { HabitTimers.sessions(saved().timers).single { it.id == sessionId }.state?.status == "paused" }
         val paused = HabitTimers.reading(HabitTimers.sessions(saved().timers).single { it.id == sessionId }.state!!).workMs
         val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+        val taskId = compose.activity.taskId
         device.pressHome()
-        app.startActivity(Intent(app, StoicheionGestureActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
+        // Bring back this exact host; API28 may resolve a fresh instance for a reordered Intent.
+        app.getSystemService(ActivityManager::class.java).appTasks.single { it.taskInfo?.id == taskId }.moveToFront()
+        compose.waitUntil(15_000) { runCatching {
+            compose.onAllNodesWithTag("habit-timer-resume").fetchSemanticsNodes().isNotEmpty()
+        }.getOrDefault(false) }
         compose.runOnIdle { mount++; dark = true }
         compose.onNodeWithTag("habit-timer-resume").performScrollTo().assertIsEnabled().performClick()
         compose.waitUntil(15_000) { HabitTimers.sessions(saved().timers).single { it.id == sessionId }.state?.status == "running" }

@@ -67,11 +67,10 @@ import ru.genesis.calendar.data.UiPreferences
     var reportSprint by remember(projectId, LocalGenesisUserId.current) { mutableStateOf<String?>(null) }
     val accountKey = LocalGenesisUserId.current
     val currentChanged by rememberUpdatedState(onChanged)
-    val currentCopy by rememberUpdatedState(copy)
     val editor = remember(controller, projectId, accountKey) { SharedPlanningEditorState(controller, projectId,
         onLost = { accessLost = true; data = null; page = null; selected = null }, onSaved = { receipt ->
             receipt.optJSONObject("sprint")?.let { bucket = if (it.optString("state") == "completed") "backlog" else it.getString("id") }
-            selected = null; notice = currentCopy.getString("saved"); reload++; currentChanged()
+            selected = null; notice = ""; reload++; currentChanged()
         }, onRefreshed = { fresh -> data = validatePlanning(projectId, fresh) }) }
     val authorPreferences by produceState<UiPreferences?>(null, accountKey) {
         val application = context.applicationContext as? GenesisApplication

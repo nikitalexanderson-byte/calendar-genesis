@@ -14,6 +14,7 @@ import { customFieldsError, type CustomFieldValues, type CustomFieldCriterion } 
 import {useSharedTaskSort} from "./use-personal-task-display";
 import {MindmapLaunchButton} from "./MindmapLaunchButton";
 import { SharedEstimateInputs, SharedEstimateValues } from './SharedTaskEstimates';
+import { SharedMemberMessageButton } from './SharedMemberMessageButton';
 import { estimateDraft, estimateInput, planningText, type EstimateDraft } from './shared-planning';
 
 import { type ReactNode, type CSSProperties, type FormEvent, Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
@@ -1838,11 +1839,13 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       {["owner","admin"].includes(snapshot.project.spaceRole??"")?<Suspense fallback={null}><SharedCustomFieldManager key={`${userId}:${snapshot.project.id}`} userId={userId} spaceId={snapshot.project.spaceId} projectId={snapshot.project.id} language={language as import("./i18n").Language} onChanged={()=>refreshProject(snapshot.project.id)} onDirtyChange={setCustomFieldDraftOpen}/></Suspense>:null}
 </> : null}
         {createModal === "team" && teamSnapshot ? <>
-          {["owner", "admin"].includes(teamSnapshot.project.spaceRole ?? "") ? <SharedTeamPermissions key={teamSnapshot.project.spaceId} spaceId={teamSnapshot.project.spaceId} userId={userId} english={english} language={language as import("./i18n").Language} onChanged={async () => { setTeamSnapshot(await loadSharedProject(teamSnapshot.project.id)); await refreshSpaces(); await refreshProjects(teamSnapshot.project.spaceId); if (projectId) await refreshProject(projectId); }} /> : null}
+          {["owner", "admin"].includes(teamSnapshot.project.spaceRole ?? "") ? <SharedTeamPermissions onMessage={()=>setCreateModal(null)} key={teamSnapshot.project.spaceId} spaceId={teamSnapshot.project.spaceId} userId={userId} english={english} language={language as import("./i18n").Language} onChanged={async () => { setTeamSnapshot(await loadSharedProject(teamSnapshot.project.id)); await refreshSpaces(); await refreshProjects(teamSnapshot.project.spaceId); if (projectId) await refreshProject(projectId); }} /> : null}
           <section className="shared-modal-section">
         <h3>{english ? "Participants and roles" : "Участники и роли"}</h3>
         <div className="shared-team-members">{teamSnapshot.members.map((member) => <article key={member.userId} className="shared-team-member">
-          <header className="shared-team-member-identity"><ExperimentalIcon name="team" /><div><h4>{member.displayName}</h4><span>{roleLabel(member.spaceRole)}</span></div></header>
+          <header className="shared-team-member-identity"><ExperimentalIcon name="team" /><div><h4>{member.displayName}</h4><span>{roleLabel(member.spaceRole)}</span></div>
+            <SharedMemberMessageButton actorId={userId} peer={{spaceId:teamSnapshot.project.spaceId,userId:member.userId,displayName:member.displayName}} language={language} onOpen={()=>setCreateModal(null)}/>
+          </header>
           <div className="shared-team-member-controls">
           {teamSnapshot.project.role === "owner" && !teamSnapshot.project.isInbox ? <>
             <label>{english ? "Role" : "Роль"}<select value={member.role} disabled={busy} onChange={(event) => setMemberRole(member.userId, event.target.value)}>

@@ -92,6 +92,8 @@ class NativeCSuiteHttpsTest {
             assertEquals((0 until task.getJSONArray("dependsOnKeys").length()).map { oldTitles[task.getJSONArray("dependsOnKeys").getString(it)] }.toSet(),
                 (0 until restored.getJSONArray("dependsOnKeys").length()).map { newTitles[restored.getJSONArray("dependsOnKeys").getString(it)] }.toSet())
             assertEquals(task.getJSONArray("checklists").length(), restored.getJSONArray("checklists").length())
+            assertEquals("Points, including null and known zero, survive template/export/import", task.get("storyPoints"), restored.get("storyPoints"))
+            assertEquals("Hours remain a separate estimate", task.get("estimateHours"), restored.get("estimateHours"))
             assertEquals(values(source, task), values(copy, restored))
         }
         val importedOptions = reportOptions(copyRoot)

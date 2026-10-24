@@ -5,10 +5,11 @@ import {assignSharedMemberPermissions, changeSharedSpaceRole, listSharedMemberCa
   type SharedMemberCategory, type SharedPermissions, type SharedSpace, type SharedSpaceSettings} from "./cloud-sync";
 import {defaultSpacePermissions, PermissionChecks} from "./SharedSpaceForm";
 import {ExperimentalIcon} from "./ExperimentalIcon";
+import {SharedMemberMessageButton} from "./SharedMemberMessageButton";
 import {SharedProjectAccessPanel} from "./SharedProjectAccessPanel";
 import type {Language} from "./i18n";
 
-export function SharedTeamPermissions({spaceId,userId,english,language,onChanged}: {spaceId:string;userId:string;english:boolean;language:Language;onChanged:()=>Promise<void>}) {
+export function SharedTeamPermissions({spaceId,userId,english,language,onChanged,onMessage}: {spaceId:string;userId:string;english:boolean;language:Language;onChanged:()=>Promise<void>;onMessage?:()=>void}) {
   const [settings,setSettings]=useState<SharedSpaceSettings|null>(null);
   const [categories,setCategories]=useState<SharedMemberCategory[]>([]);
   const [busy,setBusy]=useState(false),[error,setError]=useState("");
@@ -33,7 +34,9 @@ export function SharedTeamPermissions({spaceId,userId,english,language,onChanged
       </section>
       <section className="shared-team-member-list"><h3>{english?"Members and permissions":"Участники и права"}</h3>
         {settings.members.map(member=><article className="shared-team-member" key={member.userId}>
-          <header className="shared-team-member-identity"><ExperimentalIcon name="team"/><div><h4 data-no-translate>{member.displayName||member.email}</h4><span>{roleName(member.role)}</span></div></header>
+          <header className="shared-team-member-identity"><ExperimentalIcon name="team"/><div><h4 data-no-translate>{member.displayName||member.email}</h4><span>{roleName(member.role)}</span></div>
+            <SharedMemberMessageButton actorId={userId} peer={{spaceId,userId:member.userId,displayName:member.displayName||member.email}} language={language} onOpen={onMessage}/>
+          </header>
           <label>{english?"Workspace access":"Доступ к пространству"}<select value={member.role} disabled={busy||!owner} onChange={event=>void run(async()=>{await changeSharedSpaceRole(spaceId,member.userId,event.target.value);})}>
             {["owner","admin","member","guest"].map(role=><option key={role} value={role}>{roleName(role)}</option>)}</select></label>
           {member.role!=="owner"?<>

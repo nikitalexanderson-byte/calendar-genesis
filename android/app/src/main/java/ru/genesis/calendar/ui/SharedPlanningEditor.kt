@@ -15,6 +15,7 @@ import kotlinx.coroutines.CoroutineScope
 import org.json.JSONArray
 import org.json.JSONObject
 import ru.genesis.calendar.auth.PlanningLifecycle
+import ru.genesis.calendar.auth.DataExportProtocol
 import ru.genesis.calendar.data.UiPreferences
 import ru.genesis.calendar.domain.CalendarContext
 import ru.genesis.calendar.domain.CalendarMode
@@ -32,7 +33,8 @@ internal fun newPlanningSprint(preferences: UiPreferences): JSONObject {
     return JSONObject().put("kind", "sprint").put("sprintId", JSONObject.NULL).put("expectedRevision", 0)
         .put("draft", JSONObject().put("title", "").put("goal", "").put("startDate", from.toString()).put("endDate", from.plusDays(13).toString())
             .put("calendarMode", preferences.input.wireValue).put("calendarContext", JSONObject().put("version", 2)
-                .put("timeZone", ZoneId.systemDefault().id).put("gregorianYearStart", if (preferences.gregorianYearStartsInMarch) "march" else "january")))
+                .put("timeZone", DataExportProtocol.timeZone(ZoneId.systemDefault().id)?.id ?: "UTC")
+                .put("gregorianYearStart", if (preferences.gregorianYearStartsInMarch) "march" else "january")))
 }
 private fun sprintEdit(sprint: JSONObject) = JSONObject().put("kind", "sprint").put("sprintId", sprint.getString("id"))
     .put("expectedRevision", sprint.getInt("revision")).put("draft", JSONObject().apply {
