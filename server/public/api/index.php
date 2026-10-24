@@ -42,6 +42,7 @@ require $serverRoot . '/src/native-auth.php';
 require $serverRoot . '/src/gemini.php';
 require $serverRoot . '/src/shared-projects.php';
 require $serverRoot . '/src/shared-google.php';
+require $serverRoot . '/src/physis.php';
 
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
@@ -138,6 +139,11 @@ function genesisRequireYandexUser(string $userId): array
 }
 
 try {
+    // Guard the whole namespace, including unknown/future nested/export routes, before
+    // examining record IDs, parsing bodies, or accessing any Physis table.
+    if ($path === 'physis' || str_starts_with($path, 'physis/')) {
+        genesisPhysisRoute($method, $path);
+    }
     $googleOnly = (bool)(genesisConfig()['google_only'] ?? false);
     if ($googleOnly && str_contains($path, 'yandex')) {
         genesisJson(['error' => 'NOT_FOUND'], 404);
@@ -346,7 +352,7 @@ try {
         if (!session_regenerate_id(true)) {
             throw new GenesisNativeAuthException(503, 'NATIVE_AUTH_TEMPORARILY_UNAVAILABLE');
         }
-        genesisEstablishGoogleSession($user, (string)$profile['sub']);
+        genesisEstablishGoogleSession($user, (string)$profile['sub'], $profile, 'native');
         unset($_SESSION['oauth_request']);
         genesisObserveAndroid(static fn() => genesisReportAndroidClient((string)$user['id']));
         genesisLogError('[AuthFlow] ' . ($linkAction === 'created' ? 'GOOGLE_LINK_CREATED' : 'GOOGLE_LINK_FOUND'));
@@ -617,7 +623,7 @@ try {
                     session_regenerate_id(true);
                 } else {
                     $user = genesisUpsertGoogleUser($profile, $tokens, true, true);
-                    genesisEstablishGoogleSession($user, (string)$profile['sub']);
+                    genesisEstablishGoogleSession($user, (string)$profile['sub'], $profile, 'web');
                     session_regenerate_id(true);
                     try {
                         genesisEnsureGoogleCalendar($user);
@@ -627,7 +633,7 @@ try {
                 }
             } else {
                 $user = genesisUpsertGoogleUser($profile, $tokens, false, true);
-                genesisEstablishGoogleSession($user, (string)$profile['sub']);
+                genesisEstablishGoogleSession($user, (string)$profile['sub'], $profile, 'web');
                 session_regenerate_id(true);
             }
         } catch (Throwable $oauthError) {
@@ -1385,6 +1391,8 @@ try {
     }
 
     genesisJson(['error' => 'NOT_FOUND'], 404);
+} catch (GenesisPhysisException $error) {
+    genesisJson(['error' => $error->getMessage()], $error->status);
 } catch (GenesisSharedAccessException $error) {
     genesisJson(['error' => $error->getMessage()]+($error->details?['details'=>$error->details]:[]), $error->status);
 } catch (GenesisResourceLimitException $error) {

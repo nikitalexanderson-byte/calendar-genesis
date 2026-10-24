@@ -436,6 +436,16 @@ export function captureAccountSessionGuard() {
   return () => requireActiveLocalSession(generation);
 }
 
+/** Physis uses the existing authenticated transport, but never the workspace key or offline queue. */
+export async function physisRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
+  if (!/^\/(access|vault|records|rotate)(?:\?[A-Za-z0-9=&_-]*)?$/.test(path)) throw new Error("Invalid Physis path");
+  try { return await api<T>(`/physis/v1${path}`, { ...init, cache: "no-store" }); }
+  catch (error) {
+    if (error instanceof GenesisNetworkTimeoutError) throw new Error("Сервер не ответил. Несинхронизированные данные Фюзиса остаются только в памяти этой вкладки.");
+    throw error;
+  }
+}
+
 /** Narrow adapter for independent encrypted personal documents. Reuses the session and workspace key. */
 export function personalDocumentAccess(userId: string) {
   const active = captureAccountSessionGuard();

@@ -1,0 +1,136 @@
+import { useMemo, useState } from 'react';
+import { CalendarDatePicker } from '../CalendarDatePicker';
+import { TimeClockPicker } from '../TimeClockPicker';
+import { addCivilDays, momentCivilDate, resolveCalendarWallTime, todayCivilDate } from '../calendar-context';
+import { formatCalendarDateValue } from '../calendar-data';
+import { DOSE_UNITS, DRUG_FORMS, ROUTES, activeAmount, intakeRecordId, regimenEvents, pendingIntakeEvents, reviseRegimen, cancelIntake, type Drug, type Intake, type IntakeEvent, type IntakeReminder, type Regimen, type RegimenPeriod } from './care-domain';
+import { NUTRIENTS, NUTRIENT_KEYS } from './nutrition-domain';
+import { editPhysisRecord, newPhysisRecord, physisRecords, type PhysisFeatureProps, type PhysisRecord } from './types';
+import { Field, NumberField, usePhysisAction } from './fields';
+import { PhysisExchange } from './exchange';
+import { PhysisMomentFields } from './care-time-fields';
+
+const routeNames: Record<Drug['route'], string> = { oral: 'Внутрь', intramuscular: 'Внутримышечно', subcutaneous: 'Подкожно', intravenous: 'Внутривенно', topical: 'Наружно', inhalation: 'Ингаляционно', other: 'Другое' };
+export const emptyDrug = (): Drug => ({ name: '', brand: '', category: 'supplement', form: 'Капсула', route: 'oral', activeIngredients: '', amountPerUnit: null, activeUnit: 'mg', concentration: null, concentrationUnit: 'mg/ml', packageSize: '', source: '', notes: '', favorite: false, archived: false, nutrients: [] });
+function RouteSelect({ value, onChange }: { value: Drug['route']; onChange: (value: Drug['route']) => void }) {
+  return <Field label="Путь введения"><select value={value} onChange={event => onChange(event.target.value as Drug['route'])}>{ROUTES.map(route => <option key={route} value={route}>{routeNames[route]}</option>)}</select></Field>;
+}
+export function PhysisDrugCatalog(props: PhysisFeatureProps) {
+  const { store } = props;
+  const [search, setSearch] = useState(''); const [favorites, setFavorites] = useState(false); const [archives, setArchives] = useState(false);
+  const [editing, setEditing] = useState<PhysisRecord<Drug> | null>(null); const [draft, setDraft] = useState<Drug | null>(null);
+  const [draftRecord, setDraftRecord] = useState<PhysisRecord<Drug> | null>(null);
+  const action = usePhysisAction();
+  const records = physisRecords<Drug>(store, 'drug').filter(r => r.data.archived === archives && (!favorites || r.data.favorite) && `${r.data.name} ${r.data.brand} ${r.data.activeIngredients}`.toLocaleLowerCase().includes(search.toLocaleLowerCase()));
+  const change = (patch: Partial<Drug>) => setDraft(value => value ? { ...value, ...patch } : value);
+  return <section className="physis-panel"><h2>Справочник БАДов и лекарств</h2><p className="physis-muted">Ваш личный справочник. Проверка совместимости не выполнена: подключённой базы взаимодействий нет.</p>
+    <div className="physis-actions"><button className="physis-primary" onClick={() => { const record = newPhysisRecord('drug', emptyDrug()); setEditing(null); setDraftRecord(record); setDraft(record.data); }}>Добавить препарат</button><button aria-pressed={favorites} onClick={() => setFavorites(!favorites)}>Избранное</button><button aria-pressed={archives} onClick={() => setArchives(!archives)}>Архив</button></div>
+    <Field label="Поиск по названию, бренду или веществу"><input type="search" value={search} onChange={e => setSearch(e.target.value)} /></Field>
+    {action.error ? <p role="alert" className="physis-warning">{action.error}</p> : null}
+    {draft ? <form className="physis-form" onSubmit={e => { e.preventDefault(); void action.run(async () => { await store.save(editPhysisRecord(editing ?? draftRecord!, draft)); setDraft(null); }); }}>
+      <h3 className="physis-wide">{editing ? 'Изменить карточку' : 'Новая карточка'}</h3>
+      <Field label="Название"><input required maxLength={200} value={draft.name} onChange={e => change({ name: e.target.value })} /></Field>
+      <Field label="Бренд"><input maxLength={200} value={draft.brand} onChange={e => change({ brand: e.target.value })} /></Field>
+      <Field label="Категория"><select value={draft.category} onChange={e => change({ category: e.target.value as Drug['category'] })}><option value="supplement">БАД</option><option value="medicine">Лекарство</option></select></Field>
+      <Field label="Форма"><select value={draft.form} onChange={e => change({ form: e.target.value })}>{DRUG_FORMS.map(form => <option key={form}>{form}</option>)}</select></Field>
+      <RouteSelect value={draft.route} onChange={route => change({ route })} />
+      <Field label="Действующие вещества"><input maxLength={2000} value={draft.activeIngredients} onChange={e => change({ activeIngredients: e.target.value })} /></Field>
+      <NumberField label="Активное вещество в одной единице формы" value={draft.amountPerUnit} onChange={amountPerUnit => change({ amountPerUnit })} />
+      <Field label="Единица активного вещества"><select value={draft.activeUnit} onChange={e => change({ activeUnit: e.target.value as Drug['activeUnit'] })}>{['mg', 'mcg', 'g', 'IU'].map(unit => <option key={unit}>{unit}</option>)}</select></Field>
+      <NumberField label="Концентрация раствора (если известна)" value={draft.concentration} onChange={concentration => change({ concentration })} />
+      <Field label="Единица концентрации"><select value={draft.concentrationUnit} onChange={e => change({ concentrationUnit: e.target.value as Drug['concentrationUnit'] })}>{['mg/ml', 'mcg/ml', 'g/ml', 'IU/ml'].map(unit => <option key={unit}>{unit}</option>)}</select></Field>
+      <Field label="Упаковка"><input value={draft.packageSize} onChange={e => change({ packageSize: e.target.value })} /></Field>
+      <Field label="Источник / инструкция"><input value={draft.source} onChange={e => change({ source: e.target.value })} /></Field>
+      <Field label="Личные заметки"><textarea value={draft.notes} maxLength={10000} onChange={e => change({ notes: e.target.value })} /></Field>
+      <div className="physis-wide"><h3>Элементарные нутриенты на одну единицу формы</h3><p className="physis-muted">Укажите именно элементарное вещество, не массу соли. Пищевой итог учитывает только фактически принятые внутрь единицы формы; инъекции исключены.</p>
+        {draft.nutrients.map((n, index) => <div className="physis-form" key={index}><Field label="Нутриент"><select required value={n.nutrient} onChange={e => change({ nutrients: draft.nutrients.map((v, i) => i === index ? { ...v, nutrient: e.target.value } : v) })}><option value="">Выберите нутриент</option>{NUTRIENT_KEYS.filter(key => key !== 'energy').map(key => <option key={key} value={key} disabled={draft.nutrients.some((item, position) => position !== index && item.nutrient === key)}>{NUTRIENTS[key].ru}</option>)}</select></Field><NumberField label="Количество" value={n.value} onChange={value => change({ nutrients: draft.nutrients.map((v, i) => i === index ? { ...v, value: value ?? 0 } : v) })} /><Field label="Единица"><select value={n.unit} onChange={e => change({ nutrients: draft.nutrients.map((v, i) => i === index ? { ...v, unit: e.target.value as 'mg' } : v) })}>{['mg', 'mcg', 'g'].map(u => <option key={u}>{u}</option>)}</select></Field><button type="button" onClick={() => change({ nutrients: draft.nutrients.filter((_, i) => i !== index) })}>Удалить нутриент</button></div>)}
+        <button type="button" onClick={() => change({ nutrients: [...draft.nutrients, { nutrient: '', value: 0, unit: 'mg', elemental: true }] })}>Добавить нутриент</button></div>
+      <p className="physis-muted physis-wide">Без известной концентрации миллилитры не переводятся в массу. МЕ (IU) не переводятся в мг или мкг.</p>
+      <div className="physis-actions"><button className="physis-primary" disabled={action.busy}>Сохранить</button><button type="button" onClick={() => setDraft(null)}>Отмена</button></div>
+    </form> : null}
+    {!records.length ? <p className="physis-empty">Пока нет подходящих записей. Добавьте свою карточку или используйте импорт ниже.</p> : <ul className="physis-list">{records.map(record => <li key={record.id}><strong>{record.data.name}</strong> <span className="physis-muted">{record.data.brand} · {record.data.category === 'medicine' ? 'Лекарство' : 'БАД'} · {record.data.form} · {routeNames[record.data.route]}</span><p>{record.data.activeIngredients}</p><div className="physis-actions"><button onClick={() => { setEditing(record); setDraft(structuredClone(record.data)); }}>Изменить</button><button aria-pressed={record.data.favorite} onClick={() => void action.run(() => store.save(editPhysisRecord(record, { ...record.data, favorite: !record.data.favorite })))}>{record.data.favorite ? 'В избранном' : 'В избранное'}</button><button onClick={() => void action.run(() => store.save(editPhysisRecord(record, { ...record.data, archived: !record.data.archived })))}>{record.data.archived ? 'Вернуть из архива' : 'Архивировать'}</button><button className="physis-danger" onClick={() => { if (confirm('Удалить карточку? История приемов сохранится.')) void action.run(() => store.remove(record.id)); }}>Удалить</button></div></li>)}</ul>}
+    <PhysisExchange store={store} kind="drug" />
+  </section>;
+}
+const initialPeriod = (day: string, timeZone: string): RegimenPeriod => ({ id: crypto.randomUUID(), start: day, end: '', timeZone, mode: 'daily', times: ['09:00'], weekdays: [1, 2, 3, 4, 5], everyDays: 1, everyHours: 24, anchorAt: resolveCalendarWallTime(day, '09:00', timeZone).instant.toISOString(), dose: 1, unit: 'шт', route: 'oral', food: '', notes: '' });
+export function PhysisIntakes(props: PhysisFeatureProps & { owner: string; compact?: boolean }) {
+  const { store, settings, context, owner, compact = false } = props;
+  const today = todayCivilDate(context); const [day, setDay] = useState(today);
+  const [editing, setEditing] = useState<PhysisRecord<Regimen> | null>(null); const [draft, setDraft] = useState<Regimen | null>(null);
+  const [draftRecord, setDraftRecord] = useState<PhysisRecord<Regimen> | null>(null);
+  const [effective, setEffective] = useState(today); const [entry, setEntry] = useState<PhysisRecord<Intake> | null>(null); const [formOpen, setFormOpen] = useState(false);
+  const action = usePhysisAction(); const drugs = physisRecords<Drug>(store, 'drug').filter(r => !r.data.archived);
+  const regimens = physisRecords<Regimen>(store, 'regimen'); const intakes = physisRecords<Intake>(store, 'intake');
+  const pending = useMemo(() => pendingIntakeEvents(regimens, intakes, day, day === today), [regimens, intakes, day, today]);
+  const updatePeriod = (index: number, patch: Partial<RegimenPeriod>) => setDraft(value => value ? { ...value, periods: value.periods.map((p, i) => i === index ? { ...p, ...patch } : p) } : value);
+  const openRegimen = (record?: PhysisRecord<Regimen>) => {
+    if (!drugs.length && !record) { action.setError('Сначала добавьте препарат в справочник.'); return; }
+    setEditing(record ?? null); setEffective(today);
+    const data = record ? structuredClone(record.data) : { name: drugs[0].data.name, drugId: drugs[0].id, drugSnapshot: structuredClone(drugs[0].data), version: 1,
+      periods: [{ ...initialPeriod(today, settings.timeZone), route: drugs[0].data.route }], archived: false, previousVersions: [] };
+    setDraftRecord(record ?? newPhysisRecord('regimen', data)); setDraft(data);
+  };
+  const fromEvent = async (event: IntakeReminder) => {
+    const old = intakes.find(r => r.data.eventId === event.eventId);
+    if (old) {
+      const resumed = structuredClone(old);
+      if (old.data.status === 'cancelled' || old.data.status === 'postponed') {
+        const now = new Date().toISOString();
+        resumed.data = { ...resumed.data, status: 'taken', postponedUntil: null, takenAt: now, day: momentCivilDate(new Date(now), event.timeZone), quantity: event.dose };
+      }
+      setEntry(resumed); setFormOpen(true); return;
+    }
+    const now = new Date().toISOString();
+    const record = newPhysisRecord<Intake>('intake', { eventId: event.eventId, regimenId: event.regimenId, regimenVersion: event.regimenVersion,
+      plannedAt: event.plannedAt, takenAt: now, timeZone: event.timeZone, day: momentCivilDate(new Date(now), event.timeZone), quantity: event.dose, unit: event.unit, route: event.route,
+      status: 'taken', postponedUntil: null, drugSnapshot: structuredClone(event.drugSnapshot), source: 'manual', note: '', editedAt: null });
+    record.id = await intakeRecordId(owner, event.eventId); setEntry(record); setFormOpen(true);
+  };
+  const manual = (drug: PhysisRecord<Drug>) => {
+    const now = new Date().toISOString(); const record = newPhysisRecord<Intake>('intake', { eventId: crypto.randomUUID(), regimenId: null, regimenVersion: null, plannedAt: null,
+      takenAt: now, timeZone: settings.timeZone, day: today, quantity: 1, unit: 'шт', route: drug.data.route, status: 'taken', postponedUntil: null,
+      drugSnapshot: structuredClone(drug.data), source: 'manual', note: '', editedAt: null }); setEntry(record); setFormOpen(true);
+  };
+  const changeEntry = (patch: Partial<Intake>) => setEntry(r => r ? editPhysisRecord(r, { ...r.data, ...patch }) : r);
+  let preview: IntakeEvent[] = []; let previewError = '';
+  try { if (draft) preview = regimenEvents({ id: editing?.id ?? 'preview', kind: 'regimen', schemaVersion: 1, createdAt: '', updatedAt: '', source: 'manual', data: draft }, effective, addCivilDays(effective, 6)).slice(0, 30); }
+  catch { previewError = 'Заполните корректные даты, часовой пояс и время периода для предпросмотра.'; }
+  return <section className="physis-panel"><h2>{compact ? 'Ближайшие приёмы' : 'Контроль приёма'}</h2><p className="physis-muted">Журнал ваших назначений. План не становится фактом автоматически. Проверка совместимости не выполнена.</p>
+    {!compact ? <div className="physis-row"><button aria-label="Предыдущий день приема" onClick={() => setDay(addCivilDays(day, -1))}>Предыдущий день</button><CalendarDatePicker value={day} mode={settings.inputCalendarMode} calculationContext={context} onChange={setDay} ariaLabel="День приема" /><button onClick={() => setDay(today)}>Сегодня</button><button onClick={() => setDay(addCivilDays(day, 1))}>Следующий день</button></div> : null}
+    <div className="physis-actions"><button onClick={() => openRegimen()}>Добавить схему</button>{drugs.length ? <Field label="Записать прием вне расписания"><select value="" onChange={e => { const drug = drugs.find(d => d.id === e.target.value); if (drug) manual(drug); }}><option value="">Выберите препарат</option>{drugs.map(d => <option key={d.id} value={d.id}>{d.data.name}</option>)}</select></Field> : <p className="physis-muted">Начните с карточки в справочнике.</p>}</div>
+    {action.error ? <p role="alert" className="physis-warning">{action.error}</p> : null}
+    {draft ? <form className="physis-form" onSubmit={e => { e.preventDefault(); void action.run(async () => { const data = editing ? reviseRegimen(editing.data, draft, effective) : draft; await store.save(editPhysisRecord(editing ?? draftRecord!, data)); setDraft(null); }); }}>
+      <h3 className="physis-wide">{editing ? 'Новая версия схемы' : 'Новая схема'}</h3><Field label="Препарат"><select value={draft.drugId} onChange={e => { const d = drugs.find(d => d.id === e.target.value); if (d) setDraft({ ...draft, drugId: d.id, drugSnapshot: structuredClone(d.data), name: d.data.name }); }}>{drugs.map(d => <option value={d.id} key={d.id}>{d.data.name}</option>)}</select></Field>
+      <Field label="Название схемы"><input required value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} /></Field>
+      {editing ? <Field label="Применить изменения начиная с"><CalendarDatePicker value={effective} min={today} mode={settings.inputCalendarMode} calculationContext={context} onChange={setEffective} /></Field> : null}
+      {draft.periods.map((p, index) => <fieldset className="physis-wide" key={p.id}><legend>Период {index + 1}</legend><div className="physis-form">
+        <Field label="Начало"><CalendarDatePicker value={p.start} mode={settings.inputCalendarMode} calculationContext={context} required onChange={start => updatePeriod(index, { start })} /></Field><Field label="Окончание (необязательно)"><CalendarDatePicker value={p.end} mode={settings.inputCalendarMode} calculationContext={context} min={p.start} onChange={end => updatePeriod(index, { end })} /></Field>
+        <Field label="Режим"><select value={p.mode} onChange={e => updatePeriod(index, { mode: e.target.value as RegimenPeriod['mode'] })}><option value="daily">Ежедневно в местное время</option><option value="weekdays">Выбранные дни недели</option><option value="every-days">Раз в N дней</option><option value="hours">Интервал в часах</option><option value="prn">По необходимости</option></select></Field>
+        <Field label="Часовой пояс IANA"><input value={p.timeZone} onChange={e => updatePeriod(index, { timeZone: e.target.value })} /></Field>
+        {p.mode !== 'hours' && p.mode !== 'prn' ? <div className="physis-wide"><h4>Время приёма</h4><div className="physis-actions">{p.times.map((time, timeIndex) => <div className="physis-row" key={timeIndex}><Field label="Время приёма"><TimeClockPicker value={time} ariaLabel={props.language === 'en' ? `Intake time ${timeIndex + 1}` : `Время приёма ${timeIndex + 1}`} onChange={value => updatePeriod(index, { times: p.times.map((item, position) => position === timeIndex ? value : item) })} /></Field><button type="button" disabled={p.times.length <= 1} aria-label={props.language === 'en' ? `Remove intake time ${timeIndex + 1}` : `Удалить время приёма ${timeIndex + 1}`} onClick={() => updatePeriod(index, { times: p.times.filter((_, position) => position !== timeIndex) })}>Удалить время</button></div>)}</div><button type="button" disabled={p.times.length >= 24} onClick={() => { const available = Array.from({ length: 24 }, (_, hour) => `${String((hour + 9) % 24).padStart(2, '0')}:00`).find(time => !p.times.includes(time)); if (available) updatePeriod(index, { times: [...p.times, available] }); }}>Добавить время</button></div> : null}
+        {p.mode === 'weekdays' ? <div className="physis-wide physis-actions">{['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'].map((title, weekday) => <button type="button" key={weekday} aria-pressed={p.weekdays.includes(weekday)} onClick={() => updatePeriod(index, { weekdays: p.weekdays.includes(weekday) ? p.weekdays.filter(d => d !== weekday) : [...p.weekdays, weekday] })}>{title}</button>)}</div> : null}
+        {p.mode === 'every-days' ? <NumberField label="Каждые N дней" min={1} max={366} value={p.everyDays} onChange={v => updatePeriod(index, { everyDays: v ?? 1 })} /> : null}
+        {p.mode === 'hours' ? <><NumberField label="Каждые N часов (абсолютный интервал)" min={0.25} max={8760} value={p.everyHours} onChange={v => updatePeriod(index, { everyHours: v ?? 24 })} /><PhysisMomentFields value={p.anchorAt} fallbackDay={p.start} timeZone={p.timeZone} context={context} calendarMode={settings.inputCalendarMode} dayLabel="Дата первого приёма" timeLabel="Время первого приёма" onChange={anchorAt => updatePeriod(index, { anchorAt })} /></> : null}
+        <NumberField label="Разовое количество по вашему назначению" required min={0.000001} value={p.dose} onChange={v => updatePeriod(index, { dose: v ?? 0 })} /><Field label="Единица количества"><select value={p.unit} onChange={e => updatePeriod(index, { unit: e.target.value as RegimenPeriod['unit'] })}>{DOSE_UNITS.map(unit => <option key={unit}>{unit}</option>)}</select></Field><RouteSelect value={p.route} onChange={route => updatePeriod(index, { route })} />
+        <Field label="Связь с едой"><input value={p.food} onChange={e => updatePeriod(index, { food: e.target.value })} /></Field><Field label="Заметка / перерыв"><input value={p.notes} onChange={e => updatePeriod(index, { notes: e.target.value })} /></Field>
+        <button type="button" onClick={() => setDraft({ ...draft, periods: draft.periods.filter((_, i) => i !== index) })}>Удалить период</button></div></fieldset>)}
+      <button type="button" onClick={() => setDraft({ ...draft, periods: [...draft.periods, initialPeriod(effective, settings.timeZone)] })}>Добавить период / после перерыва</button>
+      <div className="physis-wide"><h3>Предпросмотр ближайших 7 дней</h3>{preview.length ? <ul>{preview.map(e => <li key={e.eventId}>{new Date(e.plannedAt).toLocaleString('ru', { timeZone: e.timeZone })} · {e.dose} {e.unit} · {routeNames[e.route]}</li>)}</ul> : <p>Автоматических событий нет. Для «по необходимости» записи добавляются вручную.</p>}</div>
+      {previewError ? <p className="physis-warning">{previewError}</p> : null}
+      <div className="physis-actions"><button className="physis-primary" disabled={action.busy || !draft.periods.length || !!previewError}>Сохранить схему</button><button type="button" onClick={() => setDraft(null)}>Отмена</button></div>
+    </form> : null}
+    {formOpen && entry ? <form className="physis-form" onSubmit={e => { e.preventDefault(); void action.run(async () => { const existing = intakes.some(i => i.id === entry.id); await store.save(editPhysisRecord(entry, { ...entry.data, editedAt: existing ? new Date().toISOString() : null })); setFormOpen(false); }); }}>
+      <h3 className="physis-wide">{entry.data.drugSnapshot.name} — фактическая запись</h3><Field label="Статус"><select value={entry.data.status} onChange={e => changeEntry({ status: e.target.value as Intake['status'] })}><option value="taken">Принято</option><option value="partial">Частично</option><option value="skipped">Пропущено</option><option value="postponed">Отложено</option><option value="cancelled">Отметка отменена</option></select></Field>
+      <NumberField label="Фактическое количество" value={entry.data.quantity} onChange={quantity => changeEntry({ quantity: quantity ?? 0 })} /><Field label="Единица"><select value={entry.data.unit} onChange={e => changeEntry({ unit: e.target.value as Intake['unit'] })}>{DOSE_UNITS.map(unit => <option key={unit}>{unit}</option>)}</select></Field>
+      <RouteSelect value={entry.data.route} onChange={route => changeEntry({ route })} /><PhysisMomentFields value={entry.data.takenAt} fallbackDay={entry.data.day} timeZone={entry.data.timeZone} context={context} calendarMode={settings.inputCalendarMode} dayLabel="Дата приёма" timeLabel="Время приёма" onChange={(takenAt, day) => changeEntry({ takenAt, day })} />
+      {entry.data.status === 'postponed' ? <PhysisMomentFields value={entry.data.postponedUntil} fallbackDay={entry.data.day} timeZone={entry.data.timeZone} context={context} calendarMode={settings.inputCalendarMode} dayLabel="Отложить на дату" timeLabel="Отложить до времени" onChange={postponedUntil => changeEntry({ postponedUntil })} /> : null}
+      <Field label="Заметка"><textarea value={entry.data.note} onChange={e => changeEntry({ note: e.target.value })} /></Field><p className="physis-muted">{(() => { const amount = activeAmount(entry.data.drugSnapshot, entry.data.quantity, entry.data.unit); return amount ? `Расчетное количество активного вещества: ${amount.value} ${amount.unit}.` : 'Пересчет активного вещества недоступен без совместимых единиц и концентрации.'; })()}</p>
+      <div className="physis-actions"><button className="physis-primary" disabled={action.busy}>Сохранить прием</button><button type="button" onClick={() => setFormOpen(false)}>Отмена</button></div>
+    </form> : null}
+    <h3>{formatCalendarDateValue(day, settings.calendarMode, true, context)}</h3>
+    {!pending.length ? <p className="physis-empty">Запланированных незавершённых приёмов на этот день нет.</p> : <ul className="physis-list">{pending.slice(0, compact ? 5 : 100).map(event => <li key={event.eventId}><strong>{event.drugSnapshot.name}</strong><p>{new Date(event.dueAt).toLocaleString('ru', { timeZone: event.timeZone, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} · {event.dose} {event.unit} · {routeNames[event.route]} · {event.postponed ? 'Отложено' : 'Запланировано'}</p><button onClick={() => void action.run(() => fromEvent(event))}>Отметить прием</button></li>)}</ul>}
+    {!compact ? <><h3>Факты и исправления</h3><ul className="physis-list">{intakes.filter(i => i.data.day === day).map(record => <li key={record.id}><strong>{record.data.drugSnapshot.name}</strong><p>{({ taken: 'Принято', partial: 'Частично', skipped: 'Пропущено', postponed: 'Отложено', cancelled: 'Отметка отменена' })[record.data.status]} · {record.data.quantity} {record.data.unit} · {new Date(record.data.takenAt).toLocaleTimeString('ru', { timeZone: record.data.timeZone })}{record.data.editedAt ? ' · Исправлено' : ''}</p><div className="physis-actions"><button onClick={() => { setEntry(structuredClone(record)); setFormOpen(true); }}>Исправить</button><button onClick={() => { if (confirm('Отменить ошибочную отметку?')) void action.run(() => store.save(editPhysisRecord(record, cancelIntake(record.data)))); }}>Отменить отметку</button></div></li>)}</ul>
+      <h3>Схемы и курсы</h3><ul className="physis-list">{regimens.map(record => <li key={record.id}><strong>{record.data.name}</strong><p>Версия {record.data.version} · {record.data.archived ? 'Приостановлено' : 'Действует'} · фактов: {intakes.filter(i => i.data.regimenId === record.id && ['taken', 'partial'].includes(i.data.status)).length}</p><div className="physis-actions"><button onClick={() => openRegimen(record)}>Изменить будущие приемы</button><button onClick={() => void action.run(() => store.save(editPhysisRecord(record, { ...record.data, archived: !record.data.archived })))}>{record.data.archived ? 'Продолжить' : 'Приостановить'}</button></div></li>)}</ul></> : null}
+    <p className="physis-muted">Напоминания доступны внутри открытого разблокированного Фюзиса. Доставка при закрытом браузере не подключена. После пропуска доза автоматически не меняется.</p>
+  </section>;
+}

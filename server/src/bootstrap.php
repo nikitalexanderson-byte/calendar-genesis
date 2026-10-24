@@ -18,6 +18,10 @@ function genesisConfig(): array
     }
 
     $path = genesisRoot() . '/config.php';
+    // Explicit local harness only. HTTP input and production SAPIs cannot select a config.
+    if (in_array(PHP_SAPI, ['cli', 'cli-server'], true) && defined('GENESIS_LOCAL_TEST_CONFIG')) {
+        $path = (string)GENESIS_LOCAL_TEST_CONFIG;
+    }
     if (!is_file($path)) {
         throw new RuntimeException('GENESIS server is not configured.');
     }
@@ -224,7 +228,7 @@ function genesisCurrentUserId(): ?string
 }
 
 /** Called only with a profile verified by the Google code/token exchange. */
-function genesisEstablishGoogleSession(array $user, string $verifiedSub): void
+function genesisEstablishGoogleSession(array $user, string $verifiedSub, array $verifiedProfile = [], string $channel = 'unknown'): void
 {
     if ($verifiedSub === '' || genesisUserProvider($user) !== 'google') throw new RuntimeException('Invalid authentication identity.');
     $identity = ['kind' => 'primary', 'sub' => $verifiedSub];
@@ -238,6 +242,13 @@ function genesisEstablishGoogleSession(array $user, string $verifiedSub): void
     }
     $_SESSION['user_id'] = (string)$user['id'];
     $_SESSION['auth_identity'] = $identity;
+    // Only server-side provider exchanges supply these claims. Never infer verified email
+    // from the workspace owner: a linked identity can have a different email.
+    $_SESSION['auth_identity']['email'] = is_string($verifiedProfile['email'] ?? null)
+        ? strtolower(trim($verifiedProfile['email'])) : '';
+    $_SESSION['auth_identity']['email_verified'] = ($verifiedProfile['email_verified'] ?? null) === true
+        && ($verifiedProfile['sub'] ?? null) === $verifiedSub;
+    $_SESSION['auth_identity']['channel'] = in_array($channel, ['web', 'native'], true) ? $channel : 'unknown';
     $_SESSION['authenticated_at'] = time();
     $_SESSION['auth_login_id'] = bin2hex(random_bytes(16));
     $_SESSION['csrf'] = bin2hex(random_bytes(24));

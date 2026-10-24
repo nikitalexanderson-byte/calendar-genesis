@@ -1,0 +1,53 @@
+.physis-training, .physis-training-session { min-width: 0; }
+.physis-training :is(button, input, select), .physis-training-session :is(button, input, select) { min-height: 44px; }
+.physis-training :is(input, select, textarea), .physis-training-session :is(input, select, textarea) { max-width: 100%; min-width: 0; }
+.physis-training h4, .physis-training-session h3 { margin-top: 1rem; margin-bottom: .65rem; }
+.physis-training :is(label, p, th), .physis-training-session :is(label, p, h3) { overflow-wrap: anywhere; }
+.physis-training small { display: block; font-weight: 400; }
+.physis-training-set { padding: 1rem 0; border-bottom: 1px solid var(--ui-border, #a9a18e); }
+.physis-training-set.is-complete > .physis-row strong { color: var(--ui-accent, #21634d); }
+.physis-training-set-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: .75rem; margin: .65rem 0; align-items: start; }
+.physis-training-set-fields label, .physis-training-editor label, .physis-training-session > label { display: flex; flex-direction: column; gap: .35rem; }
+.physis-training-set-extra { grid-column: 1 / -1; }
+.physis-training-set-extra summary, .physis-training details > summary, .physis-training-session details > summary { min-height: 44px; cursor: pointer; padding-block: .65rem; }
+.physis-training-set-extra .physis-form { margin-top: .75rem; }
+.physis-training-exercise { border-top: 1px solid var(--ui-border, #a9a18e); margin-top: 1.6rem; padding-top: .75rem; }
+.physis-training-add { margin: 1.2rem 0; align-items: end; }
+.physis-training-primary-actions { position: sticky; bottom: 0; z-index: 2; background: var(--ui-surface-item, var(--ui-surface, #f5f0e4)); padding: .8rem 0 calc(.8rem + env(safe-area-inset-bottom)); border-top: 1px solid var(--ui-border, #a9a18e); margin-top: 1rem; }
+.physis-training-timer { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; padding: .8rem 0; }
+.physis-training-timer strong { font-size: 1.65rem; font-variant-numeric: tabular-nums; }
+.physis-training-result { border-block: 1px solid var(--ui-border, #a9a18e); padding: .75rem 0 1rem; margin-bottom: 1rem; }
+.physis-training-editor { margin: 1rem 0; padding: 1rem; border: 1px solid var(--ui-border, #a9a18e); border-radius: 10px; }
+.physis-training-catalog-entry, .physis-training-program, .physis-training-cycle { padding-block: .75rem; border-bottom: 1px solid var(--ui-border, #a9a18e); }
+.physis-training-catalog-entry summary { font-weight: 600; cursor: pointer; min-height: 44px; padding-block: .5rem; }
+.physis-training-catalog-entry summary small { display: block; font-weight: 400; }
+.physis-training-micro { padding-block: .8rem; border-top: 1px solid var(--ui-border, #a9a18e); margin-top: 1rem; }
+.physis-training-days { list-style: none; padding: 0; display: grid; gap: .5rem; }
+.physis-training-days li { display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; padding-block: .3rem; }
+.physis-training-days li > button:first-child { flex: 1 1 150px; text-align: start; }
+.physis-training-order { display: inline-flex; flex-wrap: nowrap; }
+.physis-training-order button { min-width: 44px; padding-inline: .6rem; }
+.physis-training-schedule-preview { max-height: 24rem; overflow-y: auto; padding-inline-start: 1.5rem; }
+.physis-training-schedule-preview li { padding-block: .3rem; overflow-wrap: anywhere; }
+.physis-training-progress { padding-block: 1rem; }
+.physis-training-progress p { margin-block: .4rem; }
+.physis-training-month { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: .4rem; margin-block: 1rem; }
+.physis-training-month > button { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; text-align: start; gap: .25rem; min-height: 90px; padding: .55rem; overflow-wrap: anywhere; font-size: .9rem; }
+.physis-training-month time { font-weight: 600; }
+.physis-training-day-status { font-size: .78rem; line-height: 1.4; }
+.physis-training-day-log { margin-top: 1.5rem; border-top: 1px solid var(--ui-border, #a9a18e); padding-top: 1rem; }
+.physis-training-schedule-item { padding-block: .8rem; border-bottom: 1px solid var(--ui-border, #a9a18e); }
+.physis-training th, .physis-training td { vertical-align: top; font-variant-numeric: tabular-nums; }
+.physis-training th:first-child { min-width: 150px; }
+.physis-training ::selection, .physis-training-session ::selection { background: var(--ui-accent, #21634d); color: var(--ui-on-accent, #fff); }
+.physis-training :focus-visible, .physis-training-session :focus-visible { outline: 2px solid var(--ui-accent, #21634d); outline-offset: 3px; }
+.physis-training :is(input, textarea), .physis-training-session :is(input, textarea) { caret-color: var(--ui-accent, #21634d); }
+@media (max-width: 767px) {
+  .physis-training-month { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .physis-training-editor { padding: .75rem; }
+  .physis-training-set-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .physis-training-primary-actions { display: flex; flex-wrap: wrap; }
+  .physis-training-primary-actions button { flex: 1 1 140px; }
+  .physis-training-days li { border-bottom: 1px solid var(--ui-border, #a9a18e); padding-bottom: .5rem; }
+  .physis-training-days li > button:first-child { flex-basis: calc(100% - 100px); }
+}
