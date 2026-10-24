@@ -19,7 +19,7 @@ html[data-genesis-theme] .genesis-app .shared-update-open > span { display: grid
 html[data-genesis-theme] .genesis-app .shared-update-open > span > strong { font: 600 15px/1.5 var(--font-ui); }
 html[data-genesis-theme] .genesis-app .shared-update-read { width: 44px; min-height: 44px; align-self: center; padding: 8px; }
 html[data-genesis-theme] .genesis-app .shared-comment-notices { position: fixed; right: 24px; bottom: 24px; z-index: 700; display: grid; gap: 12px; width: min(360px, calc(100vw - 48px)); max-height: calc(100dvh - 48px); overflow: auto; }
-html[data-genesis-theme] .genesis-app .shared-comment-notices > article { position: relative; padding: 16px; background: var(--surface); color: var(--ink); border: 1px solid #214c3d; border-radius: 12px; }
+html[data-genesis-theme] .genesis-app .shared-comment-notices > article { position: relative; padding: 16px; background: var(--surface); color: var(--ink); border: 1px solid #214c3d; border-radius: var(--ui-surface-radius); }
 html[data-genesis-theme] .genesis-app .shared-comment-notice-open { display: grid; gap: 12px; width: 100%; min-width: 0; padding: 0; border: 0; background: transparent; color: var(--ink); text-align: left; font: 400 14px/1.5 var(--font-ui); overflow-wrap: anywhere; }
 html[data-genesis-theme] .genesis-app .shared-comment-notice-open:is(:hover,:focus-visible) { background: var(--exp-accent-wash); color: var(--ink); }
 html[data-genesis-theme] .genesis-app .shared-comment-notice-heading { display: flex; align-items: center; gap: 8px; padding-right: 44px; min-height: 44px; }

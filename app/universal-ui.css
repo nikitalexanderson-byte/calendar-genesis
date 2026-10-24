@@ -1,4 +1,6 @@
 /* GENESIS Universal UI: shared structure, theme-owned color and artwork. */
+/* Ordinary surfaces match the advice card even before theme hydration; Oracle's top blocks keep their shapes. */
+:root { --ui-surface-radius: 10px; }
 html[data-genesis-theme] {
   --ui-radius: 12px;
   --ui-control-height: 44px;
@@ -148,7 +150,7 @@ html[data-genesis-theme] .genesis-app .all-task-meta .all-task-category { color:
 html[data-genesis-theme] .genesis-app .all-task-priority { font-size: 12px; }
 html[data-genesis-theme] .genesis-app .project-row { grid-template-columns: minmax(0, 1fr) repeat(3, 44px); align-items: start; gap: 8px; }
 html[data-genesis-theme] .genesis-app .project-row:has(.project-transfer) { grid-template-columns: minmax(0, 1fr) repeat(4, 44px); }
-html[data-genesis-theme] .genesis-app .project-row > :is(.project-status, .project-edit, .project-transfer, .project-delete) { width: 44px; height: 44px; min-width: 44px; min-height: 44px; border-radius: 8px; }
+html[data-genesis-theme] .genesis-app .project-row > :is(.project-status, .project-edit, .project-transfer, .project-delete) { width: 44px; height: 44px; min-width: 44px; min-height: 44px; border-radius: var(--ui-surface-radius); }
 html[data-genesis-theme] .genesis-app .project-open { min-height: 44px; }
 html[data-genesis-theme] .genesis-app .project-open strong { font-size: 16px; line-height: 1.4; white-space: normal; overflow-wrap: anywhere; }
 html[data-genesis-theme] .genesis-app .project-open :is(small, em, p) { color: var(--ink-soft); font-size: 12px; line-height: 1.5; white-space: normal; overflow-wrap: anywhere; }

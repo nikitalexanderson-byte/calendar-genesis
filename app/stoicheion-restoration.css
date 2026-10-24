@@ -3,7 +3,7 @@
   --restoration-accent: var(--gold, #8c672b);
   color: var(--ink); min-width: 0; max-width: 100%;
   background: var(--surface); padding: clamp(20px,3vw,36px); margin-top: 32px;
-  border: 1px solid var(--line); border-radius: 16px; scroll-margin-top: 24px;
+  border: 1px solid var(--line); border-radius: var(--ui-surface-radius); scroll-margin-top: 24px;
   font: 400 15px/1.65 var(--font-ui,Inter,sans-serif);
 }
 .restoration *, .restoration *::before, .restoration *::after { box-sizing: border-box; }
@@ -104,7 +104,7 @@ html[data-genesis-theme] .restoration-backdrop {
 }
 html[data-genesis-theme] .genesis-app .restoration-dialog {
   display: flex; flex-direction: column; width: min(1200px,100%); max-width: 1200px; max-height: calc(100dvh - 48px);
-  margin: 0; padding: 0; border: 0; border-radius: 16px; overflow: hidden;
+  margin: 0; padding: 0; border: 0; border-radius: var(--ui-surface-radius); overflow: hidden;
   box-shadow: 0 24px 72px #0005; background: var(--surface);
 }
 .restoration-dialog-heading { flex: none; display: flex; align-items: flex-start; gap: 24px; padding: 28px 32px 24px; border-bottom: 1px solid var(--line); }
@@ -197,7 +197,7 @@ html[data-genesis-theme] :is(.genesis-app,.stoicheion-letter-dialog) .stoicheion
 }
 @media (max-width: 540px) {
   html[data-genesis-theme] .restoration-backdrop { padding: 8px; align-items: stretch; }
-  html[data-genesis-theme] .genesis-app .restoration-dialog { max-height: calc(100dvh - 16px); border-radius: 12px; }
+  html[data-genesis-theme] .genesis-app .restoration-dialog { max-height: calc(100dvh - 16px); border-radius: var(--ui-surface-radius); }
   .restoration { padding: 20px; margin-top: 24px; }
   .restoration-dialog-heading { padding: 20px 16px; gap: 12px; }
   .restoration-dialog-heading h2 { font-size: 27px; }

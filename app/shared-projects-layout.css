@@ -7,7 +7,7 @@
   margin: 0;
   padding: .7rem .85rem;
   border: 1px solid var(--line, #d4c9b0);
-  border-radius: .75rem;
+  border-radius: var(--ui-surface-radius);
   background: var(--surface, #fffdf7);
 }
 .shared-projects-pending p { margin: .35rem 0 0; overflow-wrap: anywhere; }
@@ -38,7 +38,7 @@
   padding: 1.25rem;
   overflow: auto;
   border: 1px solid var(--line, #d4c9b0);
-  border-radius: 1rem;
+  border-radius: var(--ui-surface-radius);
   background: var(--surface, #fffdf7);
   color: inherit;
   box-shadow: 0 1.25rem 3rem #0005;
@@ -120,7 +120,7 @@
   min-width: 0;
   padding: .85rem;
   border: 1px solid var(--line, #d4c9b0);
-  border-radius: 1rem;
+  border-radius: var(--ui-surface-radius);
   background: linear-gradient(145deg, rgba(255, 253, 248, .9), rgba(238, 233, 220, .72));
 }
 
@@ -184,7 +184,7 @@ html[data-genesis-theme="experimental-dark"] .shared-projects-inbox-card {
 .shared-projects-sidebar {
   padding: .95rem;
   border: 1px solid var(--line, #d4c9b0);
-  border-radius: 1rem;
+  border-radius: var(--ui-surface-radius);
   background: var(--surface, #fffdf7);
 }
 
@@ -217,7 +217,7 @@ html[data-genesis-theme="experimental-dark"] .shared-projects-inbox-card {
   min-height: 2.75rem;
   padding: .65rem .75rem;
   border: 1px solid transparent;
-  border-radius: .7rem;
+  border-radius: var(--ui-surface-radius);
   background: transparent;
   color: inherit;
   text-align: left;
@@ -282,7 +282,7 @@ html[data-genesis-theme="experimental-dark"] .shared-projects-inbox-card {
   min-width: 0;
   padding: 1rem 1.15rem;
   border: 1px solid var(--line, #d4c9b0);
-  border-radius: 1rem;
+  border-radius: var(--ui-surface-radius);
   background: var(--surface, #fffdf7);
 }
 
@@ -313,7 +313,7 @@ html[data-genesis-theme="experimental-dark"] .shared-projects-inbox-card {
 .shared-projects-management {
   padding: 0 .9rem;
   border: 1px solid var(--line, #d4c9b0);
-  border-radius: .85rem;
+  border-radius: var(--ui-surface-radius);
   background: var(--surface, #fffdf7);
 }
 
@@ -344,7 +344,7 @@ html[data-genesis-theme="experimental-dark"] .shared-projects-inbox-card {
   min-width: 0;
   padding: .95rem;
   border: 1px solid var(--line, #d4c9b0);
-  border-radius: 1rem;
+  border-radius: var(--ui-surface-radius);
   background: var(--surface, #fffdf7);
 }
 
@@ -484,7 +484,7 @@ html[data-genesis-theme="experimental-dark"] .shared-projects-inbox-card {
   min-height: 14rem;
   padding: 1.4rem;
   border: 1px dashed var(--line, #d4c9b0);
-  border-radius: 1rem;
+  border-radius: var(--ui-surface-radius);
 }
 
 .shared-projects-empty h2 { margin: 0; font-size: 1.25rem; }
@@ -536,7 +536,7 @@ html[data-genesis-theme="experimental-dark"] .shared-projects-inbox-card {
   gap: 0.7rem;
   padding: clamp(1rem, 3vw, 1.5rem);
   border: 1px solid var(--border, rgba(121, 150, 134, 0.36));
-  border-radius: 1.25rem;
+  border-radius: var(--ui-surface-radius);
   background: var(--surface, rgba(24, 48, 47, 0.58));
 }
 .shared-projects-google h3,

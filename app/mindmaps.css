@@ -22,7 +22,7 @@
 .mindmap-node-search input:focus::placeholder { color: transparent; }
 .mindmap-save-state { font-size: 13px; color: var(--ink-soft); padding: 12px 0; max-width: 240px; }
 .mindmap-catalog { display: grid; gap: 16px; }
-.mindmap-catalog article { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 24px; min-height: 128px; padding: 20px; border: 1px solid var(--exp-border); border-radius: 12px; background: var(--surface); }
+.mindmap-catalog article { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 24px; min-height: 128px; padding: 20px; border: 1px solid var(--exp-border); border-radius: var(--ui-surface-radius); background: var(--surface); }
 .mindmap-catalog article:last-child { border-bottom: 1px solid var(--exp-border); }
 .mindmap-catalog .mindmap-icon-action[aria-pressed="true"] { color: var(--surface); border-color: var(--ui-accent); background: var(--ui-accent); }
 .mindmap-catalog .mindmap-icon-action[aria-pressed="true"]:hover { background: color-mix(in srgb, var(--ui-accent) 88%, var(--ink)); }
@@ -34,7 +34,7 @@
 .mindmap-catalog-open strong { font: 400 24px/1.3 var(--font-heading); }
 .mindmap-catalog-open span { font-size: 13px; color: var(--ink-soft); }
 .mindmap-empty { padding: 40px 0; }
-.mindmap-catalog-controls { display: grid; grid-template-columns: auto minmax(180px,2fr) minmax(140px,1fr) auto auto; align-items: end; padding: 20px; border: 1px solid var(--exp-border); border-radius: 12px; background: color-mix(in srgb, var(--ui-accent, var(--gold)) 5%, var(--surface)); margin-bottom: 24px; }
+.mindmap-catalog-controls { display: grid; grid-template-columns: auto minmax(180px,2fr) minmax(140px,1fr) auto auto; align-items: end; padding: 20px; border: 1px solid var(--exp-border); border-radius: var(--ui-surface-radius); background: color-mix(in srgb, var(--ui-accent, var(--gold)) 5%, var(--surface)); margin-bottom: 24px; }
 @media (min-width: 768px) and (max-width: 1200px) { .mindmap-catalog-controls { grid-template-columns: minmax(0,2fr) minmax(0,1fr) auto; } .mindmap-create-map { grid-column: 1; } .mindmap-catalog-controls .mindmap-search { grid-column: 1; } }
 .genesis-app .mindmaps .mindmap-icon-action, .genesis-app .mindmap-dialog .mindmap-icon-action { position: relative; display: inline-flex; flex: 0 0 44px; align-items: center; justify-content: center; width: 44px; height: 44px; min-width: 44px; padding: 10px; }
 .mindmap-icon-action > svg { width: 22px; height: 22px; }
@@ -52,9 +52,9 @@ html[data-genesis-theme] .genesis-app .mindmap-node-actions > .icon-action-butto
 .mindmap-export-group { display:grid; gap:8px; }
 .mindmap-export-formats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
 .mindmap-export-formats>button { min-width:0; min-height:44px; padding:8px 4px; font-size:13px; }
-.mindmap-more-panel { display: grid; gap: 16px; min-width: 0; margin: 0 0 16px; padding: 16px; border: 1px solid var(--exp-border); border-radius: 12px; background: var(--surface); }
+.mindmap-more-panel { display: grid; gap: 16px; min-width: 0; margin: 0 0 16px; padding: 16px; border: 1px solid var(--exp-border); border-radius: var(--ui-surface-radius); background: var(--surface); }
 .mindmap-editor-back { margin-left: auto; order: 1; }
-.mindmap-context-menu { position: fixed; z-index: 1100; display: grid; min-width: min(280px,calc(100vw - 16px)); max-width:calc(100vw - 16px); max-height:calc(100dvh - 16px); overflow:auto; padding: 6px; border: 1px solid var(--exp-border); border-radius: 12px; background: var(--surface); box-shadow: 0 8px 24px #0002; }
+.mindmap-context-menu { position: fixed; z-index: 1100; display: grid; min-width: min(280px,calc(100vw - 16px)); max-width:calc(100vw - 16px); max-height:calc(100dvh - 16px); overflow:auto; padding: 6px; border: 1px solid var(--exp-border); border-radius: var(--ui-surface-radius); background: var(--surface); box-shadow: 0 8px 24px #0002; }
 .mindmap-context-menu button { display: flex; align-items: center; gap: 8px; text-align: start; min-height:44px; padding:8px 12px; background:transparent; color:var(--ink); border-radius:8px; }
 .mindmap-context-menu button:is(:hover,:focus-visible):not(:disabled) { background:color-mix(in srgb,var(--ui-accent) 15%,var(--surface)); color:var(--ink); }
 .mindmap-context-menu hr { width:100%; margin:4px 0; border:0; border-top:1px solid var(--line); }
@@ -104,7 +104,7 @@ html[data-genesis-theme] .genesis-app .mindmap-node-actions > .icon-action-butto
 .mindmap-tags-editor .mindmap-tag button { display: grid; place-items: center; width: 44px; min-width: 44px; height: 44px; min-height: 44px; margin: 0; padding: 10px; border: 0; border-radius: 999px; background: transparent; }
 .mindmap-tag button svg { width: 18px; height: 18px; }
 .mindmap-row-tags { color: var(--ui-accent) !important; }
-.mindmap-structure { list-style: none; padding: 0; margin: 0; border: 1px solid var(--exp-border); border-radius: 12px; background: var(--surface); }
+.mindmap-structure { list-style: none; padding: 0; margin: 0; border: 1px solid var(--exp-border); border-radius: var(--ui-surface-radius); background: var(--surface); }
 .mindmap-structure li { display: flex; align-items: center; gap: 4px; border-bottom: 1px solid var(--exp-border); padding: 8px; }
 .mindmap-structure li { content-visibility: auto; contain-intrinsic-size: auto 100px; }
 .mindmap-collapse[aria-expanded="true"] svg { transform: rotate(90deg); }
@@ -194,7 +194,7 @@ html[data-genesis-theme] .genesis-app .mindmaps .mindmap-inline-title input { mi
 .mindmap-graph-node .mindmap-node-tag { flex: 0 1 auto; min-width: 0; padding: 1px 5px; overflow: hidden; border-radius: 5px; background: color-mix(in srgb, var(--gold) 18%, transparent); color: inherit; font: 600 10px/1.4 var(--font-ui); white-space: nowrap; text-overflow: ellipsis; }
 .mindmap-graph-node strong { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font: 500 14px/1.5 var(--font-ui); }
 .mindmaps summary, .mindmap-dialog summary { min-height: 44px; padding: 12px; cursor: pointer; }
-.mindmap-error { border: 1px solid var(--terracotta, var(--gold)); padding: 16px; margin-bottom: 20px; background: var(--surface); border-radius: 12px; }
+.mindmap-error { border: 1px solid var(--terracotta, var(--gold)); padding: 16px; margin-bottom: 20px; background: var(--surface); border-radius: var(--ui-surface-radius); }
 .mindmap-search-results, .mindmap-picker { display: grid; gap: 8px; margin-bottom: 16px; }
 .mindmap-picker button { text-align: start; display: flex; flex-direction: column; gap: 8px; }
 .mindmap-picker span { color: var(--ink-soft); font-size: 13px; }

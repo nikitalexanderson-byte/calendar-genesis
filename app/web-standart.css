@@ -66,7 +66,7 @@ html[data-genesis-theme] .genesis-app .project-complete-action:is([aria-pressed=
 html[data-genesis-theme] .genesis-app .project-complete-action svg.project-restore-icon path { stroke: var(--ui-accent); stroke-dasharray: none; stroke-dashoffset: 0; }
 html[data-genesis-theme] .genesis-app .project-complete-action.is-completing { animation: project-completed .45s ease; }
 @keyframes project-completed { 50% { transform: scale(1.13); background: color-mix(in srgb, var(--ui-accent) 18%, var(--surface)); } }
-.action-notice { position: fixed; z-index: 1000; bottom: calc(80px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; width: max-content; max-width: calc(100vw - 32px); padding: 14px 20px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--ink); box-shadow: 0 8px 30px #0003; font: 600 16px/1.4 var(--font-ui); }
+.action-notice { position: fixed; z-index: 1000; bottom: calc(80px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; width: max-content; max-width: calc(100vw - 32px); padding: 14px 20px; border: 1px solid var(--line); border-radius: var(--ui-surface-radius); background: var(--surface); color: var(--ink); box-shadow: 0 8px 30px #0003; font: 600 16px/1.4 var(--font-ui); }
 .action-notice > span { color: var(--ui-accent); }
 html[data-genesis-theme] .genesis-app .project-tree-workspace.is-completed-view { display: block; }
 html[data-genesis-theme] .genesis-app .project-tree-workspace.is-completed-view > .project-tree-main { width: 100%; max-width: none; grid-column: 1 / -1; }
@@ -84,14 +84,14 @@ html[data-genesis-theme] .genesis-app .category-strip .quick-category-form { min
 html[data-genesis-theme] .genesis-app .category-strip > article.editing { grid-column: 1 / -1; display: block; }
 html[data-genesis-theme] .genesis-app .category-edit-form { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px 44px; gap: 8px; align-items: center; }
 html[data-genesis-theme] .genesis-app .category-edit-form :is(input, button) { min-width: 0; width: 100%; min-height: 44px; }
-html[data-genesis-theme] .genesis-app .inbox-card { display: block; padding: 20px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+html[data-genesis-theme] .genesis-app .inbox-card { display: block; padding: 20px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: var(--ui-surface-radius); }
 html[data-genesis-theme] .genesis-app .inbox-card h2 { margin: 7px 0 6px; }
 html[data-genesis-theme] .genesis-app .inbox-card > p { margin: 0 0 12px; color: var(--ink-soft); line-height: 1.55; }
 html[data-genesis-theme] .genesis-app .inbox-card > strong { display: block; margin-bottom: 10px; color: var(--terracotta); font: 400 42px/1.2 var(--font-heading); }
 html[data-genesis-theme] .genesis-app .inbox-card .shared-projects-inbox-create { border: 1px solid var(--line); text-align: center; }
 
 html[data-genesis-theme] .genesis-app .shared-projects-shell[hidden] { display: none; }
-html[data-genesis-theme] .genesis-app .shared-space-entry { padding: clamp(20px, 4vw, 40px); border: 1px solid var(--line); border-radius: 20px; background: var(--surface); }
+html[data-genesis-theme] .genesis-app .shared-space-entry { padding: clamp(20px, 4vw, 40px); border: 1px solid var(--line); border-radius: var(--ui-surface-radius); background: var(--surface); }
 .shared-space-entry-actions, .shared-context-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .shared-space-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 12px; margin-bottom: 24px; }
 html[data-genesis-theme] .genesis-app .shared-space-list > button { display: grid; grid-template-columns: 1fr 24px; gap: 6px 16px; padding: 24px; border: 1px solid var(--line); border-radius: 14px; color: var(--ink); background: var(--paper); text-align: left; }
@@ -113,7 +113,7 @@ html[data-genesis-theme] .genesis-app .shared-space-list > button { display: gri
 .shared-board-container strong { font-size: 18px; overflow-wrap: anywhere; }
 .shared-board-add-containers { display: flex; flex-wrap: wrap; gap: 8px; margin-block: 12px; }
 .shared-board-add-containers button { min-height: 44px; border: 1px dashed var(--line); border-radius: 10px; padding: 8px 12px; }
-html[data-genesis-theme] .genesis-app .shared-projects-modal { width: min(640px, calc(100vw - 24px)); max-height: calc(100dvh - 32px); padding: 24px; border-radius: 20px; background: var(--paper); color: var(--ink); border: 1px solid var(--line); }
+html[data-genesis-theme] .genesis-app .shared-projects-modal { width: min(640px, calc(100vw - 24px)); max-height: calc(100dvh - 32px); padding: 24px; border-radius: var(--ui-surface-radius); background: var(--paper); color: var(--ink); border: 1px solid var(--line); }
 .shared-projects-modal > header { position: static; padding: 0; background: transparent; display: flex; justify-content: space-between; align-items: start; gap: 16px; }
 .shared-projects-modal header h2 { margin: 0; }
 .shared-projects-modal form { display: flex; flex-direction: column; gap: 18px; }
@@ -172,7 +172,7 @@ html[data-genesis-theme] .genesis-app .task-tags i { font: 500 13px/1.4 var(--fo
 html[data-genesis-theme] .genesis-app .category-actions { opacity: 1; }
 html[data-genesis-theme] .genesis-app .shared-projects-context > div:first-child:has(.project-complete-action) { grid-template-columns: minmax(0, 1fr) auto; }
 .mood-modal-backdrop { z-index: 950; }
-.mood-modal { position: relative; width: min(660px, calc(100vw - 24px)); max-height: calc(100dvh - 32px); overflow-y: auto; padding: 24px; border: 1px solid var(--line); border-radius: 20px; background: var(--paper); color: var(--ink); }
+.mood-modal { position: relative; width: min(660px, calc(100vw - 24px)); max-height: calc(100dvh - 32px); overflow-y: auto; padding: 24px; border: 1px solid var(--line); border-radius: var(--ui-surface-radius); background: var(--paper); color: var(--ink); }
 .genesis-app .mood-modal > header .modal-close { position: static; }
 .mood-modal > header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .mood-modal h2 { margin: 0; }
@@ -244,7 +244,7 @@ html[data-genesis-theme] .genesis-app .today-calendar-choice { margin-inline: 0;
 }
 
 .project-completion-backdrop { z-index: 980; }
-.project-completion-dialog { width: min(420px, calc(100vw - 32px)); padding: 24px; color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 18px 70px #0004; }
+.project-completion-dialog { width: min(420px, calc(100vw - 32px)); padding: 24px; color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: var(--ui-surface-radius); box-shadow: 0 18px 70px #0004; }
 .project-completion-dialog h2 { margin: 0; font-size: 23px; }
 .project-completion-dialog p { overflow-wrap: anywhere; color: var(--ink-soft); }
 .project-completion-dialog > div { display: flex; justify-content: flex-end; gap: 12px; }
@@ -302,13 +302,13 @@ html[data-genesis-theme] .genesis-app .shared-projects-task { grid-template-colu
 html[data-genesis-theme] .genesis-app .shared-board-add-containers button:first-child { color: var(--ink); background: color-mix(in srgb, #b2914a 18%, var(--paper)); border-color: #b2914a; }
 html[data-genesis-theme] .genesis-app .shared-board-add-containers button:nth-child(2) { color: var(--ink); background: color-mix(in srgb, #8573ab 18%, var(--paper)); border-color: #8573ab; }
 html[data-genesis-theme] .genesis-app .shared-projects-column-add { color: var(--ink); background: color-mix(in srgb, #2d8682 18%, var(--paper)); border-color: #2d8682; }
-html[data-genesis-theme] .genesis-app .shared-projects-inbox-card { padding: 24px; border-radius: 22px; background: var(--paper); }
+html[data-genesis-theme] .genesis-app .shared-projects-inbox-card { padding: 24px; border-radius: var(--ui-surface-radius); background: var(--paper); }
 html[data-genesis-theme] .genesis-app .shared-inbox-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 html[data-genesis-theme] .genesis-app .shared-inbox-header h2 { margin: 0; font: 500 20px/1.3 var(--font-heading); }
 html[data-genesis-theme] .genesis-app .shared-projects-inbox-card > p { font: 400 13px/1.5 var(--font-ui); color: var(--ink-soft); }
 html[data-genesis-theme] .genesis-app .shared-inbox-create { display: flex; align-items: center; justify-content: center; gap: 8px; }
 .shared-projects-inbox-items { max-height: 390px; overflow-y: auto; }
-.shared-inbox-task { padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.shared-inbox-task { padding: 14px; border: 1px solid var(--line); border-radius: var(--ui-surface-radius); background: var(--surface); }
 html[data-genesis-theme] .genesis-app .shared-inbox-task > button { display: grid; gap: 8px; width: 100%; color: var(--ink); text-align: left; background: transparent; border: 0; box-shadow: none; }
 html[data-genesis-theme] .genesis-app .shared-inbox-task strong { font: 500 14px/1.5 var(--font-ui); }
 html[data-genesis-theme] .genesis-app .shared-inbox-task :is(small, em) { color: var(--ink-soft); font: 400 12px/1.5 var(--font-ui); }
@@ -322,14 +322,14 @@ html[data-genesis-theme] .genesis-app .shared-projects-modal .shared-projects-cl
 html[data-genesis-theme] .genesis-app .shared-projects-modal :is(label, button, summary) { font: 500 13px/1.5 var(--font-ui); }
 html[data-genesis-theme] .genesis-app .shared-projects-modal :is(input, textarea, select) { font: 400 14px/1.5 var(--font-ui); }
 .shared-projects-modal :is(p, .shared-task-destination) { margin: 0; }
-.shared-task-destination { padding: 12px; border: 1px solid var(--line); border-radius: 10px; color: var(--ink-soft); background: var(--surface); }
+.shared-task-destination { padding: 12px; border: 1px solid var(--line); border-radius: var(--ui-surface-radius); color: var(--ink-soft); background: var(--surface); }
 .shared-task-modal > form { margin-block: 16px; }
 .shared-task-modal > label { margin-block: 16px; }
 .shared-task-discussion { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
 .shared-task-discussion summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; }
 .shared-task-discussion form { margin-top: 12px; }
 .shared-task-feedback { margin-bottom: 12px !important; color: var(--ink-soft); }
-.shared-space-card { position: relative; display: grid; gap: 12px; padding: 18px; border: 1px solid var(--line); border-radius: 18px; background: var(--paper); }
+.shared-space-card { position: relative; display: grid; gap: 12px; padding: 18px; border: 1px solid var(--line); border-radius: var(--ui-surface-radius); background: var(--paper); }
 html[data-genesis-theme] .genesis-app .shared-space-card > .shared-space-open { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 24px; gap: 12px; padding: 10px; text-align: left; color: var(--ink); background: transparent; border: 0; }
 .shared-space-card > .shared-space-open strong { grid-column: 1; overflow-wrap: anywhere; }
 .shared-space-card > .shared-space-open span { grid-column: 1; }
@@ -352,10 +352,10 @@ html[data-genesis-theme] .genesis-app .project-transfer-consent > span { min-wid
 .calendar-mode-icon { display: inline-block; flex: none; vertical-align: middle; }
 .genesis-app button.habit-empty-state { width: 100%; text-align: left; font: inherit; }
 html[data-genesis-theme] .genesis-app .habit-editor-backdrop { align-items: center; padding: 20px; }
-html[data-genesis-theme] .genesis-app .habit-editor { width: min(800px, 100%); max-height: calc(100dvh - 40px); overflow-y: auto; gap: 16px; padding: 20px; border-radius: 16px; color: var(--ink); background: var(--surface); }
+html[data-genesis-theme] .genesis-app .habit-editor { width: min(800px, 100%); max-height: calc(100dvh - 40px); overflow-y: auto; gap: 16px; padding: 20px; border-radius: var(--ui-surface-radius); color: var(--ink); background: var(--surface); }
 html[data-genesis-theme] .genesis-app .habit-editor > header { align-items: center; }
 html[data-genesis-theme] .genesis-app .habit-editor h2 { margin: 0; font: 500 24px/1.3 var(--font-heading); }
-html[data-genesis-theme] .genesis-app .habit-editor > header .modal-close { position: static; flex: none; width: 44px; height: 44px; min-height: 44px; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); }
+html[data-genesis-theme] .genesis-app .habit-editor > header .modal-close { position: static; flex: none; width: 44px; height: 44px; min-height: 44px; padding: 10px; border-radius: var(--ui-surface-radius); border: 1px solid var(--line); background: var(--paper); color: var(--ink); }
 html[data-genesis-theme] .genesis-app .habit-editor :is(label, legend, small, em) { font: 400 13px/1.5 var(--font-ui); letter-spacing: 0; text-transform: none; }
 html[data-genesis-theme] .genesis-app .habit-editor :is(p, strong) { font-family: var(--font-ui); font-size: 14px; line-height: 1.5; }
 html[data-genesis-theme] .genesis-app .habit-editor :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]), select, textarea) { min-height: 44px; font: 400 14px/1.5 var(--font-ui); }
@@ -411,9 +411,9 @@ html[data-genesis-theme^="standart"] .display-calendar-choice .calendar-mode-ico
 }
 .shared-space-settings-form { display: grid; gap: 24px; }
 .shared-space-settings-form form, .space-invitation-fields, .space-members-settings { display: grid; gap: 16px; }
-.space-member-settings { display: grid; min-width: 0; gap: 12px; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.space-member-settings { display: grid; min-width: 0; gap: 12px; padding: 16px; border: 1px solid var(--line); border-radius: var(--ui-surface-radius); background: var(--surface); }
 .space-member-settings :is(strong, small) { overflow-wrap: anywhere; }
-.space-permission-checks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; }
+.space-permission-checks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 14px; border: 1px solid var(--line); border-radius: var(--ui-surface-radius); }
 .space-permission-checks label { display: flex !important; flex-direction: row !important; align-items: flex-start; gap: 8px; }
 html[data-genesis-theme] .space-permission-checks input[type=checkbox] { flex: 0 0 auto; width: 20px; height: 20px; min-height: 0; padding: 0; accent-color: var(--teal); }
 .space-delete-settings { padding-top: 20px; border-top: 1px solid var(--line); }

@@ -8,7 +8,7 @@ html[data-genesis-theme] .genesis-app .habit-reminder-frequency label { display:
 html[data-genesis-theme] .genesis-app .habit-reminder-frequency select { min-width:0; width:100%; min-height:44px; font-size:16px; color:var(--ink); background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:8px 12px; accent-color:var(--ui-accent); }
 html[data-genesis-theme] .genesis-app .habit-background-settings :is(button,select):focus-visible { outline:2px solid var(--ui-accent); outline-offset:3px; }
 html[data-genesis-theme] .genesis-app .habit-background-settings :disabled { opacity:.6; }
-html[data-genesis-theme] .genesis-app .habit-reminder-status { margin:12px 0; padding:16px; color:var(--ink); background:var(--surface); border:1px solid var(--line); border-radius:12px; }
+html[data-genesis-theme] .genesis-app .habit-reminder-status { margin:12px 0; padding:16px; color:var(--ink); background:var(--surface); border:1px solid var(--line); border-radius: var(--ui-surface-radius); }
 html[data-genesis-theme] .genesis-app .habit-reminder-status p { margin:0 0 12px; }
 html[data-genesis-theme] .genesis-app .habit-reminder-input { margin-block:16px; max-width:640px; }
 html[data-genesis-theme] .genesis-app .habit-reminder-input h3 { margin:0 0 8px; overflow-wrap:anywhere; }
