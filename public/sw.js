@@ -65,6 +65,7 @@ const HERO_RANK_BANNER_ART = [
 ];
 const CALENDAR_ART = [
   "./calendar-art/saturn-cronus.webp",
+  "./calendar-art/genesis-sacred-calendar-v8.svg",
 ];
 const HERO_PATH_ICON_FILES = [
   "01_tantal",

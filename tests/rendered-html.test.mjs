@@ -3268,10 +3268,11 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(styles, /\.mini-pyata-days/);
   assert.match(calendar, /sacredYearDetailsOpen/);
   assert.match(calendar, /className="year-details-button"/);
-  assert.match(calendar, /Почему наш год устроен именно так/);
-  assert.match(calendar, /Пентада: 5 стихий и геометрия восхождения/);
-  assert.match(calendar, /Гексада: 6 Пят и Куб Событий/);
-  assert.match(calendar, /aria-modal="true" aria-labelledby="sacred-year-details-title"/);
+  const yearDetails = await readFile(new URL("../app/SacredYearDetailsDialog.tsx", import.meta.url), "utf8");
+  assert.match(yearDetails, /Почему наш год устроен именно так/);
+  assert.match(yearDetails, /Пентада: 5 стихий и геометрия восхождения/);
+  assert.match(yearDetails, /Гексада: 6 Пят и Куб Событий/);
+  assert.match(yearDetails, /aria-modal="true" aria-labelledby="sacred-year-details-title"/);
   assert.match(styles, /\.year-details-button/);
   assert.match(styles, /\.sacred-year-details-modal/);
   assert.match(styles, /\.sacred-year-source-grid/);

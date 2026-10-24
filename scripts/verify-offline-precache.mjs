@@ -31,6 +31,7 @@ const REQUIRED_VISUAL_ASSETS = [
   ...Array.from({ length: 13 }, (_, index) => `lunar-month-art-v1/month-${String(index + 1).padStart(2, "0")}.webp`),
   "habit-ranks/heroic-ranks.webp",
   "calendar-art/saturn-cronus.webp",
+  "calendar-art/genesis-sacred-calendar-v8.svg",
   "achievement-art/first-step.png",
   "achievement-art/three-day-rhythm.png",
   "achievement-art/seven-sunrises.png",

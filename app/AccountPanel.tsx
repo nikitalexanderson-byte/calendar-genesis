@@ -629,13 +629,8 @@ export function AccountPanel({ user, onOpenPhysis, guideSharedProjects = false, 
             </div>
             <label className="sidebar-auto-collapse-setting">
               <span>{user.language === "en" ? "Automatically collapse the sidebar" : "Автоматически сворачивать боковую панель"}</span>
-              <select value={visibility.sidebarAutoCollapseSeconds} disabled={preferenceBusy}
-                onChange={event => void updateVisibility({ ...visibility, sidebarAutoCollapseSeconds: Number(event.target.value) })}>
-                {[0, 15, 30, 60, 120, 300].map(seconds => <option key={seconds} value={seconds}>
-                  {seconds === 0 ? (user.language === "en" ? "Disabled" : "Выключено")
-                    : user.language === "en" ? `After ${seconds} seconds` : `Через ${seconds} сек.`}
-                </option>)}
-              </select>
+              <input type="checkbox" checked={visibility.sidebarAutoCollapseSeconds > 0} disabled={preferenceBusy}
+                onChange={event => void updateVisibility({ ...visibility, sidebarAutoCollapseSeconds: event.target.checked ? 15 : 0 })} />
             </label>
             <p className="sidebar-auto-collapse-hint">{translateText("Панель скрывается целиком после ухода указателя. Наведите на полосу у левого края или выберите её с клавиатуры, чтобы открыть меню поверх страницы. Ширина меняется только перетаскиванием границы.",user.language)}</p>
           <details className="appearance-menu-details">

@@ -73,6 +73,7 @@ const [catalogText, curatedText, i18nText] = await Promise.all([
 const translations = {
   // Web-only Physis ships RU/EN; this catalog is not exported to the native client.
   ...JSON.parse(await readFile(path.join(APP_DIR, "physis/copy.en.json"), "utf8")),
+  ...JSON.parse(await readFile(path.join(APP_DIR, "solar-calendar-copy.en.json"), "utf8")),
   ...JSON.parse(catalogText),
   ...JSON.parse(curatedText),
   ...JSON.parse(await readFile(path.join(APP_DIR, "ui-translations/en.json"), "utf8")),
