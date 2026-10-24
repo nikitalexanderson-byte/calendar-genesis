@@ -139,7 +139,8 @@ function genesisSharedConvertChecklistItem(string $userId, string $projectId, st
     try {
         genesisSharedProjectAccess($projectId, $userId, 'write');
         $requestId = genesisSharedRequestId($input);
-        $receipt = genesisSharedMutationReceipt($db, $userId, $requestId, 'checklist.convert', $taskId);
+        $payloadHash = genesisSharedMutationPayloadHash('checklist.convert',$input,['projectId'=>$projectId]);
+        $receipt = genesisSharedMutationReceipt($db, $userId, $requestId, 'checklist.convert', $taskId, $payloadHash);
         if ($receipt !== null) { $db->commit(); return $receipt; }
         $q = $db->prepare('SELECT * FROM shared_tasks_read WHERE id=? AND project_id=?'); $q->execute([$taskId, $projectId]); $task = $q->fetch();
         if (!$task) throw new GenesisSharedAccessException();
@@ -149,7 +150,9 @@ function genesisSharedConvertChecklistItem(string $userId, string $projectId, st
             // A different request retry of an already converted item also returns the same task.
             if ($item['linkedTaskId'] ?? null) {
                 $result = genesisSharedGetTask($userId, $projectId, $item['linkedTaskId']);
-                $db->commit(); return ['taskId' => $result['id'], 'projectId' => $projectId];
+                $response = ['taskId' => $result['id'], 'projectId' => $projectId];
+                genesisSharedSaveMutationReceipt($db,$userId,$requestId,'checklist.convert',$taskId,$response,$payloadHash);
+                $db->commit(); return $response;
             }
             if ((int)$task['revision'] !== ($input['expectedRevision'] ?? null)) throw new GenesisSharedAccessException('SHARED_TASK_CONFLICT', 409);
             if ($task['completed_at'] !== null) throw new GenesisSharedAccessException('TASK_PARENT_COMPLETED', 409);
@@ -163,7 +166,7 @@ function genesisSharedConvertChecklistItem(string $userId, string $projectId, st
                 ->execute([json_encode($lists, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), genesisNow(), $userId, $taskId]);
             genesisSharedAudit($projectId, $userId, 'task.updated', $taskId, ['changes'=>['checklistConversion'=>['from'=>$input['itemId'],'to'=>$created['id']]]]);
             $result = ['taskId' => $created['id'], 'projectId' => $projectId];
-            genesisSharedSaveMutationReceipt($db, $userId, $requestId, 'checklist.convert', $taskId, $result);
+            genesisSharedSaveMutationReceipt($db, $userId, $requestId, 'checklist.convert', $taskId, $result, $payloadHash);
             $db->commit(); return $result;
         }
         throw new GenesisSharedAccessException();

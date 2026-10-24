@@ -160,6 +160,9 @@ try {
         'A retried private transfer created or overwrote a shared task.');
     sharedExpect(count(genesisSharedProjectSnapshot($a, $otherProject['id'])['tasks']) === 1,
         'A retried private transfer duplicated the task.');
+    $transferReceipt=['sourceTaskId'=>'private-task-1','title'=>'Transfer retry','statusId'=>$otherSnapshot['statuses'][0]['id'],'requestId'=>genesisUuid()];
+    sharedExpect(genesisSharedTask($a,$otherProject['id'],$transferReceipt)['id']===$transferred['id'],'Existing transfer lost its result');
+    sharedReject(static fn()=>genesisSharedTask($a,$otherProject['id'],[...$transferReceipt,'sourceTaskId'=>'another-private-task']),409);
     sharedReject(static fn() => genesisSharedTask($a, $project['id'], [
         'sourceTaskId' => 'private-task-1', 'title' => 'Wrong destination',
         'statusId' => $snapshot['statuses'][0]['id'],
@@ -250,6 +253,7 @@ try {
 
     sharedExpect(genesisSharedTask($a, $project['id'], $createInput)['id'] === $task['id'],
         'A retried team task created a duplicate.');
+    sharedReject(static fn() => genesisSharedTask($a,$project['id'],[...$createInput,'title'=>'Different content with the same request']),409);
     sharedReject(static fn() => genesisSharedTask($a, $otherProject['id'], [
         'title' => 'Wrong scope', 'statusId' => $otherSnapshot['statuses'][0]['id'],
         'requestId' => $createRequest,
@@ -308,6 +312,7 @@ try {
     $updated = genesisSharedTask($b, $project['id'], $updateInput, $task['id']);
     sharedExpect(genesisSharedTask($b, $project['id'], $updateInput, $task['id'])['revision'] === 2,
         'A retried team task edit advanced the revision twice.');
+    sharedReject(static fn() => genesisSharedTask($b,$project['id'],[...$updateInput,'priority'=>3],$task['id']),409);
     sharedExpect($updated['revision'] === 2, 'Task revision did not advance.');
     sharedExpect($updated['tags'] === ['Запуск'], 'An older client edit dropped task tags.');
     $done = genesisSharedTask($b, $project['id'], [
@@ -321,6 +326,7 @@ try {
     sharedExpect($memberList['title'] === 'Мой список', 'A project member cannot create a task list.');
     sharedExpect(genesisSharedCreateStatus($b, $project['id'], $listInput)['id'] === $memberList['id'],
         'A retried shared task list creation made a duplicate list.');
+    sharedReject(static fn() => genesisSharedCreateStatus($b,$project['id'],[...$listInput,'title'=>'Different list with the same request']),409);
     $taskLists = genesisSharedTaskLists($b);
     sharedExpect(count(array_filter($taskLists, static fn(array $list): bool =>
         $list['id'] === $memberList['id'] && $list['projectId'] === $project['id']
@@ -363,6 +369,7 @@ try {
     $moved = genesisSharedMoveTask($a, $project['id'], $task['id'], $moveInput);
     sharedExpect(genesisSharedMoveTask($a, $project['id'], $task['id'], $moveInput)['revision'] === $moved['revision'],
         'A retried board move advanced the revision twice.');
+    sharedReject(static fn()=>genesisSharedMoveTask($a,$project['id'],$task['id'],[...$moveInput,'position'=>1]),409);
     sharedExpect($moved['projectId'] === $otherProject['id']
         && count(genesisSharedProjectSnapshot($a, $project['id'])['tasks']) === 0,
         'Task was not moved atomically to the second project.');

@@ -4,7 +4,7 @@ declare(strict_types=1);
 if (PHP_SAPI !== 'cli-server' || getenv('GENESIS_IMPROVEMENTS_TEST') !== 'isolated' ||
     !in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1'], true)) { http_response_code(403); exit; }
 $suite = getenv('GENESIS_ACCEPTANCE_SUITE') ?: 'c-suite';
-if (!in_array($suite, ['c-suite', 'efg-suite', 'kul-suite'], true)) throw new RuntimeException('Unknown isolated suite');
+if (!in_array($suite, ['c-suite', 'efg-suite', 'kul-suite', 'audit-suite', 'audit-ui-suite'], true)) throw new RuntimeException('Unknown isolated suite');
 $root = dirname(__DIR__, 2); $runtime = $root . '/output/' . $suite . '/https';
 // Check every request, including ordinary API reads, before any database access.
 $configurationPath = $root . '/server/config.php';

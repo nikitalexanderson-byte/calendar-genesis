@@ -3,6 +3,7 @@ import test from "node:test";
 import { calendarModule } from "./helpers/calendar-modules.mjs";
 const habits = calendarModule("app/habits.ts"), practices = calendarModule("app/sacred-practices.ts");
 const goals = calendarModule("app/habit-practice-goal.ts"), rewards = calendarModule("app/rewards.ts");
+const timers = calendarModule("app/habit-timer-workspace.ts"), timerState = calendarModule("app/habit-timer.ts");
 const plain = value => JSON.parse(JSON.stringify(value));
 const start = "2026-10-23", next = "2026-10-24", expired = "2026-10-25";
 function fixture(mode = "profane") {
@@ -116,4 +117,110 @@ test("attaching a practice preserves a regular habit's earlier legitimate Laurel
   assert.equal(rewards.calculateLaurelsBalance(reconciled), 20);
   assert.equal(reconciled.filter(row => row.reason === "habit-deleted-reset").length, 1);
   assert.equal(rewards.calculateLaurelsBalance(goals.reconcilePracticePenalties([habit], [], ledger, expired)), 10);
+});
+
+function measuredFixture() {
+  const { habit, workspace } = fixture();
+  habit.schedule.timezone = "UTC";
+  habit.measurement = { kind: "duration", unit: "min", target: 1000, quickAdd: 1000 };
+  return { habit, workspace };
+}
+const timerCommand = (action, at, extra = {}) => ({ action, at, owner: "practice-device", id: `practice-${action}`,
+  sessionId: "practice-session", ...extra });
+
+test("a measured one-shot practice rejects a second day without appending data or replaying rewards", () => {
+  const { habit, workspace } = measuredFixture();
+  const first = habits.recordHabitMeasurement(workspace, habit, start, 1000, { id: "practice-first" }, start);
+  const before = JSON.stringify(first);
+  assert.throws(() => habits.recordHabitMeasurement(first, habit, next, 1000, { id: "practice-second" }, next),
+    /HABIT_MEASUREMENT_DATE_UNAVAILABLE/);
+  assert.equal(JSON.stringify(first), before);
+  const restored = habits.normalizeHabitWorkspace(plain(first), "profane");
+  assert.equal(restored.habitMeasurements.length, 1);
+  assert.deepEqual(restored.habitCompletions.map(row => row.date), [start]);
+  assert.equal(goals.habitPracticeProgress(habit, restored.habitCompletions, next).status, "completed");
+});
+
+test("a completed practice cannot start a timer the following day", () => {
+  const { habit, workspace } = measuredFixture();
+  const first = habits.recordHabitMeasurement(workspace, habit, start, 1000, { id: "practice-first" }, start);
+  assert.throws(() => timers.applyHabitTimerCommand(first, timerCommand("start", `${next}T01:00:00Z`, {
+    id: "practice-session", habitId: habit.id }), new Date(`${next}T01:00:00Z`)), /HABIT_TIMER_DATE_UNAVAILABLE/);
+  assert.equal(first.habitTimers.length, 0);
+});
+
+test("one timer across midnight previews and records only the first completed practice day", () => {
+  const { habit, workspace } = measuredFixture();
+  const now = new Date(`${next}T01:00:00Z`);
+  let current = timers.applyHabitTimerCommand(workspace, timerCommand("start", `${start}T23:59:00Z`, {
+    id: "practice-session", habitId: habit.id }), now);
+  current = timers.applyHabitTimerCommand(current, timerCommand("finish", `${next}T00:02:00Z`), now);
+  const allocations = timerState.habitTimerSessions(current.habitTimers)[0].state.allocations;
+  assert.deepEqual(allocations.map(row => [row.date, row.value, row.reason]), [
+    [start, 1000, "duration"], [next, 2000, "not-scheduled"],
+  ]);
+  current = timers.applyHabitTimerCommand(current, timerCommand("save", `${next}T00:03:00Z`), now);
+  assert.deepEqual(current.habitMeasurements.map(row => [row.date, row.value]), [[start, 1000]]);
+  assert.deepEqual(current.habitCompletions.map(row => row.date), [start]);
+  assert.equal(timerState.habitTimerReading(timerState.habitTimerSessions(current.habitTimers)[0].state).workMs, 180_000);
+  assert.equal(timers.applyHabitTimerCommand(current, timerCommand("save", `${next}T00:04:00Z`), now), current);
+});
+
+test("a completion synced after a timer finishes blocks the obsolete measured save and preserves elapsed time", () => {
+  const { habit, workspace } = measuredFixture();
+  const now = new Date(`${next}T01:00:00Z`);
+  let current = timers.applyHabitTimerCommand(workspace, timerCommand("start", `${next}T00:01:00Z`, {
+    id: "practice-session", habitId: habit.id }), now);
+  current = timers.applyHabitTimerCommand(current, timerCommand("finish", `${next}T00:02:00Z`), now);
+  const first = habits.recordHabitMeasurement(workspace, habit, start, 1000, { id: "practice-first" }, start);
+  const synced = { ...current, habitMeasurements: first.habitMeasurements, habitCompletions: first.habitCompletions };
+  const before = JSON.stringify(synced);
+  assert.throws(() => timers.applyHabitTimerCommand(synced, timerCommand("save", `${next}T00:03:00Z`), now), /HABIT_TIMER_GOAL_CHANGED/);
+  assert.equal(JSON.stringify(synced), before);
+  const saved = timers.applyHabitTimerCommand(synced, timerCommand("save", `${next}T00:03:00Z`, { timeOnly: true }), now);
+  assert.equal(saved.habitMeasurements.length, 1);
+  assert.equal(timerState.habitTimerSessions(saved.habitTimers)[0].state.status, "saved");
+});
+
+test("a synced correction cannot commit a stale finite timer allocation preview", () => {
+  const { habit, workspace } = measuredFixture(), now = new Date(`${next}T01:00:00Z`);
+  const initial = habits.recordHabitMeasurement(workspace, habit, start, 500, { id: "prior-half-minute" }, start);
+  let finished = timers.applyHabitTimerCommand(initial, timerCommand("start", `${start}T23:59:30Z`, {
+    id: "practice-session", habitId: habit.id }), now);
+  finished = timers.applyHabitTimerCommand(finished, timerCommand("finish", `${next}T00:01:00Z`), now);
+  assert.deepEqual(timerState.habitTimerSessions(finished.habitTimers)[0].state.allocations.map(row => row.reason),
+    ["duration", "not-scheduled"]);
+  const save = timerCommand("save", `${next}T00:02:00Z`);
+  const accepted = timers.applyHabitTimerCommand(finished, save, now);
+  assert.equal(goals.habitPracticeProgress(habit, accepted.habitCompletions, next).status, "completed");
+
+  for (const value of [null, 250]) {
+    const corrected = habits.recordHabitMeasurement(initial, habit, start, value, {
+      id: `synced-correction-${value}`, entryId: "prior-half-minute", replaces: ["prior-half-minute"], source: "correction",
+    }, start);
+    const synced = { ...finished, habitMeasurements: corrected.habitMeasurements, habitCompletions: corrected.habitCompletions };
+    const bytes = JSON.stringify(synced);
+    assert.throws(() => timers.applyHabitTimerCommand(synced, save, now), /HABIT_TIMER_GOAL_CHANGED/);
+    assert.equal(JSON.stringify(synced), bytes);
+    assert.equal(timerState.habitTimerSessions(synced.habitTimers)[0].state.status, "finished");
+    const timeOnly = timers.applyHabitTimerCommand(synced, { ...save, timeOnly: true }, now);
+    assert.deepEqual(timeOnly.habitMeasurements, corrected.habitMeasurements);
+    assert.equal(timerState.habitTimerReading(timerState.habitTimerSessions(timeOnly.habitTimers)[0].state).workMs, 90_000);
+  }
+  // A note-only correction does not invalidate an unchanged allocation plan.
+  const note = habits.recordHabitMeasurement(initial, habit, start, 500, {
+    id: "same-value-new-note", entryId: "prior-half-minute", replaces: ["prior-half-minute"], source: "correction", note: "Clarified",
+  }, start);
+  const updated = timers.applyHabitTimerCommand({ ...finished, habitMeasurements: note.habitMeasurements,
+    habitCompletions: note.habitCompletions }, save, now);
+  assert.equal(goals.habitPracticeProgress(habit, updated.habitCompletions, next).status, "completed");
+});
+
+test("ordinary recurring measured habits still accept both consecutive days", () => {
+  const { habit, workspace } = measuredFixture();
+  habit.practiceGoal = null; habit.sacredPracticeId = null;
+  const first = habits.recordHabitMeasurement(workspace, habit, start, 1000, { id: "recurring-first" }, start);
+  const second = habits.recordHabitMeasurement(first, habit, next, 1000, { id: "recurring-second" }, next);
+  assert.equal(second.habitMeasurements.length, 2);
+  assert.deepEqual(second.habitCompletions.filter(row => row.completed).map(row => row.date), [start, next]);
 });

@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/shared-mutation-payload.php';
 require_once __DIR__ . '/shared-task-review.php';
 require_once __DIR__ . '/shared-trash.php';
 
@@ -315,7 +316,8 @@ function genesisSharedCreateStatus(string $userId, string $projectId, array $inp
     try {
         $project = genesisSharedProjectAccess($projectId, $userId);
         genesisSharedProjectAccess($projectId, $userId, $project['space_permissions_json'] === null ? 'write' : 'manage');
-        $receipt = genesisSharedMutationReceipt($db, $userId, $requestId, 'status.create', $projectId);
+        $payloadHash = genesisSharedMutationPayloadHash('status.create',$input,['projectId'=>$projectId]);
+        $receipt = genesisSharedMutationReceipt($db, $userId, $requestId, 'status.create', $projectId, $payloadHash);
         if ($receipt !== null) {
             if($ownsTransaction)$db->commit();
             return $receipt;
@@ -336,7 +338,7 @@ function genesisSharedCreateStatus(string $userId, string $projectId, array $inp
         genesisSharedAudit($projectId, $userId, 'status.created', $id);
         $response = ['id' => $id, 'title' => $title, 'position' => $position,
             'isDone' => $isDone ? 1 : 0, 'revision' => 1, 'taskTitleLines' => $isDone ? 2 : 0, 'visibleTaskCount' => $isDone ? 5 : 0];
-        genesisSharedSaveMutationReceipt($db, $userId, $requestId, 'status.create', $projectId, $response);
+        genesisSharedSaveMutationReceipt($db, $userId, $requestId, 'status.create', $projectId, $response, $payloadHash);
         if($ownsTransaction)$db->commit();
         return $response;
     } catch (Throwable $error) {
@@ -861,15 +863,16 @@ function genesisSharedRequestId(array $input): ?string
 }
 
 function genesisSharedMutationReceipt(PDO $db, string $userId, ?string $requestId,
-    string $action, string $resourceId): ?array
+    string $action, string $resourceId, ?string $payloadHash = null): ?array
 {
     if ($requestId === null) return null;
-    $query = $db->prepare('SELECT action, resource_id, response_json FROM shared_mutation_receipts
+    $query = $db->prepare('SELECT action, resource_id, response_json, payload_hash FROM shared_mutation_receipts
         WHERE user_id = :user AND request_id = :request LIMIT 1');
     $query->execute(['user' => $userId, 'request' => $requestId]);
     $row = $query->fetch();
     if (!$row) return null;
-    if ($row['action'] !== $action || $row['resource_id'] !== $resourceId) {
+    if ($row['action'] !== $action || $row['resource_id'] !== $resourceId
+        || $row['payload_hash'] !== null && ($payloadHash === null || !hash_equals($row['payload_hash'],$payloadHash))) {
         throw new GenesisSharedAccessException('SHARED_REQUEST_ID_CONFLICT', 409);
     }
     $response=json_decode((string)$row['response_json'],true,512,JSON_THROW_ON_ERROR);
@@ -879,17 +882,18 @@ function genesisSharedMutationReceipt(PDO $db, string $userId, ?string $requestI
 }
 
 function genesisSharedSaveMutationReceipt(PDO $db, string $userId, ?string $requestId,
-    string $action, string $resourceId, array $response): void
+    string $action, string $resourceId, array $response, ?string $payloadHash = null): void
 {
     if ($requestId === null) return;
     // Old receipt records stay readable; new estimate values follow content encryption too.
     foreach(['storyPoints','estimateHours'] as $field)if(isset($response[$field]))$response[$field]=['planningValue'=>genesisPlanningSeal(['value'=>$response[$field]])];
     $db->prepare('INSERT INTO shared_mutation_receipts
-        (user_id, request_id, action, resource_id, response_json, created_at)
-        VALUES (:user, :request, :action, :resource, :response, :created)')->execute([
+        (user_id, request_id, action, resource_id, response_json, created_at, payload_hash)
+        VALUES (:user, :request, :action, :resource, :response, :created, :payload_hash)')->execute([
             'user' => $userId, 'request' => $requestId, 'action' => $action,
             'resource' => $resourceId, 'response' => json_encode($response, JSON_THROW_ON_ERROR),
             'created' => genesisNow(),
+            'payload_hash' => $payloadHash,
         ]);
 }
 
@@ -1379,7 +1383,8 @@ function genesisSharedMoveTask(string $userId, string $sourceProjectId, string $
         if ($source['space_id'] !== $destination['space_id']) {
             throw new GenesisSharedAccessException('SHARED_CROSS_SPACE_MOVE_FORBIDDEN', 403);
         }
-        $receipt = genesisSharedMutationReceipt($db, $userId, $requestId, 'task.move', $taskId);
+        $payloadHash = genesisSharedMutationPayloadHash('task.move',$input,['projectId'=>$sourceProjectId]);
+        $receipt = genesisSharedMutationReceipt($db, $userId, $requestId, 'task.move', $taskId, $payloadHash);
         if ($receipt !== null) {
             if ($ownsTransaction) $db->commit();
             return $receipt;
@@ -1514,7 +1519,7 @@ function genesisSharedMoveTask(string $userId, string $sourceProjectId, string $
         $response['entryType'] = $task['entry_type'];
         $response['approvals'] = genesisSharedTaskApprovals($taskId);
         $response['approvalRequired'] = count($response['approvals']) > 0;
-        genesisSharedSaveMutationReceipt($db, $userId, $requestId, 'task.move', $taskId, $response);
+        genesisSharedSaveMutationReceipt($db, $userId, $requestId, 'task.move', $taskId, $response, $payloadHash);
         if ($ownsTransaction) $db->commit();
         return $response;
     } catch (Throwable $error) {
@@ -1554,15 +1559,19 @@ function genesisSharedTask(string $userId, string $projectId, array $input, ?str
     if ($ownsTransaction) genesisBeginWriteTransaction($db);
     try {
         $project = genesisSharedProjectAccess($projectId, $userId, 'write');
-        if ($taskId === null && isset($input['mindmapSource'])) {
-            if (!is_array($input['mindmapSource'])) throw new InvalidArgumentException('INVALID_MINDMAP');
-            $converted = genesisSharedMindmapConversion($userId, $project, $input['mindmapSource']);
-            if ($converted !== null) { if ($ownsTransaction) $db->commit(); return $converted; }
-        }
-        $receipt = genesisSharedMutationReceipt($db, $userId, $requestId, $action, $resourceId);
+        $payloadHash = genesisSharedMutationPayloadHash($action,$input,['projectId'=>$projectId]);
+        $receipt = genesisSharedMutationReceipt($db, $userId, $requestId, $action, $resourceId, $payloadHash);
         if ($receipt !== null) {
             if ($ownsTransaction) $db->commit();
             return $receipt;
+        }
+        if ($taskId === null && isset($input['mindmapSource'])) {
+            if (!is_array($input['mindmapSource'])) throw new InvalidArgumentException('INVALID_MINDMAP');
+            $converted = genesisSharedMindmapConversion($userId, $project, $input['mindmapSource']);
+            if ($converted !== null) {
+                genesisSharedSaveMutationReceipt($db,$userId,$requestId,$action,$resourceId,$converted,$payloadHash);
+                if ($ownsTransaction) $db->commit(); return $converted;
+            }
         }
         $sourceTaskId = null;
         if ($taskId === null && array_key_exists('sourceTaskId', $input)) {
@@ -1586,6 +1595,7 @@ function genesisSharedTask(string $userId, string $projectId, array $input, ?str
                 $query->execute(['id' => $target['target_task_id'], 'project' => $projectId]);
                 $copied = $query->fetch();
                 if (!$copied) throw new GenesisSharedAccessException('SHARED_TRANSFER_TARGET_REMOVED', 409);
+                genesisSharedSaveMutationReceipt($db,$userId,$requestId,$action,$resourceId,$copied,$payloadHash);
                 if ($ownsTransaction) $db->commit();
                 return $copied;
             }
@@ -1731,7 +1741,7 @@ function genesisSharedTask(string $userId, string $projectId, array $input, ?str
             $db->prepare('INSERT INTO shared_mindmap_conversions VALUES(?,?,?,?,?)')->execute([$project['space_id'],$source['mapId'],$source['nodeId'],$projectId,$id]);
         }
         $response = genesisSharedGetTask($userId, $projectId, $id);
-        genesisSharedSaveMutationReceipt($db, $userId, $requestId, $action, $resourceId, $response);
+        genesisSharedSaveMutationReceipt($db, $userId, $requestId, $action, $resourceId, $response, $payloadHash);
         if ($ownsTransaction) $db->commit();
         return $response;
     } catch (Throwable $error) {

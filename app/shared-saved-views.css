@@ -27,7 +27,7 @@
 .saved-view-list { display:flex; flex-wrap:wrap; gap:8px; }
 .saved-view-list > button { display:grid; gap:4px; text-align:start; max-width:100%; overflow-wrap:anywhere; }
 .saved-view-list > button > span { min-width:0; }
-.saved-view-list > button > small { white-space:nowrap; overflow-wrap:normal; }
+.saved-view-list > button > small { white-space:normal; overflow-wrap:anywhere; }
 .saved-view-list > button[aria-pressed=true] { border-color:var(--ui-accent); }
 .saved-view-list small,.saved-view-hint,.saved-view-task-list small { color:var(--ink-soft); }
 .saved-view-editor { display:grid; gap:16px; min-width:0; padding-block:16px; border-block:1px solid var(--line); }
@@ -50,7 +50,7 @@
 @media(max-width:767px) {
  .saved-view-library,.saved-view-fields,.saved-view-dates { grid-template-columns:minmax(0,1fr); }
 .saved-view-actions > button,.saved-view-presets > button { flex:1 1 140px; }
- .saved-view-actions > .icon-action-button { flex:0 0 44px; width:44px; min-width:44px; }
+ .saved-view-actions > .icon-action-button:not(.icon-label-choice) { flex:0 0 44px; width:44px; min-width:44px; }
  .saved-view-fields :is(input:not([type=checkbox]),select) { font-size:16px; }
 }
 @media(max-width:420px) { .saved-view-presets { grid-template-columns:minmax(0,1fr); } }

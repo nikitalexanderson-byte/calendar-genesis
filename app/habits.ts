@@ -607,7 +607,8 @@ export function recordHabitMeasurement(workspace: HabitWorkspace, habit: Habit, 
   if (!currentHabit?.active) throw new RangeError("HABIT_MEASUREMENT_DATE_UNAVAILABLE");
   habit = currentHabit;
   const timerHistory = options.source === "timer" && isCivilDate(date) && date >= habit.createdDate && date <= today;
-  if ((!canRecordHabitOnDate(habit.createdDate, date, today) && !timerHistory) || !isHabitScheduledForDate(habit, date))
+  if ((!canRecordHabitOnDate(habit.createdDate, date, today) && !timerHistory)
+    || !isHabitScheduledForDate(habit, date, "sacred", workspace.habitCompletions))
     throw new RangeError("HABIT_MEASUREMENT_DATE_UNAVAILABLE");
   if (!effectiveHabitMeasurement(habitRuleForDate(habit, date))) throw new RangeError("HABIT_MEASUREMENT_NOT_ENABLED");
   if (!habitRuleForDate(habit, date).measurement && value !== null && value !== 1000)

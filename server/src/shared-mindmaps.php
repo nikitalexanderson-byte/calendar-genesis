@@ -189,9 +189,11 @@ function genesisSharedMindmapConversion(string $userId, array $project, array $s
     $q->execute([$spaceId,$source['mapId'],$source['nodeId']]); $existing=$q->fetch();
     if ($existing) {
         if ($existing['project_id'] !== $project['id']) throw new GenesisResourceLimitException(409,'MAP_REVISION_CONFLICT');
-        $snapshot=genesisSharedProjectSnapshot($userId,$project['id']);
-        foreach ($snapshot['tasks'] as $task) if ($task['id']===$existing['task_id']) return $task;
-        throw new GenesisResourceLimitException(409,'TASK_DELETED');
+        try { return genesisSharedGetTask($userId,$project['id'],$existing['task_id']); }
+        catch (GenesisSharedAccessException $error) {
+            if ($error->status !== 404) throw $error;
+            throw new GenesisResourceLimitException(409,'TASK_DELETED');
+        }
     }
     $q=genesisDb()->prepare('SELECT content,project_id FROM shared_mindmaps WHERE space_id=? AND id=?'); $q->execute([$spaceId,$source['mapId']]); $map=$q->fetch();
     if (!$map) throw new GenesisSharedAccessException();

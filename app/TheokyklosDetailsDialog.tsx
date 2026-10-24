@@ -9,6 +9,7 @@ import { translateText, type Language } from "./i18n";
 import { practiceCopy } from "./habit-practice-copy";
 import { catalogText, sacredWordCopy } from "./catalog-i18n";
 import {
+  applyHabitLifecycleToWorkspace,
   createHabitFromSacredPractice,
   habitDateKey,
   isHabitScheduledForDate,
@@ -21,6 +22,8 @@ import type { TheokyklosLocalizedText, TheokyklosSegment } from "./theokyklos-da
 import { markTrackerEntityChanged } from "./tracker-core";
 import { useDialogAccessibility } from "./use-dialog-accessibility";
 import { TheokyklosRestorationContext } from "./TheokyklosRestorationContext";
+import "./theokyklos-practices.css";
+import { habitLifecycleState } from "./habit-lifecycle";
 
 function localized(copy: TheokyklosLocalizedText, language: Language) {
   return catalogText(copy, language);
@@ -131,22 +134,24 @@ export function TheokyklosDetailsDialog({ segment, language, workspace, date, ca
               : sectorHabits.length
               ? (language === "en" ? "The chosen practice is disabled. You can enable it again here." : "Выбранная практика отключена. Здесь её можно включить снова.")
               : translateText("Выберите обычное действие и выполните его один раз в поддержку этого сектора.", language)}</p>
+            {!sectorHabits.length ? <p className="theokyklos-practice-notice" role="note">{practiceCopy(language).warning}</p> : null}
             <div>
               {(sectorHabits.length
                 ? sectorHabits.map((habit) => ({ habit, practice: sectorPractices.find((practice) => practice.id === habit.sacredPracticeId) }))
                 : sectorPractices.map((practice) => ({ habit: null, practice })))
                 .filter((item) => item.practice)
                 .map(({ habit, practice }) => {
+                  const lifecycle = habit ? habitLifecycleState(habit) : null;
+                  const needsRestore = lifecycle?.status === "archived" || lifecycle?.status === "deleted";
                   const completion = habit ? workspace.habitCompletions.find((entry) => entry.habitId === habit.id && entry.date === date) : undefined;
                   const canTrack = Boolean(workspace.habitSettings.enabled && habit?.active && isHabitScheduledForDate(habit, date, calendarMode, workspace.habitCompletions) && habit.createdDate <= date && date === habitDateKey(new Date()));
                   return (
                     <article className={`${habit ? "started" : "suggested"}${habit && !habit.active ? " paused" : ""}`} style={{ "--practice-color": habit?.color ?? practice!.color } as CSSProperties} key={habit?.id ?? practice!.id}>
-                      {!habit ? <p className="restoration-note" role="note">{practiceCopy(language).warning}</p> : null}
                       <span aria-hidden="true">{habit?.emoji ?? practice!.emoji}</span>
-                      <div><small>{habit ? (habit.active ? (language === "en" ? "Active practice" : "Активная практика") : (language === "en" ? "Paused" : "На паузе")) : (language === "en" ? "Suggested practice" : "Предлагаемая практика")}</small><strong data-no-translate>{habit ? habitDisplayText(habit, language).title : catalogText(practice!.title, language)}</strong><p data-no-translate>{habit ? habitDisplayText(habit, language).description : catalogText(practice!.description, language)}</p><blockquote data-no-translate>{catalogText(practice!.myth, language)}</blockquote></div>
+                      <div className="theokyklos-practice-copy"><small>{habit ? (habit.active ? (language === "en" ? "Active practice" : "Активная практика") : (language === "en" ? "Paused" : "На паузе")) : (language === "en" ? "Suggested practice" : "Предлагаемая практика")}</small><strong data-no-translate>{habit ? habitDisplayText(habit, language).title : catalogText(practice!.title, language)}</strong><p data-no-translate>{habit ? habitDisplayText(habit, language).description : catalogText(practice!.description, language)}</p><blockquote data-no-translate>{catalogText(practice!.myth, language)}</blockquote></div>
                       {habit ? (
                         habit.active ? <div className="theokyklos-practice-actions"><button type="button" className={completion?.completed ? "completed" : ""} disabled={!canTrack} onClick={() => onChange(updateHabitCompletion(workspace, habit, date, { completed: !completion?.completed }))}>{completion?.completed ? `✓ ${language === "en" ? "Done" : "Выполнено"}` : (language === "en" ? "Mark today" : "Отметить сегодня")}</button><button type="button" className="disable" onClick={() => onChange({ ...workspace, habits: workspace.habits.map((item) => item.id === habit.id ? markTrackerEntityChanged({ ...item, active: false }) : item) })}>{language === "en" ? "Disable" : "Отключить"}</button></div>
-                          : <button type="button" disabled={!workspace.habitSettings.enabled} onClick={() => onChange({ ...workspace, habits: workspace.habits.map((item) => item.id === habit.id ? markTrackerEntityChanged({ ...item, active: true }) : item) })}>{language === "en" ? "Enable again" : "Включить снова"}</button>
+                          : <button type="button" disabled={!workspace.habitSettings.enabled || lifecycle?.conflict} onClick={() => onChange(applyHabitLifecycleToWorkspace(workspace, { id: `habit-state:${crypto.randomUUID()}`, habitId: habit.id, action: needsRestore ? "restore" : "resume", at: new Date().toISOString(), heads: lifecycle!.heads.map(row => row.id) }))}>{needsRestore ? translateText("Восстановить", language) : language === "en" ? "Enable again" : "Включить снова"}</button>
                       ) : <button type="button" disabled={!workspace.habitSettings.enabled} onClick={() => onChange({ ...workspace, habits: [...workspace.habits, createHabitFromSacredPractice(practice!, habitDateKey(new Date()), calendarMode, language)] })}>{language === "en" ? "Begin" : "Начать"}</button>}
                     </article>
                   );

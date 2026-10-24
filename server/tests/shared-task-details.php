@@ -47,6 +47,7 @@ try {
     $converted=genesisSharedConvertChecklistItem($owner,$projectId,$parentId,$convert);
     detailsExpect($converted===genesisSharedConvertChecklistItem($owner,$projectId,$parentId,$convert),'Conversion retry created a duplicate');
     detailsExpect($converted===genesisSharedConvertChecklistItem($owner,$projectId,$parentId,$convert+['ignored'=>true]),'Conversion changed result');
+    detailsReject(fn()=>genesisSharedConvertChecklistItem($owner,$projectId,$parentId,[...$convert,'itemId'=>'different-item']),'SHARED_REQUEST_ID_CONFLICT');
     $beforeRetry=(int)$db->query('SELECT COUNT(*) FROM shared_tasks')->fetchColumn();
     detailsExpect($converted===genesisSharedConvertChecklistItem($owner,$projectId,$parentId,array_replace($convert,['requestId'=>genesisUuid()])), 'A new conversion request duplicated the linked item');
     detailsExpect((int)$db->query('SELECT COUNT(*) FROM shared_tasks')->fetchColumn()===$beforeRetry,'Conversion retry inserted another task');
