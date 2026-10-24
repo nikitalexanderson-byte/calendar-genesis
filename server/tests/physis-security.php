@@ -216,7 +216,20 @@ try {
     physisExpect($request('physis/v1/records', $a)['status'] === 403, 'Feature flag did not revoke reads.');
     physisExpect($request('physis/v1/records', $a, 'POST', '{}')['status'] === 403, 'Feature flag did not revoke writes.');
     unset($config['physis_enabled']); file_put_contents($fixture . '/config.php', '<?php return ' . var_export($config, true) . ';');
-    physisExpect($request('physis/v1/access', $a)['status'] === 403, 'Missing flag enabled module.');
+    foreach ([$a, $b, $c] as $allowedBrowser) {
+        physisExpect($request('physis/v1/access', $allowedBrowser)['status'] === 200, 'Released browser pilot denied an allowed verified account.');
+    }
+    // The Git-controlled rollout must never enable the same account's native session.
+    foreach ([$native, $other, $unverified, $cUnverified, $linked, $old, []] as $denied) {
+        foreach ([['GET', 'access'], ['GET', 'vault'], ['GET', 'records'], ['POST', 'records'], ['PUT', 'vault'], ['POST', 'rotate']] as [$method, $path]) {
+            physisExpect($request('physis/v1/' . $path, $denied, $method, $method === 'GET' ? null : '{}')['status'] === 403, 'Default browser rollout bypassed identity/channel guard.');
+        }
+    }
+    foreach (['true', null, 1] as $invalidFlag) {
+        $config['physis_enabled'] = $invalidFlag;
+        file_put_contents($fixture . '/config.php', '<?php return ' . var_export($config, true) . ';');
+        physisExpect($request('physis/v1/access', $a)['status'] === 403, 'A non-boolean flag enabled the pilot.');
+    }
     physisExpect(count(genesisPhysisRecords('owner-a', [])['records']) === 1, 'Disabling erased encrypted data.');
     echo "Physis security: $checks checks passed (real SQLite, HTTP, independent-process CAS).\n";
 } finally {

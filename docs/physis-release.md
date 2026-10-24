@@ -15,4 +15,4 @@
 
 Логи и воспроизводимые скрипты: `output/physis-production-build.log`, `output/physis-production-bootstrap.js`, `output/physis-production-bootstrap.log`, `output/physis-offline-verified.log`. Это локальные ignored артефакты с synthetic данными. Результат повторного CI и production health фиксируется отдельно после завершения workflow; этот документ не объявляет выпуск состоявшимся заранее.
 
-Флаг Фюзиса остаётся выключен до проверяемого разделения старого WebView. `GENESIS_DEPLOY_TARGET=hostinger`, `GENESIS_DEPLOY_ANDROID=false`. Прямой SSH не использовался; ручных production SQL не выполнялось.
+На момент этой проверки флаг Фюзиса оставался выключен до проверки Android entry point. Последующая проверка опубликованного APK и порученная пользователем активация браузерного доступа описаны в [physis-browser-access.md](physis-browser-access.md). `GENESIS_DEPLOY_TARGET=hostinger`, `GENESIS_DEPLOY_ANDROID=false`. В описанном здесь выпуске прямой SSH не использовался; ручных production SQL не выполнялось.

@@ -8,14 +8,19 @@ final class GenesisPhysisException extends RuntimeException
 }
 
 const GENESIS_PHYSIS_EMAILS = ['nikitalexanderson@gmail.com', 'jurijjlogvinov@gmail.com', 'picishina@gmail.com'];
+// Git-controlled browser pilot; an explicit server-config false is the kill switch.
+// The published native client uses native auth, which remains denied below.
+const GENESIS_PHYSIS_WEB_ENABLED = true;
 const GENESIS_PHYSIS_MAX_RECORDS = 10000;
 const GENESIS_PHYSIS_MAX_STORAGE = 32 * 1024 * 1024;
 const GENESIS_PHYSIS_RETENTION_DAYS = 90;
 
 function genesisPhysisRequireOwner(): string
 {
-    // Fail closed for old sessions, native auth, linked identities and absent config.
-    if ((genesisConfig()['physis_enabled'] ?? false) !== true) throw new GenesisPhysisException(403, 'PHYSIS_UNAVAILABLE');
+    // Fail closed for old sessions, native auth, linked identities and invalid flags.
+    $config = genesisConfig();
+    $enabled = array_key_exists('physis_enabled', $config) ? $config['physis_enabled'] : GENESIS_PHYSIS_WEB_ENABLED;
+    if ($enabled !== true) throw new GenesisPhysisException(403, 'PHYSIS_UNAVAILABLE');
     $id = genesisCurrentUserId();
     $identity = $_SESSION['auth_identity'] ?? [];
     if ($id === null || !is_array($identity) || ($identity['kind'] ?? '') !== 'primary'
