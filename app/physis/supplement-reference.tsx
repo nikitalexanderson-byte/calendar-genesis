@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { SUPPLEMENT_REFERENCES, referenceDrug } from './supplement-reference-data';
 import { DRUG_SUBCATEGORIES, type Drug } from './care-domain';
 import './reference-catalogs.css';
 
-export function SupplementReferenceLibrary({ language, onAdd }: { language: string; onAdd: (drug: Drug) => void }) {
+export function SupplementReferenceLibrary({ language, onAdd, controls }: { language: string; onAdd: (drug: Drug) => void; controls: ReactNode }) {
   const en = language === 'en'; const at = en ? 1 : 0;
   const [query, setQuery] = useState(''); const [path, setPath] = useState<string[]>([]);
   const roots = [...new Set([...DRUG_SUBCATEGORIES, ...SUPPLEMENT_REFERENCES.map(entry => entry.path[0])])];
@@ -11,7 +11,7 @@ export function SupplementReferenceLibrary({ language, onAdd }: { language: stri
   const shown = matches.filter(entry => path.every((name, index) => entry.path[index] === name));
   const selected = (candidate: string[]) => JSON.stringify(candidate) === JSON.stringify(path) ? 'page' as const : undefined;
   return <div className="physis-reference-library">
-    <section className="physis-panel"><h3>{en ? 'Evidence-based substance library' : 'Справочник веществ'}</h3><p>{en ? 'Evidence is stated for a specific use. Nutrients are not recommended to everyone simply because they have a physiological role.' : 'Доказательность указана для конкретного применения. Физиологическая роль нутриента не означает, что его нужно принимать каждому.'}</p><label className="physis-reference-search">{en ? 'Search substances' : 'Поиск веществ'}<input type="search" value={query} onChange={event => setQuery(event.target.value)} /></label><p className="physis-muted">{en ? 'Research reagents and experimental substances are excluded. Product doses and schedules are not assigned automatically.' : 'Исследовательские реактивы и экспериментальные вещества исключены. Дозировки и схемы приёма автоматически не назначаются.'}</p></section>
+    <section className="physis-panel"><header className="physis-control-heading"><h2>{en ? 'Evidence-based substance library' : 'Справочник веществ'}</h2>{controls}</header><p>{en ? 'Evidence is stated for a specific use. Nutrients are not recommended to everyone simply because they have a physiological role.' : 'Доказательность указана для конкретного применения. Физиологическая роль нутриента не означает, что его нужно принимать каждому.'}</p><label className="physis-reference-search">{en ? 'Search substances' : 'Поиск веществ'}<input type="search" value={query} onChange={event => setQuery(event.target.value)} /></label><p className="physis-muted">{en ? 'Research reagents and experimental substances are excluded. Product doses and schedules are not assigned automatically.' : 'Исследовательские реактивы и экспериментальные вещества исключены. Дозировки и схемы приёма автоматически не назначаются.'}</p></section>
     <div className="physis-drug-browser"><nav className="physis-panel physis-drug-groups" aria-label={en ? 'Substance categories' : 'Категории веществ'}><h3>{en ? 'Categories' : 'Категории'}</h3><button type="button" aria-current={selected([])} onClick={() => setPath([])}>{en ? 'All substances' : 'Все вещества'} <small>{matches.length}</small></button><ul className="physis-drug-group-list">{roots.map(root => {
       const children = [...new Set(SUPPLEMENT_REFERENCES.filter(entry => entry.path[0] === root).map(entry => entry.path[1]))];
       return <li key={root}><button type="button" aria-current={selected([root])} onClick={() => setPath([root])}><span>{root}</span><small>{matches.filter(entry => entry.path[0] === root).length}</small></button>{children.length > 0 && <ul className="physis-drug-group-list">{children.map(child => <li key={child}><button type="button" aria-current={selected([root, child])} onClick={() => setPath([root, child])}><span>{child}</span><small>{matches.filter(entry => entry.path[0] === root && entry.path[1] === child).length}</small></button></li>)}</ul>}</li>;
