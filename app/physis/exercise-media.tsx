@@ -27,7 +27,6 @@ function ExercisePlayer({ id, en }: { id: string; en: boolean }) {
   const asset = media[id];
   const clipPrefix = useId();
   const stage = useRef<HTMLDivElement>(null);
-  const [model, setModel] = useState<'both' | 'male' | 'female'>('both');
   const [playing, setPlaying] = useState(() => typeof window !== 'undefined' && !window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const [step, setStep] = useState(0);
   const [inView, setInView] = useState(false);
@@ -62,13 +61,10 @@ function ExercisePlayer({ id, en }: { id: string; en: boolean }) {
     return () => window.clearInterval(timer);
   }, [running]);
   return <div className="physis-exercise-player" data-running={running} data-frame={frame}>
-    <nav className="physis-tabs physis-demo-models" aria-label={tr(en, 'Модель демонстрации', 'Demonstration model')}>
-      {(['both', 'male', 'female'] as const).map((value, i) => <button key={value} type="button" aria-pressed={model === value} onClick={() => setModel(value)}>{[tr(en, 'Вместе', 'Both'), tr(en, 'Мужчина', 'Man'), tr(en, 'Женщина', 'Woman')][i]}</button>)}
-    </nav>
-    <div ref={stage} className={`physis-demo-stage ${model === 'both' ? 'is-pair' : ''}`} aria-busy={loadState === 'loading'}>
+    <div ref={stage} className="physis-demo-stage" aria-busy={loadState === 'loading'}>
       {loadState === 'error' ? <div className="physis-demo-error" role="alert"><p>{tr(en, 'Не удалось загрузить демонстрацию.', 'Could not load the demonstration.')}</p><button type="button" onClick={() => { setLoadState('loading'); setRetry(value => value + 1); }}>{tr(en, 'Повторить загрузку', 'Retry loading')}</button></div> : <>
         {loadState === 'loading' && <p className="physis-demo-loading" role="status">{tr(en, 'Загружаем демонстрацию…', 'Loading demonstration…')}</p>}
-        {(['male', 'female'] as const).filter(value => model === 'both' || model === value).map(value => {
+        {(['male', 'female'] as const).map(value => {
           const y = value === 'male' ? 0 : asset.split;
           const height = value === 'male' ? asset.split : asset.height - asset.split;
           const x = frame * asset.width / 3 + 3; const clipId = `${clipPrefix}-${value}`;

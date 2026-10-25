@@ -19,12 +19,9 @@ body:has(.physis-demo-backdrop) { overflow: hidden; }
 .physis-demo-heading p { margin: 0; }
 .physis-demo-heading .dialog-close-button { flex-shrink: 0; }
 .physis-demo-content { padding: 0 24px 24px; }
-.physis-demo-models { margin-bottom: 16px; }
-.physis-demo-stage { position: relative; display: grid; grid-template-columns: minmax(0,1fr); min-height: 220px; background: #10251d; color: #f0eee7; border-radius: 10px; overflow: hidden; }
-.physis-demo-stage.is-pair { grid-template-columns: repeat(2,minmax(0,1fr)); }
+.physis-demo-stage { position: relative; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); min-height: 220px; background: #10251d; color: #f0eee7; border-radius: 10px; overflow: hidden; }
 .physis-demo-stage figure { display: flex; flex-direction: column; justify-content: center; margin: 0; min-width: 0; }
-.physis-demo-stage svg { display: block; width: 100%; height: min(46dvh,440px); overflow: hidden; }
-.physis-demo-stage.is-pair svg { height: auto; aspect-ratio: 1; max-height: 440px; }
+.physis-demo-stage svg { display: block; width: 100%; height: auto; aspect-ratio: 1; max-height: 440px; overflow: hidden; }
 .physis-demo-stage figcaption { padding: 8px 12px 12px; text-align: center; font-size: 13px; color: #c7d5ce; }
 .physis-demo-loading, .physis-demo-error { position: absolute; inset: 0; display: grid; align-content: center; justify-items: center; gap: 12px; margin: 0; padding: 24px; background: #10251d; color: #f0eee7; z-index: 1; }
 .physis-demo-error p { margin: 0; }
@@ -52,9 +49,7 @@ html[data-genesis-theme] .genesis-app .physis-demo-phases > button[aria-pressed=
   .physis-demo-heading { padding: 20px 16px 16px; }
   .physis-demo-heading h2 { font-size: 24px; }
   .physis-demo-content { padding: 0 16px 20px; }
-  .physis-demo-stage svg { height: min(36dvh,280px); }
   .physis-demo-guide { grid-template-columns: minmax(0,1fr); gap: 24px; }
   .physis-demo-controls > .physis-demo-play { flex: 1 1 150px; }
-  .physis-demo-models { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); }
 }
 @media (prefers-reduced-motion: reduce) { .physis .physis-exercise-card-open { transition: none; } .physis .physis-exercise-card-open:hover { transform: none; } }
