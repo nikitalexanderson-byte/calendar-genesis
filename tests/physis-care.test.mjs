@@ -232,3 +232,50 @@ test('evidence library imports descriptive personal cards without inventing a do
     }
   }
 });
+
+
+test('custom definitions recover legacy histories without rewriting or mixing measurements', () => {
+  const { customMetricDefinitions, measurementInCustomMetric } = calendarModule('app/physis/custom-metric-domain.ts');
+  const old = [measurement({ type: 'custom', label: 'Left arm', unit: 'cm', value: 35 }), measurement({ type: 'custom', label: 'Right arm', unit: 'cm', value: 36 })];
+  const before = structuredClone(old);
+  const definitions = customMetricDefinitions({}, old);
+  assert.equal(definitions.length, 2);
+  const renamed = { ...definitions[0], name: 'Left biceps', unit: 'mm', icon: 'dumbbell' };
+  const newer = measurement({ type: 'custom', customMetricId: renamed.id, label: renamed.name, unit: 'mm', value: 355 });
+  assert.ok(measurementInCustomMetric(old[0], renamed));
+  assert.ok(measurementInCustomMetric(newer, renamed));
+  assert.equal(measurementInCustomMetric(old[1], renamed), false);
+  assert.equal(customMetricDefinitions({ customMetrics: [renamed, definitions[1]] }, [...old, newer]).length, 2);
+  assert.deepEqual(old, before);
+});
+
+test('same-name custom measurements with distinct stable IDs keep independent histories', () => {
+  const { measurementInCustomMetric } = calendarModule('app/physis/custom-metric-domain.ts');
+  const first = { id: crypto.randomUUID(), name: 'Circumference', unit: 'cm', scale: 'numeric', icon: 'ruler' };
+  const second = { ...first, id: crypto.randomUUID() };
+  const entry = measurement({ type: 'custom', customMetricId: first.id, label: 'Circumference', unit: 'cm' });
+  assert.ok(measurementInCustomMetric(entry, first));
+  assert.equal(measurementInCustomMetric(entry, second), false);
+  assert.ok(validateCareRecord(newPhysisRecord('measurement', entry)));
+  assert.equal(validateCareRecord(newPhysisRecord('measurement', { ...entry, type: 'weight', unit: 'kg' })), false);
+});
+
+test('custom metric settings preserve old settings and reject broken definitions, duplicate IDs and unknown icons', () => {
+  const { validCustomMetrics } = calendarModule('app/physis/custom-metric-domain.ts');
+  const definition = { id: crypto.randomUUID(), name: 'Recovery', unit: 'score', scale: 'subjective', icon: 'heart' };
+  const settings = { calendarMode: 'profane', inputCalendarMode: 'sacred', timeZone: 'UTC', weightUnit: 'kg', distanceUnit: 'km', energyUnit: 'kcal', glucoseUnit: 'mmol/L', restSeconds: 90, reminders: true, foodRules: [], enabledMetrics: ['custom'], overviewBlocks: [] };
+  assert.ok(validateCareRecord(newPhysisRecord('settings', settings)));
+  assert.ok(validateCareRecord(newPhysisRecord('settings', { ...settings, customMetrics: [definition] })));
+  for (const patch of [{ icon: 'untrusted-script' }, { name: '' }, { unit: '' }, { scale: 'arbitrary' }]) assert.equal(validCustomMetrics([{ ...definition, ...patch }]), false);
+  assert.equal(validCustomMetrics([definition, { ...definition }]), false);
+  assert.equal(validateCareRecord(newPhysisRecord('settings', { ...settings, customMetrics: 'bad' })), false);
+});
+
+test('recovering an imported custom metric ID keeps it reachable when its settings definition is absent', () => {
+  const { customMetricDefinitions, measurementInCustomMetric } = calendarModule('app/physis/custom-metric-domain.ts');
+  const entry = measurement({ type: 'custom', customMetricId: crypto.randomUUID(), label: 'Balance', unit: 's' });
+  const definitions = customMetricDefinitions({}, [entry]);
+  assert.equal(definitions.length, 1);
+  assert.equal(definitions[0].id, entry.customMetricId);
+  assert.ok(measurementInCustomMetric(entry, definitions[0]));
+});

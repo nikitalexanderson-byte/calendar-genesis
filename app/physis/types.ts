@@ -1,3 +1,4 @@
+import type { CustomMetricDefinition } from './custom-metric-domain';
 import type { CalendarMode } from '../calendar-data';
 import type { CalendarContext } from '../calendar-context';
 
@@ -20,6 +21,7 @@ export type PhysisSettings = {
   restSeconds: number; reminders: boolean; foodRules: string[]; enabledMetrics: string[];
   overviewBlocks: string[];
   monitoringHints?: boolean;
+  customMetrics?: CustomMetricDefinition[];
 };
 export type PhysisFeatureProps = {
   store: PhysisStore; settings: PhysisSettings; context: CalendarContext; language: string;

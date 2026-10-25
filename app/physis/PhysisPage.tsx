@@ -99,13 +99,15 @@ function UnlockedPhysis(props: Props & { keys: KeyState; vaultState: VaultState 
   const [area, setArea] = useState<Area>('training');
   const [pages, setPages] = useState<Record<Area, PageName>>({ training: 'today', nutrition: 'today', care: 'overview', monitoring: 'overview' });
   const [settingsOpen, setSettingsOpen] = useState(Boolean(props.settingsRequest));
+  const [settingsSaved, setSettingsSaved] = useState(0);
+  useEffect(() => { if (!settingsSaved) return; const timer = setTimeout(() => setSettingsSaved(0), 2300); return () => clearTimeout(timer); }, [settingsSaved]);
   const page = pages[area]; const group = GROUPS.find(item => item.id === area)!;
   const setPage = (next: PageName) => setPages(current => ({ ...current, [area]: next }));
   const openIntakes = () => { setArea('care'); setPages(current => ({ ...current, care: 'intakes' })); };
   const [editorEpoch, setEditorEpoch] = useState(0);
   const [now, setNow] = useState(() => Date.now()); const action = usePhysisAction();
   const settingsRecord = physisRecords<PhysisSettings>(store, 'settings')[0];
-  const settings = settingsRecord?.data ?? defaultPhysisSettings(props); const context = calendarContext({ timeZone: settings.timeZone });
+  const settings = { ...(settingsRecord?.data ?? defaultPhysisSettings(props)), calendarMode: props.calendarMode }; const context = calendarContext({ timeZone: settings.timeZone });
   const feature: PhysisFeatureProps = { store, settings, context, language: props.language };
   useEffect(() => {
     if (!props.settingsRequest) return;
@@ -131,8 +133,9 @@ function UnlockedPhysis(props: Props & { keys: KeyState; vaultState: VaultState 
     {store.error ? <div role="alert" className="physis-warning"><p>{store.error}</p><div className="physis-actions"><button onClick={() => void action.run(() => model.flush())}>Повторить сохранение</button><button onClick={() => { if (confirm('Открытый файл содержит личные данные. Экспортировать локальный вариант?')) downloadPhysis('physis-unsaved.json', JSON.stringify({ format: 'physis-plain', version: 1, records: store.records })); }}>Экспортировать локальный вариант</button><button onClick={() => { if (confirm('Отменить все несохранённые изменения этой вкладки и загрузить серверный вариант?')) void action.run(async () => { await model.discardAndReload(); setEditorEpoch(value => value + 1); }); }}>Загрузить серверный вариант</button></div></div> : null}
     {action.error ? <p role="alert" className="physis-warning">{action.error}</p> : null}
     {due > 0 ? <div className="physis-warning" role="status">Есть запланированные приемы без отметки: {due}. <button onClick={openIntakes}>Открыть контроль приема</button></div> : null}
-    {group.pages.length ? <nav className="physis-tabs physis-subnav" aria-label={translateText(group.title, props.language as Language)}>{group.pages.map(([id, name]) => <button type="button" key={id} aria-current={page === id ? 'page' : undefined} onClick={() => setPage(id)}>{name}</button>)}</nav> : null}
     <Fragment key={editorEpoch}>
+    <div className={group.pages.length ? 'physis-section-frame' : 'physis-section-plain'} data-tabs={group.pages.length || undefined}>
+    {group.pages.length ? <nav className="physis-tabs physis-subnav" aria-label={translateText(group.title, props.language as Language)}>{group.pages.map(([id, name]) => <button type="button" key={id} aria-current={page === id ? 'page' : undefined} onClick={() => setPage(id)}>{name}</button>)}</nav> : null}
     <section className="physis-page-content" aria-label={translateText(group.title, props.language as Language)}>
     {area === 'training' && (page === 'today' || page === 'programs' || page === 'control' || page === 'exercises') ? <PhysisTraining key={page} {...feature} page={page} /> : null}
     {area === 'nutrition' && (page === 'today' || page === 'diary' || page === 'foods') ? <PhysisNutrition {...feature} page={page} /> : null}
@@ -141,10 +144,11 @@ function UnlockedPhysis(props: Props & { keys: KeyState; vaultState: VaultState 
     {page === 'drugs' ? <PhysisDrugCatalog {...feature} /> : null}
     {page === 'intakes' ? <PhysisIntakes {...feature} owner={props.owner} onOpenCatalog={() => setPage('drugs')} /> : null}
     </section>
-
+    </div>
     </Fragment>
     <PhysisSettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} language={props.language}>
-      <PhysisSettingsForm key={settingsRecord?.updatedAt ?? 'general-settings'} {...feature} /><PhysisNutrition {...feature} page="settings" /><section className="physis-panel"><h2>Данные и резервные копии</h2><p>Фюзис использует ваш общий аккаунт GENESIS. Данные сохраняются в зашифрованном виде и доступны после входа на сайт. Зашифрованная копия открывается в том же аккаунте.</p><PhysisExchange store={store} exportEncrypted={exportEncrypted} /><p className="physis-muted">Удалённое содержимое убирается из активного хранилища. Журнал удалений и повторных запросов: 90 дней; минимальный реестр использованных ID сохраняется для защиты от восстановления старыми устройствами. Время удаления из резервных копий зависит от политики хранения оператора.</p></section><section className="physis-panel"><h2>Будущие подключения</h2><ul><li>Google Health API — планируется</li><li>Health Connect — планируется через отдельный Android-клиент</li><li>HealthKit — планируется через Apple-клиент</li><li>Garmin и Health Services — планируется</li></ul><p>Ни одно подключение не включено. Сейчас работают ручной учет и импорт/экспорт; данные не отправляются этим поставщикам.</p></section>
+      <PhysisSettingsForm onSaved={() => setSettingsSaved(Date.now())} key={settingsRecord?.updatedAt ?? 'general-settings'} {...feature} /><PhysisNutrition {...feature} page="settings" /><section className="physis-panel"><h2>Данные и резервные копии</h2><p>Фюзис использует ваш общий аккаунт GENESIS. Данные сохраняются в зашифрованном виде и доступны после входа на сайт. Зашифрованная копия открывается в том же аккаунте.</p><PhysisExchange store={store} exportEncrypted={exportEncrypted} /><p className="physis-muted">Удалённое содержимое убирается из активного хранилища. Журнал удалений и повторных запросов: 90 дней; минимальный реестр использованных ID сохраняется для защиты от восстановления старыми устройствами. Время удаления из резервных копий зависит от политики хранения оператора.</p></section><section className="physis-panel"><h2>Будущие подключения</h2><ul><li>Google Health API — планируется</li><li>Health Connect — планируется через отдельный Android-клиент</li><li>HealthKit — планируется через Apple-клиент</li><li>Garmin и Health Services — планируется</li></ul><p>Ни одно подключение не включено. Сейчас работают ручной учет и импорт/экспорт; данные не отправляются этим поставщикам.</p></section>
+      {settingsSaved > 0 && <div className="physis-save-toast" role="status" aria-live="polite">Настройки сохранены</div>}
     </PhysisSettingsDialog>
   </>;
 }
@@ -159,14 +163,14 @@ function PhysisSettingsDialog({ open, onClose, language, children }: { open: boo
   </div>;
 }
 
-function PhysisSettingsForm({ store, settings }: PhysisFeatureProps) {
+function PhysisSettingsForm({ store, settings, onSaved }: PhysisFeatureProps & { onSaved: () => void }) {
   const [draft, setDraft] = useState(settings); const action = usePhysisAction();
   const change = (patch: Partial<PhysisSettings>) => setDraft(s => ({ ...s, ...patch }));
   const calendarOptions = <><option value="profane">Григорианский</option><option value="sacred">Сакральный</option><option value="lunar">Лунный</option></>;
   return <section className="physis-panel"><h3>Общие настройки</h3><form className="physis-form" onSubmit={e => { e.preventDefault(); void action.run(async () => {
-    const record = physisRecords<PhysisSettings>(store, 'settings')[0]; await store.save(record ? editPhysisRecord(record, draft) : newPhysisRecord('settings', draft));
+    const record = physisRecords<PhysisSettings>(store, 'settings')[0]; await store.save(record ? editPhysisRecord(record, draft) : newPhysisRecord('settings', draft)); onSaved();
   }); }}>
-    <Field label="Календарь отображения"><select value={draft.calendarMode} onChange={e => change({ calendarMode: e.target.value as CalendarMode })}>{calendarOptions}</select></Field><Field label="Календарь ввода"><select value={draft.inputCalendarMode} onChange={e => change({ inputCalendarMode: e.target.value as CalendarMode })}>{calendarOptions}</select></Field><Field label="Часовой пояс IANA"><input required value={draft.timeZone} onChange={e => change({ timeZone: e.target.value })} /></Field>
+    <Field label="Календарь ввода"><select value={draft.inputCalendarMode} onChange={e => change({ inputCalendarMode: e.target.value as CalendarMode })}>{calendarOptions}</select></Field><Field label="Часовой пояс IANA"><input required value={draft.timeZone} onChange={e => change({ timeZone: e.target.value })} /></Field>
     <Field label="Масса"><select value={draft.weightUnit} onChange={e => change({ weightUnit: e.target.value as 'kg' })}><option value="kg">кг</option><option value="lb">фунты</option></select></Field><Field label="Расстояние"><select value={draft.distanceUnit} onChange={e => change({ distanceUnit: e.target.value as 'km' })}><option value="km">км</option><option value="mi">мили</option></select></Field><Field label="Энергия"><select value={draft.energyUnit} onChange={e => change({ energyUnit: e.target.value as 'kcal' })}><option value="kcal">ккал</option><option value="kJ">кДж</option></select></Field><Field label="Глюкоза"><select value={draft.glucoseUnit} onChange={e => change({ glucoseUnit: e.target.value as 'mmol/L' })}><option value="mmol/L">ммоль/л</option><option value="mg/dL">мг/дл</option></select></Field>
     <NumberField label="Отдых между подходами, секунд" min={0} max={3600} value={draft.restSeconds} onChange={v => change({ restSeconds: v ?? 0 })} />
     <label className="physis-check physis-wide"><input type="checkbox" checked={draft.monitoringHints !== false} onChange={e => change({ monitoringHints: e.target.checked })} />Периодические подсказки в мониторинге показателей</label>
