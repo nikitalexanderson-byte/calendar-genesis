@@ -27,7 +27,7 @@ import './physis.css';
 
 type PageName = 'overview' | 'today' | 'programs' | 'control' | 'exercises' | 'diary' | 'foods' | 'intakes' | 'drugs';
 type KeyState = { key: CryptoKey; model: PhysisMemoryStore };
-type Props = { owner: string; language: string; calendarMode: CalendarMode; inputCalendarMode: CalendarMode; timeZone: string; settingsRequest?: number };
+type Props = { owner: string; language: string; calendarMode: CalendarMode; inputCalendarMode: CalendarMode; timeZone: string; settingsRequest?: number; weekStart?: 'sunday' | 'monday' };
 type Area = 'training' | 'nutrition' | 'care' | 'monitoring';
 const GROUPS: { id: Area; title: string; icon: HealthIconName; pages: [PageName, string][] }[] = [
   { id: 'training', title: 'Тренировки', icon: 'dumbbell', pages: [['today', 'Сегодня'], ['programs', 'Тренировки'], ['control', 'Контроль'], ['exercises', 'Справочник']] },
@@ -116,7 +116,7 @@ function UnlockedPhysis(props: Props & { keys: KeyState; vaultState: VaultState 
   const [now, setNow] = useState(() => Date.now()); const action = usePhysisAction();
   const settingsRecord = physisRecords<PhysisSettings>(store, 'settings')[0];
   const settings = { ...(settingsRecord?.data ?? defaultPhysisSettings(props)), calendarMode: props.calendarMode }; const context = calendarContext({ timeZone: settings.timeZone });
-  const feature: PhysisFeatureProps = { store, settings, context, language: props.language };
+  const feature: PhysisFeatureProps = { store, settings, context, language: props.language, weekStart: props.weekStart };
   const personalRecord = physisRecords<NutritionProfile>(store, 'nutrition-profile')[0];
   const personalProfile = personalRecord?.data;
   useEffect(() => {
