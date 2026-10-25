@@ -153,6 +153,12 @@ html[data-genesis-theme] .genesis-app .physis-control-switch.physis-equal-switch
 .physis-catalog-switch { --physis-switch-width: 380px; }
 .physis-plan-switch { --physis-switch-width: 300px; }
 .physis-control-view[hidden] { display: none; }
+.physis-training-control .calendar-picker-backdrop { grid-template-columns: minmax(0,1fr); }
+.physis-training-control .calendar-picker { max-width: 100%; }
+.physis-training-control .calendar-picker h2 { margin-right: 44px; }
+.physis-training-control .calendar-picker-months { grid-template-columns: repeat(auto-fit,minmax(44px,1fr)); }
+html[data-genesis-theme] .genesis-app .physis-training-control .calendar-picker :is(.calendar-picker-months button.active,.sacred-picker-days button.selected,.lunar-picker-days button.selected) { color: var(--ui-on-accent); background: var(--ui-accent); border-color: var(--ui-accent); }
+html[data-genesis-theme] .genesis-app .physis-training-control .calendar-picker :is(.sacred-picker-days,.lunar-picker-days) button.selected :is(strong,span,small,time) { color: inherit; }
 .physis-food-heading { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: start; gap: 16px; padding: 20px; }
 .physis-food-heading h2 { margin-bottom: 8px; }
 .physis-food-heading p { margin: 0 0 8px; }
