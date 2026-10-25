@@ -126,4 +126,3 @@ export function DialogHeaderActions() {
   }, []);
   return <>{entries.map(entry => createPortal(<Header entry={entry} />, entry.host))}</>;
 }
-
