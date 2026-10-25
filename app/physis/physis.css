@@ -40,7 +40,7 @@ html[data-genesis-theme] .genesis-app .physis-area-switch > button { min-height:
 .physis-subnav { gap: 8px; }
 .physis-page-content { display: grid; gap: 24px; min-width: 0; }
 .physis-hero { position: relative; display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; aspect-ratio: 8 / 1; width: 100%; min-width: 0; min-height: 180px; gap: 16px; padding: 20px 28px; overflow: clip; border: 1px solid rgba(216,189,128,.3); border-radius: var(--ui-surface-radius); color: #f8f1df; background-color: #051618; background-image: linear-gradient(90deg,rgba(5,22,24,.82),rgba(5,22,24,.42) 40%,rgba(5,22,24,.08) 75%),url('/physis-art/landscape-v2.webp'); background-size: auto,cover; background-position: center; background-repeat: no-repeat; }
-.physis-hero::before { content: ''; position: absolute; inset: 0 3% 0 0; pointer-events: none; background: url('/physis-art/apollo-artemis-cutout-v2.webp') right bottom / auto 100% no-repeat; }
+.physis-hero::before { content: ''; position: absolute; inset: 0 3% 0 0; pointer-events: none; background: url('/physis-art/apollo-artemis-realistic.png') right bottom / auto 100% no-repeat; }
 .physis-hero::after { content: ''; position: absolute; inset: 11px; border: 1px solid rgba(216,189,128,.17); border-radius: 8px; pointer-events: none; }
 .physis-hero > * { position: relative; z-index: 1; }
 .physis-hero-copy { max-width: 45%; }
@@ -127,7 +127,7 @@ body:has(.physis-settings-backdrop:not([hidden])) { overflow: hidden; }
   .physis-drug-groups > .physis-drug-group-list { display: grid; grid-template-columns: minmax(0,1fr); gap: 4px; }
   .physis-hero { aspect-ratio: auto; min-height: 280px; padding: 24px 20px; background-image: linear-gradient(180deg,rgba(5,22,24,.92),rgba(5,22,24,.4)),url('/physis-art/landscape-v2.webp'); }
   .physis-hero::before { inset: 0; background-size: auto 60%; }
-  .physis-hero-actions { padding-right: 8px; border-radius: 10px; background: #051618db; }
+  .physis-hero-actions { padding: 0; background: transparent; }
   .physis-hero-copy { max-width: 100%; }
   .physis-hero-copy > p { font-size: 13px; }
   html[data-genesis-theme] .genesis-app .physis-area-switch > button { display: flex; align-items: center; justify-content: center; min-height: 48px; padding: 6px; }
@@ -178,8 +178,8 @@ html[data-genesis-theme] .genesis-app .physis-training-control .calendar-picker 
   .physis-exercise-heading h2 { margin-bottom: 0; }
 }
 @media (max-width: 760px) {
-  .physis-section-frame[data-tabs="4"] > .physis-subnav { grid-auto-flow: row; grid-template-columns: repeat(4,minmax(0,1fr)); }
-  html[data-genesis-theme] .genesis-app .physis-section-frame[data-tabs="4"] > .physis-subnav > button { font-size: 12px; padding: 8px 2px; white-space: nowrap; }
+  .physis-section-frame[data-tabs="4"] > .physis-subnav { container-type: inline-size; grid-auto-flow: row; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 6px; }
+  html[data-genesis-theme] .genesis-app .physis-section-frame[data-tabs="4"] > .physis-subnav > button { min-width: 0; font-size: clamp(8px, 3cqi, 13px); padding: 8px 2px; white-space: nowrap; }
   .physis-section-frame > .physis-subnav > button { font-size: 13px; padding: 8px; }
   .physis-section-frame > .physis-page-content { margin-top: 20px; padding: 8px; }
   .physis-control-heading { align-items: flex-start; }

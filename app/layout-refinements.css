@@ -561,7 +561,9 @@ html[data-genesis-theme] .genesis-app .account-panel #solar-place-query { paddin
   html[data-genesis-theme] .genesis-app .habit-workspace-panel .streak-resilience { padding: 0; border: 0; background: transparent; }
   html[data-genesis-theme] .genesis-app .habit-editor .recurrence-switch-row { grid-template-columns: minmax(0, 1fr); }
   html[data-genesis-theme] .genesis-app .habit-editor .recurrence-switch { justify-self: start; }
-  html[data-genesis-theme] .genesis-app nav.mobile-nav[data-exp-ui="mobile-nav"]:has(> button:nth-child(6)) button > small { font-size: clamp(8px, 2.2vw, 11px); }
+  html[data-genesis-theme] .genesis-app nav.mobile-nav[data-exp-ui="mobile-nav"] { gap: 2px; padding: 4px; left: max(4px, env(safe-area-inset-left)); right: max(4px, env(safe-area-inset-right)); }
+  html[data-genesis-theme] .genesis-app nav.mobile-nav[data-exp-ui="mobile-nav"] button { container-type: inline-size; }
+  html[data-genesis-theme] .genesis-app nav.mobile-nav[data-exp-ui="mobile-nav"] button > small { max-width: 100%; font-size: clamp(5px, 17cqi, 11px); white-space: nowrap; }
 }
 @media (max-width: 760px) {
   html[data-genesis-theme] .genesis-app .habit-workspace-panel { padding: 8px; margin-top: 20px; gap: 12px; }
@@ -2101,7 +2103,7 @@ html[data-genesis-theme] .genesis-app .lunar-year-day:has(> .calendar-shared-tas
 }
 
 /* Shared section mastheads follow the Habits composition at each viewport. */
-html[data-genesis-theme] .genesis-app { --section-hero-height: 265px; }
+html[data-genesis-theme] .genesis-app { --section-hero-height: 265px; --section-hero-shade: linear-gradient(105deg, #051618d6, #0d2a29ad 56%, #071a1985); }
 html[data-genesis-theme] .genesis-app :is(.habits-hero, .theokyklos-hero, .physis-hero) { box-sizing: border-box; min-height: var(--section-hero-height); border-radius: var(--ui-surface-radius, 10px); }
 html[data-genesis-theme] .genesis-app :is(.theokyklos-hero, .physis-hero) { height: var(--section-hero-height); aspect-ratio: auto; padding: 24px; box-shadow: none; }
 html[data-genesis-theme] .genesis-app .theokyklos-hero { display: flex; align-items: center; isolation: isolate; background: #07191b; }
@@ -2112,6 +2114,9 @@ html[data-genesis-theme] .genesis-app .theokyklos-hero h1 { margin: 8px 0; color
 html[data-genesis-theme] .genesis-app .theokyklos-hero-copy > p { max-width: 60ch; color: #c7d5ce; font: 400 14px/1.7 var(--font-ui); }
 html[data-genesis-theme] .genesis-app .section-hero-art { position: absolute; z-index: 0; inset: 0; pointer-events: none; background-image: linear-gradient(90deg, #051618c7, #05161870 40%, #05161814 75%), var(--oracle-backdrop); background-position: center, var(--oracle-backdrop-position, center); background-size: auto, cover; background-repeat: no-repeat; }
 html[data-genesis-theme] .genesis-app .section-hero-art::before { content: ''; position: absolute; inset: 0 0 0 auto; width: min(56%, calc(var(--section-hero-height) * var(--oracle-art-ratio))); background: var(--oracle-art-image) right bottom / contain no-repeat; }
+html[data-genesis-theme] .genesis-app .section-hero-art::after { content: ''; position: absolute; inset: 0; background: var(--section-hero-shade); }
+html[data-genesis-theme] .genesis-app .physis-hero { isolation: isolate; }
+html[data-genesis-theme] .genesis-app .physis-hero::after { inset: 0; z-index: 0; border: 0; border-radius: inherit; background: var(--section-hero-shade); }
 html[data-genesis-theme] .genesis-app .section-hero-art-hermes { --oracle-art-ratio: 2; --oracle-art-image: url('/oracle-art/hermes-cards-cutout.png'); --oracle-backdrop: url('/oracle-art/stoicheion-gateway-bg.png'); --oracle-backdrop-position: 70% center; }
 html[data-genesis-theme] .genesis-app .section-hero-art-olympus { --oracle-art-ratio: 2.4; --oracle-art-image: url('/oracle-art/olympian-council-cutout.png'); --oracle-backdrop: url('/oracle-art/theokyklos-olympus-bg.png'); --oracle-backdrop-position: 75% bottom; }
 @media (max-width: 1023px) {
@@ -2123,9 +2128,11 @@ html[data-genesis-theme] .genesis-app .section-hero-art-olympus { --oracle-art-r
 }
 @media (max-width: 600px) {
   html[data-genesis-theme] .genesis-app { --section-hero-height: 488px; }
+  html[data-genesis-theme] .genesis-app :is(.theokyklos-hero, .physis-hero) { --section-hero-height: 244px; --section-hero-shade: linear-gradient(180deg, #051c1bd9, #0b2b28b8 55%, #092b268f); padding: 16px 20px; }
+  html[data-genesis-theme] .genesis-app .theokyklos-hero h1 { font-size: 30px; }
+  html[data-genesis-theme] .genesis-app .theokyklos-hero-copy > p { font-size: 12px; line-height: 1.5; }
   html[data-genesis-theme] .genesis-app .theokyklos-hero .theokyklos-hero-copy { max-width: 100%; }
-  html[data-genesis-theme] .genesis-app .section-hero-art::before { width: 118%; height: auto; aspect-ratio: var(--oracle-art-ratio); }
+  html[data-genesis-theme] .genesis-app .section-hero-art::before { inset: auto 0 0; width: 100%; height: 72%; background-position: center bottom; }
   html[data-genesis-theme] .genesis-app .section-hero-art-olympus { --oracle-art-ratio: 4 / 3; --oracle-art-image: url('/oracle-art/olympian-council-mobile-cutout.png'); }
-  html[data-genesis-theme] .genesis-app .section-hero-art-olympus::before { width: 100%; }
-  html[data-genesis-theme] .genesis-app .physis-hero::before { background-size: auto 66%; }
+  html[data-genesis-theme] .genesis-app .physis-hero::before { inset: 0; background-position: center bottom; background-size: auto 75%; }
 }
