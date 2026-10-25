@@ -1,0 +1,26 @@
+{
+  "tool": "built-in image_gen",
+  "mode": "edit",
+  "transparent_background": true,
+  "output": "public/physis-art/apollo-artemis-realistic.png",
+  "inputs": [
+    {
+      "path": "public/physis-art/apollo-artemis-cutout-v2.webp",
+      "role": "edit target"
+    },
+    {
+      "path": "public/physis-art/landscape-v2.webp",
+      "role": "lighting-only reference"
+    }
+  ],
+  "prompt": "Edit the first reference image (Apollo and Artemis cutout). Replace the marble statues with two LIVING photorealistic adult people portraying Apollo and Artemis, preserving the exact side-by-side arrangement, left Apollo looking left with laurel crown and lyre, right Artemis looking right with bow, quiver and draped Greek clothing. Natural warm olive skin with real pores and subtle color variation, human eyes and lips, natural blond-brown hair. Off-white matte woven linen garments with believable soft folds, small understated aged gold clasps, realistic wooden lyre and bow. No marble cracks, stone bodies, monochrome statue skin, metallic skin, plastic CGI or glossy fabrics. Match restrained warm sunset rim lighting and cool green ambient shadows of the second reference, which is lighting-only context; DO NOT include that landscape. Keep the complete heads, crown, bow, lyre, visible hands, shoulders and torsos inside the canvas with a small transparent margin, figures down to the upper thighs as original. Balanced human anatomy, correctly formed fingers. Clean professional organic alpha edges, TRUE fully transparent background. Landscape aspect ratio 3:2. This asset is a website foreground over the unchanged landscape and needs both people equally visible at mobile sizes. No text, no frame, no ground, no backdrop.",
+  "metadata": {
+    "width": 1536,
+    "height": 1024,
+    "mode": "RGBA",
+    "alphaExtrema": [
+      0,
+      254
+    ]
+  }
+}
