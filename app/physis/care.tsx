@@ -11,6 +11,7 @@ import { editPhysisRecord, newPhysisRecord, physisRecords, type PhysisFeaturePro
 import { Field, NumberField, usePhysisAction } from './fields';
 import { PhysisExchange } from './exchange';
 import { PhysisMomentFields } from './care-time-fields';
+import { SupplementReferenceLibrary } from './supplement-reference';
 
 const routeNames: Record<Drug['route'], string> = { oral: 'Внутрь', intramuscular: 'Внутримышечно', subcutaneous: 'Подкожно', intravenous: 'Внутривенно', topical: 'Наружно', inhalation: 'Ингаляционно', other: 'Другое' };
 export const emptyDrug = (): Drug => ({ name: '', brand: '', category: 'supplement', form: 'Капсула', route: 'oral', activeIngredients: '', amountPerUnit: null, activeUnit: 'mg', concentration: null, concentrationUnit: 'mg/ml', packageSize: '', source: '', notes: '', favorite: false, archived: false, nutrients: [] });
@@ -22,6 +23,7 @@ function DrugGroupList({ groups, drugs, selected, onSelect }: { groups: DrugCata
 }
 export function PhysisDrugCatalog(props: PhysisFeatureProps) {
   const { store } = props;
+  const [catalogMode, setCatalogMode] = useState<'reference' | 'personal'>('reference');
   const [catalogBranch, setCatalogBranch] = useState('');
   const [group, setGroup] = useState('');
   const [kind, setKind] = useState<'' | Drug['category']>('');
@@ -34,7 +36,8 @@ export function PhysisDrugCatalog(props: PhysisFeatureProps) {
   const records = matching.filter(record => !group || drugInCatalogGroup(record.data,JSON.parse(group) as string[]));
   const groups = drugCatalogGroups(allRecords.map(record => record.data));
   const change = (patch: Partial<Drug>) => setDraft(value => value ? { ...value, ...patch } : value);
-  return <div className="physis-drug-catalog"><section className="physis-panel"><h2>Справочник БАДов и лекарств</h2><p className="physis-muted">Ваш личный справочник. Проверка совместимости не выполнена: подключённой базы взаимодействий нет.</p>
+  return <div className="physis-reference-library"><nav className="physis-tabs" aria-label="Режим справочника"><button type="button" aria-current={catalogMode === 'reference' ? 'page' : undefined} onClick={() => setCatalogMode('reference')}>Справочник веществ</button><button type="button" aria-current={catalogMode === 'personal' ? 'page' : undefined} onClick={() => setCatalogMode('personal')}>Мои препараты</button></nav>{catalogMode === 'reference' ? <SupplementReferenceLibrary language={props.language} onAdd={drug => { const record = newPhysisRecord('drug', drug); setEditing(null); setDraftRecord(record); setDraft(drug); setCatalogBranch((drug.catalogPath ?? []).slice(1).join(' / ')); setGroup(''); setCatalogMode('personal'); }} /> : (
+    <div className="physis-drug-catalog"><section className="physis-panel"><h2>Справочник БАДов и лекарств</h2><p className="physis-muted">Ваш личный справочник. Проверка совместимости не выполнена: подключённой базы взаимодействий нет.</p>
     <div className="physis-actions"><button className="physis-primary" onClick={() => { const record = newPhysisRecord('drug', emptyDrug()); setEditing(null); setDraftRecord(record); setDraft(record.data); setCatalogBranch(''); }}>Добавить препарат</button><button aria-pressed={favorites} onClick={() => setFavorites(!favorites)}>Избранное</button><button aria-pressed={archives} onClick={() => setArchives(!archives)}>Архив</button></div>
     <Field label="Поиск по названию, бренду или веществу"><input type="search" value={search} onChange={e => setSearch(e.target.value)} /></Field>
     <div className="physis-tabs" aria-label="Тип препарата">{([['','Все'],['supplement','БАДы'],['medicine','Лекарства']] as const).map(([id,title]) => <button type="button" key={id} aria-pressed={kind === id} onClick={() => setKind(id)}>{title}</button>)}</div>
@@ -45,7 +48,7 @@ export function PhysisDrugCatalog(props: PhysisFeatureProps) {
       <Field label="Название"><input required maxLength={200} value={draft.name} onChange={e => change({ name: e.target.value })} /></Field>
       <Field label="Бренд"><input maxLength={200} value={draft.brand} onChange={e => change({ brand: e.target.value })} /></Field>
       <Field label="Категория"><select value={draft.category} onChange={e => change({ category: e.target.value as Drug['category'] })}><option value="supplement">БАД</option><option value="medicine">Лекарство</option></select></Field>
-      <Field label="Подкатегория справочника"><select value={draft.catalogPath?.[0] ?? ''} onChange={e => { change({ catalogPath: e.target.value ? [e.target.value] : [] }); setCatalogBranch(''); }}><option value="">Без подкатегории</option>{[...new Set([...DRUG_SUBCATEGORIES,...allRecords.flatMap(record => record.data.catalogPath?.[0] ?? [])])].map(name => <option key={name}>{name}</option>)}</select></Field>
+      <Field label="Подкатегория справочника"><select value={draft.catalogPath?.[0] ?? ''} onChange={e => { change({ catalogPath: e.target.value ? [e.target.value] : [] }); setCatalogBranch(''); }}><option value="">Без подкатегории</option>{[...new Set([...DRUG_SUBCATEGORIES,...allRecords.flatMap(record => record.data.catalogPath?.[0] ?? []),...(draft.catalogPath?.slice(0, 1) ?? [])])].map(name => <option key={name}>{name}</option>)}</select></Field>
       <Field label="Вложенные подкатегории через /"><input maxLength={320} value={catalogBranch} disabled={!draft.catalogPath?.length} onChange={e => setCatalogBranch(e.target.value)} placeholder="Например: группа / подгруппа" /></Field>
       <Field label="Форма"><select value={draft.form} onChange={e => change({ form: e.target.value })}>{DRUG_FORMS.map(form => <option key={form}>{form}</option>)}</select></Field>
       <RouteSelect value={draft.route} onChange={route => change({ route })} />
@@ -65,7 +68,8 @@ export function PhysisDrugCatalog(props: PhysisFeatureProps) {
     </form> : null}
     {!records.length ? <p className="physis-empty">Пока нет подходящих записей. Добавьте свою карточку или используйте импорт ниже.</p> : <ul className="physis-list">{records.map(record => <li key={record.id}><strong>{record.data.name}</strong> <span className="physis-muted">{record.data.brand} · {record.data.category === 'medicine' ? 'Лекарство' : 'БАД'} · {record.data.form} · {routeNames[record.data.route]}</span><p className="physis-muted">{record.data.catalogPath?.join(' / ') || 'Без подкатегории'}</p><p>{record.data.activeIngredients}</p><div className="physis-actions"><button onClick={() => { setEditing(record); setDraft(structuredClone(record.data)); setCatalogBranch((record.data.catalogPath ?? []).slice(1).join(' / ')); }}>Изменить</button><button aria-pressed={record.data.favorite} onClick={() => void action.run(() => store.save(editPhysisRecord(record, { ...record.data, favorite: !record.data.favorite })))}>{record.data.favorite ? 'В избранном' : 'В избранное'}</button><button onClick={() => void action.run(() => store.save(editPhysisRecord(record, { ...record.data, archived: !record.data.archived })))}>{record.data.archived ? 'Вернуть из архива' : 'Архивировать'}</button><button className="physis-danger" onClick={() => { if (confirm('Удалить карточку? История приемов сохранится.')) void action.run(() => store.remove(record.id)); }}>Удалить</button></div></li>)}</ul>}
     <PhysisExchange store={store} kind="drug" />
-  </section></div></div>;
+  </section></div></div>
+  )}</div>;
 }
 const initialPeriod = (day: string, timeZone: string): RegimenPeriod => ({ id: crypto.randomUUID(), start: day, end: '', timeZone, mode: 'daily', times: ['09:00'], weekdays: [1, 2, 3, 4, 5], everyDays: 1, everyHours: 24, anchorAt: resolveCalendarWallTime(day, '09:00', timeZone).instant.toISOString(), dose: 1, unit: 'шт', route: 'oral', food: '', notes: '' });
 export function PhysisIntakes(props: PhysisFeatureProps & { owner: string; compact?: boolean; onOpenCatalog?: () => void }) {

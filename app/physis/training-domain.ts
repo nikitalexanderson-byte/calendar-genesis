@@ -1,3 +1,4 @@
+import { EXERCISE_GUIDES } from './exercise-library-data.ts';
 import { addCivilDays, civilDayNumber, isCivilDate } from '../calendar-context.ts';
 import type { PhysisRecord, PhysisStore } from './types.ts';
 
@@ -265,19 +266,15 @@ export function completionScore(assignment: PhysisRecord<TrainingAssignment>, se
   return { due: items.length, earned, percent: items.length ? Math.round(earned / items.length * 100) : null };
 }
 
-const base = (name: string, nameEn: string, muscles: string, movement: string, equipment: string, technique: string, mistakes: string, weightMode: WeightMode = 'total', metric: ExerciseDefinition['metric'] = 'strength'): ExerciseDefinition => ({ name, nameEn, aliases: [], muscles, movement, equipment, environment: equipment === 'bodyweight' ? 'home' : 'gym', technique, mistakes, variants: '', source: 'GENESIS — оригинальное описание / original text, 2026. Медиа не используются / no media.', metric, weightMode, unilateral: false, favorite: false, notes: '' });
-export const STARTER_EXERCISES: ExerciseChoice[] = [
-  ['squat', base('Приседание со штангой', 'Barbell squat', 'legs', 'squat', 'barbell', 'Удерживайте стопу на опоре, опускайтесь в контролируемой амплитуде и поднимайтесь без потери равновесия.', 'Отрыв пяток, неконтролируемое падение вниз, вес выше возможностей.')],
-  ['hinge', base('Румынская тяга', 'Romanian deadlift', 'posterior', 'hinge', 'barbell', 'Отведите таз назад, ведите гриф близко к ногам, остановитесь до потери нейтрального положения спины.', 'Округление поясницы, гриф далеко от тела, рывок внизу.')],
-  ['press', base('Жим штанги лёжа', 'Barbell bench press', 'chest', 'push', 'barbell', 'Устойчиво расположитесь на скамье, плавно опустите гриф и выжмите его по контролируемой траектории.', 'Отскок от груди, неустойчивые стопы, работа без страховки при тяжёлом весе.')],
-  ['row', base('Тяга гантели', 'Dumbbell row', 'back', 'pull', 'dumbbell', 'С опорой свободной рукой тяните гантель к тазу, сохраняя корпус устойчивым.', 'Разворот корпуса вместо тяги, рывок плечом.', 'per-hand')],
-  ['pushup', base('Отжимание', 'Push-up', 'chest', 'push', 'bodyweight', 'Сохраняйте линию корпуса, опускайте грудь между ладонями и выпрямляйте руки без рывка.', 'Провисание поясницы, непосильная амплитуда.', 'bodyweight')],
-  ['pullup', base('Подтягивание с противовесом', 'Assisted pull-up', 'back', 'pull', 'machine', 'Настройте противовес, тянитесь грудью к перекладине, плавно вернитесь вниз.', 'Раскачивание, резкое отпускание веса. Противовес записывается отдельно от массы тела.', 'assisted')],
-  ['lunge', { ...base('Выпад с гантелями', 'Dumbbell lunge', 'legs', 'lunge', 'dumbbell', 'Сделайте устойчивый шаг, опускайте таз контролируемо и оттолкнитесь всей стопой.', 'Потеря равновесия, слишком узкая постановка.', 'per-hand'), unilateral: true }],
-  ['plank', base('Планка', 'Plank', 'core', 'hold', 'bodyweight', 'Удерживайте корпус устойчивым с ровным дыханием; завершите подход при потере положения.', 'Задержка дыхания, провисание поясницы.', 'bodyweight', 'time')],
-  ['run', base('Бег', 'Running', 'whole', 'locomotion', 'bodyweight', 'Выберите комфортный темп и ровную поверхность, увеличивайте нагрузку постепенно.', 'Резкий рост дистанции и темпа без восстановления.', 'bodyweight', 'distance')],
-  ['walk', base('Ходьба', 'Walking', 'whole', 'locomotion', 'bodyweight', 'Двигайтесь удобным шагом, сохраняйте свободное дыхание и устойчивый темп.', 'Неудобная обувь, резкое увеличение нагрузки.', 'bodyweight', 'distance')],
-].map(([id, data]) => ({ id: `genesis:${id}`, data: { ...(data as ExerciseDefinition), catalogId: `genesis:${id}` }, personal: false }));
+export const STARTER_EXERCISES: ExerciseChoice[] = EXERCISE_GUIDES.map(guide => ({
+  id: `genesis:${guide.id}`, personal: false,
+  data: { catalogId: `genesis:${guide.id}`, name: guide.name, nameEn: guide.nameEn,
+    aliases: [guide.nameEn], muscles: guide.muscles, movement: guide.movement, equipment: guide.equipment,
+    environment: guide.equipment === 'bodyweight' ? 'home' : 'gym',
+    technique: guide.steps.join(' '), mistakes: guide.mistakes, variants: '',
+    source: 'GENESIS — оригинальное описание; техника: ACE/NSCA; иллюстрации движения: imagegen, 2026.',
+    metric: guide.metric, weightMode: guide.weightMode, unilateral: guide.unilateral, favorite: false, notes: '' },
+}));
 
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 const text = (v: unknown, max = 20000): v is string => typeof v === 'string' && v.length <= max;
