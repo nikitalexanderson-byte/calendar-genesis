@@ -24,6 +24,7 @@ export type CycleDay = { id: string; name: string; kind: 'workout' | 'rest'; exe
 export type Microcycle = { id: string; name: string; repeats: number; days: CycleDay[]; notes: string };
 export type Mesocycle = { id: string; name: string; repeats: number; deload: boolean; microcycles: Microcycle[]; notes: string };
 export type ProgramVersion = {
+  periodization?: 'linear' | 'weekly-wave' | 'daily-wave' | 'block';
   id: string; version: number; createdAt: string; name: string; description: string;
   goal: string; symbol: string; tags: string[]; mesocycles: Mesocycle[];
   progression: { mode: 'manual' | 'step' | 'top-reps'; stepKg: number };
@@ -45,6 +46,7 @@ export type TrainingSession = {
   assignmentId: string | null; scheduledId: string | null; programId: string | null;
   programVersionId: string | null; editedAt: string | null; pauseStartedAt: string | null;
   pausedSeconds: number;
+  timerPlan?: { exerciseId: string; setId: string; workSeconds: number; restSeconds: number }[];
 };
 
 const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
@@ -174,6 +176,42 @@ export function startSession(day: string, timeZone: string, scheduled?: Schedule
   const exercises = (scheduled?.snapshot.exercises ?? []).map(copyExercise);
   return { name: scheduled?.snapshot.name || assignment?.data.snapshot.name || '', localDay: day, timeZone, startedAt: now.toISOString(), endedAt: null, status: 'active', exercises, plannedSetCount: exercises.reduce((n, ex) => n + ex.sets.length, 0), notes: '', restEndAt: null, assignmentId: assignment?.id ?? null, scheduledId: scheduled?.id ?? null, programId: assignment?.data.programId ?? null, programVersionId: assignment?.data.snapshot.id ?? null, editedAt: null, pauseStartedAt: null, pausedSeconds: 0 };
 }
+/** New UI sessions require an assigned, eligible workout with fully specified timing. */
+export function plannedWorkoutError(assignment: PhysisRecord<TrainingAssignment> | undefined, scheduledId: string | undefined, sessions: PhysisRecord<TrainingSession>[], day: string): string | null {
+  const item = assignment?.data.scheduled.find(s => s.id === scheduledId);
+  if (!assignment || !item) return 'Сначала составьте и назначьте программу в «Мои тренировки».';
+  if (assignment.data.paused) return 'Программа приостановлена.';
+  if (item.snapshot.kind !== 'workout' || item.state === 'skipped') return 'Этот день не содержит запланированной тренировки.';
+  if (day < assignment.data.startDay || assignment.data.mode === 'fixed' && item.day !== day) return 'Тренировка доступна в назначенный день.';
+  const status = scheduleStatus(item, sessions, assignment.id);
+  if (['active', 'paused', 'completed'].includes(status) || status === 'partial' && assignment.data.advanceOn === 'finished') return 'Это занятие уже начато или завершено. Откройте его запись.';
+  if (assignment.data.mode === 'next' && nextScheduled(assignment, sessions, day)?.id !== item.id) return 'Сначала выполните предыдущее занятие программы.';
+  if (!item.snapshot.exercises.length || item.snapshot.exercises.some(ex => !ex.sets.length || ex.sets.some(set => !setCanComplete(ex.snapshot, set) || !Number.isFinite(set.seconds) || !set.seconds || set.seconds <= 0))) return 'Укажите упражнения, плановые значения и время каждого подхода в новой версии программы, затем примените её к назначению.';
+  return null;
+}
+export function startPlannedSession(day: string, timeZone: string, scheduledId: string | undefined, assignment: PhysisRecord<TrainingAssignment> | undefined, sessions: PhysisRecord<TrainingSession>[], now = new Date()): TrainingSession {
+  const error = plannedWorkoutError(assignment, scheduledId, sessions, day);
+  if (error) throw new Error(error);
+  const item = assignment!.data.scheduled.find(s => s.id === scheduledId)!;
+  const session = startSession(day, timeZone, item, assignment, now);
+  return { ...session, timerPlan: session.exercises.flatMap(ex => ex.sets.map(set => ({ exerciseId: ex.id, setId: set.id, workSeconds: set.seconds!, restSeconds: set.restSeconds }))) };
+}
+/** Derive the clock from timestamps, so background throttling and reload never lose time. */
+export function plannedTimer(session: TrainingSession, now = Date.now()) {
+  const plan = session.timerPlan;
+  if (!plan?.length) return null;
+  const elapsed = Math.max(0, sessionSummary(session, now).seconds);
+  const total = plan.reduce((n, step, i) => n + step.workSeconds + (i === plan.length - 1 ? 0 : step.restSeconds), 0);
+  let offset = 0;
+  for (const [index, step] of plan.entries()) {
+    for (const phase of ['work', 'rest'] as const) {
+      const duration = phase === 'work' ? step.workSeconds : index === plan.length - 1 ? 0 : step.restSeconds;
+      offset += duration;
+      if (elapsed < offset) return { phase, index, step, remaining: Math.ceil(offset - elapsed), total, totalRemaining: Math.ceil(total - elapsed) };
+    }
+  }
+  return { phase: 'done' as const, index: plan.length - 1, step: plan[plan.length - 1], remaining: 0, total, totalRemaining: 0 };
+}
 export function pauseSession(session: TrainingSession, now = new Date()): TrainingSession {
   if (session.status === 'active') return { ...session, status: 'paused', pauseStartedAt: now.toISOString(), restEndAt: null };
   if (session.status !== 'paused') return session;
@@ -261,6 +299,7 @@ function validTrainingExercise(v: unknown): boolean {
 function validDay(v: unknown): boolean { return object(v) && text(v.id, 100) && text(v.name, 500) && inList(v.kind, ['workout', 'rest']) && array(v.exercises, 100, validTrainingExercise) && uniqueIds(v.exercises) && text(v.notes) && (v.exercises as TrainingExercise[]).every(ex => ex.sets.every(s => !s.completed && (s.repsMax === null || s.reps === null || s.repsMax >= s.reps))); }
 function repeat(v: unknown) { return num(v, 100, 1) && Number.isInteger(v); }
 function validVersion(v: unknown): boolean {
+  if (object(v) && v.periodization !== undefined && !inList(v.periodization,['linear','weekly-wave','daily-wave','block'])) return false;
   if (!object(v) || !text(v.id, 100) || !num(v.version, 10000, 1) || !instant(v.createdAt) || !['name', 'description', 'goal', 'symbol'].every(k => text(v[k])) || !array(v.tags, 100, x => text(x, 500)) || !object(v.progression) || !inList(v.progression.mode, ['manual', 'step', 'top-reps']) || !num(v.progression.stepKg, 100) || !array(v.mesocycles, 100, m => object(m) && text(m.id, 100) && text(m.name, 500) && text(m.notes) && repeat(m.repeats) && typeof m.deload === 'boolean' && array(m.microcycles, 100, c => object(c) && text(c.id, 100) && text(c.name, 500) && text(c.notes) && repeat(c.repeats) && array(c.days, 100, validDay)))) return false;
   const version = v as unknown as ProgramVersion;
   return version.mesocycles.length > 0 && version.mesocycles.every(m => m.microcycles.length > 0 && m.microcycles.every(c => c.days.length > 0)) && programDuration(version) <= TRAINING_LIMIT;
@@ -272,6 +311,7 @@ export function validateTrainingRecord(record: PhysisRecord): boolean {
   if (record.kind === 'program') return text(v.name, 500) && inList(v.collection, ['personal', 'alchemy']) && typeof v.archived === 'boolean' && Array.isArray(v.versions) && v.versions.length > 0 && array(v.versions, 100, validVersion);
   if (record.kind === 'assignment') return text(v.programId, 100) && validVersion(v.snapshot) && inList(v.mode, ['fixed', 'next']) && inList(v.advanceOn, ['complete', 'finished']) && typeof v.startDay === 'string' && isCivilDate(v.startDay) && typeof v.paused === 'boolean' && uniqueIds(v.scheduled) && array(v.scheduled, TRAINING_LIMIT, s => object(s) && text(s.id, 100) && typeof s.day === 'string' && isCivilDate(s.day) && validDay(s.snapshot) && inList(s.state, ['planned', 'skipped']) && (s.movedFrom === null || typeof s.movedFrom === 'string' && isCivilDate(s.movedFrom)) && text(s.meso, 100) && text(s.micro, 100) && num(s.cycleDay, 100, 1));
   if (record.kind === 'session') {
+    if (v.timerPlan !== undefined && (!Array.isArray(v.timerPlan) || !v.timerPlan.length || !array(v.timerPlan, 10000, s => object(s) && text(s.exerciseId, 100) && text(s.setId, 100) && num(s.workSeconds, 604800, .001) && num(s.restSeconds, 86400)) || new Set(v.timerPlan.map(s => `${s.exerciseId}:${s.setId}`)).size !== v.timerPlan.length)) return false;
     if (!(text(v.name, 500) && typeof v.localDay === 'string' && isCivilDate(v.localDay) && text(v.timeZone, 100) && instant(v.startedAt) && (v.endedAt === null || instant(v.endedAt) && Date.parse(String(v.endedAt)) >= Date.parse(String(v.startedAt))) && inList(v.status, ['active', 'paused', 'completed', 'partial']) && array(v.exercises, 100, validTrainingExercise) && uniqueIds(v.exercises) && num(v.plannedSetCount, 10000) && text(v.notes) && [v.restEndAt, v.editedAt, v.pauseStartedAt].every(t => t === null || instant(t)) && [v.assignmentId, v.scheduledId, v.programId, v.programVersionId].every(id => id === null || text(id, 100)) && num(v.pausedSeconds, 1e10))) return false;
     try { new Intl.DateTimeFormat('en', { timeZone: String(v.timeZone) }).format(); } catch { return false; }
     if ((v.status === 'completed' || v.status === 'partial') !== (v.endedAt !== null)) return false;

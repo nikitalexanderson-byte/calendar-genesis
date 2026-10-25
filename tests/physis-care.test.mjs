@@ -4,6 +4,7 @@ import {
   regimenEvents, reviseRegimen, validPeriod, validateCareRecord, validDrug,
   activeAmount, convertMass, convertGlucose, oralNutrientsForDay, intakeRecordId,
   cancelIntake, measurementUnits, careMomentParts, editCareMoment, pendingIntakeEvents,
+  DRUG_SUBCATEGORIES, drugCatalogGroups, drugInCatalogGroup,
 } from '../app/physis/care-domain.ts';
 import { newPhysisRecord } from '../app/physis/types.ts';
 
@@ -12,6 +13,22 @@ const period = (patch = {}) => ({ id: crypto.randomUUID(), start: '2026-03-07', 
 const regimen = (periods = [period()]) => newPhysisRecord('regimen', { name: 'Test course', drugId: crypto.randomUUID(), drugSnapshot: drug(), version: 1, periods, archived: false, previousVersions: [] });
 const intake = (patch = {}) => ({ eventId: crypto.randomUUID(), regimenId: null, regimenVersion: null, plannedAt: null, takenAt: '2026-10-24T12:00:00Z', timeZone: 'Europe/Moscow', day: '2026-10-24', quantity: 2, unit: 'шт', route: 'oral', status: 'taken', postponedUntil: null, drugSnapshot: drug(), source: 'manual', note: '', editedAt: null, ...patch });
 const measurement = (patch = {}) => ({ type: 'pressure', label: 'Blood pressure', value: 120, secondValue: 80, pulse: 64, unit: 'mmHg', timestamp: '2026-10-24T12:00:00Z', timeZone: 'Europe/Moscow', day: '2026-10-24', source: 'Manual', device: '', context: 'Seated', intervalMinutes: null, arm: 'Left', position: 'Seated', note: '', scale: 'numeric', target: null, editedAt: null, ...patch });
+
+test('catalog hierarchy keeps eight starter branches, nested descendants and unassigned legacy cards', () => {
+  const legacy = drug(), nested = { ...drug(), catalogPath: ['Витамины', 'Группа', 'Подгруппа'] };
+  const before = structuredClone(nested);
+  const tree = drugCatalogGroups([legacy, nested]);
+  assert.deepEqual(tree.map(node => node.name), DRUG_SUBCATEGORIES);
+  assert.deepEqual(tree.find(node => node.name === 'Витамины').children[0].children[0].path, nested.catalogPath);
+  assert.equal(drugInCatalogGroup(nested, ['Витамины']), true);
+  assert.equal(drugInCatalogGroup(nested, ['Минералы']), false);
+  assert.equal(drugInCatalogGroup(legacy, []), true);
+  assert.equal(drugInCatalogGroup(nested, []), false);
+  assert.equal(validDrug(legacy), true); assert.equal(validDrug(nested), true);
+  assert.equal(validDrug({ ...nested, catalogPath: [''] }), false);
+  assert.equal(validDrug({ ...nested, catalogPath: Array(6).fill('Too deep') }), false);
+  assert.deepEqual(nested, before);
+});
 
 test('postponed reminders cross midnight without changing the original event, version or journal day', () => {
   const course = regimen([period({ start: '2026-10-24', timeZone: 'Europe/Moscow', times: ['23:30'] })]);

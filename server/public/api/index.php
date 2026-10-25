@@ -32,6 +32,7 @@ define('GENESIS_STATELESS_REQUEST', $method === 'OPTIONS'
 require $serverRoot . '/src/bootstrap.php';
 require $serverRoot . '/src/repository.php';
 require $serverRoot . '/src/mindmaps.php';
+require $serverRoot . '/src/stoicheion-workspace.php';
 require $serverRoot . '/src/shared-mindmaps.php';
 require $serverRoot . '/src/ads.php';
 require $serverRoot . '/src/google.php';
@@ -1120,6 +1121,11 @@ try {
         if(count($segments)===6 && $method==='PATCH'){genesisRequireCsrf();genesisJson(genesisSharedRestoreTrash($userId,$segments[2],$segments[4],$segments[5],genesisReadJson()));}
     }
 
+    if ($path === 'stoicheion-workspace') {
+        $userId = genesisRequireUserId(); header('Cache-Control: no-store');
+        if ($method === 'GET') genesisJson(['document'=>genesisStoicheionWorkspace($userId)]);
+        if ($method === 'PUT') { genesisRequireCsrf(); genesisJson(genesisSaveStoicheionWorkspace($userId,genesisReadJson())); }
+    }
     if ($segments && $segments[0] === 'mindmaps') {
         $userId = genesisRequireUserId();
         header('Cache-Control: no-store');

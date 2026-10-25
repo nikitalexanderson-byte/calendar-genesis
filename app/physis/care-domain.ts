@@ -7,12 +7,30 @@ export type DoseUnit = typeof DOSE_UNITS[number];
 export const DRUG_FORMS = ['Таблетка', 'Капсула', 'Порошок', 'Капли', 'Жидкость', 'Раствор для инъекций', 'Гель/крем', 'Пластырь', 'Ингалятор', 'Другая'] as const;
 export const ROUTES = ['oral', 'intramuscular', 'subcutaneous', 'intravenous', 'topical', 'inhalation', 'other'] as const;
 export type Drug = {
+  catalogPath?: string[];
   name: string; brand: string; category: 'supplement' | 'medicine'; form: string; route: typeof ROUTES[number];
   activeIngredients: string; amountPerUnit: number | null; activeUnit: 'mg' | 'mcg' | 'g' | 'IU';
   concentration: number | null; concentrationUnit: 'mg/ml' | 'mcg/ml' | 'g/ml' | 'IU/ml';
   packageSize: string; source: string; notes: string; favorite: boolean; archived: boolean;
   nutrients: { nutrient: string; value: number; unit: 'mg' | 'mcg' | 'g'; elemental: boolean }[];
 };
+export const DRUG_SUBCATEGORIES = ['Иммунитет', 'ЖКТ', 'Общеукрепляющие', 'Адаптогены', 'Здоровый сон', 'Разгон мозга', 'Витамины', 'Минералы'];
+export type DrugCatalogGroup = { name: string; path: string[]; children: DrugCatalogGroup[] };
+export function drugInCatalogGroup(drug: Drug, path: string[]) {
+  return path.length ? path.every((name, index) => drug.catalogPath?.[index] === name) : !drug.catalogPath?.length;
+}
+export function drugCatalogGroups(drugs: Drug[]): DrugCatalogGroup[] {
+  const roots: DrugCatalogGroup[] = DRUG_SUBCATEGORIES.map(name => ({ name, path: [name], children: [] }));
+  for (const drug of drugs) {
+    let nodes = roots;
+    for (const [index, name] of (drug.catalogPath ?? []).entries()) {
+      let node = nodes.find(group => group.name === name);
+      if (!node) { node = { name, path: drug.catalogPath!.slice(0, index + 1), children: [] }; nodes.push(node); }
+      nodes = node.children;
+    }
+  }
+  return roots;
+}
 export type RegimenPeriod = {
   id: string; start: string; end: string; timeZone: string;
   mode: 'daily' | 'weekdays' | 'every-days' | 'hours' | 'prn'; times: string[];
@@ -73,6 +91,7 @@ export function editCareMoment(timestamp: string | null, timeZone: string, day: 
   return { timestamp: resolved.instant.toISOString(), day: momentCivilDate(resolved.instant, timeZone), adjustment: resolved.adjustment };
 }
 export function validDrug(value: unknown): value is Drug {
+  if (value && typeof value === 'object' && 'catalogPath' in value && value.catalogPath !== undefined && (!Array.isArray(value.catalogPath) || value.catalogPath.length > 5 || !value.catalogPath.every(name => typeof name === 'string' && !!name.trim() && name.length <= 80))) return false;
   if (!value || typeof value !== 'object') return false;
   const d = value as Drug;
   return text(d.name, 200) && d.name.trim().length > 0 && text(d.brand, 200) && ['supplement', 'medicine'].includes(d.category) &&
@@ -214,6 +233,7 @@ export function validateCareRecord(record: PhysisRecord): boolean {
   }
   if (record.kind === 'settings') {
     const s = data as PhysisSettings;
+    if (s.monitoringHints !== undefined && typeof s.monitoringHints !== 'boolean') return false;
     return ['sacred', 'lunar', 'profane'].includes(s.calendarMode) && ['sacred', 'lunar', 'profane'].includes(s.inputCalendarMode) && zone(s.timeZone) &&
       ['kg', 'lb'].includes(s.weightUnit) && ['km', 'mi'].includes(s.distanceUnit) && ['kcal', 'kJ'].includes(s.energyUnit) && ['mmol/L', 'mg/dL'].includes(s.glucoseUnit) &&
       number(s.restSeconds, 0, 3600) && typeof s.reminders === 'boolean' && Array.isArray(s.foodRules) && s.foodRules.every(v => text(v, 100)) &&

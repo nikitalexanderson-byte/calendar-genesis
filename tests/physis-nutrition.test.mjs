@@ -3,7 +3,7 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import {
   blankFood, nutrient, baseAmount, itemNutrients, totalNutrients, snapshotItem, copyMeal,
-  recipeFood, foodWarnings, resolveTargets, estimateEnergy, energyDifference, summaryForDay,
+  recipeFood, foodWarnings, resolveTargets, startingNutritionTargets, estimateEnergy, energyDifference, summaryForDay,
   importUsdaFood, validateNutritionRecord, suggestPortion, compareNutrientReference, NUTRIENT_REFERENCES,
 } from '../app/physis/nutrition-domain.ts';
 import { newPhysisRecord } from '../app/physis/types.ts';
@@ -204,4 +204,20 @@ test('structured JSON round trip preserves snapshots and unknown values', () => 
   assert.ok(validateNutritionRecord(restored));
   assert.deepEqual(restored, record);
   assert.equal(restored.data.items[0].food.nutrients.iron.value, null);
+});
+
+
+test('starting nutrition targets apply editable goal adjustments and consistent macros within adult formula limits', () => {
+  const p={age:30,heightCm:175,weightKg:80,activityFactor:1.4,formulaSex:'male',goal:'maintain',excluded:false};
+  const maintained=startingNutritionTargets(p), lost=startingNutritionTargets({...p,goal:'lose'}), gained=startingNutritionTargets({...p,goal:'gain'});
+  assert.equal(lost.adjustment,.9);assert.equal(gained.adjustment,1.1);
+  assert.ok(Math.abs(lost.target.energy/maintained.target.energy-.9)<.001);
+  assert.ok(Math.abs(gained.target.energy/maintained.target.energy-1.1)<.001);
+  const target=maintained.target;
+  assert.ok(Math.abs(target.protein*4+target.fat*9+target.carbohydrate*4-target.energy)<1e-6);
+  assert.equal(target.fiber,14*target.energy/1000);
+  assert.throws(()=>startingNutritionTargets({...p,age:17}));
+  assert.throws(()=>startingNutritionTargets({...p,excluded:true}));
+  assert.throws(()=>startingNutritionTargets({...p,goal:'custom'}));
+  assert.throws(()=>startingNutritionTargets({...p,weightKg:30,heightCm:120,age:80,activityFactor:1,goal:'lose'}));
 });

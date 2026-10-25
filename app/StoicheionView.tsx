@@ -42,7 +42,6 @@ import { StoicheionRestoration, type RestorationHandle, type RestorationPrimaryS
 import { StoicheionActionButton } from "./StoicheionActionButton";
 import { RESTORATION_SECTORS } from "./stoicheion-restoration-data";
 import { restorationCopy, restorationLocal } from "./stoicheion-restoration-copy";
-import { habitLifecycleState } from "./habit-lifecycle";
 
 const LOCAL_DRAW_STORAGE_PREFIX = "genesis-stoicheion-draws-v2:";
 const STOICHEION_CARD_ART_VERSION = "20260906-anatomy-glow";
@@ -901,7 +900,7 @@ export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSec
           </>
         )}
 
-        {!divinationDisabled && workspace && onWorkspaceChange && (spreadVisible || workspace.habits.some(habit => habit.stoicheionRestoration && habitLifecycleState(habit).status !== "deleted")) ? <StoicheionRestoration
+        {!divinationDisabled && workspace && onWorkspaceChange ? <StoicheionRestoration
           key={userId} ref={restorationRef} userId={userId} onPrimaryStateChange={setRestorationPrimary}
           cards={spreadVisible ? spreadCards.map(card => ({letterId:card.letter.id,reversed:card.reversed})) : []}
           sourceDate={spreadDraw?.dayKey ?? dayKey} sourceSeed={spreadSeed} today={todayDate ?? dayKey}

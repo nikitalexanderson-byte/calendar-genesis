@@ -134,6 +134,8 @@ export default defineConfig({
             // application chunk, including production builds with mindmaps enabled.
             { name: "account-settings", test: /app[\\/]AccountPanel\.tsx$/, priority: 14 },
             { name: "affairs-copy", test: /app[\\/]native-affairs-translations\.json$/, priority: 46 },
+            // The growing web-only pilot dictionary must not inflate locale-core.
+            { name: "locale-physis", test: /app[\\/]physis[\\/]copy\.en\.json$/, priority: 46 },
             { name: "public-documents", test: /app[\\/](?:LegalPage\.tsx|legal-content\.ts)$/, priority: 14 },
             ...["el","de","fr","es","it","pt","pl","sr","uk","zh","tr","ja"].map(locale => ({
               name: `locale-restoration-${locale}`,

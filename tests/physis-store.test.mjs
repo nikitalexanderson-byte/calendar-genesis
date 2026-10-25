@@ -327,3 +327,28 @@ test('encrypted export refuses new-key ciphertext from another device instead of
   await assert.rejects(oldDevice.exportWire(), /PHYSIS_INVALID_ENVELOPE/);
   assert.equal(oldDevice.getSnapshot().records.length, 1);
 });
+
+
+test('monthly plan chunks retain uncertain IDs after the second response is lost and preserve acknowledged edits', async () => {
+  const modules=physisModules(), server=peer(), dataKey=await key();
+  let failSecond=true;
+  const transport=(path,init)=>{
+    if(path==='/records' && server.writes.length===1 && failSecond){server.dropResponse=true;failSecond=false;}
+    return server.transport(path,init);
+  };
+  const store=new (modules.store().PhysisMemoryStore)(owner,dataKey,1,transport,()=>{});
+  const submit=createPhysisSubmission();let preparations=0;
+  const records=Array.from({length:205},()=>settingsRecord());
+  const prepare=()=>{preparations++;return records;};
+  await assert.rejects(submit('month',prepare,store.getSnapshot()));
+  assert.equal(server.rows.size,200);
+  await store.flush();
+  await store.getSnapshot().save({...records[0],data:{...records[0].data,restSeconds:333}});
+  await submit('month',prepare,store.getSnapshot());
+  assert.equal(preparations,1);assert.equal(server.rows.size,205);
+  assert.equal(store.getSnapshot().records.find(r=>r.id===records[0].id).data.restSeconds,333);
+  assert.ok(server.writes.every(w=>w.body.changes.length<=100));
+  assert.equal(server.writes.filter(w=>w.body.changes.some(c=>c.id===records[0].id)).length,2,'first chunk is not replayed after later edits');
+  const reopened=storeFixture(physisModules(),server,dataKey);await reopened.reload();
+  assert.equal(reopened.getSnapshot().records.length,205);
+});

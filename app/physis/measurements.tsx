@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { momentCivilDate, todayCivilDate, addCivilDays } from '../calendar-context';
 import { formatCalendarDateValue } from '../calendar-data';
 import { METRICS, convertGlucose, measurementUnits, type Measurement } from './care-domain';
@@ -7,8 +7,22 @@ import { Field, NumberField, usePhysisAction } from './fields';
 import { PhysisMomentFields } from './care-time-fields';
 
 const metricName = (type: string) => METRICS.find(([key]) => key === type)?.[1] ?? type;
-export function PhysisMeasurements({ store, settings, context }: PhysisFeatureProps) {
-  const [type, setType] = useState<Measurement['type']>((settings.enabledMetrics[0] as Measurement['type']) ?? 'weight');
+export function PhysisMeasurements({ store, settings, context, hintOwner, onDisableHints }: PhysisFeatureProps & { hintOwner?: string; onDisableHints?: () => void }) {
+  const [hintOpen, setHintOpen] = useState(false);
+  useEffect(() => {
+    if (!hintOwner || settings.monitoringHints === false) return;
+    try {
+      const key = `genesis:physis:monitoring-hint:${hintOwner}`;
+      const last = Number(localStorage.getItem(key));
+      if (!last || Date.now() - last >= 7 * 86400000) {
+        const timer = setTimeout(() => { localStorage.setItem(key, String(Date.now())); setHintOpen(true); }, 650);
+        return () => clearTimeout(timer);
+      }
+    } catch { /* Storage unavailable: the optional hint stays closed. */ }
+  }, [hintOwner, settings.monitoringHints]);
+  const hint = hintOpen && settings.monitoringHints !== false ? <aside className="physis-monitoring-hint" role="status"><h3>Больше показателей</h3><p>В настройках Фюзиса можно включить давление, сахар и другие показатели. История сохраняется и после отключения.</p><div className="physis-actions"><button type="button" onClick={() => setHintOpen(false)}>Понятно</button><button type="button" onClick={() => { setHintOpen(false); onDisableHints?.(); }}>Больше не показывать</button></div></aside> : null;
+  const [selectedType, setType] = useState<Measurement['type']>((settings.enabledMetrics[0] as Measurement['type']) ?? 'weight');
+  const type = settings.enabledMetrics.includes(selectedType) ? selectedType : (settings.enabledMetrics[0] as Measurement['type']) ?? 'weight';
   const [contextFilter, setContextFilter] = useState(''); const [period, setPeriod] = useState('30');
   const [customLabel, setCustomLabel] = useState('');
   const [draft, setDraft] = useState<PhysisRecord<Measurement> | null>(null);
@@ -34,8 +48,8 @@ export function PhysisMeasurements({ store, settings, context }: PhysisFeaturePr
   const firstTime = history.length ? Date.parse(history[0].data.timestamp) : 0;
   const span = history.length ? Math.max(1, Date.parse(history.at(-1)!.data.timestamp) - firstTime) : 1;
   const points = history.map(r => `${20 + (Date.parse(r.data.timestamp) - firstTime) / span * 560},${140 - (value(r.data) - lo) / Math.max(1, hi - lo) * 120}`).join(' ');
-  if (!settings.enabledMetrics.length) return <section className="physis-panel"><h2>Показатели</h2><p className="physis-empty">Включите нужные показатели в настройках Фюзиса. Отключение инструмента сохраняет историю.</p></section>;
-  return <section className="physis-panel"><h2>Показатели</h2><div className="physis-form"><Field label="Показатель"><select value={type} onChange={e => { setType(e.target.value as Measurement['type']); setContextFilter(''); setCustomLabel(''); }}>{METRICS.filter(([id]) => settings.enabledMetrics.includes(id)).map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></Field><Field label="Период истории"><select value={period} onChange={e => setPeriod(e.target.value)}><option value="7">7 дней</option><option value="30">30 дней</option><option value="90">90 дней</option><option value="365">Год</option></select></Field><Field label="Контекст"><select value={contextFilter} onChange={e => setContextFilter(e.target.value)}><option value="">Все контексты (без общей линии)</option>{contexts.filter(Boolean).map(c => <option key={c}>{c}</option>)}</select></Field></div>
+  if (!settings.enabledMetrics.length) return <section className="physis-panel"><h2>Мониторинг показателей</h2>{hint}<p className="physis-empty">Включите нужные показатели в настройках Фюзиса. Отключение инструмента сохраняет историю.</p></section>;
+  return <section className="physis-panel"><h2>Мониторинг показателей</h2>{hint}<div className="physis-form"><Field label="Показатель"><select value={type} onChange={e => { setType(e.target.value as Measurement['type']); setContextFilter(''); setCustomLabel(''); }}>{METRICS.filter(([id]) => settings.enabledMetrics.includes(id)).map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></Field><Field label="Период истории"><select value={period} onChange={e => setPeriod(e.target.value)}><option value="7">7 дней</option><option value="30">30 дней</option><option value="90">90 дней</option><option value="365">Год</option></select></Field><Field label="Контекст"><select value={contextFilter} onChange={e => setContextFilter(e.target.value)}><option value="">Все контексты (без общей линии)</option>{contexts.filter(Boolean).map(c => <option key={c}>{c}</option>)}</select></Field></div>
     <Field label="Свой показатель по названию">{type === 'custom' ? <select value={customLabel} onChange={e => setCustomLabel(e.target.value)}><option value="">Все названия — без общей линии</option>{[...new Set(records.filter(r => r.data.type === 'custom').map(r => r.data.label))].map(label => <option key={label}>{label}</option>)}</select> : <span>Выбран стандартный показатель</span>}</Field><button className="physis-primary" onClick={newEntry}>Записать измерение</button>
     {action.error ? <p role="alert" className="physis-warning">{action.error}</p> : null}
     {draft ? <form key={draft.id} className="physis-form" onSubmit={e => { e.preventDefault(); void action.run(async () => { await store.save(editPhysisRecord(draft, { ...draft.data, editedAt: records.some(r => r.id === draft.id) ? new Date().toISOString() : null })); setDraft(current => current === draft ? null : current); }); }}>

@@ -91,6 +91,10 @@ html[data-genesis-theme] .genesis-app .restoration .restoration-progress { margi
 .restoration-tetractys ol { color: var(--ink-soft); padding-inline-start: 20px; }
 .restoration summary { cursor: pointer; padding: 12px 0; min-height: 44px; }
 .restoration-source { margin-top: 24px; padding-block: 8px; border-block: 1px solid var(--line); }
+.restoration-final-note { margin-top: 24px; padding-block: 8px; border-block: 1px solid var(--line); }
+.restoration-final-note p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.restoration-delete { margin-top: 24px; }
+.restoration-delete summary, .restoration .restoration-delete-button { color: var(--danger, #a5543f); }
 .restoration-history { border-top: 1px solid var(--line); margin-top: 24px; }
 .restoration-history > div { display: grid; gap: 12px; padding: 12px 0; }
 .restoration-history button { justify-content: flex-start; text-align: start; }
