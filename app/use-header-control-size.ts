@@ -13,6 +13,12 @@ export function useHeaderControlSize(enabled: boolean) {
     let disposed = false;
     const number = (value: string) => Number.parseFloat(value) || 0;
     const visible = (element: Element) => element.getClientRects().length > 0;
+    const groupOverhead = (element: HTMLElement, count: number) => {
+      const style = getComputedStyle(element);
+      return [style.paddingLeft, style.paddingRight, style.borderLeftWidth, style.borderRightWidth]
+        .reduce((total, value) => total + number(value), 0)
+        + number(style.columnGap) * Math.max(0, count - 1);
+    };
     const clear = () => {
       delete header.dataset.headerStacked;
       header.style.removeProperty("--header-control-size");
@@ -30,14 +36,10 @@ export function useHeaderControlSize(enabled: boolean) {
       const count = calendarCount + actionCount;
       if (!count) { clear(); return; }
       const style = getComputedStyle(header);
-      const calendarStyle = getComputedStyle(calendars);
       const available = header.getBoundingClientRect().width - number(style.paddingLeft) - number(style.paddingRight)
         - number(style.borderLeftWidth) - number(style.borderRightWidth);
       const overhead = number(style.columnGap) * 2
-        + number(calendarStyle.paddingLeft) + number(calendarStyle.paddingRight)
-        + number(calendarStyle.borderLeftWidth) + number(calendarStyle.borderRightWidth)
-        + number(calendarStyle.columnGap) * Math.max(0, calendarCount - 1)
-        + number(getComputedStyle(actions).columnGap) * Math.max(0, actionCount - 1);
+        + groupOverhead(calendars, calendarCount) + groupOverhead(actions, actionCount);
       delete header.dataset.headerStacked;
       if (brand.getBoundingClientRect().width + overhead + count * 44 > available) header.dataset.headerStacked = "true";
       const size = Math.floor(Math.min(44, Math.max(24, (available - brand.getBoundingClientRect().width - overhead) / count)) * 100) / 100;
