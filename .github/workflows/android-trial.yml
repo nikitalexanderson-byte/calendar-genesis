@@ -1,0 +1,100 @@
+name: Build GENESIS Android trial artifact
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: genesis-android-trial-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  signed-trial:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout selected trial revision
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Require an explicitly marked 3.0 trial
+        run: |
+          set -euo pipefail
+          grep -Eq 'buildConfigField\("boolean", "TRIAL_BUILD", "true"\)' android/app/build.gradle.kts
+          grep -Eq 'versionName = "3\.0\.0-beta\.[0-9]+"' android/app/build.gradle.kts
+
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Build with the existing release identity
+        env:
+          SIGNING_KEYSTORE_B64: ${{ secrets.GENESIS_ANDROID_RELEASE_KEYSTORE_B64 }}
+          GENESIS_ANDROID_SIGNING_STORE_PASSWORD: ${{ secrets.GENESIS_ANDROID_RELEASE_STORE_PASSWORD }}
+          GENESIS_ANDROID_SIGNING_KEY_ALIAS: ${{ secrets.GENESIS_ANDROID_RELEASE_KEY_ALIAS }}
+          GENESIS_ANDROID_SIGNING_KEY_PASSWORD: ${{ secrets.GENESIS_ANDROID_RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          umask 077
+          test -n "$SIGNING_KEYSTORE_B64"
+          test -n "$GENESIS_ANDROID_SIGNING_STORE_PASSWORD"
+          test -n "$GENESIS_ANDROID_SIGNING_KEY_ALIAS"
+          test -n "$GENESIS_ANDROID_SIGNING_KEY_PASSWORD"
+          sdkmanager "platforms;android-37.2" "build-tools;37.0.0"
+          mkdir -p "$RUNNER_TEMP/genesis-android-trial-signing"
+          export GENESIS_ANDROID_SIGNING_STORE="$RUNNER_TEMP/genesis-android-trial-signing/release.jks"
+          trap 'rm -f -- "$GENESIS_ANDROID_SIGNING_STORE"' EXIT
+          printf '%s' "$SIGNING_KEYSTORE_B64" | base64 --decode > "$GENESIS_ANDROID_SIGNING_STORE"
+          export GENESIS_YANDEX_CLIENT_ID=""
+          cd android
+          bash ./gradlew :app:testDebugUnitTest :app:lintRelease :app:assembleRelease \
+            --no-daemon --console=plain --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8' \
+            '-Pandroid.builder.sdkDownload=false'
+
+      - name: Verify and package the immutable APK
+        run: |
+          set -euo pipefail
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/37.0.0/apksigner" verify --verbose --print-certs "$APK" \
+            | tee "$RUNNER_TEMP/genesis-trial-cert.txt"
+          grep -qi 'certificate SHA-256 digest: 1e161d36f574b0560d808c7ee95e1abe98165b3385336d0276fb381dfd901cb8' \
+            "$RUNNER_TEMP/genesis-trial-cert.txt"
+          "$ANDROID_HOME/build-tools/37.0.0/zipalign" -c -P 16 4 "$APK"
+          "$ANDROID_HOME/build-tools/37.0.0/aapt" dump badging "$APK" > "$RUNNER_TEMP/genesis-trial-badging.txt"
+          grep -Eq "package: name='ru.genesis.calendar' versionCode='[0-9]+' versionName='3\.0\.0-beta\.[0-9]+'" \
+            "$RUNNER_TEMP/genesis-trial-badging.txt"
+          ! grep -q '^application-debuggable' "$RUNNER_TEMP/genesis-trial-badging.txt"
+          VERSION_CODE="$(sed -n "s/^package:.*versionCode='\([^']*\)'.*/\1/p" "$RUNNER_TEMP/genesis-trial-badging.txt")"
+          test "$VERSION_CODE" -gt 102
+          VERSION_NAME="$(sed -n "s/^package:.*versionName='\([^']*\)'.*/\1/p" "$RUNNER_TEMP/genesis-trial-badging.txt")"
+          mkdir -p trial-artifact
+          cp "$APK" "trial-artifact/GENESIS-Android-Native-${VERSION_NAME}.apk"
+          (cd trial-artifact && sha256sum "GENESIS-Android-Native-${VERSION_NAME}.apk" > "GENESIS-Android-Native-${VERSION_NAME}.apk.sha256")
+          cp "$RUNNER_TEMP/genesis-trial-badging.txt" trial-artifact/apk-metadata.txt
+          printf 'sourceCommit=%s\nsourceRef=%s\nversionCode=%s\n' \
+            "$GITHUB_SHA" "$GITHUB_REF" "$VERSION_CODE" > trial-artifact/source.txt
+          cp "$RUNNER_TEMP/genesis-trial-cert.txt" trial-artifact/signing-certificate.txt
+
+      - name: Save trial APK for explicit installation
+        uses: actions/upload-artifact@v6
+        with:
+          name: genesis-android-3.0-trial-${{ github.run_number }}
+          path: trial-artifact/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+
