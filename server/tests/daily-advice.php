@@ -116,7 +116,22 @@ foreach (['Europe/Moscow', 'Pacific/Kiritimati', 'America/Los_Angeles', 'Europe/
         foreach ([0, 1, -4] as $offset) adviceExpect(!isset(genesisAdvicePhaseLeads(genesisCalendarAddDays($eventDay, $offset), $zone)[$phase]), 'Lunar advice appeared on or after the phase or too early');
     }
 }
-adviceExpect(genesisAdviceAvailableCategories() === ['aretology', 'hestiology'], 'Available settings categories do not match the two published collections');
+adviceExpect(genesisAdviceAvailableCategories() === ['aretology', 'kourotrophy', 'hestiology'], 'Available settings categories do not match the three published collections');
+
+// Family interests adjust rank without changing category access, history or manual selection.
+$family = [...adviceFixture('family advice', 'kourotrophy'), 'topics' => ['parenting']];
+$familyPool = [$workout, $family];
+$neutralScores = genesisAdviceScores([]);
+$fatherTopics = genesisAdviceTopicScores(['parenting' => 8, 'sons' => 8, 'fatherhood' => 4]);
+$motherTopics = genesisAdviceTopicScores(['parenting' => 8, 'motherhood' => 4]);
+adviceExpect(genesisAdviceFamilyAffinity($fatherTopics) > genesisAdviceFamilyAffinity($motherTopics), 'Paternal and sons interests did not receive higher priority');
+adviceExpect(genesisAdviceFamilyAffinity(genesisAdviceTopicScores(['motherhood' => 8])) < genesisAdviceFamilyAffinity([]), 'Maternal-only interest did not receive a lower priority');
+adviceExpect(genesisChooseAdvice($familyPool, $preferences, $neutralScores, [], 'family-smart', $fatherTopics, [])['id'] === $family['id'], 'Parent/sons context did not favour Kourotrophy');
+$familyHistory = [['advice_id' => $family['id'], 'day_key' => '2026-10-01', 'entry_json' => json_encode($family)]];
+adviceExpect(genesisChooseAdvice($familyPool, $preferences, $neutralScores, $familyHistory, 'family-round', $fatherTopics, [])['id'] === $workout['id'], 'Family interest bypassed unseen advice');
+$manualFamily = ['enabled' => true, 'smart' => false, 'categories' => ['kourotrophy']];
+adviceExpect(genesisChooseAdvice($familyPool, $manualFamily, $neutralScores, [], 'family-manual', $motherTopics, [])['id'] === $family['id'], 'Maternal interests overrode an explicit Kourotrophy selection');
+adviceExpect(genesisAdviceDailyLimit($manualFamily, $familyPool) === 3, 'Kourotrophy changed the one-category daily limit');
 
 // Time-specific practices use the local hour; manual browsing can still read the chosen category.
 $home = [...adviceFixture('home ordinary', 'hestiology'), 'topics' => ['home_order']];

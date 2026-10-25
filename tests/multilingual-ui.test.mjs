@@ -6,6 +6,7 @@ import { build } from "vite";
 
 const languages = ["en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja"];
 const habitReportCopy = JSON.parse(await readFile(new URL("../app/habit-report-translations.json", import.meta.url), "utf8"));
+const dailyAdviceCopy = JSON.parse(await readFile(new URL("../app/daily-advice-copy.json", import.meta.url), "utf8"));
 const affairsRaw = JSON.parse(await readFile(new URL("../app/native-affairs-translations.json", import.meta.url), "utf8"));
 const englishUi = JSON.parse(await readFile(new URL("../app/ui-translations/en.json", import.meta.url), "utf8"));
 const affairs = Object.fromEntries(Object.entries(affairsRaw).map(([language, copy]) => [language, Object.fromEntries(Object.entries(copy).filter(([source]) => source in englishUi))]));
@@ -36,6 +37,7 @@ test("runtime translations and PDF keep Unicode, colors, full copy and saved geo
   try {
     const { translateText, setRuntimeLanguage, newMindmap, mindmapPrintHtml } = await import(pathToFileURL(fileURLToPath(path)).href);
     for (const lang of languages) {
+      for (const field of ["privacyTitle", "privacyNotice"]) assert.equal(translateText(dailyAdviceCopy.ru[field], lang), dailyAdviceCopy[lang][field], `${lang}: advice provenance ${field}`);
       for (const [source, expected] of Object.entries(habitReportCopy[lang])) assert.equal(translateText(source, lang), expected, `${lang}: report ${source}`);
       const names = ["el", "sr", "uk"].includes(lang) ? [`${lang}.a`, `${lang}.b`] : ["de", "fr", "ja"].includes(lang) ? [lang, `${lang}.b`] : [lang];
       const catalog = Object.assign({}, affairs[lang], ...await Promise.all(names.map(read)), await ui(lang), lang === "en" ? curatedEnglish : {});

@@ -31,7 +31,7 @@ test("nutrition matching covers supported scripts and ignores paused or future h
   for (const changes of [{ active: false }, { createdDate: "2027-01-01" }, { schedule: { startDate: "2027-01-01", endDate: null } }]) {
     assert.ok(Object.values(adviceHabitTopicScores([{ ...food, ...changes }], "2026-10-22")).every(score => score === 0));
   }
-  assert.deepEqual(adviceAvailableCategories(), ["aretology", "hestiology"]);
+  assert.deepEqual(adviceAvailableCategories(), ["aretology", "kourotrophy", "hestiology"]);
   assert.deepEqual(adviceAvailableCategories(["aretology", "kourotrophy"]), ["aretology", "kourotrophy"]);
   assert.deepEqual(adviceAvailableCategories([]), []);
 });
@@ -69,6 +69,35 @@ test("invalid imports fail before writing content or inventing citations", () =>
   assert.throws(() => mergeAdviceCatalog({ version: 1, items: [item, item] }, []));
 });
 
+test("Kourotrophy interests use only eligible private tasks and active habits in supported languages", () => {
+  const day = "2026-10-25";
+  const task = title => ({ title, description: "", done: false, dueDate: day });
+  const habit = title => ({ id: "family", title, description: "", ritualName: "", createdDate: "2026-01-01", active: true,
+    priority: 1, isKeyHabit: false, sourceTemplateId: null, sacredSectorId: null, schedule: { startDate: "2026-01-01", endDate: null } });
+  for (const title of ["Почитать с детьми", "Read with children", "Χρόνος με τα παιδιά", "Mit Kindern lesen", "Lire avec les enfants",
+    "Leer con los hijos", "Leggere con i bambini", "Ler com as crianças", "Czytać z dziećmi", "Читање са децом", "Читати з дітьми", "陪孩子阅读", "Çocuklarla okumak", "子どもと読書"]) {
+    const context = adviceTaskContext([task(title)], day);
+    assert.ok(context.scores.kourotrophy > 0 && context.topics.parenting > 0, title);
+    assert.ok(adviceHabitTopicScores([habit(title)], day).parenting > 0, title);
+    assert.ok(!JSON.stringify(context).includes(title), "Personal wording must not leave the device");
+  }
+  const paternal = adviceTaskContext([task("Развивать отцовство и заниматься с сыном")], day);
+  assert.ok(paternal.topics.fatherhood > 0 && paternal.topics.sons > 0);
+  assert.ok(adviceTaskContext([task("Осознанное материнство")], day).topics.motherhood > 0);
+  assert.ok(adviceTaskContext([task("Составить родословную предков")], day).topics.heritage > 0);
+  for (const title of ["Personal development", "Синхронизация календаря", "Подарок папе", "Позвонить маме", "Mason work", "Купить материнскую плату"]) {
+    const context = adviceTaskContext([task(title)], day);
+    assert.equal(context.topics.fatherhood + context.topics.motherhood + context.topics.sons, 0, title);
+  }
+  for (const changes of [{ done: true }, { entryType: "birthday" }, { dueDate: "2027-05-01" }]) {
+    const context = adviceTaskContext([{ ...task("Занятие с сыном"), ...changes }], day);
+    assert.equal(context.scores.kourotrophy + context.topics.sons, 0);
+  }
+  for (const changes of [{ active: false }, { createdDate: "2027-01-01" }, { schedule: { startDate: "2027-01-01" } }]) {
+    assert.equal(adviceHabitTopicScores([{ ...habit("Отцовство и занятия с сыном"), ...changes }], day).fatherhood, 0);
+  }
+});
+
 test("all fourteen interface locales cover every control and all six categories", async () => {
   const copy = JSON.parse(await readFile(new URL("../app/daily-advice-copy.json", import.meta.url), "utf8"));
   assert.equal(Object.keys(copy).length, 14);
@@ -82,10 +111,11 @@ test("all fourteen interface locales cover every control and all six categories"
 
 test("published advice has complete titles and bodies in all fourteen languages and distinct real artwork", async () => {
   const result = await verifyDailyAdvice();
-  assert.deepEqual(result, { published: 312, drafts: 0, languages: 14, illustrations: 312 });
+  assert.deepEqual(result, { published: 401, drafts: 0, languages: 14, illustrations: 401 });
   const catalog = JSON.parse(await readFile(new URL("../server/content/daily-advice.json", import.meta.url), "utf8"));
   assert.equal(catalog.items.filter(entry => entry.categories.includes("hestiology")).length, 152);
-  assert.deepEqual([...new Set(catalog.items.flatMap(entry => entry.categories))].sort(), ["aretology", "hestiology"]);
+  assert.equal(catalog.items.filter(entry => entry.categories.includes("kourotrophy")).length, 89);
+  assert.deepEqual([...new Set(catalog.items.flatMap(entry => entry.categories))].sort(), ["aretology", "hestiology", "kourotrophy"]);
   assert.equal(catalog.items[18].title, "Точность Прямодействия");
   assert.ok(catalog.items[18].body.endsWith("Любая задача, которую ты решил довести до конца, должна выполняться с предельной интенсивностью, без оглядки на усталость."));
   assert.equal(catalog.items[18].status, undefined);
@@ -118,6 +148,26 @@ test("reviewed advice identity also binds category, illustration, version and la
   }
   assert.throws(() => verifyAdvicePairing(entry, "en", content, review.entries[entry.id]), /title\/body pairing/);
   assert.throws(() => verifyAdvicePairing(entry, "ru", content, undefined), /title\/body pairing/);
+});
+
+test("Kourotrophy keeps every original source pair and rejects mixed titles in every locale", async () => {
+  const catalog = JSON.parse(await readFile(new URL("../server/content/daily-advice.json", import.meta.url), "utf8"));
+  const source = JSON.parse(await readFile(new URL("../server/content/kourotrophy-source-manifest.json", import.meta.url), "utf8"));
+  const review = JSON.parse(await readFile(new URL("../server/content/daily-advice-pairings.json", import.meta.url), "utf8"));
+  assert.equal(source.sourceSha256, "b4a97ef8f67fd5b5e9814873380fa8a5a70f37ddebdf5a5dd8af8ec844c4e1bc");
+  assert.deepEqual(source.entries.map(entry => entry.number), Array.from({ length: 89 }, (_, index) => index + 1));
+  const entries = catalog.items.filter(entry => entry.categories.includes("kourotrophy"));
+  for (const language of adviceLanguages) {
+    const locale = JSON.parse(await readFile(new URL(`../server/content/daily-advice/${entries[0].contentVersion}/${language}.json`, import.meta.url), "utf8"));
+    assert.equal(Object.keys(locale).length, 89);
+    for (const [index, entry] of entries.entries()) {
+      const content = locale[entry.id], other = locale[entries[(index + 1) % entries.length].id];
+      assert.doesNotThrow(() => verifyAdvicePairing(entry, language, content, review.entries[entry.id]));
+      // Some source headings intentionally recur with different bodies; skip an identical title only.
+      if (other.title !== content.title) assert.throws(() => verifyAdvicePairing(entry, language, { ...content, title: other.title }, review.entries[entry.id]), /title\/body pairing/);
+      assert.throws(() => verifyAdvicePairing(entry, language, { ...content, body: other.body }, review.entries[entry.id]), /title\/body pairing/);
+    }
+  }
 });
 
 test("smart affinity uses only active, current habits and keeps all six numeric scores private", () => {

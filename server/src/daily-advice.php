@@ -4,7 +4,7 @@ require_once __DIR__ . '/calendar.php';
 
 const GENESIS_ADVICE_CATEGORIES = ['aretology', 'hermetica', 'kourotrophy', 'hestiology', 'aphrodisia', 'psychopompia'];
 const GENESIS_ADVICE_LANGUAGES = ['ru', 'en', 'el', 'de', 'fr', 'es', 'it', 'pt', 'pl', 'sr', 'uk', 'zh', 'tr', 'ja'];
-const GENESIS_ADVICE_TOPICS = ['nutrition', 'training', 'recovery', 'discipline', 'clothing', 'attributes', 'cleaning', 'home_order'];
+const GENESIS_ADVICE_TOPICS = ['nutrition', 'training', 'recovery', 'discipline', 'clothing', 'attributes', 'cleaning', 'home_order', 'parenting', 'sons', 'heritage', 'fatherhood', 'motherhood'];
 
 function genesisAdvicePreferences(mixed $value): array
 {
@@ -167,6 +167,21 @@ function genesisAdviceDailyLimit(array $preferences, array $items): int
     return min(6, max(3, count($preferences['smart'] ? $available : array_intersect($available, $preferences['categories']))));
 }
 
+/** Interest signals only: no gender, names, family profile or task text is sent or stored. */
+function genesisAdviceFamilyAffinity(array $topics): float
+{
+    $parenting = $topics['parenting'] ?? 0;
+    $sons = $topics['sons'] ?? 0;
+    $fatherhood = $topics['fatherhood'] ?? 0;
+    $motherhood = $topics['motherhood'] ?? 0;
+    $interest = log(1 + $parenting + $sons + $fatherhood);
+    if ($fatherhood > 0) $interest += 1.5;
+    if ($sons > 0) $interest += 0.75;
+    // Maternal interests keep access to the same collection, at a lower priority.
+    if ($motherhood > 0 && $fatherhood <= 0) $interest = $interest * 0.3 - 1;
+    return $interest;
+}
+
 function genesisChooseAdvice(array $items, array $preferences, array $scores, array $history, string $seed,
     array $topicScores = [], ?array $phaseLeads = null, array $localContext = []): ?array
 {
@@ -234,6 +249,9 @@ function genesisChooseAdvice(array $items, array $preferences, array $scores, ar
             if ($preferences['smart'] || in_array($topic, ['clothing', 'attributes', 'cleaning', 'home_order'], true)) {
                 $topicAffinity = max($topicAffinity, log(1 + ($topicScores[$topic] ?? 0)) / (1 + ($recentTopics[$topic] ?? 0)));
             }
+        }
+        if ($preferences['smart'] && in_array('kourotrophy', $entry['categories'], true)) {
+            $affinity += genesisAdviceFamilyAffinity($topicScores);
         }
         // A completed round starts with the longest-unseen entries; context can never bypass history.
         // During a lunar window, eligible unseen preparations lead ordinary unseen posts.
