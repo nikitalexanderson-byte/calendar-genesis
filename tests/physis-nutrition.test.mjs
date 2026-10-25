@@ -285,6 +285,35 @@ test('vitamin food quantities preserve source units, preparation and edible port
   assert.equal(matchingNutrientTerms('B10')[0].id, 'paba');
 });
 
+test('mineral food quantities retain USDA preparation, NIH portions, fluoride ranges and calculated chloride provenance', () => {
+  const profiles = JSON.parse(readFileSync(new URL('../app/physis/mineral-food-sources.json', import.meta.url), 'utf8'));
+  const foods = JSON.parse(readFileSync(new URL('../app/physis/nutrition-seed.json', import.meta.url), 'utf8'));
+  assert.equal(Object.keys(profiles).length, 15);
+  assert.equal(Object.values(profiles).flatMap(profile => profile.items).length, 80);
+  for (const profile of Object.values(profiles)) for (const item of profile.items) {
+    assert.ok(Number.isFinite(item.amount) && item.amount >= 0);
+    assert.ok(item.food.every(Boolean) && item.portion.every(Boolean));
+    assert.equal(new URL(item.source).protocol, 'https:');
+    if (item.fdcId) {
+      const source = foods.find(food => food.fdcId === item.fdcId).foodNutrients.find(n => n.nutrient.id === item.nutrientId);
+      assert.equal(item.amount, source.amount);
+      assert.equal(item.unit, source.nutrient.unitName);
+      assert.equal(item.portion[1], '100 g edible portion');
+    }
+    if (item.amountMax !== undefined) assert.ok(item.amountMax >= item.amount);
+  }
+  assert.equal(profiles.fluoride.items[0].amount, 0.07);
+  assert.equal(profiles.fluoride.items[0].amountMax, 1.5);
+  assert.equal(profiles.molybdenum.items[0].amount, 288);
+  assert.match(profiles.molybdenum.items[0].portion[1], /½ cup/);
+  assert.equal(profiles.iodine.items[0].amount, 146);
+  assert.equal(profiles.chromium.items[0].amount, 3.3);
+  assert.equal(profiles.chloride.items.length, 1);
+  assert.equal(profiles.chloride.items[0].approximate, true);
+  assert.equal(profiles.chloride.items[0].amount, 600);
+  assert.equal(profiles.sodium.items[0].amount, 400);
+});
+
 test('lunar nutrition decades and months use real 29/30-day lunar boundaries', () => {
   const { nutritionPeriodRange } = calendarModule('app/physis/nutrition-periods.ts');
   const { lunarMonthStartDate, firstLunarMonthAfterSpringEquinox } = calendarModule('app/calendar-astronomy.ts');
