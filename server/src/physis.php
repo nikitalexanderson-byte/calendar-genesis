@@ -7,7 +7,7 @@ final class GenesisPhysisException extends RuntimeException
     public function __construct(public readonly int $status, string $code) { parent::__construct($code); }
 }
 
-const GENESIS_PHYSIS_EMAILS = ['nikitalexanderson@gmail.com', 'jurijjlogvinov@gmail.com', 'picishina@gmail.com', 'maybenextime86@gmail.com'];
+const GENESIS_PHYSIS_EMAILS = ['nikitalexanderson@gmail.com', 'jurijjlogvinov@gmail.com', 'picishina@gmail.com', 'maybenextime86@gmail.com', 'shamrinandy@gmail.com', 'eagbread@gmail.com'];
 // Git-controlled browser pilot; an explicit server-config false is the kill switch.
 // The published native client uses native auth, which remains denied below.
 const GENESIS_PHYSIS_WEB_ENABLED = true;

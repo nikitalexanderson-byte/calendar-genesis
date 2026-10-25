@@ -1,3 +1,14 @@
+/* Sector cards scroll their title/close row with the description. */
+.theokyklos-details > [data-dialog-header-host] { position: static; top: auto; }
+@media (max-width: 760px) {
+  .theokyklos-mandala :is(.theokyklos-segment-name, .theokyklos-ring-patron, .theokyklos-outer-node-patron),
+  .theokyklos-mandala .theokyklos-center-label > tspan:not(.theokyklos-center-caption) { display: none; }
+  .theokyklos-mandala .theokyklos-center-caption { transform: translateY(-14px); font-size: 20px; }
+  html[data-genesis-theme] .genesis-app .theokyklos-details-identity { display: grid; gap: 8px; min-width: 0; }
+  html[data-genesis-theme] .genesis-app .theokyklos-details-identity > .eyebrow { display: block; font-size: 10px; letter-spacing: .1em; white-space: nowrap; }
+  html[data-genesis-theme] .genesis-app .theokyklos-details-identity > strong { display: block; margin: 0; line-height: 1.4; }
+}
+
 /* Explicit areas keep the deadline notice out of the icon's narrow column. */
 html[data-genesis-theme] .genesis-app .theokyklos-sacred-practices article {
   grid-template-columns:44px minmax(0,1fr);

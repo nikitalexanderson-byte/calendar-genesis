@@ -30,7 +30,7 @@ type KeyState = { key: CryptoKey; model: PhysisMemoryStore };
 type Props = { owner: string; language: string; calendarMode: CalendarMode; inputCalendarMode: CalendarMode; timeZone: string; settingsRequest?: number };
 type Area = 'training' | 'nutrition' | 'care' | 'monitoring';
 const GROUPS: { id: Area; title: string; icon: HealthIconName; pages: [PageName, string][] }[] = [
-  { id: 'training', title: 'Тренировки', icon: 'dumbbell', pages: [['today', 'Сегодня'], ['programs', 'Мои тренировки'], ['control', 'Контроль выполнения'], ['exercises', 'Справочник упражнений']] },
+  { id: 'training', title: 'Тренировки', icon: 'dumbbell', pages: [['today', 'Сегодня'], ['programs', 'Тренировки'], ['control', 'Контроль'], ['exercises', 'Справочник']] },
   { id: 'nutrition', title: 'Питание', icon: 'apple', pages: [['today', 'Сегодня'], ['diary', 'Мой рацион'], ['foods', 'Список продуктов']] },
   { id: 'care', title: 'БАДы и лекарства', icon: 'pill', pages: [['overview', 'Обзор'], ['intakes', 'Контроль приема'], ['drugs', 'Справочник']] },
   { id: 'monitoring', title: 'Мониторинг показателей', icon: 'heart-pulse', pages: [] },
