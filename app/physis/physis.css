@@ -178,7 +178,8 @@ html[data-genesis-theme] .genesis-app .physis-training-control .calendar-picker 
   .physis-exercise-heading h2 { margin-bottom: 0; }
 }
 @media (max-width: 760px) {
-  .physis-section-frame[data-tabs="4"] > .physis-subnav { grid-auto-flow: row; grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .physis-section-frame[data-tabs="4"] > .physis-subnav { grid-auto-flow: row; grid-template-columns: repeat(4,minmax(0,1fr)); }
+  html[data-genesis-theme] .genesis-app .physis-section-frame[data-tabs="4"] > .physis-subnav > button { font-size: 12px; padding: 8px 2px; white-space: nowrap; }
   .physis-section-frame > .physis-subnav > button { font-size: 13px; padding: 8px; }
   .physis-section-frame > .physis-page-content { margin-top: 20px; padding: 8px; }
   .physis-control-heading { align-items: flex-start; }

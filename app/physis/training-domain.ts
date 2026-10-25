@@ -181,7 +181,7 @@ export function startSession(day: string, timeZone: string, scheduled?: Schedule
 /** New UI sessions require an assigned, eligible workout with fully specified timing. */
 export function plannedWorkoutError(assignment: PhysisRecord<TrainingAssignment> | undefined, scheduledId: string | undefined, sessions: PhysisRecord<TrainingSession>[], day: string): string | null {
   const item = assignment?.data.scheduled.find(s => s.id === scheduledId);
-  if (!assignment || !item) return 'Сначала составьте и назначьте программу в «Мои тренировки».';
+  if (!assignment || !item) return 'Сначала составьте и назначьте программу во вкладке «Тренировки».';
   if (assignment.data.paused) return 'Программа приостановлена.';
   if (item.snapshot.kind !== 'workout' || item.state === 'skipped') return 'Этот день не содержит запланированной тренировки.';
   if (day < assignment.data.startDay || assignment.data.mode === 'fixed' && item.day !== day) return 'Тренировка доступна в назначенный день.';

@@ -49,7 +49,7 @@ function physisTestWrite(array $changes): array { return ['requestId' => genesis
 $process = null; $pipes = []; $workers = [];
 try {
     $db = genesisDb();
-    foreach (['owner-a' => GENESIS_PHYSIS_EMAILS[0], 'owner-b' => GENESIS_PHYSIS_EMAILS[1], 'owner-c' => GENESIS_PHYSIS_EMAILS[2], 'owner-d' => GENESIS_PHYSIS_EMAILS[3], 'other' => 'outsider@example.org'] as $id => $email) {
+    foreach (['owner-a' => GENESIS_PHYSIS_EMAILS[0], 'owner-b' => GENESIS_PHYSIS_EMAILS[1], 'owner-c' => GENESIS_PHYSIS_EMAILS[2], 'owner-d' => GENESIS_PHYSIS_EMAILS[3], 'owner-e' => GENESIS_PHYSIS_EMAILS[4], 'owner-f' => GENESIS_PHYSIS_EMAILS[5], 'other' => 'outsider@example.org'] as $id => $email) {
         $db->prepare('INSERT INTO users(id,google_sub,email,display_name,created_at,updated_at) VALUES(:id,:sub,:email,:name,:now,:now)')
             ->execute(['id' => $id, 'sub' => $id . '-sub', 'email' => $email, 'name' => 'Synthetic fixture', 'now' => genesisNow()]);
     }
@@ -85,6 +85,7 @@ try {
         return ['cookie' => 'GENESISSESSID=' . $sessionId, 'csrf' => $_SESSION['csrf']];
     };
     $a = $makeCookie('owner-a'); $b = $makeCookie('owner-b'); $c = $makeCookie('owner-c'); $d = $makeCookie('owner-d'); $other = $makeCookie('other');
+    $e = $makeCookie('owner-e'); $f = $makeCookie('owner-f');
     $dNative = $makeCookie('owner-d', [], 'native');
     $cUnverified = $makeCookie('owner-c', ['email_verified' => false]);
     $native = $makeCookie('owner-a', [], 'native'); $unverified = $makeCookie('owner-a', ['email_verified' => false]);
@@ -125,6 +126,11 @@ try {
     physisExpect($request('physis/v1/access', $c)['data']['ownerId'] === 'owner-c', 'Third allowed owner denied.');
     physisExpect($request('physis/v1/access', $d)['data']['ownerId'] === 'owner-d', 'Fourth allowed owner denied.');
     physisExpect($request('physis/v1/vault', $d)['status'] === 200, 'Fourth allowed owner cannot open the account vault.');
+    foreach (['owner-e' => $e, 'owner-f' => $f] as $expectedOwner => $testerSession) {
+        $testerAccess = $request('physis/v1/access', $testerSession);
+        physisExpect($testerAccess['status'] === 200 && $testerAccess['data']['ownerId'] === $expectedOwner, 'New pilot tester denied.');
+        physisExpect($request('physis/v1/vault', $testerSession)['status'] === 200, 'New pilot tester cannot open own vault.');
+    }
     foreach ([$old, $legacyNoClaims, $unverified] as $normal) {
         $reply = $request('physis/v1/access', $normal);
         physisExpect($reply['status'] === 200 && $reply['data']['ownerId'] === 'owner-a', 'Normal site login required extra confirmation.');
@@ -145,6 +151,9 @@ try {
     physisExpect($request('physis/v1/vault', $a, 'PUT', genesisPhysisEncode($vault))['data'] === $reply['data'], 'Vault retry changed response.');
     physisExpect($request('physis/v1/vault', $b)['data']['vault'] === null, 'Foreign vault leaked.');
     physisExpect($request('physis/v1/vault', $c)['data']['vault'] === null, 'Foreign vault leaked to third tester.');
+    foreach ([$e, $f] as $newTester) {
+        physisExpect($request('physis/v1/vault', $newTester)['data']['vault'] === null, 'Foreign vault leaked to a new tester.');
+    }
     $vaultTamper = ['owner_id' => 'owner-a'] + $vault;
     physisExpect($request('physis/v1/vault', $b, 'PUT', genesisPhysisEncode($vaultTamper))['status'] === 400, 'Owner tamper accepted.');
     $vault['requestId'] = genesisUuid(); genesisPhysisSaveVault('owner-b', $vault);

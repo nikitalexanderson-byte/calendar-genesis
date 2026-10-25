@@ -82,7 +82,7 @@ export function TheokyklosDetailsDialog({ segment, language, workspace, date, ca
             {/* eslint-disable-next-line @next/next/no-img-element -- Shared static PNG is pre-optimized for both deployment targets. */}
             <img src={THEOKYKLOS_SYMBOL_ART[segment.id]} alt="" width="256" height="256" draggable="false" />
           </span>
-          <div>
+          <div className="theokyklos-details-identity">
             <span className="eyebrow">{groupLabel(segment, language)}</span>
             <h2 id="theokyklos-details-title">{localized(segment.title, language)}</h2>
             <strong>{localized(segment.patrons, language)}</strong>
