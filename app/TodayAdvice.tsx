@@ -7,8 +7,13 @@ import { ADVICE_CATEGORIES, ADVICE_TOPICS, adviceHabitScores, adviceHabitTopicSc
 import type { Habit } from "./habits";
 import labels from "./daily-advice-copy.json";
 import "./daily-advice.css";
+import { useDiary } from './DiaryProvider';
+import diaryLabels from './diary-copy.json';
+import { ExperimentalIcon } from './ExperimentalIcon';
 
-export function TodayAdvice({ user, habits, tasks, day, ready }: { user: GenesisUser; habits: readonly Habit[]; tasks: readonly AdvicePersonalTask[]; day: string; ready: boolean }) {
+export function TodayAdvice({ user, habits, tasks, day, ready, onOpenDiary }: { user: GenesisUser; habits: readonly Habit[]; tasks: readonly AdvicePersonalTask[]; day: string; ready: boolean; onOpenDiary?: () => void }) {
+  const diary = useDiary(); const diaryText = user.language === 'en' ? diaryLabels.en : diaryLabels.ru;
+  const [reactionError, setReactionError] = useState(false);
   const preferences = advicePreferences(user.advicePreferences);
   const taskContext = useMemo(() => adviceTaskContext(tasks, day), [tasks, day]);
   const scores = useMemo(() => {
@@ -32,7 +37,9 @@ export function TodayAdvice({ user, habits, tasks, day, ready }: { user: Genesis
   const container = useRef<HTMLElement>(null);
   const copy = labels[user.language];
   const advice = saved?.key === requestKey ? saved.result.advice : null;
-  const shown = ready && preferences.enabled && advice && !advice.dismissed;
+  const diaryNote = advice ? diary.records.find(row => !row.draftKey && row.note.advice?.id === advice.id)?.note : undefined;
+  const archived = diaryNote?.reaction === 'dislike';
+  const shown = ready && preferences.enabled && advice && !advice.dismissed && !archived;
 
   useEffect(() => {
     const online = () => setRetry(value => value + 1);
@@ -75,7 +82,10 @@ export function TodayAdvice({ user, habits, tasks, day, ready }: { user: Genesis
     return () => { active = false; observer.disconnect(); document.removeEventListener("visibilitychange", acknowledge); window.removeEventListener("online", acknowledge); };
   }, [shown, advice]);
 
-  if (!shown) return null;
+  if ((!shown && !archived) || !advice || !ready || !preferences.enabled) return null;
+  const react = async (reaction: 'favorite' | 'dislike') => {
+    setReactionError(false); try { await diary.react(advice, reaction); } catch { setReactionError(true); }
+  };
   const dismiss = async () => {
     setBusy(true); setHideError(false);
     try {
@@ -97,6 +107,7 @@ export function TodayAdvice({ user, habits, tasks, day, ready }: { user: Genesis
   };
   const base = (process.env.NEXT_PUBLIC_GENESIS_BASE_PATH?.trim() || "").replace(/\/$/, "");
   const artwork = advice.image && /^\/advice-art\/[a-z0-9-]+\/advice-[a-f0-9]{24}\.webp$/.test(advice.image) ? `${base}${advice.image}` : null;
+  if (archived) return <aside className="daily-advice-card daily-advice-archived" data-no-translate><p role="status">{diaryText.archived}</p><div className="daily-advice-actions"><button type="button" disabled={diary.busy} onClick={() => void react('dislike')}>{diaryText.undoDislike}</button>{onOpenDiary ? <button type="button" onClick={onOpenDiary}>{diaryText.openDiary}</button> : null}{saved?.result.canNext ? <button type="button" disabled={busy} onClick={() => void next()}>{copy.next}</button> : null}</div>{reactionError ? <p role="alert">{diaryText.error}</p> : null}</aside>;
   return <aside ref={container} className={`daily-advice-card${artwork ? " daily-advice-illustrated" : ""}`} aria-labelledby="daily-advice-title" aria-busy={busy} data-no-translate>
     {artwork ? <img className="daily-advice-art" src={artwork} alt="" aria-hidden="true" loading="lazy" decoding="async" /> : null}
     <div className="daily-advice-reading">
@@ -111,6 +122,12 @@ export function TodayAdvice({ user, habits, tasks, day, ready }: { user: Genesis
     {advice.sources.map((source, index) => <span key={index} lang={advice.language}>
       {source.kind === "quote" ? copy.source : copy.inspired}: {[source.author, source.work, source.reference].filter(Boolean).join(" · ")}
     </span>)}</footer>
+    <div className="daily-advice-reactions">
+      <button type="button" aria-label={diaryNote?.reaction === 'favorite' ? diaryText.unfavorite : diaryText.favorite} title={diaryNote?.reaction === 'favorite' ? diaryText.unfavorite : diaryText.favorite} aria-pressed={diaryNote?.reaction === 'favorite'} disabled={diary.busy || diary.loading || diary.error} onClick={() => void react('favorite')}><ExperimentalIcon name="star"/>{diaryNote?.reaction === 'favorite' ? diaryText.saved : diaryText.favorites}</button>
+      <button type="button" aria-label={diaryText.dislike} title={diaryText.dislike} disabled={diary.busy || diary.loading || diary.error} onClick={() => void react('dislike')}><ExperimentalIcon name="advice-dislike"/></button>
+      {diaryNote?.reaction === 'favorite' && onOpenDiary ? <button type="button" className="daily-advice-diary-link" onClick={onOpenDiary}>{diaryText.openDiary}</button> : null}
+    </div>
+    {reactionError || diary.error ? <p role="alert">{diaryText.error}<button type="button" onClick={() => void diary.refresh()}>{diaryText.retry}</button></p> : null}
     {typeof saved?.result.dailyLimit === "number" ? <div className="daily-advice-actions">
       <button type="button" className="secondary-button daily-advice-next" onClick={() => void next()} disabled={busy || !saved.result.canNext} title={saved.result.canNext ? copy.next : copy.limitReached}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5" /><path d="M6 7a7 7 0 0 1 12-1l2 3M18 17a7 7 0 0 1-12 1l-2-3" /></svg>{copy.next}
