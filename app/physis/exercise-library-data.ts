@@ -6,6 +6,7 @@ export type ExerciseGuide = {
   primary: string[]; steps: string[]; stepsEn: string[]; mistakes: string; mistakesEn: string;
   metric: 'strength' | 'time' | 'distance'; unilateral: boolean;
   aliases?: string[]; benchAngleDegrees?: number;
+  purpose?: string; purposeEn?: string;
 };
 export const EXERCISE_GUIDES: ExerciseGuide[] = [
   {

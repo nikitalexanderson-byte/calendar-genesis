@@ -4,6 +4,8 @@
 .physis .physis-exercise-card-open:hover { transform: translateY(-2px); background: var(--surface); }
 .physis-exercise-poster { position: relative; display: grid; place-items: center; aspect-ratio: 16 / 9; background: #10251d; color: #e4c78c; overflow: hidden; }
 .physis-exercise-poster > img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.physis-exercise-poster[data-model=male] > img { clip-path: inset(0 50% 0 0); transform: translateX(25%); }
+.physis-exercise-poster[data-model=female] > img { clip-path: inset(0 0 0 50%); transform: translateX(-25%); }
 .physis-exercise-poster > svg { width: 48px; height: 48px; }
 .physis-exercise-play-mark { position: absolute; bottom: 12px; right: 12px; display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid #e4c78c88; border-radius: 50%; color: #e4c78c; background: #0b1511e6; }
 .physis-exercise-play-mark svg { width: 20px; height: 20px; }
@@ -21,6 +23,8 @@ body:has(.physis-demo-backdrop) { overflow: hidden; }
 .physis-demo-content { padding: 0 24px 24px; }
 .physis-demo-stage { position: relative; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); min-height: 220px; background: #10251d; color: #f0eee7; border-radius: 10px; overflow: hidden; }
 .physis-demo-stage figure { display: flex; flex-direction: column; justify-content: center; margin: 0; min-width: 0; }
+.physis-demo-stage[data-single=true] { grid-template-columns: minmax(0, 1fr); justify-items: center; }
+.physis-demo-stage[data-single=true] figure { width: min(100%, 560px); }
 .physis-demo-stage svg { display: block; width: 100%; height: auto; aspect-ratio: 1; max-height: 440px; overflow: hidden; }
 .physis-demo-stage figcaption { padding: 8px 12px 12px; text-align: center; font-size: 13px; color: #c7d5ce; }
 .physis-demo-loading, .physis-demo-error { position: absolute; inset: 0; display: grid; align-content: center; justify-items: center; gap: 12px; margin: 0; padding: 24px; background: #10251d; color: #f0eee7; z-index: 1; }

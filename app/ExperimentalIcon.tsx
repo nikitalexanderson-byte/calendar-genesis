@@ -23,6 +23,7 @@ export function ExperimentalIcon({ name, className = "" }: { name: string; class
     {name === "pause" ? <><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></> : null}
     {name === "play" ? <path d="m8 4 12 8-12 8Z"/> : null}
     {name === "account" ? <><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v2"/></> : null}
+    {name === "trash" ? <><path d="M3 6h18M19 6l-1 14H6L5 6M9 6V3h6v3M10 10v6M14 10v6"/></> : null}
     {name === "undo" ? <><path d="M3 10h11a7 7 0 0 1 7 7v3M3 10l6-6m-6 6 6 6"/></> : null}
     {name === "redo" ? <><path d="M21 10H10a7 7 0 0 0-7 7v3m18-10-6-6m6 6-6 6"/></> : null}
     {name === "help" ? <><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 4.3 1.7c-1.1.8-1.8 1.3-1.8 2.8M12 17h.01"/></> : null}

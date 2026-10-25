@@ -16,3 +16,12 @@
 @media (max-width: 600px) { .physis-reference-entry dl { grid-template-columns: minmax(0,1fr); gap: 20px; } }
 
 @media (min-width: 901px) { .physis-reference-library .physis-drug-browser { grid-template-columns: 280px minmax(0,1fr); } }
+.physis-reference-foods { margin-block: 20px; padding-block: 16px; border-block: 1px solid var(--line); }
+.physis-reference-foods table { width: 100%; table-layout: fixed; font-size: 13px; border-collapse: collapse; }
+.physis-reference-foods :is(th,td) { padding: 10px 6px; text-align: start; vertical-align: top; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.physis-reference-foods tr > :first-child { width: 46%; }
+.physis-reference-foods tr > :last-child { width: 25%; }
+.physis-reference-foods tbody th { font-weight: 400; }
+.physis-nutrient-terms > summary { cursor: pointer; min-height: 44px; padding-block: 12px; font-weight: 600; }
+.physis-nutrient-terms .physis-reference-entry > :is(p,h4) { margin-inline: 16px; }
+.physis-nutrient-term-sources { display: flex; flex-wrap: wrap; gap: 12px; padding: 16px; }

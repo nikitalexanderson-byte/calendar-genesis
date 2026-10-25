@@ -21,6 +21,7 @@ import { createPhysisSubmission } from './submission';
 import { nutritionPeriodRange } from './nutrition-periods';
 import seed from './nutrition-seed.json';
 import { FOOD_REFERENCES, FoodReferenceNote, SuperfoodCollectionNote, isTopFood, manualReferenceFoods } from './food-reference';
+import { defaultNutritionProfile } from './personal-profile-domain';
 import './nutrition.css';
 
 export { validateNutritionRecord, summaryForDay } from './nutrition-domain';
@@ -47,7 +48,7 @@ function catalogFor(props: Props): CatalogEntry[] {
     if (personal.some(entry => entry.id === id || entry.food.provenance.provider === 'USDA' && entry.food.provenance.id === String(value.fdcId))) return [];
     const food = importUsdaFood(value), description = descriptions[value.fdcId] ?? { name: food.name, state: 'unknown' as const, category: 'Другое' };
     const reference = FOOD_REFERENCES.find(entry => entry.fdcId === value.fdcId);
-    food.aliases = [food.name, ...(reference?.name ?? [])];
+    food.aliases = [food.name, ...(reference?.name ?? []), ...(reference?.aliases ?? [])];
     food.name = props.language === 'ru' ? description.name : reference?.name[1] ?? food.name;
     food.state = description.state; food.category = description.category; food.compositionKnown = true; food.ingredients = food.name;
     if (reference?.top) food.collections = ['superfoods'];
@@ -254,7 +255,7 @@ function NutritionPlanWizard({ props, open, onClose, dates }: { props: Props; op
   const t = tr(props.language), actions = useActions();
   const ref = useDialogAccessibility<HTMLElement>(()=>{if(!actions.busy)onClose();}, open);
   const existingProfile = profileFor(props);
-  const [profile, setProfile] = useState(() => structuredClone(existingProfile?.data ?? { ...defaultProfile(), goal: 'maintain' as const }));
+  const [profile, setProfile] = useState(() => structuredClone(existingProfile?.data ?? { ...defaultNutritionProfile(), goal: 'maintain' as const }));
   const [profileRecord] = useState(() => existingProfile ?? newPhysisRecord('nutrition-profile', profile));
   const [parameters, setParameters] = useState({ age: String(profile.age ?? ''), heightCm: String(profile.heightCm ?? ''), weightKg: String(profile.weightKg ?? ''), activityFactor: String(profile.activityFactor) });
   const [step, setStep] = useState(0);
@@ -360,10 +361,7 @@ function PortionPlanner({ props, totals, target, date, onAdd, empty=false }: { p
   return <section className="physis-panel"><h3>{t('Подобрать порцию к цели', 'Plan a portion toward your target')}</h3><p className="physis-muted">{t('Расчёт по одному выбранному показателю. Остальные БЖУ проверяются в дневнике; план остаётся редактируемым. Максимальная подсказка — 1000 г/мл.', 'Calculation for one chosen nutrient. Review other macros in the diary; the plan stays editable. Suggestions are capped at 1000 g/ml.')}</p><div className="physis-nutrition-fields"><label>{t('Показатель', 'Nutrient')}<select value={key} onChange={event => setKey(event.target.value as NutrientKey)}>{core.map(item => <option key={item} value={item}>{t(NUTRIENTS[item].ru, NUTRIENTS[item].en)}</option>)}</select></label><label>{t('Выбранный продукт', 'Chosen food')}<select value={selected} onChange={event => setSelected(event.target.value)}><option value="">{t('Выберите продукт', 'Select food')}</option>{catalog.map(entry => <option key={entry.id} value={entry.id}>{entry.food.name}</option>)}</select></label></div>{remaining === null ? <p>{t('Укажите цель и заполните состав продуктов: неизвестные значения не позволяют надёжно рассчитать остаток.', 'Set a target and complete food data; missing values prevent a reliable remaining amount.')}</p> : <p>{t('Остаток по журналу', 'Remaining from diary')}: {fmt(remaining)} {NUTRIENTS[key].unit}</p>}{food && <Warnings food={food.food} props={props} />}{portion && food && <><p>{food.food.name}: {fmt(portion.quantity)} {portion.unit}. {!portion.fulfills && t('В допустимую порцию цель не помещается.', 'The target cannot be reached within the portion limit.')}</p>{restricted(food) ? <p className="physis-warning">{t('Продукт попадает под ваше правило питания. Подберите замену или внесите его в план вручную; фактическую еду можно записать всегда.', 'This food matches a personal restriction. Choose a substitute or plan it manually; actual meals can always be logged.')}</p> : <button disabled={actions.busy} onClick={() => void actions.run(() => onAdd ? onAdd(snapshotItem(food.id,food.food,portion.quantity,portion.unit)) : actions.submitCreation(`portion:${date}:${food.id}:${key}`, () => [newPhysisRecord('meal', { date, time: '12:00', timeZone: props.settings.timeZone, name: t('Подобранная порция', 'Suggested portion'), status: 'planned', items: [snapshotItem(food.id, food.food, portion.quantity, portion.unit)], note: t('Расчёт по одному нутриенту; проверьте весь рацион.', 'Single-nutrient calculation; review the whole day.') })], props.store))}>{t('Добавить порцию в план', 'Add portion to plan')}</button>}{substitutes.length > 0 ? <><h4>{t('Возможные замены без выбранных ограничений', 'Substitutes without selected restrictions')}</h4>{substitutes.map(({ entry, portion: alternative }) => <div className="physis-row" key={entry.id}><span>{entry.food.name} · {fmt(alternative!.quantity)} {alternative!.unit} · {t('на 100', 'per 100')}: {fmt(entry.food.nutrients.energy?.value)} kcal; {t('Б/Ж/У', 'P/F/C')} {fmt(entry.food.nutrients.protein?.value)}/{fmt(entry.food.nutrients.fat?.value)}/{fmt(entry.food.nutrients.carbohydrate?.value)} g</span><button onClick={() => setSelected(entry.id)}>{t('Выбрать', 'Choose')}</button></div>)}</> : <p>{t('Подходящих замен с известным составом нет.', 'No suitable substitutes with known composition.')}</p>}</>}<ErrorMessage error={actions.error} /></section>;
 }
 
-function defaultProfile(): NutritionProfile {
-  const target: NutritionTarget = { energy: 0, protein: 0, fat: 0, carbohydrate: 0, fiber: null };
-  return { mode: 'macros', macroUnit: 'g', goal: 'custom', method: 'manual', age: null, heightCm: null, weightKg: null, formulaSex: 'female', activityFactor: 1.2, excluded: false, formulaVersion: 'manual v1', formulaSource: 'Пользователь', activitySource: 'Пользовательский коэффициент; включает обычную активность', training: { ...target }, rest: { ...target }, selectedNutrients: ['sodium', 'magnesium'], foodRules: structuredClone(DEFAULT_FOOD_RULES) };
-}
+
 type TargetDraft = Record<'energy' | 'protein' | 'fat' | 'carbohydrate' | 'fiber', string>;
 function targetDraft(target: NutritionTarget, profile: NutritionProfile): TargetDraft {
   const divisor = (key: 'protein' | 'fat' | 'carbohydrate') => profile.macroUnit === 'energy-percent' ? target.energy / (key === 'fat' ? 9 : 4) / 100 : profile.macroUnit === 'g-per-kg' ? profile.weightKg ?? 1 : 1;
@@ -371,7 +369,7 @@ function targetDraft(target: NutritionTarget, profile: NutritionProfile): Target
 }
 function NutritionSettings(props: Props & { calculatorOnly?: boolean }) {
   const t = tr(props.language); const actions = useActions(); const record = profileFor(props);
-  const [profile, setProfile] = useState<NutritionProfile>(() => structuredClone(record?.data ?? defaultProfile()));
+  const [profile, setProfile] = useState<NutritionProfile>(() => structuredClone(record?.data ?? defaultNutritionProfile()));
   const [draftRecord] = useState(() => record ?? newPhysisRecord('nutrition-profile', profile));
   const [anthropometrics, setAnthropometrics] = useState({ age: String(profile.age ?? ''), heightCm: String(profile.heightCm ?? ''), weightKg: String(profile.weightKg ?? ''), activityFactor: String(profile.activityFactor) });
   const [drafts, setDrafts] = useState({ training: targetDraft(profile.training, profile), rest: targetDraft(profile.rest, profile) });

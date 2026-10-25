@@ -228,9 +228,9 @@ test('starting nutrition targets apply editable goal adjustments and consistent 
 
 test('reference foods retain unknown label values and ordinary categories alongside TOP membership', () => {
   const { FOOD_REFERENCES, manualReferenceFoods, isTopFood } = calendarModule('app/physis/food-reference-domain.ts');
-  assert.equal(FOOD_REFERENCES.length, 44);
+  assert.equal(FOOD_REFERENCES.length, 47);
   const manual = manualReferenceFoods('ru');
-  assert.equal(manual.length, 5);
+  assert.equal(manual.length, 8);
   for (const { food: item } of manual) {
     assert.ok(validateNutritionRecord(newPhysisRecord('food', item)));
     assert.ok(isTopFood(item));
@@ -256,6 +256,33 @@ test('nutrition plan uses a seven-day Gregorian interval and an exact five-day s
   assert.deepEqual(nutritionPeriodRange(sacredDay(14), 'sacred', 'week', context), { start: sacredDay(11), end: sacredDay(15) });
   assert.deepEqual(nutritionPeriodRange(sacredDay(30), 'sacred', 'week', context), { start: sacredDay(26), end: sacredDay(30) });
   assert.deepEqual(nutritionPeriodRange(sacredDay(14), 'sacred', 'month', context), { start: sacredDay(1), end: sacredDay(30) });
+});
+
+test('vitamin food quantities preserve source units, preparation and edible portion without inventing missing values', () => {
+  const profiles = JSON.parse(readFileSync(new URL('../app/physis/vitamin-food-sources.json', import.meta.url), 'utf8'));
+  const foods = JSON.parse(readFileSync(new URL('../app/physis/nutrition-seed.json', import.meta.url), 'utf8'));
+  const essential = ['vitamin-a', 'vitamin-c', 'vitamin-d', 'vitamin-e', 'vitamin-k', 'thiamin', 'riboflavin', 'niacin', 'pantothenate', 'vitamin-b6', 'biotin', 'folate', 'vitamin-b12'];
+  for (const id of essential) {
+    assert.ok(profiles[id].items.length >= 3);
+    for (const item of profiles[id].items) {
+      assert.ok(Number.isFinite(item.amount) && item.amount >= 0);
+      assert.ok(item.food.every(Boolean) && item.portion.every(Boolean));
+      assert.equal(new URL(item.source).protocol, 'https:');
+      if (item.fdcId) {
+        const source = foods.find(food => food.fdcId === item.fdcId).foodNutrients.find(n => n.nutrient.id === item.nutrientId);
+        assert.equal(item.amount, source.amount);
+        assert.equal(item.unit.replace(' RAE', ''), source.nutrient.unitName);
+        assert.equal(item.portion[1], '100 g edible portion');
+      }
+    }
+  }
+  assert.equal(profiles.biotin.items[0].amount, 30.8);
+  assert.match(profiles.biotin.items[0].portion[1], /85 g/);
+  assert.ok(profiles['vitamin-k'].items.some(item => item.food[1].startsWith('K1:')));
+  assert.ok(profiles['vitamin-k'].items.some(item => item.food[1].startsWith('K2 / MK-4:')));
+  const { matchingNutrientTerms } = calendarModule('app/physis/nutrient-terminology.ts');
+  assert.equal(matchingNutrientTerms('В15')[0].id, 'pangamic-acid');
+  assert.equal(matchingNutrientTerms('B10')[0].id, 'paba');
 });
 
 test('lunar nutrition decades and months use real 29/30-day lunar boundaries', () => {
