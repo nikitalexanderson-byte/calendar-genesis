@@ -16,6 +16,20 @@
 .physis-training-primary-actions { position: sticky; bottom: 0; z-index: 2; background: var(--ui-surface-item, var(--ui-surface, #f5f0e4)); padding: .8rem 0 calc(.8rem + env(safe-area-inset-bottom)); border-top: 1px solid var(--ui-border, #a9a18e); margin-top: 1rem; }
 .physis-training-timer { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; padding: .8rem 0; }
 .physis-training-timer strong { font-size: 1.65rem; font-variant-numeric: tabular-nums; }
+.physis-training-plan-timer { margin-block: 20px; padding-block: 16px; border-block: 1px solid var(--line); }
+.physis-training-plan-timer h3, .physis-training-plan-timer p { margin: 4px 0; }
+.physis-training-plan-timer .physis-training-timer strong { font-size: 36px; }
+.physis-training-plan-timer progress { width: 100%; height: 10px; accent-color: var(--ui-accent); }
+.physis-training-series { padding-block: 24px; border-block: 1px solid var(--line); margin-block: 20px; }
+.physis-training-series svg { display: block; width: 100%; max-width: 800px; height: auto; color: var(--ink-soft); }
+.physis-training-series text { fill: currentColor; font: 12px var(--font-ui); }
+.physis-chart-axis { fill: none; stroke: var(--line); }
+.physis-chart-line { fill: none; stroke: var(--ui-accent); stroke-width: 2; }
+.physis-chart-point { fill: var(--ui-accent); }
+.physis-cycle-designer { margin-block: 24px; padding-block: 16px; border-block: 1px solid var(--line); }
+.physis-cycle-designer fieldset { margin-block: 16px; }
+.physis-cycle-designer > label { display: grid; gap: 8px; }
+.physis-cycle-table { margin-block: 20px; }
 .physis-training-result { border-block: 1px solid var(--ui-border, #a9a18e); padding: .75rem 0 1rem; margin-bottom: 1rem; }
 .physis-training-editor { margin: 1rem 0; padding: 1rem; border: 1px solid var(--ui-border, #a9a18e); border-radius: 10px; }
 .physis-training-catalog-entry, .physis-training-program, .physis-training-cycle { padding-block: .75rem; border-bottom: 1px solid var(--ui-border, #a9a18e); }
@@ -43,6 +57,10 @@
 .physis-training :focus-visible, .physis-training-session :focus-visible { outline: 2px solid var(--ui-accent, #21634d); outline-offset: 3px; }
 .physis-training :is(input, textarea), .physis-training-session :is(input, textarea) { caret-color: var(--ui-accent, #21634d); }
 @media (max-width: 767px) {
+  .physis-cycle-table table, .physis-cycle-table tbody, .physis-cycle-table tr, .physis-cycle-table th, .physis-cycle-table td { display: block; width: 100%; min-width: 0; }
+  .physis-cycle-table thead { display: none; }
+  .physis-cycle-table tr { padding-block: 16px; border-bottom: 1px solid var(--line); }
+  .physis-cycle-table th, .physis-cycle-table td { border: 0; padding: 6px 0; white-space: normal; }
   .physis-training-month { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .physis-training-editor { padding: .75rem; }
   .physis-training-set-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }

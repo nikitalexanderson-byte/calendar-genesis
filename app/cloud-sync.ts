@@ -457,7 +457,7 @@ export function personalDocumentAccess(userId: string) {
     check,
     async request<T>(path: string, init: RequestInit = {}) {
       check();
-      if (!/^\/mindmaps(?:\/[a-zA-Z0-9_-]+(?:\/history)?)?$/.test(path)) throw new Error("Invalid personal document path");
+      if (!/^\/(?:mindmaps(?:\/[a-zA-Z0-9_-]+(?:\/history)?)?|stoicheion-workspace)$/.test(path)) throw new Error("Invalid personal document path");
       const value = await api<T>(path, init); check(); return value;
     },
     async seal(value: unknown, scope: string) {

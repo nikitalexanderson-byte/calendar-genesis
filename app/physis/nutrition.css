@@ -50,3 +50,22 @@
   .physis-nutrition[data-page=diary] > .physis-diary-reuse { grid-column: 2; grid-row: 3; }
   .physis-nutrition[data-page=diary]:has(form) > :is(.physis-diary-meals,.physis-diary-summary,.physis-diary-reuse) { grid-column: 1 / -1; grid-row: auto; }
 }
+.physis-nutrition-period-days { display: grid; grid-template-columns: repeat(auto-fit,minmax(130px,1fr)); gap: 8px; margin-block: 16px; }
+.physis-nutrition-period-days button { text-align: start; }
+.physis-nutrition-period-days small { display: block; margin-top: 6px; color: var(--ink-soft); }
+.physis-nutrition-period-days button[aria-current=date] { border-color: var(--ui-accent); box-shadow: inset 0 0 0 1px var(--ui-accent); }
+.physis-food-category-nav { display: grid; gap: 12px; }
+.physis-food-category-nav > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.physis .physis-superfoods { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 64px; padding: 16px 20px; color: var(--ink); border-color: var(--ui-accent); font-weight: 600; letter-spacing: .03em; }
+.physis-superfoods small { font-weight: 400; }
+.physis-food-category-nav button[aria-pressed=true] { color: var(--ui-on-accent); background: var(--ui-accent); border-color: var(--ui-accent); }
+.physis-wizard-steps { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); list-style: none; margin: 0 0 12px; padding: 0; gap: 8px; }
+.physis-wizard-steps li { padding: 12px 8px; border-bottom: 2px solid var(--line); color: var(--ink-soft); text-align: center; font-size: 13px; }
+.physis-wizard-steps li[aria-current=step] { border-color: var(--ui-accent); color: var(--ink); font-weight: 600; }
+.physis-plan-dialog .physis-settings-heading > div { flex: 1; }
+.physis-plan-dialog .physis-settings-heading p { margin: 4px 0 0; font-size: 13px; }
+.physis-plan-dialog .physis-settings-content > section { min-width: 0; }
+.physis-plan-dialog .physis-settings-content .physis-primary { margin-top: 16px; }
+@media (max-width: 480px) {
+  .physis-plan-dialog table :is(th,td) { padding: 10px 6px; font-size: 13px; overflow-wrap: normal; }
+}

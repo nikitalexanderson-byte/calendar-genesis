@@ -4,8 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { CalendarMode } from "./calendar-data";
 import { getRuntimeLanguage } from "./i18n";
-import type { HabitWorkspace } from "./habits";
-import { habitLifecycleState } from "./habit-lifecycle";
+import { restorationExpired, restorationWorks, type RestorationWorkspace } from "./stoicheion-restoration-work";
 import { personalDocumentAccess, PERSONAL_DOCUMENT_READY_EVENT } from "./cloud-sync";
 import { getStoicheionLetters } from "./stoicheion-data";
 import { isEligibleRestorationHabit } from "./stoicheion-restoration-habits";
@@ -27,14 +26,15 @@ import { StoicheionActionButton } from "./StoicheionActionButton";
 export const RESTORATION_DRAFT_SCOPE = "genesis-stoicheion-restoration-v1";
 type Props = {
   userId: string; open: boolean; draft: RestorationStrategy; recovered: WorkDraft<RestorationStrategy> | null;
-  workspace: HabitWorkspace; calendarMode: CalendarMode; today: string;
-  onChange: (workspace: HabitWorkspace) => void | Promise<void>; onClose: () => void;
+  workspace: RestorationWorkspace; calendarMode: CalendarMode; today: string;
+  onChange: (workspace: RestorationWorkspace) => void | Promise<void>; onClose: () => void;
+  onDeleted: () => void | Promise<void>;
   onDraftChange: (draft: RestorationStrategy) => void; onStaged: (record: WorkDraft<RestorationStrategy>) => void;
   onSaved: (cleanupError: boolean) => void;
 };
 
 export function RestorationStrategyDialog({userId, open, draft, recovered, workspace, calendarMode, today,
-  onChange, onClose, onDraftChange, onStaged, onSaved}: Props) {
+  onChange, onClose, onDeleted, onDraftChange, onStaged, onSaved}: Props) {
   const language = getRuntimeLanguage();
   const t = restorationCopy(language);
   const local = (value: {ru: string; en: string}) => restorationLocal(value, language);
@@ -81,7 +81,9 @@ export function RestorationStrategyDialog({userId, open, draft, recovered, works
     return () => { document.body.style.overflow = previous; document.documentElement.style.overflow = previousRoot; };
   }, [open]);
   const sectors = reversedSectors(draft);
-  const snapshots = workspace.habits.filter(habit => habit.stoicheionRestoration && habitLifecycleState(habit).status !== "deleted").map(habit => habit.stoicheionRestoration!);
+  const expired = restorationExpired(draft.sourceDate, today);
+  const needsTracking = sectors.some(id => !draft.plans[id].withoutHabit);
+  const snapshots = restorationWorks(workspace, today).map(work => work.snapshot);
   const savedFor = (id: string) => snapshots.find(snapshot => snapshot.sectorId === id && snapshotMatchesSource(snapshot, draft));
   const count = restorationPreparedCount(draft, snapshots);
   const plan = draft.plans[draft.activeSectorId];
@@ -118,7 +120,7 @@ export function RestorationStrategyDialog({userId, open, draft, recovered, works
     else { setReview(true); focusMain(); }
   }
   async function saveStrategy() {
-    if (saving || count !== sectors.length || !workspace.habitSettings.enabled) return;
+    if (saving || expired || count !== sectors.length || needsTracking && !workspace.habitSettings.enabled) return;
     setSaving(true); setError("");
     try {
       const next = materializeRestorationStrategy(draft, workspace, {today, startedAt:new Date().toISOString(), calendarMode, language});
@@ -198,9 +200,9 @@ export function RestorationStrategyDialog({userId, open, draft, recovered, works
                 <h3>{t.contemplation}</h3>{recommendation.practiceText.split("\n\n").map((text,index) => <p key={index}>{text}</p>)}
                 <h3>{t.action}</h3>{recommendation.action.split("\n\n").map((text,index) => <p key={index}>{text}</p>)}
                 <label className="restoration-field"><span>{t.intention}</span><textarea value={plan.intention} disabled={saving} maxLength={500} rows={3} onChange={event => patch({intention:event.target.value})} /></label>
-                <label className="restoration-field"><span>{t.habit}</span><select value={plan.linkedHabitId} disabled={saving} onChange={event => patch({linkedHabitId:event.target.value})}>
-                  <option value="">{t.newHabit}</option>{workspace.habits.filter(isEligibleRestorationHabit).map(habit => <option key={habit.id} value={habit.id} disabled={sectors.some(id => id !== sector.id && draft.plans[id].linkedHabitId === habit.id)}>{t.existingHabit} · {habit.title}</option>)}
-                </select></label><p className="restoration-note">{t.cycleHelp}</p>
+                <label className="restoration-field"><span>{t.habitOptional}</span><select value={plan.withoutHabit ? "__none__" : plan.linkedHabitId} disabled={saving} onChange={event => patch({linkedHabitId:event.target.value === "__none__" ? "" : event.target.value, withoutHabit:event.target.value === "__none__"})}>
+                  <option value="__none__">{t.withoutHabit}</option><option value="" disabled={!workspace.habitSettings.enabled}>{t.newHabit}</option>{workspace.habits.filter(isEligibleRestorationHabit).map(habit => <option key={habit.id} value={habit.id} disabled={sectors.some(id => id !== sector.id && draft.plans[id].linkedHabitId === habit.id)}>{t.existingHabit} · {habit.title}</option>)}
+                </select></label><p className="restoration-note">{plan.withoutHabit ? t.withoutHabitHelp : practiceCopy(language).warning}</p>
               </> : null}
             </div><aside className="restoration-equation" aria-label={t.equation}>
               <h3>{t.equation}</h3><p className="restoration-formula">{t.formula}</p>
@@ -222,10 +224,11 @@ export function RestorationStrategyDialog({userId, open, draft, recovered, works
           {journal.status === "error" && !unavailable ? <button type="button" className="secondary-button" onClick={() => void stage(draft).then(onStaged).catch(() => undefined)}>{t.retryDraft}</button> : null}
           {error ? <p className="restoration-error" role="alert">{error}</p> : null}
           {count < sectors.length ? <small>{t.remainingHelp}</small> : null}
-          {!workspace.habitSettings.enabled ? <small>{t.disabled}</small> : null}
-        </div><StoicheionActionButton icon="restoration" className="primary-button" disabled={saving || review && (count !== sectors.length || !workspace.habitSettings.enabled)} onClick={() => { if (!review) {setReview(true);focusMain();} else void saveStrategy(); }}>
+          {!workspace.habitSettings.enabled && needsTracking ? <small>{t.disabled}</small> : null}
+          {expired ? <p className="restoration-error">{t.expired}</p> : null}
+        </div>{expired ? <button type="button" className="secondary-button restoration-delete-button" disabled={saving} onClick={async () => { setSaving(true); try { await journal.clearCurrent(sourceRef.current); await onDeleted(); } catch { setError(t.draftError); setSaving(false); } }}><ExperimentalIcon name="delete" />{t.delete}</button> : <StoicheionActionButton icon="restoration" className="primary-button" disabled={saving || review && (count !== sectors.length || needsTracking && !workspace.habitSettings.enabled)} onClick={() => { if (!review) {setReview(true);focusMain();} else void saveStrategy(); }}>
           {saving ? t.preparing : review ? t.saveStrategy : t.reviewStrategy}
-        </StoicheionActionButton></footer>
+        </StoicheionActionButton>}</footer>
       </section>
     </div>
   </div>, document.body);

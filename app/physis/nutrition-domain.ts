@@ -37,6 +37,7 @@ export type NutrientValue = {
 export type Nutrients = Partial<Record<NutrientKey, NutrientValue>>;
 export type FoodCategory = 'soy' | 'legume' | 'seed-oil';
 export type Food = {
+  category?: string;
   name: string; brand: string; aliases: string[]; ingredients: string;
   state: 'raw' | 'cooked' | 'dry' | 'reconstituted' | 'unknown';
   basis: '100g' | '100ml'; densityGPerMl: number | null; edibleFraction: number;
@@ -191,6 +192,16 @@ export function estimateEnergy(profile: Pick<NutritionProfile, 'age' | 'heightCm
   const resting = 10 * profile.weightKg + 6.25 * profile.heightCm - 5 * profile.age + (profile.formulaSex === 'male' ? 5 : -161);
   return { resting, maintenance: resting * profile.activityFactor, version: 'Mifflin-St Jeor 1990 / Genesis v1', source: 'https://doi.org/10.1093/ajcn/51.2.241' };
 }
+/** A transparent, editable starting point, never an automatic prescription. */
+export function startingNutritionTargets(profile: Pick<NutritionProfile, 'age' | 'heightCm' | 'weightKg' | 'formulaSex' | 'activityFactor' | 'excluded' | 'goal'>) {
+  const estimate = estimateEnergy(profile);
+  if (profile.goal === 'custom') throw new Error('Для своей цели введите нормы вручную / Enter targets for a custom goal');
+  const adjustment = profile.goal === 'lose' ? .9 : profile.goal === 'gain' ? 1.1 : 1;
+  const energy = Math.round(estimate.maintenance * adjustment);
+  if (energy < 1000) throw new Error('Автоматическая оценка ниже 1000 ккал не предлагается. Проверьте параметры / Automatic targets below 1000 kcal are not offered');
+  const target = resolveTargets({ mode: 'calories', unit: 'energy-percent', energy, protein: 20, fat: 30, carbohydrate: 50, weightKg: profile.weightKg, fiber: 14 * energy / 1000 });
+  return { estimate, adjustment, target };
+}
 export function suggestPortion(food: Food, key: NutrientKey, target: number, maxAmount = 1000): { quantity: number; unit: 'g' | 'ml'; fulfills: boolean } | null {
   const value = food.nutrients[key]?.value;
   if (value == null || value <= 0 || !Number.isFinite(target) || target <= 0) return null;
@@ -225,6 +236,7 @@ function finite(value: unknown, max = 1e8): value is number { return typeof valu
 function positive(value: unknown, max = 1e8): value is number { return finite(value, max) && value > 0; }
 function categories(value: unknown): value is FoodCategory[] { return Array.isArray(value) && value.length <= 3 && value.every(item => ['soy', 'legume', 'seed-oil'].includes(item)); }
 function validFood(value: unknown): value is Food {
+  if (object(value) && value.category !== undefined && !text(value.category, 80)) return false;
   if (!object(value) || !text(value.name, 500) || !value.name.trim() || !text(value.brand, 200) || !text(value.ingredients) || !Array.isArray(value.aliases) || value.aliases.length > 100 || !value.aliases.every(item => text(item, 500)) || !['raw', 'cooked', 'dry', 'reconstituted', 'unknown'].includes(String(value.state)) || !['100g', '100ml'].includes(String(value.basis)) || !(value.densityGPerMl === null || positive(value.densityGPerMl, 30)) || !positive(value.edibleFraction, 1) || !positive(value.servingAmount, 100000) || !text(value.servingName, 200) || !object(value.nutrients) || !categories(value.contains) || !categories(value.mayContain) || !['not-applicable', 'adequately-cooked', 'undercooked', 'unknown'].includes(String(value.legumePreparation)) || !['compositionKnown', 'fortified', 'favorite', 'archived'].every(key => typeof value[key] === 'boolean')) return false;
   if (!object(value.provenance) || !['label', 'USDA', 'recipe', 'manual'].includes(String(value.provenance.provider)) || !['id', 'version', 'source', 'license'].every(key => text((value.provenance as Record<string, unknown>)[key], 2000))) return false;
   return Object.entries(value.nutrients).every(([key, item]) => NUTRIENT_KEYS.includes(key as NutrientKey) && object(item) && item.unit === NUTRIENTS[key as NutrientKey].unit && item.basis === value.basis && text(item.source, 2000) && text(item.sourceVersion, 500) && ['known', 'zero', 'trace', 'estimate', 'unknown'].includes(String(item.quality)) && (item.quality === 'unknown' || item.quality === 'trace' ? item.value === null : finite(item.value)) && (item.quality !== 'zero' || item.value === 0));

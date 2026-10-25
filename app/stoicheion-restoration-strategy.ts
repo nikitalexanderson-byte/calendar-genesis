@@ -6,6 +6,7 @@ export type RestorationSource = { sourceDate: string; sourceSeed: number; cards:
 export type RestorationPlan = {
   need: RestorationNeed; supportIds: AuxiliaryId[]; resourceLetterId: string;
   intention: string; linkedHabitId: string; step: number; prepared: boolean; touched: boolean;
+  withoutHabit?: boolean;
 };
 export type RestorationStrategy = RestorationSource & {
   version: 1; activeSectorId: string; plans: Record<string, RestorationPlan>;
@@ -54,6 +55,8 @@ export function validateRestorationStrategy(input: unknown): RestorationStrategy
       || plan.supportIds.some(support => !Object.hasOwn(AUXILIARY_WORDS, support))
       || typeof plan.resourceLetterId !== "string" || typeof plan.intention !== "string" || plan.intention.length > 500
       || typeof plan.linkedHabitId !== "string" || plan.linkedHabitId.length > 200
+      || plan.withoutHabit !== undefined && typeof plan.withoutHabit !== "boolean"
+      || plan.withoutHabit === true && Boolean(plan.linkedHabitId)
       || !Number.isInteger(plan.step) || plan.step < 0 || plan.step > 3
       || typeof plan.prepared !== "boolean" || typeof plan.touched !== "boolean") throw new Error("RESTORATION_DRAFT_INVALID");
     const equation = restorationPlanEquation(value, id, plan);

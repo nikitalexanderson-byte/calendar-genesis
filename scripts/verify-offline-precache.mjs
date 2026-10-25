@@ -30,6 +30,8 @@ const REQUIRED_VISUAL_ASSETS = [
   ...mindmapIcons.map(icon => `mindmap-icons/${icon.id}.png`),
   ...Array.from({ length: 13 }, (_, index) => `lunar-month-art-v1/month-${String(index + 1).padStart(2, "0")}.webp`),
   "habit-ranks/heroic-ranks.webp",
+  "physis-art/apollo-artemis-v1.webp",
+  "physis-art/apollo-artemis-mobile-v1.webp",
   "calendar-art/saturn-cronus.webp",
   "calendar-art/genesis-sacred-calendar-v8.svg",
   "achievement-art/first-step.png",

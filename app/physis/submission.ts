@@ -16,7 +16,12 @@ export function createPhysisSubmission() {
     // the store retains and retransmits its original uncertain request independently.
     const current = new Map(store.records.map(record => [record.id, record]));
     const latest = retry ? records.map(record => current.get(record.id) ?? record) : records;
-    if (latest.length) await store.saveMany(latest);
+    // Month plans may exceed the API's 100-record transaction limit. Acknowledged
+    // chunks leave the retry intent; an uncertain chunk retains exactly its IDs.
+    for (let index = 0; index < latest.length; index += 100) {
+      await store.saveMany(latest.slice(index, index + 100));
+      pending.set(intent, records.slice(index + 100));
+    }
     pending.delete(intent);
   };
 }

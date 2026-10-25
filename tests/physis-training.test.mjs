@@ -7,6 +7,7 @@ const t = calendarModule('app/physis/training-domain.ts');
 const types = calendarModule('app/physis/types.ts');
 const c = calendarModule('app/calendar-context.ts');
 const calendar = calendarModule('app/calendar-data.ts');
+const planning = calendarModule('app/physis/training-planning-domain.ts');
 const record = (kind, data) => types.newPhysisRecord(kind, data);
 const clone = value => structuredClone(value);
 function program48() {
@@ -25,6 +26,53 @@ const assignment48 = (day = '2026-10-24', mode = 'fixed') => {
   const program = record('program', program48());
   return record('assignment', t.assignProgram(program.id, program.data.versions[0], day, mode));
 };
+function timedAssignment(mode = 'fixed') {
+  const assignment = assignment48('2026-10-24', mode);
+  assignment.data.scheduled.forEach(item => item.snapshot.exercises.forEach(ex => ex.sets.forEach(set => { set.seconds = 30; set.restSeconds = 10; })));
+  return assignment;
+}
+
+test('new workouts require a complete assigned plan and cannot start freely, on rest days, skipped dates or out of order', () => {
+  const a = timedAssignment(); const slot = a.data.scheduled[0];
+  assert.throws(() => t.startPlannedSession(slot.day, 'UTC', undefined, undefined, []));
+  assert.throws(() => t.startPlannedSession(slot.day, 'UTC', 'missing', a, []));
+  assert.throws(() => t.startPlannedSession('2026-10-25', 'UTC', slot.id, a, []));
+  assert.throws(() => t.startPlannedSession('2026-10-25', 'UTC', a.data.scheduled[1].id, a, []));
+  a.data.paused = true;
+  assert.throws(() => t.startPlannedSession(slot.day, 'UTC', slot.id, a, [])); a.data.paused = false;
+  slot.state = 'skipped'; assert.throws(() => t.startPlannedSession(slot.day, 'UTC', slot.id, a, [])); slot.state = 'planned';
+  slot.snapshot.exercises[0].sets[0].seconds = null;
+  assert.throws(() => t.startPlannedSession(slot.day, 'UTC', slot.id, a, []));
+  slot.snapshot.exercises[0].sets[0].seconds = 30;
+  const active = record('session', t.startPlannedSession(slot.day, 'UTC', slot.id, a, []));
+  assert.throws(() => t.startPlannedSession(slot.day, 'UTC', slot.id, a, [active]));
+  const sequence = timedAssignment('next');
+  assert.throws(() => t.startPlannedSession('2026-10-24', 'UTC', sequence.data.scheduled[4].id, sequence, []));
+});
+
+test('planned clock advances through work and rest, survives reload and pauses, and never marks sets as completed', () => {
+  const a = timedAssignment(); const slot = a.data.scheduled[0];
+  const start = new Date('2026-10-24T10:00:00Z');
+  const session = t.startPlannedSession(slot.day, 'UTC', slot.id, a, [], start);
+  assert.equal(t.validateTrainingRecord(record('session', session)), true);
+  assert.equal(t.plannedTimer(session, start.getTime()).total, 70);
+  assert.equal(t.plannedTimer(session, start.getTime() + 30000).phase, 'rest');
+  assert.equal(t.plannedTimer(session, start.getTime() + 40000).index, 1);
+  const paused = t.pauseSession(session, new Date(start.getTime() + 45000));
+  assert.equal(t.plannedTimer(paused, start.getTime() + 900000).remaining, 25);
+  const resumed = t.pauseSession(clone(paused), new Date(start.getTime() + 145000));
+  assert.equal(t.plannedTimer(resumed, start.getTime() + 150000).remaining, 20);
+  a.data.scheduled[0].snapshot.exercises[0].sets[0].seconds = 1000;
+  resumed.exercises[0].sets[0].seconds = 500;
+  assert.equal(t.plannedTimer(clone(resumed), start.getTime() + 171000).phase, 'done');
+  assert.equal(resumed.exercises.flatMap(ex => ex.sets).some(set => set.completed), false);
+  assert.equal(resumed.timerPlan[0].workSeconds, 30);
+  const invalid = clone(resumed); invalid.timerPlan[0].workSeconds = -1;
+  assert.equal(t.validateTrainingRecord(record('session', invalid)), false);
+  const legacy = t.startSession(slot.day, 'UTC');
+  assert.equal(t.plannedTimer(legacy), null);
+  assert.equal(t.validateTrainingRecord(record('session', legacy)), true);
+});
 function partialFor(assignment, slot = 0) {
   const item = assignment.data.scheduled[slot];
   const session = t.startSession(item.day, 'Europe/Moscow', item, assignment, new Date(`${item.day}T10:00:00Z`));
@@ -313,4 +361,58 @@ test('retry after background acknowledgement never overwrites later edits or cre
   });
   assert.equal(resolved.data.name, later.data.name); assert.equal(writes, 0);
   assert.equal(resolved.data.versions.length, 2);
+});
+
+
+test('automatic periodization previews preserve source/history, rest and timers, with explicit deload and safe rep ranges', () => {
+  const program=program48(), original=clone(program), base=program.versions[0];
+  base.mesocycles[0].microcycles[0].days[0].exercises[0].sets.forEach(s=>s.seconds=30);
+  const frozen=clone(base);
+  for(const model of ['linear','weekly-wave','block']) {
+    const stages=planning.suggestedLoadStages(model,'strength',4);
+    const version=planning.periodizedVersion(base,model,stages);
+    assert.deepEqual(base,frozen);assert.equal(version.periodization,model);
+    assert.ok(t.validateTrainingRecord(record('program',{...program,versions:[version]})));
+    const micros=version.mesocycles.flatMap(m=>m.microcycles);
+    assert.equal(micros.length,4);
+    assert.equal(micros[0].days[1].kind,'rest');
+    const ex=micros[0].days[0].exercises[0];
+    assert.equal(ex.sets[0].weightKg,45);assert.equal(ex.sets[0].seconds,30);
+    assert.equal(ex.sets[0].repsMax,null);assert.equal(ex.sets[0].completed,false);
+    assert.notEqual(ex.id,base.mesocycles[0].microcycles[0].days[0].exercises[0].id);
+    assert.equal(micros[3].days[0].exercises[0].sets[0].weightKg,40);
+    assert.equal(micros[3].days[0].exercises[0].sets[0].reps,3);
+    assert.equal(micros[3].days[0].exercises[0].sets.length,2);
+  }
+  assert.equal(original.versions[0].mesocycles.length,2);
+  const waves=planning.periodizedVersion(base,'daily-wave',planning.suggestedLoadStages('daily-wave','hypertrophy',2));
+  assert.equal(waves.mesocycles[0].microcycles[0].days[4].exercises[0].sets[0].weightKg,50);
+  assert.throws(()=>planning.periodizedVersion(base,'daily-wave',planning.suggestedLoadStages('daily-wave','strength',3)));
+  assert.throws(()=>planning.suggestedLoadStages('linear','strength',1));
+  assert.throws(()=>planning.percentLoad(100,110,2.5));
+  assert.equal(planning.percentLoad(110,72,2.5),80);
+});
+
+test('progress uses actual work, separates sides and conventions, and computes reps and repetition-weighted intensity', () => {
+  const ex=t.addExercise(t.STARTER_EXERCISES[0]);
+  ex.sets=[{...t.blankSet(),weightKg:50,reps:5,completed:true,side:'left'},
+    {...t.blankSet(),weightKg:60,reps:10,completed:true,side:'left'},
+    {...t.blankSet(),weightKg:900,reps:5,completed:true,kind:'warmup',side:'left'},
+    {...t.blankSet(),weightKg:200,reps:5,completed:false,side:'left'},
+    {...t.blankSet(),weightKg:30,reps:5,completed:true,side:'right'}];
+  const s=t.startSession('2026-10-24','UTC');s.exercises=[ex];
+  const finished=record('session',t.finishSession(s)), pending=record('session',t.startSession('2026-10-25','UTC'));
+  const comparison=`${t.comparableKey(ex)}|left`;
+  const sessions=[finished,pending];
+  assert.deepEqual(planning.trainingProgressSeries(sessions,'reps',comparison),[{day:s.localDay,value:15}]);
+  assert.deepEqual(planning.trainingProgressSeries(sessions,'volume',comparison),[{day:s.localDay,value:850}]);
+  assert.equal(planning.trainingProgressSeries(sessions,'average-weight',comparison)[0].value,850/15);
+  assert.ok(Math.abs(planning.trainingProgressSeries(sessions,'intensity',comparison,100)[0].value-850/15)<1e-9);
+  assert.deepEqual(planning.trainingProgressSeries(sessions,'intensity',comparison),[]);
+  assert.deepEqual(planning.trainingProgressSeries(sessions,'e1rm'),[]);
+  assert.equal(planning.trainingProgressSeries(sessions,'e1rm',comparison)[0].value,80);
+  assert.equal(planning.trainingProgressSeries(sessions,'reps',`${t.comparableKey(ex)}|right`)[0].value,5);
+  const external=planning.exerciseAtPercent(ex,100,75,2.5);
+  assert.equal(external.sets[0].weightKg,75);assert.equal(external.sets[2].weightKg,900);
+  assert.equal(ex.sets[0].weightKg,50);
 });

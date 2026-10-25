@@ -19,6 +19,7 @@ export type PhysisSettings = {
   weightUnit: 'kg' | 'lb'; distanceUnit: 'km' | 'mi'; energyUnit: 'kcal' | 'kJ'; glucoseUnit: 'mmol/L' | 'mg/dL';
   restSeconds: number; reminders: boolean; foodRules: string[]; enabledMetrics: string[];
   overviewBlocks: string[];
+  monitoringHints?: boolean;
 };
 export type PhysisFeatureProps = {
   store: PhysisStore; settings: PhysisSettings; context: CalendarContext; language: string;

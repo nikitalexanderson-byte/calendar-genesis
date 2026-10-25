@@ -1,7 +1,6 @@
 import type { CalendarMode } from "./calendar-data";
 import type { Language } from "./i18n";
-import type { Habit, HabitWorkspace } from "./habits";
-import { habitLifecycleState } from "./habit-lifecycle";
+import type { Habit } from "./habits";
 import { SACRED_PRACTICES } from "./sacred-practices";
 import { getStoicheionLetters } from "./stoicheion-data";
 import { RESTORATION_AUXILIARIES, RESTORATION_LETTER_FOCI, RESTORATION_SECTORS } from "./stoicheion-restoration-data";
@@ -15,6 +14,7 @@ import { defaultPracticeGoal } from "./habit-practice-goal";
 import { habitRuleForDate, normalizeHabitRuleHistory } from "./habit-measurement";
 import { habitRuleFrontier } from "./habit-rule-history";
 import { calendarModeForRecurrence } from "./task-recurrence";
+import { restorationExpired, restorationWorks, workFromSnapshot, type RestorationWork, type RestorationWorkspace } from "./stoicheion-restoration-work";
 
 export function restorationRecommendation(source: RestorationSource, sectorId: string, plan: RestorationPlan, language: Language) {
   const local = (value: { ru: string; en: string }) => restorationLocal(value, language);
@@ -36,16 +36,18 @@ export function restorationRecommendation(source: RestorationSource, sectorId: s
 }
 
 /** Prepare every update before changing the workspace: a rejected card saves nothing. */
-export function materializeRestorationStrategy(input: RestorationStrategy, workspace: HabitWorkspace,
-  options: { today: string; startedAt: string; calendarMode: CalendarMode; language: Language }): HabitWorkspace {
+export function materializeRestorationStrategy(input: RestorationStrategy, workspace: RestorationWorkspace,
+  options: { today: string; startedAt: string; calendarMode: CalendarMode; language: Language }): RestorationWorkspace {
   const strategy = validateRestorationStrategy(input);
-  if (!workspace.habitSettings.enabled) throw new Error("RESTORATION_TRACKING_DISABLED");
-  const cycles = workspace.habits.filter(habit => habit.stoicheionRestoration && habitLifecycleState(habit).status !== "deleted");
+  if (restorationExpired(strategy.sourceDate, options.today) || options.today < strategy.sourceDate) throw new RangeError("PRACTICE_DIVINATION_EXPIRED");
+  if (!workspace.habitSettings.enabled && reversedSectors(strategy).some(id => !strategy.plans[id].withoutHabit)) throw new Error("RESTORATION_TRACKING_DISABLED");
+  const works = restorationWorks(workspace, options.today);
   const letters = getStoicheionLetters(options.language);
   const updates: Habit[] = [];
+  const workUpdates: RestorationWork[] = [];
   const used = new Set<string>();
   for (const sectorId of reversedSectors(strategy)) {
-    if (cycles.some(habit => habit.stoicheionRestoration!.sectorId === sectorId && snapshotMatchesSource(habit.stoicheionRestoration!, strategy))) continue;
+    if (works.some(work => work.snapshot.sectorId === sectorId && snapshotMatchesSource(work.snapshot, strategy))) continue;
     const plan = strategy.plans[sectorId];
     if (!restorationPlanReady(strategy, sectorId, plan)) throw new Error("RESTORATION_STRATEGY_INCOMPLETE");
     if (plan.linkedHabitId && used.has(plan.linkedHabitId)) throw new Error("RESTORATION_DUPLICATE_HABIT");
@@ -66,7 +68,9 @@ export function materializeRestorationStrategy(input: RestorationStrategy, works
       pythmen: equation.target, reflection: "",
     });
     if (!snapshot) throw new Error("RESTORATION_SNAPSHOT_INVALID");
-    if (plan.linkedHabitId) {
+    if (plan.withoutHabit) {
+      workUpdates.push(workFromSnapshot(snapshot, null));
+    } else if (plan.linkedHabitId) {
       const previous = workspace.habits.find(habit => habit.id === plan.linkedHabitId && isEligibleRestorationHabit(habit));
       if (!previous) throw new Error("RESTORATION_HABIT_UNAVAILABLE");
       const practice = SACRED_PRACTICES.find(item => item.id === snapshot.practiceId)!;
@@ -81,11 +85,14 @@ export function materializeRestorationStrategy(input: RestorationStrategy, works
           { id: `practice-rule:${snapshot.cycleId}`, effectiveDate: options.today, recordedAt: options.startedAt,
             measurement: null, schedule, supersedes: (heads.length ? heads : [baseline]).map(row => row.id) },
         ]) }));
+      workUpdates.push(workFromSnapshot(snapshot, previous.id));
     } else {
       const practice = SACRED_PRACTICES.find(item => item.id === snapshot.practiceId)!;
       const letter = letters.find(item => item.id === card.letterId)!;
       updates.push(createRestorationHabit(practice, snapshot, options.calendarMode, options.language, `${restorationCopy(options.language).title} · ${letter.name}`));
+      workUpdates.push(workFromSnapshot(snapshot, updates.at(-1)!.id));
     }
   }
-  return { ...workspace, habits: [...workspace.habits.filter(habit => !updates.some(item => item.id === habit.id)), ...updates] };
+  return { ...workspace, habits: [...workspace.habits.filter(habit => !updates.some(item => item.id === habit.id)), ...updates],
+    stoicheionWorks: [...(workspace.stoicheionWorks ?? []), ...workUpdates] };
 }

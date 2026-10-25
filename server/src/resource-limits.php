@@ -24,6 +24,7 @@ function genesisJsonBodyLimit(string $path): int
     if ($path === 'physis/v1/vault') return 4096;
     // Include base64 overhead and metadata; decoded files retain their existing limits.
     if ($path === 'workspace') return 11_600_000;
+    if ($path === 'stoicheion-workspace') return 4_010_000;
     if ($path === 'habit-reminders/plan') return 1_500_000;
     if (preg_match('~^shared/data/(?:preview|apply)$~D', $path)) return 45 * 1024 * 1024; // 20 MiB file, JSON escaping and mapping overhead; raw control bytes are rejected.
     if (preg_match('~^shared/(?:spaces/[^/]+/templates(?:/[^/]+)?|templates/[^/]+/(?:preview|apply))$~D', $path)) return 5_500_000;
