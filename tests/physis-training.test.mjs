@@ -422,7 +422,14 @@ test('progress uses actual work, separates sides and conventions, and computes r
 test('expanded movement library preserves historical exercise identity and supplies valid human atlases', () => {
   const guides = calendarModule('app/physis/exercise-library-data.ts').EXERCISE_GUIDES;
   const media = JSON.parse(readFileSync(new URL('../app/physis/exercise-media-data.json', import.meta.url), 'utf8'));
-  assert.equal(guides.length, 32);
+  assert.equal(guides.length, 95);
+  assert.equal(new Set(guides.map(guide => guide.id)).size, guides.length);
+  for (const guide of guides) {
+    assert.equal(guide.steps.length, 3);
+    assert.equal(guide.stepsEn.length, 3);
+    assert.ok(guide.primary.length && guide.mistakes && guide.mistakesEn);
+    assert.ok(t.validateTrainingRecord(record('exercise', t.STARTER_EXERCISES.find(entry => entry.id === `genesis:${guide.id}`).data)));
+  }
   assert.deepEqual(new Set(Object.keys(media)), new Set(guides.map(entry => entry.id)));
   const legacy = { squat: 'total', hinge: 'total', press: 'total', row: 'per-hand', pushup: 'bodyweight', pullup: 'assisted', lunge: 'per-hand', plank: 'bodyweight', run: 'bodyweight', walk: 'bodyweight' };
   for (const [id, mode] of Object.entries(legacy)) {
@@ -443,4 +450,27 @@ test('expanded movement library preserves historical exercise identity and suppl
       assert.equal(file.toString('ascii', 8, 12), 'WEBP');
     }
   }
+});
+
+test('incline angle survives plan snapshots, validates its range and separates comparable sessions', () => {
+  for (const id of ['incline-bench', 'incline-barbell-bench']) {
+    const choice = t.STARTER_EXERCISES.find(entry => entry.id === `genesis:${id}`);
+    assert.equal(choice.data.benchAngleDegrees, 30);
+    const exercise = t.addExercise(choice);
+    exercise.snapshot.benchAngleDegrees = 45;
+    assert.equal(choice.data.benchAngleDegrees, 30);
+    const day = t.newCycleDay('workout'); day.exercises = [exercise];
+    assert.equal(t.copyDay(day).exercises[0].snapshot.benchAngleDegrees, 45);
+    assert.notEqual(t.comparableKey(exercise), t.comparableKey(t.addExercise(choice)));
+    for (const angle of [0, 30, 45, 85]) assert.ok(t.validateTrainingRecord(record('exercise', { ...choice.data, benchAngleDegrees: angle })));
+    for (const angle of [-1, 86, NaN, Infinity, 30.5, '45', null]) assert.equal(t.validateTrainingRecord(record('exercise', { ...choice.data, benchAngleDegrees: angle })), false);
+    const legacy = { ...choice.data }; delete legacy.benchAngleDegrees;
+    assert.ok(t.validateTrainingRecord(record('exercise', legacy)));
+    assert.notEqual(t.comparableKey({ ...exercise, snapshot: legacy }), t.comparableKey(exercise));
+  }
+  const drill = t.STARTER_EXERCISES.find(entry => entry.id === 'genesis:dowel-hinge');
+  assert.ok(drill.data.aliases.includes('Лечебная становая тяга'));
+  assert.equal(t.STARTER_EXERCISES.find(entry => entry.id === 'genesis:single-leg-rdl-one-dumbbell').data.weightMode, 'total');
+  assert.equal(t.STARTER_EXERCISES.find(entry => entry.id === 'genesis:walking-lunge-dumbbell').data.weightMode, 'per-hand');
+  assert.notEqual(t.STARTER_EXERCISES.find(entry => entry.id === 'genesis:nordic-curl').data.equipment, t.STARTER_EXERCISES.find(entry => entry.id === 'genesis:glute-ham-raise').data.equipment);
 });

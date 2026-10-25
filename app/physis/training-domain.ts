@@ -9,6 +9,7 @@ export type ExerciseDefinition = {
   variants: string; source: string; metric: 'strength' | 'time' | 'distance';
   weightMode: WeightMode; unilateral: boolean; favorite: boolean; notes: string;
   catalogId?: string;
+  benchAngleDegrees?: number;
 };
 export type ExerciseChoice = { id: string; data: ExerciseDefinition; personal: boolean };
 export type TrainingSet = {
@@ -229,8 +230,12 @@ export function setCanComplete(exercise: ExerciseDefinition, set: TrainingSet): 
   if (exercise.metric === 'distance') return set.distanceKm !== null && set.distanceKm > 0;
   return set.reps !== null && set.reps > 0 && (exercise.weightMode === 'bodyweight' || set.weightKg !== null);
 }
+export function exerciseDisplayName(exercise: ExerciseDefinition, en = false): string {
+  const name = en ? exercise.nameEn || exercise.name : exercise.name;
+  return exercise.benchAngleDegrees === undefined ? name : `${name} · ${exercise.benchAngleDegrees}°`;
+}
 export function comparableKey(exercise: TrainingExercise) {
-  return `${exercise.snapshot.catalogId || exercise.exerciseId}|${exercise.snapshot.metric}|${exercise.snapshot.weightMode}|${exercise.snapshot.unilateral}`;
+  return `${exercise.snapshot.catalogId || exercise.exerciseId}|${exercise.snapshot.metric}|${exercise.snapshot.weightMode}|${exercise.snapshot.unilateral}${exercise.snapshot.benchAngleDegrees === undefined ? '' : `|angle:${exercise.snapshot.benchAngleDegrees}`}`;
 }
 /** External load only. Body mass and assistance are never inferred as barbell load. */
 export function setVolume(exercise: TrainingExercise, set: TrainingSet): number {
@@ -269,11 +274,12 @@ export function completionScore(assignment: PhysisRecord<TrainingAssignment>, se
 export const STARTER_EXERCISES: ExerciseChoice[] = EXERCISE_GUIDES.map(guide => ({
   id: `genesis:${guide.id}`, personal: false,
   data: { catalogId: `genesis:${guide.id}`, name: guide.name, nameEn: guide.nameEn,
-    aliases: [guide.nameEn], muscles: guide.muscles, movement: guide.movement, equipment: guide.equipment,
+    aliases: [guide.nameEn, ...(guide.aliases ?? [])], muscles: guide.muscles, movement: guide.movement, equipment: guide.equipment,
     environment: guide.equipment === 'bodyweight' ? 'home' : 'gym',
     technique: guide.steps.join(' '), mistakes: guide.mistakes, variants: '',
-    source: 'GENESIS — оригинальное описание; техника: ACE/NSCA; иллюстрации движения: imagegen, 2026.',
-    metric: guide.metric, weightMode: guide.weightMode, unilateral: guide.unilateral, favorite: false, notes: '' },
+    source: 'GENESIS — оригинальное описание; техника: ACE/NSCA/NASM; иллюстрации движения: imagegen, 2026.',
+    metric: guide.metric, weightMode: guide.weightMode, unilateral: guide.unilateral, favorite: false, notes: '',
+    ...(guide.benchAngleDegrees === undefined ? {} : { benchAngleDegrees: guide.benchAngleDegrees }) },
 }));
 
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -285,6 +291,7 @@ const array = (v: unknown, max: number, valid: (v: unknown) => boolean): boolean
 const instant = (v: unknown) => typeof v === 'string' && Number.isFinite(Date.parse(v));
 const uniqueIds = (values: unknown) => Array.isArray(values) && new Set(values.map(v => object(v) ? v.id : null)).size === values.length;
 function validExercise(v: unknown): boolean {
+  if (object(v) && v.benchAngleDegrees !== undefined && (!num(v.benchAngleDegrees, 85) || !Number.isInteger(v.benchAngleDegrees))) return false;
   return object(v) && ['name', 'nameEn', 'muscles', 'movement', 'equipment', 'environment', 'technique', 'mistakes', 'variants', 'source', 'notes'].every(k => text(v[k])) && array(v.aliases, 100, x => text(x, 500)) && inList(v.metric, ['strength', 'time', 'distance']) && inList(v.weightMode, ['total', 'per-hand', 'per-side', 'bodyweight', 'assisted']) && typeof v.unilateral === 'boolean' && typeof v.favorite === 'boolean' && (v.catalogId === undefined || text(v.catalogId, 200));
 }
 function validSet(v: unknown): boolean {
