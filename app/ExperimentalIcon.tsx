@@ -20,6 +20,7 @@ export function ExperimentalIcon({ name, className = "" }: { name: string; class
     {name === "admin" ? <><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1Z"/><path d="m9 12 2 2 4-4"/></> : null}
     {name === "plus" ? <path d="M5 12h14M12 5v14"/> : null}
     {name === "star" ? <path d="m12 3 2.78 5.63 6.22.9-4.5 4.39 1.06 6.2L12 17.19l-5.56 2.93 1.06-6.2L3 9.53l6.22-.9Z"/> : null}
+    {name === "heart" ? <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z"/> : null}
     {name === "advice-dislike" ? <path d="M17 14V3h4v11h-4Zm0-10H6a2 2 0 0 0-2 1.7l-1 6A2 2 0 0 0 5 14h5v4a3 3 0 0 0 3 3l4-7"/> : null}
     {name === "pause" ? <><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></> : null}
     {name === "play" ? <path d="m8 4 12 8-12 8Z"/> : null}
