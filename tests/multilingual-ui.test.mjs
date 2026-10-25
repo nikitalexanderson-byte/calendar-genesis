@@ -28,16 +28,19 @@ test("runtime translations and PDF keep Unicode, colors, full copy and saved geo
   const base = fileURLToPath(new URL("../app/", import.meta.url)).replaceAll("\\", "/");
   const entry = "virtual:multilingual-test";
   const result = await build({ configFile: false, logLevel: "silent", plugins: [{ name: "multilingual-test", resolveId: id => id === entry ? entry : undefined,
-    load: id => id === entry ? `export * from ${JSON.stringify(base + "i18n.ts")}; export * from ${JSON.stringify(base + "mindmaps-pdf.ts")}; export * from ${JSON.stringify(base + "mindmaps-model.ts")};` : undefined }],
+    load: id => id === entry ? `export * from ${JSON.stringify(base + "i18n.ts")}; export * from ${JSON.stringify(base + "mindmaps-pdf.ts")}; export * from ${JSON.stringify(base + "mindmaps-model.ts")}; export * from ${JSON.stringify(base + "legal-content.ts")};` : undefined }],
     build: { ssr: true, write: false, rolldownOptions: { input: entry, external: ["react"], output: { codeSplitting: false } } } });
   const code = result.output.find(item => item.isEntry).code;
   const directory = new URL("../node_modules/.cache/genesis-tests/", import.meta.url);
   await mkdir(directory, { recursive: true });
   const path = new URL(`multilingual-${Date.now()}.mjs`, directory); await writeFile(path, code);
   try {
-    const { translateText, setRuntimeLanguage, newMindmap, mindmapPrintHtml } = await import(pathToFileURL(fileURLToPath(path)).href);
+    const { translateText, setRuntimeLanguage, newMindmap, mindmapPrintHtml, legalPages } = await import(pathToFileURL(fileURLToPath(path)).href);
+    assert.ok(legalPages.terms.sections.some(([title, body]) => title === dailyAdviceCopy.ru.privacyTitle && body === dailyAdviceCopy.ru.privacyNotice));
+    assert.ok(!legalPages.privacy.sections.some(([title, body]) => title === dailyAdviceCopy.ru.privacyTitle || body === dailyAdviceCopy.ru.privacyNotice));
+    assert.ok(legalPages.privacy.sections.some(([title, body]) => title === dailyAdviceCopy.ru.dataTitle && body === dailyAdviceCopy.ru.dataNotice));
     for (const lang of languages) {
-      for (const field of ["privacyTitle", "privacyNotice"]) assert.equal(translateText(dailyAdviceCopy.ru[field], lang), dailyAdviceCopy[lang][field], `${lang}: advice provenance ${field}`);
+      for (const field of ["privacyTitle", "privacyNotice", "dataTitle", "dataNotice"]) assert.equal(translateText(dailyAdviceCopy.ru[field], lang), dailyAdviceCopy[lang][field], `${lang}: advice legal text ${field}`);
       for (const [source, expected] of Object.entries(habitReportCopy[lang])) assert.equal(translateText(source, lang), expected, `${lang}: report ${source}`);
       const names = ["el", "sr", "uk"].includes(lang) ? [`${lang}.a`, `${lang}.b`] : ["de", "fr", "ja"].includes(lang) ? [lang, `${lang}.b`] : [lang];
       const catalog = Object.assign({}, affairs[lang], ...await Promise.all(names.map(read)), await ui(lang), lang === "en" ? curatedEnglish : {});

@@ -31,7 +31,7 @@ test("nutrition matching covers supported scripts and ignores paused or future h
   for (const changes of [{ active: false }, { createdDate: "2027-01-01" }, { schedule: { startDate: "2027-01-01", endDate: null } }]) {
     assert.ok(Object.values(adviceHabitTopicScores([{ ...food, ...changes }], "2026-10-22")).every(score => score === 0));
   }
-  assert.deepEqual(adviceAvailableCategories(), ["aretology", "kourotrophy", "hestiology"]);
+  assert.deepEqual(adviceAvailableCategories(), ["aretology", "hermetica", "kourotrophy", "hestiology"]);
   assert.deepEqual(adviceAvailableCategories(["aretology", "kourotrophy"]), ["aretology", "kourotrophy"]);
   assert.deepEqual(adviceAvailableCategories([]), []);
 });
@@ -111,11 +111,12 @@ test("all fourteen interface locales cover every control and all six categories"
 
 test("published advice has complete titles and bodies in all fourteen languages and distinct real artwork", async () => {
   const result = await verifyDailyAdvice();
-  assert.deepEqual(result, { published: 401, drafts: 0, languages: 14, illustrations: 401 });
+  assert.deepEqual(result, { published: 552, drafts: 0, languages: 14, illustrations: 552 });
   const catalog = JSON.parse(await readFile(new URL("../server/content/daily-advice.json", import.meta.url), "utf8"));
   assert.equal(catalog.items.filter(entry => entry.categories.includes("hestiology")).length, 152);
   assert.equal(catalog.items.filter(entry => entry.categories.includes("kourotrophy")).length, 89);
-  assert.deepEqual([...new Set(catalog.items.flatMap(entry => entry.categories))].sort(), ["aretology", "hestiology", "kourotrophy"]);
+  assert.equal(catalog.items.filter(entry => entry.categories.includes("hermetica")).length, 151);
+  assert.deepEqual([...new Set(catalog.items.flatMap(entry => entry.categories))].sort(), ["aretology", "hermetica", "hestiology", "kourotrophy"]);
   assert.equal(catalog.items[18].title, "Точность Прямодействия");
   assert.ok(catalog.items[18].body.endsWith("Любая задача, которую ты решил довести до конца, должна выполняться с предельной интенсивностью, без оглядки на усталость."));
   assert.equal(catalog.items[18].status, undefined);
@@ -164,6 +165,32 @@ test("Kourotrophy keeps every original source pair and rejects mixed titles in e
       const content = locale[entry.id], other = locale[entries[(index + 1) % entries.length].id];
       assert.doesNotThrow(() => verifyAdvicePairing(entry, language, content, review.entries[entry.id]));
       // Some source headings intentionally recur with different bodies; skip an identical title only.
+      if (other.title !== content.title) assert.throws(() => verifyAdvicePairing(entry, language, { ...content, title: other.title }, review.entries[entry.id]), /title\/body pairing/);
+      assert.throws(() => verifyAdvicePairing(entry, language, { ...content, body: other.body }, review.entries[entry.id]), /title\/body pairing/);
+    }
+  }
+});
+
+test("Hermetica preserves all 151 source headings and binds each localized body to its own title", async () => {
+  const catalog = JSON.parse(await readFile(new URL("../server/content/daily-advice.json", import.meta.url), "utf8"));
+  const source = JSON.parse(await readFile(new URL("../server/content/hermetica-source-manifest.json", import.meta.url), "utf8"));
+  const review = JSON.parse(await readFile(new URL("../server/content/daily-advice-pairings.json", import.meta.url), "utf8"));
+  assert.equal(source.sourceSha256, "d22ce396728544bf9494f63c48e308eede096938eb5863903bddc0411ef57d96");
+  assert.deepEqual(source.entries.map(entry => entry.number), Array.from({ length: 151 }, (_, index) => index + 1));
+  const entries = catalog.items.filter(entry => entry.categories.includes("hermetica"));
+  assert.deepEqual(entries.slice(28, 31).map(entry => entry.title), [
+    'Метод "Управляемого кризиса" (Проблема - Реакция - Решение)',
+    'Коммодификация бунта (Марксистский метод)',
+    'Конструирование "Нового человека"',
+  ]);
+  assert.deepEqual(source.entries.filter(entry => entry.headingSeparator === "\n").map(entry => entry.number), [29, 30, 31]);
+  assert.equal(entries[13].timeOfDay, "morning");
+  for (const language of adviceLanguages) {
+    const locale = JSON.parse(await readFile(new URL(`../server/content/daily-advice/${entries[0].contentVersion}/${language}.json`, import.meta.url), "utf8"));
+    assert.equal(Object.keys(locale).length, 151);
+    for (const [index, entry] of entries.entries()) {
+      const content = locale[entry.id], other = locale[entries[(index + 1) % entries.length].id];
+      assert.doesNotThrow(() => verifyAdvicePairing(entry, language, content, review.entries[entry.id]));
       if (other.title !== content.title) assert.throws(() => verifyAdvicePairing(entry, language, { ...content, title: other.title }, review.entries[entry.id]), /title\/body pairing/);
       assert.throws(() => verifyAdvicePairing(entry, language, { ...content, body: other.body }, review.entries[entry.id]), /title\/body pairing/);
     }

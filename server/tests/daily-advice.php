@@ -116,7 +116,11 @@ foreach (['Europe/Moscow', 'Pacific/Kiritimati', 'America/Los_Angeles', 'Europe/
         foreach ([0, 1, -4] as $offset) adviceExpect(!isset(genesisAdvicePhaseLeads(genesisCalendarAddDays($eventDay, $offset), $zone)[$phase]), 'Lunar advice appeared on or after the phase or too early');
     }
 }
-adviceExpect(genesisAdviceAvailableCategories() === ['aretology', 'kourotrophy', 'hestiology'], 'Available settings categories do not match the three published collections');
+adviceExpect(genesisAdviceAvailableCategories() === ['aretology', 'hermetica', 'kourotrophy', 'hestiology'], 'Available settings categories do not match the four published collections');
+adviceExpect(genesisAdviceDailyLimit($preferences, genesisAdviceCatalog()) === 4, 'Smart selection did not include the fourth published collection');
+$hermeticaPosts = array_values(array_filter(genesisAdviceCatalog(), static fn($entry) => in_array('hermetica', $entry['categories'], true)));
+adviceExpect(count($hermeticaPosts) === 151 && $hermeticaPosts[13]['timeOfDay'] === 'morning', 'Hermetica source count or morning practice is wrong');
+adviceExpect(genesisChooseAdvice($hermeticaPosts, ['enabled' => true, 'smart' => false, 'categories' => ['hermetica']], genesisAdviceScores([]), [], 'hermetica-manual') !== null, 'Manual Hermetica selection returned no content');
 
 // Family interests adjust rank without changing category access, history or manual selection.
 $family = [...adviceFixture('family advice', 'kourotrophy'), 'topics' => ['parenting']];
@@ -254,6 +258,21 @@ try {
     $limited = genesisDailyAdvice($bob, ['fromId' => $third['advice']['id'], 'dayKey' => $third['dayKey']], $rotationPool, true);
     adviceExpect($limited['sequence'] === 3 && $limited['advice']['id'] === $third['advice']['id'], 'Category toggles or a fourth request bypassed the daily limit');
     adviceExpect((int)$db->query('SELECT COUNT(*) FROM daily_advice_entries WHERE user_id=' . $db->quote($bob))->fetchColumn() === 3, 'Wrong account/day slot count');
+    // The new collection participates in the persisted four-category budget and alternation.
+    $db->prepare('DELETE FROM daily_advice_entries WHERE user_id=?')->execute([$bob]);
+    $db->prepare('DELETE FROM daily_advice_days WHERE user_id=?')->execute([$bob]);
+    $fourCategories = ['aretology', 'hermetica', 'kourotrophy', 'hestiology'];
+    $fourPool = array_map(static fn($category) => adviceFixture('four-category ' . $category, $category), $fourCategories);
+    genesisUpdateAccountPreferences($bob, ['advicePreferences' => ['enabled' => true, 'smart' => false, 'categories' => $fourCategories]]);
+    $fourDraw = genesisDailyAdvice($bob, [], $fourPool); $drawnCategories = [];
+    for ($slot = 1; $slot <= 4; $slot++) {
+        adviceExpect($fourDraw['dailyLimit'] === 4 && $fourDraw['sequence'] === $slot, 'Four-category selection lost its persisted daily limit');
+        $drawnCategories[] = $fourDraw['advice']['categories'][0];
+        if ($slot < 4) $fourDraw = genesisDailyAdvice($bob, ['fromId' => $fourDraw['advice']['id'], 'dayKey' => $fourDraw['dayKey']], $fourPool, true);
+    }
+    adviceExpect(count(array_unique($drawnCategories)) === 4 && !$fourDraw['canNext'], 'Four-category rotation repeated a category or exceeded the daily budget');
+    $fifthDraw = genesisDailyAdvice($bob, ['fromId' => $fourDraw['advice']['id'], 'dayKey' => $fourDraw['dayKey']], $fourPool, true);
+    adviceExpect($fifthDraw['sequence'] === 4 && $fifthDraw['advice']['id'] === $fourDraw['advice']['id'], 'A fifth draw bypassed the four-category daily budget');
     genesisUpdateAccountPreferences($charlie, ['advicePreferences' => ['smart' => false, 'categories' => ['aretology', 'hestiology']]]);
     $alternatingPool = [adviceFixture('alternate A1', 'aretology'), adviceFixture('alternate H1', 'hestiology'),
         adviceFixture('alternate A2', 'aretology'), adviceFixture('alternate H2', 'hestiology')];

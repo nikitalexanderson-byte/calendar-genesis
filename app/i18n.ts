@@ -959,6 +959,8 @@ for (const language of Object.keys(rawCatalogs) as Exclude<Language, "ru">[]) {
   // Legal pages and account settings share the same localized advice provenance.
   rawCatalogs[language][dailyAdviceCopy.ru.privacyTitle] = dailyAdviceCopy[language].privacyTitle;
   rawCatalogs[language][dailyAdviceCopy.ru.privacyNotice] = dailyAdviceCopy[language].privacyNotice;
+  rawCatalogs[language][dailyAdviceCopy.ru.dataTitle] = dailyAdviceCopy[language].dataTitle;
+  rawCatalogs[language][dailyAdviceCopy.ru.dataNotice] = dailyAdviceCopy[language].dataNotice;
   Object.assign(rawCatalogs[language], sharedWorkTranslations[language]);
   for (const [source, translated] of Object.entries(affairsTranslations[language])) {
     if (source in ui_en && !(source in rawCatalogs[language])) rawCatalogs[language][source] = translated;

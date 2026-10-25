@@ -20,12 +20,12 @@ export async function verifyDailyAdvice(base = root) {
   const review = JSON.parse(await readFile(resolve(base, "server/content/daily-advice-pairings.json"), "utf8"));
   if (review.version !== 1 || !review.entries || typeof review.entries !== "object") throw new Error("Missing advice pairing review");
   const catalogById = new Map(catalog.items.map(entry => [entry.id, entry]));
-  for (const category of ["aretology", "kourotrophy", "hestiology"]) {
+  for (const category of ["aretology", "hermetica", "kourotrophy", "hestiology"]) {
     if (!catalog.items.some(entry => entry.categories.includes(category))) continue;
     const source = JSON.parse(await readFile(resolve(base, `server/content/${category}-source-manifest.json`), "utf8"));
     for (const original of source.entries) {
       const entry = catalogById.get(original.id);
-      if (!entry || !entry.categories.includes(category) || createHash("sha256").update(`${entry.title}. ${entry.body}`).digest("hex") !== original.textSha256
+      if (!entry || !entry.categories.includes(category) || createHash("sha256").update(`${entry.title}${original.headingSeparator ?? ". "}${entry.body}`).digest("hex") !== original.textSha256
         || (entry.status ?? "published") !== original.status) throw new Error(`Author's ${category} source changed: ${original.number}`);
       const reviewed = review.entries[original.id];
       if (entry.status !== "draft" && (reviewed?.category !== category || reviewed?.sourceNumber !== original.number)) throw new Error(`Wrong advice source pairing: ${original.id}`);
