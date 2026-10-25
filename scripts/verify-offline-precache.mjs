@@ -32,6 +32,8 @@ const REQUIRED_VISUAL_ASSETS = [
   "habit-ranks/heroic-ranks.webp",
   "physis-art/apollo-artemis-v1.webp",
   "physis-art/apollo-artemis-mobile-v1.webp",
+  "physis-art/landscape-v2.webp",
+  "physis-art/apollo-artemis-cutout-v2.webp",
   "calendar-art/saturn-cronus.webp",
   "calendar-art/genesis-sacred-calendar-v8.svg",
   "achievement-art/first-step.png",

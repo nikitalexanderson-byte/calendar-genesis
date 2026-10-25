@@ -64,6 +64,8 @@ const HERO_RANK_BANNER_ART = [
   "./habit-ranks/heroic-ranks.webp",
   "./physis-art/apollo-artemis-v1.webp",
   "./physis-art/apollo-artemis-mobile-v1.webp",
+  "./physis-art/landscape-v2.webp",
+  "./physis-art/apollo-artemis-cutout-v2.webp",
 ];
 const CALENDAR_ART = [
   "./calendar-art/saturn-cronus.webp",
