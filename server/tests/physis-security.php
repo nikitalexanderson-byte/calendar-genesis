@@ -49,7 +49,7 @@ function physisTestWrite(array $changes): array { return ['requestId' => genesis
 $process = null; $pipes = []; $workers = [];
 try {
     $db = genesisDb();
-    foreach (['owner-a' => GENESIS_PHYSIS_EMAILS[0], 'owner-b' => GENESIS_PHYSIS_EMAILS[1], 'owner-c' => GENESIS_PHYSIS_EMAILS[2], 'other' => 'outsider@example.org'] as $id => $email) {
+    foreach (['owner-a' => GENESIS_PHYSIS_EMAILS[0], 'owner-b' => GENESIS_PHYSIS_EMAILS[1], 'owner-c' => GENESIS_PHYSIS_EMAILS[2], 'owner-d' => GENESIS_PHYSIS_EMAILS[3], 'other' => 'outsider@example.org'] as $id => $email) {
         $db->prepare('INSERT INTO users(id,google_sub,email,display_name,created_at,updated_at) VALUES(:id,:sub,:email,:name,:now,:now)')
             ->execute(['id' => $id, 'sub' => $id . '-sub', 'email' => $email, 'name' => 'Synthetic fixture', 'now' => genesisNow()]);
     }
@@ -65,7 +65,7 @@ try {
         physisFailure(static fn() => genesisPhysisRequireOwner(), 403, 'PHYSIS_UNAVAILABLE'); $_SESSION['auth_identity'] = $saved;
     }
     // Like admin access, the validated primary account is authoritative, not newer cookie fields.
-    foreach (['nikitalexanderson+alias@gmail.com', 'nikita.lexanderson@gmail.com', 'picishina+alias@gmail.com', 'pici.shina@gmail.com', 'outsider-two@example.org'] as $email) {
+    foreach (['nikitalexanderson+alias@gmail.com', 'nikita.lexanderson@gmail.com', 'picishina+alias@gmail.com', 'pici.shina@gmail.com', 'maybenextime86+alias@gmail.com', 'maybe.nextime86@gmail.com', 'outsider-two@example.org'] as $email) {
         $db->prepare('UPDATE users SET email=:email WHERE id=:id')->execute(['email' => $email, 'id' => 'owner-a']);
         physisFailure(static fn() => genesisPhysisRequireOwner(), 403, 'PHYSIS_UNAVAILABLE');
     }
@@ -84,7 +84,8 @@ try {
         file_put_contents($fixture . '/sessions/sess_' . $sessionId, $encoded);
         return ['cookie' => 'GENESISSESSID=' . $sessionId, 'csrf' => $_SESSION['csrf']];
     };
-    $a = $makeCookie('owner-a'); $b = $makeCookie('owner-b'); $c = $makeCookie('owner-c'); $other = $makeCookie('other');
+    $a = $makeCookie('owner-a'); $b = $makeCookie('owner-b'); $c = $makeCookie('owner-c'); $d = $makeCookie('owner-d'); $other = $makeCookie('other');
+    $dNative = $makeCookie('owner-d', [], 'native');
     $cUnverified = $makeCookie('owner-c', ['email_verified' => false]);
     $native = $makeCookie('owner-a', [], 'native'); $unverified = $makeCookie('owner-a', ['email_verified' => false]);
     $linked = $makeCookie('owner-a', ['email' => GENESIS_PHYSIS_EMAILS[0]], 'web', 'linked-sub');
@@ -113,7 +114,7 @@ try {
         preg_match('/^HTTP\/\S+ (\d+)/', ($http_response_header ?? [])[0] ?? '', $status);
         return ['status' => (int)($status[1] ?? 0), 'data' => json_decode($bytes ?: '{}', true), 'headers' => $http_response_header ?? []];
     };
-    foreach ([$other, $otherOld, $native, $linked, []] as $denied) {
+    foreach ([$other, $otherOld, $native, $dNative, $linked, []] as $denied) {
         foreach ([['GET', 'access'], ['GET', 'vault'], ['GET', 'records'], ['POST', 'records'], ['PUT', 'vault'], ['POST', 'rotate'], ['GET', 'export'], ['GET', 'records/foreign-id']] as [$method, $path]) {
             $reply = $request('physis/v1/' . $path, $denied, $method, $method === 'GET' ? null : '{}');
             physisExpect($reply['status'] === 403 && ($reply['data']['error'] ?? '') === 'PHYSIS_UNAVAILABLE', 'Denied identity reached ' . $path . ': ' . json_encode($reply['data']));
@@ -122,6 +123,8 @@ try {
     physisExpect($request('physis/v1/access', $a)['data']['ownerId'] === 'owner-a', 'Access identity mismatch.');
     physisExpect($request('physis/v1/access', $b)['data']['ownerId'] === 'owner-b', 'Second allowed owner denied.');
     physisExpect($request('physis/v1/access', $c)['data']['ownerId'] === 'owner-c', 'Third allowed owner denied.');
+    physisExpect($request('physis/v1/access', $d)['data']['ownerId'] === 'owner-d', 'Fourth allowed owner denied.');
+    physisExpect($request('physis/v1/vault', $d)['status'] === 200, 'Fourth allowed owner cannot open the account vault.');
     foreach ([$old, $legacyNoClaims, $unverified] as $normal) {
         $reply = $request('physis/v1/access', $normal);
         physisExpect($reply['status'] === 200 && $reply['data']['ownerId'] === 'owner-a', 'Normal site login required extra confirmation.');
@@ -243,11 +246,11 @@ try {
     physisExpect($request('physis/v1/records', $a, 'POST', '{}')['status'] === 403, 'Feature flag did not revoke writes.');
     physisExpect(!isset($request('physis/v1/access', $old)['data']['reauthRequired']), 'Disabled pilot still exposed a reauthentication entry.');
     unset($config['physis_enabled']); file_put_contents($fixture . '/config.php', '<?php return ' . var_export($config, true) . ';');
-    foreach ([$a, $b, $c] as $allowedBrowser) {
+    foreach ([$a, $b, $c, $d] as $allowedBrowser) {
         physisExpect($request('physis/v1/access', $allowedBrowser)['status'] === 200, 'Released browser pilot denied an allowed verified account.');
     }
     // The Git-controlled rollout must never enable the same account's native session.
-    foreach ([$native, $other, $linked, []] as $denied) {
+    foreach ([$native, $dNative, $other, $linked, []] as $denied) {
         foreach ([['GET', 'access'], ['GET', 'vault'], ['GET', 'records'], ['POST', 'records'], ['PUT', 'vault'], ['POST', 'rotate']] as [$method, $path]) {
             physisExpect($request('physis/v1/' . $path, $denied, $method, $method === 'GET' ? null : '{}')['status'] === 403, 'Default browser rollout bypassed identity/channel guard.');
         }
