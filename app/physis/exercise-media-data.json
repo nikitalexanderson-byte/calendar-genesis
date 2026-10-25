@@ -91,8 +91,8 @@
     "height": 1024
   },
   "stepup": {
-    "src": "/physis-art/exercises/stepup-human-v1.webp",
-    "poster": "/physis-art/exercises/stepup-poster-human-v1.webp",
+    "src": "/physis-art/exercises/stepup-human-v2.webp",
+    "poster": "/physis-art/exercises/stepup-poster-human-v2.webp",
     "split": 486,
     "width": 1536,
     "height": 1024
@@ -273,9 +273,9 @@
     "height": 1024
   },
   "smith-squat": {
-    "src": "/physis-art/exercises/smith-squat-human-v1.webp",
-    "poster": "/physis-art/exercises/smith-squat-poster-human-v1.webp",
-    "split": 494,
+    "src": "/physis-art/exercises/smith-squat-human-v2.webp",
+    "poster": "/physis-art/exercises/smith-squat-poster-human-v2.webp",
+    "split": 496,
     "width": 1536,
     "height": 1024
   },
@@ -371,9 +371,9 @@
     "height": 1024
   },
   "sumo-deadlift": {
-    "src": "/physis-art/exercises/sumo-deadlift-human-v1.webp",
-    "poster": "/physis-art/exercises/sumo-deadlift-poster-human-v1.webp",
-    "split": 476,
+    "src": "/physis-art/exercises/sumo-deadlift-human-v2.webp",
+    "poster": "/physis-art/exercises/sumo-deadlift-poster-human-v2.webp",
+    "split": 512,
     "width": 1536,
     "height": 1024
   },
@@ -385,8 +385,8 @@
     "height": 1024
   },
   "single-leg-rdl-one-dumbbell": {
-    "src": "/physis-art/exercises/single-leg-rdl-one-dumbbell-human-v1.webp",
-    "poster": "/physis-art/exercises/single-leg-rdl-one-dumbbell-poster-human-v1.webp",
+    "src": "/physis-art/exercises/single-leg-rdl-one-dumbbell-human-v2.webp",
+    "poster": "/physis-art/exercises/single-leg-rdl-one-dumbbell-poster-human-v2.webp",
     "split": 459,
     "width": 1536,
     "height": 1024
@@ -413,11 +413,11 @@
     "height": 1024
   },
   "sissy-machine-squat": {
-    "src": "/physis-art/exercises/sissy-machine-squat-human-v1.webp",
-    "poster": "/physis-art/exercises/sissy-machine-squat-poster-human-v1.webp",
-    "split": 487,
-    "width": 1536,
-    "height": 1024
+    "src": "/physis-art/exercises/sissy-machine-squat-human-v2.webp",
+    "poster": "/physis-art/exercises/sissy-machine-squat-poster-human-v2.webp",
+    "split": 1024,
+    "width": 1584,
+    "height": 2048
   },
   "smith-hack-squat": {
     "src": "/physis-art/exercises/smith-hack-squat-human-v1.webp",
@@ -462,16 +462,17 @@
     "height": 1024
   },
   "back-extension": {
-    "src": "/physis-art/exercises/back-extension-human-v1.webp",
-    "poster": "/physis-art/exercises/back-extension-poster-human-v1.webp",
-    "split": 513,
+    "src": "/physis-art/exercises/back-extension-human-v2.webp",
+    "poster": "/physis-art/exercises/back-extension-poster-human-v2.webp",
+    "split": 487,
     "width": 1536,
-    "height": 1024
+    "height": 1024,
+    "frames": 2
   },
   "reverse-hyper-machine": {
-    "src": "/physis-art/exercises/reverse-hyper-machine-human-v1.webp",
-    "poster": "/physis-art/exercises/reverse-hyper-machine-poster-human-v1.webp",
-    "split": 485,
+    "src": "/physis-art/exercises/reverse-hyper-machine-human-v2.webp",
+    "poster": "/physis-art/exercises/reverse-hyper-machine-poster-human-v2.webp",
+    "split": 475,
     "width": 1536,
     "height": 1024
   },
@@ -490,16 +491,16 @@
     "height": 1024
   },
   "nordic-curl": {
-    "src": "/physis-art/exercises/nordic-curl-human-v1.webp",
-    "poster": "/physis-art/exercises/nordic-curl-poster-human-v1.webp",
-    "split": 466,
+    "src": "/physis-art/exercises/nordic-curl-human-v2.webp",
+    "poster": "/physis-art/exercises/nordic-curl-poster-human-v2.webp",
+    "split": 485,
     "width": 1536,
     "height": 1024
   },
   "standing-calf-machine": {
-    "src": "/physis-art/exercises/standing-calf-machine-human-v1.webp",
-    "poster": "/physis-art/exercises/standing-calf-machine-poster-human-v1.webp",
-    "split": 512,
+    "src": "/physis-art/exercises/standing-calf-machine-human-v2.webp",
+    "poster": "/physis-art/exercises/standing-calf-machine-poster-human-v2.webp",
+    "split": 459,
     "width": 1536,
     "height": 1024
   },
@@ -518,9 +519,9 @@
     "height": 1024
   },
   "standing-calf-kettlebell": {
-    "src": "/physis-art/exercises/standing-calf-kettlebell-human-v1.webp",
-    "poster": "/physis-art/exercises/standing-calf-kettlebell-poster-human-v1.webp",
-    "split": 511,
+    "src": "/physis-art/exercises/standing-calf-kettlebell-human-v2.webp",
+    "poster": "/physis-art/exercises/standing-calf-kettlebell-poster-human-v2.webp",
+    "split": 475,
     "width": 1536,
     "height": 1024
   },
@@ -539,9 +540,9 @@
     "height": 1024
   },
   "seated-calf-barbell": {
-    "src": "/physis-art/exercises/seated-calf-barbell-human-v1.webp",
-    "poster": "/physis-art/exercises/seated-calf-barbell-poster-human-v1.webp",
-    "split": 492,
+    "src": "/physis-art/exercises/seated-calf-barbell-human-v2.webp",
+    "poster": "/physis-art/exercises/seated-calf-barbell-poster-human-v2.webp",
+    "split": 493,
     "width": 1536,
     "height": 1024
   },
@@ -602,18 +603,19 @@
     "height": 1024
   },
   "crossover-low": {
-    "src": "/physis-art/exercises/crossover-low-human-v1.webp",
-    "poster": "/physis-art/exercises/crossover-low-poster-human-v1.webp",
-    "split": 482,
+    "src": "/physis-art/exercises/crossover-low-human-v2.webp",
+    "poster": "/physis-art/exercises/crossover-low-poster-human-v2.webp",
+    "split": 480,
     "width": 1536,
     "height": 1024
   },
   "pec-deck": {
-    "src": "/physis-art/exercises/pec-deck-human-v1.webp",
-    "poster": "/physis-art/exercises/pec-deck-poster-human-v1.webp",
-    "split": 498,
+    "src": "/physis-art/exercises/pec-deck-human-v2.webp",
+    "poster": "/physis-art/exercises/pec-deck-poster-human-v2.webp",
+    "split": 493,
     "width": 1536,
-    "height": 1024
+    "height": 1024,
+    "frames": 2
   },
   "dumbbell-fly": {
     "src": "/physis-art/exercises/dumbbell-fly-human-v1.webp",
@@ -623,9 +625,9 @@
     "height": 1024
   },
   "pullover-plate": {
-    "src": "/physis-art/exercises/pullover-plate-human-v1.webp",
-    "poster": "/physis-art/exercises/pullover-plate-poster-human-v1.webp",
-    "split": 492,
+    "src": "/physis-art/exercises/pullover-plate-human-v2.webp",
+    "poster": "/physis-art/exercises/pullover-plate-poster-human-v2.webp",
+    "split": 491,
     "width": 1536,
     "height": 1024
   },
@@ -661,6 +663,20 @@
     "src": "/physis-art/exercises/cossack-landmine-human-v1.webp",
     "poster": "/physis-art/exercises/cossack-landmine-poster-human-v1.webp",
     "split": 490,
+    "width": 1536,
+    "height": 1024
+  },
+  "reverse-hyper-plate": {
+    "src": "/physis-art/exercises/reverse-hyper-plate-human-v1.webp",
+    "poster": "/physis-art/exercises/reverse-hyper-plate-poster-human-v1.webp",
+    "split": 479,
+    "width": 1536,
+    "height": 1024
+  },
+  "standing-calf-smith": {
+    "src": "/physis-art/exercises/standing-calf-smith-human-v1.webp",
+    "poster": "/physis-art/exercises/standing-calf-smith-poster-human-v1.webp",
+    "split": 500,
     "width": 1536,
     "height": 1024
   }

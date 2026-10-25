@@ -602,7 +602,7 @@
     "fdcId": 172470,
     "name": [
       "Арахисовая паста без соли",
-      "Peanut butter, smooth, no added salt"
+      "Peanut butter, without salt"
     ],
     "category": "Орехи",
     "state": "unknown",
@@ -882,6 +882,10 @@
     ],
     "links": [
       "https://www.heart.org/en/healthy-living/healthy-eating/eat-smart/fats/saturated-fats"
+    ],
+    "aliases": [
+      "Гхи",
+      "Ghee"
     ]
   },
   {
@@ -934,6 +938,10 @@
     ],
     "links": [
       "https://www.who.int/news-room/fact-sheets/detail/healthy-diet"
+    ],
+    "aliases": [
+      "Мед натуральный",
+      "Honey"
     ]
   },
   {
@@ -986,6 +994,11 @@
     ],
     "links": [
       "https://www.who.int/news-room/fact-sheets/detail/healthy-diet"
+    ],
+    "aliases": [
+      "Сушёные абрикосы",
+      "Курага",
+      "Dried apricots"
     ]
   },
   {
@@ -1091,7 +1104,8 @@
       "Not automatically better than cow-milk yogurt. Not a safe substitute for milk-protein allergy; use label data."
     ],
     "links": [
-      "https://www.who.int/news-room/fact-sheets/detail/healthy-diet"
+      "https://www.who.int/news-room/fact-sheets/detail/healthy-diet",
+      "https://www.nhs.uk/live-well/eat-well/food-types/milk-and-dairy-nutrition/"
     ],
     "manualId": 900003
   },
@@ -1118,7 +1132,8 @@
       "Cow-milk yogurt values are not substituted without a label. Milk-protein allergy remains relevant."
     ],
     "links": [
-      "https://www.who.int/news-room/fact-sheets/detail/healthy-diet"
+      "https://www.who.int/news-room/fact-sheets/detail/healthy-diet",
+      "https://www.nhs.uk/live-well/eat-well/food-types/milk-and-dairy-nutrition/"
     ],
     "manualId": 900004
   },
@@ -1126,8 +1141,8 @@
     "id": "psyllium-food",
     "fdcId": null,
     "name": [
-      "Псиллиум, пищевые волокна",
-      "Psyllium dietary fiber"
+      "Псиллиум органический, пищевые волокна",
+      "Organic psyllium dietary fiber"
     ],
     "category": "Другое",
     "state": "dry",
@@ -1141,12 +1156,114 @@
       "Dietary fiber supports regular bowel movements; this food contributes to a varied diet."
     ],
     "limits": [
-      "Употребление требует достаточной жидкости по инструкции. Не подходит при затруднении глотания; без этикетки количество клетчатки неизвестно.",
-      "Use requires sufficient fluid according to the label. Unsuitable with swallowing difficulties; fiber quantity is unknown without a label."
+      "Употребление требует достаточной жидкости по инструкции. Не подходит при затруднении глотания; без этикетки количество клетчатки неизвестно. Для этой подборки выбирайте органическую сертификацию по упаковке; она сама по себе не доказывает дополнительную пользу для здоровья.",
+      "Use requires sufficient fluid according to the label. Unsuitable with swallowing difficulties; fiber quantity is unknown without a label. For this collection, check organic certification on the package; the label alone does not establish extra health benefits."
     ],
     "links": [
       "https://www.niddk.nih.gov/health-information/digestive-diseases/constipation/treatment"
     ],
-    "manualId": 900005
+    "manualId": 900005,
+    "aliases": [
+      "Клетчатка",
+      "Псиллиум",
+      "Organic fiber"
+    ]
+  },
+  {
+    "id": "matsoni",
+    "manualId": 900006,
+    "fdcId": null,
+    "name": [
+      "Мацони натуральный, без сахара",
+      "Plain matsoni, no added sugar"
+    ],
+    "aliases": [
+      "Мацун",
+      "Matsoni",
+      "Matsun"
+    ],
+    "category": "Молочные продукты",
+    "state": "unknown",
+    "top": true,
+    "properties": [
+      "Кисломолочный продукт: молочный белок и кальций; жирность и точный состав зависят от молока и производителя.",
+      "A fermented dairy food supplying milk protein and calcium; fat and exact composition depend on milk and producer."
+    ],
+    "health": [
+      "Помогает получать белок и кальций в составе разнообразного рациона. Наличие живых культур зависит от продукта.",
+      "Can contribute protein and calcium within a varied diet. Live-culture content depends on the product."
+    ],
+    "limits": [
+      "Не подставляется состав греческого йогурта. Внесите КБЖУ с этикетки; учитывайте молочный белок, лактозу и добавленный сахар.",
+      "Greek-yogurt values are not substituted. Enter label macros; consider milk protein, lactose and added sugars."
+    ],
+    "links": [
+      "https://www.nhs.uk/live-well/eat-well/food-types/milk-and-dairy-nutrition/"
+    ]
+  },
+  {
+    "id": "uryuk",
+    "manualId": 900007,
+    "fdcId": null,
+    "name": [
+      "Урюк — сушёный абрикос с косточкой",
+      "Uryuk — dried whole apricot with stone"
+    ],
+    "aliases": [
+      "Урюк",
+      "Dried apricot with stone"
+    ],
+    "category": "Фрукты",
+    "state": "dry",
+    "top": true,
+    "properties": [
+      "Мякоть сушёного абрикоса содержит углеводы, пищевые волокна и калий. Взвешивайте съедобную часть без косточки.",
+      "Dried apricot flesh contains carbohydrates, dietary fiber and potassium. Weigh the edible flesh without the stone."
+    ],
+    "health": [
+      "Дополняет рацион фруктами и пищевыми волокнами; сушка увеличивает энергетическую плотность на грамм.",
+      "Adds fruit and fiber to the diet; drying increases energy density per gram."
+    ],
+    "limits": [
+      "Косточку не едят: её ядро может выделять цианид. КБЖУ возьмите с упаковки; значения для кураги автоматически не подставляются. Учитывайте порцию и сульфиты.",
+      "Do not eat the kernel: it can release cyanide. Use label macros; dried-apricot values are not substituted automatically. Consider portions and sulfites."
+    ],
+    "links": [
+      "https://www.who.int/news-room/fact-sheets/detail/healthy-diet",
+      "https://www.efsa.europa.eu/en/press/news/160427"
+    ]
+  },
+  {
+    "id": "peanut-butter-unsweetened",
+    "manualId": 900008,
+    "fdcId": null,
+    "name": [
+      "Арахисовая паста 100%, без добавленного сахара",
+      "100% peanut butter, no added sugar"
+    ],
+    "aliases": [
+      "Арахисовая паста без сахара",
+      "Арахисовое масло без сахара",
+      "Unsweetened peanut butter"
+    ],
+    "category": "Орехи",
+    "state": "unknown",
+    "top": true,
+    "legume": true,
+    "properties": [
+      "Белок, преимущественно ненасыщенные жиры, витамин E и ниацин. Натуральные сахара арахиса возможны и без добавленного сахара.",
+      "Protein, mainly unsaturated fats, vitamin E and niacin. Peanuts can contain natural sugars even with no added sugar."
+    ],
+    "health": [
+      "Помогает получать белок и ненасыщенные жиры; энергетически плотный продукт, поэтому количество важно для цели рациона.",
+      "Contributes protein and unsaturated fats; as an energy-dense food, portion size matters for dietary goals."
+    ],
+    "limits": [
+      "Проверяйте состав: 100% арахис, без добавленного сахара. Учитывайте аллергию. КБЖУ берите с этикетки: значения пасты без соли автоматически не подставляются.",
+      "Check ingredients: 100% peanuts, no added sugar. Consider allergy. Use label macros; unsalted peanut-butter values are not substituted automatically."
+    ],
+    "links": [
+      "https://www.who.int/news-room/fact-sheets/detail/healthy-diet"
+    ]
   }
 ]

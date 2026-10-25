@@ -10,11 +10,15 @@ import { translateText, type Language } from '../i18n';
 import { openPhysisAccount, type VaultState } from './account-session';
 import { PhysisMemoryStore } from './store';
 import { editPhysisRecord, newPhysisRecord, physisRecords, type PhysisFeatureProps, type PhysisSettings } from './types';
-import { METRICS, pendingIntakeEvents, type Intake, type Regimen } from './care-domain';
+import { METRICS, pendingIntakeEvents, type Intake, type Regimen, type Measurement } from './care-domain';
+import { customMetricDefinitions } from './custom-metric-domain';
 import { PhysisDrugCatalog, PhysisIntakes } from './care';
 import { PhysisMeasurements } from './measurements';
 import { PhysisTraining } from './training';
 import { PhysisNutrition } from './nutrition';
+import { PhysisPersonalProfile } from './personal-profile';
+import type { NutritionProfile } from './nutrition-domain';
+import { ExerciseModelProvider } from './exercise-media';
 import { PhysisExchange, downloadPhysis } from './exchange';
 import { Field, NumberField, usePhysisAction } from './fields';
 import './physis.css';
@@ -30,11 +34,12 @@ const GROUPS: { id: Area; title: string; pages: [PageName, string][] }[] = [
   { id: 'monitoring', title: 'Мониторинг показателей', pages: [] },
 ];
 
-function PhysisHero({ language, onSettings, status }: { language: string; onSettings?: () => void; status?: string }) {
+function PhysisHero({ language, onSettings, onPersonal, status }: { language: string; onSettings?: () => void; onPersonal?: () => void; status?: string }) {
   return <header className="physis-hero">
     <div className="physis-hero-copy"><h1 id="physis-title">Фюзис</h1><p>Тренировки, дневник питания, БАДы и лекарства.</p></div>
     <div className="physis-hero-actions">
       {onSettings ? <IconActionButton icon="gear" label={translateText('Настройки Фюзиса', language as Language)} className="physis-settings-button" aria-haspopup="dialog" onClick={onSettings} /> : null}
+      {onPersonal ? <IconActionButton icon="account" label={language === 'ru' ? 'Личные данные' : 'Personal details'} className="physis-settings-button" aria-haspopup="dialog" onClick={onPersonal} /> : null}
       {status ? <p className="physis-status" role="status" aria-live="polite">{status}</p> : null}
     </div>
   </header>;
@@ -99,6 +104,8 @@ function UnlockedPhysis(props: Props & { keys: KeyState; vaultState: VaultState 
   const [area, setArea] = useState<Area>('training');
   const [pages, setPages] = useState<Record<Area, PageName>>({ training: 'today', nutrition: 'today', care: 'overview', monitoring: 'overview' });
   const [settingsOpen, setSettingsOpen] = useState(Boolean(props.settingsRequest));
+  const [personalOpen, setPersonalOpen] = useState(false);
+  const [profileRevision, setProfileRevision] = useState(0);
   const [settingsSaved, setSettingsSaved] = useState(0);
   useEffect(() => { if (!settingsSaved) return; const timer = setTimeout(() => setSettingsSaved(0), 2300); return () => clearTimeout(timer); }, [settingsSaved]);
   const page = pages[area]; const group = GROUPS.find(item => item.id === area)!;
@@ -109,6 +116,8 @@ function UnlockedPhysis(props: Props & { keys: KeyState; vaultState: VaultState 
   const settingsRecord = physisRecords<PhysisSettings>(store, 'settings')[0];
   const settings = { ...(settingsRecord?.data ?? defaultPhysisSettings(props)), calendarMode: props.calendarMode }; const context = calendarContext({ timeZone: settings.timeZone });
   const feature: PhysisFeatureProps = { store, settings, context, language: props.language };
+  const personalRecord = physisRecords<NutritionProfile>(store, 'nutrition-profile')[0];
+  const personalProfile = personalRecord?.data;
   useEffect(() => {
     if (!props.settingsRequest) return;
     const frame = requestAnimationFrame(() => setSettingsOpen(true)); return () => cancelAnimationFrame(frame);
@@ -127,7 +136,7 @@ function UnlockedPhysis(props: Props & { keys: KeyState; vaultState: VaultState 
     downloadPhysis('physis-encrypted.json', JSON.stringify({ format: 'physis-encrypted', version: 1, owner: props.owner, exportedAt: new Date().toISOString(), vault: vaultState.vault, records }));
   };
   return <>
-    <PhysisHero language={props.language} onSettings={() => setSettingsOpen(true)} status={({ saved: 'Сохранено', saving: 'Сохраняется…', offline: 'Не сохранено — нет связи', conflict: 'Конфликт устройств', error: 'Не сохранено — ошибка' })[store.status]} />
+    <PhysisHero language={props.language} onSettings={() => setSettingsOpen(true)} onPersonal={() => setPersonalOpen(true)} status={({ saved: 'Сохранено', saving: 'Сохраняется…', offline: 'Не сохранено — нет связи', conflict: 'Конфликт устройств', error: 'Не сохранено — ошибка' })[store.status]} />
     <nav className="shared-projects-switch physis-area-switch" aria-label="Разделы Фюзиса">{GROUPS.map(item => <button type="button" key={item.id} aria-current={area === item.id ? 'page' : undefined} onClick={() => setArea(item.id)}>{item.title}</button>)}</nav>
 
     {store.error ? <div role="alert" className="physis-warning"><p>{store.error}</p><div className="physis-actions"><button onClick={() => void action.run(() => model.flush())}>Повторить сохранение</button><button onClick={() => { if (confirm('Открытый файл содержит личные данные. Экспортировать локальный вариант?')) downloadPhysis('physis-unsaved.json', JSON.stringify({ format: 'physis-plain', version: 1, records: store.records })); }}>Экспортировать локальный вариант</button><button onClick={() => { if (confirm('Отменить все несохранённые изменения этой вкладки и загрузить серверный вариант?')) void action.run(async () => { await model.discardAndReload(); setEditorEpoch(value => value + 1); }); }}>Загрузить серверный вариант</button></div></div> : null}
@@ -137,7 +146,7 @@ function UnlockedPhysis(props: Props & { keys: KeyState; vaultState: VaultState 
     <div className={group.pages.length ? 'physis-section-frame' : 'physis-section-plain'} data-tabs={group.pages.length || undefined}>
     {group.pages.length ? <nav className="physis-tabs physis-subnav" aria-label={translateText(group.title, props.language as Language)}>{group.pages.map(([id, name]) => <button type="button" key={id} aria-current={page === id ? 'page' : undefined} onClick={() => setPage(id)}>{name}</button>)}</nav> : null}
     <section className="physis-page-content" aria-label={translateText(group.title, props.language as Language)}>
-    {area === 'training' && (page === 'today' || page === 'programs' || page === 'control' || page === 'exercises') ? <PhysisTraining key={page} {...feature} page={page} /> : null}
+    {area === 'training' && (page === 'today' || page === 'programs' || page === 'control' || page === 'exercises') ? <ExerciseModelProvider sex={personalProfile?.personal ? personalProfile.formulaSex : undefined}><PhysisTraining key={page} {...feature} page={page} /></ExerciseModelProvider> : null}
     {area === 'nutrition' && (page === 'today' || page === 'diary' || page === 'foods') ? <PhysisNutrition {...feature} page={page} /> : null}
     {area === 'care' && page === 'overview' ? settings.overviewBlocks.includes('intakes') ? <PhysisIntakes {...feature} owner={props.owner} onOpenCatalog={() => setPage('drugs')} compact /> : <p className="physis-muted">Блок обзора выключен в настройках.</p> : null}
     {area === 'monitoring' ? <PhysisMeasurements key={settings.enabledMetrics.join(':')} {...feature} hintOwner={props.owner} onDisableHints={() => { void action.run(() => store.save(settingsRecord ? editPhysisRecord(settingsRecord, { ...settings, monitoringHints: false }) : newPhysisRecord('settings', { ...settings, monitoringHints: false }))); }} /> : null}
@@ -146,8 +155,9 @@ function UnlockedPhysis(props: Props & { keys: KeyState; vaultState: VaultState 
     </section>
     </div>
     </Fragment>
+    {personalOpen && <PhysisPersonalProfile {...feature} onSaved={() => setProfileRevision(value => value + 1)} onClose={() => setPersonalOpen(false)} />}
     <PhysisSettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} language={props.language}>
-      <PhysisSettingsForm onSaved={() => setSettingsSaved(Date.now())} key={settingsRecord?.updatedAt ?? 'general-settings'} {...feature} /><PhysisNutrition {...feature} page="settings" /><section className="physis-panel"><h2>Данные и резервные копии</h2><p>Фюзис использует ваш общий аккаунт GENESIS. Данные сохраняются в зашифрованном виде и доступны после входа на сайт. Зашифрованная копия открывается в том же аккаунте.</p><PhysisExchange store={store} exportEncrypted={exportEncrypted} /><p className="physis-muted">Удалённое содержимое убирается из активного хранилища. Журнал удалений и повторных запросов: 90 дней; минимальный реестр использованных ID сохраняется для защиты от восстановления старыми устройствами. Время удаления из резервных копий зависит от политики хранения оператора.</p></section><section className="physis-panel"><h2>Будущие подключения</h2><ul><li>Google Health API — планируется</li><li>Health Connect — планируется через отдельный Android-клиент</li><li>HealthKit — планируется через Apple-клиент</li><li>Garmin и Health Services — планируется</li></ul><p>Ни одно подключение не включено. Сейчас работают ручной учет и импорт/экспорт; данные не отправляются этим поставщикам.</p></section>
+      <PhysisSettingsForm onSaved={() => setSettingsSaved(Date.now())} key={settingsRecord?.updatedAt ?? 'general-settings'} {...feature} /><PhysisNutrition key={profileRevision} {...feature} page="settings" /><section className="physis-panel"><h2>Данные и резервные копии</h2><p>Фюзис использует ваш общий аккаунт GENESIS. Данные сохраняются в зашифрованном виде и доступны после входа на сайт. Зашифрованная копия открывается в том же аккаунте.</p><PhysisExchange store={store} exportEncrypted={exportEncrypted} /><p className="physis-muted">Удалённое содержимое убирается из активного хранилища. Журнал удалений и повторных запросов: 90 дней; минимальный реестр использованных ID сохраняется для защиты от восстановления старыми устройствами. Время удаления из резервных копий зависит от политики хранения оператора.</p></section><section className="physis-panel"><h2>Будущие подключения</h2><ul><li>Google Health API — планируется</li><li>Health Connect — планируется через отдельный Android-клиент</li><li>HealthKit — планируется через Apple-клиент</li><li>Garmin и Health Services — планируется</li></ul><p>Ни одно подключение не включено. Сейчас работают ручной учет и импорт/экспорт; данные не отправляются этим поставщикам.</p></section>
       {settingsSaved > 0 && <div className="physis-save-toast" role="status" aria-live="polite">Настройки сохранены</div>}
     </PhysisSettingsDialog>
   </>;
@@ -166,6 +176,7 @@ function PhysisSettingsDialog({ open, onClose, language, children }: { open: boo
 function PhysisSettingsForm({ store, settings, onSaved }: PhysisFeatureProps & { onSaved: () => void }) {
   const [draft, setDraft] = useState(settings); const action = usePhysisAction();
   const change = (patch: Partial<PhysisSettings>) => setDraft(s => ({ ...s, ...patch }));
+  const customDefinitions = customMetricDefinitions(draft, physisRecords<Measurement>(store, 'measurement').map(record => record.data));
   const calendarOptions = <><option value="profane">Григорианский</option><option value="sacred">Сакральный</option><option value="lunar">Лунный</option></>;
   return <section className="physis-panel"><h3>Общие настройки</h3><form className="physis-form" onSubmit={e => { e.preventDefault(); void action.run(async () => {
     const record = physisRecords<PhysisSettings>(store, 'settings')[0]; await store.save(record ? editPhysisRecord(record, draft) : newPhysisRecord('settings', draft)); onSaved();
@@ -175,6 +186,7 @@ function PhysisSettingsForm({ store, settings, onSaved }: PhysisFeatureProps & {
     <NumberField label="Отдых между подходами, секунд" min={0} max={3600} value={draft.restSeconds} onChange={v => change({ restSeconds: v ?? 0 })} />
     <label className="physis-check physis-wide"><input type="checkbox" checked={draft.monitoringHints !== false} onChange={e => change({ monitoringHints: e.target.checked })} />Периодические подсказки в мониторинге показателей</label>
     <div className="physis-wide"><h3>Включенные показатели</h3><p className="physis-muted">Переключатели независимы. Выключение скрывает инструмент и сохраняет всю историю.</p><div className="physis-grid">{METRICS.map(([id, title]) => <label className="physis-check" key={id}><input type="checkbox" checked={draft.enabledMetrics.includes(id)} onChange={e => change({ enabledMetrics: e.target.checked ? [...draft.enabledMetrics, id] : draft.enabledMetrics.filter(k => k !== id) })} />{title}</label>)}</div></div>
+    {customDefinitions.some(item => !item.deleted) && <fieldset className="physis-wide"><legend>Мои показатели — отображение</legend><p className="physis-muted">Показатели этого аккаунта. Снятая отметка скрывает показатель и сохраняет его историю.</p><div className="physis-grid">{customDefinitions.filter(item => !item.deleted).map(item => <label className="physis-check" key={item.id}><input type="checkbox" checked={!item.hidden} onChange={event => change({ customMetrics: customDefinitions.map(metric => metric.id === item.id ? { ...metric, hidden: !event.target.checked } : metric), ...(event.target.checked && !draft.enabledMetrics.includes('custom') ? { enabledMetrics: [...draft.enabledMetrics, 'custom'] } : {}) })} />{item.name} · {item.unit}</label>)}</div></fieldset>}
     <div className="physis-wide"><h3>Обзор</h3>{[['intakes', 'Ближайшие приемы']].map(([id, title]) => <label key={id} className="physis-check"><input type="checkbox" checked={draft.overviewBlocks.includes(id)} onChange={e => change({ overviewBlocks: e.target.checked ? [...draft.overviewBlocks, id] : draft.overviewBlocks.filter(k => k !== id) })} />{title}</label>)}</div>
     <label className="physis-check physis-wide"><input type="checkbox" checked={draft.reminders} onChange={e => change({ reminders: e.target.checked })} />Внутренние напоминания о приёмах</label>
     <p className="physis-wide physis-muted">Изменение timezone не переносит прошлые факты. Плановые дни — даты без времени; факты сохраняют момент, timezone и исторический локальный день. Внешние уведомления и offline cache не включены.</p>

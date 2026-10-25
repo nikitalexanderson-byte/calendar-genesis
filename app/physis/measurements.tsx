@@ -51,7 +51,8 @@ export function PhysisMeasurements({ store, settings, context, language, hintOwn
   const [selectedCustomId, setCustomId] = useState('');
   const [editingMetric, setEditingMetric] = useState<CustomMetricDefinition | 'new' | null>(null);
   const records = physisRecords<Measurement>(store, 'measurement');
-  const definitions = customMetricDefinitions(settings, records.map(record => record.data));
+  const allDefinitions = customMetricDefinitions(settings, records.map(record => record.data));
+  const definitions = allDefinitions.filter(item => !item.deleted && !item.hidden);
   const customMetric = definitions.find(item => item.id === selectedCustomId) ?? definitions[0];
   const draftKey = type === 'custom' ? `custom:${customMetric?.id ?? ''}` : type;
   const [drafts, setDrafts] = useState<Record<string, PhysisRecord<Measurement> | null>>({});
@@ -81,7 +82,15 @@ export function PhysisMeasurements({ store, settings, context, language, hintOwn
   const points = history.map(r => `${20 + (Date.parse(r.data.timestamp) - firstTime) / span * 560},${140 - (value(r.data) - lo) / Math.max(1, hi - lo) * 120}`).join(' ');
   if (!settings.enabledMetrics.length) return <section className="physis-panel"><h2>Мониторинг показателей</h2>{hint}<p className="physis-empty">Включите нужные показатели в настройках Фюзиса. Отключение инструмента сохраняет историю.</p></section>;
   return <div className="physis-monitoring-layout">{hint}<MetricNavigation enabled={settings.enabledMetrics} selected={type} language={language} describe={(id, name) => `${text(name)}. ${text(metricDescriptions[id])}`} onSelect={id => { setType(id); setContextFilter(''); }} /><section id="physis-measurement-page" aria-labelledby="physis-measurement-title" className="physis-panel"><header className="physis-measurement-heading"><div><h2 id="physis-measurement-title">{type === 'custom' ? customMetric?.name ?? text('Свои показатели') : text(metricName(type))}</h2><p className="physis-muted">{text(metricDescriptions[type])}</p></div><button className="physis-primary" disabled={type === 'custom' && !customMetric} onClick={newEntry}>Записать измерение</button></header><div className="physis-form"><Field label="Период истории"><select value={period} onChange={e => setPeriod(e.target.value)}><option value="7">7 дней</option><option value="30">30 дней</option><option value="90">90 дней</option><option value="365">Год</option></select></Field><Field label="Контекст"><select value={contextFilter} onChange={e => setContextFilter(e.target.value)}><option value="">Все контексты (без общей линии)</option>{contexts.filter(Boolean).map(c => <option key={c}>{c}</option>)}</select></Field></div>
-    {type === 'custom' && <div className="physis-custom-toolbar">{customMetric && <div className="physis-custom-choice"><HealthIcon name={customMetric.icon} /><Field label="Мои показатели"><select value={customMetric.id} onChange={event => { setCustomId(event.target.value); setContextFilter(''); }}>{definitions.map(item => <option key={item.id} value={item.id}>{item.name} · {item.unit}</option>)}</select></Field></div>}<div className="physis-actions">{customMetric && <IconActionButton icon="gear" label={text('Изменить показатель')} aria-haspopup="dialog" onClick={() => setEditingMetric(customMetric)} />}<button type="button" className="physis-primary" onClick={() => setEditingMetric('new')}>Добавить показатель</button></div></div>}
+    {type === 'custom' && <div className="physis-custom-toolbar">{customMetric && <div className="physis-custom-choice"><HealthIcon name={customMetric.icon} /><Field label="Мои показатели"><select value={customMetric.id} onChange={event => { setCustomId(event.target.value); setContextFilter(''); }}>{definitions.map(item => <option key={item.id} value={item.id}>{item.name} · {item.unit}</option>)}</select></Field></div>}<div className="physis-actions">{customMetric && <><IconActionButton icon="gear" label={text('Изменить показатель')} aria-haspopup="dialog" onClick={() => setEditingMetric(customMetric)} /><IconActionButton icon="trash" label={text('Удалить показатель')} disabled={action.busy} onClick={() => {
+      if (!confirm(text('Удалить показатель из списка? История измерений сохранится в аккаунте.'))) return;
+      void action.run(async () => {
+        const current = physisRecords<PhysisSettings>(store, 'settings')[0];
+        const customMetrics = allDefinitions.map(item => item.id === customMetric.id ? { ...item, deleted: true } : item);
+        await store.save(current ? editPhysisRecord(current, { ...current.data, customMetrics }) : newPhysisRecord('settings', { ...settings, customMetrics }));
+        setCustomId(''); setDraft(null);
+      });
+    }} /></>}<button type="button" className="physis-primary" onClick={() => setEditingMetric('new')}>Добавить показатель</button></div></div>}
 
     {action.error ? <p role="alert" className="physis-warning">{action.error}</p> : null}
     {draft ? <form key={draft.id} className="physis-form" onSubmit={e => { e.preventDefault(); void action.run(async () => { await store.save(editPhysisRecord(draft, { ...draft.data, editedAt: records.some(r => r.id === draft.id) ? new Date().toISOString() : null })); setDraft(current => current === draft ? null : current); }); }}>
@@ -103,7 +112,7 @@ export function PhysisMeasurements({ store, settings, context, language, hintOwn
   </section>{editingMetric && <MetricDefinitionDialog key={editingMetric === 'new' ? 'new' : editingMetric.id} definition={editingMetric === 'new' ? undefined : editingMetric} language={language} onClose={() => setEditingMetric(null)} onSave={async next => {
     if (definitions.some(item => item.id !== next.id && item.name.trim().toLocaleLowerCase() === next.name.toLocaleLowerCase())) throw new Error(text('Показатель с таким названием уже есть.'));
     const current = physisRecords<PhysisSettings>(store, 'settings')[0];
-    const customMetrics = definitions.some(item => item.id === next.id) ? definitions.map(item => item.id === next.id ? next : item) : [...definitions, next];
+    const customMetrics = allDefinitions.some(item => item.id === next.id) ? allDefinitions.map(item => item.id === next.id ? next : item) : [...allDefinitions, next];
     await store.save(current ? editPhysisRecord(current, { ...current.data, customMetrics }) : newPhysisRecord('settings', { ...settings, customMetrics }));
     setCustomId(next.id);
   }} />}</div>;

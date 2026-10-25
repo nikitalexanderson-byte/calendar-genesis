@@ -216,8 +216,8 @@ test('custom clock changes use Genesis DST policy and retain an unchanged later 
 
 test('evidence library imports descriptive personal cards without inventing a dose or composition', () => {
   const { SUPPLEMENT_REFERENCES, referenceDrug } = calendarModule('app/physis/supplement-reference-data.ts');
-  assert.equal(SUPPLEMENT_REFERENCES.length, 26);
-  assert.equal(new Set(SUPPLEMENT_REFERENCES.map(entry => entry.id)).size, 26);
+  assert.equal(SUPPLEMENT_REFERENCES.length, 31);
+  assert.equal(new Set(SUPPLEMENT_REFERENCES.map(entry => entry.id)).size, 31);
   for (const reference of SUPPLEMENT_REFERENCES) {
     for (const key of ['name', 'substance', 'evidence', 'limits', 'cautions']) assert.ok(reference[key].every(text => text.trim().length > 0));
     assert.ok(reference.sources.length && reference.sources.every(url => new URL(url).protocol === 'https:'));
@@ -266,9 +266,24 @@ test('custom metric settings preserve old settings and reject broken definitions
   const settings = { calendarMode: 'profane', inputCalendarMode: 'sacred', timeZone: 'UTC', weightUnit: 'kg', distanceUnit: 'km', energyUnit: 'kcal', glucoseUnit: 'mmol/L', restSeconds: 90, reminders: true, foodRules: [], enabledMetrics: ['custom'], overviewBlocks: [] };
   assert.ok(validateCareRecord(newPhysisRecord('settings', settings)));
   assert.ok(validateCareRecord(newPhysisRecord('settings', { ...settings, customMetrics: [definition] })));
-  for (const patch of [{ icon: 'untrusted-script' }, { name: '' }, { unit: '' }, { scale: 'arbitrary' }]) assert.equal(validCustomMetrics([{ ...definition, ...patch }]), false);
+  for (const patch of [{ icon: 'untrusted-script' }, { name: '' }, { unit: '' }, { scale: 'arbitrary' }, { hidden: 'yes' }, { deleted: 1 }]) assert.equal(validCustomMetrics([{ ...definition, ...patch }]), false);
+  assert.ok(validCustomMetrics([{ ...definition, hidden: true, deleted: false }]));
   assert.equal(validCustomMetrics([definition, { ...definition }]), false);
   assert.equal(validateCareRecord(newPhysisRecord('settings', { ...settings, customMetrics: 'bad' })), false);
+});
+
+test('hidden and deleted custom definitions retain identity and do not reappear as new legacy metrics', () => {
+  const { customMetricDefinitions, measurementInCustomMetric } = calendarModule('app/physis/custom-metric-domain.ts');
+  const old = [measurement({type: 'custom', label: 'My circumference', unit: 'cm'})];
+  const definition = customMetricDefinitions({}, old)[0];
+  for (const state of [{ hidden: true }, { deleted: true }]) {
+    const recovered = customMetricDefinitions({customMetrics: [{ ...definition, ...state }]}, old);
+    assert.equal(recovered.length, 1);
+    assert.equal(recovered[0].id, definition.id);
+    assert.deepEqual(recovered[0], { ...definition, ...state });
+    assert.ok(measurementInCustomMetric(old[0], recovered[0]));
+  }
+  assert.deepEqual(customMetricDefinitions({}, []), []);
 });
 
 test('recovering an imported custom metric ID keeps it reachable when its settings definition is absent', () => {

@@ -422,7 +422,7 @@ test('progress uses actual work, separates sides and conventions, and computes r
 test('expanded movement library preserves historical exercise identity and supplies valid human atlases', () => {
   const guides = calendarModule('app/physis/exercise-library-data.ts').EXERCISE_GUIDES;
   const media = JSON.parse(readFileSync(new URL('../app/physis/exercise-media-data.json', import.meta.url), 'utf8'));
-  assert.equal(guides.length, 95);
+  assert.equal(guides.length, 97);
   assert.equal(new Set(guides.map(guide => guide.id)).size, guides.length);
   for (const guide of guides) {
     assert.equal(guide.steps.length, 3);
@@ -441,10 +441,11 @@ test('expanded movement library preserves historical exercise identity and suppl
   }
   assert.equal(t.STARTER_EXERCISES.find(entry => entry.id === 'genesis:plank').data.movement, 'hold');
   for (const asset of Object.values(media)) {
-    assert.equal(asset.width % 3, 0);
+    assert.ok([2, 3].includes(asset.frames ?? 3));
+    assert.equal(asset.width % (asset.frames ?? 3), 0);
     assert.ok(asset.split > 0 && asset.split < asset.height);
     for (const key of ['src', 'poster']) {
-      assert.match(asset[key], /human-v1\.webp$/);
+      assert.match(asset[key], /human-v[1-9][0-9]*\.webp$/);
       const file = readFileSync(new URL(`../public${asset[key]}`, import.meta.url));
       assert.equal(file.toString('ascii', 0, 4), 'RIFF');
       assert.equal(file.toString('ascii', 8, 12), 'WEBP');
