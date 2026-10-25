@@ -59,9 +59,9 @@
 .physis .physis-food-category-nav .physis-superfoods { display: flex; align-items: center; justify-content: center; gap: 8px; color: #624619; background: #f2e6c7; border-color: #9b7737; font-weight: 600; }
 html[data-genesis-theme$="-dark"] .genesis-app .physis .physis-food-category-nav .physis-superfoods { color: #e6cd91; background: #313921; border-color: #b6a36c; }
 .physis-superfoods small { font-weight: 500; }
-.physis .physis-food-category-nav .physis-superfoods[aria-pressed=true] { color: #17241c; background: #e6cd91; border-color: #e6cd91; }
 @media (max-width: 600px) { .physis-food-category-nav { grid-template-columns: repeat(2,minmax(0,1fr)); } }
-.physis-food-category-nav button[aria-pressed=true] { color: var(--ui-on-accent); background: var(--ui-accent); border-color: var(--ui-accent); }
+.physis .physis-food-category-nav > button[aria-pressed=true], .physis .physis-food-category-nav > button[aria-pressed=true]:hover:not(:disabled) { color: var(--ui-on-accent); background: var(--ui-accent); border-color: var(--ui-accent); }
+html[data-genesis-theme] .genesis-app .physis .physis-food-category-nav .physis-superfoods[aria-pressed=true] { color: #17241c; background: #e6cd91; border-color: #e6cd91; }
 .physis-wizard-steps { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); list-style: none; margin: 0 0 12px; padding: 0; gap: 8px; }
 .physis-wizard-steps li { padding: 12px 8px; border-bottom: 2px solid var(--line); color: var(--ink-soft); text-align: center; font-size: 13px; }
 .physis-wizard-steps li[aria-current=step] { border-color: var(--ui-accent); color: var(--ink); font-weight: 600; }

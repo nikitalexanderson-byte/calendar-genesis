@@ -34,7 +34,7 @@
 .physis-tabs { display: flex; flex-wrap: wrap; gap: 6px; align-items: stretch; }
 .physis .physis-tabs button[aria-pressed=true], .physis .physis-tabs button[aria-current=page], .physis .physis-tabs button[aria-selected=true] { color: var(--ui-on-accent); background: var(--ui-accent); border-color: var(--ui-accent); }
 html[data-genesis-theme] .genesis-app .physis-area-switch { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); width: 100%; margin: 0; }
-html[data-genesis-theme] .genesis-app .physis-area-switch > button { min-height: 48px; min-width: 0; padding: 10px 12px; }
+html[data-genesis-theme] .genesis-app .physis-area-switch > button { min-height: 44px; min-width: 0; padding: 8px 12px; }
 .physis-subnav { gap: 8px; }
 .physis-page-content { display: grid; gap: 24px; min-width: 0; }
 .physis-hero { position: relative; display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; aspect-ratio: 8 / 1; width: 100%; min-width: 0; min-height: 180px; gap: 16px; padding: 20px 28px; overflow: clip; border: 1px solid rgba(216,189,128,.3); border-radius: var(--ui-surface-radius); color: #f8f1df; background-color: #051618; background-image: linear-gradient(90deg,rgba(5,22,24,.82),rgba(5,22,24,.42) 40%,rgba(5,22,24,.08) 75%),url('/physis-art/landscape-v2.webp'); background-size: auto,cover; background-position: center; background-repeat: no-repeat; }
@@ -126,7 +126,7 @@ body:has(.physis-settings-backdrop:not([hidden])) { overflow: hidden; }
   .physis-hero-actions { padding-right: 8px; border-radius: 10px; background: #051618db; }
   .physis-hero-copy { max-width: 100%; }
   .physis-hero-copy > p { font-size: 13px; }
-  html[data-genesis-theme] .genesis-app .physis-area-switch > button { min-height: 60px; padding: 8px; }
+  html[data-genesis-theme] .genesis-app .physis-area-switch > button { min-height: 48px; padding: 6px; }
   .physis-settings-heading { padding: 16px; }
   .physis-settings-heading h2 { font-size: 24px; }
   .physis-settings-content { padding: 16px; }
@@ -148,6 +148,10 @@ body:has(.physis-settings-backdrop:not([hidden])) { overflow: hidden; }
 .physis-control-heading h2 { margin: 0; }
 html[data-genesis-theme] .genesis-app .physis-control-switch { display: inline-flex; width: auto; margin: 0 0 0 auto; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 10px; }
 html[data-genesis-theme] .genesis-app .physis-control-switch > button { min-width: 110px; min-height: 44px; padding: 8px 12px; }
+html[data-genesis-theme] .genesis-app .physis-control-switch.physis-equal-switch { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0,1fr); width: min(100%,var(--physis-switch-width)); }
+html[data-genesis-theme] .genesis-app .physis-control-switch.physis-equal-switch > button { width: 100%; min-width: 0; height: 44px; padding: 4px 8px; font-size: 13px; }
+.physis-catalog-switch { --physis-switch-width: 380px; }
+.physis-plan-switch { --physis-switch-width: 300px; }
 .physis-control-view[hidden] { display: none; }
 .physis-food-heading { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: start; gap: 16px; padding: 20px; }
 .physis-food-heading h2 { margin-bottom: 8px; }

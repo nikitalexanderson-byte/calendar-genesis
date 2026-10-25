@@ -245,3 +245,32 @@ test('reference foods retain unknown label values and ordinary categories alongs
     assert.equal(validateNutritionRecord(newPhysisRecord('food', { ...label, collections })), false);
   }
 });
+
+// Nutrition periods follow the display calendar, including its actual month boundaries.
+test('nutrition plan uses a seven-day Gregorian interval and an exact five-day sacred pyata', () => {
+  const { nutritionPeriodRange } = calendarModule('app/physis/nutrition-periods.ts');
+  const { sacredToCivilDate } = calendarModule('app/calendar-astronomy.ts');
+  const context = { version: 2, timeZone: 'Europe/Moscow', gregorianYearStart: 'january' };
+  assert.deepEqual(nutritionPeriodRange('2026-10-25', 'profane', 'week', context), { start: '2026-10-25', end: '2026-10-31' });
+  const sacredDay = day => sacredToCivilDate(2026, 7, day, context);
+  assert.deepEqual(nutritionPeriodRange(sacredDay(14), 'sacred', 'week', context), { start: sacredDay(11), end: sacredDay(15) });
+  assert.deepEqual(nutritionPeriodRange(sacredDay(30), 'sacred', 'week', context), { start: sacredDay(26), end: sacredDay(30) });
+  assert.deepEqual(nutritionPeriodRange(sacredDay(14), 'sacred', 'month', context), { start: sacredDay(1), end: sacredDay(30) });
+});
+
+test('lunar nutrition decades and months use real 29/30-day lunar boundaries', () => {
+  const { nutritionPeriodRange } = calendarModule('app/physis/nutrition-periods.ts');
+  const { lunarMonthStartDate, firstLunarMonthAfterSpringEquinox } = calendarModule('app/calendar-astronomy.ts');
+  const { addCivilDays, civilDayNumber } = calendarModule('app/calendar-context.ts');
+  const context = { version: 2, timeZone: 'Europe/Moscow', gregorianYearStart: 'january' };
+  const lengths = new Set();
+  const first = firstLunarMonthAfterSpringEquinox(2026);
+  for (let index = first; index < first + 13; index++) {
+    const start = lunarMonthStartDate(index, context), next = lunarMonthStartDate(index + 1, context);
+    const length = civilDayNumber(next) - civilDayNumber(start); lengths.add(length);
+    assert.deepEqual(nutritionPeriodRange(addCivilDays(start, 14), 'lunar', 'week', context), { start: addCivilDays(start, 10), end: addCivilDays(start, 19) });
+    assert.deepEqual(nutritionPeriodRange(addCivilDays(next, -1), 'lunar', 'week', context), { start: addCivilDays(start, 20), end: addCivilDays(next, -1) });
+    assert.deepEqual(nutritionPeriodRange(addCivilDays(start, 14), 'lunar', 'month', context), { start, end: addCivilDays(next, -1) });
+  }
+  assert.deepEqual([...lengths].sort(), [29, 30]);
+});

@@ -1723,5 +1723,7 @@
   "Мои показатели": "My metrics",
   "Добавить показатель": "Add metric",
   "Показатель с таким названием уже есть.": "A metric with this name already exists.",
-  "Настройки сохранены": "Settings saved"
+  "Настройки сохранены": "Settings saved",
+  "Пята": "Five-day period",
+  "Декада": "Decade"
 }

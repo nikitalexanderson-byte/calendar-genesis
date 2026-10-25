@@ -1,11 +1,11 @@
 'use client';
 /* eslint-disable react/prop-types -- Nested shared props are checked by the imported PhysisFeatureProps TypeScript contract. */
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useDialogAccessibility } from '../use-dialog-accessibility';
 import { DialogCloseButton } from '../DialogCloseButton';
 import { CalendarDatePicker } from '../CalendarDatePicker';
 import { TimeClockPicker } from '../TimeClockPicker';
-import { calendarMonthRange, formatCalendarDateValue } from '../calendar-data';
+import { formatCalendarDateValue } from '../calendar-data';
 import { addCivilDays, todayCivilDate } from '../calendar-context';
 import { editPhysisRecord, newPhysisRecord, physisNumber, physisRecords, type PhysisFeatureProps, type PhysisRecord } from './types';
 import {
@@ -18,6 +18,7 @@ import {
 } from './nutrition-domain';
 import { oralNutrientsForDay, convertMass } from './care-domain';
 import { createPhysisSubmission } from './submission';
+import { nutritionPeriodRange } from './nutrition-periods';
 import seed from './nutrition-seed.json';
 import { FOOD_REFERENCES, FoodReferenceNote, SuperfoodCollectionNote, isTopFood, manualReferenceFoods } from './food-reference';
 import './nutrition.css';
@@ -304,10 +305,15 @@ function NutritionDiary(props: Props & { mode: 'today' | 'plan' }) {
   const date = props.mode === 'today' ? todayCivilDate(props.context) : selectedDate;
   const planning = props.mode === 'plan';
   const [anchor, setAnchor] = useState(() => todayCivilDate(props.context));
+  const previousCalendar = useRef(props.settings.calendarMode);
+  useEffect(() => {
+    if (previousCalendar.current !== props.settings.calendarMode) {
+      previousCalendar.current = props.settings.calendarMode; setAnchor(date);
+    }
+  }, [date, props.settings.calendarMode]);
   const [period, setPeriod] = useState<'day' | 'week' | 'month'>('day');
-  const monthRange = calendarMonthRange(anchor, props.settings.inputCalendarMode, props.context);
-  const rangeStart = period === 'month' ? monthRange.start : period === 'week' ? anchor : date;
-  const rangeEnd = period === 'month' ? monthRange.end : period === 'week' ? addCivilDays(anchor, 6) : date;
+  const { start: rangeStart, end: rangeEnd } = nutritionPeriodRange(period === 'day' ? date : anchor, props.settings.calendarMode, period, props.context);
+  const cycleLabel = props.settings.calendarMode === 'sacred' ? t('Пята', 'Five-day period') : props.settings.calendarMode === 'lunar' ? t('Декада', 'Decade') : t('Неделя', 'Week');
   const periodDates: string[] = [];
   for (let day = rangeStart; day <= rangeEnd && periodDates.length < 35; day = addCivilDays(day, 1)) periodDates.push(day);
   const [dayType, setDayType] = useState<'training' | 'rest'>('rest');
@@ -319,8 +325,8 @@ function NutritionDiary(props: Props & { mode: 'today' | 'plan' }) {
   const editingRecord = summary.meals.find(record => record.id === editing);
   const displayedMeals = summary.meals.filter(record => !planning || record.data.status === 'planned');
   return <>
-    <section className="physis-panel"><h2>{planning ? t('Мой рацион', 'My nutrition plan') : t('Питание сегодня', 'Nutrition today')}</h2>
-      {planning ? <><div className="physis-tabs" aria-label={t('Период рациона', 'Nutrition plan period')}>{(['day', 'week', 'month'] as const).map((id,index) => <button key={id} aria-pressed={period === id} onClick={() => { setPeriod(id); setAnchor(date); }}>{[t('День','Day'),t('Неделя','Week'),t('Месяц','Month')][index]}</button>)}</div><div className="physis-row"><CalendarDatePicker id="physis-nutrition-day" value={date} mode={props.settings.inputCalendarMode} calculationContext={props.context} onChange={value => { if (value) { setDate(value); setAnchor(value); setEditing(null); } }} ariaLabel={t('День рациона', 'Plan date')} /><label>{t('История по дням', 'Diary history')}<select value={dates.includes(date) ? date : ''} onChange={event => { if (event.target.value) { setDate(event.target.value); setAnchor(event.target.value); setEditing(null); } }}><option value="">{t('Выберите записанный день', 'Choose a logged day')}</option>{dates.map(day => <option value={day} key={day}>{day}</option>)}</select></label></div>
+    <section className="physis-panel"><header className="physis-control-heading"><h2>{planning ? t('Мой рацион', 'My nutrition plan') : t('Питание сегодня', 'Nutrition today')}</h2>{planning && <div className="shared-projects-switch physis-control-switch physis-equal-switch physis-plan-switch" role="group" aria-label={t('Период рациона', 'Nutrition plan period')}>{(['day', 'week', 'month'] as const).map((id,index) => <button type="button" key={id} aria-pressed={period === id} onClick={() => { setPeriod(id); setAnchor(date); }}>{[t('День','Day'),cycleLabel,t('Месяц','Month')][index]}</button>)}</div>}</header>
+      {planning ? <><div className="physis-row"><CalendarDatePicker id="physis-nutrition-day" value={date} mode={props.settings.calendarMode} calculationContext={props.context} onChange={value => { if (value) { setDate(value); setAnchor(value); setEditing(null); } }} ariaLabel={t('День рациона', 'Plan date')} /><label>{t('История по дням', 'Diary history')}<select value={dates.includes(date) ? date : ''} onChange={event => { if (event.target.value) { setDate(event.target.value); setAnchor(event.target.value); setEditing(null); } }}><option value="">{t('Выберите записанный день', 'Choose a logged day')}</option>{dates.map(day => <option value={day} key={day}>{formatCalendarDateValue(day,props.settings.calendarMode,false,props.context)}</option>)}</select></label></div>
         {period !== 'day' && <><p>{formatCalendarDateValue(rangeStart,props.settings.calendarMode,false,props.context)} — {formatCalendarDateValue(rangeEnd,props.settings.calendarMode,false,props.context)}</p><div className="physis-nutrition-period-days">{periodDates.map(day => <button key={day} aria-current={day === date ? 'date' : undefined} onClick={() => { setDate(day); setEditing(null); }}>{formatCalendarDateValue(day,props.settings.calendarMode,false,props.context)}<small>{physisRecords<Meal>(props.store,'meal').filter(r => r.data.date === day && r.data.status === 'planned').length} {t('приёмов','meals')}</small></button>)}</div><button disabled={actions.busy || !displayedMeals.length} onClick={() => void actions.run(() => actions.submitCreation(`period:${date}:${rangeStart}:${rangeEnd}`,() => periodDates.filter(day => day !== date).flatMap(day => displayedMeals.filter(source => !physisRecords<Meal>(props.store,'meal').some(existing => existing.data.date === day && existing.data.copiedFrom === source.id)).map(source => newPhysisRecord('meal',copyMeal(source.data,day,source.id)))),props.store))}>{t('Повторить выбранный день на период', 'Repeat selected day across period')}</button><p className="physis-muted">{t('Добавляет плановые приёмы без замены записей. Съеденное отмечается отдельно в «Сегодня».', 'Adds planned meals while keeping existing records. Mark actual meals in Today.')}</p></>}
       </> : <p>{formatCalendarDateValue(date,props.settings.calendarMode,true,props.context)}</p>}
       <button className="physis-primary" onClick={() => planning ? setWizardOpen(true) : setEditing('new')}>{planning ? t('Составить рацион','Build nutrition plan') : t('Добавить съеденное','Log food eaten')}</button>
