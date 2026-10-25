@@ -2,12 +2,13 @@ import type { Habit } from "./habits";
 import { habitLifecycleState } from "./habit-lifecycle.ts";
 import affinity from "./daily-advice-affinity.json" with { type: "json" };
 import topicAffinity from "./daily-advice-topics.json" with { type: "json" };
+import familyAffinity from "./daily-advice-family.json" with { type: "json" };
 
 export const ADVICE_CATEGORIES = ["aretology", "hermetica", "kourotrophy", "hestiology", "aphrodisia", "psychopompia"] as const;
 export type AdviceCategory = typeof ADVICE_CATEGORIES[number];
 export type AdvicePreferences = { enabled: boolean; smart: boolean; categories: AdviceCategory[] };
 export type AdviceScores = Record<AdviceCategory, number>;
-export const ADVICE_TOPICS = ["nutrition", "training", "recovery", "discipline", "clothing", "attributes", "cleaning", "home_order"] as const;
+export const ADVICE_TOPICS = ["nutrition", "training", "recovery", "discipline", "clothing", "attributes", "cleaning", "home_order", "parenting", "sons", "heritage", "fatherhood", "motherhood"] as const;
 export type AdviceTopicScores = Record<typeof ADVICE_TOPICS[number], number>;
 export type DailyAdvice = {
   id: string; dayKey: string; categories: AdviceCategory[]; title?: string; image?: string; body: string; language: string; dismissed: boolean;
@@ -34,9 +35,9 @@ function adviceHabitSignals(habits: readonly Habit[], day: string) {
   return signals;
 }
 
-function adviceWordMatches(tokens: string[], words: readonly string[]) {
+function adviceWordMatches(tokens: string[], words: readonly string[], exactShort = false) {
   return words.reduce((count, word) => count + (tokens.some(token => /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(word)
-    ? token.includes(word) : word.length <= 4 && /^[a-z]+$/.test(word) ? token === word : token.startsWith(word)) ? 1 : 0), 0);
+    ? token.includes(word) : (exactShort && word.length <= 3) || (word.length <= 4 && /^[a-z]+$/.test(word)) ? token === word : token.startsWith(word)) ? 1 : 0), 0);
 }
 
 /** Only bounded numeric affinities leave the device. Habit text stays local. */
@@ -54,14 +55,14 @@ export function adviceHabitScores(habits: readonly Habit[], day: string): Advice
   return scores;
 }
 
-/** Food habits favour nutrition posts without sending their names or inferring health conditions. */
+/** Topic interests stay numeric; no demographic or health profile is inferred. */
 export function adviceHabitTopicScores(habits: readonly Habit[], day: string): AdviceTopicScores {
   const scores = Object.fromEntries(ADVICE_TOPICS.map(id => [id, 0])) as AdviceTopicScores;
   for (const { habit, tokens, weight } of adviceHabitSignals(habits, day)) {
     for (const id of ADVICE_TOPICS) {
-      const rule = topicAffinity[id];
+      const rule = id in familyAffinity ? familyAffinity[id as keyof typeof familyAffinity] : topicAffinity[id as keyof typeof topicAffinity];
       const templateMatch = (rule.templates as string[]).includes(habit.sourceTemplateId || "");
-      const words = adviceWordMatches(tokens, rule.words);
+      const words = adviceWordMatches(tokens, rule.words, id in familyAffinity);
       scores[id] = Math.min(1000, scores[id] + weight * (Number(templateMatch) * 3 + Math.min(3, words)));
     }
   }
@@ -79,6 +80,13 @@ export function adviceTaskContext(tasks: readonly AdvicePersonalTask[], day: str
     // Unscheduled, current, overdue and near-future intentions matter; distant plans do not dominate today.
     if (task.dueDate && task.dueDate > day && (Date.parse(task.dueDate) - Date.parse(day)) / 86400000 > 30) continue;
     const tokens = `${task.title} ${task.description ?? ""}`.normalize("NFKC").toLocaleLowerCase().split(/[^\p{L}\p{N}]+/u);
+    for (const topic of ["parenting", "sons", "heritage", "fatherhood", "motherhood"] as const) {
+      const count = adviceWordMatches(tokens, familyAffinity[topic].words, true);
+      if (count) {
+        topics[topic] = Math.min(1000, topics[topic] + Math.min(3, count) * 4);
+        scores.kourotrophy = Math.min(1000, scores.kourotrophy + (topic === "motherhood" ? 1 : 4));
+      }
+    }
     for (const topic of ["clothing", "attributes", "cleaning", "home_order"] as const) {
       let count = adviceWordMatches(tokens, topicAffinity[topic].words);
       if (topic === "clothing" && !adviceWordMatches(tokens, topicAffinity.clothing.shoppingExclusions)) {
@@ -96,5 +104,5 @@ export function adviceTaskContext(tasks: readonly AdvicePersonalTask[], day: str
 
 export function adviceAvailableCategories(value?: readonly AdviceCategory[]): AdviceCategory[] {
   // A cached account from before this release has no availability metadata yet.
-  return ADVICE_CATEGORIES.filter(id => (value ?? ["aretology", "hestiology"]).includes(id));
+  return ADVICE_CATEGORIES.filter(id => (value ?? ["aretology", "kourotrophy", "hestiology"]).includes(id));
 }

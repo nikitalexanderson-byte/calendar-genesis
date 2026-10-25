@@ -20,7 +20,7 @@ export async function verifyDailyAdvice(base = root) {
   const review = JSON.parse(await readFile(resolve(base, "server/content/daily-advice-pairings.json"), "utf8"));
   if (review.version !== 1 || !review.entries || typeof review.entries !== "object") throw new Error("Missing advice pairing review");
   const catalogById = new Map(catalog.items.map(entry => [entry.id, entry]));
-  for (const category of ["aretology", "hestiology"]) {
+  for (const category of ["aretology", "kourotrophy", "hestiology"]) {
     if (!catalog.items.some(entry => entry.categories.includes(category))) continue;
     const source = JSON.parse(await readFile(resolve(base, `server/content/${category}-source-manifest.json`), "utf8"));
     for (const original of source.entries) {

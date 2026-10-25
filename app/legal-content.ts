@@ -1,7 +1,7 @@
 import { SERVICE_IDENTITY } from "./public-service";
 import dailyAdviceCopy from "./daily-advice-copy.json";
 
-export const LEGAL_UPDATED = "22 октября 2026 года";
+export const LEGAL_UPDATED = "25 октября 2026 года";
 
 export const legalPages = {
   privacy: {

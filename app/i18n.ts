@@ -6,6 +6,7 @@ import physisEnglish from "./physis/copy.en.json";
 import solarModelEnglish from "./solar-calendar-copy.en.json";
 import affairsTranslations from "./native-affairs-translations.json";
 import habitReportTranslations from "./habit-report-translations.json";
+import dailyAdviceCopy from "./daily-advice-copy.json";
 import work_en from "./shared-work-translations/en.json";
 import work_el from "./shared-work-translations/el.json";
 import work_de from "./shared-work-translations/de.json";
@@ -955,6 +956,9 @@ for (const language of Object.keys(rawCatalogs) as Exclude<Language, "ru">[]) {
     if (!(source in rawCatalogs[language])) rawCatalogs[language][source] = translated;
   }
   Object.assign(rawCatalogs[language], habitReportTranslations[language]);
+  // Legal pages and account settings share the same localized advice provenance.
+  rawCatalogs[language][dailyAdviceCopy.ru.privacyTitle] = dailyAdviceCopy[language].privacyTitle;
+  rawCatalogs[language][dailyAdviceCopy.ru.privacyNotice] = dailyAdviceCopy[language].privacyNotice;
   Object.assign(rawCatalogs[language], sharedWorkTranslations[language]);
   for (const [source, translated] of Object.entries(affairsTranslations[language])) {
     if (source in ui_en && !(source in rawCatalogs[language])) rawCatalogs[language][source] = translated;
