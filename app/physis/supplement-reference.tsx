@@ -1,15 +1,16 @@
 import { useState, type ReactNode } from 'react';
 import { SUPPLEMENT_REFERENCES, referenceDrug } from './supplement-reference-data';
 import { DRUG_SUBCATEGORIES, type Drug } from './care-domain';
-import { VitaminFoodSources, VITAMIN_FOOD_SOURCES } from './vitamin-food-sources';
+import { NutrientFoodSources, NUTRIENT_FOOD_SOURCES } from './vitamin-food-sources';
 import { matchingNutrientTerms, nutrientSearchText } from './nutrient-terminology';
+import { MineralOverview, MineralReference } from './mineral-reference';
 import './reference-catalogs.css';
 
 export function SupplementReferenceLibrary({ language, onAdd, controls }: { language: string; onAdd: (drug: Drug) => void; controls: ReactNode }) {
   const en = language === 'en'; const at = en ? 1 : 0;
   const [query, setQuery] = useState(''); const [path, setPath] = useState<string[]>([]);
   const roots = [...new Set([...DRUG_SUBCATEGORIES, ...SUPPLEMENT_REFERENCES.map(entry => entry.path[0])])];
-  const matches = SUPPLEMENT_REFERENCES.filter(entry => nutrientSearchText(`${entry.name.join(' ')} ${entry.substance.join(' ')} ${VITAMIN_FOOD_SOURCES[entry.id]?.label.join(' ') ?? ''} ${VITAMIN_FOOD_SOURCES[entry.id]?.items.flatMap(item => item.food).join(' ') ?? ''}`).includes(nutrientSearchText(query.trim())));
+  const matches = SUPPLEMENT_REFERENCES.filter(entry => nutrientSearchText(`${entry.name.join(' ')} ${entry.substance.join(' ')} ${NUTRIENT_FOOD_SOURCES[entry.id]?.label.join(' ') ?? ''} ${NUTRIENT_FOOD_SOURCES[entry.id]?.items.flatMap(item => item.food).join(' ') ?? ''}`).includes(nutrientSearchText(query.trim())));
   const terms = !path.length || path[0] === 'Витамины' ? matchingNutrientTerms(query) : [];
   const shown = matches.filter(entry => path.every((name, index) => entry.path[index] === name));
   const selected = (candidate: string[]) => JSON.stringify(candidate) === JSON.stringify(path) ? 'page' as const : undefined;
@@ -20,7 +21,8 @@ export function SupplementReferenceLibrary({ language, onAdd, controls }: { lang
       const children = [...new Set(SUPPLEMENT_REFERENCES.filter(entry => entry.path[0] === root).map(entry => entry.path[1]))];
       return <li key={root}><button type="button" aria-current={selected([root])} onClick={() => setPath([root])}><span>{root}</span><small>{matches.filter(entry => entry.path[0] === root).length}</small></button>{children.length > 0 && <ul className="physis-drug-group-list">{children.map(child => <li key={child}><button type="button" aria-current={selected([root, child])} onClick={() => setPath([root, child])}><span>{child}</span><small>{matches.filter(entry => entry.path[0] === root && entry.path[1] === child).length}</small></button></li>)}</ul>}</li>;
     })}</ul></nav><section className="physis-panel physis-reference-results"><h3>{path.join(' / ') || (en ? 'All substances' : 'Все вещества')}</h3><p className="physis-muted">{en ? 'Reference entries' : 'Справочных карточек'}: {shown.length}</p>{!shown.length && !terms.length && <p className="physis-empty">{query.trim() ? en ? 'No matches. Change your search or category.' : 'Ничего не найдено. Измените запрос или категорию.' : en ? 'No substances in this category have been included in this evidence-based selection yet.' : 'В эту категорию пока не включены вещества, прошедшие отбор по доказательности.'}</p>}
-      {shown.map(entry => <details key={entry.id} className="physis-reference-entry"><summary><strong>{entry.name[at]}</strong><span>{entry.path.join(' / ')}</span></summary><dl><div><dt>{en ? 'What it is' : 'Что это'}</dt><dd>{entry.substance[at]}</dd></div><div><dt>{en ? 'Supported use' : 'Подтверждённое применение'}</dt><dd>{entry.evidence[at]}</dd></div><div><dt>{en ? 'Evidence limits' : 'Границы доказательности'}</dt><dd>{entry.limits[at]}</dd></div><div><dt>{en ? 'Restrictions and interactions' : 'Ограничения и взаимодействия'}</dt><dd>{entry.cautions[at]}</dd></div><div><dt>{en ? 'Sources' : 'Источники'}</dt><dd>{entry.sources.map(url => <a key={url} href={url} target="_blank" rel="noreferrer">{new URL(url).hostname}</a>)}<small>{en ? 'Reviewed' : 'Проверено'}: {entry.reviewedAt}</small></dd></div></dl><VitaminFoodSources id={entry.id} en={en} /><button type="button" onClick={() => onAdd(referenceDrug(entry, en))}>{en ? 'Create my product card' : 'Создать мою карточку'}</button></details>)}
+      {path[0] === 'Минералы' && <MineralOverview ids={shown.map(entry => entry.id)} en={en} />}
+      {shown.map(entry => <details key={entry.id} className="physis-reference-entry"><summary><strong>{entry.name[at]}</strong><span>{entry.path.join(' / ')}</span></summary><dl><div><dt>{en ? 'What it is' : 'Что это'}</dt><dd>{entry.substance[at]}</dd></div><div><dt>{en ? 'Supported use' : 'Подтверждённое применение'}</dt><dd>{entry.evidence[at]}</dd></div><div><dt>{en ? 'Evidence limits' : 'Границы доказательности'}</dt><dd>{entry.limits[at]}</dd></div><div><dt>{en ? 'Restrictions and interactions' : 'Ограничения и взаимодействия'}</dt><dd>{entry.cautions[at]}</dd></div><div><dt>{en ? 'Sources' : 'Источники'}</dt><dd>{entry.sources.map(url => <a key={url} href={url} target="_blank" rel="noreferrer">{new URL(url).hostname}</a>)}<small>{en ? 'Reviewed' : 'Проверено'}: {entry.reviewedAt}</small></dd></div></dl><MineralReference id={entry.id} en={en} /><NutrientFoodSources id={entry.id} en={en} /><button type="button" onClick={() => onAdd(referenceDrug(entry, en))}>{en ? 'Create my product card' : 'Создать мою карточку'}</button></details>)}
     </section></div>
   </div>;
 }

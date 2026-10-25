@@ -216,8 +216,8 @@ test('custom clock changes use Genesis DST policy and retain an unchanged later 
 
 test('evidence library imports descriptive personal cards without inventing a dose or composition', () => {
   const { SUPPLEMENT_REFERENCES, referenceDrug } = calendarModule('app/physis/supplement-reference-data.ts');
-  assert.equal(SUPPLEMENT_REFERENCES.length, 31);
-  assert.equal(new Set(SUPPLEMENT_REFERENCES.map(entry => entry.id)).size, 31);
+  assert.equal(SUPPLEMENT_REFERENCES.length, 37);
+  assert.equal(new Set(SUPPLEMENT_REFERENCES.map(entry => entry.id)).size, 37);
   for (const reference of SUPPLEMENT_REFERENCES) {
     for (const key of ['name', 'substance', 'evidence', 'limits', 'cautions']) assert.ok(reference[key].every(text => text.trim().length > 0));
     assert.ok(reference.sources.length && reference.sources.every(url => new URL(url).protocol === 'https:'));
@@ -270,6 +270,54 @@ test('custom metric settings preserve old settings and reject broken definitions
   assert.ok(validCustomMetrics([{ ...definition, hidden: true, deleted: false }]));
   assert.equal(validCustomMetrics([definition, { ...definition }]), false);
   assert.equal(validateCareRecord(newPhysisRecord('settings', { ...settings, customMetrics: 'bad' })), false);
+});
+
+test('mineral references preserve all fifteen IDs and cover adult age boundaries without gaps', () => {
+  const { MINERAL_PROFILES, mineralIntake } = calendarModule('app/physis/mineral-reference-data.ts');
+  const { SUPPLEMENT_REFERENCES } = calendarModule('app/physis/supplement-reference-data.ts');
+  const ids = ['calcium', 'phosphorus', 'magnesium', 'potassium', 'sodium', 'chloride', 'iodine', 'chromium', 'copper', 'fluoride', 'iron', 'manganese', 'molybdenum', 'selenium', 'zinc'];
+  assert.deepEqual(MINERAL_PROFILES.map(item => item.id).sort(), ids.sort());
+  assert.equal(SUPPLEMENT_REFERENCES.filter(item => item.path[0] === 'Минералы').length, 15);
+  for (const profile of MINERAL_PROFILES) {
+    assert.ok(['AI', 'RDA'].includes(profile.kind));
+    assert.ok(['mg', 'mcg'].includes(profile.unit));
+    assert.ok(profile.sources.every(url => new URL(url).protocol === 'https:'));
+    for (let age = 19; age <= 120; age++) {
+      const rows = profile.intakes.filter(row => age >= row.minAge && (row.maxAge === null || age <= row.maxAge));
+      assert.equal(rows.length, 1, `${profile.id}, age ${age}`);
+      assert.ok(rows[0].male > 0 && rows[0].female > 0);
+      assert.deepEqual(mineralIntake(profile.id, age), rows[0]);
+    }
+    for (const age of [0, 18, NaN, Infinity, 30.5]) assert.equal(mineralIntake(profile.id, age), null);
+  }
+  assert.equal(mineralIntake('unknown', 30), null);
+  assert.equal(mineralIntake('calcium', 50).female, 1000);
+  assert.equal(mineralIntake('calcium', 51).female, 1200);
+  assert.equal(mineralIntake('calcium', 70).male, 1000);
+  assert.equal(mineralIntake('calcium', 71).male, 1200);
+  assert.equal(mineralIntake('magnesium', 30).male, 400);
+  assert.equal(mineralIntake('magnesium', 31).male, 420);
+  assert.equal(mineralIntake('iron', 50).female, 18);
+  assert.equal(mineralIntake('iron', 51).female, 8);
+  assert.equal(mineralIntake('chromium', 50).male, 35);
+  assert.equal(mineralIntake('chromium', 51).male, 30);
+  assert.equal(mineralIntake('chloride', 50).male, 2300);
+  assert.equal(mineralIntake('chloride', 51).male, 2000);
+  assert.equal(mineralIntake('chloride', 71).male, 1800);
+  assert.equal(mineralIntake('copper', 19).male, 900);
+  assert.equal(mineralIntake('molybdenum', 19).male, 45);
+  assert.equal(mineralIntake('potassium', 19).female, 2600);
+});
+
+test('mineral reference qualifications do not turn disputed chromium AI or electrolyte references into prescriptions', () => {
+  const { MINERAL_PROFILES } = calendarModule('app/physis/mineral-reference-data.ts');
+  const byId = Object.fromEntries(MINERAL_PROFILES.map(item => [item.id, item]));
+  assert.match(byId.chromium.note[1], /2001.*EFSA.*no intake reference/);
+  assert.match(byId.sodium.note[1], /2019.*CDRR.*neither a target nor a UL/);
+  assert.match(byId.fluoride.supplementation[1], /not automatic/);
+  assert.match(byId.chloride.absorption[1], /elemental chlorine is not/);
+  assert.match(byId.calcium.interactions[1], /not prohibited/);
+  assert.match(byId.magnesium.absorption[1], /does not guarantee/);
 });
 
 test('hidden and deleted custom definitions retain identity and do not reappear as new legacy metrics', () => {
