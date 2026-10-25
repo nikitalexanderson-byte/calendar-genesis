@@ -104,5 +104,5 @@ export function adviceTaskContext(tasks: readonly AdvicePersonalTask[], day: str
 
 export function adviceAvailableCategories(value?: readonly AdviceCategory[]): AdviceCategory[] {
   // A cached account from before this release has no availability metadata yet.
-  return ADVICE_CATEGORIES.filter(id => (value ?? ["aretology", "kourotrophy", "hestiology"]).includes(id));
+  return ADVICE_CATEGORIES.filter(id => (value ?? ["aretology", "hermetica", "kourotrophy", "hestiology"]).includes(id));
 }
