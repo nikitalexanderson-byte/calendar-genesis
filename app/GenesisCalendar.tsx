@@ -6765,7 +6765,8 @@ export function GenesisCalendar() {
 
   const visibleNavigation = NAVIGATION.filter((item) =>
     (habitWorkspace.habitSettings.enabled || item.id !== "habits") && (item.id === "stoicheion" ? viewIsVisible("stoicheion", visibility) || viewIsVisible("theokyklos", visibility) : item.id === "calendar" ? viewIsVisible("calendar", visibility) || viewIsVisible("year", visibility) : viewIsVisible(item.id, visibility)));
-  const physisNavigation = physisAccess.showEntry ? [...visibleNavigation, { id: "physis" as const, label: "Фюзис", symbol: "" }] : visibleNavigation;
+  const physisPosition = visibleNavigation.filter(item => ["today", "projects", "habits"].includes(item.id)).length;
+  const physisNavigation = physisAccess.showEntry ? [...visibleNavigation.slice(0, physisPosition), { id: "physis" as const, label: "Фюзис", symbol: "" }, ...visibleNavigation.slice(physisPosition)] : visibleNavigation;
   const navigation = cloudUser?.isAdmin
     ? [...physisNavigation, { id: "admin" as const, label: "Админ", symbol: "Σ" }]
     : physisNavigation;

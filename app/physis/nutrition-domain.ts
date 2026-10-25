@@ -24,6 +24,20 @@ export const NUTRIENTS = {
   omega3ALA: { ru: 'Омега-3, ALA', en: 'Omega-3, ALA', unit: 'g', usda: 1404 },
   omega3EPA: { ru: 'Омега-3, EPA', en: 'Omega-3, EPA', unit: 'g', usda: 1278 },
   omega3DHA: { ru: 'Омега-3, DHA', en: 'Omega-3, DHA', unit: 'g', usda: 1272 },
+  vitaminA: { ru: 'Витамин A, RAE', en: 'Vitamin A, RAE', unit: 'mcg', usda: 1106 },
+  vitaminE: { ru: 'Витамин E', en: 'Vitamin E', unit: 'mg', usda: 1109 },
+  vitaminK: { ru: 'Витамин K1', en: 'Vitamin K1', unit: 'mcg', usda: 1185 },
+  vitaminB1: { ru: 'Витамин B1', en: 'Vitamin B1', unit: 'mg', usda: 1165 },
+  vitaminB2: { ru: 'Витамин B2', en: 'Vitamin B2', unit: 'mg', usda: 1166 },
+  vitaminB3: { ru: 'Витамин B3, ниацин', en: 'Vitamin B3, niacin', unit: 'mg', usda: 1167 },
+  vitaminB5: { ru: 'Витамин B5', en: 'Vitamin B5', unit: 'mg', usda: 1170 },
+  vitaminB6: { ru: 'Витамин B6', en: 'Vitamin B6', unit: 'mg', usda: 1175 },
+  biotin: { ru: 'Биотин', en: 'Biotin', unit: 'mcg', usda: 1176 },
+  choline: { ru: 'Холин', en: 'Choline', unit: 'mg', usda: 1180 },
+  copper: { ru: 'Медь', en: 'Copper', unit: 'mg', usda: 1098 },
+  phosphorus: { ru: 'Фосфор', en: 'Phosphorus', unit: 'mg', usda: 1091 },
+  iodine: { ru: 'Йод', en: 'Iodine', unit: 'mcg', usda: 1100 },
+  manganese: { ru: 'Марганец', en: 'Manganese', unit: 'mg', usda: 1101 },
   leucine: { ru: 'Лейцин', en: 'Leucine', unit: 'g', usda: 1213 },
   lysine: { ru: 'Лизин', en: 'Lysine', unit: 'g', usda: 1214 },
 } as const;
@@ -38,6 +52,7 @@ export type Nutrients = Partial<Record<NutrientKey, NutrientValue>>;
 export type FoodCategory = 'soy' | 'legume' | 'seed-oil';
 export type Food = {
   category?: string;
+  collections?: string[];
   name: string; brand: string; aliases: string[]; ingredients: string;
   state: 'raw' | 'cooked' | 'dry' | 'reconstituted' | 'unknown';
   basis: '100g' | '100ml'; densityGPerMl: number | null; edibleFraction: number;
@@ -237,6 +252,7 @@ function positive(value: unknown, max = 1e8): value is number { return finite(va
 function categories(value: unknown): value is FoodCategory[] { return Array.isArray(value) && value.length <= 3 && value.every(item => ['soy', 'legume', 'seed-oil'].includes(item)); }
 function validFood(value: unknown): value is Food {
   if (object(value) && value.category !== undefined && !text(value.category, 80)) return false;
+  if (object(value) && value.collections !== undefined && (!Array.isArray(value.collections) || value.collections.length > 20 || !value.collections.every(item => text(item, 80)))) return false;
   if (!object(value) || !text(value.name, 500) || !value.name.trim() || !text(value.brand, 200) || !text(value.ingredients) || !Array.isArray(value.aliases) || value.aliases.length > 100 || !value.aliases.every(item => text(item, 500)) || !['raw', 'cooked', 'dry', 'reconstituted', 'unknown'].includes(String(value.state)) || !['100g', '100ml'].includes(String(value.basis)) || !(value.densityGPerMl === null || positive(value.densityGPerMl, 30)) || !positive(value.edibleFraction, 1) || !positive(value.servingAmount, 100000) || !text(value.servingName, 200) || !object(value.nutrients) || !categories(value.contains) || !categories(value.mayContain) || !['not-applicable', 'adequately-cooked', 'undercooked', 'unknown'].includes(String(value.legumePreparation)) || !['compositionKnown', 'fortified', 'favorite', 'archived'].every(key => typeof value[key] === 'boolean')) return false;
   if (!object(value.provenance) || !['label', 'USDA', 'recipe', 'manual'].includes(String(value.provenance.provider)) || !['id', 'version', 'source', 'license'].every(key => text((value.provenance as Record<string, unknown>)[key], 2000))) return false;
   return Object.entries(value.nutrients).every(([key, item]) => NUTRIENT_KEYS.includes(key as NutrientKey) && object(item) && item.unit === NUTRIENTS[key as NutrientKey].unit && item.basis === value.basis && text(item.source, 2000) && text(item.sourceVersion, 500) && ['known', 'zero', 'trace', 'estimate', 'unknown'].includes(String(item.quality)) && (item.quality === 'unknown' || item.quality === 'trace' ? item.value === null : finite(item.value)) && (item.quality !== 'zero' || item.value === 0));

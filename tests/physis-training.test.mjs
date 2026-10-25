@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import { calendarModule } from './helpers/calendar-modules.mjs';
 import { physisModules } from './physis-test-loader.mjs';
 
@@ -415,4 +416,31 @@ test('progress uses actual work, separates sides and conventions, and computes r
   const external=planning.exerciseAtPercent(ex,100,75,2.5);
   assert.equal(external.sets[0].weightKg,75);assert.equal(external.sets[2].weightKg,900);
   assert.equal(ex.sets[0].weightKg,50);
+});
+
+
+test('expanded movement library preserves historical exercise identity and supplies valid human atlases', () => {
+  const guides = calendarModule('app/physis/exercise-library-data.ts').EXERCISE_GUIDES;
+  const media = JSON.parse(readFileSync(new URL('../app/physis/exercise-media-data.json', import.meta.url), 'utf8'));
+  assert.equal(guides.length, 32);
+  assert.deepEqual(new Set(Object.keys(media)), new Set(guides.map(entry => entry.id)));
+  const legacy = { squat: 'total', hinge: 'total', press: 'total', row: 'per-hand', pushup: 'bodyweight', pullup: 'assisted', lunge: 'per-hand', plank: 'bodyweight', run: 'bodyweight', walk: 'bodyweight' };
+  for (const [id, mode] of Object.entries(legacy)) {
+    const exercise = t.STARTER_EXERCISES.find(entry => entry.id === `genesis:${id}`);
+    assert.ok(exercise);
+    assert.equal(exercise.data.catalogId, exercise.id);
+    assert.equal(exercise.data.weightMode, mode);
+    assert.equal(exercise.data.unilateral, id === 'lunge');
+  }
+  assert.equal(t.STARTER_EXERCISES.find(entry => entry.id === 'genesis:plank').data.movement, 'hold');
+  for (const asset of Object.values(media)) {
+    assert.equal(asset.width % 3, 0);
+    assert.ok(asset.split > 0 && asset.split < asset.height);
+    for (const key of ['src', 'poster']) {
+      assert.match(asset[key], /human-v1\.webp$/);
+      const file = readFileSync(new URL(`../public${asset[key]}`, import.meta.url));
+      assert.equal(file.toString('ascii', 0, 4), 'RIFF');
+      assert.equal(file.toString('ascii', 8, 12), 'WEBP');
+    }
+  }
 });

@@ -1,0 +1,226 @@
+{
+  "squat": {
+    "src": "/physis-art/exercises/squat-human-v1.webp",
+    "poster": "/physis-art/exercises/squat-poster-human-v1.webp",
+    "split": 483,
+    "width": 1536,
+    "height": 1024
+  },
+  "press": {
+    "src": "/physis-art/exercises/press-human-v1.webp",
+    "poster": "/physis-art/exercises/press-poster-human-v1.webp",
+    "split": 512,
+    "width": 1536,
+    "height": 1024
+  },
+  "hinge": {
+    "src": "/physis-art/exercises/hinge-human-v1.webp",
+    "poster": "/physis-art/exercises/hinge-poster-human-v1.webp",
+    "split": 483,
+    "width": 1536,
+    "height": 1024
+  },
+  "row": {
+    "src": "/physis-art/exercises/row-human-v1.webp",
+    "poster": "/physis-art/exercises/row-poster-human-v1.webp",
+    "split": 504,
+    "width": 1536,
+    "height": 1024
+  },
+  "pushup": {
+    "src": "/physis-art/exercises/pushup-human-v1.webp",
+    "poster": "/physis-art/exercises/pushup-poster-human-v1.webp",
+    "split": 510,
+    "width": 1536,
+    "height": 1024
+  },
+  "pullup": {
+    "src": "/physis-art/exercises/pullup-human-v1.webp",
+    "poster": "/physis-art/exercises/pullup-poster-human-v1.webp",
+    "split": 512,
+    "width": 1536,
+    "height": 1024
+  },
+  "lunge": {
+    "src": "/physis-art/exercises/lunge-human-v1.webp",
+    "poster": "/physis-art/exercises/lunge-poster-human-v1.webp",
+    "split": 482,
+    "width": 1536,
+    "height": 1024
+  },
+  "plank": {
+    "src": "/physis-art/exercises/plank-human-v1.webp",
+    "poster": "/physis-art/exercises/plank-poster-human-v1.webp",
+    "split": 512,
+    "width": 1536,
+    "height": 1024
+  },
+  "run": {
+    "src": "/physis-art/exercises/run-human-v1.webp",
+    "poster": "/physis-art/exercises/run-poster-human-v1.webp",
+    "split": 475,
+    "width": 1536,
+    "height": 1024
+  },
+  "walk": {
+    "src": "/physis-art/exercises/walk-human-v1.webp",
+    "poster": "/physis-art/exercises/walk-poster-human-v1.webp",
+    "split": 478,
+    "width": 1536,
+    "height": 1024
+  },
+  "bodyweight-squat": {
+    "src": "/physis-art/exercises/bodyweight-squat-human-v1.webp",
+    "poster": "/physis-art/exercises/bodyweight-squat-poster-human-v1.webp",
+    "split": 475,
+    "width": 1536,
+    "height": 1024
+  },
+  "goblet-squat": {
+    "src": "/physis-art/exercises/goblet-squat-human-v1.webp",
+    "poster": "/physis-art/exercises/goblet-squat-poster-human-v1.webp",
+    "split": 478,
+    "width": 1536,
+    "height": 1024
+  },
+  "split-squat": {
+    "src": "/physis-art/exercises/split-squat-human-v1.webp",
+    "poster": "/physis-art/exercises/split-squat-poster-human-v1.webp",
+    "split": 472,
+    "width": 1536,
+    "height": 1024
+  },
+  "stepup": {
+    "src": "/physis-art/exercises/stepup-human-v1.webp",
+    "poster": "/physis-art/exercises/stepup-poster-human-v1.webp",
+    "split": 486,
+    "width": 1536,
+    "height": 1024
+  },
+  "glute-bridge": {
+    "src": "/physis-art/exercises/glute-bridge-human-v1.webp",
+    "poster": "/physis-art/exercises/glute-bridge-poster-human-v1.webp",
+    "split": 512,
+    "width": 1536,
+    "height": 1024
+  },
+  "legpress": {
+    "src": "/physis-art/exercises/legpress-human-v1.webp",
+    "poster": "/physis-art/exercises/legpress-poster-human-v1.webp",
+    "split": 512,
+    "width": 1536,
+    "height": 1024
+  },
+  "legcurl": {
+    "src": "/physis-art/exercises/legcurl-human-v1.webp",
+    "poster": "/physis-art/exercises/legcurl-poster-human-v1.webp",
+    "split": 512,
+    "width": 1536,
+    "height": 1024
+  },
+  "legextension": {
+    "src": "/physis-art/exercises/legextension-human-v1.webp",
+    "poster": "/physis-art/exercises/legextension-poster-human-v1.webp",
+    "split": 475,
+    "width": 1536,
+    "height": 1024
+  },
+  "calfraise": {
+    "src": "/physis-art/exercises/calfraise-human-v1.webp",
+    "poster": "/physis-art/exercises/calfraise-poster-human-v1.webp",
+    "split": 479,
+    "width": 1536,
+    "height": 1024
+  },
+  "deadlift": {
+    "src": "/physis-art/exercises/deadlift-human-v1.webp",
+    "poster": "/physis-art/exercises/deadlift-poster-human-v1.webp",
+    "split": 479,
+    "width": 1536,
+    "height": 1024
+  },
+  "dumbbell-bench": {
+    "src": "/physis-art/exercises/dumbbell-bench-human-v1.webp",
+    "poster": "/physis-art/exercises/dumbbell-bench-poster-human-v1.webp",
+    "split": 511,
+    "width": 1536,
+    "height": 1024
+  },
+  "incline-bench": {
+    "src": "/physis-art/exercises/incline-bench-human-v1.webp",
+    "poster": "/physis-art/exercises/incline-bench-poster-human-v1.webp",
+    "split": 504,
+    "width": 1536,
+    "height": 1024
+  },
+  "shoulderpress": {
+    "src": "/physis-art/exercises/shoulderpress-human-v1.webp",
+    "poster": "/physis-art/exercises/shoulderpress-poster-human-v1.webp",
+    "split": 512,
+    "width": 1536,
+    "height": 1024
+  },
+  "lateralraise": {
+    "src": "/physis-art/exercises/lateralraise-human-v1.webp",
+    "poster": "/physis-art/exercises/lateralraise-poster-human-v1.webp",
+    "split": 478,
+    "width": 1536,
+    "height": 1024
+  },
+  "rear-delt-fly": {
+    "src": "/physis-art/exercises/rear-delt-fly-human-v1.webp",
+    "poster": "/physis-art/exercises/rear-delt-fly-poster-human-v1.webp",
+    "split": 472,
+    "width": 1536,
+    "height": 1024
+  },
+  "latpulldown": {
+    "src": "/physis-art/exercises/latpulldown-human-v1.webp",
+    "poster": "/physis-art/exercises/latpulldown-poster-human-v1.webp",
+    "split": 512,
+    "width": 1536,
+    "height": 1024
+  },
+  "seatedrow": {
+    "src": "/physis-art/exercises/seatedrow-human-v1.webp",
+    "poster": "/physis-art/exercises/seatedrow-poster-human-v1.webp",
+    "split": 500,
+    "width": 1536,
+    "height": 1024
+  },
+  "bicepscurl": {
+    "src": "/physis-art/exercises/bicepscurl-human-v1.webp",
+    "poster": "/physis-art/exercises/bicepscurl-poster-human-v1.webp",
+    "split": 476,
+    "width": 1536,
+    "height": 1024
+  },
+  "hammercurl": {
+    "src": "/physis-art/exercises/hammercurl-human-v1.webp",
+    "poster": "/physis-art/exercises/hammercurl-poster-human-v1.webp",
+    "split": 512,
+    "width": 1536,
+    "height": 1024
+  },
+  "tricepspushdown": {
+    "src": "/physis-art/exercises/tricepspushdown-human-v1.webp",
+    "poster": "/physis-art/exercises/tricepspushdown-poster-human-v1.webp",
+    "split": 477,
+    "width": 1536,
+    "height": 1024
+  },
+  "deadbug": {
+    "src": "/physis-art/exercises/deadbug-human-v1.webp",
+    "poster": "/physis-art/exercises/deadbug-poster-human-v1.webp",
+    "split": 512,
+    "width": 1536,
+    "height": 1024
+  },
+  "birddog": {
+    "src": "/physis-art/exercises/birddog-human-v1.webp",
+    "poster": "/physis-art/exercises/birddog-poster-human-v1.webp",
+    "split": 509,
+    "width": 1536,
+    "height": 1024
+  }
+}

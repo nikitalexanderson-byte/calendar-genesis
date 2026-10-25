@@ -6,6 +6,7 @@ import {
   cancelIntake, measurementUnits, careMomentParts, editCareMoment, pendingIntakeEvents,
   DRUG_SUBCATEGORIES, drugCatalogGroups, drugInCatalogGroup,
 } from '../app/physis/care-domain.ts';
+import { calendarModule } from './helpers/calendar-modules.mjs';
 import { newPhysisRecord } from '../app/physis/types.ts';
 
 const drug = () => ({ name: 'Test supplement', brand: '', category: 'supplement', form: 'Капсула', route: 'oral', activeIngredients: 'magnesium', amountPerUnit: 100, activeUnit: 'mg', concentration: null, concentrationUnit: 'mg/ml', packageSize: '', source: 'Synthetic test fixture', notes: '', favorite: false, archived: false, nutrients: [{ nutrient: 'magnesium', value: 100, unit: 'mg', elemental: true }] });
@@ -210,4 +211,24 @@ test('custom clock changes use Genesis DST policy and retain an unchanged later 
   const changedOverlap = editCareMoment(laterOverlap, 'America/New_York', '2026-11-01', '01:45');
   assert.equal(changedOverlap.adjustment, 'overlap-earlier');
   assert.equal(changedOverlap.timestamp, '2026-11-01T05:45:00.000Z');
+});
+
+
+test('evidence library imports descriptive personal cards without inventing a dose or composition', () => {
+  const { SUPPLEMENT_REFERENCES, referenceDrug } = calendarModule('app/physis/supplement-reference-data.ts');
+  assert.equal(SUPPLEMENT_REFERENCES.length, 26);
+  assert.equal(new Set(SUPPLEMENT_REFERENCES.map(entry => entry.id)).size, 26);
+  for (const reference of SUPPLEMENT_REFERENCES) {
+    for (const key of ['name', 'substance', 'evidence', 'limits', 'cautions']) assert.ok(reference[key].every(text => text.trim().length > 0));
+    assert.ok(reference.sources.length && reference.sources.every(url => new URL(url).protocol === 'https:'));
+    for (const en of [false, true]) {
+      const card = referenceDrug(reference, en);
+      assert.ok(validDrug(card));
+      assert.equal(card.amountPerUnit, null);
+      assert.equal(card.concentration, null);
+      assert.deepEqual(card.nutrients, []);
+      card.catalogPath.push('My branch');
+      assert.equal(reference.path.includes('My branch'), false);
+    }
+  }
 });

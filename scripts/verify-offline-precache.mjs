@@ -26,7 +26,9 @@ const HERO_PATH_ICON_FILES = [
   "20_amphora_of_abyss",
 ];
 const mindmapIcons = JSON.parse(await readFile(new URL("../app/mindmap-icon-catalog.json", import.meta.url), "utf8"));
+const physisExerciseMedia = JSON.parse(await readFile(new URL("../app/physis/exercise-media-data.json", import.meta.url), "utf8"));
 const REQUIRED_VISUAL_ASSETS = [
+  ...Object.values(physisExerciseMedia).flatMap(asset => [asset.src.slice(1), asset.poster.slice(1)]),
   ...mindmapIcons.map(icon => `mindmap-icons/${icon.id}.png`),
   ...Array.from({ length: 13 }, (_, index) => `lunar-month-art-v1/month-${String(index + 1).padStart(2, "0")}.webp`),
   "habit-ranks/heroic-ranks.webp",

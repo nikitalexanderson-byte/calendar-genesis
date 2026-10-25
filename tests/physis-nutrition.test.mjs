@@ -6,6 +6,7 @@ import {
   recipeFood, foodWarnings, resolveTargets, startingNutritionTargets, estimateEnergy, energyDifference, summaryForDay,
   importUsdaFood, validateNutritionRecord, suggestPortion, compareNutrientReference, NUTRIENT_REFERENCES,
 } from '../app/physis/nutrition-domain.ts';
+import { calendarModule } from './helpers/calendar-modules.mjs';
 import { newPhysisRecord } from '../app/physis/types.ts';
 
 function food(name = 'Label food', nutrients = { energy: 120, protein: 10, fat: 4, carbohydrate: 11 }) {
@@ -138,7 +139,9 @@ test('Mifflin estimate has version/source, does not add activity calories twice 
 
 test('USDA starter IDs, version, real composition and estimated zeros retain provenance', () => {
   const raw = JSON.parse(readFileSync(new URL('../app/physis/nutrition-seed.json', import.meta.url), 'utf8').replace(/^\uFEFF/, ''));
-  assert.equal(raw.length, 4);
+  assert.equal(raw.length, 43);
+  assert.equal(new Set(raw.map(entry => entry.fdcId)).size, raw.length);
+  for (const id of [171688, 171077, 169705, 172421]) assert.ok(raw.some(entry => entry.fdcId === id));
   for (const entry of raw) {
     const imported = importUsdaFood(entry);
     assert.equal(imported.provenance.provider, 'USDA');
@@ -220,4 +223,25 @@ test('starting nutrition targets apply editable goal adjustments and consistent 
   assert.throws(()=>startingNutritionTargets({...p,excluded:true}));
   assert.throws(()=>startingNutritionTargets({...p,goal:'custom'}));
   assert.throws(()=>startingNutritionTargets({...p,weightKg:30,heightCm:120,age:80,activityFactor:1,goal:'lose'}));
+});
+
+
+test('reference foods retain unknown label values and ordinary categories alongside TOP membership', () => {
+  const { FOOD_REFERENCES, manualReferenceFoods, isTopFood } = calendarModule('app/physis/food-reference-domain.ts');
+  assert.equal(FOOD_REFERENCES.length, 44);
+  const manual = manualReferenceFoods('ru');
+  assert.equal(manual.length, 5);
+  for (const { food: item } of manual) {
+    assert.ok(validateNutritionRecord(newPhysisRecord('food', item)));
+    assert.ok(isTopFood(item));
+    assert.notEqual(item.category, 'ТОП СУПЕРФУДОВ');
+    assert.equal(item.compositionKnown, false);
+    assert.ok(Object.values(item.nutrients).every(n => n.value === null && n.quality === 'unknown'));
+  }
+  const label = { ...food(), collections: ['superfoods'], category: 'Фрукты' };
+  assert.ok(validateNutritionRecord(newPhysisRecord('food', label)));
+  assert.equal(isTopFood(label), true);
+  for (const collections of [null, 'superfoods', [5], Array(21).fill('x')]) {
+    assert.equal(validateNutritionRecord(newPhysisRecord('food', { ...label, collections })), false);
+  }
 });
