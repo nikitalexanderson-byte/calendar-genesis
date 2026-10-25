@@ -222,5 +222,446 @@
     "split": 509,
     "width": 1536,
     "height": 1024
+  },
+  "hip-thrust": {
+    "src": "/physis-art/exercises/hip-thrust-human-v1.webp",
+    "poster": "/physis-art/exercises/hip-thrust-poster-human-v1.webp",
+    "split": 493,
+    "width": 1536,
+    "height": 1024
+  },
+  "reverse-lunge": {
+    "src": "/physis-art/exercises/reverse-lunge-human-v1.webp",
+    "poster": "/physis-art/exercises/reverse-lunge-poster-human-v1.webp",
+    "split": 476,
+    "width": 1536,
+    "height": 1024
+  },
+  "lateral-lunge": {
+    "src": "/physis-art/exercises/lateral-lunge-human-v1.webp",
+    "poster": "/physis-art/exercises/lateral-lunge-poster-human-v1.webp",
+    "split": 481,
+    "width": 1536,
+    "height": 1024
+  },
+  "single-leg-rdl": {
+    "src": "/physis-art/exercises/single-leg-rdl-human-v1.webp",
+    "poster": "/physis-art/exercises/single-leg-rdl-poster-human-v1.webp",
+    "split": 466,
+    "width": 1536,
+    "height": 1024
+  },
+  "front-squat": {
+    "src": "/physis-art/exercises/front-squat-human-v1.webp",
+    "poster": "/physis-art/exercises/front-squat-poster-human-v1.webp",
+    "split": 480,
+    "width": 1536,
+    "height": 1024
+  },
+  "plie-squat": {
+    "src": "/physis-art/exercises/plie-squat-human-v1.webp",
+    "poster": "/physis-art/exercises/plie-squat-poster-human-v1.webp",
+    "split": 466,
+    "width": 1536,
+    "height": 1024
+  },
+  "overhead-squat": {
+    "src": "/physis-art/exercises/overhead-squat-human-v1.webp",
+    "poster": "/physis-art/exercises/overhead-squat-poster-human-v1.webp",
+    "split": 483,
+    "width": 1536,
+    "height": 1024
+  },
+  "smith-squat": {
+    "src": "/physis-art/exercises/smith-squat-human-v1.webp",
+    "poster": "/physis-art/exercises/smith-squat-poster-human-v1.webp",
+    "split": 494,
+    "width": 1536,
+    "height": 1024
+  },
+  "kettlebell-goblet-squat": {
+    "src": "/physis-art/exercises/kettlebell-goblet-squat-human-v1.webp",
+    "poster": "/physis-art/exercises/kettlebell-goblet-squat-poster-human-v1.webp",
+    "split": 480,
+    "width": 1536,
+    "height": 1024
+  },
+  "sandbag-front-squat": {
+    "src": "/physis-art/exercises/sandbag-front-squat-human-v1.webp",
+    "poster": "/physis-art/exercises/sandbag-front-squat-poster-human-v1.webp",
+    "split": 496,
+    "width": 1536,
+    "height": 1024
+  },
+  "walking-lunge-bodyweight": {
+    "src": "/physis-art/exercises/walking-lunge-bodyweight-human-v1.webp",
+    "poster": "/physis-art/exercises/walking-lunge-bodyweight-poster-human-v1.webp",
+    "split": 474,
+    "width": 1536,
+    "height": 1024
+  },
+  "walking-lunge-dumbbell": {
+    "src": "/physis-art/exercises/walking-lunge-dumbbell-human-v1.webp",
+    "poster": "/physis-art/exercises/walking-lunge-dumbbell-poster-human-v1.webp",
+    "split": 480,
+    "width": 1536,
+    "height": 1024
+  },
+  "walking-lunge-barbell": {
+    "src": "/physis-art/exercises/walking-lunge-barbell-human-v1.webp",
+    "poster": "/physis-art/exercises/walking-lunge-barbell-poster-human-v1.webp",
+    "split": 468,
+    "width": 1536,
+    "height": 1024
+  },
+  "walking-lunge-kettlebell": {
+    "src": "/physis-art/exercises/walking-lunge-kettlebell-human-v1.webp",
+    "poster": "/physis-art/exercises/walking-lunge-kettlebell-poster-human-v1.webp",
+    "split": 459,
+    "width": 1536,
+    "height": 1024
+  },
+  "walking-lunge-sandbag": {
+    "src": "/physis-art/exercises/walking-lunge-sandbag-human-v1.webp",
+    "poster": "/physis-art/exercises/walking-lunge-sandbag-poster-human-v1.webp",
+    "split": 454,
+    "width": 1536,
+    "height": 1024
+  },
+  "reverse-lunge-bodyweight": {
+    "src": "/physis-art/exercises/reverse-lunge-bodyweight-human-v1.webp",
+    "poster": "/physis-art/exercises/reverse-lunge-bodyweight-poster-human-v1.webp",
+    "split": 475,
+    "width": 1536,
+    "height": 1024
+  },
+  "reverse-lunge-barbell": {
+    "src": "/physis-art/exercises/reverse-lunge-barbell-human-v1.webp",
+    "poster": "/physis-art/exercises/reverse-lunge-barbell-poster-human-v1.webp",
+    "split": 474,
+    "width": 1536,
+    "height": 1024
+  },
+  "reverse-lunge-kettlebell": {
+    "src": "/physis-art/exercises/reverse-lunge-kettlebell-human-v1.webp",
+    "poster": "/physis-art/exercises/reverse-lunge-kettlebell-poster-human-v1.webp",
+    "split": 463,
+    "width": 1536,
+    "height": 1024
+  },
+  "reverse-lunge-sandbag": {
+    "src": "/physis-art/exercises/reverse-lunge-sandbag-human-v1.webp",
+    "poster": "/physis-art/exercises/reverse-lunge-sandbag-poster-human-v1.webp",
+    "split": 473,
+    "width": 1536,
+    "height": 1024
+  },
+  "bulgarian-split-squat": {
+    "src": "/physis-art/exercises/bulgarian-split-squat-human-v1.webp",
+    "poster": "/physis-art/exercises/bulgarian-split-squat-poster-human-v1.webp",
+    "split": 491,
+    "width": 1536,
+    "height": 1024
+  },
+  "bulgarian-split-squat-bodyweight": {
+    "src": "/physis-art/exercises/bulgarian-split-squat-bodyweight-human-v1.webp",
+    "poster": "/physis-art/exercises/bulgarian-split-squat-bodyweight-poster-human-v1.webp",
+    "split": 492,
+    "width": 1536,
+    "height": 1024
+  },
+  "sumo-deadlift": {
+    "src": "/physis-art/exercises/sumo-deadlift-human-v1.webp",
+    "poster": "/physis-art/exercises/sumo-deadlift-poster-human-v1.webp",
+    "split": 476,
+    "width": 1536,
+    "height": 1024
+  },
+  "dowel-hinge": {
+    "src": "/physis-art/exercises/dowel-hinge-human-v1.webp",
+    "poster": "/physis-art/exercises/dowel-hinge-poster-human-v1.webp",
+    "split": 469,
+    "width": 1536,
+    "height": 1024
+  },
+  "single-leg-rdl-one-dumbbell": {
+    "src": "/physis-art/exercises/single-leg-rdl-one-dumbbell-human-v1.webp",
+    "poster": "/physis-art/exercises/single-leg-rdl-one-dumbbell-poster-human-v1.webp",
+    "split": 459,
+    "width": 1536,
+    "height": 1024
+  },
+  "cossack-squat": {
+    "src": "/physis-art/exercises/cossack-squat-human-v1.webp",
+    "poster": "/physis-art/exercises/cossack-squat-poster-human-v1.webp",
+    "split": 490,
+    "width": 1536,
+    "height": 1024
+  },
+  "jump-squat": {
+    "src": "/physis-art/exercises/jump-squat-human-v1.webp",
+    "poster": "/physis-art/exercises/jump-squat-poster-human-v1.webp",
+    "split": 463,
+    "width": 1536,
+    "height": 1024
+  },
+  "sissy-squat": {
+    "src": "/physis-art/exercises/sissy-squat-human-v1.webp",
+    "poster": "/physis-art/exercises/sissy-squat-poster-human-v1.webp",
+    "split": 491,
+    "width": 1536,
+    "height": 1024
+  },
+  "sissy-machine-squat": {
+    "src": "/physis-art/exercises/sissy-machine-squat-human-v1.webp",
+    "poster": "/physis-art/exercises/sissy-machine-squat-poster-human-v1.webp",
+    "split": 487,
+    "width": 1536,
+    "height": 1024
+  },
+  "smith-hack-squat": {
+    "src": "/physis-art/exercises/smith-hack-squat-human-v1.webp",
+    "poster": "/physis-art/exercises/smith-hack-squat-poster-human-v1.webp",
+    "split": 494,
+    "width": 1536,
+    "height": 1024
+  },
+  "hack-squat-machine": {
+    "src": "/physis-art/exercises/hack-squat-machine-human-v1.webp",
+    "poster": "/physis-art/exercises/hack-squat-machine-poster-human-v1.webp",
+    "split": 509,
+    "width": 1536,
+    "height": 1024
+  },
+  "good-morning-barbell": {
+    "src": "/physis-art/exercises/good-morning-barbell-human-v1.webp",
+    "poster": "/physis-art/exercises/good-morning-barbell-poster-human-v1.webp",
+    "split": 478,
+    "width": 1536,
+    "height": 1024
+  },
+  "good-morning-dumbbell": {
+    "src": "/physis-art/exercises/good-morning-dumbbell-human-v1.webp",
+    "poster": "/physis-art/exercises/good-morning-dumbbell-poster-human-v1.webp",
+    "split": 462,
+    "width": 1536,
+    "height": 1024
+  },
+  "good-morning-kettlebell": {
+    "src": "/physis-art/exercises/good-morning-kettlebell-human-v1.webp",
+    "poster": "/physis-art/exercises/good-morning-kettlebell-poster-human-v1.webp",
+    "split": 475,
+    "width": 1536,
+    "height": 1024
+  },
+  "good-morning-sandbag": {
+    "src": "/physis-art/exercises/good-morning-sandbag-human-v1.webp",
+    "poster": "/physis-art/exercises/good-morning-sandbag-poster-human-v1.webp",
+    "split": 481,
+    "width": 1536,
+    "height": 1024
+  },
+  "back-extension": {
+    "src": "/physis-art/exercises/back-extension-human-v1.webp",
+    "poster": "/physis-art/exercises/back-extension-poster-human-v1.webp",
+    "split": 513,
+    "width": 1536,
+    "height": 1024
+  },
+  "reverse-hyper-machine": {
+    "src": "/physis-art/exercises/reverse-hyper-machine-human-v1.webp",
+    "poster": "/physis-art/exercises/reverse-hyper-machine-poster-human-v1.webp",
+    "split": 485,
+    "width": 1536,
+    "height": 1024
+  },
+  "reverse-hyper-ghd": {
+    "src": "/physis-art/exercises/reverse-hyper-ghd-human-v1.webp",
+    "poster": "/physis-art/exercises/reverse-hyper-ghd-poster-human-v1.webp",
+    "split": 497,
+    "width": 1536,
+    "height": 1024
+  },
+  "glute-ham-raise": {
+    "src": "/physis-art/exercises/glute-ham-raise-human-v1.webp",
+    "poster": "/physis-art/exercises/glute-ham-raise-poster-human-v1.webp",
+    "split": 498,
+    "width": 1536,
+    "height": 1024
+  },
+  "nordic-curl": {
+    "src": "/physis-art/exercises/nordic-curl-human-v1.webp",
+    "poster": "/physis-art/exercises/nordic-curl-poster-human-v1.webp",
+    "split": 466,
+    "width": 1536,
+    "height": 1024
+  },
+  "standing-calf-machine": {
+    "src": "/physis-art/exercises/standing-calf-machine-human-v1.webp",
+    "poster": "/physis-art/exercises/standing-calf-machine-poster-human-v1.webp",
+    "split": 512,
+    "width": 1536,
+    "height": 1024
+  },
+  "standing-calf-dumbbell": {
+    "src": "/physis-art/exercises/standing-calf-dumbbell-human-v1.webp",
+    "poster": "/physis-art/exercises/standing-calf-dumbbell-poster-human-v1.webp",
+    "split": 497,
+    "width": 1536,
+    "height": 1024
+  },
+  "standing-calf-barbell": {
+    "src": "/physis-art/exercises/standing-calf-barbell-human-v1.webp",
+    "poster": "/physis-art/exercises/standing-calf-barbell-poster-human-v1.webp",
+    "split": 513,
+    "width": 1536,
+    "height": 1024
+  },
+  "standing-calf-kettlebell": {
+    "src": "/physis-art/exercises/standing-calf-kettlebell-human-v1.webp",
+    "poster": "/physis-art/exercises/standing-calf-kettlebell-poster-human-v1.webp",
+    "split": 511,
+    "width": 1536,
+    "height": 1024
+  },
+  "seated-calf-machine": {
+    "src": "/physis-art/exercises/seated-calf-machine-human-v1.webp",
+    "poster": "/physis-art/exercises/seated-calf-machine-poster-human-v1.webp",
+    "split": 500,
+    "width": 1536,
+    "height": 1024
+  },
+  "seated-calf-dumbbell": {
+    "src": "/physis-art/exercises/seated-calf-dumbbell-human-v1.webp",
+    "poster": "/physis-art/exercises/seated-calf-dumbbell-poster-human-v1.webp",
+    "split": 496,
+    "width": 1536,
+    "height": 1024
+  },
+  "seated-calf-barbell": {
+    "src": "/physis-art/exercises/seated-calf-barbell-human-v1.webp",
+    "poster": "/physis-art/exercises/seated-calf-barbell-poster-human-v1.webp",
+    "split": 492,
+    "width": 1536,
+    "height": 1024
+  },
+  "floor-glute-bridge-barbell": {
+    "src": "/physis-art/exercises/floor-glute-bridge-barbell-human-v1.webp",
+    "poster": "/physis-art/exercises/floor-glute-bridge-barbell-poster-human-v1.webp",
+    "split": 511,
+    "width": 1536,
+    "height": 1024
+  },
+  "floor-glute-bridge-plate": {
+    "src": "/physis-art/exercises/floor-glute-bridge-plate-human-v1.webp",
+    "poster": "/physis-art/exercises/floor-glute-bridge-plate-poster-human-v1.webp",
+    "split": 511,
+    "width": 1536,
+    "height": 1024
+  },
+  "pullup-bodyweight": {
+    "src": "/physis-art/exercises/pullup-bodyweight-human-v1.webp",
+    "poster": "/physis-art/exercises/pullup-bodyweight-poster-human-v1.webp",
+    "split": 513,
+    "width": 1536,
+    "height": 1024
+  },
+  "pullup-weighted": {
+    "src": "/physis-art/exercises/pullup-weighted-human-v1.webp",
+    "poster": "/physis-art/exercises/pullup-weighted-poster-human-v1.webp",
+    "split": 504,
+    "width": 1536,
+    "height": 1024
+  },
+  "pushup-weighted": {
+    "src": "/physis-art/exercises/pushup-weighted-human-v1.webp",
+    "poster": "/physis-art/exercises/pushup-weighted-poster-human-v1.webp",
+    "split": 512,
+    "width": 1536,
+    "height": 1024
+  },
+  "pushup-triceps": {
+    "src": "/physis-art/exercises/pushup-triceps-human-v1.webp",
+    "poster": "/physis-art/exercises/pushup-triceps-poster-human-v1.webp",
+    "split": 510,
+    "width": 1536,
+    "height": 1024
+  },
+  "incline-barbell-bench": {
+    "src": "/physis-art/exercises/incline-barbell-bench-human-v1.webp",
+    "poster": "/physis-art/exercises/incline-barbell-bench-poster-human-v1.webp",
+    "split": 509,
+    "width": 1536,
+    "height": 1024
+  },
+  "crossover-high": {
+    "src": "/physis-art/exercises/crossover-high-human-v1.webp",
+    "poster": "/physis-art/exercises/crossover-high-poster-human-v1.webp",
+    "split": 508,
+    "width": 1536,
+    "height": 1024
+  },
+  "crossover-low": {
+    "src": "/physis-art/exercises/crossover-low-human-v1.webp",
+    "poster": "/physis-art/exercises/crossover-low-poster-human-v1.webp",
+    "split": 482,
+    "width": 1536,
+    "height": 1024
+  },
+  "pec-deck": {
+    "src": "/physis-art/exercises/pec-deck-human-v1.webp",
+    "poster": "/physis-art/exercises/pec-deck-poster-human-v1.webp",
+    "split": 498,
+    "width": 1536,
+    "height": 1024
+  },
+  "dumbbell-fly": {
+    "src": "/physis-art/exercises/dumbbell-fly-human-v1.webp",
+    "poster": "/physis-art/exercises/dumbbell-fly-poster-human-v1.webp",
+    "split": 512,
+    "width": 1536,
+    "height": 1024
+  },
+  "pullover-plate": {
+    "src": "/physis-art/exercises/pullover-plate-human-v1.webp",
+    "poster": "/physis-art/exercises/pullover-plate-poster-human-v1.webp",
+    "split": 492,
+    "width": 1536,
+    "height": 1024
+  },
+  "pullover-dumbbell": {
+    "src": "/physis-art/exercises/pullover-dumbbell-human-v1.webp",
+    "poster": "/physis-art/exercises/pullover-dumbbell-poster-human-v1.webp",
+    "split": 490,
+    "width": 1536,
+    "height": 1024
+  },
+  "cable-pullover-ez": {
+    "src": "/physis-art/exercises/cable-pullover-ez-human-v1.webp",
+    "poster": "/physis-art/exercises/cable-pullover-ez-poster-human-v1.webp",
+    "split": 483,
+    "width": 1536,
+    "height": 1024
+  },
+  "cossack-dumbbells": {
+    "src": "/physis-art/exercises/cossack-dumbbells-human-v1.webp",
+    "poster": "/physis-art/exercises/cossack-dumbbells-poster-human-v1.webp",
+    "split": 490,
+    "width": 1536,
+    "height": 1024
+  },
+  "cossack-barbell": {
+    "src": "/physis-art/exercises/cossack-barbell-human-v1.webp",
+    "poster": "/physis-art/exercises/cossack-barbell-poster-human-v1.webp",
+    "split": 490,
+    "width": 1536,
+    "height": 1024
+  },
+  "cossack-landmine": {
+    "src": "/physis-art/exercises/cossack-landmine-human-v1.webp",
+    "poster": "/physis-art/exercises/cossack-landmine-poster-human-v1.webp",
+    "split": 490,
+    "width": 1536,
+    "height": 1024
   }
 }

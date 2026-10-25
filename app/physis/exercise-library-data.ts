@@ -1,13 +1,16 @@
+import { EXPANDED_EXERCISE_GUIDES } from './exercise-expansion-data.ts';
+
 export type ExerciseGuide = {
   id: string; name: string; nameEn: string; muscles: string; movement: string;
   equipment: string; weightMode: 'total' | 'per-hand' | 'per-side' | 'bodyweight' | 'assisted';
   primary: string[]; steps: string[]; stepsEn: string[]; mistakes: string; mistakesEn: string;
   metric: 'strength' | 'time' | 'distance'; unilateral: boolean;
+  aliases?: string[]; benchAngleDegrees?: number;
 };
 export const EXERCISE_GUIDES: ExerciseGuide[] = [
   {
     "id": "squat",
-    "name": "Приседание со штангой",
+    "name": "Приседание со штангой на плечах",
     "nameEn": "Barbell back squat",
     "muscles": "legs",
     "movement": "squat",
@@ -578,6 +581,7 @@ export const EXERCISE_GUIDES: ExerciseGuide[] = [
   },
   {
     "id": "incline-bench",
+    "benchAngleDegrees": 30,
     "name": "Жим гантелей на наклонной скамье",
     "nameEn": "Incline dumbbell press",
     "muscles": "chest",
@@ -875,5 +879,6 @@ export const EXERCISE_GUIDES: ExerciseGuide[] = [
     "mistakesEn": "Overarching, rotating the hips or lifting the leg too high.",
     "metric": "strength",
     "unilateral": true
-  }
+  },
+  ...EXPANDED_EXERCISE_GUIDES
 ];

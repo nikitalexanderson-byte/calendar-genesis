@@ -1,6 +1,6 @@
 """Extract previews and encode generated movement atlases; never changes poses.
 
-Usage: python scripts/build-physis-exercise-assets.py output/human-exercise-assets-state.json
+Usage: python scripts/build-physis-exercise-assets.py output/human-exercise-assets-state.json [--merge]
 Requires Pillow. The private source manifest stays in ignored output/.
 """
 import json
@@ -13,7 +13,8 @@ root = Path(__file__).resolve().parents[1]
 state = json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
 destination = root / 'public/physis-art/exercises'
 destination.mkdir(parents=True, exist_ok=True)
-media = {}
+media_path = root / 'app/physis/exercise-media-data.json'
+media = json.loads(media_path.read_text(encoding='utf-8')) if '--merge' in sys.argv[2:] else {}
 for entry in state['specs']:
     if not entry.get('source'):
         continue
@@ -34,5 +35,5 @@ for entry in state['specs']:
         poster.paste(preview, (person * 320 + (320 - preview.width) // 2, (360 - preview.height) // 2))
     poster.save(destination / f'{exercise_id}-poster-human-v1.webp', 'WEBP', quality=78, method=6)
     media[exercise_id] = {'src': f'/physis-art/exercises/{exercise_id}-human-v1.webp', 'poster': f'/physis-art/exercises/{exercise_id}-poster-human-v1.webp', 'split': split, 'width': width, 'height': height}
-(root / 'app/physis/exercise-media-data.json').write_text(json.dumps(media, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+media_path.write_text(json.dumps(media, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
 print(f'Encoded {len(media)} atlases and {len(media)} previews.')

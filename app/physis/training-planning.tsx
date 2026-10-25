@@ -1,6 +1,6 @@
 /* eslint-disable react/prop-types -- Nested props follow PhysisFeatureProps and typed domain contracts. */
 import { useState } from 'react';
-import { comparableKey, trainingWeightFromKg, trainingWeightToKg, trainingDistanceFromKm, type ProgramVersion, type TrainingExercise, type TrainingSession } from './training-domain';
+import { comparableKey, exerciseDisplayName, trainingWeightFromKg, trainingWeightToKg, trainingDistanceFromKm, type ProgramVersion, type TrainingExercise, type TrainingSession } from './training-domain';
 import { exerciseAtPercent, percentLoad, periodizedVersion, suggestedLoadStages, trainingPlanSeries, trainingProgressSeries, type LoadStage, type PeriodizationModel, type ProgressMetric, type TrainingPoint } from './training-planning-domain';
 import { physisNumber, type PhysisFeatureProps, type PhysisRecord } from './types';
 import { civilDayNumber } from '../calendar-context';
@@ -18,7 +18,7 @@ export function TrainingProgressCharts({sessions,props}: {sessions:PhysisRecord<
   const [metric,setMetric]=useState<ProgressMetric>('volume'),[comparison,setComparison]=useState(''),[maximum,setMaximum]=useState('');
   const choices=new Map<string,string>();
   const modes={total:'Общий вес','per-hand':'На гантель','per-side':'На сторону',bodyweight:'Собственный вес',assisted:'Противовес'},sides={both:'Обе стороны',left:'Левая',right:'Правая'};
-  for(const {data:session} of sessions) for(const ex of session.exercises) for(const set of ex.sets) if(session.endedAt&&set.completed&&set.kind==='work') choices.set(`${comparableKey(ex)}|${set.side}`,`${ex.snapshot.name} · ${modes[ex.snapshot.weightMode]} · ${sides[set.side]}`);
+  for(const {data:session} of sessions) for(const ex of session.exercises) for(const set of ex.sets) if(session.endedAt&&set.completed&&set.kind==='work') choices.set(`${comparableKey(ex)}|${set.side}`,`${exerciseDisplayName(ex.snapshot)} · ${modes[ex.snapshot.weightMode]} · ${sides[set.side]}`);
   const units={volume:`${props.settings.weightUnit}·повт.`,sets:'подходы',reps:'повт.', 'average-weight':props.settings.weightUnit,intensity:'% 1ПМ',minutes:'мин',distance:props.settings.distanceUnit,e1rm:props.settings.weightUnit};
   const names={volume:'Объём внешнего веса',sets:'Рабочие подходы',reps:'КПШ — рабочие повторения','average-weight':'Средний рабочий вес',intensity:'Относительная интенсивность',minutes:'Длительность',distance:'Дистанция',e1rm:'Расчётный 1ПМ'};
   const maximumKg=physisNumber(maximum,.001,10000);

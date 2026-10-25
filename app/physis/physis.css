@@ -153,6 +153,7 @@ html[data-genesis-theme] .genesis-app .physis-control-switch.physis-equal-switch
 .physis-catalog-switch { --physis-switch-width: 380px; }
 .physis-plan-switch { --physis-switch-width: 300px; }
 .physis-control-view[hidden] { display: none; }
+.physis-training-control .calendar-date-trigger::after { content: none; }
 .physis-training-control .calendar-picker-backdrop { grid-template-columns: minmax(0,1fr); }
 .physis-training-control .calendar-picker { max-width: 100%; }
 .physis-training-control .calendar-picker h2 { margin-right: 44px; }
