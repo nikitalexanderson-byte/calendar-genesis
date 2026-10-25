@@ -2099,3 +2099,33 @@ html[data-genesis-theme] .genesis-app .lunar-year-day:has(> .calendar-shared-tas
   html[data-genesis-theme] .genesis-app #calendar-period-panel .calendar-mode-calendar.mode-profane { padding:3px; }
   html[data-genesis-theme] .genesis-app #calendar-period-panel .calendar-mode-calendar.mode-profane :is(.calendar-mode-days,.calendar-mode-weekdays) { gap:1px; }
 }
+
+/* Shared section mastheads follow the Habits composition at each viewport. */
+html[data-genesis-theme] .genesis-app { --section-hero-height: 265px; }
+html[data-genesis-theme] .genesis-app :is(.habits-hero, .theokyklos-hero, .physis-hero) { box-sizing: border-box; min-height: var(--section-hero-height); border-radius: var(--ui-surface-radius, 10px); }
+html[data-genesis-theme] .genesis-app :is(.theokyklos-hero, .physis-hero) { height: var(--section-hero-height); aspect-ratio: auto; padding: 24px; box-shadow: none; }
+html[data-genesis-theme] .genesis-app .theokyklos-hero { display: flex; align-items: center; isolation: isolate; background: #07191b; }
+html[data-genesis-theme] .genesis-app .theokyklos-hero::before { display: none; }
+html[data-genesis-theme] .genesis-app .theokyklos-hero::after { inset: 11px; width: auto; height: auto; border: 1px solid #d8bd802b; border-radius: 8px; pointer-events: none; z-index: 1; }
+html[data-genesis-theme] .genesis-app .theokyklos-hero .theokyklos-hero-copy { max-width: 44%; z-index: 2; }
+html[data-genesis-theme] .genesis-app .theokyklos-hero h1 { margin: 8px 0; color: #f8f1df; font: 400 36px/1.1 "Source Serif 4", Georgia, serif; letter-spacing: -.025em; }
+html[data-genesis-theme] .genesis-app .theokyklos-hero-copy > p { max-width: 60ch; color: #c7d5ce; font: 400 14px/1.7 var(--font-ui); }
+html[data-genesis-theme] .genesis-app .section-hero-art { position: absolute; z-index: 0; inset: 0 0 0 auto; width: 70%; pointer-events: none; background-position: right center; background-size: 100% 100%, auto 100%; background-repeat: no-repeat; }
+html[data-genesis-theme] .genesis-app .section-hero-art-hermes { background-image: linear-gradient(90deg, #07191b 0%, #07191b 35%, transparent 55%), url('/oracle-art/hermes-cards-realistic.png'); }
+html[data-genesis-theme] .genesis-app .section-hero-art-olympus { background-image: linear-gradient(90deg, #07191b 0%, #07191b 20%, transparent 38%), url('/oracle-art/olympian-council-realistic.png'); }
+@media (max-width: 1023px) {
+  html[data-genesis-theme] .genesis-app { --section-hero-height: 344px; }
+  html[data-genesis-theme] .genesis-app :is(.theokyklos-hero, .physis-hero) { padding: 20px; }
+  html[data-genesis-theme] .genesis-app .theokyklos-hero .theokyklos-hero-copy { align-self: flex-start; max-width: 100%; }
+  html[data-genesis-theme] .genesis-app .section-hero-art { inset: auto 0 0 auto; width: 100%; height: 58%; background-size: 100% 100%, auto 100%; background-position: right bottom; }
+  html[data-genesis-theme] .genesis-app .section-hero-art-hermes { background-image: linear-gradient(180deg, #07191b 0%, transparent 12%), url('/oracle-art/hermes-cards-realistic.png'); }
+  html[data-genesis-theme] .genesis-app .section-hero-art-olympus { background-image: linear-gradient(180deg, #07191b 0%, transparent 12%), url('/oracle-art/olympian-council-realistic.png'); }
+}
+@media (max-width: 600px) {
+  html[data-genesis-theme] .genesis-app { --section-hero-height: 488px; }
+  html[data-genesis-theme] .genesis-app .theokyklos-hero .theokyklos-hero-copy { max-width: 100%; }
+  html[data-genesis-theme] .genesis-app .section-hero-art { inset: auto 0 0 auto; width: 150%; height: auto; aspect-ratio: 2 / 1; background-size: 100% 100%; }
+  html[data-genesis-theme] .genesis-app .section-hero-art-hermes { background-image: linear-gradient(180deg, #07191b 0%, transparent 12%), url('/oracle-art/hermes-cards-realistic.png'); }
+  html[data-genesis-theme] .genesis-app .section-hero-art-olympus { width: 130%; aspect-ratio: 1942 / 809; background-image: linear-gradient(180deg, #07191b 0%, transparent 12%), url('/oracle-art/olympian-council-realistic.png'); }
+  html[data-genesis-theme] .genesis-app .physis-hero::before { background-size: auto 66%; }
+}

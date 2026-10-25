@@ -228,9 +228,9 @@ test('starting nutrition targets apply editable goal adjustments and consistent 
 
 test('reference foods retain unknown label values and ordinary categories alongside TOP membership', () => {
   const { FOOD_REFERENCES, manualReferenceFoods, isTopFood } = calendarModule('app/physis/food-reference-domain.ts');
-  assert.equal(FOOD_REFERENCES.length, 47);
+  assert.equal(FOOD_REFERENCES.length, 48);
   const manual = manualReferenceFoods('ru');
-  assert.equal(manual.length, 8);
+  assert.equal(manual.length, 9);
   for (const { food: item } of manual) {
     assert.ok(validateNutritionRecord(newPhysisRecord('food', item)));
     assert.ok(isTopFood(item));
@@ -329,4 +329,15 @@ test('lunar nutrition decades and months use real 29/30-day lunar boundaries', (
     assert.deepEqual(nutritionPeriodRange(addCivilDays(start, 14), 'lunar', 'month', context), { start, end: addCivilDays(next, -1) });
   }
   assert.deepEqual([...lengths].sort(), [29, 30]);
+});
+
+test('apricot kernel entry follows user membership without inventing macros or a health benefit', () => {
+  const { FOOD_REFERENCES, manualReferenceFoods } = calendarModule('app/physis/food-reference-domain.ts');
+  const entry = FOOD_REFERENCES.find(item => item.id === 'apricot-kernels');
+  assert.equal(entry.top, true);
+  assert.match(entry.health[0], /цианид/);
+  assert.match(entry.limits[0], /интоксикация/);
+  const item = manualReferenceFoods('ru').find(item => item.food.provenance.id === 'reference:apricot-kernels');
+  assert.equal(item.food.compositionKnown, false);
+  assert.ok(validateNutritionRecord(newPhysisRecord('food', item.food)));
 });

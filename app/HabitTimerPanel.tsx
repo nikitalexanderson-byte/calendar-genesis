@@ -153,7 +153,7 @@ export function HabitTimerPanel({ workspace, language, calendarMode, timeFormat,
             {state.status === "paused" ? <button className="secondary-button" type="button" disabled={busy} onClick={() => execute(make("resume", session.id))}>{t("Продолжить")}</button> : null}
             {["running", "paused"].includes(state.status) ? <button className="primary-button" type="button" disabled={busy} onClick={() => execute(make("finish", session.id))}>{t("Завершить сессию")}</button> : null}
             {state.status === "finished" ? <><button className="primary-button" type="button" disabled={busy} onClick={() => execute(make("save", session.id))}>{t("Сохранить")}</button>
-              {state.allocations?.some(row => row.reason === "rule-conflict" || row.reason === "duration" && row.value > 0) ? <button className="secondary-button" type="button" disabled={busy} onClick={() => execute(make("save", session.id, { timeOnly: true }))}>{t("Сохранить только время")}</button> : null}</> : null}
+              {state.allocations?.some(row => row.reason === "rule-conflict" || row.reason === "duration" && row.value > 0) ? <button className="secondary-button" type="button" data-dialog-save-alternative="true" disabled={busy} onClick={() => execute(make("save", session.id, { timeOnly: true }))}>{t("Сохранить только время")}</button> : null}</> : null}
             <button className="secondary-button" type="button" disabled={busy} onClick={() => execute(make("discard", session.id))}>{t("Отменить сессию")}</button>
           </div> : null}
         </> : <div role="alert"><p>{t("Обнаружены разные состояния сессии. Выберите нужное.")}</p>

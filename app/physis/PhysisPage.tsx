@@ -17,6 +17,8 @@ import { PhysisMeasurements } from './measurements';
 import { PhysisTraining } from './training';
 import { PhysisNutrition } from './nutrition';
 import { PhysisPersonalProfile } from './personal-profile';
+import { HealthIcon } from './health-icons';
+import type { HealthIconName } from './health-icon-names';
 import type { NutritionProfile } from './nutrition-domain';
 import { ExerciseModelProvider } from './exercise-media';
 import { PhysisExchange, downloadPhysis } from './exchange';
@@ -27,19 +29,19 @@ type PageName = 'overview' | 'today' | 'programs' | 'control' | 'exercises' | 'd
 type KeyState = { key: CryptoKey; model: PhysisMemoryStore };
 type Props = { owner: string; language: string; calendarMode: CalendarMode; inputCalendarMode: CalendarMode; timeZone: string; settingsRequest?: number };
 type Area = 'training' | 'nutrition' | 'care' | 'monitoring';
-const GROUPS: { id: Area; title: string; pages: [PageName, string][] }[] = [
-  { id: 'training', title: 'Тренировки', pages: [['today', 'Сегодня'], ['programs', 'Мои тренировки'], ['control', 'Контроль выполнения'], ['exercises', 'Справочник упражнений']] },
-  { id: 'nutrition', title: 'Питание', pages: [['today', 'Сегодня'], ['diary', 'Мой рацион'], ['foods', 'Список продуктов']] },
-  { id: 'care', title: 'БАДы и лекарства', pages: [['overview', 'Обзор'], ['intakes', 'Контроль приема'], ['drugs', 'Справочник']] },
-  { id: 'monitoring', title: 'Мониторинг показателей', pages: [] },
+const GROUPS: { id: Area; title: string; icon: HealthIconName; pages: [PageName, string][] }[] = [
+  { id: 'training', title: 'Тренировки', icon: 'dumbbell', pages: [['today', 'Сегодня'], ['programs', 'Мои тренировки'], ['control', 'Контроль выполнения'], ['exercises', 'Справочник упражнений']] },
+  { id: 'nutrition', title: 'Питание', icon: 'apple', pages: [['today', 'Сегодня'], ['diary', 'Мой рацион'], ['foods', 'Список продуктов']] },
+  { id: 'care', title: 'БАДы и лекарства', icon: 'pill', pages: [['overview', 'Обзор'], ['intakes', 'Контроль приема'], ['drugs', 'Справочник']] },
+  { id: 'monitoring', title: 'Мониторинг показателей', icon: 'heart-pulse', pages: [] },
 ];
 
 function PhysisHero({ language, onSettings, onPersonal, status }: { language: string; onSettings?: () => void; onPersonal?: () => void; status?: string }) {
   return <header className="physis-hero">
     <div className="physis-hero-copy"><h1 id="physis-title">Фюзис</h1><p>Тренировки, дневник питания, БАДы и лекарства.</p></div>
     <div className="physis-hero-actions">
-      {onSettings ? <IconActionButton icon="gear" label={translateText('Настройки Фюзиса', language as Language)} className="physis-settings-button" aria-haspopup="dialog" onClick={onSettings} /> : null}
       {onPersonal ? <IconActionButton icon="account" label={language === 'ru' ? 'Личные данные' : 'Personal details'} className="physis-settings-button" aria-haspopup="dialog" onClick={onPersonal} /> : null}
+      {onSettings ? <IconActionButton icon="gear" label={translateText('Настройки Фюзиса', language as Language)} className="physis-settings-button" aria-haspopup="dialog" onClick={onSettings} /> : null}
       {status ? <p className="physis-status" role="status" aria-live="polite">{status}</p> : null}
     </div>
   </header>;
@@ -105,7 +107,6 @@ function UnlockedPhysis(props: Props & { keys: KeyState; vaultState: VaultState 
   const [pages, setPages] = useState<Record<Area, PageName>>({ training: 'today', nutrition: 'today', care: 'overview', monitoring: 'overview' });
   const [settingsOpen, setSettingsOpen] = useState(Boolean(props.settingsRequest));
   const [personalOpen, setPersonalOpen] = useState(false);
-  const [profileRevision, setProfileRevision] = useState(0);
   const [settingsSaved, setSettingsSaved] = useState(0);
   useEffect(() => { if (!settingsSaved) return; const timer = setTimeout(() => setSettingsSaved(0), 2300); return () => clearTimeout(timer); }, [settingsSaved]);
   const page = pages[area]; const group = GROUPS.find(item => item.id === area)!;
@@ -136,8 +137,8 @@ function UnlockedPhysis(props: Props & { keys: KeyState; vaultState: VaultState 
     downloadPhysis('physis-encrypted.json', JSON.stringify({ format: 'physis-encrypted', version: 1, owner: props.owner, exportedAt: new Date().toISOString(), vault: vaultState.vault, records }));
   };
   return <>
-    <PhysisHero language={props.language} onSettings={() => setSettingsOpen(true)} onPersonal={() => setPersonalOpen(true)} status={({ saved: 'Сохранено', saving: 'Сохраняется…', offline: 'Не сохранено — нет связи', conflict: 'Конфликт устройств', error: 'Не сохранено — ошибка' })[store.status]} />
-    <nav className="shared-projects-switch physis-area-switch" aria-label="Разделы Фюзиса">{GROUPS.map(item => <button type="button" key={item.id} aria-current={area === item.id ? 'page' : undefined} onClick={() => setArea(item.id)}>{item.title}</button>)}</nav>
+    <PhysisHero language={props.language} onSettings={() => setSettingsOpen(true)} onPersonal={() => setPersonalOpen(true)} status={({ saved: '', saving: 'Сохраняется…', offline: 'Не сохранено — нет связи', conflict: 'Конфликт устройств', error: 'Не сохранено — ошибка' })[store.status]} />
+    <nav className="shared-projects-switch physis-area-switch" aria-label="Разделы Фюзиса">{GROUPS.map(item => <button type="button" key={item.id} aria-label={translateText(item.title, props.language as Language)} aria-current={area === item.id ? 'page' : undefined} onClick={() => setArea(item.id)}><span className="physis-area-icon"><HealthIcon name={item.icon} /></span><span className="physis-area-label">{item.title}</span></button>)}</nav>
 
     {store.error ? <div role="alert" className="physis-warning"><p>{store.error}</p><div className="physis-actions"><button onClick={() => void action.run(() => model.flush())}>Повторить сохранение</button><button onClick={() => { if (confirm('Открытый файл содержит личные данные. Экспортировать локальный вариант?')) downloadPhysis('physis-unsaved.json', JSON.stringify({ format: 'physis-plain', version: 1, records: store.records })); }}>Экспортировать локальный вариант</button><button onClick={() => { if (confirm('Отменить все несохранённые изменения этой вкладки и загрузить серверный вариант?')) void action.run(async () => { await model.discardAndReload(); setEditorEpoch(value => value + 1); }); }}>Загрузить серверный вариант</button></div></div> : null}
     {action.error ? <p role="alert" className="physis-warning">{action.error}</p> : null}
@@ -155,9 +156,9 @@ function UnlockedPhysis(props: Props & { keys: KeyState; vaultState: VaultState 
     </section>
     </div>
     </Fragment>
-    {personalOpen && <PhysisPersonalProfile {...feature} onSaved={() => setProfileRevision(value => value + 1)} onClose={() => setPersonalOpen(false)} />}
+    {personalOpen && <PhysisPersonalProfile {...feature} onClose={() => setPersonalOpen(false)} />}
     <PhysisSettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} language={props.language}>
-      <PhysisSettingsForm onSaved={() => setSettingsSaved(Date.now())} key={settingsRecord?.updatedAt ?? 'general-settings'} {...feature} /><PhysisNutrition key={profileRevision} {...feature} page="settings" /><section className="physis-panel"><h2>Данные и резервные копии</h2><p>Фюзис использует ваш общий аккаунт GENESIS. Данные сохраняются в зашифрованном виде и доступны после входа на сайт. Зашифрованная копия открывается в том же аккаунте.</p><PhysisExchange store={store} exportEncrypted={exportEncrypted} /><p className="physis-muted">Удалённое содержимое убирается из активного хранилища. Журнал удалений и повторных запросов: 90 дней; минимальный реестр использованных ID сохраняется для защиты от восстановления старыми устройствами. Время удаления из резервных копий зависит от политики хранения оператора.</p></section><section className="physis-panel"><h2>Будущие подключения</h2><ul><li>Google Health API — планируется</li><li>Health Connect — планируется через отдельный Android-клиент</li><li>HealthKit — планируется через Apple-клиент</li><li>Garmin и Health Services — планируется</li></ul><p>Ни одно подключение не включено. Сейчас работают ручной учет и импорт/экспорт; данные не отправляются этим поставщикам.</p></section>
+      <PhysisSettingsForm onSaved={() => setSettingsSaved(Date.now())} key={settingsRecord?.updatedAt ?? 'general-settings'} {...feature} /><section className="physis-panel"><h2>Данные и резервные копии</h2><p>Фюзис использует ваш общий аккаунт GENESIS. Данные сохраняются в зашифрованном виде и доступны после входа на сайт. Зашифрованная копия открывается в том же аккаунте.</p><PhysisExchange store={store} exportEncrypted={exportEncrypted} /><p className="physis-muted">Удалённое содержимое убирается из активного хранилища. Журнал удалений и повторных запросов: 90 дней; минимальный реестр использованных ID сохраняется для защиты от восстановления старыми устройствами. Время удаления из резервных копий зависит от политики хранения оператора.</p></section><section className="physis-panel"><h2>Будущие подключения</h2><ul><li>Google Health API — планируется</li><li>Health Connect — планируется через отдельный Android-клиент</li><li>HealthKit — планируется через Apple-клиент</li><li>Garmin и Health Services — планируется</li></ul><p>Ни одно подключение не включено. Сейчас работают ручной учет и импорт/экспорт; данные не отправляются этим поставщикам.</p></section>
       {settingsSaved > 0 && <div className="physis-save-toast" role="status" aria-live="polite">Настройки сохранены</div>}
     </PhysisSettingsDialog>
   </>;

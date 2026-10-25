@@ -1230,6 +1230,7 @@ export function AccountPanel({ user, onOpenPhysis, guideSharedProjects = false, 
               void confirmHabitReset();
             }}
           >
+            <DialogCloseButton type="button" disabled={habitResetBusy} onClick={closeHabitReset} aria-label={translateText("Закрыть")} />
             <span className="habit-reset-mark" aria-hidden="true">!</span>
             <div className="habit-reset-copy">
               <span className="eyebrow">{user.language === "en" ? "Irreversible action" : "Необратимое действие"}</span>

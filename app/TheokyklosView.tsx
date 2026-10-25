@@ -125,9 +125,7 @@ export function TheokyklosView({ language, workspace, date, calendarMode, initia
             ? "An interactive circle of divine powers: eight directions of manifestation, the vertical axis, the sacred hearth, the Point of the Absolute, and the guardians of entry and exit."
             : "Интерактивный круг божественных сил: восемь направлений проявления, вертикальная ось, сакральный очаг, Точка Абсолюта и стражи входа и выхода."}</p>
         </div>
-        <div className="theokyklos-hero-seal" aria-hidden="true">
-          <span>Θ</span>
-        </div>
+        <div className="section-hero-art section-hero-art-olympus" aria-hidden="true" />
       </header>
 
       <div className="theokyklos-layout">

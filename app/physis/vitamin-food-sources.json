@@ -1235,5 +1235,56 @@
         "nutrientId": 1175
       }
     ]
+  },
+  "vitamin-k2": {
+    "label": [
+      "K2 — менахиноны, форма указана у продукта",
+      "K2 — menaquinones, form stated for each food"
+    ],
+    "note": [
+      "K1 и K2 — формы одного витамина. Данные K1 не заменяют измерения K2. Содержание менахинонов в сырах зависит от культуры и технологии.",
+      "K1 and K2 are forms of one vitamin. K1 values do not substitute for K2 measurements. Cheese menaquinone content depends on cultures and processing."
+    ],
+    "items": [
+      {
+        "food": [
+          "K2 / MK-4: куриная грудка, гриль",
+          "K2 / MK-4: chicken breast, rotisserie"
+        ],
+        "amount": 13,
+        "unit": "mcg",
+        "portion": [
+          "3 унции ≈ 85 г",
+          "3 oz ≈ 85 g"
+        ],
+        "source": "https://ods.od.nih.gov/factsheets/VitaminK-HealthProfessional/"
+      },
+      {
+        "food": [
+          "K2 / MK-4: чеддер",
+          "K2 / MK-4: cheddar"
+        ],
+        "amount": 4,
+        "unit": "mcg",
+        "portion": [
+          "1½ унции ≈ 43 г",
+          "1½ oz ≈ 43 g"
+        ],
+        "source": "https://ods.od.nih.gov/factsheets/VitaminK-HealthProfessional/"
+      },
+      {
+        "food": [
+          "K2 / MK-4: яйцо, вкрутую",
+          "K2 / MK-4: hard-boiled egg"
+        ],
+        "amount": 4,
+        "unit": "mcg",
+        "portion": [
+          "1 крупное яйцо",
+          "1 large egg"
+        ],
+        "source": "https://ods.od.nih.gov/factsheets/VitaminK-HealthProfessional/"
+      }
+    ]
   }
 }

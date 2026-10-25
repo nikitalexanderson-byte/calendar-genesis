@@ -72,3 +72,5 @@ html[data-genesis-theme] .genesis-app .physis .physis-food-category-nav .physis-
 @media (max-width: 480px) {
   .physis-plan-dialog table :is(th,td) { padding: 10px 6px; font-size: 13px; overflow-wrap: normal; }
 }
+
+.physis-form.physis-nutrition-settings-form { grid-template-columns: minmax(0, 1fr); }

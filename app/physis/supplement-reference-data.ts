@@ -1,3 +1,4 @@
+import { NUTRIENT_TERMS } from './nutrient-terminology';
 import type { Drug } from './care-domain.ts';
 import { CATALOG_SUPPLEMENT_REFERENCES } from './supplement-catalog-expansion.ts';
 import { ADDITIONAL_MINERAL_REFERENCES } from './mineral-reference-data';
@@ -9,6 +10,14 @@ const deficiency: ReferenceText = ['Восполнение недостаточ�
 const v = (id: string, name: ReferenceText, slug: string, group: string, substance: ReferenceText, cautions: ReferenceText, evidence: ReferenceText = deficiency): SupplementReference => ({ id, name, path: ['Витамины', group], substance, evidence, limits, cautions, sources: [ods(slug)], reviewedAt: '2026-10-25' });
 const m = (id: string, name: ReferenceText, slug: string, group: string, substance: ReferenceText, cautions: ReferenceText): SupplementReference => ({ id, name, path: ['Минералы', group], substance, evidence: deficiency, limits, cautions, sources: [ods(slug)], reviewedAt: '2026-10-25' });
 export const SUPPLEMENT_REFERENCES: SupplementReference[] = [
+  ...NUTRIENT_TERMS.map(term => ({
+    id: term.id, name: term.name, path: ['Витамины', 'Витаминоподобные'], substance: term.explanation,
+    evidence: (term.id === 'carnitine' ? ['Лечение отдельных установленных дефицитных состояний по показаниям. У здоровых людей потребность обычно покрывается собственным синтезом.', 'Treatment of specific established deficiency conditions when indicated. Healthy people usually meet their needs through endogenous synthesis.'] : ['Справочная информация о веществе и пищевых источниках. Общая рекомендация принимать добавку из этих данных не следует.', 'Reference information on the compound and food sources. These data do not establish a general recommendation to take a supplement.']) as ReferenceText,
+    limits: term.quantity,
+    cautions: (term.id === 'paba' ? ['Избыток способен вызывать нежелательные реакции; возможны взаимодействия с лекарствами. Не предназначено для самостоятельного лечения.', 'Excess can cause adverse effects; medicine interactions are possible. Not intended for self-treatment.'] : ['Пищевое содержание и физиологическая роль не доказывают пользу концентрированных добавок. Дозировки и схемы приёма здесь не назначаются.', 'Food occurrence and physiological roles do not prove benefits from concentrated supplements. No doses or schedules are assigned here.']) as ReferenceText,
+    sources: term.sources, reviewedAt: '2026-10-25',
+  })),
+  v('vitamin-k2', ['Витамин K2 — менахиноны', 'Vitamin K2 — menaquinones'], 'VitaminK', 'Жирорастворимые', ['Семейство форм витамина K, включая MK-4 и MK-7. Участвует в работе K-зависимых белков; не является отдельным четырнадцатым витамином.', 'A family of vitamin K forms including MK-4 and MK-7. Supports vitamin-K-dependent proteins; not a separate fourteenth vitamin.'], ['При приёме варфарина и других антагонистов витамина K важно постоянство потребления. Изменения добавок согласуют с врачом. Универсальное преимущество K2 не установлено.', 'Consistent intake matters with warfarin and other vitamin K antagonists. Supplement changes require clinician guidance. Universal superiority of K2 is unproven.']),
   ...CATALOG_SUPPLEMENT_REFERENCES,
   ...ADDITIONAL_MINERAL_REFERENCES,
   v('vitamin-a', ['Витамин A', 'Vitamin A'], 'VitaminA', 'Жирорастворимые', ['Ретинол и провитаминные каротиноиды участвуют в зрении и поддержании эпителия.', 'Retinol and provitamin carotenoids support vision and epithelial tissues.'], ['Избыток готового ретинола токсичен и опасен при беременности. Высокие дозы бета-каротина не подходят курящим; учитывать ретиноидные лекарства.', 'Excess preformed retinol is toxic and hazardous during pregnancy. High-dose beta-carotene is unsuitable for smokers; consider retinoid medicines.']),
