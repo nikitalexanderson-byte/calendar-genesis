@@ -4,6 +4,7 @@ import { GenesisCalendar } from "../app/GenesisCalendar";
 import { AppUrlCleaner } from "../app/AppUrlCleaner";
 import { ButtonTooltips } from "../app/ButtonTooltips";
 import { DialogDismissal } from "../app/DialogDismissal";
+import { DialogHeaderActions } from "../app/DialogHeaderActions";
 import "../app/globals.css";
 import "../app/dark-theme.css";
 import "../app/tablet-layout.css";
@@ -38,6 +39,7 @@ createRoot(root).render(
     <AppUrlCleaner />
     <ButtonTooltips />
     <DialogDismissal />
+    <DialogHeaderActions />
     <GenesisCalendar />
   </StrictMode>,
 );

@@ -1265,5 +1265,37 @@
     "links": [
       "https://www.who.int/news-room/fact-sheets/detail/healthy-diet"
     ]
+  },
+  {
+    "id": "apricot-kernels",
+    "manualId": 900009,
+    "fdcId": null,
+    "name": [
+      "Абрикосовые косточки — ядра",
+      "Apricot kernels"
+    ],
+    "aliases": [
+      "Ядра абрикосовых косточек",
+      "Абрикосовые ядра",
+      "Apricot seeds"
+    ],
+    "category": "Орехи",
+    "state": "raw",
+    "top": true,
+    "properties": [
+      "Ядра содержат жиры и белок, а также амигдалин. Количество амигдалина сильно различается; точный КБЖУ конкретного продукта здесь не подтверждён.",
+      "Kernels contain fat, protein and amygdalin. Amygdalin amounts vary greatly; exact macros for a particular product have not been verified here."
+    ],
+    "health": [
+      "Доказанная польза ядер для профилактики или лечения заболеваний не установлена. Амигдалин при расщеплении может высвобождать цианид.",
+      "A disease-prevention or treatment benefit has not been established. Amygdalin can release cyanide when broken down."
+    ],
+    "limits": [
+      "Возможна тяжёлая интоксикация цианидом. Горькие ядра особенно опасны; органическое происхождение не устраняет риск. Справочная запись не является рекомендацией употреблять ядра.",
+      "Severe cyanide poisoning is possible. Bitter kernels are especially hazardous; organic production does not remove the risk. This reference entry is not a recommendation to eat kernels."
+    ],
+    "links": [
+      "https://www.efsa.europa.eu/en/press/news/160427"
+    ]
   }
 ]

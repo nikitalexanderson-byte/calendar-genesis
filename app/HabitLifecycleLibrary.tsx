@@ -1,3 +1,4 @@
+import { DialogCloseButton } from './DialogCloseButton';
 import { useId, useState, type CSSProperties, type ReactNode } from "react";
 import { habitLifecycleState, type HabitLifecycleAction, type HabitLifecycleCommand, type HabitLifecycleStatus } from "./habit-lifecycle";
 import { habitCompletionCount } from "./habit-laurel-retention";
@@ -94,6 +95,7 @@ export function HabitLifecycleLibrary({ workspace, language, requestedDelete, on
     {filter === "archived" || filter === "deleted" ? <p>{t("Восстановление вернёт привычку на паузу. Награды и прежний штраф не изменятся.")}</p> : null}
     {pending && pendingHabit ? <div className="modal-backdrop habit-editor-backdrop">
       <section ref={dialogRef} className="habit-editor habit-lifecycle-confirm" data-exp-ui="dialog" role="dialog" aria-modal="true" aria-labelledby={`${id}-delete`} tabIndex={-1}>
+        <DialogCloseButton type="button" disabled={busy} onClick={close} aria-label={t("Закрыть")} />
         <h2 id={`${id}-delete`}>{t("Удалить привычку")}</h2><strong data-no-translate>{habitDisplayText(pendingHabit, language).title}</strong>
         <p>{habitPracticeProgress(pendingHabit, workspace.habitCompletions, habitDateKey(new Date())) ? finiteCopy.deleteNotice : t(retained ? "Рубеж 50 дней достигнут: Лавры сохранятся. История останется доступной для восстановления."
           : "Удаление до 50 уникальных дней выполнения обнуляет весь баланс Лавров. История останется доступной для восстановления.")}</p>

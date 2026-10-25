@@ -1,5 +1,6 @@
 "use client";
 
+import { DialogCloseButton } from "./DialogCloseButton";
 import { translateText } from "./i18n";
 import { useDialogAccessibility } from "./use-dialog-accessibility";
 
@@ -12,6 +13,7 @@ export function ProjectCompletionDialog({ title, onConfirm, onCancel, fileRetent
   }}>
     <div ref={dialogRef} className="project-completion-dialog" role="alertdialog" aria-modal="true"
       aria-labelledby="project-completion-title" aria-describedby="project-completion-name" tabIndex={-1}>
+      <DialogCloseButton type="button" onClick={onCancel} aria-label={translateText("Закрыть")} />
       <h2 id="project-completion-title">{translateText("Завершить этот проект?")}</h2>
       <p id="project-completion-name" data-no-translate>{title}</p>
       {fileRetentionWarning ? <p>{translateText("Файлы закрытого проекта автоматически удаляются через 30 дней. Повторное открытие проекта до истечения срока отменяет очистку.")}</p> : null}

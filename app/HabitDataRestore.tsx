@@ -124,7 +124,7 @@ export function HabitDataRestore({ workspace, language, scope, timeFormat = "24h
     <h3 id={`${id}-title`}>{t("Восстановить из JSON")}</h3>
     <p>{t("Сначала проверьте копию. До применения данные не меняются.")}</p>
     {broken ? <div className="habit-restore-damaged"><p>{t("Черновик повреждён. Сохраните его файл перед удалением.")}</p><div className="habit-data-actions">
-      <IconActionButton icon="file" label={t("Сохранить файл")} disabled={busy} onClick={() => {
+      <IconActionButton data-dialog-save-alternative="true" icon="file" label={t("Сохранить файл")} disabled={busy} onClick={() => {
         const url = URL.createObjectURL(new Blob([JSON.stringify(broken)], { type: "application/json" }));
         const link = document.createElement("a"); link.href = url; link.download = "GENESIS-restore-draft-encrypted.json"; document.body.append(link); link.click(); link.remove();
         window.setTimeout(() => URL.revokeObjectURL(url), 1000);

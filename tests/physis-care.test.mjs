@@ -216,8 +216,8 @@ test('custom clock changes use Genesis DST policy and retain an unchanged later 
 
 test('evidence library imports descriptive personal cards without inventing a dose or composition', () => {
   const { SUPPLEMENT_REFERENCES, referenceDrug } = calendarModule('app/physis/supplement-reference-data.ts');
-  assert.equal(SUPPLEMENT_REFERENCES.length, 37);
-  assert.equal(new Set(SUPPLEMENT_REFERENCES.map(entry => entry.id)).size, 37);
+  assert.equal(SUPPLEMENT_REFERENCES.length, 46);
+  assert.equal(new Set(SUPPLEMENT_REFERENCES.map(entry => entry.id)).size, 46);
   for (const reference of SUPPLEMENT_REFERENCES) {
     for (const key of ['name', 'substance', 'evidence', 'limits', 'cautions']) assert.ok(reference[key].every(text => text.trim().length > 0));
     assert.ok(reference.sources.length && reference.sources.every(url => new URL(url).protocol === 'https:'));
@@ -341,4 +341,16 @@ test('recovering an imported custom metric ID keeps it reachable when its settin
   assert.equal(definitions.length, 1);
   assert.equal(definitions[0].id, entry.customMetricId);
   assert.ok(measurementInCustomMetric(entry, definitions[0]));
+});
+
+test('user requested historical compounds are normal library cards and K2 keeps its own identity', () => {
+  const { SUPPLEMENT_REFERENCES } = calendarModule('app/physis/supplement-reference-data.ts');
+  for (const id of ['inositol','paba','carnitine','orotic-acid','pangamic-acid','lipoic-acid','polyphenols','vitamin-u','vitamin-k2']) {
+    const entry = SUPPLEMENT_REFERENCES.find(item => item.id === id);
+    assert.ok(entry, id);
+    assert.equal(entry.path[0], 'Витамины');
+    assert.ok(entry.evidence[0] && entry.sources.length);
+  }
+  assert.equal(SUPPLEMENT_REFERENCES.filter(item => item.id === 'magnesium').length, 1);
+  assert.equal(SUPPLEMENT_REFERENCES.filter(item => item.path[0] === 'Минералы').length, 15);
 });

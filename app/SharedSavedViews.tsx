@@ -270,7 +270,7 @@ export function SharedSavedViews({userId,spaces,mode,inputMode=mode,opened,onClo
         {definition.relative==="none"&&!zoneError?<div className="saved-view-dates">{([ ["dueFrom","Начало"],["dueTo","Окончание"]]as const).map(([key,label])=><label key={key}>{t(label)}<CalendarDatePicker mode={dateMode} calculationContext={inputCalendar.context} value={definition.filter[key]??""} ariaLabel={t(label)} onChange={value=>{const filter={...definition.filter};if(value)filter[key]=value;else delete filter[key];update({filter});}}/></label>)}</div>:null}
         <div className="saved-view-actions"><button type="button" className="secondary-button" disabled={busy||!online||Boolean(zoneError)} onClick={()=>{setFilter({viewDefinition:payload(effectiveDraft)});setEditor(false);setError("");}}>{t("Показать задачи")}</button>
           <button type="submit" className="primary-button" disabled={busy||!online||!canEdit||scopeChanged||Boolean(zoneError)||Boolean(draft.id&&!draft.dirty)}>{t("Сохранить")}</button>
-          {draft.id?<IconActionButton icon="copy" label={t("Сохранить как новое")} disabled={busy||!online||Boolean(zoneError)} onClick={()=>void save(true)}/>:null}
+          {draft.id?<IconActionButton data-dialog-save-alternative="true" icon="copy" label={t("Сохранить как новое")} disabled={busy||!online||Boolean(zoneError)} onClick={()=>void save(true)}/>:null}
           <IconActionButton icon="undo" label={t("Сбросить условия")} onClick={()=>{update({filter:{},relative:"none"});setDraft(previous=>({...previous,tagsInput:undefined}));}}/>
           {draft.id&&canEdit?<IconActionButton icon="delete" label={t("Удалить")} disabled={busy||!online} onClick={()=>void remove()}/>:null}
         </div>

@@ -10,3 +10,5 @@
   .physis-form.physis-personal-form { padding: 0 16px 20px; }
   .physis-personal-fields { grid-template-columns: minmax(0, 1fr); gap: 12px; }
 }
+
+.physis-personal-form > .physis-panel { min-width: 0; }

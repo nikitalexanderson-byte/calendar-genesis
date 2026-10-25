@@ -749,7 +749,7 @@ export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSec
               ? "Двадцать четыре буквенных образа и их метафизические значения."
               : "Двадцать четыре буквенных образа, карта дня и «Космический круг» — расклад девяти ликов силы."}</p>
           </div>
-          <div className="theokyklos-hero-seal" aria-hidden="true"><span>Σ</span></div>
+          <div className="section-hero-art section-hero-art-hermes" aria-hidden="true" />
         </header>
     <section
       className="stoicheion-view"

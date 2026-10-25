@@ -11,6 +11,7 @@ import "./popup-surfaces.css";
 import { AppUrlCleaner } from "./AppUrlCleaner";
 import { ButtonTooltips } from "./ButtonTooltips";
 import { DialogDismissal } from "./DialogDismissal";
+import { DialogHeaderActions } from "./DialogHeaderActions";
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
@@ -68,7 +69,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="ru">
-      <body><AppUrlCleaner /><ButtonTooltips /><DialogDismissal />{children}</body>
+      <body><AppUrlCleaner /><ButtonTooltips /><DialogDismissal /><DialogHeaderActions />{children}</body>
     </html>
   );
 }
