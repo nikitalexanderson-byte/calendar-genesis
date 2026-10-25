@@ -1,3 +1,4 @@
+import { validCustomMetrics } from './custom-metric-domain.ts';
 import { addCivilDays, calendarTimeZone, civilDayNumber, isCivilDate, momentCivilDate, resolveCalendarWallTime } from '../calendar-context.ts';
 import type { PhysisRecord, PhysisSettings, PhysisStore } from './types.ts';
 import { NUTRIENT_KEYS } from './nutrition-domain.ts';
@@ -58,6 +59,7 @@ export const METRICS = [
   ['temperature', 'Температура', '°C'], ['custom', 'Свой показатель', ''],
 ] as const;
 export type Measurement = {
+  customMetricId?: string;
   type: typeof METRICS[number][0]; label: string; value: number; secondValue: number | null; pulse: number | null;
   unit: string; timestamp: string; timeZone: string; day: string; source: string; device: string;
   context: string; intervalMinutes: number | null; arm: string; position: string; note: string;
@@ -222,6 +224,7 @@ export function validateCareRecord(record: PhysisRecord): boolean {
   }
   if (record.kind === 'measurement') {
     const m = data as Measurement;
+    if (m.customMetricId !== undefined && (m.type !== 'custom' || !text(m.customMetricId, 240) || !m.customMetricId.trim())) return false;
     return METRICS.some(([id]) => id === m.type) && text(m.label, 200) && !!m.label.trim() && number(m.value, m.type === 'temperature' || m.type === 'custom' ? -1e6 : 0, 1e9) && nullableNumber(m.secondValue) && nullableNumber(m.pulse) &&
       (m.type !== 'pressure' || number(m.value, 1, 400) && number(m.secondValue, 1, 400) && m.unit === 'mmHg') &&
       (m.type !== 'glucose' || number(m.value, 0.001, 2000) && ['mmol/L', 'mg/dL'].includes(m.unit)) &&
@@ -233,6 +236,7 @@ export function validateCareRecord(record: PhysisRecord): boolean {
   }
   if (record.kind === 'settings') {
     const s = data as PhysisSettings;
+    if (s.customMetrics !== undefined && !validCustomMetrics(s.customMetrics)) return false;
     if (s.monitoringHints !== undefined && typeof s.monitoringHints !== 'boolean') return false;
     return ['sacred', 'lunar', 'profane'].includes(s.calendarMode) && ['sacred', 'lunar', 'profane'].includes(s.inputCalendarMode) && zone(s.timeZone) &&
       ['kg', 'lb'].includes(s.weightUnit) && ['km', 'mi'].includes(s.distanceUnit) && ['kcal', 'kJ'].includes(s.energyUnit) && ['mmol/L', 'mg/dL'].includes(s.glucoseUnit) &&

@@ -137,3 +137,38 @@ body:has(.physis-settings-backdrop:not([hidden])) { overflow: hidden; }
   html[data-genesis-theme] .genesis-app .physis :is(input,select,textarea) { font-size: 16px; }
 }
 @media (prefers-reduced-motion:reduce) { .physis * { scroll-behavior: auto; transition: none; animation: none; } }
+
+/* The same opaque outline and connector used by the habits workspace. */
+.physis-section-frame { --physis-workspace-outline: color-mix(in srgb,var(--ui-accent) 45%,var(--paper)); min-width: 0; }
+.physis-section-frame > .physis-subnav { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0,1fr); gap: 8px; margin: 0; }
+.physis-section-frame > .physis-subnav > button { width: 100%; min-height: 48px; border-color: var(--physis-workspace-outline); }
+.physis-section-frame > .physis-page-content { margin-top: 24px; padding: 16px; border: 1px solid var(--physis-workspace-outline); border-radius: 10px; background: color-mix(in srgb,var(--ink) 2%,var(--paper)); }
+.physis-section-frame > .physis-page-content > .physis-panel:only-child, .physis-section-frame > .physis-page-content > .physis-training:only-child > .physis-panel:only-child { border: 0; padding: 8px; background: transparent; }
+.physis-control-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+.physis-control-heading h2 { margin: 0; }
+html[data-genesis-theme] .genesis-app .physis-control-switch { display: inline-flex; width: auto; margin: 0 0 0 auto; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 10px; }
+html[data-genesis-theme] .genesis-app .physis-control-switch > button { min-width: 110px; min-height: 44px; padding: 8px 12px; }
+.physis-control-view[hidden] { display: none; }
+.physis-food-heading { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: start; gap: 16px; padding: 20px; }
+.physis-food-heading h2 { margin-bottom: 8px; }
+.physis-food-heading p { margin: 0 0 8px; }
+.physis-food-heading .physis-muted { font-size: 13px; line-height: 1.5; margin-bottom: 0; }
+.physis-food-heading > .physis-actions { justify-content: flex-end; gap: 8px; }
+.physis-food-heading > [role=alert] { grid-column: 1 / -1; }
+.physis-save-toast { position: fixed; top: 24px; right: 24px; z-index: 1200; padding: 14px 20px; max-width: calc(100vw - 32px); border: 1px solid var(--ui-accent); border-radius: 10px; color: var(--ink); background: var(--surface); box-shadow: 0 8px 24px #07171b30; font-weight: 600; }
+@media (min-width: 761px) {
+  .physis-section-frame > .physis-subnav > button[aria-current=page] { position: relative; z-index: 1; overflow: visible; }
+  .physis-section-frame > .physis-subnav > button[aria-current=page]::after { content: ''; position: absolute; top: 100%; left: 20%; right: 20%; height: 25px; border-inline: 1px solid var(--physis-workspace-outline); background: color-mix(in srgb,var(--ink) 2%,var(--paper)); pointer-events: none; }
+  .physis-exercise-heading { align-items: flex-start; justify-content: space-between; }
+  .physis-exercise-heading h2 { margin-bottom: 0; }
+}
+@media (max-width: 760px) {
+  .physis-section-frame[data-tabs="4"] > .physis-subnav { grid-auto-flow: row; grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .physis-section-frame > .physis-subnav > button { font-size: 13px; padding: 8px; }
+  .physis-section-frame > .physis-page-content { margin-top: 20px; padding: 8px; }
+  .physis-control-heading { align-items: flex-start; }
+  .physis-control-switch { flex-shrink: 0; }
+  .physis-food-heading { grid-template-columns: minmax(0,1fr); padding: 16px; }
+  .physis-food-heading > .physis-actions { justify-content: flex-start; }
+  .physis-save-toast { top: 16px; right: 16px; }
+}
