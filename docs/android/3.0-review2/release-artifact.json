@@ -35,9 +35,22 @@
     "settingsRestored": true
   },
   "phone": {
-    "connected": false,
-    "installation": "build ready; waiting for connection",
-    "note": "Previous beta.1 physical-phone installation remains historical and is not beta.2 coverage."
+    "connected": true,
+    "verifiedOn": "2026-10-26",
+    "model": "realme RMX5000",
+    "api": 36,
+    "previousVersion": "3.0.0-beta.1/103",
+    "installedVersion": "3.0.0-beta.2/104",
+    "installation": "success; adb install -r; no uninstall or data clear",
+    "previousCertificateMatched": true,
+    "installedBaseSha256": "be2cfb724d3bcce5f011f22ae58326229066520a0ecd06072de90502f2b59075",
+    "launch": "MainActivity COLD, status ok, TotalTime 743ms",
+    "smoke": "Today, drawer, Gregorian month and account settings render; logout present, Google sign-in-required action absent; returned to Today, process alive, no current-process fatal crash",
+    "authenticationAttempted": false,
+    "userRecordsManuallyChanged": false,
+    "userSettingsManuallyChanged": false,
+    "report": "device-smoke.md",
+    "note": "Read-only navigation smoke; no fresh OAuth, token refresh or cloud roundtrip validation. Previous beta.1 smoke remains separate history."
   },
   "websiteBackendOrStableChannelChanged": false,
   "sshUsed": false

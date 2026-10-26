@@ -78,7 +78,7 @@
     "note": "Compose viewport overrides and system Dialog/IME scaling are different; system font_scale remained 1.3."
   },
   "signedWorkflow": "https://github.com/nikitalexanderson-byte/calendar-genesis/actions/runs/40335159970",
-  "phoneInstallation": "waiting for connection; beta.1 installation is historical",
+  "phoneInstallation": "PASS: realme RMX5000/API36, signed beta.1/103→beta.2/104 install-r, certificate and installed bytes verified; launch/Today/drawer/Gregorian month/account/return-to-Today, retained session UI, no current-process fatal; see device-smoke.md for limits",
   "sshUsed": false,
   "signedWorkflowConclusion": "success",
   "signedApkSha256": "be2cfb724d3bcce5f011f22ae58326229066520a0ecd06072de90502f2b59075",
