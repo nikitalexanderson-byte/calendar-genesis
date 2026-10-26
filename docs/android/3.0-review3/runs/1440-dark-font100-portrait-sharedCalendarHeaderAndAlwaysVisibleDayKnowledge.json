@@ -1,0 +1,38 @@
+{
+  "test": "sharedCalendarHeaderAndAlwaysVisibleDayKnowledge",
+  "widthDp": 1440,
+  "runId": "beta3-confirm-1440-true-1.0",
+  "dark": true,
+  "fontScale": 1,
+  "orientation": "portrait",
+  "checks": [
+    "48dp:global-calendar-switch",
+    "today:actual-date",
+    "route:drawer-Календарь-root",
+    "route:drawer-Проекты-personal-projects",
+    "route:drawer-Сакральное-root",
+    "route:drawer-Сегодня-root",
+    "today:actual-date",
+    "global-calendar:shared-across-tabs-input-independent-no-audio-permission"
+  ],
+  "screenshots": [
+    "1440-dark-font100-portrait-today-profane-art.png",
+    "1440-dark-font100-portrait-drawer-always-labels.png",
+    "1440-dark-font100-portrait-sacred-knowledge-bottom.png",
+    "1440-dark-font100-portrait-today-sacred-art.png",
+    "1440-dark-font100-portrait-today-sacred-description.png",
+    "1440-dark-font100-portrait-calendar-lunar-month.png",
+    "1440-dark-font100-portrait-calendar-lunar-year.png",
+    "1440-dark-font100-portrait-oracle-theokyklos.png",
+    "1440-dark-font100-portrait-oracle-stoicheion.png"
+  ],
+  "workspace": "internal-validation-v1",
+  "versionName": "3.0.0-beta.3",
+  "versionCode": 105,
+  "notTested": [
+    "Real Google sign-in and cloud synchronization",
+    "Shared-project role access and server operations",
+    "Physical-phone installation",
+    "Process death differs from Activity recreation"
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "versionName": "3.0.0-beta.3",
+  "versionCode": 105,
+  "appSource": "bd919b2b7ad407ab83843b6a65da79f7e4761255",
+  "debugSha256": "14c91a0050e83b80c59725a03e959f1857549b9801b0dd9e60b3a032548ade6c",
+  "unit": {
+    "tests": 837,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 8
+  },
+  "matrix": {
+    "passed": 10,
+    "total": 10,
+    "distinctMethods": 1,
+    "viewportWidthsDp": [
+      360,
+      390,
+      768,
+      1440
+    ],
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "additionalFontScaleCases": "360dp x light/dark at 1.3",
+    "runtime": "API35 emulator; Compose viewport overrides; no physical tablet claim",
+    "checkpointSource": "84e181ab3a8aac9e475930024bdd4c30cb88f669",
+    "debugSha256": "f4b056a5835801afc43b5a9e2a579a126d387fd562d481df34854b45b507a254"
+  },
+  "criticalInstrumentation": {
+    "executions": 14,
+    "distinctMethods": 14,
+    "passed": true,
+    "log": "logs/critical.log",
+    "checkpointSource": "84e181ab3a8aac9e475930024bdd4c30cb88f669",
+    "debugSha256": "f4b056a5835801afc43b5a9e2a579a126d387fd562d481df34854b45b507a254"
+  },
+  "signedWorkflow": "https://github.com/nikitalexanderson-byte/calendar-genesis/actions/runs/40364263222",
+  "signedWorkflowConclusion": "in_progress",
+  "phoneInstallation": "pending signed APK",
+  "websiteBackendOrStableChannelChanged": false,
+  "sshUsed": false,
+  "finalCheckpointInstrumentation": {
+    "successfulExecutions": 2,
+    "distinctMethods": 1,
+    "widthDp": 360,
+    "fontScale": 1.3,
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "covers": "Shared calendar/Today/month/year/Oracle flow plus missing legacy menu controls, forced labelled submenus and equal theme widths/readable Device label",
+    "evidence": "final-settings/results.json"
+  },
+  "webCompatibility": {
+    "frozenInstall": "PASS",
+    "lint": "PASS: 0 errors, 2 existing img warnings",
+    "tests": 730,
+    "failures": 0,
+    "buildBeget": "PASS"
+  },
+  "emulatorSettingsRestored": true,
+  "acrossCheckpoints": {
+    "successfulExecutions": 26,
+    "distinctMethods": 15,
+    "note": "24 at initial beta.3 source84e181ab, 2 after final settings changes at bd919b2b; not a full suite rerun of one APK"
+  },
+  "excludedWorkflow": "40361207337 cancelled after additional settings requirements, no APK delivered"
+}
