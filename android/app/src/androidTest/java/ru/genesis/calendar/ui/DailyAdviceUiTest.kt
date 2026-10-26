@@ -79,6 +79,7 @@ class DailyAdviceUiTest {
         val tags = listOf("daily-advice-favorite", "daily-advice-dislike", "daily-advice-next", "daily-advice-diary")
         val bounds = tags.map { compose.onNodeWithTag(it).assertIsDisplayed().fetchSemanticsNode().boundsInRoot }
         assertTrue(bounds.zipWithNext().all { (a,b) -> a.left < b.left && kotlin.math.abs(a.top-b.top) < 1 })
+        ru.genesis.calendar.captureNativeWindow(File(compose.activity.getExternalFilesDir(null), "review4-advice-actions.png"))
         compose.onNodeWithTag(tags[0]).performClick(); assertEquals("favorite", liked)
         compose.onNodeWithTag(tags[1]).performClick(); assertEquals("dislike", liked)
         compose.onNodeWithTag(tags[2]).performClick(); assertEquals(1, next)

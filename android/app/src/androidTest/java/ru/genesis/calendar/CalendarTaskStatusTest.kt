@@ -121,7 +121,7 @@ class CalendarTaskStatusTest {
         assertColor(date.plusDays(2), true)
         compose.onNodeWithText("Год").performClick()
         compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag("calendar-year-month-2026-09-01"))
-        compose.onNodeWithTag("calendar-year-task-done-count-9", useUnmergedTree = true).assertTextEquals("2")
+        compose.onNodeWithTag("calendar-year-task-done-count-9", useUnmergedTree = true).assertContentDescriptionEquals("Выполнено: 2")
         compose.onNodeWithTag("calendar-year-task-open-count-9", useUnmergedTree = true).assertDoesNotExist()
         capture("recurring-year")
     }
