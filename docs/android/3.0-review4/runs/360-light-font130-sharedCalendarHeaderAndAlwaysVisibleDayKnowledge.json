@@ -1,0 +1,43 @@
+{
+  "test": "sharedCalendarHeaderAndAlwaysVisibleDayKnowledge",
+  "widthDp": 360,
+  "runId": "beta4-f68b-final-360-light-font130",
+  "dark": false,
+  "fontScale": 1.3,
+  "orientation": "portrait",
+  "checks": [
+    "48dp:global-calendar-switch",
+    "today:actual-date",
+    "route:drawer-Календарь-root",
+    "route:drawer-Проекты-root",
+    "route:drawer-Настройки-appearance",
+    "48dp:appearance-light",
+    "48dp:appearance-evening",
+    "48dp:appearance-system",
+    "route:drawer-Сакральное-root",
+    "route:drawer-Сегодня-root",
+    "today:actual-date",
+    "global-calendar:shared-across-tabs-input-independent-no-audio-permission"
+  ],
+  "screenshots": [
+    "360-light-font130-portrait-today-profane-art.png",
+    "360-light-font130-portrait-drawer-always-labels.png",
+    "360-light-font130-portrait-sacred-knowledge-bottom.png",
+    "360-light-font130-portrait-today-sacred-art.png",
+    "360-light-font130-portrait-today-sacred-description.png",
+    "360-light-font130-portrait-calendar-lunar-month.png",
+    "360-light-font130-portrait-calendar-lunar-year.png",
+    "360-light-font130-portrait-appearance-without-menu-label-choice.png",
+    "360-light-font130-portrait-oracle-theokyklos.png",
+    "360-light-font130-portrait-oracle-stoicheion.png"
+  ],
+  "workspace": "internal-validation-v1",
+  "versionName": "3.0.0-beta.4",
+  "versionCode": 106,
+  "notTested": [
+    "Real Google sign-in and cloud synchronization",
+    "Shared-project role access and server operations",
+    "Physical-phone installation",
+    "Process death differs from Activity recreation"
+  ]
+}
