@@ -13,6 +13,7 @@ class GenesisLucideCoverageTest {
     }
 
     @Test fun restoreAndDeleteRemainVisuallyDistinct() {
+        assertNotEquals(genesisLucideResource("thumbs-up"), genesisLucideResource("thumbs-down"))
         assertNotEquals(genesisLucideResource(AffairsAction.DELETE.lucideName()),
             genesisLucideResource(AffairsAction.RESTORE.lucideName()))
         assertNotEquals(genesisLucideResource(AffairsAction.ARCHIVE.lucideName()),

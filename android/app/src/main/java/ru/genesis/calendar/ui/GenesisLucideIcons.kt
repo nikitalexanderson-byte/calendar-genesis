@@ -26,6 +26,7 @@ internal fun genesisLucideResource(name: String): Int = when (name.replace('_', 
     "lock-keyhole" -> R.drawable.lucide_lock_keyhole
     "pin" -> R.drawable.lucide_pin
     "star" -> R.drawable.lucide_star
+    "thumbs-up" -> R.drawable.lucide_thumbs_up
     "thumbs-down" -> R.drawable.lucide_thumbs_down
     "menu" -> R.drawable.lucide_menu
     "x" -> R.drawable.lucide_x
