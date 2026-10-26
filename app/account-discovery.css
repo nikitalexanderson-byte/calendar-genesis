@@ -70,7 +70,13 @@ html[data-genesis-theme] .genesis-app .weekday-tinted-calendar .shared-projects-
 }
 html[data-genesis-theme$="-dark"] .genesis-app .weekday-tinted-calendar .shared-projects-calendar-date[data-solar] { background: #dabb75; border-color: #f2d89c; }
 html[data-genesis-theme] .genesis-app .topbar .topbar-date { display: grid; gap: 3px; }
-html[data-genesis-theme] .genesis-app .topbar > .topbar-actions { display: flex; grid-column: 3; }
+html[data-genesis-theme] .genesis-app .topbar > .topbar-actions { display: flex; grid-column: 3; gap: 4px; padding: 4px; background: var(--paper); }
+/* A shared frame groups independent actions without giving them switcher states. */
+html[data-genesis-theme] .genesis-app .topbar-actions {
+  width: fit-content; justify-self: end; padding: 3px;
+  border: 1px solid var(--exp-border); border-radius: 10px; background: var(--surface);
+}
+html[data-genesis-theme] .genesis-app .topbar-calendar-choice > button { min-height: 44px; }
 @media (max-width: 767px) {
   html[data-genesis-theme] .genesis-app .calendar-month-title-row { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; gap: 8px; margin-block: 12px; }
   html[data-genesis-theme] .genesis-app .calendar-month-title { display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; }
@@ -123,7 +129,7 @@ html[data-genesis-theme] .genesis-app .shared-projects-guide > i {
   html[data-genesis-theme] .genesis-app .app-brand-header .topbar-calendar-choice > button > span { display: none; }
   html[data-genesis-theme] .genesis-app .app-brand-header .topbar-calendar-choice .calendar-mode-icon { display: block; }
   html[data-genesis-theme] .genesis-app .app-brand-header .topbar-calendar-choice > button[aria-pressed="true"] { background: var(--ui-accent); color: var(--ui-on-accent); }
-  html[data-genesis-theme] .genesis-app .app-brand-header .topbar-actions { display: flex; flex: 0 0 auto; flex-wrap: nowrap; align-items: center; gap: var(--header-control-gap); margin: 0; padding: 0; }
+  html[data-genesis-theme] .genesis-app .app-brand-header .topbar-actions { display: flex; flex: 0 0 auto; flex-wrap: nowrap; align-items: center; gap: 2px; margin: 0; padding: 3px; border-color: var(--line); }
   html[data-genesis-theme] .genesis-app .app-brand-header .account-chip { flex: 0 0 var(--header-control-size); width: var(--header-control-size); min-width: 0; margin: 0; padding: 0; border: 0; background: transparent; }
   html[data-genesis-theme] .genesis-app .app-brand-header .account-open > span { display: none; }
   html[data-genesis-theme] .genesis-app .app-brand-header :is(.topbar-calendar-choice, .topbar-actions) :is(button, a) > :is(svg, .ux-install-icon) { width: var(--header-icon-size); height: var(--header-icon-size); }
