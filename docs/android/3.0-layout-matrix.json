@@ -156,8 +156,8 @@
     ],
     "typography": "Standalone MaterialTheme defaults, same in both versions; current app typography is shown in root core PNG",
     "beforeVersion": "2.9.7/102, historical filenames still say 2.3.10",
-    "afterApkSha256": "b5cd0063ab92fc2baf5205fb0af9d8e71af1f9789130c2df20f2cf4eb73e88be",
-    "scope": "Gregorian component capture only; later lunar test assertion currently failed because info control was outside viewport",
+    "afterApkSha256": "b25e2d7785cefd7718cd411b1e511d76daf14f966d631d0ab812465276058447",
+    "scope": "Gregorian component comparison, same static fixture; complete three-calendar test PASS in both themes after test-only scroll correction",
     "beforeFiles": [
       "before/2.3.10-411dp-light-profane-month.png",
       "before/2.3.10-411dp-evening-profane-month.png"
@@ -165,6 +165,7 @@
     "afterFiles": [
       "after/3.0-matched-411dp-light-profane-month.png",
       "after/3.0-matched-411dp-evening-profane-month.png"
-    ]
+    ],
+    "status": "PASS (light + evening)"
   }
 }
