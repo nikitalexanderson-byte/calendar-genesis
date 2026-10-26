@@ -6998,7 +6998,7 @@ export function GenesisCalendar() {
             ) : null}
             <ViewErrorBoundary resetKey={view}>
               {view === "today" ? renderToday() : null}
-              {physisAvailable && cloudUser ? <div hidden={view !== "physis"}><Suspense fallback={<DeferredViewFallback label="Открываем Фюзис…" />}><PhysisPage key={cloudUser.uid} owner={cloudUser.uid} language={language} calendarMode={activeCalendarMode} inputCalendarMode={activeTaskCalendarMode} timeZone={deviceTimeZone} settingsRequest={physisSettingsRequest} /></Suspense></div> : view === "physis" ? <PhysisAccessNotice status={physisAccess.status} retry={physisAccess.retry} language={language} /> : null}
+              {physisAvailable && cloudUser ? <div hidden={view !== "physis"}><Suspense fallback={<DeferredViewFallback label="Открываем Фюзис…" />}><PhysisPage key={cloudUser.uid} owner={cloudUser.uid} language={language} calendarMode={activeCalendarMode} inputCalendarMode={activeTaskCalendarMode} timeZone={deviceTimeZone} weekStart={activeWeekStart} settingsRequest={physisSettingsRequest} /></Suspense></div> : view === "physis" ? <PhysisAccessNotice status={physisAccess.status} retry={physisAccess.retry} language={language} /> : null}
               {view === "calendar" || view === "year" ? <>
                 {cloudUser && sacredFeaturesEnabled ? <Suspense fallback={null}><CalendarExploreNotice key={cloudUser.uid}
                   userId={cloudUser.uid} pending={cloudUser.calendarExplorationPending === true} language={language}

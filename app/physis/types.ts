@@ -24,7 +24,7 @@ export type PhysisSettings = {
   customMetrics?: CustomMetricDefinition[];
 };
 export type PhysisFeatureProps = {
-  store: PhysisStore; settings: PhysisSettings; context: CalendarContext; language: string;
+  store: PhysisStore; settings: PhysisSettings; context: CalendarContext; language: string; weekStart?: 'sunday' | 'monday';
 };
 export function physisRecords<T>(store: Pick<PhysisStore, 'records'>, kind: PhysisKind): PhysisRecord<T>[] {
   return store.records.filter(record => record.kind === kind) as PhysisRecord<T>[];

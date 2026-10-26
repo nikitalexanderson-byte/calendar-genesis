@@ -2102,6 +2102,35 @@ html[data-genesis-theme] .genesis-app .lunar-year-day:has(> .calendar-shared-tas
   html[data-genesis-theme] .genesis-app #calendar-period-panel .calendar-mode-calendar.mode-profane :is(.calendar-mode-days,.calendar-mode-weekdays) { gap:1px; }
 }
 
+/* Mobile month counters float over their corners instead of reserving cell space. */
+@media (max-width: 760px) {
+  html[data-genesis-theme] .genesis-app #calendar-period-panel .month-calendar:not(.calendar-mode-calendar) .calendar-day:has(> .calendar-day-task-control) { min-height: 0; padding: 8px 3px; }
+  html[data-genesis-theme] .genesis-app #calendar-period-panel .month-calendar:not(.calendar-mode-calendar) .calendar-day { overflow: visible; }
+  html[data-genesis-theme] .genesis-app #calendar-period-panel .month-calendar:is(:not(.calendar-mode-calendar), .mode-lunar) .calendar-day > .calendar-day-task-control { inset: -8px -8px auto auto; width: 44px; min-height: 44px; margin: 0; gap: 0; }
+  html[data-genesis-theme] .genesis-app #calendar-period-panel .month-calendar:is(:not(.calendar-mode-calendar), .mode-lunar) .calendar-day > .calendar-shared-task-control { inset: auto -8px -8px auto; }
+  html[data-genesis-theme] .genesis-app #calendar-period-panel .month-calendar:not(.calendar-mode-calendar) :is(.calendar-day-task-count, .calendar-shared-task-count) { position: relative; isolation: isolate; flex-basis: 44px; width: 44px; min-width: 44px; height: 44px; min-height: 44px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: #fff; font-size: 11px; }
+  html[data-genesis-theme] .genesis-app #calendar-period-panel .month-calendar:not(.calendar-mode-calendar) .calendar-shared-task-count { color: var(--shared-task-ink); }
+  html[data-genesis-theme] .genesis-app #calendar-period-panel .month-calendar:not(.calendar-mode-calendar) :is(.calendar-day-task-count, .calendar-shared-task-count)::before { content: ''; position: absolute; z-index: -1; inset: 8px; border: 1px solid var(--surface); border-radius: inherit; background: var(--terracotta); }
+  html[data-genesis-theme] .genesis-app #calendar-period-panel .month-calendar:not(.calendar-mode-calendar) .calendar-shared-task-count::before { background: var(--shared-task-color); }
+  html[data-genesis-theme] .genesis-app #calendar-period-panel .month-calendar:not(.calendar-mode-calendar) :is(.calendar-day-task-count, .calendar-shared-task-count):is(:hover, :focus-visible, [aria-expanded="true"])::before { inset: 0; }
+  html[data-genesis-theme] .genesis-app #calendar-period-panel .month-calendar:not(.calendar-mode-calendar) .calendar-day:is(:hover, :focus-within) { z-index: 26; }
+  html[data-genesis-theme] .genesis-app #calendar-period-panel .month-calendar.mode-lunar .calendar-day,
+  html[data-genesis-theme] .genesis-app #calendar-period-panel .month-calendar.mode-lunar .calendar-day:has(> .calendar-day-task-control) { box-sizing: border-box; height: 184px; min-height: 184px; padding: 12px 10px 32px; overflow: visible; }
+
+  /* A fixed three-row Gregorian cell: date, unchanged symbols, task indicators. */
+  html[data-genesis-theme] .genesis-app #calendar-period-panel .month-calendar.mode-profane .calendar-day,
+  html[data-genesis-theme] .genesis-app #calendar-period-panel .month-calendar.mode-profane .calendar-day:has(> .calendar-day-task-control) { box-sizing: border-box; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: 24px 24px 44px; align-content: start; justify-items: center; height: 110px; min-height: 110px; gap: 2px 0; padding: 6px 2px; }
+  html[data-genesis-theme] .genesis-app #calendar-period-panel .month-calendar.mode-profane .calendar-mode-primary { grid-area: 1 / 1 / 2 / -1; }
+  html[data-genesis-theme] .genesis-app #calendar-period-panel .month-calendar.mode-profane .profane-weekday-patron { grid-area: 2 / 1; align-self: center; width: auto; padding: 0; margin: 0; border: 0; }
+  html[data-genesis-theme] .genesis-app #calendar-period-panel .month-calendar.mode-profane .calendar-cross-date.lunar-date { grid-area: 2 / 2; position: static; align-self: center; }
+  html[data-genesis-theme] .genesis-app #calendar-period-panel .month-calendar.mode-profane .calendar-day > .calendar-day-task-control { position: static; grid-area: 3 / 2; align-self: center; justify-self: stretch; width: 100%; min-width: 0; min-height: 44px; gap: 0; margin: 0; }
+  html[data-genesis-theme] .genesis-app #calendar-period-panel .month-calendar.mode-profane .calendar-day > .calendar-shared-task-control { grid-area: 3 / 1; }
+  html[data-genesis-theme] .genesis-app #calendar-period-panel .month-calendar.mode-profane :is(.calendar-day-task-count, .calendar-shared-task-count) { position: static; flex: 0 0 auto; width: 100%; min-width: 0; height: 44px; min-height: 44px; padding: 0; border-radius: 6px; font-size: 11px; }
+}
+
+/* The account/settings title and close control scroll with the form. */
+.account-panel > :is([data-dialog-header-host], [data-dialog-header-wrapper]) { position: static; top: auto; }
+
 /* Shared section mastheads follow the Habits composition at each viewport. */
 html[data-genesis-theme] .genesis-app { --section-hero-height: 265px; --section-hero-shade: linear-gradient(105deg, #051618d6, #0d2a29ad 56%, #071a1985); }
 html[data-genesis-theme] .genesis-app :is(.habits-hero, .theokyklos-hero, .physis-hero) { box-sizing: border-box; min-height: var(--section-hero-height); border-radius: var(--ui-surface-radius, 10px); }

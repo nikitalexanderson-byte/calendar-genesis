@@ -226,7 +226,7 @@ test('starting nutrition targets apply editable goal adjustments and consistent 
 });
 
 
-test('reference foods retain unknown label values and ordinary categories alongside TOP membership', () => {
+test('reference foods use sourced labels while retaining unknown nutrients and ordinary categories', () => {
   const { FOOD_REFERENCES, manualReferenceFoods, isTopFood } = calendarModule('app/physis/food-reference-domain.ts');
   assert.equal(FOOD_REFERENCES.length, 48);
   const manual = manualReferenceFoods('ru');
@@ -236,7 +236,11 @@ test('reference foods retain unknown label values and ordinary categories alongs
     assert.ok(isTopFood(item));
     assert.notEqual(item.category, 'ТОП СУПЕРФУДОВ');
     assert.equal(item.compositionKnown, false);
-    assert.ok(Object.values(item.nutrients).every(n => n.value === null && n.quality === 'unknown'));
+    assert.equal(item.provenance.provider, 'label');
+    assert.ok(item.nutrients.energy.value > 0);
+    assert.ok(item.nutrients.protein.value >= 0);
+    assert.ok(Object.values(item.nutrients).some(n => n.value === null && n.quality === 'unknown'));
+    assert.ok(Object.values(item.nutrients).every(n => n.basis === '100g' && n.source === item.provenance.source));
   }
   const label = { ...food(), collections: ['superfoods'], category: 'Фрукты' };
   assert.ok(validateNutritionRecord(newPhysisRecord('food', label)));
@@ -331,7 +335,7 @@ test('lunar nutrition decades and months use real 29/30-day lunar boundaries', (
   assert.deepEqual([...lengths].sort(), [29, 30]);
 });
 
-test('apricot kernel entry follows user membership without inventing macros or a health benefit', () => {
+test('apricot kernel label keeps safety text and does not invent a health benefit', () => {
   const { FOOD_REFERENCES, manualReferenceFoods } = calendarModule('app/physis/food-reference-domain.ts');
   const entry = FOOD_REFERENCES.find(item => item.id === 'apricot-kernels');
   assert.equal(entry.top, true);
@@ -339,5 +343,28 @@ test('apricot kernel entry follows user membership without inventing macros or a
   assert.match(entry.limits[0], /интоксикация/);
   const item = manualReferenceFoods('ru').find(item => item.food.provenance.id === 'reference:apricot-kernels');
   assert.equal(item.food.compositionKnown, false);
+  assert.equal(item.food.nutrients.energy.value, 612);
+  assert.equal(item.food.nutrients.protein.value, 25);
+  assert.equal(item.food.nutrients.vitaminB12.value, null);
   assert.ok(validateNutritionRecord(newPhysisRecord('food', item.food)));
+});
+
+test('TOP food labels normalize serving grams once and never copy absent nutrients as zero', () => {
+  const { FOOD_REFERENCES, manualReferenceFoods } = calendarModule('app/physis/food-reference-domain.ts');
+  assert.equal(new Set(FOOD_REFERENCES.map(entry=>entry.id)).size,48);
+  const records=manualReferenceFoods('ru');
+  assert.equal(new Set(records.map(item=>item.id)).size,9);
+  const find=id=>records.find(item=>item.food.provenance.id===`reference:${id}`).food;
+  assert.equal(find('brewers-yeast').nutrients.energy.value,375);
+  assert.equal(find('brewers-yeast').nutrients.protein.value,43.75);
+  assert.equal(find('brewers-yeast').nutrients.folate.value,null);
+  assert.equal(find('psyllium-food').nutrients.fiber.value,70);
+  assert.equal(find('psyllium-food').nutrients.protein.quality,'zero');
+  assert.equal(find('uryuk').nutrients.fat.value,null);
+  assert.equal(find('cod-liver').nutrients.vitaminD.value,null);
+  for(const {food:item} of records){
+    assert.ok(item.provenance.source.startsWith('https://'));
+    assert.ok(item.brand);
+    assert.ok(item.nutrients.energy.value>0);
+  }
 });

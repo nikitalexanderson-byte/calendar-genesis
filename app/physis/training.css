@@ -66,8 +66,27 @@
 .physis-training-schedule-preview li { padding-block: .3rem; overflow-wrap: anywhere; }
 .physis-training-progress { padding-block: 1rem; }
 .physis-training-progress p { margin-block: .4rem; }
-.physis-training-month { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: .4rem; margin-block: 1rem; }
-.physis-training-month > button { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; text-align: start; gap: .25rem; min-height: 90px; padding: .55rem; overflow-wrap: anywhere; font-size: .9rem; }
+.physis-training-month-layout { display: grid; gap: 8px; margin-block: 16px; min-width: 0; }
+.physis-training-calendar-group { min-width: 0; }
+.physis-training-calendar-group > h4 { margin: 12px 0 8px; font-size: 14px; }
+.physis-training-month { display: grid; grid-template-columns: repeat(var(--training-columns, 7), minmax(0, 1fr)); grid-auto-rows: 84px; gap: 6px; }
+.physis-training-weekdays { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; text-align: center; font-size: 12px; color: var(--ink-soft); }
+.physis-training-calendar-day { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 64px; align-items: center; height: 84px; min-width: 0; padding: 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.physis-training-calendar-day.is-selected { color: var(--ui-on-accent); background: var(--ui-accent); }
+html[data-genesis-theme] .genesis-app .physis-training-calendar-date { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; border-radius: inherit; background: transparent; color: inherit; }
+.physis-training-calendar-day > time { position: relative; pointer-events: none; font-size: 16px; }
+html[data-genesis-theme] .genesis-app .physis-training-day-card { position: relative; display: flex; align-items: center; justify-content: center; gap: 6px; width: 64px; min-width: 0; height: 44px; min-height: 44px; padding: 4px; color: var(--ink); border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
+.physis-training-day-card > svg { flex: 0 0 20px; width: 20px; height: 20px; }
+.physis-training-day-card > strong { font-size: 12px; }
+.physis-training-calendar-toolbar { display: flex; align-items: center; flex-wrap: nowrap; gap: 8px; min-width: 0; }
+.physis-training-calendar-toolbar > label { display: flex; align-items: center; flex: 1 1 260px; gap: 12px; min-width: 0; }
+.physis-training-calendar-toolbar > label > span { flex: 0 0 auto; font-size: 12px; }
+.physis-training-calendar-toolbar > label > :is(.calendar-date-trigger, input) { flex: 1 1 auto; min-width: 0; width: 100%; }
+.physis-training-calendar-toolbar .calendar-date-trigger { min-width: 0; min-height: 44px; padding: 8px; }
+.physis-training-calendar-toolbar .calendar-date-trigger > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.physis-training-calendar-toolbar > h3 { flex: 0 1 auto; margin: 0; font-size: 20px; white-space: nowrap; }
+.physis-training-calendar-toolbar > .icon-action-button { flex: 0 0 44px; }
+.physis-training-day-dialog .physis-training-day-log { margin-top: 0; border: 0; padding-top: 0; }
 .physis-training-month time { font-weight: 600; }
 .physis-training-day-status { font-size: .78rem; line-height: 1.4; }
 .physis-training-day-log { margin-top: 1.5rem; border-top: 1px solid var(--ui-border, #a9a18e); padding-top: 1rem; }
@@ -77,6 +96,11 @@
 .physis-training ::selection, .physis-training-session ::selection { background: var(--ui-accent, #21634d); color: var(--ui-on-accent, #fff); }
 .physis-training :focus-visible, .physis-training-session :focus-visible { outline: 2px solid var(--ui-accent, #21634d); outline-offset: 3px; }
 .physis-training :is(input, textarea), .physis-training-session :is(input, textarea) { caret-color: var(--ui-accent, #21634d); }
+@media (max-width: 1023px) {
+  .physis-training-calendar-day { grid-template-columns: minmax(0, 1fr); grid-template-rows: 20px 44px; justify-items: end; gap: 4px; padding: 6px 2px; }
+  .physis-training-calendar-day > time { justify-self: start; font-size: 13px; }
+  html[data-genesis-theme] .genesis-app .physis-training-day-card { width: 44px; max-width: 100%; gap: 2px; }
+}
 @media (max-width: 767px) {
   .physis-program-heading { flex-direction: column; align-items: stretch; }
   .physis-program-create { width: 100%; }
@@ -89,7 +113,10 @@
   .physis-cycle-table thead { display: none; }
   .physis-cycle-table tr { padding-block: 16px; border-bottom: 1px solid var(--line); }
   .physis-cycle-table th, .physis-cycle-table td { border: 0; padding: 6px 0; white-space: normal; }
-  .physis-training-month { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .physis-training-month { gap: 4px; }
+  .physis-training-calendar-toolbar { gap: 4px; }
+  .physis-training-calendar-toolbar > label { flex-basis: 90px; }
+  .physis-training-calendar-toolbar > label > span, .physis-training-calendar-toolbar > h3 { display: none; }
   .physis-training-editor { padding: .75rem; }
   .physis-training-set-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .physis-training-primary-actions { display: flex; flex-wrap: wrap; }

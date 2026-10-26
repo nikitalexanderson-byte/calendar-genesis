@@ -9,8 +9,32 @@ const types = calendarModule('app/physis/types.ts');
 const c = calendarModule('app/calendar-context.ts');
 const calendar = calendarModule('app/calendar-data.ts');
 const planning = calendarModule('app/physis/training-planning-domain.ts');
+const calendarLayout = calendarModule('app/physis/training-calendar-layout.ts');
 const record = (kind, data) => types.newPhysisRecord(kind, data);
 const clone = value => structuredClone(value);
+
+test('workout months preserve six quintas, actual lunar decades and Sunday/Monday Gregorian alignment', () => {
+  const context = c.calendarContext({timeZone:'Europe/Moscow'});
+  const sacred = calendarLayout.trainingCalendarLayout('2026-10-26','sacred',context);
+  assert.equal(sacred.groups.length,6);
+  assert.ok(sacred.groups.every(group=>group.cells.length===5));
+  assert.deepEqual(sacred.groups.flatMap(group=>group.cells.map(cell=>cell.number)),Array.from({length:30},(_,i)=>i+1));
+  const lunar = calendarLayout.trainingCalendarLayout('2026-10-26','lunar',context);
+  assert.equal(lunar.groups.length,3);
+  assert.equal(lunar.groups[0].cells.length,10);assert.equal(lunar.groups[1].cells.length,10);
+  assert.ok([9,10].includes(lunar.groups[2].cells.length));
+  const actual=lunar.groups.flatMap(group=>group.cells);
+  assert.equal(actual.at(-1).date,lunar.range.end);assert.equal(actual[0].date,lunar.range.start);
+  for(const [weekStart,leading] of [['sunday',4],['monday',3]]){
+    const grid=calendarLayout.trainingCalendarLayout('2026-10-26','profane',context,weekStart);
+    assert.equal(grid.columns,7);assert.equal(grid.groups[0].cells.length%7,0);
+    assert.ok(grid.groups[0].cells.slice(0,leading).every(cell=>cell===null));
+    assert.equal(grid.groups[0].cells[leading].date,'2026-10-01');
+    assert.equal(grid.groups[0].cells.filter(Boolean).length,31);
+  }
+  const leap=calendarLayout.trainingCalendarLayout('2024-02-15','profane',context,'monday');
+  assert.equal(leap.groups[0].cells.filter(Boolean).at(-1).date,'2024-02-29');
+});
 function program48() {
   const p = t.newProgram('Контрольный цикл');
   const micro = t.newMicrocycle(8);

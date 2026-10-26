@@ -40,6 +40,9 @@
 }
 
 .physis-diary-heading .physis-actions { gap: 8px; }
+.physis-nutrition[data-page=diary] #physis-nutrition-day::after { content: none; }
+.physis-meal-dialog .physis-settings-content > .physis-panel { padding: 0; border: 0; background: transparent; }
+.physis-meal-dialog .physis-settings-content > .physis-panel > h3 { display: none; }
 .physis-diary-heading .physis-actions > input { width: auto; flex: 1 1 160px; }
 .physis-diary-heading > label { max-width: 24rem; margin-top: 16px; }
 @media (min-width: 1024px) {
