@@ -4,6 +4,7 @@ import android.app.TimePickerDialog
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -12,6 +13,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import java.time.LocalTime
 import kotlinx.coroutines.delay
@@ -144,10 +148,21 @@ internal fun eveningSurfaceTone(color: Color): Color {
             Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Цветовая схема", style = MaterialTheme.typography.titleMedium)
             Text("Тёмная схема использует мягкие оттенки и приглушённые акценты.", style = MaterialTheme.typography.bodySmall)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("light" to "Светлая", "evening" to "Тёмная", "system" to "Как на устройстве").forEach { (mode, label) ->
-                    FilterChip(appearance.mode == mode, { save(appearance.copy(mode = mode)) }, label = { Text(label) },
-                        modifier = Modifier.testTag("appearance-$mode").heightIn(min = 48.dp))
+            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).selectableGroup(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf("light" to "Светлая", "evening" to "Тёмная", "system" to "Устройство").forEach { (mode, label) ->
+                    val chosen = appearance.mode == mode
+                    OutlinedButton(onClick = { save(appearance.copy(mode = mode)) },
+                        modifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = 48.dp)
+                            .testTag("appearance-$mode").semantics { selected = chosen },
+                        shape = AffairsLayout.controlShape,
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 10.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = if (chosen) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                            contentColor = if (chosen) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface),
+                        border = BorderStroke(1.dp, if (chosen) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)) {
+                        Text(label, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center, maxLines = 1)
+                    }
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

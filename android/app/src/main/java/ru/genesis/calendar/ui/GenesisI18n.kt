@@ -246,6 +246,7 @@ private val nativeCopy = mapOf(
     "Действия привычки" to "Habit actions",
     "Удалить правило" to "Delete rule",
     "Цветовая схема" to "Color scheme",
+    "Устройство" to "Device",
     "Тёмная" to "Dark",
     "Настройки привычек" to "Habit settings",
     "Тёмная схема использует мягкие оттенки и приглушённые акценты." to "The dark scheme uses soft colors and muted accents.",

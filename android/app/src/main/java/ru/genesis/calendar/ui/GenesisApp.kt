@@ -151,9 +151,11 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     val sacredFeaturesEnabled = authState.accountSettings?.uiVisibility?.sacredFeaturesEnabled != false
     val visibleCalendarChoices = authState.accountSettings?.uiVisibility?.visibleCalendars ?: setOf("profane", "lunar")
     val fallbackCalendar = CalendarMode.entries.firstOrNull { it.wireValue in visibleCalendarChoices } ?: CalendarMode.PROFANE
-    val prefs = if (sacredFeaturesEnabled) savedPrefs else savedPrefs.copy(
+    // Retain legacy stored values for compatibility; the Android workspace has one menu layout.
+    val prefs = (if (sacredFeaturesEnabled) savedPrefs else savedPrefs.copy(
         display = savedPrefs.display.takeIf { it.wireValue in visibleCalendarChoices } ?: fallbackCalendar,
-        input = savedPrefs.input.takeIf { it.wireValue in visibleCalendarChoices } ?: fallbackCalendar)
+        input = savedPrefs.input.takeIf { it.wireValue in visibleCalendarChoices } ?: fallbackCalendar))
+        .copy(navigationLabels = true, settingsSubmenuEnabled = true)
     val pendingPreferences by prefsStore.pending.collectAsStateWithLifecycle(emptyMap())
     val pendingWrites by remember(app, activeScope) {
         app.database.dao().observeOutbox(activeScope).map { it.size }
@@ -1442,7 +1444,7 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sectionId:
         when (section.id) {
         "appearance" -> {
         AppearancePanel(app, workspace, prefs.use24, prefs.theme, { onSet("theme", it) }) {
-            MenuDisplaySettings(prefs, onSetLocal) {
+            MenuDisplaySettings {
                 MenuVisibilitySettings(prefs, accountSettings, sharedProjectsEnabled,
                 visibility, onSetVisibility, menuVisibilityExpanded,
                 onMenuVisibilityExpanded)
@@ -1774,34 +1776,8 @@ private fun CalendarTimeSettings(prefs: UiPreferences,
 }
 
 @Composable
-private fun MenuDisplaySettings(prefs: UiPreferences, onSetLocal: (String, String) -> Unit,
-    visibilityContent: @Composable ColumnScope.() -> Unit) {
+private fun MenuDisplaySettings(visibilityContent: @Composable ColumnScope.() -> Unit) {
     SettingsSubsection("Отображение меню") {
-            Text("Подписи бокового меню", style = MaterialTheme.typography.titleSmall)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = !prefs.navigationLabels,
-                    onClick = { onSetLocal("navigationLabels", "icons") },
-                    modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("navigation-icons-only"),
-                    leadingIcon = { GenesisVectorIcon(GenesisPageIcon.TODAY, Modifier.size(20.dp)) },
-                    label = { Text("Иконки") })
-                FilterChip(selected = prefs.navigationLabels,
-                    onClick = { onSetLocal("navigationLabels", "text") },
-                    modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("navigation-with-text"),
-                    label = { Text("С текстом") })
-            }
-            Text("Подменю настроек", style = MaterialTheme.typography.titleSmall)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = prefs.settingsSubmenuEnabled,
-                    onClick = { onSetLocal("settingsSubmenuEnabled", "true") },
-                    modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-                        .testTag("settings-layout-submenu"),
-                    label = { Text("Подменю") })
-                FilterChip(selected = !prefs.settingsSubmenuEnabled,
-                    onClick = { onSetLocal("settingsSubmenuEnabled", "false") },
-                    modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-                        .testTag("settings-layout-sequential"),
-                    label = { Text("Блоки подряд") })
-            }
             Text("Основные разделы открываются кнопкой меню. Смахивания внутри календаря переключают период, а внутри карты перемещают полотно.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)

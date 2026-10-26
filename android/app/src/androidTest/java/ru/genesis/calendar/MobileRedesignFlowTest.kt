@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -287,6 +288,29 @@ class MobileRedesignFlowTest {
         waitMode(CalendarMode.PROFANE)
         navigate(personalRoute)
         compose.onNode(switchTag(CalendarMode.PROFANE), useUnmergedTree = true).assertIsDisplayed()
+        runBlocking {
+            prefs.set("navigationLabels", "icons")
+            prefs.set("settingsSubmenuEnabled", "false")
+        }
+        navigate(Route("Настройки", "appearance", "Оформление"))
+        compose.onNodeWithTag("settings-layout-submenu").assertDoesNotExist()
+        compose.onNodeWithTag("settings-layout-sequential").assertDoesNotExist()
+        compose.onNodeWithTag("settings-section-reminders").assertDoesNotExist()
+        compose.onNodeWithTag("navigation-icons-only").assertDoesNotExist()
+        compose.onNodeWithTag("navigation-with-text").assertDoesNotExist()
+        compose.onNodeWithTag("appearance-system").performScrollTo()
+        val themeBounds = listOf("light", "evening", "system").map {
+            checkTarget("appearance-$it")
+            compose.onNodeWithTag("appearance-$it").fetchSemanticsNode().boundsInRoot
+        }
+        assertTrue("Three theme choices must share one row", themeBounds.maxOf { it.top } - themeBounds.minOf { it.top } <= 1f)
+        assertTrue("Theme choices must have equal widths", themeBounds.maxOf { it.width } - themeBounds.minOf { it.width } <= 1f)
+        val deviceText = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+        compose.onNode(hasText("Устройство") and hasAnyAncestor(hasTestTag("appearance-system")), useUnmergedTree = true)
+            .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(deviceText) }
+        assertTrue(deviceText.isNotEmpty())
+        assertTrue("Device label must stay readable on one line", deviceText.all { it.lineCount == 1 && !it.hasVisualOverflow })
+        capture("appearance-without-menu-label-choice")
         navigate(Route("Сакральное", "theokyklos", "Оракул"))
         compose.onNodeWithTag("sacred-submenu").assertIsDisplayed()
         capture("oracle-theokyklos")
