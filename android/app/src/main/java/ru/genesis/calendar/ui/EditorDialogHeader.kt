@@ -22,14 +22,7 @@ internal fun EditorDialogHeader(title: String, closeTag: String, onClose: () -> 
         Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
         IconButton(onClick = onClose, modifier = Modifier.size(48.dp).testTag(closeTag)
             .semantics { contentDescription = closeLabel }) {
-            val ink = LocalContentColor.current
-            Canvas(Modifier.size(22.dp)) {
-                val inset = size.width * .23f
-                drawLine(ink, Offset(inset, inset), Offset(size.width - inset, size.height - inset),
-                    strokeWidth = 2.dp.toPx(), cap = StrokeCap.Round)
-                drawLine(ink, Offset(size.width - inset, inset), Offset(inset, size.height - inset),
-                    strokeWidth = 2.dp.toPx(), cap = StrokeCap.Round)
-            }
+            GenesisLucideIcon("x", Modifier.size(22.dp))
         }
     }
 }

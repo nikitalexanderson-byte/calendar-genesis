@@ -124,43 +124,19 @@ internal fun <T : Any> CalendarPeriodPager(period: T, previousPeriod: T?, nextPe
 
 @Composable
 internal fun CalendarPeriodNavigation(title: String, year: Boolean,
-    onPrevious: () -> Unit, onNext: () -> Unit) {
+    onPrevious: () -> Unit, onNext: () -> Unit, onToday: (() -> Unit)? = null) {
     val colors = MaterialTheme.colorScheme
     val english = LocalGenesisLanguage.current == "en"
-    Column(Modifier.fillMaxWidth().testTag(if (year) "calendar-year-navigation" else "calendar-month-navigation")
-        .background(Brush.verticalGradient(listOf(colors.primaryContainer, colors.surfaceContainerLow)))
-        .padding(horizontal = 8.dp, vertical = 10.dp)) {
-        Row(Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(Modifier.fillMaxWidth().testTag(if (year) "calendar-year-navigation" else "calendar-month-navigation")
+        .background(colors.surface).padding(horizontal = 4.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         PeriodArrow(-1, if (year) "year" else "month", onPrevious)
-        Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(if (english) { if (year) "YEAR" else "MONTH" } else if (year) "ГОД" else "МЕСЯЦ",
-                color = colors.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
-            Text(title, Modifier.testTag(if (year) "calendar-year-period" else "calendar-month-period"),
-                color = colors.onSurface, style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
-        }
+        Text(title, Modifier.weight(1f).testTag(if (year) "calendar-year-period" else "calendar-month-period"),
+            color = colors.onSurface, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
+        if (onToday != null) TextButton(onClick = onToday,
+            modifier = Modifier.heightIn(min = 48.dp).testTag(if (year) "calendar-year-today" else "calendar-month-today"),
+            contentPadding = PaddingValues(horizontal = 8.dp)) { Text("Сегодня") }
         PeriodArrow(1, if (year) "year" else "month", onNext)
-        }
-        Row(Modifier.fillMaxWidth().padding(top = 5.dp)
-            .testTag(if (year) "calendar-year-swipe-hint" else "calendar-month-swipe-hint"),
-            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-            val ink = colors.onSurfaceVariant
-            Canvas(Modifier.size(28.dp).padding(end = 6.dp)) {
-                val middle = size.height / 2
-                drawLine(ink, Offset(2.dp.toPx(), middle), Offset(size.width - 2.dp.toPx(), middle), 1.dp.toPx(), StrokeCap.Round)
-                for (side in listOf(-1, 1)) {
-                    val tip = if (side < 0) 2.dp.toPx() else size.width - 2.dp.toPx()
-                    val tail = tip - side * 4.dp.toPx()
-                    drawLine(ink, Offset(tail, middle - 3.dp.toPx()), Offset(tip, middle), 1.dp.toPx(), StrokeCap.Round)
-                    drawLine(ink, Offset(tip, middle), Offset(tail, middle + 3.dp.toPx()), 1.dp.toPx(), StrokeCap.Round)
-                }
-            }
-            Text(if (LocalCalendarPeriodSwipeEnabled.current) {
-                if (english) "Swipe left or right" else "Смахните влево или вправо"
-            } else if (english) "Use the arrows" else "Переключайте стрелками",
-                style = MaterialTheme.typography.labelSmall, color = ink)
-        }
     }
 }
 
@@ -177,13 +153,8 @@ private fun PeriodArrow(direction: Int, period: String, onClick: () -> Unit) {
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = .35f))) {
         IconButton(onClick, Modifier.size(48.dp).testTag("calendar-$period-${if (direction < 0) "previous" else "next"}")
             .semantics { contentDescription = label }, interactionSource = interaction) {
-            val density = LocalDensity.current
-            Canvas(Modifier.size(24.dp).offset { IntOffset(with(density) { shift.dp.roundToPx() }, 0) }) {
-                val tip = size.width * if (direction < 0) .32f else .68f
-                val tail = size.width * if (direction < 0) .66f else .34f
-                drawLine(ink, Offset(tail, size.height * .24f), Offset(tip, size.height * .5f), 2.dp.toPx(), StrokeCap.Round)
-                drawLine(ink, Offset(tip, size.height * .5f), Offset(tail, size.height * .76f), 2.dp.toPx(), StrokeCap.Round)
-            }
+            GenesisLucideIcon(if (direction < 0) "chevron-left" else "chevron-right",
+                Modifier.size(24.dp), tint = ink)
         }
     }
 }

@@ -208,35 +208,56 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
             footer = if (current != null && current.settings.feedback.gamificationWidgets) {{
                 val rank=HeroProgress.rankForProgress(current.progress)
                 val goal=current.goals.firstOrNull { it.date==today }
+                var progressExpanded by rememberSaveable { mutableStateOf(false) }
+                Column(Modifier.testTag("habit-daily-hero"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(if (goal == null || goal.scheduledCount == 0) "Свободный день" else
+                            "Сегодня · ${goal.completedCount} из ${goal.scheduledCount}",
+                            Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                        val progressLabel = genesisTranslate("Прогресс")
+                        IconButton(onClick = { progressExpanded = !progressExpanded },
+                            modifier = Modifier.size(48.dp).testTag("habit-progress-toggle")
+                                .semantics { contentDescription = progressLabel }) {
+                            GenesisLucideIcon(if (progressExpanded) "chevron-up" else "chart-no-axes-column",
+                                tint = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                    if (goal != null && goal.scheduledCount > 0) LinearProgressIndicator(
+                        progress = { (goal.completedCount.toFloat() / goal.scheduledCount).coerceIn(0f, 1f) },
+                        modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant)
+                    if (progressExpanded) {
                 Column(Modifier.testTag("habit-daily-hero"),verticalArrangement=Arrangement.spacedBy(12.dp)) {
                     HorizontalDivider(color=Color(0xff46645e))
-                    Text("ЕЖЕДНЕВНЫЙ РИТМ",style=MaterialTheme.typography.labelMedium,color=Color(0xffdfc17e))
+                    Text("ЕЖЕДНЕВНЫЙ РИТМ",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.secondary)
                     Text(if(goal==null || goal.scheduledCount==0) "Свободный день" else
                         "Сегодня · ${goal.completedCount} из ${goal.scheduledCount}",
-                        style=MaterialTheme.typography.headlineSmall,color=Color(0xfff8f3e8))
+                        style=MaterialTheme.typography.headlineSmall,color=MaterialTheme.colorScheme.onSurface)
                     Text(if(goal==null || goal.scheduledCount==0)
                         "На сегодня нет запланированных привычек. Серия не изменится."
                         else "Дневная цель: ${goal.targetCount} · ${if(goal.status=="achieved") "достигнута" else "впереди"}",
-                        style=MaterialTheme.typography.bodyMedium,color=Color(0xffd8e7df))
+                        style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
                     if(goal!=null && goal.scheduledCount>0) LinearProgressIndicator(
                         progress={ (goal.completedCount.toFloat()/goal.scheduledCount).coerceIn(0f,1f) },
-                        modifier=Modifier.fillMaxWidth(),color=Color(0xffdfc17e),trackColor=Color(0xff46645e))
+                        modifier=Modifier.fillMaxWidth(),color=MaterialTheme.colorScheme.secondary,trackColor=Color(0xff46645e))
                     if (!experimental) {
                         HorizontalDivider(color=Color(0xff46645e))
                         Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
                             heroRankThumbnailPath(rank)?.let { OriginalImage(it,rank.title,
                                 Modifier.size(56.dp)) }
                             Column(verticalArrangement=Arrangement.spacedBy(2.dp)) {
-                                Text("Путь Героя · ${rank.title}",style=MaterialTheme.typography.titleMedium,color=Color(0xfff8f3e8))
+                                Text("Путь Героя · ${rank.title}",style=MaterialTheme.typography.titleMedium,color=MaterialTheme.colorScheme.onSurface)
                                 Text("✦ ${current.progress.lifetimeXp} XP  ·  🔥 ${current.progress.currentStreak} дн.",
-                                    style=MaterialTheme.typography.bodySmall,color=Color(0xffd8e7df))
+                                    style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                         Text("Ритм ${current.progress.rhythmScore}%  ·  🌿 ${current.progress.laurelsBalance} лавров",
-                            style=MaterialTheme.typography.labelMedium,color=Color(0xffdfc17e))
+                            style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.secondary)
                     }
                 }
-            }} else null)
+                    }
+                }
+            }} else null, compact = LocalFixedSubmenu.current)
         error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
         current?.habits?.filter { HabitRuleHistory.state(it,LocalDate.MAX).conflicts.isNotEmpty() }?.forEach { habit ->
             Text("Правила изменены на нескольких устройствах. Выберите действующий вариант.",color=MaterialTheme.colorScheme.error)
@@ -338,21 +359,21 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                     label = "hero-path-icon-scale")
                 val iconGlow = rememberIconPhase("hero-path-card-glow", 3_800, motionEnabled)
                 Surface(Modifier.fillMaxWidth().testTag("habit-hero-path-section"),
-                    shape = RoundedCornerShape(22.dp), color = Color(0xff0b2b2d),
+                    shape = AffairsLayout.shape, color = Color(0xff0b2b2d),
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x99dfc17e)),
                     shadowElevation = 8.dp) {
-                    Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
-                        Row(Modifier.fillMaxWidth().clickable(role = Role.Button,
+                    Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                        Row(Modifier.fillMaxWidth().heightIn(min=48.dp).clickable(role = Role.Button,
                             onClickLabel = if (heroPathOpen) "Свернуть путь и награды" else "Открыть путь и награды") {
                                 heroPathOpen = !heroPathOpen
                             }.testTag("habit-hero-path-heading"),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Surface(Modifier.size(68.dp).graphicsLayer {
+                            Surface(Modifier.size(if(heroPathOpen) 68.dp else 40.dp).graphicsLayer {
                                 val pulse = if (motionEnabled) kotlin.math.sin(iconGlow * 2f * Math.PI).toFloat() else 0f
                                 scaleX = iconScale + pulse * .025f
                                 scaleY = iconScale + pulse * .025f
-                            }, shape = RoundedCornerShape(18.dp),
+                            }, shape = AffairsLayout.shape,
                                 color = Color(0xff163d3a),
                                 border = androidx.compose.foundation.BorderStroke(1.dp,
                                     Color(0xffdfc17e).copy(alpha = .45f + iconGlow * .3f))) {
@@ -360,13 +381,13 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                                     Modifier.fillMaxSize().genesisDescription("Путь героя"))
                             }
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                Text("Путь Героя и награды",style=MaterialTheme.typography.titleLarge,
+                                Text("Путь Героя и награды",style=MaterialTheme.typography.titleMedium,
                                     color = Color(0xfffff6e2))
-                                Text("Древо рангов, награды и полная статистика привычек. Накопленный XP не тратится.",
+                                if(heroPathOpen) Text("Древо рангов, награды и полная статистика привычек. Накопленный XP не тратится.",
                                     style=MaterialTheme.typography.bodySmall,color=Color(0xffc8d9d4))
                             }
                         }
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if(heroPathOpen) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             listOf(
                                 Triple("XP",current.progress.lifetimeXp.toString(),"✦"),
                                 Triple("Серия","${current.progress.currentStreak} дн.","🔥"),
@@ -384,7 +405,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                                 }
                             }
                         }
-                        HabitsFeatureActionButton(
+                        if(heroPathOpen) HabitsFeatureActionButton(
                             label=if(heroPathOpen) "Свернуть путь" else "Открыть путь и награды",
                             onClick={heroPathOpen=!heroPathOpen},
                             containerColor=Color(0xffdfc17e), contentColor=Color(0xff0b2b2d),
@@ -480,40 +501,31 @@ private fun ExperimentalHabitCard(habit: Habit, entry: HabitCompletion?, schedul
     }
     val cardModifier = if (animate) Modifier.fillMaxWidth().animateContentSize()
         else Modifier.fillMaxWidth()
-    Card(cardModifier.testTag("habit-card-${habit.id}"), shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xfff8f3e8))) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    var detailsOpen by rememberSaveable(habit.id) { mutableStateOf(false) }
+    Card(cardModifier.testTag("habit-card-${habit.id}"), shape = AffairsLayout.shape,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Surface(Modifier.size(48.dp), shape = RoundedCornerShape(14.dp), color = Color(0xff123b36)) {
+                Surface(Modifier.size(40.dp), shape = AffairsLayout.shape, color = MaterialTheme.colorScheme.primaryContainer) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text(habit.emoji, style = MaterialTheme.typography.headlineSmall, color = Color(0xfff8f3e8))
+                        Text(habit.emoji, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onPrimaryContainer)
                     }
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    androidx.compose.material3.Text(habitDisplayTitle(habit), style = MaterialTheme.typography.titleMedium, color = eveningInk(Color(0xff132426)))
+                    androidx.compose.material3.Text(habitDisplayTitle(habit), style = MaterialTheme.typography.titleMedium)
                     Text(status, style = MaterialTheme.typography.labelMedium,
-                        color = if (habit.active && scheduled) Color(0xff255b59) else Color(0xff596665))
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+                HabitCardActions(habit,!disabled,scheduled,onEdit,onToggle,onArchive,onTimer,onDelete)
             }
-            if (habit.description.isNotEmpty()) Text(habit.description,
-                style = MaterialTheme.typography.bodyMedium, color = Color(0xff344747))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Surface(Modifier.weight(1f), shape = RoundedCornerShape(12.dp), color = Color(0xffe4ded0)) {
-                    Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text("РАСПИСАНИЕ", style = MaterialTheme.typography.labelSmall, color = Color(0xff596665))
-                        Text(calendar, style = MaterialTheme.typography.bodySmall, color = Color(0xff132426))
-                    }
-                }
-                Surface(Modifier.weight(1f), shape = RoundedCornerShape(12.dp), color = Color(0xffd7e3dd)) {
-                    Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text("ПРИОРИТЕТ", style = MaterialTheme.typography.labelSmall, color = Color(0xff45605e))
-                        Text("${habit.priority} из 10", style = MaterialTheme.typography.bodySmall, color = Color(0xff132426))
-                    }
-                }
+            if (detailsOpen) {
+                if (habit.description.isNotEmpty()) Text(habit.description, style = MaterialTheme.typography.bodyMedium)
+                Text(calendar + " · " + genesisTranslate("Приоритет") + ": ${habit.priority}/10",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp),
-                color = if (entry?.completed == true) Color(0xffcfe1d8) else Color(0xffeee7d8)) {
-                Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            Surface(Modifier.fillMaxWidth(), shape = AffairsLayout.shape,
+                color = if (entry?.completed == true) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface) {
+                Column(Modifier.padding(vertical = 2.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     if (habit.scoringMode.startsWith("quality") && scheduled && !measured) {
                         var quality by remember(habit.id, entry?.qualityValue) {
@@ -540,8 +552,10 @@ private fun ExperimentalHabitCard(habit: Habit, entry: HabitCompletion?, schedul
                 }
             }
             HabitIntervalMarks(habit,entry,scheduled&&!disabled,onIntervalComplete)
-            HorizontalDivider(color = Color(0xffd5cab4))
-            HabitCardActions(habit,!disabled,scheduled,onEdit,onToggle,onArchive,onTimer,onDelete)
+            TextButton(onClick = { detailsOpen = !detailsOpen }, modifier = Modifier.heightIn(min = 48.dp).testTag("habit-details-${habit.id}")) {
+                Text(if (detailsOpen) "Свернуть" else "Подробнее")
+                AffairsActionIcon(if (detailsOpen) AffairsAction.COLLAPSE else AffairsAction.EXPAND)
+            }
         }
     }
 }

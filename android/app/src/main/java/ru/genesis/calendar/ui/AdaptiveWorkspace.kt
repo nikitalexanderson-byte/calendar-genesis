@@ -29,7 +29,7 @@ import androidx.compose.ui.unit.dp
             Column(Modifier.weight(1.15f).fillMaxHeight().verticalScroll(rememberScrollState())) { tasks() }
         } else LazyColumn(Modifier.fillMaxSize().testTag("today-list"),
             contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            item { header() }; item { rhythm() }; item { tasks() }
+            item { header() }; item { tasks() }; item { rhythm() }
         }
     }
 }

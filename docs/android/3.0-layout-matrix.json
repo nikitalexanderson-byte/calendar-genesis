@@ -1,0 +1,170 @@
+{
+  "apkSha256": "b5cd0063ab92fc2baf5205fb0af9d8e71af1f9789130c2df20f2cf4eb73e88be",
+  "device": "emulator-5580/API35",
+  "method": "MobileRedesignFlowTest#drawerRoutesDismissalTargetsAndSnapshots",
+  "widthMethod": "Compose LocalDensity and LocalConfiguration in dp; no physical tablet claim",
+  "cases": [
+    {
+      "width": 360,
+      "dark": false,
+      "fontScale": 1.0,
+      "landscape": false,
+      "status": "PASS",
+      "error": ""
+    },
+    {
+      "width": 360,
+      "dark": true,
+      "fontScale": 1.0,
+      "landscape": false,
+      "status": "PASS",
+      "error": ""
+    },
+    {
+      "width": 390,
+      "dark": false,
+      "fontScale": 1.0,
+      "landscape": false,
+      "status": "PASS",
+      "error": ""
+    },
+    {
+      "width": 390,
+      "dark": true,
+      "fontScale": 1.0,
+      "landscape": false,
+      "status": "PASS",
+      "error": ""
+    },
+    {
+      "width": 411,
+      "dark": false,
+      "fontScale": 1.0,
+      "landscape": false,
+      "status": "PASS",
+      "error": ""
+    },
+    {
+      "width": 411,
+      "dark": true,
+      "fontScale": 1.0,
+      "landscape": false,
+      "status": "PASS",
+      "error": ""
+    },
+    {
+      "width": 412,
+      "dark": false,
+      "fontScale": 1.0,
+      "landscape": false,
+      "status": "PASS",
+      "error": ""
+    },
+    {
+      "width": 412,
+      "dark": true,
+      "fontScale": 1.0,
+      "landscape": false,
+      "status": "PASS",
+      "error": ""
+    },
+    {
+      "width": 768,
+      "dark": false,
+      "fontScale": 1.0,
+      "landscape": false,
+      "status": "PASS",
+      "error": ""
+    },
+    {
+      "width": 768,
+      "dark": true,
+      "fontScale": 1.0,
+      "landscape": false,
+      "status": "PASS",
+      "error": ""
+    },
+    {
+      "width": 1440,
+      "dark": false,
+      "fontScale": 1.0,
+      "landscape": false,
+      "status": "PASS",
+      "error": ""
+    },
+    {
+      "width": 1440,
+      "dark": true,
+      "fontScale": 1.0,
+      "landscape": false,
+      "status": "PASS",
+      "error": ""
+    },
+    {
+      "width": 412,
+      "dark": false,
+      "fontScale": 1.3,
+      "landscape": false,
+      "status": "PASS",
+      "error": ""
+    },
+    {
+      "width": 768,
+      "dark": false,
+      "fontScale": 1.0,
+      "landscape": true,
+      "status": "PASS",
+      "error": ""
+    },
+    {
+      "width": 412,
+      "dark": true,
+      "fontScale": 1.3,
+      "landscape": false,
+      "status": "PASS",
+      "error": ""
+    },
+    {
+      "width": 768,
+      "dark": true,
+      "fontScale": 1.0,
+      "landscape": true,
+      "status": "PASS",
+      "error": ""
+    }
+  ],
+  "latest411Recheck": {
+    "apkSha256": "b25e2d7785cefd7718cd411b1e511d76daf14f966d631d0ab812465276058447",
+    "lightRunId": "bcc032ef72fe452098c8196c397e3702",
+    "darkRunId": "0f7bee2a86eb4446b772c2df6b4f2e32",
+    "lightFlowTests": 3,
+    "darkDrawerTests": 1,
+    "status": "PASS",
+    "coreSourceUnchangedSinceMatrix": true
+  },
+  "componentComparison": {
+    "fixture": "EveningAndMonthFlowTest#monthCardsKeepPlanetsClearAndSelectedDayStartsAtItsHero",
+    "date": "2026-09-28",
+    "widthDp": 411,
+    "tasks": [
+      "layout-open",
+      "layout-done"
+    ],
+    "themes": [
+      "light",
+      "evening"
+    ],
+    "typography": "Standalone MaterialTheme defaults, same in both versions; current app typography is shown in root core PNG",
+    "beforeVersion": "2.9.7/102, historical filenames still say 2.3.10",
+    "afterApkSha256": "b5cd0063ab92fc2baf5205fb0af9d8e71af1f9789130c2df20f2cf4eb73e88be",
+    "scope": "Gregorian component capture only; later lunar test assertion currently failed because info control was outside viewport",
+    "beforeFiles": [
+      "before/2.3.10-411dp-light-profane-month.png",
+      "before/2.3.10-411dp-evening-profane-month.png"
+    ],
+    "afterFiles": [
+      "after/3.0-matched-411dp-light-profane-month.png",
+      "after/3.0-matched-411dp-evening-profane-month.png"
+    ]
+  }
+}

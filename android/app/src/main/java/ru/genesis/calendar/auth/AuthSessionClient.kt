@@ -19,6 +19,9 @@ internal open class AuthFailure(val kind: Kind, val httpStatus: Int? = null) : E
 internal class AuthApiError(val code: String) : Exception(code)
 
 internal fun allowedSharedRoute(method: String, path: String): Boolean {
+    if (allowedSharedMindmapRoute(method, path)) return true
+    if (MessagingProtocol.allowedRoute(method, path)) return true
+    if (allowedSharedTaskExtensionRoute(method, path)) return true
     if (path.matches(Regex("/shared/views(?:\\?cursor=[A-Za-z0-9%+_.~*-]+)?"))) return method == "GET" || path == "/shared/views" && method == "POST"
     if (path.matches(Regex("/shared/views/[a-f0-9-]{36}"))) return method in setOf("GET", "PATCH", "DELETE")
     if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/custom-fields"))) return method == "PUT"
@@ -187,6 +190,12 @@ internal class AuthSessionClient(context: Context) {
     fun workspace(expected: Long): JSONObject = request(expected, "/workspace", null)
     fun habitReminderStatus(expected: Long): JSONObject = request(expected, "/habit-reminders/status", null)
     fun mindmaps(expected: Long, path:String, body:JSONObject?=null):JSONObject = request(expected,path,body,method=if(body==null)"GET" else "PUT")
+    fun diary(expected: Long, path: String, body: JSONObject? = null): JSONObject {
+        val method = if (body == null) "GET" else "PUT"
+        require(DiaryProtocol.allowedRoute(method, path))
+        return request(expected, path, body, method = method)
+    }
+
     fun putWorkspace(expected: Long, envelope: JSONObject): JSONObject =
         request(expected, "/workspace", envelope, method = "PUT")
     fun bootstrap(expected: Long): JSONObject = request(expected, "/bootstrap", null)
@@ -512,6 +521,10 @@ internal class AuthSessionClient(context: Context) {
     fun addSharedComment(expected: Long, projectId: String, taskId: String, body: JSONObject): JSONObject =
         request(expected, "/shared/projects/$projectId/tasks/$taskId/comments", body)
     fun adminStats(expected: Long): JSONObject = request(expected, "/admin/stats", null)
+    fun adminExtension(expected: Long, method: String, path: String, body: JSONObject?): JSONObject {
+        require(allowedAdminExtensionRoute(method, path))
+        return request(expected, path, body, method = method)
+    }
     fun recordFeatureUsage(expected: Long, features: List<String>): JSONObject =
         request(expected, "/feature-usage", JSONObject().put("platform", "android")
             .put("features", JSONArray(features)))
@@ -546,6 +559,73 @@ internal class AuthSessionClient(context: Context) {
         request(expected, "/auth/logout", JSONObject(), old, persist = false)
     }
 
+    fun sharedTaskExtension(expected: Long, method: String, path: String, body: JSONObject? = null): JSONObject {
+        require(allowedSharedTaskExtensionRoute(method, path))
+        return request(expected, path, body, method = method)
+    }
+
+    fun assistant(expected: Long, body: JSONObject? = null): JSONObject =
+        request(expected, if (body == null) "/assistant/status" else "/assistant/plan", body)
+
+    fun messaging(expected: Long, method: String, path: String, body: JSONObject?): JSONObject {
+        require(MessagingProtocol.allowedRoute(method, path))
+        return request(expected, path, body, method = method)
+    }
+
+    fun sharedMindmapDocument(expected: Long, space: String, path: String, body: JSONObject?, method: String): JSONObject =
+        request(expected, SharedMindmapProtocol.route(space, path, method), body, method = method)
+
+    /** Authenticated binary download; metadata URLs never leave the native session. */
+    fun sharedTaskFile(expected: Long, task: String, file: String): ByteArray {
+        val path = "/shared/tasks/${SharedTaskLifecycleProtocol.id(task)}/attachments/${SharedTaskLifecycleProtocol.id(file)}"
+        require(allowedSharedTaskExtensionRoute("GET", path))
+        val current = load(expected)
+        if (current.cookie.isBlank()) throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
+        val connection = URL("$AUTH_ORIGIN/api$path").openConnection() as HttpsURLConnection
+        synchronized(guard) { check(expected); connections += connection }
+        try {
+            connection.instanceFollowRedirects = false
+            connection.connectTimeout = 15_000
+            connection.readTimeout = 30_000
+            connection.useCaches = false
+            connection.requestMethod = "GET"
+            connection.setRequestProperty("Accept", "application/octet-stream")
+            connection.setRequestProperty("Cache-Control", "no-store")
+            connection.setRequestProperty("Cookie", "$SESSION_COOKIE=${current.cookie}")
+            connection.setRequestProperty("X-Genesis-App-Version", BuildConfig.VERSION_NAME)
+            synchronized(guard) { check(expected) }
+            val status = connection.responseCode
+            if (status != 200) throw AuthFailure(when (status) {
+                401, 403 -> AuthFailure.Kind.UNAUTHORIZED
+                404, 405 -> AuthFailure.Kind.NOT_DEPLOYED
+                429 -> AuthFailure.Kind.RATE_LIMIT
+                in 300..399 -> AuthFailure.Kind.PROTOCOL
+                else -> AuthFailure.Kind.SERVER
+            }, status)
+            if (connection.contentLengthLong > SharedTaskFilesProtocol.limit) throw AuthFailure(AuthFailure.Kind.PROTOCOL)
+            val output = ByteArrayOutputStream()
+            connection.inputStream.use { input ->
+                val buffer = ByteArray(8192)
+                while (true) {
+                    synchronized(guard) { check(expected) }
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    if (output.size() + count > SharedTaskFilesProtocol.limit) throw AuthFailure(AuthFailure.Kind.PROTOCOL)
+                    output.write(buffer, 0, count)
+                }
+            }
+            synchronized(guard) { check(expected) }
+            if (output.size() == 0) throw AuthFailure(AuthFailure.Kind.PROTOCOL)
+            return output.toByteArray()
+        } catch (error: CancellationException) { throw error
+        } catch (error: AuthFailure) { throw error
+        } catch (_: java.io.IOException) { throw AuthFailure(AuthFailure.Kind.NETWORK)
+        } finally {
+            synchronized(guard) { connections -= connection }
+            connection.disconnect()
+        }
+    }
+
     /** Blocking; the controller always calls on Dispatchers.IO. Default platform TLS verification. */
     private fun request(expected: Long, path: String, body: JSONObject?, secret: SessionSecret? = null,
         persist: Boolean = true, method: String = if (body == null) "GET" else "POST",
@@ -562,7 +642,7 @@ internal class AuthSessionClient(context: Context) {
             (method in setOf("PUT", "DELETE") && path.matches(Regex("/tasks/[A-Za-z0-9_-]{1,100}"))) ||
             (method == "DELETE" && path.matches(Regex("/admin/users/[A-Za-z0-9_-]{1,100}"))) ||
             (method == "DELETE" && path.matches(Regex("/account/google-accounts/[A-Za-z0-9_-]{1,100}"))) ||
-            (method in setOf("GET","PUT") && path.matches(Regex("/mindmaps(?:/[A-Za-z0-9_-]{1,100}(?:/history)?)?"))) || allowedSharedRoute(method, path))
+            (method in setOf("GET","PUT") && path.matches(Regex("/mindmaps(?:/[A-Za-z0-9_-]{1,100}(?:/history)?)?"))) || DiaryProtocol.allowedRoute(method, path) || allowedAssistantRoute(method, path) || allowedAdminExtensionRoute(method, path) || allowedSharedRoute(method, path))
         require(method in setOf("GET", "POST", "PUT", "PATCH", "DELETE") && (method == "GET") == (body == null))
         val current = secret ?: load(expected)
         if (body != null && (current.cookie.isBlank() || current.csrf.isBlank())) throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
@@ -572,7 +652,7 @@ internal class AuthSessionClient(context: Context) {
         try {
             connection.instanceFollowRedirects = false
             connection.connectTimeout = 15_000
-            connection.readTimeout = if (path == "/bootstrap" || path.startsWith("/shared/data/") || path.startsWith("/shared/reports") || path.startsWith("/shared/") && path.contains("/templates")) 120_000 else 30_000
+            connection.readTimeout = if (path == "/bootstrap" || path == "/assistant/plan" || path.startsWith("/shared/data/") || path.startsWith("/shared/reports") || path.startsWith("/shared/") && path.contains("/templates")) 120_000 else 30_000
             connection.useCaches = false
             connection.requestMethod = method
             connection.setRequestProperty("Accept", "application/json")
@@ -598,6 +678,22 @@ internal class AuthSessionClient(context: Context) {
             phase = "status"
             val status = connection.responseCode
             if (status !in 200..299) {
+                if (allowedAdminExtensionRoute(method, path) && status in 400..499 && status !in setOf(401, 403, 404, 405, 429)) {
+                    val failure = runCatching {
+                        val output = ByteArrayOutputStream()
+                        connection.errorStream?.use { input ->
+                            val buffer = ByteArray(1024)
+                            while (output.size() < 8192) {
+                                val count = input.read(buffer, 0, minOf(buffer.size, 8192 - output.size()))
+                                if (count < 0) break
+                                output.write(buffer, 0, count)
+                            }
+                        }
+                        val code = JSONObject(output.toString(Charsets.UTF_8.name())).optString("error")
+                        if (code == "SUBSCRIPTION_STATUS_CONFLICT") AuthApiError(code) else null
+                    }.getOrNull()
+                    if (failure != null) throw failure
+                }
                 if (path.startsWith("/shared/") && status in 400..499 && status !in setOf(401, 403, 404, 405, 429) && !path.contains("/planning") && !path.contains("/invitations")) {
                     val failure = runCatching {
                         val output = ByteArrayOutputStream()
@@ -620,6 +716,7 @@ internal class AuthSessionClient(context: Context) {
                             path.endsWith("/project-access") && code in ProjectAccessProtocol.errors ||
                             (path.startsWith("/shared/bulk") || path.startsWith("/shared/views/options")) && SharedBulkProtocol.errorCode(code) ||
                             path.contains("/automations") && SharedAutomationProtocol.errorCode(code)) AuthApiError(code)
+                        else if ((path.startsWith("/shared/private-conversations/") || path == "/shared/messaging/key") && code in MessagingProtocol.errors) AuthApiError(code)
                         else if (path.startsWith("/shared/projects/") && path.contains("/tasks") && code in sharedTaskDetailErrors) AuthApiError(code)
                         else customFieldFailure(status, payload) ?: workflowFailure(status, payload)
                     }.getOrNull()
@@ -669,7 +766,9 @@ internal class AuthSessionClient(context: Context) {
                         "/workspace" -> 11_000_000
                         "/bootstrap" -> 24_000_000
                         "/admin/stats" -> 4_000_000
-                        else -> if (path.startsWith("/shared/")) 32_000_000 else if (path.startsWith("/ads/today?")) 4_000_000 else 131_072
+                        "/admin/ads" -> 32_000_000
+                        "/assistant/plan" -> 1_000_000
+                        else -> if (path.startsWith("/shared/")) 32_000_000 else if (path.startsWith("/ads/today?")) 4_000_000 else if (path.startsWith("/admin/ads/")) 1_000_000 else 131_072
                     }
                     if (output.size() + read > maximumBytes) throw AuthFailure(AuthFailure.Kind.PROTOCOL)
                     output.write(buffer, 0, read)

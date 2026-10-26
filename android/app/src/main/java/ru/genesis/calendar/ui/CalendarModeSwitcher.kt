@@ -1,10 +1,7 @@
 package ru.genesis.calendar.ui
 
+import android.animation.ValueAnimator
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -66,9 +63,9 @@ internal fun CalendarModeSwitcher(mode: CalendarMode, onNext: () -> Unit,
     if (!LocalSacredFeaturesEnabled.current) return
     val scope = rememberCoroutineScope()
     val click = remember { Animatable(0f) }
-    var running by remember { mutableStateOf(false) }
-    val ambient by rememberInfiniteTransition(label = "calendar-icon-ambient").animateFloat(
-        0f, 1f, infiniteRepeatable(tween(4600), RepeatMode.Reverse), label = "calendar-icon-glow")
+    val ambientPhase = rememberIconPhase("calendar-icon-ambient", 4600)
+    val ambient = ((1 - cos(ambientPhase * PI * 2)) / 2).toFloat()
+    var animationJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
     val name = genesisTranslate(when (mode) {
         CalendarMode.PROFANE -> "Григорианский"
         CalendarMode.SACRED -> "Сакральный"
@@ -77,24 +74,24 @@ internal fun CalendarModeSwitcher(mode: CalendarMode, onNext: () -> Unit,
     val clickHint = genesisTranslate("Нажмите на иконку, чтобы сменить календарь")
     val gold = Color(0xffdfc17e)
     LaunchedEffect(animationTrigger) {
-        if (animationTrigger > 0) {
+        if (animationTrigger > 0 && ValueAnimator.areAnimatorsEnabled()) {
             click.snapTo(0f)
-            click.animateTo(1f, tween(if (mode == CalendarMode.LUNAR) 1050 else 760))
-        }
+            click.animateTo(1f, tween(240))
+        } else click.snapTo(0f)
     }
-    val iconModifier = modifier.size(size).testTag("calendar-mode-icon-${mode.wireValue}")
+    val iconModifier = modifier.size(maxOf(48.dp, size)).testTag("calendar-mode-icon-${mode.wireValue}")
         .let { if (interactive) it.semantics { contentDescription = "$name. $clickHint" }
             else it }
     Surface(modifier = if (interactive) iconModifier.clickable {
-        if (!running) scope.launch {
-            running = true
+        // Navigation happens now; decorative feedback never gates another tap.
+        onNext()
+        animationJob?.cancel()
+        animationJob = scope.launch {
             click.snapTo(0f)
-            click.animateTo(1f, tween(if (mode == CalendarMode.LUNAR) 1050 else 760))
-            onNext()
-            running = false
+            if (ValueAnimator.areAnimatorsEnabled()) click.animateTo(1f, tween(240))
         }
     } else iconModifier,
-        shape = RoundedCornerShape(17.dp), color = Color(0xff173b38),
+        shape = RoundedCornerShape(10.dp), color = Color(0xff173b38),
         border = BorderStroke(1.dp, gold.copy(alpha = .42f + ambient * .24f))) {
         Canvas(Modifier.padding(7.dp)) {
             val center = Offset(this.size.width / 2f, this.size.height / 2f)

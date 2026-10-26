@@ -82,7 +82,7 @@ fun WelcomeScreen(state: AuthPanelState, controller: AuthController, language: S
                 OriginalImage("icons/icon-192.png", "GENESIS", Modifier.size(44.dp))
                 Text("GENESIS", Modifier.padding(start = 10.dp),
                     color = welcomeCream,
-                    style = MaterialTheme.typography.titleLarge.copy(fontFamily = FontFamily.Serif))
+                    style = MaterialTheme.typography.titleLarge.copy(fontFamily = GenesisHeadingFont))
             }
             Text("Выбор языка", color = welcomeMuted, style = MaterialTheme.typography.labelMedium)
             LanguageChips(language, dark = true, flagsOnly = true, onLanguage = onLanguage)
@@ -94,12 +94,12 @@ fun WelcomeScreen(state: AuthPanelState, controller: AuthController, language: S
                     color = welcomeGold, style = MaterialTheme.typography.labelMedium)
                 Text("GENESIS", color = welcomeCream,
                     style = MaterialTheme.typography.displayMedium.copy(
-                        fontFamily = FontFamily.Serif, letterSpacing = 5.sp))
+                        fontFamily = GenesisHeadingFont, letterSpacing = 5.sp))
                 Text(if (language == "en") "Task and project\ncalendar"
                     else "Календарь задач\nи проектов",
                     color = welcomeGold,
                     style = MaterialTheme.typography.headlineLarge.copy(
-                        fontFamily = FontFamily.Serif, fontStyle = FontStyle.Italic))
+                        fontFamily = GenesisHeadingFont, fontStyle = FontStyle.Italic))
                 Text(if (language == "en")
                     "Plan tasks, projects and recurring practices. Keep your private workspace synchronized across the web and your devices."
                     else "Планируйте задачи, проекты и повторяющиеся практики. Личное пространство синхронизируется с сайтом и вашими устройствами.",
@@ -125,7 +125,7 @@ fun WelcomeScreen(state: AuthPanelState, controller: AuthController, language: S
                                 color = welcomeGold, style = MaterialTheme.typography.labelSmall)
                             Text(if (language == "en") "Sign in to GENESIS" else "Войти в GENESIS",
                                 color = welcomeNight,
-                                style = MaterialTheme.typography.titleLarge.copy(fontFamily = FontFamily.Serif))
+                                style = MaterialTheme.typography.titleLarge.copy(fontFamily = GenesisHeadingFont))
                         }
                     }
                     Text(if (showYandex && language == "en")

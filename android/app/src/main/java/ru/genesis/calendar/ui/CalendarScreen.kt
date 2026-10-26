@@ -31,6 +31,8 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -219,7 +221,11 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
                     onSelect(it)
                 }
             },
-            onYear = { shown = it.toString(); onSelect(it) })
+            onYear = { shown = it.toString(); onSelect(it) },
+            onToday = {
+                val today = LocalDate.now()
+                shown = today.toString(); selected = today.toString(); onSelect(today)
+            })
         else if (range.isFailure) Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             CalendarPageHeader(false, mode, onModeChange)
@@ -295,14 +301,39 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
 
 @Composable
 private fun CalendarPageHeader(yearView: Boolean, mode: CalendarMode,
-    onModeChange: (CalendarMode) -> Unit, modifier: Modifier = Modifier) {
+    onModeChange: (CalendarMode) -> Unit, modifier: Modifier = Modifier,
+    onInfoClick: (() -> Unit)? = null, infoExpanded: Boolean = false) {
     if (!LocalSacredFeaturesEnabled.current) return
     val copy = mobileCalendarCopy(LocalGenesisLanguage.current)
     val enabledCalendars = LocalEnabledCalendars.current
-    GenesisPageHeader(if (yearView) "Календарь - год" else "Календарь - месяц",
-        copy.calendarName(mode), "☷",
-        modifier.heightIn(min = if (compactWindowHeight()) 88.dp else 138.dp),
-        calendarMode = mode, onCalendarModeClick = { onModeChange(nextAvailableCalendarMode(mode, enabledCalendars)) })
+    val canSwitch = enabledCalendars.size > 1
+    var switchCount by remember { mutableIntStateOf(0) }
+    val name = copy.calendarName(mode)
+    val infoLabel = genesisTranslate("О разделе")
+    val disclosureState = genesisTranslate(if (infoExpanded) "Развернуто" else "Свернуто")
+    Surface(modifier.fillMaxWidth().testTag("genesis-page-header"), shape = AffairsLayout.shape,
+        color = MaterialTheme.colorScheme.surface) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.weight(1f).heightIn(min = 48.dp).clickable(enabled = canSwitch, role = Role.Button) {
+                switchCount++
+                onModeChange(nextAvailableCalendarMode(mode, enabledCalendars))
+            }.semantics { contentDescription = if (canSwitch) "$name. ${copy.switchHint}" else name },
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                CalendarModeSwitcher(mode, {}, size = 48.dp, interactive = false, animationTrigger = switchCount)
+                Text(name, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+            }
+            if (onInfoClick != null) IconButton(onClick = onInfoClick,
+                modifier = Modifier.size(48.dp).testTag("calendar-month-info-toggle")
+                    .semantics {
+                        contentDescription = infoLabel
+                        stateDescription = disclosureState
+                    }) {
+                GenesisLucideIcon(if (infoExpanded) "chevron-up" else "book-open", Modifier.size(22.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
 }
 
 @Composable
@@ -318,6 +349,7 @@ private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange
     val locale = Locale.forLanguageTag(LocalGenesisLanguage.current).takeIf { it.language.isNotBlank() } ?: ru
     val solarLocation by rememberAutomaticSolarLocation(calendar.zoneId)
     val scroll = rememberScrollState()
+    var monthInfoExpanded by rememberSaveable(mode, range.start.toString()) { mutableStateOf(false) }
     LaunchedEffect(voiceScrollToken) {
         if(voiceScrollToken>0) scroll.animateScrollTo(when(voiceScrollDirection) {
             "top" -> 0
@@ -339,7 +371,9 @@ private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange
         }
         val choose: (LocalDate) -> Unit = { day -> previewRequested = true; onChoose(day) }
         val monthContent: @Composable () -> Unit = {
-            CalendarPageHeader(false, mode, onModeChange, Modifier.padding(vertical = 8.dp))
+            CalendarPageHeader(false, mode, onModeChange, Modifier.padding(vertical = 8.dp),
+                onInfoClick = if (mode == CalendarMode.SACRED) null else ({ monthInfoExpanded = !monthInfoExpanded }),
+                infoExpanded = monthInfoExpanded)
         CalendarPeriodPager(range,
             remember(range, mode) { runCatching { calendar.monthRange(range.start.minusDays(1), mode) }.getOrNull()?.takeIf { it.end.year >= 1900 } },
             remember(range, mode) { runCatching { calendar.monthRange(range.end.plusDays(1), mode) }.getOrNull()?.takeIf { it.start.year <= 2100 } },
@@ -348,18 +382,22 @@ private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange
             val sacred = calendar.sacredDate(page.start)
             val month = SacredCatalog.months[sacred.monthIndex]
             val pageTasks = remember(tasks, page) { TaskOccurrences.byDate(tasks, page.start, page.end) }
-            Card(Modifier.fillMaxWidth().testTag(if (mode == CalendarMode.SACRED) "sacred-month-pyatas"
-                else "calendar-month-panel-${mode.wireValue}"), shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = .45f))) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Surface(Modifier.fillMaxWidth().testTag("calendar-month-navigation-card"), shape = AffairsLayout.shape,
+                    color = MaterialTheme.colorScheme.surface) {
                 CalendarPeriodNavigation(when (mode) {
                     CalendarMode.SACRED -> "${month.roman} · ${month.name}"
                     CalendarMode.PROFANE -> page.start.month.getDisplayName(TextStyle.FULL_STANDALONE, locale)
                         .replaceFirstChar { it.titlecase(locale) } + " ${page.start.year}"
                     CalendarMode.LUNAR -> calendar.lunarDate(page.start).month.name
-                }, false, previous, next)
+                }, false, previous, next, onToday)
+                }
+                Card(Modifier.fillMaxWidth().testTag(if (mode == CalendarMode.SACRED) "sacred-month-pyatas"
+                    else "calendar-month-panel-${mode.wireValue}"), shape = AffairsLayout.shape,
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = .45f))) {
                 if (mode == CalendarMode.SACRED) SacredMonthHero(month, sacred.sacredYear)
-                else Surface(Modifier.fillMaxWidth().testTag("calendar-month-description"),
+                else if (monthInfoExpanded) Surface(Modifier.fillMaxWidth().testTag("calendar-month-description"),
                     color = if (mode == CalendarMode.LUNAR) Color(0xff082e2f) else MaterialTheme.colorScheme.primaryContainer) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(if (mode == CalendarMode.LUNAR) calendar.lunarDate(page.start).month.title
@@ -389,13 +427,14 @@ private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange
                         onOpenTaskList, solarLocation, weekStartsOnSunday)
                 }
             }
+            }
         }
         }
         val dayContent: @Composable () -> Unit = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SelectedDayCard(calendar, selected, mode, experimental, solarLocation)
                 Card(Modifier.fillMaxWidth().testTag("calendar-day-actions"),
-                    shape = RoundedCornerShape(20.dp),
+                    shape = AffairsLayout.shape,
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = .45f))) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -414,9 +453,6 @@ private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange
                 Column(Modifier.weight(1.55f).fillMaxHeight().verticalScroll(scroll),
                     verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     monthContent()
-                    OutlinedButton(onClick = onToday, modifier = Modifier.fillMaxWidth().testTag("calendar-month-today")) {
-                        Text("К сегодняшнему дню")
-                    }
                     Spacer(Modifier.height(16.dp))
                 }
                 Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())
@@ -434,9 +470,6 @@ private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange
                 Box(Modifier.fillMaxWidth().onGloballyPositioned {
                     selectedDayTop = it.positionInParent().y.roundToInt(); selectedDayHeight = it.size.height
                 }) { dayContent() }
-                OutlinedButton(onClick = onToday, modifier = Modifier.fillMaxWidth().testTag("calendar-month-today")) {
-                    Text("К сегодняшнему дню")
-                }
                 Spacer(Modifier.height(maxOf(16.dp, with(density) {
                     (viewportHeight - selectedDayHeight).coerceAtLeast(0).toDp()
                 })))
@@ -844,7 +877,7 @@ private fun CalendarTaskListDialog(date: LocalDate, tasks: List<LocalTask>, use2
     var deletingId by rememberSaveable(date) { mutableStateOf<String?>(null) }
     Dialog(onDismissRequest = onDismiss) {
         Surface(Modifier.fillMaxWidth().heightIn(max = 560.dp).testTag("calendar-task-list-dialog"),
-            shape = RoundedCornerShape(24.dp), color = Color(0xfffffbf2),
+            shape = AffairsLayout.shape, color = Color(0xfffffbf2),
             border = BorderStroke(1.dp, Color(0x66b28a4a)), shadowElevation = 18.dp) {
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
@@ -869,7 +902,7 @@ private fun CalendarTaskListDialog(date: LocalDate, tasks: List<LocalTask>, use2
                     items(tasks, key = { it.id }) { task ->
                         val completionDescription = genesisTranslate(if (task.done)
                             "Вернуть в работу" else "Выполнить задачу") + ": " + task.title
-                        Surface(Modifier.fillMaxWidth().testTag("calendar-task-${task.id}"), shape = RoundedCornerShape(14.dp),
+                        Surface(Modifier.fillMaxWidth().testTag("calendar-task-${task.id}"), shape = AffairsLayout.shape,
                             color = if (task.done) completedTaskSurface else Color(0xfff4ecdc)) {
                             Column {
                             Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 12.dp, top = 8.dp),
@@ -1104,7 +1137,7 @@ private fun CalendarYearOverview(calendar: GenesisCalendar, shown: LocalDate, mo
     gregorianYearStartsInMarch: Boolean, regionalSeasonArt: Boolean, seasonRegionZone: ZoneId,
     onStartGregorianYearInMarch: () -> Unit,
     voiceScrollToken: Int, voiceScrollDirection: String,
-    onMonth: (LocalDate) -> Unit, onYear: (LocalDate) -> Unit) {
+    onMonth: (LocalDate) -> Unit, onYear: (LocalDate) -> Unit, onToday: () -> Unit) {
     val period = if (mode == CalendarMode.PROFANE) LocalDate.of(
         shown.year - if (gregorianYearStartsInMarch && shown.monthValue < 3) 1 else 0,
         if (gregorianYearStartsInMarch) 3 else 1, 1)
@@ -1122,7 +1155,7 @@ private fun CalendarYearOverview(calendar: GenesisCalendar, shown: LocalDate, mo
                 gregorianYearStartsInMarch, regionalSeasonArt, seasonRegionZone,
                 springSuggestionDismissed, onStartGregorianYearInMarch,
                 { springSuggestionDismissed = true; suggestionPrefs.edit().putBoolean("spring-year-dismissed", true).apply() },
-                onMonth, previous, next,voiceScrollToken,voiceScrollDirection,page==period)
+                onMonth, previous, next, onToday,voiceScrollToken,voiceScrollDirection,page==period)
         }
     }
 }
@@ -1134,7 +1167,7 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
     springSuggestionDismissed: Boolean, onStartGregorianYearInMarch: () -> Unit,
     onDismissSpringSuggestion: () -> Unit,
     onMonth: (LocalDate) -> Unit,
-    onPrevious: () -> Unit, onNext: () -> Unit,
+    onPrevious: () -> Unit, onNext: () -> Unit, onToday: () -> Unit,
     voiceScrollToken: Int, voiceScrollDirection: String, activePage: Boolean) {
     val locale = Locale.forLanguageTag(LocalGenesisLanguage.current)
     val sacredFeaturesEnabled = LocalSacredFeaturesEnabled.current
@@ -1163,7 +1196,7 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
         Column(Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             CalendarPageHeader(true, mode, onModeChange, Modifier.padding(vertical = 8.dp))
-            CalendarPeriodNavigation(yearLabel, true, onPrevious, onNext)
+            CalendarPeriodNavigation(yearLabel, true, onPrevious, onNext, onToday)
             Text("Этот год вне диапазона офлайн-календаря.", color = MaterialTheme.colorScheme.error)
         }
         return
@@ -1222,63 +1255,39 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
                 }
                 item(key = "year-navigation") {
                     Card(Modifier.fillMaxWidth().testTag("calendar-year-navigation-card"),
-                        shape = RoundedCornerShape(24.dp),
+                        shape = AffairsLayout.shape,
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = .45f))) {
-                        CalendarPeriodNavigation(yearLabel, true, onPrevious, onNext)
+                        CalendarPeriodNavigation(yearLabel, true, onPrevious, onNext, onToday)
                     }
                 }
         if (experimental && sacredFeaturesEnabled) {
             item(key = "year-solar-points") {
-            val events = remember(shown, mode, sacredYear) {
-                calendar.solarEvents(if (mode == CalendarMode.PROFANE) shown.year else sacredYear)
-            }
-            Card(Modifier.fillMaxWidth().testTag("calendar-year-solar-card"),
-                shape = RoundedCornerShape(22.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
-            Column(Modifier.padding(16.dp).testTag("calendar-year-solar-points"),
-                verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Солнечные точки года", style = MaterialTheme.typography.titleMedium)
-                events.chunked(if (yearColumns == 2) 4 else 2).forEach { pair ->
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        pair.forEach { event ->
-                            SolarPointTile(event, calendar, onMonth, Modifier.weight(1f))
+                var solarExpanded by rememberSaveable(shown.toString(), mode) { mutableStateOf(false) }
+                val solarState = genesisTranslate(if (solarExpanded) "Развернуто" else "Свернуто")
+                Card(Modifier.fillMaxWidth().testTag("calendar-year-solar-card"), shape = AffairsLayout.shape,
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)) {
+                    TextButton(onClick = { solarExpanded = !solarExpanded },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("calendar-year-solar-toggle")
+                            .semantics { stateDescription = solarState },
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)) {
+                        Text("Солнечные точки года", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
+                        GenesisLucideIcon(if (solarExpanded) "chevron-up" else "chevron-down", Modifier.size(20.dp))
+                    }
+                    if (solarExpanded) {
+                        val events = remember(shown, mode, sacredYear) {
+                            calendar.solarEvents(if (mode == CalendarMode.PROFANE) shown.year else sacredYear)
+                        }
+                        Column(Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)
+                            .testTag("calendar-year-solar-points"), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            events.chunked(if (yearColumns == 2) 4 else 2).forEach { pair ->
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    pair.forEach { event -> SolarPointTile(event, calendar, onMonth, Modifier.weight(1f)) }
+                                }
+                            }
                         }
                     }
                 }
-            }
-            }
-            }
-        }
-        if (mode == CalendarMode.PROFANE && !gregorianYearStartsInMarch && !springSuggestionDismissed) {
-            item(key = "year-spring-suggestion") {
-            val copy = springYearCopy(LocalGenesisLanguage.current)
-            Card(Modifier.fillMaxWidth().padding(horizontal = 10.dp).testTag("spring-year-suggestion"),
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xff173b38)),
-                border = BorderStroke(1.dp, Color(0xffdfc17e).copy(alpha = .65f))) {
-                Row(Modifier.fillMaxWidth().padding(12.dp),
-                    verticalAlignment = Alignment.Top,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        androidx.compose.material3.Text(copy.title, color = Color(0xfffff5df),
-                            style = MaterialTheme.typography.titleMedium)
-                        androidx.compose.material3.Text(copy.body, color = Color(0xffc8d9d4),
-                            style = MaterialTheme.typography.bodySmall)
-                        TextButton(onClick = onStartGregorianYearInMarch,
-                            modifier = Modifier.testTag("spring-year-switch")) {
-                            androidx.compose.material3.Text(copy.action, color = Color(0xffdfc17e))
-                        }
-                    }
-                    IconButton(onClick = onDismissSpringSuggestion,
-                        modifier = Modifier.size(40.dp).testTag("spring-year-dismiss")) {
-                        androidx.compose.material3.Text("×", color = Color(0xffdfc17e),
-                            style = MaterialTheme.typography.headlineSmall,
-                            modifier = Modifier.semantics { contentDescription = copy.dismiss })
-                    }
-                }
-            }
             }
         }
         if (mode == CalendarMode.PROFANE || mode == CalendarMode.SACRED) {
@@ -1358,6 +1367,36 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
             }
             }
         }
+        if (mode == CalendarMode.PROFANE && !gregorianYearStartsInMarch && !springSuggestionDismissed) {
+            item(key = "year-spring-suggestion") {
+            val copy = springYearCopy(LocalGenesisLanguage.current)
+            Card(Modifier.fillMaxWidth().padding(horizontal = 10.dp).testTag("spring-year-suggestion"),
+                shape = AffairsLayout.shape,
+                colors = CardDefaults.cardColors(containerColor = Color(0xff173b38)),
+                border = BorderStroke(1.dp, Color(0xffdfc17e).copy(alpha = .65f))) {
+                Row(Modifier.fillMaxWidth().padding(12.dp),
+                    verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        androidx.compose.material3.Text(copy.title, color = Color(0xfffff5df),
+                            style = MaterialTheme.typography.titleMedium)
+                        androidx.compose.material3.Text(copy.body, color = Color(0xffc8d9d4),
+                            style = MaterialTheme.typography.bodySmall)
+                        TextButton(onClick = onStartGregorianYearInMarch,
+                            modifier = Modifier.testTag("spring-year-switch")) {
+                            androidx.compose.material3.Text(copy.action, color = Color(0xffdfc17e))
+                        }
+                    }
+                    IconButton(onClick = onDismissSpringSuggestion,
+                        modifier = Modifier.size(48.dp).testTag("spring-year-dismiss")) {
+                        androidx.compose.material3.Text("×", color = Color(0xffdfc17e),
+                            style = MaterialTheme.typography.headlineSmall,
+                            modifier = Modifier.semantics { contentDescription = copy.dismiss })
+                    }
+                }
+            }
+            }
+        }
         item(key = "year-description") {
         Box(Modifier.padding(horizontal = 10.dp)) {
             CalendarYearDescriptionCard(calendar, shown, mode, gregorianYearStartsInMarch)
@@ -1394,7 +1433,7 @@ private fun CalendarYearMonthCard(calendar: GenesisCalendar, start: LocalDate, m
     val mainInk = if(mode == CalendarMode.PROFANE && LocalEveningTheme.current) MaterialTheme.colorScheme.onSurface else Color(0xff102b2c)
     val detailInk = if(mode == CalendarMode.PROFANE && LocalEveningTheme.current) MaterialTheme.colorScheme.onSurfaceVariant else Color(0xff405b59)
     Card(onClick = { onMonth(start) }, modifier = Modifier.fillMaxWidth()
-        .testTag(monthTag), shape = RoundedCornerShape(22.dp),
+        .testTag(monthTag), shape = AffairsLayout.shape,
         colors = CardDefaults.cardColors(containerColor = if (mode == CalendarMode.PROFANE)
             seasonSurface(season).copy(alpha = if (LocalEveningTheme.current) .62f else 1f) else Color(0xfff5f0e6)),
         border = if (mode == CalendarMode.PROFANE) null else BorderStroke(1.dp, Color(0x668b6727))) {
@@ -1404,7 +1443,7 @@ private fun CalendarYearMonthCard(calendar: GenesisCalendar, start: LocalDate, m
             when (mode) {
             CalendarMode.SACRED -> OriginalImage(sacredMonthArtPath(sacredIndex), "Иллюстрация месяца $name",
                 Modifier.width(76.dp).height(112.dp))
-            CalendarMode.PROFANE -> Surface(Modifier.size(74.dp), shape = RoundedCornerShape(17.dp),
+            CalendarMode.PROFANE -> Surface(Modifier.size(74.dp), shape = AffairsLayout.controlShape,
                 color = seasonAccent(season).copy(alpha = .1f), border = BorderStroke(1.dp, seasonAccent(season).copy(alpha = .3f))) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(ordinal.toString(), color = mainInk,

@@ -7,6 +7,7 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -28,6 +29,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
@@ -73,6 +75,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -94,43 +97,24 @@ import ru.genesis.calendar.domain.habits.TrackerEntity
 import ru.genesis.calendar.domain.trackers.MoodTracker
 import ru.genesis.calendar.domain.trackers.SleepPlan
 
-internal val standart = lightColorScheme(primary=Color(0xff255b59),onPrimary=Color(0xfffffdf8),
-    background=Color(0xffe1d9c8),onBackground=Color(0xff132426),surface=Color(0xfff8f5ed),
-    onSurface=Color(0xff132426),onSurfaceVariant=Color(0xff526263),
-    secondary=Color(0xffb28a4a),onSecondary=Color(0xff132426),secondaryContainer=Color(0xffd8bd80),
-    onSecondaryContainer=Color(0xff132426),primaryContainer=Color(0xffcddfda),onPrimaryContainer=Color(0xff132426),
-    surfaceVariant=Color(0xffe9e1d0),surfaceContainer=Color(0xfff8f5ed),surfaceContainerLow=Color(0xfff8f5ed),
-    surfaceContainerLowest=Color(0xfffffdf8),surfaceContainerHigh=Color(0xffefe8d9),surfaceContainerHighest=Color(0xffe9e1d0),
-    outline=Color(0xff9c927e),outlineVariant=Color(0xffd5cab4))
+internal val standart = lightColorScheme(primary=Color(0xff255b59), onPrimary=Color(0xfffffdf8),
+    background=Color(0xffeee9dc), onBackground=Color(0xff132426), surface=Color(0xfffffdf8),
+    onSurface=Color(0xff132426), onSurfaceVariant=Color(0xff526263),
+    secondary=Color(0xff8c672b), onSecondary=Color(0xfffffdf8), secondaryContainer=Color(0xffeee2c7),
+    onSecondaryContainer=Color(0xff513b17), primaryContainer=Color(0xffdce8e2), onPrimaryContainer=Color(0xff163e38),
+    surfaceVariant=Color(0xffe9e3d6), surfaceContainer=Color(0xfff8f5ed), surfaceContainerLow=Color(0xfff8f5ed),
+    surfaceContainerLowest=Color(0xfffffdf8), surfaceContainerHigh=Color(0xffefe8d9), surfaceContainerHighest=Color(0xffe9e1d0),
+    outline=Color(0xff7c847e), outlineVariant=Color(0xffd3d7cd))
 
 @Composable
 private fun HeaderActionButton(kind: String, description: String, enabled: Boolean,
     tag: String, onClick: () -> Unit) {
-    val accent=MaterialTheme.colorScheme.primary
-    OutlinedIconButton(onClick=onClick,enabled=enabled,shape=AffairsLayout.controlShape,
-        colors=IconButtonDefaults.outlinedIconButtonColors(
-            containerColor=MaterialTheme.colorScheme.primaryContainer.copy(alpha=.45f),contentColor=accent),
-        border=androidx.compose.foundation.BorderStroke(1.dp,accent.copy(alpha=.35f)),
-        modifier=Modifier.padding(start=6.dp).size(AffairsLayout.touchTarget).testTag(tag)
-        .semantics { contentDescription=description }) {
-        if (!enabled) CircularProgressIndicator(Modifier.size(19.dp),strokeWidth=2.dp,color=accent)
-        else Canvas(Modifier.size(21.dp)) {
-            val stroke=2.dp.toPx()
-            if(kind=="mic") {
-                drawRoundRect(accent,topLeft=Offset(size.width*.38f,size.height*.1f),
-                    size=Size(size.width*.24f,size.height*.48f),
-                    cornerRadius=CornerRadius(size.width*.12f),style=Stroke(stroke))
-                drawArc(accent,0f,180f,false,topLeft=Offset(size.width*.22f,size.height*.18f),
-                    size=Size(size.width*.56f,size.height*.58f),style=Stroke(stroke,cap=StrokeCap.Round))
-                drawLine(accent,Offset(size.width*.5f,size.height*.77f),Offset(size.width*.5f,size.height*.94f),stroke,StrokeCap.Round)
-                drawLine(accent,Offset(size.width*.31f,size.height*.94f),Offset(size.width*.69f,size.height*.94f),stroke,StrokeCap.Round)
-            } else {
-                drawArc(accent,44f,286f,false,topLeft=Offset(size.width*.13f,size.height*.13f),
-                    size=Size(size.width*.74f,size.height*.74f),style=Stroke(stroke,cap=StrokeCap.Round))
-                drawLine(accent,Offset(size.width*.81f,size.height*.29f),Offset(size.width*.82f,size.height*.09f),stroke,StrokeCap.Round)
-                drawLine(accent,Offset(size.width*.81f,size.height*.29f),Offset(size.width*.61f,size.height*.25f),stroke,StrokeCap.Round)
-            }
-        }
+    val accent = MaterialTheme.colorScheme.primary
+    IconButton(onClick = onClick, enabled = enabled,
+        modifier = Modifier.size(48.dp).testTag(tag)
+            .semantics { contentDescription = description }) {
+        if (!enabled) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = accent)
+        else GenesisLucideIcon(if (kind == "mic") "mic" else "refresh-cw", Modifier.size(22.dp), tint = accent)
     }
 }
 
@@ -149,6 +133,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     val model: GenesisViewModel = viewModel(key = "genesis-$activeScope")
     val tasks by model.tasks.collectAsStateWithLifecycle()
     val error by model.error.collectAsStateWithLifecycle()
+    val savingTask by model.saving.collectAsStateWithLifecycle()
     val structureRepo = remember(app, activeScope) { WorkspaceStructureRepository(app) }
     val structure by structureRepo.workspace.collectAsStateWithLifecycle(WorkspaceStructure())
     val taskListsRepo = remember(app, activeScope) { TaskListsRepository(app) }
@@ -156,6 +141,11 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     val taskLists = remember(cachedTaskLists,tasks) { taskListsForTasks(cachedTaskLists,tasks) }
     val authController = remember(app) { ru.genesis.calendar.auth.AuthController.get(app) }
     val authState by authController.state.collectAsStateWithLifecycle()
+    val diaryOwner = authState.user?.uid?.takeUnless { testWorkspace }
+    val nativeAdminGateway = remember(authController, diaryOwner) { diaryOwner?.let(authController::adminGateway) }
+    val diaryRepository = remember(app, activeScope, diaryOwner) {
+        diaryOwner?.let { DiaryRepository.room(app.database, activeScope, it, authController.diaryGateway(it)) }
+    }
     val prefsStore=remember(app, activeScope) { LocalPreferences(app,activeScope) }
     val savedPrefs by prefsStore.values.collectAsStateWithLifecycle(UiPreferences())
     val sacredFeaturesEnabled = authState.accountSettings?.uiVisibility?.sacredFeaturesEnabled != false
@@ -165,6 +155,9 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
         display = savedPrefs.display.takeIf { it.wireValue in visibleCalendarChoices } ?: fallbackCalendar,
         input = savedPrefs.input.takeIf { it.wireValue in visibleCalendarChoices } ?: fallbackCalendar)
     val pendingPreferences by prefsStore.pending.collectAsStateWithLifecycle(emptyMap())
+    val pendingWrites by remember(app, activeScope) {
+        app.database.dao().observeOutbox(activeScope).map { it.size }
+    }.collectAsStateWithLifecycle(-1)
     val menuSwipeState = rememberSaveable(activeScope, saver = MenuSwipeStateSaver) { MenuSwipeState() }
     val settingsScrollStates = remember(activeScope) { mutableMapOf<String, ScrollState>() }
     var menuVisibilityExpanded by rememberSaveable(activeScope) { mutableStateOf(false) }
@@ -210,6 +203,13 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
         }
     }
     var tab by rememberSaveable { mutableStateOf("Сегодня") }
+    var routeHistory by rememberSaveable { mutableStateOf(listOf<String>()) }
+    BackHandler(routeHistory.isNotEmpty()) {
+        val previous = routeHistory.last().split('|', limit = 2)
+        routeHistory = routeHistory.dropLast(1)
+        previous.getOrNull(1)?.takeIf { it.isNotEmpty() }?.let { menuSwipeState.select(previous[0], it) }
+        tab = previous[0]
+    }
     var highlightedPage by remember { mutableStateOf(tab) }
     var highlightedSection by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(tab, menuSwipeState.section(tab)) {
@@ -222,6 +222,18 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
         tab="Проекты"
     }
     var voiceOpen by rememberSaveable { mutableStateOf(false) }
+    var serverAssistantOpen by rememberSaveable(activeScope) { mutableStateOf(false) }
+    var messagingSpaceId by rememberSaveable(activeScope) { mutableStateOf<String?>(null) }
+    var serverAssistantAvailable by remember(activeScope) { mutableStateOf(false) }
+    val hasAssistantPlan by remember(app, activeScope) {
+        app.database.dao().observeDocument(activeScope, "assistant-plan-v1").map { it != null }
+    }.collectAsStateWithLifecycle(false)
+    val assistantGateway = remember(authController, diaryOwner) { diaryOwner?.let(authController::assistantGateway) }
+    LaunchedEffect(assistantGateway, authState.checkedAt) {
+        serverAssistantAvailable = try { assistantGateway?.status()?.optBoolean("available") == true }
+        catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+        catch (_: Exception) { false }
+    }
     var voiceControlActive by remember { mutableStateOf(false) }
     val voiceLanguageEnabled = prefs.language == "ru" || prefs.language == "en"
     LaunchedEffect(voiceLanguageEnabled) {
@@ -236,6 +248,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     var voiceDeleteTaskId by rememberSaveable { mutableStateOf<String?>(null) }
     var transferTask by remember { mutableStateOf<LocalTask?>(null) }
     var creating by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(creating, editId) { if (creating || editId != null) model.error.value = null }
     var mindmapsOpen by rememberSaveable { mutableStateOf(false) }
     var mindmapProjectId by rememberSaveable { mutableStateOf<String?>(null) }
     var requestedMindmapProject by rememberSaveable {mutableStateOf<String?>(null)}
@@ -293,7 +306,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     val navigationOnLeft = shouldUseNavigationRail(configuration.screenWidthDp,
         isLandscape, prefs.wideNavigationOnLeft)
     val portraitAutoScroll = !isLandscape && prefs.navigationLabels && prefs.navigationAutoScroll
-    val portraitMenuSwipe = !isLandscape && prefs.menuSwipeEnabled
+    val portraitMenuSwipe = false // 3.0: horizontal gestures belong to calendars and mindmaps.
     var pendingSharedProjectsToggle by remember(authState.user?.uid) { mutableStateOf<Boolean?>(null) }
     var invitationDestination by remember { mutableStateOf<SharedInvitationDestination?>(null) }
     val sharedProjectsEnabled = !testWorkspace &&
@@ -355,8 +368,10 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
         if (!authState.busy && pendingUiVisibility != null &&
             serverUiVisibility == pendingUiVisibility) pendingUiVisibility = null
     }
-    val visiblePages = listOf("Сегодня", "Проекты", "Календарь", "Привычки", "Сакральное", "Настройки")
-        .filter { (habitTrackingEnabled || it != "Привычки") && menuVisibilityId(it) !in uiVisibility.hiddenMenuItems &&
+    val visiblePages = listOf("Сегодня", "Проекты", "Календарь", "Привычки", "Сакральное", "Настройки", "Дневник", "Сообщения")
+        .filter { (it != "Дневник" || !testWorkspace && authState.user != null && "projects" !in uiVisibility.hiddenMenuItems) &&
+            (it != "Сообщения" || !testWorkspace && authState.user != null && sharedProjectsEnabled && "projects" !in uiVisibility.hiddenMenuItems && "projects.shared" !in uiVisibility.hiddenSubmenus) &&
+            (habitTrackingEnabled || it != "Привычки") && menuVisibilityId(it) !in uiVisibility.hiddenMenuItems &&
             (it != "Сакральное" || (uiVisibility.sacredFeaturesEnabled && !("stoicheion" in uiVisibility.hiddenMenuItems &&
                 "theokyklos" in uiVisibility.hiddenMenuItems))) }
     LaunchedEffect(sharedProjectsEnabled) {
@@ -708,7 +723,8 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
         isAppearanceLightStatusBars = !eveningTheme && !welcomeVisible
         isAppearanceLightNavigationBars = !eveningTheme && !welcomeVisible
     } } }
-    MaterialTheme(colorScheme=if (eveningTheme) evening else standart) {
+    MaterialTheme(colorScheme=if (eveningTheme) evening else standart, typography = GenesisTypography,
+        shapes = GenesisShapes) {
       CompositionLocalProvider(LocalEveningTheme provides eveningTheme) {
       CompositionLocalProvider(LocalGenesisLanguage provides
           (if(testWorkspace || activeScope.startsWith("account-")) prefs.language else welcomePrefs.language),
@@ -726,36 +742,41 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         scope.launch { welcomePrefsStore.set("language",language) }
                     }
             } else {
-            NavigationConnectionScope(tab, selectedSubmenuId = menuSwipeState.section(tab),
-                showConnections = prefs.menuThreadsEnabled &&
-                    tab in setOf("Задачи", "Проекты", "Календарь", "Привычки", "Сакральное", "Настройки"),
-                outlineMode = !prefs.menuThreadsEnabled,
-                iconGlow = !prefs.navigationLabels) {
-            Column(Modifier.safeDrawingPadding().imePadding()) {
-                val accountStatus = if (activeScope.startsWith("account-"))
-                    "Аккаунт GENESIS · защищённая локальная копия"
-                else if(BuildConfig.DEBUG) "Изолированное тестовое пространство · только на этом устройстве"
-                else "Локальные черновики · аккаунт не подключён"
-                Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 12.dp, vertical = 4.dp)
-                    .testTag("app-header"),
-                    verticalAlignment=Alignment.CenterVertically) {
-                    Box(Modifier.size(36.dp).shadow(3.dp, CircleShape).clip(CircleShape)
-                        .background(Color(0xff172624)).testTag("genesis-round-logo")) {
-                        GenesisBrandLogo(Modifier.fillMaxSize().graphicsLayer { scaleX = 1.20f; scaleY = 1.20f })
-                    }
-                    Text("GENESIS", Modifier.weight(1f).padding(start = 10.dp).testTag("genesis-brand-name"),
-                        style = if (compactHeader) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
-                        maxLines = 1, softWrap = false)
+            val accountStatus = if (activeScope.startsWith("account-"))
+                "Аккаунт GENESIS · защищённая локальная копия"
+            else if(BuildConfig.DEBUG) "Изолированное тестовое пространство · только на этом устройстве"
+            else "Локальные черновики · аккаунт не подключён"
+            val saveStatus = when {
+                testWorkspace -> "Сохранено на этом устройстве"
+                authState.outgoingSyncIssue != null || accountTaskSync?.issue != null -> "Ошибка синхронизации"
+                authState.requiresSignIn -> "Сохранено на устройстве · требуется вход"
+                pendingWrites > 0 || pendingPreferences.isNotEmpty() -> "Сохранено на устройстве · ожидает синхронизации"
+                authState.busy || accountTaskSync?.loading == true -> "Синхронизация…"
+                pendingWrites == 0 && accountTaskSync?.confirmed == true && authState.checkedAt != null -> "Синхронизировано"
+                else -> "Сохранено на этом устройстве"
+            }
+            val destinations = mobileDestinations(visiblePages, uiVisibility, sharedProjectsEnabled,
+                prefs.settingsSubmenuEnabled)
+            val screenStates = rememberSaveableStateHolder()
+            MobileWorkspaceShell(tab, menuSwipeState.section(tab), destinations, "$accountStatus\n$saveStatus",
+                prefs.navigationLabels, onLabelsChange = { labels ->
+                    scope.launch { prefsStore.set("navigationLabels", if (labels) "text" else "icons") }
+                }, gesturesEnabled = !mindmapsOpen,
+                onNavigate = { destination ->
+                    if (destination.page != tab || destination.section != menuSwipeState.section(tab))
+                        routeHistory = (routeHistory + "$tab|${menuSwipeState.section(tab).orEmpty()}").takeLast(30)
+                    destination.section?.let { menuSwipeState.select(destination.page, it) }
+                    tab = destination.page
+                }, actions = {
                     if (!testWorkspace) {
                         val refreshBusy = authState.busy || accountTaskSync?.loading == true
-                        val refreshDescription = genesisTranslate(if (refreshBusy)
-                            "Получаем изменения с сервера…" else "Обновить аккаунт")
-                        HeaderActionButton("refresh",refreshDescription,!refreshBusy,
-                            "today-refresh",authController::refresh)
+                        HeaderActionButton("refresh", genesisTranslate(if (refreshBusy)
+                            "Получаем изменения с сервера…" else "$saveStatus. Обновить аккаунт"), !refreshBusy,
+                            "today-refresh", authController::refresh)
                     }
-                    if (voiceLanguageEnabled) HeaderActionButton("mic",genesisTranslate("Голосовой помощник"),true,
-                        "voice-assistant-open") { voiceControlActive=false;voiceOpen=true }
-                }
+                    if (voiceLanguageEnabled) HeaderActionButton("mic", genesisTranslate("Голосовой помощник"), true,
+                        "voice-assistant-open") { voiceControlActive = false; voiceOpen = true }
+                }) {
                 if (voiceLanguageEnabled && voiceControlActive) VoiceControlBar(prefs.language=="en",
                     onCommand=::executeVoiceCommand,onStop={voiceControlActive=false})
                 if(!testWorkspace && authState.requiresSignIn) {
@@ -766,6 +787,17 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                 }
                 HabitNotificationAccessNotice(app,habitTrackingEnabled &&
                     habitWorkspace.habits.any { it.reminder.enabled })
+                if (!testWorkspace) authState.outgoingSyncIssue?.let { issue ->
+                    Surface(color=MaterialTheme.colorScheme.errorContainer,
+                        modifier=Modifier.fillMaxWidth().padding(horizontal=16.dp, vertical=4.dp),
+                        shape=AffairsLayout.shape) {
+                        Row(Modifier.padding(start=12.dp, end=4.dp), verticalAlignment=Alignment.CenterVertically) {
+                            Text(issue, Modifier.weight(1f), style=MaterialTheme.typography.bodySmall,
+                                color=MaterialTheme.colorScheme.onErrorContainer)
+                            AffairsIconButton("Повторить", AffairsAction.REFRESH, authController::syncPending)
+                        }
+                    }
+                }
                 if (!testWorkspace && accountTaskSync != null) {
                     ru.genesis.calendar.auth.AccountTaskSyncNotice(accountTaskSync,
                         Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
@@ -861,8 +893,20 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         if (!LocalFixedSubmenu.current && sharedProjectsEnabled && projectSubmenus.size > 1) ConnectedSubmenu(projectSubmenus,
                             visibleSwipeState.projectArea, { menuSwipeState.projectArea = it },
                             Modifier.testTag("projects-area-switch"))
-                        if(sharedProjectsEnabled && visibleSwipeState.projectArea=="shared") key(invitationDestination) { SharedProjectsScreen(authController,prefs.language,invitationDestination,prefs) }
+                        if(sharedProjectsEnabled && visibleSwipeState.projectArea=="shared") key(invitationDestination) {
+                            SharedProjectsScreen(authController,prefs.language,invitationDestination,prefs,
+                                onPrivateMessages={ space -> messagingSpaceId=space;tab="Сообщения" })
+                        }
                         else personalAffairsContent(visibleSwipeState)
+                    }
+                    "Дневник" -> diaryRepository?.let { diary ->
+                        DiaryScreen(diary) { menuSwipeState.projectArea = "personal"; tab = "Проекты" }
+                    }
+                    "Сообщения" -> authState.user?.uid?.let { uid ->
+                        val repository = remember(app, activeScope, uid) {
+                            ru.genesis.calendar.data.MessagingRepository.room(app.database, activeScope, uid, authController.messagingGateway(uid))
+                        }
+                        MessagingScreen(repository, messagingSpaceId) { menuSwipeState.projectArea="shared";tab="Проекты" }
                     }
                     "Задачи" -> personalAffairsContent(visibleSwipeState)
                     "Настройки" -> SettingsScreen(app, prefs, visibleSwipeState.settings,
@@ -874,6 +918,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                             authState.user != null && authState.accountSettings?.isAdmin == true,
                         adminLoad = authController::adminStats,
                         adminDelete = authController::deleteAdminUser,
+                        adminGateway = nativeAdminGateway,
                         onSetVisibility = { next ->
                             pendingUiVisibility = next
                             authController.updateUiVisibility(next)
@@ -934,16 +979,6 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                                         if (!testWorkspace && authState.user != null) authController.updateSharedPreference("display", next.wireValue)
                                         else scope.launch { prefsStore.set("display", next.wireValue) }
                                     }, showDetails = prefs.display == CalendarMode.SACRED && "details" !in uiVisibility.hiddenTodayBlocks)
-                                if (!testWorkspace && authState.ready && !authState.requiresSignIn) {
-                                    authState.user?.uid?.let { uid ->
-                                        val adviceGateway = remember(authController, uid) { authController.dailyAdviceTransport(uid) }
-                                        TodayAdvicePanel(adviceGateway, uid, todayPageDate, prefs.language,
-                                            authState.accountSettings?.advicePreferences ?: ru.genesis.calendar.auth.AdvicePreferences(),
-                                            habitWorkspace.habits, authState.checkedAt, tasks = tasks)
-                                    }
-                                }
-                                if (!testWorkspace && authState.ready)
-                                    TodayAdPanel(authController, authState.user?.uid, prefs.language)
                                 AnimatedVisibility(visible = prefs.display == CalendarMode.SACRED && dayDetailsExpanded && "details" !in uiVisibility.hiddenTodayBlocks,
                                     modifier = Modifier.testTag("today-day-details"),
                                     enter = expandVertically(tween(320, easing = CubicBezierEasing(.16f, 1f, .3f, 1f)),
@@ -958,7 +993,25 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                                         Text(if (prefs.language == "en") "Create today's task" else "Создать задачу на сегодня")
                                     }
                             }
-                    }, rhythm = { if (uiVisibility.sacredFeaturesEnabled && "rhythm" !in uiVisibility.hiddenTodayBlocks) DayRhythmPanel(prefs.use24) }, tasks = {
+                    }, rhythm = {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            if (uiVisibility.sacredFeaturesEnabled && "rhythm" !in uiVisibility.hiddenTodayBlocks) {
+                                DayRhythmPanel(prefs.use24)
+                            }
+                            if (!testWorkspace && authState.ready && !authState.requiresSignIn) {
+                                authState.user?.uid?.let { uid ->
+                                    val adviceGateway = remember(authController, uid) { authController.dailyAdviceTransport(uid) }
+                                    TodayAdvicePanel(adviceGateway, uid, todayPageDate, prefs.language,
+                                        authState.accountSettings?.advicePreferences ?: ru.genesis.calendar.auth.AdvicePreferences(),
+                                        habitWorkspace.habits, authState.checkedAt, tasks = tasks, diary = diaryRepository,
+                                        onOpenDiary = { tab = "Дневник" })
+                                }
+                            }
+                            if (!testWorkspace && authState.ready) {
+                                TodayAdPanel(authController, authState.user?.uid, prefs.language)
+                            }
+                        }
+                    }, tasks = {
                         val todayDate=LocalDate.parse(todayPageDate)
                         val shown = tasks.filter { TaskOccurrences.occursOn(it, todayDate) }
                             val missed=if (prefs.showMissedTasksToday)
@@ -979,76 +1032,18 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                   }
                   }
                 }
-                val workspacePager: @Composable (Modifier) -> Unit = { pagerModifier ->
-                    MenuSwipePager(currentSwipeDestination, swipeSequence, portraitMenuSwipe,
-                        onNavigate = { destination ->
-                            destination.section?.let { menuSwipeState.select(destination.page, it) }
-                            tab = destination.page
-                        }, onPreview = { highlightedPage = it.page; highlightedSection = it.section ?: menuSwipeState.section(it.page) }, modifier = pagerModifier) { destination ->
-                        val visibleSwipeState = if (destination == currentSwipeDestination) menuSwipeState
-                            else remember(destination, menuSwipeState.tasks, menuSwipeState.projects, menuSwipeState.personalView,
-                                menuSwipeState.projectArea,
-                                menuSwipeState.calendar, menuSwipeState.habits,
-                                menuSwipeState.sacred, menuSwipeState.settings) {
-                                MenuSwipeState().also { preview ->
-                                    preview.personalView = menuSwipeState.personalView
-                                    preview.tasks = menuSwipeState.tasks
-                                    preview.projects = menuSwipeState.projects
-                                    preview.projectArea = menuSwipeState.projectArea
-                                    preview.calendar = menuSwipeState.calendar
-                                    preview.habits = menuSwipeState.habits
-                                    preview.sacred = menuSwipeState.sacred
-                                    preview.settings = menuSwipeState.settings
-                                    destination.section?.let { preview.select(destination.page, it) }
-                                }
-                            }
+                // Save each workspace's scroll/form UI state when another drawer destination opens.
+                // No horizontal root pager: it would intercept map and calendar gestures.
+                val screenKey = "$tab-${menuSwipeState.section(tab) ?: "root"}"
+                Box(Modifier.fillMaxWidth().weight(1f).testTag("main-content")) {
+                    screenStates.SaveableStateProvider(screenKey) {
                         CompositionLocalProvider(LocalFixedSubmenu provides true,
-                            LocalCompactSubmenus provides (navigationOnLeft || isLandscape),
-                            LocalNavigationPageContext provides NavigationPageContext(destination.page,
-                                destination == currentSwipeDestination)) {
-                            pageContent(destination.page, visibleSwipeState)
+                            LocalCompactSubmenus provides true,
+                            LocalNavigationPageContext provides NavigationPageContext(tab, true)) {
+                            pageContent(tab, menuSwipeState)
                         }
                     }
                 }
-                val selectPrimaryPage: (String) -> Unit = { page ->
-                    firstVisibleSubmenu(page, habitTrackingEnabled, sharedProjectsEnabled,
-                        uiVisibility.hiddenMenuItems, uiVisibility.hiddenSubmenus,
-                        prefs.settingsSubmenuEnabled)?.let {
-                            if (page == "Проекты" && it == "personal-projects") menuSwipeState.projectArea = "personal"
-                            else menuSwipeState.select(page, it)
-                        }
-                    highlightedPage = page
-                    tab = page
-                }
-                if (navigationOnLeft) {
-                    Row(Modifier.fillMaxWidth().weight(1f).testTag("wide-navigation-layout")) {
-                        PrimaryNavigation(highlightedPage, visiblePages, vertical = true,
-                            showLabels = prefs.navigationLabels && !shortWindow, autoScroll = false,
-                            onSelect = selectPrimaryPage, modifier = Modifier
-                                .width(if (prefs.navigationLabels && !shortWindow) 132.dp else 64.dp).fillMaxHeight())
-                        Column(Modifier.weight(1f).fillMaxHeight()) {
-                            CompositionLocalProvider(LocalCompactSubmenus provides true,
-                                LocalNavigationPageContext provides NavigationPageContext(tab, true)) {
-                                FixedPageSubmenu(highlightedPage, menuSwipeState, prefs.language,
-                                    uiVisibility, sharedProjectsEnabled, prefs.settingsSubmenuEnabled,
-                                    prefs.settingsMenuLabels, highlightedSection)
-                            }
-                            workspacePager(Modifier.weight(1f).testTag("main-content"))
-                        }
-                    }
-                } else {
-                    PrimaryNavigation(highlightedPage, visiblePages, vertical = false,
-                        showLabels = prefs.navigationLabels, autoScroll = portraitAutoScroll,
-                        onSelect = selectPrimaryPage)
-                    CompositionLocalProvider(LocalCompactSubmenus provides isLandscape,
-                        LocalNavigationPageContext provides NavigationPageContext(tab, true)) {
-                        FixedPageSubmenu(highlightedPage, menuSwipeState, prefs.language,
-                            uiVisibility, sharedProjectsEnabled, prefs.settingsSubmenuEnabled,
-                            prefs.settingsMenuLabels, highlightedSection)
-                    }
-                    workspacePager(Modifier.fillMaxWidth().weight(1f).testTag("main-content"))
-                }
-                GenesisAccountFooter("$accountStatus · ${BuildConfig.VERSION_NAME}")
             }
             if (!testWorkspace && authState.ready && !authState.requiresSignIn &&
                 authState.user != null && authState.accountSettings?.sharedProjectsEligible == true) {
@@ -1065,7 +1060,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
             if(creating || existing!=null) TaskEditor(existing ?: mindmapTaskDraft,selected,prefs,structure,newTaskProjectId,
                 authState.accountSettings,taskLists,newTaskListId,
                 onDismiss={creating=false;editId=null;voiceDeleteTaskId=null;mindmapTaskDraft=null;scope.launch {mapsRepo?.clearConversionDraft()}},
-                onSave={draft -> model.save(draft){creating=false;editId=null;voiceDeleteTaskId=null;mindmapTaskDraft=null;scope.launch {mapsRepo?.clearConversionDraft()}}},
+                onSave={draft -> model.saveEditor(draft){creating=false;editId=null;voiceDeleteTaskId=null;mindmapTaskDraft=null;scope.launch {mapsRepo?.clearConversionDraft()}}},
                 onSwitchToShared=if(existing==null && tab=="Проекты" && sharedProjectsEnabled) ({
                     creating=false; creatingSharedTask=true
                 }) else null,
@@ -1077,7 +1072,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     { date -> model.excludeOccurrence(series,date) { creating=false;editId=null;voiceDeleteTaskId=null } }
                 },
                 showSelectedOccurrence=tab=="Сегодня" || tab=="Календарь",
-                startDeleteConfirmation=existing != null && existing.id == voiceDeleteTaskId)
+                startDeleteConfirmation=existing != null && existing.id == voiceDeleteTaskId, saveError=error, saving=savingTask)
             if (creatingSharedTask && sharedProjectsEnabled) SharedTaskCreateDialog(authController,prefs.language,
                 onDismiss={creatingSharedTask=false}, onSwitchToPersonal={creatingSharedTask=false;creating=true})
             transferTask?.let { privateTask ->
@@ -1103,9 +1098,13 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                 onAction={ action ->
                     voiceOpen=false
                     executeVoiceAction(action)
-                },onStartControl={voiceOpen=false;voiceControlActive=true})
+                },onStartControl={voiceOpen=false;voiceControlActive=true},
+                onOpenServer=if(serverAssistantAvailable || hasAssistantPlan) ({ voiceOpen=false;serverAssistantOpen=true }) else null)
+            if(voiceLanguageEnabled && serverAssistantOpen && diaryOwner != null && assistantGateway != null)
+                ServerAssistantDialog(app,diaryOwner,assistantGateway,structure,taskLists,authState.accountSettings?.accounts.orEmpty(),
+                    prefs.input,prefs.language,authController::createTaskList,
+                    onDismiss={serverAssistantOpen=false},onSaved={serverAssistantOpen=false;authController.syncPending();openPersonalTasks()})
             }
-        }
         }
         if (!testWorkspace) GoogleServicesFirstRunModal(authState, authController)
         if (!testWorkspace && !accountGate) YandexCalendarFirstRunDialog(authState, authController)
@@ -1121,142 +1120,6 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
 
 internal fun shouldUseNavigationRail(screenWidthDp: Int, landscape: Boolean,
     wideNavigationOnLeft: Boolean): Boolean = wideNavigationOnLeft && (landscape || screenWidthDp >= 600)
-
-@Composable
-private fun FixedPageSubmenu(page: String, state: MenuSwipeState, language: String,
-    visibility: ru.genesis.calendar.auth.UiVisibility, sharedProjectsEnabled: Boolean,
-    settingsSubmenuEnabled: Boolean, settingsMenuLabels: Boolean, previewSection: String? = null) {
-    if (page == "Настройки") {
-        if (settingsSubmenuEnabled) SettingsSubmenu(previewSection ?: state.settings, language,
-            settingsMenuLabels, { state.settings = it })
-        return
-    }
-    val items = when (page) {
-        "Задачи" -> listOf(SubmenuItem("tasks", "Задачи"),
-            SubmenuItem("lists", "Списки задач"))
-            .filter { "tasks.${it.id}" !in visibility.hiddenSubmenus }
-        "Проекты" -> if (sharedProjectsEnabled) listOf(
-            SubmenuItem("personal", if (language == "en") "Personal" else "Личные"),
-            SubmenuItem("shared", if (language == "en") "Shared" else "Общие"))
-            .filter { "projects.${it.id}" !in visibility.hiddenSubmenus } else emptyList()
-        "Календарь" -> listOf(SubmenuItem("month", "Месяц"), SubmenuItem("year", "Год"))
-            .filter { "calendar.${it.id}" !in visibility.hiddenSubmenus }
-        "Привычки" -> listOf(SubmenuItem("Привычки", "Привычки"),
-            SubmenuItem("Сон и настроение", "Сон и настроение"))
-            .filter { (if (it.id == "Привычки") "habits.habits" else "habits.sleep") !in visibility.hiddenSubmenus }
-        "Сакральное" -> listOf(
-            SubmenuItem("stoicheion", if (language == "en") "Stoicheion" else "Стойхейон"),
-            SubmenuItem("theokyklos", if (language == "en") "Theokyklos" else "Теокиклос"))
-            .filter { "sacred.${it.id}" !in visibility.hiddenSubmenus &&
-                it.id !in visibility.hiddenMenuItems }
-        else -> emptyList()
-    }
-    val selectedSection = if (page == "Проекты") {
-        if (previewSection == "shared") "shared" else if (previewSection?.startsWith("personal-") == true) "personal" else state.projectArea
-    } else previewSection ?: state.section(page).orEmpty()
-    if (items.size > 1) ConnectedSubmenu(items, selectedSection,
-        { state.select(page, it) }, Modifier.testTag("fixed-page-submenu"))
-}
-
-@Composable
-private fun PrimaryNavigation(selectedPage: String, pages: List<String>, vertical: Boolean,
-    showLabels: Boolean, autoScroll: Boolean, onSelect: (String) -> Unit, modifier: Modifier = Modifier) {
-    val compact = compactWindowHeight()
-    if (vertical) {
-        Surface(modifier.then(navigationViewportAnchor()).testTag("main-navigation-rail"),
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
-            Column(Modifier.verticalScroll(rememberScrollState()).padding(4.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                pages.forEach { page -> PrimaryNavigationItem(page, selectedPage == page, true,
-                    showLabels = showLabels, compact = true) { onSelect(page) } }
-            }
-        }
-    } else if (!showLabels) {
-        Row(modifier.fillMaxWidth().then(navigationViewportAnchor()).testTag("main-navigation-icons")
-            .padding(horizontal = 2.dp)) {
-            pages.forEach { page ->
-                Box(Modifier.weight(1f)) {
-                    PrimaryNavigationItem(page, selectedPage == page, true, showLabels = false,
-                        compact = true) { onSelect(page) }
-                }
-            }
-        }
-    } else if (pages.size <= 4) {
-        Row(modifier.fillMaxWidth().then(navigationViewportAnchor()).testTag("main-navigation-compact")
-            .padding(horizontal = 2.dp)) {
-            pages.forEach { page -> Box(Modifier.weight(1f)) {
-                PrimaryNavigationItem(page, selectedPage == page, true,
-                    showLabels = true, compact = true) { onSelect(page) }
-            } }
-        }
-    } else {
-        val scrollState = rememberScrollState()
-        var cycleWidth by remember { mutableIntStateOf(0) }
-        var touching by remember { mutableStateOf(false) }
-        LaunchedEffect(autoScroll, touching, cycleWidth) {
-            if (!autoScroll || touching || cycleWidth <= 0) return@LaunchedEffect
-            while (isActive) {
-                delay(20)
-                scrollState.scrollBy(.55f)
-                if (scrollState.value >= cycleWidth) scrollState.scrollTo(scrollState.value - cycleWidth)
-            }
-        }
-        Row(modifier.fillMaxWidth().then(navigationViewportAnchor()).testTag("main-navigation-scroll")
-            .horizontalScroll(scrollState)
-            .pointerInput(autoScroll) {
-                awaitPointerEventScope {
-                    while (true) touching = awaitPointerEvent().changes.any { it.pressed }
-                }
-            }.padding(horizontal=4.dp)) {
-            Row(Modifier.onSizeChanged { cycleWidth = it.width }) {
-                pages.forEach { page -> PrimaryNavigationItem(page, selectedPage == page, false,
-                    showLabels = true, compact = compact) { onSelect(page) } }
-            }
-            if (autoScroll) Row {
-                pages.forEach { page -> PrimaryNavigationItem(page, selectedPage == page, false,
-                    showLabels = true, compact = compact, loopCopy = true) { onSelect(page) } }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PrimaryNavigationItem(page: String, selectedPage: Boolean, fillWidth: Boolean,
-    showLabels: Boolean, compact: Boolean, loopCopy: Boolean = false, onSelect: () -> Unit) {
-    val visibleTitle = when(page) { "Проекты" -> "Дела"; "Сакральное" -> "Оракул"; else -> page }
-    val accessiblePage = genesisTranslate(visibleTitle)
-    val glowPhase = LocalNavigationGlowPhase.current?.value ?: -1f
-    val glow = if (!showLabels && selectedPage && glowPhase >= 0f)
-        navigationGlowColor(glowPhase, LocalEveningTheme.current) else null
-    Surface(onClick=onSelect, shape=RoundedCornerShape(16.dp),
-        color=if(selectedPage) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-        contentColor=if(selectedPage) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-        border=if (glow != null) BorderStroke(1.5.dp, Brush.horizontalGradient(listOf(
-            glow.copy(alpha = .55f), navigationGlowColor((glowPhase + .16f) % 1f,
-                LocalEveningTheme.current).copy(alpha = .83f), glow.copy(alpha = .55f))))
-        else BorderStroke(if(selectedPage) 1.5.dp else 1.dp,
-            if(selectedPage) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
-        shadowElevation=if(selectedPage) 3.dp else 1.dp,
-        modifier=(if (fillWidth) Modifier.fillMaxWidth() else Modifier).padding(if (compact) 2.dp else 3.dp)
-            .heightIn(min=if (compact) 44.dp else 48.dp)
-            .testTag(if (loopCopy) "navigation-loop-$page" else "navigation-$page")
-            .semantics {
-                selected=selectedPage; role=Role.Tab
-                if (!showLabels) contentDescription = accessiblePage
-            }.then(navigationParentAnchor(page))) {
-        Row(Modifier.fillMaxWidth().padding(horizontal=if(showLabels) 10.dp else 0.dp,
-            vertical=if(compact) 6.dp else 8.dp),verticalAlignment=Alignment.CenterVertically,
-            horizontalArrangement=Arrangement.Center) {
-            GenesisVectorIcon(genesisPageIcon(page), Modifier.size(if(compact) 22.dp else 24.dp))
-            if (showLabels) {
-                Spacer(Modifier.width(7.dp))
-                Text(visibleTitle,style=if(compact) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelLarge,
-                    maxLines = 1)
-            }
-        }
-    }
-}
 
 @Composable
 private fun AuthTransitionScreen(message: String) {
@@ -1277,19 +1140,15 @@ private fun TodayTasksPanel(tasks: List<LocalTask>, missedTasks: List<LocalTask>
     onMoveToToday: (LocalTask) -> Unit, onOpen: (String) -> Unit,
     showCreate: Boolean = true,
     habits: @Composable ColumnScope.() -> Unit) {
-    Card(Modifier.fillMaxWidth().testTag("today-tasks-section"), shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = if(LocalEveningTheme.current)
-            MaterialTheme.colorScheme.primaryContainer else Color(0xfffffbf2)),
-        border = BorderStroke(1.dp, if(LocalEveningTheme.current) MaterialTheme.colorScheme.primary.copy(alpha=.6f)
-            else Color(0x55b28a4a))) {
+    Card(Modifier.fillMaxWidth().testTag("today-tasks-section"), shape = AffairsLayout.shape,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                Surface(Modifier.size(44.dp), shape = RoundedCornerShape(14.dp), color = if(LocalEveningTheme.current)
-                    MaterialTheme.colorScheme.secondaryContainer else Color(0xff123b36)) {
+                Surface(Modifier.size(40.dp), shape = AffairsLayout.controlShape,
+                    color = MaterialTheme.colorScheme.primaryContainer) {
                     Box(contentAlignment = Alignment.Center) {
-                        GenesisVectorIcon(GenesisPageIcon.TASKS, Modifier.size(28.dp), if(LocalEveningTheme.current)
-                            MaterialTheme.colorScheme.onSecondaryContainer else Color(0xfff3d68f), animated = true)
+                        GenesisVectorIcon(GenesisPageIcon.TASKS, Modifier.size(24.dp), MaterialTheme.colorScheme.primary)
                     }
                 }
                 Column(Modifier.weight(1f)) {
@@ -1394,7 +1253,47 @@ internal fun DayHeader(date: LocalDate, mode: CalendarMode, detailsExpanded: Boo
     var switchCount by remember { mutableIntStateOf(0) }
     val detailsArrowRotation by animateFloatAsState(if (detailsExpanded) 180f else 0f,
         tween(220, easing = CubicBezierEasing(.16f, 1f, .3f, 1f)), label = "day-details-arrow")
-    Card(Modifier.fillMaxWidth().testTag("today-hero"), shape = RoundedCornerShape(20.dp),
+    var artworkExpanded by rememberSaveable(date, mode) { mutableStateOf(false) }
+    if (!artworkExpanded) {
+        Card(Modifier.fillMaxWidth().testTag("today-hero"), shape = AffairsLayout.shape,
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(copy.title, style = MaterialTheme.typography.headlineSmall)
+                    Text(date.format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.forLanguageTag(language))),
+                        Modifier.testTag("today-civil-date"), style = MaterialTheme.typography.bodyMedium)
+                    Text(copy.footerDate, Modifier.testTag("today-hero-date"),
+                        style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (sacredFeaturesEnabled) Row(verticalAlignment = Alignment.CenterVertically) {
+                        CalendarModeSwitcher(mode, { onModeChange(nextAvailableCalendarMode(mode, enabledCalendars)) },
+                            size = 48.dp)
+                        Text(mobileCalendarCopy(language).calendarName(mode), Modifier.padding(start = 8.dp),
+                            style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+                if (sacredFeaturesEnabled) OriginalImage(
+                    if (mode == CalendarMode.LUNAR) "genesis-hero.png" else copy.imagePath,
+                    copy.title, Modifier.size(width = 80.dp, height = 100.dp).clip(AffairsLayout.shape)
+                        .testTag("today-calendar-image"))
+            }
+            if (sacredFeaturesEnabled) TextButton(onClick = { artworkExpanded = true },
+                modifier = Modifier.fillMaxWidth().testTag("today-art-expand")) {
+                Text("Материалы дня")
+                Spacer(Modifier.width(8.dp))
+                GenesisLucideIcon("chevron-down", Modifier.size(18.dp))
+            } else SunriseSunsetLine(date, solarLocation, calendar,
+                accent = MaterialTheme.colorScheme.primary, textColor = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        return
+    }
+    TextButton(onClick = { artworkExpanded = false }, modifier = Modifier.fillMaxWidth()
+        .testTag("today-art-collapse")) {
+        Text("Свернуть материалы дня")
+        Spacer(Modifier.width(8.dp))
+        GenesisLucideIcon("chevron-up", Modifier.size(18.dp))
+    }
+    Card(Modifier.fillMaxWidth().testTag("today-hero"), shape = AffairsLayout.shape,
         border = BorderStroke(1.dp, Color(0x66dfc17e))) {
         if (!sacredFeaturesEnabled) Column(Modifier.fillMaxWidth().padding(18.dp)
             .testTag("today-hero-copy"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1518,7 +1417,7 @@ internal fun DayHeader(date: LocalDate, mode: CalendarMode, detailsExpanded: Boo
 internal fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,structure:WorkspaceStructure,initialProjectId:String?,
     accountSettings:ru.genesis.calendar.auth.AccountSettings?, taskLists:List<GoogleTaskList>, initialTaskListId:String?, onDismiss:()->Unit,
     onSave:(LocalTask)->Unit,onSwitchToShared:(()->Unit)?=null,onTransfer:(()->Unit)?,onDelete:(()->Unit)?,onDeleteOccurrence:((String)->Unit)?,showSelectedOccurrence:Boolean,
-    startDeleteConfirmation:Boolean=false) {
+    startDeleteConfirmation:Boolean=false, saveError:String?=null, saving:Boolean=false) {
     var title by rememberSaveable(task?.id) { mutableStateOf(task?.title ?: "") }
     var description by rememberSaveable(task?.id) { mutableStateOf(task?.description ?: "") }
     var date by rememberSaveable(task?.id) { mutableStateOf(task?.date ?: selected) }
@@ -1572,18 +1471,28 @@ internal fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,stru
     val occurrenceDate = if (task?.recurrence?.enabled == true && showSelectedOccurrence &&
         runCatching { TaskOccurrences.occursOn(task,LocalDate.parse(selected)) }.getOrDefault(false)) selected
         else task?.date ?: selected
-    Dialog(onDismissRequest=onDismiss,properties=androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth=false)) {
-        Surface(Modifier.widthIn(max = 840.dp).fillMaxWidth().padding(12.dp),shape=RoundedCornerShape(20.dp)) {
+    val draftFingerprint = listOf(title, description, date, time, priority, projectId, listId,
+        recurrence, reminders, syncTargets, formCalendarMode, yandexEntryType, yandexEndDate,
+        yandexEndTime, yandexLocation, yandexTelemost, yandexAttendees, yandexOptionalAttendees,
+        yandexBusy, yandexVisibility, yandexReminders).joinToString("\u001f")
+    val originalFingerprint = rememberSaveable(task?.id) { draftFingerprint }
+    var pendingExit by remember { mutableStateOf<(() -> Unit)?>(null) }
+    fun requestExit(action: () -> Unit) {
+        if (saving) return
+        if (draftFingerprint != originalFingerprint) pendingExit = action else action()
+    }
+    Dialog(onDismissRequest={ requestExit(onDismiss) },properties=androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth=false)) {
+        Surface(Modifier.widthIn(max = 840.dp).fillMaxWidth().padding(12.dp),shape=AffairsLayout.shape) {
             Column(Modifier.padding(16.dp).imePadding()) {
                 EditorDialogHeader(if (yandex) (if(task==null) "Новая запись Яндекс.Календаря" else "Изменить запись Яндекс.Календаря")
                     else if(task==null) "Новая задача" else "Изменить задачу",
-                    "close-task-editor", onDismiss)
+                    "close-task-editor", { requestExit(onDismiss) })
               Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())
                 .testTag("task-editor-scroll"),
                 verticalArrangement=Arrangement.spacedBy(8.dp)) {
                 if (task == null && onSwitchToShared != null) Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                     FilterChip(selected=true,onClick={},label={Text(if(prefs.language=="en") "Personal task" else "Личная задача")})
-                    FilterChip(selected=false,onClick=onSwitchToShared,
+                    FilterChip(selected=false,onClick={ requestExit(onSwitchToShared) },
                         label={Text(if(prefs.language=="en") "Team task" else "Общая задача")},
                         modifier=Modifier.testTag("create-shared-task-switch"))
                 }
@@ -1690,7 +1599,7 @@ internal fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,stru
                     "Сохранение изменит всю серию. При удалении можно выбрать только $occurrenceDate.",
                     style=MaterialTheme.typography.bodySmall,
                     color=MaterialTheme.colorScheme.onSurfaceVariant)
-                val occurrenceCount = if(googleTaskBacked || date.isBlank()) 1 else TaskRecurrenceEditor(recurrence,date,prefs.input) { recurrence=it;validation=null }
+                if(!googleTaskBacked && date.isNotBlank()) TaskRecurrenceEditor(recurrence,date,prefs.input) { recurrence=it;validation=null }
                 EditorSection("Напоминания") {
                 Text((if (yandex) "Дополнительные напоминания GENESIS" else "Напомнить") + " · ${reminders.size}/5",style=MaterialTheme.typography.titleMedium)
                 Text(if (yandex) "Эти напоминания показываются самим GENESIS на устройстве; настройки выше отправляются в Яндекс.Календарь."
@@ -1760,13 +1669,22 @@ internal fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,stru
                     }
                 }
                 }
+                onDelete?.let { TextButton(onClick={confirmDelete=true},enabled=!saving){Text("Удалить задачу")} }
+                onTransfer?.let { TextButton(onClick=it,enabled=!saving){Text(if(prefs.language=="en") "Move to shared" else "Переместить в общие")} }
+              }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                saveError?.let { Text(it, color=MaterialTheme.colorScheme.error,
+                    modifier=Modifier.testTag("task-save-error"), style=MaterialTheme.typography.bodySmall) }
                 validation?.let { Text(it,color=MaterialTheme.colorScheme.error) }
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
-                    TextButton(onClick=onDismiss){Text("Отмена")}
-                    Button(enabled=title.isNotBlank() && (routing?.mode!="choose" ||
+                    TextButton(onClick={ requestExit(onDismiss) },enabled=!saving){Text("Отмена")}
+                    Button(enabled=!saving && title.isNotBlank() && (routing?.mode!="choose" ||
                         accountSettings?.multiAccountEnabled!=true || syncTargets.isNotEmpty()),onClick={
                         val start = runCatching { LocalDate.parse(date) }.getOrNull()
                         val end = runCatching { LocalDate.parse(recurrence.rangeEnd) }.getOrNull()
+                        val occurrenceCount = if (!recurrence.enabled || googleTaskBacked) 1 else runCatching {
+                            RecurrenceEngine(GenesisCalendar()).buildDates(date, recurrence.copy(rangeStart = date)).size
+                        }.getOrDefault(0)
                         validation = when {
                             date.isNotBlank() && start == null -> "Выберите корректную дату задачи."
                             yandex && yandexEntryType == "meeting" && time.isNotBlank() &&
@@ -1816,12 +1734,16 @@ internal fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,stru
                             sourceFieldsJson=source.toString()))
                     },modifier=Modifier.testTag("save-task")){Text("Сохранить")}
                 }
-                onDelete?.let { TextButton(onClick={confirmDelete=true}){Text("Удалить задачу")} }
-                onTransfer?.let { TextButton(onClick=it){Text(if(prefs.language=="en") "Move to shared" else "Переместить в общие")} }
-              }
             }
         }
     }
+    pendingExit?.let { action -> AlertDialog(onDismissRequest = { pendingExit = null },
+        title = { Text("Отменить изменения?") },
+        text = { Text("Несохранённые изменения будут потеряны.") },
+        confirmButton = { TextButton(onClick = { pendingExit = null; action() },
+            modifier = Modifier.testTag("discard-task-draft")) { Text("Отменить изменения") } },
+        dismissButton = { TextButton(onClick = { pendingExit = null },
+            modifier = Modifier.testTag("keep-task-draft")) { Text("Продолжить редактирование") } }) }
     if(confirmDelete && task != null && onDelete != null) AlertDialog(onDismissRequest={confirmDelete=false},
         title={Text(if(onDeleteOccurrence!=null) "Удалить повторение?" else "Удалить задачу?")},
         text={Text(if(onDeleteOccurrence!=null) "Можно удалить только $occurrenceDate или всю серию."
@@ -1908,7 +1830,7 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sectionId:
     onSetVisibility:(ru.genesis.calendar.auth.UiVisibility)->Unit,
     onSet:(String,String)->Unit, onSetLocal:(String,String)->Unit,
     scrollState: ScrollState, menuVisibilityExpanded: Boolean,
-    onMenuVisibilityExpanded: (Boolean) -> Unit) {
+    onMenuVisibilityExpanded: (Boolean) -> Unit, adminGateway: ru.genesis.calendar.auth.AdminGateway? = null) {
     var refresh by remember { mutableIntStateOf(0) }
     var calendarReference by rememberSaveable { mutableStateOf<String?>(null) }
     var adminOpen by rememberSaveable { mutableStateOf(false) }
@@ -2118,7 +2040,7 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sectionId:
         }
         if (prefs.settingsSubmenuEnabled) sectionContent()
         else Surface(modifier = Modifier.fillMaxWidth().testTag("settings-section-${section.id}"),
-            shape = RoundedCornerShape(20.dp),
+            shape = AffairsLayout.shape,
             color = MaterialTheme.colorScheme.surfaceContainerLow,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -2132,7 +2054,7 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sectionId:
         CalendarReferenceDialog(CalendarMode.fromWire(value)) { calendarReference = null }
     }
     if (adminOpen && canOpenAdmin) NativeAdminPanel(onClose = { adminOpen = false },
-        load = adminLoad, deleteUser = adminDelete)
+        load = adminLoad, deleteUser = adminDelete, gateway = adminGateway, use24 = prefs.use24)
     if (releaseNotesOpen) ReleaseNotesDialog { releaseNotesOpen = false }
 }
 
@@ -2269,7 +2191,7 @@ private fun CalendarTimeSettings(prefs: UiPreferences,
 private fun MenuDisplaySettings(prefs: UiPreferences, onSetLocal: (String, String) -> Unit,
     visibilityContent: @Composable ColumnScope.() -> Unit) {
     SettingsSubsection("Отображение меню") {
-            Text("Кнопки меню первого уровня", style = MaterialTheme.typography.titleSmall)
+            Text("Подписи бокового меню", style = MaterialTheme.typography.titleSmall)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(selected = !prefs.navigationLabels,
                     onClick = { onSetLocal("navigationLabels", "icons") },
@@ -2280,20 +2202,6 @@ private fun MenuDisplaySettings(prefs: UiPreferences, onSetLocal: (String, Strin
                     onClick = { onSetLocal("navigationLabels", "text") },
                     modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("navigation-with-text"),
                     label = { Text("С текстом") })
-            }
-            AnimatedVisibility(prefs.navigationLabels) {
-                Row(Modifier.fillMaxWidth().testTag("navigation-auto-scroll-setting"),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Автопрокрутка в портретном режиме", style = MaterialTheme.typography.titleSmall)
-                        Text("Медленное движение справа налево; удержание пальцем ставит его на паузу.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Switch(checked = prefs.navigationAutoScroll,
-                        onCheckedChange = { onSetLocal("navigationAutoScroll", it.toString()) },
-                        modifier = Modifier.testTag("navigation-auto-scroll"))
-                }
             }
             Text("Подменю настроек", style = MaterialTheme.typography.titleSmall)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -2308,69 +2216,9 @@ private fun MenuDisplaySettings(prefs: UiPreferences, onSetLocal: (String, Strin
                         .testTag("settings-layout-sequential"),
                     label = { Text("Блоки подряд") })
             }
-            if (prefs.settingsSubmenuEnabled) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = !prefs.settingsMenuLabels,
-                    onClick = { onSetLocal("settingsMenuLabels", "icons") },
-                    modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-                        .testTag("settings-menu-icons-only"),
-                    label = { Text("Иконки") })
-                FilterChip(selected = prefs.settingsMenuLabels,
-                    onClick = { onSetLocal("settingsMenuLabels", "text") },
-                    modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-                        .testTag("settings-menu-with-text"),
-                    label = { Text("С подписями") })
-            }
-            }
-            Text("Расположение меню первого уровня", style = MaterialTheme.typography.titleSmall)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = prefs.wideNavigationOnLeft,
-                    onClick = { onSetLocal("wideNavigation", "left") },
-                    modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("wide-navigation-left"),
-                    label = { Text("Слева") })
-                FilterChip(selected = !prefs.wideNavigationOnLeft,
-                    onClick = { onSetLocal("wideNavigation", "top") },
-                    modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("wide-navigation-top"),
-                    label = { Text("Сверху") })
-            }
-            Text("Настройка применяется автоматически при повороте экрана и на планшете.",
+            Text("Основные разделы открываются кнопкой меню. Смахивания внутри календаря переключают период, а внутри карты перемещают полотно.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("Переход между вкладками в портретном режиме",
-                style = MaterialTheme.typography.titleSmall)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = !prefs.menuSwipeEnabled,
-                    onClick = { onSetLocal("menuSwipeEnabled", "false") },
-                    modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("menu-swipe-off"),
-                    label = { Text("Кнопки меню") })
-                FilterChip(selected = prefs.menuSwipeEnabled,
-                    onClick = { onSetLocal("menuSwipeEnabled", "true") },
-                    modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("menu-swipe-on"),
-                    label = { Text("Общий свайп") })
-            }
-            Text("Смахивайте содержимое экрана влево или вправо для перехода между разделами.",
-                style = MaterialTheme.typography.bodySmall)
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(checked = prefs.menuSwipeSubmenus, enabled = prefs.menuSwipeEnabled,
-                    onCheckedChange = { onSetLocal("menuSwipeSubmenus", it.toString()) },
-                    modifier = Modifier.testTag("menu-swipe-submenus"))
-                Text("Включать подменю в общий свайп", style = MaterialTheme.typography.bodyMedium)
-            }
-            Text("Связь меню и подменю", style = MaterialTheme.typography.titleSmall)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = prefs.menuThreadsEnabled,
-                    onClick = { onSetLocal("menuThreadsEnabled", "true") },
-                    modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-                        .testTag("menu-threads-mode"),
-                    label = { Text("Нити") })
-                FilterChip(selected = !prefs.menuThreadsEnabled,
-                    onClick = { onSetLocal("menuThreadsEnabled", "false") },
-                    modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-                        .testTag("menu-outline-mode"),
-                    label = { Text("Общая обводка") })
-            }
-            Text("При общем свайпе месяцы и годы переключаются стрелками.",
-                style = MaterialTheme.typography.bodySmall)
             visibilityContent()
     }
 }
@@ -2497,21 +2345,18 @@ private fun MenuVisibilitySettings(prefs: UiPreferences,
 internal fun SettingsSection(symbol: String, title: String, subtitle: String, color: Color,
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit) {
-    Card(modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = eveningSurface(color)),
-        border = BorderStroke(1.dp, Color(0x55b28a4a))) {
+    Card(modifier.fillMaxWidth(), shape = AffairsLayout.shape,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Surface(Modifier.size(46.dp).clearAndSetSemantics { }, shape = RoundedCornerShape(14.dp), color = Color(0xff123b36)) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(symbol, color = Color(0xffffe4a6), style = MaterialTheme.typography.titleLarge)
-                    }
+                Box(Modifier.size(40.dp).clearAndSetSemantics { }, contentAlignment = Alignment.Center) {
+                    GenesisVectorIcon(genesisPageIcon(title), Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
                 }
                 Column(Modifier.weight(1f)) {
                     Text(title, Modifier.semantics { heading() }, style = MaterialTheme.typography.titleLarge,
-                        color = Color(0xff132426))
-                    Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Color(0xff596665))
+                        color = MaterialTheme.colorScheme.onSurface)
+                    Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             HorizontalDivider(color = Color(0x33b28a4a))

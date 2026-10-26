@@ -69,14 +69,17 @@ internal fun habitLifecycleFailure(code: String?) = when (code) {
 
 @Composable internal fun HabitCardActions(habit: Habit, enabled: Boolean, scheduled: Boolean,
     onEdit: () -> Unit, onToggle: () -> Unit, onArchive: () -> Unit, onTimer: () -> Unit, onDelete: () -> Unit) {
-    FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        AffairsIconButton("Изменить", AffairsAction.EDIT, onEdit, Modifier.testTag("edit-habit-${habit.id}"), enabled)
-        AffairsIconButton(if (habit.active) "Пауза" else "Включить", if (habit.active) AffairsAction.PAUSE else AffairsAction.RESUME,
-            onToggle, Modifier.testTag("toggle-habit-${habit.id}"), enabled)
-        AffairsIconButton("В архив", AffairsAction.ARCHIVE, onArchive, Modifier.testTag("archive-habit-${habit.id}"), enabled)
-        AffairsIconButton("Таймер", AffairsAction.TIMER, onTimer, Modifier.testTag("habit-timer-open-${habit.id}"), enabled && scheduled)
-        CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.error) {
-            AffairsIconButton("Удалить", AffairsAction.DELETE, onDelete, Modifier.testTag("delete-habit-${habit.id}"), enabled)
+    var expanded by remember(habit.id) { mutableStateOf(false) }
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (scheduled) AffairsIconButton("Таймер", AffairsAction.TIMER, onTimer, Modifier.testTag("habit-timer-open-${habit.id}"), enabled)
+        Box {
+            AffairsIconButton("Действия привычки", AffairsAction.MORE, { expanded = true }, Modifier.testTag("habit-actions-${habit.id}"), enabled)
+            DropdownMenu(expanded, { expanded = false }) {
+                DropdownMenuItem(text = { Text("Изменить") }, onClick = { expanded = false; onEdit() }, modifier = Modifier.testTag("edit-habit-${habit.id}"))
+                DropdownMenuItem(text = { Text(if (habit.active) "Пауза" else "Включить") }, onClick = { expanded = false; onToggle() }, modifier = Modifier.testTag("toggle-habit-${habit.id}"))
+                DropdownMenuItem(text = { Text("В архив") }, onClick = { expanded = false; onArchive() }, modifier = Modifier.testTag("archive-habit-${habit.id}"))
+                DropdownMenuItem(text = { Text("Удалить", color = MaterialTheme.colorScheme.error) }, onClick = { expanded = false; onDelete() }, modifier = Modifier.testTag("delete-habit-${habit.id}"))
+            }
         }
     }
 }

@@ -312,7 +312,7 @@ private fun TheokyklosDetail(sector: TheokyklosSector, practices: List<Theokyklo
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             Text("${index + 1}", color = MaterialTheme.colorScheme.primary)
                             Column {
-                                Text(word.greek, fontFamily = FontFamily.Serif,
+                                Text(word.greek, fontFamily = GenesisHeadingFont,
                                     style = MaterialTheme.typography.titleMedium)
                                 Text(if (english) "“${word.pronunciation.en}” · ${word.meaning.en}"
                                     else "«${word.pronunciation.ru}» · ${word.meaning.ru}",

@@ -46,16 +46,16 @@ internal fun StoicheionCardFace(letter: StoicheionLetter, modifier: Modifier = M
             Modifier.align(Alignment.TopCenter).padding(top = height * .083f).width(width * .72f)
                 .background(Brush.horizontalGradient(listOf(Color.Transparent, Color(0xd1021012), Color(0xd1021012), Color.Transparent)))
                 .padding(vertical = height * .012f),
-            color = Color(0xfff3e5c0), fontFamily = FontFamily.Serif, fontWeight = FontWeight.SemiBold,
+            color = Color(0xfff3e5c0), fontFamily = GenesisHeadingFont, fontWeight = FontWeight.SemiBold,
             fontSize = titleSize, textAlign = TextAlign.Center, maxLines = 1,
             overflow = TextOverflow.Ellipsis)
         Row(Modifier.align(Alignment.TopCenter).padding(top = height * .165f)
             .size(width * .27f).border(width * .008f, letter.accent.copy(alpha = .82f), CircleShape)
             .background(Brush.radialGradient(listOf(letter.accent.copy(alpha = .45f), Color(0xf0071c1f))), CircleShape),
             horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-            Text(letter.symbol, color = Color(0xfff4dda0), fontFamily = FontFamily.Serif,
+            Text(letter.symbol, color = Color(0xfff4dda0), fontFamily = GenesisHeadingFont,
                 fontSize = max(30f, min(50f, width.value * .19f)).sp)
-            Text(letter.lowercase, color = letter.accent, fontFamily = FontFamily.Serif,
+            Text(letter.lowercase, color = letter.accent, fontFamily = GenesisHeadingFont,
                 fontSize = max(12f, width.value * .07f).sp)
         }
         Column(Modifier.align(Alignment.BottomCenter).padding(bottom = height * .068f)
@@ -65,13 +65,13 @@ internal fun StoicheionCardFace(letter: StoicheionLetter, modifier: Modifier = M
             .padding(vertical = height * .012f, horizontal = width * .018f),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(height * .003f)) {
-            Text(letter.body.uppercase(), color = Color(0xfff5e6c3), fontFamily = FontFamily.Serif,
+            Text(letter.body.uppercase(), color = Color(0xfff5e6c3), fontFamily = GenesisHeadingFont,
                 fontWeight = FontWeight.SemiBold, fontSize = max(8f, min(14f, width.value * .057f)).sp,
                 maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
-            Text(letter.bodyGreek, color = letter.accent, fontFamily = FontFamily.Serif,
+            Text(letter.bodyGreek, color = letter.accent, fontFamily = GenesisHeadingFont,
                 fontSize = max(8f, min(12f, width.value * .05f)).sp,
                 maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
-            Text(letter.invocation, color = Color(0xffc7bca4), fontFamily = FontFamily.Serif,
+            Text(letter.invocation, color = Color(0xffc7bca4), fontFamily = GenesisHeadingFont,
                 fontSize = max(7f, min(10f, width.value * .034f)).sp,
                 maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
         }

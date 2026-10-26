@@ -9,6 +9,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -23,12 +24,36 @@ import org.junit.Test
 import ru.genesis.calendar.domain.CalendarMode
 import ru.genesis.calendar.domain.GenesisCalendar
 import ru.genesis.calendar.ui.CalendarScreen
+import ru.genesis.calendar.ui.CalendarModeSwitcher
+import ru.genesis.calendar.ui.mobileCalendarCopy
+import ru.genesis.calendar.ui.calendarName
 import ru.genesis.calendar.ui.standart
 import ru.genesis.calendar.ui.evening
 import ru.genesis.calendar.ui.LocalEveningTheme
 
 class CalendarModeHeaderTest {
     @get:Rule val compose = createAndroidComposeRule<StoicheionGestureActivity>()
+
+    @Test fun calendarModeChangesBeforeDecorativeAnimationAndSmallIconKeeps48dpTarget() {
+        var mode by mutableStateOf(CalendarMode.PROFANE)
+        compose.setContent { MaterialTheme(colorScheme = standart) {
+            CalendarModeSwitcher(mode, { mode = when (mode) {
+                CalendarMode.PROFANE -> CalendarMode.SACRED
+                CalendarMode.SACRED -> CalendarMode.LUNAR
+                CalendarMode.LUNAR -> CalendarMode.PROFANE
+            } }, size = 42.dp)
+        } }
+        val target = compose.onNodeWithTag("calendar-mode-icon-profane").fetchSemanticsNode()
+        val density = target.layoutInfo.density.density
+        assertTrue(target.boundsInRoot.width + 1 >= 48 * density)
+        assertTrue(target.boundsInRoot.height + 1 >= 48 * density)
+        compose.mainClock.autoAdvance = false
+        try {
+            compose.onNodeWithTag("calendar-mode-icon-profane").performClick()
+            compose.mainClock.advanceTimeByFrame()
+            compose.runOnIdle { assertEquals(CalendarMode.SACRED, mode) }
+        } finally { compose.mainClock.autoAdvance = true }
+    }
 
     @Test fun selectingMonthFromYearSurvivesScreenRecreationInEveryCalendar() {
         var mode by mutableStateOf(CalendarMode.PROFANE)
@@ -51,7 +76,8 @@ class CalendarModeHeaderTest {
             compose.onNodeWithText("Год").performClick()
             compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag(monthTag))
             compose.onNodeWithTag(monthTag).performClick()
-            compose.onNodeWithText("Календарь - месяц").assertExists()
+            compose.onNode(hasText(mobileCalendarCopy("ru").calendarName(calendarMode)) and
+                hasAnyAncestor(hasTestTag("genesis-page-header"))).assertExists()
             assertEquals(monthStart, selected)
             compose.onNodeWithTag("calendar-day-$monthStart").assertExists()
         }
@@ -88,6 +114,8 @@ class CalendarModeHeaderTest {
         compose.onNodeWithText("Год").performClick()
         compose.onNodeWithTag("calendar-year-panel").assertExists()
         compose.waitForIdle()
+        compose.onNodeWithTag("calendar-year-solar-points").assertDoesNotExist()
+        compose.onNodeWithTag("calendar-year-solar-toggle").performScrollTo().performClick()
         compose.onNodeWithTag("calendar-year-solar-points").assertExists()
         val solarTiles = compose.onAllNodes(SemanticsMatcher("solar point tiles") { node ->
             runCatching { node.config[SemanticsProperties.TestTag] }.getOrNull()
@@ -206,6 +234,7 @@ class CalendarModeHeaderTest {
                 onSelect = {}, experimental = true)
         } }
         compose.onNodeWithText("Год").performClick()
+        compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag("spring-year-suggestion"))
         compose.onNodeWithTag("spring-year-suggestion").assertExists()
         compose.onNodeWithTag("spring-year-dismiss").performClick()
         compose.onNodeWithTag("spring-year-suggestion").assertDoesNotExist()
@@ -224,6 +253,7 @@ class CalendarModeHeaderTest {
                 onStartGregorianYearInMarch = { startsInMarch = true })
         } }
         compose.onNodeWithText("Год").performClick()
+        compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag("spring-year-suggestion"))
         compose.onNodeWithTag("spring-year-switch").performClick()
         compose.onNodeWithTag("spring-year-suggestion").assertDoesNotExist()
         compose.onNodeWithTag("calendar-year-period").assertTextContains("2026–2027")

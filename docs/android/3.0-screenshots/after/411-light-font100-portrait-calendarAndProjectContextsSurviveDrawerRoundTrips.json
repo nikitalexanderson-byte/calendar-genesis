@@ -1,0 +1,33 @@
+{
+  "test": "calendarAndProjectContextsSurviveDrawerRoundTrips",
+  "widthDp": 411,
+  "runId": "bcc032ef72fe452098c8196c397e3702",
+  "dark": false,
+  "fontScale": 1,
+  "orientation": "portrait",
+  "checks": [
+    "route:drawer-Календарь-month",
+    "route:drawer-Сегодня-root",
+    "today:actual-date",
+    "route:drawer-Календарь-month",
+    "route:drawer-Календарь-year",
+    "route:drawer-Сегодня-root",
+    "route:drawer-Календарь-year",
+    "route:drawer-Проекты-personal-projects",
+    "route:drawer-Сегодня-root",
+    "route:drawer-Проекты-personal-projects",
+    "route:drawer-Сегодня-root",
+    "route:drawer-Проекты-personal-projects",
+    "state:month-year-project-search-roundtrip"
+  ],
+  "screenshots": [],
+  "workspace": "internal-validation-v1",
+  "versionName": "3.0.0-beta.1",
+  "versionCode": 103,
+  "notTested": [
+    "Real Google sign-in and cloud synchronization",
+    "Shared-project role access and server operations",
+    "Physical-phone installation",
+    "Process death differs from Activity recreation"
+  ]
+}

@@ -2063,10 +2063,22 @@ test("retains the legacy TWA artifact but promotes only the signed native Androi
   // The legacy 1.2.2 asset remains available while the current native release advances.
   const nativeVersionCode = Number(androidBuild.match(/versionCode = (\d+)/)?.[1]);
   assert.ok(nativeVersionCode >= 57);
-  const nativeVersionName = androidBuild.match(/versionName = "([\d.]+)"/)?.[1];
+  const nativeVersionName = androidBuild.match(/versionName = "([\d.]+(?:-beta\.\d+)?)"/)?.[1];
   assert.ok(nativeVersionName, "Android release must declare a version name");
-  assert.ok(deployWorkflow.includes(`versionCode='${nativeVersionCode}' versionName='${nativeVersionName}'`));
-  assert.ok(deployWorkflow.includes(`GENESIS-Android-Native-${nativeVersionName}.apk`));
+  if (nativeVersionName.includes("-beta.")) {
+    assert.match(androidBuild, /buildConfigField\("boolean", "TRIAL_BUILD", "true"\)/);
+    const trialWorkflow = await readFile(new URL("../.github/workflows/android-trial.yml", import.meta.url), "utf8");
+    assert.match(trialWorkflow, /workflow_dispatch:/);
+    assert.match(trialWorkflow, /actions\/upload-artifact@/);
+    assert.match(trialWorkflow, /GENESIS_ANDROID_RELEASE_KEYSTORE_B64/);
+    assert.doesNotMatch(trialWorkflow, /android-update\.json|dist-beget|scp |ssh |workflow_run:/);
+    // A trial must not silently replace the existing stable distribution.
+    assert.ok(deployWorkflow.includes("versionCode='102' versionName='2.9.7'"));
+    assert.ok(deployWorkflow.includes("GENESIS-Android-Native-2.9.7.apk"));
+  } else {
+    assert.ok(deployWorkflow.includes(`versionCode='${nativeVersionCode}' versionName='${nativeVersionName}'`));
+    assert.ok(deployWorkflow.includes(`GENESIS-Android-Native-${nativeVersionName}.apk`));
+  }
   assert.match(androidBuild, /releaseSigningReady/);
   assert.match(androidBuild, /applicationIdSuffix = debugApplicationSuffix/);
   assert.match(androidBuild, /gradleProperty\("genesisDebugApplicationIdSuffix"\)\.orElse\("\.debug"\)/);

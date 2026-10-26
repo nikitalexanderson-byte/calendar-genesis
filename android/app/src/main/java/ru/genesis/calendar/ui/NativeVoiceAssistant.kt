@@ -34,7 +34,7 @@ internal fun NativeVoiceAssistantDialog(app: GenesisApplication, structure: Work
     taskLists: List<GoogleTaskList>, tasks: List<LocalTask>, habits: List<Habit>,
     calendarMode: CalendarMode, use24: Boolean, language: String,
     onDismiss: () -> Unit, onSaved: () -> Unit, onAction: (NativeVoiceAction) -> Unit,
-    onStartControl: () -> Unit) {
+    onStartControl: () -> Unit, onOpenServer: (() -> Unit)? = null) {
     val english=language=="en"
     val scope=rememberCoroutineScope()
     val ownerScope=remember(app) { app.workspaceScope }
@@ -59,6 +59,12 @@ internal fun NativeVoiceAssistantDialog(app: GenesisApplication, structure: Work
                 OutlinedButton(onClick=onStartControl,modifier=Modifier.fillMaxWidth()
                     .testTag("voice-control-enable")) {
                     Text(if(english)"Switch to app control" else "Включить управление приложением")
+                }
+                onOpenServer?.let { open ->
+                    OutlinedButton(onClick = open, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("voice-server-assistant")) {
+                        GenesisLucideIcon("sparkles", Modifier.size(20.dp)); Spacer(Modifier.width(8.dp))
+                        Text("Серверный помощник")
+                    }
                 }
                 Text(if(english)"Dictate or type a command. Create tasks, projects and habits; open items to edit; move tasks; navigate sections. Check the preview before applying."
                     else "Продиктуйте или напишите команду: создать задачу, проект или привычку, открыть редактирование, перенести задачу или перейти в раздел. Проверьте результат перед выполнением.",
