@@ -1,0 +1,37 @@
+import type { DailyAdvice } from './daily-advice';
+
+export const DIARY_COLORS = ['sage', 'sand', 'rose', 'sky'] as const;
+export type DiaryColor = typeof DIARY_COLORS[number];
+export type DiaryNote = {
+  version: 1; id: string; title: string; body: string; color: DiaryColor;
+  createdAt: string; updatedAt: string; archived: boolean; pinned: boolean;
+  reaction: 'favorite' | 'dislike' | null; advice?: DailyAdvice;
+};
+const date = (value: unknown) => typeof value === 'string' && Number.isFinite(Date.parse(value));
+/** Reject unknown schemas rather than rewriting future clients' data. */
+export function validateDiaryNote(value: unknown): DiaryNote {
+  const note = value as DiaryNote;
+  if (!note || note.version !== 1 || !/^[a-zA-Z0-9_-]{1,100}$/.test(note.id)
+    || typeof note.title !== 'string' || note.title.length > 200
+    || typeof note.body !== 'string' || note.body.length > 30000 || !note.body.trim()
+    || !DIARY_COLORS.includes(note.color) || !date(note.createdAt) || !date(note.updatedAt)
+    || typeof note.archived !== 'boolean' || typeof note.pinned !== 'boolean'
+    || ![null, 'favorite', 'dislike'].includes(note.reaction)
+    || (note.reaction === 'dislike' && !note.archived)) throw new Error('DIARY_INVALID_NOTE');
+  if (note.advice && (typeof note.advice.id !== 'string' || !note.advice.id || typeof note.advice.body !== 'string'
+    || typeof note.advice.language !== 'string' || !Array.isArray(note.advice.categories) || !Array.isArray(note.advice.sources)
+    || note.advice.sources.some(source => typeof source.work !== 'string' || !['quote','inspired'].includes(source.kind)))) throw new Error('DIARY_INVALID_ADVICE');
+  return structuredClone(note);
+}
+export function newDiaryNote(body = '', title = ''): DiaryNote {
+  const now = new Date().toISOString();
+  return { version: 1, id: crypto.randomUUID(), title, body, color: 'sage', createdAt: now, updatedAt: now, archived: false, pinned: false, reaction: null };
+}
+export function reactToAdvice(advice: DailyAdvice, id: string, reaction: 'favorite' | 'dislike', previous?: DiaryNote): DiaryNote {
+  const note = previous ?? { ...newDiaryNote(advice.body, (advice.title ?? '').slice(0, 200)), id, advice: structuredClone(advice) };
+  return validateDiaryNote({ ...note, reaction: previous?.reaction === reaction ? null : reaction,
+    archived: reaction === 'dislike' ? previous?.reaction !== 'dislike' : false, updatedAt: new Date().toISOString() });
+}
+export function restoreDiaryNote(note: DiaryNote): DiaryNote {
+  return { ...note, archived: false, reaction: note.reaction === 'dislike' ? null : note.reaction, updatedAt: new Date().toISOString() };
+}

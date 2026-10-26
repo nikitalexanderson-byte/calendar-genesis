@@ -457,8 +457,15 @@ export function personalDocumentAccess(userId: string) {
     check,
     async request<T>(path: string, init: RequestInit = {}) {
       check();
-      if (!/^\/(?:mindmaps(?:\/[a-zA-Z0-9_-]+(?:\/history)?)?|stoicheion-workspace)$/.test(path)) throw new Error("Invalid personal document path");
+      if (!/^\/(?:mindmaps(?:\/[a-zA-Z0-9_-]+(?:\/history)?)?|diary(?:\/[a-zA-Z0-9_-]+)?|stoicheion-workspace)$/.test(path)) throw new Error("Invalid personal document path");
       const value = await api<T>(path, init); check(); return value;
+    },
+    async privateId(scope: string) {
+      check(); const encode = (value: string) => new TextEncoder().encode(value);
+      const source = await crypto.subtle.importKey('raw', base64ToBytes(workspaceKey), 'HKDF', false, ['deriveKey']);
+      const key = await crypto.subtle.deriveKey({ name: 'HKDF', hash: 'SHA-256', salt: encode('genesis-private-document-id-v1'), info: encode(userId) }, source, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+      const result = await crypto.subtle.sign('HMAC', key, encode(scope)); check();
+      return Array.from(new Uint8Array(result), value => value.toString(16).padStart(2, '0')).join('');
     },
     async seal(value: unknown, scope: string) {
       check(); const iv = crypto.getRandomValues(new Uint8Array(12));

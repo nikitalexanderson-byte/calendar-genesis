@@ -33,6 +33,7 @@ require $serverRoot . '/src/bootstrap.php';
 require $serverRoot . '/src/repository.php';
 require $serverRoot . '/src/mindmaps.php';
 require $serverRoot . '/src/stoicheion-workspace.php';
+require $serverRoot . '/src/diary.php';
 require $serverRoot . '/src/shared-mindmaps.php';
 require $serverRoot . '/src/ads.php';
 require $serverRoot . '/src/google.php';
@@ -1121,6 +1122,11 @@ try {
         if(count($segments)===6 && $method==='PATCH'){genesisRequireCsrf();genesisJson(genesisSharedRestoreTrash($userId,$segments[2],$segments[4],$segments[5],genesisReadJson()));}
     }
 
+    if ($segments && $segments[0] === 'diary') {
+        $userId=genesisRequireUserId(); header('Cache-Control: no-store');
+        if ($method==='GET' && count($segments)===1) genesisJson(['notes'=>genesisDiaryNotes($userId)]);
+        if ($method==='PUT' && count($segments)===2) { genesisRequireCsrf(); genesisJson(genesisSaveDiaryNote($userId,$segments[1],genesisReadJson())); }
+    }
     if ($path === 'stoicheion-workspace') {
         $userId = genesisRequireUserId(); header('Cache-Control: no-store');
         if ($method === 'GET') genesisJson(['document'=>genesisStoicheionWorkspace($userId)]);

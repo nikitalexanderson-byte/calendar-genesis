@@ -9,6 +9,10 @@ import { useHeaderControlSize } from "./use-header-control-size";
 import {orderPersonalTasks,taskListOrders,unreadPersonalCommentIds,type TaskListOrder} from "./task-list-order";
 import {usePersonalTaskDisplay} from "./use-personal-task-display";
 import {MindmapLaunchButton} from "./MindmapLaunchButton";
+import { DiaryProvider } from "./DiaryProvider";
+import { DiaryLaunchButton } from "./DiaryLaunchButton";
+import diaryCopy from "./diary-copy.json";
+const DiaryPage = lazy(() => import("./DiaryPage"));
 import "./task-list-entry.css";
 import { CalendarCellTasks } from "./CalendarCellTasks";
 import { useCalendarTaskPreviews } from "./use-calendar-task-previews";
@@ -1296,6 +1300,11 @@ export function GenesisCalendar() {
   const [newEntryType, setNewEntryType] = useState<EntryType>("task");
   const [completedProjectsOpen, setCompletedProjectsOpen] = useState(false);
   const [mindmapsOpen, setMindmapsOpen] = useState(() => personalMindmapsEnabled && typeof window !== "undefined" && new URL(window.location.href).searchParams.has("mindmap"));
+  const [diaryOpen, setDiaryOpen] = useState(() => typeof window !== "undefined" && new URL(window.location.href).searchParams.has("diary"));
+  useEffect(() => {
+    const restore = () => setDiaryOpen(new URL(window.location.href).searchParams.has("diary"));
+    window.addEventListener("popstate", restore); return () => window.removeEventListener("popstate", restore);
+  }, []);
   const [mindmapsProjectId, setMindmapsProjectId] = useState<string | null>(null);
   const [mindmapConversion, setMindmapConversion] = useState<MindmapTaskRequest | null>(null);
   const mindmapConversionBusy = useRef(false);
@@ -1937,7 +1946,10 @@ export function GenesisCalendar() {
         if (place) nextUrl = sharedPlaceUrl(nextUrl, place);
         else nextUrl.searchParams.set("affairs", "shared");
       } else nextUrl.searchParams.set("affairs", "personal");
-    } else for (const key of ["affairs", "space", "project", "task", "projectView", "taskAction", "comment"]) nextUrl.searchParams.delete(key);
+    } else {
+      setDiaryOpen(false);
+      for (const key of ["affairs", "space", "project", "task", "projectView", "taskAction", "comment", "diary"]) nextUrl.searchParams.delete(key);
+    }
     nextUrl.hash = nextView;
     const cleanUrl = cleanGenesisAppUrl(nextUrl);
     const state = { ...(window.history.state ?? {}), genesisView: nextView };
@@ -5231,7 +5243,7 @@ export function GenesisCalendar() {
           </div>
         </section>
 
-        {cloudUser ? <TodayAdvice key={cloudUser.uid} user={cloudUser} habits={habitWorkspace.habits} tasks={tasks} day={todayDateValue} ready={hydrated && syncStatus !== "syncing"} /> : null}
+        {cloudUser ? <TodayAdvice key={cloudUser.uid} user={cloudUser} habits={habitWorkspace.habits} tasks={tasks} day={todayDateValue} ready={hydrated && syncStatus !== "syncing"} onOpenDiary={() => { setProjectsArea("personal"); setMindmapsOpen(false); setDiaryOpen(true); navigateTo("projects"); const url = new URL(location.href); url.searchParams.set("diary", "1"); history.replaceState(history.state, "", url); }} /> : null}
 
         {cloudUser ? <TodayAdBlock key={`${cloudUser.uid}:${language}`} language={language} userId={cloudUser.uid} /> : null}
 
@@ -5954,6 +5966,7 @@ export function GenesisCalendar() {
   );
 
   const renderProjects = () => {
+    if (diaryOpen && cloudUser) return <Suspense fallback={<DeferredViewFallback label={language === 'en' ? diaryCopy.en.loading : diaryCopy.ru.loading} />}><DiaryPage language={language} onClose={() => { setDiaryOpen(false); const url = new URL(location.href); url.searchParams.delete("diary"); history.replaceState(history.state, "", url); }} /></Suspense>;
     if (personalMindmapsEnabled && mindmapsOpen && cloudUser) return <Suspense fallback={<DeferredViewFallback label="Открываем майндмепы…" />}>
       <Mindmaps key={cloudUser.uid} userId={cloudUser.uid} tasks={tasks} projects={projects} projectId={mindmapsProjectId} projectForTask={resolvedTaskProjectId}
         onClose={() => { setMindmapsOpen(false); setMindmapsProjectId(null); const url = new URL(location.href); url.searchParams.delete("mindmap"); history.replaceState({}, "", url); requestAnimationFrame(() => window.scrollTo(0, mindmapsReturnScroll.current)); }}
@@ -6052,7 +6065,10 @@ export function GenesisCalendar() {
         </div> : null}
 
         <div className="personal-search-actions">
+        <div className="personal-notebook-launches">
         {personalMindmapsEnabled ? <MindmapLaunchButton label={translateText("Майндмепы",language)} className="personal-mindmaps-entry" onClick={() => { mindmapsReturnScroll.current = window.scrollY; setMindmapsProjectId(null); setMindmapsOpen(true); }} /> : null}
+        {cloudUser ? <DiaryLaunchButton label={language === 'en' ? diaryCopy.en.title : diaryCopy.ru.title} onClick={() => { setMindmapsOpen(false); setDiaryOpen(true); const url = new URL(location.href); url.searchParams.set("diary", "1"); history.pushState(history.state, "", url); }} /> : null}
+        </div>
         <label className="task-order-choice"><select aria-label={language==="en"?"Sort tasks":"Сортировка задач"} value={personalTaskDisplay.sort} onChange={event=>personalTaskDisplay.setSort(event.target.value as TaskListOrder)}>{taskListOrders.map(order=><option key={order.value} value={order.value}>{language==="en"?order.en:order.ru}</option>)}</select></label>
         <label className="tag-search personal-affairs-search">
           <span aria-hidden="true">{experimentalThemeActive ? <ExperimentalIcon name="search" /> : "⌕"}</span>
@@ -6884,6 +6900,7 @@ export function GenesisCalendar() {
     <TimeClockFormatContext.Provider value={activeTimeFormat}>
     <SharedUpdatesProvider key={cloudUser?.uid || "anonymous"} userId={cloudUser?.uid || ""} enabled={Boolean(cloudUser?.sharedProjectsEnabled)}>
     <SacredFeaturesContext value={sacredFeaturesEnabled}>
+    <DiaryProvider key={cloudUser?.uid || 'anonymous'} userId={cloudUser?.uid || ''} ready={hydrated && syncStatus !== 'syncing'}>
     <main
       className={`genesis-app mode-${activeCalendarMode}${habitWorkspace.habitSettings.feedback.animations ? "" : " habit-animations-off"}`}
       data-exp-layout="app-shell"
@@ -7825,6 +7842,7 @@ export function GenesisCalendar() {
       ) : null}
       {voiceLanguageEnabled && voiceControlActive ? <Suspense fallback={null}><WebVoiceControl language={language} onCommand={executeWebVoiceCommand} onStop={() => setVoiceControlActive(false)} /></Suspense> : null}
     </main>
+    </DiaryProvider>
     </SacredFeaturesContext>
     </SharedUpdatesProvider>
     </TimeClockFormatContext.Provider>

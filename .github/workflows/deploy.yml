@@ -66,6 +66,7 @@ jobs:
           php server/tests/native-auth.php
           php server/tests/physis-security.php
           php server/tests/stoicheion-workspace.php
+          php server/tests/diary.php
           php server/tests/relocation.php
           php -l public/legacy-home.php
           php server/tests/legacy-home.php

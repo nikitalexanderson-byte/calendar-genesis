@@ -130,6 +130,7 @@ export default defineConfig({
             { name: "shared-updates-state", test: /app[\\/]SharedUpdatesProvider\.tsx$/, priority: 14 },
             { name: "task-display", test: /app[\\/](?:task-list-order|use-personal-task-display)\.ts$/, priority: 45 },
             { name: "mindmap-launch", test: /app[\\/]MindmapLaunchButton\.tsx$/, priority: 14 },
+            { name: "diary-core", test: /app[\\/](?:DiaryProvider|DiaryLaunchButton|diary-(?:model|storage|copy))\.(?:tsx?|json)$/, priority: 14 },
             // Keep account settings (including the Physis entry) outside the main
             // application chunk, including production builds with mindmaps enabled.
             { name: "account-settings", test: /app[\\/]AccountPanel\.tsx$/, priority: 14 },
