@@ -607,6 +607,8 @@ private val nativeCopy = mapOf(
     "Личные" to "Personal",
     "Общие" to "Shared",
     "Общие проекты" to "Shared projects",
+    "Пожизненный бесплатный открытый доступ к функциям «Общие дела»." to "Lifetime free access to Shared affairs.",
+    "Назад в дневник" to "Back to diary",
     "Ошибка Google" to "Google error",
     "Мои копии в Google" to "My Google copies",
     "Только вы можете включить копии в своём Google-аккаунте. Общая задача остаётся в GENESIS." to "Only you can enable copies in your Google account. The team task stays in GENESIS.",

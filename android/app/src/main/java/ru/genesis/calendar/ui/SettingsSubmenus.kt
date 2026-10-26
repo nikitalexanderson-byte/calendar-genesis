@@ -47,7 +47,7 @@ internal val settingsSections = listOf(
         "Трекинг, уведомления и отклик на выполнение", "Tracking, notifications and completion feedback"),
     SettingsSectionDestination("reminders", "Напоминания", "Reminders", GenesisPageIcon.SETTINGS_REMINDERS,
         "Лунные и системные напоминания", "Lunar and system reminders"),
-    SettingsSectionDestination("shared", "Общие проекты", "Shared projects", GenesisPageIcon.SETTINGS_SHARED,
+    SettingsSectionDestination("shared", "Общие дела", "Shared affairs", GenesisPageIcon.SETTINGS_SHARED,
         "Доступ, приглашения и события команды", "Access, invitations and team activity"),
     SettingsSectionDestination("region", "Регион", "Region", GenesisPageIcon.SETTINGS_REGION,
         "Регион и место для восхода и заката", "Region and sunrise and sunset location"),

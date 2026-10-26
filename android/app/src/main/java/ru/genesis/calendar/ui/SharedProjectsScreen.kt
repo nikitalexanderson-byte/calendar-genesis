@@ -1252,11 +1252,95 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
             if (projectId.isNotBlank()) refreshProject(projectId)
         })
     }
+    val spacesHeaderInShell = spaceId.isBlank() && projectId.isBlank() && taskId.isBlank() && LocalWorkspaceHeader.current != null
+    val headerActions: @Composable () -> Unit = {
+        if (taskId.isNotBlank() && selectedTask != null && canOrganize) Box {
+            var taskActionsOpen by remember(taskId) { mutableStateOf(false) }
+            AffairsIconButton("Действия с задачей", AffairsAction.MORE, { taskActionsOpen = true })
+            DropdownMenu(taskActionsOpen, { taskActionsOpen = false }) {
+                if (taskDraftChanged) DropdownMenuItem(text = { Text("Сначала сохраните изменения") }, enabled = false, onClick = {})
+                if (!taskArchived) DropdownMenuItem(text = { Text("В архив") }, enabled = !busy && !taskPending && !taskDraftChanged,
+                    leadingIcon = { AffairsActionIcon(AffairsAction.ARCHIVE) }, onClick = { taskActionsOpen = false; taskExtensions.lifecycleAction = "archive" to selectedTask })
+                DropdownMenuItem(text = { Text("В корзину", color = MaterialTheme.colorScheme.error) }, enabled = !busy && !taskPending && !taskDraftChanged,
+                    leadingIcon = { AffairsActionIcon(AffairsAction.DELETE) }, onClick = { taskActionsOpen = false; taskExtensions.lifecycleAction = "trash" to selectedTask })
+            }
+        }
+        if (taskId.isBlank()) Box {
+            if (spacesHeaderInShell) WorkspaceHeaderButton(genesisTranslate("Дополнительные действия"),
+                "shared-actions", onClick = { actionsOpen = true }) { GenesisLucideIcon("ellipsis") }
+            else AffairsIconButton("Дополнительные действия", AffairsAction.MORE, { actionsOpen = true },
+                Modifier.testTag("shared-actions"))
+            DropdownMenu(actionsOpen, { actionsOpen = false }) {
+                if (spaceId.isNotBlank()) DropdownMenuItem(text = { Text("Общие майндмепы") },
+                    leadingIcon = { AffairsActionIcon(AffairsAction.MINDMAP) },
+                    onClick = { actionsOpen = false; taskExtensions.mindmapsOpen = true }, modifier = Modifier.testTag("shared-mindmaps-open"))
+                if (spaceId.isNotBlank() && onPrivateMessages != null) DropdownMenuItem(text = { Text("Личные сообщения") },
+                    leadingIcon = { AffairsActionIcon(AffairsAction.LINK) },
+                    onClick = { actionsOpen = false; onPrivateMessages(spaceId) }, modifier = Modifier.testTag("shared-messages-open"))
+                if (spaceId.isNotBlank()) DropdownMenuItem(text = { Text("Архив и корзина") }, leadingIcon = { AffairsActionIcon(AffairsAction.ARCHIVE) },
+                    onClick = { actionsOpen = false; taskExtensions.lifecycleOpen = true }, modifier = Modifier.testTag("shared-lifecycle-open"))
+                DropdownMenuItem(text = { Text("Сохранённые представления") },
+                    modifier = Modifier.testTag("shared-saved-views-open"), onClick = { actionsOpen = false; automationDestination.views.value = true })
+                if (spaceId.isNotBlank()) DropdownMenuItem(text = { Text("Экспорт данных") }, leadingIcon = { GenesisLucideIcon("download") },
+                    modifier = Modifier.testTag("shared-export-open"), onClick = { actionsOpen = false; dataExportOpen = true })
+                if (projectId.isNotBlank()) {
+                    DropdownMenuItem(text = { Text("Шаблоны") }, modifier = Modifier.testTag("shared-templates-open"),
+                        leadingIcon = { AffairsActionIcon(AffairsAction.TEMPLATE) }, onClick = { actionsOpen = false; templatesCaptureId = ""; templatesOpen = true })
+                    DropdownMenuItem(text = { Text("Массовые действия") }, enabled = listContext.valid, modifier = Modifier.testTag("shared-bulk-open"),
+                        leadingIcon = { AffairsActionIcon(AffairsAction.SETTINGS) }, onClick = {
+                            actionsOpen = false; bulkProjectId = projectId; bulkFilter = taskFilter.toString(); bulkSort = listContext.sort; bulkOpen = true
+                        })
+                    DropdownMenuItem(text = { Text("Автоматизации") }, modifier = Modifier.testTag("shared-automations-open"),
+                        leadingIcon = { AffairsActionIcon(AffairsAction.AUTOMATION) }, onClick = {
+                            actionsOpen = false; automationDestination.value = projectId
+                        })
+                    if (project?.optString("spaceRole") in setOf("owner", "admin")) DropdownMenuItem(text = { Text("Пользовательские поля") },
+                        modifier = Modifier.testTag("shared-fields-open"), leadingIcon = { AffairsActionIcon(AffairsAction.SETTINGS) },
+                        onClick = { actionsOpen = false; automationDestination.fields.value = projectId })
+                    DropdownMenuItem(text = { Text("Импорт данных") }, modifier = Modifier.testTag("shared-import-open"),
+                        onClick = { actionsOpen = false; dataImportOpen = true })
+                    DropdownMenuItem(text = { Text("Отчёт по совместной работе") }, modifier = Modifier.testTag("shared-team-report-open"),
+                        leadingIcon = { AffairsActionIcon(AffairsAction.REPORT) }, onClick = { actionsOpen = false; teamReportOpen = true })
+                    if (project?.optString("spaceRole") == "owner") DropdownMenuItem(text = { Text("Доступ к проектам") }, modifier = Modifier.testTag("shared-project-access-open"),
+                        leadingIcon = { AffairsActionIcon(AffairsAction.SETTINGS) }, onClick = { actionsOpen = false; projectAccessOpen = true })
+                    if (project?.optInt("isInbox") == 0) DropdownMenuItem(
+                        text = { androidx.compose.material3.Text(sharedPlanningCopy().getString("heading")) },
+                        modifier = Modifier.testTag("shared-planning-open"),
+                        onClick = { actionsOpen = false; planningOpen = true })
+                    if (project?.optInt("isInbox") == 0) DropdownMenuItem(
+                        text = { androidx.compose.material3.Text(workflowCopy.getString("heading")) },
+                        modifier = Modifier.testTag("shared-workflow-open"),
+                        onClick = { actionsOpen = false; workflowProject = projectId })
+                    DropdownMenuItem(text = { Text("Настройки проекта") }, onClick = {
+                        actionsOpen = false; managementPage = "project"; showManagement = true })
+                    DropdownMenuItem(text = { Text("Участники и роли") }, onClick = {
+                        actionsOpen = false; managementPage = "team"; showManagement = true })
+                } else {
+                    DropdownMenuItem(text = { Text("Создать пространство") }, leadingIcon = { GenesisLucideIcon("folder-plus") }, enabled = !busy,
+                        onClick = { actionsOpen = false; createModal = "space" })
+                    DropdownMenuItem(text = { Text("Присоединиться к пространству") }, leadingIcon = { GenesisLucideIcon("link") }, enabled = !busy,
+                        modifier = Modifier.testTag("shared-join-space"),
+                        onClick = { actionsOpen = false; createModal = "join" })
+                    if (spaceId.isNotBlank()) {
+                        if (currentSpace?.optString("role") in setOf("owner", "admin"))
+                            DropdownMenuItem(text = { Text("Пригласить через Gmail") }, leadingIcon = { GenesisLucideIcon("send") }, enabled = !busy,
+                                modifier = Modifier.testTag("shared-invite-space"),
+                                onClick = { actionsOpen = false; createModal = "invite" })
+                        DropdownMenuItem(text = { Text("Архив проектов") }, leadingIcon = { GenesisLucideIcon("archive") }, onClick = {
+                            actionsOpen = false; showArchived = !showArchived })
+                    }
+                }
+            }
+        }
+    }
+    val headerInShell = spacesHeaderInShell && WorkspaceScreenHeader(
+        if (en) "Shared affairs" else "Общие дела",
+        if (en) "Workspaces and projects" else "Пространства и проекты", headerActions)
     Box(Modifier.fillMaxSize().onGloballyPositioned { rootPosition = it.boundsInWindow().topLeft }) {
     Column(Modifier.fillMaxSize().imePadding()) {
     Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(pageScroll).padding(AffairsLayout.gutter)
         .testTag("shared-projects-screen"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        AffairsPageHeader(
+        if (!headerInShell) AffairsPageHeader(
             title = when {
                 taskId.isNotBlank() -> if (en) "Task" else "Задача"
                 projectId.isNotBlank() -> project?.optString("title").orEmpty()
@@ -1271,84 +1355,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
             }, icon = GenesisPageIcon.PROJECTS_SHARED,
             onBack = if (spaceId.isNotBlank()) ({ navigateBack() }) else null, backEnabled = !busy,
             titleIsUserContent = taskId.isBlank() && spaceId.isNotBlank(), contextIsUserContent = projectId.isNotBlank(),
-            actions = {
-                if (taskId.isNotBlank() && selectedTask != null && canOrganize) Box {
-                    var taskActionsOpen by remember(taskId) { mutableStateOf(false) }
-                    AffairsIconButton("Действия с задачей", AffairsAction.MORE, { taskActionsOpen = true })
-                    DropdownMenu(taskActionsOpen, { taskActionsOpen = false }) {
-                        if (taskDraftChanged) DropdownMenuItem(text = { Text("Сначала сохраните изменения") }, enabled = false, onClick = {})
-                        if (!taskArchived) DropdownMenuItem(text = { Text("В архив") }, enabled = !busy && !taskPending && !taskDraftChanged,
-                            leadingIcon = { AffairsActionIcon(AffairsAction.ARCHIVE) }, onClick = { taskActionsOpen = false; taskExtensions.lifecycleAction = "archive" to selectedTask })
-                        DropdownMenuItem(text = { Text("В корзину", color = MaterialTheme.colorScheme.error) }, enabled = !busy && !taskPending && !taskDraftChanged,
-                            leadingIcon = { AffairsActionIcon(AffairsAction.DELETE) }, onClick = { taskActionsOpen = false; taskExtensions.lifecycleAction = "trash" to selectedTask })
-                    }
-                }
-                if (taskId.isBlank()) Box {
-                    AffairsIconButton("Дополнительные действия", AffairsAction.MORE, { actionsOpen = true },
-                        Modifier.testTag("shared-actions"))
-                    DropdownMenu(actionsOpen, { actionsOpen = false }) {
-                        if (spaceId.isNotBlank()) DropdownMenuItem(text = { Text("Общие майндмепы") },
-                            leadingIcon = { AffairsActionIcon(AffairsAction.MINDMAP) },
-                            onClick = { actionsOpen = false; taskExtensions.mindmapsOpen = true }, modifier = Modifier.testTag("shared-mindmaps-open"))
-                        if (spaceId.isNotBlank() && onPrivateMessages != null) DropdownMenuItem(text = { Text("Личные сообщения") },
-                            leadingIcon = { AffairsActionIcon(AffairsAction.LINK) },
-                            onClick = { actionsOpen = false; onPrivateMessages(spaceId) }, modifier = Modifier.testTag("shared-messages-open"))
-                        if (spaceId.isNotBlank()) DropdownMenuItem(text = { Text("Архив и корзина") }, leadingIcon = { AffairsActionIcon(AffairsAction.ARCHIVE) },
-                            onClick = { actionsOpen = false; taskExtensions.lifecycleOpen = true }, modifier = Modifier.testTag("shared-lifecycle-open"))
-                        DropdownMenuItem(text = { Text("Сохранённые представления") },
-                            modifier = Modifier.testTag("shared-saved-views-open"), onClick = { actionsOpen = false; automationDestination.views.value = true })
-                        if (spaceId.isNotBlank()) DropdownMenuItem(text = { Text("Экспорт данных") }, leadingIcon = { GenesisLucideIcon("download") },
-                            modifier = Modifier.testTag("shared-export-open"), onClick = { actionsOpen = false; dataExportOpen = true })
-                        if (projectId.isNotBlank()) {
-                            DropdownMenuItem(text = { Text("Шаблоны") }, modifier = Modifier.testTag("shared-templates-open"),
-                                leadingIcon = { AffairsActionIcon(AffairsAction.TEMPLATE) }, onClick = { actionsOpen = false; templatesCaptureId = ""; templatesOpen = true })
-                            DropdownMenuItem(text = { Text("Массовые действия") }, enabled = listContext.valid, modifier = Modifier.testTag("shared-bulk-open"),
-                                leadingIcon = { AffairsActionIcon(AffairsAction.SETTINGS) }, onClick = {
-                                    actionsOpen = false; bulkProjectId = projectId; bulkFilter = taskFilter.toString(); bulkSort = listContext.sort; bulkOpen = true
-                                })
-                            DropdownMenuItem(text = { Text("Автоматизации") }, modifier = Modifier.testTag("shared-automations-open"),
-                                leadingIcon = { AffairsActionIcon(AffairsAction.AUTOMATION) }, onClick = {
-                                    actionsOpen = false; automationDestination.value = projectId
-                                })
-                            if (project?.optString("spaceRole") in setOf("owner", "admin")) DropdownMenuItem(text = { Text("Пользовательские поля") },
-                                modifier = Modifier.testTag("shared-fields-open"), leadingIcon = { AffairsActionIcon(AffairsAction.SETTINGS) },
-                                onClick = { actionsOpen = false; automationDestination.fields.value = projectId })
-                            DropdownMenuItem(text = { Text("Импорт данных") }, modifier = Modifier.testTag("shared-import-open"),
-                                onClick = { actionsOpen = false; dataImportOpen = true })
-                            DropdownMenuItem(text = { Text("Отчёт по совместной работе") }, modifier = Modifier.testTag("shared-team-report-open"),
-                                leadingIcon = { AffairsActionIcon(AffairsAction.REPORT) }, onClick = { actionsOpen = false; teamReportOpen = true })
-                            if (project?.optString("spaceRole") == "owner") DropdownMenuItem(text = { Text("Доступ к проектам") }, modifier = Modifier.testTag("shared-project-access-open"),
-                                leadingIcon = { AffairsActionIcon(AffairsAction.SETTINGS) }, onClick = { actionsOpen = false; projectAccessOpen = true })
-                            if (project?.optInt("isInbox") == 0) DropdownMenuItem(
-                                text = { androidx.compose.material3.Text(sharedPlanningCopy().getString("heading")) },
-                                modifier = Modifier.testTag("shared-planning-open"),
-                                onClick = { actionsOpen = false; planningOpen = true })
-                            if (project?.optInt("isInbox") == 0) DropdownMenuItem(
-                                text = { androidx.compose.material3.Text(workflowCopy.getString("heading")) },
-                                modifier = Modifier.testTag("shared-workflow-open"),
-                                onClick = { actionsOpen = false; workflowProject = projectId })
-                            DropdownMenuItem(text = { Text("Настройки проекта") }, onClick = {
-                                actionsOpen = false; managementPage = "project"; showManagement = true })
-                            DropdownMenuItem(text = { Text("Участники и роли") }, onClick = {
-                                actionsOpen = false; managementPage = "team"; showManagement = true })
-                        } else {
-                            DropdownMenuItem(text = { Text("Создать пространство") }, leadingIcon = { GenesisLucideIcon("folder-plus") }, enabled = !busy,
-                                onClick = { actionsOpen = false; createModal = "space" })
-                            DropdownMenuItem(text = { Text("Присоединиться к пространству") }, leadingIcon = { GenesisLucideIcon("link") }, enabled = !busy,
-                                modifier = Modifier.testTag("shared-join-space"),
-                                onClick = { actionsOpen = false; createModal = "join" })
-                            if (spaceId.isNotBlank()) {
-                                if (currentSpace?.optString("role") in setOf("owner", "admin"))
-                                    DropdownMenuItem(text = { Text("Пригласить через Gmail") }, leadingIcon = { GenesisLucideIcon("send") }, enabled = !busy,
-                                        modifier = Modifier.testTag("shared-invite-space"),
-                                        onClick = { actionsOpen = false; createModal = "invite" })
-                                DropdownMenuItem(text = { Text("Архив проектов") }, leadingIcon = { GenesisLucideIcon("archive") }, onClick = {
-                                    actionsOpen = false; showArchived = !showArchived })
-                            }
-                        }
-                    }
-                }
-            })
+            actions = { headerActions() })
         if (offlineSnapshot) Text(if (en) "Offline: showing the last protected team snapshot."
             else "Нет связи: показана последняя защищённая копия команды.",
             modifier = Modifier.fillMaxWidth().testTag("shared-offline-status"),

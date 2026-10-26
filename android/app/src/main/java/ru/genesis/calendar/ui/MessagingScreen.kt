@@ -172,10 +172,17 @@ import java.io.InputStream
             }
         }
         if (state.selected == null) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(tab == "inbox", { tab = "inbox" }, { Text("Переписки") }, modifier = Modifier.heightIn(min = 48.dp))
-                FilterChip(tab == "contacts", { tab = "contacts"; run { repository.contacts(query) } }, { Text("Контакты") }, modifier = Modifier.heightIn(min = 48.dp))
-                if (initialSpaceId != null) FilterChip(tab == "participants", { tab = "participants" }, { Text("Участники") }, modifier = Modifier.heightIn(min = 48.dp))
+            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp).height(IntrinsicSize.Min)
+                .testTag("messaging-tabs"), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(tab == "inbox", { tab = "inbox" },
+                    { Text("Переписки", Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center) },
+                    modifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = 48.dp).testTag("messaging-tab-inbox"))
+                FilterChip(tab == "contacts", { tab = "contacts"; run { repository.contacts(query) } },
+                    { Text("Контакты", Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center) },
+                    modifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = 48.dp).testTag("messaging-tab-contacts"))
+                if (initialSpaceId != null) FilterChip(tab == "participants", { tab = "participants" },
+                    { Text("Участники", Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center) },
+                    modifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = 48.dp).testTag("messaging-tab-participants"))
             }
             if (tab == "contacts") Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 OutlinedTextField(query, { query = it.take(200) }, Modifier.weight(1f), label = { Text("Поиск контактов") }, singleLine = true, shape = RoundedCornerShape(10.dp))

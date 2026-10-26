@@ -107,16 +107,6 @@ internal val standart = lightColorScheme(primary=Color(0xff255b59), onPrimary=Co
     outline=Color(0xff7c847e), outlineVariant=Color(0xffd3d7cd))
 
 @Composable
-private fun HeaderActionButton(description: String, enabled: Boolean,
-    tag: String, onClick: () -> Unit) {
-    val accent = Color(0xffdfc17e)
-    WorkspaceHeaderButton(description, tag, enabled, onClick) {
-        if (!enabled) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = accent)
-        else GenesisLucideIcon("refresh-cw", Modifier.size(22.dp), tint = accent)
-    }
-}
-
-@Composable
 fun GenesisApp(app: GenesisApplication, openedTask: String?, openedSection: String? = null,
     testWorkspace: Boolean = false, openedHabit: ru.genesis.calendar.reminders.HabitReminderOpenRequest? = null) {
     require(!testWorkspace || BuildConfig.DEBUG)
@@ -473,13 +463,11 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                                 CalendarMode.entries.filter { it.wireValue in uiVisibility.visibleCalendars }.toSet()))
                         }, size = 48.dp, interactive = uiVisibility.visibleCalendars.size > 1)
                     }
-                    if (testWorkspace) HeaderActionButton("Обновить аккаунт", true, "today-refresh", {})
-                    else {
-                        val refreshBusy = authState.busy || accountTaskSync?.loading == true
-                        HeaderActionButton(genesisTranslate(if (refreshBusy)
-                            "Получаем изменения с сервера…" else "$saveStatus. Обновить аккаунт"), !refreshBusy,
-                            "today-refresh", authController::refresh)
-                    }
+                }, footerActions = {
+                    val refreshBusy = !testWorkspace && (authState.busy || accountTaskSync?.loading == true)
+                    WorkspaceAccountRefreshButton(genesisTranslate(if (refreshBusy)
+                        "Получаем изменения с сервера…" else "$saveStatus. Обновить аккаунт"),
+                        enabled = !refreshBusy, onClick = { if (!testWorkspace) authController.refresh() })
                 }) {
                 if(!testWorkspace && authState.requiresSignIn) {
                     Text("Для синхронизации повторите вход. Данные и напоминания доступны на устройстве.",
@@ -1557,12 +1545,12 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sectionId:
             rows.sortedBy{it.at}.takeLast(8).forEach{Text("Напоминание · ${it.state} · ${Instant.ofEpochMilli(it.at).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("dd.MM HH:mm"))}",style=MaterialTheme.typography.bodySmall)}
         }
         }
-        "shared" -> SettingsSection("◈", "Общие проекты", "Совместная работа в GENESIS", Color(0xffe9ede5)) {
+        "shared" -> SettingsSection("◈", "Общие дела", "Совместная работа в GENESIS", Color(0xffe9ede5)) {
             Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Общие проекты",style=MaterialTheme.typography.titleSmall)
+                    Text("Общие дела",style=MaterialTheme.typography.titleSmall)
                     Text(if(accountSettings?.sharedProjectsLifetimeAccess==true)
-                        "Пожизненный бесплатный открытый доступ к функциям «Общие проекты»."
+                        "Пожизненный бесплатный открытый доступ к функциям «Общие дела»."
                         else "Открыто всем аккаунтам GENESIS на время тестирования.",style=MaterialTheme.typography.bodySmall)
                 }
                 Switch(checked=sharedProjectsEnabled,

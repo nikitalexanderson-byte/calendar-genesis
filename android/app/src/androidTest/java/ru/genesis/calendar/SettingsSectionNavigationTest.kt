@@ -75,7 +75,7 @@ class SettingsSectionNavigationTest {
             compose.onNodeWithTag("navigation-Настройки").performClick()
             val fixedSubmenu = compose.onNodeWithTag("settings-submenu")
                 .fetchSemanticsNode().boundsInRoot
-            val titles = listOf("Оформление", "Привычки", "Напоминания", "Общие проекты",
+            val titles = listOf("Оформление", "Привычки", "Напоминания", "Общие дела",
                 "Регион", "Аккаунт GENESIS", "Ссылки")
             titles.forEachIndexed { index, title ->
                 if (index > 0) compose.onNodeWithTag("main-content").performTouchInput { swipeLeft() }
@@ -167,7 +167,7 @@ class SettingsSectionNavigationTest {
             compose.onNodeWithTag("settings-layout-sequential").performScrollTo().performClick()
             compose.waitUntil(5_000) { !runBlocking { preferences.values.first().settingsSubmenuEnabled } }
             compose.onNodeWithTag("settings-submenu").assertDoesNotExist()
-            listOf("Оформление", "Привычки", "Напоминания", "Общие проекты", "Регион",
+            listOf("Оформление", "Привычки", "Напоминания", "Общие дела", "Регион",
                 "Аккаунт GENESIS", "Ссылки").forEach { section ->
                 assertTrue("Missing sequential section: $section",
                     compose.onAllNodesWithText(section).fetchSemanticsNodes().isNotEmpty())

@@ -128,10 +128,19 @@ class MobileReview4Test {
         }
         compose.setContent { Theme {
             CompositionLocalProvider(LocalNavigationPageContext provides NavigationPageContext("Проекты",active)) {
-                SharedProjectsScreen(gateway,"ru")
+                MobileWorkspaceShell("Проекты", null, emptyList(), "Синтетическое пространство", true,
+                    onNavigate = {}, actions = {}) { SharedProjectsScreen(gateway,"ru") }
             }
         } }
         compose.waitUntil(10_000) { calls.get()==1 }
+        compose.onNodeWithTag("workspace-title").assertTextEquals("Общие дела")
+        compose.onNodeWithTag("workspace-subtitle").assertTextEquals("Пространства и проекты")
+        compose.onNodeWithTag("shared-actions").assert(hasAnyAncestor(hasTestTag("app-header"))).performClick()
+        compose.onNodeWithTag("shared-join-space").assertIsDisplayed()
+        capture("shared-overview-actions")
+        androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
+        compose.onNodeWithTag("affairs-page-header").assertDoesNotExist()
+        capture("shared-overview-header")
         compose.runOnIdle { active=false }
         compose.waitForIdle()
         compose.onAllNodes(hasText("cancel",substring=true,ignoreCase=true)).assertCountEquals(0)

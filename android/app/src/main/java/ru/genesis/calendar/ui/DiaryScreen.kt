@@ -69,7 +69,7 @@ import java.time.Instant
         catch (_: Exception) { error = true }
         finally { busy = false }
     } }
-    BackHandler(!newEditor && editing == null, onClose)
+    BackHandler(!newEditor && editing == null) { if (tab != "board") tab = "board" else onClose() }
     val notes = remember(state.records, query, tab) {
         state.records.filter { !it.draft && (if (tab == "archive") it.note.archived else !it.note.archived &&
             (tab != "favorites" || it.note.reaction == "favorite")) &&
@@ -83,6 +83,9 @@ import java.time.Instant
             Box {
                 WorkspaceHeaderButton(genesisTranslate("Действия дневника"), "diary-actions", onClick = { more = true }) { GenesisLucideIcon("ellipsis") }
                 DropdownMenu(more, { more = false }) {
+                    DropdownMenuItem(text = { Text("Избранное") }, leadingIcon = { GenesisLucideIcon("star") },
+                        modifier = Modifier.testTag("diary-favorites-open"),
+                        onClick = { tab = "favorites"; more = false })
                     DropdownMenuItem(text = { Text("Архив") }, leadingIcon = { GenesisLucideIcon("archive") },
                         onClick = { tab = "archive"; more = false })
                     DropdownMenuItem(text = { Text("Обновить") }, leadingIcon = { GenesisLucideIcon("refresh-cw") },
@@ -90,7 +93,8 @@ import java.time.Instant
                 }
             }
     }
-    val headerInShell = WorkspaceScreenHeader("Дневник", actions = headerActions)
+    val headerInShell = WorkspaceScreenHeader("Дневник",
+        when (tab) { "favorites" -> "Избранное"; "archive" -> "Архив"; else -> null }, headerActions)
     Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize().testTag("diary-screen")) {
         if (!headerInShell) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -98,10 +102,12 @@ import java.time.Instant
             Text("Дневник", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
             headerActions()
         }
-        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(tab == "board", { tab = "board" }, label = { Text("Записи") }, modifier = Modifier.heightIn(min = 48.dp).testTag("diary-tab-board"))
-            FilterChip(tab == "favorites", { tab = "favorites" }, label = { Text("Избранное") }, modifier = Modifier.heightIn(min = 48.dp).testTag("diary-tab-favorites"))
-            if (tab == "archive") FilterChip(true, {}, label = { Text("Архив") }, modifier = Modifier.heightIn(min = 48.dp))
+        if (tab != "board") OutlinedButton(onClick = { tab = "board" }, shape = AffairsLayout.controlShape,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)
+                .heightIn(min = 48.dp).testTag("diary-back-to-board")) {
+            AffairsActionIcon(AffairsAction.BACK, Modifier.size(20.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Назад в дневник")
         }
         if (loading) LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 8.dp))
         if (error || state.protected) Row(Modifier.fillMaxWidth().padding(12.dp).semantics { liveRegion = LiveRegionMode.Polite },

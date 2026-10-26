@@ -13,6 +13,7 @@ import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.dp
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
@@ -69,7 +70,8 @@ class DiaryScreenTest {
                     MobileWorkspaceShell("Дневник", null, emptyList(), "Synthetic fixture", true,
                         onNavigate = {}, actions = {
                             CalendarModeSwitcher(ru.genesis.calendar.domain.CalendarMode.PROFANE, {}, size = 48.dp)
-                            WorkspaceHeaderButton("Обновить аккаунт", "today-refresh", onClick = {}) { GenesisLucideIcon("refresh-cw") }
+                        }, footerActions = {
+                            WorkspaceAccountRefreshButton("Обновить аккаунт", onClick = {})
                         }) { DiaryScreen(repository, {}) }
                 }
             }
@@ -136,6 +138,17 @@ class DiaryScreenTest {
         compose.waitUntil(20_000) { repository.state.value.records.any { !it.draft } }
         val id = repository.state.value.records.first { !it.draft }.note.id
         await("diary-note-$id"); capture("board")
+        compose.onNodeWithTag("diary-tab-board").assertDoesNotExist()
+        compose.onNodeWithTag("diary-tab-favorites").assertDoesNotExist()
+        compose.onNodeWithTag("diary-actions").performClick()
+        compose.onNodeWithTag("diary-favorites-open").performClick()
+        compose.onNodeWithTag("diary-note-$id").assertDoesNotExist()
+        compose.onNodeWithText("Избранных советов пока нет.").assertExists()
+        compose.onNodeWithTag("diary-back-to-board").assertWidthIsAtLeast((width - 26).dp).assertHeightIsAtLeast(48.dp)
+        capture("favorites")
+        compose.onNodeWithTag("diary-back-to-board").performClick()
+        compose.onNodeWithTag("diary-back-to-board").assertDoesNotExist()
+        await("diary-note-$id")
         assertFalse(store.ciphertext!!.contains("Личная мысль"))
         compose.onNodeWithTag("diary-pin-$id").performClick()
         compose.waitUntil(20_000) { repository.state.value.records.any { !it.draft && it.note.pinned } }
@@ -152,7 +165,7 @@ class DiaryScreenTest {
         await("diary-archive-$id"); capture("archive")
         compose.onNodeWithTag("diary-archive-$id").performClick()
         compose.waitUntil(20_000) { repository.state.value.records.any { !it.draft && !it.note.archived } }
-        compose.onNodeWithTag("diary-tab-board").performClick(); await("diary-note-$id")
+        compose.onNodeWithTag("diary-back-to-board").performClick(); await("diary-note-$id")
         val reopened = DiaryRepository("diary-ui-fixture", gateway, store, DiaryKeystoreCipher("diary-ui-fixture", "diary-ui-fixture"))
         runBlocking { reopened.loadCached() }
         assertEquals("Отредактированный текст сохранён", reopened.state.value.records.single { !it.draft }.note.body)

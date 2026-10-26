@@ -73,7 +73,8 @@ class MessagingScreenTest {
                     MobileWorkspaceShell("Сообщения", null, emptyList(), "Synthetic fixture", true,
                         onNavigate = {}, actions = {
                             CalendarModeSwitcher(ru.genesis.calendar.domain.CalendarMode.PROFANE, {}, size = 48.dp)
-                            WorkspaceHeaderButton("Обновить аккаунт", "today-refresh", onClick = {}) { GenesisLucideIcon("refresh-cw") }
+                        }, footerActions = {
+                            WorkspaceAccountRefreshButton("Обновить аккаунт", onClick = {})
                         }) { MessagingScreen(repository, onClose = {}) }
                 }
             }
@@ -87,6 +88,12 @@ class MessagingScreenTest {
     @Test fun inboxChatEncryptedDraftSendAndSecurityCode() {
         compose.setContent { Content() }
         compose.waitUntil(20_000) { repository.state.value.conversations.isNotEmpty() }
+        val tabs = listOf("inbox", "contacts").map { compose.onNodeWithTag("messaging-tab-$it").assertIsDisplayed().fetchSemanticsNode().boundsInRoot }
+        assertTrue("Messaging tabs must have equal widths", kotlin.math.abs(tabs[0].width-tabs[1].width) <= 1f)
+        assertTrue("Messaging tabs must have equal heights", kotlin.math.abs(tabs[0].height-tabs[1].height) <= 1f)
+        val row = compose.onNodeWithTag("messaging-tabs").fetchSemanticsNode().boundsInRoot
+        val density = compose.onNodeWithTag("messaging-tabs").fetchSemanticsNode().layoutInfo.density.density
+        assertTrue("Tabs must span the row with only content padding", tabs.first().left-row.left <= 13*density && row.right-tabs.last().right <= 13*density)
         capture("inbox")
         compose.onNodeWithText("Анна — длинное имя собеседника").performClick()
         compose.waitUntil(20_000) { repository.state.value.accepted && compose.onAllNodesWithTag("messaging-composer").fetchSemanticsNodes().isNotEmpty() }

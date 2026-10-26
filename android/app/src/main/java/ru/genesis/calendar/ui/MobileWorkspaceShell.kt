@@ -78,6 +78,7 @@ internal fun mobileDestinations(pages: List<String>, visibility: UiVisibility,
     calendarMode: CalendarMode = CalendarMode.PROFANE,
     titleOverride: String? = null, subtitle: String? = null,
     onNavigate: (MobileDestination) -> Unit, actions: @Composable RowScope.() -> Unit,
+    footerActions: @Composable RowScope.() -> Unit = {},
     content: @Composable ColumnScope.() -> Unit) {
     val drawer = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -140,10 +141,15 @@ internal fun mobileDestinations(pages: List<String>, visibility: UiVisibility,
                     HorizontalDivider(Modifier.padding(top = 16.dp, bottom = 8.dp),
                         color = MaterialTheme.colorScheme.outlineVariant)
                     GenesisAccountFooter(accountStatus)
-                    Text("GENESIS Calendar ${BuildConfig.VERSION_NAME}\nПробная версия · ${BuildConfig.VERSION_CODE}",
-                        Modifier.padding(horizontal = 16.dp, vertical = 12.dp).testTag("trial-build-info"),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.labelSmall)
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)
+                        .testTag("drawer-version-row"), verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("GENESIS Calendar ${BuildConfig.VERSION_NAME}\nПробная версия · ${BuildConfig.VERSION_CODE}",
+                            Modifier.weight(1f).testTag("trial-build-info"),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.labelSmall)
+                        footerActions()
+                    }
                 }
             }
         }) {
@@ -152,7 +158,9 @@ internal fun mobileDestinations(pages: List<String>, visibility: UiVisibility,
             Surface(color = MaterialTheme.colorScheme.surface) {
                 Row(Modifier.fillMaxWidth().heightIn(min = 72.dp).padding(horizontal = 4.dp, vertical = 6.dp)
                     .testTag("app-header"), verticalAlignment = Alignment.CenterVertically) {
-                    WorkspaceHeaderButton(menuLabel, "workspace-menu", onClick = { scope.launch { drawer.open() } }) {
+                    IconButton(onClick = { scope.launch { drawer.open() } },
+                        modifier = Modifier.size(48.dp).testTag("workspace-menu")
+                            .semantics { contentDescription = menuLabel }) {
                         GenesisLucideIcon("menu", Modifier.size(24.dp))
                     }
                     Row(Modifier.weight(1f).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically,
@@ -176,6 +184,18 @@ internal fun mobileDestinations(pages: List<String>, visibility: UiVisibility,
             content()
         }
         }
+    }
+}
+
+@Composable
+internal fun WorkspaceAccountRefreshButton(description: String, enabled: Boolean = true,
+    onClick: () -> Unit) {
+    IconButton(onClick = onClick, enabled = enabled,
+        modifier = Modifier.size(48.dp).testTag("account-refresh")
+            .semantics { contentDescription = description },
+        colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant)) {
+        if (enabled) GenesisLucideIcon("refresh-cw", Modifier.size(22.dp))
+        else CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = LocalContentColor.current)
     }
 }
 

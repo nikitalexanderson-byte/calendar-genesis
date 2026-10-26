@@ -87,7 +87,7 @@ class MobileRedesignFlowTest {
         Route("Настройки", "appearance", "Оформление"),
         Route("Настройки", "habits", "Настройки привычек"),
         Route("Настройки", "reminders", "Напоминания"),
-        Route("Настройки", "shared", "Общие проекты"),
+        Route("Настройки", "shared", "Общие дела"),
         Route("Настройки", "region", "Регион"),
         Route("Настройки", "account", "Аккаунт GENESIS"),
         Route("Настройки", "links", "Ссылки"))
@@ -270,7 +270,13 @@ class MobileRedesignFlowTest {
         compose.onNodeWithTag("drawer-Календарь-month").assertDoesNotExist()
         compose.onNodeWithTag("drawer-Календарь-year").assertDoesNotExist()
         capture("drawer-always-labels")
+        compose.onNodeWithTag("account-refresh").performScrollTo()
+            .assert(hasAnyAncestor(hasTestTag("drawer-version-row")))
+        checkTarget("account-refresh")
+        compose.onAllNodes(hasTestTag("account-refresh") and hasAnyAncestor(hasTestTag("app-header"))).assertCountEquals(0)
+        capture("drawer-refresh-by-version")
         device.pressBack(); drawerClosed()
+        compose.onNodeWithTag("account-refresh").assertIsNotDisplayed()
         compose.onNode(switchTag(CalendarMode.PROFANE), useUnmergedTree = true).performClick()
         waitMode(CalendarMode.SACRED)
         compose.onNodeWithTag("today-day-details-toggle").assertDoesNotExist()
@@ -325,8 +331,16 @@ class MobileRedesignFlowTest {
         capture("appearance-without-menu-label-choice")
         navigate(Route("Сакральное", "theokyklos", "Оракул"))
         compose.onNodeWithTag("sacred-submenu").assertIsDisplayed()
+        compose.onNodeWithTag("workspace-subtitle").assertTextEquals("Круг божественных сил")
+        compose.onNodeWithTag("workspace-information").assertDoesNotExist()
+        listOf("workspace-title", "workspace-subtitle").forEach { tag ->
+            val layouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+            compose.onNodeWithTag(tag).performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+            assertTrue("Oracle $tag must fit one readable line", layouts.isNotEmpty() && layouts.all { it.lineCount == 1 && !it.hasVisualOverflow })
+        }
         capture("oracle-theokyklos")
         compose.onNodeWithTag("submenu-stoicheion").performClick()
+        compose.onNodeWithTag("workspace-information").assertDoesNotExist()
         capture("oracle-stoicheion")
         navigate(todayRoute)
         assertActualToday()

@@ -90,16 +90,12 @@ fun TheokyklosScreen(app: GenesisApplication, calendarMode: CalendarMode, onOpen
     }
     val selected = selectedId?.let(data.byId::get)
     val headerTitle = if (english) "Oracle · Theokyklos" else "Оракул · Теокиклос"
-    val headerDescription = if (english) "Fourteen powers: directions, axis, center and gates"
-        else "Четырнадцать сил: направления, ось, центр и врата"
-    val headerInShell = WorkspaceScreenHeader(headerTitle, headerDescription) {
-        PageInformationAction(headerTitle, headerDescription, inHeader = true)
-    }
+    val headerDescription = if (english) "Circle of divine powers" else "Круг божественных сил"
+    val headerInShell = WorkspaceScreenHeader(headerTitle, headerDescription)
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val diagram: @Composable () -> Unit = {
         if (!headerInShell) GenesisPageHeader(if (english) "Oracle - Theokyklos" else "Оракул - Теокиклос",
-            if (english) "Fourteen powers: directions, axis, center and gates"
-            else "Четырнадцать сил: направления, ось, центр и врата", "Θ",
+            headerDescription, "Θ",
             animatedMandala = true, icon = GenesisPageIcon.THEOKYKLOS)
         Text("Круг божественных сил", style = MaterialTheme.typography.titleLarge)
         Text("Коснитесь любого направления, полюса, очага, центра или врат.",
