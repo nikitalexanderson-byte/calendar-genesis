@@ -41,8 +41,7 @@ class EditorCalendarAndMissedTest {
         assertEquals(CalendarMode.LUNAR, selected)
         assertEquals(CalendarMode.PROFANE, default)
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
-            .takeScreenshot(File(context.getExternalFilesDir(null), "editor-calendar-after.png")))
+        captureNativeWindow(File(context.getExternalFilesDir(null), "editor-calendar-after.png"))
     }
 
     @Test fun missedTaskOffersCompleteAndMoveToToday() {
@@ -55,12 +54,11 @@ class EditorCalendarAndMissedTest {
             } }
         } }
         compose.onNodeWithTag("today-missed-tasks").assertExists()
-        compose.onNodeWithTag("complete-missed-${task.id}").performClick()
+        compose.onNodeWithTag("complete-missed-${task.id}").assertContentDescriptionEquals(task.title).performClick()
         compose.onNodeWithTag("move-missed-${task.id}").performClick()
         assertEquals(1, completed)
         assertEquals(1, moved)
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
-            .takeScreenshot(File(context.getExternalFilesDir(null), "today-missed-tasks.png")))
+        captureNativeWindow(File(context.getExternalFilesDir(null), "today-missed-tasks.png"))
     }
 }

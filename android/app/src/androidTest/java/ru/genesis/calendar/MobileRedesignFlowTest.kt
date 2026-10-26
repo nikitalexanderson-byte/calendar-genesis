@@ -90,6 +90,17 @@ class MobileRedesignFlowTest {
         Route("Настройки", "links", "Ссылки"))
 
     @Before fun seedOnlyGuardedLocalWorkspace() {
+        args.getString("genesisLandscape")?.let { value ->
+            val landscape = value == "true"
+            compose.runOnUiThread {
+                compose.activity.requestedOrientation = if (landscape)
+                    android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                else android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            }
+            compose.waitUntil(10_000) {
+                compose.activity.resources.displayMetrics.let { (it.widthPixels > it.heightPixels) == landscape }
+            }
+        }
         check(BuildConfig.DEBUG && app.packageName.endsWith(".debug"))
         check(app.workspaceScope == "internal-validation-v1") {
             "Refusing to switch or mutate an account workspace"
@@ -262,7 +273,13 @@ class MobileRedesignFlowTest {
                 personalRoute -> { await("projects-screen"); capture("personal") }
                 else -> when {
                     route.page == "Дневник" -> capture("diary")
-                    route.page == "Привычки" && route.section == "Привычки" -> capture("habits")
+                    route.page == "Привычки" && route.section == "Привычки" -> {
+                        val create = compose.onNodeWithTag("habit-create").fetchSemanticsNode().boundsInRoot
+                        val catalogue = compose.onNodeWithTag("habit-catalogue").fetchSemanticsNode().boundsInRoot
+                        assertTrue("Habit actions must stay aligned at the current font scale", kotlin.math.abs(create.height - catalogue.height) <= 1f)
+                        checks.put("habits:actions-equal-height")
+                        capture("habits")
+                    }
                     route.section == "Сон и настроение" -> capture("sleep")
                     route.page == "Настройки" && route.section == "appearance" -> capture("settings")
                 }

@@ -1,13 +1,12 @@
 package ru.genesis.calendar.ui
 
-import android.graphics.Bitmap
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.StateRestorationTester
@@ -21,6 +20,7 @@ import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
 import ru.genesis.calendar.PagerTestActivity
+import ru.genesis.calendar.captureNativeWindow
 import ru.genesis.calendar.auth.AuthFailure
 import ru.genesis.calendar.auth.DiaryGateway
 import ru.genesis.calendar.auth.DiaryProtocol
@@ -30,8 +30,9 @@ import java.util.Base64
 
 private class DiaryUiStore : DiaryStore {
     var ciphertext: String? = null
+    var failWrites = false
     override suspend fun read() = ciphertext
-    override suspend fun write(ciphertext: String) { this.ciphertext = ciphertext }
+    override suspend fun write(ciphertext: String) { check(!failWrites) { "Synthetic storage failure" }; this.ciphertext = ciphertext }
 }
 private class DiaryUiGateway : DiaryGateway {
     val key = ByteArray(32) { it.toByte() }
@@ -59,25 +60,70 @@ class DiaryScreenTest {
     private val width get() = InstrumentationRegistry.getArguments().getString("genesisWidth")?.toIntOrNull() ?: 390
     private val dark get() = InstrumentationRegistry.getArguments().getString("genesisEvening") == "true"
     @Composable private fun Content() {
-        val density = Density(compose.activity.resources.displayMetrics.widthPixels.toFloat() / width, LocalDensity.current.fontScale)
+        val scale = InstrumentationRegistry.getArguments().getString("genesisFontScale")?.toFloatOrNull() ?: LocalDensity.current.fontScale
+        val density = Density(compose.activity.resources.displayMetrics.widthPixels.toFloat() / width, scale)
         CompositionLocalProvider(LocalDensity provides density, LocalGenesisLanguage provides "ru", LocalEveningTheme provides dark) {
             MaterialTheme(colorScheme = if (dark) evening else standart, typography = GenesisTypography, shapes = GenesisShapes) {
-                Surface(Modifier.fillMaxSize()) { DiaryScreen(repository, {}) }
+                Surface(Modifier.fillMaxSize().safeDrawingPadding()) { DiaryScreen(repository, {}) }
             }
         }
     }
     private fun await(tag: String) { compose.waitUntil(20_000) { compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }; compose.waitForIdle() }
     private fun capture(name: String, tag: String = "diary-screen") {
         compose.waitForIdle()
-        File(compose.activity.getExternalFilesDir(null), "diary-${width}-${if (dark) "dark" else "light"}-$name.png").outputStream().use {
-            assertTrue(compose.onNodeWithTag(tag).captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it))
+        compose.onNodeWithTag(tag).assertExists()
+        captureNativeWindow(File(compose.activity.getExternalFilesDir(null), "diary-${width}-${if (dark) "dark" else "light"}-$name.png"))
+    }
+
+    @Test fun failedLocalDraftDoesNotPromiseDurabilityAndCanBeRetried() {
+        compose.setContent { Content() }; await("diary-create")
+        compose.onNodeWithTag("diary-create").performClick(); await("diary-editor")
+        store.failWrites = true
+        compose.onNodeWithTag("diary-body").performTextReplacement("Текст должен остаться в форме при ошибке устройства")
+        await("diary-editor-error")
+        compose.onNodeWithTag("diary-editor-error").performScrollTo()
+            .assertTextContains("Введённые данные остаются в форме.", substring = true)
+        compose.onNodeWithContentDescription("Закрыть").performClick()
+        compose.onNodeWithText("Сохранить черновик").performClick()
+        compose.onNodeWithTag("diary-close-error").assertIsDisplayed()
+        capture("local-storage-error", "diary-close-error")
+        store.failWrites = false
+        compose.onNodeWithText("Сохранить черновик").performClick()
+        compose.waitUntil(20_000) { repository.state.value.records.any { it.draft } }
+        compose.onNodeWithTag("diary-editor").assertDoesNotExist()
+    }
+
+    @Test fun noteSaveRemainsVisibleWithKeyboardAndLongText() {
+        compose.setContent { Content() }; await("diary-create")
+        compose.onNodeWithTag("diary-create").performClick(); await("diary-editor")
+        compose.onNodeWithTag("diary-body").performClick()
+        compose.onNodeWithTag("diary-body").performTextReplacement("Длинный текст записи. ".repeat(100))
+        compose.waitUntil(10_000) {
+            androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+                .executeShellCommand("dumpsys input_method").contains("mInputShown=true")
         }
+        compose.onNodeWithTag("diary-save").assertIsDisplayed().assertIsEnabled()
+        capture("keyboard", "diary-editor")
+        val device = androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+        val close = requireNotNull(device.findObject(androidx.test.uiautomator.By.desc("Закрыть").pkg(compose.activity.packageName))) {
+            "Close remains accessible with a long note and IME"
+        }
+        val statusBarHeight = compose.runOnIdle {
+            requireNotNull(androidx.core.view.ViewCompat.getRootWindowInsets(compose.activity.window.decorView))
+                .getInsets(androidx.core.view.WindowInsetsCompat.Type.statusBars()).top
+        }
+        val closeBounds = close.visibleBounds
+        assertTrue("Close bounds=$closeBounds must stay below status bar=$statusBarHeight", closeBounds.top >= statusBarHeight)
+        compose.onNodeWithTag("diary-save").performClick()
+        compose.waitUntil(20_000) { repository.state.value.records.any { !it.draft } }
+        assertTrue(repository.state.value.records.single { !it.draft }.note.body.length > 1000)
     }
     @Test fun createEditSearchPinArchiveAndRestorePersistEncryptedNotes() {
         compose.setContent { Content() }; await("diary-create")
         compose.onNodeWithTag("diary-create").performClick(); await("diary-editor")
         compose.onNodeWithTag("diary-title").performTextReplacement("Личная мысль — день 1")
         compose.onNodeWithTag("diary-body").performTextReplacement("Исходная личная заметка. Не переводить этот текст.")
+        compose.onNodeWithTag("diary-body").assertTextContains("Исходная личная заметка.", substring = true)
         capture("editor", "diary-editor")
         compose.onNodeWithTag("diary-save").performClick()
         compose.waitUntil(20_000) { repository.state.value.records.any { !it.draft } }

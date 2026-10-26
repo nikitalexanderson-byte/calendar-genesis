@@ -1,0 +1,44 @@
+{
+  "versionName": "3.0.0-beta.2",
+  "versionCode": 104,
+  "applicationId": "ru.genesis.calendar",
+  "apk": "GENESIS-Android-Native-3.0.0-beta.2.apk",
+  "bytes": 164844141,
+  "sha256": "be2cfb724d3bcce5f011f22ae58326229066520a0ecd06072de90502f2b59075",
+  "certificateSha256": "1e161d36f574b0560d808c7ee95e1abe98165b3385336d0276fb381dfd901cb8",
+  "sourceCommit": "456e003070f7594a44c4c219e62a807b85e5453a",
+  "branch": "codex/android-3-redesign",
+  "workflowRun": "https://github.com/nikitalexanderson-byte/calendar-genesis/actions/runs/40335159970",
+  "workflowConclusion": "success",
+  "gradleBuildDuration": "11m 13s",
+  "artifactName": "genesis-android-3.0-trial-4",
+  "artifactId": 12657415421,
+  "artifactExpiresAt": "2026-11-09T14:09:09Z",
+  "localDirectory": "C:/Users/mrdeu/Downloads/GENESIS-Android-3.0.0-beta.2",
+  "localValidation": [
+    "SHA-256 matches sidecar",
+    "apksigner signature and expected release certificate",
+    "package/versionCode/versionName",
+    "non-debuggable",
+    "zipalign -c -P 16 4",
+    "source commit matches workflow artifact metadata"
+  ],
+  "emulator": {
+    "serial": "emulator-5580",
+    "api": 35,
+    "previousVersion": "3.0.0-beta.1/103",
+    "installedVersion": "3.0.0-beta.2/104",
+    "installMethod": "adb install -r; no uninstall or data clear",
+    "launch": "success",
+    "smoke": "English and Russian auth landing render, Google action visible, previous English selection restored, no current-process fatal crash",
+    "authenticationAttempted": false,
+    "settingsRestored": true
+  },
+  "phone": {
+    "connected": false,
+    "installation": "build ready; waiting for connection",
+    "note": "Previous beta.1 physical-phone installation remains historical and is not beta.2 coverage."
+  },
+  "websiteBackendOrStableChannelChanged": false,
+  "sshUsed": false
+}

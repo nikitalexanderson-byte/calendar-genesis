@@ -1,12 +1,10 @@
 package ru.genesis.calendar.ui
 
-import android.graphics.Bitmap
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -22,6 +20,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import ru.genesis.calendar.PagerTestActivity
+import ru.genesis.calendar.captureNativeWindow
 import ru.genesis.calendar.auth.SharedWorkspaceGateway
 import ru.genesis.calendar.data.*
 import java.io.File
@@ -39,7 +38,8 @@ class MobileWorkspaceVisualTest {
         compose.setContent {
             val state = preview()
             val original = LocalDensity.current
-            val density = Density(compose.activity.resources.displayMetrics.widthPixels.toFloat() / state.width, original.fontScale)
+            val fontScale = InstrumentationRegistry.getArguments().getString("genesisFontScale")?.toFloatOrNull() ?: original.fontScale
+            val density = Density(compose.activity.resources.displayMetrics.widthPixels.toFloat() / state.width, fontScale)
             CompositionLocalProvider(LocalDensity provides density, LocalGenesisLanguage provides "ru",
                 LocalEveningTheme provides state.dark, LocalGenesisUserId provides "synthetic-mobile-workspace") {
                 MaterialTheme(colorScheme = if (state.dark) evening else standart,
@@ -56,10 +56,7 @@ class MobileWorkspaceVisualTest {
         compose.waitForIdle()
         val file = File(instrumentation.targetContext.getExternalFilesDir(null),
             "3.0-workspace-${state.width}-${if (state.dark) "dark" else "light"}-$name.png")
-        file.outputStream().use { output ->
-            assertTrue("Screenshot must be encoded", compose.onAllNodes(isRoot()).onLast().captureToImage().asAndroidBitmap()
-                .compress(Bitmap.CompressFormat.PNG, 100, output))
-        }
+        captureNativeWindow(file)
         assertTrue("Screenshot must contain PNG data", file.length() > 0)
     }
 
@@ -136,6 +133,15 @@ class MobileWorkspaceVisualTest {
                 capture(state, "mindmap-library")
                 compose.onNodeWithTag("mindmap-open-${document.id}", useUnmergedTree = true).performClick()
                 compose.onNodeWithTag("mindmap-canvas").assertIsDisplayed()
+                val modeText = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+                compose.onNodeWithText("Структура", useUnmergedTree = true)
+                    .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) { it(modeText) }
+                assertTrue("Mode label must fit without breaking or clipping", modeText.single().lineCount == 1 && !modeText.single().hasVisualOverflow)
+                val rootNode = compose.onNodeWithTag("mindmap-node-${document.nodes.first().id}").fetchSemanticsNode()
+                val rootLabel = compose.onNode(hasText(document.title) and
+                    hasAnyAncestor(hasTestTag("mindmap-node-${document.nodes.first().id}")), useUnmergedTree = true).fetchSemanticsNode()
+                assertTrue("Node title must reserve 48dp for the link action and an 8dp gap",
+                    rootNode.boundsInRoot.right - rootLabel.boundsInRoot.right + 1 >= 56 * rootNode.layoutInfo.density.density)
                 capture(state, "mindmap-canvas")
                 compose.onNodeWithContentDescription("Действия с картой").performClick()
                 compose.onNodeWithText("Добавить из дел").assertExists()

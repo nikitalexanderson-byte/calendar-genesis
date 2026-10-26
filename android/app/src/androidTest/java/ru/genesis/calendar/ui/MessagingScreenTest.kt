@@ -1,13 +1,12 @@
 package ru.genesis.calendar.ui
 
-import android.graphics.Bitmap
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -20,6 +19,7 @@ import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
 import ru.genesis.calendar.PagerTestActivity
+import ru.genesis.calendar.captureNativeWindow
 import ru.genesis.calendar.auth.MessagingGateway
 import ru.genesis.calendar.data.*
 import ru.genesis.calendar.security.*
@@ -64,18 +64,18 @@ class MessagingScreenTest {
     private val width get() = InstrumentationRegistry.getArguments().getString("genesisWidth")?.toIntOrNull() ?: 390
     private val dark get() = InstrumentationRegistry.getArguments().getString("genesisEvening") == "true"
     @Composable private fun Content() {
-        val density = Density(compose.activity.resources.displayMetrics.widthPixels.toFloat() / width, LocalDensity.current.fontScale)
+        val scale = InstrumentationRegistry.getArguments().getString("genesisFontScale")?.toFloatOrNull() ?: LocalDensity.current.fontScale
+        val density = Density(compose.activity.resources.displayMetrics.widthPixels.toFloat() / width, scale)
         CompositionLocalProvider(LocalDensity provides density, LocalGenesisLanguage provides "ru", LocalEveningTheme provides dark) {
             MaterialTheme(colorScheme = if (dark) evening else standart, typography = GenesisTypography, shapes = GenesisShapes) {
-                Surface(Modifier.fillMaxSize()) { MessagingScreen(repository, onClose = {}) }
+                Surface(Modifier.fillMaxSize().safeDrawingPadding()) { MessagingScreen(repository, onClose = {}) }
             }
         }
     }
     private fun capture(name: String) {
         compose.waitForIdle()
-        File(compose.activity.getExternalFilesDir(null), "messaging-$width-${if (dark) "dark" else "light"}-$name.png").outputStream().use {
-            assertTrue(compose.onNodeWithTag("messaging-screen").captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it))
-        }
+        captureNativeWindow(File(compose.activity.getExternalFilesDir(null),
+            "messaging-$width-${if (dark) "dark" else "light"}-$name.png"))
     }
     @Test fun inboxChatEncryptedDraftSendAndSecurityCode() {
         compose.setContent { Content() }
@@ -101,6 +101,7 @@ class MessagingScreenTest {
         compose.onNodeWithText("Восстановите ключ сообщений").assertExists()
         compose.onNodeWithText("Импортировать ключ").performClick()
         compose.onNodeWithText("Пароль: не менее 12 символов").assertExists()
+        compose.onNodeWithText("Восстановить").assertIsNotEnabled()
         assertEquals(gateway.peer.keyId, MessagingCrypto.fingerprint(gateway.registered!!)); assertNull(store.rows["identity"])
         capture("restore")
     }
