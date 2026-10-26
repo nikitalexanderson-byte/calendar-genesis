@@ -445,6 +445,20 @@ class MobileRedesignFlowTest {
             val headings = compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.Heading))
                 .fetchSemanticsNodes()
             assertTrue("Settings ${route.section} must keep named sections", headings.isNotEmpty())
+            if (route.section == "region") {
+                val bounds = listOf("device", "ip", "manual").map { source ->
+                    val tag = "region-source-$source"
+                    val layouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+                    compose.onNode(hasText(when(source) { "device" -> "Устройство"; "ip" -> "IP-адрес"; else -> "Вручную" })
+                        and hasAnyAncestor(hasTestTag(tag)), useUnmergedTree = true)
+                        .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+                    assertTrue("Region label $source must stay complete", layouts.isNotEmpty() && layouts.all { !it.hasVisualOverflow && it.lineCount == 1 })
+                    checkTarget(tag)
+                    compose.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot
+                }
+                assertTrue("Region choices must have equal widths", bounds.maxOf { it.width } - bounds.minOf { it.width } <= 1f)
+                assertTrue("Region choices must have equal heights", bounds.maxOf { it.height } - bounds.minOf { it.height } <= 1f)
+            }
             checks.put("settings:${route.section}:common-card-heading-without-header-icon")
         }
         navigate(personalRoute, assertSelection = false)
@@ -462,6 +476,16 @@ class MobileRedesignFlowTest {
         compose.onNodeWithTag("personal-task-search").performTextInput("Разобрать")
         equalSearchHeight()
         capture("review5-search-query")
+        if (width <= 390) {
+            val keyboardPackage = android.provider.Settings.Secure.getString(app.contentResolver,
+                android.provider.Settings.Secure.DEFAULT_INPUT_METHOD).substringBefore('/')
+            val field = requireNotNull(device.findObject(androidx.test.uiautomator.By.desc("Поиск задач").pkg(app.packageName)))
+            field.click()
+            assertTrue("Search must open the real keyboard", device.wait(
+                androidx.test.uiautomator.Until.hasObject(androidx.test.uiautomator.By.pkg(keyboardPackage)), 10_000))
+            equalSearchHeight()
+            capture("review5-search-keyboard")
+        }
         compose.onNodeWithTag("personal-task-search-close").performClick()
         compose.onNodeWithTag("personal-task-search-open").performClick()
         compose.onNodeWithTag("personal-task-search").assertTextContains("Разобрать")

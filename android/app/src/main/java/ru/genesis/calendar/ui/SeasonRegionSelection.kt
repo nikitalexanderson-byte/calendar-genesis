@@ -1,6 +1,7 @@
 package ru.genesis.calendar.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -108,17 +109,26 @@ internal fun SeasonRegionSettings(prefs: UiPreferences, onSetLocal: (String, Str
     SettingsSection("◉", "Регион", "Для изображений и времён года григорианского календаря",
         Color(0xffe2eee6)) {
         Text("Определять регион", style = MaterialTheme.typography.titleSmall)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             listOf("device" to "Устройство", "ip" to "IP-адрес", "manual" to "Вручную")
                 .forEach { (source, title) ->
-                    FilterChip(selected = prefs.regionSource == source,
+                    val chosen = prefs.regionSource == source
+                    OutlinedButton(
                         onClick = {
                             if (source == "manual") showManual = true else {
                                 onSetLocal("regionSource", source)
                                 if (source == "ip") refreshIp()
                             }
-                        }, modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-                            .testTag("region-source-$source"), label = { Text(title, maxLines = 1) })
+                        }, modifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = 48.dp)
+                            .testTag("region-source-$source").semantics { selected = chosen },
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 10.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = if (chosen) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                            contentColor = if (chosen) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface),
+                        border = BorderStroke(1.dp, if (chosen) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)) {
+                        Text(title, style = MaterialTheme.typography.labelMedium, maxLines = 1,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    }
                 }
         }
         Text("Выбран: ${if (prefs.regionSource == "ip" && prefs.ipRegionZone.isNotBlank())
