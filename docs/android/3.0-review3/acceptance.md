@@ -15,7 +15,7 @@
 
 ## Проверки и поставка
 
-Целевая пробная версия — **3.0.0-beta.3 /105**. Результаты сборки, native UI-проверок, подписанного artifact и установки записываются ниже по факту завершения. Новая установка ещё не подтверждена. Стабильный CI-деплой остаётся выключенным: `GENESIS_DEPLOY_ANDROID=false`.
+Поставленная пробная версия — **3.0.0-beta.3 /105**. Подписанный artifact проверен, установлен и запущен на телефоне; фактические проверки и ограничения разделены по checkpoint ниже. Стабильный CI-деплой остаётся выключенным: `GENESIS_DEPLOY_ANDROID=false`.
 
 Пользовательские записи, сессия и настройки физического телефона не используются как тестовые fixtures. Новые снимки и native сценарии используют отдельный debug package и синтетическое локальное пространство.
 
@@ -45,4 +45,12 @@ App source: `bd919b2b7ad407ab83843b6a65da79f7e4761255`; debug SHA-256 `14c91a005
 
 На этом APK root-сценарий повторён **2/2** на360dp/fontScale1.3, в светлой и тёмной теме. Он включает все предыдущие переходы Today/Month/Year/Oracle и новые проверки: legacy icons/sequential preference не меняет Android layout, оба удалённых выбора отсутствуют, кнопки темы имеют одинаковую ширину и одну строку, текст «Устройство» не имеет TextLayout overflow, цели от48dp. Снимки: [светлая](final-settings/360-light-font130-appearance.png), [тёмная](final-settings/360-dark-font130-appearance.png); [metadata](final-settings/results.json). В сумме26 успешных исполнений по двум разделённым checkpoint,15 разных методов. Настройки эмулятора снова восстановлены после этого прогона.
 
-Финальный signing workflow: [40364263222](https://github.com/nikitalexanderson-byte/calendar-genesis/actions/runs/40364263222), sourcebd919b2b. Статус signed APK и телефона дополняется по завершении; предыдущий отменённый workflow не является поставляемым результатом.
+Финальный signing workflow: [40364263222](https://github.com/nikitalexanderson-byte/calendar-genesis/actions/runs/40364263222) — SUCCESS, sourcebd919b2b. Установка и signed smoke приведены ниже; предыдущий отменённый workflow не является поставляемым результатом.
+
+## Поставленный результат
+
+**Подписанная beta.3/105 установлена на realme RMX5000 поверх104 без сброса данных.** [CI40364263222](https://github.com/nikitalexanderson-byte/calendar-genesis/actions/runs/40364263222) SUCCESS; локальная проверка подписи/package/source/zipalign/SHA и manifest без микрофона PASS. APK164762137 bytes, SHA-256 `d6f75e32982e009e6e5c6b1934f68468d3da1121a133bc64416019fa00b0ea32`.
+
+Телефон: installed base hash совпал, MainActivity COLD/status ok, «Сегодня» и новая шапка доступны, текущих fatal crash нет. Дальнейшая навигация остановлена после смены foreground; она подтверждена debug-сценариями, а не полным физическим прогоном. Signed emulator104→105/auth landing также PASS. Подробные границы: [device-smoke.md](device-smoke.md), точные metadata: [release-artifact.json](release-artifact.json).
+
+APK и `Verify-GENESIS-Trial.ps1`: `C:/Users/mrdeu/Downloads/GENESIS-Android-3.0.0-beta.3`. Стабильный канал не заменялся; простой downgrade старым APK не считается проверенным rollback. Сайт не менялся, SSH не использовался.

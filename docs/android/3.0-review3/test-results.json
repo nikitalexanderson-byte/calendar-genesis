@@ -37,8 +37,8 @@
     "debugSha256": "f4b056a5835801afc43b5a9e2a579a126d387fd562d481df34854b45b507a254"
   },
   "signedWorkflow": "https://github.com/nikitalexanderson-byte/calendar-genesis/actions/runs/40364263222",
-  "signedWorkflowConclusion": "in_progress",
-  "phoneInstallation": "pending signed APK",
+  "signedWorkflowConclusion": "success",
+  "phoneInstallation": "PASS: realme RMX5000/API36,104→105 install-r, installed hash verified, launch/Today header/day-description label; further navigation stopped when foreground changed. See device-smoke.md.",
   "websiteBackendOrStableChannelChanged": false,
   "sshUsed": false,
   "finalCheckpointInstrumentation": {
@@ -66,5 +66,8 @@
     "distinctMethods": 15,
     "note": "24 at initial beta.3 source84e181ab, 2 after final settings changes at bd919b2b; not a full suite rerun of one APK"
   },
-  "excludedWorkflow": "40361207337 cancelled after additional settings requirements, no APK delivered"
+  "excludedWorkflow": "40361207337 cancelled after additional settings requirements, no APK delivered",
+  "signedApkSha256": "d6f75e32982e009e6e5c6b1934f68468d3da1121a133bc64416019fa00b0ea32",
+  "signedLintRelease": "PASS",
+  "signedEmulatorSmoke": "PASS:104→105 install-r, launch/auth landing/Google action, process alive/no current fatal; no sign-in"
 }
