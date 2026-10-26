@@ -199,7 +199,8 @@ class MobileRedesignFlowTest {
     }
     private fun capture(scene: String) {
         compose.waitForIdle()
-        val image = compose.onRoot().captureToImage()
+        // A real text-field tap may add a cursor-handle popup with its own root.
+        val image = compose.onNode(isRoot() and hasAnyDescendant(hasTestTag("workspace-menu"))).captureToImage()
         assertTrue("Empty bitmap for $scene", image.width > 0 && image.height > 0)
         val pixels = image.toPixelMap()
         val colors = mutableSetOf<Int>()
