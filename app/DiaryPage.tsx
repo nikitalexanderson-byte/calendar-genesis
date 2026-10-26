@@ -69,7 +69,11 @@ export default function DiaryPage({ language, onClose }: { language: string; onC
     catch (failure) { setError(failure instanceof Error && failure.message.includes('DIARY_REVISION_CONFLICT') ? text.conflict : text.error); }
   };
   return <section className="diary-page" aria-label={text.title} data-no-translate>
-    <header className="diary-heading"><div><button type="button" className="diary-back" onClick={onClose}><ExperimentalIcon name="map-back"/>{text.back}</button><h1><DiaryMark/>{text.title}</h1><p>{text.description}</p></div><p className="diary-privacy"><ExperimentalIcon name="lock"/>{text.private}</p></header>
+    <header className="workspace-header diary-heading" data-exp-ui="panel">
+      <div className="workspace-header-main"><span className="projects-hero-mark" aria-hidden="true"><DiaryMark/></span><div className="workspace-header-copy"><h1>{text.title}</h1><p>{text.description}</p></div></div>
+      <p className="diary-privacy"><ExperimentalIcon name="lock"/>{text.private}</p>
+      <button type="button" className="diary-back" onClick={onClose}><ExperimentalIcon name="map-back"/>{text.back}</button>
+    </header>
     <div className="diary-toolbar"><button type="button" className="primary-button" disabled={diary.loading || diary.error} onClick={() => setEditing('new')}><ExperimentalIcon name="plus"/>{text.newNote}</button>
       <div className="diary-tabs" role="group" aria-label={text.title}>{(['board', 'favorites'] as const).map(id => <button type="button" key={id} aria-pressed={tab === id} onClick={() => setTab(id)}>{text[id]}</button>)}</div>
       <label className="diary-search"><ExperimentalIcon name="search"/><input type="search" aria-label={text.search} placeholder={text.search} value={query} onChange={event => setQuery(event.target.value)}/></label>

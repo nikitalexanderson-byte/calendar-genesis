@@ -129,7 +129,10 @@ export const StoicheionRestoration = forwardRef<RestorationHandle, Props>(functi
   return <>
     <section id="stoicheion-restoration" className="restoration restoration-results" aria-labelledby="restoration-title" tabIndex={-1} data-no-translate>
       <header className="restoration-heading"><div><h2 id="restoration-title">{t.title}</h2><p>{cycles.length ? t.resultsIntro : t.intro}</p></div>
-        {currentSource && !currentSaved && !restorationExpired(sourceDate, today) ? <StoicheionActionButton icon="restoration" className="primary-button" disabled={!hydrated || !cloudReady} onClick={() => activateSource(currentSource)}>{t[primary]}</StoicheionActionButton> : null}</header>
+        <div className="restoration-heading-actions">
+          {currentSource && !currentSaved && !restorationExpired(sourceDate, today) ? <StoicheionActionButton icon="restoration" className="primary-button" disabled={!hydrated || !cloudReady} onClick={() => activateSource(currentSource)}>{t[primary]}</StoicheionActionButton> : null}
+          {onOpenHabits && cycles.length ? <button type="button" className="secondary-button" onClick={onOpenHabits}><ExperimentalIcon name="habits" />{t.openHabits}</button> : null}
+        </div></header>
       {currentSource && cards.every(card => !card.reversed) ? <p>{t.allUpright}</p> : null}
       {notice ? <p role="status">{notice}</p> : null}
       {cloudError ? <div role="alert"><p className="restoration-error">{cloudError}</p><button type="button" className="secondary-button" onClick={() => void repository?.load().then(value => { setDocument(value); setCloudReady(true); setCloudError(""); }).catch(() => setCloudError(repository?.conflict ? t.archiveConflict : t.archiveError))}>{t.retryDraft}</button>{repository?.conflict ? <button type="button" className="secondary-button" onClick={() => void repository.keepPending().then(value => { setDocument(value); setCloudReady(true); setCloudError(""); }).catch(() => setCloudError(t.archiveError))}>{t.keepVersion}</button> : null}</div> : null}
@@ -143,7 +146,6 @@ export const StoicheionRestoration = forwardRef<RestorationHandle, Props>(functi
         <ExperimentalIcon name="stoicheion" /><span>{draft.sourceDate}<small>{t.cardsReady}: {restorationPreparedCount(draft, snapshots)} {t.countOf} {reversedSectors(draft).length}</small></span><ExperimentalIcon name="chevron" />
       </button>)}</div></details> : null}
       {!workspace.habitSettings.enabled ? <p className="restoration-note">{t.disabled}</p> : null}
-      {onOpenHabits && cycles.length ? <button type="button" className="secondary-button" onClick={onOpenHabits}><ExperimentalIcon name="habits" />{t.openHabits}</button> : null}
     </section>
     {editingKey && memory[editingKey] ? <RestorationStrategyDialog key={`${userId}:${editingKey}`} userId={userId} open={open} draft={memory[editingKey]} recovered={recovered}
       workspace={workspace} calendarMode={calendarMode} today={today} onChange={onChange} onClose={() => setOpen(false)}
