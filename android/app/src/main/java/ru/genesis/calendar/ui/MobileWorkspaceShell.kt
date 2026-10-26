@@ -67,7 +67,7 @@ internal fun mobileDestinations(pages: List<String>, visibility: UiVisibility,
         entry("Привычки", "Сон и настроение", "Сон и настроение", GenesisPageIcon.TRACKERS, "Развитие")
     if (("sacred.stoicheion" !in visibility.hiddenSubmenus && "stoicheion" !in visibility.hiddenMenuItems) ||
         ("sacred.theokyklos" !in visibility.hiddenSubmenus && "theokyklos" !in visibility.hiddenMenuItems))
-        entry("Сакральное", null, "Оракул", GenesisPageIcon.STOICHEION, "Развитие")
+        entry("Сакральное", null, "Оракул", GenesisPageIcon.ORACLE, "Развитие")
     if (settingsSubmenus) settingsSections.forEach { section ->
         entry("Настройки", section.id, if (section.id == "habits") "Настройки привычек" else section.ru, section.icon, "Настройки")
     } else entry("Настройки", null, "Настройки", GenesisPageIcon.SETTINGS, "Настройки")
@@ -91,7 +91,8 @@ internal fun mobileDestinations(pages: List<String>, visibility: UiVisibility,
         else current?.title ?: selectedPage
     val menuLabel = genesisTranslate("Открыть меню")
     BackHandler(drawer.isOpen) { scope.launch { drawer.close() } }
-    ModalNavigationDrawer(drawerState = drawer, gesturesEnabled = gesturesEnabled && drawer.isOpen,
+    // An open drawer can always be dismissed; closed-screen gestures belong to each feature.
+    ModalNavigationDrawer(drawerState = drawer, gesturesEnabled = drawer.isOpen,
         drawerContent = {
             val width = (LocalConfiguration.current.screenWidthDp - 40).coerceAtMost(344).dp
             ModalDrawerSheet(Modifier.width(width).testTag("workspace-drawer"),
@@ -165,8 +166,6 @@ internal fun mobileDestinations(pages: List<String>, visibility: UiVisibility,
                     }
                     Row(Modifier.weight(1f).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        if (selectedPage == "Настройки") current?.icon?.let { GenesisVectorIcon(it,
-                            Modifier.size(20.dp), MaterialTheme.colorScheme.primary) }
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         Text(screenHeader.value?.title?.value ?: title, Modifier.testTag("workspace-title"),
                             style = MaterialTheme.typography.titleMedium)

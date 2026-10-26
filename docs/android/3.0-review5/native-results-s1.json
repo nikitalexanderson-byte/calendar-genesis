@@ -1,0 +1,110 @@
+[
+  {
+    "case": "components-390-false",
+    "widthDp": 390,
+    "dark": false,
+    "fontScale": 1.0,
+    "expected": 3,
+    "passed": true,
+    "log": "components-390-false.log"
+  },
+  {
+    "case": "components-390-true",
+    "widthDp": 390,
+    "dark": true,
+    "fontScale": 1.0,
+    "expected": 3,
+    "passed": true,
+    "log": "components-390-true.log"
+  },
+  {
+    "case": "root-360-false-font100",
+    "widthDp": 360,
+    "dark": false,
+    "fontScale": 1.0,
+    "expected": 1,
+    "passed": true,
+    "log": "root-360-false-font100.log"
+  },
+  {
+    "case": "root-360-true-font100",
+    "widthDp": 360,
+    "dark": true,
+    "fontScale": 1.0,
+    "expected": 1,
+    "passed": true,
+    "log": "root-360-true-font100.log"
+  },
+  {
+    "case": "root-390-false-font100",
+    "widthDp": 390,
+    "dark": false,
+    "fontScale": 1.0,
+    "expected": 1,
+    "passed": true,
+    "log": "root-390-false-font100.log"
+  },
+  {
+    "case": "root-390-true-font100",
+    "widthDp": 390,
+    "dark": true,
+    "fontScale": 1.0,
+    "expected": 1,
+    "passed": true,
+    "log": "root-390-true-font100.log"
+  },
+  {
+    "case": "root-768-false-font100",
+    "widthDp": 768,
+    "dark": false,
+    "fontScale": 1.0,
+    "expected": 1,
+    "passed": true,
+    "log": "root-768-false-font100.log"
+  },
+  {
+    "case": "root-768-true-font100",
+    "widthDp": 768,
+    "dark": true,
+    "fontScale": 1.0,
+    "expected": 1,
+    "passed": true,
+    "log": "root-768-true-font100.log"
+  },
+  {
+    "case": "root-1440-false-font100",
+    "widthDp": 1440,
+    "dark": false,
+    "fontScale": 1.0,
+    "expected": 1,
+    "passed": true,
+    "log": "root-1440-false-font100.log"
+  },
+  {
+    "case": "root-1440-true-font100",
+    "widthDp": 1440,
+    "dark": true,
+    "fontScale": 1.0,
+    "expected": 1,
+    "passed": true,
+    "log": "root-1440-true-font100.log"
+  },
+  {
+    "case": "root-360-false-font130",
+    "widthDp": 360,
+    "dark": false,
+    "fontScale": 1.3,
+    "expected": 1,
+    "passed": true,
+    "log": "root-360-false-font130.log"
+  },
+  {
+    "case": "root-360-true-font130",
+    "widthDp": 360,
+    "dark": true,
+    "fontScale": 1.3,
+    "expected": 1,
+    "passed": true,
+    "log": "root-360-true-font130.log"
+  }
+]

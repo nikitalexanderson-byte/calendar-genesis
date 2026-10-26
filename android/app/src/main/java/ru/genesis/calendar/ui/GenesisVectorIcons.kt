@@ -17,7 +17,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import kotlin.math.*
 
-internal enum class GenesisPageIcon { TODAY, TASKS, TASK_LISTS, PROJECTS, PROJECTS_SHARED, MINDMAPS, DIARY, MESSAGES, CALENDAR, MONTH, YEAR, HABITS, SACRED, STOICHEION, THEOKYKLOS, SETTINGS, TRACKERS,
+internal enum class GenesisPageIcon { TODAY, TASKS, TASK_LISTS, PROJECTS, PROJECTS_SHARED, MINDMAPS, DIARY, MESSAGES, CALENDAR, MONTH, YEAR, HABITS, SACRED, ORACLE, STOICHEION, THEOKYKLOS, SETTINGS, TRACKERS,
     SETTINGS_APPEARANCE, SETTINGS_HABITS, SETTINGS_REMINDERS, SETTINGS_SHARED, SETTINGS_REGION, SETTINGS_ACCOUNT, SETTINGS_LINKS }
 
 internal fun genesisPageIcon(title: String): GenesisPageIcon = when (title.trim()) {
@@ -32,6 +32,7 @@ internal fun genesisPageIcon(title: String): GenesisPageIcon = when (title.trim(
     "Календарь - год", "Calendar - year" -> GenesisPageIcon.YEAR
     "Привычки", "Habits" -> GenesisPageIcon.HABITS
     "Сакральное", "Sacred" -> GenesisPageIcon.SACRED
+    "Оракул", "Oracle" -> GenesisPageIcon.ORACLE
     "Стойхейон", "Stoicheion" -> GenesisPageIcon.STOICHEION
     "Теокиклос", "Theokyklos" -> GenesisPageIcon.THEOKYKLOS
     "Сон и настроение", "Sleep & mood" -> GenesisPageIcon.TRACKERS

@@ -876,7 +876,7 @@ internal fun GenesisBrandLogo(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun OriginalImage(path: String, description: String?, modifier: Modifier=Modifier) {
+fun OriginalImage(path: String, description: String?, modifier: Modifier=Modifier, dimInDarkTheme: Boolean = true) {
     val context=LocalContext.current
     var imageWidth by remember(path) { mutableIntStateOf(0) }
     var imageHeight by remember(path) { mutableIntStateOf(0) }
@@ -892,7 +892,7 @@ fun OriginalImage(path: String, description: String?, modifier: Modifier=Modifie
         }
     }
     val localizedDescription = description?.let { genesisTranslate(it) }
-    Box((if(LocalEveningTheme.current) modifier.alpha(.86f) else modifier).onSizeChanged {
+    Box((if(LocalEveningTheme.current && dimInDarkTheme) modifier.alpha(.86f) else modifier).onSizeChanged {
         imageWidth = it.width; imageHeight = it.height
     }) {
         bitmap?.let { Image(it.asImageBitmap(),localizedDescription,
@@ -911,7 +911,6 @@ internal fun DayHeader(date: LocalDate, mode: CalendarMode) {
         todayHeroCopy(date, if (sacredFeaturesEnabled) mode else CalendarMode.PROFANE, calendar, language)
     }
     val civilDate = date.format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.forLanguageTag(language)))
-    var artworkExpanded by rememberSaveable(date, mode) { mutableStateOf(false) }
     Card(Modifier.fillMaxWidth().testTag("today-hero"), shape = AffairsLayout.shape,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         if (!sacredFeaturesEnabled) {
@@ -923,56 +922,48 @@ internal fun DayHeader(date: LocalDate, mode: CalendarMode) {
             }
         } else Box(Modifier.fillMaxWidth()) {
             OriginalImage(if (mode == CalendarMode.LUNAR) "genesis-hero.png" else copy.imagePath,
-                null, Modifier.matchParentSize().testTag("today-calendar-image"))
+                null, Modifier.matchParentSize().testTag("today-calendar-image"), dimInDarkTheme = false)
+            CompositionLocalProvider(LocalPreserveCalendarColors provides true) {
             androidx.compose.material3.Surface(Modifier.fillMaxWidth().testTag("today-hero-copy"),
-                color = Color.Black.copy(alpha = .64f), contentColor = Color(0xfff9f2e2)) {
+                color = Color.Black.copy(alpha = .56f), contentColor = Color.White) {
                     Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(copy.title, style = MaterialTheme.typography.headlineSmall)
                         Text(if (mode == CalendarMode.PROFANE) civilDate else copy.footerDate,
                             Modifier.testTag("today-civil-date"), style = MaterialTheme.typography.bodyMedium)
                         if (mode == CalendarMode.PROFANE) Text(copy.footerDate, Modifier.testTag("today-hero-date"),
-                            style = MaterialTheme.typography.labelMedium, color = Color(0xffdfc17e))
+                            style = MaterialTheme.typography.labelMedium, color = Color(0xfffff8e9))
                         Text(mobileCalendarCopy(language).calendarName(mode), Modifier.testTag("today-calendar-name"),
-                            style = MaterialTheme.typography.labelMedium, color = Color(0xffeee6d7))
-                        if (artworkExpanded) {
-                            Text(copy.month.uppercase(Locale.forLanguageTag(language)),
-                                style = MaterialTheme.typography.labelLarge, color = Color(0xfff0d49b))
-                            copy.subtitle?.takeIf { mode != CalendarMode.PROFANE }?.let {
-                                Text(it, style = MaterialTheme.typography.titleMedium)
-                            }
-                            if (mode == CalendarMode.PROFANE) Text(gregorianYearPosition(date, language),
-                                Modifier.testTag("today-gregorian-year-position"),
-                                style = MaterialTheme.typography.bodySmall, color = Color(0xfff4deb0))
-                            if (mode == CalendarMode.LUNAR) {
-                                val moon = remember(date) { calendar.moonInfo(date) }
-                                Row(verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    Box(Modifier.size(64.dp).testTag("today-lunar-phase"), contentAlignment = Alignment.Center) {
-                                        MoonPhaseIcon(moon.phaseStep, size = 48.dp)
-                                    }
-                                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                        Text(moon.epithet, style = MaterialTheme.typography.titleMedium, color = Color(0xffffe9b5))
-                                        Text("${moon.direction} · ${moon.phase} · ${moon.illumination}%",
-                                            style = MaterialTheme.typography.bodyMedium)
-                                    }
+                            style = MaterialTheme.typography.labelMedium, color = Color(0xfffff8e9))
+                        Text(copy.month.uppercase(Locale.forLanguageTag(language)),
+                            style = MaterialTheme.typography.labelLarge, color = Color(0xfffff8e9))
+                        copy.subtitle?.takeIf { mode != CalendarMode.PROFANE }?.let {
+                            Text(it, style = MaterialTheme.typography.titleMedium)
+                        }
+                        if (mode == CalendarMode.PROFANE) Text(gregorianYearPosition(date, language),
+                            Modifier.testTag("today-gregorian-year-position"),
+                            style = MaterialTheme.typography.bodySmall, color = Color(0xfffff8e9))
+                        if (mode == CalendarMode.LUNAR) {
+                            val moon = remember(date) { calendar.moonInfo(date) }
+                            Row(verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Box(Modifier.size(64.dp).testTag("today-lunar-phase"), contentAlignment = Alignment.Center) {
+                                    MoonPhaseIcon(moon.phaseStep, size = 48.dp)
+                                }
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text(moon.epithet, style = MaterialTheme.typography.titleMedium, color = Color(0xfffff8e9))
+                                    Text("${moon.direction} · ${moon.phase} · ${moon.illumination}%",
+                                        style = MaterialTheme.typography.bodyMedium)
                                 }
                             }
-                            Text(copy.description, Modifier.testTag("today-hero-description"), style = MaterialTheme.typography.bodyMedium)
-                            copy.details.forEach { Text(it, style = MaterialTheme.typography.bodySmall) }
-                            SunriseSunsetLine(date, solarLocation, calendar,
-                                accent = Color(0xfff4deb0), textColor = Color(0xffd7dfd8))
-                            copy.badge?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = Color(0xfff5dcaa)) }
                         }
-                        TextButton(onClick = { artworkExpanded = !artworkExpanded },
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                                .testTag(if (artworkExpanded) "today-art-collapse" else "today-art-expand"),
-                            colors = ButtonDefaults.textButtonColors(contentColor = Color(0xffffe2a7))) {
-                            Text(if (artworkExpanded) "Свернуть описание дня" else "Подробнее о дне")
-                            Spacer(Modifier.width(8.dp))
-                            GenesisLucideIcon(if (artworkExpanded) "chevron-up" else "chevron-down", Modifier.size(18.dp))
-                        }
+                        Text(copy.description, Modifier.testTag("today-hero-description"), style = MaterialTheme.typography.bodyMedium)
+                        copy.details.forEach { Text(it, style = MaterialTheme.typography.bodySmall) }
+                        SunriseSunsetLine(date, solarLocation, calendar,
+                            accent = Color(0xfffff8e9), textColor = Color(0xfffff8e9))
+                        copy.badge?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = Color(0xfffff8e9)) }
                     }
                 }
+            }
         }
     }
 }
@@ -1632,14 +1623,7 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sectionId:
 @Composable
 private fun SettingsSubsection(title: String, modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit) {
-    Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(genesisTranslate(title), style = MaterialTheme.typography.titleMedium)
-            content()
-        }
-    }
+    SettingsPreferenceCard(title, modifier, content = content)
 }
 
 @Composable
@@ -1776,12 +1760,9 @@ private fun MenuVisibilitySettings(prefs: UiPreferences,
     expanded: Boolean, onExpandedChange: (Boolean) -> Unit) {
     fun submenuHidden(id: String): Boolean = id in visibility.hiddenSubmenus ||
         (id.startsWith("sacred.") && id.substringAfter('.') in visibility.hiddenMenuItems)
-    Surface(shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
-        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(genesisTranslate("Сакральные функции"), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                Text(genesisTranslate("Сакральные функции"), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
                 Switch(checked = visibility.sacredFeaturesEnabled, enabled = accountSettings != null,
                     onCheckedChange = { onSetVisibility(visibility.copy(sacredFeaturesEnabled = it)) },
                     modifier = Modifier.testTag("sacred-features-toggle"))
@@ -1882,7 +1863,6 @@ private fun MenuVisibilitySettings(prefs: UiPreferences,
 
                 }
             }
-        }
     }
 }
 
@@ -1890,24 +1870,7 @@ private fun MenuVisibilitySettings(prefs: UiPreferences,
 internal fun SettingsSection(symbol: String, title: String, subtitle: String, color: Color,
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit) {
-    Card(modifier.fillMaxWidth(), shape = AffairsLayout.shape,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Box(Modifier.size(40.dp).clearAndSetSemantics { }, contentAlignment = Alignment.Center) {
-                    GenesisVectorIcon(genesisPageIcon(title), Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
-                }
-                Column(Modifier.weight(1f)) {
-                    Text(title, Modifier.semantics { heading() }, style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onSurface)
-                    Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-            HorizontalDivider(color = Color(0x33b28a4a))
-            content()
-        }
-    }
+    SettingsPreferenceCard(title, modifier, description = subtitle, content = content)
 }
 
 @Composable

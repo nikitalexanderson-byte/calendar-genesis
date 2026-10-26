@@ -125,13 +125,16 @@ internal enum class AffairsAction { BACK, NEXT, MORE, CLOSE, SEARCH, FILTER, SOR
 }
 
 @Composable internal fun AffairsSearchField(value: String, onChange: (String) -> Unit,
-    label: String, modifier: Modifier = Modifier) {
-    OutlinedTextField(value, onChange, label = { Text(label) }, singleLine = true,
+    label: String, modifier: Modifier = Modifier, labelAsPlaceholder: Boolean = false) {
+    val accessibleLabel = genesisTranslate(label)
+    OutlinedTextField(value, onChange, label = if (labelAsPlaceholder) null else ({ Text(label) }),
+        placeholder = if (labelAsPlaceholder) ({ Text(label) }) else null, singleLine = true,
         leadingIcon = { AffairsActionIcon(AffairsAction.SEARCH) },
         trailingIcon = if (value.isNotEmpty()) ({
             AffairsIconButton("Очистить поиск", AffairsAction.CLOSE, { onChange("") })
         }) else null,
-        shape = AffairsLayout.shape, modifier = modifier.fillMaxWidth())
+        shape = AffairsLayout.shape, modifier = modifier.fillMaxWidth()
+            .semantics { contentDescription = accessibleLabel })
 }
 
 @Composable internal fun AffairsFilterDialog(onDismiss: () -> Unit, onApply: () -> Unit,

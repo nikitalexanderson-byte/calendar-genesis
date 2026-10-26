@@ -259,7 +259,9 @@ class MobileRedesignFlowTest {
         val permissions = app.packageManager.getPackageInfo(app.packageName,
             android.content.pm.PackageManager.GET_PERMISSIONS).requestedPermissions.orEmpty()
         assertFalse(permissions.contains("android.permission.RECORD_AUDIO"))
-        compose.onNodeWithTag("today-art-expand").assertTextContains("Подробнее о дне")
+        compose.onNodeWithTag("today-art-expand").assertDoesNotExist()
+        compose.onNodeWithTag("today-art-collapse").assertDoesNotExist()
+        compose.onNodeWithTag("today-hero-description").assertExists()
         assertActualToday()
         compose.onNode(hasTestTag("calendar-mode-icon-profane") and hasAnyAncestor(hasTestTag("today-hero")),
             useUnmergedTree = true).assertDoesNotExist()
@@ -285,9 +287,9 @@ class MobileRedesignFlowTest {
         capture("sacred-knowledge-bottom")
         scrollToTodayNode(hasTestTag("today-hero"))
         capture("today-sacred-art")
-        compose.onNodeWithTag("today-art-expand").performClick()
+        compose.onNodeWithTag("today-art-expand").assertDoesNotExist()
         compose.onNodeWithTag("today-day-details-toggle").assertDoesNotExist()
-        scrollToTodayNode(hasTestTag("today-art-collapse"))
+        scrollToTodayNode(hasTestTag("today-hero-description"))
         compose.onNodeWithTag("today-hero-description").assertExists()
         capture("today-sacred-description")
         navigate(monthRoute)
@@ -351,9 +353,9 @@ class MobileRedesignFlowTest {
         val hero = compose.onNodeWithTag("today-hero").fetchSemanticsNode().boundsInRoot
         val panel = compose.onNodeWithTag("today-hero-copy").fetchSemanticsNode().boundsInRoot
         assertTrue("Black copy layer must cover the complete artwork", kotlin.math.abs(hero.width-panel.width)<1 && kotlin.math.abs(hero.height-panel.height)<1)
-        compose.onNodeWithTag("today-art-expand").performClick()
+        compose.onNodeWithTag("today-art-expand").assertDoesNotExist()
         capture("review4-today-expanded")
-        compose.onNodeWithTag("today-art-collapse").performClick()
+        compose.onNodeWithTag("today-art-collapse").assertDoesNotExist()
         scrollToTodayNode(hasTestTag("day-rhythm-title"))
         compose.onNodeWithTag("day-rhythm-title").assertTextEquals("Сакральное время")
         navigate(monthRoute)
@@ -399,6 +401,71 @@ class MobileRedesignFlowTest {
         compose.onNodeWithTag("personal-task-search-close").performClick()
         compose.onNodeWithTag("personal-task-search-open").assertIsDisplayed()
         checks.put("review4:full-artwork-labelled-sacred-time-13-lunar-assets-equal-year-tiles-header-actions-pinned-search")
+    }
+
+    @Test fun review5PreferencesAndDrawerGesture() {
+        val prefs = LocalPreferences(app, app.workspaceScope)
+        runBlocking { prefs.set("menuSwipeEnabled", "false") }
+        openDrawer()
+        compose.onNode(hasTestTag("genesis-icon-oracle-static") and
+            hasAnyAncestor(hasTestTag("drawer-Сакральное-root")), useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("workspace-drawer").performTouchInput { swipeLeft() }
+        drawerClosed()
+        compose.onNodeWithTag("workspace-title").assertTextEquals("Сегодня")
+        checks.put("drawer:swipe-left-closes-even-with-legacy-swipes-disabled")
+        runBlocking {
+            val habits = HabitsRepository(app)
+            val habit = habits.workspace.first().habits.first { it.id == habitId }
+            habits.save(habit.copy(title = "Пить 250 мл воды каждые полтора часа",
+                intervalSchedule = ru.genesis.calendar.domain.habits.HabitIntervalSchedule(90, "11:00", "22:00")))
+        }
+        scrollToTodayNode(hasTestTag("today-habit-$habitId"))
+        compose.onNodeWithTag("today-habit-title-$habitId").assertExists()
+        val titleLeft = compose.onNodeWithTag("today-habit-title-$habitId").fetchSemanticsNode().boundsInRoot.left
+        val summaryLeft = compose.onNodeWithTag("habit-interval-summary-$habitId").fetchSemanticsNode().boundsInRoot.left
+        assertEquals("Habit title and schedule must share one text inset", titleLeft, summaryLeft, 1f)
+        capture("review5-habit-insets")
+        checkTarget("today-habit-check-$habitId")
+        compose.onNodeWithTag("habit-interval-marks-toggle").performScrollTo().performClick()
+        compose.onNodeWithTag("habit-interval-mark-11:00").assertExists()
+        capture("review5-habit-repetitions")
+        checks.put("habits:shared-compact-insets-readable-intervals-and-48dp-checkbox")
+        runBlocking { prefs.set("display", "lunar") }
+        scrollToTodayNode(hasTestTag("today-hero"))
+        compose.onNodeWithTag("today-lunar-phase").assertExists()
+        compose.onNodeWithTag("today-hero-description").assertExists()
+        compose.onNodeWithTag("today-art-expand").assertDoesNotExist()
+        capture("review5-today-lunar-expanded")
+        for (route in routes.filter { it.page == "Настройки" }) {
+            navigate(route, assertSelection = false)
+            compose.onAllNodes(hasTestTag("app-header") and hasAnyDescendant(
+                hasTestTag("genesis-icon-${ru.genesis.calendar.ui.settingsSections.first { it.id == route.section }.icon.name.lowercase()}-static")))
+                .assertCountEquals(0)
+            capture("review5-settings-${route.section}")
+            val headings = compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.Heading))
+                .fetchSemanticsNodes()
+            assertTrue("Settings ${route.section} must keep named sections", headings.isNotEmpty())
+            checks.put("settings:${route.section}:common-card-heading-without-header-icon")
+        }
+        navigate(personalRoute, assertSelection = false)
+        compose.onNodeWithTag("personal-task-search-open").performClick()
+        fun equalSearchHeight() {
+            val field = compose.onNodeWithTag("personal-task-search").fetchSemanticsNode().boundsInRoot
+            val close = compose.onNodeWithTag("personal-task-search-close").fetchSemanticsNode().boundsInRoot
+            assertEquals("Close and search must have equal heights", field.height, close.height, 1f)
+            assertEquals("Close and search must align at top", field.top, close.top, 1f)
+            checkTarget("personal-task-search-close")
+        }
+        equalSearchHeight()
+        capture("review5-search-empty")
+        compose.onNodeWithTag("personal-task-search").performClick()
+        compose.onNodeWithTag("personal-task-search").performTextInput("Разобрать")
+        equalSearchHeight()
+        capture("review5-search-query")
+        compose.onNodeWithTag("personal-task-search-close").performClick()
+        compose.onNodeWithTag("personal-task-search-open").performClick()
+        compose.onNodeWithTag("personal-task-search").assertTextContains("Разобрать")
+        checks.put("search:equal-height-empty-query-keyboard-close-retains-query")
     }
 
     @Test fun review4WholeTaskAndListDragBetweenInboxProjectsAndSubprojects() {
@@ -657,6 +724,7 @@ class MobileRedesignFlowTest {
             habits.updateSettings(previousHabitSettings)
             val prefs = LocalPreferences(app, app.workspaceScope)
             prefs.set("navigationLabels", if (previousPrefs.navigationLabels) "text" else "icons")
+            prefs.set("menuSwipeEnabled", previousPrefs.menuSwipeEnabled.toString())
             prefs.set("settingsSubmenuEnabled", previousPrefs.settingsSubmenuEnabled.toString())
             prefs.set("language", previousPrefs.language)
             prefs.set("display", previousPrefs.display.wireValue)

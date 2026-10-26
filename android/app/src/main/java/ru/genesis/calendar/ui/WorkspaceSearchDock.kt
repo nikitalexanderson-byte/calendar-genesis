@@ -43,12 +43,12 @@ internal fun WorkspaceSearchDock(query: String, onQuery: (String) -> Unit, label
             shape = AffairsLayout.shape, color = MaterialTheme.colorScheme.surface,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
             Column(Modifier.padding(8.dp).heightIn(max = 320.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     AffairsSearchField(query, { onQuery(it.take(200)) }, label,
-                        Modifier.weight(1f).testTag(tag))
+                        Modifier.weight(1f).testTag(tag), labelAsPlaceholder = true)
                     AffairsIconButton("Свернуть поиск", AffairsAction.CLOSE, ::close,
-                        Modifier.testTag("$tag-close"))
+                        Modifier.fillMaxHeight().testTag("$tag-close"))
                 }
                 controls?.let { Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(8.dp)) { it() } }

@@ -313,10 +313,8 @@ import kotlin.math.min
             finally { busy = false }
         }
     }
-    Surface(Modifier.fillMaxWidth().testTag("daily-advice-settings"), shape = AffairsLayout.shape) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            NativeText(copy.getString("title"), style = MaterialTheme.typography.titleMedium)
-            NativeText(copy.getString("tradition"), style = MaterialTheme.typography.bodyMedium)
+    SettingsPreferenceCard(copy.getString("title"), Modifier.testTag("daily-advice-settings"),
+        description = copy.getString("tradition")) {
             @Composable fun toggle(key: String, value: Boolean, label: String, hint: String, action: (Boolean) -> Unit) {
                 Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag(key)
                     .toggleable(value, enabled = enabled && !busy, role = Role.Switch, onValueChange = action),
@@ -367,6 +365,5 @@ import kotlin.math.min
             AffairsDisclosure(copy.getString("privacyTitle")) {
                 NativeText(copy.getString("privacyNotice"), style = MaterialTheme.typography.bodyMedium)
             }
-        }
     }
 }

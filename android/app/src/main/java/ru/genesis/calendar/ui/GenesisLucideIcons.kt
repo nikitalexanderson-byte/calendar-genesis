@@ -108,6 +108,7 @@ internal fun GenesisPageIcon.lucideName(): String = when (this) {
     GenesisPageIcon.YEAR -> "calendar-range"
     GenesisPageIcon.HABITS, GenesisPageIcon.SETTINGS_HABITS -> "check-check"
     GenesisPageIcon.SACRED -> "sparkles"
+    GenesisPageIcon.ORACLE -> "eye"
     GenesisPageIcon.STOICHEION, GenesisPageIcon.DIARY -> "book-open"
     GenesisPageIcon.THEOKYKLOS -> "sun"
     GenesisPageIcon.SETTINGS -> "settings"

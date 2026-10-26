@@ -142,12 +142,8 @@ internal fun eveningSurfaceTone(color: Color): Color {
     }
     Column(Modifier.fillMaxWidth().testTag("appearance-settings"),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Surface(shape = RoundedCornerShape(10.dp),
-                color = MaterialTheme.colorScheme.surface,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
-            Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Цветовая схема", style = MaterialTheme.typography.titleMedium)
-            Text("Тёмная схема использует мягкие оттенки и приглушённые акценты.", style = MaterialTheme.typography.bodySmall)
+            SettingsPreferenceCard("Цветовая схема", Modifier.testTag("appearance-color-settings"),
+                description = "Тёмная схема использует мягкие оттенки и приглушённые акценты.") {
             Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).selectableGroup(),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf("light" to "Светлая", "evening" to "Тёмная", "system" to "Устройство").forEach { (mode, label) ->
@@ -178,7 +174,6 @@ internal fun eveningSurfaceTone(color: Color): Color {
                 Text("Используются часы и часовой пояс смартфона.", style = MaterialTheme.typography.bodySmall)
             }
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            }
             }
             extra()
     }
