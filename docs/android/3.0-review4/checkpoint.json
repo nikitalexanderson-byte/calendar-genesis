@@ -1,0 +1,18 @@
+{
+  "versionName": "3.0.0-beta.4",
+  "versionCode": 106,
+  "debugApkSha256": "00adcd66fa0205839e9cc0fef6a0825b79aa6e0c6ce69af754f769655f2af8c1",
+  "unitResults": {
+    "tests": 837,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 8
+  },
+  "webChecks": {
+    "installFrozen": "PASS",
+    "lint": "PASS, 2 existing img warnings",
+    "tests": 730,
+    "buildBeget": "PASS"
+  },
+  "scope": "Android only; no website/API/runtime deployment; no SSH"
+}

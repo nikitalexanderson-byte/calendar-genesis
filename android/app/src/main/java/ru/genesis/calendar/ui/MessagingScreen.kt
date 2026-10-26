@@ -134,16 +134,12 @@ import java.io.InputStream
             }
         }
     }
-    Column(Modifier.fillMaxSize().imePadding().testTag("messaging-screen")) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            AffairsIconButton("Назад", AffairsAction.BACK, ::back)
-            Column(Modifier.weight(1f)) {
-                if (state.selected == null) Text("Личные сообщения", style = MaterialTheme.typography.titleLarge)
-                else androidx.compose.material3.Text(state.selected!!.peerName, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (state.selected != null) Text("Сквозное шифрование", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+    val headerActions: @Composable () -> Unit = {
+        if (state.selected != null) WorkspaceHeaderButton(genesisTranslate("Назад"), "messaging-back", onClick = ::back) {
+            GenesisLucideIcon("chevron-left")
+        }
             Box {
-                AffairsIconButton("Действия", AffairsAction.MORE, { more = true })
+                WorkspaceHeaderButton(genesisTranslate("Действия"), "messaging-actions", onClick = { more = true }) { GenesisLucideIcon("ellipsis") }
                 DropdownMenu(more, { more = false }) {
                     DropdownMenuItem(text = { Text("Обновить") }, leadingIcon = { GenesisLucideIcon("refresh-cw") }, onClick = { more = false; run {
                         if (!state.initialized) repository.initialize() else if (state.selected != null && state.accepted) repository.messages() else repository.refreshInbox()
@@ -154,6 +150,14 @@ import java.io.InputStream
                     if (state.accepted) DropdownMenuItem(text = { Text("Очистить переписку") }, leadingIcon = { GenesisLucideIcon("trash-2") }, onClick = { more = false; clearConfirm = true }, enabled = !busy && !state.pending)
                 }
             }
+    }
+    val headerInShell = WorkspaceScreenHeader(state.selected?.peerName ?: "Личные сообщения",
+        if (state.selected != null) "Сквозное шифрование" else null, headerActions)
+    Column(Modifier.fillMaxSize().imePadding().testTag("messaging-screen")) {
+        if (!headerInShell) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            AffairsIconButton("Назад", AffairsAction.BACK, ::back)
+            Text("Личные сообщения", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
+            headerActions()
         }
         if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
         if (error.isNotBlank()) Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {

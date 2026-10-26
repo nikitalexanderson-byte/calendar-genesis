@@ -234,54 +234,59 @@ import kotlin.math.min
                     verticalAlignment = Alignment.Top) {
                     NativeText(card.title.ifBlank { copy.getString("title") }, Modifier.weight(1f).testTag("daily-advice-title").semantics { heading() },
                         style = MaterialTheme.typography.titleMedium)
-                    AffairsIconButton(copy.getString("hide"), AffairsAction.CLOSE, onDismiss,
-                        enabled = !busy, modifier = Modifier.testTag("daily-advice-dismiss"))
+                    IconButton(onClick = onDismiss, enabled = !busy,
+                        modifier = Modifier.size(48.dp).testTag("daily-advice-dismiss")
+                            .semantics { contentDescription = copy.getString("hide") }) {
+                        GenesisLucideIcon("x", Modifier.size(18.dp))
+                    }
                 }
                 NativeText(card.body, Modifier.testTag("daily-advice-body"), style = MaterialTheme.typography.bodyLarge)
                 val names = copy.getJSONArray("categories")
                 NativeText(copy.getString("title") + " · " + card.categories.joinToString(" · ") {
                     names.getString(adviceCategories.indexOf(it))
                 }, style = MaterialTheme.typography.bodySmall)
+                if (rotation != null && rotation.dailyLimit > 1) NativeText(
+                    copy.getString("position").replace("{current}", rotation.sequence.toString())
+                        .replace("{limit}", rotation.dailyLimit.toString()) +
+                        (if (!rotation.canNext) " · " + copy.getString("limitReached") else ""),
+                    modifier = Modifier.testTag("daily-advice-position").semantics { liveRegion = LiveRegionMode.Polite },
+                    style = MaterialTheme.typography.bodySmall)
                 card.sources.forEach { source ->
                     NativeText(copy.getString(if (source.kind == "quote") "source" else "inspired") + ": " +
                         listOf(source.author, source.work, source.reference).filter { it.isNotBlank() }.joinToString(" · "),
                         style = MaterialTheme.typography.bodySmall)
                 }
-                if (onReaction != null) Row(Modifier.fillMaxWidth(),
+                if (onReaction != null || onNext != null || onOpenDiary != null) Row(Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     val favoriteLabel = genesisTranslate("Избранное")
                     val dislikeLabel = genesisTranslate("Не нравится")
-                    IconToggleButton(checked = reaction == "favorite", onCheckedChange = { onReaction("favorite") },
-                        enabled = !busy && !reactionBusy, modifier = Modifier.size(48.dp)
+                    IconToggleButton(checked = reaction == "favorite", onCheckedChange = { onReaction?.invoke("favorite") },
+                        enabled = onReaction != null && !busy && !reactionBusy, modifier = Modifier.size(48.dp)
                             .testTag("daily-advice-favorite").semantics { contentDescription = favoriteLabel }) {
-                        GenesisLucideIcon("star")
+                        GenesisLucideIcon("thumbs-up")
                     }
-                    IconToggleButton(checked = reaction == "dislike", onCheckedChange = { onReaction("dislike") },
-                        enabled = !busy && !reactionBusy, modifier = Modifier.size(48.dp)
+                    IconToggleButton(checked = reaction == "dislike", onCheckedChange = { onReaction?.invoke("dislike") },
+                        enabled = onReaction != null && !busy && !reactionBusy, modifier = Modifier.size(48.dp)
                             .testTag("daily-advice-dislike").semantics { contentDescription = dislikeLabel }) {
                         GenesisLucideIcon("thumbs-down")
                     }
-                    Spacer(Modifier.weight(1f))
-                    if (onOpenDiary != null) TextButton(onClick = onOpenDiary,
-                        modifier = Modifier.testTag("daily-advice-diary")) {
-                        GenesisLucideIcon("book-open", Modifier.size(20.dp))
-                        Spacer(Modifier.width(8.dp)); Text("Дневник")
+                    if (rotation != null && rotation.dailyLimit > 1) {
+                        val nextLabel = copy.getString("next")
+                        IconButton(onClick = { onNext?.invoke() }, enabled = !busy && rotation.canNext,
+                            modifier = Modifier.size(48.dp).testTag("daily-advice-next")
+                                .semantics { contentDescription = nextLabel }) {
+                            GenesisLucideIcon("refresh-cw")
+                        }
+                    }
+                    if (onOpenDiary != null) IconButton(onClick = onOpenDiary,
+                        modifier = Modifier.size(48.dp).testTag("daily-advice-diary")
+                            .semantics { contentDescription = "Дневник" }) {
+                        GenesisLucideIcon("book-open", Modifier.size(24.dp))
                     }
                 }
                 if (reactionBusy) LinearProgressIndicator(Modifier.fillMaxWidth())
                 if (reactionError) Text("Не удалось сохранить. Черновик остаётся в дневнике.",
                     color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                if (rotation != null && rotation.dailyLimit > 1) {
-                    OutlinedButton(onClick = { onNext?.invoke() }, enabled = !busy && rotation.canNext,
-                        modifier = Modifier.heightIn(min = 48.dp).testTag("daily-advice-next")) {
-                        NativeText(copy.getString("next"))
-                    }
-                    NativeText(copy.getString("position").replace("{current}", rotation.sequence.toString())
-                        .replace("{limit}", rotation.dailyLimit.toString()) +
-                        (if (!rotation.canNext) " · " + copy.getString("limitReached") else ""),
-                        modifier = Modifier.testTag("daily-advice-position").semantics { liveRegion = LiveRegionMode.Polite },
-                        style = MaterialTheme.typography.bodySmall)
-                }
                 if (nextError) NativeText(copy.getString("nextError"), color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
                 if (hideError) NativeText(copy.getString("hideError"), color = MaterialTheme.colorScheme.error,

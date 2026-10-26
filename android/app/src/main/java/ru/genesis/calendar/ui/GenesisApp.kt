@@ -109,10 +109,8 @@ internal val standart = lightColorScheme(primary=Color(0xff255b59), onPrimary=Co
 @Composable
 private fun HeaderActionButton(description: String, enabled: Boolean,
     tag: String, onClick: () -> Unit) {
-    val accent = MaterialTheme.colorScheme.primary
-    IconButton(onClick = onClick, enabled = enabled,
-        modifier = Modifier.size(48.dp).testTag(tag)
-            .semantics { contentDescription = description }) {
+    val accent = Color(0xffdfc17e)
+    WorkspaceHeaderButton(description, tag, enabled, onClick) {
         if (!enabled) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = accent)
         else GenesisLucideIcon("refresh-cw", Modifier.size(22.dp), tint = accent)
     }
@@ -461,6 +459,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                 prefs.settingsSubmenuEnabled)
             val screenStates = rememberSaveableStateHolder()
             MobileWorkspaceShell(tab, menuSwipeState.section(tab), destinations, "$accountStatus\n$saveStatus",
+                calendarMode = prefs.display,
                 gesturesEnabled = !mindmapsOpen,
                 onNavigate = { destination ->
                     if (destination.page != tab || destination.section != null && destination.section != menuSwipeState.section(tab))
@@ -474,7 +473,8 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                                 CalendarMode.entries.filter { it.wireValue in uiVisibility.visibleCalendars }.toSet()))
                         }, size = 48.dp, interactive = uiVisibility.visibleCalendars.size > 1)
                     }
-                    if (!testWorkspace) {
+                    if (testWorkspace) HeaderActionButton("Обновить аккаунт", true, "today-refresh", {})
+                    else {
                         val refreshBusy = authState.busy || accountTaskSync?.loading == true
                         HeaderActionButton(genesisTranslate(if (refreshBusy)
                             "Получаем изменения с сервера…" else "$saveStatus. Обновить аккаунт"), !refreshBusy,
@@ -585,7 +585,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                             SubmenuItem("personal", if(prefs.language=="en") "Personal" else "Личные"),
                             SubmenuItem("shared", if(prefs.language=="en") "Shared" else "Общие"))
                             .filter { "projects.${it.id}" !in uiVisibility.hiddenSubmenus }
-                        if (!LocalFixedSubmenu.current && sharedProjectsEnabled && projectSubmenus.size > 1) ConnectedSubmenu(projectSubmenus,
+                        if (sharedProjectsEnabled && projectSubmenus.size > 1) ConnectedSubmenu(projectSubmenus,
                             visibleSwipeState.projectArea, { menuSwipeState.projectArea = it },
                             Modifier.testTag("projects-area-switch"))
                         if(sharedProjectsEnabled && visibleSwipeState.projectArea=="shared") key(invitationDestination) {
@@ -936,13 +936,9 @@ internal fun DayHeader(date: LocalDate, mode: CalendarMode) {
         } else Box(Modifier.fillMaxWidth()) {
             OriginalImage(if (mode == CalendarMode.LUNAR) "genesis-hero.png" else copy.imagePath,
                 null, Modifier.matchParentSize().testTag("today-calendar-image"))
-            Box(Modifier.matchParentSize().background(Brush.verticalGradient(
-                0f to Color(0x11040e10), .45f to Color(0x33040e10), 1f to Color(0xb8071d20))))
-            Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                Spacer(Modifier.height(if (artworkExpanded) 144.dp else 64.dp))
-                Surface(Modifier.fillMaxWidth().testTag("today-hero-copy"),
-                    shape = AffairsLayout.shape, color = Color(0xed071d20), contentColor = Color(0xfff9f2e2)) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            androidx.compose.material3.Surface(Modifier.fillMaxWidth().testTag("today-hero-copy"),
+                color = Color.Black.copy(alpha = .64f), contentColor = Color(0xfff9f2e2)) {
+                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(copy.title, style = MaterialTheme.typography.headlineSmall)
                         Text(if (mode == CalendarMode.PROFANE) civilDate else copy.footerDate,
                             Modifier.testTag("today-civil-date"), style = MaterialTheme.typography.bodyMedium)
@@ -989,7 +985,6 @@ internal fun DayHeader(date: LocalDate, mode: CalendarMode) {
                         }
                     }
                 }
-            }
         }
     }
 }
@@ -1437,7 +1432,7 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sectionId:
         retainedScrollState = scrollState) {
         (if (prefs.settingsSubmenuEnabled) listOf(section) else settingsSections).forEach { section ->
         val sectionContent: @Composable () -> Unit = {
-        GenesisPageHeader(if (prefs.settingsSubmenuEnabled)
+        if (LocalWorkspaceHeader.current == null) GenesisPageHeader(if (prefs.settingsSubmenuEnabled)
                 "${if (prefs.language == "en") "Settings" else "Настройки"} - ${section.title(prefs.language)}"
             else section.title(prefs.language),
             section.description(prefs.language), "⚙", icon = section.icon)

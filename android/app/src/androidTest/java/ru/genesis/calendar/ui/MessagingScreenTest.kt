@@ -11,6 +11,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
@@ -68,7 +69,13 @@ class MessagingScreenTest {
         val density = Density(compose.activity.resources.displayMetrics.widthPixels.toFloat() / width, scale)
         CompositionLocalProvider(LocalDensity provides density, LocalGenesisLanguage provides "ru", LocalEveningTheme provides dark) {
             MaterialTheme(colorScheme = if (dark) evening else standart, typography = GenesisTypography, shapes = GenesisShapes) {
-                Surface(Modifier.fillMaxSize().safeDrawingPadding()) { MessagingScreen(repository, onClose = {}) }
+                Surface(Modifier.fillMaxSize()) {
+                    MobileWorkspaceShell("Сообщения", null, emptyList(), "Synthetic fixture", true,
+                        onNavigate = {}, actions = {
+                            CalendarModeSwitcher(ru.genesis.calendar.domain.CalendarMode.PROFANE, {}, size = 48.dp)
+                            WorkspaceHeaderButton("Обновить аккаунт", "today-refresh", onClick = {}) { GenesisLucideIcon("refresh-cw") }
+                        }) { MessagingScreen(repository, onClose = {}) }
+                }
             }
         }
     }

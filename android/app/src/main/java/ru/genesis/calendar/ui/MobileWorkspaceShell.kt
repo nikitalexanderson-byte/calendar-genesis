@@ -2,6 +2,7 @@ package ru.genesis.calendar.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -9,6 +10,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
@@ -18,10 +20,31 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import ru.genesis.calendar.BuildConfig
 import ru.genesis.calendar.auth.UiVisibility
+import ru.genesis.calendar.domain.CalendarMode
 
 internal data class MobileDestination(val page: String, val section: String?, val title: String,
     val icon: GenesisPageIcon, val group: String) {
     val key: String get() = "$page-${section ?: "root"}"
+}
+
+internal class WorkspaceHeaderContent(val title: State<String>, val subtitle: State<String?>,
+    val actions: State<@Composable () -> Unit>)
+internal val LocalWorkspaceHeader = staticCompositionLocalOf<MutableState<WorkspaceHeaderContent?>?> { null }
+
+/** A screen owns its actions; the shell renders them before the shared calendar controls. */
+@Composable
+internal fun WorkspaceScreenHeader(title: String, subtitle: String? = null,
+    actions: @Composable () -> Unit = {}): Boolean {
+    val host = LocalWorkspaceHeader.current ?: return false
+    val latestTitle = rememberUpdatedState(title)
+    val latestSubtitle = rememberUpdatedState(subtitle)
+    val latestActions = rememberUpdatedState(actions)
+    val entry = remember { WorkspaceHeaderContent(latestTitle, latestSubtitle, latestActions) }
+    DisposableEffect(host) {
+        host.value = entry
+        onDispose { if (host.value === entry) host.value = null }
+    }
+    return true
 }
 
 /** The menu is derived from the same account visibility and role gates as the workspace. */
@@ -33,10 +56,8 @@ internal fun mobileDestinations(pages: List<String>, visibility: UiVisibility,
     entry("Сегодня", null, "Сегодня", GenesisPageIcon.TODAY, "Мой день")
     if (listOf("calendar.month", "calendar.year").any { it !in visibility.hiddenSubmenus })
         entry("Календарь", null, "Календарь", GenesisPageIcon.MONTH, "Мой день")
-    if (!sharedEnabled || "projects.personal" !in visibility.hiddenSubmenus)
-        entry("Проекты", "personal-projects", "Дела — личные", GenesisPageIcon.PROJECTS, "Рабочее пространство")
-    if (sharedEnabled && "projects.shared" !in visibility.hiddenSubmenus)
-        entry("Проекты", "shared", "Дела — общие", GenesisPageIcon.PROJECTS_SHARED, "Рабочее пространство")
+    if (!sharedEnabled || listOf("projects.personal", "projects.shared").any { it !in visibility.hiddenSubmenus })
+        entry("Проекты", null, "Дела", GenesisPageIcon.PROJECTS, "Рабочее пространство")
     entry("Дневник", null, "Дневник", GenesisPageIcon.DIARY, "Рабочее пространство")
     if (sharedEnabled && "projects.shared" !in visibility.hiddenSubmenus)
         entry("Сообщения", null, "Личные сообщения", GenesisPageIcon.MESSAGES, "Рабочее пространство")
@@ -46,7 +67,7 @@ internal fun mobileDestinations(pages: List<String>, visibility: UiVisibility,
         entry("Привычки", "Сон и настроение", "Сон и настроение", GenesisPageIcon.TRACKERS, "Развитие")
     if (("sacred.stoicheion" !in visibility.hiddenSubmenus && "stoicheion" !in visibility.hiddenMenuItems) ||
         ("sacred.theokyklos" !in visibility.hiddenSubmenus && "theokyklos" !in visibility.hiddenMenuItems))
-        entry("Сакральное", null, "Оракул", GenesisPageIcon.STOICHEION, "")
+        entry("Сакральное", null, "Оракул", GenesisPageIcon.STOICHEION, "Развитие")
     if (settingsSubmenus) settingsSections.forEach { section ->
         entry("Настройки", section.id, if (section.id == "habits") "Настройки привычек" else section.ru, section.icon, "Настройки")
     } else entry("Настройки", null, "Настройки", GenesisPageIcon.SETTINGS, "Настройки")
@@ -54,13 +75,19 @@ internal fun mobileDestinations(pages: List<String>, visibility: UiVisibility,
 
 @Composable internal fun MobileWorkspaceShell(selectedPage: String, selectedSection: String?,
     destinations: List<MobileDestination>, accountStatus: String, gesturesEnabled: Boolean,
+    calendarMode: CalendarMode = CalendarMode.PROFANE,
+    titleOverride: String? = null, subtitle: String? = null,
     onNavigate: (MobileDestination) -> Unit, actions: @Composable RowScope.() -> Unit,
     content: @Composable ColumnScope.() -> Unit) {
     val drawer = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    val screenHeader = remember(selectedPage, selectedSection) { mutableStateOf<WorkspaceHeaderContent?>(null) }
     val current = destinations.firstOrNull { it.page == selectedPage && it.section == selectedSection }
         ?: destinations.firstOrNull { it.page == selectedPage }
-    val title = current?.title ?: selectedPage
+    val title = titleOverride ?: if (selectedPage == "Календарь")
+        mobileCalendarCopy(LocalGenesisLanguage.current).calendarName(calendarMode)
+        else if (selectedPage == "Настройки") "Настройки\n${current?.title?.removePrefix("Настройки ") ?: selectedPage}"
+        else current?.title ?: selectedPage
     val menuLabel = genesisTranslate("Открыть меню")
     BackHandler(drawer.isOpen) { scope.launch { drawer.close() } }
     ModalNavigationDrawer(drawerState = drawer, gesturesEnabled = gesturesEnabled && drawer.isOpen,
@@ -120,21 +147,45 @@ internal fun mobileDestinations(pages: List<String>, visibility: UiVisibility,
                 }
             }
         }) {
+        CompositionLocalProvider(LocalWorkspaceHeader provides screenHeader) {
         Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
             Surface(color = MaterialTheme.colorScheme.surface) {
-                Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 4.dp)
+                Row(Modifier.fillMaxWidth().heightIn(min = 72.dp).padding(horizontal = 4.dp, vertical = 6.dp)
                     .testTag("app-header"), verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { scope.launch { drawer.open() } },
-                        modifier = Modifier.size(48.dp).testTag("workspace-menu")
-                            .semantics { contentDescription = menuLabel }) {
+                    WorkspaceHeaderButton(menuLabel, "workspace-menu", onClick = { scope.launch { drawer.open() } }) {
                         GenesisLucideIcon("menu", Modifier.size(24.dp))
                     }
-                    Text(title, Modifier.weight(1f).padding(horizontal = 8.dp).testTag("workspace-title"),
-                        style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    actions()
+                    Row(Modifier.weight(1f).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        if (selectedPage == "Настройки") current?.icon?.let { GenesisVectorIcon(it,
+                            Modifier.size(20.dp), MaterialTheme.colorScheme.primary) }
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(screenHeader.value?.title?.value ?: title, Modifier.testTag("workspace-title"),
+                            style = MaterialTheme.typography.titleMedium)
+                        (screenHeader.value?.subtitle?.value ?: subtitle)?.let { Text(it, Modifier.testTag("workspace-subtitle"),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        screenHeader.value?.actions?.value?.invoke()
+                        actions()
+                    }
                 }
             }
             content()
         }
+        }
+    }
+}
+
+@Composable
+internal fun WorkspaceHeaderButton(description: String, tag: String, enabled: Boolean = true,
+    onClick: () -> Unit, content: @Composable () -> Unit) {
+    androidx.compose.material3.Surface(onClick = onClick, enabled = enabled,
+        modifier = Modifier.size(48.dp).testTag(tag).semantics { contentDescription = description },
+        shape = AffairsLayout.controlShape, color = Color(0xff173b38), contentColor = Color(0xffdfc17e),
+        border = BorderStroke(1.dp, Color(0xffdfc17e).copy(alpha = .55f))) {
+        Box(contentAlignment = Alignment.Center) { content() }
     }
 }

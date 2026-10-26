@@ -44,8 +44,8 @@ android {
         applicationId = "ru.genesis.calendar"
         minSdk = 26
         targetSdk = 37
-        versionCode = 105
-        versionName = "3.0.0-beta.3"
+        versionCode = 106
+        versionName = "3.0.0-beta.4"
         buildConfigField("boolean", "PLAY_DISTRIBUTION", "false")
         buildConfigField("boolean", "TRIAL_BUILD", "true")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -107,7 +107,7 @@ abstract class GenesisAssetsTask : Sync() {
 val genesisAssets = tasks.register<GenesisAssetsTask>("genesisAssets") {
     assetsDirectory.set(layout.buildDirectory.dir("generated/genesisAssets"))
     from(rootProject.file("../public")) {
-        include("icons/**", "weekday-art/**", "day-art-v1/**", "month-art-v4/**",
+        include("icons/**", "weekday-art/**", "day-art-v1/**", "month-art-v4/**", "lunar-month-art-v1/**",
             "theokyklos-art/**", "theokyklos-symbols/**", "stoicheion-cards/**",
             "achievement-art/**", "habit-ranks/**", "habit-reward-art/**", "hero-path/**",
             "calendar-art/**", "genesis-hero.png", "month-frieze-v2.png")

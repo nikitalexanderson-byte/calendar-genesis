@@ -92,7 +92,7 @@ internal fun CalendarModeSwitcher(mode: CalendarMode, onNext: () -> Unit,
         }
     } else iconModifier,
         shape = RoundedCornerShape(10.dp), color = Color(0xff173b38),
-        border = BorderStroke(1.dp, gold.copy(alpha = .42f + ambient * .24f))) {
+        border = BorderStroke(1.dp, gold.copy(alpha = .55f))) {
         Canvas(Modifier.padding(7.dp)) {
             val center = Offset(this.size.width / 2f, this.size.height / 2f)
             val radius = this.size.minDimension * .34f

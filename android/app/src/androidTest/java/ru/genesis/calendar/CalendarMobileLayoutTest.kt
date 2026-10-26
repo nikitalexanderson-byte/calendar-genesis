@@ -118,7 +118,7 @@ class CalendarMobileLayoutTest {
         compose.onNodeWithTag("gregorian-year-start-2", useUnmergedTree = true).assertDoesNotExist()
         compose.onNodeWithTag("gregorian-year-end-2", useUnmergedTree = true).assertDoesNotExist()
         compose.onNodeWithText("ГРИГОРИАНСКИЙ МЕСЯЦ 2").assertDoesNotExist()
-        compose.onNodeWithTag("calendar-year-task-count-2", useUnmergedTree = true).assert(hasText("0 задач"))
+        compose.onNodeWithTag("calendar-year-task-count-disc-2", useUnmergedTree = true).assertDoesNotExist()
         compose.onNodeWithTag("gregorian-season-winter").assertExists()
         compose.onNodeWithTag("calendar-year-days-2", useUnmergedTree = true).assert(hasText("29 дней"))
         capture("gregorian-leap-year")

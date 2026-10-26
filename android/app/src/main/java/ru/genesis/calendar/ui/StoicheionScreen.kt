@@ -146,11 +146,18 @@ fun StoicheionScreen(app: GenesisApplication, divinationDisabled: Boolean,
             onOpenTheokyklos = { restorationOpen = false; onOpenTheokyklosSector(it) })
         return
     }
+    val headerTitle = if (english) "Oracle · Stoicheion" else "Оракул · Стойхейон"
+    val headerSubtitle = if (english) "Gno · Meter · Basileia" else "Гно · Метэр · Базилея"
+    val headerDescription = if (divinationDisabled) "Двадцать четыре буквенных образа и их значения"
+        else "Двадцать четыре буквенных образа, карта дня и расклад девяти ликов"
+    val headerInShell = WorkspaceScreenHeader(headerTitle, headerSubtitle) {
+        PageInformationAction(headerTitle, headerDescription, inHeader = true)
+    }
     LazyVerticalGrid(columns = GridCells.Adaptive(140.dp), modifier = Modifier.fillMaxSize().testTag("stoicheion-grid"),
         contentPadding = PaddingValues(12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item(span = { GridItemSpan(maxLineSpan) }) {
-            GenesisPageHeader(if (english) "Oracle - Stoicheion" else "Оракул - Стойхейон",
+            if (!headerInShell) GenesisPageHeader(if (english) "Oracle - Stoicheion" else "Оракул - Стойхейон",
                 if (divinationDisabled) {
                     if (english) "Twenty-four Greek letters and their meanings"
                     else "Двадцать четыре буквенных образа и их значения"

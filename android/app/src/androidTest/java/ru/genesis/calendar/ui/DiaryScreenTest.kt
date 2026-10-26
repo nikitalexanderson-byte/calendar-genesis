@@ -12,6 +12,7 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
@@ -64,7 +65,13 @@ class DiaryScreenTest {
         val density = Density(compose.activity.resources.displayMetrics.widthPixels.toFloat() / width, scale)
         CompositionLocalProvider(LocalDensity provides density, LocalGenesisLanguage provides "ru", LocalEveningTheme provides dark) {
             MaterialTheme(colorScheme = if (dark) evening else standart, typography = GenesisTypography, shapes = GenesisShapes) {
-                Surface(Modifier.fillMaxSize().safeDrawingPadding()) { DiaryScreen(repository, {}) }
+                Surface(Modifier.fillMaxSize()) {
+                    MobileWorkspaceShell("Дневник", null, emptyList(), "Synthetic fixture", true,
+                        onNavigate = {}, actions = {
+                            CalendarModeSwitcher(ru.genesis.calendar.domain.CalendarMode.PROFANE, {}, size = 48.dp)
+                            WorkspaceHeaderButton("Обновить аккаунт", "today-refresh", onClick = {}) { GenesisLucideIcon("refresh-cw") }
+                        }) { DiaryScreen(repository, {}) }
+                }
             }
         }
     }
@@ -136,7 +143,7 @@ class DiaryScreenTest {
         compose.onNodeWithTag("diary-body").performTextReplacement("Отредактированный текст сохранён")
         compose.onNodeWithTag("diary-save").performClick()
         compose.waitUntil(20_000) { repository.state.value.records.any { !it.draft && it.note.body == "Отредактированный текст сохранён" } }
-        await("diary-search"); compose.onNodeWithTag("diary-search").performTextReplacement("нет такой записи")
+        compose.onNodeWithTag("diary-search-open").performClick(); await("diary-search"); compose.onNodeWithTag("diary-search").performTextReplacement("нет такой записи")
         compose.onNodeWithTag("diary-note-$id").assertDoesNotExist()
         compose.onNodeWithTag("diary-search").performTextClearance()
         await("diary-archive-$id"); compose.onNodeWithTag("diary-archive-$id").performClick()

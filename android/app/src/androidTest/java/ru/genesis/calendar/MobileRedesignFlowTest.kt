@@ -43,6 +43,7 @@ import ru.genesis.calendar.domain.habits.HabitEngine
 import ru.genesis.calendar.domain.habits.TrackerEntity
 import ru.genesis.calendar.ui.AppearanceSettings
 import ru.genesis.calendar.ui.GenesisApp
+import ru.genesis.calendar.ui.calendarName
 
 /** Actual shell, encrypted local repositories and synthetic data; never enters a user account. */
 class MobileRedesignFlowTest {
@@ -62,6 +63,7 @@ class MobileRedesignFlowTest {
     private val tomorrowTaskId = "mobile3-tomorrow-$token"
     private val inboxTaskId = "mobile3-inbox-$token"
     private val ownedTasks = mutableSetOf(todayTaskId, tomorrowTaskId, inboxTaskId)
+    private val ownedLists = mutableSetOf<String>()
     private lateinit var previousPrefs: UiPreferences
     private lateinit var previousHabitSettings: HabitSettings
     private val checks = JSONArray()
@@ -71,7 +73,7 @@ class MobileRedesignFlowTest {
     private val orientation get() = if (compose.activity.resources.displayMetrics.widthPixels > compose.activity.resources.displayMetrics.heightPixels) "landscape" else "portrait"
     private val suffix get() = "${width}-${if (dark) "dark" else "light"}-font${(fontScale * 100).toInt()}-$orientation"
     private data class Route(val page: String, val section: String?, val title: String) {
-        val tag get() = "drawer-$page-${if (page in listOf("Календарь", "Сакральное")) "root" else section ?: "root"}"
+        val tag get() = "drawer-$page-${if (page in listOf("Календарь", "Сакральное", "Проекты")) "root" else section ?: "root"}"
     }
     private val todayRoute = Route("Сегодня", null, "Сегодня")
     private val monthRoute = Route("Календарь", "month", "Календарь")
@@ -176,7 +178,17 @@ class MobileRedesignFlowTest {
         drawerClosed()
         if (route.page in listOf("Календарь", "Сакральное") && route.section != null)
             compose.onNodeWithTag("submenu-${route.section}").performClick()
-        compose.onNodeWithTag("workspace-title").assertTextEquals(route.title)
+        if (route.page == "Проекты" && exists("submenu-personal"))
+            compose.onNodeWithTag("submenu-personal").performClick()
+        val expectedTitle = when (route.page) {
+            "Календарь" -> ru.genesis.calendar.ui.mobileCalendarCopy("ru").calendarName(
+                runBlocking { LocalPreferences(app, app.workspaceScope).values.first().display })
+            "Проекты" -> "Личные дела"
+            "Сакральное" -> if (route.section == "theokyklos") "Оракул · Теокиклос" else "Оракул · Стойхейон"
+            "Настройки" -> "Настройки\n${route.title.removePrefix("Настройки ")}"
+            else -> route.title
+        }
+        compose.onNodeWithTag("workspace-title").assertTextEquals(expectedTitle)
         if (assertSelection) {
             openDrawer()
             compose.onNodeWithTag(route.tag).performScrollTo().assertIsSelected()
@@ -321,6 +333,102 @@ class MobileRedesignFlowTest {
         checks.put("global-calendar:shared-across-tabs-input-independent-no-audio-permission")
     }
 
+    @Test fun review4FullArtworkLunarImagesEqualTilesAndPinnedSearch() {
+        val hero = compose.onNodeWithTag("today-hero").fetchSemanticsNode().boundsInRoot
+        val panel = compose.onNodeWithTag("today-hero-copy").fetchSemanticsNode().boundsInRoot
+        assertTrue("Black copy layer must cover the complete artwork", kotlin.math.abs(hero.width-panel.width)<1 && kotlin.math.abs(hero.height-panel.height)<1)
+        compose.onNodeWithTag("today-art-expand").performClick()
+        capture("review4-today-expanded")
+        compose.onNodeWithTag("today-art-collapse").performClick()
+        scrollToTodayNode(hasTestTag("day-rhythm-title"))
+        compose.onNodeWithTag("day-rhythm-title").assertTextEquals("Сакральное время")
+        navigate(monthRoute)
+        val prefs = LocalPreferences(app, app.workspaceScope)
+        runBlocking { prefs.set("display", "sacred") }
+        capture("review4-sacred-month-frames")
+        runBlocking { prefs.set("display", "lunar") }
+        compose.onNodeWithTag("lunar-month-art").assertExists()
+        capture("review4-lunar-month-art-frames")
+        compose.onNodeWithTag("submenu-year").performClick()
+        fun height(tag: String): Float {
+            compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag(tag))
+            return compose.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot.height
+        }
+        val first = height("lunar-year-month-1")
+        val current = height("lunar-year-month-${ru.genesis.calendar.domain.GenesisCalendar().lunarDate(LocalDate.now()).monthOrdinal}")
+        assertEquals("Task counts must not grow lunar year tiles", first, current, 1f)
+        capture("review4-lunar-year-equal-tiles")
+        runBlocking { prefs.set("display", "sacred") }
+        val sacredFirst = height("sacred-year-month-0")
+        val sacredCurrent = height("sacred-year-month-${ru.genesis.calendar.domain.GenesisCalendar().sacredDate(LocalDate.now()).monthIndex}")
+        assertEquals("Task counts must not grow sacred year tiles", sacredFirst, sacredCurrent, 1f)
+        capture("review4-sacred-year-equal-tiles")
+        compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag("solar-model-open"))
+        compose.onNodeWithTag("solar-model-open").assertIsDisplayed()
+        runBlocking { prefs.set("display", "profane") }
+        val gregorianFirst = height("calendar-year-month-${LocalDate.of(LocalDate.now().year,1,1)}")
+        val gregorianCurrent = height("calendar-year-month-${LocalDate.now().withDayOfMonth(1)}")
+        assertEquals("Task counts must not grow Gregorian year tiles", gregorianFirst, gregorianCurrent, 1f)
+        capture("review4-gregorian-year-equal-tiles")
+        navigate(personalRoute)
+        compose.onNodeWithTag("personal-actions").assert(hasAnyAncestor(hasTestTag("app-header")))
+        compose.onNodeWithTag("personal-mindmaps").assertIsDisplayed()
+        capture("review4-personal-header-and-search-button")
+        compose.onNodeWithTag("personal-task-search-open").performClick()
+        val dock = compose.onNodeWithTag("personal-task-search-dock").fetchSemanticsNode().boundsInRoot
+        compose.onNodeWithTag("projects-screen").performScrollToIndex(1)
+        val after = compose.onNodeWithTag("personal-task-search-dock").fetchSemanticsNode().boundsInRoot
+        assertEquals("Search must stay pinned",dock.bottom,after.bottom,1f)
+        compose.onNodeWithTag("personal-task-search").performTextReplacement("Разобрать")
+        compose.onNodeWithTag("task-$inboxTaskId").assertExists()
+        capture("review4-pinned-search-expanded")
+        compose.onNodeWithTag("personal-task-search-close").performClick()
+        compose.onNodeWithTag("personal-task-search-open").assertIsDisplayed()
+        checks.put("review4:full-artwork-labelled-sacred-time-13-lunar-assets-equal-year-tiles-header-actions-pinned-search")
+    }
+
+    @Test fun review4WholeTaskAndListDragBetweenInboxProjectsAndSubprojects() {
+        val repo = WorkspaceStructureRepository(app)
+        val listId = "review4-list-$token"; val listTask = "review4-list-task-$token"
+        ownedLists += listId; ownedTasks += listTask
+        runBlocking {
+            val target = repo.workspace.first().projects.first { it.id == secondProjectId }
+            repo.saveProject(target.copy(parentId = projectId))
+            repo.saveTaskList(GoogleTaskList(listId, "Список для переноса"))
+            app.repository.save(LocalTask(listTask, "Задача внутри списка", sourceFieldsJson = JSONObject()
+                .put("googleTaskListId",listId).toString()))
+        }
+        navigate(personalRoute)
+        fun drag(tag: String, target: String) {
+            val node = compose.onNodeWithTag(tag, useUnmergedTree = true)
+            compose.onNodeWithTag("projects-screen", useUnmergedTree = true).performScrollToNode(hasTestTag(tag))
+            val origin = node.fetchSemanticsNode().boundsInRoot
+            node.performTouchInput { down(center); advanceEventTime(700); moveBy(Offset(0f,4f)) }
+            compose.onNodeWithTag("drag-overlay").assertIsDisplayed()
+            compose.onNodeWithTag("drag-overlay-target-$target").performScrollTo()
+            val destination = compose.onNodeWithTag("drag-overlay-target-$target").fetchSemanticsNode().boundsInRoot.center
+            node.performTouchInput { moveTo(destination-origin.topLeft); advanceEventTime(300); up() }
+            compose.waitUntil(10_000) { !exists("drag-overlay") }
+        }
+        drag("drag-task-$inboxTaskId",projectId)
+        compose.waitUntil(10_000) { runBlocking { app.repository.get(inboxTaskId)?.projectId == projectId } }
+        showProject()
+        drag("drag-task-$inboxTaskId",secondProjectId)
+        compose.waitUntil(10_000) { runBlocking { app.repository.get(inboxTaskId)?.projectId == secondProjectId } }
+        drag("drag-block-list-$listId",secondProjectId)
+        compose.waitUntil(10_000) { runBlocking {
+            repo.workspace.first().taskListLinks.any { it.taskListId == listId && it.projectId == secondProjectId } &&
+                app.repository.get(listTask)?.projectId == secondProjectId
+        } }
+        compose.onNodeWithTag("projects-screen").performScrollToNode(hasTestTag("project-drop-$secondProjectId"))
+        compose.onNodeWithTag("project-drop-$secondProjectId").performClick()
+        capture("review4-list-and-task-in-subproject")
+        drag("drag-block-list-$listId","__genesis_inbox__")
+        compose.waitUntil(10_000) { runBlocking { repo.workspace.first().taskListLinks.any { it.taskListId == listId && it.projectId == null } } }
+        assertNotNull(runBlocking { app.repository.get(listTask) })
+        checks.put("review4:real-longpress-task-and-whole-list-moves-project-subproject-inbox-no-record-loss")
+    }
+
     @Test fun drawerRoutesDismissalTargetsAndSnapshots() {
         // Save diagnostic frames before assertions so a failure still leaves reviewable UI.
         capture("today")
@@ -418,6 +526,7 @@ class MobileRedesignFlowTest {
         compose.onNodeWithTag("calendar-year-period").assertTextEquals(LocalDate.now().year.toString())
         navigate(personalRoute)
         showProject()
+        compose.onNodeWithTag("personal-task-search-open").performClick()
         compose.onNodeWithTag("personal-task-search").performTextInput("План")
         navigate(todayRoute)
         navigate(personalRoute)
@@ -525,8 +634,10 @@ class MobileRedesignFlowTest {
             check(app.workspaceScope == "internal-validation-v1")
             ownedTasks.forEach { app.repository.delete(it) }
             val structure = WorkspaceStructureRepository(app)
-            structure.deleteProject(projectId)
-            structure.deleteProject(secondProjectId)
+            ownedLists.forEach { structure.removeTaskList(it) }
+            listOf(secondProjectId,projectId).forEach { id ->
+                if (structure.workspace.first().projects.any { it.id==id }) structure.deleteProject(id)
+            }
             val habits = HabitsRepository(app)
             habits.delete(habitId)
             habits.updateSettings(previousHabitSettings)

@@ -246,7 +246,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     }
     suspend fun refreshProject(id: String) {
         val result = try { controller.sharedProject(id) }
-        catch (failure: Exception) {
+        catch (failure: Exception) { if (failure is kotlinx.coroutines.CancellationException) throw failure;
             if (projectId == id && sharedTemplateAccessDenied(failure)) {
                 if (templatesOpen) templateAccessLost = true
                 templatesOpen = false; templatesCaptureId = ""; snapshot = null
@@ -262,7 +262,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
             val currentId = taskId
             try { val found = (if (taskExtensions.archivedTaskId == currentId) controller.sharedSprintSourceTask(id, currentId, true)
                 else controller.sharedTask(id, currentId)).getJSONObject("task"); if (taskId == currentId) openedTask = found }
-            catch (error: Exception) { message = error.message ?: "TASK_NOT_FOUND"; openedTask = null }
+            catch (error: Exception) { if (error is kotlinx.coroutines.CancellationException) throw error; message = error.message ?: "TASK_NOT_FOUND"; openedTask = null }
         }
     }
     fun persistExpansion(ids: Set<String>) {
@@ -272,7 +272,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         expandedIds = next.toSet()
         scope.launch {
             try { expansionWrites.withLock { controller.saveSharedSpaceUi(targetSpace, next) } }
-            catch (error: Exception) { if (spaceId == targetSpace) message = error.message ?: "Не удалось сохранить вид пространства." }
+            catch (error: Exception) { if (error is kotlinx.coroutines.CancellationException) throw error; if (spaceId == targetSpace) message = error.message ?: "Не удалось сохранить вид пространства." }
         }
     }
     fun selectProject(id: String) {
@@ -294,7 +294,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         templateAccessLost = false
         busy = true; message = ""; messageIsError = false
         scope.launch {
-            try { action() } catch (error: Exception) { messageIsError = true; message =
+            try { action() } catch (error: Exception) { if (error is kotlinx.coroutines.CancellationException) throw error; messageIsError = true; message =
                 customFailureMessages[(error as? CustomFieldFailure)?.code ?: error.message]?.takeIf { it.isNotBlank() } ?:
                 sharedTaskDetailsFailure(error.message) ?:
                 workflowMessage((error as? ru.genesis.calendar.auth.WorkflowFailure)?.code.orEmpty(), workflowCopy) ?: when (error.message) {
@@ -312,20 +312,20 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
             parentProjectSnapshot = parent
             if (parent.optJSONArray("statuses")?.rows()?.none { it.optString("id") == parentBoardId } == true) parentBoardId = ""
         } catch (cause: kotlinx.coroutines.CancellationException) { throw cause }
-        catch (cause: Exception) { message = cause.message ?: "Не удалось открыть родительский проект." }
+        catch (cause: Exception) { if (cause is kotlinx.coroutines.CancellationException) throw cause; message = cause.message ?: "Не удалось открыть родительский проект." }
     }
     LaunchedEffect(createModal) {
         if (createModal == "task") { message = ""; messageIsError = false }
         if (createModal == "join") {
             loadingInvitations = true
             try { invitations = controller.sharedInvitations().getJSONArray("invitations").rows() }
-            catch (error: Exception) { message = error.message ?: "Не удалось загрузить приглашения." }
+            catch (error: Exception) { if (error is kotlinx.coroutines.CancellationException) throw error; message = error.message ?: "Не удалось загрузить приглашения." }
             finally { loadingInvitations = false }
         }
     }
     LaunchedEffect(pageActive) {
         if (!pageActive) return@LaunchedEffect
-        try { refreshSpaces() } catch (error: Exception) { message = error.message ?: "Ошибка сервера" }
+        try { refreshSpaces() } catch (error: Exception) { if (error is kotlinx.coroutines.CancellationException) throw error; message = error.message ?: "Ошибка сервера" }
     }
     LaunchedEffect(spaceId, pageActive) {
         if (!pageActive) return@LaunchedEffect
@@ -342,7 +342,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                 projectId = destination?.takeIf { it.spaceId == targetSpace && projects.any { project -> project.optString("id") == it.projectId } }?.projectId
                     ?: restoredProjectId.takeIf { id -> projects.any { it.optString("id") == id } }.orEmpty()
             }
-        } catch (error: Exception) { message = error.message ?: "Ошибка сервера" }
+        } catch (error: Exception) { if (error is kotlinx.coroutines.CancellationException) throw error; message = error.message ?: "Ошибка сервера" }
         else { projects = emptyList(); archivedProjects = emptyList() }
     }
     LaunchedEffect(projectId, pageActive) {
@@ -354,14 +354,14 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                 pendingTasks = controller.queuedSharedTasks(projectId)
                 refreshProject(projectId)
                 if (spaceId.isNotBlank()) refreshProjects(spaceId)
-            } catch (error: Exception) { message = error.message ?: "Ошибка сервера" }
+            } catch (error: Exception) { if (error is kotlinx.coroutines.CancellationException) throw error; message = error.message ?: "Ошибка сервера" }
             delay(5_000)
         }
     }
     LaunchedEffect(projectId, taskId) {
         comments = if (projectId.isNotBlank() && taskId.isNotBlank()) try {
             controller.sharedComments(projectId, taskId).getJSONArray("comments").rows()
-        } catch (error: Exception) { message = error.message ?: "Ошибка сервера"; emptyList() }
+        } catch (error: Exception) { if (error is kotlinx.coroutines.CancellationException) throw error; message = error.message ?: "Ошибка сервера"; emptyList() }
         else emptyList()
     }
 
@@ -553,12 +553,13 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         googleSettings = null; googleMessage = ""
         if (projectId.isBlank()) return@LaunchedEffect
         try { googleSettings = controller.sharedGoogleSettings(projectId).getJSONObject("settings") }
-        catch (error: Exception) { googleMessage = error.message ?: "Ошибка Google" }
+        catch (error: Exception) { if (error is kotlinx.coroutines.CancellationException) throw error; googleMessage = error.message ?: "Ошибка Google" }
         while (isActive) {
             delay(30_000)
             val settings = googleSettings
             if (settings?.optBoolean("tasksEnabled") == true || settings?.optBoolean("calendarEnabled") == true) {
                 try { controller.syncSharedGoogle(projectId) }
+                catch (cancel: kotlinx.coroutines.CancellationException) { throw cancel }
                 catch (_: Exception) { /* The explicit update button reports failures. */ }
             }
         }
@@ -569,7 +570,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         val targetProject = projectId; val targetTask = taskId
         val current = try { (if (taskExtensions.archivedTaskId == targetTask) controller.sharedSprintSourceTask(targetProject, targetTask, true)
             else controller.sharedTask(targetProject, targetTask)).getJSONObject("task") }
-            catch(error: Exception) { message = error.message ?: "TASK_NOT_FOUND"; return@LaunchedEffect }
+            catch(error: Exception) { if (error is kotlinx.coroutines.CancellationException) throw error; message = error.message ?: "TASK_NOT_FOUND"; return@LaunchedEffect }
         if (projectId != targetProject || taskId != targetTask) return@LaunchedEffect
         openedTask = current
         if (draftTaskKey != "$projectId:$taskId") {
@@ -937,7 +938,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                     value
                 }
                 if (projectId == target.first && boardDraft?.optString("id") == target.second) boardImage = selectedImage
-            } catch (error: Exception) { message = error.message ?: "Не удалось загрузить изображение." }
+            } catch (error: Exception) { if (error is kotlinx.coroutines.CancellationException) throw error; message = error.message ?: "Не удалось загрузить изображение." }
         }
     }
     boardDraft?.let { board ->
@@ -1294,9 +1295,9 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                             onClick = { actionsOpen = false; onPrivateMessages(spaceId) }, modifier = Modifier.testTag("shared-messages-open"))
                         if (spaceId.isNotBlank()) DropdownMenuItem(text = { Text("Архив и корзина") }, leadingIcon = { AffairsActionIcon(AffairsAction.ARCHIVE) },
                             onClick = { actionsOpen = false; taskExtensions.lifecycleOpen = true }, modifier = Modifier.testTag("shared-lifecycle-open"))
-                        DropdownMenuItem(text = { Text("Сохранённые представления") }, leadingIcon = { AffairsActionIcon(AffairsAction.VIEW) },
+                        DropdownMenuItem(text = { Text("Сохранённые представления") },
                             modifier = Modifier.testTag("shared-saved-views-open"), onClick = { actionsOpen = false; automationDestination.views.value = true })
-                        if (spaceId.isNotBlank()) DropdownMenuItem(text = { Text("Экспорт данных") },
+                        if (spaceId.isNotBlank()) DropdownMenuItem(text = { Text("Экспорт данных") }, leadingIcon = { GenesisLucideIcon("download") },
                             modifier = Modifier.testTag("shared-export-open"), onClick = { actionsOpen = false; dataExportOpen = true })
                         if (projectId.isNotBlank()) {
                             DropdownMenuItem(text = { Text("Шаблоны") }, modifier = Modifier.testTag("shared-templates-open"),
@@ -1331,17 +1332,17 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                             DropdownMenuItem(text = { Text("Участники и роли") }, onClick = {
                                 actionsOpen = false; managementPage = "team"; showManagement = true })
                         } else {
-                            DropdownMenuItem(text = { Text("Создать пространство") }, enabled = !busy,
+                            DropdownMenuItem(text = { Text("Создать пространство") }, leadingIcon = { GenesisLucideIcon("folder-plus") }, enabled = !busy,
                                 onClick = { actionsOpen = false; createModal = "space" })
-                            DropdownMenuItem(text = { Text("Присоединиться к пространству") }, enabled = !busy,
+                            DropdownMenuItem(text = { Text("Присоединиться к пространству") }, leadingIcon = { GenesisLucideIcon("link") }, enabled = !busy,
                                 modifier = Modifier.testTag("shared-join-space"),
                                 onClick = { actionsOpen = false; createModal = "join" })
                             if (spaceId.isNotBlank()) {
                                 if (currentSpace?.optString("role") in setOf("owner", "admin"))
-                                    DropdownMenuItem(text = { Text("Пригласить через Gmail") }, enabled = !busy,
+                                    DropdownMenuItem(text = { Text("Пригласить через Gmail") }, leadingIcon = { GenesisLucideIcon("send") }, enabled = !busy,
                                         modifier = Modifier.testTag("shared-invite-space"),
                                         onClick = { actionsOpen = false; createModal = "invite" })
-                                DropdownMenuItem(text = { Text("Архив проектов") }, onClick = {
+                                DropdownMenuItem(text = { Text("Архив проектов") }, leadingIcon = { GenesisLucideIcon("archive") }, onClick = {
                                     actionsOpen = false; showArchived = !showArchived })
                             }
                         }

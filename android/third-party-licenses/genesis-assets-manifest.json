@@ -739,6 +739,16 @@
       "targetSha256": "e7cf4197382b2adfa341418f9e3d6eef8f65b9526c42219986fd9c34d82178f6",
       "paths": 3,
       "strokeWidth": "2"
+    },
+    {
+      "name": "thumbs-up",
+      "package": "lucide-static@1.61.0",
+      "source": "package/icons/thumbs-up.svg",
+      "sourceSha256": "9416a9e30695f631fb54e30486e49ebb1d405ebddc6c6d025aace7b4c8b032c0",
+      "target": "lucide_thumbs_up.xml",
+      "targetSha256": "6bc28154bd2335192538b02a79d583b3c50559197d2fec63cc25063adef76238",
+      "paths": 2,
+      "strokeWidth": "2"
     }
   ],
   "lucidePackage": {

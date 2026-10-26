@@ -92,11 +92,13 @@ internal fun GenesisPageHeader(title: String, description: String, symbol: Strin
 }
 
 @Composable
-private fun PageInformationAction(title: String, description: String) {
+internal fun PageInformationAction(title: String, description: String, inHeader: Boolean = false) {
     if (description.isBlank()) return
     var showDescription by remember { androidx.compose.runtime.mutableStateOf(false) }
     val infoLabel = genesisTranslate("О разделе")
-    androidx.compose.material3.IconButton(onClick = { showDescription = true },
+    if (inHeader) WorkspaceHeaderButton(infoLabel, "workspace-information", onClick = { showDescription = true }) {
+        GenesisLucideIcon("book-open", Modifier.size(20.dp))
+    } else androidx.compose.material3.IconButton(onClick = { showDescription = true },
         modifier = Modifier.size(48.dp).semantics { contentDescription = infoLabel }) {
         GenesisLucideIcon("book-open", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }

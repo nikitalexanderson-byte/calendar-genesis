@@ -16,6 +16,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.StrokeCap
@@ -103,7 +104,7 @@ internal fun <T : Any> CalendarPeriodPager(period: T, previousPeriod: T?, nextPe
                 }
             })
     } else Modifier
-    Box(modifier.clip(RoundedCornerShape(24.dp)).onSizeChanged { width = it.width }
+    Box(modifier.clipToBounds().onSizeChanged { width = it.width }
         .animateContentSize(tween(320, easing = CubicBezierEasing(.22f, .8f, .22f, 1f)))
         .then(swipeModifier)) {
         val pageModifier = if (fillHeight) Modifier.fillMaxSize() else Modifier.fillMaxWidth()

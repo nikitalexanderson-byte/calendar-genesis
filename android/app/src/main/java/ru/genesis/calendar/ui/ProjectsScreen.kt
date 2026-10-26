@@ -6,6 +6,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -23,6 +24,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
@@ -81,7 +83,8 @@ internal fun projectBreadcrumb(projects: List<GenesisProject>, projectId: String
     return path.asReversed().joinToString(" › ")
 }
 
-private data class TaskPickup(val id: String, val title: String, val originId: String?, val position: Offset)
+private data class TaskPickup(val id: String, val title: String, val originId: String?, val position: Offset,
+    val list: GoogleTaskList? = null)
 
 /** Pick-up-and-move stays inside the Projects workspace and gives the finger a visible task preview. */
 @Composable
@@ -109,8 +112,32 @@ private fun DraggableTaskRow(task: LocalTask, pickedUp: Boolean,
             )
         }
         .background(if (pickedUp) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+        .clip(AffairsLayout.shape)
+        .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+        .border(BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), AffairsLayout.shape)
+        .padding(4.dp)
         .graphicsLayer { alpha = if (pickedUp) .48f else 1f },
         verticalAlignment = Alignment.CenterVertically, content = content)
+}
+
+@Composable
+private fun DraggableWorkspaceBlock(id: String, title: String, pickedUp: Boolean,
+    onStart: (Offset) -> Unit, onMove: (Offset) -> Unit, onFinish: (Boolean) -> Unit,
+    content: @Composable () -> Unit) {
+    var bounds by remember(id) { mutableStateOf(Rect.Zero) }
+    val start by rememberUpdatedState(onStart)
+    val move by rememberUpdatedState(onMove)
+    val finish by rememberUpdatedState(onFinish)
+    val haptics = LocalHapticFeedback.current
+    val label = genesisTranslate("Удерживайте «$title» и перетащите в проект")
+    Box(Modifier.fillMaxWidth().testTag("drag-block-$id").semantics { contentDescription = label }
+        .onGloballyPositioned { bounds = it.boundsInRoot() }
+        .pointerInput(id) {
+            detectDragGesturesAfterLongPress(onDragStart = {
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress); start(bounds.topLeft + it)
+            }, onDrag = { change, delta -> change.consume(); move(delta) },
+                onDragEnd = { finish(false) }, onDragCancel = { finish(true) })
+        }.graphicsLayer { alpha = if (pickedUp) .48f else 1f }) { content() }
 }
 
 /** One native screen adapted from the web Projects workspace. Standart uses its existing Material roles. */
@@ -256,7 +283,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
     val language = LocalGenesisLanguage.current
     val projectCount = structure.projects.size
     val activeCount = tasks.count { !it.done }
-    val projectSummary = mobileCalendarCopy(language).projectSummary(projectCount, activeCount)
+    val projectSummary = mobileCalendarCopy(language).let { "${it.projects}: $projectCount\n${it.activeTasks}: $activeCount" }
     val moveTask: (String, String) -> Unit = { taskId, targetId ->
         scope.launch {
             try {
@@ -277,14 +304,6 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
             catch (_: Exception) { error = "Не удалось перенести задачу. Повторите попытку." }
         }
     }
-    val listCard: @Composable (GoogleTaskList) -> Unit = { list ->
-        PersonalTaskListCard(list, orderedTasks.filter { it.belongsToList(list) &&
-            personalTaskProjectId(it, structure) == listProjectId(list) }, structure, use24,
-            onCreateListTask, onCompleteTask, onOpenTask, onUpdateList, onDeleteList,
-            initialExpanded = openedListId == list.id,
-            deleteTaskCount = tasks.count { it.belongsToList(list) },
-            voiceRequest = voiceRequest, onVoiceRequestConsumed = onVoiceRequestConsumed)
-    }
     val onPickup: (LocalTask, Offset) -> Unit = { task, point ->
         dropBounds.clear()
         pickup = TaskPickup(task.id, task.title, task.projectId, point)
@@ -293,12 +312,73 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
     val onRelease: (Boolean) -> Unit = { cancelled ->
         if (!cancelled) pickup?.let { held ->
             dropBounds.entries.firstOrNull { it.value.contains(held.position) }?.let { (id, _) ->
-                moveTask(held.id, id)
+                if (held.list == null) moveTask(held.id, id) else {
+                    val list = held.list
+                    val origin = listProjectId(list)
+                    scope.launch {
+                        try {
+                            val target = structure.projects.firstOrNull { it.id == id }
+                            require(id == inboxDropId || target != null) { "Проект больше не существует." }
+                            tasks.filter { it.belongsToList(list) && personalTaskProjectId(it, structure) == origin }.forEach { task ->
+                                app.repository.save(task.copy(projectId = target?.id ?: inboxDropId,
+                                    categoryId = target?.categoryId, project = target?.title.orEmpty()))
+                            }
+                            repo.linkTaskList(list.id, target?.id)
+                            moveAnnouncement = "«${list.title}» перенесён в «${target?.title ?: "Хаос-бокс"}»."
+                            error = null
+                        } catch (cancel: kotlinx.coroutines.CancellationException) { throw cancel }
+                        catch (e: Exception) { error = e.message ?: "Не удалось перенести список. Повторите попытку." }
+                    }
+                }
             }
         }
         pickup = null
         dropBounds.clear()
     }
+
+    val listCard: @Composable (GoogleTaskList) -> Unit = { list ->
+        DraggableWorkspaceBlock("list-${list.id}", list.title, pickup?.list?.id == list.id,
+            onStart = { point ->
+                dropBounds.clear()
+                pickup = TaskPickup("list-${list.id}", list.title, listProjectId(list), point, list)
+            }, onMove = onDrag, onFinish = onRelease) {
+        PersonalTaskListCard(list, orderedTasks.filter { it.belongsToList(list) &&
+            personalTaskProjectId(it, structure) == listProjectId(list) }, structure, use24,
+            onCreateListTask, onCompleteTask, onOpenTask, onUpdateList, onDeleteList,
+            initialExpanded = openedListId == list.id,
+            deleteTaskCount = tasks.count { it.belongsToList(list) },
+            voiceRequest = voiceRequest, onVoiceRequestConsumed = onVoiceRequestConsumed,
+            taskWrapper = { task, content ->
+                DraggableWorkspaceBlock(task.id, task.title, pickup?.id == task.id,
+                    { onPickup(task, it) }, onDrag, onRelease, content)
+            })
+        }
+    }
+
+    val headerActions: @Composable () -> Unit = {
+                    Box {
+                        WorkspaceHeaderButton(genesisTranslate("Создать или открыть"), "personal-actions",
+                            onClick = { createActionsOpen = true }) { GenesisLucideIcon("plus") }
+                        DropdownMenu(createActionsOpen, { createActionsOpen = false }) {
+                            DropdownMenuItem(text = { Text("Создать задачу") }, onClick = {
+                                createActionsOpen = false; onCreateTask(null)
+                            }, modifier = Modifier.testTag("personal-create-task"))
+                            DropdownMenuItem(text = { Text("Создать список") }, onClick = {
+                                createActionsOpen = false; onCreateList()
+                            }, modifier = Modifier.testTag("personal-create-list"))
+                            DropdownMenuItem(text = { Text("Создать проект") }, onClick = {
+                                createActionsOpen = false; creating = true; editing = null; error = null
+                            }, modifier = Modifier.testTag("create-project"))
+                            HorizontalDivider()
+                            DropdownMenuItem(text = { Text(if (inboxLayout.hidden) "Показать хаос-бокс" else "Скрыть хаос-бокс") },
+                                leadingIcon = { AffairsActionIcon(if (inboxLayout.hidden) AffairsAction.VIEW else AffairsAction.HIDE) },
+                                onClick = {
+                                    createActionsOpen = false; setInboxLayout(inboxLayout.copy(hidden = !inboxLayout.hidden))
+                                }, modifier = Modifier.testTag("personal-toggle-inbox"))
+                        }
+                    }
+    }
+    val headerInShell = WorkspaceScreenHeader("Личные дела", projectSummary, headerActions)
 
     Box(Modifier.fillMaxSize().onGloballyPositioned { workspaceBounds = it.boundsInRoot() }) {
     val inboxContent: @Composable () -> Unit = {
@@ -377,46 +457,18 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
                 }
             }
     }
-    LazyColumn(state = listState, modifier = Modifier.fillMaxSize().testTag("projects-screen"), contentPadding = PaddingValues(16.dp),
+    LazyColumn(state = listState, modifier = Modifier.fillMaxSize().testTag("projects-screen"), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 92.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item(key = "personal-controls") {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                AffairsPageHeader("Личные дела", projectSummary, contextIsUserContent = true) {
-                    Box {
-                        AffairsIconButton("Создать или открыть", AffairsAction.ADD,
-                            { createActionsOpen = true }, Modifier.testTag("personal-actions"))
-                        DropdownMenu(createActionsOpen, { createActionsOpen = false }) {
-                            DropdownMenuItem(text = { Text("Создать задачу") }, onClick = {
-                                createActionsOpen = false; onCreateTask(null)
-                            }, modifier = Modifier.testTag("personal-create-task"))
-                            DropdownMenuItem(text = { Text("Создать список") }, onClick = {
-                                createActionsOpen = false; onCreateList()
-                            }, modifier = Modifier.testTag("personal-create-list"))
-                            DropdownMenuItem(text = { Text("Создать проект") }, onClick = {
-                                createActionsOpen = false; creating = true; editing = null; error = null
-                            }, modifier = Modifier.testTag("create-project"))
-                            HorizontalDivider()
-                            DropdownMenuItem(text = { Text("Майндмепы") },
-                                leadingIcon = { AffairsActionIcon(AffairsAction.MINDMAP) },
-                                modifier = Modifier.testTag("personal-mindmaps"), onClick = {
-                                    createActionsOpen = false; onMindmaps(null)
-                                })
-                            DropdownMenuItem(text = { Text(if (inboxLayout.hidden) "Показать хаос-бокс" else "Скрыть хаос-бокс") },
-                                leadingIcon = { AffairsActionIcon(if (inboxLayout.hidden) AffairsAction.VIEW else AffairsAction.HIDE) },
-                                onClick = {
-                                    createActionsOpen = false; setInboxLayout(inboxLayout.copy(hidden = !inboxLayout.hidden))
-                                }, modifier = Modifier.testTag("personal-toggle-inbox"))
-                        }
-                    }
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    AffairsSearchField(searchQuery, { searchQuery = it.take(200) }, "Поиск задач",
-                        Modifier.weight(1f).testTag("personal-task-search"))
-                    TaskListSortChoice(taskSort, setTaskSort, Modifier, compact = true, iconOnly = true)
-                    AffairsIconButton("Категории жизни", AffairsAction.FILTER,
-                        { categoryFiltersOpen = !categoryFiltersOpen },
-                        Modifier.testTag("personal-category-filters"), selected = categoryFiltersOpen || selectedCategory != null)
+                if (!headerInShell) AffairsPageHeader("Личные дела", projectSummary, contextIsUserContent = true) { headerActions() }
+                Button(onClick = { onMindmaps(null) }, Modifier.fillMaxWidth().heightIn(min = 56.dp)
+                    .testTag("personal-mindmaps"), shape = AffairsLayout.shape,
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary)) {
+                    AffairsActionIcon(AffairsAction.MINDMAP)
+                    Spacer(Modifier.width(10.dp))
+                    Text("Майндмепы", style = MaterialTheme.typography.titleMedium)
                 }
                 if (inboxLayout.hidden) OutlinedButton(onClick = { setInboxLayout(inboxLayout.copy(hidden = false)) },
                     modifier = Modifier.fillMaxWidth().testTag("personal-show-inbox")) {
@@ -432,7 +484,6 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
                             .testTag("personal-reset-category")) { Text("Сбросить") }
                     }
                 }
-                if (categoryFiltersOpen || categoriesExpanded) categoriesContent()
             }
         }
         if (searchQuery.isNotBlank()) {
@@ -543,6 +594,17 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
         error?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.error) } }
         moveAnnouncement?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.testTag("project-move-announcement")) } }
+    }
+    WorkspaceSearchDock(searchQuery, { searchQuery = it }, "Поиск задач", "personal-task-search",
+        Modifier.align(Alignment.BottomCenter)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TaskListSortChoice(taskSort, setTaskSort, Modifier.weight(1f), compact = true)
+            AffairsIconButton("Категории жизни", AffairsAction.FILTER,
+                { categoryFiltersOpen = !categoryFiltersOpen }, Modifier.testTag("personal-category-filters"),
+                selected = categoryFiltersOpen || selectedCategory != null)
+        }
+        if (categoryFiltersOpen || categoriesExpanded) categoriesContent()
     }
     pickup?.let { held ->
         ProjectDropOverlay(held, structure.projects, experimental, workspaceBounds, dropBounds)
@@ -814,7 +876,7 @@ private fun BoxScope.ProjectDropOverlay(held: TaskPickup, projects: List<Genesis
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Переносим «${held.title}»", color = parchment,
                 style = MaterialTheme.typography.titleMedium, maxLines = 2)
-            Text("Отпустите задачу над нужным проектом", color = gold,
+            Text(if (held.list == null) "Отпустите задачу над нужным проектом" else "Отпустите список над нужным проектом", color = gold,
                 style = MaterialTheme.typography.bodySmall)
             Column(Modifier.fillMaxWidth().weight(1f).onGloballyPositioned {
                     targetListBounds = it.boundsInRoot()

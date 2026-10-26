@@ -92,8 +92,10 @@ fun DayRhythmPanel(use24Hour: Boolean) {
                     horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     GenesisLucideIcon("sun", Modifier.size(24.dp), tint = palette.accent)
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Text("${period.name} · ${watch.deity}", color = parchment,
+                        Text("Сакральное время", Modifier.testTag("day-rhythm-title"), color = parchment,
                             style = MaterialTheme.typography.titleMedium)
+                        Text("${period.name} · ${watch.deity}", color = parchment,
+                            style = MaterialTheme.typography.bodyMedium)
                         Text("${hourLabel(watch.start)}–${hourLabel(watch.start + 2)} · ${watch.title}",
                             color = muted, style = MaterialTheme.typography.bodySmall)
                     }

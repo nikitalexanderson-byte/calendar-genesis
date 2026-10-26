@@ -77,14 +77,11 @@ import java.time.Instant
             .sortedWith(compareByDescending<DiaryRecord> { it.note.pinned }.thenByDescending { it.note.updatedAt })
     }
     val drafts = state.records.filter { it.draft }
-    Column(Modifier.fillMaxSize().testTag("diary-screen")) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            AffairsIconButton("Назад", AffairsAction.BACK, onClose, Modifier.testTag("diary-back"))
-            Text("Дневник", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
-            AffairsIconButton("Новая запись", AffairsAction.ADD, { editing = null; newEditor = true },
-                Modifier.testTag("diary-create"), enabled = state.ready && !state.protected && !busy)
+    val headerActions: @Composable () -> Unit = {
+            WorkspaceHeaderButton(genesisTranslate("Новая запись"), "diary-create",
+                enabled = state.ready && !state.protected && !busy, onClick = { editing = null; newEditor = true }) { GenesisLucideIcon("plus") }
             Box {
-                AffairsIconButton("Действия дневника", AffairsAction.MORE, { more = true })
+                WorkspaceHeaderButton(genesisTranslate("Действия дневника"), "diary-actions", onClick = { more = true }) { GenesisLucideIcon("ellipsis") }
                 DropdownMenu(more, { more = false }) {
                     DropdownMenuItem(text = { Text("Архив") }, leadingIcon = { GenesisLucideIcon("archive") },
                         onClick = { tab = "archive"; more = false })
@@ -92,15 +89,20 @@ import java.time.Instant
                         onClick = { more = false; refresh() }, enabled = !loading && !busy)
                 }
             }
+    }
+    val headerInShell = WorkspaceScreenHeader("Дневник", actions = headerActions)
+    Box(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().testTag("diary-screen")) {
+        if (!headerInShell) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            AffairsIconButton("Назад", AffairsAction.BACK, onClose)
+            Text("Дневник", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
+            headerActions()
         }
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(tab == "board", { tab = "board" }, label = { Text("Записи") }, modifier = Modifier.heightIn(min = 48.dp).testTag("diary-tab-board"))
             FilterChip(tab == "favorites", { tab = "favorites" }, label = { Text("Избранное") }, modifier = Modifier.heightIn(min = 48.dp).testTag("diary-tab-favorites"))
             if (tab == "archive") FilterChip(true, {}, label = { Text("Архив") }, modifier = Modifier.heightIn(min = 48.dp))
         }
-        OutlinedTextField(query, { query = it.take(200) }, Modifier.fillMaxWidth().padding(horizontal = 12.dp).testTag("diary-search"),
-            singleLine = true, label = { Text("Поиск записей") }, leadingIcon = { GenesisLucideIcon("search") },
-            shape = RoundedCornerShape(10.dp))
         if (loading) LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 8.dp))
         if (error || state.protected) Row(Modifier.fillMaxWidth().padding(12.dp).semantics { liveRegion = LiveRegionMode.Polite },
             verticalAlignment = Alignment.CenterVertically) {
@@ -111,7 +113,7 @@ import java.time.Instant
         }
         if (state.offline) Text("Нет сети. Доступна защищённая локальная копия дневника.",
             Modifier.padding(horizontal = 12.dp, vertical = 8.dp).testTag("diary-offline"), style = MaterialTheme.typography.bodySmall)
-        LazyColumn(Modifier.fillMaxSize().testTag("diary-notes"), contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        LazyColumn(Modifier.fillMaxSize().testTag("diary-notes"), contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 92.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item { Text("Записи и черновики зашифрованы. Архивирование можно отменить.", style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant) }
             if (drafts.isNotEmpty()) item {
@@ -144,6 +146,8 @@ import java.time.Instant
                     onFavorite = { change(row, row.note.changed { put("reaction", if (row.note.reaction == "favorite") JSONObject.NULL else "favorite"); put("archived", false) }) })
             }
         }
+    }
+    WorkspaceSearchDock(query, { query = it }, "Поиск записей", "diary-search", Modifier.align(Alignment.BottomCenter))
     }
     discard?.let { row -> AlertDialog(onDismissRequest = { discard = null }, title = { Text("Удалить черновик?") },
         text = { Text("Будет удалён только черновик с этого устройства. Сохранённая запись останется в дневнике.") },

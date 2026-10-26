@@ -28,6 +28,24 @@ import java.util.concurrent.ConcurrentHashMap
 val LocalGenesisLanguage = compositionLocalOf { "ru" }
 
 private val nativeCopy = mapOf(
+    "Сакральное время" to "Sacred time",
+    "Удерживайте" to "Press and hold",
+    "перенесён в" to "was moved to",
+    "Не удалось перенести список. Повторите попытку." to "Could not move the list. Try again.",
+    "Отпустите список над нужным проектом" to "Release the list over the destination project",
+    "События команды · история" to "Team updates · history",
+    "Круг GENESIS" to "GENESIS circle",
+    "Закрыть модель календаря" to "Close calendar model",
+    "Выберите месяц, пяту или день. Масштабируйте двумя пальцами и перемещайте круг." to
+        "Choose a month, pentad or day. Pinch to zoom and drag to move the circle.",
+    "Уменьшить модель" to "Zoom out",
+    "Весь круг" to "Whole circle",
+    "Увеличить модель" to "Zoom in",
+    "Не удалось открыть модель календаря." to "Could not open the calendar model.",
+    "Предыдущий месяц модели" to "Previous month in the model",
+    "Следующий месяц модели" to "Next month in the model",
+    "Открыть день в календаре" to "Open day in calendar",
+    "Свернуть поиск" to "Collapse search",
     "Пользователей" to "Users",
     "Открытий" to "Opens",
     "Без зафиксированного открытия" to "No recorded visit",

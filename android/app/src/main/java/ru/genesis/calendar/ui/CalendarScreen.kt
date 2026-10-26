@@ -35,6 +35,10 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.TextStyle as ComposeTextStyle
 import androidx.compose.ui.window.Dialog
 import ru.genesis.calendar.domain.CalendarMode
 import ru.genesis.calendar.domain.CalendarRange
@@ -104,6 +108,11 @@ private fun dateLabel(locale: Locale) = DateTimeFormatter.ofPattern("d MMM yyyy"
 internal fun sacredMonthArtPath(index: Int): String {
     require(index in 0..12)
     return "month-art-v4/month-${(index + 1).toString().padStart(2, '0')}.webp"
+}
+
+internal fun lunarMonthArtPath(index: Int): String {
+    require(index in 0..12)
+    return "lunar-month-art-v1/month-${(index + 1).toString().padStart(2, '0')}.webp"
 }
 
 /** The display calendar controls this screen only; task input and recurrence remain independent. */
@@ -355,8 +364,9 @@ private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = .45f))) {
                 if (mode == CalendarMode.SACRED) SacredMonthHero(month, sacred.sacredYear)
+                else if (mode == CalendarMode.LUNAR) LunarMonthHero(calendar.lunarDate(page.start))
                 else Surface(Modifier.fillMaxWidth().testTag("calendar-month-description"),
-                    color = if (mode == CalendarMode.LUNAR) Color(0xff082e2f) else MaterialTheme.colorScheme.primaryContainer) {
+                    color = MaterialTheme.colorScheme.primaryContainer) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(if (mode == CalendarMode.LUNAR) calendar.lunarDate(page.start).month.title
                             else "Григорианский месяц", style = MaterialTheme.typography.titleMedium,
@@ -432,6 +442,24 @@ private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange
                     (viewportHeight - selectedDayHeight).coerceAtLeast(0).toDp()
                 })))
             }
+        }
+    }
+}
+
+@Composable
+private fun LunarMonthHero(lunar: ru.genesis.calendar.domain.LunarDateInfo) {
+    Box(Modifier.fillMaxWidth().testTag("calendar-month-description").background(Color(0xff082e2f))) {
+        Box(Modifier.matchParentSize()) {
+            OriginalImage(lunarMonthArtPath(lunar.monthOrdinal - 1), "Иллюстрация месяца ${lunar.month.name}",
+                Modifier.width(104.dp).fillMaxHeight().testTag("lunar-month-art"))
+        }
+        Row(Modifier.fillMaxWidth().heightIn(min = 160.dp)) {
+        Spacer(Modifier.width(104.dp))
+        Column(Modifier.weight(1f).padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(lunar.month.name, style = MaterialTheme.typography.titleLarge, color = Color(0xfffff5df))
+            Text(lunar.month.title, style = MaterialTheme.typography.titleSmall, color = Color(0xffffe9b5))
+            Text(lunar.month.description, style = MaterialTheme.typography.bodySmall, color = Color(0xffd5e5df))
+        }
         }
     }
 }
@@ -653,7 +681,9 @@ private fun LunarCalendarDay(calendar: GenesisCalendar, date: LocalDate, selecte
             .semantics { contentDescription = description }.testTag("calendar-day-$date"),
         shape = MaterialTheme.shapes.medium,
         color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-        border = if (!adjacent && date == LocalDate.now()) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null) {
+        border = BorderStroke(if (selected || !adjacent && date == LocalDate.now()) 2.dp else 1.dp,
+            if (selected || !adjacent && date == LocalDate.now()) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.secondary.copy(alpha = if (LocalEveningTheme.current) .65f else .5f))) {
         Box(Modifier.fillMaxWidth()) {
             Column(Modifier.fillMaxWidth().padding(start = 4.dp,
                 top = if (taskCount > 0 && !adjacent) 28.dp else 6.dp, end = 4.dp,
@@ -720,7 +750,9 @@ private fun CalendarDay(calendar: GenesisCalendar, date: LocalDate, number: Int,
             patron != null -> if(LocalEveningTheme.current) weekdayEveningWash(date) else patron.wash
             else -> MaterialTheme.colorScheme.surface
         },
-        border = if (today) BorderStroke(2.dp, patron?.accent ?: MaterialTheme.colorScheme.primary) else null) {
+        border = BorderStroke(if (today || selected) 2.dp else 1.dp,
+            if (today || selected) patron?.accent ?: MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.secondary.copy(alpha = if (LocalEveningTheme.current) .65f else .5f))) {
         Box(Modifier.fillMaxWidth()) {
         Column(Modifier.fillMaxWidth().padding(start = 4.dp,
             top = if (completedTaskCount in 1 until taskCount) 26.dp else 4.dp, end = 4.dp,
@@ -1353,12 +1385,16 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
         }
         item(key = "year-description") {
         Box(Modifier.padding(horizontal = 10.dp)) {
-            CalendarYearDescriptionCard(calendar, shown, mode, gregorianYearStartsInMarch)
+            CalendarYearDescriptionCard(calendar, shown, mode, gregorianYearStartsInMarch, onMonth)
         }
         }
             }
     }
 }
+
+private fun yearTileRange(range: CalendarRange, locale: Locale): String =
+    range.start.format(DateTimeFormatter.ofPattern("d MMM", locale)) + " — " +
+        range.end.format(DateTimeFormatter.ofPattern("d MMM yyyy", locale))
 
 @Composable
 private fun CalendarYearMonthCard(calendar: GenesisCalendar, start: LocalDate, mode: CalendarMode, ordinal: Int,
@@ -1372,88 +1408,89 @@ private fun CalendarYearMonthCard(calendar: GenesisCalendar, start: LocalDate, m
         CalendarMode.PROFANE -> "calendar-year-month-$start"
         CalendarMode.LUNAR -> "lunar-year-month-$ordinal"
     }
-    val rangeLabel = if (range.start.year == range.end.year) {
-        "${range.start.format(DateTimeFormatter.ofPattern("d MMMM", locale))} — " +
-            range.end.format(DateTimeFormatter.ofPattern("d MMMM yyyy", locale))
-        } else {
-        "${range.start.format(DateTimeFormatter.ofPattern("d MMMM yyyy", locale))} — " +
-            range.end.format(DateTimeFormatter.ofPattern("d MMMM yyyy", locale))
-    }
-    val count = taskCount.total
-    val sharedCount = LocalSharedCalendarCounts.current.let { byDate ->
-        range.dates().sumOf { byDate[it.toString()] ?: 0 }
-    }
+    val sharedCount = LocalSharedCalendarCounts.current.let { byDate -> range.dates().sumOf { byDate[it.toString()] ?: 0 } }
     val season = GregorianSeason.entries.first { start.monthValue in it.months }
-    val mainInk = if(mode == CalendarMode.PROFANE && LocalEveningTheme.current) MaterialTheme.colorScheme.onSurface else Color(0xff102b2c)
-    val detailInk = if(mode == CalendarMode.PROFANE && LocalEveningTheme.current) MaterialTheme.colorScheme.onSurfaceVariant else Color(0xff405b59)
-    Card(onClick = { onMonth(start) }, modifier = Modifier.fillMaxWidth()
-        .testTag(monthTag), shape = AffairsLayout.shape,
-        colors = CardDefaults.cardColors(containerColor = if (mode == CalendarMode.PROFANE)
-            seasonSurface(season).copy(alpha = if (LocalEveningTheme.current) .62f else 1f) else Color(0xfff5f0e6)),
-        border = if (mode == CalendarMode.PROFANE) null else BorderStroke(1.dp, Color(0x668b6727))) {
-        Box(Modifier.fillMaxWidth()) {
-        Row(Modifier.padding(14.dp).padding(bottom = if (sharedCount > 0) 20.dp else 0.dp), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            when (mode) {
-            CalendarMode.SACRED -> OriginalImage(sacredMonthArtPath(sacredIndex), "Иллюстрация месяца $name",
-                Modifier.width(76.dp).height(112.dp))
-            CalendarMode.PROFANE -> Surface(Modifier.size(74.dp), shape = AffairsLayout.controlShape,
-                color = seasonAccent(season).copy(alpha = .1f), border = BorderStroke(1.dp, seasonAccent(season).copy(alpha = .3f))) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(ordinal.toString(), color = mainInk,
-                        style = MaterialTheme.typography.headlineMedium,
-                        modifier = Modifier.testTag("gregorian-year-number-$ordinal"))
+    val mainInk = if (LocalEveningTheme.current) MaterialTheme.colorScheme.onSurface else Color(0xff102b2c)
+    val detailInk = if (LocalEveningTheme.current) MaterialTheme.colorScheme.onSurfaceVariant else Color(0xff405b59)
+    val gold = if (LocalEveningTheme.current) Color(0xffdfc17e) else Color(0xff8b6727)
+    val type = MaterialTheme.typography
+    val density = LocalDensity.current
+    val measurer = rememberTextMeasurer()
+    fun label(index: Int): String = when (mode) {
+        CalendarMode.LUNAR -> if (english) "LUNAR MONTH ${index + 1}" else "ЛУННЫЙ МЕСЯЦ ${index + 1}"
+        CalendarMode.PROFANE -> ""
+        CalendarMode.SACRED -> if (index == 12) { if (english) "OUTSIDE TIME" else "ВНЕ ВРЕМЕНИ" }
+            else if (english) "SACRED MONTH ${SacredCatalog.months[index].roman}"
+            else "САКРАЛЬНЫЙ МЕСЯЦ ${SacredCatalog.months[index].roman}"
+    }
+    // Measure the whole year's real copy once per width/type scale. Counts never change tile height.
+    val year = if (mode == CalendarMode.LUNAR) calendar.lunarDate(start).year.sacredYear else calendar.sacredDate(start).sacredYear
+    val allStarts = remember(mode, year, start.year) { when (mode) {
+        CalendarMode.SACRED -> SacredCatalog.months.indices.map { calendar.gregorianDate(year, it, 1) }
+        CalendarMode.LUNAR -> calendar.lunarYear(year).let { y -> (0 until y.monthCount).map { calendar.lunarMonthStart(y.startMonthIndex + it) } }
+        CalendarMode.PROFANE -> (1..12).map { LocalDate.of(start.year, it, 1) }
+    } }
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val artWidth = if (mode == CalendarMode.PROFANE) 64.dp else 76.dp
+        val textWidth = with(density) { (maxWidth - artWidth - 66.dp).coerceAtLeast(64.dp).roundToPx() }
+        val tileHeight = remember(textWidth, mode, year, type, density.fontScale, locale) {
+            fun height(text: String, style: ComposeTextStyle): Int =
+                measurer.measure(AnnotatedString(text), style, constraints = Constraints(maxWidth = textWidth)).size.height
+            val tallest = allStarts.mapIndexed { index, day ->
+                val info = when (mode) {
+                    CalendarMode.SACRED -> SacredCatalog.months[index].let { it.name to it.title }
+                    CalendarMode.LUNAR -> calendar.lunarDate(day).month.let { it.name to it.title }
+                    CalendarMode.PROFANE -> day.month.getDisplayName(TextStyle.FULL_STANDALONE, locale)
+                        .replaceFirstChar { it.titlecase(locale) } to ""
                 }
-            }
-            CalendarMode.LUNAR -> Box(Modifier.size(74.dp), contentAlignment = Alignment.Center) {
-                MoonPhaseIcon(11, size = 70.dp)
-                Surface(shape = CircleShape, color = Color(0xdff5f0e6),
-                    border = BorderStroke(1.dp, Color(0xff8b6727))) {
-                    Text(ordinal.toString(), Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
-                        color = Color(0xff0b2b2d), style = MaterialTheme.typography.titleMedium)
-                }
-            }
-            }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                if (mode != CalendarMode.PROFANE) Text(when (mode) {
-                    CalendarMode.LUNAR -> if (english) "LUNAR MONTH $ordinal" else "ЛУННЫЙ МЕСЯЦ $ordinal"
-                    CalendarMode.PROFANE -> ""
-                    CalendarMode.SACRED -> SacredCatalog.months[sacredIndex].let { month ->
-                        if (sacredIndex == 12) { if (english) "OUTSIDE TIME" else "ВНЕ ВРЕМЕНИ" }
-                        else if (english) "SACRED MONTH ${month.roman}" else "САКРАЛЬНЫЙ МЕСЯЦ ${month.roman}"
-                    }
-                },
-                    color = Color(0xff8b6727), style = MaterialTheme.typography.labelSmall)
-                Text(name, color = mainInk, style = MaterialTheme.typography.titleLarge)
-                if (title.isNotBlank()) Text(title, color = detailInk, style = MaterialTheme.typography.bodySmall,
-                    maxLines = 2)
-                if (mode != CalendarMode.PROFANE) Text(rangeLabel, color = Color(0xff102b2c), style = MaterialTheme.typography.labelMedium,
-                    modifier = Modifier.testTag(if (mode == CalendarMode.LUNAR) "lunar-year-range-$ordinal"
-                        else "sacred-year-range-$sacredIndex"))
-                if(mode != CalendarMode.SACRED) Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Text(if (english) "${range.dates().size} days" else "${range.dates().size} дней",
-                        color = detailInk, style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.testTag("calendar-year-days-$ordinal"))
-                }
-                if (mode == CalendarMode.PROFANE) Text(if (english) "$count tasks" else "$count задач",
-                    color = detailInk, style = MaterialTheme.typography.labelMedium,
-                    modifier = Modifier.testTag("calendar-year-task-count-$ordinal"))
-                    if (count > 0) {
-                        val completed = taskCount.completed
-                        Column {
-                            if (count > completed) Text(genesisTranslate("Не выполнено") + ": ${count - completed}",
-                                color = if(LocalEveningTheme.current) Color(0xffed7b7e) else calendarIncompleteColor, style = MaterialTheme.typography.labelSmall)
-                            if (completed > 0) Text(genesisTranslate("Выполнено") + ": $completed",
-                                color = if(LocalEveningTheme.current) Color(0xff8dcfa9) else calendarCompletedColor, style = MaterialTheme.typography.labelSmall)
+                height(info.first, type.titleLarge) +
+                    (if (mode != CalendarMode.PROFANE) height(label(index), type.labelSmall) +
+                        height(info.second, type.bodySmall) + height(yearTileRange(calendar.monthRange(day, mode), locale), type.labelMedium) else 0)
+            }.max()
+            maxOf(if (mode == CalendarMode.PROFANE) 64.dp else 112.dp,
+                with(density) { tallest.toDp() } + 30.dp) + 24.dp
+        }
+        Card(onClick = { onMonth(start) }, modifier = Modifier.fillMaxWidth().height(tileHeight).testTag(monthTag),
+            shape = AffairsLayout.shape,
+            colors = CardDefaults.cardColors(containerColor = if (mode == CalendarMode.PROFANE)
+                seasonSurface(season).copy(alpha = if (LocalEveningTheme.current) .62f else 1f)
+                else MaterialTheme.colorScheme.surfaceContainerLow),
+            border = if (mode == CalendarMode.PROFANE) null else BorderStroke(1.dp, gold.copy(alpha = .5f))) {
+            Row(Modifier.fillMaxSize().padding(12.dp), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                when (mode) {
+                    CalendarMode.SACRED -> OriginalImage(sacredMonthArtPath(sacredIndex), "Иллюстрация месяца $name",
+                        Modifier.width(artWidth).height(112.dp))
+                    CalendarMode.LUNAR -> OriginalImage(lunarMonthArtPath(ordinal - 1), "Иллюстрация месяца $name",
+                        Modifier.width(artWidth).height(112.dp).testTag("lunar-year-art-$ordinal"))
+                    CalendarMode.PROFANE -> Surface(Modifier.size(artWidth), shape = AffairsLayout.controlShape,
+                        color = seasonAccent(season).copy(alpha = .1f), border = BorderStroke(1.dp, seasonAccent(season).copy(alpha = .3f))) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(ordinal.toString(), color = mainInk, style = type.headlineMedium,
+                                modifier = Modifier.testTag("gregorian-year-number-$ordinal"))
                         }
                     }
+                }
+                Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.Center) {
+                    if (mode != CalendarMode.PROFANE) Text(label(if (mode == CalendarMode.SACRED) sacredIndex else ordinal - 1),
+                        color = gold, style = type.labelSmall)
+                    Text(name, color = mainInk, style = type.titleLarge)
+                    if (title.isNotBlank()) Text(title, color = detailInk, style = type.bodySmall)
+                    if (mode != CalendarMode.PROFANE) Text(yearTileRange(range, locale), color = mainInk, style = type.labelMedium,
+                        modifier = Modifier.testTag(if (mode == CalendarMode.LUNAR) "lunar-year-range-$ordinal" else "sacred-year-range-$sacredIndex"))
+                    Row(Modifier.fillMaxWidth().padding(top = 6.dp).heightIn(min = 24.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(if (english) "${range.dates().size} days" else "${range.dates().size} дней",
+                            Modifier.weight(1f).testTag("calendar-year-days-$ordinal"), color = detailInk, style = type.labelSmall)
+                        if (taskCount.total > 0) CalendarTaskStatusDiscs(taskCount.total, taskCount.completed, 23.dp,
+                            "calendar-year-task", ordinal.toString())
+                        if (sharedCount > 0) SharedTaskCountDisc(sharedCount,
+                            if (english) "$sharedCount shared tasks" else "$sharedCount общих задач",
+                            Modifier.testTag("calendar-year-shared-count-$ordinal"))
+                    }
+                }
+                GenesisLucideIcon("chevron-right", Modifier.size(18.dp), tint = gold)
             }
-            Text("›", color = Color(0xff8b6727), style = MaterialTheme.typography.titleLarge)
-        }
-        if (sharedCount > 0) SharedTaskCountDisc(sharedCount,
-            if (english) "$sharedCount shared tasks" else "$sharedCount общих задач",
-            Modifier.align(Alignment.BottomEnd).padding(8.dp).testTag("calendar-year-shared-count-$ordinal"))
         }
     }
 }
