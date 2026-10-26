@@ -803,7 +803,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                     }
                 }
             } },
-            confirmButton = { if (modal != "join") TextButton(onClick = { run {
+            confirmButton = { if (modal != "join") Button(onClick = { run {
                 when (modal) {
                     "space" -> {
                         val created = controller.createSharedSpace(spaceTitle.trim()).getJSONObject("space")

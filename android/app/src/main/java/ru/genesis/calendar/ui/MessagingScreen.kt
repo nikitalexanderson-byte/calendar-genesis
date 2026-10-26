@@ -5,6 +5,8 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -14,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -317,18 +320,22 @@ import java.io.InputStream
         text = { Text("Сообщения и прикреплённые файлы будут удалены без возможности восстановления.") },
         confirmButton = { TextButton({ val row = deleteConfirm; val clear = clearConfirm; clearConfirm = false; deleteConfirm = null; run { if (clear) repository.clear() else if (row != null) repository.delete(row) } }, enabled = !busy) { Text("Удалить") } },
         dismissButton = { TextButton({ clearConfirm = false; deleteConfirm = null }) { Text("Отмена") } })
-    if (backup) AlertDialog(onDismissRequest = { if (!busy) { backup = false; password = ""; backupSource = null } }, title = { Text("Резервная копия ключа") }, text = {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    if (backup) AlertDialog(onDismissRequest = { if (!busy) { backup = false; password = ""; backupSource = null } },
+        title = { Text(if (state.keyReady && backupSource == null) "Резервная копия ключа" else "Импортировать ключ") }, text = {
+        Column(Modifier.heightIn(max = (LocalConfiguration.current.screenHeightDp * .55f).dp)
+            .verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Копия защищена паролем. Сохраните её и пароль отдельно: без ключа старые сообщения недоступны.")
-            OutlinedTextField(password, { password = it }, label = { Text("Пароль: не менее 12 символов") }, visualTransformation = PasswordVisualTransformation(), singleLine = true, shape = RoundedCornerShape(10.dp))
+            OutlinedTextField(password, { password = it }, modifier = Modifier.fillMaxWidth().testTag("messaging-backup-password"),
+                label = { Text("Пароль: не менее 12 символов") }, visualTransformation = PasswordVisualTransformation(), singleLine = true, shape = RoundedCornerShape(10.dp))
             if (backupSource != null) Text("Файл ключа выбран. Введите его пароль и восстановите ключ.", style = MaterialTheme.typography.bodySmall)
             if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
             OutlinedButton({ importKey.launch(arrayOf("application/json", "text/*", "application/octet-stream")) }, enabled = !busy) { Text("Выбрать копию ключа") }
         }
-    }, confirmButton = { TextButton({
+    }, confirmButton = { Button({
         if (backupSource != null) run { repository.importBackup(backupSource!!, password); backup = false; password = ""; backupSource = null }
         else run { backupExport = repository.exportBackup(password); withContext(Dispatchers.Main) { exportKey.launch("genesis-messaging-key.json") } }
-    }, enabled = !busy && password.length >= 12 && (backupSource != null || state.keyReady)) { Text(if (backupSource != null) "Восстановить" else "Сохранить копию") } },
+    }, enabled = !busy && password.length >= 12 && (backupSource != null || state.keyReady)) {
+        Text(if (backupSource != null || !state.keyReady) "Восстановить" else "Сохранить копию") } },
         dismissButton = { TextButton({ backup = false; password = ""; backupSource = null }, enabled = !busy) { Text("Закрыть") } })
 }
 

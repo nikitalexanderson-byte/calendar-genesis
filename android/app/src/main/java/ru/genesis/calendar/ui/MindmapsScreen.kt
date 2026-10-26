@@ -165,11 +165,10 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
                 }
             }
         } else {
-            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically) {
+            FlowRow(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
                 listOf("map" to "Карта","structure" to "Структура").forEach { (id,label)->
                     FilterChip(selected=view.optString("mode")==id,onClick={query="";changeView(JSONObject(view.toString()).put("mode",id))},
-                        modifier=Modifier.weight(1f).heightIn(min=48.dp),label={Text(label)},
-                        leadingIcon={AffairsActionIcon(if(id=="map")AffairsAction.MINDMAP else AffairsAction.LIST)})
+                        modifier=Modifier.heightIn(min=48.dp).testTag("mindmap-mode-$id"),label={Text(label,maxLines=1)})
                 }
                 AffairsIconButton("Добавить мысль",AffairsAction.ADD,{add()},enabled=!busy&&!readOnly,modifier=Modifier.testTag("mindmap-add-node"))
             }
@@ -205,10 +204,10 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
         val editorDocument=map.copy(nodes=map.nodes.map {if(it.id==node.id)it.copy(text=if(it.kind=="idea")text else "",note=note) else it})
         if(node.kind=="idea")OutlinedTextField(text,{text=it},label={Text("Название мысли")},modifier=Modifier.testTag("mindmap-node-text"))
         OutlinedTextField(note,{note=it},label={Text("Пояснение · только в карте")})
-        if(node.kind=="idea"&&onConvertIdea!=null) Button(enabled=!busy,onClick={run {
+        if(node.kind=="idea"&&onConvertIdea!=null) OutlinedButton(enabled=!busy,onClick={run {
             repo.save(editorDocument);editing=null;onConvertIdea(editorDocument,node,text.trim().ifBlank {node.text})
         }}){Text("Создать задачу из мысли")}
-        else if(node.kind=="idea")Button(enabled=!busy,onClick={val taskId=map.taskId(node.id);val task=tasks.firstOrNull {it.id==taskId};editing=null;if(task!=null){save(map.copy(nodes=map.nodes.map {if(it.id==node.id)it.copy(kind="task",refId=task.id,text="",note=note) else it}));onTask(task,null)}else {val draft=LocalTask(id=taskId,title=text.trim().ifBlank {node.text}.take(500),date="",projectId=map.projectId,sourceFieldsJson=JSONObject().put("mindmapCreateOnly",true).toString());run {repo.save(map.copy(nodes=map.nodes.map {if(it.id==node.id)it.copy(text=text,note=note) else it}));onCreate(draft)}} }){Text("Создать задачу из мысли")}
+        else if(node.kind=="idea")OutlinedButton(enabled=!busy,onClick={val taskId=map.taskId(node.id);val task=tasks.firstOrNull {it.id==taskId};editing=null;if(task!=null){save(map.copy(nodes=map.nodes.map {if(it.id==node.id)it.copy(kind="task",refId=task.id,text="",note=note) else it}));onTask(task,null)}else {val draft=LocalTask(id=taskId,title=text.trim().ifBlank {node.text}.take(500),date="",projectId=map.projectId,sourceFieldsJson=JSONObject().put("mindmapCreateOnly",true).toString());run {repo.save(map.copy(nodes=map.nodes.map {if(it.id==node.id)it.copy(text=text,note=note) else it}));onCreate(draft)}} }){Text("Создать задачу из мысли")}
         linkedTask(node)?.let { task->TextButton(onClick={onTask(task,node.occurrenceDate)}){Text("Открыть карточку задачи")};TextButton(enabled=!busy&&taskCanEdit(task),onClick={onComplete(task,node.occurrenceDate)}){Text(if(task.done)"Вернуть задачу" else "Выполнить задачу")} }
         if(node.kind=="project"&&projects.any {it.id==node.refId})TextButton(onClick={onProject(node.refId!!)}){Text("Открыть проект")}
         FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
@@ -251,7 +250,7 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
             }
         }
         if(node.parentId!=null)MapIconButton("Убрать ветку с карты",9,{remove=true})
-    }},confirmButton={TextButton(enabled=!busy,onClick={save(map.copy(nodes=map.nodes.map {if(it.id==node.id)it.copy(text=if(it.kind=="idea")text else "",note=note) else it}));editing=null}){Text("Сохранить мысль")}},dismissButton={TextButton(onClick={closeNodeEditor()}){Text("Закрыть")}})
+    }},confirmButton={Button(enabled=!busy,onClick={save(map.copy(nodes=map.nodes.map {if(it.id==node.id)it.copy(text=if(it.kind=="idea")text else "",note=note) else it}));editing=null}){Text("Сохранить мысль")}},dismissButton={TextButton(onClick={closeNodeEditor()}){Text("Закрыть")}})
     if(discardNodeDraft) AlertDialog(onDismissRequest={discardNodeDraft=false},title={Text("Закрыть без сохранения?")},
         text={Text("Название и пояснение изменены. Продолжите редактирование, чтобы сохранить их.")},
         confirmButton={TextButton(onClick={discardNodeDraft=false;editing=null}){Text("Не сохранять")}},

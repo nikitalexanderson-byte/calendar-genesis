@@ -2,7 +2,6 @@ package ru.genesis.calendar.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 
@@ -11,6 +10,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import java.time.LocalDate
 import java.time.Instant
@@ -29,27 +31,37 @@ internal fun TodayMissedTasksCard(tasks: List<LocalTask>, onComplete: (LocalTask
     onMoveToToday: (LocalTask) -> Unit) {
     if (tasks.isEmpty()) return
     Surface(Modifier.fillMaxWidth().testTag("today-missed-tasks"),
-        shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.errorContainer,
+        shape = AffairsLayout.shape, color = MaterialTheme.colorScheme.errorContainer,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = .5f))) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text("Пропущенные задачи", style = MaterialTheme.typography.titleMedium)
-                Text("· ${tasks.size}", style = MaterialTheme.typography.titleMedium)
-            }
+            Text("${genesisTranslate("Пропущенные задачи")} · ${tasks.size}", style = MaterialTheme.typography.titleMedium)
             Text("Их можно выполнить сейчас или перенести на сегодня.",
                 style = MaterialTheme.typography.bodySmall)
             tasks.forEach { task ->
-                Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surface) {
-                    Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(false, onCheckedChange = { if (it) onComplete(task) },
-                            modifier = Modifier.testTag("complete-missed-${task.id}"))
-                        Column(Modifier.weight(1f)) {
-                            Text(task.title, style = MaterialTheme.typography.bodyMedium)
-                            Text(task.date, style = MaterialTheme.typography.labelSmall)
+                Surface(shape = AffairsLayout.shape, color = MaterialTheme.colorScheme.surface) {
+                    BoxWithConstraints(Modifier.fillMaxWidth().padding(8.dp)) {
+                        val stackAction = maxWidth < 360.dp || LocalDensity.current.fontScale > 1.2f
+                        @Composable fun RowScope.taskIdentity() {
+                            Checkbox(false, onCheckedChange = { if (it) onComplete(task) },
+                                modifier = Modifier.size(48.dp).testTag("complete-missed-${task.id}")
+                                    .semantics { contentDescription = task.title })
+                            Column(Modifier.weight(1f)) {
+                                androidx.compose.material3.Text(task.title, style = MaterialTheme.typography.bodyMedium)
+                                Text(task.date, style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                         }
-                        OutlinedButton(onClick = { onMoveToToday(task) },
-                            modifier = Modifier.testTag("move-missed-${task.id}")) {
-                            Text("На сегодня")
+                        @Composable fun moveAction(modifier: Modifier = Modifier) {
+                            OutlinedButton(onClick = { onMoveToToday(task) },
+                                modifier = modifier.testTag("move-missed-${task.id}")) { Text("На сегодня") }
+                        }
+                        if (stackAction) Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { taskIdentity() }
+                            moveAction(Modifier.align(Alignment.End))
+                        } else Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            taskIdentity()
+                            moveAction()
                         }
                     }
                 }

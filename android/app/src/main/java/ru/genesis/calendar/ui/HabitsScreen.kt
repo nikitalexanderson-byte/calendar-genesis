@@ -268,9 +268,9 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
             if(!storageError) CircularProgressIndicator()
         } else {
             HabitReminderFocus(app, current, repository, reminderRequest)
-            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                Button(enabled=!busy&&!storageError,onClick={edit=null;editorOpen=true},modifier=Modifier.weight(1f)) { Text("Новая привычка") }
-                OutlinedButton(enabled=!busy&&!storageError,onClick={catalogueOpen=!catalogueOpen},modifier=Modifier.weight(1f)) {
+            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                Button(enabled=!busy&&!storageError,onClick={edit=null;editorOpen=true},modifier=Modifier.weight(1f).fillMaxHeight().testTag("habit-create")) { Text("Новая привычка") }
+                OutlinedButton(enabled=!busy&&!storageError,onClick={catalogueOpen=!catalogueOpen},modifier=Modifier.weight(1f).fillMaxHeight().testTag("habit-catalogue")) {
                     Text(if(catalogueOpen) "Скрыть подборку" else "Подборка") }
             }
             if(catalogueOpen) HabitTemplateCatalog.templates

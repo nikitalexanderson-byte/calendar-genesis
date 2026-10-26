@@ -2,6 +2,8 @@ package ru.genesis.calendar.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -195,6 +197,7 @@ import java.time.Instant
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable private fun DiaryEditor(repository: DiaryRepository, record: DiaryRecord?, onClose: () -> Unit) {
     val scope = rememberCoroutineScope()
     val key = record?.draftKey ?: record?.note?.id ?: "new"
@@ -219,7 +222,7 @@ import java.time.Instant
     fun update(field: String, value: String) { formJson = JSONObject(formJson).apply { getJSONObject("note").put(field, value) }.toString(); draftSaved = false; error = false }
     fun requestClose() { if (saving) return; if (changed) closeConfirm = true else onClose() }
     suspend fun keep(): Boolean = try {
-        if (valid && changed) { val draft = repository.keepDraft(note(), revision, draftKey); draftKey = draft.draftKey; draftSaved = true }
+        if (valid && changed) { val draft = repository.keepDraft(note(), revision, draftKey); draftKey = draft.draftKey; draftSaved = true; error = false }
         true
     } catch (cancel: CancellationException) { throw cancel }
     catch (_: Exception) { error = true; false }
@@ -228,61 +231,70 @@ import java.time.Instant
         delay(650)
         if (!saving) keep()
     }
-    Dialog(onDismissRequest = ::requestClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(Modifier.widthIn(max = 720.dp).fillMaxWidth().fillMaxHeight(.94f).imePadding().testTag("diary-editor"),
-            shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.surface) {
-            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(if (record == null) "Новая запись" else "Редактирование записи", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
-                    AffairsIconButton("Закрыть", AffairsAction.CLOSE, ::requestClose, enabled = !saving)
-                }
-                OutlinedTextField(form.getString("title"), { update("title", it.take(200)) }, Modifier.fillMaxWidth().testTag("diary-title"),
-                    label = { Text("Заголовок") }, singleLine = false, maxLines = 2, enabled = !saving, shape = RoundedCornerShape(10.dp))
-                OutlinedTextField(form.getString("body"), { update("body", it.take(30_000)) }, Modifier.fillMaxWidth().weight(1f).testTag("diary-body"),
-                    label = { Text("Текст записи") }, enabled = !saving, shape = RoundedCornerShape(10.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    DiaryNote.colors.forEachIndexed { index, color ->
-                        val label = listOf("Шалфей", "Песок", "Роза", "Небо")[index]
-                        FilterChip(selected = form.getString("color") == color, onClick = { update("color", color) },
-                            label = { Text(label, style = MaterialTheme.typography.labelSmall) }, enabled = !saving,
-                            modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("diary-color-$color"))
+    Dialog(onDismissRequest = ::requestClose,
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        Box(Modifier.fillMaxSize().safeDrawingPadding(), contentAlignment = Alignment.Center) {
+            Surface(Modifier.widthIn(max = 720.dp).fillMaxWidth().fillMaxHeight(.94f).testTag("diary-editor"),
+                shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.surface) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(if (record == null) "Новая запись" else "Редактирование записи", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
+                        AffairsIconButton("Закрыть", AffairsAction.CLOSE, ::requestClose, enabled = !saving)
                     }
-                }
-                form.optJSONObject("advice")?.let { advice ->
-                    AffairsDisclosure("Исходный совет и источники") {
-                        ContentText(advice.getString("body"), style = MaterialTheme.typography.bodySmall)
-                        val sources = advice.getJSONArray("sources")
-                        for (i in 0 until sources.length()) { val source = sources.getJSONObject(i)
-                            ContentText(listOf("author", "work", "reference").mapNotNull { source.optString(it).takeIf { text -> text.isNotBlank() && text != "null" } }
-                                .joinToString(" · "), style = MaterialTheme.typography.labelSmall)
+                    Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        OutlinedTextField(form.getString("title"), { update("title", it.take(200)) }, Modifier.fillMaxWidth().testTag("diary-title"),
+                            label = { Text("Заголовок") }, singleLine = false, maxLines = 2, enabled = !saving, shape = RoundedCornerShape(10.dp))
+                        OutlinedTextField(form.getString("body"), { update("body", it.take(30_000)) }, Modifier.fillMaxWidth().heightIn(min = 180.dp).testTag("diary-body"),
+                            label = { Text("Текст записи") }, minLines = 6, maxLines = 12, enabled = !saving, shape = RoundedCornerShape(10.dp))
+                        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            DiaryNote.colors.forEachIndexed { index, color ->
+                                val label = listOf("Шалфей", "Песок", "Роза", "Небо")[index]
+                                FilterChip(selected = form.getString("color") == color, onClick = { update("color", color) },
+                                    label = { Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1) }, enabled = !saving,
+                                    modifier = Modifier.heightIn(min = 48.dp).testTag("diary-color-$color"))
+                            }
                         }
+                        form.optJSONObject("advice")?.let { advice ->
+                            AffairsDisclosure("Исходный совет и источники") {
+                                ContentText(advice.getString("body"), style = MaterialTheme.typography.bodySmall)
+                                val sources = advice.getJSONArray("sources")
+                                for (i in 0 until sources.length()) { val source = sources.getJSONObject(i)
+                                    ContentText(listOf("author", "work", "reference").mapNotNull { source.optString(it).takeIf { text -> text.isNotBlank() && text != "null" } }
+                                        .joinToString(" · "), style = MaterialTheme.typography.labelSmall)
+                                }
+                            }
+                        }
+                        if (conflict || error) Text(if (conflict) "Запись изменена на другом устройстве. Сохраните свою версию как копию."
+                            else "Не удалось сохранить запись. Введённые данные остаются в форме.", color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("diary-editor-error"))
+                        else if (draftSaved) Text("Защищённый черновик сохранён", style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.testTag("diary-draft-saved"))
                     }
-                }
-                if (conflict || error) Text(if (conflict) "Запись изменена на другом устройстве. Сохраните свою версию как копию."
-                    else "Не удалось сохранить запись. Черновик остаётся на устройстве.", color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("diary-editor-error"))
-                else if (draftSaved) Text("Защищённый черновик сохранён", style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.testTag("diary-draft-saved"))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { scope.launch {
-                        saving = true; error = false
-                        try {
-                            if (conflict) repository.saveCopy(note(), draftKey) else repository.save(note(), revision, draftKey)
-                            onClose()
-                        } catch (cancel: CancellationException) { throw cancel }
-                        catch (_: DiaryConflict) { conflict = true; draftKey = repository.state.value.records.firstOrNull { it.draft && it.note.id == form.getString("id") }?.draftKey }
-                        catch (_: Exception) { error = true }
-                        finally { saving = false }
-                    } }, enabled = valid && !saving, modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("diary-save"), shape = RoundedCornerShape(10.dp)) {
-                        Text(if (conflict) "Сохранить копию" else "Сохранить")
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = { scope.launch {
+                            saving = true; error = false
+                            try {
+                                if (conflict) repository.saveCopy(note(), draftKey) else repository.save(note(), revision, draftKey)
+                                onClose()
+                            } catch (cancel: CancellationException) { throw cancel }
+                            catch (_: DiaryConflict) { conflict = true; draftKey = repository.state.value.records.firstOrNull { it.draft && it.note.id == form.getString("id") }?.draftKey }
+                            catch (_: Exception) { error = true }
+                            finally { saving = false }
+                        } }, enabled = valid && !saving, modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("diary-save"), shape = RoundedCornerShape(10.dp)) {
+                            Text(if (conflict) "Сохранить копию" else "Сохранить")
+                        }
+                        TextButton(::requestClose, enabled = !saving, modifier = Modifier.heightIn(min = 48.dp)) { Text("Отмена") }
                     }
-                    TextButton(::requestClose, enabled = !saving, modifier = Modifier.heightIn(min = 48.dp)) { Text("Отмена") }
                 }
             }
         }
     }
     if (closeConfirm) AlertDialog(onDismissRequest = { closeConfirm = false }, title = { Text("Сохранить черновик?") },
-        text = { Text("Можно продолжить редактирование позже. Сохранение черновика не изменяет запись на сервере.") },
+        text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Можно продолжить редактирование позже. Сохранение черновика не изменяет запись на сервере.")
+            if (error) Text("Не удалось сохранить запись. Введённые данные остаются в форме.",
+                color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("diary-close-error"))
+        } },
         confirmButton = { TextButton(onClick = { scope.launch { if (keep()) { closeConfirm = false; onClose() } } }, enabled = valid && !saving) { Text("Сохранить черновик") } },
         dismissButton = { Row {
             TextButton(onClick = { closeConfirm = false }) { Text("Продолжить") }
