@@ -186,10 +186,11 @@ for ($index = 0; $index < 3; $index++) {
 }
 try {
     [$alice, $bob, $charlie] = $ids;
-    genesisUpdateAccountPreferences($bob, ['advicePreferences' => ['smart' => false, 'categories' => ['hermetica']]]);
+    adviceExpect(!in_array('aphrodisia', genesisAdviceAvailableCategories(), true), 'Legacy fallback fixture must use an unpublished category');
+    genesisUpdateAccountPreferences($bob, ['advicePreferences' => ['smart' => false, 'categories' => ['aphrodisia']]]);
     $legacyFallback = genesisDailyAdvice($bob, []);
     adviceExpect($legacyFallback['state'] === 'ready' && $legacyFallback['advice']['categories'] === ['aretology'], 'Saved unavailable manual category suppressed the displayed Aretology selection');
-    adviceExpect(genesisAdvicePreferences(genesisFindUser($bob)['advice_preferences_json'])['categories'] === ['hermetica'], 'Reading advice unexpectedly rewrote legacy preferences');
+    adviceExpect(genesisAdvicePreferences(genesisFindUser($bob)['advice_preferences_json'])['categories'] === ['aphrodisia'], 'Reading advice unexpectedly rewrote legacy preferences');
     genesisUpdateAccountPreferences($alice, ['advicePreferences' => ['smart' => false, 'categories' => ['hermetica']]]);
     genesisUpdateAccountPreferences($alice, ['stoicheionDivinationDisabled' => true, 'uiVisibility' => ['sacredFeaturesEnabled' => false]]);
     $saved = genesisAdvicePreferences(genesisFindUser($alice)['advice_preferences_json']);
