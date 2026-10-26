@@ -10,6 +10,7 @@ import "./daily-advice.css";
 import { useDiary } from './DiaryProvider';
 import diaryLabels from './diary-copy.json';
 import { ExperimentalIcon } from './ExperimentalIcon';
+import { DiaryMark } from './DiaryLaunchButton';
 
 export function TodayAdvice({ user, habits, tasks, day, ready, onOpenDiary }: { user: GenesisUser; habits: readonly Habit[]; tasks: readonly AdvicePersonalTask[]; day: string; ready: boolean; onOpenDiary?: () => void }) {
   const diary = useDiary(); const diaryText = user.language === 'en' ? diaryLabels.en : diaryLabels.ru;
@@ -107,7 +108,7 @@ export function TodayAdvice({ user, habits, tasks, day, ready, onOpenDiary }: { 
   };
   const base = (process.env.NEXT_PUBLIC_GENESIS_BASE_PATH?.trim() || "").replace(/\/$/, "");
   const artwork = advice.image && /^\/advice-art\/[a-z0-9-]+\/advice-[a-f0-9]{24}\.webp$/.test(advice.image) ? `${base}${advice.image}` : null;
-  if (archived) return <aside className="daily-advice-card daily-advice-archived" data-no-translate><p role="status">{diaryText.archived}</p><div className="daily-advice-actions"><button type="button" disabled={diary.busy} onClick={() => void react('dislike')}>{diaryText.undoDislike}</button>{onOpenDiary ? <button type="button" onClick={onOpenDiary}>{diaryText.openDiary}</button> : null}{saved?.result.canNext ? <button type="button" disabled={busy} onClick={() => void next()}>{copy.next}</button> : null}</div>{reactionError ? <p role="alert">{diaryText.error}</p> : null}</aside>;
+  if (archived) return <aside className="daily-advice-card daily-advice-archived" data-no-translate><p role="status">{diaryText.archived}</p><div className="daily-advice-actions"><div className="daily-advice-action-row"><button type="button" className="daily-advice-icon-action" disabled={diary.busy} aria-label={diaryText.undoDislike} title={diaryText.undoDislike} onClick={() => void react('dislike')}><ExperimentalIcon name="undo"/></button>{onOpenDiary ? <button type="button" className="daily-advice-icon-action" aria-label={diaryText.openDiary} title={diaryText.openDiary} onClick={onOpenDiary}><DiaryMark/></button> : null}{saved?.result.canNext ? <button type="button" className="daily-advice-next" disabled={busy} aria-label={copy.next} title={copy.next} onClick={() => void next()}><ExperimentalIcon name="map-refresh"/><span className="daily-advice-next-label">{copy.next}</span></button> : null}</div></div>{reactionError ? <p role="alert">{diaryText.error}</p> : null}</aside>;
   return <aside ref={container} className={`daily-advice-card${artwork ? " daily-advice-illustrated" : ""}`} aria-labelledby="daily-advice-title" aria-busy={busy} data-no-translate>
     {artwork ? <img className="daily-advice-art" src={artwork} alt="" aria-hidden="true" loading="lazy" decoding="async" /> : null}
     <div className="daily-advice-reading">
@@ -122,18 +123,18 @@ export function TodayAdvice({ user, habits, tasks, day, ready, onOpenDiary }: { 
     {advice.sources.map((source, index) => <span key={index} lang={advice.language}>
       {source.kind === "quote" ? copy.source : copy.inspired}: {[source.author, source.work, source.reference].filter(Boolean).join(" · ")}
     </span>)}</footer>
-    <div className="daily-advice-reactions">
-      <button type="button" aria-label={diaryNote?.reaction === 'favorite' ? diaryText.unfavorite : diaryText.favorite} title={diaryNote?.reaction === 'favorite' ? diaryText.unfavorite : diaryText.favorite} aria-pressed={diaryNote?.reaction === 'favorite'} disabled={diary.busy || diary.loading || diary.error} onClick={() => void react('favorite')}><ExperimentalIcon name="star"/>{diaryNote?.reaction === 'favorite' ? diaryText.saved : diaryText.favorites}</button>
-      <button type="button" aria-label={diaryText.dislike} title={diaryText.dislike} disabled={diary.busy || diary.loading || diary.error} onClick={() => void react('dislike')}><ExperimentalIcon name="advice-dislike"/></button>
-      {diaryNote?.reaction === 'favorite' && onOpenDiary ? <button type="button" className="daily-advice-diary-link" onClick={onOpenDiary}>{diaryText.openDiary}</button> : null}
+    <div className="daily-advice-actions">
+      <div className="daily-advice-action-row">
+        <button type="button" className="daily-advice-icon-action" aria-label={diaryNote?.reaction === 'favorite' ? diaryText.unfavorite : diaryText.favorite} title={diaryNote?.reaction === 'favorite' ? diaryText.unfavorite : diaryText.favorite} aria-pressed={diaryNote?.reaction === 'favorite'} disabled={diary.busy || diary.loading || diary.error} onClick={() => void react('favorite')}><ExperimentalIcon name="heart"/></button>
+        <button type="button" className="daily-advice-icon-action" aria-label={diaryText.dislike} title={diaryText.dislike} disabled={diary.busy || diary.loading || diary.error} onClick={() => void react('dislike')}><ExperimentalIcon name="advice-dislike"/></button>
+        {typeof saved?.result.dailyLimit === "number" ? <button type="button" className="daily-advice-next" aria-label={copy.next} data-tooltip={saved.result.canNext ? copy.next : copy.limitReached} onClick={() => void next()} disabled={busy || !saved.result.canNext}>
+          <ExperimentalIcon name="map-refresh"/><span className="daily-advice-next-label">{copy.next}</span>
+        </button> : null}
+        {diaryNote?.reaction === 'favorite' && onOpenDiary ? <button type="button" className="daily-advice-icon-action" aria-label={diaryText.openDiary} title={diaryText.openDiary} onClick={onOpenDiary}><DiaryMark/></button> : null}
+      </div>
+      {typeof saved?.result.dailyLimit === "number" ? <span role="status" aria-live="polite">{copy.position.replace("{current}", String(saved.result.sequence ?? 1)).replace("{limit}", String(saved.result.dailyLimit))}{!saved.result.canNext ? ` · ${copy.limitReached}` : ""}</span> : null}
     </div>
     {reactionError || diary.error ? <p role="alert">{diaryText.error}<button type="button" onClick={() => void diary.refresh()}>{diaryText.retry}</button></p> : null}
-    {typeof saved?.result.dailyLimit === "number" ? <div className="daily-advice-actions">
-      <button type="button" className="secondary-button daily-advice-next" onClick={() => void next()} disabled={busy || !saved.result.canNext} title={saved.result.canNext ? copy.next : copy.limitReached}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5" /><path d="M6 7a7 7 0 0 1 12-1l2 3M18 17a7 7 0 0 1-12 1l-2-3" /></svg>{copy.next}
-      </button>
-      <span role="status" aria-live="polite">{copy.position.replace("{current}", String(saved.result.sequence ?? 1)).replace("{limit}", String(saved.result.dailyLimit))}{!saved.result.canNext ? ` · ${copy.limitReached}` : ""}</span>
-    </div> : null}
     {nextError ? <p role="alert">{copy.nextError}</p> : null}
     {hideError ? <p role="alert">{copy.hideError}</p> : null}
     </div>
