@@ -21,6 +21,29 @@
 .physis-row > *, .physis-actions > * { min-width: 0; }
 .physis-panel { padding: 24px; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; min-width: 0; }
 .physis-panel .physis-panel { padding: 16px 0; border-width: 1px 0 0; background: transparent; border-radius: 0; }
+.physis .physis-nutrition-today { container-type:inline-size; }
+.physis-plan-controls { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto; align-items:end; gap:16px; }
+.physis-plan-field { display:grid; grid-template-rows:minmax(30px,auto) 44px; align-items:end; gap:6px; min-width:0; }
+.physis .physis-plan-field > label { margin:0; font-size:13px; line-height:1.3; }
+html[data-genesis-theme] .genesis-app .physis-plan-controls :is(.calendar-date-trigger,input[type=date],select,.physis-primary) { box-sizing:border-box; width:100%; min-width:0; height:44px; min-height:44px; margin:0; padding-block:6px; }
+.physis-plan-controls .calendar-date-trigger > :is(span,small) { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+@media (max-width:760px) {
+  .physis-plan-controls { grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+  .physis .physis-plan-field > label { font-size:11px; }
+  html[data-genesis-theme] .genesis-app .physis-plan-controls :is(.calendar-date-trigger,input[type=date],select,.physis-primary) { padding-inline:4px; font-size:11px; line-height:1.25; }
+}
+html[data-genesis-theme] .genesis-app .physis-nutrition-today-heading { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:start; gap:8px 12px; margin:0; }
+.physis-nutrition-today-heading > div { display:contents; }
+.physis .physis-nutrition-today-heading h2 { grid-column:1; grid-row:1; margin:0; }
+.physis .physis-nutrition-today-heading p { grid-column:1 / -1; grid-row:2; margin:0; }
+.physis-nutrition-today-heading > button { grid-column:2; grid-row:1; justify-self:end; }
+@container (max-width:280px) {
+  html[data-genesis-theme] .genesis-app .physis .physis-nutrition-today-heading > button { font-size:12px; }
+}
+@container (max-width:240px) {
+  html[data-genesis-theme] .genesis-app .physis-nutrition-today-heading { grid-template-columns:minmax(0,1fr); }
+  .physis-nutrition-today-heading > button { grid-column:1; grid-row:3; justify-self:start; margin-top:4px; }
+}
 .physis-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,280px),1fr)); gap: 24px; min-width: 0; }
 .physis-form { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,220px),1fr)); gap: 16px; margin: 16px 0; }
 .physis-form > label, .physis-field { display: flex; flex-direction: column; align-items: stretch; gap: 7px; font-size: 14px; min-width: 0; }
@@ -104,6 +127,17 @@ body:has(.physis-settings-backdrop:not([hidden])) { overflow: hidden; }
 .physis-care-editor { scroll-margin-top: 24px; }
 .physis-drug-catalog { display: grid; gap: 24px; min-width: 0; }
 .physis-drug-catalog > .physis-panel > .physis-field { margin-block: 20px; }
+.physis-drug-search { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:end; gap:12px; margin-top:20px; }
+.physis-drug-search > .physis-field { margin:0; }
+.physis-search-input { position:relative; display:block; min-width:0; }
+html[data-genesis-theme] .genesis-app .physis .physis-drug-search .physis-field .physis-search-input > input[type=search] { width:100%; height:44px; padding-inline-end:44px; }
+.physis-search-input > svg { position:absolute; top:50%; right:12px; width:20px; height:20px; transform:translateY(-50%); color:var(--ink-soft); pointer-events:none; }
+.physis .physis-drug-search > .physis-tabs { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); width:330px; max-width:100%; gap:8px; margin:0; }
+.physis .physis-drug-search .physis-tabs > button { width:100%; height:44px; min-height:44px; padding:6px 8px; }
+@media (max-width:760px) {
+  .physis-drug-search { grid-template-columns:minmax(0,1fr); }
+  .physis .physis-drug-search > .physis-tabs { width:100%; }
+}
 .physis-drug-browser { display: grid; grid-template-columns: 240px minmax(0,1fr); align-items: start; gap: 24px; min-width: 0; }
 .physis-drug-group-list { list-style: none; margin: 0; padding: 0; }
 .physis-drug-group-list ul { padding-left: 12px; margin-left: 12px; border-left: 1px solid var(--line); }
@@ -164,9 +198,12 @@ html[data-genesis-theme] .genesis-app .physis-control-switch.physis-equal-switch
 .physis-training-control .calendar-picker-months { grid-template-columns: repeat(auto-fit,minmax(44px,1fr)); }
 html[data-genesis-theme] .genesis-app .physis-training-control .calendar-picker :is(.calendar-picker-months button.active,.sacred-picker-days button.selected,.lunar-picker-days button.selected) { color: var(--ui-on-accent); background: var(--ui-accent); border-color: var(--ui-accent); }
 html[data-genesis-theme] .genesis-app .physis-training-control .calendar-picker :is(.sacred-picker-days,.lunar-picker-days) button.selected :is(strong,span,small,time) { color: inherit; }
-.physis-food-heading { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: start; gap: 16px; padding: 20px; }
+.physis-food-heading { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:start; gap:16px; padding:16px; }
 .physis-food-heading h2 { margin-bottom: 8px; }
 .physis-food-heading p { margin: 0 0 8px; }
+.physis-food-heading .physis-food-intro > p:last-child { margin-bottom:0; }
+.physis .physis-heading-hint { display:inline-flex; align-items:center; padding:0; min-height:44px; border:0; background:transparent; color:inherit; font:inherit; letter-spacing:inherit; cursor:help; text-align:start; }
+.physis .physis-heading-hint:is(:hover,:focus-visible) { background:transparent; }
 .physis-food-heading .physis-muted { font-size: 13px; line-height: 1.5; margin-bottom: 0; }
 .physis-food-heading > .physis-actions { justify-content: flex-end; gap: 8px; }
 .physis-food-heading > [role=alert] { grid-column: 1 / -1; }

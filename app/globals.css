@@ -11810,7 +11810,7 @@ html:not([data-genesis-theme$="-dark"]) .month-calendar .calendar-day.today .cal
   .theokyklos-hero-seal::after { inset: 8px; }
   .theokyklos-hero-seal::before { inset: -29px; }
   .theokyklos-hero-seal span { font-size: 40px; }
-  .theokyklos-mandala-card { padding: 15px 9px; border-radius: 5px 22px 5px 22px; }
+  .theokyklos-mandala-card { min-height:0; grid-template-rows:auto auto; padding:15px 9px; border-radius:5px 22px 5px 22px; }
   .theokyklos-mandala-heading { align-items: start; flex-direction: column; gap: 8px; padding-inline: 8px; }
   .theokyklos-mandala-heading h2 { font-size: clamp(30px, 9vw, 38px); }
   .theokyklos-mandala-heading p { max-width: none; font-size: 15px; text-align: left; }

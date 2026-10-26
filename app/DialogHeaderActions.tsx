@@ -10,14 +10,14 @@ type Control = HTMLButtonElement | HTMLInputElement;
 type Entry = { root: HTMLElement; host: HTMLElement; title: string; close: HTMLButtonElement; sources: Control[]; disabled: boolean[]; saveLabel: string; closeLabel: string; alternativesLabel: string };
 const label = (button: Control) => (button.getAttribute('aria-label') || (button instanceof HTMLInputElement ? button.value : button.textContent) || '').trim();
 const normalized = (value: string) => value.toLocaleLowerCase().replace(/[.…!]+$/g, '').trim();
-const saveWords = [...new Set(['Сохранить', 'Save', ...LANGUAGES.map(language => translateText('Сохранить', language))].map(normalized))];
+const saveWords = [...new Set(LANGUAGES.map(language => normalized(translateText('Сохранить', language))))];
 function isSave(control: Control) {
   if (control.dataset.dialogSave === 'false') return false;
   if (control.dataset.dialogSave === 'true') return true;
   const value = normalized(label(control));
   return saveWords.some(word => /[\u3400-\u9fff\u3040-\u30ff]/u.test(word) ? value.includes(word) : value.split(/[\s:—–-]+/u).includes(word));
 }
-function own(control: Element, root: HTMLElement) { return control.closest('dialog, [role="dialog"], [role="alertdialog"]') === root; }
+function own(control: Element, root: HTMLElement) { return control.closest(dialogs) === root; }
 function available(control: HTMLElement, root: HTMLElement) {
   if (!own(control, root) || control.hidden || control.closest('[data-dialog-header-host]')) return false;
   for (let parent = control.parentElement; parent && parent !== root; parent = parent.parentElement) {
@@ -100,7 +100,9 @@ export function DialogHeaderActions() {
           (wrapper ?? content).prepend(host); wrapper?.setAttribute('data-dialog-header-wrapper', 'true');
           item = { host, marked: new Set(), saves: new Set(), wrapper }; managed.set(root, item);
         }
-        item.host.style.setProperty('--dialog-header-inline', parseFloat(getComputedStyle(content).paddingInlineStart) < 1 ? '20px' : '0px');
+        const style = getComputedStyle(content);
+        for (const edge of ['top', 'right', 'left']) (item.wrapper ?? item.host).style.setProperty(`--dialog-edge-${edge}`, style.getPropertyValue(`padding-${edge}`));
+        item.host.style.setProperty('--dialog-header-inline', parseFloat(style.paddingInlineStart) < 1 ? '20px' : '0px');
         const sources = [...content.querySelectorAll<Control>('button,input[type="submit"]')].filter(button => available(button, root) && (isSave(button) || item!.saves.has(button) && (disabled(button) || /^[.…]+$/.test(label(button)))));
         item.saves = new Set(sources);
         const marked = new Set<HTMLElement>([...(title ? [title] : []), close, ...sources]);
