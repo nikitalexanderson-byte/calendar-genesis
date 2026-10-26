@@ -31,10 +31,8 @@ internal fun mobileDestinations(pages: List<String>, visibility: UiVisibility,
         if (page in pages) add(MobileDestination(page, section, title, icon, group))
     }
     entry("Сегодня", null, "Сегодня", GenesisPageIcon.TODAY, "Мой день")
-    if ("calendar.month" !in visibility.hiddenSubmenus)
-        entry("Календарь", "month", "Календарь · месяц", GenesisPageIcon.MONTH, "Мой день")
-    if ("calendar.year" !in visibility.hiddenSubmenus)
-        entry("Календарь", "year", "Календарь · год", GenesisPageIcon.YEAR, "Мой день")
+    if (listOf("calendar.month", "calendar.year").any { it !in visibility.hiddenSubmenus })
+        entry("Календарь", null, "Календарь", GenesisPageIcon.MONTH, "Мой день")
     if (!sharedEnabled || "projects.personal" !in visibility.hiddenSubmenus)
         entry("Проекты", "personal-projects", "Дела — личные", GenesisPageIcon.PROJECTS, "Рабочее пространство")
     if (sharedEnabled && "projects.shared" !in visibility.hiddenSubmenus)
@@ -46,18 +44,16 @@ internal fun mobileDestinations(pages: List<String>, visibility: UiVisibility,
         entry("Привычки", "Привычки", "Привычки", GenesisPageIcon.HABITS, "Развитие")
     if ("habits.sleep" !in visibility.hiddenSubmenus)
         entry("Привычки", "Сон и настроение", "Сон и настроение", GenesisPageIcon.TRACKERS, "Развитие")
-    if ("sacred.stoicheion" !in visibility.hiddenSubmenus && "stoicheion" !in visibility.hiddenMenuItems)
-        entry("Сакральное", "stoicheion", "Стойхейон", GenesisPageIcon.STOICHEION, "Развитие")
-    if ("sacred.theokyklos" !in visibility.hiddenSubmenus && "theokyklos" !in visibility.hiddenMenuItems)
-        entry("Сакральное", "theokyklos", "Теокиклос", GenesisPageIcon.THEOKYKLOS, "Развитие")
+    if (("sacred.stoicheion" !in visibility.hiddenSubmenus && "stoicheion" !in visibility.hiddenMenuItems) ||
+        ("sacred.theokyklos" !in visibility.hiddenSubmenus && "theokyklos" !in visibility.hiddenMenuItems))
+        entry("Сакральное", null, "Оракул", GenesisPageIcon.STOICHEION, "")
     if (settingsSubmenus) settingsSections.forEach { section ->
         entry("Настройки", section.id, if (section.id == "habits") "Настройки привычек" else section.ru, section.icon, "Настройки")
     } else entry("Настройки", null, "Настройки", GenesisPageIcon.SETTINGS, "Настройки")
 }
 
 @Composable internal fun MobileWorkspaceShell(selectedPage: String, selectedSection: String?,
-    destinations: List<MobileDestination>, accountStatus: String, showLabels: Boolean,
-    onLabelsChange: (Boolean) -> Unit, gesturesEnabled: Boolean,
+    destinations: List<MobileDestination>, accountStatus: String, gesturesEnabled: Boolean,
     onNavigate: (MobileDestination) -> Unit, actions: @Composable RowScope.() -> Unit,
     content: @Composable ColumnScope.() -> Unit) {
     val drawer = rememberDrawerState(DrawerValue.Closed)
@@ -88,14 +84,15 @@ internal fun mobileDestinations(pages: List<String>, visibility: UiVisibility,
                         }
                     }
                     destinations.groupBy { it.group }.forEach { (group, entries) ->
-                        Text(group, Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp),
+                        if (group.isNotEmpty()) Text(group, Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp),
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        else Spacer(Modifier.height(16.dp))
                         entries.forEach { destination ->
                             val picked = destination == current
                             val name = genesisTranslate(destination.title)
                             NavigationDrawerItem(label = {
-                                if (showLabels || picked) Text(destination.title,
+                                Text(destination.title,
                                     style = MaterialTheme.typography.bodyMedium)
                             }, icon = {
                                 GenesisVectorIcon(destination.icon, Modifier.size(24.dp),
@@ -115,12 +112,6 @@ internal fun mobileDestinations(pages: List<String>, visibility: UiVisibility,
                     }
                     HorizontalDivider(Modifier.padding(top = 16.dp, bottom = 8.dp),
                         color = MaterialTheme.colorScheme.outlineVariant)
-                    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically) {
-                        Text("Подписи меню", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-                        Switch(checked = showLabels, onCheckedChange = onLabelsChange,
-                            modifier = Modifier.testTag("drawer-labels"))
-                    }
                     GenesisAccountFooter(accountStatus)
                     Text("GENESIS Calendar ${BuildConfig.VERSION_NAME}\nПробная версия · ${BuildConfig.VERSION_CODE}",
                         Modifier.padding(horizontal = 16.dp, vertical = 12.dp).testTag("trial-build-info"),

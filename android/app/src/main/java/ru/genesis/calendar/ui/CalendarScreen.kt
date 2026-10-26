@@ -207,7 +207,7 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
     Column(Modifier.fillMaxSize()) {
         val submenuItems = listOf(SubmenuItem("month", "Месяц"), SubmenuItem("year", "Год"))
             .filter { "calendar.${it.id}" !in hiddenSubmenus }
-        if (!LocalFixedSubmenu.current && submenuItems.size > 1) ConnectedSubmenu(submenuItems,
+        if (submenuItems.size > 1) ConnectedSubmenu(submenuItems,
             if (yearView) "year" else "month", {
                 localYearView = it == "year"; menuSwipeState?.calendar = it
             }, Modifier.testTag("calendar-view-switch"))
@@ -228,7 +228,6 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
             })
         else if (range.isFailure) Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            CalendarPageHeader(false, mode, onModeChange)
             Text("Этот период вне диапазона офлайн-календаря.", color = MaterialTheme.colorScheme.error)
         }
         else CalendarMonthContent(calendar, range.getOrThrow(), mode, onModeChange,
@@ -300,43 +299,6 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
 }
 
 @Composable
-private fun CalendarPageHeader(yearView: Boolean, mode: CalendarMode,
-    onModeChange: (CalendarMode) -> Unit, modifier: Modifier = Modifier,
-    onInfoClick: (() -> Unit)? = null, infoExpanded: Boolean = false) {
-    if (!LocalSacredFeaturesEnabled.current) return
-    val copy = mobileCalendarCopy(LocalGenesisLanguage.current)
-    val enabledCalendars = LocalEnabledCalendars.current
-    val canSwitch = enabledCalendars.size > 1
-    var switchCount by remember { mutableIntStateOf(0) }
-    val name = copy.calendarName(mode)
-    val infoLabel = genesisTranslate("О разделе")
-    val disclosureState = genesisTranslate(if (infoExpanded) "Развернуто" else "Свернуто")
-    Surface(modifier.fillMaxWidth().testTag("genesis-page-header"), shape = AffairsLayout.shape,
-        color = MaterialTheme.colorScheme.surface) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(Modifier.weight(1f).heightIn(min = 48.dp).clickable(enabled = canSwitch, role = Role.Button) {
-                switchCount++
-                onModeChange(nextAvailableCalendarMode(mode, enabledCalendars))
-            }.semantics { contentDescription = if (canSwitch) "$name. ${copy.switchHint}" else name },
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                CalendarModeSwitcher(mode, {}, size = 48.dp, interactive = false, animationTrigger = switchCount)
-                Text(name, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-            }
-            if (onInfoClick != null) IconButton(onClick = onInfoClick,
-                modifier = Modifier.size(48.dp).testTag("calendar-month-info-toggle")
-                    .semantics {
-                        contentDescription = infoLabel
-                        stateDescription = disclosureState
-                    }) {
-                GenesisLucideIcon(if (infoExpanded) "chevron-up" else "book-open", Modifier.size(22.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-    }
-}
-
-@Composable
 private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange, mode: CalendarMode,
     onModeChange: (CalendarMode) -> Unit, selected: LocalDate, experimental: Boolean, tasks: List<LocalTask>,
     focusDayRequest: Int, voiceScrollToken: Int, voiceScrollDirection: String,
@@ -349,7 +311,6 @@ private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange
     val locale = Locale.forLanguageTag(LocalGenesisLanguage.current).takeIf { it.language.isNotBlank() } ?: ru
     val solarLocation by rememberAutomaticSolarLocation(calendar.zoneId)
     val scroll = rememberScrollState()
-    var monthInfoExpanded by rememberSaveable(mode, range.start.toString()) { mutableStateOf(false) }
     LaunchedEffect(voiceScrollToken) {
         if(voiceScrollToken>0) scroll.animateScrollTo(when(voiceScrollDirection) {
             "top" -> 0
@@ -371,9 +332,6 @@ private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange
         }
         val choose: (LocalDate) -> Unit = { day -> previewRequested = true; onChoose(day) }
         val monthContent: @Composable () -> Unit = {
-            CalendarPageHeader(false, mode, onModeChange, Modifier.padding(vertical = 8.dp),
-                onInfoClick = if (mode == CalendarMode.SACRED) null else ({ monthInfoExpanded = !monthInfoExpanded }),
-                infoExpanded = monthInfoExpanded)
         CalendarPeriodPager(range,
             remember(range, mode) { runCatching { calendar.monthRange(range.start.minusDays(1), mode) }.getOrNull()?.takeIf { it.end.year >= 1900 } },
             remember(range, mode) { runCatching { calendar.monthRange(range.end.plusDays(1), mode) }.getOrNull()?.takeIf { it.start.year <= 2100 } },
@@ -397,7 +355,7 @@ private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = .45f))) {
                 if (mode == CalendarMode.SACRED) SacredMonthHero(month, sacred.sacredYear)
-                else if (monthInfoExpanded) Surface(Modifier.fillMaxWidth().testTag("calendar-month-description"),
+                else Surface(Modifier.fillMaxWidth().testTag("calendar-month-description"),
                     color = if (mode == CalendarMode.LUNAR) Color(0xff082e2f) else MaterialTheme.colorScheme.primaryContainer) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(if (mode == CalendarMode.LUNAR) calendar.lunarDate(page.start).month.title
@@ -1195,7 +1153,6 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
     if (entries.isFailure) {
         Column(Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            CalendarPageHeader(true, mode, onModeChange, Modifier.padding(vertical = 8.dp))
             CalendarPeriodNavigation(yearLabel, true, onPrevious, onNext, onToday)
             Text("Этот год вне диапазона офлайн-календаря.", color = MaterialTheme.colorScheme.error)
         }
@@ -1250,9 +1207,6 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
             LazyColumn(Modifier.fillMaxSize().testTag("calendar-year"), state = yearListState,
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(bottom = 12.dp)) {
-                item(key = "year-header") {
-                    CalendarPageHeader(true, mode, onModeChange, Modifier.padding(vertical = 8.dp))
-                }
                 item(key = "year-navigation") {
                     Card(Modifier.fillMaxWidth().testTag("calendar-year-navigation-card"),
                         shape = AffairsLayout.shape,

@@ -70,17 +70,17 @@ class MobileRedesignFlowTest {
     private val orientation get() = if (compose.activity.resources.displayMetrics.widthPixels > compose.activity.resources.displayMetrics.heightPixels) "landscape" else "portrait"
     private val suffix get() = "${width}-${if (dark) "dark" else "light"}-font${(fontScale * 100).toInt()}-$orientation"
     private data class Route(val page: String, val section: String?, val title: String) {
-        val tag get() = "drawer-$page-${section ?: "root"}"
+        val tag get() = "drawer-$page-${if (page in listOf("Календарь", "Сакральное")) "root" else section ?: "root"}"
     }
     private val todayRoute = Route("Сегодня", null, "Сегодня")
-    private val monthRoute = Route("Календарь", "month", "Календарь · месяц")
-    private val yearRoute = Route("Календарь", "year", "Календарь · год")
+    private val monthRoute = Route("Календарь", "month", "Календарь")
+    private val yearRoute = Route("Календарь", "year", "Календарь")
     private val personalRoute = Route("Проекты", "personal-projects", "Дела — личные")
     private val routes = listOf(todayRoute, monthRoute, yearRoute, personalRoute,
         Route("Привычки", "Привычки", "Привычки"),
         Route("Привычки", "Сон и настроение", "Сон и настроение"),
-        Route("Сакральное", "stoicheion", "Стойхейон"),
-        Route("Сакральное", "theokyklos", "Теокиклос"),
+        Route("Сакральное", "stoicheion", "Оракул"),
+        Route("Сакральное", "theokyklos", "Оракул"),
         Route("Настройки", "appearance", "Оформление"),
         Route("Настройки", "habits", "Настройки привычек"),
         Route("Настройки", "reminders", "Напоминания"),
@@ -173,6 +173,8 @@ class MobileRedesignFlowTest {
         openDrawer()
         compose.onNodeWithTag(route.tag).performScrollTo().performClick()
         drawerClosed()
+        if (route.page in listOf("Календарь", "Сакральное") && route.section != null)
+            compose.onNodeWithTag("submenu-${route.section}").performClick()
         compose.onNodeWithTag("workspace-title").assertTextEquals(route.title)
         if (assertSelection) {
             openDrawer()
@@ -210,8 +212,13 @@ class MobileRedesignFlowTest {
     }
     private fun text(tag: String) = compose.onNodeWithTag(tag).fetchSemanticsNode()
         .config[SemanticsProperties.Text].joinToString(" ") { it.text }
+    private fun scrollToTodayNode(matcher: SemanticsMatcher) {
+        if (compose.onAllNodesWithTag("today-two-pane").fetchSemanticsNodes().isEmpty())
+            compose.onNodeWithTag("today-list").performScrollToNode(matcher)
+        else compose.onNode(matcher).performScrollTo()
+    }
     private fun assertActualToday() {
-        compose.scrollToTodayNode(hasTestTag("today-civil-date"))
+        scrollToTodayNode(hasTestTag("today-civil-date"))
         compose.onNodeWithTag("today-civil-date").assertTextEquals(LocalDate.now().format(
             java.time.format.DateTimeFormatter.ofPattern("d MMMM yyyy", java.util.Locale.forLanguageTag("ru"))))
         checks.put("today:actual-date")
@@ -224,6 +231,72 @@ class MobileRedesignFlowTest {
         compose.onNodeWithText("Синтетический проект для проверки возвращения в контекст").assertExists()
     }
 
+    @Test fun sharedCalendarHeaderAndAlwaysVisibleDayKnowledge() {
+        val prefs = LocalPreferences(app, app.workspaceScope)
+        fun switchTag(mode: CalendarMode) = hasTestTag("calendar-mode-icon-${mode.wireValue}") and
+            hasAnyAncestor(hasTestTag("global-calendar-switch"))
+        fun waitMode(mode: CalendarMode) {
+            compose.waitUntil(8_000) { runBlocking { prefs.values.first().display == mode } }
+            compose.onNode(switchTag(mode), useUnmergedTree = true).assertIsDisplayed()
+            assertEquals("Display calendar must not change task input", CalendarMode.PROFANE,
+                runBlocking { prefs.values.first().input })
+        }
+        checkTarget("global-calendar-switch")
+        compose.onNodeWithTag("voice-assistant-open").assertDoesNotExist()
+        val permissions = app.packageManager.getPackageInfo(app.packageName,
+            android.content.pm.PackageManager.GET_PERMISSIONS).requestedPermissions.orEmpty()
+        assertFalse(permissions.contains("android.permission.RECORD_AUDIO"))
+        compose.onNodeWithTag("today-art-expand").assertTextContains("Подробнее о дне")
+        assertActualToday()
+        compose.onNode(hasTestTag("calendar-mode-icon-profane") and hasAnyAncestor(hasTestTag("today-hero")),
+            useUnmergedTree = true).assertDoesNotExist()
+        capture("today-profane-art")
+        openDrawer()
+        compose.onNodeWithTag("drawer-labels").assertDoesNotExist()
+        compose.onNodeWithTag(monthRoute.tag).assertExists()
+        compose.onNodeWithTag("drawer-Календарь-month").assertDoesNotExist()
+        compose.onNodeWithTag("drawer-Календарь-year").assertDoesNotExist()
+        capture("drawer-always-labels")
+        device.pressBack(); drawerClosed()
+        compose.onNode(switchTag(CalendarMode.PROFANE), useUnmergedTree = true).performClick()
+        waitMode(CalendarMode.SACRED)
+        compose.onNodeWithTag("today-day-details-toggle").assertDoesNotExist()
+        scrollToTodayNode(hasTestTag("today-day-details"))
+        compose.onNodeWithTag("day-knowledge").assertExists()
+        capture("sacred-knowledge-bottom")
+        scrollToTodayNode(hasTestTag("today-hero"))
+        capture("today-sacred-art")
+        compose.onNodeWithTag("today-art-expand").performClick()
+        compose.onNodeWithTag("today-day-details-toggle").assertDoesNotExist()
+        scrollToTodayNode(hasTestTag("today-art-collapse"))
+        compose.onNodeWithTag("today-hero-description").assertExists()
+        capture("today-sacred-description")
+        navigate(monthRoute)
+        compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
+        compose.onNodeWithTag("calendar-month-info-toggle").assertDoesNotExist()
+        compose.onNodeWithTag("calendar-view-switch").assertIsDisplayed()
+        compose.onNode(switchTag(CalendarMode.SACRED), useUnmergedTree = true).performClick()
+        waitMode(CalendarMode.LUNAR)
+        compose.onNodeWithTag("calendar-month-description").assertExists()
+        capture("calendar-lunar-month")
+        compose.onNodeWithTag("submenu-year").performClick()
+        compose.onNodeWithTag("calendar-year-panel").assertExists()
+        compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
+        capture("calendar-lunar-year")
+        compose.onNode(switchTag(CalendarMode.LUNAR), useUnmergedTree = true).performClick()
+        waitMode(CalendarMode.PROFANE)
+        navigate(personalRoute)
+        compose.onNode(switchTag(CalendarMode.PROFANE), useUnmergedTree = true).assertIsDisplayed()
+        navigate(Route("Сакральное", "theokyklos", "Оракул"))
+        compose.onNodeWithTag("sacred-submenu").assertIsDisplayed()
+        capture("oracle-theokyklos")
+        compose.onNodeWithTag("submenu-stoicheion").performClick()
+        capture("oracle-stoicheion")
+        navigate(todayRoute)
+        assertActualToday()
+        checks.put("global-calendar:shared-across-tabs-input-independent-no-audio-permission")
+    }
+
     @Test fun drawerRoutesDismissalTargetsAndSnapshots() {
         // Save diagnostic frames before assertions so a failure still leaves reviewable UI.
         capture("today")
@@ -234,7 +307,8 @@ class MobileRedesignFlowTest {
         listOf("main-navigation-icons", "main-navigation-rail", "main-navigation-text", "main-navigation-pager")
             .forEach { compose.onNodeWithTag(it).assertDoesNotExist() }
         checkTarget("workspace-menu")
-        checkTarget("voice-assistant-open")
+        checkTarget("global-calendar-switch")
+        compose.onNodeWithTag("voice-assistant-open").assertDoesNotExist()
         assertActualToday()
         capture("today")
         openDrawer()
@@ -254,12 +328,10 @@ class MobileRedesignFlowTest {
             when (route) {
                 monthRoute -> {
                     await("calendar-month")
-                    compose.onNodeWithTag("calendar-month-description").assertDoesNotExist()
+                    compose.onNodeWithTag("calendar-month-description").assertExists()
+                    compose.onNodeWithTag("calendar-month-info-toggle").assertDoesNotExist()
                     checkTarget("calendar-month-today")
                     capture("calendar-month")
-                    compose.onNodeWithTag("calendar-month-info-toggle").performClick()
-                    compose.onNodeWithTag("calendar-month-description").assertExists()
-                    compose.onNodeWithTag("calendar-month-info-toggle").performClick()
                 }
                 yearRoute -> {
                     await("calendar-year-panel")
@@ -290,10 +362,11 @@ class MobileRedesignFlowTest {
         compose.waitForIdle()
         openDrawer()
         compose.onNodeWithTag(monthRoute.tag).performScrollTo().assertContentDescriptionEquals(monthRoute.title)
-        compose.onNode(hasText(monthRoute.title) and hasAnyAncestor(hasTestTag(monthRoute.tag))).assertDoesNotExist()
+        compose.onNode(hasText(monthRoute.title) and hasAnyAncestor(hasTestTag(monthRoute.tag))).assertExists()
+        compose.onNodeWithTag("drawer-labels").assertDoesNotExist()
         compose.onNodeWithTag("drawer-close").performScrollTo().performClick()
         drawerClosed()
-        checks.put("drawer:icons-have-accessible-names")
+        checks.put("drawer:labels-always-visible-even-with-legacy-icon-preference")
     }
 
     @Test fun calendarAndProjectContextsSurviveDrawerRoundTrips() {
@@ -302,7 +375,7 @@ class MobileRedesignFlowTest {
         val month = text("calendar-month-period")
         navigate(todayRoute)
         assertActualToday()
-        compose.scrollToTodayNode(hasTestTag("today-tasks-section"))
+        scrollToTodayNode(hasTestTag("today-tasks-section"))
         compose.onNodeWithTag("task-$todayTaskId").assertExists()
         compose.onNodeWithTag("task-$tomorrowTaskId").assertDoesNotExist()
         navigate(monthRoute)

@@ -32,7 +32,7 @@ class TodaySacredVisibilityTest {
                 MaterialTheme(colorScheme = if (dark) evening else standart) {
                     Surface {
                         Column(Modifier.verticalScroll(rememberScrollState())) {
-                            DayHeader(LocalDate.of(2026, 10, 17), mode, false, {}, {})
+                            DayHeader(LocalDate.of(2026, 10, 17), mode)
                             DayRhythmPanel(true)
                         }
                     }
@@ -63,7 +63,7 @@ class TodaySacredVisibilityTest {
                 }
             }
             compose.runOnIdle { sacred = true; mode = CalendarMode.PROFANE }
-            compose.onNodeWithTag("today-calendar-plaque", useUnmergedTree = true).assertExists()
+            compose.onNodeWithTag("today-calendar-name", useUnmergedTree = true).assertExists()
             compose.onNodeWithTag("today-calendar-image", useUnmergedTree = true).assertExists()
             compose.onNodeWithTag("today-hero-date", useUnmergedTree = true).assertExists()
             compose.onNodeWithTag("today-day-rhythm").assertExists()

@@ -103,22 +103,15 @@ class MobilePolishTest {
         } finally { runBlocking { repository.delete(habit.id) } }
     }
 
-    @Test fun todayDetailsButtonUsesFullCardWidth() {
-        compose.onNodeWithTag("navigation-Сегодня").performClick()
-        compose.onNodeWithTag("today-day-details-toggle").assertWidthIsAtLeast(300.dp)
-        capture("today-full-width-details")
-    }
-
-    @Test fun voiceControlModeStaysInlineAndCanBeTurnedOff() {
-        compose.onNodeWithTag("voice-assistant-open").performClick()
-        compose.onNodeWithTag("voice-control-enable").performClick()
-        compose.onNodeWithTag("voice-control-bar").assertExists()
-        compose.onNodeWithTag("voice-assistant-close").assertDoesNotExist()
-        UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).waitForIdle()
-        android.os.SystemClock.sleep(400)
-        capture("voice-control-inline")
-        compose.onNodeWithTag("voice-control-stop").performClick()
+    @Test fun dayDescriptionUsesFullCardWidthAndVoiceControlIsUnavailable() {
+        compose.onNodeWithTag("workspace-menu").performClick()
+        compose.onNodeWithTag("drawer-Сегодня-root").performScrollTo().performClick()
+        compose.onNodeWithTag("today-art-expand").assertWidthIsAtLeast(240.dp)
+        compose.onNodeWithTag("today-day-details-toggle").assertDoesNotExist()
+        compose.onNodeWithTag("voice-assistant-open").assertDoesNotExist()
         compose.onNodeWithTag("voice-control-bar").assertDoesNotExist()
+        compose.onNodeWithTag("global-calendar-switch").assertIsDisplayed()
+        capture("today-full-width-description")
     }
 
     @Test fun completionIsGreyAndStruckThroughAndCanBeUndone() {

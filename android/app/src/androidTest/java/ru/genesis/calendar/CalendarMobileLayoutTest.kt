@@ -68,19 +68,16 @@ class CalendarMobileLayoutTest {
         CalendarMode.entries.forEach { nextMode ->
             compose.runOnIdle { mode = nextMode }
             compose.onNodeWithText("Месяц").performClick()
-            compose.onNode(hasText(mobileCalendarCopy("ru").calendarName(nextMode)) and hasAnyAncestor(hasTestTag("genesis-page-header"))).assertIsDisplayed()
+            compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
             val switch = compose.onNodeWithTag("calendar-view-switch").fetchSemanticsNode().boundsInRoot
-            val header = compose.onNodeWithTag("genesis-page-header").fetchSemanticsNode().boundsInRoot
-            assertTrue("View controls must precede the heading", switch.bottom <= header.top)
+            val navigation = compose.onNodeWithTag("calendar-month-navigation-card").fetchSemanticsNode().boundsInRoot
+            assertTrue("View controls must precede the period", switch.bottom <= navigation.top)
             capture("${nextMode.name.lowercase()}-month-top")
             compose.onNodeWithTag("calendar-selected-day").performScrollTo()
-            if ((requestedWidth ?: 360) < 768) {
-                compose.onNode(hasText(mobileCalendarCopy("ru").calendarName(nextMode)) and hasAnyAncestor(hasTestTag("genesis-page-header"))).assertIsNotDisplayed()
-            }
             compose.onNodeWithTag("calendar-view-switch").assertIsDisplayed()
             capture("${nextMode.name.lowercase()}-month-scrolled")
             compose.onNodeWithText("Год").performClick()
-            compose.onNode(hasText(mobileCalendarCopy("ru").calendarName(nextMode)) and hasAnyAncestor(hasTestTag("genesis-page-header"))).assertIsDisplayed()
+            compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
             val firstTag = when (nextMode) {
                 CalendarMode.SACRED -> "sacred-year-month-0"
                 CalendarMode.LUNAR -> "lunar-year-month-1"
@@ -101,7 +98,7 @@ class CalendarMobileLayoutTest {
             compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
             compose.onNodeWithTag("calendar-view-switch").assertIsDisplayed()
             compose.onNodeWithTag(lastTag).performClick()
-            compose.onNode(hasText(mobileCalendarCopy("ru").calendarName(nextMode)) and hasAnyAncestor(hasTestTag("genesis-page-header"))).assertIsDisplayed()
+            compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
         }
     }
 
@@ -228,9 +225,9 @@ class CalendarMobileLayoutTest {
                 }
             }
         }
-        compose.onNode(hasText(mobileCalendarCopy("en").calendarName(CalendarMode.PROFANE)) and hasAnyAncestor(hasTestTag("genesis-page-header"))).assertIsDisplayed()
+        compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
         compose.onNodeWithText("Year").performClick()
-        compose.onNode(hasText(mobileCalendarCopy("en").calendarName(CalendarMode.PROFANE)) and hasAnyAncestor(hasTestTag("genesis-page-header"))).assertIsDisplayed()
+        compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
         compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag("calendar-year-month-2026-01-01"))
         compose.onNodeWithTag("gregorian-year-start-1", useUnmergedTree = true).assertDoesNotExist()
         compose.onNodeWithTag("gregorian-year-end-1", useUnmergedTree = true).assertDoesNotExist()
