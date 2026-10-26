@@ -4,7 +4,7 @@ import org.json.JSONObject
 import java.util.UUID
 
 /** Shared workspace operations implemented by the authenticated controller. */
-interface SharedWorkspaceGateway {
+interface SharedWorkspaceGateway : SharedTaskLifecycleGateway, SharedTaskFilesGateway, SharedTaskReviewGateway, SharedTaskSeriesGateway, SharedMindmapGateway {
     suspend fun sharedSavedViews(cursor: String? = null): JSONObject = throw UnsupportedOperationException("sharedSavedViews")
     suspend fun sharedSavedView(id: String): JSONObject = throw UnsupportedOperationException("sharedSavedView")
     suspend fun sharedSavedViewFields(space: String): JSONObject = throw UnsupportedOperationException("sharedSavedViewFields")

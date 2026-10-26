@@ -12,10 +12,20 @@ import ru.genesis.calendar.data.LocalTask
 class GenesisViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as GenesisApplication
     val error = MutableStateFlow<String?>(null)
+    val saving = MutableStateFlow(false)
     val tasks = app.repository.tasks.catch { error.value = "Не удалось открыть защищённые данные: ключ недоступен." }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-    fun save(task: LocalTask, onSaved: () -> Unit) = viewModelScope.launch {
+    fun save(task: LocalTask, onSaved: () -> Unit) = viewModelScope.launch { saveTask(task, onSaved) }
+    fun saveEditor(task: LocalTask, onSaved: () -> Unit) {
+        if (saving.value) return
+        saving.value = true
+        viewModelScope.launch {
+            try { saveTask(task, onSaved) } finally { saving.value = false }
+        }
+    }
+    private suspend fun saveTask(task: LocalTask, onSaved: () -> Unit) {
         try { if(org.json.JSONObject(task.sourceFieldsJson).has("mindmapOccurrenceParentRevision"))app.repository.saveOccurrence(task) else app.repository.save(task); error.value = null; onSaved() }
+        catch (e: CancellationException) { throw e }
         catch (e: IllegalArgumentException) { error.value = e.message ?: "Проверьте данные задачи." }
         catch (_: Exception) { error.value = "Не удалось сохранить. Введённые данные остаются в форме." }
     }

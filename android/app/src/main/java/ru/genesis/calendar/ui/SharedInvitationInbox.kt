@@ -14,6 +14,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -45,7 +47,7 @@ internal fun SharedInvitationInbox(controller: AuthController, language: String,
                     val team = controller.sharedNotifications().getJSONArray("notifications")
                     notifications = (0 until team.length()).map { team.getJSONObject(it) }
                 } else notifications = emptyList()
-            } catch (error: Exception) {
+            } catch (error: Exception) { if (error is kotlinx.coroutines.CancellationException) throw error;
                 message = error.message ?: if (en) "Could not load invitations." else "Не удалось загрузить приглашения."
             }
             delay(30_000)
@@ -76,7 +78,7 @@ internal fun SharedInvitationInbox(controller: AuthController, language: String,
                                     invitations = invitations.filterNot { it.optString("id") == id }
                                     controller.refresh()
                                     message = if (en) "Invitation accepted." else "Приглашение принято."
-                                } catch (error: Exception) { message = error.message ?: "Ошибка сервера" }
+                                } catch (error: Exception) { if (error is kotlinx.coroutines.CancellationException) throw error; message = error.message ?: "Ошибка сервера" }
                                 finally { pendingId = "" }
                             }
                         }, enabled = pendingId.isEmpty(), modifier = Modifier.testTag("shared-invitation-accept-$id")) {
@@ -89,7 +91,7 @@ internal fun SharedInvitationInbox(controller: AuthController, language: String,
                                     controller.rejectSharedInvitation(id)
                                     invitations = invitations.filterNot { it.optString("id") == id }
                                     message = if (en) "Invitation declined." else "Приглашение отклонено."
-                                } catch (error: Exception) { message = error.message ?: "Ошибка сервера" }
+                                } catch (error: Exception) { if (error is kotlinx.coroutines.CancellationException) throw error; message = error.message ?: "Ошибка сервера" }
                                 finally { pendingId = "" }
                             }
                         }, enabled = pendingId.isEmpty(), modifier = Modifier.testTag("shared-invitation-decline-$id")) {
@@ -103,8 +105,8 @@ internal fun SharedInvitationInbox(controller: AuthController, language: String,
     }
     if (sharedEnabled) {
     HorizontalDivider()
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text(if (en) "Team updates" else "События команды", style = MaterialTheme.typography.titleSmall)
+    AffairsDisclosure(if (en) "Team updates · history" else "События команды · история",
+        Modifier.testTag("shared-team-history")) {
         Text(if (en) "Changes in shared projects" else "Изменения в общих проектах",
             style = MaterialTheme.typography.bodySmall)
         if (notifications.isEmpty()) Text(if (en) "No team updates yet." else "Новых событий команды пока нет.")
@@ -115,13 +117,21 @@ internal fun SharedInvitationInbox(controller: AuthController, language: String,
                 try {
                     controller.readSharedNotifications(ids)
                     notifications = notifications.map { row -> JSONObject(row.toString()).put("isRead", 1) }
-                } catch (error: Exception) { message = error.message ?: "Ошибка сервера" }
+                } catch (error: Exception) { if (error is kotlinx.coroutines.CancellationException) throw error; message = error.message ?: "Ошибка сервера" }
                 finally { pendingId = "" }
             } }, enabled = pendingId.isEmpty()) {
                 Text(if (en) "Mark all as read" else "Отметить всё прочитанным")
             }
         }
-        notifications.take(12).forEach { item ->
+        TeamEventRows(notifications, en)
+    }
+    }
+}
+
+@Composable
+internal fun TeamEventRows(notifications: List<JSONObject>, en: Boolean) {
+    var visibleEvents by remember { mutableIntStateOf(5) }
+        notifications.take(visibleEvents).forEach { item ->
             val action = item.optString("action")
             val verb = when {
                 action.startsWith("task.") -> if (en) "updated a task" else "изменил(а) задачу"
@@ -131,11 +141,14 @@ internal fun SharedInvitationInbox(controller: AuthController, language: String,
             val detail = item.optString("taskTitle").takeIf { it.isNotBlank() }?.let { " · $it" } ?: ""
             Surface(Modifier.fillMaxWidth().testTag("shared-team-event-${item.optString("id")}"),
                 shape = MaterialTheme.shapes.medium,
-                color = if (item.optInt("isRead") == 0) Color(0xffe4f0ef) else MaterialTheme.colorScheme.surfaceContainerLow) {
+                color = if (item.optInt("isRead") == 0) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLow) {
                 Text("${item.optString("actorName")} $verb$detail · ${item.optString("projectTitle")}",
                     Modifier.padding(12.dp), style = MaterialTheme.typography.bodySmall)
             }
         }
-    }
-    }
+        if (visibleEvents < notifications.size) OutlinedButton(onClick = { visibleEvents += 5 },
+            modifier = Modifier.fillMaxWidth().testTag("shared-team-history-more")) {
+            Text(if (en) "Show 5 more" else "Ещё 5 действий")
+        }
+
 }

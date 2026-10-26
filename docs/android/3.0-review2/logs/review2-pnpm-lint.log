@@ -1,0 +1,9 @@
+$ eslint . --ignore-pattern dist --ignore-pattern .next
+
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\app\MindmapNodeContent.tsx
+  13:145  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\app\MindmapPresentationFields.tsx
+  48:9  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+✖ 2 problems (0 errors, 2 warnings)

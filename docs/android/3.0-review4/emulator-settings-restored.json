@@ -1,0 +1,8 @@
+{
+  "platform": "Android emulator API35",
+  "fontScale": "1.3",
+  "enabledAccessibilityServices": "com.google.android.marvin.talkback/com.google.android.marvin.talkback.TalkBackService",
+  "accessibilityEnabled": "1",
+  "physicalDeviceSettingsChanged": false,
+  "matchesOriginal": true
+}

@@ -22,7 +22,8 @@ import ru.genesis.calendar.data.*
     onUpdateList: suspend (GoogleTaskList, String) -> Unit,
     onDeleteList: suspend (GoogleTaskList) -> Unit,
     initialExpanded: Boolean = false, deleteTaskCount: Int = rows.size, voiceRequest: NativeVoiceAction? = null,
-    onVoiceRequestConsumed: () -> Unit = {}) {
+    onVoiceRequestConsumed: () -> Unit = {},
+    taskWrapper: @Composable (LocalTask, @Composable () -> Unit) -> Unit = { _, content -> content() }) {
     var expanded by rememberSaveable(list.accountId, list.id) { mutableStateOf(initialExpanded) }
     var editing by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf(false) }
@@ -45,7 +46,7 @@ import ru.genesis.calendar.data.*
         }
     }
     Card(Modifier.fillMaxWidth().testTag("personal-task-list-${list.id}"),
-        shape = RoundedCornerShape(20.dp),
+        shape = AffairsLayout.shape,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -73,7 +74,7 @@ import ru.genesis.calendar.data.*
                     }
                 }
                 if (rows.isEmpty()) Text("В списке пока нет задач.")
-                rows.forEach { NativeTaskCard(it, use24, structure, onComplete, onOpen) }
+                rows.forEach { task -> taskWrapper(task) { NativeTaskCard(task, use24, structure, onComplete, onOpen) } }
                 OutlinedButton(onClick = { onCreateTask(list) }, modifier = Modifier.fillMaxWidth()
                     .heightIn(min = 48.dp).testTag("add-list-task-${list.id}")) { Text("Добавить задачу") }
             }

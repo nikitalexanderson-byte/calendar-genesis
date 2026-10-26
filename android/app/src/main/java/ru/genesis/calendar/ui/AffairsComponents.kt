@@ -34,11 +34,11 @@ internal object AffairsLayout {
     val sectionGap = 16.dp
     val touchTarget = 48.dp
     val formMaxWidth = 720.dp
-    val shape = RoundedCornerShape(16.dp)
+    val shape = RoundedCornerShape(10.dp)
     val controlShape = RoundedCornerShape(10.dp)
 }
 
-internal enum class AffairsAction { BACK, NEXT, MORE, CLOSE, SEARCH, FILTER, SORT, EXPAND, COLLAPSE, REFRESH, MOVE, MOVE_UP, MOVE_DOWN, ADD, EDIT, SETTINGS, DELETE, REPORT, IMPORT, HISTORY, VIEW, HIDE, MINDMAP, LIST, BOARD, CALENDAR, GANTT, PROJECT, TASK_LIST, UNDO, TEMPLATE, SUBTASK, DECREASE, TASK, AUTOMATION, PAUSE, RESUME, ARCHIVE, RESTORE, TIMER }
+internal enum class AffairsAction { BACK, NEXT, MORE, CLOSE, SEARCH, FILTER, SORT, EXPAND, COLLAPSE, REFRESH, MOVE, MOVE_UP, MOVE_DOWN, ADD, EDIT, SETTINGS, DELETE, REPORT, IMPORT, HISTORY, VIEW, HIDE, MINDMAP, LIST, BOARD, CALENDAR, GANTT, PROJECT, TASK_LIST, UNDO, TEMPLATE, SUBTASK, DECREASE, TASK, AUTOMATION, PAUSE, RESUME, ARCHIVE, RESTORE, TIMER, LINK }
 
 @Composable internal fun GenesisAccountFooter(status: String) {
     Text(status, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
@@ -48,164 +48,7 @@ internal enum class AffairsAction { BACK, NEXT, MORE, CLOSE, SEARCH, FILTER, SOR
 
 /** The same 24-unit, rounded line geometry as GenesisVectorIcon. */
 @Composable internal fun AffairsActionIcon(action: AffairsAction, modifier: Modifier = Modifier) {
-    val ink = LocalContentColor.current
-    Canvas(modifier.size(24.dp).clearAndSetSemantics { }) {
-        val unit = size.width / 24
-        val path = Path()
-        fun move(x: Float, y: Float) = path.moveTo(x * unit, y * unit)
-        fun line(x: Float, y: Float) = path.lineTo(x * unit, y * unit)
-        fun curve(x1: Float, y1: Float, x2: Float, y2: Float, x: Float, y: Float) =
-            path.cubicTo(x1 * unit, y1 * unit, x2 * unit, y2 * unit, x * unit, y * unit)
-        when (action) {
-            AffairsAction.SORT -> {
-                move(3f, 6f); line(13f, 6f); move(3f, 12f); line(10f, 12f); move(3f, 18f); line(7f, 18f)
-                move(18f, 4f); line(18f, 20f); move(14f, 16f); line(18f, 20f); line(22f, 16f)
-            }
-            AffairsAction.BACK -> { move(14f, 5f); line(7f, 12f); line(14f, 19f) }
-            AffairsAction.NEXT -> { move(10f, 5f); line(17f, 12f); line(10f, 19f) }
-            AffairsAction.CLOSE -> { move(6f, 6f); line(18f, 18f); move(18f, 6f); line(6f, 18f) }
-            AffairsAction.DELETE -> {
-                move(4f, 7f); line(20f, 7f); move(9f, 7f); line(9f, 3f); line(15f, 3f); line(15f, 7f)
-                move(6f, 7f); line(7f, 21f); line(17f, 21f); line(18f, 7f)
-                move(10f, 11f); line(10f, 17f); move(14f, 11f); line(14f, 17f)
-            }
-            AffairsAction.ADD -> { move(12f, 5f); line(12f, 19f); move(5f, 12f); line(19f, 12f) }
-            AffairsAction.DECREASE -> { move(5f, 12f); line(19f, 12f) }
-            AffairsAction.TASK -> {
-                move(3f, 5f); line(10f, 5f); line(10f, 12f); line(3f, 12f); line(3f, 5f)
-                move(5f, 8f); line(6f, 10f); line(9f, 6f); move(14f, 7f); line(21f, 7f)
-                move(14f, 11f); line(19f, 11f); move(3f, 17f); line(21f, 17f); move(3f, 21f); line(16f, 21f)
-            }
-            AffairsAction.LIST, AffairsAction.TASK_LIST -> {
-                for (y in listOf(5f, 12f, 19f)) {
-                    move(9f, y); line(21f, y)
-                    move(3f, y - 1f); line(4f, y + 1f); line(6f, y - 2f)
-                }
-            }
-            AffairsAction.BOARD -> {
-                for (x in listOf(3f, 10f, 17f)) {
-                    move(x, 4f); line(x + 4f, 4f); line(x + 4f, 20f); line(x, 20f); line(x, 4f)
-                    move(x, 9f); line(x + 4f, 9f)
-                }
-            }
-            AffairsAction.CALENDAR -> {
-                move(3f, 5f); line(21f, 5f); line(21f, 21f); line(3f, 21f); line(3f, 5f)
-                move(3f, 10f); line(21f, 10f); move(7f, 3f); line(7f, 7f); move(17f, 3f); line(17f, 7f)
-                for (x in listOf(8f, 16f)) for (y in listOf(14f, 18f))
-                    drawCircle(ink, .8f * unit, Offset(x * unit, y * unit))
-            }
-            AffairsAction.GANTT -> {
-                move(3f, 3f); line(3f, 21f); line(22f, 21f)
-                move(6f, 6f); line(14f, 6f); move(10f, 11f); line(19f, 11f)
-                move(14f, 16f); line(22f, 16f)
-            }
-            AffairsAction.PROJECT -> {
-                move(3f, 6f); line(10f, 6f); line(12f, 9f); line(21f, 9f); line(21f, 21f); line(3f, 21f); line(3f, 6f)
-                move(12f, 12f); line(12f, 18f); move(9f, 15f); line(15f, 15f)
-            }
-            AffairsAction.TEMPLATE -> {
-                move(8f, 3f); line(21f, 3f); line(21f, 17f); move(17f, 7f); line(3f, 7f); line(3f, 21f); line(17f, 21f); line(17f, 7f)
-                move(6f, 11f); line(13f, 11f); move(6f, 15f); line(11f, 15f)
-            }
-            AffairsAction.SUBTASK -> {
-                move(4f, 3f); line(4f, 15f); line(9f, 15f); move(7f, 12f); line(10f, 15f); line(7f, 18f)
-                move(12f, 11f); line(21f, 11f); line(21f, 21f); line(12f, 21f); line(12f, 11f)
-                move(14f, 5f); line(20f, 5f); move(17f, 2f); line(17f, 8f)
-            }
-            AffairsAction.IMPORT -> {
-                move(6f, 6f); line(6f, 3f); line(15f, 3f); line(20f, 8f); line(20f, 21f); line(6f, 21f); line(6f, 18f)
-                move(15f, 3f); line(15f, 8f); line(20f, 8f)
-                move(2f, 12f); line(13f, 12f); move(9f, 8f); line(13f, 12f); line(9f, 16f)
-            }
-            AffairsAction.HISTORY -> {
-                move(3f, 8f); curve(5f, 2f, 15f, 1f, 20f, 7f); curve(25f, 15f, 16f, 25f, 8f, 20f)
-                move(3f, 3f); line(3f, 8f); line(8f, 8f); move(12f, 7f); line(12f, 12f); line(16f, 15f)
-            }
-            AffairsAction.VIEW, AffairsAction.HIDE -> {
-                move(2f, 12f); curve(7f, 3f, 17f, 3f, 22f, 12f); curve(17f, 21f, 7f, 21f, 2f, 12f)
-                drawCircle(ink, 3f * unit, Offset(12f * unit, 12f * unit), style = Stroke(1.8f * unit))
-                if (action == AffairsAction.HIDE) { move(3f, 3f); line(21f, 21f) }
-            }
-            AffairsAction.MINDMAP -> {
-                move(9f, 9f); line(5.5f, 5.5f); move(15f, 9f); line(18.5f, 5.5f)
-                move(9f, 15f); line(5.5f, 18.5f); move(15f, 15f); line(18.5f, 18.5f)
-                for (x in listOf(4f, 20f)) for (y in listOf(4f, 20f))
-                    drawCircle(ink, 1.9f * unit, Offset(x * unit, y * unit), style = Stroke(1.8f * unit))
-                drawRoundRect(ink, Offset(9f * unit, 9f * unit), Size(6f * unit, 6f * unit),
-                    CornerRadius(1.8f * unit), style = Stroke(1.8f * unit))
-            }
-            AffairsAction.MOVE_UP, AffairsAction.MOVE_DOWN -> {
-                val up = action == AffairsAction.MOVE_UP
-                val tip = if (up) 4f else 20f
-                val tail = if (up) 20f else 4f
-                val shoulder = if (up) 9f else 15f
-                move(12f, tail); line(12f, tip)
-                move(7f, shoulder); line(12f, tip); line(17f, shoulder)
-            }
-            AffairsAction.UNDO, AffairsAction.RESTORE -> {
-                move(8f, 5f); line(3f, 10f); line(8f, 15f); move(3f, 10f)
-                curve(16f, 5f, 23f, 12f, 20f, 20f)
-            }
-            AffairsAction.REPORT -> {
-                move(4f, 3f); line(4f, 21f); line(21f, 21f)
-                move(8f, 16f); line(8f, 11f); move(13f, 16f); line(13f, 6f); move(18f, 16f); line(18f, 9f)
-            }
-            AffairsAction.EDIT -> {
-                move(3f, 21f); line(4f, 17f); line(17f, 4f); line(20f, 7f); line(7f, 20f); line(3f, 21f)
-                move(15f, 6f); line(18f, 9f)
-            }
-            AffairsAction.AUTOMATION -> {
-                move(13f, 2f); line(4f, 14f); line(11f, 14f); line(10f, 22f)
-                line(20f, 9f); line(13f, 9f); line(13f, 2f)
-            }
-            AffairsAction.PAUSE -> {
-                move(8f, 5f); line(8f, 19f); move(16f, 5f); line(16f, 19f)
-            }
-            AffairsAction.RESUME -> { move(7f, 4f); line(20f, 12f); line(7f, 20f); line(7f, 4f) }
-            AffairsAction.ARCHIVE -> {
-                move(4f, 9f); line(4f, 21f); line(20f, 21f); line(20f, 9f)
-                move(3f, 4f); line(21f, 4f); line(21f, 9f); line(3f, 9f); line(3f, 4f)
-                move(10f, 13f); line(14f, 13f)
-            }
-            AffairsAction.TIMER -> {
-                drawCircle(ink, 8f * unit, Offset(12f * unit, 13f * unit), style = Stroke(1.8f * unit))
-                move(10f, 2f); line(14f, 2f); move(12f, 2f); line(12f, 5f)
-                move(12f, 13f); line(15f, 10f)
-            }
-            AffairsAction.SETTINGS -> {
-                for ((y, x) in listOf(6f to 13f, 12f to 8f, 18f to 16f)) {
-                    move(3f, y); line(x - 3f, y); move(x + 3f, y); line(21f, y)
-                    drawCircle(ink, 2.5f * unit, Offset(x * unit, y * unit), style = Stroke(1.8f * unit))
-                }
-            }
-            AffairsAction.SEARCH -> {
-                drawCircle(ink, 6 * unit, Offset(10 * unit, 10 * unit), style = Stroke(1.8f * unit))
-                move(15f, 15f); line(21f, 21f)
-            }
-            AffairsAction.FILTER -> {
-                move(4f, 7f); line(20f, 7f); move(7f, 12f); line(17f, 12f); move(10f, 17f); line(14f, 17f)
-            }
-            AffairsAction.EXPAND -> { move(6f, 9f); line(12f, 15f); line(18f, 9f) }
-            AffairsAction.COLLAPSE -> { move(6f, 15f); line(12f, 9f); line(18f, 15f) }
-            AffairsAction.REFRESH -> {
-                move(20f, 8f); curve(18f, 2f, 10f, 1f, 6f, 5f); line(3f, 8f)
-                move(3f, 3f); line(3f, 8f); line(8f, 8f)
-                move(4f, 16f); curve(6f, 22f, 14f, 23f, 18f, 19f); line(21f, 16f)
-                move(21f, 21f); line(21f, 16f); line(16f, 16f)
-            }
-            AffairsAction.MOVE -> {
-                move(12f, 3f); line(12f, 21f); move(3f, 12f); line(21f, 12f)
-                move(9f, 6f); line(12f, 3f); line(15f, 6f)
-                move(9f, 18f); line(12f, 21f); line(15f, 18f)
-                move(6f, 9f); line(3f, 12f); line(6f, 15f)
-                move(18f, 9f); line(21f, 12f); line(18f, 15f)
-            }
-            AffairsAction.MORE -> for (y in listOf(5f, 12f, 19f)) {
-                drawCircle(ink, 1.6f * unit, Offset(12 * unit, y * unit))
-            }
-        }
-        drawPath(path, ink, style = Stroke(1.8f * unit, cap = StrokeCap.Round))
-    }
+    GenesisLucideIcon(action.lucideName(), modifier.size(24.dp))
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -282,13 +125,16 @@ internal enum class AffairsAction { BACK, NEXT, MORE, CLOSE, SEARCH, FILTER, SOR
 }
 
 @Composable internal fun AffairsSearchField(value: String, onChange: (String) -> Unit,
-    label: String, modifier: Modifier = Modifier) {
-    OutlinedTextField(value, onChange, label = { Text(label) }, singleLine = true,
+    label: String, modifier: Modifier = Modifier, labelAsPlaceholder: Boolean = false) {
+    val accessibleLabel = genesisTranslate(label)
+    OutlinedTextField(value, onChange, label = if (labelAsPlaceholder) null else ({ Text(label) }),
+        placeholder = if (labelAsPlaceholder) ({ Text(label) }) else null, singleLine = true,
         leadingIcon = { AffairsActionIcon(AffairsAction.SEARCH) },
         trailingIcon = if (value.isNotEmpty()) ({
             AffairsIconButton("Очистить поиск", AffairsAction.CLOSE, { onChange("") })
         }) else null,
-        shape = AffairsLayout.shape, modifier = modifier.fillMaxWidth())
+        shape = AffairsLayout.shape, modifier = modifier.fillMaxWidth()
+            .semantics { contentDescription = accessibleLabel })
 }
 
 @Composable internal fun AffairsFilterDialog(onDismiss: () -> Unit, onApply: () -> Unit,

@@ -1,0 +1,12 @@
+{
+  "appSource": "e79330368cb4cda5615aeb4031f72ce5e0b2afc6",
+  "debugApkSha256": "703697944e22b2e938cdf547f93dd95a1ec2084b1d0eee68b0b6021e24f6fa46",
+  "unitResults": {
+    "tests": 837,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 8
+  },
+  "deltaFromLayoutCheckpoint": "One missing thumbs-up resource mapping and its regression assertion; no layout changes.",
+  "testSource": "6d286f4683ad9d2b48279959575ea58a6f25abec"
+}

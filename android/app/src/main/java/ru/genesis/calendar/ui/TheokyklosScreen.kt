@@ -89,11 +89,13 @@ fun TheokyklosScreen(app: GenesisApplication, calendarMode: CalendarMode, onOpen
         return
     }
     val selected = selectedId?.let(data.byId::get)
+    val headerTitle = if (english) "Oracle · Theokyklos" else "Оракул · Теокиклос"
+    val headerDescription = if (english) "Circle of divine powers" else "Круг божественных сил"
+    val headerInShell = WorkspaceScreenHeader(headerTitle, headerDescription)
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val diagram: @Composable () -> Unit = {
-        GenesisPageHeader(if (english) "Oracle - Theokyklos" else "Оракул - Теокиклос",
-            if (english) "Fourteen powers: directions, axis, center and gates"
-            else "Четырнадцать сил: направления, ось, центр и врата", "Θ",
+        if (!headerInShell) GenesisPageHeader(if (english) "Oracle - Theokyklos" else "Оракул - Теокиклос",
+            headerDescription, "Θ",
             animatedMandala = true, icon = GenesisPageIcon.THEOKYKLOS)
         Text("Круг божественных сил", style = MaterialTheme.typography.titleLarge)
         Text("Коснитесь любого направления, полюса, очага, центра или врат.",
@@ -312,7 +314,7 @@ private fun TheokyklosDetail(sector: TheokyklosSector, practices: List<Theokyklo
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             Text("${index + 1}", color = MaterialTheme.colorScheme.primary)
                             Column {
-                                Text(word.greek, fontFamily = FontFamily.Serif,
+                                Text(word.greek, fontFamily = GenesisHeadingFont,
                                     style = MaterialTheme.typography.titleMedium)
                                 Text(if (english) "“${word.pronunciation.en}” · ${word.meaning.en}"
                                     else "«${word.pronunciation.ru}» · ${word.meaning.ru}",

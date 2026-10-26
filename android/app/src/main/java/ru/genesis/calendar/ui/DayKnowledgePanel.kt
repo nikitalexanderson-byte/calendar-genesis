@@ -132,7 +132,7 @@ private fun SacredCalendarCard(date: LocalDate, calendar: GenesisCalendar) {
                     color = Color(0xffdfc17e), fontWeight = FontWeight.Bold)
                 Text(copy.month, style = MaterialTheme.typography.titleMedium, color = Color(0xffdcc995))
                 Text(copy.title, style = MaterialTheme.typography.headlineSmall,
-                    color = Color(0xfffff7e7), fontFamily = FontFamily.Serif)
+                    color = Color(0xfffff7e7), fontFamily = GenesisHeadingFont)
                 copy.subtitle?.let { Text(it, style = MaterialTheme.typography.titleSmall, color = Color(0xffeee0bd)) }
                 Text(copy.description, style = MaterialTheme.typography.bodyMedium, color = Color(0xfff1eadc))
             }
@@ -156,7 +156,7 @@ private fun GregorianCalendarCard(date: LocalDate, calendar: GenesisCalendar, so
                     color = Color(0xffdfc17e), fontWeight = FontWeight.Bold)
                 Text(copy.month, style = MaterialTheme.typography.titleMedium, color = Color(0xffdcc995))
                 Text(copy.title, style = MaterialTheme.typography.headlineSmall,
-                    color = Color(0xfffff7e7), fontFamily = FontFamily.Serif)
+                    color = Color(0xfffff7e7), fontFamily = GenesisHeadingFont)
                 copy.subtitle?.let { Text(it, style = MaterialTheme.typography.titleSmall, color = Color(0xffeee0bd)) }
                 Text(copy.description, style = MaterialTheme.typography.bodyMedium, color = Color(0xfff1eadc))
                 copy.details.forEach { detail ->
@@ -196,7 +196,7 @@ private fun LunarCalendarCard(date: LocalDate, calendar: GenesisCalendar) {
                     Text("${moon.direction} · ${moon.day} день", style = MaterialTheme.typography.labelMedium,
                         color = Color(0xff9cafaa), fontWeight = FontWeight.Bold)
                     Text(moon.epithet, style = MaterialTheme.typography.headlineSmall,
-                        color = moonGold, fontFamily = FontFamily.Serif)
+                        color = moonGold, fontFamily = GenesisHeadingFont)
                     Text("${moon.phase} · освещённость ${moon.illumination}%",
                         style = MaterialTheme.typography.bodySmall, color = Color(0xffa9beb8))
                 }
@@ -210,7 +210,7 @@ private fun LunarCalendarCard(date: LocalDate, calendar: GenesisCalendar) {
             }
             HorizontalDivider(color = Color(0x287f9b94))
             Text("${lunar.month.roman} · ${lunar.month.name}", style = MaterialTheme.typography.titleMedium,
-                color = moonGold, fontFamily = FontFamily.Serif)
+                color = moonGold, fontFamily = GenesisHeadingFont)
             Text(lunar.month.title, style = MaterialTheme.typography.titleSmall, color = Color(0xffe8dfcc))
             Text(lunar.month.description, style = MaterialTheme.typography.bodySmall, color = Color(0xffa9beb8))
             Text("${lunar.decade}${if (lunar.isThreshold) " · Рубеж" else ""} · ${lunar.day} из ${lunar.monthLength} дней",
@@ -239,7 +239,7 @@ private fun MoonFastingCard(moon: MoonInfo) {
                     fontWeight = FontWeight.Bold)
                 Text(if (newMoon) "Сегодня новолуние" else "Сегодня полнолуние",
                     style = MaterialTheme.typography.titleLarge, color = Color(0xfffff7e7),
-                    fontFamily = FontFamily.Serif)
+                    fontFamily = GenesisHeadingFont)
                 Text("Это время хорошо подходит для аскезы, включая голодание на воде, если у вас нет к этому противопоказаний. При сомнениях заранее посоветуйтесь с врачом.",
                     style = MaterialTheme.typography.bodySmall, color = Color(0xffa9beb8))
             }
@@ -271,7 +271,7 @@ private fun ThreeRhythmsContent(date: LocalDate, calendar: GenesisCalendar) {
                     Text("САКРАЛЬНЫЙ КАЛЕНДАРЬ · СМЫСЛ ДНЯ", style = MaterialTheme.typography.labelMedium,
                         color = headerAccent, fontWeight = FontWeight.Bold)
                     Text("Три ритма в одной точке", style = MaterialTheme.typography.headlineSmall,
-                        color = headerInk, fontFamily = FontFamily.Serif)
+                        color = headerInk, fontFamily = GenesisHeadingFont)
                     Text("Пята, стихия и пифагорейский смысл выбранного сакрального дня.",
                         style = MaterialTheme.typography.bodySmall, color = headerInk)
                 }
@@ -303,11 +303,11 @@ private fun RhythmFactCard(fact: DayRhythmFact) {
         border = BorderStroke(1.dp, if(dark) MaterialTheme.colorScheme.secondary.copy(alpha=.5f) else Color(0x26b28a4a))) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(fact.symbol, style = MaterialTheme.typography.headlineMedium, color = if(dark) MaterialTheme.colorScheme.secondary else gold,
-                fontFamily = FontFamily.Serif)
+                fontFamily = GenesisHeadingFont)
             Text(fact.label, style = MaterialTheme.typography.labelSmall, color = if(dark) MaterialTheme.colorScheme.onSurfaceVariant else mutedInk,
                 fontWeight = FontWeight.Bold)
             Text(fact.title, style = MaterialTheme.typography.titleLarge, color = if(dark) MaterialTheme.colorScheme.onSurface else ink,
-                fontFamily = FontFamily.Serif)
+                fontFamily = GenesisHeadingFont)
             Text(fact.meaning, style = MaterialTheme.typography.bodySmall, color = if(dark) MaterialTheme.colorScheme.onSurfaceVariant else mutedInk)
         }
     }
@@ -378,7 +378,7 @@ private fun CalendarFactCard(tag: String, symbol: String, heading: String, title
         Row(Modifier.padding(14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.Top) {
             Text(symbol, style = MaterialTheme.typography.headlineSmall, color = accent,
-                fontFamily = FontFamily.Serif)
+                fontFamily = GenesisHeadingFont)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(heading, style = MaterialTheme.typography.labelMedium, color = accent,
                     fontWeight = FontWeight.Bold)

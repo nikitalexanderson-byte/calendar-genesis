@@ -1,0 +1,709 @@
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\auth\AuthSessionClient.kt:149: Warning: Consider using apply() instead; commit writes its data to persistent storage immediately, whereas apply will handle it in the background [ApplySharedPref]
+                preferences.edit().remove("session").commit()
+                                                     ~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\auth\AuthSessionClient.kt:169: Warning: Consider using apply() instead; commit writes its data to persistent storage immediately, whereas apply will handle it in the background [ApplySharedPref]
+            preferences.edit().remove("session").commit()
+                                                 ~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\reminders\ReminderScheduler.kt:150: Warning: Consider using apply() instead; commit writes its data to persistent storage immediately, whereas apply will handle it in the background [ApplySharedPref]
+        diagnosticStore.edit().putLong("scheduledAt", at).remove("deliveredAt").commit()
+                                                                                ~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\reminders\ReminderScheduler.kt:179: Warning: Consider using apply() instead; commit writes its data to persistent storage immediately, whereas apply will handle it in the background [ApplySharedPref]
+            diagnosticStore.edit().putLong("deliveredAt", System.currentTimeMillis()).commit()
+                                                                                      ~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\reminders\ReminderScheduler.kt:285: Warning: Consider using apply() instead; commit writes its data to persistent storage immediately, whereas apply will handle it in the background [ApplySharedPref]
+        registry.edit().putStringSet("alarms", scheduledUris).commit()
+                                                              ~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\reminders\ReminderScheduler.kt:366: Warning: Consider using apply() instead; commit writes its data to persistent storage immediately, whereas apply will handle it in the background [ApplySharedPref]
+                .putStringSet("deliveryTimes", (deliveryTimes + "$key\t$deliveredAt").takeLast(512).toSet()).commit()
+                                                                                                             ~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\reminders\ReminderScheduler.kt:423: Warning: Consider using apply() instead; commit writes its data to persistent storage immediately, whereas apply will handle it in the background [ApplySharedPref]
+        registry.edit().putStringSet("alarms", all - removed.toSet()).commit()
+                                                                      ~~~~~~~~
+
+   Explanation for issues of type "ApplySharedPref":
+   Consider using apply() instead of commit on shared preferences. Whereas
+   commit blocks and writes its data to persistent storage immediately, apply
+   will handle it in the background.
+
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\gradle\libs.versions.toml:2: Warning: A newer version of com.android.application than 9.4.0 is available: 9.4.1 [AndroidGradlePluginVersion]
+agp = "9.4.0"
+      ~~~~~~~
+
+   Explanation for issues of type "AndroidGradlePluginVersion":
+   This detector looks for usage of the Android Gradle Plugin where the
+   version you are using is not the current stable release. Using older
+   versions is fine, and there are cases where you deliberately want to stick
+   with an older version. However, you may simply not be aware that a more
+   recent version is available, and that is what this lint check helps find.
+
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\build.gradle.kts:174: Warning: A newer version of androidx.core:core than 1.18.0 is available: 1.19.1 [GradleDependency]
+    implementation("androidx.core:core:1.18.0")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\build.gradle.kts:184: Warning: A newer version of androidx.datastore:datastore-preferences than 1.2.1 is available: 1.3.0 [GradleDependency]
+    implementation("androidx.datastore:datastore-preferences:1.2.1")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\build.gradle.kts:188: Warning: A newer version of com.google.android.libraries.identity.googleid:googleid than 1.1.1 is available: 1.2.1 [GradleDependency]
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\build.gradle.kts:189: Warning: A newer version of com.google.android.gms:play-services-auth than 21.6.0 is available: 22.0.0 [GradleDependency]
+    implementation("com.google.android.gms:play-services-auth:21.6.0")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\build.gradle.kts:198: Warning: A newer version of androidx.test.uiautomator:uiautomator than 2.3.0 is available: 2.4.0 [GradleDependency]
+    androidTestImplementation("androidx.test.uiautomator:uiautomator:2.3.0")
+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\gradle\libs.versions.toml:5: Warning: A newer version of androidx.compose:compose-bom than 2026.06.00 is available: 2026.09.00 [GradleDependency]
+compose = "2026.06.00"
+          ~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\gradle\libs.versions.toml:8: Warning: A newer version of androidx.work:work-runtime-ktx than 2.11.2 is available: 2.12.0 [GradleDependency]
+work = "2.11.2"
+       ~~~~~~~~
+
+   Explanation for issues of type "GradleDependency":
+   This detector looks for usages of libraries where the version you are using
+   is not the current stable release. Using older versions is fine, and there
+   are cases where you deliberately want to stick with an older version.
+   However, you may simply not be aware that a more recent version is
+   available, and that is what this lint check helps find.
+
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\build.gradle.kts:191: Warning: A newer version of com.yandex.android:authsdk than 3.1.3 is available: 3.3.0 [NewerVersionAvailable]
+    implementation("com.yandex.android:authsdk:3.1.3")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\build.gradle.kts:195: Warning: A newer version of org.json:json than 20250517 is available: 20260814 [NewerVersionAvailable]
+    testImplementation("org.json:json:20250517")
+                       ~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\gradle\libs.versions.toml:3: Warning: A newer version of org.jetbrains.kotlin.plugin.compose than 2.2.10 is available: 2.4.21 [NewerVersionAvailable]
+kotlin = "2.2.10"
+         ~~~~~~~~
+
+   Explanation for issues of type "NewerVersionAvailable":
+   This detector checks with a central repository to see if there are newer
+   versions available for the dependencies used by this project. This is
+   similar to the GradleDependency check, which checks for newer versions
+   available in the Android SDK tools and libraries, but this works with any
+   MavenCentral dependency, and connects to the library every time, which
+   makes it more flexible but also much slower.
+
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\TaskRecurrenceEditor.kt:72: Warning: Composable functions with a return type should start with a lowercase letter [ComposableNaming from androidx.compose.runtime]
+internal fun TaskRecurrenceEditor(value: RecurrenceConfig, startDate: String, inputMode: CalendarMode,
+             ~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "ComposableNaming":
+   @Composable functions without a return type should use similar naming to
+   classes, starting with an uppercase letter and ending with a noun.
+   @Composable functions with a return type should be treated as normal Kotlin
+   functions, starting with a lowercase letter.
+
+   Vendor: Jetpack Compose
+   Identifier: androidx.compose.runtime
+   Feedback: https://issuetracker.google.com/issues/new?component=612128
+
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\AdaptiveWorkspace.kt:20: Warning: Using Configuration.screenHeightDp instead of LocalWindowInfo.current.containerSize [ConfigurationScreenWidthHeight from androidx.compose.ui]
+@Composable internal fun compactWindowHeight(): Boolean = LocalConfiguration.current.screenHeightDp < 480
+                                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\GenesisApp.kt:305: Warning: Using Configuration.screenWidthDp instead of LocalWindowInfo.current.containerSize [ConfigurationScreenWidthHeight from androidx.compose.ui]
+    val compactHeader = isLandscape || configuration.screenWidthDp >= 600
+                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\GenesisApp.kt:306: Warning: Using Configuration.screenWidthDp instead of LocalWindowInfo.current.containerSize [ConfigurationScreenWidthHeight from androidx.compose.ui]
+    val navigationOnLeft = shouldUseNavigationRail(configuration.screenWidthDp,
+                                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\HabitsScreen.kt:471: Warning: Using Configuration.screenHeightDp instead of LocalWindowInfo.current.containerSize [ConfigurationScreenWidthHeight from androidx.compose.ui]
+        val confirmationHeight=(LocalConfiguration.current.screenHeightDp*0.4f).coerceAtLeast(64f).dp
+                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\MobileWorkspaceShell.kt:72: Warning: Using Configuration.screenWidthDp instead of LocalWindowInfo.current.containerSize [ConfigurationScreenWidthHeight from androidx.compose.ui]
+            val width = (LocalConfiguration.current.screenWidthDp - 40).coerceAtMost(344).dp
+                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\SharedTeamReportScreen.kt:82: Warning: Using Configuration.screenWidthDp instead of LocalWindowInfo.current.containerSize [ConfigurationScreenWidthHeight from androidx.compose.ui]
+    val compactHeader = LocalConfiguration.current.screenWidthDp < 720
+                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "ConfigurationScreenWidthHeight":
+   Configuration.screenWidthDp and Configuration.screenHeightDp have different
+   insets behaviour depending on target SDK version, and are rounded to the
+   nearest Dp. This means that using these values in composition to size a
+   layout can result in issues, as these values do not accurately represent
+   the actual available window size. Instead it is recommended to use
+   WindowInfo.containerSize which accurately represents the window size.
+
+   Vendor: Jetpack Compose
+   Identifier: androidx.compose.ui
+   Feedback: https://issuetracker.google.com/issues/new?component=612128
+
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\SharedProjectsScreen.kt:102: Warning: Reading Resources using LocalContext.current.resources [LocalContextResourcesRead from androidx.compose.ui]
+    val discussionWindowHeight=androidx.compose.ui.platform.LocalContext.current.resources.displayMetrics.heightPixels
+                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "LocalContextResourcesRead":
+   Changes to the Configuration object will not cause
+   LocalContext.current.resources reads to be invalidated, so calls to APIs
+   such as Resources.getString() will not be updated when the Configuration
+   changes. Instead, use LocalResources.current to retrieve the Resources -
+   this will invalidate callers when the Configuration changes, to ensure that
+   these calls reflect the latest values.
+
+   Vendor: Jetpack Compose
+   Identifier: androidx.compose.ui
+   Feedback: https://issuetracker.google.com/issues/new?component=612128
+
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\androidTest\java\ru\genesis\calendar\CalendarMobileLayoutTest.kt:34: Warning: Modifier factory functions should be extensions on Modifier [ModifierFactoryExtensionFunction from androidx.compose.ui]
+    private fun viewportModifier() = Modifier.safeDrawingPadding().heightIn(max = 760.dp).then(
+                ~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\ConnectedNavigation.kt:194: Warning: Modifier factory functions should be extensions on Modifier [ModifierFactoryExtensionFunction from androidx.compose.ui]
+@Composable internal fun navigationParentAnchor(page: String): Modifier {
+                         ~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\ConnectedNavigation.kt:205: Warning: Modifier factory functions should be extensions on Modifier [ModifierFactoryExtensionFunction from androidx.compose.ui]
+@Composable internal fun navigationViewportAnchor(): Modifier {
+                         ~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\ConnectedNavigation.kt:210: Warning: Modifier factory functions should be extensions on Modifier [ModifierFactoryExtensionFunction from androidx.compose.ui]
+@Composable internal fun navigationSubmenuAnchor(id: String): Modifier {
+                         ~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\ConnectedNavigation.kt:219: Warning: Modifier factory functions should be extensions on Modifier [ModifierFactoryExtensionFunction from androidx.compose.ui]
+@Composable internal fun navigationSubmenuGroupAnchor(): Modifier {
+                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "ModifierFactoryExtensionFunction":
+   Modifier factory functions should be defined as extension functions on
+   Modifier to allow modifiers to be fluently chained.
+
+   Vendor: Jetpack Compose
+   Identifier: androidx.compose.ui
+   Feedback: https://issuetracker.google.com/issues/new?component=612128
+
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\AuthorControls.kt:182: Warning: Modifier parameter should be the first optional parameter [ModifierParameter from androidx.compose.ui]
+    placeholder: String? = null, modifier: Modifier = Modifier, onChange: (String) -> Unit) {
+                                 ~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\GenesisLucideIcons.kt:15: Warning: Optional Modifier parameter should have a default value of Modifier [ModifierParameter from androidx.compose.ui]
+fun GenesisLucideIcon(name: String, modifier: Modifier = Modifier.size(24.dp),
+                                    ~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\MenuSwipeNavigation.kt:136: Warning: Modifier parameter should be the first optional parameter [ModifierParameter from androidx.compose.ui]
+    modifier: Modifier = Modifier, content: @Composable (SwipeDestination) -> Unit) {
+    ~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\SolarTimeUi.kt:65: Warning: Modifier parameter should be the first optional parameter [ModifierParameter from androidx.compose.ui]
+    modifier: Modifier = Modifier) {
+    ~~~~~~~~
+
+   Explanation for issues of type "ModifierParameter":
+   The first (or only) Modifier parameter in a Composable function should
+   follow the following rules:
+   - Be named modifier
+   - Have a type of Modifier
+   - Either have no default value, or have a default value of Modifier
+   - If optional, be the first optional parameter in the parameter list
+
+   Vendor: Jetpack Compose
+   Identifier: androidx.compose.ui
+   Feedback: https://issuetracker.google.com/issues/new?component=612128
+
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\HabitHistoryPanel.kt:99: Warning: Creating a MutableState object with a mutable collection type [MutableCollectionMutableState from androidx.compose.runtime]
+    var times by rememberSaveable { mutableStateOf(ArrayList(original?.completedTimes.orEmpty())) }
+                                    ~~~~~~~~~~~~~~
+
+   Explanation for issues of type "MutableCollectionMutableState":
+   Writes to mutable collections inside a MutableState will not cause a
+   recomposition - only writes to the MutableState itself will. In most cases
+   you should either use a read-only collection (such as List or Map) and
+   assign a new instance to the MutableState when your data changes, or you
+   can use an snapshot-backed collection such as SnapshotStateList or
+   SnapshotStateMap which will correctly cause a recomposition when their
+   contents are modified.
+
+   Vendor: Jetpack Compose
+   Identifier: androidx.compose.runtime
+   Feedback: https://issuetracker.google.com/issues/new?component=612128
+
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\AndroidManifest.xml:28: Warning: The attribute android:allowBackup is deprecated from Android 12 and higher and may be removed in future versions. Consider adding the attribute android:dataExtractionRules specifying an @xml resource which configures cloud backups and device transfers on Android 12 and higher. [DataExtractionRules]
+    <application
+    ^
+
+   Explanation for issues of type "DataExtractionRules":
+   Before Android 12, the attributes android:allowBackup and
+   android:fullBackupContent were used to configure all forms of backup,
+   including cloud backups, device-to-device transfers and adb backup.
+
+   In Android 12 and higher, these attributes have been deprecated and will
+   only apply to cloud backups. You should instead use the attribute
+   android:dataExtractionRules, specifying an @xml resource that configures
+   which files to back up, for cloud backups and for device-to-device
+   transfers, separately. If your minSdkVersion supports older versions,
+   you'll still want to specify an android:fullBackupContent resource if the
+   default behavior is not right for your app.
+
+   https://developer.android.com/about/versions/12/backup-restore#xml-changes
+   https://goo.gle/DataExtractionRules
+
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\AndroidUpdatePrompt.kt:185: Warning: Unnecessary; SDK_INT is always >= 26 [ObsoleteSdkInt]
+                    if (Build.VERSION.SDK_INT >= 26 && !context.packageManager.canRequestPackageInstalls()) {
+                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\res\mipmap-anydpi-v26: Warning: This folder configuration (v26) is unnecessary; minSdkVersion is 26. Merge all the resources in this folder into mipmap-anydpi. [ObsoleteSdkInt]
+
+   Explanation for issues of type "ObsoleteSdkInt":
+   This check flags version checks that are not necessary, because the
+   minSdkVersion (or surrounding known API level) is already at least as high
+   as the version checked for.
+
+   Similarly, it also looks for resources in -vNN folders, such as values-v14
+   where the version qualifier is less than or equal to the minSdkVersion,
+   where the contents should be merged into the best folder.
+
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\DataImportState.kt:36: Hint: Prefer mutableIntStateOf instead of mutableStateOf [AutoboxingStateCreation from androidx.compose.runtime]
+    var revision by mutableStateOf(0); private set
+                    ~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\SharedAutomationEditorState.kt:38: Hint: Prefer mutableIntStateOf instead of mutableStateOf [AutoboxingStateCreation from androidx.compose.runtime]
+    var version by mutableStateOf(0); private set
+                   ~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\SharedAutomationsState.kt:33: Hint: Prefer mutableLongStateOf instead of mutableStateOf [AutoboxingStateCreation from androidx.compose.runtime]
+    var observedAt by mutableStateOf(0L); private set
+                      ~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\SharedBulkState.kt:26: Hint: Prefer mutableIntStateOf instead of mutableStateOf [AutoboxingStateCreation from androidx.compose.runtime]
+    var version by mutableStateOf(0); private set
+                   ~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\SharedBulkState.kt:40: Hint: Prefer mutableLongStateOf instead of mutableStateOf [AutoboxingStateCreation from androidx.compose.runtime]
+    var after by mutableStateOf(0L); private set
+                 ~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\SharedBulkState.kt:47: Hint: Prefer mutableIntStateOf instead of mutableStateOf [AutoboxingStateCreation from androidx.compose.runtime]
+    var optionEpoch by mutableStateOf(0); private set
+                       ~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\SharedFieldEditorState.kt:31: Hint: Prefer mutableIntStateOf instead of mutableStateOf [AutoboxingStateCreation from androidx.compose.runtime]
+    var version by mutableStateOf(0); private set
+                   ~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\SharedTemplateState.kt:43: Hint: Prefer mutableIntStateOf instead of mutableStateOf [AutoboxingStateCreation from androidx.compose.runtime]
+    var inputVersion by mutableStateOf(0); private set
+                        ~~~~~~~~~~~~~~
+
+   Explanation for issues of type "AutoboxingStateCreation":
+   Calling mutableStateOf<T>() when T is either backed by a primitive type on
+   the JVM or is a value class results in a state implementation that requires
+   all state values to be boxed. This usually causes an additional allocation
+   for each state write, and adds some additional work to auto-unbox values
+   when reading the value of the state. Instead, prefer to use a specialized
+   primitive state implementation for Int, Long, Float, and Double when the
+   state does not need to track null values and does not override the default
+   SnapshotMutationPolicy. See mutableIntStateOf(), mutableLongStateOf(),
+   mutableFloatStateOf(), and mutableDoubleStateOf() for more information.
+
+   Vendor: Jetpack Compose
+   Identifier: androidx.compose.runtime
+   Feedback: https://issuetracker.google.com/issues/new?component=612128
+
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\res\raw\genesis_habit_notification.wav: Warning: The resource R.raw.genesis_habit_notification appears to be unused [UnusedResources]
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\res\raw\genesis_task_notification.wav: Warning: The resource R.raw.genesis_task_notification appears to be unused [UnusedResources]
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\res\values\strings.xml:3: Warning: The resource R.string.native_stage appears to be unused [UnusedResources]
+    <string name="native_stage">Первый нативный этап</string>
+            ~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\res\values\strings.xml:4: Warning: The resource R.string.native_title appears to be unused [UnusedResources]
+    <string name="native_title">Календарь GENESIS</string>
+            ~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\res\values\strings.xml:5: Warning: The resource R.string.native_status appears to be unused [UnusedResources]
+    <string name="native_status">Базовый экран работает на Kotlin и Jetpack Compose.</string>
+            ~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "UnusedResources":
+   Unused resources make applications larger and slow down builds.
+
+
+   The unused resource check can ignore tests. If you want to include
+   resources that are only referenced from tests, consider packaging them in a
+   test source set instead.
+
+   You can include test sources in the unused resource check by setting the
+   system property lint.unused-resources.include-tests=true, and to exclude
+   them (usually for performance reasons), use
+   lint.unused-resources.exclude-tests=true.
+
+   Available options:
+
+   **skip-libraries** (default is true):
+   Whether the unused resource check should skip reporting unused resources in libraries.
+
+   Many libraries will declare resources that are part of the library surface; other modules depending on the library will also reference the resources. To avoid reporting all these resources as unused (in the context of a library), the unused resource check normally skips reporting unused resources in libraries. Instead, run the unused resource check on the consuming app module (along with `checkDependencies=true`).
+
+   However, there are cases where you want to check that all the resources declared in a library are used; in that case, you can disable the skip option.
+
+   To configure this option, use a `lint.xml` file with an <option> like this:
+
+   ```xml
+   <lint>
+       <issue id="UnusedResources">
+           <option name="skip-libraries" value="true" />
+       </issue>
+   </lint>
+   ```
+
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\build.gradle.kts:78: Warning: If enabling minification, also set isShrinkResources = true [NotShrinkingResources]
+            isMinifyEnabled = true
+            ~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "NotShrinkingResources":
+   When minification / dex optimization is enabled, you should also enable
+   resource shrinking, since it enables considerable download and storage
+   savings, and optimizes your app's resource table.
+
+   https://developer.android.com/topic/performance/app-optimization/enable-app-optimization
+
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\res\mipmap-xxxhdpi\ic_launcher.png: Warning: Launcher icon used as round icon did not have a circular shape [IconLauncherShape]
+
+   Explanation for issues of type "IconLauncherShape":
+   According to the Android Design Guide
+   (https://d.android.com/r/studio-ui/designer/material/iconography) your
+   launcher icons should "use a distinct silhouette", a "three-dimensional,
+   front view, with a slight perspective as if viewed from above, so that
+   users perceive some depth."
+
+   The unique silhouette implies that your launcher icon should not be a
+   filled square.
+
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\AndroidUpdatePrompt.kt:178: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+                        Uri.parse("https://play.google.com/store/apps/details?id=ru.genesis.calendar"))
+                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\AndroidUpdatePrompt.kt:187: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+                            Uri.parse("package:${context.packageName}"))
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\AndroidUpdatePrompt.kt:200: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+                        val request = DownloadManager.Request(Uri.parse(
+                                                              ^
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\auth\AuthPanel.kt:121: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("${AUTH_ORIGIN}/privacy"))
+                                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\auth\AuthPanel.kt:268: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                        ~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\auth\AuthSessionClient.kt:106: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+            install.edit().putString("id", it).apply()
+            ~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\auth\AuthSessionClient.kt:149: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+                preferences.edit().remove("session").commit()
+                ~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\auth\AuthSessionClient.kt:169: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+            preferences.edit().remove("session").commit()
+            ~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\CalendarScreen.kt:1157: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+                { springSuggestionDismissed = true; suggestionPrefs.edit().putBoolean("spring-year-dismissed", true).apply() },
+                                                    ~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\GenesisApp.kt:1937: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+                app.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,Uri.parse("package:${app.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                                                                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\GenesisApplication.kt:20: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        check(getSharedPreferences("genesis.reminder.scope.v1", MODE_PRIVATE).edit()
+              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\auth\GoogleServicesPanel.kt:71: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+            offers.edit().putBoolean(userId, true).apply()
+            ~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\HabitPersonalizationFields.kt:118: Warning: Use the KTX extension function String.toColorInt instead? [UseKtx]
+                color = Color(android.graphics.Color.parseColor(option)),
+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\reminders\HabitReminderFrequency.kt:16: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+    check(context.getSharedPreferences("genesis_habit_reminder_preferences", Context.MODE_PRIVATE).edit()
+          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\HabitSettingsPanel.kt:178: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+                            android.net.Uri.parse("package:${app.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\data\HabitTimerWorkspace.kt:21: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        check(preferences.edit().putString("id", id).commit()) { "HABIT_TIMER_DEVICE_STORAGE_FAILED" }
+              ~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\MindmapPdf.kt:23: Warning: Use the KTX extension function Canvas.withTranslation instead? [UseKtx]
+        canvas.save();canvas.translate(x,y);layout.draw(canvas);canvas.restore();return layout.height
+        ~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\MindmapPdf.kt:25: Warning: Use the KTX extension function String.toColorInt instead? [UseKtx]
+    fun color(value:String?,fallback:Int)=runCatching {if(value!=null&&Regex("#[a-fA-F0-9]{6}").matches(value))Color.parseColor(value) else fallback}.getOrDefault(fallback)
+                                                                                                               ~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\MindmapPdf.kt:35: Warning: Use the KTX extension function Canvas.withClip instead? [UseKtx]
+        map.nodes.forEach {node->val p=points.getValue(node.id);val fill=color(node.style?.optString("fill"),Color.rgb(255,253,248));val rect=android.graphics.RectF(p.first,p.second,p.first+220,p.second+84);canvas.drawRoundRect(rect,12f,12f,Paint().apply {this.color=fill});stroke.color=color(node.style?.optString("border"),Color.rgb(37,91,89));canvas.drawRoundRect(rect,12f,12f,stroke);ink.color=if(androidx.core.graphics.ColorUtils.calculateLuminance(fill)>.179)Color.BLACK else Color.WHITE;canvas.save();canvas.clipRect(rect);text(canvas,titles[node.id].orEmpty().take(120),p.first+12,p.second+12,196,14f);canvas.restore()}
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              ~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\MindmapsScreen.kt:315: Warning: Use the KTX extension function String.toColorInt instead? [UseKtx]
+private fun mapColor(hex:String?,fallback:Color):Color=if(hex!=null&&Regex("#[a-fA-F0-9]{6}").matches(hex))Color(android.graphics.Color.parseColor(hex)) else fallback
+                                                                                                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\reminders\MoonReminderScheduler.kt:78: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        storage.edit().putStringSet("alarms", scheduled).apply()
+        ~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\reminders\MoonReminderScheduler.kt:128: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+            storage.edit().putStringSet("delivered", (delivered + key).toList().takeLast(256).toSet()).apply()
+            ~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\auth\MultiAccountPanel.kt:55: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("${AUTH_ORIGIN}/?account_link=1#settings")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\auth\MultiAccountPanel.kt:96: Warning: Use the KTX extension function String.toColorInt instead? [UseKtx]
+                            val color = runCatching { Color(AndroidColor.parseColor(category.color)) }
+                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\NotificationAccess.kt:49: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+            asked.edit().putBoolean("requested", true).apply()
+            ~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\NotificationBatterySettings.kt:9: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))
+                                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\PersonalInboxLayout.kt:19: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().putBoolean("$key:hidden", next.hidden).putBoolean("$key:bottom", next.atBottom).apply()
+        ~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\PersonalProjectTransferDialog.kt:128: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+                    check(prefs.edit().putString(key, it).commit()) { "Не удалось сохранить идентификатор переноса." }
+                          ~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\PersonalProjectTransferDialog.kt:142: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+                prefs.edit().remove(key).apply()
+                ~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\auth\PlanningDraftStore.kt:13: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        check(preferences.edit().clear().commit()) { "PLANNING_DRAFT_STORAGE" }
+              ~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\auth\PlanningDraftStore.kt:19: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        if (!preferences.edit().putString(key, cipher.encrypt(value, key)).commit()) {
+             ~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\auth\PlanningDraftStore.kt:26: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        if (!preferences.edit().remove(key).commit()) {
+             ~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\auth\PlanningDraftStore.kt:33: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        runCatching { preferences.edit().apply { if (previous == null) remove(key) else putString(key, previous) }.commit() }
+                      ~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\ProjectsScreen.kt:51: Warning: Use the KTX extension function String.toColorInt instead? [UseKtx]
+    val original=runCatching { android.graphics.Color.parseColor(value) }.getOrDefault(0xff2d6c68.toInt())
+                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\ReleaseNotes.kt:157: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().putInt("seenVersionCode", BuildConfig.VERSION_CODE).apply()
+        ~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\reminders\ReminderScheduler.kt:70: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        context.getSharedPreferences("genesis.notification.locale.v1", Context.MODE_PRIVATE)
+        ^
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\reminders\ReminderScheduler.kt:81: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+                taskChannelId -> Uri.parse("android.resource://${context.packageName}/raw/genesis_task_notification")
+                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\reminders\ReminderScheduler.kt:82: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+                habitChannelId -> Uri.parse("android.resource://${context.packageName}/raw/genesis_habit_notification")
+                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\reminders\ReminderScheduler.kt:150: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        diagnosticStore.edit().putLong("scheduledAt", at).remove("deliveredAt").commit()
+        ~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\reminders\ReminderScheduler.kt:179: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+            diagnosticStore.edit().putLong("deliveredAt", System.currentTimeMillis()).commit()
+            ~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\reminders\ReminderScheduler.kt:227: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        diagnosticStore.edit().putLong("lastRecoveryAt", System.currentTimeMillis()).apply()
+        ~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\reminders\ReminderScheduler.kt:264: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+                data = Uri.parse(raw)
+                       ~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\reminders\ReminderScheduler.kt:264: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+                data = Uri.parse(raw)
+                       ~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\reminders\ReminderScheduler.kt:287: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        diagnosticStore.edit().putLong("lastRecoveryAt", System.currentTimeMillis()).apply()
+        ~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\reminders\ReminderScheduler.kt:297: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+            action = "ru.genesis.calendar.HABIT_NOTIFICATION"; data = Uri.parse(raw)
+                                                                      ~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\reminders\ReminderScheduler.kt:297: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+            action = "ru.genesis.calendar.HABIT_NOTIFICATION"; data = Uri.parse(raw)
+                                                                      ~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\reminders\ReminderScheduler.kt:367: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+            diagnosticStore.edit().putLong("lastDeliveryAt", System.currentTimeMillis()).apply()
+            ~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\reminders\ReminderScheduler.kt:387: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+            deliveredAt != null && Uri.parse(record.substringBeforeLast('\t')).pathSegments.firstOrNull() == scope
+                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\reminders\ReminderScheduler.kt:412: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        check(registry.edit().putStringSet("snoozes", next).putStringSet("snoozeRequests", (receipts + requestId).toList().takeLast(256).toSet()).commit())
+              ~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\reminders\ReminderScheduler.kt:423: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        registry.edit().putStringSet("alarms", all - removed.toSet()).commit()
+        ~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\reminders\ReminderScheduler.kt:425: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+            it.tag?.let { tag -> Uri.parse(tag).authority == "habit-reminder" && Uri.parse(tag).pathSegments.firstOrNull() == scope } == true
+                                 ~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\reminders\ReminderScheduler.kt:425: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+            it.tag?.let { tag -> Uri.parse(tag).authority == "habit-reminder" && Uri.parse(tag).pathSegments.firstOrNull() == scope } == true
+                                                                                 ~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\reminders\ReminderScheduler.kt:461: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+            diagnosticStore.edit().putLong("lastDeliveryAt", System.currentTimeMillis()).apply()
+            ~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\SharedInvitationNotices.kt:38: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        store.edit().putStringSet(userId, hidden.takeLastIds()).apply()
+        ~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\auth\SharedOfflineStore.kt:17: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        check(preferences.edit().putString(key, cipher.encrypt(value, key)).commit()) {
+              ~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\auth\SharedOfflineStore.kt:59: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        val editor = preferences.edit()
+                     ~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\auth\SharedOfflineStore.kt:65: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        val editor = preferences.edit()
+                     ~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\SharedProjectsScreen.kt:167: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+            calendarPreferences.edit().putString("calendarMode", calendarMode.wireValue).apply()
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\SharedProjectsScreen.kt:791: Warning: Use the KTX extension function String.toColorInt instead? [UseKtx]
+                                onClick = { newCategoryColor = color }, label = { Text("●", color = Color(android.graphics.Color.parseColor(color))) }) }
+                                                                                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\SharedProjectsScreen.kt:957: Warning: Use the KTX extension function String.toColorInt instead? [UseKtx]
+                        label = { Text("●", color = Color(android.graphics.Color.parseColor(color))) }) }
+                                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\SharedProjectsScreen.kt:1100: Warning: Use the KTX extension function String.toColorInt instead? [UseKtx]
+                                        Text("●", color = Color(android.graphics.Color.parseColor(color)))
+                                                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\SharedProjectsScreen.kt:1499: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+                            calendarPreferences.edit().putString("calendarMode", mode.wireValue).apply()
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\SharedTaskCreateDialog.kt:135: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+                                        preferences.edit().putString("calendarMode", mode.wireValue).apply()
+                                        ~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\SharedTemplateProjects.kt:24: Warning: Use the KTX extension function String.toColorInt instead? [UseKtx]
+                Canvas(Modifier.size(14.dp)) { drawCircle(Color(android.graphics.Color.parseColor(hex))) }
+                                                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\reminders\SleepReminderScheduler.kt:83: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        storage.edit().putStringSet("alarms",keys).apply()
+        ~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\reminders\SleepReminderScheduler.kt:124: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+            storage.edit().putStringSet("delivered",(delivered+key).toList().takeLast(256).toSet()).apply()
+            ~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\SolarPlaceStore.kt:52: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().putString(KEY, data.toString()).apply()
+        ~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\SolarPlaceStore.kt:55: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+    fun clear(prefs: SharedPreferences) { prefs.edit().remove(KEY).apply() }
+                                          ~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\SolarPlaceStore.kt:88: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+                prefs.edit().putString(AUTO_KEY, JSONObject()
+                ~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\TaskListDisplay.kt:45: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+    return value to { next->value=next;prefs.edit().putString(key,next.wire).apply() }
+                                       ~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\TaskListDisplay.kt:107: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+                prefs.edit().putStringSet(key,comments.map { it.optString("id") }.toSet()).apply()
+                ~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\TodayAdPanel.kt:171: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+            prefs.edit().putLong("$userId:${ad.id}", System.currentTimeMillis()).apply()
+            ~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\TodayAdPanel.kt:195: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+                    Button(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(ad.linkUrl))
+                                                                                        ~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\TrackersScreen.kt:125: Warning: Use the KTX extension function String.toColorInt instead? [UseKtx]
+                        val moodColor = mood?.let { Color(android.graphics.Color.parseColor(
+                                                          ^
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\ui\WelcomeScreen.kt:345: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+        Uri.parse("${ru.genesis.calendar.auth.AUTH_ORIGIN}/")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\src\main\java\ru\genesis\calendar\auth\YandexCalendarFirstRunDialog.kt:54: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+            offers.edit().putBoolean(userId, true).apply()
+            ~~~~~~~~~~~~~
+
+   Explanation for issues of type "UseKtx":
+   The Android KTX libraries decorates the Android platform SDK as well as
+   various libraries with more convenient extension functions available from
+   Kotlin, allowing you to use default parameters, named parameters, and
+   more.
+
+   Available options:
+
+   **remove-defaults** (default is true):
+   Whether to skip arguments that match the defaults provided by the extension.
+
+   Extensions often provide default values for some of the parameters. For example:
+   ```kotlin
+   fun Path.readLines(charset: Charset = Charsets.UTF_8): List<String> { return Files.readAllLines(this, charset) }
+   ```
+   This lint check will by default automatically omit parameters that match the default, so if your code was calling
+
+   ```kotlin
+   Files.readAllLines(file, Charset.UTF_8)
+   ```
+   lint would replace this with
+   ```kotlin
+   file.readLines()
+   ```
+   rather than
+
+   ```kotlin
+   file.readLines(Charset.UTF_8
+   ```
+   You can turn this behavior off using this option.
+
+   To configure this option, use a `lint.xml` file with an <option> like this:
+
+   ```xml
+   <lint>
+       <issue id="UseKtx">
+           <option name="remove-defaults" value="true" />
+       </issue>
+   </lint>
+   ```
+
+   **require-present** (default is true):
+   Whether to only offer extensions already available.
+
+   This option lets you only have lint suggest extension replacements if those extensions are already available on the class path (in other words, you're already depending on the library containing the extension method.)
+
+   To configure this option, use a `lint.xml` file with an <option> like this:
+
+   ```xml
+   <lint>
+       <issue id="UseKtx">
+           <option name="require-present" value="true" />
+       </issue>
+   </lint>
+   ```
+
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\build.gradle.kts:173: Warning: Use version catalog instead [UseTomlInstead]
+    implementation("androidx.activity:activity-compose:1.13.0")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\build.gradle.kts:174: Warning: Use version catalog instead [UseTomlInstead]
+    implementation("androidx.core:core:1.18.0")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\build.gradle.kts:175: Warning: Use version catalog instead [UseTomlInstead]
+    implementation("androidx.browser:browser:1.10.0")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\build.gradle.kts:176: Warning: Use version catalog instead [UseTomlInstead]
+    implementation("androidx.compose.material3:material3")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\build.gradle.kts:177: Warning: Use version catalog instead [UseTomlInstead]
+    implementation("androidx.compose.ui:ui-tooling-preview")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\build.gradle.kts:178: Warning: Use version catalog instead [UseTomlInstead]
+    debugImplementation("androidx.compose.ui:ui-tooling")
+                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\build.gradle.kts:184: Warning: Use version catalog instead [UseTomlInstead]
+    implementation("androidx.datastore:datastore-preferences:1.2.1")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\build.gradle.kts:185: Warning: Use version catalog instead [UseTomlInstead]
+    implementation("androidx.credentials:credentials:1.6.0")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\build.gradle.kts:186: Warning: Use version catalog instead [UseTomlInstead]
+    implementation("androidx.credentials:credentials-play-services-auth:1.6.0")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\build.gradle.kts:188: Warning: Use version catalog instead [UseTomlInstead]
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\build.gradle.kts:189: Warning: Use version catalog instead [UseTomlInstead]
+    implementation("com.google.android.gms:play-services-auth:21.6.0")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\build.gradle.kts:190: Warning: Use version catalog instead [UseTomlInstead]
+    implementation("com.google.android.play:app-update-ktx:2.1.0")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\build.gradle.kts:191: Warning: Use version catalog instead [UseTomlInstead]
+    implementation("com.yandex.android:authsdk:3.1.3")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\build.gradle.kts:193: Warning: Use version catalog instead [UseTomlInstead]
+    implementation("org.jetbrains.kotlin:kotlin-parcelize-runtime:2.2.10")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\build.gradle.kts:194: Warning: Use version catalog instead [UseTomlInstead]
+    testImplementation("junit:junit:4.13.2")
+                       ~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\build.gradle.kts:195: Warning: Use version catalog instead [UseTomlInstead]
+    testImplementation("org.json:json:20250517")
+                       ~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\build.gradle.kts:196: Warning: Use version catalog instead [UseTomlInstead]
+    androidTestImplementation("androidx.test:runner:1.7.0")
+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\build.gradle.kts:197: Warning: Use version catalog instead [UseTomlInstead]
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\build.gradle.kts:198: Warning: Use version catalog instead [UseTomlInstead]
+    androidTestImplementation("androidx.test.uiautomator:uiautomator:2.3.0")
+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\build.gradle.kts:200: Warning: Use version catalog instead [UseTomlInstead]
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\android\app\build.gradle.kts:201: Warning: Use version catalog instead [UseTomlInstead]
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4-accessibility")
+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "UseTomlInstead":
+   If your project is using a libs.versions.toml file, you should place all
+   Gradle dependencies in the TOML file. This lint check looks for version
+   declarations outside of the TOML file and suggests moving them (and in the
+   IDE, provides a quickfix to performing the operation automatically).
+
+0 errors, 143 warnings, 8 hints

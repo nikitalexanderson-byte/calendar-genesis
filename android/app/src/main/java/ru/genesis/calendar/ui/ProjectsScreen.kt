@@ -1,12 +1,12 @@
 package ru.genesis.calendar.ui
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -24,6 +24,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
@@ -82,37 +83,8 @@ internal fun projectBreadcrumb(projects: List<GenesisProject>, projectId: String
     return path.asReversed().joinToString(" › ")
 }
 
-private data class TaskPickup(val id: String, val title: String, val originId: String?, val position: Offset)
-
-@Composable
-private fun TaskDragHandle(task: LocalTask) {
-    val ink = MaterialTheme.colorScheme.primary
-    val dragDescription = genesisTranslate("Ручка переноса задачи ${task.title}")
-    Surface(
-        modifier = Modifier.size(48.dp)
-            .semantics { contentDescription = dragDescription },
-        shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.primaryContainer
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Canvas(Modifier.size(22.dp)) {
-                for (column in 0..1) for (row in 0..2)
-                    drawCircle(ink, radius = 2.dp.toPx(),
-                        center = Offset(size.width * (0.35f + column * 0.3f), size.height * (0.25f + row * 0.25f)))
-            }
-        }
-    }
-}
-
-@Composable
-private fun ProjectTaskDeleteButton(task: LocalTask, onClick: () -> Unit) {
-    val action = genesisTranslate("Удалить задачу")
-    IconButton(onClick = onClick, modifier = Modifier.size(48.dp)
-        .testTag("project-delete-task-${task.id}")
-        .semantics { contentDescription = "$action ${task.title}" }) {
-        Text("×", style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.error)
-    }
-}
+private data class TaskPickup(val id: String, val title: String, val originId: String?, val position: Offset,
+    val list: GoogleTaskList? = null)
 
 /** Pick-up-and-move stays inside the Projects workspace and gives the finger a visible task preview. */
 @Composable
@@ -140,8 +112,32 @@ private fun DraggableTaskRow(task: LocalTask, pickedUp: Boolean,
             )
         }
         .background(if (pickedUp) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+        .clip(AffairsLayout.shape)
+        .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+        .border(BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), AffairsLayout.shape)
+        .padding(4.dp)
         .graphicsLayer { alpha = if (pickedUp) .48f else 1f },
         verticalAlignment = Alignment.CenterVertically, content = content)
+}
+
+@Composable
+private fun DraggableWorkspaceBlock(id: String, title: String, pickedUp: Boolean,
+    onStart: (Offset) -> Unit, onMove: (Offset) -> Unit, onFinish: (Boolean) -> Unit,
+    content: @Composable () -> Unit) {
+    var bounds by remember(id) { mutableStateOf(Rect.Zero) }
+    val start by rememberUpdatedState(onStart)
+    val move by rememberUpdatedState(onMove)
+    val finish by rememberUpdatedState(onFinish)
+    val haptics = LocalHapticFeedback.current
+    val label = genesisTranslate("Удерживайте «$title» и перетащите в проект")
+    Box(Modifier.fillMaxWidth().testTag("drag-block-$id").semantics { contentDescription = label }
+        .onGloballyPositioned { bounds = it.boundsInRoot() }
+        .pointerInput(id) {
+            detectDragGesturesAfterLongPress(onDragStart = {
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress); start(bounds.topLeft + it)
+            }, onDrag = { change, delta -> change.consume(); move(delta) },
+                onDragEnd = { finish(false) }, onDragCancel = { finish(true) })
+        }.graphicsLayer { alpha = if (pickedUp) .48f else 1f }) { content() }
 }
 
 /** One native screen adapted from the web Projects workspace. Standart uses its existing Material roles. */
@@ -175,16 +171,17 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
     val orderedTasks=remember(tasks,taskSort){orderPersonalTasks(tasks,taskSort)}
     var searchQuery by rememberSaveable(app.workspaceScope) { mutableStateOf("") }
     var createActionsOpen by remember { mutableStateOf(false) }
+    var categoryFiltersOpen by rememberSaveable(app.workspaceScope) { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    var localSelectedCategory by remember { mutableStateOf<String?>(null) }
+    var localSelectedCategory by rememberSaveable(app.workspaceScope) { mutableStateOf<String?>(null) }
     val selectedCategory = if (menuSwipeState == null) localSelectedCategory
         else menuSwipeState.projects.takeUnless { it == "all" }
     fun selectCategory(id: String?) {
         localSelectedCategory = id
         menuSwipeState?.projects = id ?: "all"
     }
-    var selectedProject by remember { mutableStateOf<String?>(null) }
-    var openedListId by remember { mutableStateOf<String?>(null) }
+    var selectedProject by rememberSaveable(app.workspaceScope) { mutableStateOf<String?>(null) }
+    var openedListId by rememberSaveable(app.workspaceScope) { mutableStateOf<String?>(null) }
     var editing by remember { mutableStateOf<GenesisProject?>(null) }
     var deleteCandidate by remember { mutableStateOf<GenesisProject?>(null) }
     var deleteTaskCandidate by remember { mutableStateOf<LocalTask?>(null) }
@@ -195,7 +192,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
     var editingCategory by remember { mutableStateOf<GenesisCategory?>(null) }
     var deleteCategoryCandidate by remember { mutableStateOf<GenesisCategory?>(null) }
     var categoryEditor by remember { mutableStateOf(false) }
-    var categoriesExpanded by remember { mutableStateOf(false) }
+    var categoriesExpanded by rememberSaveable(app.workspaceScope) { mutableStateOf(false) }
     val listState = rememberLazyListState()
     var error by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(voiceRequest,structure.revision) {
@@ -286,7 +283,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
     val language = LocalGenesisLanguage.current
     val projectCount = structure.projects.size
     val activeCount = tasks.count { !it.done }
-    val projectSummary = mobileCalendarCopy(language).projectSummary(projectCount, activeCount)
+    val projectSummary = mobileCalendarCopy(language).let { "${it.projects}: $projectCount\n${it.activeTasks}: $activeCount" }
     val moveTask: (String, String) -> Unit = { taskId, targetId ->
         scope.launch {
             try {
@@ -307,14 +304,6 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
             catch (_: Exception) { error = "Не удалось перенести задачу. Повторите попытку." }
         }
     }
-    val listCard: @Composable (GoogleTaskList) -> Unit = { list ->
-        PersonalTaskListCard(list, orderedTasks.filter { it.belongsToList(list) &&
-            personalTaskProjectId(it, structure) == listProjectId(list) }, structure, use24,
-            onCreateListTask, onCompleteTask, onOpenTask, onUpdateList, onDeleteList,
-            initialExpanded = openedListId == list.id,
-            deleteTaskCount = tasks.count { it.belongsToList(list) },
-            voiceRequest = voiceRequest, onVoiceRequestConsumed = onVoiceRequestConsumed)
-    }
     val onPickup: (LocalTask, Offset) -> Unit = { task, point ->
         dropBounds.clear()
         pickup = TaskPickup(task.id, task.title, task.projectId, point)
@@ -323,18 +312,79 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
     val onRelease: (Boolean) -> Unit = { cancelled ->
         if (!cancelled) pickup?.let { held ->
             dropBounds.entries.firstOrNull { it.value.contains(held.position) }?.let { (id, _) ->
-                moveTask(held.id, id)
+                if (held.list == null) moveTask(held.id, id) else {
+                    val list = held.list
+                    val origin = listProjectId(list)
+                    scope.launch {
+                        try {
+                            val target = structure.projects.firstOrNull { it.id == id }
+                            require(id == inboxDropId || target != null) { "Проект больше не существует." }
+                            tasks.filter { it.belongsToList(list) && personalTaskProjectId(it, structure) == origin }.forEach { task ->
+                                app.repository.save(task.copy(projectId = target?.id ?: inboxDropId,
+                                    categoryId = target?.categoryId, project = target?.title.orEmpty()))
+                            }
+                            repo.linkTaskList(list.id, target?.id)
+                            moveAnnouncement = "«${list.title}» перенесён в «${target?.title ?: "Хаос-бокс"}»."
+                            error = null
+                        } catch (cancel: kotlinx.coroutines.CancellationException) { throw cancel }
+                        catch (e: Exception) { error = e.message ?: "Не удалось перенести список. Повторите попытку." }
+                    }
+                }
             }
         }
         pickup = null
         dropBounds.clear()
     }
 
+    val listCard: @Composable (GoogleTaskList) -> Unit = { list ->
+        DraggableWorkspaceBlock("list-${list.id}", list.title, pickup?.list?.id == list.id,
+            onStart = { point ->
+                dropBounds.clear()
+                pickup = TaskPickup("list-${list.id}", list.title, listProjectId(list), point, list)
+            }, onMove = onDrag, onFinish = onRelease) {
+        PersonalTaskListCard(list, orderedTasks.filter { it.belongsToList(list) &&
+            personalTaskProjectId(it, structure) == listProjectId(list) }, structure, use24,
+            onCreateListTask, onCompleteTask, onOpenTask, onUpdateList, onDeleteList,
+            initialExpanded = openedListId == list.id,
+            deleteTaskCount = tasks.count { it.belongsToList(list) },
+            voiceRequest = voiceRequest, onVoiceRequestConsumed = onVoiceRequestConsumed,
+            taskWrapper = { task, content ->
+                DraggableWorkspaceBlock(task.id, task.title, pickup?.id == task.id,
+                    { onPickup(task, it) }, onDrag, onRelease, content)
+            })
+        }
+    }
+
+    val headerActions: @Composable () -> Unit = {
+                    Box {
+                        WorkspaceHeaderButton(genesisTranslate("Создать или открыть"), "personal-actions",
+                            onClick = { createActionsOpen = true }) { GenesisLucideIcon("plus") }
+                        DropdownMenu(createActionsOpen, { createActionsOpen = false }) {
+                            DropdownMenuItem(text = { Text("Создать задачу") }, onClick = {
+                                createActionsOpen = false; onCreateTask(null)
+                            }, modifier = Modifier.testTag("personal-create-task"))
+                            DropdownMenuItem(text = { Text("Создать список") }, onClick = {
+                                createActionsOpen = false; onCreateList()
+                            }, modifier = Modifier.testTag("personal-create-list"))
+                            DropdownMenuItem(text = { Text("Создать проект") }, onClick = {
+                                createActionsOpen = false; creating = true; editing = null; error = null
+                            }, modifier = Modifier.testTag("create-project"))
+                            HorizontalDivider()
+                            DropdownMenuItem(text = { Text(if (inboxLayout.hidden) "Показать хаос-бокс" else "Скрыть хаос-бокс") },
+                                leadingIcon = { AffairsActionIcon(if (inboxLayout.hidden) AffairsAction.VIEW else AffairsAction.HIDE) },
+                                onClick = {
+                                    createActionsOpen = false; setInboxLayout(inboxLayout.copy(hidden = !inboxLayout.hidden))
+                                }, modifier = Modifier.testTag("personal-toggle-inbox"))
+                        }
+                    }
+    }
+    val headerInShell = WorkspaceScreenHeader("Личные дела", projectSummary, headerActions)
+
     Box(Modifier.fillMaxSize().onGloballyPositioned { workspaceBounds = it.boundsInRoot() }) {
     val inboxContent: @Composable () -> Unit = {
         InboxProjectCard(inbox, structure.projects, experimental, pickup?.id,
             onPickup, onDrag, onRelease, onOpenTask, moveTask,
-            onDeleteClick = { deleteTaskCandidate = it }, listCount = inboxLists.size,
+            onDeleteClick = { deleteTaskCandidate = it }, onCompleteTask = onCompleteTask, listCount = inboxLists.size,
             atBottom = inboxLayout.atBottom,
             onMove = {
                 val atBottom = !inboxLayout.atBottom
@@ -346,7 +396,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
         }
     }
     val categoriesContent: @Composable () -> Unit = {
-            Card(Modifier.fillMaxWidth().testTag("life-categories-card"), shape = RoundedCornerShape(20.dp),
+            Card(Modifier.fillMaxWidth().testTag("life-categories-card"), shape = RoundedCornerShape(10.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                 Column {
@@ -356,9 +406,6 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
                         Column(Modifier.weight(1f).padding(end = 8.dp),
                             verticalArrangement = Arrangement.spacedBy(3.dp)) {
                             Text("Категории жизни", style = MaterialTheme.typography.titleMedium)
-                            Text(genesisTranslate("Выберите категорию, чтобы отфильтровать проекты."),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         TextButton(onClick = { categoriesExpanded = !categoriesExpanded },
                             modifier = Modifier.heightIn(min = 48.dp).testTag("manage-categories")) {
@@ -381,7 +428,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
                                 Text("Добавить категорию")
                             }
                             structure.categories.sortedBy { it.position }.forEach { category ->
-                                Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp),
+                                Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp),
                                     color = MaterialTheme.colorScheme.surfaceContainerLowest,
                                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                                     Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
@@ -410,44 +457,18 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
                 }
             }
     }
-    LazyColumn(state = listState, modifier = Modifier.fillMaxSize().testTag("projects-screen"), contentPadding = PaddingValues(16.dp),
+    LazyColumn(state = listState, modifier = Modifier.fillMaxSize().testTag("projects-screen"), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 92.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item(key = "personal-controls") {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                AffairsPageHeader("Личные дела", projectSummary, contextIsUserContent = true) {
-                    Box {
-                        AffairsIconButton("Дополнительные действия", AffairsAction.MORE,
-                            { createActionsOpen = true }, Modifier.testTag("personal-actions"))
-                        DropdownMenu(createActionsOpen, { createActionsOpen = false }) {
-                            DropdownMenuItem(text = { Text("Создать задачу") }, onClick = {
-                                createActionsOpen = false; onCreateTask(null)
-                            }, modifier = Modifier.testTag("personal-create-task"))
-                            DropdownMenuItem(text = { Text("Создать список") }, onClick = {
-                                createActionsOpen = false; onCreateList()
-                            }, modifier = Modifier.testTag("personal-create-list"))
-                            DropdownMenuItem(text = { Text("Создать проект") }, onClick = {
-                                createActionsOpen = false; creating = true; editing = null; error = null
-                            }, modifier = Modifier.testTag("create-project"))
-                            HorizontalDivider()
-                            DropdownMenuItem(text = { Text(if (inboxLayout.hidden) "Показать хаос-бокс" else "Скрыть хаос-бокс") },
-                                leadingIcon = { AffairsActionIcon(if (inboxLayout.hidden) AffairsAction.VIEW else AffairsAction.HIDE) },
-                                onClick = {
-                                    createActionsOpen = false; setInboxLayout(inboxLayout.copy(hidden = !inboxLayout.hidden))
-                                }, modifier = Modifier.testTag("personal-toggle-inbox"))
-                        }
-                    }
-                }
-                FilledTonalButton(onClick = { onMindmaps(null) }, modifier = Modifier.fillMaxWidth()
-                    .testTag("personal-mindmaps")) {
+                if (!headerInShell) AffairsPageHeader("Личные дела", projectSummary, contextIsUserContent = true) { headerActions() }
+                Button(onClick = { onMindmaps(null) }, Modifier.fillMaxWidth().heightIn(min = 56.dp)
+                    .testTag("personal-mindmaps"), shape = AffairsLayout.shape,
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary)) {
                     AffairsActionIcon(AffairsAction.MINDMAP)
                     Spacer(Modifier.width(10.dp))
-                    Text("Майндмепы")
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    AffairsSearchField(searchQuery, { searchQuery = it.take(200) }, "Поиск задач",
-                        Modifier.weight(1f).testTag("personal-task-search"))
-                    TaskListSortChoice(taskSort, setTaskSort, Modifier, compact = true, iconOnly = true)
+                    Text("Майндмепы", style = MaterialTheme.typography.titleMedium)
                 }
                 if (inboxLayout.hidden) OutlinedButton(onClick = { setInboxLayout(inboxLayout.copy(hidden = false)) },
                     modifier = Modifier.fillMaxWidth().testTag("personal-show-inbox")) {
@@ -479,18 +500,21 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
         items(visible, key = { it.first.id }) { (project, depth) ->
             val count = tasksByProject[project.id].orEmpty().size
             Surface(onClick = { selectedProject = if (selectedProject == project.id) null else project.id },
-                color = if (experimental && selectedProject == project.id) Color(0xffe4eeea)
+                color = if (selectedProject == project.id) MaterialTheme.colorScheme.surfaceContainerLow
                 else MaterialTheme.colorScheme.surface, shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.fillMaxWidth().testTag("project-drop-${project.id}"),
                 tonalElevation = if (experimental) 0.dp else 1.dp) {
                 Column(Modifier.fillMaxWidth()
                     .padding(start = (16 + depth.coerceAtMost(5) * 14).dp, end = 16.dp, top = 14.dp, bottom = 14.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        GenesisVectorIcon(GenesisPageIcon.PROJECTS, Modifier.size(24.dp), MaterialTheme.colorScheme.primary)
                         androidx.compose.material3.Text(if (experimental) projectHierarchyLabel(project.title, depth)
                             else projectTreeLabel(project.title, depth), Modifier.weight(1f),
                             style = MaterialTheme.typography.titleMedium)
                         Text("$count", style = MaterialTheme.typography.labelLarge)
+                        AffairsActionIcon(if (selectedProject == project.id) AffairsAction.COLLAPSE else AffairsAction.EXPAND)
                     }
                     val category = structure.categories.firstOrNull { it.id == project.categoryId }
                     category?.let {
@@ -519,32 +543,47 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
                         projectLists.forEach { list -> key(list.accountId, list.id) { listCard(list) } }
                         tasksByProject[project.id].orEmpty().filterNot { task -> projectLists.any { task.belongsToList(it) } }.forEach { task ->
                             DraggableTaskRow(task, pickup?.id == task.id, onPickup, onDrag, onRelease) {
-                                if (experimental) {
-                                    TaskDragHandle(task)
-                                    TextButton(onClick = { onOpenTask(task.id) }, modifier = Modifier.weight(1f)) {
-                                        TaskTitle(task)
+                                val completionLabel = genesisTranslate(if (task.done) "Вернуть задачу" else "Выполнить задачу")
+                                Checkbox(task.done, { onCompleteTask(task) }, Modifier.size(48.dp)
+                                    .semantics { contentDescription = completionLabel })
+                                TextButton(onClick = { onOpenTask(task.id) }, modifier = Modifier.weight(1f),
+                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)) {
+                                    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.Start) {
+                                        TaskTitle(task, maxLines = 3, completedColor = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        if (task.date.isNotBlank()) Text(task.date, style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
-                                    TaskDestinationMenu(task, structure.projects, moveTask)
-                                    ProjectTaskDeleteButton(task) { deleteTaskCandidate = task }
-                                } else {
-                                    TextButton(onClick = { onOpenTask(task.id) }, modifier = Modifier.weight(1f)) {
-                                        TaskTitle(task)
-                                    }
-                                    ProjectTaskDeleteButton(task) { deleteTaskCandidate = task }
                                 }
+                                TaskDestinationMenu(task, structure.projects, moveTask,
+                                    onDelete = { deleteTaskCandidate = task })
                             }
                         }
-                        TextButton(onClick = { onCreateTask(project.id) }) { Text("Создать задачу в проекте") }
-                        TextButton(onClick = { onMindmaps(project.id) }) { Text("Майндмепы проекта") }
-                        TextButton(onClick = { editing = project; creating = true; error = null }) { Text("Изменить проект") }
-                        if (sharedController != null) TextButton(onClick = { transferProject = project },
-                            modifier = Modifier.testTag("transfer-project-${project.id}")) {
-                            Text(if (language == "en") "Move to shared" else "Переместить в общие")
-                        }
-                        TextButton(onClick = { deleteCandidate = project },
-                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                            modifier = Modifier.testTag("delete-project-${project.id}")) {
-                            Text("Удалить проект")
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TextButton(onClick = { onCreateTask(project.id) }, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
+                                AffairsActionIcon(AffairsAction.ADD)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Добавить задачу")
+                            }
+                            var projectActionsOpen by remember(project.id) { mutableStateOf(false) }
+                            Box {
+                                AffairsIconButton("Действия с проектом", AffairsAction.MORE, { projectActionsOpen = true })
+                                DropdownMenu(projectActionsOpen, { projectActionsOpen = false }) {
+                                    DropdownMenuItem(text = { Text("Майндмепы проекта") }, onClick = { projectActionsOpen = false; onMindmaps(project.id) },
+                                        leadingIcon = { AffairsActionIcon(AffairsAction.MINDMAP) })
+                                    DropdownMenuItem(text = { Text("Изменить проект") }, onClick = {
+                                        projectActionsOpen = false; editing = project; creating = true; error = null
+                                    }, leadingIcon = { AffairsActionIcon(AffairsAction.EDIT) })
+                                    if (sharedController != null) DropdownMenuItem(text = { Text("Переместить в общие") },
+                                        modifier = Modifier.testTag("transfer-project-${project.id}"),
+                                        onClick = { projectActionsOpen = false; transferProject = project },
+                                        leadingIcon = { AffairsActionIcon(AffairsAction.MOVE) })
+                                    DropdownMenuItem(text = { Text("Удалить проект", color = MaterialTheme.colorScheme.error) },
+                                        modifier = Modifier.testTag("delete-project-${project.id}"),
+                                        onClick = { projectActionsOpen = false; deleteCandidate = project },
+                                        leadingIcon = { AffairsActionIcon(AffairsAction.DELETE) })
+                                }
+                            }
                         }
                     }
                 }
@@ -555,11 +594,17 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
         error?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.error) } }
         moveAnnouncement?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.testTag("project-move-announcement")) } }
-        item {
-            Text("Проекты, задачи и списки объединены в личных делах.",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    WorkspaceSearchDock(searchQuery, { searchQuery = it }, "Поиск задач", "personal-task-search",
+        Modifier.align(Alignment.BottomCenter)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TaskListSortChoice(taskSort, setTaskSort, Modifier.weight(1f), compact = true)
+            AffairsIconButton("Категории жизни", AffairsAction.FILTER,
+                { categoryFiltersOpen = !categoryFiltersOpen }, Modifier.testTag("personal-category-filters"),
+                selected = categoryFiltersOpen || selectedCategory != null)
         }
-        if (searchQuery.isBlank()) item(key = "life-categories") { categoriesContent() }
+        if (categoryFiltersOpen || categoriesExpanded) categoriesContent()
     }
     pickup?.let { held ->
         ProjectDropOverlay(held, structure.projects, experimental, workspaceBounds, dropBounds)
@@ -671,12 +716,13 @@ private fun InboxProjectCard(inbox: List<LocalTask>, projects: List<GenesisProje
     pickedUpId: String?,
     onPickup: (LocalTask, Offset) -> Unit, onDrag: (Offset) -> Unit, onRelease: (Boolean) -> Unit,
     onOpenTask: (String) -> Unit,
-    onMoveTask: (String, String) -> Unit, onDeleteClick: (LocalTask) -> Unit,
+    onMoveTask: (String, String) -> Unit, onDeleteClick: (LocalTask) -> Unit, onCompleteTask: (LocalTask) -> Unit,
     listCount: Int = 0, atBottom: Boolean, onMove: () -> Unit, onHide: () -> Unit,
     listsContent: @Composable () -> Unit = {}) {
-    val background = if (experimental) Color(0xff103632) else MaterialTheme.colorScheme.surface
-    val foreground = if (experimental) Color(0xfff8f3e8) else MaterialTheme.colorScheme.onSurface
-    val secondary = if (experimental) Color(0xffb8ccc5) else MaterialTheme.colorScheme.onSurfaceVariant
+    val background = MaterialTheme.colorScheme.surfaceContainerLow
+    val foreground = MaterialTheme.colorScheme.onSurface
+    val secondary = MaterialTheme.colorScheme.onSurfaceVariant
+    var inboxActionsOpen by remember { mutableStateOf(false) }
     Surface(
         modifier = Modifier.fillMaxWidth().testTag("project-inbox"),
         shape = MaterialTheme.shapes.medium, color = background,
@@ -692,28 +738,35 @@ private fun InboxProjectCard(inbox: List<LocalTask>, projects: List<GenesisProje
                         style = MaterialTheme.typography.bodySmall)
                 }
                 CompositionLocalProvider(LocalContentColor provides foreground) {
-                    AffairsIconButton(if (atBottom) "Переместить хаос-бокс вверх" else "Переместить хаос-бокс вниз",
-                        if (atBottom) AffairsAction.MOVE_UP else AffairsAction.MOVE_DOWN, onMove,
-                        Modifier.testTag("personal-move-inbox"), contentColor = foreground)
-                    AffairsIconButton("Скрыть хаос-бокс", AffairsAction.HIDE, onHide,
-                        Modifier.testTag("personal-hide-inbox"), contentColor = foreground)
+                    Box {
+                        AffairsIconButton("Действия с хаос-боксом", AffairsAction.MORE, { inboxActionsOpen = true })
+                        DropdownMenu(inboxActionsOpen, { inboxActionsOpen = false }) {
+                            DropdownMenuItem(text = { Text(if (atBottom) "Переместить вверх" else "Переместить вниз") },
+                                leadingIcon = { AffairsActionIcon(if (atBottom) AffairsAction.MOVE_UP else AffairsAction.MOVE_DOWN) },
+                                modifier = Modifier.testTag("personal-move-inbox"), onClick = { inboxActionsOpen = false; onMove() })
+                            DropdownMenuItem(text = { Text("Скрыть хаос-бокс") }, leadingIcon = { AffairsActionIcon(AffairsAction.HIDE) },
+                                modifier = Modifier.testTag("personal-hide-inbox"), onClick = { inboxActionsOpen = false; onHide() })
+                        }
+                    }
                 }
             }
-            if (experimental) Text("Удерживайте задачу и перетащите её в проект. Здесь можно вернуть задачу обратно.",
+            if (experimental) Text("Удерживайте задачу для переноса в проект.",
                 color = secondary, style = MaterialTheme.typography.bodySmall)
             run {
                 if (inbox.isEmpty() && listCount == 0) Text("Задач без проекта пока нет.", color = secondary,
                     style = MaterialTheme.typography.bodyMedium)
                 inbox.forEach { task ->
                     DraggableTaskRow(task, pickedUpId == task.id, onPickup, onDrag, onRelease) {
-                        TaskDragHandle(task)
+                        val completionLabel = genesisTranslate(if (task.done) "Вернуть задачу" else "Выполнить задачу")
+                        Checkbox(task.done, { onCompleteTask(task) }, Modifier.size(48.dp)
+                            .semantics { contentDescription = completionLabel })
                         TextButton(onClick = { onOpenTask(task.id) }, modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
                             colors = ButtonDefaults.textButtonColors(contentColor = foreground)) {
                             TaskTitle(task, maxLines = 2,
-                                completedColor = if (experimental) Color(0xffaab3b0) else completedTaskInk)
+                                completedColor = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        TaskDestinationMenu(task, projects, onMoveTask, foreground)
-                        ProjectTaskDeleteButton(task) { onDeleteClick(task) }
+                        TaskDestinationMenu(task, projects, onMoveTask, foreground, onDelete = { onDeleteClick(task) })
                     }
                 }
                 listsContent()
@@ -724,12 +777,23 @@ private fun InboxProjectCard(inbox: List<LocalTask>, projects: List<GenesisProje
 
 @Composable
 private fun TaskDestinationMenu(task: LocalTask, projects: List<GenesisProject>,
-    onMoveTask: (String, String) -> Unit, tint: Color = MaterialTheme.colorScheme.primary) {
+    onMoveTask: (String, String) -> Unit, tint: Color = MaterialTheme.colorScheme.primary,
+    onDelete: (() -> Unit)? = null) {
     var open by remember(task.id) { mutableStateOf(false) }
+    var actionsOpen by remember(task.id) { mutableStateOf(false) }
     var query by remember(task.id) { mutableStateOf("") }
-    TextButton(onClick = { query = ""; open = true }, modifier = Modifier.testTag("move-task-${task.id}"),
-        colors = ButtonDefaults.textButtonColors(contentColor = tint)) {
-        Text(if (task.projectId == null) "В проект" else "Перенести")
+    val taskActionsLabel = genesisTranslate("Действия с задачей") + ": " + task.title
+    Box {
+        AffairsIconButton(taskActionsLabel, AffairsAction.MORE, { actionsOpen = true }, contentColor = tint)
+        DropdownMenu(actionsOpen, { actionsOpen = false }) {
+            DropdownMenuItem(text = { Text("Переместить задачу") }, leadingIcon = { AffairsActionIcon(AffairsAction.MOVE) },
+                modifier = Modifier.testTag("move-task-${task.id}"),
+                onClick = { actionsOpen = false; query = ""; open = true })
+            if (onDelete != null) DropdownMenuItem(text = { Text("Удалить задачу", color = MaterialTheme.colorScheme.error) },
+                leadingIcon = { AffairsActionIcon(AffairsAction.DELETE) },
+                modifier = Modifier.testTag("project-delete-task-${task.id}"),
+                onClick = { actionsOpen = false; onDelete() })
+        }
     }
     if (open) Dialog(onDismissRequest = { open = false }) {
         Surface(shape = MaterialTheme.shapes.large) {
@@ -812,7 +876,7 @@ private fun BoxScope.ProjectDropOverlay(held: TaskPickup, projects: List<Genesis
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Переносим «${held.title}»", color = parchment,
                 style = MaterialTheme.typography.titleMedium, maxLines = 2)
-            Text("Отпустите задачу над нужным проектом", color = gold,
+            Text(if (held.list == null) "Отпустите задачу над нужным проектом" else "Отпустите список над нужным проектом", color = gold,
                 style = MaterialTheme.typography.bodySmall)
             Column(Modifier.fillMaxWidth().weight(1f).onGloballyPositioned {
                     targetListBounds = it.boundsInRoot()

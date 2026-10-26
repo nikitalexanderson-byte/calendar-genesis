@@ -1,0 +1,14 @@
+
+ru.genesis.calendar.ui.DiaryScreenTest:....
+ru.genesis.calendar.ui.MessagingScreenTest:..
+ru.genesis.calendar.data.DiaryRoomStoreTest:.
+ru.genesis.calendar.ui.AssistantPlanRecoveryTest:...
+ru.genesis.calendar.data.AdminDraftRepositoryTest:.
+ru.genesis.calendar.ui.NativeAdminParityTest:..
+ru.genesis.calendar.security.MessagingInteropTest:.
+
+Time: 84.45
+
+OK (14 tests)
+
+

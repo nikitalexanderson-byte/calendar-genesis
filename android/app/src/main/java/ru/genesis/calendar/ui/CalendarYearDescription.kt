@@ -42,7 +42,7 @@ private data class YearMetric(val value: String, val label: String)
 
 @Composable
 internal fun CalendarYearDescriptionCard(calendar: GenesisCalendar, shown: LocalDate, mode: CalendarMode,
-    gregorianYearStartsInMarch: Boolean = false) {
+    gregorianYearStartsInMarch: Boolean = false, onOpenDate: (LocalDate) -> Unit = {}) {
     if (!LocalSacredFeaturesEnabled.current) return
     val language = LocalGenesisLanguage.current
     val context = LocalContext.current
@@ -55,6 +55,7 @@ internal fun CalendarYearDescriptionCard(calendar: GenesisCalendar, shown: Local
     val lunarYear = remember(sacredYear) { calendar.lunarYear(sacredYear) }
     val lunarDays = ChronoUnit.DAYS.between(lunarYear.startDate, lunarYear.endDate).toString()
     var detailsOpen by rememberSaveable { mutableStateOf(false) }
+    var modelOpen by rememberSaveable { mutableStateOf(false) }
 
     val title: String
     val eyebrow: String
@@ -138,11 +139,25 @@ internal fun CalendarYearDescriptionCard(calendar: GenesisCalendar, shown: Local
                     MaterialText(paragraphs.last(), style = MaterialTheme.typography.bodyMedium, color = yearCardMuted)
                     SacredYearDetailsButton(copy("Подробнее", "Learn more"),
                         copy("Сакральная геометрия времени", "Sacred geometry of time")) { detailsOpen = true }
+                    OutlinedButton(onClick = { modelOpen = true }, modifier = Modifier.fillMaxWidth()
+                        .heightIn(min = 60.dp).testTag("solar-model-open"), shape = AffairsLayout.shape,
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = yearCardGold),
+                        border = BorderStroke(1.dp, yearCardGold.copy(alpha = .65f))) {
+                        GenesisVectorIcon(GenesisPageIcon.MONTH, Modifier.size(24.dp), yearCardGold)
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            MaterialText(copy("Круг GENESIS", "GENESIS circle"), style = MaterialTheme.typography.titleMedium)
+                            MaterialText(copy("Интерактивная модель календаря", "Interactive calendar model"),
+                                style = MaterialTheme.typography.bodySmall)
+                        }
+                        GenesisLucideIcon("chevron-right", Modifier.size(20.dp))
+                    }
                 }
             }
         }
     }
     if (detailsOpen) SacredYearDetailsDialog { detailsOpen = false }
+    if (modelOpen) SolarCalendarModel(calendar, shown, onOpenDate) { modelOpen = false }
 }
 
 @Composable

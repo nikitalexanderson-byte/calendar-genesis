@@ -103,16 +103,97 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
         override suspend fun request(path:String,body:JSONObject?):JSONObject { check();check(!mutableState.value.requiresSignIn);val generation=client.currentGeneration();return withContext(Dispatchers.IO) { client.mindmaps(generation,path,body) }.also { check() } }
     }
 
+    override fun checkSharedMindmapAccount(uid: String) {
+        val state = mutableState.value
+        if (state.user?.uid != uid || state.accountSettings?.sharedProjectsEnabled != true || app.workspaceScope != CloudAccountSnapshot.scopeFor(uid)) throw CancellationException()
+    }
+    override suspend fun sharedMindmapWorkspace(): JSONObject = sharedOnlineCall { api, generation -> api.workspace(generation) }
+    override suspend fun sharedMindmapDocument(space: String, path: String, body: JSONObject?, method: String): JSONObject =
+        sharedOnlineCall { api, generation -> api.sharedMindmapDocument(generation, space, path, body, method) }
+
+    internal fun messagingGateway(uid: String): MessagingGateway = object : MessagingGateway {
+        override fun check() {
+            if (mutableState.value.user?.uid != uid || app.workspaceScope != CloudAccountSnapshot.scopeFor(uid)) throw CancellationException()
+        }
+        override suspend fun request(method: String, path: String, body: JSONObject?): JSONObject {
+            check()
+            return sharedOnlineCall { api, generation -> api.messaging(generation, method, path, body) }.also { check() }
+        }
+    }
+
+    internal fun assistantGateway(uid: String): AssistantGateway = object : AssistantGateway {
+        override fun check() {
+            val state = mutableState.value
+            check(state.user?.uid == uid && app.workspaceScope == CloudAccountSnapshot.scopeFor(uid)) { "Аккаунт изменился. Откройте помощника заново." }
+        }
+        private suspend fun call(body: JSONObject?): JSONObject {
+            check(); val generation = client.currentGeneration()
+            check(mutableState.value.ready && !mutableState.value.requiresSignIn) { "Повторите вход для серверного помощника. Сохранённый план остаётся на устройстве." }
+            return withContext(Dispatchers.IO) { client.assistant(generation, body) }.also {
+                check(); if (!client.isCurrent(generation)) throw CancellationException()
+            }
+        }
+        override suspend fun status() = call(null)
+        override suspend fun plan(command: String, audio: JSONObject?, context: JSONObject) =
+            call(JSONObject().put("command", command).put("audio", audio ?: JSONObject.NULL).put("context", context))
+    }
+
+    internal fun diaryGateway(uid: String): DiaryGateway = object : DiaryGateway {
+        override fun check() {
+            check(mutableState.value.user?.uid == uid && app.workspaceScope == CloudAccountSnapshot.scopeFor(uid)) {
+                "Сессия дневника завершена. Черновик сохранён на устройстве."
+            }
+        }
+        override suspend fun workspace(): JSONObject {
+            check(); check(!mutableState.value.requiresSignIn)
+            val generation = client.currentGeneration()
+            return withContext(Dispatchers.IO) { client.workspace(generation) }.also { check() }
+        }
+        override suspend fun request(path: String, body: JSONObject?): JSONObject {
+            check(); check(!mutableState.value.requiresSignIn)
+            val generation = client.currentGeneration()
+            return withContext(Dispatchers.IO) { client.diary(generation, path, body) }.also { check() }
+        }
+    }
+
     suspend fun yandexAvailable(): Boolean = withContext(Dispatchers.IO) {
         runCatching { client.providers(client.currentGeneration()).optBoolean("yandex") }.getOrDefault(false)
     }
 
-    suspend fun adminStats(): JSONObject {
-        val snapshot = mutableState.value
-        check(snapshot.ready && !snapshot.requiresSignIn && snapshot.user != null && snapshot.accountSettings?.isAdmin == true)
+    private suspend fun <T> adminOnlineCall(action: (AuthSessionClient, Long) -> T): T {
+        val initial = mutableState.value
+        val account = initial.user?.uid ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
+        if (!initial.ready || initial.requiresSignIn || initial.accountSettings?.isAdmin != true) throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
         val generation = client.currentGeneration()
-        return withContext(Dispatchers.IO) { client.adminStats(generation) }
+        val caller = currentCoroutineContext()
+        fun current() {
+            caller.ensureActive()
+            val state = mutableState.value
+            if (!client.isCurrent(generation) || !state.ready || state.requiresSignIn || state.user?.uid != account ||
+                state.accountSettings?.isAdmin != true || app.workspaceScope != CloudAccountSnapshot.scopeFor(account)) throw CancellationException()
+        }
+        return withContext(Dispatchers.IO) { current(); action(client, generation).also { current() } }
     }
+    internal fun adminGateway(uid: String): AdminGateway = object : AdminGateway {
+        override fun check() {
+            val state = mutableState.value
+            if (state.user?.uid != uid || state.accountSettings?.isAdmin != true || app.workspaceScope != CloudAccountSnapshot.scopeFor(uid)) throw CancellationException()
+        }
+        private suspend fun request(method: String, path: String, body: JSONObject? = null): JSONObject {
+            check()
+            return adminOnlineCall { api, generation -> api.adminExtension(generation, method, path, body) }.also { check() }
+        }
+        override suspend fun ads() = request("GET", "/admin/ads")
+        override suspend fun saveAd(id: String?, body: JSONObject): JSONObject = request(if (id == null) "POST" else "PUT",
+            if (id == null) "/admin/ads" else "/admin/ads/${AdminProtocol.adId(id)}", body)
+        override suspend fun deleteAd(id: String) = request("DELETE", "/admin/ads/${AdminProtocol.adId(id)}", JSONObject())
+        override suspend fun subscription(userId: String, plan: String, expectedPlan: String): JSONObject {
+            require(plan in AdminProtocol.plans && expectedPlan in AdminProtocol.plans)
+            return request("PUT", "/admin/users/${AdminProtocol.userId(userId)}/subscription",
+                JSONObject().put("subscriptionPlan", plan).put("expectedPlan", expectedPlan))
+        }
+    }
+    suspend fun adminStats(): JSONObject = adminOnlineCall { api, generation -> api.adminStats(generation) }
 
     suspend fun todayAds(language: String, country: String): JSONObject {
         val snapshot = mutableState.value
@@ -265,7 +346,26 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
         sharedCachedCall("project:$projectId") { api, generation -> api.sharedProject(generation, projectId) }
     override suspend fun sharedPlanning(projectId: String): JSONObject =
         sharedCachedCall("planning:$projectId") { api, generation -> api.sharedPlanning(generation, projectId) }
-    private suspend fun sharedOnlineCall(action: (AuthSessionClient, Long) -> JSONObject): JSONObject {
+    override suspend fun sharedTaskArchive(space: String, query: String, cursor: String?) = sharedOnlineCall { api, generation ->
+        api.querySharedTasks(generation, JSONObject().put("spaceId", SharedTaskLifecycleProtocol.id(space)).put("archived", true).put("q", query), cursor)
+    }
+    override suspend fun sharedTaskTrash(space: String) = sharedOnlineCall { api, generation -> api.sharedTaskExtension(generation, "GET", "/shared/spaces/${SharedTaskLifecycleProtocol.id(space)}/trash") }
+    override suspend fun sharedTaskArchiveCommand(project: String, task: String, command: JSONObject) = sharedOnlineCall { api, generation -> api.sharedTaskExtension(generation, "POST", "/shared/projects/${SharedTaskLifecycleProtocol.id(project)}/tasks/${SharedTaskLifecycleProtocol.id(task)}/archive", command) }
+    override suspend fun sharedTaskTrashCommand(project: String, task: String, command: JSONObject) = sharedOnlineCall { api, generation -> api.sharedTaskExtension(generation, "DELETE", "/shared/projects/${SharedTaskLifecycleProtocol.id(project)}/tasks/${SharedTaskLifecycleProtocol.id(task)}", command) }
+    override suspend fun sharedTrashRestore(space: String, kind: String, id: String, command: JSONObject) = sharedOnlineCall { api, generation ->
+        require(kind in setOf("task", "project")); api.sharedTaskExtension(generation, "PATCH", "/shared/spaces/${SharedTaskLifecycleProtocol.id(space)}/trash/$kind/${SharedTaskLifecycleProtocol.id(id)}", command)
+    }
+    override suspend fun sharedTrashPurge(space: String, task: String, command: JSONObject) = sharedOnlineCall { api, generation -> api.sharedTaskExtension(generation, "POST", "/shared/spaces/${SharedTaskLifecycleProtocol.id(space)}/trash/task/${SharedTaskLifecycleProtocol.id(task)}/purge", command) }
+    override suspend fun sharedTaskFile(task: String, file: String): ByteArray = sharedOnlineCall { api, generation -> api.sharedTaskFile(generation, task, file) }
+    override suspend fun saveSharedTaskFiles(project: String, task: String, command: JSONObject) = sharedOnlineCall { api, generation -> api.updateSharedTask(generation, project, task, command) }
+    override suspend fun sharedTaskApprove(project: String, task: String) = sharedOnlineCall { api, generation -> api.sharedTaskExtension(generation, "POST", "/shared/projects/${SharedTaskLifecycleProtocol.id(project)}/tasks/${SharedTaskLifecycleProtocol.id(task)}/approve", JSONObject()) }
+    override suspend fun sharedTaskReview(project: String, task: String, command: JSONObject) = sharedOnlineCall { api, generation -> api.sharedTaskExtension(generation, "PATCH", "/shared/projects/${SharedTaskLifecycleProtocol.id(project)}/tasks/${SharedTaskLifecycleProtocol.id(task)}/reviews", command) }
+    override suspend fun sharedTaskApprovers(project: String, task: String, command: JSONObject) = sharedOnlineCall { api, generation -> api.updateSharedTask(generation, project, task, command) }
+    override suspend fun sharedTaskReviewSettings(project: String) = sharedOnlineCall { api, generation -> api.sharedTaskExtension(generation, "GET", "/shared/projects/${SharedTaskLifecycleProtocol.id(project)}/review-settings") }
+    override suspend fun saveSharedTaskReviewSettings(project: String, command: JSONObject) = sharedOnlineCall { api, generation -> api.sharedTaskExtension(generation, "PATCH", "/shared/projects/${SharedTaskLifecycleProtocol.id(project)}/review-settings", command) }
+    override suspend fun sharedTaskSeries(project: String, task: String) = sharedOnlineCall { api, generation -> api.sharedTaskExtension(generation, "GET", "/shared/projects/${SharedTaskLifecycleProtocol.id(project)}/tasks/${SharedTaskLifecycleProtocol.id(task)}/series") }
+    override suspend fun sharedTaskSeriesCommand(project: String, task: String, command: JSONObject) = sharedOnlineCall { api, generation -> api.sharedTaskExtension(generation, "POST", "/shared/projects/${SharedTaskLifecycleProtocol.id(project)}/tasks/${SharedTaskLifecycleProtocol.id(task)}/series", command) }
+    private suspend fun <T> sharedOnlineCall(action: (AuthSessionClient, Long) -> T): T {
         val before = mutableState.value
         val account = before.user?.uid ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
         if (before.accountSettings?.sharedProjectsEnabled != true) throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
@@ -746,7 +846,7 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
         createSharedTask(projectId, JSONObject().put("title", title).put("statusId", statusId)
             .put("categoryId", categoryId ?: JSONObject.NULL))
     override suspend fun createSharedTask(projectId: String, fields: JSONObject): JSONObject = sharedTaskCall { api, generation ->
-        if (fields.has("sourceTaskId")) return@sharedTaskCall api?.createSharedTask(generation, projectId, fields)
+        if (fields.has("sourceTaskId") || fields.has("mindmapSource")) return@sharedTaskCall api?.createSharedTask(generation, projectId, fields)
             ?: throw AuthFailure(AuthFailure.Kind.NETWORK)
         val userId = mutableState.value.user?.uid ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
         val requestId = UUID.randomUUID().toString()
@@ -894,12 +994,7 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
         sharedCall { api, generation -> api.addSharedComment(generation, projectId, taskId,
             JSONObject().put("body", body)) }
 
-    suspend fun deleteAdminUser(userId: String, blacklist: Boolean): JSONObject {
-        val snapshot = mutableState.value
-        check(snapshot.ready && !snapshot.requiresSignIn && snapshot.user != null && snapshot.accountSettings?.isAdmin == true)
-        val generation = client.currentGeneration()
-        return withContext(Dispatchers.IO) { client.deleteAdminUser(generation, userId, blacklist) }
-    }
+    suspend fun deleteAdminUser(userId: String, blacklist: Boolean): JSONObject = adminOnlineCall { api, generation -> api.deleteAdminUser(generation, userId, blacklist) }
 
     /** Process-start check only. Recomposition and configuration changes must not restart auth. */
     fun ensureSession() {

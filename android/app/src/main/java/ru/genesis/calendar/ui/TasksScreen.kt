@@ -2,6 +2,7 @@ package ru.genesis.calendar.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -54,7 +55,7 @@ import ru.genesis.calendar.data.*
         if (index >= 0) {
             val list = knownLists[index]
             expanded = "${list.accountId}/${list.id}"
-            gridState.scrollToItem(index + 1)
+            gridState.scrollToItem(index + 2)
             onInitialListConsumed()
         }
     }
@@ -79,6 +80,16 @@ import ru.genesis.calendar.data.*
     val english = LocalGenesisLanguage.current == "en"
     val total = tasks.size
     val active = tasks.count { !it.done }
+    var taskFilter by rememberSaveable { mutableStateOf("all") }
+    var search by rememberSaveable { mutableStateOf("") }
+    var searchOpen by rememberSaveable { mutableStateOf(false) }
+    val visibleTasks = remember(tasks, taskFilter, search) {
+        tasks.filter { task ->
+            (taskFilter == "all" || task.done == (taskFilter == "done")) &&
+                (search.isBlank() || task.title.contains(search.trim(), ignoreCase = true) ||
+                    task.project.contains(search.trim(), ignoreCase = true))
+        }
+    }
     Column(Modifier.fillMaxSize()) {
         val submenuItems = listOf(SubmenuItem("tasks", "Задачи"), SubmenuItem("lists", "Списки задач"))
             .filter { "tasks.${it.id}" !in hiddenSubmenus }
@@ -94,22 +105,53 @@ import ru.genesis.calendar.data.*
                     } else if (english) "Tasks" else "Задачи",
                         if (section == "lists") {
                             if (english) "Organize tasks by list" else "Организуйте задачи по спискам"
-                        } else if (english) "Your tasks, due dates, priorities and reminders"
-                        else "Все задачи, сроки, приоритеты и напоминания", "✦",
+                        } else taskSummaryCopy(total, active, knownLists.size, LocalGenesisLanguage.current), "✦",
                         icon = if (section == "lists") GenesisPageIcon.TASK_LISTS else GenesisPageIcon.TASKS)
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        androidx.compose.material3.Text(taskSummaryCopy(total, active, knownLists.size,
-                            LocalGenesisLanguage.current),
-                            Modifier.weight(1f).padding(end = 8.dp).testTag("tasks-summary"), style = MaterialTheme.typography.labelLarge)
+                        if (section == "tasks") Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf("all" to "Все", "open" to "В работе", "done" to "Готово").forEach { (id, label) ->
+                                FilterChip(selected = taskFilter == id, onClick = { taskFilter = id },
+                                    modifier = Modifier.heightIn(min = 48.dp).testTag("tasks-filter-$id"),
+                                    label = { Text(label) })
+                            }
+                        } else Text(if (english) "${knownLists.size} personal lists" else "Личные списки: ${knownLists.size}",
+                            Modifier.weight(1f).testTag("tasks-summary"), style = MaterialTheme.typography.labelLarge)
+                        if (section == "tasks") AffairsIconButton("Поиск задач", AffairsAction.SEARCH,
+                            { searchOpen = !searchOpen; if (!searchOpen) search = "" }, selected = searchOpen)
+                    }
+                    if (section == "tasks" && searchOpen) AffairsSearchField(search, { search = it.take(200) },
+                        "Поиск задач", Modifier.fillMaxWidth().testTag("tasks-search"))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                         Button(onClick = if (section == "lists") onCreateList else ({ onCreateTask(null) }),
-                            modifier = Modifier.heightIn(min = 48.dp).testTag("create-task")) { Text("Создать") }
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.heightIn(min = 48.dp).testTag("create-task")) {
+                            AffairsActionIcon(AffairsAction.ADD)
+                            Spacer(Modifier.width(8.dp))
+                            Text(if (section == "lists") "Создать список" else "Добавить задачу")
+                        }
                     }
                 }
             }
             if(section == "tasks") {
                 if(tasks.isEmpty()) item { Text(if(!confirmed) "Ожидаем загрузки задач аккаунта." else "Задач пока нет. Создайте первую запись.") }
-                items(tasks, key = { it.id }) { task -> NativeTaskCard(task,use24,structure,onComplete,onOpen) }
+                if (tasks.isNotEmpty() && visibleTasks.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
+                    Text("Задач не найдено. Измените поиск или выберите другой фильтр.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                items(visibleTasks, key = { it.id }) { task -> NativeTaskCard(task,use24,structure,onComplete,onOpen) }
             } else {
+                if (knownLists.isNotEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
+                    Text("Личные списки задач", style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(top = 8.dp))
+                }
+                items(knownLists, key = { "${it.accountId}/${it.id}" }) { list ->
+                    PersonalTaskListCard(list, tasks.filter { it.belongsToList(list) }, structure, use24,
+                        onCreateTask = { onCreateTask(it) }, onComplete = onComplete, onOpen = onOpen,
+                        onUpdateList = onUpdateList, onDeleteList = onDeleteList,
+                        initialExpanded = expanded == "${list.accountId}/${list.id}",
+                        voiceRequest = voiceRequest, onVoiceRequestConsumed = onVoiceRequestConsumed)
+                }
                 if (showSharedLists && sharedController != null) item(span = { GridItemSpan(maxLineSpan) }) {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(if (english) "Team task lists" else "Общие списки задач",
@@ -120,18 +162,21 @@ import ru.genesis.calendar.data.*
                         sharedListError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                     }
                 }
-                if (sharedController != null) items(sharedLists, key = { "shared:${it.getString("id")}" }) { list ->
+                if (showSharedLists && sharedController != null) items(sharedLists, key = { "shared:${it.getString("id")}" }) { list ->
                     val listId = list.getString("id")
-                    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
+                    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(list.optString("title"), style = MaterialTheme.typography.titleMedium)
-                            Text("${list.optString("spaceTitle")} / ${list.optString("projectTitle")} · ${list.optInt("taskCount")}",
-                                style = MaterialTheme.typography.bodySmall)
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                TextButton(onClick = { expandedSharedListId = if (expandedSharedListId == listId) "" else listId }) {
-                                    Text(if (expandedSharedListId == listId) "Свернуть" else "Открыть") }
-                                TextButton(onClick = onOpenSharedProjects) { Text("Проект") }
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text(list.optString("title"), style = MaterialTheme.typography.titleMedium)
+                                    Text("${list.optString("spaceTitle")} / ${list.optString("projectTitle")} · ${list.optInt("taskCount")}",
+                                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                AffairsIconButton(if (expandedSharedListId == listId) "Свернуть список" else "Открыть список",
+                                    if (expandedSharedListId == listId) AffairsAction.COLLAPSE else AffairsAction.EXPAND,
+                                    { expandedSharedListId = if (expandedSharedListId == listId) "" else listId })
                             }
                             if (expandedSharedListId == listId && sharedSnapshot?.optJSONObject("project")
                                     ?.optString("id") == list.optString("projectId")) {
@@ -140,18 +185,12 @@ import ru.genesis.calendar.data.*
                                     .filter { it.optString("statusId") == listId }
                                 if (matching.isEmpty()) Text("Список пока пуст.")
                                 matching.forEach { task -> Text(task.optString("title")) }
+                                TextButton(onClick = onOpenSharedProjects, modifier = Modifier.heightIn(min = 48.dp)) { Text("Открыть проект") }
                             }
                         }
                     }
                 }
                 if(knownLists.isEmpty() && sharedLists.isEmpty()) item { Text("Списков пока нет. Создайте список и добавьте в него задачи.") }
-                items(knownLists, key = { "${it.accountId}/${it.id}" }) { list ->
-                    PersonalTaskListCard(list, tasks.filter { it.belongsToList(list) }, structure, use24,
-                        onCreateTask = { onCreateTask(it) }, onComplete = onComplete, onOpen = onOpen,
-                        onUpdateList = onUpdateList, onDeleteList = onDeleteList,
-                        initialExpanded = expanded == "${list.accountId}/${list.id}",
-                        voiceRequest = voiceRequest, onVoiceRequestConsumed = onVoiceRequestConsumed)
-                }
             }
         }
     }
@@ -159,8 +198,10 @@ import ru.genesis.calendar.data.*
 
 @Composable internal fun NativeTaskCard(task: LocalTask, use24: Boolean, structure: WorkspaceStructure,
     onComplete: (LocalTask) -> Unit, onOpen: (String) -> Unit) {
-    val metadata = listOf("${task.date} ${timeLabel(task.time,use24)} · ${genesisTranslate("Приоритет")} ${task.priority}" +
-        if(task.recurrence.enabled) " · ${genesisTranslate("Повторяется")}" else "") + listOfNotNull(task.projectId?.let { id ->
+    val metadata = listOfNotNull(
+        listOf(task.date, timeLabel(task.time,use24)).filter { it.isNotBlank() }.joinToString(" · ").takeIf { it.isNotBlank() },
+        task.priority.takeIf { it > 0 }?.let { "${genesisTranslate("Приоритет")} $it" },
+        if (task.recurrence.enabled) genesisTranslate("Повторяется") else null) + listOfNotNull(task.projectId?.let { id ->
         structure.projects.firstOrNull { it.id == id }?.title ?: task.project.ifBlank { genesisTranslate("Проект") } })
     AffairsTaskRow(task.title, task.done, { onOpen(task.id) }, Modifier.testTag("task-${task.id}"),
         metadata = metadata, unreadComments = personalUnreadComments(task), onComplete = { onComplete(task) },

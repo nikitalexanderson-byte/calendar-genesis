@@ -130,19 +130,21 @@ internal fun TodayHabitsContent(app: GenesisApplication, date: LocalDate,
             Surface(Modifier.fillMaxWidth().testTag("today-habit-${habit.id}"),
                 shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceContainerLowest,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
-                Column(Modifier.padding(6.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(Modifier.weight(1f)) {
+                        Text(habitDisplayTitle(habit), Modifier.testTag("today-habit-title-${habit.id}"),
+                            style = MaterialTheme.typography.titleMedium)
+                        if (entry?.completed == true) Text("Выполнено · ${entry.score} баллов",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                    }
                     Checkbox(checked = entry?.completed == true, enabled = !busy && date == LocalDate.now() && engine.isScheduled(habit,date,workspace.completions) && HabitMeasurements.effective(HabitMeasurements.rule(habit,date))==null,
-                        modifier = Modifier.testTag("today-habit-check-${habit.id}"),
+                        modifier = Modifier.size(48.dp).testTag("today-habit-check-${habit.id}"),
                         onCheckedChange = { checked ->
                             if (checked && habit.scoringMode.startsWith("quality")) ratingHabit = habit
                             else complete(habit, checked, entry?.qualityValue)
                         })
-                    Column(Modifier.weight(1f).padding(8.dp)) {
-                        Text(habitDisplayTitle(habit), style = MaterialTheme.typography.titleMedium)
-                        if (entry?.completed == true) Text("Выполнено · ${entry.score} баллов",
-                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
-                    }
                 }
                 HabitIntervalMarks(habit,entry,!busy&&date==LocalDate.now()) { time,checked -> markInterval(habit,time,checked) }
                 if(HabitMeasurements.effective(HabitMeasurements.rule(habit,date))!=null) HabitMeasurementInputs(habit,workspace.measurements,date,entry,
@@ -152,7 +154,10 @@ internal fun TodayHabitsContent(app: GenesisApplication, date: LocalDate,
                 HabitPeriodGoalProgress(habit,workspace.measurements,workspace.completions,date)
                 TextButton(onClick = { timerHabitId = habit.id },
                     enabled = !busy && date == LocalDate.now() && engine.isScheduled(habit, date, workspace.completions),
-                    modifier = Modifier.testTag("habit-timer-open-${habit.id}")) { Text("Таймер") }
+                    contentPadding = PaddingValues(vertical = 8.dp),
+                    modifier = Modifier.fillMaxWidth().testTag("habit-timer-open-${habit.id}")) {
+                    Text("Таймер", Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Start)
+                }
                 }
             }
         }

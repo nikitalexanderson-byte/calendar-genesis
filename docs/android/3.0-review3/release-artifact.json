@@ -1,0 +1,53 @@
+{
+  "versionName": "3.0.0-beta.3",
+  "versionCode": 105,
+  "applicationId": "ru.genesis.calendar",
+  "apk": "GENESIS-Android-Native-3.0.0-beta.3.apk",
+  "bytes": 164762137,
+  "sha256": "d6f75e32982e009e6e5c6b1934f68468d3da1121a133bc64416019fa00b0ea32",
+  "certificateSha256": "1e161d36f574b0560d808c7ee95e1abe98165b3385336d0276fb381dfd901cb8",
+  "sourceCommit": "bd919b2b7ad407ab83843b6a65da79f7e4761255",
+  "branch": "codex/android-3-redesign",
+  "workflowRun": "https://github.com/nikitalexanderson-byte/calendar-genesis/actions/runs/40364263222",
+  "workflowConclusion": "success",
+  "jobDuration": "21m 4s",
+  "gradleDuration": "20m 17s",
+  "artifactName": "genesis-android-3.0-trial-6",
+  "artifactId": 12671935182,
+  "artifactExpiresAt": "2026-11-09T17:19:47Z",
+  "localDirectory": "C:/Users/mrdeu/Downloads/GENESIS-Android-3.0.0-beta.3",
+  "localValidation": [
+    "SHA-256 sidecar",
+    "apksigner and expected release certificate",
+    "package/versionName/versionCode",
+    "non-debuggable",
+    "zipalign -c -P 16 4",
+    "source commit",
+    "no RECORD_AUDIO permission or speech RecognitionService query"
+  ],
+  "phone": {
+    "model": "realme RMX5000",
+    "api": 36,
+    "previousVersion": "3.0.0-beta.2/104",
+    "installedVersion": "3.0.0-beta.3/105",
+    "installMethod": "adb install -r; no uninstall or data clear",
+    "previousBaseMatchedVerifiedRelease": true,
+    "installedBaseSha256": "d6f75e32982e009e6e5c6b1934f68468d3da1121a133bc64416019fa00b0ea32",
+    "launch": "COLD, status ok, TotalTime 995ms",
+    "smoke": "Today accessible; one header calendar control before refresh, More about the day label, no microphone permission; current process alive without fatal crash",
+    "furtherNavigation": "stopped after another app became foreground; no drawer/calendar/settings phone PASS claim",
+    "authenticationAttempted": false,
+    "userRecordsManuallyChanged": false,
+    "userSettingsManuallyChanged": false
+  },
+  "emulator": {
+    "api": 35,
+    "signedUpdate": "104→105 install-r",
+    "launch": "WARM, status ok",
+    "smoke": "GENESIS auth landing and Google action visible, process alive, no current-process fatal",
+    "authenticationAttempted": false,
+    "settingsRestored": true
+  },
+  "websiteBackendOrStableChannelChanged": false,
+  "sshUsed": false
+}

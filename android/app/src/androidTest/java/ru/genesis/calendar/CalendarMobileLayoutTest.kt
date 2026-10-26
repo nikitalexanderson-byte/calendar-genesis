@@ -21,6 +21,8 @@ import org.junit.Test
 import ru.genesis.calendar.data.LocalTask
 import ru.genesis.calendar.domain.CalendarMode
 import ru.genesis.calendar.ui.CalendarScreen
+import ru.genesis.calendar.ui.mobileCalendarCopy
+import ru.genesis.calendar.ui.calendarName
 import ru.genesis.calendar.ui.LocalGenesisLanguage
 import ru.genesis.calendar.ui.StoicheionScreen
 import ru.genesis.calendar.ui.standart
@@ -66,19 +68,16 @@ class CalendarMobileLayoutTest {
         CalendarMode.entries.forEach { nextMode ->
             compose.runOnIdle { mode = nextMode }
             compose.onNodeWithText("Месяц").performClick()
-            compose.onNodeWithText("Календарь - месяц").assertIsDisplayed()
+            compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
             val switch = compose.onNodeWithTag("calendar-view-switch").fetchSemanticsNode().boundsInRoot
-            val header = compose.onNodeWithTag("genesis-page-header").fetchSemanticsNode().boundsInRoot
-            assertTrue("View controls must precede the heading", switch.bottom <= header.top)
+            val navigation = compose.onNodeWithTag("calendar-month-navigation-card").fetchSemanticsNode().boundsInRoot
+            assertTrue("View controls must precede the period", switch.bottom <= navigation.top)
             capture("${nextMode.name.lowercase()}-month-top")
             compose.onNodeWithTag("calendar-selected-day").performScrollTo()
-            if ((requestedWidth ?: 360) < 768) {
-                compose.onNodeWithText("Календарь - месяц").assertIsNotDisplayed()
-            }
             compose.onNodeWithTag("calendar-view-switch").assertIsDisplayed()
             capture("${nextMode.name.lowercase()}-month-scrolled")
             compose.onNodeWithText("Год").performClick()
-            compose.onNodeWithText("Календарь - год").assertIsDisplayed()
+            compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
             val firstTag = when (nextMode) {
                 CalendarMode.SACRED -> "sacred-year-month-0"
                 CalendarMode.LUNAR -> "lunar-year-month-1"
@@ -99,7 +98,7 @@ class CalendarMobileLayoutTest {
             compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
             compose.onNodeWithTag("calendar-view-switch").assertIsDisplayed()
             compose.onNodeWithTag(lastTag).performClick()
-            compose.onNodeWithText("Календарь - месяц").assertIsDisplayed()
+            compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
         }
     }
 
@@ -119,7 +118,7 @@ class CalendarMobileLayoutTest {
         compose.onNodeWithTag("gregorian-year-start-2", useUnmergedTree = true).assertDoesNotExist()
         compose.onNodeWithTag("gregorian-year-end-2", useUnmergedTree = true).assertDoesNotExist()
         compose.onNodeWithText("ГРИГОРИАНСКИЙ МЕСЯЦ 2").assertDoesNotExist()
-        compose.onNodeWithTag("calendar-year-task-count-2", useUnmergedTree = true).assert(hasText("0 задач"))
+        compose.onNodeWithTag("calendar-year-task-count-disc-2", useUnmergedTree = true).assertDoesNotExist()
         compose.onNodeWithTag("gregorian-season-winter").assertExists()
         compose.onNodeWithTag("calendar-year-days-2", useUnmergedTree = true).assert(hasText("29 дней"))
         capture("gregorian-leap-year")
@@ -226,9 +225,9 @@ class CalendarMobileLayoutTest {
                 }
             }
         }
-        compose.onNodeWithText("Calendar - month").assertIsDisplayed()
+        compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
         compose.onNodeWithText("Year").performClick()
-        compose.onNodeWithText("Calendar - year").assertIsDisplayed()
+        compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
         compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag("calendar-year-month-2026-01-01"))
         compose.onNodeWithTag("gregorian-year-start-1", useUnmergedTree = true).assertDoesNotExist()
         compose.onNodeWithTag("gregorian-year-end-1", useUnmergedTree = true).assertDoesNotExist()

@@ -1,0 +1,133 @@
+{
+  "scope": "Core Material token pairs only; not a full WCAG or TalkBack audit. Native art and screenshot antialiasing not measured.",
+  "checks": [
+    {
+      "theme": "light",
+      "foreground": "onSurface",
+      "background": "surface",
+      "ratio": 15.793,
+      "minimum": 4.5,
+      "pass_": true
+    },
+    {
+      "theme": "light",
+      "foreground": "onSurfaceVariant",
+      "background": "surface",
+      "ratio": 6.287,
+      "minimum": 4.5,
+      "pass_": true
+    },
+    {
+      "theme": "light",
+      "foreground": "onBackground",
+      "background": "background",
+      "ratio": 13.245,
+      "minimum": 4.5,
+      "pass_": true
+    },
+    {
+      "theme": "light",
+      "foreground": "primary",
+      "background": "surface",
+      "ratio": 7.597,
+      "minimum": 4.5,
+      "pass_": true
+    },
+    {
+      "theme": "light",
+      "foreground": "onPrimary",
+      "background": "primary",
+      "ratio": 7.597,
+      "minimum": 4.5,
+      "pass_": true
+    },
+    {
+      "theme": "light",
+      "foreground": "onPrimaryContainer",
+      "background": "primaryContainer",
+      "ratio": 9.372,
+      "minimum": 4.5,
+      "pass_": true
+    },
+    {
+      "theme": "light",
+      "foreground": "secondary",
+      "background": "surface",
+      "ratio": 5.051,
+      "minimum": 4.5,
+      "pass_": true
+    },
+    {
+      "theme": "light",
+      "foreground": "outline",
+      "background": "surface",
+      "ratio": 3.784,
+      "minimum": 3,
+      "pass_": true
+    },
+    {
+      "theme": "dark",
+      "foreground": "onSurface",
+      "background": "surface",
+      "ratio": 13.97,
+      "minimum": 4.5,
+      "pass_": true
+    },
+    {
+      "theme": "dark",
+      "foreground": "onSurfaceVariant",
+      "background": "surface",
+      "ratio": 8.365,
+      "minimum": 4.5,
+      "pass_": true
+    },
+    {
+      "theme": "dark",
+      "foreground": "onBackground",
+      "background": "background",
+      "ratio": 16.014,
+      "minimum": 4.5,
+      "pass_": true
+    },
+    {
+      "theme": "dark",
+      "foreground": "primary",
+      "background": "surface",
+      "ratio": 9.922,
+      "minimum": 4.5,
+      "pass_": true
+    },
+    {
+      "theme": "dark",
+      "foreground": "onPrimary",
+      "background": "primary",
+      "ratio": 9.922,
+      "minimum": 4.5,
+      "pass_": true
+    },
+    {
+      "theme": "dark",
+      "foreground": "onPrimaryContainer",
+      "background": "primaryContainer",
+      "ratio": 9.17,
+      "minimum": 4.5,
+      "pass_": true
+    },
+    {
+      "theme": "dark",
+      "foreground": "secondary",
+      "background": "surface",
+      "ratio": 8.914,
+      "minimum": 4.5,
+      "pass_": true
+    },
+    {
+      "theme": "dark",
+      "foreground": "outline",
+      "background": "surface",
+      "ratio": 5.27,
+      "minimum": 3,
+      "pass_": true
+    }
+  ]
+}

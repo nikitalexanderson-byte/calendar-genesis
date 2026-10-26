@@ -1,0 +1,14 @@
+[
+  {
+    "runId": "beta3-final-settings-360-false-font130",
+    "dark": "false",
+    "passed": true,
+    "debugSha256": "14c91a0050e83b80c59725a03e959f1857549b9801b0dd9e60b3a032548ade6c"
+  },
+  {
+    "runId": "beta3-final-settings-360-true-font130",
+    "dark": "true",
+    "passed": true,
+    "debugSha256": "14c91a0050e83b80c59725a03e959f1857549b9801b0dd9e60b3a032548ade6c"
+  }
+]

@@ -1,5 +1,7 @@
 package ru.genesis.calendar.ui
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -18,6 +20,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
@@ -39,6 +42,7 @@ import ru.genesis.calendar.domain.habits.AdviceAffinity
 import ru.genesis.calendar.domain.habits.AdviceTaskSignal
 import ru.genesis.calendar.domain.habits.Habit
 import ru.genesis.calendar.data.LocalTask
+import ru.genesis.calendar.data.DiaryRepository
 import java.time.LocalDate
 import java.time.LocalDateTime
 import kotlin.math.max
@@ -53,11 +57,18 @@ import kotlin.math.min
 }
 
 @Composable internal fun TodayAdvicePanel(gateway: DailyAdviceGateway, userId: String, day: String, language: String,
-    preferences: AdvicePreferences, habits: List<Habit>, reloadToken: Long? = null, tasks: List<LocalTask> = emptyList()) {
+    preferences: AdvicePreferences, habits: List<Habit>, reloadToken: Long? = null, tasks: List<LocalTask> = emptyList(),
+    diary: DiaryRepository? = null, onOpenDiary: (() -> Unit)? = null) {
     if (!preferences.enabled) return
     key(userId, day, language, preferences) {
         val context = LocalContext.current
         val copy = adviceCopy(language)
+        val diaryState = diary?.state?.collectAsStateWithLifecycle()?.value
+        LaunchedEffect(diary) { if (diary != null) {
+            try { diary.loadCached(); diary.refresh() }
+            catch (cancel: CancellationException) { throw cancel }
+            catch (_: Exception) { /* Advice still works; a failed reaction retains its own draft. */ }
+        } }
         val lifecycle = LocalLifecycleOwner.current.lifecycle
         var resumed by remember(lifecycle) { mutableStateOf(lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) }
         var attempt by remember { mutableIntStateOf(0) }
@@ -135,6 +146,27 @@ import kotlin.math.min
             var hideError by remember(card.id) { mutableStateOf(false) }
             var nextError by remember(card.id) { mutableStateOf(false) }
             val scope = rememberCoroutineScope()
+            var reactionBusy by remember(card.id) { mutableStateOf(false) }
+            var reactionError by remember(card.id) { mutableStateOf(false) }
+            val selectedReaction = diaryState?.records?.firstOrNull { it.note.adviceId == card.id && !it.draft }?.note?.reaction
+            val react: ((String) -> Unit)? = if (diary == null) null else { kind ->
+                if (!reactionBusy) {
+                    reactionBusy = true; reactionError = false
+                    scope.launch {
+                        try {
+                            val snapshot = JSONObject().put("id", card.id).put("dayKey", card.day)
+                                .put("title", card.title).put("body", card.body).put("language", card.language)
+                                .put("categories", JSONArray(card.categories)).put("image", card.image ?: JSONObject.NULL)
+                                .put("sources", JSONArray(card.sources.map { source -> JSONObject()
+                                    .put("kind", source.kind).put("author", source.author)
+                                    .put("work", source.work).put("reference", source.reference) }))
+                            diary.react(snapshot, kind)
+                        } catch (cancel: CancellationException) { throw cancel }
+                        catch (_: Exception) { reactionError = true }
+                        finally { reactionBusy = false }
+                    }
+                }
+            }
             val bitmap by produceState<Bitmap?>(null, card.image, attempt) {
                 try {
                     card.image?.let { path -> value = withContext(Dispatchers.IO) {
@@ -148,7 +180,9 @@ import kotlin.math.min
                 val width = min(bounds.right, view.width.toFloat()) - max(bounds.left, 0f)
                 val height = min(bounds.bottom, view.height.toFloat()) - max(bounds.top, 0f)
                 visible = width > 0 && height > 0 && height >= min(bounds.height, view.height.toFloat()) * .1f
-            }, rotation = response, nextError = nextError, onNext = {
+            }, rotation = response, nextError = nextError,
+                reaction = selectedReaction, reactionBusy = reactionBusy, reactionError = reactionError,
+                onReaction = react, onOpenDiary = onOpenDiary, onNext = {
                 if (!loading && !changing && !dismissing && response?.canNext == true) {
                     changing = true; nextError = false
                     val request = ++serial
@@ -181,7 +215,9 @@ import kotlin.math.min
 
 @Composable internal fun DailyAdviceCard(card: DailyAdvice, copy: JSONObject, bitmap: Bitmap?, busy: Boolean,
     hideError: Boolean, modifier: Modifier = Modifier, rotation: DailyAdviceResponse? = null,
-    nextError: Boolean = false, onNext: (() -> Unit)? = null, onDismiss: () -> Unit) {
+    nextError: Boolean = false, onNext: (() -> Unit)? = null,
+    reaction: String? = null, reactionBusy: Boolean = false, reactionError: Boolean = false,
+    onReaction: ((String) -> Unit)? = null, onOpenDiary: (() -> Unit)? = null, onDismiss: () -> Unit) {
     val surface = MaterialTheme.colorScheme.surface
     Surface(modifier.fillMaxWidth().testTag("today-daily-advice"), shape = AffairsLayout.shape) {
         Box {
@@ -198,30 +234,59 @@ import kotlin.math.min
                     verticalAlignment = Alignment.Top) {
                     NativeText(card.title.ifBlank { copy.getString("title") }, Modifier.weight(1f).testTag("daily-advice-title").semantics { heading() },
                         style = MaterialTheme.typography.titleMedium)
-                    AffairsIconButton(copy.getString("hide"), AffairsAction.CLOSE, onDismiss,
-                        enabled = !busy, modifier = Modifier.testTag("daily-advice-dismiss"))
+                    IconButton(onClick = onDismiss, enabled = !busy,
+                        modifier = Modifier.size(48.dp).testTag("daily-advice-dismiss")
+                            .semantics { contentDescription = copy.getString("hide") }) {
+                        GenesisLucideIcon("x", Modifier.size(18.dp))
+                    }
                 }
                 NativeText(card.body, Modifier.testTag("daily-advice-body"), style = MaterialTheme.typography.bodyLarge)
                 val names = copy.getJSONArray("categories")
                 NativeText(copy.getString("title") + " · " + card.categories.joinToString(" · ") {
                     names.getString(adviceCategories.indexOf(it))
                 }, style = MaterialTheme.typography.bodySmall)
+                if (rotation != null && rotation.dailyLimit > 1) NativeText(
+                    copy.getString("position").replace("{current}", rotation.sequence.toString())
+                        .replace("{limit}", rotation.dailyLimit.toString()) +
+                        (if (!rotation.canNext) " · " + copy.getString("limitReached") else ""),
+                    modifier = Modifier.testTag("daily-advice-position").semantics { liveRegion = LiveRegionMode.Polite },
+                    style = MaterialTheme.typography.bodySmall)
                 card.sources.forEach { source ->
                     NativeText(copy.getString(if (source.kind == "quote") "source" else "inspired") + ": " +
                         listOf(source.author, source.work, source.reference).filter { it.isNotBlank() }.joinToString(" · "),
                         style = MaterialTheme.typography.bodySmall)
                 }
-                if (rotation != null && rotation.dailyLimit > 1) {
-                    OutlinedButton(onClick = { onNext?.invoke() }, enabled = !busy && rotation.canNext,
-                        modifier = Modifier.heightIn(min = 48.dp).testTag("daily-advice-next")) {
-                        NativeText(copy.getString("next"))
+                if (onReaction != null || onNext != null || onOpenDiary != null) Row(Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    val favoriteLabel = genesisTranslate("Избранное")
+                    val dislikeLabel = genesisTranslate("Не нравится")
+                    IconToggleButton(checked = reaction == "favorite", onCheckedChange = { onReaction?.invoke("favorite") },
+                        enabled = onReaction != null && !busy && !reactionBusy, modifier = Modifier.size(48.dp)
+                            .testTag("daily-advice-favorite").semantics { contentDescription = favoriteLabel }) {
+                        GenesisLucideIcon("thumbs-up")
                     }
-                    NativeText(copy.getString("position").replace("{current}", rotation.sequence.toString())
-                        .replace("{limit}", rotation.dailyLimit.toString()) +
-                        (if (!rotation.canNext) " · " + copy.getString("limitReached") else ""),
-                        modifier = Modifier.testTag("daily-advice-position").semantics { liveRegion = LiveRegionMode.Polite },
-                        style = MaterialTheme.typography.bodySmall)
+                    IconToggleButton(checked = reaction == "dislike", onCheckedChange = { onReaction?.invoke("dislike") },
+                        enabled = onReaction != null && !busy && !reactionBusy, modifier = Modifier.size(48.dp)
+                            .testTag("daily-advice-dislike").semantics { contentDescription = dislikeLabel }) {
+                        GenesisLucideIcon("thumbs-down")
+                    }
+                    if (rotation != null && rotation.dailyLimit > 1) {
+                        val nextLabel = copy.getString("next")
+                        IconButton(onClick = { onNext?.invoke() }, enabled = !busy && rotation.canNext,
+                            modifier = Modifier.size(48.dp).testTag("daily-advice-next")
+                                .semantics { contentDescription = nextLabel }) {
+                            GenesisLucideIcon("refresh-cw")
+                        }
+                    }
+                    if (onOpenDiary != null) IconButton(onClick = onOpenDiary,
+                        modifier = Modifier.size(48.dp).testTag("daily-advice-diary")
+                            .semantics { contentDescription = "Дневник" }) {
+                        GenesisLucideIcon("book-open", Modifier.size(24.dp))
+                    }
                 }
+                if (reactionBusy) LinearProgressIndicator(Modifier.fillMaxWidth())
+                if (reactionError) Text("Не удалось сохранить. Черновик остаётся в дневнике.",
+                    color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 if (nextError) NativeText(copy.getString("nextError"), color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
                 if (hideError) NativeText(copy.getString("hideError"), color = MaterialTheme.colorScheme.error,
@@ -248,10 +313,8 @@ import kotlin.math.min
             finally { busy = false }
         }
     }
-    Surface(Modifier.fillMaxWidth().testTag("daily-advice-settings"), shape = AffairsLayout.shape) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            NativeText(copy.getString("title"), style = MaterialTheme.typography.titleMedium)
-            NativeText(copy.getString("tradition"), style = MaterialTheme.typography.bodyMedium)
+    SettingsPreferenceCard(copy.getString("title"), Modifier.testTag("daily-advice-settings"),
+        description = copy.getString("tradition")) {
             @Composable fun toggle(key: String, value: Boolean, label: String, hint: String, action: (Boolean) -> Unit) {
                 Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag(key)
                     .toggleable(value, enabled = enabled && !busy, role = Role.Switch, onValueChange = action),
@@ -302,6 +365,5 @@ import kotlin.math.min
             AffairsDisclosure(copy.getString("privacyTitle")) {
                 NativeText(copy.getString("privacyNotice"), style = MaterialTheme.typography.bodyMedium)
             }
-        }
     }
 }

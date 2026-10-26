@@ -1,0 +1,209 @@
+{
+  "appSource": "f68b3103c20a95b79468d0c753970e36d6146b21",
+  "configurations": 10,
+  "executions": 20,
+  "uniqueMethods": 2,
+  "result": "PASS",
+  "runs": [
+    {
+      "file": "1440-dark-font100-review4FullArtworkLunarImagesEqualTilesAndPinnedSearch.json",
+      "test": "review4FullArtworkLunarImagesEqualTilesAndPinnedSearch",
+      "runId": "beta4-f68b-final-1440-dark-font100",
+      "widthDp": 1440,
+      "dark": true,
+      "fontScale": 1,
+      "checks": 3,
+      "capturedScenes": 8
+    },
+    {
+      "file": "1440-dark-font100-sharedCalendarHeaderAndAlwaysVisibleDayKnowledge.json",
+      "test": "sharedCalendarHeaderAndAlwaysVisibleDayKnowledge",
+      "runId": "beta4-f68b-final-1440-dark-font100",
+      "widthDp": 1440,
+      "dark": true,
+      "fontScale": 1,
+      "checks": 12,
+      "capturedScenes": 10
+    },
+    {
+      "file": "1440-light-font100-review4FullArtworkLunarImagesEqualTilesAndPinnedSearch.json",
+      "test": "review4FullArtworkLunarImagesEqualTilesAndPinnedSearch",
+      "runId": "beta4-f68b-final-1440-light-font100",
+      "widthDp": 1440,
+      "dark": false,
+      "fontScale": 1,
+      "checks": 3,
+      "capturedScenes": 8
+    },
+    {
+      "file": "1440-light-font100-sharedCalendarHeaderAndAlwaysVisibleDayKnowledge.json",
+      "test": "sharedCalendarHeaderAndAlwaysVisibleDayKnowledge",
+      "runId": "beta4-f68b-final-1440-light-font100",
+      "widthDp": 1440,
+      "dark": false,
+      "fontScale": 1,
+      "checks": 12,
+      "capturedScenes": 10
+    },
+    {
+      "file": "360-dark-font100-review4FullArtworkLunarImagesEqualTilesAndPinnedSearch.json",
+      "test": "review4FullArtworkLunarImagesEqualTilesAndPinnedSearch",
+      "runId": "beta4-f68b-final-360-dark-font100",
+      "widthDp": 360,
+      "dark": true,
+      "fontScale": 1,
+      "checks": 3,
+      "capturedScenes": 8
+    },
+    {
+      "file": "360-dark-font100-sharedCalendarHeaderAndAlwaysVisibleDayKnowledge.json",
+      "test": "sharedCalendarHeaderAndAlwaysVisibleDayKnowledge",
+      "runId": "beta4-f68b-final-360-dark-font100",
+      "widthDp": 360,
+      "dark": true,
+      "fontScale": 1,
+      "checks": 12,
+      "capturedScenes": 10
+    },
+    {
+      "file": "360-dark-font130-review4FullArtworkLunarImagesEqualTilesAndPinnedSearch.json",
+      "test": "review4FullArtworkLunarImagesEqualTilesAndPinnedSearch",
+      "runId": "beta4-f68b-final-360-dark-font130",
+      "widthDp": 360,
+      "dark": true,
+      "fontScale": 1.3,
+      "checks": 3,
+      "capturedScenes": 8
+    },
+    {
+      "file": "360-dark-font130-sharedCalendarHeaderAndAlwaysVisibleDayKnowledge.json",
+      "test": "sharedCalendarHeaderAndAlwaysVisibleDayKnowledge",
+      "runId": "beta4-f68b-final-360-dark-font130",
+      "widthDp": 360,
+      "dark": true,
+      "fontScale": 1.3,
+      "checks": 12,
+      "capturedScenes": 10
+    },
+    {
+      "file": "360-light-font100-review4FullArtworkLunarImagesEqualTilesAndPinnedSearch.json",
+      "test": "review4FullArtworkLunarImagesEqualTilesAndPinnedSearch",
+      "runId": "beta4-f68b-final-360-light-font100",
+      "widthDp": 360,
+      "dark": false,
+      "fontScale": 1,
+      "checks": 3,
+      "capturedScenes": 8
+    },
+    {
+      "file": "360-light-font100-sharedCalendarHeaderAndAlwaysVisibleDayKnowledge.json",
+      "test": "sharedCalendarHeaderAndAlwaysVisibleDayKnowledge",
+      "runId": "beta4-f68b-final-360-light-font100",
+      "widthDp": 360,
+      "dark": false,
+      "fontScale": 1,
+      "checks": 12,
+      "capturedScenes": 10
+    },
+    {
+      "file": "360-light-font130-review4FullArtworkLunarImagesEqualTilesAndPinnedSearch.json",
+      "test": "review4FullArtworkLunarImagesEqualTilesAndPinnedSearch",
+      "runId": "beta4-f68b-final-360-light-font130",
+      "widthDp": 360,
+      "dark": false,
+      "fontScale": 1.3,
+      "checks": 3,
+      "capturedScenes": 8
+    },
+    {
+      "file": "360-light-font130-sharedCalendarHeaderAndAlwaysVisibleDayKnowledge.json",
+      "test": "sharedCalendarHeaderAndAlwaysVisibleDayKnowledge",
+      "runId": "beta4-f68b-final-360-light-font130",
+      "widthDp": 360,
+      "dark": false,
+      "fontScale": 1.3,
+      "checks": 12,
+      "capturedScenes": 10
+    },
+    {
+      "file": "390-dark-font100-review4FullArtworkLunarImagesEqualTilesAndPinnedSearch.json",
+      "test": "review4FullArtworkLunarImagesEqualTilesAndPinnedSearch",
+      "runId": "beta4-f68b-final-390-dark-font100",
+      "widthDp": 390,
+      "dark": true,
+      "fontScale": 1,
+      "checks": 3,
+      "capturedScenes": 8
+    },
+    {
+      "file": "390-dark-font100-sharedCalendarHeaderAndAlwaysVisibleDayKnowledge.json",
+      "test": "sharedCalendarHeaderAndAlwaysVisibleDayKnowledge",
+      "runId": "beta4-f68b-final-390-dark-font100",
+      "widthDp": 390,
+      "dark": true,
+      "fontScale": 1,
+      "checks": 12,
+      "capturedScenes": 10
+    },
+    {
+      "file": "390-light-font100-review4FullArtworkLunarImagesEqualTilesAndPinnedSearch.json",
+      "test": "review4FullArtworkLunarImagesEqualTilesAndPinnedSearch",
+      "runId": "beta4-f68b-final-390-light-font100",
+      "widthDp": 390,
+      "dark": false,
+      "fontScale": 1,
+      "checks": 3,
+      "capturedScenes": 8
+    },
+    {
+      "file": "390-light-font100-sharedCalendarHeaderAndAlwaysVisibleDayKnowledge.json",
+      "test": "sharedCalendarHeaderAndAlwaysVisibleDayKnowledge",
+      "runId": "beta4-f68b-final-390-light-font100",
+      "widthDp": 390,
+      "dark": false,
+      "fontScale": 1,
+      "checks": 12,
+      "capturedScenes": 10
+    },
+    {
+      "file": "768-dark-font100-review4FullArtworkLunarImagesEqualTilesAndPinnedSearch.json",
+      "test": "review4FullArtworkLunarImagesEqualTilesAndPinnedSearch",
+      "runId": "beta4-f68b-final-768-dark-font100",
+      "widthDp": 768,
+      "dark": true,
+      "fontScale": 1,
+      "checks": 3,
+      "capturedScenes": 8
+    },
+    {
+      "file": "768-dark-font100-sharedCalendarHeaderAndAlwaysVisibleDayKnowledge.json",
+      "test": "sharedCalendarHeaderAndAlwaysVisibleDayKnowledge",
+      "runId": "beta4-f68b-final-768-dark-font100",
+      "widthDp": 768,
+      "dark": true,
+      "fontScale": 1,
+      "checks": 12,
+      "capturedScenes": 10
+    },
+    {
+      "file": "768-light-font100-review4FullArtworkLunarImagesEqualTilesAndPinnedSearch.json",
+      "test": "review4FullArtworkLunarImagesEqualTilesAndPinnedSearch",
+      "runId": "beta4-f68b-final-768-light-font100",
+      "widthDp": 768,
+      "dark": false,
+      "fontScale": 1,
+      "checks": 3,
+      "capturedScenes": 8
+    },
+    {
+      "file": "768-light-font100-sharedCalendarHeaderAndAlwaysVisibleDayKnowledge.json",
+      "test": "sharedCalendarHeaderAndAlwaysVisibleDayKnowledge",
+      "runId": "beta4-f68b-final-768-light-font100",
+      "widthDp": 768,
+      "dark": false,
+      "fontScale": 1,
+      "checks": 12,
+      "capturedScenes": 10
+    }
+  ]
+}

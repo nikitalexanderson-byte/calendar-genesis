@@ -1,0 +1,57 @@
+{
+  "appSource": "e79330368cb4cda5615aeb4031f72ce5e0b2afc6",
+  "debugApkSha256": "703697944e22b2e938cdf547f93dd95a1ec2084b1d0eee68b0b6021e24f6fa46",
+  "executions": 17,
+  "uniqueMethods": 15,
+  "result": "PASS",
+  "groups": [
+    {
+      "log": "native-components.log",
+      "passed": 9,
+      "methods": [
+        "teamHistoryStartsCollapsedAndRevealsOnlyFiveMoreAtATime",
+        "cancellingAHiddenSharedPageDoesNotBecomeAnErrorButRealFailuresRemainVisible",
+        "exactOfflineCircleSupportsZoomSelectionAndOpeningTheCivilDate",
+        "recordsOnlyVisibleAdviceAndRetriesDismissalWithoutDroppingTheText",
+        "adviceActionsStayInOneOrderedRowAndKeepTheirCallbacks",
+        "createEditSearchPinArchiveAndRestorePersistEncryptedNotes",
+        "noteSaveRemainsVisibleWithKeyboardAndLongText",
+        "inboxChatEncryptedDraftSendAndSecurityCode",
+        "missingLocalKeyShowsRestoreWithoutReplacingRegisteredKey"
+      ]
+    },
+    {
+      "log": "calendar-guards.log",
+      "passed": 3,
+      "methods": [
+        "deletedRecurringOccurrenceHasNoCounterWhileRemainingCompletedDatesStayGreen",
+        "gregorianYearShowsSeasonsDayAndTaskCountsWithoutDuplicateHeadings",
+        "plainTodayIsCompactInBothThemesAndRestoresSacredArtwork"
+      ]
+    },
+    {
+      "log": "final-360-light-font130.log",
+      "passed": 2,
+      "methods": [
+        "sharedCalendarHeaderAndAlwaysVisibleDayKnowledge",
+        "review4FullArtworkLunarImagesEqualTilesAndPinnedSearch"
+      ]
+    },
+    {
+      "log": "final-360-dark-font130.log",
+      "passed": 2,
+      "methods": [
+        "sharedCalendarHeaderAndAlwaysVisibleDayKnowledge",
+        "review4FullArtworkLunarImagesEqualTilesAndPinnedSearch"
+      ]
+    },
+    {
+      "log": "drag-final.log",
+      "passed": 1,
+      "methods": [
+        "review4WholeTaskAndListDragBetweenInboxProjectsAndSubprojects"
+      ]
+    }
+  ],
+  "testSource": "6d286f4683ad9d2b48279959575ea58a6f25abec"
+}

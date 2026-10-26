@@ -2,7 +2,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Calendar event reminders are a core function. Android 13+ grants USE_EXACT_ALARM
          at install; older Android uses the user-controlled special access. -->
@@ -14,7 +13,6 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <queries>
-        <intent><action android:name="android.speech.RecognitionService" /></intent>
         <intent>
             <action android:name="android.support.customtabs.action.CustomTabsService" />
         </intent>

@@ -44,9 +44,10 @@ android {
         applicationId = "ru.genesis.calendar"
         minSdk = 26
         targetSdk = 37
-        versionCode = 102
-        versionName = "2.9.7"
+        versionCode = 107
+        versionName = "3.0.0-beta.5"
         buildConfigField("boolean", "PLAY_DISTRIBUTION", "false")
+        buildConfigField("boolean", "TRIAL_BUILD", "true")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         manifestPlaceholders["genesisHost"] = genesisUri.host
@@ -55,7 +56,7 @@ android {
         buildConfigField("String", "GENESIS_ORIGIN", "\"$genesisOrigin\"")
         buildConfigField("String", "GENESIS_HOST", "\"${genesisUri.host}\"")
         resValue("string", "launch_url", genesisUrl)
-        resValue("string", "app_name", "GENESIS")
+        resValue("string", "app_name", "GENESIS 3.0")
     }
 
     signingConfigs {
@@ -70,7 +71,7 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix = debugApplicationSuffix
-            resValue("string", "app_name", "GENESIS Alpha")
+            resValue("string", "app_name", "GENESIS 3.0 · Проверка")
         }
         release {
             if (releaseSigningReady) signingConfig = signingConfigs.getByName("genesisRelease")
@@ -106,11 +107,12 @@ abstract class GenesisAssetsTask : Sync() {
 val genesisAssets = tasks.register<GenesisAssetsTask>("genesisAssets") {
     assetsDirectory.set(layout.buildDirectory.dir("generated/genesisAssets"))
     from(rootProject.file("../public")) {
-        include("icons/**", "weekday-art/**", "day-art-v1/**", "month-art-v4/**",
+        include("icons/**", "weekday-art/**", "day-art-v1/**", "month-art-v4/**", "lunar-month-art-v1/**",
             "theokyklos-art/**", "theokyklos-symbols/**", "stoicheion-cards/**",
             "achievement-art/**", "habit-ranks/**", "habit-reward-art/**", "hero-path/**",
             "calendar-art/**", "genesis-hero.png", "month-frieze-v2.png")
     }
+    from(rootProject.file("third-party-licenses")) { into("third-party-licenses") }
     from(rootProject.file("../app/translations.en.json")) { into("i18n") }
     from(rootProject.file("../app")) {
         include("translations.el.a.json", "translations.el.b.json", "translations.de.json", "translations.de.b.json", "translations.fr.json", "translations.fr.b.json",
