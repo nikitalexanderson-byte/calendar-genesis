@@ -1,6 +1,6 @@
 # Android 3.0 beta.4 — правки владельца 26 октября
 
-App source: `e79330368cb4cda5615aeb4031f72ce5e0b2afc6`, версия **3.0.0-beta.4 /106**. [Подписанная сборка](https://github.com/nikitalexanderson-byte/calendar-genesis/actions/runs/40387733574) завершена успешно: JVM, release lint, assembleRelease и CI-проверка подписи/пакета/выравнивания. APK загружается для отдельной локальной проверки и установки; результаты поставки будут добавлены после неё.
+App source: `e79330368cb4cda5615aeb4031f72ce5e0b2afc6`, версия **3.0.0-beta.4 /106**. [Подписанная сборка](https://github.com/nikitalexanderson-byte/calendar-genesis/actions/runs/40387733574) завершена успешно. APK проверен локально и установлен на realme RMX5000 поверх beta.3/105 без uninstall/clear; хеш установленного base.apk совпадает. Запуск на телефоне не выполнялся: другое приложение оставалось на переднем плане. На API35 подписанная версия запустилась и показала экран Google-входа без авторизации. [Поставка и границы физической проверки](device-smoke.md), [точный APK](release-artifact.json).
 
 Только Android и его документация. Сайт, API, production, стабильный APK/указатель обновлений и `GENESIS_DEPLOY_ANDROID=false` не менялись. PR остаётся draft; merge не выполнялся. SSH не использовался. Пользовательские изменения исходного checkout сохранены.
 
@@ -27,6 +27,12 @@ App source: `e79330368cb4cda5615aeb4031f72ce5e0b2afc6`, версия **3.0.0-bet
 - [Снимки до/после](screenshots.md). Снимки владельца и содержимое телефона не коммитятся; все новые public QA-снимки используют синтетические данные.
 
 Первый signing run40385523498 остановлен до выдачи APK: runtime-проверка выявила отсутствовавший resolver 👍. Поставляемым может считаться только финальный run40387733574 и отдельно проверенный артефакт. Матрица первого checkpoint не переименована в полный прогон финального APK.
+
+## Поставка
+
+`GENESIS-Android-Native-3.0.0-beta.4.apk`, 170083389 bytes; SHA-256 `b143b39b7ba1e119232b01e497bde7db766286cc28f453ba6a4185fa7efedf97`. Локальная папка: `C:/Users/mrdeu/Downloads/GENESIS-Android-3.0.0-beta.4`, вместе с metadata, SHA, проверочным скриптом и краткими примечаниями. Проверены существующий release certificate, package/version/source, non-debuggable, zipalign, отсутствие микрофона/voice service query и [оригинальные ассеты](asset-verification.json).
+
+Матрица и тесты используют отдельный debug package с синтетическими данными. Установки на realme/API36 и отдельный release package API35 выполнены одним проверенным подписанным APK. [Настройки доступности эмулятора](emulator-settings-restored.json) восстановлены и повторно сверены после smoke; физический телефон не перенастраивался.
 
 ## Границы проверки
 

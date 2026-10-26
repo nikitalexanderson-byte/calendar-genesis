@@ -1,0 +1,22 @@
+{
+  "apkSha256": "b143b39b7ba1e119232b01e497bde7db766286cc28f453ba6a4185fa7efedf97",
+  "result": "All original byte hashes match the signed APK",
+  "lunarArtworks": 13,
+  "calendarSvg": 1,
+  "originalHashes": {
+    "assets/originals/lunar-month-art-v1/month-01.webp": "d2ecf1c6d97ed26acffe5046a37c488cf63c77da0925b9370344b526c616e771",
+    "assets/originals/lunar-month-art-v1/month-02.webp": "a00b5527262cb1d3a7ae52b420f6ebf08900fa8e4b16966e690847d2aeee2193",
+    "assets/originals/lunar-month-art-v1/month-03.webp": "946b06e701fb2db6e13018cf66e79111436af277d7724cd16a2c0bed1c6cf51a",
+    "assets/originals/lunar-month-art-v1/month-04.webp": "bdaf746447387341cd5338c8d3b5dd2fe006edb1de5b1fb9366f360d8e598a0e",
+    "assets/originals/lunar-month-art-v1/month-05.webp": "f6d63a2d080a0472b0db4cab9df21783fc47e088145ab0d0f747554e06e862f1",
+    "assets/originals/lunar-month-art-v1/month-06.webp": "7922820398e4b22da370e936de99979c64ea870345aaf0e360cfb2aaeab611a1",
+    "assets/originals/lunar-month-art-v1/month-07.webp": "11e3850b6942a0e8f6ab64922017fb3a6fdc6b4a40c2b8d3c3708b295a31ab95",
+    "assets/originals/lunar-month-art-v1/month-08.webp": "376363eb9fa8d490814ec4971b0485db4fe488ec678c2c8e7afec9d7d34a6d6c",
+    "assets/originals/lunar-month-art-v1/month-09.webp": "d23f4aed832e7fac8c503ee82afc165b169e05391b4f07604bf31bc06e77937f",
+    "assets/originals/lunar-month-art-v1/month-10.webp": "01a4fbbb8f09f2ccca5e6908ac5a29ef673d5d3d97524ddcdf038948b922b960",
+    "assets/originals/lunar-month-art-v1/month-11.webp": "b5bfd9c2c16fd48b19ec8d8e9776e597e9de2abe8b0e43745c75561782e1cab4",
+    "assets/originals/lunar-month-art-v1/month-12.webp": "28f4f0abf63e7f67144389fe0c25cbaa73badbd3799e18412a84f9323af89525",
+    "assets/originals/lunar-month-art-v1/month-13.webp": "07e0fece0bd9bd192f5feb676ff861a197908c1c517e5fb2e0f09d72ced9c819",
+    "assets/originals/calendar-art/genesis-sacred-calendar-v8.svg": "20416e380654f7cc3db72fafdaec5220ed403a9e61d6bc4f5b2375d4a95ef59c"
+  }
+}
