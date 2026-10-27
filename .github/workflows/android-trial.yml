@@ -20,11 +20,20 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Require an explicitly marked 3.0 trial
+      - name: Validate explicitly selected Android candidate
         run: |
           set -euo pipefail
-          grep -Eq 'buildConfigField\("boolean", "TRIAL_BUILD", "true"\)' android/app/build.gradle.kts
-          grep -Eq 'versionName = "3\.0\.0-beta\.[0-9]+"' android/app/build.gradle.kts
+          VERSION_NAME="$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' android/app/build.gradle.kts)"
+          VERSION_CODE="$(sed -n 's/.*versionCode = \([0-9]*\).*/\1/p' android/app/build.gradle.kts)"
+          if [[ "$VERSION_NAME" =~ ^3\.0\.0-beta\.[0-9]+$ ]]; then
+            grep -Eq 'buildConfigField\("boolean", "TRIAL_BUILD", "true"\)' android/app/build.gradle.kts
+          else
+            [[ "$VERSION_NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+            grep -Eq 'buildConfigField\("boolean", "TRIAL_BUILD", "false"\)' android/app/build.gradle.kts
+          fi
+          test "$VERSION_CODE" -gt 102
+          printf 'ANDROID_CANDIDATE_VERSION=%s\nANDROID_CANDIDATE_CODE=%s\n' \
+            "$VERSION_NAME" "$VERSION_CODE" >> "$GITHUB_ENV"
 
       - name: Set up Java
         uses: actions/setup-java@v6
@@ -74,7 +83,7 @@ jobs:
             "$RUNNER_TEMP/genesis-trial-cert.txt"
           "$ANDROID_HOME/build-tools/37.0.0/zipalign" -c -P 16 4 "$APK"
           "$ANDROID_HOME/build-tools/37.0.0/aapt" dump badging "$APK" > "$RUNNER_TEMP/genesis-trial-badging.txt"
-          grep -Eq "package: name='ru.genesis.calendar' versionCode='[0-9]+' versionName='3\.0\.0-beta\.[0-9]+'" \
+          grep -Fq "package: name='ru.genesis.calendar' versionCode='$ANDROID_CANDIDATE_CODE' versionName='$ANDROID_CANDIDATE_VERSION'" \
             "$RUNNER_TEMP/genesis-trial-badging.txt"
           ! grep -q '^application-debuggable' "$RUNNER_TEMP/genesis-trial-badging.txt"
           VERSION_CODE="$(sed -n "s/^package:.*versionCode='\([^']*\)'.*/\1/p" "$RUNNER_TEMP/genesis-trial-badging.txt")"
