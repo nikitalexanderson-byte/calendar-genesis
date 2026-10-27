@@ -8,6 +8,17 @@ import org.junit.Test
 import ru.genesis.calendar.data.UiPreferences
 
 class GregorianSeasonArtTest {
+    @Test fun monthArtworkKeepsWebClimateAndSouthernCalendarOrder() {
+        assertEquals("gregorian-months-v1/temperate/10.webp", gregorianMonthArtPath(9, ZoneId.of("Europe/Moscow")))
+        assertEquals("gregorian-months-v1/southern/01.webp", gregorianMonthArtPath(0, ZoneId.of("Australia/Sydney")))
+        assertEquals("gregorian-months-v1/mediterranean/07.webp", gregorianMonthArtPath(0, ZoneId.of("Australia/Perth")))
+        for (zone in listOf("Europe/Moscow", "Europe/Helsinki", "Europe/Rome", "Asia/Riyadh", "Asia/Singapore", "Australia/Sydney")) {
+            val paths = (0..11).map { gregorianMonthArtPath(it, ZoneId.of(zone)) }
+            assertEquals(12, paths.distinct().size)
+            paths.forEach { assertTrue(it, java.io.File("../../public/$it").isFile) }
+        }
+    }
+
     @Test fun northernAndSouthernRegionsChooseDifferentSeasonPalettes() {
         assertEquals(SeasonArtRegion.BOREAL, seasonArtRegion(ZoneId.of("Europe/Helsinki")))
         assertEquals(SeasonArtRegion.MEDITERRANEAN, seasonArtRegion(ZoneId.of("Europe/Rome")))
