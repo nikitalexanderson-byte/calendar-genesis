@@ -45,27 +45,30 @@ class HabitsVisualTest {
             }
         }
         compose.waitUntil(10_000) {
-            compose.onAllNodesWithText("ЕЖЕДНЕВНЫЙ РИТМ").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithTag("habit-workspace-today").fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithText("Мои привычки").assertExists()
+        compose.onNodeWithTag("habit-workspace-menu").performClick()
+        compose.onNodeWithTag("habit-open-development").performClick()
         if (experimental) compose.onNodeWithText("Путь Героя и награды").assertExists()
         compose.onNodeWithContentDescription("Путь героических рангов").assertDoesNotExist()
-        if (experimental) compose.onNodeWithTag("habit-hero-path-toggle").assertExists()
+        if (experimental) compose.onNodeWithTag("habit-hero-path-toggle").assertDoesNotExist()
         assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
             .takeScreenshot(File(app.getExternalFilesDir(null),
                 "habits-${if (experimental) "experimental" else "standart"}-${width ?: 390}.png")))
         if (experimental) {
-            compose.onNodeWithTag("habit-hero-path-heading").performScrollTo().performClick()
-            compose.onNodeWithText("Свернуть путь").assertExists()
+            compose.onNodeWithTag("habit-hero-path-heading").performScrollTo().assertIsDisplayed()
+            compose.onNodeWithText("Свернуть путь").assertDoesNotExist()
             compose.onNodeWithTag("all-hero-ranks").performScrollTo().assertIsDisplayed().performClick()
             compose.onNodeWithTag("all-streak-milestones").performScrollTo().assertIsDisplayed().performClick()
             compose.onNodeWithTag("all-achievements").performScrollTo().assertIsDisplayed().performClick()
             compose.onNodeWithText("Свернуть достижения").assertExists()
             assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
                 .takeScreenshot(File(app.getExternalFilesDir(null), "habits-rewards-buttons-${width ?: 390}.png")))
-            compose.onNodeWithTag("habit-hero-path-heading").performScrollTo().performClick()
-            compose.onNodeWithTag("sacred-habits-heading").performScrollTo().performClick()
-            compose.onNodeWithText("Свернуть сакральные практики").assertExists()
+            compose.onNodeWithTag("habit-workspace-menu").performClick()
+            compose.onNodeWithTag("habit-open-sacred").performClick()
+            compose.onNodeWithTag("sacred-habits-toggle").assertDoesNotExist()
+            compose.onNodeWithText("Свернуть сакральные практики").assertDoesNotExist()
             compose.onNodeWithText("Север", substring=false).assertExists()
             compose.onNodeWithText("Северо-Запад", substring=false).assertExists()
             compose.onNodeWithText("Северо-Запад", substring=false).performScrollTo()

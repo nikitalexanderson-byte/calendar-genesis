@@ -1425,6 +1425,11 @@ export function createHabitFromTemplate(
   };
 }
 
+/** Reading cycles remain separate from the two standard practices in each sacred sector. */
+export function findStandardSacredHabit(habits: readonly Habit[], practiceId: string): Habit | undefined {
+  return habits.find(habit => habit.sacredPracticeId === practiceId && !habit.stoicheionRestoration);
+}
+
 export function createHabitFromSacredPractice(
   practice: SacredPractice,
   startDate: string,

@@ -41,7 +41,9 @@ class HabitArtFlowTest {
                 compose.onAllNodesWithTag("navigation-Привычки").fetchSemanticsNodes().isNotEmpty()
             }
             compose.onNodeWithTag("navigation-Привычки").performClick()
-            compose.onNodeWithTag("habit-hero-path-toggle").performScrollTo().performClick()
+            compose.onNodeWithTag("habit-workspace-menu").performClick()
+            compose.onNodeWithTag("habit-open-development").performClick()
+            compose.onNodeWithTag("habit-hero-path-toggle").assertDoesNotExist()
             compose.waitUntil(10_000) {
                 compose.onAllNodesWithTag("achievement-gallery").fetchSemanticsNodes().isNotEmpty()
             }

@@ -80,7 +80,7 @@ class HabitAnalysisFlowTest {
         val before = runBlocking { app.database.dao().document(scope, "habits") }; val outbox = runBlocking { app.database.dao().outbox(scope) }
         var opened: Pair<String, LocalDate>? = null
         render(anchor = LocalDate.parse("2026-10-22"), history = { id, date -> opened = id to date })
-        compose.onNodeWithTag("habit-comparison-toggle").performScrollTo().performClick()
+        compose.onNodeWithText("Сравнение").performScrollTo().performClick()
         compose.onNodeWithTag("habit-comparison-current").assertExists()
         compose.onNodeWithTag("habit-analysis-day-2026-10-19").performScrollTo().performClick()
         compose.onNodeWithTag("habit-source-v1").performScrollTo().assertIsDisplayed()

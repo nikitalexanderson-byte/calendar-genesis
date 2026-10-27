@@ -1275,6 +1275,11 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     val projectToolbar = project != null && project.optInt("isInbox") == 0 && taskId.isBlank()
     val spaceToolbar = spaceId.isNotBlank() && projectId.isBlank() && taskId.isBlank()
     fun closeActions() { actionsOpen = false; projectMenu = null }
+    val savedViewsItem: @Composable () -> Unit = {
+        DropdownMenuItem(text = { Text("Сохранённые представления") },
+            leadingIcon = { GenesisLucideIcon("bookmark") },
+            modifier = Modifier.testTag("shared-saved-views-open"), onClick = { closeActions(); automationDestination.views.value = true })
+    }
     val actionItems: @Composable ColumnScope.(SharedProjectMenu?) -> Unit = { menu ->
         fun shows(group: SharedProjectMenu) = menu == null || menu == group
 
@@ -1286,9 +1291,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
             onClick = { closeActions(); onPrivateMessages(spaceId) }, modifier = Modifier.testTag("shared-messages-open"))
         if (spaceId.isNotBlank() && shows(SharedProjectMenu.SETTINGS)) DropdownMenuItem(text = { Text("Архив и корзина") }, leadingIcon = { AffairsActionIcon(AffairsAction.ARCHIVE) },
             onClick = { closeActions(); taskExtensions.lifecycleOpen = true }, modifier = Modifier.testTag("shared-lifecycle-open"))
-        if (shows(SharedProjectMenu.WORK)) DropdownMenuItem(text = { Text("Сохранённые представления") },
-            leadingIcon = { GenesisLucideIcon("bookmark") },
-            modifier = Modifier.testTag("shared-saved-views-open"), onClick = { closeActions(); automationDestination.views.value = true })
+        if (spaceId.isNotBlank() && shows(SharedProjectMenu.WORK)) savedViewsItem()
         if (spaceId.isNotBlank() && shows(SharedProjectMenu.SETTINGS)) DropdownMenuItem(text = { Text("Экспорт данных") }, leadingIcon = { GenesisLucideIcon("download") },
             modifier = Modifier.testTag("shared-export-open"), onClick = { closeActions(); dataExportOpen = true })
         if (projectId.isNotBlank()) {
@@ -1327,11 +1330,14 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
             if (shows(SharedProjectMenu.TEAM)) DropdownMenuItem(text = { Text("Участники и роли") }, leadingIcon = { GenesisLucideIcon("users-round") }, onClick = {
                 closeActions(); managementPage = "team"; showManagement = true })
         } else {
-            DropdownMenuItem(text = { Text("Создать пространство") }, leadingIcon = { GenesisLucideIcon("folder-plus") }, enabled = !busy,
-                onClick = { closeActions(); createModal = "space" })
-            DropdownMenuItem(text = { Text("Присоединиться к пространству") }, leadingIcon = { GenesisLucideIcon("link") }, enabled = !busy,
-                modifier = Modifier.testTag("shared-join-space"),
-                onClick = { closeActions(); createModal = "join" })
+            if (spaceId.isBlank()) {
+                DropdownMenuItem(text = { Text("Создать пространство") }, leadingIcon = { GenesisLucideIcon("folder-plus") }, enabled = !busy,
+                    onClick = { closeActions(); createModal = "space" })
+                DropdownMenuItem(text = { Text("Присоединиться к пространству") }, leadingIcon = { GenesisLucideIcon("link") }, enabled = !busy,
+                    modifier = Modifier.testTag("shared-join-space"),
+                    onClick = { closeActions(); createModal = "join" })
+                if (shows(SharedProjectMenu.WORK)) savedViewsItem()
+            }
             if (spaceId.isNotBlank()) {
                 if (currentSpace?.optString("role") in setOf("owner", "admin"))
                     DropdownMenuItem(text = { Text("Пригласить через Gmail") }, leadingIcon = { GenesisLucideIcon("send") }, enabled = !busy,
@@ -1457,26 +1463,33 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                     }
                 }
             } else {
-                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).testTag("shared-space-actions"),
+                val createInboxTask: (() -> Unit)? = if(sharedTaskCanEdit(inlineInboxSnapshot?.optJSONObject("project"))) ({
+                    projectId=inboxId;snapshot=inlineInboxSnapshot;createCustomProjectId=inboxId
+                    newTaskStatusId=inlineInboxSnapshot?.optJSONArray("statuses")?.optJSONObject(0)?.optString("id").orEmpty()
+                    newTaskCategoryId="";newTaskAssigneeId="";createModal="task"
+                }) else null
+                val createInboxList: (() -> Unit)? = if(spaceCanCreate && inboxProject != null) ({
+                    createKind="task-list";parentId="";parentBoardId="";createModal="project"
+                }) else null
+                Row(Modifier.fillMaxWidth().testTag("shared-space-actions"),
                     horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (spaceCanCreate) Button(onClick = {
                     createKind = "project"; parentId = ""; parentBoardId = ""; createModal = "project"
-                }, enabled = !busy, modifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = 48.dp).testTag("shared-create-project")) {
-                    Text("Создать общий проект")
+                }, enabled = !busy, modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("shared-create-project"),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp)) {
+                    Text("Создать общий проект", style = MaterialTheme.typography.labelLarge)
                 }
                 else Spacer(Modifier.weight(1f))
+                createInboxTask?.let { create -> AffairsIconButton("Создать задачу", AffairsAction.ADD, create,
+                    Modifier.testTag("shared-inbox-create-task"), enabled = !busy) }
+                createInboxList?.let { create -> AffairsIconButton("Создать список задач", AffairsAction.TASK_LIST, create,
+                    Modifier.testTag("shared-inbox-create-list"), enabled = !busy) }
                 headerActions(false)
                 }
                 val inboxLists=projects.filter {it.optString("kind")=="task-list"&&it.optString("parentId").let {parent->parent.isBlank()||parent=="null"||parent==inboxId}}
                 val spaceInbox: @Composable ()->Unit = {
                     if(inboxProject!=null) SharedChaosBox(inlineInboxReader.pageState.value?.optInt("total") ?: inboxProject.optInt("taskCount"),inboxLists.size,
-                        spaceInboxLayout,setSpaceInboxLayout,
-                        onCreateTask=if(sharedTaskCanEdit(inlineInboxSnapshot?.optJSONObject("project"))) ({
-                            projectId=inboxId;snapshot=inlineInboxSnapshot;createCustomProjectId=inboxId
-                            newTaskStatusId=inlineInboxSnapshot?.optJSONArray("statuses")?.optJSONObject(0)?.optString("id").orEmpty()
-                            newTaskCategoryId="";newTaskAssigneeId="";createModal="task"
-                        }) else null,
-                        onCreateList=if(spaceCanCreate) ({createKind="task-list";parentId="";parentBoardId="";createModal="project"}) else null) {
+                        spaceInboxLayout,setSpaceInboxLayout) {
                         val inboxSnapshot=inlineInboxSnapshot
                         val inboxStatuses=inboxSnapshot?.optJSONArray("statuses")?.rows().orEmpty()
                         val inboxTasks=inlineInboxReader.pageState.value?.optJSONArray("tasks")?.rows().orEmpty()

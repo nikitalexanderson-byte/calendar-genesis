@@ -231,7 +231,7 @@ import kotlin.math.min
                 AffairsLayout.controlShape).padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.Top) {
+                    verticalAlignment = Alignment.CenterVertically) {
                     NativeText(card.title.ifBlank { copy.getString("title") }, Modifier.weight(1f).testTag("daily-advice-title").semantics { heading() },
                         style = MaterialTheme.typography.titleMedium)
                     IconButton(onClick = onDismiss, enabled = !busy,

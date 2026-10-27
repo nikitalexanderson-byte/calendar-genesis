@@ -10,6 +10,16 @@ function fixture(mode = "profane") {
   const habit = habits.createHabitFromSacredPractice(practices.SACRED_PRACTICES[0], start, mode, "ru");
   return { habit, workspace: { ...habits.EMPTY_HABIT_WORKSPACE, habits: [habit] } };
 }
+test("a reading cycle does not occupy a standard sacred practice slot", () => {
+  const { habit } = fixture();
+  const reading = { ...habit, id: "reading-cycle", title: "Personal reading practice",
+    stoicheionRestoration: { cycleId: "reading-cycle" } };
+  assert.equal(habits.findStandardSacredHabit([reading], habit.sacredPracticeId), undefined);
+  for (const items of [[reading, habit], [habit, reading]]) {
+    assert.equal(habits.findStandardSacredHabit(items, habit.sacredPracticeId), habit);
+    assert.equal(items.find(item => item.id === "reading-cycle").title, "Personal reading practice");
+  }
+});
 for (const mode of ["profane", "sacred", "lunar"]) test(`a new sacred practice is available once in a two-day window (${mode})`, () => {
   const { habit, workspace } = fixture(mode);
   assert.equal(habit.practiceGoal.requiredCompletions, 1);

@@ -68,102 +68,123 @@ internal val habitActivityLabels = mapOf("completed" to "Выполнено", "a
     }
     fun percent(value: Double?) = value?.let { number.format(it) + "%" } ?: "—"
     var choiceOpen by remember { mutableStateOf(false) }
-    var comparisonExpanded by rememberSaveable { mutableStateOf(false) }
-    Column(Modifier.fillMaxWidth().testTag("habit-analysis"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    fun periodLabel(date: LocalDate) = if (mode == CalendarMode.PROFANE)
+        date.format(DateTimeFormatter.ofPattern("d MMM yyyy", locale)) else calendar.formatDate(date, mode)
+    Column(Modifier.fillMaxWidth().testTag("habit-analysis"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text("Календарь выполнения привычек", style = MaterialTheme.typography.titleLarge)
-        Text("Проценты целей и объёма рассчитываются отдельно.", style = MaterialTheme.typography.bodySmall)
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Сравнение", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-            AffairsIconButton("Сравнение", if (comparisonExpanded) AffairsAction.COLLAPSE else AffairsAction.EXPAND,
-                { comparisonExpanded = !comparisonExpanded }, Modifier.testTag("habit-comparison-toggle"))
-        }
-        comparison?.takeIf { comparisonExpanded }?.let { data ->
-            Text("Сравниваются только прошедшие дни обоих периодов.", style = MaterialTheme.typography.bodySmall)
-            MaterialText("${calendar.formatDate(data.start, mode)} — ${calendar.formatDate(data.start.plusDays(maxOf(0, data.elapsed - 1).toLong()), mode)} · " +
-                "${number.format(data.current.completed)}/${number.format(data.current.planned)} · ${percent(data.current.percent)}", Modifier.testTag("habit-comparison-current"))
-            if (data.previousEnd != null) MaterialText("${calendar.formatDate(data.previousStart, mode)} — ${calendar.formatDate(data.previousEnd, mode)} · " +
-                "${number.format(data.previous.completed)}/${number.format(data.previous.planned)} · ${percent(data.previous.percent)}", Modifier.testTag("habit-comparison-previous"))
-            MaterialText((if (data.absoluteChange > 0) "+" else "") + number.format(data.absoluteChange) + " · " + percent(data.changePercent), Modifier.testTag("habit-comparison-change"))
-            if (data.changePercent == null) Text("Нет базы для процентного сравнения", style = MaterialTheme.typography.bodySmall)
-            if (data.current.unknown + data.previous.unknown > 0) MaterialText(genesisTranslate("Доступность неизвестна") + ": " + number.format(data.current.unknown + data.previous.unknown), style = MaterialTheme.typography.bodySmall)
-        }
-        HorizontalDivider()
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            CalendarModeSwitcher(mode, { selectedMode = nextAvailableCalendarMode(mode, enabled) }, size = 48.dp)
-            Text(mobileCalendarCopy(language).calendarName(mode), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-            AffairsIconButton("Сегодня", AffairsAction.TIMER, { anchorValue = today.toString(); selectedDate = today.toString() }, Modifier.testTag("habit-analysis-today"))
-        }
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(!year, { year = false }, { Text("Месяц") }, shape = AffairsLayout.controlShape, modifier = Modifier.heightIn(min = 48.dp).testTag("habit-analysis-month"))
-            FilterChip(year, { year = true }, { Text("Год") }, shape = AffairsLayout.controlShape, modifier = Modifier.heightIn(min = 48.dp).testTag("habit-analysis-year"))
-        }
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            AffairsIconButton("Назад", AffairsAction.BACK, { anchorValue = period.start.minusDays(1).toString(); selectedDate = "" }, Modifier.testTag("habit-analysis-previous"))
-            Text(calendar.formatDate(period.start, mode) + " — " + calendar.formatDate(period.end, mode), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-            AffairsIconButton("Вперёд", AffairsAction.NEXT, { anchorValue = period.end.plusDays(1).toString(); selectedDate = "" }, Modifier.testTag("habit-analysis-next"))
-        }
-        if (habit == null) Text("Создайте привычку, чтобы увидеть её историю.") else {
-            Box {
-                OutlinedButton({ choiceOpen = true }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("habit-analysis-habit"), shape = AffairsLayout.controlShape) { MaterialText(habitDisplayTitle(habit)) }
-                DropdownMenu(choiceOpen, { choiceOpen = false }) { workspace.habits.forEach { item ->
-                    DropdownMenuItem({ MaterialText(habitDisplayTitle(item)) }, { selectedId = item.id; selectedDate = ""; choiceOpen = false })
-                } }
+        HabitAnalysisBlock("Привычка и период", "habit-analysis-controls") {
+            if (habit == null) Text("Создайте привычку, чтобы увидеть её историю.") else {
+                Box {
+                    OutlinedButton({ choiceOpen = true }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("habit-analysis-habit"), shape = AffairsLayout.controlShape) { MaterialText(habitDisplayTitle(habit)) }
+                    DropdownMenu(choiceOpen, { choiceOpen = false }) { workspace.habits.forEach { item ->
+                        DropdownMenuItem({ MaterialText(habitDisplayTitle(item)) }, { selectedId = item.id; selectedDate = ""; choiceOpen = false })
+                    } }
+                }
             }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                CalendarModeSwitcher(mode, { selectedMode = nextAvailableCalendarMode(mode, enabled) }, size = 48.dp)
+                Text(mobileCalendarCopy(language).calendarName(mode), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+                AffairsIconButton("Сегодня", AffairsAction.TIMER, { anchorValue = today.toString(); selectedDate = today.toString() }, Modifier.testTag("habit-analysis-today"))
+            }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(!year, { year = false }, { Text("Месяц") }, shape = AffairsLayout.controlShape, modifier = Modifier.heightIn(min = 48.dp).testTag("habit-analysis-month"))
+                FilterChip(year, { year = true }, { Text("Год") }, shape = AffairsLayout.controlShape, modifier = Modifier.heightIn(min = 48.dp).testTag("habit-analysis-year"))
+            }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                AffairsIconButton("Назад", AffairsAction.BACK, { anchorValue = period.start.minusDays(1).toString(); selectedDate = "" }, Modifier.testTag("habit-analysis-previous"))
+                Text(periodLabel(period.start) + " — " + periodLabel(period.end), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+                AffairsIconButton("Вперёд", AffairsAction.NEXT, { anchorValue = period.end.plusDays(1).toString(); selectedDate = "" }, Modifier.testTag("habit-analysis-next"))
+            }
+        }
+        if (habit != null) {
             val data = report
             if (data == null) LinearProgressIndicator(Modifier.fillMaxWidth()) else {
-                Text("Успешные закрытые цели", style = MaterialTheme.typography.labelLarge)
-                MaterialText("${number.format(data.completedCount)}/${number.format(data.closedCount)} · ${percent(data.completionPercent)}", Modifier.testTag("habit-goal-rate"), style = MaterialTheme.typography.titleMedium)
-                for (volume in data.volumes) {
-                    Text("Факт / план объёма", style = MaterialTheme.typography.labelLarge)
-                    MaterialText("${HabitMeasurements.format(volume.actual, language)} / ${if (volume.hasPlan) HabitMeasurements.format(volume.target, language) else "—"} " +
-                        (if (volume.kind == "duration") genesisTranslate("мин") else volume.unit) + " · " + percent(volume.percent), Modifier.testTag("habit-volume-${volume.kind}-${volume.plan}"))
-                    for ((label, amount) in listOf("Открытый период" to volume.openActual, "Вне плана" to volume.extraActual, "Доступность неизвестна" to volume.unknownActual)) if (amount > 0)
-                        MaterialText(genesisTranslate(label) + ": " + HabitMeasurements.format(amount, language), style = MaterialTheme.typography.bodySmall)
+                HabitAnalysisBlock("Итоги периода", "habit-analysis-summary") {
+                    Text("Проценты целей и объёма рассчитываются отдельно.", style = MaterialTheme.typography.bodySmall)
+                    Text("Успешные закрытые цели", style = MaterialTheme.typography.labelLarge)
+                    MaterialText("${number.format(data.completedCount)}/${number.format(data.closedCount)} · ${percent(data.completionPercent)}", Modifier.testTag("habit-goal-rate"), style = MaterialTheme.typography.titleMedium)
+                    for (volume in data.volumes) {
+                        Text("Факт / план объёма", style = MaterialTheme.typography.labelLarge)
+                        MaterialText("${HabitMeasurements.format(volume.actual, language)} / ${if (volume.hasPlan) HabitMeasurements.format(volume.target, language) else "—"} " +
+                            (if (volume.kind == "duration") genesisTranslate("мин") else volume.unit) + " · " + percent(volume.percent), Modifier.testTag("habit-volume-${volume.kind}-${volume.plan}"))
+                        for ((label, amount) in listOf("Открытый период" to volume.openActual, "Вне плана" to volume.extraActual, "Доступность неизвестна" to volume.unknownActual)) if (amount > 0)
+                            MaterialText(genesisTranslate(label) + ": " + HabitMeasurements.format(amount, language), style = MaterialTheme.typography.bodySmall)
+                    }
+                    Text("В процент целей входят только закрытые возможности с известным расписанием. Текущий открытый период показан отдельно.", style = MaterialTheme.typography.bodySmall)
+                    MaterialText(genesisTranslate("Доступность неизвестна") + ": " + number.format(data.unknownDays), style = MaterialTheme.typography.bodySmall)
+                    MaterialText(genesisTranslate("Открытый период") + ": " + number.format(data.open.size), style = MaterialTheme.typography.bodySmall)
                 }
-                Text("В процент целей входят только закрытые возможности с известным расписанием. Текущий открытый период показан отдельно.", style = MaterialTheme.typography.bodySmall)
-                MaterialText(genesisTranslate("Доступность неизвестна") + ": " + number.format(data.unknownDays), style = MaterialTheme.typography.bodySmall)
-                MaterialText(genesisTranslate("Открытый период") + ": " + number.format(data.open.size), style = MaterialTheme.typography.bodySmall)
-                val groups = data.days.groupBy { calendar.monthRange(it.date, mode).start }
-                for ((month, days) in groups) {
-                    Text(calendar.formatDate(month, mode), style = MaterialTheme.typography.titleSmall)
-                    BoxWithConstraints(Modifier.fillMaxWidth().testTag("habit-analysis-grid-$month")) {
-                        // This is a date mosaic without weekday columns. Keep every target visible.
-                        val columns = minOf(if (mode == CalendarMode.SACRED) 5 else 7, ((maxWidth + 2.dp) / 50.dp).toInt().coerceAtLeast(1))
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        for (week in days.chunked(columns)) Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                            for (day in week) {
-                                val label = habitAnalysisStateLabel(day)
-                                val description = calendar.formatDate(day.date, mode) + " · " + label
-                                val ink = if (day.activity == "conflict") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
-                                Surface(shape = AffairsLayout.shape, color = if (selectedDate == day.date.toString()) MaterialTheme.colorScheme.primaryContainer
-                                    else if (day.activity == "completed") MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow) {
-                                    TextButton({ selectedDate = day.date.toString() }, enabled = !day.future && !day.beforeCreation, shape = AffairsLayout.controlShape,
-                                        modifier = Modifier.size(48.dp).testTag("habit-analysis-day-${day.date}")
-                                            .semantics { contentDescription = description; selected = selectedDate == day.date.toString() }, contentPadding = PaddingValues(4.dp)) {
-                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                            MaterialText(number.format(when (mode) { CalendarMode.PROFANE -> day.date.dayOfMonth; CalendarMode.SACRED -> calendar.sacredDate(day.date).day; CalendarMode.LUNAR -> calendar.lunarDate(day.date).day }), color = ink)
-                                            HabitAnalysisDayMarker(day)
+                HabitAnalysisBlock("Календарь выполнения", "habit-analysis-calendar") {
+                    val groups = data.days.groupBy { calendar.monthRange(it.date, mode).start }
+                    for ((month, days) in groups) {
+                        Text(if (mode == CalendarMode.PROFANE) month.format(DateTimeFormatter.ofPattern("LLLL yyyy", locale))
+                            .replaceFirstChar { it.titlecase(locale) } else calendar.formatDate(month, mode), style = MaterialTheme.typography.titleSmall)
+                        BoxWithConstraints(Modifier.fillMaxWidth().testTag("habit-analysis-grid-$month")) {
+                            // This is a date mosaic without weekday columns. Keep every target visible.
+                            val columns = minOf(if (mode == CalendarMode.SACRED) 5 else 7, ((maxWidth + 2.dp) / 50.dp).toInt().coerceAtLeast(1))
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            for (week in days.chunked(columns)) Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                for (day in week) {
+                                    val label = habitAnalysisStateLabel(day)
+                                    val description = calendar.formatDate(day.date, mode) + " · " + label
+                                    val ink = if (day.activity == "conflict") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                                    Surface(shape = AffairsLayout.shape, color = if (selectedDate == day.date.toString()) MaterialTheme.colorScheme.primaryContainer
+                                        else if (day.activity == "completed") MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow) {
+                                        TextButton({ selectedDate = day.date.toString() }, enabled = !day.future && !day.beforeCreation, shape = AffairsLayout.controlShape,
+                                            modifier = Modifier.size(48.dp).testTag("habit-analysis-day-${day.date}")
+                                                .semantics { contentDescription = description; selected = selectedDate == day.date.toString() }, contentPadding = PaddingValues(4.dp)) {
+                                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                MaterialText(number.format(when (mode) { CalendarMode.PROFANE -> day.date.dayOfMonth; CalendarMode.SACRED -> calendar.sacredDate(day.date).day; CalendarMode.LUNAR -> calendar.lunarDate(day.date).day }), color = ink)
+                                                HabitAnalysisDayMarker(day)
+                                            }
                                         }
                                     }
                                 }
                             }
-                        }
+                            }
                         }
                     }
-                }
-                data.days.firstOrNull { it.date.toString() == selectedDate }?.let { day ->
-                    HabitAnalysisSource(workspace, habit, day, calendar, mode, prefs.use24, onOpenHistory, onDecision)
+                    data.days.firstOrNull { it.date.toString() == selectedDate }?.let { day ->
+                        HabitAnalysisSource(workspace, habit, day, calendar, mode, prefs.use24, onOpenHistory, onDecision)
+                    }
                 }
             }
-            records?.let { personal ->
-                var run = 0; var best = 0
-                for (goal in personal.opportunities.filter { it.eligible || !it.closed && it.completed && it.availabilityKnown && !it.conflict }.sortedBy { it.start }) {
-                    run = if (goal.completed) run + 1 else 0; best = maxOf(best, run)
+            HabitAnalysisBlock("Личные рекорды и мастерство", "habit-analysis-records") {
+                records?.let { personal ->
+                    var run = 0; var best = 0
+                    for (goal in personal.opportunities.filter { it.eligible || !it.closed && it.completed && it.availabilityKnown && !it.conflict }.sortedBy { it.start }) {
+                        run = if (goal.completed) run + 1 else 0; best = maxOf(best, run)
+                    }
+                    MaterialText(genesisTranslate("Текущая серия") + ": " + number.format(run) + " · " + genesisTranslate("Лучшая серия") + ": " + number.format(best), Modifier.testTag("habit-personal-streaks"))
+                    MaterialText(genesisTranslate("Успешные закрытые цели") + ": " + number.format(personal.completedCount) + "/" + number.format(personal.closedCount) + " · " + percent(personal.completionPercent))
                 }
-                Text("Личные рекорды и мастерство", style = MaterialTheme.typography.titleMedium)
-                MaterialText(genesisTranslate("Текущая серия") + ": " + number.format(run) + " · " + genesisTranslate("Лучшая серия") + ": " + number.format(best), Modifier.testTag("habit-personal-streaks"))
-                MaterialText(genesisTranslate("Успешные закрытые цели") + ": " + number.format(personal.completedCount) + "/" + number.format(personal.closedCount) + " · " + percent(personal.completionPercent))
             }
+        }
+        HabitAnalysisBlock(null, "habit-analysis-comparison") {
+            AffairsDisclosure("Сравнение") {
+                comparison?.let { data ->
+                    Text("Сравниваются только прошедшие дни обоих периодов.", style = MaterialTheme.typography.bodySmall)
+                    MaterialText("${calendar.formatDate(data.start, mode)} — ${calendar.formatDate(data.start.plusDays(maxOf(0, data.elapsed - 1).toLong()), mode)} · " +
+                        "${number.format(data.current.completed)}/${number.format(data.current.planned)} · ${percent(data.current.percent)}", Modifier.testTag("habit-comparison-current"))
+                    if (data.previousEnd != null) MaterialText("${calendar.formatDate(data.previousStart, mode)} — ${calendar.formatDate(data.previousEnd, mode)} · " +
+                        "${number.format(data.previous.completed)}/${number.format(data.previous.planned)} · ${percent(data.previous.percent)}", Modifier.testTag("habit-comparison-previous"))
+                    MaterialText((if (data.absoluteChange > 0) "+" else "") + number.format(data.absoluteChange) + " · " + percent(data.changePercent), Modifier.testTag("habit-comparison-change"))
+                    if (data.changePercent == null) Text("Нет базы для процентного сравнения", style = MaterialTheme.typography.bodySmall)
+                    if (data.current.unknown + data.previous.unknown > 0) MaterialText(genesisTranslate("Доступность неизвестна") + ": " + number.format(data.current.unknown + data.previous.unknown), style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HabitAnalysisBlock(title: String?, tag: String, content: @Composable ColumnScope.() -> Unit) {
+    Card(Modifier.fillMaxWidth().testTag(tag), shape = AffairsLayout.shape,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            title?.let { Text(it, style = MaterialTheme.typography.titleMedium) }
+            content()
         }
     }
 }

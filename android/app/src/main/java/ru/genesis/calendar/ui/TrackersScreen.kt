@@ -40,14 +40,15 @@ fun TrackersScreen(app: GenesisApplication, experimental: Boolean = false) {
     var storageError by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var dateValue by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
-    var selectedViewMode by rememberSaveable { mutableStateOf<CalendarMode?>(null) }
     var planEditor by remember { mutableStateOf<SleepPlan?>(null) }
     var sleepEditor by remember { mutableStateOf<Pair<SleepPlan,SleepEntry?>?>(null) }
     var moodEditor by remember { mutableStateOf(false) }
     val date=LocalDate.parse(dateValue)
     val enabledCalendars = LocalEnabledCalendars.current
-    val viewMode = (selectedViewMode ?: prefs.display).takeIf { it in enabledCalendars }
+    val viewMode = prefs.display.takeIf { it in enabledCalendars }
         ?: enabledCalendars.firstOrNull() ?: prefs.display
+    val inputMode = prefs.input.takeIf { it in enabledCalendars }
+        ?: enabledCalendars.firstOrNull() ?: prefs.input
     val current=workspace
     val mood=current?.moodEntries?.firstOrNull { it.date==date }
     val averageMinutes=current?.sleepEntries?.filter { it.date==date }
@@ -71,7 +72,7 @@ fun TrackersScreen(app: GenesisApplication, experimental: Boolean = false) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
         GenesisPageHeader(if (LocalGenesisLanguage.current == "en") "Sleep & mood" else "Сон и настроение",
             if (LocalGenesisLanguage.current == "en") "Sleep, recovery and emotional rhythm without pressure"
-            else "Сон, восстановление и эмоциональный ритм без давления", "☾",
+            else "Сон, восстановление и эмоциональный ритм без давления", "☾", showInformation = false,
             footer = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     if (experimental) Text(
@@ -88,17 +89,6 @@ fun TrackersScreen(app: GenesisApplication, experimental: Boolean = false) {
                         }
                         TextButton(onClick={dateValue=LocalDate.now().toString()}, enabled=!busy) {
                             Text("Сегодня", color=MaterialTheme.colorScheme.primary)
-                        }
-                    }
-                    Row(verticalAlignment=Alignment.CenterVertically,
-                        horizontalArrangement=Arrangement.spacedBy(10.dp)) {
-                        CalendarModeSwitcher(viewMode, { selectedViewMode=nextAvailableCalendarMode(viewMode, enabledCalendars) },
-                            size=48.dp)
-                        Column {
-                            Text("Календарь просмотра", color=MaterialTheme.colorScheme.onSurfaceVariant,
-                                style=MaterialTheme.typography.labelSmall)
-                            Text(mobileCalendarCopy(LocalGenesisLanguage.current).calendarName(viewMode),
-                                color=MaterialTheme.colorScheme.onSurface,style=MaterialTheme.typography.bodyMedium)
                         }
                     }
                     HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
@@ -265,8 +255,7 @@ fun TrackersScreen(app: GenesisApplication, experimental: Boolean = false) {
                 Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("История наблюдений",style=MaterialTheme.typography.titleMedium)
+                    AffairsDisclosure("История наблюдений", Modifier.padding(16.dp).testTag("trackers-history")) {
                     (current.sleepEntries.map { it.date }+current.moodEntries.map { it.date }).distinct().sortedDescending().take(90).forEach { historyDate ->
                         val historyMood=current.moodEntries.firstOrNull { it.date==historyDate }
                         val moodLabel=historyMood?.let { it.customLabel.ifBlank { moodOptionLabel(it.moodValue) } } ?: "—"
@@ -289,7 +278,7 @@ fun TrackersScreen(app: GenesisApplication, experimental: Boolean = false) {
     } }
     if(moodEditor) {
         val existing=workspace?.moodEntries?.firstOrNull { it.date==date }
-        MoodObservationEditor(workspace?.moodEntries.orEmpty(),if(existing!=null)date else LocalDate.now(),viewMode,
+        MoodObservationEditor(workspace?.moodEntries.orEmpty(),if(existing!=null)date else LocalDate.now(),inputMode,
             prefs.language,emojiCategories,busy,error,
             onDismiss={if(!busy)moodEditor=false}) { chosenDate,value,note,customLabel,customEmoji ->
             val target=workspace?.moodEntries?.firstOrNull { it.date==chosenDate }

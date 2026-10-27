@@ -21,8 +21,7 @@ import androidx.compose.ui.unit.dp
 
 /** Same hierarchy as the personal inbox: heading, count, ordinary task/list rows and direct layout controls. */
 @Composable internal fun SharedChaosBox(taskCount:Int,listCount:Int,layout:PersonalInboxLayout,
-    onLayout:(PersonalInboxLayout)->Unit,modifier:Modifier=Modifier,onCreateTask:(()->Unit)?=null,
-    onCreateList:(()->Unit)?=null,content:@Composable ColumnScope.()->Unit) {
+    onLayout:(PersonalInboxLayout)->Unit,modifier:Modifier=Modifier,content:@Composable ColumnScope.()->Unit) {
     if(layout.hidden) {
         OutlinedButton(onClick={onLayout(layout.copy(hidden=false))},modifier=modifier.fillMaxWidth().testTag("shared-show-inbox")) {
             AffairsActionIcon(AffairsAction.VIEW);Spacer(Modifier.width(8.dp));Text("Показать хаос-бокс")
@@ -45,11 +44,6 @@ import androidx.compose.ui.unit.dp
                     AffairsIconButton("Скрыть хаос-бокс",AffairsAction.HIDE,
                         {onLayout(layout.copy(hidden=true))},Modifier.testTag("shared-hide-inbox"))
                 }
-            }
-            if(onCreateTask!=null || onCreateList!=null) Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                onCreateTask?.let { create -> AffairsIconButton("Создать задачу",AffairsAction.ADD,create,Modifier.testTag("shared-inbox-create-task")) }
-                onCreateList?.let { create -> AffairsIconButton("Создать список задач",AffairsAction.TASK_LIST,create,Modifier.testTag("shared-inbox-create-list")) }
-
             }
             content()
         }

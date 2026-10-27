@@ -920,7 +920,8 @@ internal fun DayHeader(date: LocalDate, mode: CalendarMode) {
             androidx.compose.material3.Surface(Modifier.fillMaxWidth().padding(8.dp).testTag("today-hero-copy"),
                 shape = AffairsLayout.shape, border = BorderStroke(1.dp, Color(0x80dfc17e)),
                 color = Color.Black.copy(alpha = .48f), contentColor = Color.White) {
-                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        TodayHeroGroup("today-hero-context") {
                         Text(copy.title, style = MaterialTheme.typography.headlineSmall, fontFamily = GenesisHeadingFont)
                         Text(if (mode == CalendarMode.PROFANE) civilDate else copy.footerDate,
                             Modifier.testTag("today-civil-date"), style = MaterialTheme.typography.bodyMedium)
@@ -930,13 +931,11 @@ internal fun DayHeader(date: LocalDate, mode: CalendarMode) {
                             style = MaterialTheme.typography.labelMedium, color = Color(0xfffff8e9))
                         Text(copy.month.uppercase(Locale.forLanguageTag(language)),
                             style = MaterialTheme.typography.labelLarge, color = Color(0xfffff8e9))
-                        copy.subtitle?.takeIf { mode != CalendarMode.PROFANE }?.let {
-                            Text(it, style = MaterialTheme.typography.titleMedium)
-                        }
                         if (mode == CalendarMode.PROFANE) Text(gregorianYearPosition(date, language),
                             Modifier.testTag("today-gregorian-year-position"),
                             style = MaterialTheme.typography.bodySmall, color = Color(0xfffff8e9))
-                        if (mode == CalendarMode.LUNAR) {
+                        }
+                        if (mode == CalendarMode.LUNAR) TodayHeroGroup("today-hero-moon") {
                             val moon = remember(date) { calendar.moonInfo(date) }
                             Row(verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -950,14 +949,34 @@ internal fun DayHeader(date: LocalDate, mode: CalendarMode) {
                                 }
                             }
                         }
-                        Text(copy.description, Modifier.testTag("today-hero-description"), style = MaterialTheme.typography.bodyMedium)
-                        copy.details.forEach { Text(it, style = MaterialTheme.typography.bodySmall) }
+                        TodayHeroGroup("today-hero-meaning") {
+                            copy.subtitle?.takeIf { mode != CalendarMode.PROFANE }?.let {
+                                Text(it, style = MaterialTheme.typography.titleMedium)
+                            }
+                            Text(copy.description, Modifier.testTag("today-hero-description"), style = MaterialTheme.typography.bodyMedium)
+                            if (mode == CalendarMode.PROFANE) copy.details.firstOrNull()?.let {
+                                Text(it, style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                        val additionalDetails = if (mode == CalendarMode.PROFANE) copy.details.drop(1) else copy.details
+                        if (additionalDetails.isNotEmpty()) TodayHeroGroup("today-hero-details") {
+                            additionalDetails.forEach { Text(it, style = MaterialTheme.typography.bodySmall) }
+                        }
                         TodaySolarTimes(date, solarLocation, calendar)
                         copy.badge?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = Color(0xfffff8e9)) }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun TodayHeroGroup(tag: String, content: @Composable ColumnScope.() -> Unit) {
+    androidx.compose.material3.Surface(Modifier.fillMaxWidth().testTag(tag), shape = AffairsLayout.shape,
+        color = Color.Black.copy(alpha = .20f), contentColor = Color.White,
+        border = BorderStroke(1.dp, Color(0xffffe7ae).copy(alpha = .18f))) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp), content = content)
     }
 }
 
@@ -1473,7 +1492,7 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sectionId:
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SettingsStatusTile("Резерв", "${app.scheduler.scheduledHabitAlarmCount() + futureTaskAlarms} событий",
                     notificationsAllowed, Modifier.weight(1f))
-                SettingsStatusTile("Батарея", if(batteryUnrestricted) "Без оптимизации" else "Системный режим",
+                SettingsStatusTile("Батарея", if(batteryUnrestricted) "Без оптимизации" else "Система",
                     batteryUnrestricted, Modifier.weight(1f))
             }
             Text("Каналы: задачи · ${if(app.scheduler.channelAllowed()) "включён" else "выключен"}; привычки · ${if(app.scheduler.channelAllowed(ru.genesis.calendar.reminders.ReminderScheduler.HABIT_CHANNEL)) "включены" else "выключены"}",

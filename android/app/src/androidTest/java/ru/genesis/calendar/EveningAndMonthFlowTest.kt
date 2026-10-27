@@ -56,8 +56,12 @@ class EveningAndMonthFlowTest {
             compose.runOnIdle { mode=calendarMode }
             val tag=if(calendarMode==CalendarMode.SACRED) "sacred-month-pyatas" else "calendar-month-panel-${calendarMode.wireValue}"
             compose.onNodeWithTag(tag).assertExists()
-            if(calendarMode!=CalendarMode.SACRED) {
+            if(calendarMode==CalendarMode.LUNAR) {
                 compose.onNodeWithTag("calendar-month-description").assert(hasAnyAncestor(hasTestTag(tag)))
+            }
+            if(calendarMode==CalendarMode.PROFANE) {
+                compose.onNodeWithTag("gregorian-month-art").assertExists()
+                compose.onNodeWithTag("calendar-month-description").assert(!hasAnyAncestor(hasTestTag(tag)))
             }
             capture("${calendarMode.wireValue}-month")
             if(calendarMode==CalendarMode.PROFANE) {

@@ -282,8 +282,15 @@ class SharedChaosBoxFlowTest {
         open(fixture)
         click("shared-space-${fixture.spaceA}")
         val create = compose.onNodeWithTag("shared-create-project").fetchSemanticsNode().boundsInRoot
+        val add = compose.onNodeWithTag("shared-inbox-create-task")
+            .assert(hasAnyAncestor(hasTestTag("shared-space-actions"))).assertHeightIsAtLeast(48.dp)
+            .fetchSemanticsNode().boundsInRoot
+        val list = compose.onNodeWithTag("shared-inbox-create-list")
+            .assert(hasAnyAncestor(hasTestTag("shared-space-actions"))).assertHeightIsAtLeast(48.dp)
+            .fetchSemanticsNode().boundsInRoot
         val menu = compose.onNodeWithTag("shared-actions").fetchSemanticsNode().boundsInRoot
-        assertTrue(create.right <= menu.left)
+        assertTrue(create.right <= add.left && add.right <= list.left && list.right <= menu.left)
+        assertEquals(add.center.y, menu.center.y, 1f)
         click("shared-project-${fixture.projectA}", scroll = true)
         for (view in listOf("calendar", "gantt")) {
             click("shared-view-selector")

@@ -45,7 +45,8 @@ internal fun GenesisPageHeader(title: String, description: String, symbol: Strin
     modifier: Modifier = Modifier, animatedMandala: Boolean = false, subtitle: String? = null,
     icon: GenesisPageIcon = genesisPageIcon(title), calendarMode: CalendarMode? = null,
     onCalendarModeClick: (() -> Unit)? = null,
-    footer: (@Composable () -> Unit)? = null, compact: Boolean = false) {
+    footer: (@Composable () -> Unit)? = null, compact: Boolean = false,
+    showInformation: Boolean = true) {
     val calendarCopy = mobileCalendarCopy(LocalGenesisLanguage.current)
     val canSwitch = calendarMode != null && onCalendarModeClick != null &&
         LocalSacredFeaturesEnabled.current && LocalEnabledCalendars.current.size > 1
@@ -55,7 +56,7 @@ internal fun GenesisPageHeader(title: String, description: String, symbol: Strin
             color = MaterialTheme.colorScheme.surface) {
             Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.Top) {
                 Column(Modifier.weight(1f)) { footer() }
-                PageInformationAction(title, description)
+                if (showInformation) PageInformationAction(title, description)
             }
         }
         return
@@ -80,7 +81,7 @@ internal fun GenesisPageHeader(title: String, description: String, symbol: Strin
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                if (description.isNotBlank() && calendarMode == null) {
+                if (showInformation && description.isNotBlank() && calendarMode == null) {
                     PageInformationAction(title, description)
                 }
             }

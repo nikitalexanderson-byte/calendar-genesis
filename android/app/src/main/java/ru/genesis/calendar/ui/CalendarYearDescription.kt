@@ -139,19 +139,9 @@ internal fun CalendarYearDescriptionCard(calendar: GenesisCalendar, shown: Local
                     MaterialText(paragraphs.last(), style = MaterialTheme.typography.bodyMedium, color = yearCardMuted)
                     SacredYearDetailsButton(copy("Подробнее", "Learn more"),
                         copy("Сакральная геометрия времени", "Sacred geometry of time")) { detailsOpen = true }
-                    OutlinedButton(onClick = { modelOpen = true }, modifier = Modifier.fillMaxWidth()
-                        .heightIn(min = 60.dp).testTag("solar-model-open"), shape = AffairsLayout.shape,
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = yearCardGold),
-                        border = BorderStroke(1.dp, yearCardGold.copy(alpha = .65f))) {
-                        GenesisVectorIcon(GenesisPageIcon.MONTH, Modifier.size(24.dp), yearCardGold)
-                        Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f)) {
-                            MaterialText(copy("Круг GENESIS", "GENESIS circle"), style = MaterialTheme.typography.titleMedium)
-                            MaterialText(copy("Интерактивная модель календаря", "Interactive calendar model"),
-                                style = MaterialTheme.typography.bodySmall)
-                        }
-                        GenesisLucideIcon("chevron-right", Modifier.size(20.dp))
-                    }
+                    SacredYearDetailsButton(copy("Круг GENESIS", "GENESIS circle"),
+                        copy("Интерактивная модель календаря", "Interactive calendar model"),
+                        tag = "solar-model-open", icon = GenesisPageIcon.MONTH) { modelOpen = true }
                 }
             }
         }
@@ -161,7 +151,8 @@ internal fun CalendarYearDescriptionCard(calendar: GenesisCalendar, shown: Local
 }
 
 @Composable
-private fun SacredYearDetailsButton(title: String, subtitle: String, onClick: () -> Unit) {
+private fun SacredYearDetailsButton(title: String, subtitle: String,
+    tag: String = "sacred-year-details-open", icon: GenesisPageIcon? = null, onClick: () -> Unit) {
     val evening = LocalEveningTheme.current
     val motion = rememberInfiniteTransition(label = "sacred-details-glow")
     val pulse by motion.animateFloat(initialValue = 0f, targetValue = 1f,
@@ -171,7 +162,7 @@ private fun SacredYearDetailsButton(title: String, subtitle: String, onClick: ()
     val accent = if (evening) Color(0xff377067) else Color(0xffd7b46b)
     val ink = if (evening) Color(0xfffff1cf) else Color(0xff18332f)
     Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp)
-        .testTag("sacred-year-details-open"), shape = shape, color = base,
+        .testTag(tag), shape = shape, color = base,
         shadowElevation = (5 + pulse * 4).dp,
         border = BorderStroke(1.5.dp, yearCardGold.copy(alpha = .58f + pulse * .28f))) {
         Row(Modifier.fillMaxWidth().background(Brush.horizontalGradient(listOf(base,
@@ -184,7 +175,8 @@ private fun SacredYearDetailsButton(title: String, subtitle: String, onClick: ()
                 rotationZ = pulse * 8f
             }, shape = RoundedCornerShape(50), color = if (evening) Color(0xff08282a) else Color(0xff20433d)) {
                 Box(contentAlignment = Alignment.Center) {
-                    MaterialText("✦", color = Color(0xffffe7ae), style = MaterialTheme.typography.titleMedium)
+                    if (icon == null) MaterialText("✦", color = Color(0xffffe7ae), style = MaterialTheme.typography.titleMedium)
+                    else GenesisVectorIcon(icon, Modifier.size(22.dp), Color(0xffffe7ae))
                 }
             }
             Column(Modifier.padding(start = 11.dp).weight(1f)) {

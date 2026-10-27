@@ -1285,7 +1285,7 @@ private val nativeCopy = mapOf(
     "Доставка" to "Delivery", "Точная" to "Exact", "Приблизительная" to "Approximate",
     "Канал задач" to "Task channel", "Настроить уведомления" to "Configure notifications",
     "Резерв" to "Backup", "событий" to "events", "Батарея" to "Battery",
-    "Без оптимизации" to "Unrestricted", "Системный режим" to "System mode",
+    "Без оптимизации" to "Unrestricted", "Системный режим" to "System mode", "Система" to "System",
     "Каналы:" to "Channels:", "задачи" to "tasks", "привычки" to "habits",
     "включены" to "on", "выключены" to "off",
     "Точные системные сигналы дополнены резервной доставкой WorkManager. После перезагрузки, обновления и возврата из настроек расписание восстанавливается автоматически." to

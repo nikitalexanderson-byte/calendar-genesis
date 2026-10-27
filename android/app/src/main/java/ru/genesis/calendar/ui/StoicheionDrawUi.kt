@@ -120,7 +120,10 @@ internal fun StoicheionDrawPanel(letters: List<StoicheionLetter>, draws: Stoiche
                     }
                 }
                 val total = cards.sumOf { it.first.value }
-                Card(Modifier.fillMaxWidth().testTag("stoicheion-isopsephy")) {
+                Card(Modifier.fillMaxWidth().testTag("stoicheion-isopsephy"),
+                    shape = AffairsLayout.shape,
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = .65f))) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("ἰσοψηφία · Пифмен расклада", style = MaterialTheme.typography.titleMedium)
                         Text("${cards.joinToString(" + ") { it.first.value.toString() }} = $total")
@@ -128,7 +131,7 @@ internal fun StoicheionDrawPanel(letters: List<StoicheionLetter>, draws: Stoiche
                             style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
                         Text("Числовые значения девяти букв складываются до корня от 1 до 9.",
                             style = MaterialTheme.typography.bodySmall)
-                        if (onRestore != null && cards.any { it.second }) OutlinedButton(onClick = onRestore,
+                        if (onRestore != null && cards.any { it.second }) Button(onClick = onRestore,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("stoicheion-restoration-begin")) {
                             Text(restorationLabel.orEmpty())
                         }

@@ -5,14 +5,6 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import android.media.AudioManager
 import android.media.ToneGenerator
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.relocation.BringIntoViewRequester
@@ -101,7 +93,6 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
     var screenMenuOpen by remember { mutableStateOf(false) }
     val areaStates = rememberSaveableStateHolder()
     val habitCardStates = rememberSaveableStateHolder()
-    var heroPathOpen by rememberSaveable { mutableStateOf(false) }
     var timerHabitId by remember { mutableStateOf<String?>(null) }
     var timerHistoryOpen by rememberSaveable { mutableStateOf(false) }
     val timerFocus = remember { BringIntoViewRequester() }
@@ -109,7 +100,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
     var analysisHistory by remember { mutableStateOf<Pair<String,LocalDate>?>(null) }
     var historyHabitId by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(openHeroPath) {
-        if (openHeroPath) { area="development";heroPathOpen=true;onHeroPathOpened() }
+        if (openHeroPath) { area="development";onHeroPathOpened() }
     }
     var busy by remember { mutableStateOf(false) }
     var today by remember { mutableStateOf(LocalDate.now()) }
@@ -252,7 +243,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                     Triple("development", "Путь Героя и награды", "sparkles"),
                 ).forEach { (id, label, icon) ->
                     DropdownMenuItem(text = { Text(label) }, leadingIcon = { GenesisLucideIcon(icon) },
-                        onClick = { if (id == "development") heroPathOpen = true; openArea(id) },
+                        onClick = { openArea(id) },
                         modifier = Modifier.testTag("habit-open-$id"))
                 }
                 if (LocalSacredFeaturesEnabled.current) DropdownMenuItem(text = { Text("Сакральные практики") },
@@ -387,7 +378,9 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
             if (area == "catalogue") {
                 Text("Готовые идеи можно настроить под свой ритм.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 HabitTemplateCatalog.templates.filterNot { it.id in current.hiddenDefaultTemplates }.forEach { template ->
-                    Card(Modifier.fillMaxWidth(), shape = AffairsLayout.shape) {
+                    Card(Modifier.fillMaxWidth().testTag("habit-template-${template.id}"), shape = AffairsLayout.shape,
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = .5f))) {
                         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("${template.icon} ${template.title}", style = MaterialTheme.typography.titleMedium)
                             Text(template.description, style = MaterialTheme.typography.bodyMedium)
@@ -412,31 +405,32 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                     HabitCompletionCalendar(current, today, displayCalendarMode,
                         onOpenHistory = { id, date -> analysisHistory = id to date },
                         onDecision = { command -> repository.decideDay(command) })
-                    HabitHistoryPanel(current, repository, displayCalendarMode, analysisHistory,
-                        selectedHabitId = historyHabitId) { analysisHistory = null }
+                    Card(Modifier.fillMaxWidth(), shape = AffairsLayout.shape,
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+                        Box(Modifier.padding(16.dp)) {
+                            HabitHistoryPanel(current, repository, displayCalendarMode, analysisHistory,
+                                selectedHabitId = historyHabitId) { analysisHistory = null }
+                        }
+                    }
                 }
             }
             if (area == "development") {
             if (current.settings.feedback.gamificationWidgets) {
                 val motionEnabled = current.settings.feedback.animations
-                val iconScale by animateFloatAsState(if (heroPathOpen) 1.09f else 1f,
-                    label = "hero-path-icon-scale")
                 val iconGlow = rememberIconPhase("hero-path-card-glow", 3_800, motionEnabled)
                 Surface(Modifier.fillMaxWidth().testTag("habit-hero-path-section"),
                     shape = AffairsLayout.shape, color = Color(0xff0b2b2d),
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x99dfc17e)),
                     shadowElevation = 8.dp) {
                     Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-                        Row(Modifier.fillMaxWidth().heightIn(min=48.dp).clickable(role = Role.Button,
-                            onClickLabel = if (heroPathOpen) "Свернуть путь и награды" else "Открыть путь и награды") {
-                                heroPathOpen = !heroPathOpen
-                            }.testTag("habit-hero-path-heading"),
+                        Row(Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("habit-hero-path-heading"),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Surface(Modifier.size(if(heroPathOpen) 68.dp else 40.dp).graphicsLayer {
+                            Surface(Modifier.size(68.dp).graphicsLayer {
                                 val pulse = if (motionEnabled) kotlin.math.sin(iconGlow * 2f * Math.PI).toFloat() else 0f
-                                scaleX = iconScale + pulse * .025f
-                                scaleY = iconScale + pulse * .025f
+                                scaleX = 1.09f + pulse * .025f
+                                scaleY = 1.09f + pulse * .025f
                             }, shape = AffairsLayout.shape,
                                 color = Color(0xff163d3a),
                                 border = androidx.compose.foundation.BorderStroke(1.dp,
@@ -447,11 +441,11 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                 Text("Путь Героя и награды",style=MaterialTheme.typography.titleMedium,
                                     color = Color(0xfffff6e2))
-                                if(heroPathOpen) Text("Древо рангов, награды и полная статистика привычек. Накопленный XP не тратится.",
+                                Text("Древо рангов, награды и полная статистика привычек. Накопленный XP не тратится.",
                                     style=MaterialTheme.typography.bodySmall,color=Color(0xffc8d9d4))
                             }
                         }
-                        if(heroPathOpen) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             listOf(
                                 Triple("XP",current.progress.lifetimeXp.toString(),"✦"),
                                 Triple("Серия","${current.progress.currentStreak} дн.","🔥"),
@@ -469,25 +463,13 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                                 }
                             }
                         }
-                        if(heroPathOpen) HabitsFeatureActionButton(
-                            label=if(heroPathOpen) "Свернуть путь" else "Открыть путь и награды",
-                            onClick={heroPathOpen=!heroPathOpen},
-                            containerColor=Color(0xffdfc17e), contentColor=Color(0xff0b2b2d),
-                            borderColor=Color(0xffffe4a6),
-                            modifier=Modifier.testTag("habit-hero-path-toggle"))
                     }
                 }
-                AnimatedVisibility(visible=heroPathOpen,
-                    enter=if (current.settings.feedback.animations) fadeIn() + expandVertically() else EnterTransition.None,
-                    exit=if (current.settings.feedback.animations) fadeOut() + shrinkVertically() else ExitTransition.None) {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    HabitArtGallery(current, today, busy,
+                HabitArtGallery(current, today, busy,
                     onClaimAmphora = { rankId -> scope.launch { runAction { repository.claimHeroPathAmphora(rankId) } } },
                     onRevealHiddenPath = { scope.launch { runAction { repository.revealHiddenHeroicPath() } } },
                     onBuySpark = { scope.launch { runAction { repository.buyHestiaSpark() } } },
                     showQuests = current.settings.feedback.questsEnabled)
-                    }
-                }
             }
 
                 if (!current.settings.feedback.gamificationWidgets) Text("Виджеты развития скрыты в настройках привычек. Накопленные награды и прогресс сохранены.",
@@ -497,7 +479,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
             if (LocalSacredFeaturesEnabled.current) SacredHabitsBlock(current,today,displayCalendarMode,busy || storageError,openSacredHabits,
                 experimental = experimental,
                 onRequestedOpenConsumed=onSacredHabitsOpened,
-                onStart={ practice -> scope.launch { runAction { repository.save(practice.toHabit(displayCalendarMode,english)) } } },
+                onStart={ practice -> scope.launch { runAction { repository.save(practice.toHabit(inputCalendarMode,english)) } } },
                 onEdit={ habit -> edit=habit;editorOpen=true },
                 onComplete={ habit,checked -> scope.launch { runAction {
                     recordCompletion(habit.id,checked,null,current.settings.feedback)
