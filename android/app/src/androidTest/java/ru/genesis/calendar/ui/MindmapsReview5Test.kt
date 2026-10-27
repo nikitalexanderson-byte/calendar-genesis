@@ -124,7 +124,8 @@ class MindmapsReview5Test {
             compose.waitUntil(10000) {repository.records.value.first {it.document.id==map.id}.document.nodes.first().text=="Цветная мысль"}
             fun assertPaintedColor() {
                 val pixels=compose.onNodeWithTag("mindmap-node-${root.id}").captureToImage().toPixelMap()
-                val pixel=pixels[10,pixels.height-5]
+                // Sample the interior, away from antialiasing at the rounded corner.
+                val pixel=pixels[pixels.width/2,pixels.height-10]
                 assertEquals(0xbb/255f,pixel.red,.015f);assertEquals(0x70/255f,pixel.green,.015f);assertEquals(0x4b/255f,pixel.blue,.015f)
             }
             assertPaintedColor();capture("colored-canvas")

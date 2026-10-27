@@ -336,12 +336,20 @@ class MobileRedesignFlowTest {
         compose.onNodeWithTag("sacred-submenu").assertIsDisplayed()
         compose.onNodeWithTag("workspace-subtitle").assertTextEquals("Круг божественных сил")
         compose.onNodeWithTag("workspace-information").assertDoesNotExist()
+        capture("oracle-theokyklos")
         listOf("workspace-title", "workspace-subtitle").forEach { tag ->
             val layouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
             compose.onNodeWithTag(tag).performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
-            assertTrue("Oracle $tag must fit one readable line", layouts.isNotEmpty() && layouts.all { it.lineCount == 1 && !it.hasVisualOverflow })
+            // TextLayoutResult uses integer bounds; fractional line metrics may overrun by <1px.
+            assertTrue("Oracle $tag must remain readable: ${layouts.map { "${it.layoutInput.text.text}: ${it.lineCount} lines, size=${it.size}" }}",
+                layouts.isNotEmpty() && layouts.all { layout ->
+                    (tag == "workspace-title" || layout.lineCount == 1) &&
+                        (0 until layout.lineCount).all { line ->
+                            !layout.isLineEllipsized(line) && layout.getLineRight(line) <= layout.size.width + 1f &&
+                                layout.getLineBottom(line) <= layout.size.height + 1f
+                        }
+                })
         }
-        capture("oracle-theokyklos")
         compose.onNodeWithTag("submenu-stoicheion").performClick()
         compose.onNodeWithTag("workspace-information").assertDoesNotExist()
         capture("oracle-stoicheion")

@@ -1,0 +1,586 @@
+[
+  {
+    "Name": "1440-dark-font100-landscape-appearance-without-menu-label-choice.png",
+    "Length": 174392
+  },
+  {
+    "Name": "1440-dark-font100-landscape-calendar-lunar-month.png",
+    "Length": 1583618
+  },
+  {
+    "Name": "1440-dark-font100-landscape-calendar-lunar-year.png",
+    "Length": 813942
+  },
+  {
+    "Name": "1440-dark-font100-landscape-drawer-always-labels.png",
+    "Length": 986893
+  },
+  {
+    "Name": "1440-dark-font100-landscape-drawer-refresh-by-version.png",
+    "Length": 979811
+  },
+  {
+    "Name": "1440-dark-font100-landscape-oracle-stoicheion.png",
+    "Length": 3243594
+  },
+  {
+    "Name": "1440-dark-font100-landscape-oracle-theokyklos.png",
+    "Length": 654722
+  },
+  {
+    "Name": "1440-dark-font100-landscape-sacred-knowledge-bottom.png",
+    "Length": 419087
+  },
+  {
+    "Name": "1440-dark-font100-landscape-today-profane-art.png",
+    "Length": 1767268
+  },
+  {
+    "Name": "1440-dark-font100-landscape-today-sacred-art.png",
+    "Length": 1336564
+  },
+  {
+    "Name": "1440-dark-font100-landscape-today-sacred-description.png",
+    "Length": 1336564
+  },
+  {
+    "Name": "1440-light-font100-landscape-appearance-without-menu-label-choice.png",
+    "Length": 175601
+  },
+  {
+    "Name": "1440-light-font100-landscape-calendar-lunar-month.png",
+    "Length": 1637530
+  },
+  {
+    "Name": "1440-light-font100-landscape-calendar-lunar-year.png",
+    "Length": 835751
+  },
+  {
+    "Name": "1440-light-font100-landscape-drawer-always-labels.png",
+    "Length": 991030
+  },
+  {
+    "Name": "1440-light-font100-landscape-drawer-refresh-by-version.png",
+    "Length": 983493
+  },
+  {
+    "Name": "1440-light-font100-landscape-oracle-stoicheion.png",
+    "Length": 3358261
+  },
+  {
+    "Name": "1440-light-font100-landscape-oracle-theokyklos.png",
+    "Length": 657839
+  },
+  {
+    "Name": "1440-light-font100-landscape-sacred-knowledge-bottom.png",
+    "Length": 419128
+  },
+  {
+    "Name": "1440-light-font100-landscape-today-profane-art.png",
+    "Length": 1772691
+  },
+  {
+    "Name": "1440-light-font100-landscape-today-sacred-art.png",
+    "Length": 1338844
+  },
+  {
+    "Name": "1440-light-font100-landscape-today-sacred-description.png",
+    "Length": 1338844
+  },
+  {
+    "Name": "360-dark-font100-portrait-appearance-without-menu-label-choice.png",
+    "Length": 140889
+  },
+  {
+    "Name": "360-dark-font100-portrait-calendar-lunar-month.png",
+    "Length": 290548
+  },
+  {
+    "Name": "360-dark-font100-portrait-calendar-lunar-year.png",
+    "Length": 351737
+  },
+  {
+    "Name": "360-dark-font100-portrait-drawer-always-labels.png",
+    "Length": 160656
+  },
+  {
+    "Name": "360-dark-font100-portrait-drawer-refresh-by-version.png",
+    "Length": 159044
+  },
+  {
+    "Name": "360-dark-font100-portrait-oracle-stoicheion.png",
+    "Length": 258143
+  },
+  {
+    "Name": "360-dark-font100-portrait-oracle-theokyklos.png",
+    "Length": 418005
+  },
+  {
+    "Name": "360-dark-font100-portrait-sacred-knowledge-bottom.png",
+    "Length": 97996
+  },
+  {
+    "Name": "360-dark-font100-portrait-today-profane-art.png",
+    "Length": 912878
+  },
+  {
+    "Name": "360-dark-font100-portrait-today-sacred-art.png",
+    "Length": 705263
+  },
+  {
+    "Name": "360-dark-font100-portrait-today-sacred-description.png",
+    "Length": 705263
+  },
+  {
+    "Name": "360-light-font100-portrait-appearance-without-menu-label-choice.png",
+    "Length": 142877
+  },
+  {
+    "Name": "360-light-font100-portrait-calendar-lunar-month.png",
+    "Length": 296966
+  },
+  {
+    "Name": "360-light-font100-portrait-calendar-lunar-year.png",
+    "Length": 359768
+  },
+  {
+    "Name": "360-light-font100-portrait-drawer-always-labels.png",
+    "Length": 161836
+  },
+  {
+    "Name": "360-light-font100-portrait-drawer-refresh-by-version.png",
+    "Length": 159120
+  },
+  {
+    "Name": "360-light-font100-portrait-oracle-stoicheion.png",
+    "Length": 618688
+  },
+  {
+    "Name": "360-light-font100-portrait-oracle-theokyklos.png",
+    "Length": 422262
+  },
+  {
+    "Name": "360-light-font100-portrait-sacred-knowledge-bottom.png",
+    "Length": 96100
+  },
+  {
+    "Name": "360-light-font100-portrait-today-profane-art.png",
+    "Length": 913454
+  },
+  {
+    "Name": "360-light-font100-portrait-today-sacred-art.png",
+    "Length": 706948
+  },
+  {
+    "Name": "360-light-font100-portrait-today-sacred-description.png",
+    "Length": 706948
+  },
+  {
+    "Name": "390-dark-font100-portrait-appearance-without-menu-label-choice.png",
+    "Length": 146436
+  },
+  {
+    "Name": "390-dark-font100-portrait-calendar-lunar-month.png",
+    "Length": 294086
+  },
+  {
+    "Name": "390-dark-font100-portrait-calendar-lunar-year.png",
+    "Length": 390544
+  },
+  {
+    "Name": "390-dark-font100-portrait-drawer-always-labels.png",
+    "Length": 183306
+  },
+  {
+    "Name": "390-dark-font100-portrait-drawer-refresh-by-version.png",
+    "Length": 177932
+  },
+  {
+    "Name": "390-dark-font100-portrait-oracle-stoicheion.png",
+    "Length": 784520
+  },
+  {
+    "Name": "390-dark-font100-portrait-oracle-theokyklos.png",
+    "Length": 439053
+  },
+  {
+    "Name": "390-dark-font100-portrait-sacred-knowledge-bottom.png",
+    "Length": 133709
+  },
+  {
+    "Name": "390-dark-font100-portrait-today-profane-art.png",
+    "Length": 967861
+  },
+  {
+    "Name": "390-dark-font100-portrait-today-sacred-art.png",
+    "Length": 736030
+  },
+  {
+    "Name": "390-dark-font100-portrait-today-sacred-description.png",
+    "Length": 736030
+  },
+  {
+    "Name": "390-light-font100-portrait-appearance-without-menu-label-choice.png",
+    "Length": 147296
+  },
+  {
+    "Name": "390-light-font100-portrait-calendar-lunar-month.png",
+    "Length": 300171
+  },
+  {
+    "Name": "390-light-font100-portrait-calendar-lunar-year.png",
+    "Length": 400003
+  },
+  {
+    "Name": "390-light-font100-portrait-drawer-always-labels.png",
+    "Length": 184447
+  },
+  {
+    "Name": "390-light-font100-portrait-drawer-refresh-by-version.png",
+    "Length": 177862
+  },
+  {
+    "Name": "390-light-font100-portrait-oracle-stoicheion.png",
+    "Length": 808422
+  },
+  {
+    "Name": "390-light-font100-portrait-oracle-theokyklos.png",
+    "Length": 443883
+  },
+  {
+    "Name": "390-light-font100-portrait-sacred-knowledge-bottom.png",
+    "Length": 131962
+  },
+  {
+    "Name": "390-light-font100-portrait-today-profane-art.png",
+    "Length": 968283
+  },
+  {
+    "Name": "390-light-font100-portrait-today-sacred-art.png",
+    "Length": 738348
+  },
+  {
+    "Name": "390-light-font100-portrait-today-sacred-description.png",
+    "Length": 738348
+  },
+  {
+    "Name": "768-dark-font100-portrait-appearance-without-menu-label-choice.png",
+    "Length": 183950
+  },
+  {
+    "Name": "768-dark-font100-portrait-calendar-lunar-month.png",
+    "Length": 329655
+  },
+  {
+    "Name": "768-dark-font100-portrait-calendar-lunar-year.png",
+    "Length": 539057
+  },
+  {
+    "Name": "768-dark-font100-portrait-drawer-always-labels.png",
+    "Length": 956482
+  },
+  {
+    "Name": "768-dark-font100-portrait-drawer-refresh-by-version.png",
+    "Length": 950208
+  },
+  {
+    "Name": "768-dark-font100-portrait-oracle-stoicheion.png",
+    "Length": 2239564
+  },
+  {
+    "Name": "768-dark-font100-portrait-oracle-theokyklos.png",
+    "Length": 447855
+  },
+  {
+    "Name": "768-dark-font100-portrait-sacred-knowledge-bottom.png",
+    "Length": 246741
+  },
+  {
+    "Name": "768-dark-font100-portrait-today-profane-art.png",
+    "Length": 1631082
+  },
+  {
+    "Name": "768-dark-font100-portrait-today-sacred-art.png",
+    "Length": 1153125
+  },
+  {
+    "Name": "768-dark-font100-portrait-today-sacred-description.png",
+    "Length": 1153125
+  },
+  {
+    "Name": "768-light-font100-portrait-appearance-without-menu-label-choice.png",
+    "Length": 184654
+  },
+  {
+    "Name": "768-light-font100-portrait-calendar-lunar-month.png",
+    "Length": 335615
+  },
+  {
+    "Name": "768-light-font100-portrait-calendar-lunar-year.png",
+    "Length": 551019
+  },
+  {
+    "Name": "768-light-font100-portrait-drawer-always-labels.png",
+    "Length": 966426
+  },
+  {
+    "Name": "768-light-font100-portrait-drawer-refresh-by-version.png",
+    "Length": 957379
+  },
+  {
+    "Name": "768-light-font100-portrait-oracle-stoicheion.png",
+    "Length": 2315289
+  },
+  {
+    "Name": "768-light-font100-portrait-oracle-theokyklos.png",
+    "Length": 450436
+  },
+  {
+    "Name": "768-light-font100-portrait-sacred-knowledge-bottom.png",
+    "Length": 247305
+  },
+  {
+    "Name": "768-light-font100-portrait-today-profane-art.png",
+    "Length": 1642557
+  },
+  {
+    "Name": "768-light-font100-portrait-today-sacred-art.png",
+    "Length": 1154282
+  },
+  {
+    "Name": "768-light-font100-portrait-today-sacred-description.png",
+    "Length": 1154282
+  },
+  {
+    "Name": "review4-360-dark-circle-overview.png",
+    "Length": 478359
+  },
+  {
+    "Name": "review4-360-dark-circle-readable-day.png",
+    "Length": 417981
+  },
+  {
+    "Name": "review4-360-dark-circle-readable-pentad.png",
+    "Length": 181846
+  },
+  {
+    "Name": "review4-360-dark-circle-readable-phanes.png",
+    "Length": 148469
+  },
+  {
+    "Name": "review4-360-dark-circle-selected-month.png",
+    "Length": 400969
+  },
+  {
+    "Name": "review4-360-dark-shared-overview-actions.png",
+    "Length": 66621
+  },
+  {
+    "Name": "review4-360-dark-shared-overview-header.png",
+    "Length": 52764
+  },
+  {
+    "Name": "review4-360-dark-team-history-five-more.png",
+    "Length": 155618
+  },
+  {
+    "Name": "review4-360-light-circle-overview.png",
+    "Length": 459306
+  },
+  {
+    "Name": "review4-360-light-circle-readable-day.png",
+    "Length": 410268
+  },
+  {
+    "Name": "review4-360-light-circle-readable-pentad.png",
+    "Length": 180269
+  },
+  {
+    "Name": "review4-360-light-circle-readable-phanes.png",
+    "Length": 149228
+  },
+  {
+    "Name": "review4-360-light-circle-selected-month.png",
+    "Length": 392679
+  },
+  {
+    "Name": "review4-360-light-shared-overview-actions.png",
+    "Length": 62965
+  },
+  {
+    "Name": "review4-360-light-shared-overview-header.png",
+    "Length": 48648
+  },
+  {
+    "Name": "review4-360-light-team-history-five-more.png",
+    "Length": 151767
+  },
+  {
+    "Name": "review4-390-light-circle-overview.png",
+    "Length": 515746
+  },
+  {
+    "Name": "review4-390-light-circle-readable-day.png",
+    "Length": 494529
+  },
+  {
+    "Name": "review4-390-light-circle-readable-pentad.png",
+    "Length": 207358
+  },
+  {
+    "Name": "review4-390-light-circle-readable-phanes.png",
+    "Length": 159412
+  },
+  {
+    "Name": "review4-390-light-circle-selected-month.png",
+    "Length": 474619
+  },
+  {
+    "Name": "review4-390-light-shared-overview-actions.png",
+    "Length": 59622
+  },
+  {
+    "Name": "review4-390-light-shared-overview-header.png",
+    "Length": 40454
+  },
+  {
+    "Name": "review4-390-light-team-history-five-more.png",
+    "Length": 110462
+  },
+  {
+    "Name": "review5-mindmaps-360-dark-canvas.png",
+    "Length": 91777
+  },
+  {
+    "Name": "review5-mindmaps-360-dark-catalog.png",
+    "Length": 75913
+  },
+  {
+    "Name": "review5-mindmaps-360-dark-colored-canvas.png",
+    "Length": 80646
+  },
+  {
+    "Name": "review5-mindmaps-360-dark-colored-structure.png",
+    "Length": 88840
+  },
+  {
+    "Name": "review5-mindmaps-360-dark-export-menu.png",
+    "Length": 96214
+  },
+  {
+    "Name": "review5-mindmaps-360-dark-palette.png",
+    "Length": 114252
+  },
+  {
+    "Name": "review5-mindmaps-360-dark-pinch.png",
+    "Length": 46343
+  },
+  {
+    "Name": "review5-mindmaps-360-light-canvas.png",
+    "Length": 87022
+  },
+  {
+    "Name": "review5-mindmaps-360-light-catalog.png",
+    "Length": 71680
+  },
+  {
+    "Name": "review5-mindmaps-360-light-colored-canvas.png",
+    "Length": 76893
+  },
+  {
+    "Name": "review5-mindmaps-360-light-colored-structure.png",
+    "Length": 84133
+  },
+  {
+    "Name": "review5-mindmaps-360-light-export-menu.png",
+    "Length": 94205
+  },
+  {
+    "Name": "review5-mindmaps-360-light-palette.png",
+    "Length": 115203
+  },
+  {
+    "Name": "review5-mindmaps-360-light-pinch.png",
+    "Length": 42909
+  },
+  {
+    "Name": "review5-shared-360-dark-independent-space-inbox.png",
+    "Length": 71624
+  },
+  {
+    "Name": "review5-shared-360-dark-project-search-dock.png",
+    "Length": 97504
+  },
+  {
+    "Name": "review5-shared-360-dark-space-inbox-inline.png",
+    "Length": 90172
+  },
+  {
+    "Name": "review5-shared-360-dark-viewer-project.png",
+    "Length": 95430
+  },
+  {
+    "Name": "review5-shared-360-light-independent-space-inbox.png",
+    "Length": 67536
+  },
+  {
+    "Name": "review5-shared-360-light-project-search-dock.png",
+    "Length": 93325
+  },
+  {
+    "Name": "review5-shared-360-light-space-inbox-inline.png",
+    "Length": 86540
+  },
+  {
+    "Name": "review5-shared-360-light-viewer-project.png",
+    "Length": 91645
+  },
+  {
+    "Name": "review5-shared-390-light-independent-space-inbox.png",
+    "Length": 69382
+  },
+  {
+    "Name": "review5-shared-390-light-space-inbox-inline.png",
+    "Length": 74735
+  },
+  {
+    "Name": "review5-shared-390-light-viewer-project.png",
+    "Length": 96893
+  },
+  {
+    "Name": "review6-habits-360-dark-font130-contextual-history.png",
+    "Length": 120341
+  },
+  {
+    "Name": "review6-habits-360-dark-font130-count-goal-note-saved.png",
+    "Length": 122100
+  },
+  {
+    "Name": "review6-habits-360-dark-font130-library-return.png",
+    "Length": 133688
+  },
+  {
+    "Name": "review6-habits-360-light-font130-contextual-history.png",
+    "Length": 120767
+  },
+  {
+    "Name": "review6-habits-360-light-font130-count-goal-note-saved.png",
+    "Length": 126595
+  },
+  {
+    "Name": "review6-habits-360-light-font130-library-return.png",
+    "Length": 132582
+  },
+  {
+    "Name": "review6-habits-390-light-font100-contextual-history.png",
+    "Length": 156710
+  },
+  {
+    "Name": "review6-habits-390-light-font100-count-goal-note-saved.png",
+    "Length": 135665
+  },
+  {
+    "Name": "review6-habits-390-light-font100-library-return.png",
+    "Length": 150545
+  }
+]

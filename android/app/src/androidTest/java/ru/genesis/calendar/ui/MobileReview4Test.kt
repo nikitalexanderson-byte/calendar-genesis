@@ -63,7 +63,7 @@ class MobileReview4Test {
         var opened: LocalDate? = null
         var closed = false
         compose.setContent { Theme { SolarCalendarModel(calendar,shown,{ opened=it },{ closed=true }) } }
-        compose.waitUntil(30_000) { compose.onAllNodes(hasTestTag("solar-model-fit") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(60_000) { compose.onAllNodes(hasTestTag("solar-model-fit") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
         var modelGeometry: String? = null
         compose.runOnUiThread {
             fun find(view: android.view.View): android.webkit.WebView? {

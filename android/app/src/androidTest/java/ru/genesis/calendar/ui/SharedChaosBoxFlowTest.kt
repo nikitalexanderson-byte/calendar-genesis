@@ -241,10 +241,13 @@ class SharedChaosBoxFlowTest {
         compose.onNode(hasTestTag("shared-task-search-dock") and hasAnyAncestor(hasTestTag("shared-project-inbox")))
             .assertDoesNotExist()
         compose.onNodeWithTag("shared-task-search").performTextReplacement("Бета")
-        compose.onNodeWithTag("shared-task-search").performImeAction()
+        click("shared-task-search-close")
         compose.waitUntil(15_000) { fixture.queries.any { it.filter.optString("q") == "Бета" && it.cursor == null } }
         await("shared-task-project-a-2")
         compose.onNodeWithTag("shared-task-project-a-1").assertDoesNotExist()
+        click("shared-task-search-open")
+        await("shared-task-search-close")
+        compose.onNodeWithTag("shared-task-search").assertTextContains("Бета")
         click("shared-field-sort")
         click("task-sort-title", scroll = true)
         compose.waitUntil(15_000) { fixture.queries.any { it.sort == "title" && it.filter.optString("q") == "Бета" } }

@@ -28,7 +28,7 @@ svg{position:absolute;inset:0;display:block;width:100vw;height:100vh;user-select
  svg.querySelectorAll('[data-kind]').forEach(node=>{
    node.setAttribute('tabindex','0');node.setAttribute('role','button');
    node.setAttribute('aria-label',(node.dataset.kind==='month'?'Месяц ':node.dataset.kind==='pentad'?'Пята месяца ':'День месяца ')+node.dataset.month+' '+(node.dataset.day||node.dataset.first||''));
-   node.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();select(node);}});
+   node.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();select(node);}});
  });
  svg.addEventListener('pointerdown',e=>{
    pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});previous=[...pointers.values()];

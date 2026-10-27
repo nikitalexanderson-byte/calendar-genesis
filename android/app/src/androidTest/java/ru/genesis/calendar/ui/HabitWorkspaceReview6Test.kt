@@ -5,6 +5,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.room.withTransaction
@@ -27,7 +29,7 @@ import ru.genesis.calendar.data.*
 import ru.genesis.calendar.domain.*
 import ru.genesis.calendar.domain.habits.*
 
-/** These scenarios are source-only until Android builds are permitted again. */
+/** Isolated repository scenarios for the daily workspace and contextual history. */
 class HabitWorkspaceReview6Test {
     @get:Rule val compose = createAndroidComposeRule<PagerTestActivity>()
     private lateinit var app: GenesisApplication
@@ -35,6 +37,9 @@ class HabitWorkspaceReview6Test {
     private var original: DocumentRecord? = null
     private val scope = "internal-validation-v1"
     private val args get() = InstrumentationRegistry.getArguments()
+    private val width get() = args.getString("genesisWidth")?.toIntOrNull() ?: 390
+    private val dark get() = args.getString("genesisDark") == "true"
+    private val fontScale get() = args.getString("genesisFontScale")?.toFloatOrNull() ?: 1f
     private val today get() = LocalDate.now()
 
     @Before fun preserveSyntheticWorkspace() {
@@ -68,7 +73,9 @@ class HabitWorkspaceReview6Test {
 
     private fun render() {
         compose.setContent {
-            CompositionLocalProvider(LocalGenesisLanguage provides "ru", LocalEveningTheme provides (args.getString("genesisDark") == "true")) {
+            val density = compose.activity.resources.displayMetrics.widthPixels.toFloat() / width
+            CompositionLocalProvider(LocalDensity provides Density(density, fontScale),
+                LocalGenesisLanguage provides "ru", LocalEveningTheme provides dark) {
                 MaterialTheme(colorScheme = if (LocalEveningTheme.current) evening else standart,
                     typography = GenesisTypography, shapes = GenesisShapes) {
                     Surface(Modifier.fillMaxSize().safeDrawingPadding()) {
@@ -81,12 +88,17 @@ class HabitWorkspaceReview6Test {
     }
 
     private fun click(tag: String) {
-        compose.onNodeWithTag(tag).performScrollTo().assertIsEnabled().performClick()
+        compose.waitUntil(15_000) {
+            compose.onAllNodes(hasTestTag(tag) and isEnabled(), useUnmergedTree = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag(tag, useUnmergedTree = true).performScrollTo().assertIsEnabled().performClick()
     }
 
     private fun capture(name: String) {
         compose.waitForIdle()
-        captureNativeWindow(File(app.getExternalFilesDir(null), "review6-habits-$name.png"))
+        captureNativeWindow(File(app.getExternalFilesDir(null),
+            "review6-habits-$width-${if (dark) "dark" else "light"}-font${(fontScale * 100).toInt()}-$name.png"))
     }
 
     @Test fun completionAndContextualHistoryKeepTheChosenHabitAndReturnToTheLibrary() {
@@ -116,7 +128,7 @@ class HabitWorkspaceReview6Test {
             context = CalendarContext(timeZone = ZoneId.systemDefault().id)))
         write(listOf(target)); render()
         click("habit-measurement-manual-${target.id}")
-        compose.onNodeWithTag("habit-measurement-note-${target.id}").performScrollTo().performTextInput("Заметка к выполнению")
+        compose.onNodeWithTag("habit-measurement-note-${target.id}", useUnmergedTree = true).performScrollTo().performTextInput("Заметка к выполнению")
         click("habit-measurement-save-${target.id}")
         compose.waitUntil(15_000) { read().measurements.any { it.habitId == target.id && it.note == "Заметка к выполнению" } }
         val entries = read().measurements.filter { it.habitId == target.id }
