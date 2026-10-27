@@ -119,6 +119,9 @@ export default defineConfig({
       output: {
         codeSplitting: {
           groups: [
+            // Shared by the welcome page and toolbar; keep installation UI out
+            // of the main entry, also when production enables mindmaps.
+            { name: "android-install", test: /app[\\/](?:AndroidDownload\.tsx|android-install\.ts)$/, priority: 14 },
             {
               // Default recurrence values are created during module initialization.
               // Keep their dependency-free context out of cyclic UI/engine groups.
