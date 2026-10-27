@@ -7,6 +7,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -64,7 +65,17 @@ class HabitTimerFlowTest {
                 }
             }
         }
-        compose.onNodeWithTag("habit-timer-start").performScrollTo().performClick()
+        val startButton = compose.onNodeWithTag("habit-timer-start", useUnmergedTree = true)
+            .performScrollTo().assertIsEnabled().assertHeightIsAtLeast(48.dp)
+        val startBounds = startButton.fetchSemanticsNode().boundsInRoot
+        for (kind in listOf("stopwatch", "pomodoro")) {
+            val modeBounds = compose.onNodeWithTag("habit-timer-mode-$kind", useUnmergedTree = true)
+                .assertIsEnabled().fetchSemanticsNode().boundsInRoot
+            assertEquals(startBounds.width, modeBounds.width, 1f)
+            assertEquals(startBounds.height, modeBounds.height, 1f)
+            assertEquals(startBounds.center.y, modeBounds.center.y, 1f)
+        }
+        startButton.performTouchInput { click(center) }
         compose.waitUntil(15_000) { HabitTimers.sessions(saved().timers).any { it.root.habitId == habit.id } }
         val sessionId = HabitTimers.sessions(saved().timers).single { it.root.habitId == habit.id }.id
         compose.onNodeWithTag("habit-timer-pause").performScrollTo().performClick()
