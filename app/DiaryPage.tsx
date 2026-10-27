@@ -1,7 +1,7 @@
 "use client";
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type CSSProperties } from 'react';
 import { useDiary } from './DiaryProvider';
-import { DIARY_COLORS, newDiaryNote, restoreDiaryNote, type DiaryNote } from './diary-model';
+import { DIARY_COLORS, newDiaryNote, restoreDiaryNote, diaryCustomInk, type DiaryNote } from './diary-model';
 import type { DiaryRecord } from './diary-storage';
 import copy from './diary-copy.json';
 import { DiaryMark } from './DiaryLaunchButton';
@@ -14,6 +14,11 @@ export function AdviceDislikeIcon() {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M17 14V3h4v11h-4Zm0-10H6a2 2 0 0 0-2 1.7l-1 6A2 2 0 0 0 5 14h5v4a3 3 0 0 0 3 3l4-7"/></svg>;
 }
 type Copy = typeof copy.ru;
+function customNoteStyle(color?: string): CSSProperties | undefined {
+  if (!color) return undefined;
+  const ink = diaryCustomInk(color);
+  return { '--note-paper': color, '--note-ink': ink, '--note-soft': ink } as CSSProperties;
+}
 function NoteEditor({ record, language, onClose }: { record?: DiaryRecord; language: string; onClose: () => void }) {
   const text: Copy = language === 'en' ? copy.en : copy.ru; const diary = useDiary();
   const [note, setNote] = useState<DiaryNote>(() => record?.note ?? newDiaryNote());
@@ -48,7 +53,9 @@ function NoteEditor({ record, language, onClose }: { record?: DiaryRecord; langu
     <form onSubmit={event => void save(event)}>
       <label>{text.heading}<input data-dialog-initial-focus value={note.title} maxLength={200} onChange={event => setNote({ ...note, title: event.target.value })} /></label>
       <label>{text.body}<textarea required maxLength={30000} value={note.body} onChange={event => setNote({ ...note, body: event.target.value })} /></label>
-      <fieldset className="diary-color-options"><legend>{text.color}</legend>{DIARY_COLORS.map((color, index) => <label key={color} data-color={color}><input type="radio" name="diary-color" value={color} checked={note.color === color} onChange={() => setNote({ ...note, color })}/><span>{text.colors[index]}</span></label>)}</fieldset>
+      <fieldset className="diary-color-options"><legend>{text.color}</legend>{DIARY_COLORS.map((color, index) => <label key={color} data-color={color}><input type="radio" name="diary-color" value={color} checked={!note.customColor && note.color === color} onChange={() => setNote({ ...note, color, customColor: undefined })}/><span>{text.colors[index]}</span></label>)}
+        <label className="diary-custom-color" style={customNoteStyle(note.customColor)}><ExperimentalIcon name="palette"/><span>{text.customColor}</span><input type="color" aria-label={text.customColor} value={note.customColor ?? '#a9c5ac'} disabled={saving} onChange={event => setNote({ ...note, customColor: event.target.value })}/></label>
+      </fieldset>
       {note.advice ? <details className="diary-advice-source"><summary>{text.readOnlyAdvice}</summary><p lang={note.advice.language}>{note.advice.body}</p>{note.advice.sources.map((source, index) => <p key={index}>{text.source}: {[source.author, source.work, source.reference].filter(Boolean).join(' · ')}</p>)}</details> : null}
       {error ? <div role="alert" className="diary-notice"><p>{error}</p>{error === text.conflict ? <button type="button" data-dialog-save="false" disabled={saving} onClick={() => void save(undefined, true)}>{text.copy}</button> : null}</div> : null}
       <p className="diary-save-state" role="status">{draftStatus || text.private}</p>
@@ -85,7 +92,7 @@ export default function DiaryPage({ language, onClose }: { language: string; onC
     {drafts.length ? <details className="diary-drafts"><summary>{text.drafts} · {drafts.length}</summary><p>{text.draftHint}</p>{drafts.map(row => <div key={row.draftKey}><button type="button" onClick={() => setEditing(row)}>{row.note.title || text.untitled}</button></div>)}</details> : null}
     {tab === 'archive' ? <div className="diary-archive-heading"><h2>{text.archive}</h2><p>{text.archiveHint}</p></div> : null}
     {!diary.loading && !diary.error && !notes.length ? <div className="diary-empty"><DiaryMark/><h2>{query ? text.emptySearch : tab === 'archive' ? text.emptyArchive : tab === 'favorites' ? text.emptyFavorites : text.empty}</h2>{!query && tab === 'board' ? <p>{text.emptyHint}</p> : null}</div> : null}
-    <div className="diary-board">{notes.map(row => <article className="diary-note" key={row.note.id} data-color={row.note.color}>
+    <div className="diary-board">{notes.map(row => <article className="diary-note" key={row.note.id} data-color={row.note.color} style={customNoteStyle(row.note.customColor)}>
       <div className="diary-note-meta"><time dateTime={row.note.createdAt}>{new Intl.DateTimeFormat(language, { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(row.note.createdAt))}</time>{row.note.reaction === 'dislike' ? <span><AdviceDislikeIcon/>{text.disliked}</span> : row.note.advice ? <span>{text.advice}</span> : null}</div>
       <button type="button" className="diary-note-open" onClick={() => setEditing(row)} aria-label={`${text.edit}: ${row.note.title || text.untitled}`}><h2>{row.note.title || text.untitled}</h2><p>{row.note.body}</p></button>
       <footer><button type="button" disabled={diary.busy} aria-label={row.note.pinned ? text.unpin : text.pin} title={row.note.pinned ? text.unpin : text.pin} aria-pressed={row.note.pinned} onClick={() => void change(row, { ...row.note, pinned: !row.note.pinned })}><ExperimentalIcon name="map-pin"/></button>

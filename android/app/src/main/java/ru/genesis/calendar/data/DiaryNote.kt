@@ -14,6 +14,7 @@ internal class DiaryNote private constructor(private val source: String) {
     val title: String = value.getString("title")
     val body: String = value.getString("body")
     val color: String = value.getString("color")
+    val customColor: String? = value.opt("customColor") as? String
     val createdAt: String = value.getString("createdAt")
     val updatedAt: String = value.getString("updatedAt")
     val archived: Boolean = value.getBoolean("archived")
@@ -46,6 +47,8 @@ internal class DiaryNote private constructor(private val source: String) {
             require(idPattern.matches(text("id", 100))) { "DIARY_INVALID_NOTE" }
             text("title", 200); require(text("body", 30_000).isNotBlank()) { "DIARY_INVALID_NOTE" }
             require(text("color", 10) in colors && validDate(input.opt("createdAt")) && validDate(input.opt("updatedAt"))) { "DIARY_INVALID_NOTE" }
+            require(!input.has("customColor") || input.isNull("customColor") ||
+                (input.opt("customColor") as? String)?.matches(Regex("#[a-fA-F0-9]{6}")) == true) { "DIARY_INVALID_NOTE" }
             require(input.opt("archived") is Boolean && input.opt("pinned") is Boolean && input.has("reaction")) { "DIARY_INVALID_NOTE" }
             val reaction = input.opt("reaction")
             require((reaction == JSONObject.NULL || reaction in listOf("favorite", "dislike")) && (reaction != "dislike" || input.getBoolean("archived"))) { "DIARY_INVALID_NOTE" }

@@ -669,7 +669,7 @@ private fun LunarCalendarDay(calendar: GenesisCalendar, date: LocalDate, selecte
     val description = genesisTranslate("${lunar.day} лунный день · ${moon.phase} · $gregorian · $weekday" +
         (if (adjacent) " · Другой месяц, только просмотр" else ""))
     Surface(onClick = { onChoose(date) }, enabled = !adjacent,
-        modifier = modifier.heightIn(min = 98.dp)
+        modifier = modifier.heightIn(min = 72.dp)
             .then(if (adjacent) Modifier.alpha(adjacentAlpha) else Modifier)
             .semantics { contentDescription = description }.testTag("calendar-day-$date"),
         shape = MaterialTheme.shapes.medium,
@@ -677,24 +677,20 @@ private fun LunarCalendarDay(calendar: GenesisCalendar, date: LocalDate, selecte
         border = BorderStroke(if (selected || !adjacent && date == LocalDate.now()) 2.dp else 1.dp,
             if (selected || !adjacent && date == LocalDate.now()) MaterialTheme.colorScheme.primary
             else MaterialTheme.colorScheme.secondary.copy(alpha = if (LocalEveningTheme.current) .65f else .5f))) {
-            Column(Modifier.fillMaxWidth().padding(horizontal = 3.dp, vertical = 3.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
+        Box(Modifier.fillMaxWidth().padding(3.dp)) {
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.Start,
                 verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(lunar.day.toString(), fontSize = 14.sp, lineHeight = 18.sp, maxLines = 1)
-                MoonPhaseIcon(moon.phaseStep, size = 23.dp)
-                val taskAction = taskCount > 0 && !adjacent
-                val taskDescription = genesisTranslate("$taskCount задач на ${date.format(dateLabel(locale))}. Открыть список.")
-                Column(Modifier.fillMaxWidth().heightIn(min = 48.dp).then(if (taskAction)
-                    Modifier.testTag("calendar-task-count-$date").clickable { onTaskBadgeClick(date) }
-                        .semantics { contentDescription = taskDescription } else Modifier),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.SpaceBetween) {
+                androidx.compose.foundation.text.BasicText(lunar.day.toString(), Modifier.fillMaxWidth().padding(end = 18.dp),
+                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, lineHeight = 18.sp, color = MaterialTheme.colorScheme.onSurface),
+                    maxLines = 1, autoSize = TextAutoSize.StepBased(minFontSize = 12.sp, maxFontSize = 14.sp))
+                MoonPhaseIcon(moon.phaseStep, size = 18.dp)
                 Text(gregorian, fontSize = 9.sp, lineHeight = 10.sp, maxLines = 1)
                 Text(weekday, fontSize = 9.sp, lineHeight = 10.sp, maxLines = 1,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-                CompactCalendarCounts(date, if (adjacent) 0 else taskCount, completedTaskCount, !adjacent)
-                }
             }
+            CalendarMonthTaskRail(date, if (adjacent) 0 else taskCount, completedTaskCount, !adjacent,
+                2.dp, onTaskBadgeClick, Modifier.align(Alignment.TopEnd))
+        }
     }
 }
 
@@ -720,7 +716,7 @@ private fun CalendarDay(calendar: GenesisCalendar, date: LocalDate, number: Int,
         if (patron != null && !LocalEveningTheme.current) Color(0xff132426) else MaterialTheme.colorScheme.onSurface
     CompositionLocalProvider(LocalPreserveCalendarColors provides (patron != null)) {
     Surface(onClick = { onChoose(date) }, enabled = !adjacent,
-        modifier = modifier.heightIn(min = 88.dp)
+        modifier = modifier.heightIn(min = if (crossDate != null) 72.dp else 60.dp)
         .then(if (adjacent) Modifier.alpha(0.42f) else Modifier)
         .semantics { contentDescription = dayDescription }
         .testTag("calendar-day-$date"),
@@ -735,71 +731,77 @@ private fun CalendarDay(calendar: GenesisCalendar, date: LocalDate, number: Int,
         border = BorderStroke(if (today || selected) 2.dp else 1.dp,
             if (today || selected) patron?.accent ?: MaterialTheme.colorScheme.primary
             else MaterialTheme.colorScheme.secondary.copy(alpha = if (LocalEveningTheme.current) .65f else .5f))) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 3.dp, vertical = 3.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically) {
-                Text(number.toString(), fontSize = 14.sp, lineHeight = 20.sp, maxLines = 1, color = foreground)
-                if (solar != null) Text(solar.symbol, fontSize = 10.sp, lineHeight = 14.sp, maxLines = 1,
-                    color = if (selected && patron != null) foreground else patron?.accent ?: MaterialTheme.colorScheme.primary)
-            }
-            Row(Modifier.fillMaxWidth(), verticalAlignment=Alignment.CenterVertically,
-                horizontalArrangement=Arrangement.SpaceBetween) {
-            Text(if (adjacent) date.month.getDisplayName(TextStyle.SHORT_STANDALONE, locale)
-                else sublabel ?: date.dayOfWeek.getDisplayName(TextStyle.SHORT, locale),
-                fontSize = 10.sp, lineHeight = 14.sp, maxLines = 1, color = foreground)
-            patron?.let { Text(it.symbol, fontSize = 12.sp, lineHeight = 14.sp, maxLines = 1,
-                modifier=Modifier.testTag("calendar-patron-$date"), color=if(selected || LocalEveningTheme.current) foreground else it.accent) }
-            }
-            // One full-width 48dp action contains the Moon/date and both small counters.
-            // The discs are indicators, so their visual size does not shrink the touch target.
-            val taskAction = taskCount > 0 && !adjacent
-            val taskDescription = genesisTranslate("$taskCount задач на ${date.format(dateLabel(locale))}. Открыть список.")
-            Column(Modifier.fillMaxWidth().heightIn(min = 48.dp).then(if (taskAction)
-                Modifier.testTag("calendar-task-count-$date").clickable { onTaskBadgeClick(date) }
-                    .semantics { contentDescription = taskDescription } else Modifier),
-                verticalArrangement = Arrangement.SpaceBetween) {
-            Column {
-            if (moon != null) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    MoonPhaseIcon(moon.phaseStep, size = 15.dp)
-                    Text(moon.day.toString(), fontSize = 10.sp, lineHeight = 14.sp, maxLines = 1, color = foreground)
+        Box(Modifier.fillMaxWidth().padding(3.dp)) {
+            Column(Modifier.fillMaxWidth()) {
+                androidx.compose.foundation.text.BasicText(number.toString(), Modifier.fillMaxWidth().padding(end = 18.dp),
+                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, lineHeight = 20.sp, color = foreground),
+                    maxLines = 1, autoSize = TextAutoSize.StepBased(minFontSize = 12.sp, maxFontSize = 14.sp))
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+                        Text(if (adjacent) date.month.getDisplayName(TextStyle.SHORT_STANDALONE, locale)
+                            else sublabel ?: date.dayOfWeek.getDisplayName(TextStyle.SHORT, locale),
+                            fontSize = 10.sp, lineHeight = 14.sp, maxLines = 1, color = foreground)
+                        solar?.let { Text(it.symbol, fontSize = 8.sp, lineHeight = 14.sp, maxLines = 1, color = foreground) }
+                    }
+                    patron?.let { Text(it.symbol, fontSize = 12.sp, lineHeight = 14.sp, maxLines = 1,
+                        modifier = Modifier.testTag("calendar-patron-$date"), color = if(selected || LocalEveningTheme.current) foreground else it.accent) }
+                }
+                if (moon != null) {
+                    Row(Modifier.padding(end = 18.dp), verticalAlignment = Alignment.CenterVertically) {
+                        MoonPhaseIcon(moon.phaseStep, size = if (crossDate != null) 12.dp else 10.dp)
+                        androidx.compose.foundation.text.BasicText(moon.day.toString(), Modifier.weight(1f),
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, lineHeight = 18.sp, color = foreground),
+                            maxLines = 1, autoSize = TextAutoSize.StepBased(minFontSize = 7.sp, maxFontSize = 9.sp))
+                    }
                 }
                 if (crossDate != null) Text(crossDate, fontSize = 10.sp, lineHeight = 14.sp,
                     maxLines = 1, color = if (selected && patron != null) foreground else MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            }
-            CompactCalendarCounts(date, if (adjacent) 0 else taskCount, completedTaskCount, !adjacent)
-            }
+            CalendarMonthTaskRail(date, if (adjacent) 0 else taskCount, completedTaskCount, !adjacent,
+                16.dp, onTaskBadgeClick, Modifier.align(Alignment.TopEnd))
         }
     }
     }
 }
 
 @Composable
-private fun CompactCalendarCounts(date: LocalDate, total: Int, completed: Int, enabled: Boolean) {
-    val shared = if (enabled) LocalSharedCalendarCounts.current[date.toString()] ?: 0 else 0
-    Row(Modifier.fillMaxWidth().height(18.dp), horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically) {
-        if (shared > 0) SharedTaskCountDisc(shared,
-            "$shared ${genesisTranslate("общих задач")}", Modifier.testTag("calendar-shared-count-$date"), 18.dp)
-        else Spacer(Modifier.size(18.dp))
-        if (total > 0) {
-            val done = completed.coerceIn(0, total)
-            val openColor = if (LocalEveningTheme.current) Color(0xffd64a54) else calendarIncompleteColor
-            val doneColor = if (LocalEveningTheme.current) Color(0xff287a57) else calendarCompletedColor
-            val description = "${genesisTranslate("Не выполнено")}: ${total - done}. ${genesisTranslate("Выполнено")}: $done"
-            CompositionLocalProvider(LocalPreserveCalendarColors provides true) {
-                Box(Modifier.size(18.dp).testTag("calendar-task-count-disc-$date")
-                    .semantics { contentDescription = description }, contentAlignment = Alignment.Center) {
-                    androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
-                        drawCircle(openColor)
-                        if (done > 0) drawArc(doneColor, -90f, 360f * done / total, useCenter = true)
-                    }
-                    Text(if (total > 99) "99+" else total.toString(), color = Color.White,
-                        fontSize = if (total > 99) 7.sp else 9.sp, lineHeight = 12.sp, maxLines = 1)
+private fun CalendarPersonalCountDisc(total: Int, completed: Int, size: androidx.compose.ui.unit.Dp,
+    modifier: Modifier = Modifier) {
+    val done = completed.coerceIn(0, total)
+    val openColor = if (LocalEveningTheme.current) Color(0xffd64a54) else calendarIncompleteColor
+    val doneColor = if (LocalEveningTheme.current) Color(0xff287a57) else calendarCompletedColor
+    val description = "${genesisTranslate("Не выполнено")}: ${total - done}. ${genesisTranslate("Выполнено")}: $done"
+    CompositionLocalProvider(LocalPreserveCalendarColors provides true) {
+        Surface(modifier.size(size).semantics { contentDescription = description }, shape = CircleShape,
+            color = Color.Transparent, shadowElevation = if (size > 18.dp) 3.dp else 0.dp) {
+            Box(contentAlignment = Alignment.Center) {
+                androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+                    drawCircle(openColor)
+                    if (done > 0) drawArc(doneColor, -90f, 360f * done / total, useCenter = true)
                 }
+                Text(if (total > 99) "99+" else total.toString(), color = Color.White,
+                    fontSize = if (total > 99) 7.sp else if (size > 18.dp) 12.sp else 9.sp, lineHeight = 14.sp, maxLines = 1)
             }
-        } else Spacer(Modifier.size(18.dp))
+        }
+    }
+}
+
+@Composable
+private fun CalendarMonthTaskRail(date: LocalDate, total: Int, completed: Int, enabled: Boolean,
+    gap: androidx.compose.ui.unit.Dp, onTasks: (LocalDate) -> Unit, modifier: Modifier = Modifier) {
+    val shared = if (enabled) LocalSharedCalendarCounts.current[date.toString()] ?: 0 else 0
+    if (total == 0 && shared == 0) return
+    val locale = Locale.forLanguageTag(LocalGenesisLanguage.current)
+    val taskDescription = genesisTranslate("$total задач на ${date.format(dateLabel(locale))}. Открыть список.")
+    Column(modifier.width(18.dp).heightIn(min = 48.dp).then(if (total > 0)
+        Modifier.testTag("calendar-task-count-$date").clickable { onTasks(date) }
+            .semantics { contentDescription = taskDescription } else Modifier),
+        horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(gap)) {
+        if (total > 0) CalendarPersonalCountDisc(total, completed, 18.dp, Modifier.testTag("calendar-task-count-disc-$date"))
+        else if (shared > 0) Spacer(Modifier.size(18.dp))
+        if (shared > 0) SharedTaskCountDisc(shared, "$shared ${genesisTranslate("общих задач")}",
+            Modifier.testTag("calendar-shared-count-$date"), 18.dp)
     }
 }
 
@@ -813,15 +815,15 @@ private fun CalendarSharedBadge(date: LocalDate, modifier: Modifier = Modifier) 
 
 @Composable
 private fun SharedTaskCountDisc(count: Int, description: String, modifier: Modifier = Modifier,
-    size: androidx.compose.ui.unit.Dp = 23.dp) {
+    size: androidx.compose.ui.unit.Dp = 23.dp, elevated: Boolean = false) {
     val evening = LocalEveningTheme.current
     CompositionLocalProvider(LocalPreserveCalendarColors provides true) {
     Surface(modifier.size(size).semantics { contentDescription = description },
-        shape = CircleShape, color = if (evening) Color(0xffc4a4ef) else Color(0xff7350a2)) {
+        shape = CircleShape, color = if (evening) Color(0xffc4a4ef) else Color(0xff7350a2), shadowElevation = if (elevated) 3.dp else 0.dp) {
         Box(contentAlignment = Alignment.Center) {
             Text(if (count > 99) "99+" else count.toString(),
                 color = if (evening) Color(0xff241335) else Color.White,
-                fontSize = if (count > 99) 7.sp else 9.sp, lineHeight = 12.sp, maxLines = 1)
+                fontSize = if (count > 99) 7.sp else if (elevated) 12.sp else 9.sp, lineHeight = 14.sp, maxLines = 1)
         }
     }
     }
@@ -1493,18 +1495,17 @@ private fun CalendarYearMonthCard(calendar: GenesisCalendar, start: LocalDate, m
                     if (title.isNotBlank()) Text(title, color = detailInk, style = type.bodySmall)
                     if (mode != CalendarMode.PROFANE) Text(yearTileRange(range, locale), color = mainInk, style = type.labelMedium,
                         modifier = Modifier.testTag(if (mode == CalendarMode.LUNAR) "lunar-year-range-$ordinal" else "sacred-year-range-$sacredIndex"))
-                    Row(Modifier.fillMaxWidth().padding(top = 6.dp).heightIn(min = 24.dp),
-                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(if (english) "${range.dates().size} days" else "${range.dates().size} дней",
-                            Modifier.weight(1f).testTag("calendar-year-days-$ordinal"), color = detailInk, style = type.labelSmall)
-                        if (taskCount.total > 0) CalendarTaskStatusDiscs(taskCount.total, taskCount.completed, 23.dp,
-                            "calendar-year-task", ordinal.toString())
-                        if (sharedCount > 0) SharedTaskCountDisc(sharedCount,
-                            if (english) "$sharedCount shared tasks" else "$sharedCount общих задач",
-                            Modifier.testTag("calendar-year-shared-count-$ordinal"))
-                    }
+                    Text(if (english) "${range.dates().size} days" else "${range.dates().size} дней",
+                        Modifier.padding(top = 6.dp).testTag("calendar-year-days-$ordinal"), color = detailInk, style = type.labelSmall)
                 }
-                GenesisLucideIcon("chevron-right", Modifier.size(18.dp), tint = gold)
+                Column(Modifier.width(23.dp).testTag("calendar-year-counts-$ordinal"),
+                    horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (taskCount.total > 0) CalendarPersonalCountDisc(taskCount.total, taskCount.completed, 23.dp,
+                        Modifier.testTag("calendar-year-task-count-disc-$ordinal"))
+                    if (sharedCount > 0) SharedTaskCountDisc(sharedCount,
+                        if (english) "$sharedCount shared tasks" else "$sharedCount общих задач",
+                        Modifier.testTag("calendar-year-shared-count-$ordinal"), elevated = true)
+                }
             }
         }
     }

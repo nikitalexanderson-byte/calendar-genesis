@@ -169,12 +169,7 @@ import java.time.Instant
 @Composable private fun DiaryNoteCard(record: DiaryRecord, busy: Boolean, onOpen: () -> Unit,
     onPin: () -> Unit, onArchive: () -> Unit, onFavorite: () -> Unit) {
     val note = record.note
-    val accent = when (note.color) {
-        "sand" -> MaterialTheme.colorScheme.secondaryContainer
-        "rose" -> MaterialTheme.colorScheme.errorContainer
-        "sky" -> MaterialTheme.colorScheme.tertiaryContainer
-        else -> MaterialTheme.colorScheme.primaryContainer
-    }
+    val accent = note.customColor?.let { Color(android.graphics.Color.parseColor(it)) } ?: diaryPresetColor(note.color)
     Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.surfaceContainerLow,
         modifier = Modifier.fillMaxWidth().testTag("diary-note-${note.id}")) {
         Column {
@@ -215,7 +210,8 @@ import java.time.Instant
         save = { repository.sealEditorState(it) }, restore = { repository.openEditorState(it) }) }
     var formJson by rememberSaveable(key, stateSaver = encryptedSaver) { mutableStateOf(JSONObject()
         .put("note", record?.note?.json() ?: DiaryNote.newDraftJson())
-        .put("baseline", JSONObject().put("title", record?.note?.title ?: "").put("body", record?.note?.body ?: "").put("color", record?.note?.color ?: "sage"))
+        .put("baseline", JSONObject().put("title", record?.note?.title ?: "").put("body", record?.note?.body ?: "").put("color", record?.note?.color ?: "sage")
+            .put("customColor", record?.note?.customColor ?: ""))
         .put("revision", record?.revision ?: 0).toString()) }
     val form = JSONObject(formJson).getJSONObject("note")
     val baseline = JSONObject(formJson).getJSONObject("baseline")
@@ -226,7 +222,9 @@ import java.time.Instant
     var error by remember { mutableStateOf(false) }
     var conflict by remember { mutableStateOf(false) }
     var draftSaved by remember { mutableStateOf(record?.draft == true) }
-    val changed = listOf("title", "body", "color").any { form.optString(it) != baseline.optString(it) }
+    var paletteOpen by rememberSaveable(key) { mutableStateOf(false) }
+    val customColor = (form.opt("customColor") as? String)
+    val changed = listOf("title", "body", "color", "customColor").any { form.optString(it, "") != baseline.optString(it, "") }
     val valid = form.optString("body").isNotBlank()
     fun note(): DiaryNote = DiaryNote.parse(JSONObject(formJson).getJSONObject("note").put("updatedAt", Instant.now().toString()))
     fun update(field: String, value: String) { formJson = JSONObject(formJson).apply { getJSONObject("note").put(field, value) }.toString(); draftSaved = false; error = false }
@@ -256,14 +254,10 @@ import java.time.Instant
                             label = { Text("Заголовок") }, singleLine = false, maxLines = 2, enabled = !saving, shape = RoundedCornerShape(10.dp))
                         OutlinedTextField(form.getString("body"), { update("body", it.take(30_000)) }, Modifier.fillMaxWidth().heightIn(min = 180.dp).testTag("diary-body"),
                             label = { Text("Текст записи") }, minLines = 6, maxLines = 12, enabled = !saving, shape = RoundedCornerShape(10.dp))
-                        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            DiaryNote.colors.forEachIndexed { index, color ->
-                                val label = listOf("Шалфей", "Песок", "Роза", "Небо")[index]
-                                FilterChip(selected = form.getString("color") == color, onClick = { update("color", color) },
-                                    label = { Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1) }, enabled = !saving,
-                                    modifier = Modifier.heightIn(min = 48.dp).testTag("diary-color-$color"))
-                            }
-                        }
+                        DiaryColorOptions(form.getString("color"), customColor, !saving, onPreset = { color ->
+                            update("color", color)
+                            formJson = JSONObject(formJson).apply { getJSONObject("note").remove("customColor") }.toString()
+                        }, onCustom = { paletteOpen = true })
                         form.optJSONObject("advice")?.let { advice ->
                             AffairsDisclosure("Исходный совет и источники") {
                                 ContentText(advice.getString("body"), style = MaterialTheme.typography.bodySmall)
@@ -299,6 +293,12 @@ import java.time.Instant
             }
         }
     }
+    if (paletteOpen) GenesisColorPicker("Цвет записи", customColor ?: String.format("#%06x", diaryPresetColor(form.getString("color")).let {
+        android.graphics.Color.rgb((it.red * 255).toInt(), (it.green * 255).toInt(), (it.blue * 255).toInt()) and 0xffffff
+    }), onDismiss = { paletteOpen = false }, onColor = { color ->
+        if (color != null) update("customColor", color)
+        paletteOpen = false
+    }, allowThemeColor = false, previewLabel = "Запись", tagPrefix = "diary")
     if (closeConfirm) AlertDialog(onDismissRequest = { closeConfirm = false }, title = { Text("Сохранить черновик?") },
         text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Можно продолжить редактирование позже. Сохранение черновика не изменяет запись на сервере.")

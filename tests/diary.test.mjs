@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { calendarModule } from './helpers/calendar-modules.mjs';
 import { cloudSyncClient, MemoryStorage, deferred } from './helpers/cloud-sync-client.mjs';
 const { DiaryRepository } = calendarModule('app/diary-storage.ts');
-const { newDiaryNote, validateDiaryNote, reactToAdvice, restoreDiaryNote } = calendarModule('app/diary-model.ts');
+const { newDiaryNote, validateDiaryNote, reactToAdvice, restoreDiaryNote, diaryCustomInk } = calendarModule('app/diary-model.ts');
 const advice = { id:'catalog-advice-123', dayKey:'2026-10-26', title:'A useful thought', body:'Private saved advice snapshot', language:'en', categories:['aretology'], dismissed:false, sources:[{work:'Original book',kind:'inspired'}] };
 const note = () => newDiaryNote('A private diary thought', 'Private diary title');
 const response=(value,status=200)=>new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json'}});
@@ -22,6 +22,17 @@ async function fixture() {
  return {a,b,rows,storage,otherStorage,respond,get writes(){return writes;},
    left:new DiaryRepository(a.userId,storage,a.client.personalDocumentAccess(a.userId)),right:new DiaryRepository(b.userId,otherStorage,b.client.personalDocumentAccess(b.userId))};
 }
+test('custom palette colors survive encrypted sync and retain a legacy preset fallback', async()=>{
+ const f=await fixture(), original={...note(),color:'rose',customColor:'#15aB73'};
+ await f.left.save(original);
+ const copied=(await f.right.list()).find(row=>row.note.id===original.id).note;
+ assert.equal(copied.customColor,'#15aB73');assert.equal(copied.color,'rose');
+ assert.equal(validateDiaryNote(restoreDiaryNote(copied)).customColor,'#15aB73');
+ for(const customColor of ['red','#123','#12345678','url(secret)',123,{}])assert.throws(()=>validateDiaryNote({...original,customColor}));
+ assert.equal(diaryCustomInk('#ffffff'),'#000000');assert.equal(diaryCustomInk('#000000'),'#ffffff');
+ assert.equal(diaryCustomInk('#ffff00'),'#000000');assert.equal(diaryCustomInk('#112233'),'#ffffff');
+});
+
 test('favorites and dislikes retain the original advice; dislikes archive and can be restored',()=>{
  const favorite=reactToAdvice(advice,'opaque-key','favorite');assert.equal(favorite.reaction,'favorite');assert.equal(favorite.archived,false);
  const unstarred=reactToAdvice(advice,'opaque-key','favorite',favorite);assert.equal(unstarred.reaction,null);assert.equal(unstarred.body,advice.body);

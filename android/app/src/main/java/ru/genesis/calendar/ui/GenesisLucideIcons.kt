@@ -149,6 +149,7 @@ internal fun AffairsAction.lucideName(): String = when (this) {
     AffairsAction.VIEW -> "eye"
     AffairsAction.HIDE -> "eye-off"
     AffairsAction.LINK -> "link"
+    AffairsAction.TEAM -> "users-round"
     AffairsAction.MINDMAP -> "network"
     AffairsAction.LIST -> "list"
     AffairsAction.BOARD -> "layout-dashboard"

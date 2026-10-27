@@ -59,11 +59,12 @@ import kotlin.math.roundToInt
             GenesisLucideIcon("palette")
         }
     }
-    if(open) MindmapColorPicker(label,valid,onDismiss={open=false},onColor={onColor(it);open=false})
+    if(open) GenesisColorPicker(label,valid,onDismiss={open=false},onColor={onColor(it);open=false})
 }
 
 /** Full HSV palette with an explicit commit: moving a finger never writes the encrypted document. */
-@Composable private fun MindmapColorPicker(label:String,initial:String?,onDismiss:()->Unit,onColor:(String?)->Unit) {
+@Composable internal fun GenesisColorPicker(label:String,initial:String?,onDismiss:()->Unit,onColor:(String?)->Unit,
+    allowThemeColor:Boolean=true,previewLabel:String="Мысль",tagPrefix:String="mindmap") {
     val initialHsv=remember(initial) { FloatArray(3).also {android.graphics.Color.colorToHSV(android.graphics.Color.parseColor(initial ?: "#255b59"),it)} }
     var hue by remember {mutableFloatStateOf(initialHsv[0])}
     var saturation by remember {mutableFloatStateOf(initialHsv[1])}
@@ -74,14 +75,14 @@ import kotlin.math.roundToInt
     fun choose(hex:String) {val hsv=FloatArray(3);android.graphics.Color.colorToHSV(android.graphics.Color.parseColor(hex),hsv);hue=hsv[0];saturation=hsv[1];value=hsv[2]}
     var hexInput by remember {mutableStateOf(initial.orEmpty())}
     val svLabel=genesisTranslate("Насыщенность и яркость")
-    AlertDialog(onDismissRequest=onDismiss,title={Text(label)},modifier=Modifier.testTag("mindmap-color-picker"),
+    AlertDialog(onDismissRequest=onDismiss,title={Text(label)},modifier=Modifier.testTag("$tagPrefix-color-picker"),
         text={Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)) {
             CompositionLocalProvider(LocalPreserveCalendarColors provides true) {
-                Surface(Modifier.fillMaxWidth().height(56.dp).testTag("mindmap-color-preview"),color=selected,
+                Surface(Modifier.fillMaxWidth().height(56.dp).testTag("$tagPrefix-color-preview"),color=selected,
                     contentColor=if(selected.luminance()>.179f)Color.Black else Color.White,shape=AffairsLayout.controlShape) {
-                    Box(contentAlignment=Alignment.Center) {Text("Мысль · "+currentHex().uppercase(),style=MaterialTheme.typography.labelLarge)}
+                    Box(contentAlignment=Alignment.Center) {Text(genesisTranslate(previewLabel)+" · "+currentHex().uppercase(),style=MaterialTheme.typography.labelLarge)}
                 }
-                Canvas(Modifier.fillMaxWidth().height(144.dp).testTag("mindmap-color-sv").semantics {contentDescription=svLabel}
+                Canvas(Modifier.fillMaxWidth().height(144.dp).testTag("$tagPrefix-color-sv").semantics {contentDescription=svLabel}
                     .pointerInput(Unit) {awaitEachGesture {
                         val down=awaitFirstDown();fun update(p:Offset) {saturation=(p.x/size.width).coerceIn(0f,1f);value=(1-p.y/size.height).coerceIn(0f,1f)}
                         update(down.position);down.consume()
@@ -97,7 +98,7 @@ import kotlin.math.roundToInt
                 Box(Modifier.fillMaxWidth().height(48.dp),contentAlignment=Alignment.Center) {
                     Box(Modifier.fillMaxWidth().padding(horizontal=12.dp).height(8.dp).background(
                         Brush.horizontalGradient((0..6).map {Color.hsv((it*60f).coerceAtMost(359.9f),1f,1f)}),AffairsLayout.controlShape))
-                    Slider(hue,{hue=it},valueRange=0f..359.9f,modifier=Modifier.fillMaxWidth().testTag("mindmap-color-hue"),
+                    Slider(hue,{hue=it},valueRange=0f..359.9f,modifier=Modifier.fillMaxWidth().testTag("$tagPrefix-color-hue"),
                         colors=SliderDefaults.colors(thumbColor=Color.hsv(hue,1f,1f),activeTrackColor=Color.Transparent,inactiveTrackColor=Color.Transparent))
                 }
                 val presets=listOf("#255b59","#dfc17e","#bb704b","#5e79ad","#8666a8","#70995c","#fffdf8","#17221b")
@@ -107,16 +108,16 @@ import kotlin.math.roundToInt
                         androidx.compose.material3.Surface(onClick={choose(hex)},color=Color(android.graphics.Color.parseColor(hex)),
                             contentColor=if(Color(android.graphics.Color.parseColor(hex)).luminance()>.179f)Color.Black else Color.White,
                             shape=AffairsLayout.controlShape,border=BorderStroke(if(picked)2.dp else 1.dp,MaterialTheme.colorScheme.outline),
-                            modifier=Modifier.weight(1f).height(48.dp).testTag("mindmap-swatch-$hex")
+                            modifier=Modifier.weight(1f).height(48.dp).testTag("$tagPrefix-swatch-$hex")
                                 .semantics {contentDescription=hex.uppercase()}) {Box(contentAlignment=Alignment.Center) {if(picked) GenesisLucideIcon("check")}}
                     }
                 } }
             }
             TextButton(onClick={hexOpen=!hexOpen;hexInput=currentHex()},modifier=Modifier.fillMaxWidth()) {Text("Код цвета HEX")}
             if(hexOpen) OutlinedTextField(hexInput,{hexInput=it.take(7);if(Regex("#[a-fA-F0-9]{6}").matches(it))choose(it)},
-                label={Text("HEX")},singleLine=true,modifier=Modifier.fillMaxWidth().testTag("mindmap-color-hex"))
-            TextButton(onClick={onColor(null)},modifier=Modifier.fillMaxWidth().testTag("mindmap-color-default")) {Text("Цвет темы")}
+                label={Text("HEX")},singleLine=true,modifier=Modifier.fillMaxWidth().testTag("$tagPrefix-color-hex"))
+            if(allowThemeColor) TextButton(onClick={onColor(null)},modifier=Modifier.fillMaxWidth().testTag("$tagPrefix-color-default")) {Text("Цвет темы")}
         }},
-        confirmButton={Button(onClick={onColor(currentHex())},modifier=Modifier.testTag("mindmap-color-apply")){Text("Применить")}},
+        confirmButton={Button(onClick={onColor(currentHex())},modifier=Modifier.testTag("$tagPrefix-color-apply")){Text("Применить")}},
         dismissButton={TextButton(onClick=onDismiss){Text("Отмена")}})
 }

@@ -62,7 +62,12 @@ class SharedCSuiteHttpsUiTest {
         assertTrue(file.length() > 0)
     }
     private fun open(action: String, screen: String, ready: String, error: String? = null) {
-        click("shared-actions"); click(action); await(screen); await(ready)
+        val menu = when(action) {
+            "shared-templates-open", "shared-automations-open" -> "shared-work-actions"
+            "shared-project-access-open", "shared-team-report-open" -> "shared-team-actions"
+            else -> "shared-actions"
+        }
+        click(menu); click(action); await(screen); await(ready)
         compose.waitUntil(30_000) {
             listOf("template-progress", "automation-working", "field-progress", "access-loading")
                 .all { compose.onAllNodesWithTag(it).fetchSemanticsNodes().isEmpty() }
