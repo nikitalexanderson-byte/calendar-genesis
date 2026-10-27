@@ -1,0 +1,15 @@
+{
+  "device": "API35 test emulator",
+  "before": {
+    "accessibilityEnabled": "1",
+    "enabledAccessibilityServices": "com.google.android.marvin.talkback/com.google.android.marvin.talkback.TalkBackService",
+    "fontScale": "1.3"
+  },
+  "after": {
+    "accessibilityEnabled": "1",
+    "enabledAccessibilityServices": "com.google.android.marvin.talkback/com.google.android.marvin.talkback.TalkBackService",
+    "fontScale": "1.3"
+  },
+  "restored": true,
+  "physicalPhoneSettingsChanged": false
+}

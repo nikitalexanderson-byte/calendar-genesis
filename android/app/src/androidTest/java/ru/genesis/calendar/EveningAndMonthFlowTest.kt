@@ -55,8 +55,12 @@ class EveningAndMonthFlowTest {
             compose.runOnIdle { mode=calendarMode }
             val tag=if(calendarMode==CalendarMode.SACRED) "sacred-month-pyatas" else "calendar-month-panel-${calendarMode.wireValue}"
             compose.onNodeWithTag(tag).assertExists()
-            if(calendarMode!=CalendarMode.SACRED) compose.onNodeWithTag("calendar-month-description")
-                .assert(hasAnyAncestor(hasTestTag(tag)))
+            if(calendarMode!=CalendarMode.SACRED) {
+                compose.onNodeWithTag("calendar-month-description").assertDoesNotExist()
+                compose.onNodeWithTag("calendar-month-info-toggle").performScrollTo().performClick()
+                compose.onNodeWithTag("calendar-month-description").assert(hasAnyAncestor(hasTestTag(tag)))
+                compose.onNodeWithTag("calendar-month-info-toggle").performScrollTo().performClick()
+            }
             capture("${calendarMode.wireValue}-month")
             if(calendarMode==CalendarMode.PROFANE) {
                 compose.onNodeWithTag("calendar-day-$date").performScrollTo()
@@ -150,6 +154,8 @@ class EveningAndMonthFlowTest {
             assertTrue("Year heading must precede year navigation",header.bottom<=navigation.top)
             compose.onNodeWithTag("calendar-year-swipe-hint").assertIsDisplayed()
             compose.onNodeWithTag("calendar-year-navigation").assert(hasAnyAncestor(hasTestTag("calendar-year-panel")))
+            compose.onNodeWithTag("calendar-year-solar-points").assertDoesNotExist()
+            compose.onNodeWithTag("calendar-year-solar-toggle").performScrollTo().performClick()
             compose.onNodeWithTag("calendar-year-solar-points").assert(hasAnyAncestor(hasTestTag("calendar-year-panel")))
             val year=compose.onNodeWithTag("calendar-year-period").fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.Text].single().text
             compose.onNodeWithTag("calendar-year-navigation").performTouchInput { swipeLeft() }

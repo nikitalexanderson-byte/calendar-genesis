@@ -1,0 +1,82 @@
+[
+  {
+    "runId": "beta3-confirm-360-false-1.0",
+    "widthDp": 360,
+    "dark": false,
+    "fontScale": 1.0,
+    "passed": true,
+    "debugSha256": "f4b056a5835801afc43b5a9e2a579a126d387fd562d481df34854b45b507a254"
+  },
+  {
+    "runId": "beta3-confirm-390-false-1.0",
+    "widthDp": 390,
+    "dark": false,
+    "fontScale": 1.0,
+    "passed": true,
+    "debugSha256": "f4b056a5835801afc43b5a9e2a579a126d387fd562d481df34854b45b507a254"
+  },
+  {
+    "runId": "beta3-confirm-768-false-1.0",
+    "widthDp": 768,
+    "dark": false,
+    "fontScale": 1.0,
+    "passed": true,
+    "debugSha256": "f4b056a5835801afc43b5a9e2a579a126d387fd562d481df34854b45b507a254"
+  },
+  {
+    "runId": "beta3-confirm-1440-false-1.0",
+    "widthDp": 1440,
+    "dark": false,
+    "fontScale": 1.0,
+    "passed": true,
+    "debugSha256": "f4b056a5835801afc43b5a9e2a579a126d387fd562d481df34854b45b507a254"
+  },
+  {
+    "runId": "beta3-confirm-360-true-1.0",
+    "widthDp": 360,
+    "dark": true,
+    "fontScale": 1.0,
+    "passed": true,
+    "debugSha256": "f4b056a5835801afc43b5a9e2a579a126d387fd562d481df34854b45b507a254"
+  },
+  {
+    "runId": "beta3-confirm-390-true-1.0",
+    "widthDp": 390,
+    "dark": true,
+    "fontScale": 1.0,
+    "passed": true,
+    "debugSha256": "f4b056a5835801afc43b5a9e2a579a126d387fd562d481df34854b45b507a254"
+  },
+  {
+    "runId": "beta3-confirm-768-true-1.0",
+    "widthDp": 768,
+    "dark": true,
+    "fontScale": 1.0,
+    "passed": true,
+    "debugSha256": "f4b056a5835801afc43b5a9e2a579a126d387fd562d481df34854b45b507a254"
+  },
+  {
+    "runId": "beta3-confirm-1440-true-1.0",
+    "widthDp": 1440,
+    "dark": true,
+    "fontScale": 1.0,
+    "passed": true,
+    "debugSha256": "f4b056a5835801afc43b5a9e2a579a126d387fd562d481df34854b45b507a254"
+  },
+  {
+    "runId": "beta3-confirm-360-false-1.3",
+    "widthDp": 360,
+    "dark": false,
+    "fontScale": 1.3,
+    "passed": true,
+    "debugSha256": "f4b056a5835801afc43b5a9e2a579a126d387fd562d481df34854b45b507a254"
+  },
+  {
+    "runId": "beta3-confirm-360-true-1.3",
+    "widthDp": 360,
+    "dark": true,
+    "fontScale": 1.3,
+    "passed": true,
+    "debugSha256": "f4b056a5835801afc43b5a9e2a579a126d387fd562d481df34854b45b507a254"
+  }
+]

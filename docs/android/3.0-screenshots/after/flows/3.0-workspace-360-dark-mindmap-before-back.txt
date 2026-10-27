@@ -1,0 +1,153 @@
+Printing with useUnmergedTree = 'true'
+Node #19899 at (l=0.0, t=0.0, r=640.0, b=1592.0)px
+ |-Node #19900 at (l=0.0, t=0.0, r=640.0, b=1592.0)px
+   [IsDialog]
+    |-Node #19901 at (l=0.0, t=0.0, r=640.0, b=1592.0)px
+      PaneTitle = 'Dialog'
+       |-Node #19902 at (l=0.0, t=0.0, r=640.0, b=1592.0)px
+         IsContainer = 'true'
+         Shape = 'RoundedCornerShape(topStart = CornerSize(size = 10.0.dp), topEnd = CornerSize(size = 10.0.dp), bottomEnd = CornerSize(size = 10.0.dp), bottomStart = CornerSize(size = 10.0.dp))'
+          |-Node #19905 at (l=48.0, t=48.0, r=592.0, b=182.0)px
+          | Text = '[Изменённая мысль 360-light]'
+          | Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+          |-Node #19907 at (l=48.0, t=214.0, r=592.0, b=1280.0)px
+          | IsTraversalGroup = 'true'
+          | Shape = 'androidx.compose.foundation.VerticalScrollableClipShape@329643c'
+          | VerticalScrollAxisRange = 'ScrollAxisRange(value=0.0, maxValue=6.0, reverseScrolling=false)'
+          | Actions = [ScrollBy, ScrollByOffset]
+          |  |-Node #19908 at (l=48.0, t=214.0, r=592.0, b=414.0)px, Tag: 'mindmap-node-text'
+          |  | ContentDataType = 'AndroidContentDataType(androidAutofillType=1)'
+          |  | EditableText = 'Изменённая мысль 360-dark'
+          |  | FillableData = 'androidx.compose.ui.autofill.AndroidFillableData@7804e6'
+          |  | Focused = 'true'
+          |  | ImeAction = 'Default'
+          |  | InputText = 'Изменённая мысль 360-dark'
+          |  | IsEditable = 'true'
+          |  | TextSelectionRange = 'TextRange(25, 25)'
+          |  | Actions = [GetTextLayoutResult, InsertTextAtCursor, OnClick, OnFillData, OnLongClick, PasteText, PerformImeAction, RequestFocus, SetSelection, SetText]
+          |  | MergeDescendants = 'true'
+          |  |  |-Node #19912 at (l=48.0, t=236.0, r=592.0, b=414.0)px
+          |  |  | Shape = 'RoundedCornerShape(topStart = CornerSize(size = 10.0.dp), topEnd = CornerSize(size = 10.0.dp), bottomEnd = CornerSize(size = 10.0.dp), bottomStart = CornerSize(size = 10.0.dp))'
+          |  |  |-Node #19917 at (l=80.0, t=213.0, r=330.0, b=260.0)px
+          |  |  | Text = '[Название мысли]'
+          |  |  | Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+          |  |  |-Node #19914 at (l=80.0, t=268.0, r=560.0, b=382.0)px
+          |  |    Shape = 'RectangleShape'
+          |  |    Actions = [MagnifierPositionInRoot]
+          |  |-Node #19918 at (l=48.0, t=430.0, r=592.0, b=638.0)px
+          |  | ContentDataType = 'AndroidContentDataType(androidAutofillType=1)'
+          |  | EditableText = ''
+          |  | FillableData = 'androidx.compose.ui.autofill.AndroidFillableData@47c5a27'
+          |  | Focused = 'false'
+          |  | ImeAction = 'Default'
+          |  | InputText = ''
+          |  | IsEditable = 'true'
+          |  | TextSelectionRange = 'TextRange(0, 0)'
+          |  | Actions = [GetTextLayoutResult, InsertTextAtCursor, OnClick, OnFillData, OnLongClick, PasteText, PerformImeAction, RequestFocus, SetSelection, SetText]
+          |  | MergeDescendants = 'true'
+          |  |  |-Node #19922 at (l=48.0, t=452.0, r=592.0, b=638.0)px
+          |  |  | Shape = 'RoundedCornerShape(topStart = CornerSize(size = 10.0.dp), topEnd = CornerSize(size = 10.0.dp), bottomEnd = CornerSize(size = 10.0.dp), bottomStart = CornerSize(size = 10.0.dp))'
+          |  |  |-Node #19927 at (l=80.0, t=484.0, r=560.0, b=606.0)px
+          |  |  | Text = '[Пояснение · только в карте]'
+          |  |  | Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+          |  |  |-Node #19924 at (l=80.0, t=513.0, r=560.0, b=570.0)px
+          |  |    Shape = 'RectangleShape'
+          |  |-Node #19928 at (l=48.0, t=654.0, r=592.0, b=794.0)px
+          |  | Focused = 'false'
+          |  | Role = 'Button'
+          |  | Shape = 'RoundedCornerShape(topStart = CornerSize(size = 10.0.dp), topEnd = CornerSize(size = 10.0.dp), bottomEnd = CornerSize(size = 10.0.dp), bottomStart = CornerSize(size = 10.0.dp))'
+          |  | Actions = [OnClick, RequestFocus]
+          |  | MergeDescendants = 'true'
+          |  |  |-Node #19930 at (l=96.0, t=670.0, r=544.0, b=778.0)px
+          |  |    Text = '[Создать задачу из мысли]'
+          |  |    Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+          |  |-Node #19934 at (l=48.0, t=810.0, r=144.0, b=906.0)px
+          |  | MergeDescendants = 'true'
+          |  |  |-Node #19936 at (l=48.0, t=810.0, r=144.0, b=906.0)px
+          |  |    ContentDescription = '[Добавить дочернюю мысль]'
+          |  |    Focused = 'false'
+          |  |    Role = 'Button'
+          |  |    Shape = 'RoundedCornerShape(topStart = CornerSize(size = 10.0.dp), topEnd = CornerSize(size = 10.0.dp), bottomEnd = CornerSize(size = 10.0.dp), bottomStart = CornerSize(size = 10.0.dp))'
+          |  |    Actions = [OnClick, OnLongClick, RequestFocus]
+          |  |    MergeDescendants = 'true'
+          |  |-Node #19940 at (l=160.0, t=810.0, r=256.0, b=906.0)px
+          |  | MergeDescendants = 'true'
+          |  |  |-Node #19942 at (l=160.0, t=810.0, r=256.0, b=906.0)px
+          |  |    ContentDescription = '[Добавить соседнюю мысль]'
+          |  |    Focused = 'false'
+          |  |    Role = 'Button'
+          |  |    Shape = 'RoundedCornerShape(topStart = CornerSize(size = 10.0.dp), topEnd = CornerSize(size = 10.0.dp), bottomEnd = CornerSize(size = 10.0.dp), bottomStart = CornerSize(size = 10.0.dp))'
+          |  |    Actions = [OnClick, OnLongClick, RequestFocus]
+          |  |    MergeDescendants = 'true'
+          |  |-Node #19946 at (l=272.0, t=810.0, r=368.0, b=906.0)px
+          |  | MergeDescendants = 'true'
+          |  |  |-Node #19948 at (l=272.0, t=810.0, r=368.0, b=906.0)px
+          |  |    ContentDescription = '[Добавить из дел]'
+          |  |    Focused = 'false'
+          |  |    Role = 'Button'
+          |  |    Shape = 'RoundedCornerShape(topStart = CornerSize(size = 10.0.dp), topEnd = CornerSize(size = 10.0.dp), bottomEnd = CornerSize(size = 10.0.dp), bottomStart = CornerSize(size = 10.0.dp))'
+          |  |    Actions = [OnClick, OnLongClick, RequestFocus]
+          |  |    MergeDescendants = 'true'
+          |  |-Node #19952 at (l=384.0, t=810.0, r=480.0, b=906.0)px
+          |  | MergeDescendants = 'true'
+          |  |  |-Node #19954 at (l=384.0, t=810.0, r=480.0, b=906.0)px
+          |  |    ContentDescription = '[Фокус на ветке]'
+          |  |    Focused = 'false'
+          |  |    Role = 'Button'
+          |  |    Shape = 'RoundedCornerShape(topStart = CornerSize(size = 10.0.dp), topEnd = CornerSize(size = 10.0.dp), bottomEnd = CornerSize(size = 10.0.dp), bottomStart = CornerSize(size = 10.0.dp))'
+          |  |    Actions = [OnClick, OnLongClick, RequestFocus]
+          |  |    MergeDescendants = 'true'
+          |  |-Node #19958 at (l=496.0, t=810.0, r=592.0, b=906.0)px
+          |  | MergeDescendants = 'true'
+          |  |  |-Node #19960 at (l=496.0, t=810.0, r=592.0, b=906.0)px
+          |  |    ContentDescription = '[Свернуть ветку]'
+          |  |    Focused = 'false'
+          |  |    Role = 'Button'
+          |  |    Shape = 'RoundedCornerShape(topStart = CornerSize(size = 10.0.dp), topEnd = CornerSize(size = 10.0.dp), bottomEnd = CornerSize(size = 10.0.dp), bottomStart = CornerSize(size = 10.0.dp))'
+          |  |    Actions = [OnClick, OnLongClick, RequestFocus]
+          |  |    MergeDescendants = 'true'
+          |  |-Node #19963 at (l=48.0, t=922.0, r=592.0, b=1018.0)px
+          |  | Focused = 'false'
+          |  | Role = 'Button'
+          |  | Shape = 'RoundedCornerShape(topStart = CornerSize(size = 10.0.dp), topEnd = CornerSize(size = 10.0.dp), bottomEnd = CornerSize(size = 10.0.dp), bottomStart = CornerSize(size = 10.0.dp))'
+          |  | Actions = [OnClick, RequestFocus]
+          |  | MergeDescendants = 'true'
+          |  |  |-Node #19965 at (l=72.0, t=943.0, r=520.0, b=997.0)px
+          |  |    Text = '[Оформление]'
+          |  |    Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+          |  |-Node #19967 at (l=48.0, t=1034.0, r=592.0, b=1174.0)px
+          |  | Focused = 'false'
+          |  | Role = 'Button'
+          |  | Shape = 'RoundedCornerShape(topStart = CornerSize(size = 10.0.dp), topEnd = CornerSize(size = 10.0.dp), bottomEnd = CornerSize(size = 10.0.dp), bottomStart = CornerSize(size = 10.0.dp))'
+          |  | Actions = [OnClick, RequestFocus]
+          |  | MergeDescendants = 'true'
+          |  |  |-Node #19969 at (l=72.0, t=1050.0, r=520.0, b=1158.0)px
+          |  |    Text = '[Переместить и упорядочить]'
+          |  |    Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+          |  |-Node #19972 at (l=48.0, t=1190.0, r=144.0, b=1286.0)px
+          |    MergeDescendants = 'true'
+          |     |-Node #19974 at (l=48.0, t=1190.0, r=144.0, b=1286.0)px
+          |       ContentDescription = '[Убрать ветку с карты]'
+          |       Focused = 'false'
+          |       Role = 'Button'
+          |       Shape = 'RoundedCornerShape(topStart = CornerSize(size = 10.0.dp), topEnd = CornerSize(size = 10.0.dp), bottomEnd = CornerSize(size = 10.0.dp), bottomStart = CornerSize(size = 10.0.dp))'
+          |       Actions = [OnClick, OnLongClick, RequestFocus]
+          |       MergeDescendants = 'true'
+          |-Node #19982 at (l=217.0, t=1328.0, r=592.0, b=1424.0)px
+          | Focused = 'false'
+          | Role = 'Button'
+          | Shape = 'RoundedCornerShape(topStart = CornerSize(size = 10.0.dp), topEnd = CornerSize(size = 10.0.dp), bottomEnd = CornerSize(size = 10.0.dp), bottomStart = CornerSize(size = 10.0.dp))'
+          | Actions = [OnClick, RequestFocus]
+          | MergeDescendants = 'true'
+          |  |-Node #19984 at (l=241.0, t=1349.0, r=568.0, b=1403.0)px
+          |    Text = '[Сохранить мысль]'
+          |    Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+          |-Node #19979 at (l=388.0, t=1448.0, r=592.0, b=1544.0)px
+            Focused = 'false'
+            Role = 'Button'
+            Shape = 'RoundedCornerShape(topStart = CornerSize(size = 10.0.dp), topEnd = CornerSize(size = 10.0.dp), bottomEnd = CornerSize(size = 10.0.dp), bottomStart = CornerSize(size = 10.0.dp))'
+            Actions = [OnClick, RequestFocus]
+            MergeDescendants = 'true'
+             |-Node #19981 at (l=412.0, t=1469.0, r=568.0, b=1523.0)px
+               Text = '[Закрыть]'
+               Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]

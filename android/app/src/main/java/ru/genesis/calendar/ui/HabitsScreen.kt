@@ -1,5 +1,7 @@
 package ru.genesis.calendar.ui
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import android.media.AudioManager
 import android.media.ToneGenerator
 import androidx.compose.animation.animateContentSize
@@ -13,6 +15,8 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
@@ -92,13 +96,20 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
     var deleteCandidate by remember { mutableStateOf<Habit?>(null) }
     var editorOpen by remember { mutableStateOf(false) }
     var voiceDraftTitle by remember { mutableStateOf("") }
-    var catalogueOpen by rememberSaveable { mutableStateOf(false) }
+    var area by rememberSaveable { mutableStateOf("today") }
+    var workspaceArea by rememberSaveable { mutableStateOf("today") }
+    var screenMenuOpen by remember { mutableStateOf(false) }
+    val areaStates = rememberSaveableStateHolder()
+    val habitCardStates = rememberSaveableStateHolder()
     var heroPathOpen by rememberSaveable { mutableStateOf(false) }
     var timerHabitId by remember { mutableStateOf<String?>(null) }
+    var timerHistoryOpen by rememberSaveable { mutableStateOf(false) }
+    val timerFocus = remember { BringIntoViewRequester() }
     var habitState by rememberSaveable { mutableStateOf("active") }
     var analysisHistory by remember { mutableStateOf<Pair<String,LocalDate>?>(null) }
+    var historyHabitId by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(openHeroPath) {
-        if (openHeroPath) { heroPathOpen=true;onHeroPathOpened() }
+        if (openHeroPath) { area="development";heroPathOpen=true;onHeroPathOpened() }
     }
     var busy by remember { mutableStateOf(false) }
     var today by remember { mutableStateOf(LocalDate.now()) }
@@ -200,159 +211,230 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
             onVoiceRequestConsumed()
         }
     }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-        val current=workspace
-        GenesisPageHeader(if (english) "Habits" else "Привычки",
-            if (english) "Daily practice, goals, streaks and progress"
-            else "Ежедневные практики, цели, серии и прогресс", "◇",
-            footer = if (current != null && current.settings.feedback.gamificationWidgets) {{
-                val rank=HeroProgress.rankForProgress(current.progress)
-                val goal=current.goals.firstOrNull { it.date==today }
-                Column(Modifier.testTag("habit-daily-hero"),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-                    HorizontalDivider(color=Color(0xff46645e))
-                    Text("ЕЖЕДНЕВНЫЙ РИТМ",style=MaterialTheme.typography.labelMedium,color=Color(0xffdfc17e))
-                    Text(if(goal==null || goal.scheduledCount==0) "Свободный день" else
-                        "Сегодня · ${goal.completedCount} из ${goal.scheduledCount}",
-                        style=MaterialTheme.typography.headlineSmall,color=Color(0xfff8f3e8))
-                    Text(if(goal==null || goal.scheduledCount==0)
-                        "На сегодня нет запланированных привычек. Серия не изменится."
-                        else "Дневная цель: ${goal.targetCount} · ${if(goal.status=="achieved") "достигнута" else "впереди"}",
-                        style=MaterialTheme.typography.bodyMedium,color=Color(0xffd8e7df))
-                    if(goal!=null && goal.scheduledCount>0) LinearProgressIndicator(
-                        progress={ (goal.completedCount.toFloat()/goal.scheduledCount).coerceIn(0f,1f) },
-                        modifier=Modifier.fillMaxWidth(),color=Color(0xffdfc17e),trackColor=Color(0xff46645e))
-                    if (!experimental) {
-                        HorizontalDivider(color=Color(0xff46645e))
-                        Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
-                            heroRankThumbnailPath(rank)?.let { OriginalImage(it,rank.title,
-                                Modifier.size(56.dp)) }
-                            Column(verticalArrangement=Arrangement.spacedBy(2.dp)) {
-                                Text("Путь Героя · ${rank.title}",style=MaterialTheme.typography.titleMedium,color=Color(0xfff8f3e8))
-                                Text("✦ ${current.progress.lifetimeXp} XP  ·  🔥 ${current.progress.currentStreak} дн.",
-                                    style=MaterialTheme.typography.bodySmall,color=Color(0xffd8e7df))
-                            }
+    LaunchedEffect(openSacredHabits) { if (openSacredHabits) area = "sacred" }
+    LaunchedEffect(timerHabitId) { if (timerHabitId != null) { withFrameNanos { }; timerFocus.bringIntoView() } }
+    LaunchedEffect(reminderRequest?.nonce) { if (reminderRequest != null) { area = "today"; workspaceArea = "today" } }
+    fun openArea(next: String) {
+        if (next == "history") historyHabitId = null
+        if (next == "today" || next == "library") workspaceArea = next
+        area = next
+        screenMenuOpen = false
+    }
+    BackHandler(enabled = area !in setOf("today", "library") && !editorOpen) { area = workspaceArea }
+    val title = when (area) {
+        "history" -> "История привычек"
+        "development" -> "Путь Героя"
+        "catalogue" -> "Подборка привычек"
+        "sacred" -> "Сакральные практики"
+        "data" -> "Данные привычек"
+        else -> "Привычки"
+    }
+    val subtitle = if (area in setOf("today", "library"))
+        GenesisCalendar().formatDate(today, displayCalendarMode) else "Привычки"
+    val headerNavigation: @Composable () -> Unit = {
+        if (area !in setOf("today", "library")) WorkspaceHeaderButton("К привычкам", "habit-workspace-back",
+            onClick = { area = workspaceArea }) { GenesisLucideIcon("chevron-left") }
+    }
+    val headerActions: @Composable () -> Unit = {
+        if (area in setOf("today", "library")) WorkspaceHeaderButton("Новая привычка", "habit-create", !busy && !storageError && workspace != null,
+            onClick = { edit = null; editorOpen = true }) { GenesisLucideIcon("plus") }
+        Box {
+            WorkspaceHeaderButton("Разделы и действия привычек", "habit-workspace-menu",
+                onClick = { screenMenuOpen = true }) { GenesisLucideIcon("ellipsis") }
+            DropdownMenu(screenMenuOpen, { screenMenuOpen = false }) {
+                listOf(
+                    Triple("history", "История и статистика", "chart-no-axes-column"),
+                    Triple("library", "Все привычки", "list-checks"),
+                    Triple("catalogue", "Подборка привычек", "layout-template"),
+                    Triple("development", "Путь Героя и награды", "sparkles"),
+                ).forEach { (id, label, icon) ->
+                    DropdownMenuItem(text = { Text(label) }, leadingIcon = { GenesisLucideIcon(icon) },
+                        onClick = { if (id == "development") heroPathOpen = true; openArea(id) },
+                        modifier = Modifier.testTag("habit-open-$id"))
+                }
+                if (LocalSacredFeaturesEnabled.current) DropdownMenuItem(text = { Text("Сакральные практики") },
+                    leadingIcon = { GenesisLucideIcon("sun") }, onClick = { openArea("sacred") },
+                    modifier = Modifier.testTag("habit-open-sacred"))
+                HorizontalDivider()
+                DropdownMenuItem(text = { Text("Данные привычек") }, leadingIcon = { GenesisLucideIcon("download") },
+                    onClick = { openArea("data") }, modifier = Modifier.testTag("habit-open-data"))
+            }
+        }
+    }
+    val headerInShell = WorkspaceScreenHeader(title, subtitle, navigation = headerNavigation, actions = headerActions)
+    areaStates.SaveableStateProvider(area) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp).testTag("habit-workspace-$area"),
+        verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (!headerInShell) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            headerNavigation()
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleLarge)
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            headerActions()
+        }
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        val current = workspace
+        if (current == null) {
+            if (!storageError) CircularProgressIndicator()
+        } else {
+            if (area in setOf("today", "library")) {
+                HabitWorkspaceTabs(area, ::openArea)
+                HabitDaySummary(current, today) { openArea("history") }
+                HabitReminderFocus(app, current, repository, reminderRequest)
+                current.habits.filter { HabitRuleHistory.state(it, LocalDate.MAX).conflicts.isNotEmpty() }.forEach { habit ->
+                    OutlinedCard(Modifier.fillMaxWidth()) { Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        androidx.compose.material3.Text(habitDisplayTitle(habit), style = MaterialTheme.typography.titleSmall)
+                        Text("Правила изменены на нескольких устройствах. Выберите действующий вариант.", color = MaterialTheme.colorScheme.error)
+                        TextButton(onClick = { edit = habit; editorOpen = true }) { Text("Открыть историю правил") }
+                    } }
+                }
+                val timerSessions = HabitTimers.sessions(current.timers)
+                val pendingTimers = timerSessions.any { it.state?.status !in setOf("saved", "discarded") }
+                if (!pendingTimers && timerHabitId == null && timerSessions.any { it.state?.status == "saved" })
+                    OutlinedButton(onClick = { timerHistoryOpen = !timerHistoryOpen }, modifier = Modifier.fillMaxWidth()) {
+                        Text(if (timerHistoryOpen) "Скрыть сессии таймера" else "Сессии таймера")
+                    }
+                if (pendingTimers || timerHabitId != null || timerHistoryOpen) Box(Modifier.bringIntoViewRequester(timerFocus)) {
+                HabitTimerShelf(current, repository.timerOwner, timerHabitId, { timerHabitId = null }, !busy && !storageError) {
+                    repository.applyTimer(it); Unit
+                }
+                }
+                val renderHabit: @Composable (Habit) -> Unit = { habit ->
+                    val state = HabitLifecycle.state(habit)
+                    val entry = current.completions.firstOrNull { it.habitId == habit.id && it.date == today }
+                    val scheduled = runCatching { engine.isScheduled(habit, today, current.completions) }.getOrDefault(false)
+                    habitCardStates.SaveableStateProvider("$area:${habit.id}") {
+                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        HabitLifecycleResolution(habit, !busy && !storageError) { selected ->
+                            scope.launch { runAction { changeAvailability(habit, "resolve", selected) } }
                         }
-                        Text("Ритм ${current.progress.rhythmScore}%  ·  🌿 ${current.progress.laurelsBalance} лавров",
-                            style=MaterialTheme.typography.labelMedium,color=Color(0xffdfc17e))
+                        ExperimentalHabitCard(habit, entry, scheduled, busy || storageError || state.conflict,
+                            animate = current.settings.feedback.animations, today = today,
+                            measurements = current.measurements, completions = current.completions,
+                            onComplete = { checked, quality -> scope.launch { runAction {
+                                recordCompletion(habit.id, checked, quality, current.settings.feedback)
+                            } } },
+                            onIntervalComplete = { time, checked -> scope.launch { runAction {
+                                recordInterval(habit, time, checked, current.settings.feedback)
+                            } } },
+                            onRecord = { amount, entryId, replaces, note ->
+                                repository.recordMeasurement(habit.id, today, amount, entryId, replaces, note); Unit
+                            },
+                            onQuality = { quality -> recordCompletion(habit.id, true, quality, current.settings.feedback) },
+                            onHistory = { openArea("history"); historyHabitId = habit.id },
+                            onEdit = { edit = habit; editorOpen = true },
+                            onToggle = { scope.launch { runAction { changeAvailability(habit, if (habit.active) "pause" else "resume") } } },
+                            onArchive = { scope.launch { runAction { changeAvailability(habit, "archive") } } },
+                            onTimer = { timerHabitId = habit.id }, onDelete = { deleteCandidate = habit })
+                    }
                     }
                 }
-            }} else null)
-        error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
-        current?.habits?.filter { HabitRuleHistory.state(it,LocalDate.MAX).conflicts.isNotEmpty() }?.forEach { habit ->
-            Text("Правила изменены на нескольких устройствах. Выберите действующий вариант.",color=MaterialTheme.colorScheme.error)
-            Text(habitDisplayTitle(habit))
-            TextButton(onClick={edit=habit;editorOpen=true}) { Text("Открыть историю") }
-        }
-        if(current==null) {
-            if(!storageError) CircularProgressIndicator()
-        } else {
-            HabitReminderFocus(app, current, repository, reminderRequest)
-            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                Button(enabled=!busy&&!storageError,onClick={edit=null;editorOpen=true},modifier=Modifier.weight(1f)) { Text("Новая привычка") }
-                OutlinedButton(enabled=!busy&&!storageError,onClick={catalogueOpen=!catalogueOpen},modifier=Modifier.weight(1f)) {
-                    Text(if(catalogueOpen) "Скрыть подборку" else "Подборка") }
-            }
-            if(catalogueOpen) HabitTemplateCatalog.templates
-                .filterNot { it.id in current.hiddenDefaultTemplates }.forEach { template ->
-                Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(12.dp)) {
-                    Text("${template.icon} ${template.title}",style=MaterialTheme.typography.titleMedium)
-                    Text(template.description)
-                    TextButton(enabled=!busy&&!storageError,onClick={
-                        val schedule=engine.defaultSchedule(today,CalendarMode.SACRED)
-                        edit=Habit(TrackerEntity.create("habit"),template.title,today,
-                            schedule.copy(recurrence=schedule.recurrence.copy(days=listOf(1,2,3,4,5))),description=template.description,
-                            emoji=template.icon,color=template.color,sourceTemplateId=template.id,preferredTime=template.suggestedTime,
-                            ritualId=when(template.suggestedTime.take(2).toIntOrNull() ?: -1) { in 0..11 -> "morning"; in 18..23 -> "evening"; else -> "day" },
-                            reminder=HabitReminder(time=template.suggestedTime))
-                        editorOpen=true; catalogueOpen=false
-                    }) { Text("Добавить из библиотеки") }
-                } }
-            }
-            Text("Мои привычки",style=MaterialTheme.typography.titleLarge)
-            HabitLifecycleFilters(current, habitState) { habitState=it }
-            HabitTimerShelf(current, repository.timerOwner, timerHabitId, { timerHabitId = null }, !busy && !storageError) {
-                repository.applyTimer(it); Unit
-            }
-            if(current.habits.isEmpty()) Text("Здесь появятся ваши практики. Выберите идею из подборки или создайте свою.",
-                style=MaterialTheme.typography.bodyMedium)
-            val listedHabits=current.habits.filter { habitPracticeLibraryStatus(it,current.completions)==habitState }.sortedByDescending { it.priority }
-            if (current.habits.isNotEmpty() && listedHabits.isEmpty()) Text("Ничего не найдено")
-            if (habitState in setOf("archived", "deleted")) HabitRetiredRows(current, listedHabits, !busy && !storageError,
-                onRestore={habit -> scope.launch { runAction { changeAvailability(habit,"restore") } }},
-                onDelete={deleteCandidate=it}, onResolve={habit, selected -> scope.launch { runAction { changeAvailability(habit,"resolve",selected) } }})
-            else AdaptiveCardGrid(listedHabits, { it.id }) { habit ->
-              Column(Modifier.fillMaxWidth(), verticalArrangement=Arrangement.spacedBy(8.dp)) {
-                val state=HabitLifecycle.state(habit)
-                HabitLifecycleResolution(habit, !busy && !storageError) { selected -> scope.launch { runAction { changeAvailability(habit,"resolve",selected) } } }
-                val entry=current.completions.firstOrNull { it.habitId==habit.id && it.date==today }
-                val scheduled=runCatching { engine.isScheduled(habit,today,current.completions) }.getOrDefault(false)
-                HabitPracticeStatus(habit,current.completions)
-                val measured=HabitMeasurements.effective(HabitMeasurements.rule(habit,today))!=null
-                if (experimental) ExperimentalHabitCard(habit, entry, scheduled, busy || storageError || state.conflict,
-                    animate = current.settings.feedback.animations,
-                    onComplete={checked,quality -> scope.launch { runAction {
-                        recordCompletion(habit.id,checked,quality,current.settings.feedback)
-                    } }},
-                    onIntervalComplete={time,checked -> scope.launch { runAction { recordInterval(habit,time,checked,current.settings.feedback) } }},
-                    onEdit={edit=habit;editorOpen=true},
-                    onToggle={scope.launch { runAction { changeAvailability(habit,if(habit.active) "pause" else "resume") } }},
-                    onArchive={scope.launch { runAction { changeAvailability(habit,"archive") } }},
-                    onTimer={timerHabitId=habit.id},
-                    onDelete={deleteCandidate=habit})
-                else Card((if (current.settings.feedback.animations) Modifier.animateContentSize() else Modifier).fillMaxWidth()) { Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
-                    Text("${habit.emoji} ${habitDisplayTitle(habit)}",style=MaterialTheme.typography.titleMedium)
-                    if(habit.description.isNotEmpty()) Text(habit.description)
-                    Text(if(!habit.active) "На паузе" else if(scheduled) "Запланировано сегодня" else "Сегодня не запланировано",style=MaterialTheme.typography.bodySmall)
-                    if(habit.scoringMode.startsWith("quality") && scheduled && !measured) {
-                        var quality by remember(habit.id,entry?.qualityValue) { mutableFloatStateOf((entry?.qualityValue ?: if(habit.scoringMode=="quality-ten") 5.0 else 0.0).toFloat()) }
-                        Text("Качество: ${quality.toInt()}")
-                        Slider(value=quality,onValueChange={quality=it},enabled=!busy&&!storageError,valueRange=if(habit.scoringMode=="quality-ten") 1f..10f else -5f..5f,
-                            steps=if(habit.scoringMode=="quality-ten") 8 else 9)
-                        Button(enabled=!busy&&!storageError,onClick={scope.launch { runAction {
-                            recordCompletion(habit.id,true,quality.toDouble(),current.settings.feedback)
-                        } }}) { Text(if(entry?.completed==true) "Обновить оценку" else "Выполнено") }
-                        if(entry?.completed==true) TextButton(enabled=!busy&&!storageError,onClick={scope.launch { runAction { repository.complete(habit.id,false,entry.qualityValue) } }}) { Text("Снять отметку") }
-                    } else Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                        Checkbox(checked=entry?.completed==true,enabled=scheduled&&!busy&&!storageError&&!measured,
-                            onCheckedChange={ checked -> scope.launch { runAction {
-                                recordCompletion(habit.id,checked,null,current.settings.feedback)
-                            } } })
-                        Text(if(entry?.completed==true) "Выполнено · ${entry.score} баллов" else if(habit.intervalSchedule?.completionMode=="each") "Отметить все повторения" else "Отметить выполнение",Modifier.padding(top=12.dp))
+                if (area == "library") {
+                    HabitLifecycleFilters(current, habitState) { habitState = it }
+                    val listed = current.habits.filter { habitPracticeLibraryStatus(it, current.completions) == habitState }
+                        .sortedWith(compareByDescending<Habit> { it.isKeyHabit }.thenByDescending { it.priority })
+                    if (listed.isEmpty()) Text(if (current.habits.isEmpty()) "Создайте первую привычку или выберите идею из подборки."
+                        else "В этом разделе пока нет привычек.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (habitState in setOf("archived", "deleted")) HabitRetiredRows(current, listed, !busy && !storageError,
+                        onRestore = { habit -> scope.launch { runAction { changeAvailability(habit, "restore") } } },
+                        onDelete = { deleteCandidate = it },
+                        onResolve = { habit, selected -> scope.launch { runAction { changeAvailability(habit, "resolve", selected) } } })
+                    else AdaptiveCardGrid(listed, { it.id }, renderHabit)
+                } else {
+                    val active = current.habits.filter { habit ->
+                        val libraryStatus = habitPracticeLibraryStatus(habit, current.completions)
+                        libraryStatus == "active" || libraryStatus == "completed" && current.completions.any {
+                            it.habitId == habit.id && it.date == today && it.completed
+                        }
                     }
-                    HabitIntervalMarks(habit,entry,scheduled&&!busy&&!storageError) { time,checked -> scope.launch { runAction { recordInterval(habit,time,checked,current.settings.feedback) } } }
-                    HabitCardActions(habit,!busy&&!storageError&&!state.conflict,scheduled,
-                        onEdit={edit=habit;editorOpen=true},
-                        onToggle={scope.launch { runAction { changeAvailability(habit,if(habit.active) "pause" else "resume") } }},
-                        onArchive={scope.launch { runAction { changeAvailability(habit,"archive") } }},
-                        onTimer={timerHabitId=habit.id},onDelete={deleteCandidate=habit})
-                } }
-                if(measured) HabitMeasurementInputs(habit,current.measurements,today,entry,scheduled&&!busy&&!storageError,
-                    onRecord={amount,entryId,replaces,note -> repository.recordMeasurement(habit.id,today,amount,entryId,replaces,note);Unit},
-                    onQuality={quality -> recordCompletion(habit.id,true,quality,current.settings.feedback)})
-                HabitPeriodGoalProgress(habit,current.measurements,current.completions,today)
-              }
+                        .sortedWith(compareByDescending<Habit> { it.isKeyHabit }.thenByDescending { it.priority })
+                    val scheduled = active.filter { runCatching { engine.isScheduled(it, today, current.completions) }.getOrDefault(false) }
+                    val completed = scheduled.filter { habit -> current.completions.any { it.habitId == habit.id && it.date == today && it.completed } }
+                    val remaining = scheduled.filterNot { it in completed }
+                    val unscheduled = active.filterNot { it in scheduled }
+                    if (remaining.isNotEmpty()) {
+                        HabitSectionHeading("На сегодня", remaining.size)
+                        AdaptiveCardGrid(remaining, { it.id }, renderHabit)
+                    } else Text(if (scheduled.isNotEmpty()) "Все запланированные привычки выполнены."
+                        else "На сегодня нет запланированных привычек.", Modifier.testTag("habit-today-empty"),
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (completed.isNotEmpty()) {
+                        HabitSectionHeading("Выполнено", completed.size)
+                        AdaptiveCardGrid(completed, { it.id }, renderHabit)
+                    }
+                    if (unscheduled.isNotEmpty()) {
+                        var showUnscheduled by rememberSaveable { mutableStateOf(false) }
+                        OutlinedButton(onClick = { showUnscheduled = !showUnscheduled }, shape = AffairsLayout.controlShape,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("habit-unscheduled-toggle")) {
+                            Text("Не запланировано сегодня · ${unscheduled.size}", Modifier.weight(1f))
+                            GenesisLucideIcon(if (showUnscheduled) "chevron-up" else "chevron-down")
+                        }
+                        if (showUnscheduled) AdaptiveCardGrid(unscheduled, { it.id }, renderHabit)
+                    }
+                    if (current.habits.isEmpty()) {
+                        Button(onClick = { edit = null; editorOpen = true }, enabled = !busy && !storageError,
+                            modifier = Modifier.fillMaxWidth()) { Text("Новая привычка") }
+                        OutlinedButton(onClick = { openArea("catalogue") }, modifier = Modifier.fillMaxWidth()
+                            .testTag("habit-catalogue")) { Text("Выбрать из подборки") }
+                    }
+                }
             }
-            if (experimental && current.settings.feedback.gamificationWidgets) {
+            if (area == "catalogue") {
+                Text("Готовые идеи можно настроить под свой ритм.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                HabitTemplateCatalog.templates.filterNot { it.id in current.hiddenDefaultTemplates }.forEach { template ->
+                    Card(Modifier.fillMaxWidth(), shape = AffairsLayout.shape) {
+                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("${template.icon} ${template.title}", style = MaterialTheme.typography.titleMedium)
+                            Text(template.description, style = MaterialTheme.typography.bodyMedium)
+                            OutlinedButton(enabled = !busy && !storageError, onClick = {
+                                val schedule = engine.defaultSchedule(today, CalendarMode.SACRED)
+                                edit = Habit(TrackerEntity.create("habit"), template.title, today,
+                                    schedule.copy(recurrence = schedule.recurrence.copy(days = listOf(1, 2, 3, 4, 5))),
+                                    description = template.description, emoji = template.icon, color = template.color,
+                                    sourceTemplateId = template.id, preferredTime = template.suggestedTime,
+                                    ritualId = when (template.suggestedTime.take(2).toIntOrNull() ?: -1) {
+                                        in 0..11 -> "morning"; in 18..23 -> "evening"; else -> "day"
+                                    }, reminder = HabitReminder(time = template.suggestedTime))
+                                editorOpen = true
+                            }, modifier = Modifier.fillMaxWidth()) { Text("Добавить из библиотеки") }
+                        }
+                    }
+                }
+            }
+            if (area == "history") {
+                if (current.habits.isEmpty()) Text("История появится после создания первой привычки.")
+                else {
+                    HabitCompletionCalendar(current, today, displayCalendarMode,
+                        onOpenHistory = { id, date -> analysisHistory = id to date },
+                        onDecision = { command -> repository.decideDay(command) })
+                    HabitHistoryPanel(current, repository, displayCalendarMode, analysisHistory,
+                        selectedHabitId = historyHabitId) { analysisHistory = null }
+                }
+            }
+            if (area == "development") {
+            if (current.settings.feedback.gamificationWidgets) {
                 val motionEnabled = current.settings.feedback.animations
                 val iconScale by animateFloatAsState(if (heroPathOpen) 1.09f else 1f,
                     label = "hero-path-icon-scale")
                 val iconGlow = rememberIconPhase("hero-path-card-glow", 3_800, motionEnabled)
                 Surface(Modifier.fillMaxWidth().testTag("habit-hero-path-section"),
-                    shape = RoundedCornerShape(22.dp), color = Color(0xff0b2b2d),
+                    shape = AffairsLayout.shape, color = Color(0xff0b2b2d),
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x99dfc17e)),
                     shadowElevation = 8.dp) {
-                    Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
-                        Row(Modifier.fillMaxWidth().clickable(role = Role.Button,
+                    Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                        Row(Modifier.fillMaxWidth().heightIn(min=48.dp).clickable(role = Role.Button,
                             onClickLabel = if (heroPathOpen) "Свернуть путь и награды" else "Открыть путь и награды") {
                                 heroPathOpen = !heroPathOpen
                             }.testTag("habit-hero-path-heading"),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Surface(Modifier.size(68.dp).graphicsLayer {
+                            Surface(Modifier.size(if(heroPathOpen) 68.dp else 40.dp).graphicsLayer {
                                 val pulse = if (motionEnabled) kotlin.math.sin(iconGlow * 2f * Math.PI).toFloat() else 0f
                                 scaleX = iconScale + pulse * .025f
                                 scaleY = iconScale + pulse * .025f
-                            }, shape = RoundedCornerShape(18.dp),
+                            }, shape = AffairsLayout.shape,
                                 color = Color(0xff163d3a),
                                 border = androidx.compose.foundation.BorderStroke(1.dp,
                                     Color(0xffdfc17e).copy(alpha = .45f + iconGlow * .3f))) {
@@ -360,13 +442,13 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                                     Modifier.fillMaxSize().genesisDescription("Путь героя"))
                             }
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                Text("Путь Героя и награды",style=MaterialTheme.typography.titleLarge,
+                                Text("Путь Героя и награды",style=MaterialTheme.typography.titleMedium,
                                     color = Color(0xfffff6e2))
-                                Text("Древо рангов, награды и полная статистика привычек. Накопленный XP не тратится.",
+                                if(heroPathOpen) Text("Древо рангов, награды и полная статистика привычек. Накопленный XP не тратится.",
                                     style=MaterialTheme.typography.bodySmall,color=Color(0xffc8d9d4))
                             }
                         }
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if(heroPathOpen) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             listOf(
                                 Triple("XP",current.progress.lifetimeXp.toString(),"✦"),
                                 Triple("Серия","${current.progress.currentStreak} дн.","🔥"),
@@ -384,7 +466,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                                 }
                             }
                         }
-                        HabitsFeatureActionButton(
+                        if(heroPathOpen) HabitsFeatureActionButton(
                             label=if(heroPathOpen) "Свернуть путь" else "Открыть путь и награды",
                             onClick={heroPathOpen=!heroPathOpen},
                             containerColor=Color(0xffdfc17e), contentColor=Color(0xff0b2b2d),
@@ -396,8 +478,6 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                     enter=if (current.settings.feedback.animations) fadeIn() + expandVertically() else EnterTransition.None,
                     exit=if (current.settings.feedback.animations) fadeOut() + shrinkVertically() else ExitTransition.None) {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    HabitCompletionCalendar(current, today, displayCalendarMode,
-                        onOpenHistory={id,date -> analysisHistory=id to date},onDecision={command -> repository.decideDay(command)})
                     HabitArtGallery(current, today, busy,
                     onClaimAmphora = { rankId -> scope.launch { runAction { repository.claimHeroPathAmphora(rankId) } } },
                     onRevealHiddenPath = { scope.launch { runAction { repository.revealHiddenHeroicPath() } } },
@@ -406,6 +486,11 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                     }
                 }
             }
+
+                if (!current.settings.feedback.gamificationWidgets) Text("Виджеты развития скрыты в настройках привычек. Накопленные награды и прогресс сохранены.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (area == "sacred") {
             if (LocalSacredFeaturesEnabled.current) SacredHabitsBlock(current,today,displayCalendarMode,busy || storageError,openSacredHabits,
                 experimental = experimental,
                 onRequestedOpenConsumed=onSacredHabitsOpened,
@@ -415,11 +500,11 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                     recordCompletion(habit.id,checked,null,current.settings.feedback)
                 } } },
                 onToggle={ habit -> scope.launch { runAction { repository.save(habit.copy(active=!habit.active)) } } })
-            if(current.habits.isNotEmpty()) {
-                HabitHistoryPanel(current,repository,displayCalendarMode,analysisHistory) { analysisHistory=null }
+
             }
-            HabitBackupPanel(app,current)
+            if (area == "data") HabitBackupPanel(app, current)
         }
+    }
     }
     if(editorOpen) HabitEditor(edit,busy,error,inputCalendarMode,accountSettings,voiceDraftTitle,
         onChooseRule={chosen,heads,operation -> scope.launch { runAction {
@@ -466,82 +551,104 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ExperimentalHabitCard(habit: Habit, entry: HabitCompletion?, scheduled: Boolean, disabled: Boolean,
-    animate: Boolean, onComplete: (Boolean, Double?) -> Unit, onEdit: () -> Unit,
-    onIntervalComplete: (String,Boolean) -> Unit,
-    onToggle: () -> Unit, onArchive: () -> Unit, onTimer: () -> Unit, onDelete: () -> Unit) {
-    val measured = HabitMeasurements.effective(HabitMeasurements.rule(habit,LocalDate.now()))!=null
-    val status = if (!habit.active) "На паузе" else if (scheduled) "Запланировано сегодня" else "Сегодня свободно"
-    val calendar = when (habit.schedule.recurrence.mode) {
+    animate: Boolean, today: LocalDate, measurements: List<HabitMeasurementEvent>, completions: List<HabitCompletion>,
+    onComplete: (Boolean, Double?) -> Unit, onEdit: () -> Unit, onIntervalComplete: (String, Boolean) -> Unit,
+    onRecord: suspend (Long?, String?, List<String>, String) -> Unit, onQuality: suspend (Double) -> Unit,
+    onHistory: () -> Unit, onToggle: () -> Unit, onArchive: () -> Unit, onTimer: () -> Unit, onDelete: () -> Unit) {
+    val rule = HabitMeasurements.rule(habit, today)
+    val displayTitle = habitDisplayTitle(habit)
+    val measured = HabitMeasurements.effective(rule) != null
+    val completed = entry?.completed == true
+    val status = when {
+        !habit.active -> "На паузе"
+        completed -> "Выполнено сегодня"
+        scheduled -> "Запланировано сегодня"
+        else -> "Сегодня не запланировано"
+    }
+    val calendar = when (rule.schedule.recurrence.mode) {
         "classic" -> "Григорианский ритм"
         "lunar" -> "Лунный ритм"
         else -> "Сакральный ритм"
     }
-    val cardModifier = if (animate) Modifier.fillMaxWidth().animateContentSize()
-        else Modifier.fillMaxWidth()
-    Card(cardModifier.testTag("habit-card-${habit.id}"), shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xfff8f3e8))) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Surface(Modifier.size(48.dp), shape = RoundedCornerShape(14.dp), color = Color(0xff123b36)) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(habit.emoji, style = MaterialTheme.typography.headlineSmall, color = Color(0xfff8f3e8))
-                    }
+    val cardModifier = if (animate) Modifier.fillMaxWidth().animateContentSize() else Modifier.fillMaxWidth()
+    var detailsOpen by rememberSaveable(habit.id) { mutableStateOf(false) }
+    Card(cardModifier.testTag("habit-card-${habit.id}"), shape = AffairsLayout.shape,
+        border = androidx.compose.foundation.BorderStroke(1.dp,
+            if (completed) MaterialTheme.colorScheme.primary.copy(alpha = .4f) else MaterialTheme.colorScheme.outlineVariant),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Surface(Modifier.padding(top = 4.dp).size(32.dp), shape = AffairsLayout.shape,
+                    color = MaterialTheme.colorScheme.primaryContainer) {
+                    Box(contentAlignment = Alignment.Center) { Text(habit.emoji, style = MaterialTheme.typography.titleMedium) }
                 }
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    androidx.compose.material3.Text(habitDisplayTitle(habit), style = MaterialTheme.typography.titleMedium, color = eveningInk(Color(0xff132426)))
-                    Text(status, style = MaterialTheme.typography.labelMedium,
-                        color = if (habit.active && scheduled) Color(0xff255b59) else Color(0xff596665))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    androidx.compose.material3.Text(displayTitle, style = MaterialTheme.typography.titleMedium)
+                    Text(status, style = MaterialTheme.typography.bodySmall,
+                        color = if (completed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (habit.preferredTime.isNotBlank() || habit.isKeyHabit) Text(
+                        listOfNotNull(if (habit.isKeyHabit) "Главная привычка" else null, habit.preferredTime.takeIf { it.isNotBlank() }).joinToString(" · "),
+                        style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                HabitCardActions(habit, !disabled, false, onEdit, onToggle, onArchive, onTimer, onDelete)
+            }
+            HabitPracticeStatus(habit, completions)
+            if (measured) HabitMeasurementInputs(habit, measurements, today, entry, scheduled && !disabled,
+                onRecord = onRecord, onQuality = onQuality, compact = true)
+            else if (habit.scoringMode.startsWith("quality") && scheduled) {
+                var quality by rememberSaveable(habit.id, entry?.qualityValue) {
+                    mutableFloatStateOf((entry?.qualityValue ?: if (habit.scoringMode == "quality-ten") 5.0 else 0.0).toFloat())
+                }
+                Text("Качество выполнения · ${quality.toInt()}", style = MaterialTheme.typography.bodyMedium)
+                Slider(value = quality, onValueChange = { quality = it }, enabled = !disabled,
+                    valueRange = if (habit.scoringMode == "quality-ten") 1f..10f else -5f..5f,
+                    steps = if (habit.scoringMode == "quality-ten") 8 else 9,
+                    modifier = Modifier.testTag("habit-quality-${habit.id}"))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(enabled = !disabled, onClick = { onComplete(true, quality.toDouble()) }) {
+                        Text(if (completed) "Обновить оценку" else "Выполнено")
+                    }
+                    if (completed) TextButton(enabled = !disabled,
+                        onClick = { onComplete(false, entry?.qualityValue) }) { Text("Снять отметку") }
+                }
+            } else if (scheduled || completed) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(if (completed) if (habit.scoringMode == "none") "Выполнено" else "Выполнено · ${entry?.score ?: 0} баллов"
+                    else if (habit.intervalSchedule?.completionMode == "each") "Отметить все повторения" else "Отметить выполнение",
+                    Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                Checkbox(checked = completed, enabled = scheduled && !disabled,
+                    onCheckedChange = { onComplete(it, null) },
+                    modifier = Modifier.size(48.dp).testTag("habit-complete-${habit.id}")
+                        .semantics { contentDescription = "$displayTitle: ${if (completed) "снять отметку" else "отметить выполнение"}" })
+            }
+            HabitIntervalMarks(habit, entry, scheduled && !disabled, onIntervalComplete)
+            HabitPeriodGoalProgress(habit, measurements, completions, today, showDetails = detailsOpen, compact = true)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = { detailsOpen = !detailsOpen }, contentPadding = PaddingValues(vertical = 8.dp),
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("habit-details-${habit.id}")) {
+                    Text(if (detailsOpen) "Свернуть" else "Подробнее", Modifier.weight(1f))
+                    AffairsActionIcon(if (detailsOpen) AffairsAction.COLLAPSE else AffairsAction.EXPAND)
+                }
+                if (scheduled) AffairsIconButton("Таймер привычки $displayTitle", AffairsAction.TIMER,
+                    onTimer, Modifier.testTag("habit-timer-open-${habit.id}"), !disabled)
+            }
+            if (detailsOpen) {
+                HorizontalDivider()
+                if (habit.description.isNotEmpty()) androidx.compose.material3.Text(habit.description, style = MaterialTheme.typography.bodyMedium)
+                Text(calendar + " · " + genesisTranslate("Приоритет") + ": ${habit.priority}/10",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (habit.ritualId != "none") Text(if (habit.ritualId == "custom") habit.ritualName
+                    else habitRituals.firstOrNull { it.first == habit.ritualId }?.second.orEmpty(),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                TextButton(onClick = onHistory, modifier = Modifier.heightIn(min = 48.dp)
+                    .testTag("habit-history-open-${habit.id}")) {
+                    GenesisLucideIcon("history"); Spacer(Modifier.width(8.dp)); Text("История и статистика")
                 }
             }
-            if (habit.description.isNotEmpty()) Text(habit.description,
-                style = MaterialTheme.typography.bodyMedium, color = Color(0xff344747))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Surface(Modifier.weight(1f), shape = RoundedCornerShape(12.dp), color = Color(0xffe4ded0)) {
-                    Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text("РАСПИСАНИЕ", style = MaterialTheme.typography.labelSmall, color = Color(0xff596665))
-                        Text(calendar, style = MaterialTheme.typography.bodySmall, color = Color(0xff132426))
-                    }
-                }
-                Surface(Modifier.weight(1f), shape = RoundedCornerShape(12.dp), color = Color(0xffd7e3dd)) {
-                    Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text("ПРИОРИТЕТ", style = MaterialTheme.typography.labelSmall, color = Color(0xff45605e))
-                        Text("${habit.priority} из 10", style = MaterialTheme.typography.bodySmall, color = Color(0xff132426))
-                    }
-                }
-            }
-            Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp),
-                color = if (entry?.completed == true) Color(0xffcfe1d8) else Color(0xffeee7d8)) {
-                Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    if (habit.scoringMode.startsWith("quality") && scheduled && !measured) {
-                        var quality by remember(habit.id, entry?.qualityValue) {
-                            mutableFloatStateOf((entry?.qualityValue ?: if(habit.scoringMode=="quality-ten") 5.0 else 0.0).toFloat())
-                        }
-                        Text("Качество выполнения · ${quality.toInt()}", style = MaterialTheme.typography.titleSmall)
-                        Slider(value=quality,onValueChange={quality=it},enabled=!disabled,
-                            valueRange=if(habit.scoringMode=="quality-ten") 1f..10f else -5f..5f,
-                            steps=if(habit.scoringMode=="quality-ten") 8 else 9)
-                        Row {
-                            Button(enabled=!disabled,onClick={onComplete(true,quality.toDouble())}) {
-                                Text(if(entry?.completed==true) "Обновить оценку" else "Выполнено")
-                            }
-                            if(entry?.completed==true) TextButton(enabled=!disabled,
-                                onClick={onComplete(false,entry.qualityValue)}) { Text("Снять отметку") }
-                        }
-                    } else Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(checked=entry?.completed==true,enabled=scheduled&&!disabled&&!measured,
-                            onCheckedChange={ checked -> onComplete(checked,null) })
-                        Text(if(entry?.completed==true) "Выполнено · ${entry.score} баллов" else
-                            if(scheduled) if(habit.intervalSchedule?.completionMode=="each") "Отметить все повторения" else "Отметить выполнение" else "Сегодня не запланировано",
-                            style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
-            }
-            HabitIntervalMarks(habit,entry,scheduled&&!disabled,onIntervalComplete)
-            HorizontalDivider(color = Color(0xffd5cab4))
-            HabitCardActions(habit,!disabled,scheduled,onEdit,onToggle,onArchive,onTimer,onDelete)
         }
     }
 }
@@ -600,13 +707,21 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
         config.pattern=="weekdays" -> 7
         else -> 0
     }
-    Dialog(onDismissRequest=onDismiss, properties=androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth=false)) { Surface(Modifier.widthIn(max=720.dp).fillMaxWidth().padding(12.dp),shape=MaterialTheme.shapes.large) {
+    var discardConfirmation by rememberSaveable(initial.id) { mutableStateOf(false) }
+    val hasChanges = title != editorInitialTitle || description != initial.description || emoji != initial.emoji || color != initial.color ||
+        isKeyHabit != initial.isKeyHabit || ritualId != initial.ritualId || ritualName != initial.ritualName ||
+        preferredTime != initial.preferredTime || reminder != initial.reminder || intervalSchedule != initial.intervalSchedule ||
+        measurement != initial.measurement || periodGoal != initial.periodGoal || priority != initial.priority || scoring != initial.scoringMode ||
+        start != initial.schedule.startDate.toString() || end != initial.schedule.endDate?.toString().orEmpty() || config != initial.schedule.recurrence
+    fun requestDismiss() { if (!busy) { if (hasChanges) discardConfirmation = true else onDismiss() } }
+    Dialog(onDismissRequest=::requestDismiss, properties=androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth=false)) { Surface(Modifier.widthIn(max=720.dp).fillMaxWidth().padding(12.dp),shape=MaterialTheme.shapes.large) {
         Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment=Alignment.CenterVertically) {
                 Text(if(existing==null) "Новая привычка" else "Изменить привычку",
                     modifier=Modifier.weight(1f),style=MaterialTheme.typography.titleLarge)
-                IconButton(onClick=onDismiss,enabled=!busy,modifier=Modifier.testTag("habit-editor-close")) {
-                    Text("×",style=MaterialTheme.typography.headlineSmall)
+                IconButton(onClick=::requestDismiss,enabled=!busy,modifier=Modifier.size(48.dp).testTag("habit-editor-close")
+                    .semantics { contentDescription = "Закрыть редактор привычки" }) {
+                    GenesisLucideIcon("x")
                 }
             }
             EditorSection("Основное") {
@@ -786,7 +901,7 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
             }
             error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                TextButton(enabled=!busy,onClick=onDismiss) { Text("Отмена") }
+                TextButton(enabled=!busy,onClick=::requestDismiss) { Text("Отмена") }
                 Button(enabled=!busy&&HabitRuleHistory.state(initial,LocalDate.MAX).conflicts.isEmpty()&&measurementValid&&periodValid&&title.isNotBlank()&&normalizedHabitColor(color)!=null&&normalizedHabitEmoji(emoji)!=null&&
                     (ritualId!="custom"||ritualName.isNotBlank())&&
                     (limit==0||config.days.isNotEmpty())&&(end.isEmpty()||end>=start)&&(initial.practiceGoal==null||end.isNotEmpty())&&intervalSchedule?.valid()!=false,onClick={
@@ -802,4 +917,11 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
             }
         }
     } }
+    if (discardConfirmation) AlertDialog(onDismissRequest = { discardConfirmation = false },
+        title = { Text("Закрыть без сохранения?") },
+        text = { Text("Изменения привычки ещё не сохранены.") },
+        confirmButton = { TextButton(onClick = { discardConfirmation = false; onDismiss() },
+            modifier = Modifier.heightIn(min = 48.dp).testTag("habit-discard-confirm")) { Text("Не сохранять") } },
+        dismissButton = { TextButton(onClick = { discardConfirmation = false },
+            modifier = Modifier.heightIn(min = 48.dp).testTag("habit-discard-cancel")) { Text("Продолжить") } })
 }

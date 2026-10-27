@@ -1,0 +1,3 @@
+Verified: ru.genesis.calendar 3.0.0-beta.2 /104
+SHA-256: be2cfb724d3bcce5f011f22ae58326229066520a0ecd06072de90502f2b59075
+Release certificate and zipalign verified; this command does not install the app.

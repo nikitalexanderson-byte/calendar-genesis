@@ -1,0 +1,32 @@
+{
+  "test": "review4FullArtworkLunarImagesEqualTilesAndPinnedSearch",
+  "widthDp": 1440,
+  "runId": "beta4-f68b-final-1440-dark-font100",
+  "dark": true,
+  "fontScale": 1,
+  "orientation": "portrait",
+  "checks": [
+    "route:drawer-Календарь-root",
+    "route:drawer-Проекты-root",
+    "review4:full-artwork-labelled-sacred-time-13-lunar-assets-equal-year-tiles-header-actions-pinned-search"
+  ],
+  "screenshots": [
+    "1440-dark-font100-portrait-review4-today-expanded.png",
+    "1440-dark-font100-portrait-review4-sacred-month-frames.png",
+    "1440-dark-font100-portrait-review4-lunar-month-art-frames.png",
+    "1440-dark-font100-portrait-review4-lunar-year-equal-tiles.png",
+    "1440-dark-font100-portrait-review4-sacred-year-equal-tiles.png",
+    "1440-dark-font100-portrait-review4-gregorian-year-equal-tiles.png",
+    "1440-dark-font100-portrait-review4-personal-header-and-search-button.png",
+    "1440-dark-font100-portrait-review4-pinned-search-expanded.png"
+  ],
+  "workspace": "internal-validation-v1",
+  "versionName": "3.0.0-beta.4",
+  "versionCode": 106,
+  "notTested": [
+    "Real Google sign-in and cloud synchronization",
+    "Shared-project role access and server operations",
+    "Physical-phone installation",
+    "Process death differs from Activity recreation"
+  ]
+}

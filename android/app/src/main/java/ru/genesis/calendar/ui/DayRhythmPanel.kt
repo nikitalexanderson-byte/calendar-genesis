@@ -14,6 +14,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
 import java.time.LocalTime
 import java.time.ZoneId
@@ -81,34 +83,28 @@ fun DayRhythmPanel(use24Hour: Boolean) {
     val elapsedSeconds = (now.hour - watch.start) * 3_600 + now.minute * 60 + now.second
     val remainingSeconds = 7_200 - elapsedSeconds
     Card(Modifier.fillMaxWidth().testTag("today-day-rhythm"),
-        shape = RoundedCornerShape(20.dp), border = BorderStroke(1.dp, palette.accent.copy(alpha = .55f)),
+        shape = AffairsLayout.shape, border = BorderStroke(1.dp, palette.accent.copy(alpha = .55f)),
         colors = CardDefaults.cardColors(containerColor = palette.deep)) {
         Box(Modifier.fillMaxWidth().background(Brush.linearGradient(
             listOf(palette.deep, Color(0xff07171b), palette.deep)))) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("РИТМ СУТОК · ВРЕМЯ УСТРОЙСТВА", color = palette.accent,
-                    style = MaterialTheme.typography.labelMedium)
-                Text("Сейчас — ${period.name} · Стихия ${period.element}", color = parchment,
-                    style = MaterialTheme.typography.titleLarge)
-                Row(verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Surface(Modifier.size(38.dp), shape = CircleShape,
-                        color = palette.accent.copy(alpha = .18f)) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text(watch.symbol, color = palette.accent,
-                                style = MaterialTheme.typography.titleLarge)
-                        }
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    GenesisLucideIcon("sun", Modifier.size(24.dp), tint = palette.accent)
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text("Сакральное время", Modifier.testTag("day-rhythm-title"), color = parchment,
+                            style = MaterialTheme.typography.titleMedium)
+                        Text("${period.name} · ${watch.deity}", color = parchment,
+                            style = MaterialTheme.typography.bodyMedium)
+                        Text("${hourLabel(watch.start)}–${hourLabel(watch.start + 2)} · ${watch.title}",
+                            color = muted, style = MaterialTheme.typography.bodySmall)
                     }
-                    Text("${hourLabel(watch.start)}–${hourLabel(watch.start + 2)} · ${watch.deity} · «${watch.title}»",
-                        Modifier.weight(1f), color = muted, style = MaterialTheme.typography.bodyMedium)
-                }
-                Text("${now.format(DateTimeFormatter.ofPattern(clockPattern))} · ${zone.id}",
-                    color = palette.accent, style = MaterialTheme.typography.titleMedium)
-                OutlinedButton(onClick = { expanded = !expanded },
-                    border = BorderStroke(1.dp, palette.accent.copy(alpha = .7f)),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = palette.accent),
-                    modifier = Modifier.fillMaxWidth().testTag("day-rhythm-expand")) {
-                    Text(if (expanded) "Свернуть ритм суток" else "Развернуть ритм суток")
+                    val expandLabel = genesisTranslate(if (expanded) "Свернуть ритм суток" else "Развернуть ритм суток")
+                    IconButton(onClick = { expanded = !expanded },
+                        modifier = Modifier.size(48.dp).testTag("day-rhythm-expand")
+                            .semantics { contentDescription = expandLabel }) {
+                        GenesisLucideIcon(if (expanded) "chevron-up" else "chevron-down", tint = palette.accent)
+                    }
                 }
                 if (expanded) {
                     HorizontalDivider(color = palette.accent.copy(alpha = .38f))

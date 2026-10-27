@@ -2,6 +2,8 @@ package ru.genesis.calendar.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
@@ -58,13 +60,15 @@ internal fun solarTimeLabels(date: LocalDate, location: SolarLocation, calendar:
         prefix + formatter.format(times.sunset.atZone(zone))
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun SunriseSunsetLine(date: LocalDate, location: SolarLocation, calendar: GenesisCalendar,
     accent: Color = MaterialTheme.colorScheme.primary,
     textColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     modifier: Modifier = Modifier) {
     val labels = solarTimeLabels(date, location, calendar)
-    Row(modifier, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+    FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(14.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (labels == null) Text("☀ Полярный день или ночь", style = MaterialTheme.typography.labelMedium,
             color = textColor)
         else {

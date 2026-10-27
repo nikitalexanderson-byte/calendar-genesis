@@ -1,0 +1,24 @@
+{
+  "test": "review4WholeTaskAndListDragBetweenInboxProjectsAndSubprojects",
+  "widthDp": 411,
+  "runId": "beta4-e793-drag-final",
+  "dark": false,
+  "fontScale": 1,
+  "orientation": "portrait",
+  "checks": [
+    "route:drawer-Проекты-root",
+    "review4:real-longpress-task-and-whole-list-moves-project-subproject-inbox-no-record-loss"
+  ],
+  "screenshots": [
+    "411-light-font100-portrait-review4-list-and-task-in-subproject.png"
+  ],
+  "workspace": "internal-validation-v1",
+  "versionName": "3.0.0-beta.4",
+  "versionCode": 106,
+  "notTested": [
+    "Real Google sign-in and cloud synchronization",
+    "Shared-project role access and server operations",
+    "Physical-phone installation",
+    "Process death differs from Activity recreation"
+  ]
+}

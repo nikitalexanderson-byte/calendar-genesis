@@ -70,7 +70,7 @@ private fun NumberGrid(title: String, numbers: List<Int>, selected: List<Int>,
 /** Same one-task series semantics as the site's RecurrenceBuilder; display calendar is independent. */
 @Composable
 internal fun TaskRecurrenceEditor(value: RecurrenceConfig, startDate: String, inputMode: CalendarMode,
-    onChange: (RecurrenceConfig) -> Unit): Int {
+    sharedSeries: Boolean = false, onChange: (RecurrenceConfig) -> Unit): Int {
     val engine = remember { RecurrenceEngine(GenesisCalendar()) }
     val context = value.calendarContext ?: CalendarContext(version = 1)
     val calendar = remember(context) { GenesisCalendar(ZoneId.of(context.timeZone), context.version, context.gregorianYearStart) }
@@ -88,11 +88,11 @@ internal fun TaskRecurrenceEditor(value: RecurrenceConfig, startDate: String, in
     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Column(Modifier.weight(1f)) {
-                Text("Повторение", style = MaterialTheme.typography.titleMedium)
-                Text(if (value.enabled) "Одна задача · календарный ритм" else "Одиночная задача без повторений",
+                Text(if (sharedSeries) "Расписание серии" else "Повторение", style = MaterialTheme.typography.titleMedium)
+                Text(if (sharedSeries) "Отдельная задача на каждую дату" else if (value.enabled) "Одна задача · календарный ритм" else "Одиночная задача без повторений",
                     style = MaterialTheme.typography.bodySmall)
             }
-            Switch(checked = value.enabled, onCheckedChange = { enabled ->
+            if (!sharedSeries) Switch(checked = value.enabled, onCheckedChange = { enabled ->
                 if (start != null) {
                     val base = if (value.rangeStart.isNotBlank() || value.calendarContext != null) value else defaultTaskRecurrence(startDate, inputMode)
                     onChange(base.copy(enabled = enabled, rangeStart = startDate,

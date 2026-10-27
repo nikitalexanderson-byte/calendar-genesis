@@ -1,0 +1,86 @@
+{
+  "versionName": "3.0.0-beta.2",
+  "versionCode": 104,
+  "finalAppSource": "456e003070f7594a44c4c219e62a807b85e5453a",
+  "finalDebugSha256": "0018eb6808d0537367f6cb33e6bcc3eb1e1d873a8646ab8ee1d4ce43f48d4b23",
+  "finalTestApkSha256": "5267f50a608ab7642fefd2ff6d4355dc5cc172ee1f0e0a3f187ea7753ebcb3cd",
+  "unit": {
+    "tests": 837,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 8
+  },
+  "lintDebug": {
+    "errors": 0,
+    "warnings": 144,
+    "hints": 8
+  },
+  "webCompatibilityTests": {
+    "tests": 730,
+    "failures": 0
+  },
+  "instrumentation": {
+    "successfulExecutions": 46,
+    "distinctTestMethods": 15,
+    "matrixExecutionsIncluded": 12,
+    "checkpoints": [
+      {
+        "source": "442ef130ef594ddc6f08a5fb95667b2548811afa",
+        "debugSha256": "06c2f78ec61ae222fe3b35db17d7a88d85468661dc19e0d6acea48b85928e07d",
+        "uiRuns": [
+          {
+            "id": "review2-final-font100",
+            "executions": 12,
+            "seconds": 216.874
+          },
+          {
+            "id": "review2-final-font130-retry",
+            "executions": 10,
+            "seconds": 94.985
+          },
+          {
+            "id": "review2-final-dark-font130",
+            "executions": 8,
+            "seconds": 27.303
+          }
+        ],
+        "matrixExecutions": 9
+      },
+      {
+        "source": "456e003070f7594a44c4c219e62a807b85e5453a",
+        "debugSha256": "0018eb6808d0537367f6cb33e6bcc3eb1e1d873a8646ab8ee1d4ce43f48d4b23",
+        "mindmapExecutions": 2,
+        "previewsPerMindmapExecution": 4,
+        "matrixExecutions": 3,
+        "contextAndOfflineExecutions": 2
+      }
+    ],
+    "excludedAttempts": [
+      "Font130 attempt interrupted by AVD ANR and unresponsive adb transport",
+      "Landscape captures rejected because the window remained portrait",
+      "Diary diagnostic comparisons against a stale APK or incorrect dimension resource"
+    ]
+  },
+  "runtime": {
+    "device": "Genesis_API35 / emulator-5580",
+    "api": 35,
+    "systemFontScale": 1.3,
+    "viewportFontScales": [
+      1.0,
+      1.3
+    ],
+    "viewportWidthsDp": [
+      360,
+      390,
+      768,
+      1440
+    ],
+    "note": "Compose viewport overrides and system Dialog/IME scaling are different; system font_scale remained 1.3."
+  },
+  "signedWorkflow": "https://github.com/nikitalexanderson-byte/calendar-genesis/actions/runs/40335159970",
+  "phoneInstallation": "PASS: realme RMX5000/API36, signed beta.1/103→beta.2/104 install-r, certificate and installed bytes verified; launch/Today/drawer/Gregorian month/account/return-to-Today, retained session UI, no current-process fatal; see device-smoke.md for limits",
+  "sshUsed": false,
+  "signedWorkflowConclusion": "success",
+  "signedApkSha256": "be2cfb724d3bcce5f011f22ae58326229066520a0ecd06072de90502f2b59075",
+  "signedEmulatorSmoke": "Release update103→104, launch, EN/RU landing, no current-process fatal; settings restored"
+}

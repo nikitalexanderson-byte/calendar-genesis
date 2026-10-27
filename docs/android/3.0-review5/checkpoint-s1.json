@@ -1,0 +1,12 @@
+{
+  "sourceCommit": "7993b305",
+  "versionName": "3.0.0-beta.5",
+  "versionCode": 107,
+  "debugApkSha256": "0484becfab927599f1559c00aa0202239971d78649f3783dc02fc672ce9fea9d",
+  "unitTests": 837,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 8,
+  "nativeExecutions": 16,
+  "scope": "First six review5 requests only; before final settings, Today, icon, search, swipe and habit corrections."
+}

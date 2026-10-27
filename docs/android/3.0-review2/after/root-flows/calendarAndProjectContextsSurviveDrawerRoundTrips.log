@@ -1,0 +1,10 @@
+
+ru.genesis.calendar.MobileRedesignFlowTest:.
+
+Time: 22.675
+
+OK (1 test)
+
+
+/sdcard/Android/data/ru.genesis.calendar.debug/files/3.0-captures/: 166 files pulled, 0 skipped. 26.2 MB/s (28051982 bytes in 1.021s)
+PASS: 390-light-font100-portrait calendarAndProjectContextsSurviveDrawerRoundTrips; captures: C:\Users\mrdeu\.codex\worktrees\android-3-redesign\Календарь ГЕНЕЗИС\docs\android\3.0-review2\after\root-flows

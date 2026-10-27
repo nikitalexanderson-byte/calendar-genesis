@@ -1,0 +1,30 @@
+{
+  "versionName": "3.0.0-beta.1",
+  "versionCode": 103,
+  "applicationId": "ru.genesis.calendar",
+  "apk": "GENESIS-Android-Native-3.0.0-beta.1.apk",
+  "bytes": 164843781,
+  "sha256": "979ebb62a343ffccec52ae4b7111d0e3e5394a08a607dbc739bdd236f96ecb5a",
+  "sourceCommit": "a72313136e9f02520d88d166ac0701af2c3be565",
+  "branch": "codex/android-3-redesign",
+  "certificateSha256": "1e161d36f574b0560d808c7ee95e1abe98165b3385336d0276fb381dfd901cb8",
+  "workflowRun": "https://github.com/nikitalexanderson-byte/calendar-genesis/actions/runs/40265873590",
+  "workflowConclusion": "success",
+  "artifactId": 12626802089,
+  "localValidation": [
+    "sha256",
+    "apksigner",
+    "package/versionCode/versionName",
+    "nondebuggable",
+    "zipalign",
+    "source commit"
+  ],
+  "localDirectory": "C:/Users/mrdeu/Downloads/GENESIS-Android-3.0.0-beta.1",
+  "emulatorReleaseStatus": "installed and launched; login screen renders; no new AndroidRuntime fatal",
+  "phoneStatus": "updated with install -r, launched, Today/drawer/Gregorian month/account settings inspected read-only",
+  "phoneModel": "realme RMX5000",
+  "phoneAndroidApi": 36,
+  "phonePreviousVersion": "2.9.7/102",
+  "phoneObservedVersion": "3.0.0-beta.1/103",
+  "accountObservation": "saved profile and signed-in action visible without reauthentication; cloud round trip not tested"
+}

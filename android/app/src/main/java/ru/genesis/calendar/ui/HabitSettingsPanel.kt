@@ -221,15 +221,7 @@ internal fun HabitSettingsPanel(app: GenesisApplication, use24: Boolean) {
 @Composable
 private fun HabitPreferenceCard(eyebrow: String, title: String, tag: String,
     content: @Composable ColumnScope.() -> Unit) {
-    Card(Modifier.fillMaxWidth().testTag(tag), shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xfffff8e9)),
-        border = BorderStroke(1.dp, Color(0x55b28a4a))) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(eyebrow, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-            Text(title, style = MaterialTheme.typography.headlineSmall)
-            content()
-        }
-    }
+    SettingsPreferenceCard(title, Modifier.testTag(tag), eyebrow = eyebrow, content = content)
 }
 
 @Composable

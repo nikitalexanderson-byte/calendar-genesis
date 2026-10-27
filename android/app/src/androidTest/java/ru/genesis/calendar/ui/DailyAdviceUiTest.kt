@@ -67,6 +67,25 @@ class DailyAdviceUiTest {
         } }
     }
 
+    @Test fun adviceActionsStayInOneOrderedRowAndKeepTheirCallbacks() {
+        var liked = ""; var next = 0; var diary = 0
+        val card = DailyAdvice("advice-" + "a".repeat(24), day, "Смысл дня", "Полный текст совета", "ru",
+            listOf("aretology"), null, false, emptyList())
+        compose.setContent { MaterialTheme(colorScheme = standart, typography = GenesisTypography) {
+            DailyAdviceCard(card, org.json.JSONObject(androidx.compose.ui.platform.LocalContext.current.assets.open("originals/i18n/daily-advice-copy.json").bufferedReader().use { it.readText() }).getJSONObject("ru"), null, false, false,
+                rotation = DailyAdviceResponse(day, "ready", card, 2, 3, true), onNext = { next++ },
+                onReaction = { liked = it }, onOpenDiary = { diary++ }, onDismiss = {})
+        } }
+        val tags = listOf("daily-advice-favorite", "daily-advice-dislike", "daily-advice-next", "daily-advice-diary")
+        val bounds = tags.map { compose.onNodeWithTag(it).assertIsDisplayed().fetchSemanticsNode().boundsInRoot }
+        assertTrue(bounds.zipWithNext().all { (a,b) -> a.left < b.left && kotlin.math.abs(a.top-b.top) < 1 })
+        ru.genesis.calendar.captureNativeWindow(File(compose.activity.getExternalFilesDir(null), "review4-advice-actions.png"))
+        compose.onNodeWithTag(tags[0]).performClick(); assertEquals("favorite", liked)
+        compose.onNodeWithTag(tags[1]).performClick(); assertEquals("dislike", liked)
+        compose.onNodeWithTag(tags[2]).performClick(); assertEquals(1, next)
+        compose.onNodeWithTag(tags[3]).performClick(); assertEquals(1, diary)
+    }
+
     @Test fun recordsOnlyVisibleAdviceAndRetriesDismissalWithoutDroppingTheText() {
         val fixture = Fixture(); fixture.hideFailure = true
         screen(fixture, offscreen = true)

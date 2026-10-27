@@ -4,6 +4,7 @@ import android.app.TimePickerDialog
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -12,6 +13,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import java.time.LocalTime
 import kotlinx.coroutines.delay
@@ -57,18 +61,18 @@ internal data class AppearanceSettings(val mode: String = "scheduled", val light
 }
 
 internal val evening = darkColorScheme(
-    primary = Color(0xff9cb9ad), onPrimary = Color(0xff172b25),
-    primaryContainer = Color(0xff2a4037), onPrimaryContainer = Color(0xffc5d4c7),
-    secondary = Color(0xffb6a07a), onSecondary = Color(0xff29251e),
-    secondaryContainer = Color(0xff413a2d), onSecondaryContainer = Color(0xffd0c3a9),
-    background = Color(0xff141a19), onBackground = Color(0xffd3d2c7),
-    surface = Color(0xff202825), onSurface = Color(0xffd3d2c7), onSurfaceVariant = Color(0xffaab2a8),
-    surfaceVariant = Color(0xff303932), surfaceContainerLowest = Color(0xff19201d),
-    surfaceContainerLow = Color(0xff202825), surfaceContainer = Color(0xff252e29),
-    surfaceContainerHigh = Color(0xff2c352e), surfaceContainerHighest = Color(0xff333d35),
-    outline = Color(0xff798175), outlineVariant = Color(0xff454f44),
-    error = Color(0xffcf9c93), onError = Color(0xff33201d),
-    errorContainer = Color(0xff4c3430), onErrorContainer = Color(0xffddbbb3))
+    primary = Color(0xffe4c78c), onPrimary = Color(0xff12241c),
+    primaryContainer = Color(0xff294435), onPrimaryContainer = Color(0xfff0eee7),
+    secondary = Color(0xffacc7af), onSecondary = Color(0xff12241c),
+    secondaryContainer = Color(0xff253e30), onSecondaryContainer = Color(0xffe1e8dc),
+    background = Color(0xff0b1511), onBackground = Color(0xfff0eee7),
+    surface = Color(0xff12241c), onSurface = Color(0xfff0eee7), onSurfaceVariant = Color(0xffafbeb2),
+    surfaceVariant = Color(0xff20362b), surfaceContainerLowest = Color(0xff06130f),
+    surfaceContainerLow = Color(0xff0e1c16), surfaceContainer = Color(0xff12241c),
+    surfaceContainerHigh = Color(0xff193127), surfaceContainerHighest = Color(0xff203d30),
+    outline = Color(0xff83988a), outlineVariant = Color(0xff344c3e),
+    error = Color(0xffefb1a6), onError = Color(0xff33201d),
+    errorContainer = Color(0xff4c3430), onErrorContainer = Color(0xfff4d4ce))
 
 @Composable internal fun rememberEveningTheme(settings: AppearanceSettings): Boolean {
     val deviceDark = isSystemInDarkTheme()
@@ -81,7 +85,7 @@ internal val evening = darkColorScheme(
 /** Retain the meaning of the existing warm/green surfaces with a low evening luminance. */
 internal fun eveningSurfaceTone(color: Color): Color {
     if (color == Color.Unspecified || color.alpha < .4f) return color
-    val base = Color(0xff202825)
+    val base = Color(0xff12241c)
     val luminance = color.luminance()
     if (luminance < .035f) return color
     val amount = if (luminance > .5f) .10f else .20f
@@ -132,22 +136,29 @@ internal fun eveningSurfaceTone(color: Color): Color {
         TimePickerDialog(context, timeDialogTheme, { _, hour, minute ->
             val value = "%02d:%02d".format(hour, minute)
             val next = if (light) appearance.copy(lightAt = value) else appearance.copy(darkAt = value)
-            if (next.lightAt == next.darkAt) error = "Выберите разное время для светлой и вечерней темы."
+            if (next.lightAt == next.darkAt) error = "Выберите разное время для светлой и тёмной схемы."
             else save(next)
         }, current.hour, current.minute, use24).show()
     }
     Column(Modifier.fillMaxWidth().testTag("appearance-settings"),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Surface(shape = RoundedCornerShape(20.dp),
-                color = MaterialTheme.colorScheme.surface,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
-            Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Переключение тем", style = MaterialTheme.typography.titleMedium)
-            Text("Вечерняя тема использует мягкие оттенки и приглушённые акценты.", style = MaterialTheme.typography.bodySmall)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("light" to "Светлая", "evening" to "Вечерняя", "system" to "Как на устройстве").forEach { (mode, label) ->
-                    FilterChip(appearance.mode == mode, { save(appearance.copy(mode = mode)) }, label = { Text(label) },
-                        modifier = Modifier.testTag("appearance-$mode").heightIn(min = 48.dp))
+            SettingsPreferenceCard("Цветовая схема", Modifier.testTag("appearance-color-settings"),
+                description = "Тёмная схема использует мягкие оттенки и приглушённые акценты.") {
+            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).selectableGroup(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf("light" to "Светлая", "evening" to "Тёмная", "system" to "Устройство").forEach { (mode, label) ->
+                    val chosen = appearance.mode == mode
+                    OutlinedButton(onClick = { save(appearance.copy(mode = mode)) },
+                        modifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = 48.dp)
+                            .testTag("appearance-$mode").semantics { selected = chosen },
+                        shape = AffairsLayout.controlShape,
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 10.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = if (chosen) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                            contentColor = if (chosen) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface),
+                        border = BorderStroke(1.dp, if (chosen) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)) {
+                        Text(label, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center, maxLines = 1)
+                    }
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -157,13 +168,12 @@ internal fun eveningSurfaceTone(color: Color): Color {
             }
             if (appearance.mode == "scheduled") {
                 OutlinedButton({ chooseTime(true) }, Modifier.fillMaxWidth().testTag("appearance-light-time")) {
-                    Text("Светлая тема с ${timeLabel(appearance.lightAt, use24)}") }
+                    Text("Светлая схема с ${timeLabel(appearance.lightAt, use24)}") }
                 OutlinedButton({ chooseTime(false) }, Modifier.fillMaxWidth().testTag("appearance-dark-time")) {
-                    Text("Вечерняя тема с ${timeLabel(appearance.darkAt, use24)}") }
+                    Text("Тёмная схема с ${timeLabel(appearance.darkAt, use24)}") }
                 Text("Используются часы и часовой пояс смартфона.", style = MaterialTheme.typography.bodySmall)
             }
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            }
             }
             extra()
     }

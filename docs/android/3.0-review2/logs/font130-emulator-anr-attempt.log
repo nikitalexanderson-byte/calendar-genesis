@@ -1,0 +1,4 @@
+
+ru.genesis.calendar.ui.MobileWorkspaceVisualTest:INSTRUMENTATION_RESULT: longMsg=Input dispatching timed out (8a3c676 ru.genesis.calendar.debug/ru.genesis.calendar.PagerTestActivity (server) is not responding. Waited 60011ms for FocusEvent(hasFocus=false)).
+INSTRUMENTATION_RESULT: shortMsg=keyDispatchingTimedOut
+INSTRUMENTATION_CODE: 0

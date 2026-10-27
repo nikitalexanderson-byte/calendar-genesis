@@ -5,6 +5,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -77,12 +78,14 @@ internal fun HabitIntervalMarks(habit: Habit, entry: HabitCompletion?, enabled: 
     val prefs by preferences.values.collectAsStateWithLifecycle(UiPreferences())
     val times=interval.times()
     val marks=habitIntervalMarks(habit,entry)
-    var expanded by remember(habit.id) { mutableStateOf(false) }
+    var expanded by rememberSaveable(habit.id) { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-        Text("Интервал, минут: ${interval.intervalMinutes} · ${intervalTimeLabel(interval.startTime,prefs.use24)}–${intervalTimeLabel(interval.endTime,prefs.use24)}",style=MaterialTheme.typography.bodySmall)
+        Text("Интервал, минут: ${interval.intervalMinutes} · ${intervalTimeLabel(interval.startTime,prefs.use24)}–${intervalTimeLabel(interval.endTime,prefs.use24)}",
+            Modifier.testTag("habit-interval-summary-${habit.id}"), style=MaterialTheme.typography.bodySmall)
         if(interval.completionMode=="each" && habit.measurement==null) {
-            TextButton(onClick={expanded=!expanded},modifier=Modifier.testTag("habit-interval-marks-toggle")) {
-                Text("Отметки повторений:"); Text(" ${marks.size} / ${times.size}")
+            TextButton(onClick={expanded=!expanded}, contentPadding = PaddingValues(vertical = 8.dp),
+                modifier=Modifier.fillMaxWidth().testTag("habit-interval-marks-toggle")) {
+                Text("Отметки повторений:", Modifier.weight(1f)); Text(" ${marks.size} / ${times.size}")
             }
             if(expanded) FlowRow(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 times.forEach { time -> FilterChip(selected=time in marks,onClick={onMark(time,time !in marks)},

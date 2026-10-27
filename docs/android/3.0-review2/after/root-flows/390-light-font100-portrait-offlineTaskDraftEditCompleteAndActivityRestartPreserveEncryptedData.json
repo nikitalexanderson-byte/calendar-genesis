@@ -1,0 +1,26 @@
+{
+  "test": "offlineTaskDraftEditCompleteAndActivityRestartPreserveEncryptedData",
+  "widthDp": 390,
+  "runId": "80dec72d6a7f4c928159645be38c7b7d",
+  "dark": false,
+  "fontScale": 1,
+  "orientation": "portrait",
+  "checks": [
+    "network:offline-confirmed",
+    "route:drawer-Проекты-personal-projects",
+    "route:drawer-Проекты-personal-projects",
+    "task:create-dirty-dismiss-keep-edit-complete-recreate-encrypted-disk"
+  ],
+  "screenshots": [
+    "390-light-font100-portrait-task-created.png"
+  ],
+  "workspace": "internal-validation-v1",
+  "versionName": "3.0.0-beta.2",
+  "versionCode": 104,
+  "notTested": [
+    "Real Google sign-in and cloud synchronization",
+    "Shared-project role access and server operations",
+    "Physical-phone installation",
+    "Process death differs from Activity recreation"
+  ]
+}

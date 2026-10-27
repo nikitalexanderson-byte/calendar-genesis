@@ -63,7 +63,7 @@ internal fun HeroRankTree(workspace: LocalHabitWorkspace, busy: Boolean,
         Text("ПОЖИЗНЕННЫЙ ПРОГРЕСС", style = MaterialTheme.typography.labelMedium,
             color = heroMuted, fontWeight = FontWeight.Bold)
         Text("Путь Героя", style = MaterialTheme.typography.headlineLarge,
-            color = heroIvory, fontFamily = FontFamily.Serif)
+            color = heroIvory, fontFamily = GenesisHeadingFont)
         Text("Каждый балл сохраняет реальное выполнение. XP не тратится, а достигнутые ранги не теряются.",
             style = MaterialTheme.typography.bodySmall, color = heroMuted)
         Spacer(Modifier.height(16.dp))
@@ -81,7 +81,7 @@ internal fun HeroRankTree(workspace: LocalHabitWorkspace, busy: Boolean,
                 border = BorderStroke(1.dp, heroGold.copy(alpha = .35f))) {
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                     Text("Путь продолжается…", style = MaterialTheme.typography.titleMedium,
-                        color = heroGold, fontFamily = FontFamily.Serif)
+                        color = heroGold, fontFamily = GenesisHeadingFont)
                     Text("За видимыми вратами скрывается продолжение.",
                         style = MaterialTheme.typography.bodySmall, color = heroMuted)
                 }
@@ -124,7 +124,7 @@ private fun CurrentRankPanel(current: HeroicRank, next: HeroicRank?, xp: Int) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("ТЕКУЩИЙ РАНГ", style = MaterialTheme.typography.labelSmall, color = heroMuted)
                 Text(current.title, style = MaterialTheme.typography.headlineSmall,
-                    color = heroIvory, fontFamily = FontFamily.Serif)
+                    color = heroIvory, fontFamily = GenesisHeadingFont)
                 Text("$xp XP", style = MaterialTheme.typography.titleSmall, color = Color(0xffba7b5b))
                 LinearProgressIndicator(progress = { progress }, Modifier.fillMaxWidth(),
                     color = heroGold, trackColor = Color(0xff3c4d47))
@@ -173,7 +173,7 @@ private fun RankTreeNode(rank: HeroicRank, index: Int, painting: String?,
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                 Text("СТУПЕНЬ ${index + 1}", color = heroMuted, style = MaterialTheme.typography.labelSmall)
                 Text(rank.title, style = MaterialTheme.typography.titleLarge, color = heroIvory,
-                    fontFamily = FontFamily.Serif, maxLines = 2)
+                    fontFamily = GenesisHeadingFont, maxLines = 2)
                 Text("${rank.threshold} XP", style = MaterialTheme.typography.labelMedium,
                     color = Color(0xffa9774e))
                 Text(if (current) "ВЫ ЗДЕСЬ" else if (reached) "ДОСТИГНУТ" else "ВПЕРЕДИ",
@@ -202,7 +202,7 @@ private fun CheckpointNode(checkpoint: HeroPathCheckpoint, workspace: LocalHabit
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text("ГАРАНТИРОВАННАЯ НАГРАДА", style = MaterialTheme.typography.labelSmall, color = heroMuted)
                 Text(checkpoint.title, style = MaterialTheme.typography.titleMedium,
-                    color = heroIvory, fontFamily = FontFamily.Serif)
+                    color = heroIvory, fontFamily = GenesisHeadingFont)
                 Text("♛ +${checkpoint.rewardLaurels} Лавров", style = MaterialTheme.typography.labelMedium,
                     color = heroGold)
             }
@@ -225,7 +225,7 @@ private fun RankDialog(rank: HeroicRank, xp: Int, onDismiss: () -> Unit) {
             color = heroNight, border = BorderStroke(1.dp, heroGold.copy(alpha = .45f))) {
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Ступень ${index + 1} · ${rank.title}", style = MaterialTheme.typography.titleLarge,
-                    color = heroIvory, fontFamily = FontFamily.Serif)
+                    color = heroIvory, fontFamily = GenesisHeadingFont)
                 if (painting != null) OriginalImage("hero-path/512/$painting", rank.title,
                     Modifier.fillMaxWidth().height(260.dp))
                 Text("${rank.threshold} XP · ${if (xp >= rank.threshold) "Достигнут" else "Впереди"}",

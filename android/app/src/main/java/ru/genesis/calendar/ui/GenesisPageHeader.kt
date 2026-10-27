@@ -16,10 +16,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -45,78 +45,66 @@ internal fun GenesisPageHeader(title: String, description: String, symbol: Strin
     modifier: Modifier = Modifier, animatedMandala: Boolean = false, subtitle: String? = null,
     icon: GenesisPageIcon = genesisPageIcon(title), calendarMode: CalendarMode? = null,
     onCalendarModeClick: (() -> Unit)? = null,
-    footer: (@Composable () -> Unit)? = null) {
-    val compact = compactWindowHeight()
-    val night = Color(0xff0b2b2d)
-    val gold = Color(0xffdfc17e)
+    footer: (@Composable () -> Unit)? = null, compact: Boolean = false) {
     val calendarCopy = mobileCalendarCopy(LocalGenesisLanguage.current)
-    val localizedTitle = genesisTranslate(title)
-    val localizedDescription = genesisTranslate(description)
-    var switchCount by remember { mutableIntStateOf(0) }
     val canSwitch = calendarMode != null && onCalendarModeClick != null &&
         LocalSacredFeaturesEnabled.current && LocalEnabledCalendars.current.size > 1
-    val switchCalendar = {
-        switchCount++
-        onCalendarModeClick?.invoke()
-    }
-    Surface(modifier.fillMaxWidth().testTag("genesis-page-header")
-        .then(if (canSwitch) Modifier.semantics {
-            contentDescription = "$localizedTitle. ${calendarCopy.calendarName(requireNotNull(calendarMode))}. ${calendarCopy.switchHint}"
-            onClick(label = calendarCopy.switchHint) { switchCalendar(); true }
-        }.pointerInput(onCalendarModeClick) {
-            awaitEachGesture {
-                val down = awaitFirstDown(requireUnconsumed = false)
-                val origin = down.position
-                var moved = false
-                while (true) {
-                    val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
-                    if ((change.position - origin).getDistance() > viewConfiguration.touchSlop) moved = true
-                    if (!change.pressed) {
-                        if (!moved) switchCalendar()
-                        break
-                    }
-                }
+    val hint = genesisTranslate(calendarCopy.switchHint)
+    if (compact && footer != null && calendarMode == null) {
+        Surface(modifier.fillMaxWidth().testTag("genesis-page-header"), shape = AffairsLayout.shape,
+            color = MaterialTheme.colorScheme.surface) {
+            Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.Top) {
+                Column(Modifier.weight(1f)) { footer() }
+                PageInformationAction(title, description)
             }
-        } else Modifier),
-        shape = RoundedCornerShape(24.dp), color = night,
-        border = BorderStroke(1.dp, gold.copy(alpha = .55f)), shadowElevation = 8.dp) {
-        Box(Modifier.background(Brush.linearGradient(listOf(night, Color(0xff123b36))))) {
-            if (canSwitch) CalendarPlaqueWave(switchCount)
-            Column {
-            Row(Modifier.padding(if (compact) 10.dp else 18.dp), verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                if (calendarMode != null && onCalendarModeClick != null)
-                    CalendarModeSwitcher(calendarMode, {}, interactive = false,
-                        animationTrigger = switchCount)
-                else if (animatedMandala) TheokyklosHeaderMandala()
-                else Surface(Modifier.size(54.dp).clearAndSetSemantics { },
-                    shape = RoundedCornerShape(17.dp), color = Color(0xff173b38)) {
-                    Box(contentAlignment = Alignment.Center) {
-                        GenesisVectorIcon(icon, Modifier.size(38.dp), tint = gold, animated = true)
-                    }
-                }
+        }
+        return
+    }
+    Surface(modifier.fillMaxWidth().testTag("genesis-page-header"),
+        shape = AffairsLayout.shape, color = MaterialTheme.colorScheme.surface) {
+        Column {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (calendarMode != null && onCalendarModeClick != null) {
+                    CalendarModeSwitcher(calendarMode, onCalendarModeClick,
+                        size = 48.dp, interactive = canSwitch)
+                } else GenesisVectorIcon(icon, Modifier.size(28.dp),
+                    tint = MaterialTheme.colorScheme.primary)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text(title, color = Color(0xfffff5df), style = if (compact) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineSmall)
-                    subtitle?.let {
-                        Text(it, color = gold, style = MaterialTheme.typography.labelMedium,
-                            modifier = Modifier.testTag("genesis-page-subtitle"))
-                    }
-                    androidx.compose.material3.Text(localizedDescription, color = Color(0xffc8d9d4),
-                        style = MaterialTheme.typography.bodySmall)
-                    if (calendarMode != null) androidx.compose.material3.Text(
-                        calendarCopy.switchHint,
-                        color = gold, style = MaterialTheme.typography.labelSmall)
+                    Text(title, style = MaterialTheme.typography.titleLarge)
+                    subtitle?.let { Text(it, style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.testTag("genesis-page-subtitle")) }
+                    if (calendarMode != null) Text(calendarCopy.calendarName(calendarMode),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                if (description.isNotBlank() && calendarMode == null) {
+                    PageInformationAction(title, description)
                 }
             }
             footer?.let {
-                Column(Modifier.fillMaxWidth().padding(start = if (compact) 10.dp else 18.dp,
-                    end = if (compact) 10.dp else 18.dp, bottom = if (compact) 10.dp else 18.dp)) {
-                    it()
-                }
-            }
+                Column(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) { it() }
             }
         }
     }
+}
+
+@Composable
+internal fun PageInformationAction(title: String, description: String, inHeader: Boolean = false) {
+    if (description.isBlank()) return
+    var showDescription by remember { androidx.compose.runtime.mutableStateOf(false) }
+    val infoLabel = genesisTranslate("О разделе")
+    if (inHeader) WorkspaceHeaderButton(infoLabel, "workspace-information", onClick = { showDescription = true }) {
+        GenesisLucideIcon("book-open", Modifier.size(20.dp))
+    } else androidx.compose.material3.IconButton(onClick = { showDescription = true },
+        modifier = Modifier.size(48.dp).semantics { contentDescription = infoLabel }) {
+        GenesisLucideIcon("book-open", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    if (showDescription) androidx.compose.material3.AlertDialog(
+        onDismissRequest = { showDescription = false }, title = { Text(title) }, text = { Text(description) },
+        confirmButton = { TextButton(onClick = { showDescription = false }) { Text("Закрыть") } })
 }
 
 /** Small native interpretation of the site's living SVG mandala; no WebView is needed. */

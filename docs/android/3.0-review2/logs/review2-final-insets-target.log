@@ -1,0 +1,19 @@
+
+ru.genesis.calendar.ui.DiaryScreenTest:
+Error in noteSaveRemainsVisibleWithKeyboardAndLongText(ru.genesis.calendar.ui.DiaryScreenTest):
+java.lang.AssertionError: Close must stay below the status bar
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.assertTrue(Assert.java:42)
+	at ru.genesis.calendar.ui.DiaryScreenTest.noteSaveRemainsVisibleWithKeyboardAndLongText(DiaryScreenTest.kt:113)
+
+
+Time: 9.527
+There was 1 failure:
+1) noteSaveRemainsVisibleWithKeyboardAndLongText(ru.genesis.calendar.ui.DiaryScreenTest)
+java.lang.AssertionError: Close must stay below the status bar
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.assertTrue(Assert.java:42)
+	at ru.genesis.calendar.ui.DiaryScreenTest.noteSaveRemainsVisibleWithKeyboardAndLongText(DiaryScreenTest.kt:113)
+
+FAILURES!!!
+Tests run: 1,  Failures: 1
