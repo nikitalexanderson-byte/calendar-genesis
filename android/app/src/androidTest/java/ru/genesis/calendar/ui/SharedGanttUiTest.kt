@@ -5,6 +5,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -80,4 +81,26 @@ class SharedGanttUiTest {
         compose.onNodeWithText("Завершённые").performScrollTo().performClick()
         compose.onNodeWithText("Выполненная работа").assertExists()
     }
+    @Test fun draggingTheEndHandleExtendsOnlyTheDueDate() {
+        val start = java.time.LocalDate.now().let { it.minusDays(it.dayOfWeek.value - 1L) }
+        val scheduled = JSONObject(task.toString()).put("startDate", start.toString()).put("dueDate", start.plusDays(1).toString())
+        var patch: JSONObject? = null
+        compose.setContent { MaterialTheme(colorScheme = standart) { Surface {
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                SharedGanttView(listOf(scheduled), statuses, CalendarMode.PROFANE, CalendarMode.PROFANE, true, true, false,
+                    onOpen = {}, onSchedule = { row, changes -> assertEquals(4, row.getInt("revision")); patch = changes })
+            }
+        } } }
+        compose.onNodeWithTag("gantt-bar-qa-gantt").performScrollTo().performClick()
+        val handle = compose.onNodeWithTag("gantt-resize-end-qa-gantt").performScrollTo().assertHeightIsAtLeast(48.dp)
+        handle.performTouchInput { down(center) }
+        compose.mainClock.advanceTimeBy(800)
+        val weekPixels = 96f * compose.activity.resources.displayMetrics.density
+        handle.performTouchInput { moveBy(androidx.compose.ui.geometry.Offset(weekPixels, 0f)); up() }
+        compose.waitUntil(5000) { patch != null }
+        assertEquals(start.toString(), patch!!.getString("startDate"))
+        assertEquals(start.plusDays(8).toString(), patch!!.getString("dueDate"))
+        assertEquals(start.plusDays(1).toString(), scheduled.getString("dueDate"))
+    }
+
 }
