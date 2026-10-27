@@ -102,7 +102,7 @@ class HabitsVisualTest {
             assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
                 .takeScreenshot(File(app.getExternalFilesDir(null), "habits-sacred-open-${width ?: 390}.png")))
             compose.onNodeWithText("Сон и настроение").performClick()
-            compose.onNodeWithText("Создать план сна", substring=true).performScrollTo().assertExists()
+            compose.onNodeWithTag("sleep-plan-header").assertExists()
             assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
                 .takeScreenshot(File(app.getExternalFilesDir(null), "habits-sleep-${width ?: 390}.png")))
             compose.onNodeWithText("Привычки").performClick()

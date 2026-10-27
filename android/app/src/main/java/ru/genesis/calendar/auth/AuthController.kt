@@ -818,6 +818,10 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
         requestId: String): JSONObject =
         sharedCall { api, generation -> api.createSharedStatus(generation, projectId,
             JSONObject().put("title", title).put("isDone", isDone).put("requestId", requestId)) }
+    override suspend fun createSharedBoard(projectId: String, title: String, isDone: Boolean, color: String,
+        requestId: String): JSONObject =
+        sharedCall { api, generation -> api.createSharedStatus(generation, projectId,
+            JSONObject().put("title", title).put("isDone", isDone).put("color", color).put("requestId", requestId)) }
     suspend fun updateSharedStatus(projectId: String, statusId: String, title: String, revision: Int): JSONObject =
         sharedCall { api, generation -> api.updateSharedStatus(generation, projectId, statusId,
             JSONObject().put("title", title).put("expectedRevision", revision)) }
@@ -990,6 +994,9 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
     override suspend fun sharedComments(projectId: String, taskId: String): JSONObject =
         sharedCachedCall("comments:$projectId:$taskId") { api, generation ->
             api.sharedComments(generation, projectId, taskId) }
+    override suspend fun olderSharedComments(projectId: String, taskId: String, before: String): JSONObject =
+        sharedCachedCall("comments:$projectId:$taskId:$before") { api, generation ->
+            api.olderSharedComments(generation, projectId, taskId, before) }
     override suspend fun addSharedComment(projectId: String, taskId: String, body: String): JSONObject =
         sharedCall { api, generation -> api.addSharedComment(generation, projectId, taskId,
             JSONObject().put("body", body)) }

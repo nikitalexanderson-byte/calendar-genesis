@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -47,6 +48,7 @@ internal fun StoicheionRestorationScreen(source: RestorationSource?, letters: Li
     }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var deleteCycle by remember { mutableStateOf<Habit?>(null) }
     var habitId by rememberSaveable(initialHabitId) { mutableStateOf(initialHabitId) }
     val savedHabit = StoicheionRestoration.habitById(workspace?.habits.orEmpty(), habitId)
     fun runAction(action: suspend () -> Unit) {
@@ -63,6 +65,10 @@ internal fun StoicheionRestorationScreen(source: RestorationSource?, letters: Li
             finally { busy = false }
         }
     }
+    deleteCycle?.let { candidate -> SavedCycleDeleteDialog(candidate, repository) {
+        if (habitId == candidate.id) habitId = null
+        deleteCycle = null
+    } }
     BackHandler(onBack = onBack)
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         Column(Modifier.widthIn(max = 840.dp).fillMaxSize().imePadding()) {
@@ -94,7 +100,11 @@ internal fun StoicheionRestorationScreen(source: RestorationSource?, letters: Li
                         val target = finite?.goal?.requiredCompletions ?: 10
                         OutlinedCard(onClick = { habitId = habit.id }, modifier = Modifier.fillMaxWidth().testTag("restoration-history-${habit.id}")) {
                             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text(catalog.sectors.getValue(snapshot.sectorId).title, style = MaterialTheme.typography.titleMedium)
+                                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                    Text(catalog.sectors.getValue(snapshot.sectorId).title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                                    AffairsIconButton("Удалить цикл", AffairsAction.DELETE, { deleteCycle = habit },
+                                        Modifier.testTag("restoration-delete-cycle-${habit.id}"), enabled = !busy, contentColor = MaterialTheme.colorScheme.error)
+                                }
                                 Text("${snapshot.sourceDate} · ${letters.first { it.id == snapshot.letterId }.name}")
                                 Text("${habit.emoji} ${habit.title}", style = MaterialTheme.typography.bodySmall)
                                 Text("${catalog.copy(if (count == target) "completed" else "progress")} · $count/$target",
@@ -174,19 +184,19 @@ internal fun RestorationJourney(source: RestorationSource, letters: List<Stoiche
         item {
             Text(catalog.copy("intro"), style = MaterialTheme.typography.bodyMedium)
             Spacer(Modifier.height(12.dp))
-            FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 stages.forEachIndexed { index, name ->
                     FilterChip(selected = stage == index, onClick = { stage = index },
                         enabled = index <= reached && (index < 3 || resource != null),
-                        label = { Text("${index + 1} · ${catalog.copy(name)}") },
-                        modifier = Modifier.heightIn(min = 48.dp).testTag("restoration-stage-$index"))
+                        label = { Text("${index + 1} · ${catalog.copy(name)}", Modifier.fillMaxWidth(),
+                            style = MaterialTheme.typography.labelSmall, textAlign = androidx.compose.ui.text.style.TextAlign.Center) },
+                        modifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = 56.dp).testTag("restoration-stage-$index"))
                 }
             }
             LinearProgressIndicator(progress = { (stage + 1) / 4f }, modifier = Modifier.fillMaxWidth())
         }
         if (stage == 0) {
-            item { RestorationBlock(catalog.copy("chooseCard")) {
+            item { RestorationBlock(catalog.copy("chooseCard"), RestorationTone.SAGE) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     reversed.forEach { id ->
                         val sourceCard = source.cards[StoicheionRestoration.positions.indexOf(id)]
@@ -197,7 +207,7 @@ internal fun RestorationJourney(source: RestorationSource, letters: List<Stoiche
                     }
                 }
             } }
-            item { RestorationBlock(sector.title) {
+            item { RestorationBlock(sector.title, RestorationTone.GOLD) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     StoicheionCardFace(letter, Modifier.width(104.dp).graphicsLayer { rotationZ = 180f })
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -209,30 +219,35 @@ internal fun RestorationJourney(source: RestorationSource, letters: List<Stoiche
                 Text(catalog.copy("cardFocus"), style = MaterialTheme.typography.titleSmall)
                 Text(focus.risk, style = MaterialTheme.typography.bodyMedium)
             } }
-            item { RestorationBlock(catalog.copy("need")) {
+            item { RestorationBlock(catalog.copy("need"), RestorationTone.MAUVE) {
                 Text(catalog.copy("possibility"), style = MaterialTheme.typography.bodySmall)
                 StoicheionRestoration.needs.forEach { id ->
                     RestorationChoice(selected = id == needId, title = catalog.copy(id), tag = "restoration-need-$id",
                         onClick = { needId = id })
                 }
                 HorizontalDivider()
-                Text(catalog.copy("risk"), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                Text(need.risk)
-                Text(catalog.copy("quality"), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                Text("${need.quality}. ${focus.quality}")
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(catalog.copy("risk"), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+                    Text(need.risk, style = MaterialTheme.typography.bodyMedium)
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(catalog.copy("quality"), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+                    Text("${need.quality}. ${focus.quality}", style = MaterialTheme.typography.bodyMedium)
+                }
             } }
         }
         if (stage == 1) {
             item { RestorationFrameworkDisclosure(catalog) }
-            item { RestorationBlock(catalog.copy("ambivalence")) { Text(sector.ambivalence) } }
-            item { RestorationBlock(sector.myth.title) {
+            item { RestorationBlock(catalog.copy("ambivalence"), RestorationTone.MAUVE) { Text(sector.ambivalence) } }
+            item { RestorationBlock(sector.myth.title, RestorationTone.GOLD) {
                 Text(sector.myth.body)
                 Text(sector.myth.source, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 TextButton(onClick = { runCatching { uri.openUri(sector.myth.url) } }, modifier = Modifier.heightIn(min = 48.dp)) {
                     Text(catalog.copy("source"))
                 }
             } }
-            item { RestorationBlock(catalog.copy("supports")) {
+            item { RestorationBlock(catalog.copy("supports"), RestorationTone.SAGE) {
                 Text(catalog.copy("supportHelp"), style = MaterialTheme.typography.bodySmall)
                 catalog.auxiliaries.forEach { support ->
                     val checked = support.id in supportIds
@@ -262,7 +277,7 @@ internal fun RestorationJourney(source: RestorationSource, letters: List<Stoiche
             } }
         }
         if (stage == 2) {
-            item { RestorationBlock(catalog.copy("equation")) {
+            item { RestorationBlock(catalog.copy("equation"), RestorationTone.BLUE) {
                 Text(catalog.copy("formula"), style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
                 Text("P = ${StoicheionRestoration.trace(total.toLong()).joinToString(" → ")}", style = MaterialTheme.typography.titleMedium)
                 Text("A = ${letter.symbol} · ${letter.value}", style = MaterialTheme.typography.bodyLarge)
@@ -275,7 +290,7 @@ internal fun RestorationJourney(source: RestorationSource, letters: List<Stoiche
                     color = MaterialTheme.colorScheme.primary)
                 Text(catalog.copy("arithmeticNote"), style = MaterialTheme.typography.bodySmall)
             } }
-            item { RestorationBlock(catalog.copy("resource")) {
+            item { RestorationBlock(catalog.copy("resource"), RestorationTone.BLUE) {
                 Text(catalog.copy("resourceHelp"), style = MaterialTheme.typography.bodySmall)
                 equation.candidates.forEach { candidate ->
                     val candidateLetter = letters.first { it.id == candidate.id }
@@ -293,14 +308,14 @@ internal fun RestorationJourney(source: RestorationSource, letters: List<Stoiche
             } }
         }
         if (stage == 3 && resource != null) {
-            item { RestorationBlock(catalog.copy("contemplation")) {
+            item { RestorationBlock(catalog.copy("contemplation"), RestorationTone.GOLD) {
                 Text(practiceText)
                 OutlinedTextField(value = intention, onValueChange = { intention = it.take(500) },
                     label = { Text(catalog.copy("intention")) }, modifier = Modifier.fillMaxWidth().testTag("restoration-intention"), minLines = 2)
                 OutlinedTextField(value = action, onValueChange = { action = it.take(1600) },
                     label = { Text(catalog.copy("action")) }, modifier = Modifier.fillMaxWidth().testTag("restoration-action"), minLines = 3)
             } }
-            item { RestorationBlock(catalog.copy("habit")) {
+            item { RestorationBlock(catalog.copy("habit"), RestorationTone.SAGE) {
                 val practice = theokyklos.practices.first { it.id == need.practiceId }
                 Text(if (english) practice.title.en else practice.title.ru,
                     style = MaterialTheme.typography.titleMedium)
@@ -385,7 +400,7 @@ internal fun RestorationCycle(habit: Habit, workspace: LocalHabitWorkspace, lett
                 androidx.compose.material3.Text(finiteCopy.getString("warning"),style=MaterialTheme.typography.bodySmall)
             } else { RestorationTetractys(count, catalog); Text(catalog.copy("cycleHelp"), style = MaterialTheme.typography.bodySmall) }
         } }
-        item { RestorationBlock(catalog.copy("practice")) {
+        item { RestorationBlock(catalog.copy("practice"), RestorationTone.SAGE) {
             Text(snapshot.intention, style = MaterialTheme.typography.titleMedium)
             Text(snapshot.practiceText)
             HorizontalDivider()
@@ -405,7 +420,7 @@ internal fun RestorationCycle(habit: Habit, workspace: LocalHabitWorkspace, lett
                 Text(catalog.copy("openHabits"))
             }
         } }
-        item { RestorationBlock(catalog.copy("reflection")) {
+        item { RestorationBlock(catalog.copy("reflection"), RestorationTone.MAUVE) {
             OutlinedTextField(value = reflection, onValueChange = { reflection = it.take(2000) },
                 label = { Text(catalog.copy("reflection")) }, minLines = 3,
                 modifier = Modifier.fillMaxWidth().testTag("restoration-reflection"))
@@ -415,7 +430,7 @@ internal fun RestorationCycle(habit: Habit, workspace: LocalHabitWorkspace, lett
                 Text(catalog.copy(if (reflection.trim() == snapshot.reflection && reflection.isNotBlank()) "saved" else "saveReflection"))
             }
         } }
-        item { RestorationBlock(catalog.copy("snapshot")) {
+        item { RestorationBlock(catalog.copy("snapshot"), RestorationTone.BLUE) {
             val resource = letters.first { it.id == snapshot.resourceLetterId }
             val supportTotal = StoicheionRestoration.equation(letter.value, snapshot.spreadTotal, snapshot.supportIds).supportTotal
             Text("${letter.symbol} ${letter.value} + ${resource.symbol} ${resource.value} + $supportTotal = " +
@@ -486,9 +501,18 @@ private fun RestorationChoice(selected: Boolean, title: String, tag: String, onC
     }
 }
 
+private enum class RestorationTone { SAGE, GOLD, BLUE, MAUVE }
+
 @Composable
-private fun RestorationBlock(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Surface(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow) {
+private fun RestorationBlock(title: String, tone: RestorationTone = RestorationTone.GOLD, content: @Composable ColumnScope.() -> Unit) {
+    val colors = when (tone) {
+        RestorationTone.SAGE -> 0xffdfede4 to 0xff1b3029
+        RestorationTone.GOLD -> 0xfff2e8d3 to 0xff302a1e
+        RestorationTone.BLUE -> 0xffe0eaf0 to 0xff202e36
+        RestorationTone.MAUVE -> 0xffede3ed to 0xff302632
+    }
+    Surface(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large,
+        color = Color(if (LocalEveningTheme.current) colors.second else colors.first), contentColor = MaterialTheme.colorScheme.onSurface) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(title, style = MaterialTheme.typography.titleLarge)
             content()

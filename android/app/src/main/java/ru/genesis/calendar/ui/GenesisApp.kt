@@ -681,13 +681,11 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                                 onComplete = model::complete,
                                 onMoveToToday = { task -> model.save(task.copy(date=todayDate.toString())) {} },
                                 onOpen = { taskId -> selected=todayPageDate;editId=taskId;creating=false },
-                                showCreate = "quickCreate" !in uiVisibility.hiddenTodayBlocks) {
-                                if (habitTrackingEnabled && "habits" !in uiVisibility.hiddenTodayBlocks) TodayHabitsContent(app, todayDate,
-                                    habitWorkspace, onOpenHabits = { tab = "Привычки" })
-                            }
-                            else if (habitTrackingEnabled && "habits" !in uiVisibility.hiddenTodayBlocks)
+                                showCreate = "quickCreate" !in uiVisibility.hiddenTodayBlocks)
+                            if (habitTrackingEnabled && "habits" !in uiVisibility.hiddenTodayBlocks) TodayHabitTrackerBlock {
                                 TodayHabitsContent(app, todayDate, habitWorkspace,
-                                    onOpenHabits = { tab = "Привычки" })
+                                    onOpenHabits = { tab = "Привычки" }, showTopDivider = false)
+                            }
                     })
                   }
                   }
@@ -790,10 +788,9 @@ private fun AuthTransitionScreen(message: String) {
 private fun TodayTasksPanel(tasks: List<LocalTask>, missedTasks: List<LocalTask>, selected: String, use24: Boolean,
     structure: WorkspaceStructure, onCreate: () -> Unit, onComplete: (LocalTask) -> Unit,
     onMoveToToday: (LocalTask) -> Unit, onOpen: (String) -> Unit,
-    showCreate: Boolean = true,
-    habits: @Composable ColumnScope.() -> Unit) {
+    showCreate: Boolean = true) {
     Card(Modifier.fillMaxWidth().testTag("today-tasks-section"), shape = AffairsLayout.shape,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        colors = CardDefaults.cardColors(containerColor = if (LocalEveningTheme.current) Color(0xff302a1f) else Color(0xfff3e8cc))) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically) {
@@ -815,7 +812,7 @@ private fun TodayTasksPanel(tasks: List<LocalTask>, missedTasks: List<LocalTask>
                 }
             }
             if (tasks.isEmpty()) {
-                Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), color = Color(0xfff2ead9)) {
+                Surface(Modifier.fillMaxWidth(), shape = AffairsLayout.shape, color = MaterialTheme.colorScheme.surface) {
                     Text("На сегодня задач нет. Можно оставить день свободным или создать задачу.",
                         Modifier.padding(14.dp), style = MaterialTheme.typography.bodyMedium)
                 }
@@ -847,8 +844,15 @@ private fun TodayTasksPanel(tasks: List<LocalTask>, missedTasks: List<LocalTask>
                 }
             }
             TodayMissedTasksCard(missedTasks, onComplete, onMoveToToday)
-            habits()
         }
+    }
+}
+
+@Composable
+private fun TodayHabitTrackerBlock(content: @Composable ColumnScope.() -> Unit) {
+    Surface(Modifier.fillMaxWidth().testTag("today-habit-tracker-block"), shape = AffairsLayout.shape,
+        color = if (LocalEveningTheme.current) Color(0xff1b302b) else Color(0xffdeede4)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp), content = content)
     }
 }
 
@@ -868,7 +872,7 @@ internal fun GenesisBrandLogo(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun OriginalImage(path: String, description: String?, modifier: Modifier=Modifier, dimInDarkTheme: Boolean = true) {
+fun OriginalImage(path: String, description: String?, modifier: Modifier=Modifier, dimInDarkTheme: Boolean = true, darkThemeBrightness: Float = 1f) {
     val context=LocalContext.current
     var imageWidth by remember(path) { mutableIntStateOf(0) }
     var imageHeight by remember(path) { mutableIntStateOf(0) }
@@ -888,7 +892,11 @@ fun OriginalImage(path: String, description: String?, modifier: Modifier=Modifie
         imageWidth = it.width; imageHeight = it.height
     }) {
         bitmap?.let { Image(it.asImageBitmap(),localizedDescription,
-            Modifier.fillMaxSize(),contentScale=ContentScale.Crop) }
+            Modifier.fillMaxSize(),contentScale=ContentScale.Crop,
+            colorFilter = if (LocalEveningTheme.current && darkThemeBrightness < 1f)
+                androidx.compose.ui.graphics.ColorFilter.colorMatrix(androidx.compose.ui.graphics.ColorMatrix().apply {
+                    setToScale(darkThemeBrightness, darkThemeBrightness, darkThemeBrightness, 1f)
+                }) else null) }
     }
 }
 
@@ -917,7 +925,7 @@ internal fun DayHeader(date: LocalDate, mode: CalendarMode) {
                 null, Modifier.matchParentSize().testTag("today-calendar-image"), dimInDarkTheme = false)
             Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = .16f)))
             CompositionLocalProvider(LocalPreserveCalendarColors provides true) {
-            androidx.compose.material3.Surface(Modifier.fillMaxWidth().padding(8.dp).testTag("today-hero-copy"),
+            androidx.compose.material3.Surface(Modifier.fillMaxWidth().testTag("today-hero-copy"),
                 shape = AffairsLayout.shape, border = BorderStroke(1.dp, Color(0x80dfc17e)),
                 color = Color.Black.copy(alpha = .48f), contentColor = Color.White) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {

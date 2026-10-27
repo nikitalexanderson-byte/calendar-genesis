@@ -119,6 +119,8 @@ interface SharedWorkspaceGateway : SharedTaskLifecycleGateway, SharedTaskFilesGa
     suspend fun createSharedSpace(title: String): JSONObject = throw UnsupportedOperationException("createSharedSpace")
     suspend fun createSharedStatus(projectId: String, title: String, isDone: Boolean,
         requestId: String = UUID.randomUUID().toString()): JSONObject = throw UnsupportedOperationException("createSharedStatus")
+    suspend fun createSharedBoard(projectId: String, title: String, isDone: Boolean, color: String,
+        requestId: String = UUID.randomUUID().toString()): JSONObject = throw UnsupportedOperationException("createSharedBoard")
     suspend fun createSharedTask(projectId: String, title: String, statusId: String,
         categoryId: String? = null): JSONObject = throw UnsupportedOperationException("createSharedTask")
     suspend fun createSharedTask(projectId: String, fields: JSONObject): JSONObject = throw UnsupportedOperationException("createSharedTask")
@@ -135,6 +137,7 @@ interface SharedWorkspaceGateway : SharedTaskLifecycleGateway, SharedTaskFilesGa
     suspend fun saveSharedSpaceUi(spaceId: String, ids: List<String>): JSONObject = throw UnsupportedOperationException("saveSharedSpaceUi")
     suspend fun setSharedProjectArchived(projectId: String, archived: Boolean): JSONObject = throw UnsupportedOperationException("setSharedProjectArchived")
     suspend fun sharedComments(projectId: String, taskId: String): JSONObject = throw UnsupportedOperationException("sharedComments")
+    suspend fun olderSharedComments(projectId: String, taskId: String, before: String): JSONObject = throw UnsupportedOperationException("olderSharedComments")
     suspend fun sharedGoogleSettings(projectId: String): JSONObject = throw UnsupportedOperationException("sharedGoogleSettings")
     suspend fun sharedInvitations(): JSONObject = throw UnsupportedOperationException("sharedInvitations")
     suspend fun querySharedTasks(filter: JSONObject, cursor: String? = null): JSONObject = throw UnsupportedOperationException("querySharedTasks")

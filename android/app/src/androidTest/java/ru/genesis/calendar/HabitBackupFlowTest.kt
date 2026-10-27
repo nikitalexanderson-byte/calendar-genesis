@@ -104,6 +104,10 @@ class HabitBackupFlowTest {
                 Column { HabitsScreen(app, true, CalendarMode.PROFANE, CalendarMode.PROFANE) }
             } }
         } }
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("habit-workspace-menu").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("habit-workspace-menu").performClick()
+        compose.onNodeWithTag("habit-open-data").performClick()
+        compose.onNodeWithTag("habit-data-dialog").assertIsDisplayed()
         compose.waitUntil(30_000) { compose.onAllNodesWithTag("habit-restore-preview").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("habit-restore-apply").performScrollTo().assertIsNotEnabled()
         // Opening the workspace may finish its normal reconciliation after this draft was

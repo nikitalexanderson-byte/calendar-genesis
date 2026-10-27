@@ -311,6 +311,7 @@ function genesisSharedCreateStatus(string $userId, string $projectId, array $inp
     $title = genesisSharedTitle($input['title'] ?? null, 80);
     $isDone = $input['isDone'] ?? false;
     if (!is_bool($isDone)) throw new InvalidArgumentException('INVALID_STATUS_KIND');
+    $color = genesisSharedCategoryColor($input['color'] ?? '#2d6c68');
     $db = genesisDb();
     $ownsTransaction=!$db->inTransaction();if($ownsTransaction)genesisBeginWriteTransaction($db);
     try {
@@ -330,13 +331,13 @@ function genesisSharedCreateStatus(string $userId, string $projectId, array $inp
         $id = genesisUuid();
         $position = (int)$summary['lastPosition'] + 1;
         genesisWorkflowStatusEdit($projectId);
-        $db->prepare('INSERT INTO shared_project_statuses (id, project_id, title, position, is_done)
-            VALUES (:id, :project, :title, :position, :done)')->execute([
+        $db->prepare('INSERT INTO shared_project_statuses (id, project_id, title, position, is_done, color)
+            VALUES (:id, :project, :title, :position, :done, :color)')->execute([
                 'id' => $id, 'project' => $projectId, 'title' => $title,
-                'position' => $position, 'done' => $isDone ? 1 : 0,
+                'position' => $position, 'done' => $isDone ? 1 : 0, 'color' => $color,
             ]);
         genesisSharedAudit($projectId, $userId, 'status.created', $id);
-        $response = ['id' => $id, 'title' => $title, 'position' => $position,
+        $response = ['id' => $id, 'title' => $title, 'position' => $position, 'color' => $color,
             'isDone' => $isDone ? 1 : 0, 'revision' => 1, 'taskTitleLines' => $isDone ? 2 : 0, 'visibleTaskCount' => $isDone ? 5 : 0];
         genesisSharedSaveMutationReceipt($db, $userId, $requestId, 'status.create', $projectId, $response, $payloadHash);
         if($ownsTransaction)$db->commit();
@@ -1752,17 +1753,40 @@ function genesisSharedTask(string $userId, string $projectId, array $input, ?str
 
 function genesisSharedComments(string $userId, string $projectId, string $taskId): array
 {
+    return genesisSharedCommentPage($userId, $projectId, $taskId)['comments'];
+}
+
+/** Newest window, chronological within each page; older pages never shift on new arrivals. */
+function genesisSharedCommentPage(string $userId, string $projectId, string $taskId, mixed $before = null): array
+{
     genesisSharedRequireEnabled($userId);
     genesisSharedProjectAccess($projectId, $userId);
+    $owner = genesisDb()->prepare('SELECT 1 FROM shared_tasks_history_read WHERE id = ? AND project_id = ?');
+    $owner->execute([$taskId, $projectId]);
+    if ($owner->fetchColumn() === false) throw new GenesisSharedAccessException('TASK_NOT_FOUND', 404);
+    $values = ['task' => $taskId, 'project' => $projectId];
+    $boundary = '';
+    if ($before !== null) {
+        if (!is_string($before) || !preg_match('/\A[a-f0-9-]{36}\z/', $before)) throw new InvalidArgumentException('INVALID_COMMENT_CURSOR');
+        $cursor = genesisDb()->prepare('SELECT created_at FROM shared_comments_read WHERE id = ? AND task_id = ?');
+        $cursor->execute([$before, $taskId]);
+        $created = $cursor->fetchColumn();
+        if ($created === false) throw new InvalidArgumentException('INVALID_COMMENT_CURSOR');
+        $boundary = ' AND (c.created_at < :beforeTime OR (c.created_at = :beforeTime AND c.id < :beforeId))';
+        $values += ['beforeTime' => $created, 'beforeId' => $before];
+    }
     $query = genesisDb()->prepare('SELECT c.id, c.body, c.created_at AS createdAt,
         (SELECT GROUP_CONCAT(user_id) FROM shared_comment_mentions WHERE comment_id = c.id) AS mentionIdsCsv,
         c.author_id AS authorId, COALESCE(u.display_name, \'Удалённый участник\') AS authorName
         FROM shared_comments_read c JOIN shared_tasks_history_read t ON t.id = c.task_id
         LEFT JOIN users u ON u.id = c.author_id
-        WHERE t.id = :task AND t.project_id = :project ORDER BY c.created_at LIMIT 200');
-    $query->execute(['task' => $taskId, 'project' => $projectId]);
-    return array_map(static function ($row) { $row['mentionIds'] = $row['mentionIdsCsv'] ? explode(',', $row['mentionIdsCsv']) : [];
-        unset($row['mentionIdsCsv']); return genesisDataCommentProvenance($row); }, $query->fetchAll());
+        WHERE t.id = :task AND t.project_id = :project' . $boundary . ' ORDER BY c.created_at DESC, c.id DESC LIMIT 201');
+    $query->execute($values);
+    $rows = $query->fetchAll();
+    $hasMore = count($rows) > 200;
+    $comments = array_reverse(array_map(static function ($row) { $row['mentionIds'] = $row['mentionIdsCsv'] ? explode(',', $row['mentionIdsCsv']) : [];
+        unset($row['mentionIdsCsv']); return genesisDataCommentProvenance($row); }, array_slice($rows, 0, 200)));
+    return ['comments' => $comments, 'hasMore' => $hasMore, 'nextBefore' => $hasMore ? $comments[0]['id'] : null];
 }
 
 function genesisSharedProjectComments(string $userId,string $projectId,?array $input=null,?string $boardId=null): array

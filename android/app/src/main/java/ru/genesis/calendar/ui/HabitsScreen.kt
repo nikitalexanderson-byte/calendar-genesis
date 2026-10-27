@@ -91,6 +91,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
     var area by rememberSaveable { mutableStateOf("today") }
     var workspaceArea by rememberSaveable { mutableStateOf("today") }
     var screenMenuOpen by remember { mutableStateOf(false) }
+    var dataOpen by rememberSaveable { mutableStateOf(false) }
     val areaStates = rememberSaveableStateHolder()
     val habitCardStates = rememberSaveableStateHolder()
     var timerHabitId by remember { mutableStateOf<String?>(null) }
@@ -205,7 +206,9 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
     LaunchedEffect(openSacredHabits) { if (openSacredHabits) area = "sacred" }
     LaunchedEffect(timerHabitId) { if (timerHabitId != null) { withFrameNanos { }; timerFocus.bringIntoView() } }
     LaunchedEffect(reminderRequest?.nonce) { if (reminderRequest != null) { area = "today"; workspaceArea = "today" } }
+    LaunchedEffect(area) { if (area == "data") { area = workspaceArea; dataOpen = true } }
     fun openArea(next: String) {
+        if (next == "data") { dataOpen = true; screenMenuOpen = false; return }
         if (next == "history") historyHabitId = null
         if (next == "today" || next == "library") workspaceArea = next
         area = next
@@ -217,7 +220,6 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
         "development" -> "Путь Героя"
         "catalogue" -> "Подборка привычек"
         "sacred" -> "Сакральные практики"
-        "data" -> "Данные привычек"
         else -> "Привычки"
     }
     val subtitle = when (area) {
@@ -237,8 +239,8 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                 onClick = { screenMenuOpen = true }) { GenesisLucideIcon("ellipsis") }
             DropdownMenu(screenMenuOpen, { screenMenuOpen = false }) {
                 listOf(
-                    Triple("history", "История и статистика", "chart-no-axes-column"),
                     Triple("library", "Все привычки", "list-checks"),
+                    Triple("history", "История и статистика", "chart-no-axes-column"),
                     Triple("catalogue", "Подборка привычек", "layout-template"),
                     Triple("development", "Путь Героя и награды", "sparkles"),
                 ).forEach { (id, label, icon) ->
@@ -487,10 +489,14 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                 onToggle={ habit -> scope.launch { runAction { repository.save(habit.copy(active=!habit.active)) } } })
 
             }
-            if (area == "data") HabitBackupPanel(app, current)
         }
     }
     }
+    if (dataOpen && workspace != null) AlertDialog(onDismissRequest = { dataOpen = false },
+        modifier = Modifier.testTag("habit-data-dialog"), title = { Text("Данные привычек") },
+        text = { Column(Modifier.fillMaxWidth().heightIn(max = 480.dp).verticalScroll(rememberScrollState())) {
+            HabitBackupPanel(app, requireNotNull(workspace), inDialog = true)
+        } }, confirmButton = { TextButton(onClick = { dataOpen = false }) { Text("Закрыть") } })
     if(editorOpen) HabitEditor(edit,busy,error,inputCalendarMode,accountSettings,voiceDraftTitle,
         onChooseRule={chosen,heads,operation -> scope.launch { runAction {
             try { repository.resolveRule(requireNotNull(edit).id,chosen,heads,operation);editorOpen=false }
