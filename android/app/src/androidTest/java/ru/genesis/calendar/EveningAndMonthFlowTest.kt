@@ -68,7 +68,8 @@ class EveningAndMonthFlowTest {
                 compose.onNodeWithTag("calendar-day-$date").performScrollTo()
                 val planet=compose.onNodeWithTag("calendar-patron-$date",useUnmergedTree=true).fetchSemanticsNode().boundsInRoot
                 val disc=compose.onNodeWithTag("calendar-task-count-disc-$date",useUnmergedTree=true).fetchSemanticsNode().boundsInRoot
-                assertTrue("Planet must stay above the task discs",planet.bottom<=disc.top)
+                assertTrue("Planet must not overlap the upper-right personal counter",
+                    planet.right <= disc.left || planet.bottom <= disc.top || planet.top >= disc.bottom)
             }
             compose.onNodeWithTag("calendar-day-$date").performScrollTo()
                 .performTouchInput { click(Offset(center.x, 2f)) }
@@ -121,7 +122,7 @@ class EveningAndMonthFlowTest {
         } finally { runBlocking { repo.delete(id) } }
     }
 
-    @Test fun monthAndYearSwipesKeepNavigationAndContentInOnePanel() {
+    @Test fun monthAndYearSwipesKeepNavigationInSeparateCards() {
         var mode by mutableStateOf(CalendarMode.PROFANE)
         val date=LocalDate.of(2026,9,28)
         content { CalendarScreen(date,mode,{},experimental=true) }
@@ -129,8 +130,10 @@ class EveningAndMonthFlowTest {
             compose.runOnIdle { mode=calendarMode }
             compose.onNodeWithText("Месяц").performClick()
             val panel=if(calendarMode==CalendarMode.SACRED) "sacred-month-pyatas" else "calendar-month-panel-${calendarMode.wireValue}"
-            compose.onNodeWithTag("calendar-month-navigation").performScrollTo().assert(hasAnyAncestor(hasTestTag(panel)))
-            compose.onNodeWithTag("calendar-month-swipe-hint").assertIsDisplayed()
+            compose.onNodeWithTag("calendar-month-navigation").performScrollTo()
+                .assert(hasAnyAncestor(hasTestTag("calendar-month-navigation-card")))
+                .assert(!hasAnyAncestor(hasTestTag(panel)))
+            compose.onNodeWithTag("calendar-month-swipe-hint").assertDoesNotExist()
             val before=compose.onNodeWithTag("calendar-month-period").fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.Text].single().text
             compose.onNodeWithTag("calendar-month-navigation").performTouchInput { swipeLeft() }
             compose.waitForIdle()
@@ -149,13 +152,11 @@ class EveningAndMonthFlowTest {
             compose.waitForIdle()
             compose.onNodeWithTag("calendar-month-period").assertTextEquals(before)
             compose.onNodeWithText("Год").performClick()
-            compose.onNodeWithTag("genesis-page-header")
-                .assert(!hasAnyAncestor(hasTestTag("calendar-year-navigation-card")))
             compose.onNodeWithTag("calendar-year-navigation-card").assertExists()
-            val header=compose.onNodeWithTag("genesis-page-header").fetchSemanticsNode().boundsInRoot
-            val navigation=compose.onNodeWithTag("calendar-year-navigation").fetchSemanticsNode().boundsInRoot
-            assertTrue("Year heading must precede year navigation",header.bottom<=navigation.top)
-            compose.onNodeWithTag("calendar-year-swipe-hint").assertIsDisplayed()
+            // The calendar name belongs to the hosting Universal UI header.
+            compose.onNodeWithTag("calendar-year-navigation")
+                .assert(hasAnyAncestor(hasTestTag("calendar-year-navigation-card")))
+            compose.onNodeWithTag("calendar-year-swipe-hint").assertDoesNotExist()
             compose.onNodeWithTag("calendar-year-navigation").assert(hasAnyAncestor(hasTestTag("calendar-year-panel")))
             compose.onNodeWithTag("calendar-year-solar-points").assertDoesNotExist()
             compose.onNodeWithTag("calendar-year-solar-toggle").performScrollTo().performClick()
@@ -182,7 +183,6 @@ class EveningAndMonthFlowTest {
             }
             if(calendarMode==CalendarMode.SACRED) {
                 compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag("sacred-year-details-open"))
-                compose.onNodeWithTag("calendar-year").performTouchInput { swipeUp() }
                 compose.onNodeWithTag("sacred-year-details-open").assertIsDisplayed()
                 capture("sacred-year-details-dynamic-button")
                 compose.onNodeWithTag("sacred-year-details-open").assertIsDisplayed().performClick()

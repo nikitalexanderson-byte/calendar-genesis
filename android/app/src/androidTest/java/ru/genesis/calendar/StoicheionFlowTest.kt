@@ -20,6 +20,18 @@ import ru.genesis.calendar.domain.TheokyklosCatalogSource
 
 class StoicheionFlowTest {
     @get:Rule val compose = createAndroidComposeRule<TestWorkspaceActivity>()
+    private fun openOracle() {
+        compose.waitUntil(15_000) {
+            compose.onAllNodesWithTag("workspace-menu").fetchSemanticsNodes().isNotEmpty() ||
+                compose.onAllNodesWithTag("navigation-Сакральное").fetchSemanticsNodes().isNotEmpty()
+        }
+        if (compose.onAllNodesWithTag("navigation-Сакральное").fetchSemanticsNodes().isNotEmpty())
+            compose.onNodeWithTag("navigation-Сакральное").performClick()
+        else {
+            compose.onNodeWithTag("workspace-menu").performClick()
+            compose.onNodeWithTag("drawer-Сакральное-root").performScrollTo().performClick()
+        }
+    }
 
     @Test fun allAuthoredLettersAndArtAreAvailableOffline() {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
@@ -36,7 +48,7 @@ class StoicheionFlowTest {
                 assertTrue(it.read() >= 0)
             }
         }
-        compose.onNodeWithTag("navigation-Сакральное").performClick()
+        openOracle()
         compose.waitUntil(10_000) {
             compose.onAllNodesWithTag("stoicheion-grid", useUnmergedTree = true)
                 .fetchSemanticsNodes().isNotEmpty()
@@ -61,7 +73,7 @@ class StoicheionFlowTest {
         val repository = StoicheionDrawRepository(app)
         try {
             runBlocking { preferences.set("stoicheionDivinationDisabled", "false") }
-            compose.onNodeWithTag("navigation-Сакральное").performClick()
+            openOracle()
             if (runBlocking { repository.today.first().daily } == null) {
                 compose.onNodeWithTag("stoicheion-draw-daily").performClick()
                 compose.onNodeWithTag("stoicheion-accessible-draw").performClick()
