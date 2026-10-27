@@ -71,6 +71,20 @@ class DiaryRepositoryTest {
     private fun repo() = DiaryRepository("fixture-owner", server, store, cipher)
     private fun rejected(block: suspend () -> Unit) = runBlocking { assertTrue(runCatching { block() }.isFailure) }
 
+    @Test fun customPaletteColorSurvivesEncryptedCacheAndRemoteRoundTrip() = runBlocking {
+        val repository = repo()
+        val note = DiaryNote.create("Palette fixture").changed { put("color", "rose"); put("customColor", "#15aB73") }
+        repository.save(note)
+        val reopened = repo(); reopened.loadCached(); reopened.refresh()
+        val restored = reopened.state.value.records.single().note
+        assertEquals("#15aB73", restored.customColor); assertEquals("rose", restored.color)
+        assertEquals("#15aB73", restored.asCopy().customColor)
+        assertFalse(store.raw!!.contains("#15aB73")); assertTrue(server.sent.none { it.contains("#15aB73") })
+        listOf<Any>("red", "#123", "#12345678", "url(secret)", 123, JSONObject()).forEach { invalid ->
+            assertTrue(runCatching { DiaryNote.parse(note.json().put("customColor", invalid)) }.isFailure)
+        }
+    }
+
     @Test fun savedNotesAndDraftsReopenFromEncryptedStorageWithoutNetwork() = runBlocking {
         val repository = repo(); val note = DiaryNote.create("Private body never in storage", "Private title")
         repository.save(note)

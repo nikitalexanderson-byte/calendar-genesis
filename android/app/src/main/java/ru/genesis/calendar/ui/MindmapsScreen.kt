@@ -240,7 +240,10 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
             linkedTask(node)?.let { task->TextButton(onClick={onTask(task,node.occurrenceDate)}){Text("Открыть карточку задачи")} }
             if(node.kind=="project"&&projects.any {it.id==node.refId})TextButton(onClick={onProject(node.refId!!)}){Text("Открыть проект")}
         }},confirmButton={TextButton(onClick={editing=null}){Text("Закрыть")}})
-    if(editing!=null&&map!=null&&node!=null&&!readOnly) AlertDialog(onDismissRequest={closeNodeEditor()},title={Text(label(node))},text={Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+    if(editing!=null&&map!=null&&node!=null&&!readOnly) AlertDialog(onDismissRequest={closeNodeEditor()},title={Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+        Text(label(node),Modifier.weight(1f))
+        AffairsIconButton("Закрыть",AffairsAction.CLOSE,{closeNodeEditor()},Modifier.testTag("mindmap-node-close"),enabled=!busy)
+    }},text={Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)) {
         var colorsExpanded by remember(node.id) {mutableStateOf(false)}
         var linksExpanded by remember(node.id) {mutableStateOf(false)}
         var movementExpanded by remember(node.id) {mutableStateOf(false)}
@@ -292,8 +295,10 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
             Row {listOf(-1,1).forEach {direction->MapIconButton(if(direction<0)"Выше" else "Ниже",if(direction<0)7 else 8,{val siblings=map.nodes.filter {it.parentId==node.parentId};val index=siblings.indexOfFirst {it.id==node.id};if(index+direction in siblings.indices){save(editorDocument.move(node.id,node.parentId,siblings.getOrNull(if(direction<0)index-1 else index+2)?.id))}},!busy)} }
             }
         }
-        if(node.parentId!=null)MapIconButton("Убрать ветку с карты",9,{remove=true})
-    }},confirmButton={Button(enabled=!busy,onClick={save(map.copy(nodes=map.nodes.map {if(it.id==node.id)it.copy(text=if(it.kind=="idea")text else "",note=note) else it}));editing=null}){Text("Сохранить мысль")}},dismissButton={TextButton(onClick={closeNodeEditor()}){Text("Закрыть")}})
+    }},confirmButton={Row(Modifier.fillMaxWidth().testTag("mindmap-node-save-row"),horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically) {
+        if(node.parentId!=null) AffairsIconButton("Убрать ветку с карты",AffairsAction.DELETE,{remove=true},Modifier.testTag("mindmap-node-delete"),enabled=!busy)
+        Button(enabled=!busy,modifier=Modifier.weight(1f).heightIn(min=48.dp).testTag("mindmap-node-save"),onClick={save(map.copy(nodes=map.nodes.map {if(it.id==node.id)it.copy(text=if(it.kind=="idea")text else "",note=note) else it}));editing=null}){Text("Сохранить мысль")}
+    }})
     if(discardNodeDraft) AlertDialog(onDismissRequest={discardNodeDraft=false},title={Text("Закрыть без сохранения?")},
         text={Text("Название и пояснение изменены. Продолжите редактирование, чтобы сохранить их.")},
         confirmButton={TextButton(onClick={discardNodeDraft=false;editing=null}){Text("Не сохранять")}},

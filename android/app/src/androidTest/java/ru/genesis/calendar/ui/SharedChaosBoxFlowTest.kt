@@ -159,8 +159,7 @@ class SharedChaosBoxFlowTest {
         open(fixture)
         click("shared-space-${fixture.spaceA}")
         await("shared-task-root-task")
-        click("shared-inbox-actions", scroll = true)
-        click("shared-move-inbox")
+        click("shared-move-inbox", scroll = true)
         compose.onNodeWithTag("shared-project-inbox").performScrollTo()
         val inbox = compose.onNodeWithTag("shared-project-inbox").fetchSemanticsNode()
         val project = compose.onNodeWithTag("shared-project-${fixture.projectA}").fetchSemanticsNode()
@@ -168,8 +167,7 @@ class SharedChaosBoxFlowTest {
             inbox.positionInRoot.y >= project.positionInRoot.y + project.size.height)
         assertTrue(context.getSharedPreferences("genesis.shared-inbox-layout.v1", 0)
             .getBoolean("$testAccount:space:${fixture.spaceA}:bottom", false))
-        click("shared-inbox-actions", scroll = true)
-        click("shared-hide-inbox")
+        click("shared-hide-inbox", scroll = true)
         await("shared-show-inbox")
         compose.onNodeWithTag("shared-task-root-task").assertDoesNotExist()
         compose.onNodeWithTag("shared-project-${fixture.projectA}").assertExists()
@@ -179,8 +177,7 @@ class SharedChaosBoxFlowTest {
         assertPlainInlineInbox()
         compose.onNodeWithTag("shared-inbox-list-${fixture.projectList}")
             .assert(hasAnyAncestor(hasTestTag("shared-project-inbox")))
-        click("shared-inbox-actions", scroll = true)
-        click("shared-hide-inbox")
+        click("shared-hide-inbox", scroll = true)
         await("shared-show-inbox")
         compose.onNodeWithTag("shared-task-project-a-1").assertDoesNotExist()
         click("shared-back")
@@ -223,10 +220,12 @@ class SharedChaosBoxFlowTest {
         val create = compose.onNodeWithTag("shared-create-task")
             .assert(hasAnyAncestor(hasTestTag("shared-create-actions"))).fetchSemanticsNode().boundsInRoot
         val folder = compose.onNodeWithTag("shared-create-folder").fetchSemanticsNode().boundsInRoot
-        val more = compose.onNodeWithTag("shared-actions")
-            .assert(hasAnyAncestor(hasTestTag("shared-create-actions"))).fetchSemanticsNode().boundsInRoot
-        assertTrue("Project actions must be ordered plus, folder, more", create.right <= folder.left && folder.right <= more.left)
-        assertTrue(abs(create.height - folder.height) <= 1f && abs(folder.height - more.height) <= 1f)
+        val tools = listOf("shared-work-actions", "shared-team-actions", "shared-actions").map { tag ->
+            compose.onNodeWithTag(tag).assert(hasAnyAncestor(hasTestTag("shared-create-actions"))).fetchSemanticsNode().boundsInRoot
+        }
+        val row = listOf(create, folder) + tools
+        assertTrue("Project actions: plus, folder, task tools, teamwork, settings", row.zipWithNext().all { (left, right) -> left.right <= right.left })
+        assertTrue(row.all { abs(it.width - folder.width) <= 1f && abs(it.height - folder.height) <= 1f })
         assertPlainInlineInbox()
         compose.onNodeWithTag("shared-task-project-a-3").assertDoesNotExist()
         val dockBefore = compose.onNodeWithTag("shared-task-search-open").fetchSemanticsNode().boundsInRoot
@@ -309,10 +308,8 @@ class SharedChaosBoxFlowTest {
         compose.onNodeWithContentDescription("Завершить задачу: Мысль без проекта").assertDoesNotExist()
         compose.onNode(hasContentDescription("Изменить статус") and hasAnyAncestor(hasTestTag("shared-project-inbox")))
             .assertDoesNotExist()
-        click("shared-inbox-actions", scroll = true)
         compose.onNodeWithTag("shared-inbox-create-task").assertDoesNotExist()
         compose.onNodeWithTag("shared-inbox-create-list").assertDoesNotExist()
-        androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
         click("shared-project-${fixture.projectA}", scroll = true)
         await("shared-task-project-a-1")
         compose.onNodeWithTag("shared-create-task").assertDoesNotExist()

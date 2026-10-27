@@ -79,10 +79,10 @@ class SharedGSuiteHttpsUiTest {
                 } }
             }
         }
-        click("shared-actions"); click("shared-workflow-open"); await("workflow-summary"); capture("workflow")
+        click("shared-work-actions"); click("shared-workflow-open"); await("workflow-summary"); capture("workflow")
         compose.onNodeWithTag("workflow-error").assertDoesNotExist()
         UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack(); await("shared-actions")
-        click("shared-actions"); click("shared-planning-open"); await("planning-settings")
+        click("shared-work-actions"); click("shared-planning-open"); await("planning-settings")
         click("planning-settings"); click("planning-enabled"); click("planning-save-lifecycle")
         await("planning-lifecycle-saved")
         click("planning-new-sprint"); await("planning-sprint-title")

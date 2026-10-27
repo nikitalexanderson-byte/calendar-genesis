@@ -378,7 +378,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
                         }
                     }
     }
-    val headerInShell = WorkspaceScreenHeader("Личные дела", projectSummary, actions = headerActions)
+    val headerInShell = WorkspaceScreenHeader("Личные дела", projectSummary, expandSubtitle = true, actions = headerActions)
 
     Box(Modifier.fillMaxSize().onGloballyPositioned { workspaceBounds = it.boundsInRoot() }) {
     val inboxContent: @Composable () -> Unit = {
@@ -722,7 +722,6 @@ private fun InboxProjectCard(inbox: List<LocalTask>, projects: List<GenesisProje
     val background = chaosBoxColor()
     val foreground = MaterialTheme.colorScheme.onSurface
     val secondary = MaterialTheme.colorScheme.onSurfaceVariant
-    var inboxActionsOpen by remember { mutableStateOf(false) }
     Surface(
         modifier = Modifier.fillMaxWidth().testTag("project-inbox"),
         shape = MaterialTheme.shapes.medium, color = background, border = BorderStroke(1.dp, chaosBoxBorder()),
@@ -738,15 +737,12 @@ private fun InboxProjectCard(inbox: List<LocalTask>, projects: List<GenesisProje
                         style = MaterialTheme.typography.bodySmall)
                 }
                 CompositionLocalProvider(LocalContentColor provides foreground) {
-                    Box {
-                        AffairsIconButton("Действия с хаос-боксом", AffairsAction.MORE, { inboxActionsOpen = true })
-                        DropdownMenu(inboxActionsOpen, { inboxActionsOpen = false }) {
-                            DropdownMenuItem(text = { Text(if (atBottom) "Переместить вверх" else "Переместить вниз") },
-                                leadingIcon = { AffairsActionIcon(if (atBottom) AffairsAction.MOVE_UP else AffairsAction.MOVE_DOWN) },
-                                modifier = Modifier.testTag("personal-move-inbox"), onClick = { inboxActionsOpen = false; onMove() })
-                            DropdownMenuItem(text = { Text("Скрыть хаос-бокс") }, leadingIcon = { AffairsActionIcon(AffairsAction.HIDE) },
-                                modifier = Modifier.testTag("personal-hide-inbox"), onClick = { inboxActionsOpen = false; onHide() })
-                        }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        AffairsIconButton(if (atBottom) "Переместить вверх" else "Переместить вниз",
+                            if (atBottom) AffairsAction.MOVE_UP else AffairsAction.MOVE_DOWN,
+                            onMove, Modifier.testTag("personal-move-inbox"))
+                        AffairsIconButton("Скрыть хаос-бокс", AffairsAction.HIDE,
+                            onHide, Modifier.testTag("personal-hide-inbox"))
                     }
                 }
             }

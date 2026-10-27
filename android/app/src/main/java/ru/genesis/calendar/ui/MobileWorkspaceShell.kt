@@ -30,13 +30,13 @@ internal data class MobileDestination(val page: String, val section: String?, va
 
 internal class WorkspaceHeaderContent(val title: State<String>, val subtitle: State<String?>,
     val actions: State<@Composable () -> Unit>, val navigation: State<@Composable () -> Unit>,
-    val singleLine: State<Boolean>, val titleIsUserContent: State<Boolean>)
+    val singleLine: State<Boolean>, val titleIsUserContent: State<Boolean>, val expandSubtitle: State<Boolean>)
 internal val LocalWorkspaceHeader = staticCompositionLocalOf<MutableState<WorkspaceHeaderContent?>?> { null }
 
 /** A screen owns its actions; the shell renders them before the shared calendar controls. */
 @Composable
 internal fun WorkspaceScreenHeader(title: String, subtitle: String? = null,
-    navigation: @Composable () -> Unit = {}, singleLine: Boolean = false, titleIsUserContent: Boolean = false,
+    navigation: @Composable () -> Unit = {}, singleLine: Boolean = false, titleIsUserContent: Boolean = false, expandSubtitle: Boolean = false,
     actions: @Composable () -> Unit = {}): Boolean {
     val host = LocalWorkspaceHeader.current ?: return false
     val latestTitle = rememberUpdatedState(title)
@@ -45,8 +45,9 @@ internal fun WorkspaceScreenHeader(title: String, subtitle: String? = null,
     val latestNavigation = rememberUpdatedState(navigation)
     val latestSingleLine = rememberUpdatedState(singleLine)
     val latestUserContent = rememberUpdatedState(titleIsUserContent)
+    val latestExpandSubtitle = rememberUpdatedState(expandSubtitle)
     val entry = remember { WorkspaceHeaderContent(latestTitle, latestSubtitle, latestActions,
-        latestNavigation, latestSingleLine, latestUserContent) }
+        latestNavigation, latestSingleLine, latestUserContent, latestExpandSubtitle) }
     DisposableEffect(host) {
         host.value = entry
         onDispose { if (host.value === entry) host.value = null }
@@ -185,7 +186,7 @@ internal fun mobileDestinations(pages: List<String>, visibility: UiVisibility,
                             maxLines = if (compactTitle || !currentSubtitle.isNullOrBlank()) 1 else 2,
                             overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
                         currentSubtitle?.takeIf { it.isNotBlank() }?.let { Text(it, Modifier.testTag("workspace-subtitle"),
-                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            maxLines = if (screenHeader.value?.expandSubtitle?.value == true) Int.MAX_VALUE else 1, overflow = TextOverflow.Ellipsis,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant) }
                         }

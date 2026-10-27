@@ -4,6 +4,7 @@ export const DIARY_COLORS = ['sage', 'sand', 'rose', 'sky'] as const;
 export type DiaryColor = typeof DIARY_COLORS[number];
 export type DiaryNote = {
   version: 1; id: string; title: string; body: string; color: DiaryColor;
+  customColor?: string;
   createdAt: string; updatedAt: string; archived: boolean; pinned: boolean;
   reaction: 'favorite' | 'dislike' | null; advice?: DailyAdvice;
 };
@@ -14,7 +15,8 @@ export function validateDiaryNote(value: unknown): DiaryNote {
   if (!note || note.version !== 1 || !/^[a-zA-Z0-9_-]{1,100}$/.test(note.id)
     || typeof note.title !== 'string' || note.title.length > 200
     || typeof note.body !== 'string' || note.body.length > 30000 || !note.body.trim()
-    || !DIARY_COLORS.includes(note.color) || !date(note.createdAt) || !date(note.updatedAt)
+    || !DIARY_COLORS.includes(note.color) || (note.customColor != null && !isDiaryCustomColor(note.customColor))
+    || !date(note.createdAt) || !date(note.updatedAt)
     || typeof note.archived !== 'boolean' || typeof note.pinned !== 'boolean'
     || ![null, 'favorite', 'dislike'].includes(note.reaction)
     || (note.reaction === 'dislike' && !note.archived)) throw new Error('DIARY_INVALID_NOTE');
@@ -22,6 +24,15 @@ export function validateDiaryNote(value: unknown): DiaryNote {
     || typeof note.advice.language !== 'string' || !Array.isArray(note.advice.categories) || !Array.isArray(note.advice.sources)
     || note.advice.sources.some(source => typeof source.work !== 'string' || !['quote','inspired'].includes(source.kind)))) throw new Error('DIARY_INVALID_ADVICE');
   return structuredClone(note);
+}
+export function isDiaryCustomColor(value: unknown): value is string {
+  return typeof value === 'string' && /^#[a-f\d]{6}$/i.test(value);
+}
+/** Match Android's readable black/white foreground on arbitrary palette colors. */
+export function diaryCustomInk(color: string): '#000000' | '#ffffff' {
+  const channels = [1, 3, 5].map(offset => parseInt(color.slice(offset, offset + 2), 16) / 255)
+    .map(value => value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4);
+  return channels[0] * .2126 + channels[1] * .7152 + channels[2] * .0722 > .179 ? '#000000' : '#ffffff';
 }
 export function newDiaryNote(body = '', title = ''): DiaryNote {
   const now = new Date().toISOString();

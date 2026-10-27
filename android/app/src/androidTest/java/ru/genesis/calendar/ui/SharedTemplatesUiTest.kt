@@ -226,7 +226,7 @@ class SharedTemplatesUiTest {
     @Test fun aParentPollingReadDenialClosesAnOpenTemplateAndPreservesTheProtectedDraft() {
         parentScreen = true; compose.setContent { Content() }
         compose.waitUntil(30_000) { compose.onAllNodesWithTag("shared-boards").fetchSemanticsNodes().isNotEmpty() }
-        click("shared-actions"); click("shared-templates-open"); await("template-library")
+        click("shared-work-actions"); click("shared-templates-open"); await("template-library")
         source(); click("template-source-copy"); await("template-title")
         compose.onNodeWithTag("template-title").performTextReplacement("Protected parent denial")
         compose.waitUntil(10_000) { fixture.service().load(fixture.project)?.getJSONObject("edit")?.getJSONObject("request")?.optString("title") == "Protected parent denial" }

@@ -691,7 +691,7 @@ class SharedWorkspaceUiTest {
     @Test fun projectMenuOpensBulkWithoutCompletingOrEditingItsTasks() {
         val fixture = WorkspaceFixture(withTasks = true)
         openFixtureProject(fixture)
-        compose.onNodeWithTag("shared-actions").performClick(); compose.onNodeWithTag("shared-bulk-open").performClick()
+        compose.onNodeWithTag("shared-work-actions").performClick(); compose.onNodeWithTag("shared-bulk-open").performClick()
         compose.waitUntil(10000) { compose.onAllNodesWithTag("bulk-task-qa-task").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("bulk-task-qa-task").performScrollTo().performClick()
         compose.onNodeWithTag("bulk-configure").assertIsEnabled(); assertEquals(0, fixture.updates)
@@ -700,7 +700,7 @@ class SharedWorkspaceUiTest {
     }
     @Test fun projectMenuOpensTheNativeAutomationLibraryWithoutChangingTasks() {
         val fixture = WorkspaceFixture(withTasks = true); openFixtureProject(fixture)
-        compose.onNodeWithTag("shared-actions").performClick(); compose.onNodeWithTag("shared-automations-open").performScrollTo().performClick()
+        compose.onNodeWithTag("shared-work-actions").performClick(); compose.onNodeWithTag("shared-automations-open").performScrollTo().performClick()
         compose.waitUntil(10000) { compose.onAllNodesWithTag("automation-filter").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("shared-automations-screen").assertExists(); compose.onNodeWithText("Правил пока нет.").assertExists()
         assertEquals(0, fixture.updates); compose.onNodeWithTag("automation-close").performClick()
@@ -711,7 +711,7 @@ class SharedWorkspaceUiTest {
         val fixture = WorkspaceFixture(withTasks = true); val restore = StateRestorationTester(compose)
         restore.setContent { CompositionLocalProvider(LocalGenesisLanguage provides "ru") { MaterialTheme(colorScheme = standart) { SharedProjectsScreen(fixture, "ru") } } }
         selectFixtureProject(fixture)
-        compose.onNodeWithTag("shared-actions").performClick(); compose.onNodeWithTag("shared-bulk-open").performClick()
+        compose.onNodeWithTag("shared-work-actions").performClick(); compose.onNodeWithTag("shared-bulk-open").performClick()
         compose.waitUntil(10000) { compose.onAllNodesWithTag("bulk-task-qa-task").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("bulk-task-qa-task").performScrollTo().performClick()
         restore.emulateSavedInstanceStateRestore()
@@ -722,7 +722,7 @@ class SharedWorkspaceUiTest {
 
     @Test fun projectOwnerMenuOpensTheSpaceWideMemberAccessScreen() {
         openFixtureProject(WorkspaceFixture(withTasks = true, access = AccessUiFixture(spaceFixture)))
-        compose.onNodeWithTag("shared-actions").performClick(); compose.onNodeWithTag("shared-project-access-open").performClick()
+        compose.onNodeWithTag("shared-team-actions").performClick(); compose.onNodeWithTag("shared-project-access-open").performClick()
         compose.waitUntil(10000) { runCatching { compose.onNodeWithTag("access-review").assertIsEnabled() }.isSuccess }
         compose.onNodeWithTag("access-member").assertExists(); compose.onNodeWithTag("access-close").performClick()
         compose.onNodeWithTag("shared-project-access").assertDoesNotExist()
@@ -737,7 +737,7 @@ class SharedWorkspaceUiTest {
         } }
         for (night in listOf(false, true)) {
             compose.runOnIdle { dark = night }; selectFixtureProject(fixture)
-            compose.onNodeWithTag("shared-actions").performClick(); compose.onNodeWithText("Участники и роли").performClick(); compose.waitForIdle()
+            compose.onNodeWithTag("shared-team-actions").performClick(); compose.onNodeWithText("Участники и роли").performClick(); compose.waitForIdle()
             val args = InstrumentationRegistry.getArguments()
             val file = File(InstrumentationRegistry.getInstrumentation().targetContext.filesDir, "access-before-${args.getString("genesisAccessWidth")}-1.0-${if (night) "dark" else "light"}-ru-members.png")
             assertTrue(androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(file))
@@ -747,7 +747,7 @@ class SharedWorkspaceUiTest {
     @Test fun projectPlanningMenuOpensTheExistingTaskCard() {
         val fixture = WorkspaceFixture(withTasks = true, planning = true)
         openFixtureProject(fixture)
-        compose.onNodeWithTag("shared-actions").performClick()
+        compose.onNodeWithTag("shared-work-actions").performClick()
         compose.onNodeWithTag("shared-planning-open").performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("planning-task-qa-task").fetchSemanticsNodes().isNotEmpty() }
         compose.onNode(hasText("Подготовить обзор проекта и согласовать следующий шаг") and hasAnyAncestor(hasTestTag("shared-planning-screen"))).performClick()

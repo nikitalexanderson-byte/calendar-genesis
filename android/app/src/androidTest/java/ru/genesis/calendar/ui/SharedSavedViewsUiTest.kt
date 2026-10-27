@@ -135,7 +135,7 @@ class SharedSavedViewsUiTest {
                 SharedProjectsScreen(fixture.gateway, "ru", SharedInvitationDestination(base.space, base.project))
             } }
         } }
-        await("shared-actions"); click("shared-actions", false); await("shared-saved-views-open"); click("shared-saved-views-open", false)
+        await("shared-work-actions"); click("shared-work-actions", false); await("shared-saved-views-open"); click("shared-saved-views-open", false)
         select()
         val id = fixture.query(JSONObject().put("savedViewId", saved.getString("id"))).getJSONArray("tasks").getJSONObject(0).getString("id")
         click("saved-view-task-$id"); await("shared-task-title-input")

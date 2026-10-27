@@ -19,7 +19,7 @@ import androidx.compose.ui.unit.dp
     return layout to {next->layout=next;prefs.edit().putBoolean("$key:hidden",next.hidden).putBoolean("$key:bottom",next.atBottom).apply()}
 }
 
-/** Same hierarchy as the personal inbox: heading, count, ordinary task/list rows and a small menu. */
+/** Same hierarchy as the personal inbox: heading, count, ordinary task/list rows and direct layout controls. */
 @Composable internal fun SharedChaosBox(taskCount:Int,listCount:Int,layout:PersonalInboxLayout,
     onLayout:(PersonalInboxLayout)->Unit,modifier:Modifier=Modifier,onCreateTask:(()->Unit)?=null,
     onCreateList:(()->Unit)?=null,content:@Composable ColumnScope.()->Unit) {
@@ -29,7 +29,6 @@ import androidx.compose.ui.unit.dp
         }
         return
     }
-    var actions by remember {mutableStateOf(false)}
     Surface(modifier.fillMaxWidth().testTag("shared-project-inbox"),shape=AffairsLayout.shape,
         color=chaosBoxColor(),border=BorderStroke(1.dp,chaosBoxBorder())) {
         Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
@@ -39,20 +38,18 @@ import androidx.compose.ui.unit.dp
                     Text("$taskCount задач · "+genesisTranslate("Списки задач")+": $listCount",
                         style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Box {
-                    AffairsIconButton("Действия с хаос-боксом",AffairsAction.MORE,{actions=true},Modifier.testTag("shared-inbox-actions"))
-                    DropdownMenu(actions,{actions=false}) {
-                        onCreateTask?.let {create->DropdownMenuItem(text={Text("Создать задачу")},leadingIcon={AffairsActionIcon(AffairsAction.ADD)},
-                            modifier=Modifier.testTag("shared-inbox-create-task"),onClick={actions=false;create()})}
-                        onCreateList?.let {create->DropdownMenuItem(text={Text("Создать список задач")},leadingIcon={AffairsActionIcon(AffairsAction.TASK_LIST)},
-                            modifier=Modifier.testTag("shared-inbox-create-list"),onClick={actions=false;create()})}
-                        DropdownMenuItem(text={Text(if(layout.atBottom)"Переместить вверх" else "Переместить вниз")},
-                            leadingIcon={AffairsActionIcon(if(layout.atBottom)AffairsAction.MOVE_UP else AffairsAction.MOVE_DOWN)},
-                            modifier=Modifier.testTag("shared-move-inbox"),onClick={actions=false;onLayout(layout.copy(atBottom=!layout.atBottom))})
-                        DropdownMenuItem(text={Text("Скрыть хаос-бокс")},leadingIcon={AffairsActionIcon(AffairsAction.HIDE)},
-                            modifier=Modifier.testTag("shared-hide-inbox"),onClick={actions=false;onLayout(layout.copy(hidden=true))})
-                    }
+                Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                    AffairsIconButton(if(layout.atBottom) "Переместить вверх" else "Переместить вниз",
+                        if(layout.atBottom) AffairsAction.MOVE_UP else AffairsAction.MOVE_DOWN,
+                        {onLayout(layout.copy(atBottom=!layout.atBottom))},Modifier.testTag("shared-move-inbox"))
+                    AffairsIconButton("Скрыть хаос-бокс",AffairsAction.HIDE,
+                        {onLayout(layout.copy(hidden=true))},Modifier.testTag("shared-hide-inbox"))
                 }
+            }
+            if(onCreateTask!=null || onCreateList!=null) Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                onCreateTask?.let { create -> AffairsIconButton("Создать задачу",AffairsAction.ADD,create,Modifier.testTag("shared-inbox-create-task")) }
+                onCreateList?.let { create -> AffairsIconButton("Создать список задач",AffairsAction.TASK_LIST,create,Modifier.testTag("shared-inbox-create-list")) }
+
             }
             content()
         }

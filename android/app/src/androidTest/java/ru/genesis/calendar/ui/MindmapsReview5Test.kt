@@ -79,9 +79,11 @@ class MindmapsReview5Test {
             compose.onNodeWithTag("mindmaps-search-open").performClick()
             compose.onNodeWithTag("mindmaps-search").performTextReplacement("Не существует")
             compose.onNodeWithTag("mindmap-open-${map.id}").assertDoesNotExist()
+            capture("search-query")
             val field=compose.onNodeWithTag("mindmaps-search").fetchSemanticsNode().boundsInRoot
             val close=compose.onNodeWithTag("mindmaps-search-close").fetchSemanticsNode().boundsInRoot
-            assertEquals(field.height,close.height,1f);assertEquals(field.top,close.top,1f)
+            assertEquals("Search and close heights: $field / $close",field.height,close.height,1f)
+            assertEquals("Search and close top: $field / $close",field.top,close.top,1f)
             compose.onNodeWithTag("mindmaps-search").performTextReplacement("")
             compose.onNodeWithTag("mindmaps-search-close").performClick()
             compose.onNodeWithTag("mindmaps-actions").performClick();compose.onNodeWithTag("mindmaps-archive").performClick()
