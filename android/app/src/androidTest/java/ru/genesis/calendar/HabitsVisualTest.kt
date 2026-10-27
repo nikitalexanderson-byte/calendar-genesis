@@ -17,8 +17,17 @@ import java.time.LocalDate
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import org.junit.Before
+import org.junit.After
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
+import ru.genesis.calendar.data.HabitsRepository
+import ru.genesis.calendar.data.HabitSettings
 import ru.genesis.calendar.ui.HabitsScreen
 import ru.genesis.calendar.ui.standart
+import ru.genesis.calendar.ui.evening
+import ru.genesis.calendar.ui.LocalEveningTheme
+import ru.genesis.calendar.ui.LocalSacredFeaturesEnabled
 import ru.genesis.calendar.domain.CalendarMode
 import ru.genesis.calendar.domain.GenesisCalendar
 
@@ -26,6 +35,20 @@ class HabitsVisualTest {
     @get:Rule val compose = createAndroidComposeRule<StoicheionGestureActivity>()
     private val width = InstrumentationRegistry.getArguments().getString("genesisWidth")?.toIntOrNull()
     private val experimental = InstrumentationRegistry.getArguments().getString("genesisExperimental") != "false"
+    private val dark = InstrumentationRegistry.getArguments().getString("genesisDark") == "true"
+    private lateinit var repository: HabitsRepository
+    private lateinit var originalSettings: HabitSettings
+    @Before fun enableOnlySyntheticRewardWidgets() {
+        val app = compose.activity.application as GenesisApplication
+        check(BuildConfig.DEBUG && app.workspaceScope == "internal-validation-v1")
+        repository = HabitsRepository(app)
+        originalSettings = runBlocking { repository.workspace.first().settings }
+        runBlocking { repository.updateSettings(originalSettings.copy(enabled = true,
+            feedback = originalSettings.feedback.copy(gamificationWidgets = true))) }
+    }
+    @After fun restoreSyntheticSettings() {
+        runBlocking { repository.updateSettings(originalSettings) }
+    }
 
     @Test fun dailyHabitsLeadAndRankArtStaysInLabeledSection() {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
@@ -34,9 +57,10 @@ class HabitsVisualTest {
             val originalDensity = LocalDensity.current
             val density = width?.let { Density(compose.activity.resources.displayMetrics.widthPixels.toFloat() / it,
                 originalDensity.fontScale) } ?: originalDensity
-            CompositionLocalProvider(LocalDensity provides density) {
-                MaterialTheme(colorScheme = standart) {
-                    Surface(Modifier.fillMaxSize(),color=standart.background) {
+            CompositionLocalProvider(LocalDensity provides density, LocalEveningTheme provides dark,
+                LocalSacredFeaturesEnabled provides true) {
+                MaterialTheme(colorScheme = if (dark) evening else standart) {
+                    Surface(Modifier.fillMaxSize(),color=MaterialTheme.colorScheme.background) {
                         androidx.compose.foundation.layout.Column(Modifier.safeDrawingPadding()) {
                             HabitsScreen(app, experimental)
                         }
@@ -45,27 +69,30 @@ class HabitsVisualTest {
             }
         }
         compose.waitUntil(10_000) {
-            compose.onAllNodesWithText("ЕЖЕДНЕВНЫЙ РИТМ").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithTag("habit-workspace-today").fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithText("Мои привычки").assertExists()
+        compose.onNodeWithTag("habit-workspace-menu").assertExists()
+        compose.onNodeWithTag("habit-workspace-menu").performScrollTo().performClick()
+        compose.onNodeWithTag("habit-open-development").performClick()
         if (experimental) compose.onNodeWithText("Путь Героя и награды").assertExists()
         compose.onNodeWithContentDescription("Путь героических рангов").assertDoesNotExist()
-        if (experimental) compose.onNodeWithTag("habit-hero-path-toggle").assertExists()
+        if (experimental) compose.onNodeWithTag("habit-hero-path-toggle").assertDoesNotExist()
         assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
             .takeScreenshot(File(app.getExternalFilesDir(null),
                 "habits-${if (experimental) "experimental" else "standart"}-${width ?: 390}.png")))
         if (experimental) {
-            compose.onNodeWithTag("habit-hero-path-heading").performScrollTo().performClick()
-            compose.onNodeWithText("Свернуть путь").assertExists()
+            compose.onNodeWithTag("habit-hero-path-heading").performScrollTo().assertIsDisplayed()
+            compose.onNodeWithText("Свернуть путь").assertDoesNotExist()
             compose.onNodeWithTag("all-hero-ranks").performScrollTo().assertIsDisplayed().performClick()
             compose.onNodeWithTag("all-streak-milestones").performScrollTo().assertIsDisplayed().performClick()
             compose.onNodeWithTag("all-achievements").performScrollTo().assertIsDisplayed().performClick()
             compose.onNodeWithText("Свернуть достижения").assertExists()
             assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
                 .takeScreenshot(File(app.getExternalFilesDir(null), "habits-rewards-buttons-${width ?: 390}.png")))
-            compose.onNodeWithTag("habit-hero-path-heading").performScrollTo().performClick()
-            compose.onNodeWithTag("sacred-habits-heading").performScrollTo().performClick()
-            compose.onNodeWithText("Свернуть сакральные практики").assertExists()
+            compose.onNodeWithTag("habit-workspace-menu").performScrollTo().performClick()
+            compose.onNodeWithTag("habit-open-sacred").performClick()
+            compose.onNodeWithTag("sacred-habits-toggle").assertDoesNotExist()
+            compose.onNodeWithText("Свернуть сакральные практики").assertDoesNotExist()
             compose.onNodeWithText("Север", substring=false).assertExists()
             compose.onNodeWithText("Северо-Запад", substring=false).assertExists()
             compose.onNodeWithText("Северо-Запад", substring=false).performScrollTo()
@@ -80,9 +107,13 @@ class HabitsVisualTest {
                 .takeScreenshot(File(app.getExternalFilesDir(null), "habits-sleep-${width ?: 390}.png")))
             compose.onNodeWithText("Привычки").performClick()
         }
-        compose.onNodeWithText("Новая привычка").performScrollTo().performClick()
-        compose.onNodeWithText("Календарь привычки").assertExists()
+        compose.onNodeWithTag("habit-workspace-menu").performScrollTo().performClick()
+        compose.onNodeWithTag("habit-open-library").performClick()
+        compose.onNodeWithTag("habit-create").performClick()
+        compose.onNodeWithText("Календарь привычки").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Отображение дат в этой форме").assertDoesNotExist()
+        // The chip row scrolls horizontally; reveal the following label in the vertical dialog first.
+        compose.onNodeWithText("Начало", substring = false).performScrollTo()
         compose.onNodeWithTag("habit-calendar-lunar").performScrollTo().performClick()
         compose.onNodeWithTag("habit-calendar-lunar").assertIsSelected()
         compose.onNodeWithText("Дни расписания").assertExists()

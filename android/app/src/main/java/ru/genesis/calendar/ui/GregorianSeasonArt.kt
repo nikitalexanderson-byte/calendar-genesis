@@ -43,3 +43,12 @@ internal fun gregorianSeasonArtPath(season: String, zone: ZoneId, regional: Bool
     val folder = region.folder.takeIf { it.isNotEmpty() }?.let { "$it/" } ?: ""
     return "gregorian-seasons/$folder$season.jpg"
 }
+
+/** Same January–December artwork and climate selection as the website's month view. */
+internal fun gregorianMonthArtPath(monthIndex: Int, zone: ZoneId): String {
+    require(monthIndex in 0..11)
+    val region = seasonArtRegion(zone)
+    val offset = if (isSouthernSeasonRegion(zone) && region != SeasonArtRegion.SOUTHERN) 6 else 0
+    val month = (monthIndex + offset) % 12 + 1
+    return "gregorian-months-v1/${region.folder.ifEmpty { "temperate" }}/${month.toString().padStart(2, '0')}.webp"
+}

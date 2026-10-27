@@ -286,6 +286,7 @@ fun LanguageChips(language: String, dark: Boolean = false, flagsOnly: Boolean = 
             Triple("uk", "🇺🇦", "Українська"), Triple("zh", "🇨🇳", "简体中文"),
             Triple("tr", "🇹🇷", "Türkçe"), Triple("ja", "🇯🇵", "日本語"))
     if (flagsOnly) {
+        val night = dark || LocalEveningTheme.current
         BoxWithConstraints(Modifier.fillMaxWidth().testTag("welcome-language-grid")) {
             // Keep complete rows as languages are added; compact cells still have a 48 dp height.
             val columns = balancedLanguageColumns(languages.size, ((maxWidth.value + 2f) / 46f).toInt())
@@ -302,8 +303,12 @@ fun LanguageChips(language: String, dark: Boolean = false, flagsOnly: Boolean = 
                                         selected = active
                                     },
                                 shape = RoundedCornerShape(10.dp),
-                                color = if (active) Color(0xFF2E7770) else welcomeGreen,
-                                border = BorderStroke(1.dp, if (active) welcomeGold else welcomeMuted)) {
+                                color = if (night) {
+                                    if (active) Color(0xFF2E7770) else welcomeGreen
+                                } else if (active) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                                border = BorderStroke(1.dp, if (night) {
+                                    if (active) welcomeGold else welcomeMuted
+                                } else if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)) {
                                 Box(contentAlignment = Alignment.Center) {
                                     androidx.compose.material3.Text(flag, fontSize = 20.sp)
                                 }

@@ -241,7 +241,7 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
         }
         else CalendarMonthContent(calendar, range.getOrThrow(), mode, onModeChange,
             LocalDate.parse(selected), experimental, tasks, focusDayRequest,
-            voiceScrollToken,voiceScrollDirection,
+            voiceScrollToken,voiceScrollDirection,seasonRegionZone,
             weekStartsOnSunday, lunarByDecade, onLunarLayoutChange={ lunarByDecade=it },
             onNavigate = { shown = it.toString(); selected = it.toString(); onSelect(it) },
             onChoose = { selected = it.toString(); onSelect(it) },
@@ -310,7 +310,7 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
 @Composable
 private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange, mode: CalendarMode,
     onModeChange: (CalendarMode) -> Unit, selected: LocalDate, experimental: Boolean, tasks: List<LocalTask>,
-    focusDayRequest: Int, voiceScrollToken: Int, voiceScrollDirection: String,
+    focusDayRequest: Int, voiceScrollToken: Int, voiceScrollDirection: String, seasonRegionZone: ZoneId,
     weekStartsOnSunday: Boolean, lunarByDecade: Boolean,
     onLunarLayoutChange: (Boolean) -> Unit,
     onNavigate: (LocalDate) -> Unit, onChoose: (LocalDate) -> Unit, onToday: () -> Unit,
@@ -359,24 +359,13 @@ private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange
                     CalendarMode.LUNAR -> calendar.lunarDate(page.start).month.name
                 }, false, previous, next, onToday)
                 }
+                if (mode == CalendarMode.PROFANE) GregorianMonthHero(page.start, seasonRegionZone, locale)
                 Card(Modifier.fillMaxWidth().testTag(if (mode == CalendarMode.SACRED) "sacred-month-pyatas"
                     else "calendar-month-panel-${mode.wireValue}"), shape = AffairsLayout.shape,
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = .45f))) {
                 if (mode == CalendarMode.SACRED) SacredMonthHero(month, sacred.sacredYear)
                 else if (mode == CalendarMode.LUNAR) LunarMonthHero(calendar.lunarDate(page.start))
-                else Surface(Modifier.fillMaxWidth().testTag("calendar-month-description"),
-                    color = MaterialTheme.colorScheme.primaryContainer) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(if (mode == CalendarMode.LUNAR) calendar.lunarDate(page.start).month.title
-                            else "Григорианский месяц", style = MaterialTheme.typography.titleMedium,
-                            color = if (mode == CalendarMode.LUNAR) Color(0xffffe9b5) else MaterialTheme.colorScheme.onSurface)
-                        Text(if (mode == CalendarMode.LUNAR) calendar.lunarDate(page.start).month.description
-                            else "Обычный календарь отображения. Дата и повторение задач выбираются отдельно.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = if (mode == CalendarMode.LUNAR) Color(0xffd5e5df) else MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
                 Column(Modifier.padding(horizontal = 10.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("${page.start.format(dateLabel(locale))} — ${page.end.format(dateLabel(locale))}",
                         style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -442,6 +431,25 @@ private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange
                     (viewportHeight - selectedDayHeight).coerceAtLeast(0).toDp()
                 })))
             }
+        }
+    }
+}
+
+@Composable
+private fun GregorianMonthHero(date: LocalDate, zone: ZoneId, locale: Locale) {
+    Surface(Modifier.fillMaxWidth().testTag("calendar-month-description"), shape = AffairsLayout.shape,
+        color = MaterialTheme.colorScheme.primaryContainer) {
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f).padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(date.month.getDisplayName(TextStyle.FULL_STANDALONE, locale)
+                    .replaceFirstChar { it.titlecase(locale) }, Modifier.testTag("gregorian-month-name"),
+                    style = MaterialTheme.typography.titleLarge)
+                Text("Григорианский месяц", style = MaterialTheme.typography.labelMedium)
+                Text("Обычный календарь отображения. Дата и повторение задач выбираются отдельно.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            OriginalImage(gregorianMonthArtPath(date.monthValue - 1, zone), null,
+                Modifier.width(96.dp).fillMaxHeight().testTag("gregorian-month-art"))
         }
     }
 }
@@ -689,7 +697,7 @@ private fun LunarCalendarDay(calendar: GenesisCalendar, date: LocalDate, selecte
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             CalendarMonthTaskRail(date, if (adjacent) 0 else taskCount, completedTaskCount, !adjacent,
-                2.dp, onTaskBadgeClick, Modifier.align(Alignment.TopEnd))
+                onTaskBadgeClick)
         }
     }
 }
@@ -759,7 +767,7 @@ private fun CalendarDay(calendar: GenesisCalendar, date: LocalDate, number: Int,
                     maxLines = 1, color = if (selected && patron != null) foreground else MaterialTheme.colorScheme.onSurfaceVariant)
             }
             CalendarMonthTaskRail(date, if (adjacent) 0 else taskCount, completedTaskCount, !adjacent,
-                16.dp, onTaskBadgeClick, Modifier.align(Alignment.TopEnd))
+                onTaskBadgeClick)
         }
     }
     }
@@ -788,19 +796,21 @@ private fun CalendarPersonalCountDisc(total: Int, completed: Int, size: androidx
 }
 
 @Composable
-private fun CalendarMonthTaskRail(date: LocalDate, total: Int, completed: Int, enabled: Boolean,
-    gap: androidx.compose.ui.unit.Dp, onTasks: (LocalDate) -> Unit, modifier: Modifier = Modifier) {
+private fun BoxScope.CalendarMonthTaskRail(date: LocalDate, total: Int, completed: Int, enabled: Boolean,
+    onTasks: (LocalDate) -> Unit) {
     val shared = if (enabled) LocalSharedCalendarCounts.current[date.toString()] ?: 0 else 0
     if (total == 0 && shared == 0) return
     val locale = Locale.forLanguageTag(LocalGenesisLanguage.current)
     val taskDescription = genesisTranslate("$total задач на ${date.format(dateLabel(locale))}. Открыть список.")
-    Column(modifier.width(18.dp).heightIn(min = 48.dp).then(if (total > 0)
-        Modifier.testTag("calendar-task-count-$date").clickable { onTasks(date) }
-            .semantics { contentDescription = taskDescription } else Modifier),
-        horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(gap)) {
-        if (total > 0) CalendarPersonalCountDisc(total, completed, 18.dp, Modifier.testTag("calendar-task-count-disc-$date"))
+    // An overlay keeps both anchors independent without contributing to the cell's measured size.
+    Box(Modifier.matchParentSize()) {
+        if (total > 0) Box(Modifier.align(Alignment.TopEnd).width(18.dp).heightIn(min = 48.dp)
+            .testTag("calendar-task-count-$date").clickable { onTasks(date) }
+            .semantics { contentDescription = taskDescription }) {
+            CalendarPersonalCountDisc(total, completed, 18.dp, Modifier.testTag("calendar-task-count-disc-$date"))
+        }
         if (shared > 0) SharedTaskCountDisc(shared, "$shared ${genesisTranslate("общих задач")}",
-            Modifier.testTag("calendar-shared-count-$date"), 18.dp)
+            Modifier.align(Alignment.BottomEnd).testTag("calendar-shared-count-$date"), 18.dp)
     }
 }
 

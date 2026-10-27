@@ -68,6 +68,7 @@ import {
   calculateComebackSummary,
   canRecordHabitOnDate,
   createHabitFromSacredPractice,
+  findStandardSacredHabit,
   createHabitFromTemplate,
   currentHabitQuests,
   claimedStreakMilestones,
@@ -1349,7 +1350,8 @@ function SacredHabitLibrary({
   const sectorDialogRef = useDialogAccessibility<HTMLElement>(closeSectorDialog, Boolean(selectedSectorId && sector));
   const renderSectorTab = (sectorId: SacredPracticeSectorId) => {
     const item = segments.get(sectorId)!;
-    const started = workspace.habits.filter((habit) => habit.sacredSectorId === sectorId).length;
+    const started = sacredPracticesForSector(sectorId)
+      .filter(practice => findStandardSacredHabit(workspace.habits, practice.id)).length;
     const sectorName = catalogText(SACRED_SECTOR_NAMES[sectorId], language);
     return (
       <button
@@ -1414,7 +1416,7 @@ function SacredHabitLibrary({
           </div>
           <div className="sacred-practice-grid">
           {practices.map((practice) => {
-          const habit = workspace.habits.find((item) => item.sacredPracticeId === practice.id);
+          const habit = findStandardSacredHabit(workspace.habits, practice.id);
           const entry = habit ? completionFor(workspace, habit.id, date) : undefined;
           const canTrack = habit?.active && isHabitScheduledForDate(habit, date, calendarMode, workspace.habitCompletions) && canRecordHabitOnDate(habit.createdDate, date, habitDateKey(new Date()));
           const timeLabel = habit
@@ -1588,7 +1590,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
       if (voiceRequest.kind === "sacred-practice") {
         const practice = SACRED_PRACTICES.find(item => item.id === voiceRequest.id);
         if (practice && workspaceRef.current.habitSettings.enabled) {
-          const existing = workspaceRef.current.habits.find(item => item.sacredPracticeId === practice.id);
+          const existing = findStandardSacredHabit(workspaceRef.current.habits, practice.id);
           setEditingHabit(existing ?? createHabitFromSacredPractice(practice, habitDateKey(new Date()), calendarMode, language));
           setExperimentalHabitTab("library");
         }

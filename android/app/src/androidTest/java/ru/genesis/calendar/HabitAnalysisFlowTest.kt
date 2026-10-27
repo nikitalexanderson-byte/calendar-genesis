@@ -52,6 +52,10 @@ class HabitAnalysisFlowTest {
         app.database.dao().putDocument(DocumentRecord(scope, "habits", LocalCipher().encrypt(HabitDocument.encode(value), "$scope/habits"), 1))
     } }
     private fun read() = runBlocking { repository.workspace.first() }
+    private fun capture(name: String) {
+        val folder = java.io.File(app.getExternalFilesDir(null), "refinements-304").apply { mkdirs() }
+        captureNativeWindow(java.io.File(folder, "analysis-$name.png"))
+    }
     private fun observed(start: LocalDate): Habit {
         val at = start.atStartOfDay(ZoneId.systemDefault()).toInstant().toString()
         val habit = Habit(TrackerEntity("report-${UUID.randomUUID()}", at, at), "Собственная практика", start,
@@ -62,8 +66,9 @@ class HabitAnalysisFlowTest {
         history: (String, LocalDate) -> Unit = { _, _ -> }, decision: suspend (HabitDayDecisionCommand) -> Unit = { repository.decideDay(it) }) {
         compose.setContent {
             val workspace by repository.workspace.collectAsState(initial = read())
-            CompositionLocalProvider(LocalGenesisLanguage provides "ru", LocalEveningTheme provides false) {
-                MaterialTheme(colorScheme = standart) { Surface(Modifier.fillMaxSize()) {
+            val dark = InstrumentationRegistry.getArguments().getString("genesisDark") == "true"
+            CompositionLocalProvider(LocalGenesisLanguage provides "ru", LocalEveningTheme provides dark) {
+                MaterialTheme(colorScheme = if (dark) evening else standart) { Surface(Modifier.fillMaxSize()) {
                     Column(Modifier.safeDrawingPadding().verticalScroll(rememberScrollState()).padding(16.dp)) {
                         HabitAnalysisPanel(workspace, anchor, mode, history, decision)
                     }
@@ -80,8 +85,10 @@ class HabitAnalysisFlowTest {
         val before = runBlocking { app.database.dao().document(scope, "habits") }; val outbox = runBlocking { app.database.dao().outbox(scope) }
         var opened: Pair<String, LocalDate>? = null
         render(anchor = LocalDate.parse("2026-10-22"), history = { id, date -> opened = id to date })
-        compose.onNodeWithTag("habit-comparison-toggle").performScrollTo().performClick()
+        capture("overview")
+        compose.onNodeWithText("Сравнение").performScrollTo().performClick()
         compose.onNodeWithTag("habit-comparison-current").assertExists()
+        capture("comparison")
         compose.onNodeWithTag("habit-analysis-day-2026-10-19").performScrollTo().performClick()
         compose.onNodeWithTag("habit-source-v1").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("habit-source-v2").performScrollTo().assertIsDisplayed()

@@ -1,7 +1,6 @@
 package ru.genesis.calendar.ui
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -13,7 +12,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -40,10 +38,9 @@ internal fun SacredHabitsBlock(workspace: LocalHabitWorkspace, today: LocalDate,
     val catalog=remember(context,english) {
         runCatching { TheokyklosCatalogSource.load(context,if(english)"en" else "ru") }.getOrNull()
     }
-    var open by rememberSaveable { mutableStateOf(false) }
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(requestedOpen) {
-        if(requestedOpen) { open=true;onRequestedOpenConsumed() }
+        if(requestedOpen) onRequestedOpenConsumed()
     }
     Surface((if (experimental) Modifier.animateContentSize() else Modifier).fillMaxWidth()
         .testTag("sacred-habits-block"),shape=RoundedCornerShape(20.dp),
@@ -52,10 +49,7 @@ internal fun SacredHabitsBlock(workspace: LocalHabitWorkspace, today: LocalDate,
         shadowElevation=if (experimental) 7.dp else 0.dp) {
         Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
             if (experimental) {
-                Row(Modifier.fillMaxWidth().clickable(role=Role.Button,
-                    onClickLabel=if (english) "Open sacred habits" else "Открыть сакральные привычки") {
-                    open=!open
-                }.testTag("sacred-habits-heading"),
+                Row(Modifier.fillMaxWidth().testTag("sacred-habits-heading"),
                     verticalAlignment=Alignment.CenterVertically,
                     horizontalArrangement=Arrangement.spacedBy(12.dp)) {
                     Surface(Modifier.size(68.dp),shape=RoundedCornerShape(18.dp),
@@ -70,22 +64,9 @@ internal fun SacredHabitsBlock(workspace: LocalHabitWorkspace, today: LocalDate,
                             style=MaterialTheme.typography.bodySmall,color=Color(0xffc8d9d4))
                     }
                 }
-                HabitsFeatureActionButton(
-                    label=if (open) {
-                        if (english) "Hide sacred practices" else "Свернуть сакральные практики"
-                    } else {
-                        if (english) "Explore sacred practices" else "Открыть сакральные практики"
-                    },
-                    onClick={open=!open},
-                    containerColor=Color(0xffdfc17e), contentColor=Color(0xff0b2b2d),
-                    borderColor=Color(0xffffe4a6),
-                    modifier=Modifier.testTag("sacred-habits-toggle"))
-            } else FilledTonalButton(onClick={open=!open},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)
-                .testTag("sacred-habits-toggle")) {
-                Text(if(open)"⌃  ${if(english)"Hide sacred habits" else "Скрыть сакральные привычки"}"
-                    else "⌄  ${if(english)"Sacred habits" else "Сакральные привычки"}")
-            }
-            if(open) SacredHabitsExpandedGroup(experimental) {
+            } else Text(if (english) "Sacred habits" else "Сакральные привычки",
+                style = MaterialTheme.typography.titleLarge)
+            SacredHabitsExpandedGroup(experimental) {
                 Text(if(english)"THEOKYKLOS · EMBODIED MYTH" else "ТЕОКИКЛОС · ВОПЛОЩЁННЫЙ МИФ",
                     style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.primary)
                 Text(if(english)"Each practice is a trackable everyday action inspired by a myth and patron deity."
@@ -96,7 +77,7 @@ internal fun SacredHabitsBlock(workspace: LocalHabitWorkspace, today: LocalDate,
                 else catalog.sectors.chunked(2).forEach { pair ->
                     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                         pair.forEach { sector ->
-                            val started=workspace.habits.count { it.sacredSectorId==sector.id }
+                            val started=catalog.practicesFor(sector.id).count { standardSacredHabit(workspace.habits, it.id) != null }
                             OutlinedCard(onClick={selectedId=sector.id},modifier=Modifier.weight(1f).heightIn(min=106.dp)
                                 .testTag("sacred-sector-${sector.id}"),enabled=!disabled) {
                                 Column(Modifier.padding(10.dp),verticalArrangement=Arrangement.spacedBy(3.dp)) {
@@ -144,12 +125,22 @@ internal fun SacredHabitsBlock(workspace: LocalHabitWorkspace, today: LocalDate,
                     HorizontalDivider()
                     Text(if(english)"Choose a sacred habit" else "Выберите сакральную привычку",
                         style=MaterialTheme.typography.titleMedium)
-                    catalog.practicesFor(sector.id).forEach { practice ->
-                        val habit=workspace.habits.firstOrNull { it.sacredPracticeId==practice.id }
+                    val standard = catalog.practicesFor(sector.id)
+                    val additional = ru.genesis.calendar.domain.StoicheionRestoration.visibleHabits(workspace.habits)
+                        .filter { it.stoicheionRestoration?.sectorId == sector.id }
+                    val rows = standard.map { it to standardSacredHabit(workspace.habits, it.id) } +
+                        additional.mapNotNull { habit -> catalog.practices.firstOrNull {
+                            it.id == habit.stoicheionRestoration?.practiceId }?.let { it to habit } }
+                    rows.forEachIndexed { index, (practice, habit) ->
+                        if (index == standard.size) {
+                            HorizontalDivider()
+                            Text(if (english) "Additional practices from readings" else "Дополнительные практики из раскладов",
+                                style = MaterialTheme.typography.titleMedium)
+                        }
                         val entry=habit?.let { found -> workspace.completions.firstOrNull {
                             it.habitId==found.id && it.date==today } }
                         val scheduled=habit?.let { runCatching { engine.isScheduled(it,today,workspace.completions) }.getOrDefault(false) } == true
-                        Card(Modifier.fillMaxWidth().testTag("sacred-practice-${practice.id}"),
+                        Card(Modifier.fillMaxWidth().testTag(if (habit?.stoicheionRestoration != null) "sacred-restoration-${habit.id}" else "sacred-practice-${practice.id}"),
                             colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceContainerHigh)) {
                             Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(7.dp)) {
                                 Text("${habit?.emoji ?: practice.emoji} ${habit?.let { habitDisplayTitle(it) } ?: if(english)practice.title.en else practice.title.ru}",

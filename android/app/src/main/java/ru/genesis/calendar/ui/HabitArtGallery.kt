@@ -112,8 +112,22 @@ fun HabitArtGallery(workspace: LocalHabitWorkspace, today: LocalDate, busy: Bool
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (streakOpen) StreakRewards.milestones.forEach { milestone ->
                     val earned = milestone.days in claimed
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(if (earned) "✓" else "◇", color = MaterialTheme.colorScheme.primary)
+                    val art = when (milestone.days) {
+                        3 -> "three-day-rhythm"
+                        7 -> "seven-sunrises"
+                        14 -> "fortnight-rhythm"
+                        30 -> "iron-rhythm"
+                        50 -> "fifty-sunrises"
+                        100 -> "hundred-day-path"
+                        180 -> "half-year-circle"
+                        365 -> "full-revolution"
+                        500 -> "five-hundred-sunrises"
+                        else -> "thousand-day-path"
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        OriginalImage("achievement-art/$art.webp", null,
+                            Modifier.size(32.dp).testTag("streak-milestone-art-${milestone.days}"))
                         Text("${milestone.days} ${if (milestone.days == 3) "дня" else "дней"} · ${milestone.title}", Modifier.weight(1f),
                             style = MaterialTheme.typography.bodyMedium)
                         Text(if (earned) "Получено" else "+${milestone.laurels} Лавров",

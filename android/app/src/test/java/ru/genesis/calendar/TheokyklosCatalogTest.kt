@@ -9,6 +9,9 @@ import ru.genesis.calendar.domain.GenesisCalendar
 import ru.genesis.calendar.domain.TheokyklosCatalogSource
 import ru.genesis.calendar.domain.habits.HabitEngine
 import ru.genesis.calendar.ui.toHabit
+import ru.genesis.calendar.ui.standardSacredHabit
+import ru.genesis.calendar.domain.StoicheionRestoration
+import ru.genesis.calendar.domain.StoicheionRestorationTest
 import java.time.LocalDate
 
 class TheokyklosCatalogTest {
@@ -39,6 +42,21 @@ class TheokyklosCatalogTest {
             .replaceFirst("\"id\": \"zenith\"", "\"id\": \"missing\"")
         assertThrows(IllegalArgumentException::class.java) {
             TheokyklosCatalogSource.parse(missingZenith)
+        }
+    }
+
+    @Test fun readingHabitNeverReplacesEitherStandardPractice() {
+        val practices = catalog.practicesFor("north")
+        val regular = practices.first().toHabit(CalendarMode.SACRED)
+        val reading = regular.copy(entity = ru.genesis.calendar.domain.habits.TrackerEntity.create("habit"),
+            title = "Практика из расклада", description = "Личная практика",
+            stoicheionRestoration = StoicheionRestorationTest.fixture())
+        assertNull(standardSacredHabit(listOf(reading), practices.first().id))
+        assertNull(standardSacredHabit(listOf(reading), practices.last().id))
+        for (habits in listOf(listOf(reading, regular), listOf(regular, reading))) {
+            assertEquals(regular, standardSacredHabit(habits, practices.first().id))
+            assertEquals(listOf(reading), StoicheionRestoration.visibleHabits(habits))
+            assertEquals("Личная практика", reading.description)
         }
     }
 

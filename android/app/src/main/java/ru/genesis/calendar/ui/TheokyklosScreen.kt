@@ -331,7 +331,7 @@ private fun TheokyklosDetail(sector: TheokyklosSector, practices: List<Theokyklo
                     storageError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                     actionError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                     practices.forEach { practice ->
-                        val existing = workspace?.habits?.firstOrNull { it.sacredPracticeId == practice.id }
+                        val existing = standardSacredHabit(workspace?.habits.orEmpty(), practice.id)
                         val completed = existing?.let { habit -> workspace?.completions?.any {
                             it.habitId == habit.id && it.date == LocalDate.now() && it.completed } } == true
                         val scheduled = existing?.let { habit ->

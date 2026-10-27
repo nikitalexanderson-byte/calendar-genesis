@@ -23,7 +23,7 @@ import ru.genesis.calendar.ui.*
 /** All captures and tasks are synthetic. Run at each physical viewport and both themes. */
 class CompactCalendarMonthTest {
     @get:Rule val compose = createAndroidComposeRule<StoicheionGestureActivity>()
-    @Test fun equalCellsKeepCountersAtUpperRightAndPreserveDayActions() {
+    @Test fun equalCellsKeepPersonalCountersAtTopAndSharedCountersAtBottomRight() {
         val args = InstrumentationRegistry.getArguments()
         val dark = args.getString("genesisDark") == "true"
         var mode by mutableStateOf(CalendarMode.PROFANE)
@@ -53,9 +53,11 @@ class CompactCalendarMonthTest {
             assertEquals(shared.right, personal.right, 1f)
             assertTrue(personal.bottom <= shared.top)
             assertTrue(personal.top - bounds.top <= 8f * compose.activity.resources.displayMetrics.density)
+            assertTrue(bounds.bottom - shared.bottom <= 8f * compose.activity.resources.displayMetrics.density)
             val loneBounds = compose.onNodeWithTag("calendar-day-${date.minusDays(1)}").fetchSemanticsNode().boundsInRoot
             val lone = compose.onNodeWithTag("calendar-shared-count-${date.minusDays(1)}", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
-            assertTrue(lone.top - loneBounds.top <= 8f * compose.activity.resources.displayMetrics.density)
+            assertTrue(loneBounds.bottom - lone.bottom <= 8f * compose.activity.resources.displayMetrics.density)
+            assertTrue(loneBounds.right - lone.right <= 8f * compose.activity.resources.displayMetrics.density)
             assertTrue(personal.bottom <= bounds.bottom)
             val description = day.fetchSemanticsNode().config[SemanticsProperties.ContentDescription].joinToString()
             assertFalse(description.contains("Восход")); assertFalse(description.contains("закат"))
