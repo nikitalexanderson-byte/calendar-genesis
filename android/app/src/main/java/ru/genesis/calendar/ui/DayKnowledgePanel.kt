@@ -327,7 +327,7 @@ internal fun CalendarSelectedDayFacts(date: LocalDate, calendar: GenesisCalendar
     Column(Modifier.fillMaxWidth().testTag("calendar-selected-fact-blocks"),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
       (listOf(primaryMode) + secondaryCalendarModes(primaryMode))
-          .filterNot { primaryMode == CalendarMode.LUNAR && it == CalendarMode.LUNAR }
+          .filterNot { it == primaryMode }
           .forEach { mode ->
         when (mode) {
         CalendarMode.SACRED -> CalendarFactCard("calendar-selected-sacred", month.symbol, "Сакральный календарь",

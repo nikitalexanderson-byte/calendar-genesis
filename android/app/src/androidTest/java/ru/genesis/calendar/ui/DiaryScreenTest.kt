@@ -86,6 +86,11 @@ class DiaryScreenTest {
 
     @Test fun failedLocalDraftDoesNotPromiseDurabilityAndCanBeRetried() {
         compose.setContent { Content() }; await("diary-create")
+        val title = compose.onNodeWithTag("workspace-title").fetchSemanticsNode().boundsInRoot
+        val create = compose.onNodeWithTag("diary-create").fetchSemanticsNode().boundsInRoot
+        val actions = compose.onNodeWithTag("diary-actions").fetchSemanticsNode().boundsInRoot
+        val calendar = compose.onNodeWithTag("calendar-mode-icon-profane").fetchSemanticsNode().boundsInRoot
+        assertTrue(title.right <= create.left && create.right <= actions.left && actions.right <= calendar.left)
         compose.onNodeWithTag("diary-create").performClick(); await("diary-editor")
         store.failWrites = true
         compose.onNodeWithTag("diary-body").performTextReplacement("Текст должен остаться в форме при ошибке устройства")

@@ -120,6 +120,7 @@ internal fun eveningSurfaceTone(color: Color): Color {
     val context = LocalContext.current
     val timeDialogTheme = if(LocalEveningTheme.current) android.R.style.Theme_DeviceDefault_Dialog else
         android.R.style.Theme_DeviceDefault_Light_Dialog
+    val dialogFrame = genesisNativeDialogFrame()
     var error by remember { mutableStateOf<String?>(null) }
     fun save(next: AppearanceSettings) {
         scope.launch {
@@ -138,7 +139,7 @@ internal fun eveningSurfaceTone(color: Color): Color {
             val next = if (light) appearance.copy(lightAt = value) else appearance.copy(darkAt = value)
             if (next.lightAt == next.darkAt) error = "Выберите разное время для светлой и тёмной схемы."
             else save(next)
-        }, current.hour, current.minute, use24).show()
+        }, current.hour, current.minute, use24).also { it.show(); dialogFrame(it) }
     }
     Column(Modifier.fillMaxWidth().testTag("appearance-settings"),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {

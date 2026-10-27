@@ -24,6 +24,7 @@ import ru.genesis.calendar.PagerTestActivity
 import ru.genesis.calendar.auth.SharedWorkspaceGateway
 import ru.genesis.calendar.captureNativeWindow
 import ru.genesis.calendar.domain.CalendarMode
+import ru.genesis.calendar.data.UiPreferences
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.CopyOnWriteArrayList
@@ -38,6 +39,7 @@ class SharedChaosBoxFlowTest {
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
     private val testAccount = "review5-shared-${UUID.randomUUID()}"
     private var account by mutableStateOf(testAccount)
+    private var displayCalendar by mutableStateOf(CalendarMode.PROFANE)
     private lateinit var displayPreferences: SharedPreferences
     private lateinit var sortKey: String
     private var originalSort: String? = null
@@ -78,8 +80,9 @@ class SharedChaosBoxFlowTest {
     private fun open(fixture: ChaosFixture) {
         compose.setContent { Theme {
             MobileWorkspaceShell("Проекты", null, emptyList(), "Синтетическая проверка", true,
-                onNavigate = {}, actions = { CalendarModeSwitcher(CalendarMode.PROFANE, {}, size = 48.dp) }) {
-                SharedProjectsScreen(fixture, "ru")
+                onNavigate = {}, actions = { CalendarModeSwitcher(displayCalendar,
+                    { displayCalendar = nextAvailableCalendarMode(displayCalendar, CalendarMode.entries.toSet()) }, size = 48.dp) }) {
+                SharedProjectsScreen(fixture, "ru", preferences = UiPreferences(display = displayCalendar, input = CalendarMode.PROFANE))
             }
         } }
         await("shared-space-${fixture.spaceA}")
@@ -217,7 +220,13 @@ class SharedChaosBoxFlowTest {
         click("shared-space-${fixture.spaceA}")
         click("shared-project-${fixture.projectA}", scroll = true)
         await("shared-task-project-a-1")
-        compose.onNodeWithTag("shared-create-task").assert(hasAnyAncestor(hasTestTag("app-header")))
+        val create = compose.onNodeWithTag("shared-create-task")
+            .assert(hasAnyAncestor(hasTestTag("shared-create-actions"))).fetchSemanticsNode().boundsInRoot
+        val folder = compose.onNodeWithTag("shared-create-folder").fetchSemanticsNode().boundsInRoot
+        val more = compose.onNodeWithTag("shared-actions")
+            .assert(hasAnyAncestor(hasTestTag("shared-create-actions"))).fetchSemanticsNode().boundsInRoot
+        assertTrue("Project actions must be ordered plus, folder, more", create.right <= folder.left && folder.right <= more.left)
+        assertTrue(abs(create.height - folder.height) <= 1f && abs(folder.height - more.height) <= 1f)
         assertPlainInlineInbox()
         compose.onNodeWithTag("shared-task-project-a-3").assertDoesNotExist()
         val dockBefore = compose.onNodeWithTag("shared-task-search-open").fetchSemanticsNode().boundsInRoot
@@ -267,6 +276,28 @@ class SharedChaosBoxFlowTest {
         compose.onNodeWithTag("shared-task-search").assertTextContains("Бета")
         compose.onNodeWithTag("shared-filters").assertIsDisplayed()
         compose.onNodeWithTag("shared-field-sort").assertIsDisplayed()
+    }
+
+    @Test fun sharedCalendarAndGanttFollowTheSingleHeaderCalendarChoice() {
+        val fixture = ChaosFixture()
+        open(fixture)
+        click("shared-space-${fixture.spaceA}")
+        val create = compose.onNodeWithTag("shared-create-project").fetchSemanticsNode().boundsInRoot
+        val menu = compose.onNodeWithTag("shared-actions").fetchSemanticsNode().boundsInRoot
+        assertTrue(create.right <= menu.left)
+        click("shared-project-${fixture.projectA}", scroll = true)
+        for (view in listOf("calendar", "gantt")) {
+            click("shared-view-selector")
+            click("shared-view-$view")
+            val tag = if (view == "calendar") "shared-calendar-period" else "shared-gantt"
+            compose.onNodeWithTag(tag).performScrollTo()
+            compose.onNodeWithTag(tag).assert(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.StateDescription, displayCalendar.wireValue))
+            val before = displayCalendar
+            click("calendar-mode-icon-${before.wireValue}")
+            compose.onNodeWithTag(tag).assert(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.StateDescription, displayCalendar.wireValue))
+            assertNotEquals(before, displayCalendar)
+            capture("$view-global-calendar")
+        }
     }
 
     @Test fun viewerSeesTaskRowsButNoCreationCompletionOrStatusMutationControls() {

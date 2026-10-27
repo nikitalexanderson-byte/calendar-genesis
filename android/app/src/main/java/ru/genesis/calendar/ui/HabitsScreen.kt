@@ -36,7 +36,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
+import ru.genesis.calendar.ui.Dialog
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -229,8 +229,11 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
         "data" -> "Данные привычек"
         else -> "Привычки"
     }
-    val subtitle = if (area in setOf("today", "library"))
-        GenesisCalendar().formatDate(today, displayCalendarMode) else "Привычки"
+    val subtitle = when (area) {
+        "catalogue" -> null
+        "today", "library" -> GenesisCalendar().formatDate(today, displayCalendarMode)
+        else -> "Привычки"
+    }
     val headerNavigation: @Composable () -> Unit = {
         if (area !in setOf("today", "library")) WorkspaceHeaderButton("К привычкам", "habit-workspace-back",
             onClick = { area = workspaceArea }) { GenesisLucideIcon("chevron-left") }
@@ -270,7 +273,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
             headerNavigation()
             Column(Modifier.weight(1f)) {
                 Text(title, style = MaterialTheme.typography.titleLarge)
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                subtitle?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
             headerActions()
         }

@@ -20,6 +20,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
@@ -32,6 +33,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -157,17 +159,8 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     val calendarEngine = remember { GenesisCalendar() }
     val enabledCalendars = LocalEnabledCalendars.current
     val context = LocalContext.current
-    val calendarPreferences = remember(context) { context.getSharedPreferences("genesis-shared-projects", 0) }
-    var calendarMode by rememberSaveable {
-        mutableStateOf(CalendarMode.fromWire(calendarPreferences.getString("calendarMode", "profane") ?: "profane")
-            .takeIf { it in enabledCalendars } ?: enabledCalendars.firstOrNull() ?: CalendarMode.PROFANE)
-    }
-    LaunchedEffect(enabledCalendars) {
-        if (calendarMode !in enabledCalendars) {
-            calendarMode = enabledCalendars.firstOrNull() ?: CalendarMode.PROFANE
-            calendarPreferences.edit().putString("calendarMode", calendarMode.wireValue).apply()
-        }
-    }
+    val calendarMode = preferences.display.takeIf { it in enabledCalendars }
+        ?: enabledCalendars.firstOrNull() ?: CalendarMode.PROFANE
     var calendarAnchor by remember { mutableStateOf(LocalDate.now()) }
     var calendarDay by remember { mutableStateOf(LocalDate.now()) }
     var showUndated by remember { mutableStateOf(false) }
@@ -772,7 +765,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                         if (newTaskDueDate.isBlank()) TextButton(onClick = { newTaskDueDate = LocalDate.now().toString() }) {
                             Text(if (en) "Set due date" else "Установить срок")
                         } else {
-                            AuthorDatePicker(newTaskDueDate, calendarMode) { newTaskDueDate = it }
+                            AuthorDatePicker(newTaskDueDate, preferences.input) { newTaskDueDate = it }
                             TextButton(onClick = { newTaskDueDate = "" }) { Text(if (en) "Clear" else "Убрать срок") }
                         }
                         Text(if (en) "Task list / status" else "Список задач / статус", style = MaterialTheme.typography.titleSmall)
@@ -1278,7 +1271,9 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         })
     }
     val spacesHeaderInShell = LocalWorkspaceHeader.current != null
-    val headerActions: @Composable () -> Unit = {
+    val projectToolbar = project != null && project.optInt("isInbox") == 0 && taskId.isBlank()
+    val spaceToolbar = spaceId.isNotBlank() && projectId.isBlank() && taskId.isBlank()
+    val headerActions: @Composable (Boolean) -> Unit = { inShell ->
         if (taskId.isNotBlank() && selectedTask != null && canOrganize) Box {
             var taskActionsOpen by remember(taskId) { mutableStateOf(false) }
             AffairsIconButton("Действия с задачей", AffairsAction.MORE, { taskActionsOpen = true })
@@ -1291,7 +1286,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
             }
         }
         if (taskId.isBlank()) Box {
-            if (spacesHeaderInShell) WorkspaceHeaderButton(genesisTranslate("Дополнительные действия"),
+            if (inShell && spacesHeaderInShell) WorkspaceHeaderButton(genesisTranslate("Дополнительные действия"),
                 "shared-actions", onClick = { actionsOpen = true }) { GenesisLucideIcon("ellipsis") }
             else AffairsIconButton("Дополнительные действия", AffairsAction.MORE, { actionsOpen = true },
                 Modifier.testTag("shared-actions"))
@@ -1313,7 +1308,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                     DropdownMenuItem(text = { Text("Шаблоны") }, modifier = Modifier.testTag("shared-templates-open"),
                         leadingIcon = { AffairsActionIcon(AffairsAction.TEMPLATE) }, onClick = { actionsOpen = false; templatesCaptureId = ""; templatesOpen = true })
                     DropdownMenuItem(text = { Text("Массовые действия") }, enabled = listContext.valid, modifier = Modifier.testTag("shared-bulk-open"),
-                        leadingIcon = { AffairsActionIcon(AffairsAction.SETTINGS) }, onClick = {
+                        leadingIcon = { GenesisLucideIcon("list-checks") }, onClick = {
                             actionsOpen = false; bulkProjectId = projectId; bulkFilter = taskFilter.toString(); bulkSort = listContext.sort; bulkOpen = true
                         })
                     DropdownMenuItem(text = { Text("Автоматизации") }, modifier = Modifier.testTag("shared-automations-open"),
@@ -1321,7 +1316,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                             actionsOpen = false; automationDestination.value = projectId
                         })
                     if (project?.optString("spaceRole") in setOf("owner", "admin")) DropdownMenuItem(text = { Text("Пользовательские поля") },
-                        modifier = Modifier.testTag("shared-fields-open"), leadingIcon = { AffairsActionIcon(AffairsAction.SETTINGS) },
+                        modifier = Modifier.testTag("shared-fields-open"), leadingIcon = { GenesisLucideIcon("file-text") },
                         onClick = { actionsOpen = false; automationDestination.fields.value = projectId })
                     DropdownMenuItem(text = { Text("Импорт данных") }, modifier = Modifier.testTag("shared-import-open"),
                         leadingIcon = { AffairsActionIcon(AffairsAction.IMPORT) },
@@ -1329,7 +1324,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                     DropdownMenuItem(text = { Text("Отчёт по совместной работе") }, modifier = Modifier.testTag("shared-team-report-open"),
                         leadingIcon = { AffairsActionIcon(AffairsAction.REPORT) }, onClick = { actionsOpen = false; teamReportOpen = true })
                     if (project?.optString("spaceRole") == "owner") DropdownMenuItem(text = { Text("Доступ к проектам") }, modifier = Modifier.testTag("shared-project-access-open"),
-                        leadingIcon = { AffairsActionIcon(AffairsAction.SETTINGS) }, onClick = { actionsOpen = false; projectAccessOpen = true })
+                        leadingIcon = { GenesisLucideIcon("key-round") }, onClick = { actionsOpen = false; projectAccessOpen = true })
                     if (project?.optInt("isInbox") == 0) DropdownMenuItem(
                         text = { androidx.compose.material3.Text(sharedPlanningCopy().getString("heading")) },
                         modifier = Modifier.testTag("shared-planning-open"),
@@ -1377,10 +1372,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     val headerInShell = WorkspaceScreenHeader(sharedHeaderTitle,sharedHeaderSubtitle,
         navigation={if(spaceId.isNotBlank()) WorkspaceHeaderButton(genesisTranslate("Назад"),"shared-back",enabled=!busy,onClick={navigateBack()}) {AffairsActionIcon(AffairsAction.BACK)}},
         singleLine=spaceId.isNotBlank(),titleIsUserContent=taskId.isBlank()&&spaceId.isNotBlank()) {
-        if(project!=null&&project.optInt("isInbox")==0&&taskId.isBlank()&&canEditTask) WorkspaceHeaderButton(genesisTranslate("Создать задачу"),"shared-create-task",enabled=!busy&&statuses.isNotEmpty(),onClick={
-            newTaskStatusId=statuses.firstOrNull()?.optString("id").orEmpty();newTaskCategoryId="";newTaskAssigneeId="";createCustomProjectId=projectId;createModal="task"
-        }) {AffairsActionIcon(AffairsAction.ADD)}
-        headerActions()
+        if (!projectToolbar && !spaceToolbar) headerActions(true)
     }
 
     Box(Modifier.fillMaxSize().onGloballyPositioned { rootPosition = it.boundsInWindow().topLeft }) {
@@ -1402,7 +1394,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
             }, icon = GenesisPageIcon.PROJECTS_SHARED,
             onBack = if (spaceId.isNotBlank()) ({ navigateBack() }) else null, backEnabled = !busy,
             titleIsUserContent = taskId.isBlank() && spaceId.isNotBlank(), contextIsUserContent = projectId.isNotBlank(),
-            actions = { headerActions() })
+            actions = { if (!projectToolbar && !spaceToolbar) headerActions(false) })
         if (offlineSnapshot) Text(if (en) "Offline: showing the last protected team snapshot."
             else "Нет связи: показана последняя защищённая копия команды.",
             modifier = Modifier.fillMaxWidth().testTag("shared-offline-status"),
@@ -1455,10 +1447,15 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                     }
                 }
             } else {
+                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).testTag("shared-space-actions"),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (spaceCanCreate) Button(onClick = {
                     createKind = "project"; parentId = ""; parentBoardId = ""; createModal = "project"
-                }, enabled = !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("shared-create-project")) {
+                }, enabled = !busy, modifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = 48.dp).testTag("shared-create-project")) {
                     Text("Создать общий проект")
+                }
+                else Spacer(Modifier.weight(1f))
+                headerActions(false)
                 }
                 val inboxLists=projects.filter {it.optString("kind")=="task-list"&&it.optString("parentId").let {parent->parent.isBlank()||parent=="null"||parent==inboxId}}
                 val spaceInbox: @Composable ()->Unit = {
@@ -1530,10 +1527,15 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                 Row(Modifier.fillMaxWidth().testTag("shared-create-actions"),
                     horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                     SharedWorkspaceViewChoice(activeView, { viewOverride = it }, Modifier.weight(1f))
+                    if (canEditTask) AffairsIconButton("Создать задачу", AffairsAction.ADD, {
+                        newTaskStatusId = statuses.firstOrNull()?.optString("id").orEmpty()
+                        newTaskCategoryId = ""; newTaskAssigneeId = ""; createCustomProjectId = projectId; createModal = "task"
+                    }, Modifier.testTag("shared-create-task"), enabled = !busy && statuses.isNotEmpty())
                     if (canWrite) SharedWorkspaceCreateMenu(!busy, statuses.size < 30,
                         onCreateList = { createModal = "status" }, onCreateProject = {
                             createKind = "project"; parentId = projectId; parentBoardId = ""; createModal = "project"
                         })
+                    headerActions(false)
                 }
 
                 SharedTaskListQueryStatus(listContext.reader, listContext.valid)
@@ -1554,17 +1556,6 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                             else -> members.firstOrNull { it.optString("userId") == assigneeFilter }?.optString("displayName") ?: "Исполнитель" }) })
                     if (priorityFilter >= 0) InputChip(true, { priorityFilter = -1 }, label = {
                         Text(listOf("Без приоритета", "Низкий приоритет", "Средний приоритет", "Высокий приоритет")[priorityFilter]) })
-                }
-                if (activeView in setOf("calendar", "gantt") && enabledCalendars.size > 1) Row(
-                    Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    CalendarMode.entries.filter { it in enabledCalendars }.forEach { mode ->
-                        FilterChip(selected = calendarMode == mode, onClick = {
-                            calendarMode = mode; calendarAnchor = calendarDay
-                            calendarPreferences.edit().putString("calendarMode", mode.wireValue).apply()
-                        }, label = { Text(when (mode) {
-                            CalendarMode.PROFANE -> "Григорианский"; CalendarMode.SACRED -> "Сакральный"; CalendarMode.LUNAR -> "Лунный"
-                        }) })
-                    }
                 }
                 if (taskPage == null && listContext.valid && listContext.reader.error.isBlank()) LinearProgressIndicator(Modifier.fillMaxWidth())
                 else if (taskPage != null && tasks.isEmpty()) Text("По вашему запросу ничего не найдено.", style = MaterialTheme.typography.bodyMedium)
@@ -1614,7 +1605,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                     TextButton(onClick = { val target = range.start.minusDays(1); calendarAnchor = target; calendarDay = target }) { Text("←") }
-                    Text(periodTitle,
+                    Text(periodTitle, Modifier.testTag("shared-calendar-period").semantics { stateDescription = calendarMode.wireValue },
                         style = MaterialTheme.typography.titleMedium)
                     TextButton(onClick = { val target = range.end.plusDays(1); calendarAnchor = target; calendarDay = target }) { Text("→") }
                 }
@@ -1977,7 +1968,8 @@ private fun SharedWorkspaceCreateMenu(enabled: Boolean, canCreateList: Boolean,
     onCreateList: () -> Unit, onCreateProject: () -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
-        AffairsIconButton("Добавить список или проект", AffairsAction.PROJECT, { open = true }, enabled = enabled)
+        AffairsIconButton("Добавить список или проект", AffairsAction.PROJECT, { open = true },
+            Modifier.testTag("shared-create-folder"), enabled = enabled)
         DropdownMenu(open, { open = false }) {
             DropdownMenuItem(text = { Text("Создать список задач") }, enabled = enabled && canCreateList,
                 leadingIcon = { AffairsActionIcon(AffairsAction.TASK_LIST) },

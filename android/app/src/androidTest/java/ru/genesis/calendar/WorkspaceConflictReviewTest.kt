@@ -22,6 +22,26 @@ class WorkspaceConflictReviewTest {
         WorkspaceConflictField("projects/p$index/title", "Собственный проект $index", "\"Исходное $index\"",
             "\"Телефон <script>alert($index)</script>\"", "\"Сайт $index\"")
     })
+    @Test fun globalNoticeOpensExactComparisonAndCancelDoesNotWrite() {
+        val value = preview(1)
+        var writes = 0
+        var retried = 0
+        val state = AuthPanelState(user = ServerIdentity("fixture-user", "Fixture", "fixture@example.invalid"),
+            outgoingSyncIssue = "Конфликт: обе копии сохранены.", workspaceConflictPath = value.fields.first().path,
+            workspaceConflictPreview = value)
+        compose.setContent { MaterialTheme(colorScheme = standart) {
+            WorkspaceSyncNotice(state, { retried++ }, { _, _ -> writes++ }, { uid, fingerprint ->
+                assertEquals("fixture-user", uid); assertEquals(value.fingerprint, fingerprint); writes++
+            })
+        } }
+        compose.onNodeWithTag("workspace-sync-compare").assertHeightIsAtLeast(48.dp).performClick()
+        compose.onNodeWithTag("workspace-conflict-dialog").assertIsDisplayed()
+        compose.onNodeWithTag("workspace-conflict-cancel").performClick()
+        assertEquals(0, writes); assertEquals(0, retried)
+        compose.onNodeWithTag("workspace-sync-compare").performClick()
+        compose.onNodeWithTag("workspace-conflict-keep-remote").performClick()
+        assertEquals(1, writes)
+    }
     private fun capture(name: String) {
         if (InstrumentationRegistry.getArguments().getString("genesisConflictCapture") != "true") return
         compose.waitForIdle()

@@ -21,6 +21,8 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -83,7 +85,7 @@ private val ganttRowHeight = 64.dp
             }
         }
     }
-    Column(Modifier.fillMaxWidth().testTag("shared-gantt"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(Modifier.fillMaxWidth().testTag("shared-gantt").semantics { stateDescription = calendarMode.wireValue }, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         ImportChoice("Масштаб времени", scale.name, SharedGanttScale.entries.map {
             it.name to genesisTranslate(if (it == SharedGanttScale.WEEKS) when (calendarMode) {
                 CalendarMode.SACRED -> "Пяты"; CalendarMode.LUNAR -> "Декады"; else -> it.label

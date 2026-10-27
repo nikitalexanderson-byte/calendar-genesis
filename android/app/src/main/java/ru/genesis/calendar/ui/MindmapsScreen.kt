@@ -117,9 +117,11 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
         (if(backLabel=="К общим делам") "Общие дела" else "Личные дела") +
             (if(archived) " · Архив" else projects.firstOrNull {it.id==projectId}?.title?.let {" · $it"} ?: "")
     } else "${map.nodes.size} узлов · "+if(record.unsynced)"Сохранено на устройстве" else "Синхронизировано"
-    val headerActions: @Composable () -> Unit = {
-            Box {
-                WorkspaceHeaderButton("Действия с картой", "mindmaps-actions", onClick={files=true}) { AffairsActionIcon(AffairsAction.MORE) }
+    val headerActions: @Composable (Modifier) -> Unit = { actionsModifier ->
+            Box(actionsModifier) {
+                if (map == null) WorkspaceHeaderButton("Действия с картой", "mindmaps-actions", onClick={files=true}) { AffairsActionIcon(AffairsAction.MORE) }
+                else AffairsIconButton("Действия с картой", AffairsAction.MORE, { files = true },
+                    Modifier.fillMaxWidth().testTag("mindmaps-actions"))
                 DropdownMenu(files,{files=false}) {
                     if(map==null) {
                         DropdownMenuItem(text={Text(if(archived) "Активные карты" else "Архив")},
@@ -143,12 +145,12 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
     val headerInShell = WorkspaceScreenHeader(headerTitle, headerSubtitle,
         navigation={ WorkspaceHeaderButton(if(mapId==null) backLabel else "Все майндмепы", "mindmaps-back", onClick=::goBack) {
             AffairsActionIcon(AffairsAction.BACK)
-        } }, singleLine=true, titleIsUserContent=map!=null, actions=headerActions)
+        } }, singleLine=true, titleIsUserContent=map!=null, actions={ if (map == null) headerActions(Modifier) })
     Box(Modifier.fillMaxSize().imePadding().testTag("mindmaps-screen")) {
     Column(Modifier.fillMaxSize().padding(horizontal=16.dp,vertical=8.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
         if(!headerInShell) AffairsPageHeader(headerTitle, headerSubtitle, icon=GenesisPageIcon.MINDMAPS,
             onBack=::goBack, backLabel=if(mapId==null)backLabel else "Все майндмепы", titleIsUserContent=map!=null,
-            contextMaxLines=1) { headerActions() }
+            contextMaxLines=1) { if (map == null) headerActions(Modifier) }
         error?.let { Text(it,color=MaterialTheme.colorScheme.error);if(map!=null)FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             TextButton(enabled=!busy&&!readOnly,onClick={run { repo.retry(map.id) }}){Text("Повторить сохранение")}
             TextButton(enabled=!busy&&!readOnly,onClick={run {open(repo.fork(map).id)}}){Text("Сохранить отдельную карту")}
@@ -187,20 +189,16 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
             }
         } else {
             Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min),horizontalArrangement=Arrangement.spacedBy(6.dp),verticalAlignment=Alignment.CenterVertically) {
-                listOf("map" to "Карта","structure" to "Структура").forEach { (id,label)->
-                    val picked=view.optString("mode")==id
-                    Surface(onClick={query="";changeView(JSONObject(view.toString()).put("mode",id))},
-                        modifier=Modifier.weight(1f).fillMaxHeight().heightIn(min=48.dp).testTag("mindmap-mode-$id")
-                            .semantics { this.selected=picked },
-                        color=if(picked)MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-                        contentColor=if(picked)MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-                        border=BorderStroke(1.dp,if(picked)MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline),shape=AffairsLayout.controlShape) {
-                        Box(Modifier.padding(horizontal=2.dp,vertical=10.dp),contentAlignment=Alignment.Center) {Text(label,style=MaterialTheme.typography.labelLarge,maxLines=2)}
-                    }
-                }
-                OutlinedButton(onClick={query="";resetCanvas++;changeView(JSONObject(view.toString()).removeFocus().put("zoom",1.0))},
-                    modifier=Modifier.weight(1f).fillMaxHeight().heightIn(min=48.dp).testTag("mindmap-reset"),contentPadding=PaddingValues(horizontal=2.dp)) { Text("К началу",style=MaterialTheme.typography.labelLarge,maxLines=2) }
-                AffairsIconButton("Добавить мысль",AffairsAction.ADD,{add()},enabled=!busy&&!readOnly,modifier=Modifier.testTag("mindmap-add-node"))
+                val structure = view.optString("mode") == "structure"
+                Box(Modifier.weight(1f)) { AffairsIconButton(if (structure) "Показать карту" else "Показать структуру",
+                    if (structure) AffairsAction.MINDMAP else AffairsAction.SUBTASK, {
+                        query = ""; changeView(JSONObject(view.toString()).put("mode", if (structure) "map" else "structure"))
+                    }, Modifier.fillMaxWidth().testTag("mindmap-mode-toggle")) }
+                Box(Modifier.weight(1f)) { AffairsIconButton("К началу", AffairsAction.CENTER, {
+                    query = ""; resetCanvas++; changeView(JSONObject(view.toString()).removeFocus().put("zoom", 1.0))
+                }, Modifier.fillMaxWidth().testTag("mindmap-reset")) }
+                Box(Modifier.weight(1f)) { AffairsIconButton("Добавить мысль",AffairsAction.ADD,{add()},enabled=!busy&&!readOnly,modifier=Modifier.fillMaxWidth().testTag("mindmap-add-node")) }
+                headerActions(Modifier.weight(1f))
             }
             if(view.optString("focus").isNotBlank()&&view.optString("focus")!="null")TextButton(onClick={changeView(JSONObject(view.toString()).removeFocus())}){Text("Вся карта")}
             if(searchOpen) Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {

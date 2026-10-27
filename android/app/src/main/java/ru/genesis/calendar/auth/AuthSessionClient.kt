@@ -636,7 +636,7 @@ internal class AuthSessionClient(context: Context) {
             "/auth/google/native", "/auth/google/native/services/config", "/auth/google/native/services",
             "/auth/logout", "/account/preferences", "/admin/stats", "/feature-usage") ||
             (method == "GET" && path.matches(Regex("/ads/today\\?language=[a-z]{2}&country=[A-Z]{0,2}&platform=android"))) ||
-            (method == "POST" && path in setOf("/advice/today", "/advice/view", "/advice/dismiss")) ||
+            (method == "POST" && path in setOf("/advice/today", "/advice/next", "/advice/view", "/advice/dismiss")) ||
             (path == "/task-lists" && method == "POST") ||
             (method in setOf("PATCH", "DELETE") && path.matches(Regex("/task-lists/[A-Za-z0-9_%.-]{1,1500}"))) ||
             (method in setOf("PUT", "DELETE") && path.matches(Regex("/tasks/[A-Za-z0-9_-]{1,100}"))) ||

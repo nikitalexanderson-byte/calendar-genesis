@@ -65,7 +65,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.window.Dialog
+import ru.genesis.calendar.ui.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.Dispatchers
@@ -477,17 +477,9 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                 }
                 HabitNotificationAccessNotice(app,habitTrackingEnabled &&
                     habitWorkspace.habits.any { it.reminder.enabled })
-                if (!testWorkspace) authState.outgoingSyncIssue?.let { issue ->
-                    Surface(color=MaterialTheme.colorScheme.errorContainer,
-                        modifier=Modifier.fillMaxWidth().padding(horizontal=16.dp, vertical=4.dp),
-                        shape=AffairsLayout.shape) {
-                        Row(Modifier.padding(start=12.dp, end=4.dp), verticalAlignment=Alignment.CenterVertically) {
-                            Text(issue, Modifier.weight(1f), style=MaterialTheme.typography.bodySmall,
-                                color=MaterialTheme.colorScheme.onErrorContainer)
-                            AffairsIconButton("Повторить", AffairsAction.REFRESH, authController::syncPending)
-                        }
-                    }
-                }
+                if (!testWorkspace) ru.genesis.calendar.auth.WorkspaceSyncNotice(authState,
+                    authController::syncPending, authController::keepLocalWorkspaceChanges,
+                    authController::keepRemoteWorkspaceChanges)
                 if (!testWorkspace && accountTaskSync != null) {
                     ru.genesis.calendar.auth.AccountTaskSyncNotice(accountTaskSync,
                         Modifier.padding(horizontal = 16.dp, vertical = 4.dp))

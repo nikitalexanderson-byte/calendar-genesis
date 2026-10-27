@@ -22,6 +22,16 @@ internal val GenesisShapes = Shapes(
     large = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
     extraLarge = androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
 
+/** All native overflow and selection menus share the same visible boundary. */
+@Composable internal fun DropdownMenu(expanded: Boolean, onDismissRequest: () -> Unit,
+    modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    androidx.compose.material3.DropdownMenu(expanded = expanded, onDismissRequest = onDismissRequest,
+        modifier = modifier, shape = AffairsLayout.shape,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        tonalElevation = 0.dp, shadowElevation = 8.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary), content = content)
+}
+
 /** STANDART controls keep Material behavior with the shared rectangular silhouette. */
 @Composable internal fun Button(onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true,
     shape: Shape = AffairsLayout.controlShape, colors: ButtonColors = ButtonDefaults.buttonColors(),

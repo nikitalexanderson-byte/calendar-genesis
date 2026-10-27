@@ -2,6 +2,8 @@ package ru.genesis.calendar.data
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -26,7 +28,7 @@ internal data class MessagingDraft(val id: String, val text: String = "", val fi
 }
 internal data class MessagingState(val initialized: Boolean = false, val keyReady: Boolean = false, val restoreRequired: Boolean = false,
     val conversations: List<MessagingNotice> = emptyList(), val invitations: List<MessagingNotice> = emptyList(), val contacts: List<MessagingNotice> = emptyList(),
-    val contactsCursor: String? = null, val participants: List<MessagingPeer> = emptyList(), val selected: MessagingNotice? = null,
+    val contactsCursor: String? = null, val contactsQuery: String = "", val participants: List<MessagingPeer> = emptyList(), val selected: MessagingNotice? = null,
     val accepted: Boolean = false, val declined: Boolean = false, val accessBlocked: Boolean = false, val offline: Boolean = false,
     val initiator: String? = null, val securityCode: String? = null, val messages: List<MessagingRow> = emptyList(),
     val before: Long? = null, val draft: MessagingDraft? = null, val pending: Boolean = false, val pendingDelete: Boolean = false, val keyChanged: Boolean = false)
@@ -89,11 +91,13 @@ internal class MessagingRepository(private val owner: String, private val gatewa
     suspend fun refreshInbox() = mutex.withLock { initializeLocked(); inboxLocked() }
     suspend fun contacts(query: String, cursor: String? = null) = mutex.withLock {
         initializeLocked(); require(query.length <= 200)
+        if (cursor != null && mutable.value.contactsQuery != query) return@withLock
         val path = "/shared/messaging/contacts?q=" + URLEncoder.encode(query, "UTF-8") + (cursor?.let { "&cursor=${uuid(it)}" } ?: "")
         val result = request("GET", path)
+        currentCoroutineContext().ensureActive()
         val rows = notices(result.getJSONArray("contacts")); val next = result.opt("nextCursor") as? String
         if (next != null) uuid(next)
-        publish(mutable.value.copy(contacts = if (cursor == null) rows else (mutable.value.contacts + rows).distinctBy { it.id }, contactsCursor = next))
+        publish(mutable.value.copy(contacts = if (cursor == null) rows else (mutable.value.contacts + rows).distinctBy { it.id }, contactsCursor = next, contactsQuery = query))
     }
     private suspend fun peersLocked(space: String, active: Boolean? = null, clientId: String? = null): List<MessagingPeer> {
         val result = request(if (active == null) "GET" else "POST", "/shared/spaces/${uuid(space)}/participants",

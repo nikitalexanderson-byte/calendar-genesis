@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
+import ru.genesis.calendar.ui.AlertDialog
 import ru.genesis.calendar.ui.Button
 import androidx.compose.material3.MaterialTheme
 import ru.genesis.calendar.ui.TextButton

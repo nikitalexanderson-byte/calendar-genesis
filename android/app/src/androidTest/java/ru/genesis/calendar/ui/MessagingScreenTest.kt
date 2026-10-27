@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.async
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.*
@@ -33,12 +34,21 @@ private class MessagingUiStore : MessagingStore {
     override suspend fun delete(key: String) { rows.remove(key) }
 }
 private class MessagingUiGateway : MessagingGateway {
+    val contactQueries = java.util.concurrent.CopyOnWriteArrayList<String>()
     var registered: JSONObject? = null
     val peer = MessagingCrypto.createIdentity()
     val space = "10000000-0000-0000-0000-000000000001"; val conversation = "20000000-0000-0000-0000-000000000002"
     val messages = mutableListOf<JSONObject>()
     override fun check() = Unit
     override suspend fun request(method: String, path: String, body: JSONObject?): JSONObject {
+        if (path.startsWith("/shared/messaging/contacts?")) {
+            val query = java.net.URLDecoder.decode(path.substringAfter("?q=").substringBefore('&'), "UTF-8")
+            contactQueries += query
+            if (query == "Старый") kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) { kotlinx.coroutines.delay(500) }
+            return JSONObject().put("contacts", if (query == "Анна") JSONArray().put(JSONObject()
+                .put("id", conversation).put("spaceId", space).put("peerId", "peer").put("peerName", "Анна")) else JSONArray())
+                .put("nextCursor", JSONObject.NULL)
+        }
         if (path == "/shared/messaging/key") {
             if (body != null) registered = body.getJSONObject("publicKey")
             return JSONObject().put("keyId", registered?.let(MessagingCrypto::fingerprint) ?: JSONObject.NULL).put("publicKey", registered ?: JSONObject.NULL)
@@ -85,6 +95,39 @@ class MessagingScreenTest {
         captureNativeWindow(File(compose.activity.getExternalFilesDir(null),
             "messaging-$width-${if (dark) "dark" else "light"}-$name.png"))
     }
+    @Test fun contactSearchRunsWhileTypingAndHeaderActionsStayAfterTheTitle() {
+        compose.setContent { Content() }
+        compose.waitUntil(20_000) { repository.state.value.initialized }
+        val title = compose.onNodeWithTag("workspace-title").fetchSemanticsNode().boundsInRoot
+        val actions = compose.onNodeWithTag("messaging-actions").fetchSemanticsNode().boundsInRoot
+        val calendar = compose.onNodeWithTag("calendar-mode-icon-profane").fetchSemanticsNode().boundsInRoot
+        assertTrue(title.right <= actions.left && actions.right <= calendar.left)
+        compose.onNodeWithTag("messaging-tab-contacts").performClick()
+        val search = compose.onNodeWithTag("messaging-contacts-search")
+        search.performTextReplacement("Ан")
+        search.performTextReplacement("Анна")
+        compose.waitUntil(10_000) { repository.state.value.contactsQuery == "Анна" }
+        compose.onNode(hasText("Анна") and hasAnyAncestor(hasTestTag("messaging-inbox"))).assertExists()
+        compose.onNodeWithContentDescription("Найти").assertDoesNotExist()
+        assertEquals("Анна", gateway.contactQueries.last())
+        capture("contacts-auto-search")
+        search.performTextClearance()
+        compose.waitUntil(10_000) { repository.state.value.contactsQuery.isEmpty() }
+        assertTrue(repository.state.value.contacts.isEmpty())
+    }
+
+    @Test fun cancelledContactResponseCannotPublishAnOldQuery() = runBlocking {
+        repository.initialize()
+        val pending = async(kotlinx.coroutines.Dispatchers.IO) { repository.contacts("Старый") }
+        while ("Старый" !in gateway.contactQueries) kotlinx.coroutines.delay(10)
+        pending.cancel()
+        pending.join()
+        assertNotEquals("Старый", repository.state.value.contactsQuery)
+        repository.contacts("Анна")
+        assertEquals("Анна", repository.state.value.contactsQuery)
+        assertEquals("Анна", repository.state.value.contacts.single().peerName)
+    }
+
     @Test fun inboxChatEncryptedDraftSendAndSecurityCode() {
         compose.setContent { Content() }
         compose.waitUntil(20_000) { repository.state.value.conversations.isNotEmpty() }
