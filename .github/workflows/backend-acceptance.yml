@@ -45,7 +45,7 @@ jobs:
           '
           php -l server/src/shared-projects.php
           php -l server/tests/shared-sprint-reports.php
-          for name in shared-mutation-receipts shared-mindmap-conversion shared-projects shared-sprint-reports shared-sprint-flow-model shared-reports-history shared-reports-integration shared-workflows workflow-integrations shared-automations shared-notifications; do
+          for name in shared-mutation-receipts shared-mindmap-conversion shared-projects shared-sprint-reports shared-sprint-flow-model shared-reports-history shared-reports-integration shared-workflows workflow-integrations shared-automations shared-notifications daily-advice; do
             # Each test owns a fresh disposable database; no runtime account data is used.
             rm -f -- "$GENESIS_SMOKE_ROOT/genesis.sqlite" "$GENESIS_SMOKE_ROOT/genesis.sqlite-wal" "$GENESIS_SMOKE_ROOT/genesis.sqlite-shm"
             php "server/tests/$name.php" | tee "output/backend-acceptance/$name.log"

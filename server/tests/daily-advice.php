@@ -177,7 +177,14 @@ $twiceReadFood = [...$readBoth, ['advice_id' => $food['id'], 'day_key' => '2026-
 adviceExpect(genesisChooseAdvice([$home, $food], $preferences, $smartHome, $twiceReadFood, 'finish-round', [], [], $afterHome)['id'] === $home['id'], 'Category alternation bypassed a less-viewed repeat round');
 $afterAretology = ['previousCategories' => ['aretology'], 'hour' => 15];
 adviceExpect(genesisChooseAdvice([$morning, $food], $preferences, $smartHome, [], 'timed-alternation', [], [], $afterAretology)['id'] === $food['id'], 'Category alternation ignored the local practice window');
-adviceExpect(genesisChooseAdvice([$clothing, $food], $preferences, $smartHome, [], 'rare-alternation', [], [], $afterAretology)['id'] === $food['id'], 'Category alternation bypassed the rare clothing gate');
+// Rarity is stable per account/day. Do not let the wall-clock day decide which branch this regression tests.
+$blockedRareUser = '';
+for ($i = 0; $i < 100; $i++) if (hexdec(substr(hash('sha256', 'rare-' . $i . ':2026-10-23:clothing'), 0, 4)) % 4 !== 0) { $blockedRareUser = 'rare-' . $i; break; }
+adviceExpect($rareUser !== '' && $blockedRareUser !== '', 'Could not construct both deterministic rarity contexts');
+$blockedAlternation = [...$afterAretology, 'day' => '2026-10-23', 'user' => $blockedRareUser];
+$allowedAlternation = [...$afterAretology, ...$rareContext];
+adviceExpect(genesisChooseAdvice([$clothing, $food], $preferences, $smartHome, [], 'rare-alternation', [], [], $blockedAlternation)['id'] === $food['id'], 'Category alternation bypassed the rare clothing gate');
+adviceExpect(genesisChooseAdvice([$clothing, $food], $preferences, $smartHome, [], 'rare-alternation', [], [], $allowedAlternation)['id'] === $clothing['id'], 'Category alternation suppressed clothing on an eligible rare day');
 
 $db = genesisDb(); $ids = [];
 for ($index = 0; $index < 3; $index++) {
