@@ -799,7 +799,6 @@ private fun CalendarMonthTaskRail(date: LocalDate, total: Int, completed: Int, e
             .semantics { contentDescription = taskDescription } else Modifier),
         horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(gap)) {
         if (total > 0) CalendarPersonalCountDisc(total, completed, 18.dp, Modifier.testTag("calendar-task-count-disc-$date"))
-        else if (shared > 0) Spacer(Modifier.size(18.dp))
         if (shared > 0) SharedTaskCountDisc(shared, "$shared ${genesisTranslate("общих задач")}",
             Modifier.testTag("calendar-shared-count-$date"), 18.dp)
     }
