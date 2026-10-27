@@ -2024,8 +2024,10 @@ test("covers every Theokyklos sector with sacred habits while keeping Stoicheion
 });
 
 test("retains the legacy TWA artifact but promotes only the signed native Android release", async () => {
-  const [installHook, calendar, welcome, styles, androidBuild, androidManifest, androidLauncher, androidBaseStyles, androidApi27Styles, assetLinks, htaccess, serviceWorker, deployWorkflow] = await Promise.all([
+  const [installHook, androidBrowserPolicy, androidDownload, calendar, welcome, styles, androidBuild, androidManifest, androidLauncher, androidBaseStyles, androidApi27Styles, assetLinks, htaccess, serviceWorker, deployWorkflow] = await Promise.all([
     readFile(new URL("../app/use-pwa-install.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/android-install.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/AndroidDownload.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/WelcomeScreen.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
@@ -2042,8 +2044,8 @@ test("retains the legacy TWA artifact but promotes only the signed native Androi
   const association = JSON.parse(assetLinks)[0];
   const apk = await stat(new URL("../public/downloads/GENESIS-Android-1.2.2.apk", import.meta.url));
 
-  assert.match(installHook, /\/android\/i/);
-  assert.match(installHook, /\/mobile\/i/);
+  assert.match(androidBrowserPolicy, /\/android\/i/);
+  assert.match(androidBrowserPolicy, /\/mobile\/i/);
   assert.match(installHook, /window\.location\.hostname[\s\S]*device[\s\S]*android-phone/);
   assert.match(installHook, /isAndroidPhone && !isStandalone/);
   assert.doesNotMatch(installHook, /downloads\/GENESIS-Android-1\.2\.2\.apk/);
@@ -2051,11 +2053,13 @@ test("retains the legacy TWA artifact but promotes only the signed native Androi
   assert.doesNotMatch(installHook, /GENESIS-Android-Native-2\.2\.7\.apk/);
   assert.doesNotMatch(calendar, /android-apk-icon-button/);
   assert.match(calendar, /nativeAndroidApkUrl=\{nativeAndroidApkUrl\}/);
-  assert.match(calendar, /android-native-icon-button/);
-  assert.match(welcome, /android-download-button/);
-  assert.match(welcome, /Нативное Android-приложение/);
-  assert.match(welcome, /androidMigration/);
-  assert.match(welcome, /android-update\.json/);
+  assert.match(calendar, /<AndroidDownload[^>]*toolbar/);
+  assert.match(welcome, /<AndroidDownload/);
+  assert.match(androidDownload, /android-native-icon-button/);
+  assert.match(androidDownload, /android-download-button/);
+  assert.match(androidDownload, /android-install-copy\.json/);
+  assert.match(androidDownload, /android-update\.json/);
+  assert.doesNotMatch(welcome + calendar, /remove the old TWA|сначала удалите|перед установкой удалите/i);
   assert.doesNotMatch(welcome, /download="GENESIS-Android-Native-/);
   assert.doesNotMatch(calendar, /download="GENESIS-Android-Native-/);
   assert.match(styles, /\.android-download-button/);
@@ -2075,10 +2079,17 @@ test("retains the legacy TWA artifact but promotes only the signed native Androi
     // A trial must not silently replace the existing stable distribution.
     assert.ok(deployWorkflow.includes("versionCode='102' versionName='2.9.7'"));
     assert.ok(deployWorkflow.includes("GENESIS-Android-Native-2.9.7.apk"));
-  } else {
-    assert.ok(deployWorkflow.includes(`versionCode='${nativeVersionCode}' versionName='${nativeVersionName}'`));
-    assert.ok(deployWorkflow.includes(`GENESIS-Android-Native-${nativeVersionName}.apk`));
   }
+  // Source can prepare a newer release while Android publication is disabled.
+  // The workflow's APK identity check must keep the published channel pinned;
+  // a new version name in Gradle alone must never advance the download pointer.
+  const publishedRelease = deployWorkflow.match(/versionCode='(\d+)' versionName='([\d.]+)'/);
+  assert.ok(publishedRelease, "Deployment must verify the identity of its published APK");
+  const [, publishedCode, publishedName] = publishedRelease;
+  assert.ok(Number(publishedCode) <= nativeVersionCode, "Prepared source must not downgrade the published release");
+  assert.ok(deployWorkflow.includes(`GENESIS-Android-Native-${publishedName}.apk`));
+  assert.match(deployWorkflow, /DEPLOY_ANDROID:.*vars\.GENESIS_DEPLOY_ANDROID/);
+  assert.match(deployWorkflow, /name: Build signed native Android APK and Play bundle\s+if: env\.DEPLOY_ANDROID == 'true'/);
   assert.match(androidBuild, /releaseSigningReady/);
   assert.match(androidBuild, /applicationIdSuffix = debugApplicationSuffix/);
   assert.match(androidBuild, /gradleProperty\("genesisDebugApplicationIdSuffix"\)\.orElse\("\.debug"\)/);

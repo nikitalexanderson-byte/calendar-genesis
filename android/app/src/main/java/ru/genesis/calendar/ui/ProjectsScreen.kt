@@ -378,7 +378,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
                         }
                     }
     }
-    val headerInShell = WorkspaceScreenHeader("Личные дела", projectSummary, headerActions)
+    val headerInShell = WorkspaceScreenHeader("Личные дела", projectSummary, actions = headerActions)
 
     Box(Modifier.fillMaxSize().onGloballyPositioned { workspaceBounds = it.boundsInRoot() }) {
     val inboxContent: @Composable () -> Unit = {
@@ -719,13 +719,13 @@ private fun InboxProjectCard(inbox: List<LocalTask>, projects: List<GenesisProje
     onMoveTask: (String, String) -> Unit, onDeleteClick: (LocalTask) -> Unit, onCompleteTask: (LocalTask) -> Unit,
     listCount: Int = 0, atBottom: Boolean, onMove: () -> Unit, onHide: () -> Unit,
     listsContent: @Composable () -> Unit = {}) {
-    val background = MaterialTheme.colorScheme.surfaceContainerLow
+    val background = chaosBoxColor()
     val foreground = MaterialTheme.colorScheme.onSurface
     val secondary = MaterialTheme.colorScheme.onSurfaceVariant
     var inboxActionsOpen by remember { mutableStateOf(false) }
     Surface(
         modifier = Modifier.fillMaxWidth().testTag("project-inbox"),
-        shape = MaterialTheme.shapes.medium, color = background,
+        shape = MaterialTheme.shapes.medium, color = background, border = BorderStroke(1.dp, chaosBoxBorder()),
         tonalElevation = if (experimental) 0.dp else 1.dp
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

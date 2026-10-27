@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { canOfferAndroidDownload } from "./android-install";
 
 type InstallPrompt = Event & {
   prompt: () => Promise<void>;
@@ -10,23 +11,12 @@ type InstallPrompt = Event & {
 const APP_BASE = (process.env.NEXT_PUBLIC_GENESIS_BASE_PATH?.trim() || "").replace(/\/$/, "");
 const NATIVE_ANDROID_APK_URL = `${APP_BASE}/api/android/download`;
 
-type NavigatorWithUserAgentData = Navigator & {
-  userAgentData?: {
-    mobile?: boolean;
-    platform?: string;
-  };
-};
-
 function isAndroidPhoneBrowser() {
   const isLocalAndroidPreview = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname)
     && new URLSearchParams(window.location.search).get("device") === "android-phone";
   if (isLocalAndroidPreview) return true;
 
-  const browserNavigator = navigator as NavigatorWithUserAgentData;
-  const platform = browserNavigator.userAgentData?.platform ?? navigator.platform ?? "";
-  const isAndroid = /android/i.test(`${platform} ${navigator.userAgent}`);
-  const isPhone = browserNavigator.userAgentData?.mobile ?? /mobile/i.test(navigator.userAgent);
-  return isAndroid && isPhone;
+  return canOfferAndroidDownload(navigator);
 }
 
 function isIosBrowser() {

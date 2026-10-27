@@ -24,7 +24,8 @@ import ru.genesis.calendar.domain.GenesisCalendar
 import ru.genesis.calendar.domain.habits.*
 
 @Composable internal fun HabitHistoryPanel(workspace: LocalHabitWorkspace, repository: HabitsRepository,
-    mode: ru.genesis.calendar.domain.CalendarMode, focus: Pair<String,LocalDate>? = null, onFocusConsumed: () -> Unit = {}) {
+    mode: ru.genesis.calendar.domain.CalendarMode, focus: Pair<String,LocalDate>? = null,
+    selectedHabitId: String? = null, onFocusConsumed: () -> Unit = {}) {
     val app = LocalContext.current.applicationContext as GenesisApplication
     val preferences = remember(app) { LocalPreferences(app, app.workspaceScope) }
     val prefs by preferences.values.collectAsState(initial = UiPreferences())
@@ -37,6 +38,14 @@ import ru.genesis.calendar.domain.habits.*
     var dateValue by rememberSaveable { mutableStateOf("") }
     val historyFocus = remember { BringIntoViewRequester() }
     var requestedFocus by remember { mutableStateOf(false) }
+    LaunchedEffect(selectedHabitId) {
+        if (selectedHabitId != null && focus == null) {
+            historyVisible = true
+            selected = selectedHabitId
+            dateValue = ""
+            expanded = false
+        }
+    }
     LaunchedEffect(focus) { focus?.let { historyVisible=true;selected=it.first;dateValue=it.second.toString();expanded=true;requestedFocus=true;onFocusConsumed() } }
     LaunchedEffect(requestedFocus, expanded, historyVisible) { if (requestedFocus && expanded && historyVisible) { withFrameNanos { }; historyFocus.bringIntoView(); requestedFocus=false } }
     var visible by rememberSaveable { mutableIntStateOf(30) }
@@ -50,6 +59,15 @@ import ru.genesis.calendar.domain.habits.*
         }
         if (historyVisible) historyState.SaveableStateProvider("history") {
             Column(Modifier.fillMaxWidth().testTag("habit-history-content"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                val contextualHistory = selectedHabitId != null && selected.isNotBlank()
+                val historyEntries = workspace.completions.filter { !contextualHistory || it.habitId == selected }
+                if (contextualHistory && habit != null) {
+                    MaterialText(habitDisplayTitle(habit), style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.testTag("habit-history-selected-title"))
+                    TextButton(onClick = { selected = ""; expanded = false; visible = 30 },
+                        modifier = Modifier.heightIn(min = 48.dp)) { Text("Все привычки") }
+                    if (historyEntries.isEmpty()) Text("История появится после первой отметки.")
+                }
                 TextButton(onClick = { expanded = !expanded }, shape = AffairsLayout.controlShape,
                     modifier = Modifier.heightIn(min = 48.dp).bringIntoViewRequester(historyFocus).testTag("habit-history-toggle")) { Text("Исправить историю") }
                 if (expanded && habit != null) {
@@ -65,14 +83,14 @@ import ru.genesis.calendar.domain.habits.*
                             gregorianYearStart = if(prefs.gregorianYearStartsInMarch) "march" else "january")) { dateValue = it }
                     key(habit.id, date) { HabitHistoryForm(workspace, repository, habit, date, mode, use24) }
                 }
-                workspace.completions.sortedByDescending { it.date }.take(visible).forEach { entry ->
+                historyEntries.sortedByDescending { it.date }.take(visible).forEach { entry ->
                     val target = workspace.habits.firstOrNull { it.id == entry.habitId } ?: return@forEach
                     TextButton(onClick = { selected = target.id; dateValue = entry.date.toString(); expanded = true }) {
                         Text("${entry.date} · ${target.title} · ${if (entry.completed) genesisTranslate("Выполнено") else genesisTranslate("Отметка снята")}",
                             style = MaterialTheme.typography.bodySmall)
                     }
                 }
-                if (workspace.completions.size > visible) TextButton(onClick = { visible += 30 }) { Text("Показать ещё") }
+                if (historyEntries.size > visible) TextButton(onClick = { visible += 30 }) { Text("Показать ещё") }
             }
         }
     }

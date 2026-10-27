@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
@@ -65,7 +66,8 @@ internal fun HabitMeasurementFields(value: HabitMeasurement?, existing: Boolean,
 @Composable
 internal fun HabitMeasurementInputs(habit: Habit, events: List<HabitMeasurementEvent>, date: LocalDate,
     completion: HabitCompletion?, enabled: Boolean,
-    onRecord: suspend (Long?,String?,List<String>,String) -> Unit, onQuality: suspend (Double) -> Unit) {
+    onRecord: suspend (Long?,String?,List<String>,String) -> Unit, onQuality: suspend (Double) -> Unit,
+    compact: Boolean = false) {
     val state = remember(habit,events,date) { HabitMeasurements.progress(habit,date,events) }
     val definition = HabitMeasurements.effective(state.rule) ?: return
     val countOnly = state.rule.measurement==null
@@ -77,10 +79,11 @@ internal fun HabitMeasurementInputs(habit: Habit, events: List<HabitMeasurementE
     val preferences = remember(app) { LocalPreferences(app,app.workspaceScope) }
     val prefs by preferences.values.collectAsStateWithLifecycle(UiPreferences())
     val calendar = remember(state.rule.schedule.timezone) { GenesisCalendar(ZoneId.of(state.rule.schedule.timezone)) }
-    var value by remember(habit.id,date) { mutableStateOf("") }
-    var note by remember(habit.id,date) { mutableStateOf("") }
-    var editing by remember(habit.id,date) { mutableStateOf<String?>(null) }
-    var expanded by remember(habit.id,date) { mutableStateOf(false) }
+    var value by rememberSaveable(habit.id,date.toString()) { mutableStateOf("") }
+    var note by rememberSaveable(habit.id,date.toString()) { mutableStateOf("") }
+    var editing by rememberSaveable(habit.id,date.toString()) { mutableStateOf<String?>(null) }
+    var expanded by rememberSaveable(habit.id,date.toString()) { mutableStateOf(false) }
+    var manualOpen by rememberSaveable(habit.id,date.toString()) { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf(false) }
     val clock = remember(language,prefs.use24,state.rule.schedule.timezone) { DateTimeFormatter.ofPattern(if(prefs.use24) "HH:mm" else "hh:mm a",Locale.ROOT)
@@ -95,25 +98,38 @@ internal fun HabitMeasurementInputs(habit: Habit, events: List<HabitMeasurementE
         busy = true; error = false
         scope.launch {
             try { onRecord(amount,entry?.id,entry?.heads?.map { it.entity.id }.orEmpty(),note)
-                value="";note="";editing=null
+                value="";note="";editing=null;manualOpen=false
             } catch(e: CancellationException) { throw e }
             catch(_: Exception) { error=true }
             finally { busy=false }
         }
     }
-    Column(Modifier.fillMaxWidth().padding(12.dp).testTag("habit-measurement-${habit.id}"),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+    Column(Modifier.fillMaxWidth().padding(if (compact) 0.dp else 12.dp).testTag("habit-measurement-${habit.id}"),verticalArrangement=Arrangement.spacedBy(8.dp)) {
         Text(if(periodicVolume) "${translateGenesisText(context,"Записано сегодня",language)}: ${format(state.total)}" else "${format(state.total)} / ${format(state.target)}",style=MaterialTheme.typography.titleMedium)
         if(!periodicVolume) Text(if(state.completed) "Цель достигнута" else "${translateGenesisText(context,"Осталось",language)}: ${format(state.remaining)}",style=MaterialTheme.typography.bodySmall)
         if(enabled) {
-            if(editing==null) OutlinedButton(enabled=!busy,onClick={save(definition.quickAdd)}) { Text(if(countOnly) "Добавить выполнение" else "+ ${format(definition.quickAdd)}") }
+            FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                if(editing==null) OutlinedButton(enabled=!busy,onClick={save(definition.quickAdd)},
+                    modifier=Modifier.heightIn(min=48.dp).testTag("habit-measurement-quick-${habit.id}")) {
+                    Text(if(countOnly) "Добавить выполнение" else "+ ${format(definition.quickAdd)}")
+                }
+                if(compact && editing==null) TextButton(enabled=!busy,onClick={manualOpen=!manualOpen},
+                    modifier=Modifier.heightIn(min=48.dp).testTag("habit-measurement-manual-${habit.id}")) {
+                    Text(if(manualOpen) "Свернуть ввод" else if(countOnly) "Заметка" else "Ввести значение")
+                }
+            }
+            if(!compact || manualOpen || editing!=null) {
             if(!countOnly) OutlinedTextField(value=value,onValueChange={value=it.take(16)},label={Text("Значение")},enabled=!busy,
                 keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal),modifier=Modifier.fillMaxWidth())
-            OutlinedTextField(value=note,onValueChange={note=it.take(2000)},label={Text("Заметка")},enabled=!busy,modifier=Modifier.fillMaxWidth())
+            OutlinedTextField(value=note,onValueChange={note=it.take(2000)},label={Text("Заметка")},enabled=!busy,
+                modifier=Modifier.fillMaxWidth().testTag("habit-measurement-note-${habit.id}"))
             FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                if(!countOnly||editing!=null) Button(enabled=!busy&&(countOnly||HabitMeasurements.parse(value)!=null),onClick={save(if(countOnly) 1000L else HabitMeasurements.parse(value),state.entries.firstOrNull { it.id==editing })}) {
-                    Text(if(editing==null) "Добавить значение" else "Сохранить")
+                Button(enabled=!busy&&(countOnly||HabitMeasurements.parse(value)!=null),onClick={save(if(countOnly) 1000L else HabitMeasurements.parse(value),state.entries.firstOrNull { it.id==editing })},
+                    modifier=Modifier.heightIn(min=48.dp).testTag("habit-measurement-save-${habit.id}")) {
+                    Text(if(editing!=null) "Сохранить" else if(countOnly) "Добавить выполнение" else "Добавить значение")
                 }
-                if(editing!=null) TextButton(onClick={editing=null;value="";note=""}) { Text("Отмена") }
+                if(editing!=null) TextButton(onClick={editing=null;value="";note="";manualOpen=false}) { Text("Отмена") }
+            }
             }
         }
         if(error) Text("Не удалось сохранить запись. Проверьте значение и повторите.",color=MaterialTheme.colorScheme.error)
@@ -131,7 +147,10 @@ internal fun HabitMeasurementInputs(habit: Habit, events: List<HabitMeasurementE
                 }}) { Text("Сохранить") }
             }
         }
-        TextButton(onClick={expanded=!expanded}) { Text("${translateGenesisText(context,"Записи",language)} · ${state.entries.size}") }
+        if(!compact || state.entries.isNotEmpty()) TextButton(onClick={expanded=!expanded},
+            contentPadding=PaddingValues(vertical=8.dp),modifier=Modifier.heightIn(min=48.dp)) {
+            Text("${translateGenesisText(context,"Записи",language)} · ${state.entries.size}")
+        }
         if(expanded) state.entries.forEach { entry ->
             HorizontalDivider()
             if(entry.conflict) {

@@ -749,6 +749,39 @@
       "targetSha256": "6bc28154bd2335192538b02a79d583b3c50559197d2fec63cc25063adef76238",
       "paths": 2,
       "strokeWidth": "2"
+    },
+    {
+      "name": "bookmark",
+      "package": "lucide-static@1.61.0",
+      "source": "package/icons/bookmark.svg",
+      "sourceUrl": "https://unpkg.com/lucide-static@1.61.0/icons/bookmark.svg",
+      "sourceSha256": "8510eb96685f6ffa5617eca76f359a4d3ab851d3d6fd14b3c50d7c1fcd1b6186",
+      "target": "lucide_bookmark.xml",
+      "targetSha256": "bd0024ac3d10b9751ec482cbaa0c8f44dd262f3ba5504006dde91d370cff58ac",
+      "paths": 1,
+      "strokeWidth": "2"
+    },
+    {
+      "name": "file-json",
+      "package": "lucide-static@1.61.0",
+      "source": "package/icons/file-json.svg",
+      "sourceUrl": "https://unpkg.com/lucide-static@1.61.0/icons/file-json.svg",
+      "sourceSha256": "6a27ab5aa7f7960053588d374423bd56e4edc57039345f8c59bf1ee332f1379e",
+      "target": "lucide_file_json.xml",
+      "targetSha256": "1415317e73457615bf8c6243a9ae3a3ecdf90a8c04cf6421e08fb9bd10588a4f",
+      "paths": 4,
+      "strokeWidth": "2"
+    },
+    {
+      "name": "file-text",
+      "package": "lucide-static@1.61.0",
+      "source": "package/icons/file-text.svg",
+      "sourceUrl": "https://unpkg.com/lucide-static@1.61.0/icons/file-text.svg",
+      "sourceSha256": "0f68908abe19543be363a403a4239f288236840ede01eec2af65830c3ba7f22c",
+      "target": "lucide_file_text.xml",
+      "targetSha256": "eb2cf7d9df3402a10ef6fff7077493317e6a0a9ed659a178a1ebdb659bc4be5e",
+      "paths": 5,
+      "strokeWidth": "2"
     }
   ],
   "lucidePackage": {

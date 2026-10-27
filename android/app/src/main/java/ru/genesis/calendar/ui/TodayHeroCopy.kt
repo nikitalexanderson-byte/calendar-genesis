@@ -68,7 +68,7 @@ internal fun todayHeroCopy(date: LocalDate, mode: CalendarMode, calendar: Genesi
                 "${lunar.day} лунный день", if (lunar.isThreshold) "Рубеж лунного месяца" else null,
                 lunar.month.description,
                 listOf(lunar.month.title, "${lunar.decade} · ${lunar.day} из ${lunar.monthLength} дней"),
-                gregorianDate, sacredArt, moon.event.takeIf { it.isNotBlank() })
+                gregorianDate, lunarMonthArtPath(lunar.monthOrdinal - 1), moon.event.takeIf { it.isNotBlank() })
         }
         CalendarMode.PROFANE -> {
             val index = date.dayOfWeek.value % 7

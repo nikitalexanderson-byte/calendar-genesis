@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.view.doOnLayout
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import ru.genesis.calendar.domain.GenesisCalendar
@@ -103,9 +104,14 @@ internal fun SolarCalendarModel(calendar: GenesisCalendar, shown: LocalDate,
                                 override fun shouldInterceptRequest(web: WebView, request: WebResourceRequest) =
                                     WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream(ByteArray(0)))
                                 override fun onPageFinished(web: WebView, url: String) {
-                                    web.postVisualStateCallback(1L, object : WebView.VisualStateCallback() {
-                                        override fun onComplete(requestId: Long) { ready = true; web.postInvalidateOnAnimation() }
-                                    })
+                                    // An offline page can finish before AndroidView's first layout.
+                                    // Request its first draw before waiting for the visual-state fence.
+                                    web.doOnLayout {
+                                        web.postVisualStateCallback(1L, object : WebView.VisualStateCallback() {
+                                            override fun onComplete(requestId: Long) { ready = true; web.postInvalidateOnAnimation() }
+                                        })
+                                        web.postInvalidateOnAnimation()
+                                    }
                                 }
                             }
                             loadDataWithBaseURL("https://genesis-model.invalid/", html, "text/html", "UTF-8", null)

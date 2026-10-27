@@ -77,7 +77,8 @@ internal fun HabitPeriodGoalFields(goal: HabitPeriodGoal?, measurement: HabitMea
 }
 
 @Composable
-internal fun HabitPeriodGoalProgress(habit: Habit, events: List<HabitMeasurementEvent>, completions: List<HabitCompletion>,date: LocalDate) {
+internal fun HabitPeriodGoalProgress(habit: Habit, events: List<HabitMeasurementEvent>, completions: List<HabitCompletion>,date: LocalDate,
+    showDetails: Boolean = true, compact: Boolean = false) {
     val state=remember(habit,events,completions,date) { HabitPeriodGoals.progress(habit,date,events,completions) } ?: return
     val language=LocalGenesisLanguage.current
     val context=LocalContext.current
@@ -86,13 +87,15 @@ internal fun HabitPeriodGoalProgress(habit: Habit, events: List<HabitMeasurement
     val calendar=remember(goal.context) { GenesisCalendar(ZoneId.of(goal.context.timeZone),goal.context.version,goal.context.gregorianYearStart) }
     fun format(value: Long)=if(goal.metric=="sum") "${HabitMeasurements.format(value,language)} ${if(state.rule.measurement?.kind=="duration") t("мин") else state.rule.measurement?.unit.orEmpty()}"
         else NumberFormat.getIntegerInstance(Locale.forLanguageTag(language)).format(value)
-    Column(Modifier.fillMaxWidth().padding(12.dp).testTag("habit-period-progress-${habit.id}"),verticalArrangement=Arrangement.spacedBy(6.dp)) {
+    Column(Modifier.fillMaxWidth().padding(if (compact) 0.dp else 12.dp).testTag("habit-period-progress-${habit.id}"),verticalArrangement=Arrangement.spacedBy(6.dp)) {
         Text("${t(if(goal.period=="week") "За неделю" else "За месяц")}: ${format(state.value)} / ${format(goal.target)}",style=MaterialTheme.typography.titleMedium)
         Text(if(state.completed) "Цель достигнута" else "${t("Осталось")}: ${format(state.remaining)}")
+        if(showDetails) {
         Text(when(goal.metric) { "days"->"Разные дни";"entries"->"Отдельные выполнения";else->"Сумма значений" },style=MaterialTheme.typography.bodySmall)
         val displayCalendar = if (LocalSacredFeaturesEnabled.current) CalendarMode.fromWire(goal.calendar) else CalendarMode.PROFANE
         Text("${calendar.formatDate(state.period.start,displayCalendar)} — ${calendar.formatDate(state.period.end.minusDays(1),displayCalendar)} · ${goal.context.timeZone}",style=MaterialTheme.typography.bodySmall)
         Text("Период засчитывается в серии, дневной цели и квестах в последний разрешённый день.",style=MaterialTheme.typography.bodySmall)
+        }
         if(state.qualityPending) Text("Для завершения подтвердите качество выполнения.",style=MaterialTheme.typography.bodySmall)
         if(state.conflicts) Text("Одновременные исправления. Выберите правильное значение.",color=MaterialTheme.colorScheme.error)
         if(state.partial||state.unattainable) Text("Неполный период или недостаточно разрешённых дней: цель сохраняется, пропуск не прерывает серию.",style=MaterialTheme.typography.bodySmall)

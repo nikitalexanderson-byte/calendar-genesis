@@ -1810,6 +1810,33 @@ private val nativeCopy = mapOf(
     "В окне Google выберите тот же аккаунт:" to "In the Google window, choose the same account:",
 )
 
+private val mobileWorkspaceCopy = mapOf(
+    "История появится после первой отметки." to "History will appear after the first entry.",
+    "Пауза выключает расписание и напоминания." to "Pausing disables the schedule and reminders.",
+    "История и награды сохранены. Восстановленная привычка вернётся на паузу." to "History and rewards are kept. Restored habits return paused.",
+    "Свернуть ввод" to "Collapse input", "Ввести значение" to "Enter a value",
+    "Сакральные практики" to "Sacred practices", "К привычкам" to "Back to habits",
+    "Разделы и действия привычек" to "Habit sections and actions", "История и статистика" to "History and statistics",
+    "Открыть историю правил" to "Open rule history", "Скрыть сессии таймера" to "Hide timer sessions",
+    "Сессии таймера" to "Timer sessions",
+    "Создайте первую привычку или выберите идею из подборки." to "Create your first habit or choose an idea from the catalogue.",
+    "В этом разделе пока нет привычек." to "There are no habits in this section yet.",
+    "Все запланированные привычки выполнены." to "All scheduled habits are complete.",
+    "Не запланировано сегодня" to "Not scheduled today", "Выбрать из подборки" to "Choose from the catalogue",
+    "Готовые идеи можно настроить под свой ритм." to "Adjust these ideas to your own rhythm.",
+    "История появится после создания первой привычки." to "History will appear after you create your first habit.",
+    "Виджеты развития скрыты в настройках привычек. Накопленные награды и прогресс сохранены." to "Growth panels are hidden in habit settings. Your rewards and progress are kept.",
+    "Закрыть редактор привычки" to "Close habit editor", "Изменения привычки ещё не сохранены." to "Habit changes have not been saved yet.",
+    "День отдыха. Серия сохраняется." to "Rest day. Your streak is kept.",
+    "Смена часового пояса. Серия сохраняется." to "Time zone changed. Your streak is kept.",
+    "Серия защищена." to "Streak protected.",
+    "На сегодня нет обязательных привычек. Серия сохраняется." to "No required habits today. Your streak is kept.",
+    "Цвет темы" to "Theme colour", "Насыщенность и яркость" to "Saturation and brightness",
+    "Код цвета HEX" to "HEX colour code", "Активные карты" to "Active mindmaps", "Масштаб" to "Zoom",
+    "Сборка ·" to "Build ·", "Не удалось загрузить хаос-бокс." to "Could not load the inbox.",
+    "Задач без списка пока нет." to "There are no tasks outside lists yet.",
+)
+
 private object TranslationCatalog {
     @Volatile private var dictionary: Map<String, String>? = null
     @Volatile private var fragments: List<Map.Entry<String, String>> = emptyList()
@@ -1825,6 +1852,7 @@ private object TranslationCatalog {
                 fun objectAsset(name: String): JSONObject = context.assets.open("originals/i18n/$name")
                     .bufferedReader().use { JSONObject(it.readText()) }
                 buildMap {
+                    putAll(mobileWorkspaceCopy)
                     listOf("translations.en.json", "ui-translations/en.json", "shared-work-translations/en.json", "curated-translations.en.json", "year-translations/en.json").forEach { name ->
                         runCatching { objectAsset(name) }.onSuccess { catalog ->
                             catalog.keys().forEach { put(it, catalog.getString(it)) }
@@ -1878,6 +1906,7 @@ private object TranslationCatalog {
                     else if (language in setOf("de", "fr", "ja")) listOf("translations.$language.json", "translations.$language.b.json")
                     else listOf("translations.$language.json")
                 buildMap {
+                    putAll(mobileWorkspaceCopy)
                     names.forEach { name ->
                         context.assets.open("originals/i18n/$name").bufferedReader().use { reader ->
                             JSONObject(reader.readText()).let { json ->

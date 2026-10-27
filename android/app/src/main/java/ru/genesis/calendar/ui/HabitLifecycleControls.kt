@@ -13,6 +13,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -48,8 +49,8 @@ internal fun habitLifecycleFailure(code: String?) = when (code) {
     Column(Modifier.fillMaxWidth().testTag("habit-lifecycle-filters"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Box(Modifier.fillMaxWidth()) {
             OutlinedButton(onClick = { menuOpen = true }, shape=AffairsLayout.controlShape, modifier = Modifier.fillMaxWidth().heightIn(min=48.dp)
-                .testTag("habit-state-choice").semantics { stateDescription = selectedLabel }) {
-                Text("$displayLabel: $selectedLabel", Modifier.weight(1f))
+                .testTag("habit-state-choice").semantics { contentDescription = displayLabel; stateDescription = selectedLabel }) {
+                Text(selectedLabel, Modifier.weight(1f))
                 Spacer(Modifier.width(8.dp))
                 AffairsActionIcon(if (menuOpen) AffairsAction.COLLAPSE else AffairsAction.EXPAND)
             }
@@ -62,7 +63,9 @@ internal fun habitLifecycleFailure(code: String?) = when (code) {
                 }
             }
         }
-        Text("Пауза выключает расписание и напоминания. Архив сохраняет историю и награды.",
+        if(selected == "paused") Text("Пауза выключает расписание и напоминания.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if(selected == "archived" || selected == "deleted") Text("История и награды сохранены. Восстановленная привычка вернётся на паузу.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -75,10 +78,16 @@ internal fun habitLifecycleFailure(code: String?) = when (code) {
         Box {
             AffairsIconButton("Действия привычки", AffairsAction.MORE, { expanded = true }, Modifier.testTag("habit-actions-${habit.id}"), enabled)
             DropdownMenu(expanded, { expanded = false }) {
-                DropdownMenuItem(text = { Text("Изменить") }, onClick = { expanded = false; onEdit() }, modifier = Modifier.testTag("edit-habit-${habit.id}"))
-                DropdownMenuItem(text = { Text(if (habit.active) "Пауза" else "Включить") }, onClick = { expanded = false; onToggle() }, modifier = Modifier.testTag("toggle-habit-${habit.id}"))
-                DropdownMenuItem(text = { Text("В архив") }, onClick = { expanded = false; onArchive() }, modifier = Modifier.testTag("archive-habit-${habit.id}"))
-                DropdownMenuItem(text = { Text("Удалить", color = MaterialTheme.colorScheme.error) }, onClick = { expanded = false; onDelete() }, modifier = Modifier.testTag("delete-habit-${habit.id}"))
+                DropdownMenuItem(text = { Text("Изменить") }, leadingIcon = { GenesisLucideIcon("pencil") },
+                    onClick = { expanded = false; onEdit() }, modifier = Modifier.testTag("edit-habit-${habit.id}"))
+                DropdownMenuItem(text = { Text(if (habit.active) "Пауза" else "Включить") },
+                    leadingIcon = { GenesisLucideIcon(if (habit.active) "pause" else "play") },
+                    onClick = { expanded = false; onToggle() }, modifier = Modifier.testTag("toggle-habit-${habit.id}"))
+                DropdownMenuItem(text = { Text("В архив") }, leadingIcon = { GenesisLucideIcon("archive") },
+                    onClick = { expanded = false; onArchive() }, modifier = Modifier.testTag("archive-habit-${habit.id}"))
+                DropdownMenuItem(text = { Text("Удалить", color = MaterialTheme.colorScheme.error) },
+                    leadingIcon = { GenesisLucideIcon("trash-2", tint = MaterialTheme.colorScheme.error) },
+                    onClick = { expanded = false; onDelete() }, modifier = Modifier.testTag("delete-habit-${habit.id}"))
             }
         }
     }

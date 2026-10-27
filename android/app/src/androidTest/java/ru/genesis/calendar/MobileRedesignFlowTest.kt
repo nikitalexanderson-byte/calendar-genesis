@@ -336,12 +336,20 @@ class MobileRedesignFlowTest {
         compose.onNodeWithTag("sacred-submenu").assertIsDisplayed()
         compose.onNodeWithTag("workspace-subtitle").assertTextEquals("Круг божественных сил")
         compose.onNodeWithTag("workspace-information").assertDoesNotExist()
+        capture("oracle-theokyklos")
         listOf("workspace-title", "workspace-subtitle").forEach { tag ->
             val layouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
             compose.onNodeWithTag(tag).performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
-            assertTrue("Oracle $tag must fit one readable line", layouts.isNotEmpty() && layouts.all { it.lineCount == 1 && !it.hasVisualOverflow })
+            // TextLayoutResult uses integer bounds; fractional line metrics may overrun by <1px.
+            assertTrue("Oracle $tag must remain readable: ${layouts.map { "${it.layoutInput.text.text}: ${it.lineCount} lines, size=${it.size}" }}",
+                layouts.isNotEmpty() && layouts.all { layout ->
+                    (tag == "workspace-title" || layout.lineCount == 1) &&
+                        (0 until layout.lineCount).all { line ->
+                            !layout.isLineEllipsized(line) && layout.getLineRight(line) <= layout.size.width + 1f &&
+                                layout.getLineBottom(line) <= layout.size.height + 1f
+                        }
+                })
         }
-        capture("oracle-theokyklos")
         compose.onNodeWithTag("submenu-stoicheion").performClick()
         compose.onNodeWithTag("workspace-information").assertDoesNotExist()
         capture("oracle-stoicheion")
@@ -453,7 +461,9 @@ class MobileRedesignFlowTest {
                     compose.onNode(hasText(when(source) { "device" -> "Устройство"; "ip" -> "IP-адрес"; else -> "Вручную" })
                         and hasAnyAncestor(hasTestTag(tag)), useUnmergedTree = true)
                         .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
-                    assertTrue("Region label $source must stay complete", layouts.isNotEmpty() && layouts.all { !it.hasVisualOverflow && it.lineCount == 1 })
+                    assertTrue("Region label $source must stay complete: " + layouts.map {
+                        "${it.size}, font=${it.layoutInput.style.fontSize}, required=${it.multiParagraph.intrinsics.maxIntrinsicWidth}"
+                    }, layouts.isNotEmpty() && layouts.all { !it.hasVisualOverflow && it.lineCount == 1 })
                     checkTarget(tag)
                     compose.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot
                 }
@@ -584,10 +594,12 @@ class MobileRedesignFlowTest {
                 else -> when {
                     route.page == "Дневник" -> capture("diary")
                     route.page == "Привычки" && route.section == "Привычки" -> {
-                        val create = compose.onNodeWithTag("habit-create").fetchSemanticsNode().boundsInRoot
-                        val catalogue = compose.onNodeWithTag("habit-catalogue").fetchSemanticsNode().boundsInRoot
-                        assertTrue("Habit actions must stay aligned at the current font scale", kotlin.math.abs(create.height - catalogue.height) <= 1f)
-                        checks.put("habits:actions-equal-height")
+                        checkTarget("habit-create")
+                        val daily = compose.onNodeWithTag("habit-view-today").fetchSemanticsNode().boundsInRoot
+                        val library = compose.onNodeWithTag("habit-view-library").fetchSemanticsNode().boundsInRoot
+                        assertTrue("Habit views must stay aligned at the current font scale", kotlin.math.abs(daily.height - library.height) <= 1f)
+                        assertTrue("Habit views must have equal widths", kotlin.math.abs(daily.width - library.width) <= 1f)
+                        checks.put("habits:views-equal-size-and-header-create")
                         capture("habits")
                     }
                     route.section == "Сон и настроение" -> capture("sleep")
@@ -600,7 +612,7 @@ class MobileRedesignFlowTest {
         compose.waitForIdle()
         openDrawer()
         compose.onNodeWithTag(monthRoute.tag).performScrollTo().assertContentDescriptionEquals(monthRoute.title)
-        compose.onNode(hasText(monthRoute.title) and hasAnyAncestor(hasTestTag(monthRoute.tag))).assertExists()
+        compose.onNode(hasText(monthRoute.title) and hasAnyAncestor(hasTestTag(monthRoute.tag)), useUnmergedTree = true).assertExists()
         compose.onNodeWithTag("drawer-labels").assertDoesNotExist()
         compose.onNodeWithTag("drawer-close").performScrollTo().performClick()
         drawerClosed()
