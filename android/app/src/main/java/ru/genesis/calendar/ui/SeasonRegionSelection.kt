@@ -121,12 +121,12 @@ internal fun SeasonRegionSettings(prefs: UiPreferences, onSetLocal: (String, Str
                             }
                         }, modifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = 48.dp)
                             .testTag("region-source-$source").semantics { selected = chosen },
-                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 10.dp),
+                        contentPadding = PaddingValues(vertical = 10.dp),
                         colors = ButtonDefaults.outlinedButtonColors(
                             containerColor = if (chosen) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
                             contentColor = if (chosen) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface),
                         border = BorderStroke(1.dp, if (chosen) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)) {
-                        Text(title, style = MaterialTheme.typography.labelMedium, maxLines = 1,
+                        Text(title, Modifier.fillMaxWidth(), style = MaterialTheme.typography.labelMedium, maxLines = 1,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                     }
                 }

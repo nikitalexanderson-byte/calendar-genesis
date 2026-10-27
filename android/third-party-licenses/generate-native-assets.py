@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FONT = ROOT / 'app/src/main/res/font'
 DRAW = ROOT / 'app/src/main/res/drawable'
 LICENSE = ROOT / 'third-party-licenses'
-NAMES = '''menu x chevron-left chevron-right chevron-down chevron-up ellipsis search sliders-horizontal arrow-up-down refresh-cw plus minus pencil trash-2 folder folder-plus list-checks list layout-dashboard calendar-days calendar-range sun moon sparkles settings user-round bell globe external-link heart-pulse network check check-check mic download upload archive archive-restore history eye eye-off move arrow-up arrow-down undo-2 chart-no-axes-column inbox copy git-branch link play pause timer wand-sparkles alarm-clock shield-check book-open log-out chart-no-axes-gantt layout-template list-tree palette users-round pin star thumbs-down message-circle paperclip send key-round lock-keyhole'''.split()
+NAMES = '''menu x chevron-left chevron-right chevron-down chevron-up ellipsis search sliders-horizontal arrow-up-down refresh-cw plus minus pencil trash-2 folder folder-plus list-checks list layout-dashboard calendar-days calendar-range sun moon sparkles settings user-round bell globe external-link heart-pulse network check check-check mic download upload archive archive-restore history eye eye-off move arrow-up arrow-down undo-2 chart-no-axes-column inbox copy git-branch link play pause timer wand-sparkles alarm-clock shield-check book-open log-out chart-no-axes-gantt layout-template list-tree palette users-round pin star thumbs-up thumbs-down bookmark file-json file-text message-circle paperclip send key-round lock-keyhole'''.split()
 def fetch(url):
     with urlopen(url, timeout=90) as response: return response.read()
 def sha(data): return hashlib.sha256(data).hexdigest()

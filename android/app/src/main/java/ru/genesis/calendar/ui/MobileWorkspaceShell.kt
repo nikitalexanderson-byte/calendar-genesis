@@ -3,6 +3,7 @@ package ru.genesis.calendar.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,18 +29,24 @@ internal data class MobileDestination(val page: String, val section: String?, va
 }
 
 internal class WorkspaceHeaderContent(val title: State<String>, val subtitle: State<String?>,
-    val actions: State<@Composable () -> Unit>)
+    val actions: State<@Composable () -> Unit>, val navigation: State<@Composable () -> Unit>,
+    val singleLine: State<Boolean>, val titleIsUserContent: State<Boolean>)
 internal val LocalWorkspaceHeader = staticCompositionLocalOf<MutableState<WorkspaceHeaderContent?>?> { null }
 
 /** A screen owns its actions; the shell renders them before the shared calendar controls. */
 @Composable
 internal fun WorkspaceScreenHeader(title: String, subtitle: String? = null,
+    navigation: @Composable () -> Unit = {}, singleLine: Boolean = false, titleIsUserContent: Boolean = false,
     actions: @Composable () -> Unit = {}): Boolean {
     val host = LocalWorkspaceHeader.current ?: return false
     val latestTitle = rememberUpdatedState(title)
     val latestSubtitle = rememberUpdatedState(subtitle)
     val latestActions = rememberUpdatedState(actions)
-    val entry = remember { WorkspaceHeaderContent(latestTitle, latestSubtitle, latestActions) }
+    val latestNavigation = rememberUpdatedState(navigation)
+    val latestSingleLine = rememberUpdatedState(singleLine)
+    val latestUserContent = rememberUpdatedState(titleIsUserContent)
+    val entry = remember { WorkspaceHeaderContent(latestTitle, latestSubtitle, latestActions,
+        latestNavigation, latestSingleLine, latestUserContent) }
     DisposableEffect(host) {
         host.value = entry
         onDispose { if (host.value === entry) host.value = null }
@@ -145,7 +152,7 @@ internal fun mobileDestinations(pages: List<String>, visibility: UiVisibility,
                     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)
                         .testTag("drawer-version-row"), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("GENESIS Calendar ${BuildConfig.VERSION_NAME}\nПробная версия · ${BuildConfig.VERSION_CODE}",
+                        Text("GENESIS Calendar ${BuildConfig.VERSION_NAME}\nСборка · ${BuildConfig.VERSION_CODE}",
                             Modifier.weight(1f).testTag("trial-build-info"),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.labelSmall)
@@ -164,12 +171,20 @@ internal fun mobileDestinations(pages: List<String>, visibility: UiVisibility,
                             .semantics { contentDescription = menuLabel }) {
                         GenesisLucideIcon("menu", Modifier.size(24.dp))
                     }
+                    screenHeader.value?.navigation?.value?.invoke()
                     Row(Modifier.weight(1f).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Text(screenHeader.value?.title?.value ?: title, Modifier.testTag("workspace-title"),
-                            style = MaterialTheme.typography.titleMedium)
+                        val compactTitle = screenHeader.value?.singleLine?.value == true
+                        val currentTitle = screenHeader.value?.title?.value ?: title
+                        androidx.compose.material3.Text(
+                            if (screenHeader.value?.titleIsUserContent?.value == true) currentTitle else genesisTranslate(currentTitle),
+                            Modifier.testTag("workspace-title").then(if (compactTitle && android.animation.ValueAnimator.areAnimatorsEnabled())
+                                Modifier.basicMarquee(iterations = Int.MAX_VALUE, initialDelayMillis = 1800) else Modifier),
+                            maxLines = if (compactTitle) 1 else Int.MAX_VALUE,
+                            overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
                         (screenHeader.value?.subtitle?.value ?: subtitle)?.let { Text(it, Modifier.testTag("workspace-subtitle"),
+                            maxLines = if (compactTitle) 1 else Int.MAX_VALUE, overflow = TextOverflow.Ellipsis,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant) }
                         }

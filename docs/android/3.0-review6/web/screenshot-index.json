@@ -1,0 +1,122 @@
+[
+  {
+    "file": "after-1440-dark-toolbar.png",
+    "sha256": "b76770cceaea62381524d0740af0e281844ef6d9e20848e25f1abf55d21e01a7",
+    "bytes": 51707
+  },
+  {
+    "file": "after-1440-dark-welcome.png",
+    "sha256": "bcbc94d6793b91f55955d4a4f444fea9dcae78b6a277bc54f9623dddb175f804",
+    "bytes": 659314
+  },
+  {
+    "file": "after-1440-light-toolbar.png",
+    "sha256": "147ff35f434e32dce1c9eadde361a948b0bf7b57d39115f4aaf45a723bc1aa80",
+    "bytes": 50932
+  },
+  {
+    "file": "after-1440-light-welcome.png",
+    "sha256": "e50371ca8a27b934a2c56058510892b1768f078a78553127ccd5a81d02c30878",
+    "bytes": 664479
+  },
+  {
+    "file": "after-360-dark-toolbar.png",
+    "sha256": "3b884e047558478d30100a7cd935356689083f751c70297c355455f19b6075e5",
+    "bytes": 36477
+  },
+  {
+    "file": "after-360-dark-welcome.png",
+    "sha256": "10b848db057c020e8790a19501b388310ef9b1727f4ff77f6069ab060e5f7070",
+    "bytes": 461955
+  },
+  {
+    "file": "after-360-light-toolbar.png",
+    "sha256": "746ffaf8765e34961b94422f81fc3cb59b3bcf88d17cabdcfe02795bd4692e16",
+    "bytes": 35875
+  },
+  {
+    "file": "after-360-light-welcome.png",
+    "sha256": "635c1f54eda42729167a31e5b360c0949b1f7d609a0e53a0be09c8aa2df88b84",
+    "bytes": 465278
+  },
+  {
+    "file": "after-390-dark-toolbar.png",
+    "sha256": "cc42763c96a7af27ba18974134093b8e4a40d7d68de6603104fa4aedcdc3681a",
+    "bytes": 38025
+  },
+  {
+    "file": "after-390-dark-welcome.png",
+    "sha256": "7ba6fed3438cb31ea8c5c0215f4e42b56bff72034aa6e1aa90d6592c03b77e7c",
+    "bytes": 468205
+  },
+  {
+    "file": "after-390-light-toolbar.png",
+    "sha256": "79d32f3030e98022b7b6d85a133dee3e1bca0716bce5f365a48861e0aecbddee",
+    "bytes": 37289
+  },
+  {
+    "file": "after-390-light-welcome.png",
+    "sha256": "9a7fb80bcee1173c9eb8a8df95fd908da21f654f48098a3723dc80029d72283f",
+    "bytes": 472883
+  },
+  {
+    "file": "after-768-dark-toolbar.png",
+    "sha256": "a67bc61a0090202c4aa757cf6356b078769abe38a183ceec9415020474cc80d1",
+    "bytes": 47353
+  },
+  {
+    "file": "after-768-dark-welcome.png",
+    "sha256": "26a82a423d880d44a6183da0aaa62f8ba191f41a965bb1c58da86936a08d3a9c",
+    "bytes": 539743
+  },
+  {
+    "file": "after-768-light-toolbar.png",
+    "sha256": "a608ce58b5ca2a7ac15765d00802485b64ccc9d7a26972778c8a9d42a69cded4",
+    "bytes": 46749
+  },
+  {
+    "file": "after-768-light-welcome.png",
+    "sha256": "91ccb8d526c7b6a3475160644acec6535c37798eda3de97afe906c094c264223",
+    "bytes": 544936
+  },
+  {
+    "file": "before-1440-dark-welcome.png",
+    "sha256": "909ea3c66b3485fdbebe38da680c4d781cd2cab670146f9c663ae73d0dc3d3e1",
+    "bytes": 673901
+  },
+  {
+    "file": "before-1440-light-welcome.png",
+    "sha256": "dfbffb6af301f13ef560eb9fd8b23cad13793723520f3db7a5e07fca1f6916c5",
+    "bytes": 679015
+  },
+  {
+    "file": "before-360-dark-welcome.png",
+    "sha256": "6620be1dcf0dd5b5e5c8a336316ffa085c3b302ac44ae036f90fa2f9f34faec0",
+    "bytes": 468234
+  },
+  {
+    "file": "before-360-light-welcome.png",
+    "sha256": "4d91a596f0c401626d1cb673539ae9b7a46c3f85e7b97068e2e43a40669f46e1",
+    "bytes": 471740
+  },
+  {
+    "file": "before-390-dark-welcome.png",
+    "sha256": "298057569b9047f6de780fd262a9248c9b846dd3a0128eefacd3bce248e6264b",
+    "bytes": 480357
+  },
+  {
+    "file": "before-390-light-welcome.png",
+    "sha256": "2c39caf866a15c2deaa99f5d1a58b6ecf883e197b108e913a697642f3bcf467b",
+    "bytes": 484921
+  },
+  {
+    "file": "before-768-dark-welcome.png",
+    "sha256": "a1587db9b63f15b493dceac42e9e1838ecfc6bf663a58e390aefa3bcea40c902",
+    "bytes": 556309
+  },
+  {
+    "file": "before-768-light-welcome.png",
+    "sha256": "93bab884752bcd100e736bfd5c8745e539435f220909a0a38472ee5e04cd51e1",
+    "bytes": 561485
+  }
+]

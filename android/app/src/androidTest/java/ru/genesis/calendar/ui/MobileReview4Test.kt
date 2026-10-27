@@ -93,6 +93,42 @@ class MobileReview4Test {
         assertEquals(calendar.gregorianDate(calendar.sacredDate(shown).sacredYear,expectedMonth,1),opened)
     }
 
+    @Test fun circleSelectionOutlinesSectorsWithoutStrokingTextOrGlyphPaths() {
+        compose.setContent { Theme { SolarCalendarModel(GenesisCalendar(),LocalDate.of(2026,10,26),{},{}) } }
+        compose.waitUntil(30000) {compose.onAllNodes(hasTestTag("solar-model-fit") and isEnabled()).fetchSemanticsNodes().isNotEmpty()}
+        fun evaluate(script:String):JSONObject {
+            var result:String?=null
+            compose.runOnUiThread {
+                fun find(view:android.view.View):android.webkit.WebView? {
+                    if(view is android.webkit.WebView)return view
+                    if(view is android.view.ViewGroup) for(i in 0 until view.childCount)find(view.getChildAt(i))?.let {return it}
+                    return null
+                }
+                android.view.inspector.WindowInspector.getGlobalWindowViews().firstNotNullOfOrNull {find(it)}
+                    ?.evaluateJavascript(script) {result=it}
+            }
+            compose.waitUntil(10000) {result!=null}
+            return JSONObject(org.json.JSONTokener(result!!).nextValue() as String)
+        }
+        listOf(
+            "phanes" to "#solar-v8-unmanifest-phanes",
+            "pentad" to "[data-kind=pentad][data-month='4'][data-pentad='4']",
+            "day" to "[data-kind=day][data-month='4'][data-day='18']"
+        ).forEach {(name,selector)->
+            val result=evaluate("""(() => {
+                const n=document.querySelector("$selector"),glyphs=[...n.querySelectorAll('text,.curved-label path')];
+                const paint=()=>glyphs.map(g=>{const s=getComputedStyle(g);return [s.stroke,s.strokeWidth,s.fill].join('|')});
+                const before=paint();n.focus();n.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
+                const shape=n.querySelector(':scope > path,:scope > circle'),style=getComputedStyle(shape);
+                return JSON.stringify({before,after:paint(),count:glyphs.length,stroke:style.stroke,width:style.strokeWidth,effect:style.vectorEffect});
+            })()""")
+            assertTrue("The fixture must contain real text/glyphs",result.getInt("count")>0)
+            assertEquals(result.getJSONArray("before").toString(),result.getJSONArray("after").toString())
+            assertEquals("2px",result.getString("width"));assertEquals("non-scaling-stroke",result.getString("effect"))
+            capture("circle-readable-$name")
+        }
+    }
+
     @Test fun teamHistoryStartsCollapsedAndRevealsOnlyFiveMoreAtATime() {
         val rows = (1..17).map { JSONObject().put("id","fixture-$it").put("action","task.updated")
             .put("actorName","Участник").put("taskTitle","Действие $it").put("projectTitle","Проверка").put("isRead",1) }

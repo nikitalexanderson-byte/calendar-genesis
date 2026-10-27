@@ -921,13 +921,15 @@ internal fun DayHeader(date: LocalDate, mode: CalendarMode) {
                     accent = MaterialTheme.colorScheme.primary, textColor = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else Box(Modifier.fillMaxWidth()) {
-            OriginalImage(if (mode == CalendarMode.LUNAR) "genesis-hero.png" else copy.imagePath,
+            OriginalImage(copy.imagePath,
                 null, Modifier.matchParentSize().testTag("today-calendar-image"), dimInDarkTheme = false)
+            Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = .16f)))
             CompositionLocalProvider(LocalPreserveCalendarColors provides true) {
-            androidx.compose.material3.Surface(Modifier.fillMaxWidth().testTag("today-hero-copy"),
-                color = Color.Black.copy(alpha = .56f), contentColor = Color.White) {
-                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(copy.title, style = MaterialTheme.typography.headlineSmall)
+            androidx.compose.material3.Surface(Modifier.fillMaxWidth().padding(8.dp).testTag("today-hero-copy"),
+                shape = AffairsLayout.shape, border = BorderStroke(1.dp, Color(0x80dfc17e)),
+                color = Color.Black.copy(alpha = .48f), contentColor = Color.White) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(copy.title, style = MaterialTheme.typography.headlineSmall, fontFamily = GenesisHeadingFont)
                         Text(if (mode == CalendarMode.PROFANE) civilDate else copy.footerDate,
                             Modifier.testTag("today-civil-date"), style = MaterialTheme.typography.bodyMedium)
                         if (mode == CalendarMode.PROFANE) Text(copy.footerDate, Modifier.testTag("today-hero-date"),
@@ -958,8 +960,7 @@ internal fun DayHeader(date: LocalDate, mode: CalendarMode) {
                         }
                         Text(copy.description, Modifier.testTag("today-hero-description"), style = MaterialTheme.typography.bodyMedium)
                         copy.details.forEach { Text(it, style = MaterialTheme.typography.bodySmall) }
-                        SunriseSunsetLine(date, solarLocation, calendar,
-                            accent = Color(0xfffff8e9), textColor = Color(0xfffff8e9))
+                        TodaySolarTimes(date, solarLocation, calendar)
                         copy.badge?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = Color(0xfffff8e9)) }
                     }
                 }

@@ -38,6 +38,10 @@ internal object AffairsLayout {
     val controlShape = RoundedCornerShape(10.dp)
 }
 
+/** Warm inbox distinguishes unassigned work without the semantics of an error. */
+@Composable internal fun chaosBoxColor() = if (LocalEveningTheme.current) Color(0xff302b1f) else Color(0xfff0e2bc)
+@Composable internal fun chaosBoxBorder() = if (LocalEveningTheme.current) Color(0xffa58b58) else Color(0xffb99858)
+
 internal enum class AffairsAction { BACK, NEXT, MORE, CLOSE, SEARCH, FILTER, SORT, EXPAND, COLLAPSE, REFRESH, MOVE, MOVE_UP, MOVE_DOWN, ADD, EDIT, SETTINGS, DELETE, REPORT, IMPORT, HISTORY, VIEW, HIDE, MINDMAP, LIST, BOARD, CALENDAR, GANTT, PROJECT, TASK_LIST, UNDO, TEMPLATE, SUBTASK, DECREASE, TASK, AUTOMATION, PAUSE, RESUME, ARCHIVE, RESTORE, TIMER, LINK }
 
 @Composable internal fun GenesisAccountFooter(status: String) {

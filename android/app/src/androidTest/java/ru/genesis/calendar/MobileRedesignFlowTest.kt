@@ -453,7 +453,9 @@ class MobileRedesignFlowTest {
                     compose.onNode(hasText(when(source) { "device" -> "Устройство"; "ip" -> "IP-адрес"; else -> "Вручную" })
                         and hasAnyAncestor(hasTestTag(tag)), useUnmergedTree = true)
                         .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
-                    assertTrue("Region label $source must stay complete", layouts.isNotEmpty() && layouts.all { !it.hasVisualOverflow && it.lineCount == 1 })
+                    assertTrue("Region label $source must stay complete: " + layouts.map {
+                        "${it.size}, font=${it.layoutInput.style.fontSize}, required=${it.multiParagraph.intrinsics.maxIntrinsicWidth}"
+                    }, layouts.isNotEmpty() && layouts.all { !it.hasVisualOverflow && it.lineCount == 1 })
                     checkTarget(tag)
                     compose.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot
                 }
@@ -584,10 +586,12 @@ class MobileRedesignFlowTest {
                 else -> when {
                     route.page == "Дневник" -> capture("diary")
                     route.page == "Привычки" && route.section == "Привычки" -> {
-                        val create = compose.onNodeWithTag("habit-create").fetchSemanticsNode().boundsInRoot
-                        val catalogue = compose.onNodeWithTag("habit-catalogue").fetchSemanticsNode().boundsInRoot
-                        assertTrue("Habit actions must stay aligned at the current font scale", kotlin.math.abs(create.height - catalogue.height) <= 1f)
-                        checks.put("habits:actions-equal-height")
+                        checkTarget("habit-create")
+                        val daily = compose.onNodeWithTag("habit-view-today").fetchSemanticsNode().boundsInRoot
+                        val library = compose.onNodeWithTag("habit-view-library").fetchSemanticsNode().boundsInRoot
+                        assertTrue("Habit views must stay aligned at the current font scale", kotlin.math.abs(daily.height - library.height) <= 1f)
+                        assertTrue("Habit views must have equal widths", kotlin.math.abs(daily.width - library.width) <= 1f)
+                        checks.put("habits:views-equal-size-and-header-create")
                         capture("habits")
                     }
                     route.section == "Сон и настроение" -> capture("sleep")
@@ -600,7 +604,7 @@ class MobileRedesignFlowTest {
         compose.waitForIdle()
         openDrawer()
         compose.onNodeWithTag(monthRoute.tag).performScrollTo().assertContentDescriptionEquals(monthRoute.title)
-        compose.onNode(hasText(monthRoute.title) and hasAnyAncestor(hasTestTag(monthRoute.tag))).assertExists()
+        compose.onNode(hasText(monthRoute.title) and hasAnyAncestor(hasTestTag(monthRoute.tag)), useUnmergedTree = true).assertExists()
         compose.onNodeWithTag("drawer-labels").assertDoesNotExist()
         compose.onNodeWithTag("drawer-close").performScrollTo().performClick()
         drawerClosed()
