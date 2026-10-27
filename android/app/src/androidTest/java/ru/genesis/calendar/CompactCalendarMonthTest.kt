@@ -23,7 +23,7 @@ import ru.genesis.calendar.ui.*
 /** All captures and tasks are synthetic. Run at each physical viewport and both themes. */
 class CompactCalendarMonthTest {
     @get:Rule val compose = createAndroidComposeRule<StoicheionGestureActivity>()
-    @Test fun equalCellsKeepSmallCountersInOneRowWithoutSolarOrCrossSacredDate() {
+    @Test fun equalCellsKeepCountersAtUpperRightAndPreserveDayActions() {
         val args = InstrumentationRegistry.getArguments()
         val dark = args.getString("genesisDark") == "true"
         var mode by mutableStateOf(CalendarMode.PROFANE)
@@ -32,7 +32,7 @@ class CompactCalendarMonthTest {
             CompositionLocalProvider(LocalEveningTheme provides dark) {
                 MaterialTheme(colorScheme = if (dark) evening else standart) {
                     Surface(Modifier.fillMaxSize()) { Column(Modifier.safeDrawingPadding()) {
-                        CalendarScreen(date, mode, {}, experimental = true, sharedCounts = mapOf(date.toString() to 3), tasks = listOf(
+                        CalendarScreen(date, mode, {}, experimental = true, sharedCounts = mapOf(date.toString() to 3, date.minusDays(1).toString() to 1), tasks = listOf(
                             LocalTask("compact-open", "Задача", date = date.toString()),
                             LocalTask("compact-done", "Готово", date = date.toString(), done = true)))
                     } }
@@ -50,8 +50,12 @@ class CompactCalendarMonthTest {
             val personal = compose.onNodeWithTag("calendar-task-count-disc-$date", useUnmergedTree = true)
                 .assertWidthIsEqualTo(18.dp).assertHeightIsEqualTo(18.dp)
                 .assertContentDescriptionEquals("Не выполнено: 1. Выполнено: 1").fetchSemanticsNode().boundsInRoot
-            assertTrue(shared.right <= personal.left)
-            assertEquals(shared.top, personal.top, 1f)
+            assertEquals(shared.right, personal.right, 1f)
+            assertTrue(personal.bottom <= shared.top)
+            assertTrue(personal.top - bounds.top <= 8f * compose.activity.resources.displayMetrics.density)
+            val loneBounds = compose.onNodeWithTag("calendar-day-${date.minusDays(1)}").fetchSemanticsNode().boundsInRoot
+            val lone = compose.onNodeWithTag("calendar-shared-count-${date.minusDays(1)}", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+            assertTrue(lone.top - loneBounds.top <= 8f * compose.activity.resources.displayMetrics.density)
             assertTrue(personal.bottom <= bounds.bottom)
             val description = day.fetchSemanticsNode().config[SemanticsProperties.ContentDescription].joinToString()
             assertFalse(description.contains("Восход")); assertFalse(description.contains("закат"))
@@ -63,7 +67,7 @@ class CompactCalendarMonthTest {
             compose.onNodeWithTag("calendar-task-count-$date").assertHeightIsAtLeast(48.dp).performClick()
             compose.onNodeWithTag("calendar-task-list-dialog").assertIsDisplayed()
             compose.onNodeWithText("Закрыть").performClick()
-            day.performTouchInput { click(androidx.compose.ui.geometry.Offset(center.x, 2f)) }
+            day.performTouchInput { click(androidx.compose.ui.geometry.Offset(2f, 2f)) }
             compose.onNodeWithTag("calendar-selected-day").performScrollTo()
             compose.onNodeWithTag("calendar-selected-${calendarMode.wireValue}").let { primary ->
                 if (calendarMode != CalendarMode.PROFANE) primary.assertDoesNotExist()
@@ -76,5 +80,16 @@ class CompactCalendarMonthTest {
             }
             assertTrue(device.takeScreenshot(File(folder, "${args.getString("genesisWidth", "default")}-${if (dark) "dark" else "light"}-${calendarMode.wireValue}-selected.png")))
         }
+        compose.runOnIdle { mode = CalendarMode.PROFANE }
+        compose.onNodeWithText("Год").performClick()
+        compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag("calendar-year-month-2026-10-01"))
+        val own = compose.onNodeWithTag("calendar-year-task-count-disc-10", useUnmergedTree = true)
+            .assertWidthIsEqualTo(23.dp).assertHeightIsEqualTo(23.dp).fetchSemanticsNode().boundsInRoot
+        val common = compose.onNodeWithTag("calendar-year-shared-count-10", useUnmergedTree = true)
+            .assertWidthIsEqualTo(23.dp).assertHeightIsEqualTo(23.dp).fetchSemanticsNode().boundsInRoot
+        assertEquals(own.right, common.right, 1f); assertTrue(own.bottom <= common.top)
+        val folder = File(compose.activity.getExternalFilesDir(null), "hotfix-months").apply { mkdirs() }
+        assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(File(folder,
+            "${args.getString("genesisWidth", "default")}-${if (dark) "dark" else "light"}-year.png")))
     }
 }

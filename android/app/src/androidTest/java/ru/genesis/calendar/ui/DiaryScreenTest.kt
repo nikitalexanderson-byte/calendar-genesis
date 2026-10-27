@@ -13,7 +13,6 @@ import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.dp
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
@@ -82,6 +81,33 @@ class DiaryScreenTest {
         compose.waitForIdle()
         compose.onNodeWithTag(tag).assertExists()
         captureNativeWindow(File(compose.activity.getExternalFilesDir(null), "diary-${width}-${if (dark) "dark" else "light"}-$name.png"))
+    }
+
+    @Test fun palettePresetsAreEqualAndCustomColorAppliesOnlyOnConfirmation() {
+        compose.setContent { Content() }; await("diary-create")
+        compose.onNodeWithTag("diary-create").performClick(); await("diary-editor")
+        compose.onNodeWithTag("diary-body").performTextReplacement("Проверка собственной палитры")
+        capture("preset-options", "diary-editor")
+        val swatches = DiaryNote.colors.map { color -> compose.onNodeWithTag("diary-color-$color").performScrollTo()
+            .assertHeightIsAtLeast(48.dp).fetchSemanticsNode().size }
+        assertTrue("Preset layout sizes must match, independently of scroll clipping: $swatches",
+            swatches.all { kotlin.math.abs(it.width - swatches.first().width) <= 1 && it.height == swatches.first().height })
+        compose.onNodeWithTag("diary-color-custom").performScrollTo().performClick(); await("diary-color-picker")
+        compose.onNodeWithTag("diary-swatch-#bb704b").performScrollTo().performClick()
+        compose.onNode(hasText("Отмена") and hasAnyAncestor(hasTestTag("diary-color-picker")),
+            useUnmergedTree = true).performClick()
+        compose.onNodeWithTag("diary-color-sage").assertIsSelected()
+        compose.onNodeWithTag("diary-color-custom").performScrollTo().performClick(); await("diary-color-picker")
+        compose.onNodeWithTag("diary-swatch-#bb704b").performScrollTo().performClick()
+        capture("custom-palette", "diary-color-picker")
+        compose.onNodeWithTag("diary-color-apply").performClick()
+        compose.onNodeWithTag("diary-color-custom").assertIsSelected()
+        capture("custom-color-editor", "diary-editor")
+        compose.onNodeWithTag("diary-save").performClick()
+        compose.waitUntil(20_000) { repository.state.value.records.any { !it.draft && it.note.customColor == "#bb704b" } }
+        val record = repository.state.value.records.single { !it.draft }
+        compose.onNodeWithTag("diary-open-${record.note.id}").performScrollTo().performClick(); await("diary-editor")
+        compose.onNodeWithTag("diary-color-custom").performScrollTo().assertIsSelected()
     }
 
     @Test fun failedLocalDraftDoesNotPromiseDurabilityAndCanBeRetried() {
