@@ -48,9 +48,9 @@ internal val habitActivityLabels = mapOf("completed" to "Выполнено", "a
     val language = LocalGenesisLanguage.current; val locale = Locale.forLanguageTag(language)
     val number = NumberFormat.getNumberInstance(locale).apply { maximumFractionDigits = 1 }
     var selectedId by rememberSaveable { mutableStateOf("") }; val habit = workspace.habits.firstOrNull { it.id == selectedId } ?: workspace.habits.firstOrNull()
-    var selectedMode by rememberSaveable { mutableStateOf<CalendarMode?>(null) }; var year by rememberSaveable { mutableStateOf(false) }
+    var year by rememberSaveable { mutableStateOf(false) }
     var anchorValue by rememberSaveable { mutableStateOf(today.toString()) }; var selectedDate by rememberSaveable { mutableStateOf("") }
-    val enabled = LocalEnabledCalendars.current; val mode = (selectedMode ?: initialMode).takeIf { it in enabled } ?: enabled.firstOrNull() ?: initialMode
+    val enabled = LocalEnabledCalendars.current; val mode = initialMode.takeIf { it in enabled } ?: enabled.firstOrNull() ?: initialMode
     val context = CalendarContext(timeZone = ZoneId.systemDefault().id, gregorianYearStart = if (prefs.gregorianYearStartsInMarch) "march" else "january")
     val calendar = remember(context) { GenesisCalendar(ZoneId.of(context.timeZone), context.version, context.gregorianYearStart) }
     val anchor = LocalDate.parse(anchorValue); val period = if (year) calendar.yearRange(anchor, mode) else calendar.monthRange(anchor, mode)
@@ -81,18 +81,14 @@ internal val habitActivityLabels = mapOf("completed" to "Выполнено", "a
                     } }
                 }
             }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                CalendarModeSwitcher(mode, { selectedMode = nextAvailableCalendarMode(mode, enabled) }, size = 48.dp)
-                Text(mobileCalendarCopy(language).calendarName(mode), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-                AffairsIconButton("Сегодня", AffairsAction.TIMER, { anchorValue = today.toString(); selectedDate = today.toString() }, Modifier.testTag("habit-analysis-today"))
-            }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(!year, { year = false }, { Text("Месяц") }, shape = AffairsLayout.controlShape, modifier = Modifier.heightIn(min = 48.dp).testTag("habit-analysis-month"))
-                FilterChip(year, { year = true }, { Text("Год") }, shape = AffairsLayout.controlShape, modifier = Modifier.heightIn(min = 48.dp).testTag("habit-analysis-year"))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(!year, { year = false }, { Text("Месяц") }, shape = AffairsLayout.controlShape, modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("habit-analysis-month"))
+                FilterChip(year, { year = true }, { Text("Год") }, shape = AffairsLayout.controlShape, modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("habit-analysis-year"))
             }
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 AffairsIconButton("Назад", AffairsAction.BACK, { anchorValue = period.start.minusDays(1).toString(); selectedDate = "" }, Modifier.testTag("habit-analysis-previous"))
-                Text(periodLabel(period.start) + " — " + periodLabel(period.end), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+                Text(periodLabel(period.start) + " — " + periodLabel(period.end), Modifier.weight(1f).padding(horizontal = 8.dp).testTag("habit-analysis-period"),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center, style = MaterialTheme.typography.titleSmall)
                 AffairsIconButton("Вперёд", AffairsAction.NEXT, { anchorValue = period.end.plusDays(1).toString(); selectedDate = "" }, Modifier.testTag("habit-analysis-next"))
             }
         }

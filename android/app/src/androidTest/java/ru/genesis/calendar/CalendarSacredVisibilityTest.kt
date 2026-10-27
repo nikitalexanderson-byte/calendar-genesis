@@ -98,8 +98,8 @@ class CalendarSacredVisibilityTest {
             compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
             val firstMonth = if (fromMarch) "2026-03-01" else "2026-01-01"
             compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag("calendar-year-month-$firstMonth"))
-            compose.onNode(hasTestTag("gregorian-year-number-1") and hasAnyAncestor(hasTestTag("calendar-year-month-$firstMonth")),
-                useUnmergedTree = true).assertTextEquals("1")
+            compose.onNode(hasTestTag("gregorian-year-art-$firstMonth") and hasAnyAncestor(hasTestTag("calendar-year-month-$firstMonth")),
+                useUnmergedTree = true).assertExists()
         }
     }
 }

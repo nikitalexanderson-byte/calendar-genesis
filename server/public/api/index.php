@@ -1093,7 +1093,7 @@ try {
         }
         if (count($segments) === 6 && $segments[1] === 'projects' && $segments[3] === 'tasks'
             && $segments[5] === 'comments') {
-            if ($method === 'GET') genesisJson(['comments' => genesisSharedComments($userId, $segments[2], $segments[4])]);
+            if ($method === 'GET') genesisJson(genesisSharedCommentPage($userId, $segments[2], $segments[4], $_GET['before'] ?? null));
             if ($method === 'POST') genesisJson(['comment' => genesisSharedAddComment($userId, $segments[2], $segments[4], genesisReadJson())], 201);
         }
     }

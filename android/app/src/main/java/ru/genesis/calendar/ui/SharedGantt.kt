@@ -14,6 +14,9 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -24,7 +27,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
@@ -41,32 +43,50 @@ import kotlin.math.max
 import kotlin.math.roundToInt
 
 private val ganttCellWidth = 96.dp
-private val ganttNameWidth = 184.dp
-private val ganttRowHeight = 64.dp
+private val ganttNameWidth = 144.dp
+private val ganttRowHeight = 104.dp
 
 /** Uses the same filtered, paginated task reader and revision checks as the other project views. */
 @Composable internal fun SharedGanttView(tasks: List<JSONObject>, statuses: List<JSONObject>,
     calendarMode: CalendarMode, inputCalendarMode: CalendarMode, use24: Boolean, canEdit: Boolean,
-    busy: Boolean, onOpen: (JSONObject) -> Unit, onSchedule: suspend (JSONObject, JSONObject) -> Unit) {
+    busy: Boolean, onOpen: (JSONObject) -> Unit, onSchedule: suspend (JSONObject, JSONObject) -> Unit,
+    gateway: ru.genesis.calendar.auth.SharedWorkspaceGateway? = null, baseFilter: JSONObject = JSONObject(), bounds: JSONObject? = null,
+    onDragScroll: (Float) -> Unit = {}) {
     val calendar = remember { GenesisCalendar() }
     val scope = rememberCoroutineScope()
     var anchorValue by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
     var scaleValue by rememberSaveable { mutableStateOf(SharedGanttScale.WEEKS.name) }
     val anchor = LocalDate.parse(anchorValue)
     val scale = SharedGanttScale.valueOf(scaleValue)
-    val periods = remember(anchor, scale, calendarMode) { sharedGanttPeriods(anchor, scale, calendarMode, calendar) }
+    var fit by rememberSaveable { mutableStateOf(false) }
+    var help by remember { mutableStateOf(false) }
+    val first = runCatching { LocalDate.parse(bounds?.optString("first")) }.getOrNull()
+        ?: tasks.mapNotNull(::sharedGanttSpan).minOfOrNull { LocalDate.ofEpochDay(floor(it.start).toLong()) }
+    val last = runCatching { LocalDate.parse(bounds?.optString("last")) }.getOrNull()
+        ?: tasks.mapNotNull(::sharedGanttSpan).maxOfOrNull { LocalDate.ofEpochDay(floor(it.end - 1e-7).toLong()) }
+    val periods = remember(anchor, scale, calendarMode, fit, first, last) {
+        if (fit && first != null && last != null && scale != SharedGanttScale.HOURS) sharedGanttFitPeriods(first, last, scale, calendarMode, calendar)
+        else sharedGanttPeriods(anchor, scale, calendarMode, calendar)
+    }
+    val source = if (gateway != null) rememberSharedGanttData(gateway, baseFilter, periods, scale, baseFilter.toString()) else null
     val done = statuses.filter { it.optInt("isDone") == 1 || it.optBoolean("isDone") }.map { it.optString("id") }.toSet()
-    val active = tasks.filter { it.optString("statusId") !in done }
+    val active = (source?.scheduled?.ganttRows() ?: tasks).filter { it.optString("statusId") !in done }
     val scheduled = active.filter { sharedGanttSpan(it)?.let { span -> scale != SharedGanttScale.HOURS || span.timed } == true }
     val rows = scheduled.filter { sharedGanttSpan(it)!!.let { span -> span.end > periods.first().start && span.start < periods.last().end } }
-    val unscheduled = active.filter { it !in scheduled }
-    val completed = tasks.filter { it.optString("statusId") in done }
+    val unscheduled = source?.unscheduled?.ganttRows() ?: active.filter { it !in scheduled }
+    val completed = source?.completed?.ganttRows() ?: tasks.filter { it.optString("statusId") in done }
     var editingJson by rememberSaveable { mutableStateOf("") }
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf("") }
     val timelineScroll = rememberScrollState()
+    var trackBounds by remember { mutableStateOf(Rect.Zero) }
+    var rootPosition by remember { mutableStateOf(Offset.Zero) }
+    var dragTask by remember { mutableStateOf<JSONObject?>(null) }
+    var dragPoint by remember { mutableStateOf<Offset?>(null) }
+    val cellPixels = with(LocalDensity.current) { ganttCellWidth.toPx() }
+    val dragScrollEdge = with(LocalDensity.current) { 180.dp.toPx() }
     val locale = Locale.forLanguageTag(LocalGenesisLanguage.current)
-    LaunchedEffect(anchor, scale, calendarMode) { timelineScroll.scrollTo(0) }
+    LaunchedEffect(anchor, scale, calendarMode, fit) { timelineScroll.scrollTo(0); dragTask = null; dragPoint = null }
     val save: suspend (JSONObject, JSONObject) -> Boolean = { task, changes ->
         if (saving || busy || !canEdit || task.optBoolean("pending")) false
         else {
@@ -74,6 +94,7 @@ private val ganttRowHeight = 64.dp
             error = ""
             try {
                 onSchedule(task, changes)
+                source?.scheduled?.refresh(); source?.unscheduled?.refresh(); source?.completed?.refresh()
                 true
             } catch (cancelled: CancellationException) {
                 throw cancelled
@@ -85,38 +106,49 @@ private val ganttRowHeight = 64.dp
             }
         }
     }
-    Column(Modifier.fillMaxWidth().testTag("shared-gantt").semantics { stateDescription = calendarMode.wireValue }, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        ImportChoice("Масштаб времени", scale.name, SharedGanttScale.entries.map {
-            it.name to genesisTranslate(if (it == SharedGanttScale.WEEKS) when (calendarMode) {
-                CalendarMode.SACRED -> "Пяты"; CalendarMode.LUNAR -> "Декады"; else -> it.label
-            } else it.label)
-        }, !saving, "gantt-scale") { scaleValue = it }
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AffairsIconButton("Предыдущий период", AffairsAction.BACK, {
-                anchorValue = sharedGanttShift(anchor, scale, calendarMode, calendar, -1).toString()
-            }, Modifier.testTag("gantt-previous"), !saving)
-            AuthorDatePicker(anchorValue, calendarMode, enabled = !saving,
-                modifier = Modifier.weight(1f).testTag("gantt-anchor")) { anchorValue = it }
-            AffairsIconButton("Следующий период", AffairsAction.NEXT, {
-                anchorValue = sharedGanttShift(anchor, scale, calendarMode, calendar, 1).toString()
-            }, Modifier.testTag("gantt-next"), !saving)
+    Box(Modifier.fillMaxWidth().onGloballyPositioned { rootPosition = it.boundsInWindow().topLeft }) {
+    Column(Modifier.fillMaxWidth().testTag("shared-gantt").semantics { stateDescription = calendarMode.wireValue }, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Surface(shape = AffairsLayout.shape, color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Масштаб времени", style = MaterialTheme.typography.titleSmall)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SharedGanttScale.entries.forEach { choice ->
+                        val title = if (choice == SharedGanttScale.WEEKS) when (calendarMode) {
+                            CalendarMode.SACRED -> "Пяты"; CalendarMode.LUNAR -> "Декады"; else -> choice.label
+                        } else choice.label
+                        FilterChip(scale == choice, { scaleValue = choice.name; fit = false }, { Text(title) }, enabled = !saving,
+                            modifier = Modifier.heightIn(min = 48.dp).testTag("gantt-scale-${choice.name.lowercase()}"))
+                    }
+                }
+                HorizontalDivider()
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    AffairsIconButton("Предыдущий период", AffairsAction.BACK, {
+                        fit = false; anchorValue = sharedGanttShift(anchor, scale, calendarMode, calendar, -1).toString()
+                    }, Modifier.testTag("gantt-previous"), !saving)
+                    AuthorDatePicker(anchorValue, calendarMode, enabled = !saving,
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("gantt-anchor")) { anchorValue = it; fit = false }
+                    AffairsIconButton("Следующий период", AffairsAction.NEXT, {
+                        fit = false; anchorValue = sharedGanttShift(anchor, scale, calendarMode, calendar, 1).toString()
+                    }, Modifier.testTag("gantt-next"), !saving)
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    TextButton({ anchorValue = LocalDate.now().toString(); fit = false }) { Text("Сегодня") }
+                    if (scale != SharedGanttScale.HOURS) TextButton({ fit = !fit }, enabled = first != null && !saving,
+                        modifier = Modifier.testTag("gantt-fit")) { Text("По задачам") }
+                    TextButton({ help = true }) { Text("Как пользоваться") }
+                }
+            }
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextButton({ anchorValue = LocalDate.now().toString() }, Modifier.weight(1f)) { Text("Сегодня") }
-            TextButton({ scheduled.mapNotNull(::sharedGanttSpan).minOfOrNull { it.start }?.let {
-                anchorValue = LocalDate.ofEpochDay(floor(it).toLong()).toString()
-            } }, Modifier.weight(1f), enabled = scheduled.isNotEmpty()) { Text("К первой задаче") }
-        }
-        if (canEdit) Text("Удерживайте полосу и перемещайте сроки. Кнопка календаря меняет начало, окончание и длительность.",
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (error.isNotEmpty()) Text(error, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("gantt-error"))
         if (saving) LinearProgressIndicator(Modifier.fillMaxWidth())
         Surface(shape = AffairsLayout.shape, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
-            Column(Modifier.horizontalScroll(timelineScroll).width(ganttNameWidth + ganttCellWidth * periods.size)) {
-                Row(Modifier.heightIn(min = 56.dp).background(MaterialTheme.colorScheme.surfaceContainerHigh),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Text("Задача", Modifier.width(ganttNameWidth).padding(12.dp), style = MaterialTheme.typography.labelLarge)
+            Column {
+                Row(Modifier.fillMaxWidth()) {
+                    Box(Modifier.width(ganttNameWidth).height(72.dp).background(MaterialTheme.colorScheme.surfaceContainerHigh), contentAlignment = Alignment.CenterStart) {
+                        Text("Задача", Modifier.padding(12.dp), style = MaterialTheme.typography.labelLarge)
+                    }
+                    Row(Modifier.weight(1f).horizontalScroll(timelineScroll).height(72.dp).background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                        verticalAlignment = Alignment.CenterVertically) {
                     periods.forEach { period ->
                         val date = LocalDate.ofEpochDay(floor(period.start + 1e-7).toLong())
                         val title = when (scale) {
@@ -131,43 +163,90 @@ private val ganttRowHeight = 64.dp
                         Text(title, Modifier.width(ganttCellWidth).padding(8.dp), style = MaterialTheme.typography.labelSmall,
                             maxLines = 3, overflow = TextOverflow.Ellipsis)
                     }
+                    }
                 }
                 HorizontalDivider()
-                Box {
-                    GanttDependencies(rows, periods)
-                    Column {
+                Row(Modifier.fillMaxWidth().heightIn(min = 72.dp, max = 312.dp).verticalScroll(rememberScrollState())) {
+                    Column(Modifier.width(ganttNameWidth)) {
+                    rows.forEach { task -> Row(Modifier.fillMaxWidth().height(ganttRowHeight), verticalAlignment = Alignment.CenterVertically) {
+                        TextButton({ onOpen(task) }, Modifier.weight(1f).fillMaxHeight(), contentPadding = PaddingValues(6.dp)) {
+                            androidx.compose.material3.Text(task.optString("title"), maxLines = 3, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
+                        }
+                        if (canEdit) AffairsIconButton("Изменить сроки задачи", AffairsAction.EDIT, { editingJson = task.toString() },
+                            Modifier.testTag("gantt-edit-${task.optString("id")}"), !busy && !saving && !task.optBoolean("pending"))
+                    } }
+                    }
+                    Box(Modifier.weight(1f).onGloballyPositioned { trackBounds = it.boundsInWindow() }.horizontalScroll(timelineScroll)) {
+                        Box(Modifier.width(ganttCellWidth * periods.size).heightIn(min = 72.dp).testTag("gantt-drop-track")) {
+                            GanttDependencies(rows, periods)
+                            Column {
                         rows.forEach { task -> key(task.getString("id")) {
                             GanttTaskRow(task, periods, scale, calendarMode, calendar,
                                 editable = canEdit && !busy && !saving && !task.optBoolean("pending"),
                                 onOpen = { onOpen(task) }, onEdit = { editingJson = task.toString() },
                                 onMove = { changes -> scope.launch { save(task, changes) } })
                         } }
+                            }
+                        }
                     }
                 }
             }
         }
+        source?.scheduled?.let { GanttPageControls(it, "gantt-timeline-more") }
         if (rows.isEmpty()) Text("На выбранный период задач нет.", style = MaterialTheme.typography.bodySmall)
         if (scheduled.size > rows.size) Text(genesisTranslate("Задачи вне периода") + ": ${scheduled.size - rows.size}",
             style = MaterialTheme.typography.bodySmall)
-        if (unscheduled.isNotEmpty()) {
-            Text("Неразмеченные задачи", style = MaterialTheme.typography.titleSmall)
-            unscheduled.forEach { task ->
-                val taskKey = task.optString("id")
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                TextButton({ onOpen(task) }, Modifier.weight(1f)) {
-                    androidx.compose.material3.Text(task.optString("title"), Modifier.fillMaxWidth(), maxLines = 2, overflow = TextOverflow.Ellipsis)
-                }
-                if (canEdit) AffairsIconButton("Запланировать задачу", AffairsAction.CALENDAR,
-                    { error = ""; editingJson = task.toString() }, Modifier.testTag("gantt-schedule-$taskKey"),
-                    !busy && !saving && !task.optBoolean("pending"))
-            } }
+        Surface(Modifier.fillMaxWidth().testTag("gantt-unplaced"), shape = AffairsLayout.shape, color = MaterialTheme.colorScheme.surfaceContainerLow) {
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Неразмещённые задачи", style = MaterialTheme.typography.titleMedium)
+                if (canEdit) Text("Удерживайте карточку и перенесите на шкалу времени.", style = MaterialTheme.typography.bodySmall)
+                unscheduled.forEach { task -> key(task.optString("id")) {
+                    var position by remember { mutableStateOf(Offset.Zero) }
+                    Surface(Modifier.fillMaxWidth().onGloballyPositioned { position = it.boundsInWindow().topLeft }
+                        .testTag("gantt-unplaced-${task.optString("id")}")
+                        .pointerInput(task.optString("id"), task.optInt("revision"), canEdit, busy, saving, periods) {
+                            if (canEdit && !busy && !saving && !task.optBoolean("pending")) detectDragGesturesAfterLongPress(
+                                onDragStart = { dragTask = task; dragPoint = position + it },
+                                onDrag = { change, delta -> change.consume(); dragPoint = dragPoint?.plus(delta)
+                                    if (dragPoint != null && dragPoint!!.y < dragScrollEdge) onDragScroll(-20f)
+                                },
+                                onDragCancel = { dragTask = null; dragPoint = null }, onDragEnd = {
+                                    val point = dragPoint
+                                    if (point != null && trackBounds.contains(point)) {
+                                        val axis = ((point.x - trackBounds.left + timelineScroll.value) / cellPixels).toDouble().coerceIn(0.0, periods.size - .000001)
+                                        val changes = sharedGanttMove(task, sharedGanttPoint(periods, axis), scale)
+                                        scope.launch { save(task, changes) }
+                                    }
+                                    dragTask = null; dragPoint = null
+                                })
+                        }, shape = AffairsLayout.shape, color = MaterialTheme.colorScheme.surface) {
+                        Row(Modifier.padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            TextButton({ onOpen(task) }, Modifier.weight(1f)) { androidx.compose.material3.Text(task.optString("title"), Modifier.fillMaxWidth()) }
+                            if (canEdit) AffairsIconButton("Запланировать задачу", AffairsAction.CALENDAR,
+                                { editingJson = task.toString() }, Modifier.testTag("gantt-schedule-${task.optString("id")}"), !busy && !saving && !task.optBoolean("pending"))
+                        }
+                    }
+                } }
+                source?.unscheduled?.let { GanttPageControls(it, "gantt-unscheduled-more") }
+            }
         }
         if (completed.isNotEmpty()) AffairsDisclosure("Завершённые", Modifier.testTag("gantt-completed")) {
             completed.forEach { task -> TextButton({ onOpen(task) }, Modifier.fillMaxWidth()) {
                 androidx.compose.material3.Text(task.optString("title"), Modifier.fillMaxWidth())
             } }
+            source?.completed?.let { GanttPageControls(it, "gantt-completed-more") }
         }
     }
+    if (dragTask != null && dragPoint != null) Surface(Modifier.offset {
+        androidx.compose.ui.unit.IntOffset((dragPoint!!.x - rootPosition.x - 80.dp.toPx()).roundToInt(),
+            (dragPoint!!.y - rootPosition.y - 24.dp.toPx()).roundToInt())
+    }.widthIn(max = 200.dp), shape = AffairsLayout.shape, color = MaterialTheme.colorScheme.primaryContainer, shadowElevation = 6.dp) {
+        androidx.compose.material3.Text(dragTask!!.optString("title"), Modifier.padding(8.dp), maxLines = 2)
+    }
+    }
+    if (help) AlertDialog(onDismissRequest = { help = false }, title = { Text("Диаграмма Ганта") },
+        text = { Text("Выберите масштаб. Удерживайте полосу для переноса, её края — для изменения начала и окончания. Неразмещённую карточку перенесите на шкалу. Внутри дня шаг составляет 15 минут. Карандаш открывает точный ввод сроков.") },
+        confirmButton = { TextButton({ help = false }) { Text("Понятно") } })
     if (editingJson.isNotBlank()) {
         val task = remember(editingJson) { JSONObject(editingJson) }
         GanttScheduleDialog(task, anchor, inputCalendarMode, use24, !saving && !busy && canEdit,
@@ -180,15 +259,22 @@ private val ganttRowHeight = 64.dp
     mode: CalendarMode, calendar: GenesisCalendar, editable: Boolean, onOpen: () -> Unit, onEdit: () -> Unit,
     onMove: (JSONObject) -> Unit) {
     val span = sharedGanttSpan(task)!!
-    val taskKey = task.optString("id")
-    var dragCells by remember { mutableDoubleStateOf(0.0) }
-    val cellPixels = with(LocalDensity.current) { ganttCellWidth.toPx() }
+    val id = task.optString("id")
+    var delta by remember { mutableDoubleStateOf(0.0) }
+    var edge by remember { mutableStateOf<Boolean?>(null) }
+    var handles by remember { mutableStateOf(false) }
+    val pixels = with(LocalDensity.current) { ganttCellWidth.toPx() }
     val move by rememberUpdatedState(onMove)
-    val start = sharedGanttAxis(periods, span.start)
-    val preview = if (dragCells == 0.0) span else {
-        val changes = sharedGanttMove(task, sharedGanttPoint(periods, (start + dragCells).coerceIn(0.0, periods.size - .000001)), scale)
-        sharedGanttSpan(JSONObject(task.toString()).apply { changes.keys().forEach { put(it, changes.get(it)) } })!!
+    val startAxis = sharedGanttAxis(periods, span.start)
+    fun changes(): JSONObject {
+        val boundary = if (edge == true) span.start else span.end
+        val origin = if (edge == null) startAxis else sharedGanttAxis(periods, boundary)
+        val point = sharedGanttPoint(periods, (origin + delta).coerceIn(0.0, periods.size.toDouble()))
+        return if (edge == null) sharedGanttMove(task, point, scale) else sharedGanttResize(task, point, scale, edge!!)
     }
+    val preview = if (delta == 0.0) span else sharedGanttSpan(JSONObject(task.toString()).apply {
+        val patch = changes(); patch.keys().forEach { put(it, patch.get(it)) }
+    })!!
     val x = sharedGanttAxis(periods, preview.start).coerceIn(0.0, periods.size.toDouble())
     val end = sharedGanttAxis(periods, preview.end).coerceIn(0.0, periods.size.toDouble())
     val trackWidth = ganttCellWidth * periods.size
@@ -198,53 +284,60 @@ private val ganttRowHeight = 64.dp
     val today = sharedGanttAxis(periods, LocalDate.now().toEpochDay().toDouble())
     val label = task.optString("title") + ": " + calendar.formatDate(LocalDate.ofEpochDay(floor(preview.start).toLong()), mode) +
         " — " + calendar.formatDate(LocalDate.ofEpochDay(floor(preview.end - (if (preview.timed) 0.0 else 1.0)).toLong()), mode)
-    Row(Modifier.height(ganttRowHeight).testTag("gantt-task-$taskKey"), verticalAlignment = Alignment.CenterVertically) {
-        Row(Modifier.width(ganttNameWidth), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onOpen, Modifier.weight(1f).fillMaxHeight()) {
-                androidx.compose.material3.Text(task.optString("title"), Modifier.fillMaxWidth(), maxLines = 2, overflow = TextOverflow.Ellipsis)
+    fun finish() { if (delta != 0.0) move(changes()); delta = 0.0; edge = null }
+    Box(Modifier.width(trackWidth).height(ganttRowHeight).testTag("gantt-task-$id")) {
+        Canvas(Modifier.matchParentSize()) {
+            repeat(periods.size + 1) { index ->
+                val left = index * ganttCellWidth.toPx()
+                drawLine(stroke.copy(alpha = .6f), Offset(left, 0f), Offset(left, size.height), 1.dp.toPx())
             }
-            if (editable) AffairsIconButton("Изменить сроки задачи", AffairsAction.CALENDAR, onEdit,
-                Modifier.testTag("gantt-edit-$taskKey"))
+            if (today in 0.0..periods.size.toDouble()) drawLine(todayInk,
+                Offset((today * ganttCellWidth.toPx()).toFloat(), 0f), Offset((today * ganttCellWidth.toPx()).toFloat(), size.height), 2.dp.toPx())
         }
-        Box(Modifier.width(trackWidth).fillMaxHeight(), contentAlignment = Alignment.CenterStart) {
-            Canvas(Modifier.matchParentSize()) {
-                repeat(periods.size + 1) { index ->
-                    val left = index * ganttCellWidth.toPx()
-                    drawLine(stroke.copy(alpha = .6f), Offset(left, 0f), Offset(left, size.height), 1.dp.toPx())
-                }
-                if (today in 0.0..periods.size.toDouble()) drawLine(todayInk,
-                    Offset((today * ganttCellWidth.toPx()).toFloat(), 0f), Offset((today * ganttCellWidth.toPx()).toFloat(), size.height), 2.dp.toPx())
+        Surface(onClick = { if (editable) handles = !handles else onOpen() }, modifier = Modifier.offset(x = touchX.dp).width(max(48f, ((end * ganttCellWidth.value) - touchX).toFloat()).dp)
+            .height(48.dp).testTag("gantt-bar-$id").semantics { contentDescription = label }
+            .pointerInput(id, task.optInt("revision"), periods, editable) {
+                if (editable) detectDragGesturesAfterLongPress(onDragStart = { delta = 0.0; edge = null },
+                    onDrag = { change, amount -> change.consume(); delta += amount.x / pixels },
+                    onDragCancel = { delta = 0.0; edge = null }, onDragEnd = { finish() })
+            }, shape = AffairsLayout.shape, color = androidx.compose.ui.graphics.Color.Transparent) {
+            Box(contentAlignment = Alignment.CenterStart) {
+                Box(Modifier.offset(x = ((x * ganttCellWidth.value) - touchX).toFloat().dp)
+                    .width(max(4f, ((end - x) * ganttCellWidth.value).toFloat()).dp).height(28.dp)
+                    .background(MaterialTheme.colorScheme.primaryContainer, AffairsLayout.shape)
+                    .border(BorderStroke(if (handles) 2.dp else 1.dp, MaterialTheme.colorScheme.primary), AffairsLayout.shape))
             }
-            Box(Modifier.offset(x = touchX.dp).testTag("gantt-bar-" + taskKey)
-                .width(max(48f, ((end * ganttCellWidth.value) - touchX).toFloat()).dp).height(48.dp)
-                .pointerInput(task.optString("id"), task.optInt("revision"), periods, editable) {
-                    if (editable) detectDragGesturesAfterLongPress(onDragStart = { dragCells = 0.0 },
-                        onDrag = { change, delta -> change.consume(); dragCells += delta.x / cellPixels },
-                        onDragCancel = { dragCells = 0.0 }, onDragEnd = {
-                            if (dragCells != 0.0) {
-                                val changes = sharedGanttMove(task, sharedGanttPoint(periods, (start + dragCells).coerceIn(0.0, periods.size - .000001)), scale)
-                                if (changes.keys().asSequence().any { changes.optString(it) != task.optString(it) }) move(changes)
-                            }
-                            dragCells = 0.0
+        }
+        if (handles && editable) {
+            val left = touchX.coerceAtMost(trackWidth.value - 96f)
+            val right = max(left + 48f, (end * ganttCellWidth.value).toFloat() - 48f).coerceAtMost(trackWidth.value - 48f)
+            listOf(true to left, false to right).forEach { (startEdge, position) ->
+                AffairsIconButton(if (startEdge) "Изменить начало" else "Изменить окончание", if (startEdge) AffairsAction.BACK else AffairsAction.NEXT,
+                    onEdit, Modifier.offset(x = position.dp, y = 52.dp).testTag("gantt-resize-${if (startEdge) "start" else "end"}-$id")
+                        .pointerInput(id, task.optInt("revision"), periods, startEdge, editable) {
+                            detectDragGesturesAfterLongPress(onDragStart = { edge = startEdge; delta = 0.0 },
+                                onDrag = { change, amount -> change.consume(); delta += amount.x / pixels },
+                                onDragCancel = { delta = 0.0; edge = null }, onDragEnd = { finish() })
                         })
-                }, contentAlignment = Alignment.CenterStart) {
-                Surface(onClick = onOpen, modifier = Modifier.fillMaxWidth().height(48.dp).semantics { contentDescription = label },
-                    shape = AffairsLayout.controlShape, color = Color.Transparent) {
-                    Box(contentAlignment = Alignment.CenterStart) {
-                        Box(Modifier.offset(x = ((x * ganttCellWidth.value) - touchX).toFloat().dp)
-                            .width(max(4f, ((end - x) * ganttCellWidth.value).toFloat()).dp).height(32.dp)
-                            .background(MaterialTheme.colorScheme.primaryContainer, AffairsLayout.controlShape)
-                            .border(BorderStroke(1.dp, MaterialTheme.colorScheme.primary), AffairsLayout.controlShape))
-                    }
-                }
             }
         }
     }
 }
 
+@Composable private fun GanttPageControls(reader: SharedTaskListReader, tag: String) {
+    val scope = rememberCoroutineScope()
+    if (reader.error.isNotBlank()) {
+        Text("Не удалось загрузить задачи.", color = MaterialTheme.colorScheme.error)
+        TextButton({ scope.launch { reader.refresh() } }) { Text("Повторить") }
+    }
+    if (reader.busy && reader.pageState.value == null) LinearProgressIndicator(Modifier.fillMaxWidth())
+    if (reader.pageState.value?.optBoolean("hasMore") == true) TextButton({ scope.launch { reader.more() } },
+        enabled = !reader.busy, modifier = Modifier.heightIn(min = 48.dp).testTag(tag)) { Text("Показать ещё") }
+}
+
 @Composable private fun GanttDependencies(tasks: List<JSONObject>, periods: List<SharedGanttPeriod>) {
     val ink = MaterialTheme.colorScheme.primary
-    Canvas(Modifier.width(ganttNameWidth + ganttCellWidth * periods.size).height(ganttRowHeight * tasks.size)) {
+    Canvas(Modifier.width(ganttCellWidth * periods.size).height(ganttRowHeight * tasks.size)) {
         val positions = tasks.withIndex().associateBy { it.value.optString("id") }
         tasks.forEachIndexed { index, task ->
             val dependencies = task.optJSONArray("dependsOnIds") ?: return@forEachIndexed
@@ -252,7 +345,7 @@ private val ganttRowHeight = 64.dp
                 val prior = positions[dependencies.optString(dependency)] ?: continue
                 val from = sharedGanttSpan(prior.value) ?: continue
                 val to = sharedGanttSpan(task) ?: continue
-                val left = ganttNameWidth.toPx()
+                val left = 0f
                 val fromX = left + (sharedGanttAxis(periods, from.end) * ganttCellWidth.toPx()).toFloat()
                 val toX = left + (sharedGanttAxis(periods, to.start) * ganttCellWidth.toPx()).toFloat()
                 if (fromX !in left..size.width || toX !in left..size.width) continue

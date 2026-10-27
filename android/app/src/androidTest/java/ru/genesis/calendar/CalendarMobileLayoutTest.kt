@@ -114,7 +114,7 @@ class CalendarMobileLayoutTest {
         }
         compose.onNodeWithText("Год").performClick()
         compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag("calendar-year-month-2028-02-01"))
-        compose.onNodeWithTag("gregorian-year-number-2", useUnmergedTree = true).assert(hasText("2"))
+        compose.onNodeWithTag("gregorian-year-art-2028-02-01", useUnmergedTree = true).assertExists()
         compose.onNodeWithTag("gregorian-year-start-2", useUnmergedTree = true).assertDoesNotExist()
         compose.onNodeWithTag("gregorian-year-end-2", useUnmergedTree = true).assertDoesNotExist()
         compose.onNodeWithText("ГРИГОРИАНСКИЙ МЕСЯЦ 2").assertDoesNotExist()

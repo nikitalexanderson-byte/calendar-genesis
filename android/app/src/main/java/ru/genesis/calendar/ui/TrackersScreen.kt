@@ -13,6 +13,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.testTag
 import ru.genesis.calendar.ui.Dialog
@@ -69,12 +70,35 @@ fun TrackersScreen(app: GenesisApplication, experimental: Boolean = false) {
     LaunchedEffect(current?.revision) {
         if (current != null) runCatching { ru.genesis.calendar.reminders.SleepReminderScheduler.restore(app) }
     }
+    val availablePlans = current?.sleepPlans.orEmpty()
+    var planChoiceOpen by remember { mutableStateOf(false) }
+    fun openSleepPlan() {
+        if (availablePlans.isEmpty()) planEditor = SleepPlan(TrackerEntity.create("sleep-plan"), dailySleepSchedule(date, prefs.input))
+        else if (availablePlans.size == 1) planEditor = availablePlans.first()
+        else planChoiceOpen = true
+    }
+    val planLabel = if (availablePlans.isEmpty()) "Создать план сна" else "Изменить план сна"
+    val headerInShell = WorkspaceScreenHeader("Сон и настроение", actions = {
+        WorkspaceHeaderButton(genesisTranslate(planLabel), "sleep-plan-header", enabled = current != null && !busy && !storageError,
+            onClick = { openSleepPlan() }) { GenesisLucideIcon(if (availablePlans.isEmpty()) "plus" else "pencil") }
+    })
+    if (planChoiceOpen) AlertDialog(onDismissRequest = { planChoiceOpen = false }, title = { Text("Выберите план сна") },
+        text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            availablePlans.forEach { plan -> OutlinedButton(onClick = { planChoiceOpen = false; planEditor = plan }, modifier = Modifier.fillMaxWidth()) {
+                androidx.compose.material3.Text(plan.title)
+            } }
+        } }, confirmButton = { TextButton(onClick = { planChoiceOpen = false }) { Text("Закрыть") } })
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
-        GenesisPageHeader(if (LocalGenesisLanguage.current == "en") "Sleep & mood" else "Сон и настроение",
-            if (LocalGenesisLanguage.current == "en") "Sleep, recovery and emotional rhythm without pressure"
-            else "Сон, восстановление и эмоциональный ритм без давления", "☾", showInformation = false,
-            footer = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (!headerInShell) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("Сон и настроение", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
+            AffairsIconButton(planLabel, if (availablePlans.isEmpty()) AffairsAction.ADD else AffairsAction.EDIT, { openSleepPlan() },
+                Modifier.testTag("sleep-plan-header"), current != null && !busy && !storageError)
+        }
+        Surface(Modifier.fillMaxWidth(), shape = AffairsLayout.shape,
+            color = if (LocalEveningTheme.current) Color(0xff21312d) else Color(0xffe0ece5)) {
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OriginalImage("tracker-art/sleep-recovery-v1.png", null,
+                    Modifier.fillMaxWidth().height(108.dp).clip(AffairsLayout.shape).testTag("sleep-recovery-art"))
                     if (experimental) Text(
                         "ⓘ Сон и настроение — личные наблюдения без XP и Лавров. Это не медицинская оценка.",
                         color=MaterialTheme.colorScheme.onSurfaceVariant, style=MaterialTheme.typography.bodySmall,
@@ -101,13 +125,14 @@ fun TrackersScreen(app: GenesisApplication, experimental: Boolean = false) {
                             it.customLabel.ifBlank { MoodTracker.option(it.moodValue.toDouble()).label }
                         } ?: "Не выбрано", Modifier.weight(1f))
                     }
-                }
-            }, compact = LocalFixedSubmenu.current)
+
+            }
+        }
         error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
         if(current==null) { if(!storageError)CircularProgressIndicator() }
         else {
             Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                colors = CardDefaults.cardColors(containerColor = if (LocalEveningTheme.current) Color(0xff312936) else Color(0xffefe3ee)),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                 Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically,
@@ -146,10 +171,6 @@ fun TrackersScreen(app: GenesisApplication, experimental: Boolean = false) {
                     }
                 }
             }
-            val createSleepPlan = {
-                val schedule=dailySleepSchedule(date,prefs.input)
-                planEditor=SleepPlan(TrackerEntity.create("sleep-plan"),schedule)
-            }
             SleepTrackerGroup(experimental) {
             if (experimental) {
                 Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,
@@ -169,10 +190,6 @@ fun TrackersScreen(app: GenesisApplication, experimental: Boolean = false) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
-                HabitsFeatureActionButton(label="＋ Создать план сна", onClick=createSleepPlan,
-                    enabled=!busy&&!storageError,
-                    containerColor=MaterialTheme.colorScheme.primary, contentColor=MaterialTheme.colorScheme.onPrimary,
-                    borderColor=MaterialTheme.colorScheme.outlineVariant)
             } else {
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,
                     verticalAlignment=Alignment.CenterVertically) {
@@ -181,7 +198,6 @@ fun TrackersScreen(app: GenesisApplication, experimental: Boolean = false) {
                         Text("Планы и фактическое восстановление", style=MaterialTheme.typography.bodySmall,
                             color=MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    FilledTonalButton(enabled=!busy&&!storageError,onClick=createSleepPlan) { Text("＋ План") }
                 }
             }
             if(current.sleepPlans.isEmpty()) Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp),
@@ -240,8 +256,6 @@ fun TrackersScreen(app: GenesisApplication, experimental: Boolean = false) {
                             modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
                             Text(if(entry==null)"Добавить запись" else "Изменить запись")
                         }
-                        OutlinedButton(enabled=!busy&&!storageError,onClick={planEditor=plan},
-                            modifier = Modifier.heightIn(min = 48.dp)) { Text("План") }
                     }
                 } }
             }

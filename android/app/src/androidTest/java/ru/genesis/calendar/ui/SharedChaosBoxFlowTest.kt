@@ -175,11 +175,11 @@ class SharedChaosBoxFlowTest {
         click("shared-project-${fixture.projectA}", scroll = true)
         await("shared-task-project-a-1")
         assertPlainInlineInbox()
-        compose.onNodeWithTag("shared-inbox-list-${fixture.projectList}")
-            .assert(hasAnyAncestor(hasTestTag("shared-project-inbox")))
+        compose.onNodeWithTag("shared-list-child-${fixture.projectList}")
+            .assert(hasAnyAncestor(hasTestTag("shared-list-board-todo")))
         click("shared-hide-inbox", scroll = true)
         await("shared-show-inbox")
-        compose.onNodeWithTag("shared-task-project-a-1").assertDoesNotExist()
+        compose.onNodeWithTag("shared-task-project-a-1").assertExists()
         click("shared-back")
         await("shared-project-${fixture.projectB}")
         compose.onNodeWithTag("shared-show-inbox").assertExists()
@@ -219,7 +219,7 @@ class SharedChaosBoxFlowTest {
         await("shared-task-project-a-1")
         val create = compose.onNodeWithTag("shared-create-task")
             .assert(hasAnyAncestor(hasTestTag("shared-create-actions"))).fetchSemanticsNode().boundsInRoot
-        val folder = compose.onNodeWithTag("shared-create-folder").fetchSemanticsNode().boundsInRoot
+        val folder = compose.onNodeWithTag("shared-create-board").fetchSemanticsNode().boundsInRoot
         val tools = listOf("shared-work-actions", "shared-team-actions", "shared-actions").map { tag ->
             compose.onNodeWithTag(tag).assert(hasAnyAncestor(hasTestTag("shared-create-actions"))).fetchSemanticsNode().boundsInRoot
         }
@@ -227,6 +227,8 @@ class SharedChaosBoxFlowTest {
         assertTrue("Project actions: plus, folder, task tools, teamwork, settings", row.zipWithNext().all { (left, right) -> left.right <= right.left })
         assertTrue(row.all { abs(it.width - folder.width) <= 1f && abs(it.height - folder.height) <= 1f })
         assertPlainInlineInbox()
+        compose.onNodeWithTag("shared-task-project-a-1").assert(hasAnyAncestor(hasTestTag("shared-list-board-todo")))
+        compose.onNode(hasTestTag("shared-task-project-a-1") and hasAnyAncestor(hasTestTag("shared-project-inbox"))).assertDoesNotExist()
         compose.onNodeWithTag("shared-task-project-a-3").assertDoesNotExist()
         val dockBefore = compose.onNodeWithTag("shared-task-search-open").fetchSemanticsNode().boundsInRoot
         click("shared-task-more", scroll = true)
@@ -285,12 +287,11 @@ class SharedChaosBoxFlowTest {
         val add = compose.onNodeWithTag("shared-inbox-create-task")
             .assert(hasAnyAncestor(hasTestTag("shared-space-actions"))).assertHeightIsAtLeast(48.dp)
             .fetchSemanticsNode().boundsInRoot
-        val list = compose.onNodeWithTag("shared-inbox-create-list")
-            .assert(hasAnyAncestor(hasTestTag("shared-space-actions"))).assertHeightIsAtLeast(48.dp)
-            .fetchSemanticsNode().boundsInRoot
-        val menu = compose.onNodeWithTag("shared-actions").fetchSemanticsNode().boundsInRoot
-        assertTrue(create.right <= add.left && add.right <= list.left && list.right <= menu.left)
-        assertEquals(add.center.y, menu.center.y, 1f)
+        compose.onNodeWithTag("shared-inbox-create-list").assertDoesNotExist()
+        val team = compose.onNodeWithTag("shared-space-team").assertHeightIsAtLeast(48.dp).fetchSemanticsNode().boundsInRoot
+        val data = compose.onNodeWithTag("shared-space-data").assertHeightIsAtLeast(48.dp).fetchSemanticsNode().boundsInRoot
+        assertTrue(create.right <= add.left && add.right <= team.left && team.right <= data.left)
+        assertEquals(add.center.y, data.center.y, 1f)
         click("shared-project-${fixture.projectA}", scroll = true)
         for (view in listOf("calendar", "gantt")) {
             click("shared-view-selector")

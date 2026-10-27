@@ -2394,9 +2394,9 @@ export async function listSharedTaskLists() {
   return (await sharedCachedRequest<{ lists: SharedTaskList[] }>("/shared/task-lists")).lists;
 }
 export async function createSharedStatus(projectId: string, title: string, isDone: boolean,
-  requestId: string = crypto.randomUUID()) {
+  requestId: string = crypto.randomUUID(), color?: string) {
   return (await api<{ status: SharedStatus }>(`/shared/projects/${encodeURIComponent(projectId)}/statuses`, {
-    method: "POST", body: JSON.stringify({ title, isDone, requestId }),
+    method: "POST", body: JSON.stringify({ title, isDone, requestId, ...(color ? { color } : {}) }),
   })).status;
 }
 export async function updateSharedStatus(projectId: string, statusId: string, title: string, expectedRevision: number, settings?: { color?: string; imageUrl?: string; isDone?: boolean; taskTitleLines?: number; visibleTaskCount?: number }) {

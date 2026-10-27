@@ -5,6 +5,14 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class AuthProtocolTest {
+    @org.junit.Test fun olderCommentsAllowOnlyAnExactReadCursor() {
+        val id = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+        val base = "/shared/projects/$id/tasks/$id/comments"
+        org.junit.Assert.assertTrue(allowedSharedRoute("GET", "$base?before=$id"))
+        org.junit.Assert.assertFalse(allowedSharedRoute("POST", "$base?before=$id"))
+        org.junit.Assert.assertFalse(allowedSharedRoute("GET", "$base?before=$id&projectId=$id"))
+        org.junit.Assert.assertFalse(allowedSharedRoute("GET", "$base?before=../../private"))
+    }
     private val sessionId = "abcdefghijklmnopqrstuvwx12"
     private val now = 1_800_000_000_000L
     private fun header(extra: String = "") = "$SESSION_COOKIE=$sessionId; Path=/; Secure; HttpOnly$extra"

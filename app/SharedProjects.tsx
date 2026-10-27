@@ -1,6 +1,7 @@
 /* eslint-disable @next/next/no-img-element -- User-provided board pictures remain native img elements. */
 "use client";
 import "./shared-dialog-ui.css";
+import { SharedBoardColor } from "./SharedBoardColor";
 import { DialogCloseButton } from "./DialogCloseButton";
 import { foregroundRefresh } from "./foreground-refresh";
 import { useSacredFeaturesEnabled } from "./sacred-features";
@@ -263,7 +264,6 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   const [customSort,setCustomSort]=useState<{projectId:string;sort:import("./cloud-sync").SharedTaskSort}>({projectId:"",sort:"position"});
   const [projectTitle, setProjectTitle] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
-  const [projectLayout, setProjectLayout] = useState<"list" | "board">("list");
   const [parentId, setParentId] = useState("");
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskDescription, setNewTaskDescription] = useState("");
@@ -279,6 +279,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   const [newTaskDueDate, setNewTaskDueDate] = useState("");
   const [newStatusTitle, setNewStatusTitle] = useState("");
   const [newStatusDone, setNewStatusDone] = useState(false);
+  const [newStatusColor, setNewStatusColor] = useState("#2d6c68");
   const [statusDestinations, setStatusDestinations] = useState<Record<string, string>>({});
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("member");
@@ -568,7 +569,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
     if (!spaceId) return;
     void run(async () => {
       await createSharedProject(spaceId, {
-        title: projectTitle, description: projectDescription, tags: projectTags, layout: createKind === "task-list" ? "list" : projectLayout,
+        title: projectTitle, description: projectDescription, tags: projectTags, layout: "list",
         parentId: parentId || null, boardStatusId: parentBoardId || null, kind: createKind,
         labelIds: projectLabelIds,
         categoryId: createKind === "project" ? projectCategoryId || null : null,
@@ -822,7 +823,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
     event.preventDefault();
     if (!snapshot) return;
     void run(async () => {
-      await createSharedStatus(snapshot.project.id, newStatusTitle.trim(), newStatusDone);
+      await createSharedStatus(snapshot.project.id, newStatusTitle.trim(), newStatusDone, undefined, newStatusColor);
       setNewStatusTitle(""); setNewStatusDone(false);
       await refreshProject(snapshot.project.id);
       await refreshProjects(spaceId);
@@ -851,7 +852,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       await updateSharedProject(current.id, {
         title: String(fields.get("title") ?? ""),
         description: String(fields.get("description") ?? ""), tags: JSON.parse(String(fields.get("tags") ?? "[]")),
-        layout: String(fields.get("layout")) as "list" | "board",
+        layout: snapshot.project.layout,
         parentId: String(fields.get("parentId") ?? "") || null,
         expectedRevision: current.revision,
         labelIds: editProjectLabelIds,
@@ -1821,7 +1822,6 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
             <option value="">{english ? "No category" : "Без категории"}</option>
             {projectCategories.items.map(category => <option key={category.id} value={category.id}>{category.title}</option>)}
           </select></label> : null}
-          <label>{english ? "Layout" : "Вид"}<select name="layout" defaultValue={snapshot.project.layout}><option value="list">{english ? "Project tree" : "Дерево проектов"}</option><option value="board">{english ? "Boards" : "Доски"}</option></select></label>
           <label>{english ? "Parent project" : "Родительский проект"}<select name="parentId" defaultValue={snapshot.project.parentId ?? ""}>
             <option value="">{english ? "Top level" : "Верхний уровень"}</option>
             {sharedProjectTree(projects.filter(project => project.id !== snapshot.project.id)).map(({ project, depth }) => <option key={project.id} value={project.id}>{depth ? `${"\u00a0\u00a0".repeat(depth)}↳ ` : ""}{project.title} · {formatTaskCount(project.taskCount ?? 0, language as import("./i18n").Language)}</option>)}
@@ -1862,7 +1862,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
             await refreshProject(snapshot.project.id); setCreateModal(null); });
         }}>
           <label>{english ? "Board name" : "Название доски"}<input name="title" defaultValue={statusLabel(editingBoard.title)} required maxLength={80}/></label>
-          <label>{english ? "Color" : "Цвет"}<input name="color" type="color" defaultValue={editingBoard.color ?? "#2d6c68"}/></label>
+          <SharedBoardColor key={editingBoard.id} name="color" initialValue={editingBoard.color ?? "#2d6c68"} english={english}/>
           <label className="shared-projects-checkbox"><input name="isDone" type="checkbox" defaultChecked={Boolean(editingBoard.isDone)}/>{english ? "Tasks here are completed" : "Задачи в этой доске завершены"}</label>
           <fieldset className="shared-board-display-settings"><legend>{english ? "Task display" : "Отображение задач"}</legend>
             <label>{english ? "Task title length" : "Длина названия задачи"}<select name="taskTitleLines" defaultValue={boardDisplay(editingBoard).titleLines}>
@@ -1909,9 +1909,6 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
             <option value="">{english ? "No category" : "Без категории"}</option>
             {projectCategories.items.map(category => <option key={category.id} value={category.id}>{category.title}</option>)}
           </select></label> : null}
-          {createKind === "project" ? <label>{english ? "Layout" : "Вид"}<select value={projectLayout} onChange={(event) => setProjectLayout(event.target.value as "list" | "board")}>
-            <option value="list">{english ? "Project tree" : "Дерево проектов"}</option><option value="board">{english ? "Boards" : "Доски"}</option>
-          </select></label> : null}
           <label>{english ? "Parent project" : "Родительский проект"}<select value={parentId} onChange={(event) => setParentId(event.target.value)}>
             <option value="">{english ? "Top level" : "Верхний уровень"}</option>
             {sharedProjectTree(projects).map(({ project, depth }) => <option key={project.id} value={project.id}>{depth ? `${"\u00a0\u00a0".repeat(depth)}↳ ` : ""}{project.title} · {formatTaskCount(project.taskCount ?? 0, language as import("./i18n").Language)}</option>)}
@@ -1955,6 +1952,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
         </form> : null}
         {createModal === "status" ? <form onSubmit={submitStatus}>
           <label>{english ? "Name" : "Название"}<input value={newStatusTitle} maxLength={80} required onChange={(event) => setNewStatusTitle(event.target.value)} /></label>
+          <SharedBoardColor value={newStatusColor} onChange={setNewStatusColor} english={english}/>
           <label className="shared-projects-checkbox"><input type="checkbox" checked={newStatusDone} onChange={(event) => setNewStatusDone(event.target.checked)} />{english ? "Completion list" : "Список завершённых задач"}</label>
           <button type="submit" className="primary-button" disabled={busy}>{english ? "Create board" : "Создать доску"}</button>
         </form> : null}

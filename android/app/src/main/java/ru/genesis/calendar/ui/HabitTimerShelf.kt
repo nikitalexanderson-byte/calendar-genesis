@@ -7,6 +7,8 @@ import androidx.compose.material3.Text as MaterialText
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -105,9 +107,19 @@ internal fun HabitTimerShelf(workspace: LocalHabitWorkspace, owner: String, requ
             }
             habit?.let { target ->
                 MaterialText(target.title, style = MaterialTheme.typography.titleMedium)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = mode == "stopwatch", onClick = { mode = "stopwatch" }, enabled = !busy, label = { Text("Секундомер") })
-                    FilterChip(selected = mode == "pomodoro", onClick = { mode = "pomodoro" }, enabled = !busy, label = { Text("Pomodoro") })
+                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("stopwatch" to "Секундомер", "pomodoro" to "Pomodoro").forEach { (kind, label) ->
+                        OutlinedButton(onClick = { mode = kind }, enabled = !busy,
+                            modifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = 48.dp).testTag("habit-timer-mode-$kind").semantics { selected = mode == kind },
+                            shape = AffairsLayout.controlShape, contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(containerColor = if (mode == kind) MaterialTheme.colorScheme.secondaryContainer else androidx.compose.ui.graphics.Color.Transparent)) {
+                            Text(label, style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                    Button(onClick = { execute(command("start")) }, enabled = enabled && !busy && owner.isNotEmpty() && !ownPending
+                        && (mode == "stopwatch" || validWork && validRest),
+                        modifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = 48.dp).testTag("habit-timer-start"),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp)) { Text("Начать", style = MaterialTheme.typography.labelSmall) }
                 }
                 if (mode == "pomodoro") FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(work, { work = it.take(3) }, Modifier.widthIn(min = 120.dp, max = 200.dp), enabled = !busy,
@@ -117,8 +129,6 @@ internal fun HabitTimerShelf(workspace: LocalHabitWorkspace, owner: String, requ
                         label = { Text("Перерыв, мин") }, supportingText = { MaterialText("0–120") }, isError = !validRest,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true)
                 }
-                Button(onClick = { execute(command("start")) }, enabled = enabled && !busy && owner.isNotEmpty() && !ownPending
-                    && (mode == "stopwatch" || validWork && validRest), modifier = Modifier.testTag("habit-timer-start")) { Text("Начать") }
                 if (ownPending) Text("Уже есть незавершённая сессия. Завершите или отмените её перед новым стартом.")
                 else if (pending.any { it.root.owner != owner }) Text("На другом устройстве уже работает таймер. Здесь начнётся отдельная сессия.")
                 if (mode == "pomodoro") Text("Перерыв не засчитывается в прогресс.", style = MaterialTheme.typography.bodySmall)

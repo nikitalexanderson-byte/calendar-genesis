@@ -75,6 +75,30 @@ try {
     sharedReject(static fn() => genesisSharedActivity($cx, $cp['id'], null, null), 404);
     sharedReject(static fn() => genesisSharedActivity($co, $cp['id'], $otherTask['id'], null), 404);
     sharedInvalid(static fn() => genesisSharedActivity($co, $cp['id'], null, null, genesisUuid()));
+    // A long thread must return the latest 200, with stable ties and a backwards-only cursor.
+    $thread = genesisSharedTask($co, $cp['id'], ['title' => 'Long discussion', 'statusId' => $open]);
+    $insert = genesisDb()->prepare('INSERT INTO shared_comments(id,task_id,author_id,body,created_at) VALUES(?,?,?,?,?)');
+    $threadIds = [];
+    genesisDb()->beginTransaction();
+    for ($i = 0; $i < 205; $i++) {
+        $id = genesisUuid(); $threadIds[] = $id;
+        $insert->execute([$id, $thread['id'], $co, 'Synthetic comment ' . $i, '2025-01-01T00:00:00Z']);
+    }
+    genesisDb()->commit(); sort($threadIds);
+    $newest = genesisSharedCommentPage($cm, $cp['id'], $thread['id']);
+    sharedExpect(array_column($newest['comments'], 'id') === array_slice($threadIds, 5) && $newest['hasMore'], 'Thread returned old comments or unstable timestamp ties.');
+    $arriving = genesisSharedAddComment($co, $cp['id'], $thread['id'], ['body' => 'Arrived between pages']);
+    $older = genesisSharedCommentPage($cm, $cp['id'], $thread['id'], $newest['nextBefore']);
+    sharedExpect(array_column($older['comments'], 'id') === array_slice($threadIds, 0, 5) && !$older['hasMore'], 'New arrival shifted the history cursor.');
+    sharedExpect(array_slice(genesisSharedComments($cm, $cp['id'], $thread['id']), -1)[0]['id'] === $arriving['id'], 'Newest comment was hidden after 200 entries.');
+    sharedInvalid(static fn() => genesisSharedCommentPage($cm, $cp['id'], $ct['id'], $newest['nextBefore']));
+    sharedInvalid(static fn() => genesisSharedCommentPage($cm, $cp['id'], $thread['id'], ['invalid']));
+    sharedReject(static fn() => genesisSharedCommentPage($cx, $cp['id'], $thread['id']), 404);
+    $boardRequest = ['title' => 'Custom palette', 'isDone' => false, 'color' => '#A45BCE', 'requestId' => genesisUuid()];
+    $coloredBoard = genesisSharedCreateStatus($co, $cp['id'], $boardRequest);
+    sharedExpect(strtolower($coloredBoard['color']) === '#a45bce', 'New board lost its custom color.');
+    sharedExpect(genesisSharedCreateStatus($co, $cp['id'], $boardRequest)['id'] === $coloredBoard['id'], 'Board creation retry duplicated the board.');
+    sharedInvalid(static fn() => genesisSharedCreateStatus($co, $cp['id'], ['title' => 'Bad color', 'color' => 'red']));
     $comment = genesisSharedAddComment($co, $cp['id'], $ct['id'], ['body' => "@Shared Test collaboration-member\nPlease review.", 'mentionIds' => [$cm]]);
     sharedExpect(genesisSharedComments($cm, $cp['id'], $ct['id'])[0]['mentionIds'] === [$cm], 'Mention IDs were not retained.');
     sharedExpect((bool)array_filter(genesisSharedNotifications($cm), static fn($event) => $event['action'] === 'comment.mentioned'), 'Mention did not create an internal notification.');

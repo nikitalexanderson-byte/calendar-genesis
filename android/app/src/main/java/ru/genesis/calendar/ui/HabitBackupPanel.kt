@@ -29,7 +29,7 @@ import kotlinx.coroutines.withContext
 import ru.genesis.calendar.GenesisApplication
 import ru.genesis.calendar.data.*
 
-@Composable internal fun HabitBackupPanel(app: GenesisApplication, workspace: LocalHabitWorkspace) {
+@Composable internal fun HabitBackupPanel(app: GenesisApplication, workspace: LocalHabitWorkspace, inDialog: Boolean = false) {
     val service = remember(app, app.workspaceScope) { HabitBackupService(app) }
     val scope = rememberCoroutineScope(); val language = LocalGenesisLanguage.current
     val preferences = remember(app) { LocalPreferences(app, app.workspaceScope) }
@@ -85,12 +85,12 @@ import ru.genesis.calendar.data.*
         } }
     }
     Column(Modifier.fillMaxWidth().testTag("habit-backup-panel"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        if (!inDialog) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text("Данные привычек", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
             AffairsIconButton("Данные привычек", if (expanded) AffairsAction.COLLAPSE else AffairsAction.EXPAND,
                 { expanded = !expanded }, Modifier.testTag("habit-backup-toggle"))
         }
-        if (expanded) {
+        if (expanded || inDialog) {
             Text("Включает всю историю, независимо от выбранного периода отчёта.", style = MaterialTheme.typography.bodySmall)
             Text("Подключения Google не переносятся.", style = MaterialTheme.typography.bodySmall)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

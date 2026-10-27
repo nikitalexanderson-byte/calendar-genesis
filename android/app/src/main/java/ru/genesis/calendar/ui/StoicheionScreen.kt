@@ -62,6 +62,7 @@ fun StoicheionScreen(app: GenesisApplication, divinationDisabled: Boolean,
         runCatching { StoicheionRestorationCatalogSource.load(context, language) }.getOrNull()
     }
     val scope = rememberCoroutineScope()
+    var deleteCycle by remember { mutableStateOf<ru.genesis.calendar.domain.habits.Habit?>(null) }
     val today by produceState(LocalDate.now()) {
         while (true) { delay(60_000L); value = LocalDate.now() }
     }
@@ -200,8 +201,12 @@ fun StoicheionScreen(app: GenesisApplication, divinationDisabled: Boolean,
                                         restorationHabitId = habit.id; restorationOpen = true
                                     }, modifier = Modifier.fillMaxWidth().testTag("stoicheion-restoration-cycle-${habit.id}")) {
                                         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                            Text("${loaded.first { it.id == snapshot.letterId }.symbol} · ${restorationCatalog.sectors.getValue(snapshot.sectorId).title}",
-                                                style = MaterialTheme.typography.titleSmall)
+                                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                                Text("${loaded.first { it.id == snapshot.letterId }.symbol} · ${restorationCatalog.sectors.getValue(snapshot.sectorId).title}",
+                                                    Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+                                                AffairsIconButton("Удалить цикл", AffairsAction.DELETE, { deleteCycle = habit },
+                                                    Modifier.testTag("stoicheion-delete-cycle-${habit.id}"), contentColor = MaterialTheme.colorScheme.error)
+                                            }
                                             Text("${habit.emoji} ${habit.title}", style = MaterialTheme.typography.bodySmall)
                                             Text("${snapshot.sourceDate} · ${restorationCatalog.copy(if (completed == 10) "completed" else "progress")} $completed/10",
                                                 style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
@@ -226,6 +231,7 @@ fun StoicheionScreen(app: GenesisApplication, divinationDisabled: Boolean,
             }
         }
     }
+    deleteCycle?.let { candidate -> SavedCycleDeleteDialog(candidate, habitsRepository) { deleteCycle = null } }
     selected?.let { reading ->
         val letter = reading.letter
         Dialog(onDismissRequest = { selected = null },

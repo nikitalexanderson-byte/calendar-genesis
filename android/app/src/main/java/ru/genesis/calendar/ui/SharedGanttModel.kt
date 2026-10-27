@@ -9,7 +9,7 @@ import java.time.temporal.ChronoUnit
 import kotlin.math.*
 
 internal enum class SharedGanttScale(val label: String) {
-    HOURS("Внутри дня"), DAYS("Дни"), WEEKS("Недели"), MONTHS("Месяцы")
+    HOURS("Время"), DAYS("Дни"), WEEKS("Недели"), MONTHS("Месяцы")
 }
 internal data class SharedGanttPeriod(val start: Double, val end: Double)
 internal data class SharedGanttSpan(val start: Double, val end: Double, val timed: Boolean)
@@ -89,6 +89,53 @@ internal fun sharedGanttClear(): JSONObject = JSONObject().apply {
     for (key in listOf("startDate", "dueDate", "startTime", "endTime")) put(key, JSONObject.NULL)
 }
 private fun ganttMinuteTime(value: Long) = LocalTime.ofSecondOfDay(Math.floorMod(value, 1440L) * 60).toString().take(5)
+
+/** Same endpoint rules as shared-gantt.ts: dates are inclusive; timed endpoints snap to 15 minutes. */
+internal fun sharedGanttResize(task: JSONObject, point: Double, scale: SharedGanttScale, startEdge: Boolean): JSONObject {
+    val span = requireNotNull(sharedGanttSpan(task))
+    if (scale == SharedGanttScale.HOURS) {
+        val start = (span.start * 1440).roundToLong()
+        val end = (span.end * 1440).roundToLong()
+        val snapped = (point * 96).roundToLong() * 15
+        val nextStart = if (startEdge) min(snapped, end - 15) else start
+        val nextEnd = if (startEdge) end else max(snapped, start + 15)
+        return sharedGanttChanges(LocalDate.ofEpochDay(Math.floorDiv(nextStart, 1440)), LocalDate.ofEpochDay(Math.floorDiv(nextEnd, 1440)),
+            ganttMinuteTime(nextStart), ganttMinuteTime(nextEnd))
+    }
+    val startDay = floor(span.start).toLong()
+    val endDay = floor(span.end).toLong()
+    val from = if (span.timed) task.ganttTime("startTime") else null
+    val until = if (span.timed) task.ganttTime("endTime") else null
+    val nextStart: Long
+    val nextEnd: Long
+    if (startEdge) {
+        val latest = if (span.timed) endDay - if (from!! >= until!!) 1 else 0 else endDay - 1
+        nextStart = min(point.roundToLong(), latest); nextEnd = if (span.timed) endDay else endDay - 1
+    } else {
+        val candidate = point.roundToLong() - if (!span.timed || until != LocalTime.MIDNIGHT) 1 else 0
+        val earliest = startDay + if (span.timed && until!! <= from!!) 1 else 0
+        nextStart = startDay; nextEnd = max(candidate, earliest)
+    }
+    return sharedGanttChanges(LocalDate.ofEpochDay(nextStart), LocalDate.ofEpochDay(nextEnd), from?.toString(), until?.toString())
+}
+
+internal fun sharedGanttFitPeriods(first: LocalDate, last: LocalDate, scale: SharedGanttScale, mode: CalendarMode,
+    calendar: GenesisCalendar): List<SharedGanttPeriod> {
+    if (scale == SharedGanttScale.HOURS) return sharedGanttPeriods(first, scale, mode, calendar)
+    var cursor = if (scale == SharedGanttScale.MONTHS || mode != CalendarMode.PROFANE) calendar.monthRange(first, mode).start
+        else first.minusDays(first.dayOfWeek.value - 1L)
+    val result = mutableListOf<SharedGanttPeriod>()
+    while (cursor <= last) {
+        val next = when (scale) {
+            SharedGanttScale.MONTHS -> calendar.monthRange(cursor, mode).end.plusDays(1)
+            SharedGanttScale.WEEKS -> if (mode == CalendarMode.PROFANE) cursor.plusDays(7) else if (mode == CalendarMode.SACRED && calendar.sacredDate(cursor).monthIndex == 12) calendar.monthRange(cursor, mode).end.plusDays(1) else
+                minOf(cursor.plusDays(if (mode == CalendarMode.SACRED) 5 else 10), calendar.monthRange(cursor, mode).end.plusDays(1))
+            else -> cursor.plusDays(1)
+        }
+        result += SharedGanttPeriod(cursor.toEpochDay().toDouble(), next.toEpochDay().toDouble()); cursor = next
+    }
+    return result
+}
 
 internal fun sharedGanttMove(task: JSONObject, point: Double, scale: SharedGanttScale): JSONObject {
     val span = sharedGanttSpan(task)

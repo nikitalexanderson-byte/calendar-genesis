@@ -110,7 +110,7 @@ val genesisAssets = tasks.register<GenesisAssetsTask>("genesisAssets") {
         include("icons/**", "weekday-art/**", "day-art-v1/**", "month-art-v4/**", "lunar-month-art-v1/**",
             "theokyklos-art/**", "theokyklos-symbols/**", "stoicheion-cards/**",
             "achievement-art/**", "habit-ranks/**", "habit-reward-art/**", "hero-path/**",
-            "calendar-art/**", "gregorian-months-v1/**", "genesis-hero.png", "month-frieze-v2.png")
+            "calendar-art/**", "gregorian-months-v1/**", "tracker-art/**", "genesis-hero.png", "month-frieze-v2.png")
     }
     from(rootProject.file("third-party-licenses")) { into("third-party-licenses") }
     from(rootProject.file("../app/translations.en.json")) { into("i18n") }

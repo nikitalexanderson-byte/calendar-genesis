@@ -94,6 +94,7 @@ internal fun allowedSharedRoute(method: String, path: String): Boolean {
     if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/tasks/[a-f0-9-]{36}/move"))) return method == "POST"
     if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/tasks/[a-f0-9-]{36}/read"))) return method == "POST"
     if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/tasks/[a-f0-9-]{36}/comments"))) return method in setOf("GET", "POST")
+    if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/tasks/[a-f0-9-]{36}/comments\\?before=[a-f0-9-]{36}"))) return method == "GET"
     return false
 }
 
@@ -518,6 +519,8 @@ internal class AuthSessionClient(context: Context) {
         request(expected, "/shared/invitations/$id", JSONObject())
     fun sharedComments(expected: Long, projectId: String, taskId: String): JSONObject =
         request(expected, "/shared/projects/$projectId/tasks/$taskId/comments", null)
+    fun olderSharedComments(expected: Long, projectId: String, taskId: String, before: String): JSONObject =
+        request(expected, "/shared/projects/$projectId/tasks/$taskId/comments?before=${java.net.URLEncoder.encode(before, "UTF-8")}", null)
     fun addSharedComment(expected: Long, projectId: String, taskId: String, body: JSONObject): JSONObject =
         request(expected, "/shared/projects/$projectId/tasks/$taskId/comments", body)
     fun adminStats(expected: Long): JSONObject = request(expected, "/admin/stats", null)

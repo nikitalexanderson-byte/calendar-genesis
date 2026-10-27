@@ -12,6 +12,36 @@ class SharedGanttModelTest {
         .put("startDate", start ?: JSONObject.NULL).put("dueDate", end ?: JSONObject.NULL)
         .put("startTime", from ?: JSONObject.NULL).put("endTime", until ?: JSONObject.NULL)
 
+    @Test fun resizingEndpointsKeepsInclusiveDatesAndCannotInvertTheRange() {
+        val source = task("2026-10-23", "2026-10-25")
+        val end = sharedGanttResize(source, LocalDate.parse("2026-10-29").toEpochDay().toDouble(), SharedGanttScale.DAYS, false)
+        assertEquals("2026-10-28", end.getString("dueDate")); assertEquals("2026-10-23", end.getString("startDate"))
+        val start = sharedGanttResize(source, LocalDate.parse("2026-10-30").toEpochDay().toDouble(), SharedGanttScale.DAYS, true)
+        assertEquals("2026-10-25", start.getString("startDate")); assertEquals("2026-10-25", start.getString("dueDate"))
+        assertEquals("2026-10-23", source.getString("startDate"))
+    }
+
+    @Test fun timedResizeSnapsToQuarterHoursAndCrossesMidnightWithoutLosingDurationRules() {
+        val source = task("2026-10-23", "2026-10-24", "23:00", "01:00")
+        val base = LocalDate.parse("2026-10-24").toEpochDay().toDouble()
+        val end = sharedGanttResize(source, base + 2.12 / 24, SharedGanttScale.HOURS, false)
+        assertEquals("02:00", end.getString("endTime")); assertEquals("23:00", end.getString("startTime"))
+        val clamped = sharedGanttResize(source, base + 2.0 / 24, SharedGanttScale.HOURS, true)
+        assertEquals("2026-10-24", clamped.getString("startDate")); assertEquals("00:45", clamped.getString("startTime"))
+        assertTrue(sharedGanttSpan(clamped)!!.end > sharedGanttSpan(clamped)!!.start)
+    }
+
+    @Test fun fitUsesCalendarMonthBoundariesAndCoversTasksBeyondTheNormalWindow() {
+        val calendar = GenesisCalendar()
+        for (mode in CalendarMode.entries) {
+            val first = LocalDate.parse("2026-10-23"); val last = first.plusMonths(10)
+            val periods = sharedGanttFitPeriods(first, last, SharedGanttScale.MONTHS, mode, calendar)
+            assertTrue(periods.size > 6); assertTrue(periods.first().start <= first.toEpochDay())
+            assertTrue(periods.last().end > last.toEpochDay())
+            periods.zipWithNext().forEach { (a, b) -> assertEquals(a.end, b.start, .000001) }
+        }
+    }
+
     @Test fun deadlineOnlyIsOneInclusiveDayAndUnscheduledTasksHaveNoSpan() {
         val span = sharedGanttSpan(task(null, "2026-10-23"))!!
         assertEquals(1.0, span.end - span.start, .000001)
