@@ -19,17 +19,25 @@ import ru.genesis.calendar.domain.RecurrenceConfig
 /** End-to-end dialog actions must reach the existing encrypted task repository. */
 class CalendarTaskActionsTest {
     @get:Rule val compose = createAndroidComposeRule<TestWorkspaceActivity>()
+    private fun openPage(page: String) {
+        compose.onNodeWithTag("workspace-menu").performClick()
+        compose.onNodeWithTag("drawer-$page-root").performScrollTo().performClick()
+        compose.waitUntil(5_000) { !compose.onNodeWithTag("workspace-drawer").isDisplayed() }
+        if (page == "Календарь") compose.onNodeWithTag("submenu-month").performClick()
+        if (page == "Проекты" && compose.onAllNodesWithTag("submenu-personal").fetchSemanticsNodes().isNotEmpty())
+            compose.onNodeWithTag("submenu-personal").performClick()
+    }
 
     @Test fun creatingTaskFromTasksAndMonthNeverOpensDeleteConfirmation() {
-        compose.onNodeWithTag("navigation-Проекты").performClick()
-            compose.onNodeWithTag("submenu-tasks").performClick()
-        compose.onNodeWithTag("create-task").performClick()
+        openPage("Проекты")
+        compose.onNodeWithTag("personal-actions").performClick()
+        compose.onNodeWithTag("personal-create-task").performClick()
         compose.onNodeWithTag("task-title").assertExists()
         compose.onNodeWithTag("delete-series").assertDoesNotExist()
         compose.onNodeWithText("Напоминание этой задачи будет отменено.").assertDoesNotExist()
         compose.onNodeWithTag("close-task-editor").performClick()
 
-        compose.onNodeWithTag("navigation-Календарь").performClick()
+        openPage("Календарь")
         compose.onNodeWithTag("calendar-create-task").performScrollTo().performClick()
         compose.onNodeWithTag("task-title").assertExists()
         compose.onNodeWithTag("delete-series").assertDoesNotExist()
@@ -44,7 +52,7 @@ class CalendarTaskActionsTest {
         val task = LocalTask(id = UUID.randomUUID().toString(), title = "Mobile task actions", date = date.toString(), time = "18:30")
         try {
             runBlocking { preferences.set("display", "profane"); preferences.set("time", "12h"); app.repository.save(task) }
-            compose.onNodeWithTag("navigation-Календарь").performClick()
+            openPage("Календарь")
             compose.onNodeWithTag("calendar-task-count-$date").performScrollTo().performClick()
             compose.onNodeWithText("6:30 PM", substring = true).assertExists()
             compose.onNodeWithTag("calendar-task-complete-${task.id}").assertIsOff().performClick()
@@ -56,7 +64,7 @@ class CalendarTaskActionsTest {
             compose.onNodeWithTag("calendar-task-list-dialog").assertDoesNotExist()
             compose.onNodeWithTag("task-title").performTextReplacement("Mobile task edited")
             UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
-            compose.onNodeWithTag("save-task").performScrollTo().performClick()
+            compose.onNodeWithTag("save-task").performClick()
             compose.waitUntil(10_000) { runBlocking { app.repository.get(task.id)?.title == "Mobile task edited" } }
             assertEquals(date.toString(), runBlocking { app.repository.get(task.id) }!!.date)
             compose.onNodeWithTag("calendar-task-count-$date").performScrollTo().performClick()
@@ -88,7 +96,7 @@ class CalendarTaskActionsTest {
                 rangeStart = date.toString(), rangeEnd = date.plusDays(2).toString()))
         try {
             runBlocking { preferences.set("display", "profane"); app.repository.save(task) }
-            compose.onNodeWithTag("navigation-Календарь").performClick()
+            openPage("Календарь")
             compose.onNodeWithTag("calendar-task-count-$date").performScrollTo().performClick()
             compose.onNodeWithTag("calendar-task-delete-${task.id}").performClick()
             compose.onNodeWithTag("calendar-delete-occurrence").performClick()
@@ -102,7 +110,7 @@ class CalendarTaskActionsTest {
             compose.onNodeWithTag("calendar-task-count-$next").performScrollTo().performClick()
             compose.onNodeWithTag("calendar-task-edit-${task.id}").performClick()
             compose.onNodeWithText("При удалении можно выбрать только $next.", substring = true).assertExists()
-            compose.onNodeWithText("Отмена").performScrollTo().performClick()
+            compose.onNodeWithText("Отмена").performClick()
             compose.onNodeWithTag("calendar-task-count-$next").performScrollTo().performClick()
             compose.onNodeWithTag("calendar-task-delete-${task.id}").performClick()
             compose.onNodeWithTag("calendar-delete-confirm").performClick()

@@ -1,5 +1,7 @@
 package ru.genesis.calendar.auth
 
+import ru.genesis.calendar.ui.AlertDialog
+
 import android.content.Intent
 import android.graphics.Color as AndroidColor
 import android.net.Uri

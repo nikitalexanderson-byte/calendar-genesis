@@ -173,7 +173,7 @@ class CalendarMobileLayoutTest {
         }
     }
 
-    @Test fun gregorianBadgeHasLargerVisibleDiscAndFullFingerTarget() {
+    @Test fun gregorianBadgeHasCompactDiscAndFullHeightFingerTarget() {
         val date = LocalDate.of(2026, 9, 26)
         setViewportContent {
             MaterialTheme(colorScheme = standart) {
@@ -186,9 +186,9 @@ class CalendarMobileLayoutTest {
             }
         }
         val badge = compose.onNodeWithTag("calendar-task-count-$date").performScrollTo()
-        badge.assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp)
+        badge.assertHeightIsAtLeast(48.dp)
         compose.onNodeWithTag("calendar-task-count-disc-$date", useUnmergedTree = true)
-            .assertWidthIsAtLeast(28.dp)
+            .assertWidthIsEqualTo(18.dp).assertHeightIsEqualTo(18.dp)
         capture("gregorian-task-target")
         badge.performClick()
         compose.onNodeWithTag("calendar-task-list-dialog").assertIsDisplayed()

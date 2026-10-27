@@ -265,11 +265,12 @@ private fun TimePreference(label: String, value: String, use24: Boolean, enabled
     val context = LocalContext.current
     val dialogTheme = if(LocalEveningTheme.current) android.R.style.Theme_DeviceDefault_Dialog else
         android.R.style.Theme_DeviceDefault_Light_Dialog
+    val dialogFrame = genesisNativeDialogFrame()
     val time = runCatching { LocalTime.parse(value) }.getOrDefault(LocalTime.NOON)
     val display = time.format(DateTimeFormatter.ofPattern(if (use24) "HH:mm" else "hh:mm a", Locale.ENGLISH))
     OutlinedButton(onClick = {
         TimePickerDialog(context, dialogTheme, { _, hour, minute -> onValue("%02d:%02d".format(hour, minute)) },
-            time.hour, time.minute, use24).show()
+            time.hour, time.minute, use24).also { it.show(); dialogFrame(it) }
     }, enabled = enabled, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(label, style = MaterialTheme.typography.bodySmall)

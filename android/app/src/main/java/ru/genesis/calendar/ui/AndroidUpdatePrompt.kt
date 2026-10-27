@@ -9,7 +9,7 @@ import android.os.Build
 import android.os.Environment
 import android.provider.Settings
 import androidx.core.content.FileProvider
-import androidx.compose.material3.AlertDialog
+import ru.genesis.calendar.ui.AlertDialog
 
 
 import androidx.compose.runtime.Composable

@@ -90,12 +90,12 @@ class MindmapsReview5Test {
             assertEquals(0,back)
             compose.onNodeWithTag("mindmap-open-${map.id}").performClick();await("mindmap-canvas")
             compose.onNodeWithTag("workspace-title").assertTextEquals(map.title)
-            val mode=compose.onNodeWithTag("mindmap-mode-map").fetchSemanticsNode().boundsInRoot
-            val structure=compose.onNodeWithTag("mindmap-mode-structure").fetchSemanticsNode().boundsInRoot
+            val mode=compose.onNodeWithTag("mindmap-mode-toggle").fetchSemanticsNode().boundsInRoot
             val reset=compose.onNodeWithTag("mindmap-reset").fetchSemanticsNode().boundsInRoot
             val add=compose.onNodeWithTag("mindmap-add-node").fetchSemanticsNode().boundsInRoot
-            assertEquals(mode.width,structure.width,1f);assertEquals(mode.width,reset.width,1f)
-            assertTrue(mode.left<structure.left&&structure.left<reset.left&&reset.left<add.left)
+            val more=compose.onNodeWithTag("mindmaps-actions").fetchSemanticsNode().boundsInRoot
+            assertEquals(mode.width,reset.width,1f);assertEquals(mode.width,add.width,1f);assertEquals(mode.width,more.width,1f)
+            assertTrue(mode.left<reset.left&&reset.left<add.left&&add.left<more.left)
             compose.onNodeWithContentDescription("Увеличить масштаб").assertDoesNotExist()
             capture("canvas")
             compose.onNodeWithTag("mindmap-canvas").performTouchInput {pinch(start0=Offset(width*.40f,height*.65f),start1=Offset(width*.60f,height*.65f),end0=Offset(width*.25f,height*.65f),end1=Offset(width*.75f,height*.65f),durationMillis=400)}
@@ -129,7 +129,7 @@ class MindmapsReview5Test {
                 assertEquals(0xbb/255f,pixel.red,.015f);assertEquals(0x70/255f,pixel.green,.015f);assertEquals(0x4b/255f,pixel.blue,.015f)
             }
             assertPaintedColor();capture("colored-canvas")
-            compose.onNodeWithTag("mindmap-mode-structure").performClick();assertPaintedColor();capture("colored-structure")
+            compose.onNodeWithTag("mindmap-mode-toggle").assertContentDescriptionEquals("Показать структуру").performClick();assertPaintedColor();capture("colored-structure")
             compose.onNodeWithTag("mindmaps-actions").performClick()
             compose.onNodeWithText("Экспорт JSON").assertIsDisplayed();compose.onNodeWithText("Экспорт PDF").assertIsDisplayed();capture("export-menu")
             UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()

@@ -156,11 +156,8 @@ class GregorianCalendarVisualTest {
             val badge = compose.onNodeWithTag("calendar-task-count-$date").performScrollTo().assertIsDisplayed()
             val dayBounds = compose.onNodeWithTag("calendar-day-$date").fetchSemanticsNode().boundsInRoot
             val badgeBounds = badge.fetchSemanticsNode().boundsInRoot
-            if (calendarMode != CalendarMode.LUNAR) {
-                assertTrue("Task badge must be at the top-right of $calendarMode",
-                    badgeBounds.right > dayBounds.right - badgeBounds.width * .35f &&
-                        badgeBounds.top < dayBounds.top + badgeBounds.height * .35f)
-            }
+            assertTrue("Task target stays inside $calendarMode day", badgeBounds.left >= dayBounds.left &&
+                badgeBounds.right <= dayBounds.right && badgeBounds.bottom <= dayBounds.bottom)
             assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
                 File(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null),
                     "calendar-${calendarMode.name.lowercase()}-task-badge.png")))

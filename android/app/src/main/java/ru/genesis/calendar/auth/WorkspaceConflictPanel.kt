@@ -1,5 +1,7 @@
 package ru.genesis.calendar.auth
 
+import ru.genesis.calendar.ui.AlertDialog
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer

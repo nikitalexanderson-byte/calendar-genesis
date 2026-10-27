@@ -28,6 +28,8 @@ import java.util.concurrent.ConcurrentHashMap
 val LocalGenesisLanguage = compositionLocalOf { "ru" }
 
 private val nativeCopy = mapOf(
+    "Показать карту" to "Show map",
+    "Показать структуру" to "Show outline",
     "Сакральное время" to "Sacred time",
     "Удерживайте" to "Press and hold",
     "перенесён в" to "was moved to",

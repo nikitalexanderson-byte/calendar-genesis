@@ -27,6 +27,7 @@ internal fun genesisLucideResource(name: String): Int = when (name.replace('_', 
     "bookmark" -> R.drawable.lucide_bookmark
     "file-json" -> R.drawable.lucide_file_json
     "file-text" -> R.drawable.lucide_file_text
+    "focus" -> R.drawable.lucide_focus
     "pin" -> R.drawable.lucide_pin
     "star" -> R.drawable.lucide_star
     "thumbs-up" -> R.drawable.lucide_thumbs_up
@@ -127,6 +128,7 @@ internal fun AffairsAction.lucideName(): String = when (this) {
     AffairsAction.BACK -> "chevron-left"
     AffairsAction.NEXT -> "chevron-right"
     AffairsAction.MORE -> "ellipsis"
+    AffairsAction.CENTER -> "focus"
     AffairsAction.CLOSE -> "x"
     AffairsAction.SEARCH -> "search"
     AffairsAction.FILTER -> "sliders-horizontal"

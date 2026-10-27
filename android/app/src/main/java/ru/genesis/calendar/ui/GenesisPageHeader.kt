@@ -102,7 +102,7 @@ internal fun PageInformationAction(title: String, description: String, inHeader:
         modifier = Modifier.size(48.dp).semantics { contentDescription = infoLabel }) {
         GenesisLucideIcon("book-open", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
-    if (showDescription) androidx.compose.material3.AlertDialog(
+    if (showDescription) AlertDialog(
         onDismissRequest = { showDescription = false }, title = { Text(title) }, text = { Text(description) },
         confirmButton = { TextButton(onClick = { showDescription = false }) { Text("Закрыть") } })
 }

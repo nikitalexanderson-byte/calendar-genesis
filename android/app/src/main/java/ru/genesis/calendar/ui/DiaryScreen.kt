@@ -23,7 +23,7 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
+import ru.genesis.calendar.ui.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.CancellationException
@@ -94,7 +94,7 @@ import java.time.Instant
             }
     }
     val headerInShell = WorkspaceScreenHeader("Дневник",
-        when (tab) { "favorites" -> "Избранное"; "archive" -> "Архив"; else -> null }, headerActions)
+        when (tab) { "favorites" -> "Избранное"; "archive" -> "Архив"; else -> null }, actions = headerActions)
     Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize().testTag("diary-screen")) {
         if (!headerInShell) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

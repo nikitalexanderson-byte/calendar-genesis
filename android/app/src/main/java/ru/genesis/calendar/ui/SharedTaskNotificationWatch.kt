@@ -9,7 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
+import ru.genesis.calendar.ui.Dialog
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import ru.genesis.calendar.auth.SharedWorkspaceGateway

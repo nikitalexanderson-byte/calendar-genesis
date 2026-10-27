@@ -21,7 +21,16 @@ class NativeDailyAdviceHttpsTest {
             client.updatePreferences(generation, JSONObject().put("advicePreferences",
                 JSONObject().put("enabled", true).put("smart", false).put("categories", JSONArray().put("aretology"))))
             val first = DailyAdviceProtocol.parse(client.dailyAdvice(generation, JSONObject().put("scores", JSONObject()).put("topics", JSONObject())))
-            val card = requireNotNull(first.advice)
+            val initial = requireNotNull(first.advice)
+            val rotated = DailyAdviceProtocol.parse(client.nextDailyAdvice(generation,
+                JSONObject().put("scores", JSONObject()).put("topics", JSONObject()), initial.id, initial.day))
+            val card = requireNotNull(rotated.advice)
+            assertNotEquals(initial.id, card.id)
+            assertEquals(initial.day, card.day)
+            assertEquals(first.sequence + 1, rotated.sequence)
+            val retried = DailyAdviceProtocol.parse(client.nextDailyAdvice(generation, JSONObject(), initial.id, initial.day))
+            assertEquals(card.id, retried.advice!!.id)
+            assertEquals(rotated.sequence, retried.sequence)
             assertTrue(card.body.isNotBlank()); assertNotNull(card.image)
             client.recordAdvice(generation, card.id, card.day, false)
             client.recordAdvice(generation, card.id, card.day, false)

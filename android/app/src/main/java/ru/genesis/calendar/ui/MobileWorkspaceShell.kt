@@ -177,14 +177,15 @@ internal fun mobileDestinations(pages: List<String>, visibility: UiVisibility,
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         val compactTitle = screenHeader.value?.singleLine?.value == true
                         val currentTitle = screenHeader.value?.title?.value ?: title
+                        val currentSubtitle = if (screenHeader.value != null) screenHeader.value?.subtitle?.value else subtitle
                         androidx.compose.material3.Text(
                             if (screenHeader.value?.titleIsUserContent?.value == true) currentTitle else genesisTranslate(currentTitle),
                             Modifier.testTag("workspace-title").then(if (compactTitle && android.animation.ValueAnimator.areAnimatorsEnabled())
                                 Modifier.basicMarquee(iterations = Int.MAX_VALUE, initialDelayMillis = 1800) else Modifier),
-                            maxLines = if (compactTitle) 1 else Int.MAX_VALUE,
+                            maxLines = if (compactTitle || !currentSubtitle.isNullOrBlank()) 1 else 2,
                             overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
-                        (screenHeader.value?.subtitle?.value ?: subtitle)?.let { Text(it, Modifier.testTag("workspace-subtitle"),
-                            maxLines = if (compactTitle) 1 else Int.MAX_VALUE, overflow = TextOverflow.Ellipsis,
+                        currentSubtitle?.takeIf { it.isNotBlank() }?.let { Text(it, Modifier.testTag("workspace-subtitle"),
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant) }
                         }

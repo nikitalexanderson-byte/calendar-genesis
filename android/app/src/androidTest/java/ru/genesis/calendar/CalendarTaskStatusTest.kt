@@ -27,17 +27,17 @@ import ru.genesis.calendar.ui.standart
 class CalendarTaskStatusTest {
     @get:Rule val compose = createAndroidComposeRule<StoicheionGestureActivity>()
 
-    private fun disc(date: LocalDate, done: Boolean) = compose.onNodeWithTag(
-        "calendar-task-${if (done) "done" else "open"}-count-$date", useUnmergedTree = true)
+    private fun disc(date: LocalDate) = compose.onNodeWithTag(
+        "calendar-task-count-disc-$date", useUnmergedTree = true)
 
     private fun assertColor(date: LocalDate, done: Boolean) {
-        disc(date, done).performScrollTo().assertIsDisplayed()
+        disc(date).performScrollTo().assertIsDisplayed()
         compose.mainClock.advanceTimeBy(400)
         compose.waitForIdle()
         val expected = Color(if (done) 0xff255b59 else 0xffb63b42).toArgb()
         // Dialog dimming belongs to the Android window and can outlast Compose idleness.
         compose.waitUntil(5_000) {
-            val image = disc(date, done).captureToImage().asAndroidBitmap()
+            val image = disc(date).captureToImage().asAndroidBitmap()
             (0 until image.width).any { x ->
                 (0 until image.height).any { y -> image.getPixel(x, y) == expected }
             }
@@ -79,9 +79,9 @@ class CalendarTaskStatusTest {
             compose.onNodeWithTag("calendar-task-count-$date").performClick()
             compose.onNodeWithTag("calendar-task-complete-pending").performClick()
             compose.onNodeWithText("Закрыть").performClick()
-            disc(date, false).assertDoesNotExist()
+            disc(date).assertContentDescriptionEquals("Не выполнено: 0. Выполнено: 2")
             assertColor(date, true)
-            disc(date, true).assert(hasAnyDescendant(hasText("2")))
+            disc(date).assert(hasAnyDescendant(hasText("2")))
             capture("${nextMode.name.lowercase()}-completed")
             compose.onNodeWithTag("calendar-task-count-$date").performClick()
             compose.onNodeWithTag("calendar-task-complete-pending").performClick()
@@ -89,8 +89,8 @@ class CalendarTaskStatusTest {
             compose.onNodeWithTag("calendar-delete-confirm").performClick()
             compose.onNodeWithTag("calendar-task-pending").assertDoesNotExist()
             compose.onNodeWithText("Закрыть").performClick()
-            disc(date, false).assertDoesNotExist()
-            disc(date, true).assert(hasAnyDescendant(hasText("1")))
+            disc(date).assertContentDescriptionEquals("Не выполнено: 0. Выполнено: 1")
+            disc(date).assert(hasAnyDescendant(hasText("1")))
             compose.onNodeWithTag("calendar-task-count-$date").performClick()
             compose.onNodeWithTag("calendar-task-delete-completed").performClick()
             compose.onNodeWithTag("calendar-delete-confirm").performClick()

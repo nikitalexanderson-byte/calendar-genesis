@@ -1,5 +1,7 @@
 package ru.genesis.calendar.auth
 
+import ru.genesis.calendar.ui.AlertDialog
+
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper

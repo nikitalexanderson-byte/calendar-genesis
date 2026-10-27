@@ -88,6 +88,14 @@ import java.io.InputStream
         }
     }
     val pollingConversation = state.selected?.id
+    LaunchedEffect(repository, tab, query, state.initialized, pollingConversation) {
+        if (tab == "contacts" && state.initialized && pollingConversation == null) {
+            delay(250)
+            try { withContext(Dispatchers.IO) { repository.contacts(query) } }
+            catch (cancelled: CancellationException) { throw cancelled }
+            catch (failure: Exception) { error = messagingError(failure.message) }
+        }
+    }
     LaunchedEffect(repository, lifecycle, pollingConversation, state.accepted, state.keyReady, state.keyChanged, state.accessBlocked) {
         if (pollingConversation != null && state.accepted && state.keyReady && !state.keyChanged && !state.accessBlocked) {
             lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -135,9 +143,6 @@ import java.io.InputStream
         }
     }
     val headerActions: @Composable () -> Unit = {
-        if (state.selected != null) WorkspaceHeaderButton(genesisTranslate("Назад"), "messaging-back", onClick = ::back) {
-            GenesisLucideIcon("chevron-left")
-        }
             Box {
                 WorkspaceHeaderButton(genesisTranslate("Действия"), "messaging-actions", onClick = { more = true }) { GenesisLucideIcon("ellipsis") }
                 DropdownMenu(more, { more = false }) {
@@ -152,7 +157,10 @@ import java.io.InputStream
             }
     }
     val headerInShell = WorkspaceScreenHeader(state.selected?.peerName ?: "Личные сообщения",
-        if (state.selected != null) "Сквозное шифрование" else null, headerActions)
+        if (state.selected != null) "Сквозное шифрование" else null,
+        navigation = { if (state.selected != null) WorkspaceHeaderButton(genesisTranslate("Назад"), "messaging-back", onClick = ::back) {
+            GenesisLucideIcon("chevron-left")
+        } }, actions = headerActions)
     Column(Modifier.fillMaxSize().imePadding().testTag("messaging-screen")) {
         if (!headerInShell) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             AffairsIconButton("Назад", AffairsAction.BACK, ::back)
@@ -175,19 +183,19 @@ import java.io.InputStream
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp).height(IntrinsicSize.Min)
                 .testTag("messaging-tabs"), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(tab == "inbox", { tab = "inbox" },
-                    { Text("Переписки", Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center) },
+                    { CompactChoiceLabel("Переписки") },
                     modifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = 48.dp).testTag("messaging-tab-inbox"))
-                FilterChip(tab == "contacts", { tab = "contacts"; run { repository.contacts(query) } },
-                    { Text("Контакты", Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center) },
+                FilterChip(tab == "contacts", { tab = "contacts" },
+                    { CompactChoiceLabel("Контакты") },
                     modifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = 48.dp).testTag("messaging-tab-contacts"))
                 if (initialSpaceId != null) FilterChip(tab == "participants", { tab = "participants" },
-                    { Text("Участники", Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center) },
+                    { CompactChoiceLabel("Участники") },
                     modifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = 48.dp).testTag("messaging-tab-participants"))
             }
-            if (tab == "contacts") Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(query, { query = it.take(200) }, Modifier.weight(1f), label = { Text("Поиск контактов") }, singleLine = true, shape = RoundedCornerShape(10.dp))
-                AffairsIconButton("Найти", AffairsAction.SEARCH, { run { repository.contacts(query) } }, enabled = !busy)
-            }
+            if (tab == "contacts") OutlinedTextField(query, { query = it.take(200) },
+                Modifier.fillMaxWidth().padding(horizontal = 12.dp).testTag("messaging-contacts-search"),
+                label = { Text("Поиск контактов") }, leadingIcon = { GenesisLucideIcon("search") },
+                singleLine = true, shape = AffairsLayout.controlShape)
             LazyColumn(Modifier.weight(1f).testTag("messaging-inbox"), contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (tab == "inbox") {
                     if (state.invitations.isNotEmpty()) item { Text("Приглашения", style = MaterialTheme.typography.titleMedium) }
@@ -200,7 +208,7 @@ import java.io.InputStream
                 }
                 if (tab == "contacts") {
                     items(state.contacts, key = { it.id }) { notice -> MessagingNoticeRow(notice, busy) { run { repository.select(notice) } } }
-                    if (state.contactsCursor != null) item { TextButton({ run { repository.contacts(query, state.contactsCursor) } }, enabled = !busy) { Text("Загрузить ещё") } }
+                    if (state.contactsCursor != null) item { TextButton({ run { repository.contacts(query, state.contactsCursor) } }, enabled = !busy && state.contactsQuery == query) { Text("Загрузить ещё") } }
                 }
                 if (tab == "participants") {
                     items(state.participants.filter { it.id != repository.ownerUid }, key = { it.id }) { peer ->

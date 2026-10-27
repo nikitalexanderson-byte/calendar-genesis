@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.getOrNull
@@ -56,19 +57,17 @@ class EveningAndMonthFlowTest {
             val tag=if(calendarMode==CalendarMode.SACRED) "sacred-month-pyatas" else "calendar-month-panel-${calendarMode.wireValue}"
             compose.onNodeWithTag(tag).assertExists()
             if(calendarMode!=CalendarMode.SACRED) {
-                compose.onNodeWithTag("calendar-month-description").assertDoesNotExist()
-                compose.onNodeWithTag("calendar-month-info-toggle").performScrollTo().performClick()
                 compose.onNodeWithTag("calendar-month-description").assert(hasAnyAncestor(hasTestTag(tag)))
-                compose.onNodeWithTag("calendar-month-info-toggle").performScrollTo().performClick()
             }
             capture("${calendarMode.wireValue}-month")
             if(calendarMode==CalendarMode.PROFANE) {
                 compose.onNodeWithTag("calendar-day-$date").performScrollTo()
                 val planet=compose.onNodeWithTag("calendar-patron-$date",useUnmergedTree=true).fetchSemanticsNode().boundsInRoot
-                val disc=compose.onNodeWithTag("calendar-task-open-count-$date",useUnmergedTree=true).fetchSemanticsNode().boundsInRoot
-                assertTrue("Planet must be below the task discs",planet.top>=disc.bottom+2)
+                val disc=compose.onNodeWithTag("calendar-task-count-disc-$date",useUnmergedTree=true).fetchSemanticsNode().boundsInRoot
+                assertTrue("Planet must stay above the task discs",planet.bottom<=disc.top)
             }
-            compose.onNodeWithTag("calendar-day-$date").performScrollTo().performClick()
+            compose.onNodeWithTag("calendar-day-$date").performScrollTo()
+                .performTouchInput { click(Offset(center.x, 2f)) }
             compose.waitUntil(10_000) {
                 val card=compose.onNodeWithTag("calendar-selected-day").fetchSemanticsNode().boundsInRoot
                 val viewport=compose.onNodeWithTag("calendar-month").fetchSemanticsNode().boundsInRoot
