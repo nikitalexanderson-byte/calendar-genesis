@@ -80,7 +80,7 @@ class StoicheionRestorationFlowTest {
         val source = RestorationSource(LocalDate.now().toString(), 42, sourceCards)
         var saved: Habit? = null
         compose.setContent {
-            CompositionLocalProvider(LocalGenesisLanguage provides "ru") {
+            CompositionLocalProvider(LocalGenesisLanguage provides "ru", LocalEveningTheme provides dark) {
                 MaterialTheme(colorScheme = if (dark) evening else standart) {
                     var workspace by remember { mutableStateOf(LocalHabitWorkspace()) }
                     val habit = workspace.habits.firstOrNull()

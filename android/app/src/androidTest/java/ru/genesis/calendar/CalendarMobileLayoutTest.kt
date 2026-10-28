@@ -26,11 +26,15 @@ import ru.genesis.calendar.ui.calendarName
 import ru.genesis.calendar.ui.LocalGenesisLanguage
 import ru.genesis.calendar.ui.StoicheionScreen
 import ru.genesis.calendar.ui.standart
+import ru.genesis.calendar.ui.evening
+import ru.genesis.calendar.ui.LocalEveningTheme
 
 /** Checks the installed native layout and touch bounds, with no account or server data. */
 class CalendarMobileLayoutTest {
     @get:Rule val compose = createAndroidComposeRule<StoicheionGestureActivity>()
     private val requestedWidth = InstrumentationRegistry.getArguments().getString("genesisWidth")?.toIntOrNull()
+    private val requestedDark = InstrumentationRegistry.getArguments().getString("genesisDark").toBoolean()
+    private val scheme get() = if (requestedDark) evening else standart
     private fun viewportModifier() = Modifier.safeDrawingPadding().heightIn(max = 760.dp).then(
         requestedWidth?.let { Modifier.width(it.dp) } ?: Modifier)
     private fun setViewportContent(content: @Composable () -> Unit) {
@@ -39,7 +43,8 @@ class CalendarMobileLayoutTest {
             val viewportDensity = requestedWidth?.let {
                 Density(compose.activity.resources.displayMetrics.widthPixels.toFloat() / it, originalDensity.fontScale)
             } ?: originalDensity
-            CompositionLocalProvider(LocalDensity provides viewportDensity) { content() }
+            CompositionLocalProvider(LocalDensity provides viewportDensity,
+                LocalEveningTheme provides requestedDark) { content() }
         }
     }
 
@@ -50,15 +55,15 @@ class CalendarMobileLayoutTest {
         device.waitForIdle(2_000)
         assertTrue(device.takeScreenshot(
             File(instrumentation.targetContext.cacheDir,
-                "${BuildConfig.VERSION_NAME}-${requestedWidth?.let { "${it}dp-" } ?: ""}$name.png")))
+                "${BuildConfig.VERSION_NAME}-${requestedWidth?.let { "${it}dp-" } ?: ""}${if (requestedDark) "dark" else "light"}-$name.png")))
     }
 
     @Test fun viewSwitchPrecedesScrollingMonthAndYearHeadingsInEveryCalendar() {
         var mode by mutableStateOf(CalendarMode.SACRED)
         val date = LocalDate.of(2026, 9, 28)
         setViewportContent {
-            MaterialTheme(colorScheme = standart) {
-                Surface(Modifier.fillMaxSize(), color = standart.background) {
+            MaterialTheme(colorScheme = scheme) {
+                Surface(Modifier.fillMaxSize(), color = scheme.background) {
                     Column(viewportModifier()) {
                         CalendarScreen(date, mode, onSelect = {}, experimental = true)
                     }
@@ -84,8 +89,9 @@ class CalendarMobileLayoutTest {
                 CalendarMode.PROFANE -> "calendar-year-month-2026-01-01"
             }
             compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag(firstTag))
-            if (nextMode == CalendarMode.SACRED) compose.waitUntil(10_000) {
-                compose.onAllNodesWithContentDescription("Иллюстрация месяца АРЕЙОС").fetchSemanticsNodes().isNotEmpty()
+            compose.waitUntil(10_000) {
+                compose.onAllNodes(hasContentDescription("Иллюстрация месяца", substring = true) and
+                    hasAnyAncestor(hasTestTag(firstTag)), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
             }
             capture("${nextMode.name.lowercase()}-year-months")
             val lastTag = when (nextMode) {
@@ -104,8 +110,8 @@ class CalendarMobileLayoutTest {
 
     @Test fun gregorianYearShowsSeasonsDayAndTaskCountsWithoutDuplicateHeadings() {
         setViewportContent {
-            MaterialTheme(colorScheme = standart) {
-                Surface(Modifier.fillMaxSize(), color = standart.background) {
+            MaterialTheme(colorScheme = scheme) {
+                Surface(Modifier.fillMaxSize(), color = scheme.background) {
                     Column(viewportModifier()) {
                         CalendarScreen(LocalDate.of(2028, 2, 14), CalendarMode.PROFANE, onSelect = {}, experimental = true)
                     }
@@ -128,8 +134,8 @@ class CalendarMobileLayoutTest {
 
     @Test fun marchYearInAustraliaStartsWithAutumnAndEndsWithSummer() {
         setViewportContent {
-            MaterialTheme(colorScheme = standart) {
-                Surface(Modifier.fillMaxSize(), color = standart.background) {
+            MaterialTheme(colorScheme = scheme) {
+                Surface(Modifier.fillMaxSize(), color = scheme.background) {
                     Column(viewportModifier()) {
                         CalendarScreen(LocalDate.of(2027, 1, 10), CalendarMode.PROFANE,
                             onSelect = {}, experimental = true, gregorianYearStartsInMarch = true,
@@ -155,8 +161,8 @@ class CalendarMobileLayoutTest {
         var mode by mutableStateOf(CalendarMode.PROFANE)
         val date = LocalDate.of(2026, 9, 28)
         setViewportContent {
-            MaterialTheme(colorScheme = standart) {
-                Surface(Modifier.fillMaxSize(), color = standart.background) {
+            MaterialTheme(colorScheme = scheme) {
+                Surface(Modifier.fillMaxSize(), color = scheme.background) {
                     Column(viewportModifier()) { CalendarScreen(date, mode, onSelect = {}, experimental = true) }
                 }
             }
@@ -176,8 +182,8 @@ class CalendarMobileLayoutTest {
     @Test fun gregorianBadgeHasCompactDiscAndFullHeightFingerTarget() {
         val date = LocalDate.of(2026, 9, 26)
         setViewportContent {
-            MaterialTheme(colorScheme = standart) {
-                Surface(Modifier.fillMaxSize(), color = standart.background) {
+            MaterialTheme(colorScheme = scheme) {
+                Surface(Modifier.fillMaxSize(), color = scheme.background) {
                     Column(viewportModifier()) {
                         CalendarScreen(date, CalendarMode.PROFANE, onSelect = {}, experimental = true,
                             tasks = listOf(LocalTask(id = "finger-target", title = "Задача для проверки", date = date.toString())))
@@ -198,8 +204,8 @@ class CalendarMobileLayoutTest {
     @Test fun stoicheionHeaderScrollsWithOriginalLetterCards() {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
         setViewportContent {
-            MaterialTheme(colorScheme = standart) {
-                Surface(Modifier.fillMaxSize(), color = standart.background) {
+            MaterialTheme(colorScheme = scheme) {
+                Surface(Modifier.fillMaxSize(), color = scheme.background) {
                     Column(viewportModifier()) { StoicheionScreen(app, divinationDisabled = true) }
                 }
             }
@@ -216,8 +222,8 @@ class CalendarMobileLayoutTest {
     @Test fun englishYearHeadingAndGregorianDatesStayLocalized() {
         setViewportContent {
             CompositionLocalProvider(LocalGenesisLanguage provides "en") {
-                MaterialTheme(colorScheme = standart) {
-                    Surface(Modifier.fillMaxSize(), color = standart.background) {
+                MaterialTheme(colorScheme = scheme) {
+                    Surface(Modifier.fillMaxSize(), color = scheme.background) {
                         Column(viewportModifier()) {
                             CalendarScreen(LocalDate.of(2026, 9, 28), CalendarMode.PROFANE, onSelect = {})
                         }

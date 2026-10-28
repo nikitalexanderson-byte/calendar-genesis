@@ -80,6 +80,7 @@ class MobileWorkspaceVisualTest {
             capture(state, "shared-list")
 
             compose.onNodeWithTag("shared-create-task").performScrollTo().performClick()
+            compose.onNodeWithTag("shared-create-task-option").performClick()
             compose.onNodeWithTag("shared-create-destination").assertTextContains(fixture.title, substring = true)
             compose.onNodeWithTag("shared-new-task-title").performTextReplacement("Черновик в общем проекте")
             device.pressBack() // IME closes before the dialog, if it was visible.
@@ -87,13 +88,14 @@ class MobileWorkspaceVisualTest {
             if (compose.onAllNodesWithTag("shared-new-task-title").fetchSemanticsNodes().isNotEmpty()) device.pressBack()
             compose.waitForIdle()
             compose.onNodeWithTag("shared-create-task").performClick()
+            compose.onNodeWithTag("shared-create-task-option").performClick()
             compose.onNodeWithTag("shared-new-task-title").assertTextContains("Черновик в общем проекте")
             capture(state, "shared-create-destination")
             compose.onNodeWithText("Отмена").performClick()
 
-            compose.onNodeWithContentDescription("Добавить список или проект").performClick()
-            compose.onNodeWithTag("shared-create-list").assertIsEnabled()
-            compose.onNodeWithTag("shared-create-project").assertIsEnabled()
+            compose.onNodeWithTag("shared-create-task").performClick()
+            compose.onNodeWithTag("shared-create-task-list-option").assertIsEnabled()
+            compose.onNodeWithTag("shared-create-project-option").assertIsEnabled()
             capture(state, "shared-create-menu")
             device.pressBack()
 
@@ -103,7 +105,7 @@ class MobileWorkspaceVisualTest {
             }
             capture(state, "shared-view-menu")
             compose.onNodeWithTag("shared-view-board").performClick()
-            compose.onNodeWithTag("shared-view-selector").assertTextContains("Доска")
+            compose.onNodeWithTag("shared-view-selector").assertContentDescriptionEquals("Доска")
             capture(state, "shared-board")
             compose.onNodeWithTag("shared-view-selector").performClick()
             compose.onNodeWithTag("shared-view-list").performClick()
@@ -133,10 +135,7 @@ class MobileWorkspaceVisualTest {
                 capture(state, "mindmap-library")
                 compose.onNodeWithTag("mindmap-open-${document.id}", useUnmergedTree = true).performClick()
                 compose.onNodeWithTag("mindmap-canvas").assertIsDisplayed()
-                val modeText = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
-                compose.onNodeWithText("Структура", useUnmergedTree = true)
-                    .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) { it(modeText) }
-                assertTrue("Mode label must fit without breaking or clipping", modeText.single().lineCount == 1 && !modeText.single().hasVisualOverflow)
+                compose.onNodeWithTag("mindmap-mode-toggle").assertContentDescriptionEquals("Показать структуру")
                 val rootNode = compose.onNodeWithTag("mindmap-node-${document.nodes.first().id}").fetchSemanticsNode()
                 val rootLabel = compose.onNode(hasText(document.title) and
                     hasAnyAncestor(hasTestTag("mindmap-node-${document.nodes.first().id}")), useUnmergedTree = true).fetchSemanticsNode()
@@ -149,7 +148,7 @@ class MobileWorkspaceVisualTest {
                 compose.onNodeWithText("История").assertExists()
                 capture(state, "mindmap-tools")
                 device.pressBack()
-                compose.onNodeWithText("Структура").performClick()
+                compose.onNodeWithTag("mindmap-mode-toggle").performClick()
                 compose.onNodeWithTag("mindmap-node-${thought.id}").performScrollTo().performClick()
                 val revisedThought = "Изменённая мысль ${state.width}-${if (state.dark) "dark" else "light"}"
                 compose.onNodeWithTag("mindmap-node-text").performTextReplacement(revisedThought)
@@ -159,7 +158,7 @@ class MobileWorkspaceVisualTest {
                 compose.waitForIdle()
                 hierarchy(state, "mindmap-after-back")
                 if (compose.onAllNodesWithText("Закрыть без сохранения?").fetchSemanticsNodes().isEmpty())
-                    compose.onNodeWithText("Закрыть").performClick()
+                    compose.onNodeWithContentDescription("Закрыть").performClick()
                 compose.onNodeWithText("Закрыть без сохранения?").assertExists()
                 capture(state, "mindmap-draft-guard")
                 compose.onNodeWithText("Продолжить редактирование").performClick()

@@ -62,7 +62,7 @@ class StoicheionFlowTest {
         compose.onNodeWithTag("stoicheion-letter-alpha").performClick()
         compose.onAllNodesWithText("ГОЛОВА").onLast().assertExists()
         compose.onNodeWithText("Метафизика изначального истока").assertExists()
-        compose.onNodeWithText("Закрыть").performClick()
+        compose.onNodeWithContentDescription("Закрыть").performClick()
     }
 
     @Test fun dailyAndNineCardDrawsPersistLocallyAndRespectVisibilitySetting() {
@@ -75,6 +75,8 @@ class StoicheionFlowTest {
             runBlocking { preferences.set("stoicheionDivinationDisabled", "false") }
             openOracle()
             if (runBlocking { repository.today.first().daily } == null) {
+                compose.onNodeWithTag("stoicheion-grid", useUnmergedTree = true)
+                    .performScrollToNode(hasTestTag("stoicheion-draw-daily"))
                 compose.onNodeWithTag("stoicheion-draw-daily").performClick()
                 compose.onNodeWithTag("stoicheion-accessible-draw").performClick()
                 compose.waitUntil(10_000) { runBlocking { repository.today.first().daily != null } }
@@ -105,9 +107,9 @@ class StoicheionFlowTest {
                 runBlocking { repository.today.first().spread!! }.seed, 5)
             compose.onNodeWithText((if (centerReversed) centerGuidance.reversed else centerGuidance.upright).ru)
                 .assertExists()
-            compose.onNodeWithText("Закрыть").performClick()
+            compose.onNodeWithContentDescription("Закрыть").performClick()
             compose.waitUntil(10_000) {
-                compose.onAllNodesWithText("Закрыть").fetchSemanticsNodes().isEmpty()
+                compose.onAllNodesWithContentDescription("Закрыть").fetchSemanticsNodes().isEmpty()
             }
             val draws = runBlocking { repository.today.first() }
             assertTrue((draws.daily?.attempts ?: 0) in 1..2)
@@ -119,6 +121,11 @@ class StoicheionFlowTest {
             UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).waitForIdle()
             assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
                 .takeScreenshot(File(app.getExternalFilesDir(null), "stoicheion-isopsephy-after.png")))
+            compose.onNodeWithTag("stoicheion-grid", useUnmergedTree = true)
+                .performScrollToNode(hasTestTag("stoicheion-restoration-begin"))
+            compose.onNodeWithTag("stoicheion-restoration-begin").assertIsEnabled()
+            assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+                .takeScreenshot(File(app.getExternalFilesDir(null), "stoicheion-restoration-entry-after.png")))
             runBlocking { preferences.set("stoicheionDivinationDisabled", "true") }
             compose.onNodeWithTag("stoicheion-grid", useUnmergedTree = true).performScrollToIndex(0)
             compose.waitUntil(10_000) {
