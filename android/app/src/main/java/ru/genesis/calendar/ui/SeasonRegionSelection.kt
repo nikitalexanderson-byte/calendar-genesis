@@ -155,7 +155,7 @@ internal fun SeasonRegionSettings(prefs: UiPreferences, onSetLocal: (String, Str
     if (showManual) Dialog(onDismissRequest = { showManual = false }) {
         Surface(shape = AffairsLayout.shape, color = MaterialTheme.colorScheme.surface) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Выберите регион", style = MaterialTheme.typography.titleLarge)
+                EditorDialogHeader("Выберите регион", "region-close") { showManual = false }
                 LazyColumn(Modifier.heightIn(max = 500.dp).testTag("region-manual-list"),
                     verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     items(seasonRegionChoices) { choice ->
@@ -173,7 +173,7 @@ internal fun SeasonRegionSettings(prefs: UiPreferences, onSetLocal: (String, Str
                         }
                     }
                 }
-                TextButton(onClick = { showManual = false }) { Text("Закрыть") }
+
             }
         }
     }

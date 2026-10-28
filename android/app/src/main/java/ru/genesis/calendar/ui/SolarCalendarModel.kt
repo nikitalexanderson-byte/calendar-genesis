@@ -33,6 +33,7 @@ import java.util.Locale
 internal fun SolarCalendarModel(calendar: GenesisCalendar, shown: LocalDate,
     onOpenDate: (LocalDate) -> Unit, onClose: () -> Unit) {
     val context = LocalContext.current
+    val language = LocalGenesisLanguage.current
     val dark = LocalEveningTheme.current
     val year = calendar.sacredDate(shown).sacredYear
     var selectedMonth by remember { mutableIntStateOf(calendar.sacredDate(shown).monthIndex) }
@@ -40,12 +41,18 @@ internal fun SolarCalendarModel(calendar: GenesisCalendar, shown: LocalDate,
     var view by remember { mutableStateOf<WebView?>(null) }
     var ready by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
-    val source by produceState<String?>(null, dark) {
+    val source by produceState<String?>(null, dark, language) {
+        ready = false; failed = false
         value = withContext(Dispatchers.IO) { runCatching {
             val template = context.assets.open("solar-model.html").bufferedReader().use { it.readText() }
             val svg = context.assets.open("originals/calendar-art/genesis-sacred-calendar-v8.svg")
                 .bufferedReader().use { it.readText() }
-            template.replace("__PAPER__", if (dark) "#071d20" else "#fffdf8")
+            val localization = if (language == "ru") "" else {
+                val script = context.assets.open("originals/i18n/solar-model-localization.js").bufferedReader().use { it.readText() }.replace("export function ", "function ")
+                val labels = org.json.JSONObject(solarModelLabels(context, language)).toString().replace("<", "\\u003c")
+                "<script>$script;localizeSolarModel(document.querySelector('svg'),solarLabelTranslator($labels,${org.json.JSONObject.quote(language)}),${org.json.JSONObject.quote(language)});</script>"
+            }
+            template.replace("</body>", "$localization</body>").replace("__PAPER__", if (dark) "#071d20" else "#fffdf8")
                 .replace("__INK__", if (dark) "#f5edda" else "#102b2c")
                 .replace("__MUTED__", if (dark) "#b8cac4" else "#405b59")
                 .replace("__GOLD__", if (dark) "#dfc17e" else "#8b6727")

@@ -1,3 +1,4 @@
+import { restorationHabitDisplay } from "./restoration-habit-display";
 import type { Habit } from "./habits";
 import { STARTER_HABIT_TEMPLATES } from "./habit-templates";
 import { SACRED_PRACTICES } from "./sacred-practices";
@@ -5,7 +6,7 @@ import { catalogText, type LocalizedPair } from "./catalog-i18n";
 import { translateText, type Language } from "./i18n";
 import { REGION_LANGUAGES } from "./region-language";
 
-type HabitText = Pick<Habit, "title" | "description" | "sourceTemplateId" | "sacredPracticeId">;
+type HabitText = Pick<Habit, "title" | "description" | "sourceTemplateId" | "sacredPracticeId"> & Partial<Pick<Habit, "stoicheionRestoration">>;
 type BuiltInText = { title: LocalizedPair; previousTitles?: readonly string[]; description: LocalizedPair; sacred: boolean };
 const templates = new Map<string, BuiltInText>(STARTER_HABIT_TEMPLATES.map(template => [template.id, {
   title: { ru: template.title, en: template.titleEn },
@@ -30,6 +31,7 @@ function localizeOriginal(saved: string, copy: LocalizedPair, language: Language
 
 /** Translate only unchanged built-in fields. Stored/user-authored text is never rewritten. */
 export function habitDisplayText(habit: HabitText, language: Language): Pick<Habit, "title" | "description"> {
+  if (habit.stoicheionRestoration) return restorationHabitDisplay(habit, language);
   const original = habit.sacredPracticeId ? practices.get(habit.sacredPracticeId)
     : habit.sourceTemplateId ? templates.get(habit.sourceTemplateId) : undefined;
   if (!original) return { title: habit.title, description: habit.description };

@@ -32,7 +32,7 @@ function genesisSharedBoardPlacement(string $userId, string $spaceId, mixed $par
     if (!is_string($parentId) || !is_string($statusId)) throw new InvalidArgumentException('INVALID_BOARD_DESTINATION');
     $parent = genesisSharedProjectAccess($parentId, $userId, 'write');
     if ($parent['space_id'] !== $spaceId) throw new GenesisSharedAccessException();
-    $query = genesisDb()->prepare('SELECT id FROM shared_project_statuses WHERE id = :id AND project_id = :project');
+    $query = genesisDb()->prepare('SELECT id FROM shared_project_statuses WHERE id = :id AND project_id = :project AND is_chaos=0');
     $query->execute(['id' => $statusId, 'project' => $parentId]);
     if (!$query->fetchColumn()) throw new InvalidArgumentException('INVALID_BOARD_DESTINATION');
     return $statusId;

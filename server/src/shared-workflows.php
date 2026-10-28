@@ -10,7 +10,7 @@ function genesisWorkflowConfig(string $projectId):array {
         ...($row?genesisPlanningOpen($row['definition_json']):['statuses'=>[],'transitions'=>[]])];
 }
 function genesisWorkflowStatuses(string $projectId):array {
-    return array_column(genesisPlanningRows('SELECT id,is_done FROM shared_project_statuses WHERE project_id=? ORDER BY position,id',[$projectId]),null,'id');
+    return array_column(genesisPlanningRows('SELECT id,is_done FROM shared_project_statuses WHERE project_id=? AND is_chaos=0 ORDER BY position,id',[$projectId]),null,'id');
 }
 function genesisWorkflowRole(array $project):string {
     return $project['space_member_role']==='owner'?'owner':$project['member_role'];
@@ -103,8 +103,11 @@ function genesisWorkflowTask(string $actor,string $projectId,string $id,?array $
     if(!genesisDb()->inTransaction())throw new LogicException('Workflow validation requires a write transaction');
     $rows=genesisPlanningRows('SELECT * FROM shared_tasks WHERE id=? AND project_id=?',[$id,$projectId]);if(!$rows)throw new GenesisSharedAccessException();$task=$rows[0];
     if($restoring&&$task['archived_at']!==null)return;
-    $rules=array_column($config['statuses'],null,'statusId');$target=$task['status_id'];if(!isset($rules[$target]))genesisWorkflowError('WORKFLOW_STATUS_UNCONFIGURED',['statusId'=>$target]);
+    $target=$task['status_id'];
+    if(str_starts_with($target,'chaos-'))return; // Unplaced tasks enter board workflow only when assigned to a board.
+    $rules=array_column($config['statuses'],null,'statusId');if(!isset($rules[$target]))genesisWorkflowError('WORKFLOW_STATUS_UNCONFIGURED',['statusId'=>$target]);
     $from=$before!==null&&$before['project_id']===$projectId?$before['status_id']:null;
+    if($from!==null&&str_starts_with($from,'chaos-'))$from=null;
     if(!$restoring&&$from!==$target){
         $project=genesisSharedProjectAccess($projectId,$actor);$role=genesisWorkflowRole($project);$allowed=false;$found=false;
         foreach($config['transitions'] as $edge)if($edge['fromStatusId']===$from&&$edge['toStatusId']===$target){$found=true;$allowed=in_array($role,$edge['roles'],true);break;}
@@ -130,7 +133,7 @@ function genesisSharedWorkflow(string $actor,string $projectId):array {
         $project=genesisWorkflowAccess($actor,$projectId);
         // A settings projection must also work before restore, without reading hidden tasks.
         $context=['project'=>['id'=>$projectId,'title'=>$project['title'],'role'=>$project['member_role'],'permissions'=>$project['permissions']],
-            'statuses'=>genesisPlanningRows('SELECT id,title,position,is_done AS isDone,revision FROM shared_project_statuses WHERE project_id=? ORDER BY position,id',[$projectId]),
+            'statuses'=>genesisPlanningRows('SELECT id,title,position,is_done AS isDone,revision FROM shared_project_statuses WHERE project_id=? AND is_chaos=0 ORDER BY position,id',[$projectId]),
             'customFieldDefinitions'=>array_map('genesisSharedCustomFieldRecord',genesisPlanningRows('SELECT * FROM shared_custom_fields WHERE space_id=? AND (project_id IS NULL OR project_id=?) ORDER BY position,id',[$project['space_id'],$projectId]))];
         $result=['config'=>genesisWorkflowConfig($projectId),'counts'=>genesisWorkflowCounts($projectId),'context'=>$context];
         if($owns)$db->commit();return $result;

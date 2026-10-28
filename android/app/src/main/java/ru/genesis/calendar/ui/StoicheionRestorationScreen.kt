@@ -401,11 +401,11 @@ internal fun RestorationCycle(habit: Habit, workspace: LocalHabitWorkspace, lett
             } else { RestorationTetractys(count, catalog); Text(catalog.copy("cycleHelp"), style = MaterialTheme.typography.bodySmall) }
         } }
         item { RestorationBlock(catalog.copy("practice"), RestorationTone.SAGE) {
-            Text(snapshot.intention, style = MaterialTheme.typography.titleMedium)
-            Text(snapshot.practiceText)
+            Text(habitDisplayDescription(habit.copy(description = snapshot.intention)), style = MaterialTheme.typography.titleMedium)
+            Text(habitDisplayDescription(habit.copy(description = snapshot.practiceText)))
             HorizontalDivider()
             Text(catalog.copy("action"), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-            Text(snapshot.action)
+            Text(habitDisplayDescription(habit.copy(description = snapshot.action)))
             Text("${habit.emoji} ${habit.title}", style = MaterialTheme.typography.titleSmall)
             if (!workspace.settings.enabled) Text(catalog.copy("disabled"), style = MaterialTheme.typography.bodySmall)
             if (done && today !in dates && count < 10) Text(catalog.copy("todayEarlier"), style = MaterialTheme.typography.bodySmall)

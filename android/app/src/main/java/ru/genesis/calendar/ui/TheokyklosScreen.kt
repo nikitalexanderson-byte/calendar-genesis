@@ -140,6 +140,7 @@ fun TheokyklosScreen(app: GenesisApplication, calendarMode: CalendarMode, onOpen
                             "begin" -> repository.save(practice.toHabit(calendarMode, english))
                             "pause" -> repository.save(requireNotNull(existing).copy(active = false))
                             "resume" -> repository.save(requireNotNull(existing).copy(active = true))
+                            "restore-default" -> repository.save(restoreSacredHabitContent(requireNotNull(existing), practice, english))
                             "complete" -> repository.complete(requireNotNull(existing).id,
                                 workspace?.completions?.firstOrNull { it.habitId == existing.id && it.date == LocalDate.now() }?.completed != true)
                         }
@@ -271,7 +272,7 @@ private fun TheokyklosDetail(sector: TheokyklosSector, practices: List<Theokyklo
                         Text(if (english) sector.patrons.en else sector.patrons.ru,
                             color = gold, style = MaterialTheme.typography.bodyMedium)
                     }
-                    TextButton(onClick = onClose) { Text("×", color = cream, fontSize = 26.sp) }
+                    AffairsIconButton("Закрыть", AffairsAction.CLOSE, onClose, contentColor = cream)
                 }
                 OriginalImage(sector.art, if (english) "${sector.patrons.en} — ${sector.title.en}"
                     else "${sector.patrons.ru} — ${sector.title.ru}",
@@ -357,7 +358,8 @@ private fun TheokyklosDetail(sector: TheokyklosSector, practices: List<Theokyklo
                                     Button(onClick = { onPractice(practice, null, "begin") },
                                         enabled = workspace != null && !busy) { Text("Начать") }
                                 }
-                                else Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                else Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     if(existing.active) {
                                         Button(onClick = { onPractice(practice, existing, "complete") },
                                             enabled = scheduled && !busy) {
@@ -367,6 +369,10 @@ private fun TheokyklosDetail(sector: TheokyklosSector, practices: List<Theokyklo
                                             enabled = !busy) { Text("Пауза") }
                                     } else OutlinedButton(onClick = { onPractice(practice, existing, "resume") },
                                         enabled = !busy) { Text("Возобновить") }
+                                }
+                                SacredHabitRestoreAction(existing, practice, busy) {
+                                    onPractice(practice, existing, "restore-default")
+                                }
                                 }
                             }
                         }

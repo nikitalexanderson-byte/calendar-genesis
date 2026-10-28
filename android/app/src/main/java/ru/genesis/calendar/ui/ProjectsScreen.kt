@@ -368,7 +368,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
                                     "event" -> "Создать событие"; "meeting" -> "Создать встречу"; else -> "Создать задачу" }
                                 DropdownMenuItem(text = { Text(label) },
                                     leadingIcon = { GenesisLucideIcon(when (kind) { "project" -> "folder-plus"; "list" -> "list-checks"
-                                        "event" -> "calendar-days"; "meeting" -> "users-round"; else -> "plus" }) },
+                                        "event" -> "calendar-days"; "meeting" -> "users-round"; else -> "file-plus-2" }) },
                                     onClick = { createActionsOpen = false
                                         when (kind) {
                                             "project" -> { creating = true; editing = null; error = null }
@@ -576,7 +576,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
                             }
                             var projectActionsOpen by remember(project.id) { mutableStateOf(false) }
                             Box {
-                                AffairsIconButton("Действия с проектом", AffairsAction.MORE, { projectActionsOpen = true })
+                                AffairsIconButton("Действия с проектом", AffairsAction.MORE, { projectActionsOpen = true }, outlined = false)
                                 DropdownMenu(projectActionsOpen, { projectActionsOpen = false }) {
                                     DropdownMenuItem(text = { Text("Майндмепы проекта") }, onClick = { projectActionsOpen = false; onMindmaps(project.id) },
                                         leadingIcon = { AffairsActionIcon(AffairsAction.MINDMAP) })
@@ -802,7 +802,7 @@ private fun TaskDestinationMenu(task: LocalTask, projects: List<GenesisProject>,
         Surface(shape = MaterialTheme.shapes.large) {
             Column(Modifier.fillMaxWidth().heightIn(max = 580.dp).padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Куда перенести задачу?", style = MaterialTheme.typography.titleLarge)
+                EditorDialogHeader("Куда перенести задачу?", "project-destination-close") { open = false }
                 androidx.compose.material3.Text(task.title, style = MaterialTheme.typography.bodyMedium)
                 OutlinedTextField(query, { query = it }, label = { Text("Найти проект") },
                     singleLine = true, modifier = Modifier.fillMaxWidth().testTag("project-destination-search"))

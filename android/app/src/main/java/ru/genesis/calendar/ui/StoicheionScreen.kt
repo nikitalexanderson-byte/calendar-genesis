@@ -243,7 +243,7 @@ fun StoicheionScreen(app: GenesisApplication, divinationDisabled: Boolean,
                         verticalAlignment = Alignment.CenterVertically) {
                         Text("${letter.symbol} · ${letter.name}", Modifier.weight(1f),
                             style = MaterialTheme.typography.titleLarge)
-                        TextButton(onClick = { selected = null }) { Text("Закрыть") }
+                        AffairsIconButton("Закрыть", AffairsAction.CLOSE, { selected = null })
                     }
                     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)) {

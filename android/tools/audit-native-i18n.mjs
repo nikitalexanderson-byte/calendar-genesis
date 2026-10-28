@@ -144,6 +144,17 @@ sacredRussian.forEach((match, index) => {
   sacred[decodeKotlinString(match[2])] = sacredEnglish[index].description;
 });
 const supplemental=JSON.parse(await readFile(path.join(ROOT,"app/ui-translations/en.json"),"utf8"));
+const monthCopy = JSON.parse(await readFile(path.join(ROOT, "app/native-calendar-month-copy.json"), "utf8"));
+for (const language of ["ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja"]) {
+  for (const key of Object.keys(monthCopy.ru)) {
+    const value = monthCopy[language]?.[key];
+    if (typeof value !== "string" || !value.trim() || (!["ru", "sr", "uk"].includes(language) && CYRILLIC.test(value))) {
+      throw new Error(`Incomplete month notes: ${language}: ${key}`);
+    }
+  }
+}
+Object.assign(supplemental, monthCopy.en, JSON.parse(await readFile(path.join(ROOT, "app/ui-refinement-copy.json"), "utf8")).en);
+
 const habitReports=JSON.parse(await readFile(path.join(ROOT,"app/habit-report-translations.json"),"utf8"));
 const workCopy=JSON.parse(await readFile(path.join(ROOT,"app/shared-work-translations/en.json"),"utf8"));
 const exportCopy = JSON.parse(await readFile(path.join(ROOT, "app/native-data-export-translations.json"), "utf8"));

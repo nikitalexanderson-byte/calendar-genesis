@@ -19,7 +19,29 @@ import androidx.compose.ui.window.DialogProperties
 @Composable internal fun genesisNativeDialogFrame(): (android.app.Dialog) -> Unit {
     val stroke = MaterialTheme.colorScheme.secondary.toArgb()
     val density = LocalDensity.current.density
+    val closeLabel = genesisTranslate("Закрыть")
+    val timeLabel = genesisTranslate("Выберите время")
     return { dialog ->
+        if (dialog is android.app.TimePickerDialog) {
+            val context = dialog.context
+            val target = (48 * density).toInt()
+            val header = android.widget.LinearLayout(context).apply {
+                orientation = android.widget.LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                setPadding((16 * density).toInt(), (4 * density).toInt(), (8 * density).toInt(), 0)
+            }
+            header.addView(android.widget.TextView(context).apply {
+                text = timeLabel; textSize = 18f; setTextColor(stroke)
+            }, android.widget.LinearLayout.LayoutParams(0, target, 1f))
+            header.addView(android.widget.ImageButton(context).apply {
+                setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
+                imageTintList = android.content.res.ColorStateList.valueOf(stroke)
+                setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                contentDescription = closeLabel
+                setOnClickListener { dialog.cancel() }
+            }, android.widget.LinearLayout.LayoutParams(target, target))
+            dialog.setCustomTitle(header)
+        }
         dialog.window?.let { window ->
             val original = window.decorView.background
             val padding = android.graphics.Rect()
@@ -46,14 +68,12 @@ import androidx.compose.ui.window.DialogProperties
     iconContentColor: Color = AlertDialogDefaults.iconContentColor,
     titleContentColor: Color = AlertDialogDefaults.titleContentColor,
     textContentColor: Color = AlertDialogDefaults.textContentColor,
-    tonalElevation: Dp = 0.dp, properties: DialogProperties = DialogProperties()) {
-    val framedTitle: (@Composable () -> Unit)? = title?.let { content ->
-        {
-            GenesisDialogHeader(onClose = if (properties.dismissOnBackPress || properties.dismissOnClickOutside)
+    tonalElevation: Dp = 0.dp, properties: DialogProperties = DialogProperties(), showCloseButton: Boolean = true) {
+    val framedTitle: @Composable () -> Unit = {
+            GenesisDialogHeader(onClose = if (showCloseButton && (properties.dismissOnBackPress || properties.dismissOnClickOutside))
                 onDismissRequest else null) {
-                androidx.compose.material3.ProvideTextStyle(MaterialTheme.typography.titleLarge) { content() }
+                androidx.compose.material3.ProvideTextStyle(MaterialTheme.typography.titleLarge) { title?.invoke() }
             }
-        }
     }
     androidx.compose.material3.AlertDialog(onDismissRequest, confirmButton,
         modifier.border(1.dp, MaterialTheme.colorScheme.secondary, shape), dismissButton, icon, framedTitle, text,

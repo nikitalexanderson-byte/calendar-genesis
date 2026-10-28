@@ -195,7 +195,7 @@ function genesisSharedViewOptions(string $actor, string $kind, array $filter=[],
     $marks=implode(',',array_fill(0,count($ids),'?'));
     $sql=match($kind) {
         'projects'=>"SELECT p.id,s.title || ' · ' || p.title AS title FROM shared_projects p JOIN shared_spaces s ON s.id=p.space_id WHERE p.id IN ($marks)",
-        'statuses'=>"SELECT s.id,p.title || ' · ' || s.title AS title FROM shared_project_statuses s JOIN shared_projects p ON p.id=s.project_id WHERE s.project_id IN ($marks)",
+        'statuses'=>"SELECT s.id,p.title || ' · ' || s.title AS title FROM shared_project_statuses s JOIN shared_projects p ON p.id=s.project_id WHERE s.project_id IN ($marks) AND s.is_chaos=0",
         'labels'=>"SELECT l.id,s.title || ' · ' || l.title AS title FROM shared_space_labels l JOIN shared_spaces s ON s.id=l.space_id WHERE l.space_id IN ($marks)",
         default=>"SELECT DISTINCT u.id,COALESCE(NULLIF(u.display_name,''),'—') AS title FROM users u JOIN shared_project_members m ON m.user_id=u.id WHERE m.project_id IN ($marks)"
     };

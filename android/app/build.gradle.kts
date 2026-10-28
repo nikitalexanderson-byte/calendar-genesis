@@ -44,8 +44,8 @@ android {
         applicationId = "ru.genesis.calendar"
         minSdk = 26
         targetSdk = 37
-        versionCode = 113
-        versionName = "3.0.6"
+        versionCode = 114
+        versionName = "3.0.7"
         buildConfigField("boolean", "PLAY_DISTRIBUTION", "false")
         buildConfigField("boolean", "TRIAL_BUILD", "false")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -114,6 +114,7 @@ val genesisAssets = tasks.register<GenesisAssetsTask>("genesisAssets") {
     }
     from(rootProject.file("third-party-licenses")) { into("third-party-licenses") }
     from(rootProject.file("../app/translations.en.json")) { into("i18n") }
+    from(rootProject.file("../app")) { include("solar-model-localization.js", "solar-model-labels.json", "ui-refinement-copy.json"); into("i18n") }
     from(rootProject.file("../app")) {
         include("translations.el.a.json", "translations.el.b.json", "translations.de.json", "translations.de.b.json", "translations.fr.json", "translations.fr.b.json",
             "translations.es.json", "translations.it.json", "translations.pt.json",
@@ -135,6 +136,7 @@ val genesisAssets = tasks.register<GenesisAssetsTask>("genesisAssets") {
     from(rootProject.file("../app/planning-translations.json")) { into("i18n") }
     from(rootProject.file("../app/daily-advice-copy.json")) { into("i18n") }
     from(rootProject.file("../app/native-mobile-design-translations.json")) { into("i18n") }
+    from(rootProject.file("../app/native-calendar-month-copy.json")) { into("i18n") }
     from(rootProject.file("../app")) { include("mindmap-icon-catalog.json", "mindmap-icon-names.json", "mindmap-feature-copy.json"); into("catalogs") }
     from(rootProject.file("../app/daily-advice-affinity.json")) { into("catalogs") }
     from(rootProject.file("../app/daily-advice-topics.json")) { into("catalogs") }
@@ -149,6 +151,7 @@ val genesisAssets = tasks.register<GenesisAssetsTask>("genesisAssets") {
     from(rootProject.file("../app/stoicheion.en.json")) { into("i18n") }
     from(rootProject.file("../app/stoicheion-restoration-content.json")) { into("catalogs") }
     from(rootProject.file("../app/stoicheion-restoration-ui.json")) { into("catalogs") }
+    from(rootProject.file("../app/stoicheion-restoration-locales")) { into("catalogs/stoicheion-restoration-locales") }
     from(rootProject.file("../app/catalog-translations")) {
         include("*.json")
         into("i18n/catalog-translations")

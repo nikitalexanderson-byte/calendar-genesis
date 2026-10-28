@@ -11,7 +11,7 @@ export const MINDMAPS_ENABLED = process.env.NEXT_PUBLIC_GENESIS_MINDMAPS === "tr
 
 /** Each tab has its own encrypted draft; a tab can never overwrite another tab's unsent text. */
 export class MindmapRepository {
-  private access: ReturnType<typeof personalDocumentAccess>;
+  private access: ReturnType<typeof personalDocumentAccess> | ReturnType<typeof sharedMindmapDocumentAccess>;
   private prefix: string;
   private tab: string;
   private envelopeVersion: 1 | 2;

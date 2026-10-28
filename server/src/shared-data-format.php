@@ -56,13 +56,15 @@ function genesisDataManifest(mixed $input):array{
         $row=genesisDataObject($row,['key','parentKey','boardStatusKey','title','description','kind','layout','tags','labelKeys','statuses','categories','archivedAt','createdAt']);
         $key=genesisDataKey($row['key']??null);$parent=genesisDataNullableKey($row['parentKey']??null);
         if(isset($projects[$key])||$parent!==null&&!isset($projects[$parent])||!in_array($row['layout']??null,['list','board'],true)||!in_array($row['kind']??null,['project','task-list'],true))genesisDataInvalid('DATA_REFERENCE_INVALID');
-        $columns=[];$kinds=[];foreach(genesisDataList($row['statuses']??null,30) as $column){
-            $column=genesisDataObject($column,['key','title','isDone','color','taskTitleLines','visibleTaskCount']);$id=genesisDataKey($column['key']??null);if(isset($statuses[$id]))genesisDataInvalid('DATA_REFERENCE_INVALID');
+        $columns=[];$kinds=[];foreach(genesisDataList($row['statuses']??null,32) as $column){
+            $column=genesisDataObject($column,['key','title','isDone','isChaos','color','taskTitleLines','visibleTaskCount']);$id=genesisDataKey($column['key']??null);if(isset($statuses[$id]))genesisDataInvalid('DATA_REFERENCE_INVALID');
             $done=genesisDataBool($column['isDone']??null);$lines=$column['taskTitleLines']??($done?2:0);$count=$column['visibleTaskCount']??($done?5:0);
             if(!is_int($lines)||$lines<0||$lines>3||!is_int($count)||$count<0||$count>1000)genesisDataInvalid();
-            $columns[]=['key'=>$id,'title'=>genesisSharedTitle($column['title']??null,80),'isDone'=>$done,'color'=>genesisSharedCategoryColor($column['color']??'#2d6c68'),'taskTitleLines'=>$lines,'visibleTaskCount'=>$count];$statuses[$id]=['projectKey'=>$key,'isDone'=>$done];$kinds[(int)$done]=true;
+            $columns[]=['key'=>$id,'title'=>genesisSharedTitle($column['title']??null,80),'isDone'=>$done,'isChaos'=>genesisDataBool($column['isChaos']??false),'color'=>genesisSharedCategoryColor($column['color']??'#2d6c68'),'taskTitleLines'=>$lines,'visibleTaskCount'=>$count];$statuses[$id]=['projectKey'=>$key,'isDone'=>$done];$kinds[(int)$done]=true;
         }
         if(count($kinds)!==2)genesisDataInvalid('DATA_OPEN_STATUS_REQUIRED');
+        if(count(array_filter($columns,static fn($s)=>!$s['isChaos']))>30)genesisDataInvalid();
+        foreach([false,true] as $done)if(count(array_filter($columns,static fn($s)=>$s['isChaos']&&$s['isDone']===$done))>1)genesisDataInvalid();
         $groups=[];foreach(genesisDataList($row['categories']??[],200) as $category){$category=genesisDataObject($category,['key','title','color']);$id=genesisDataKey($category['key']??null);if(isset($categories[$id]))genesisDataInvalid('DATA_REFERENCE_INVALID');$categories[$id]=$key;$groups[]=['key'=>$id,'title'=>genesisSharedTitle($category['title']??null,80),'color'=>genesisSharedCategoryColor($category['color']??'#2d6c68')];}
         $board=genesisDataNullableKey($row['boardStatusKey']??null);if($board!==null&&($statuses[$board]['projectKey']??null)!==$parent)genesisDataInvalid('DATA_REFERENCE_INVALID');
         $projects[$key]=['key'=>$key,'parentKey'=>$parent,'boardStatusKey'=>$board,'title'=>genesisSharedTitle($row['title']??null),'description'=>genesisSharedText($row['description']??'',5000),

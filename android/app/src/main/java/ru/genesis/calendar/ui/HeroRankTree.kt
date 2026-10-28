@@ -224,17 +224,17 @@ private fun RankDialog(rank: HeroicRank, xp: Int, onDismiss: () -> Unit) {
         Surface(Modifier.fillMaxWidth().padding(16.dp), shape = RoundedCornerShape(24.dp),
             color = heroNight, border = BorderStroke(1.dp, heroGold.copy(alpha = .45f))) {
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Ступень ${index + 1} · ${rank.title}", style = MaterialTheme.typography.titleLarge,
-                    color = heroIvory, fontFamily = GenesisHeadingFont)
+                GenesisDialogHeader("rank-close", onDismiss) {
+                    Text("Ступень ${index + 1} · ${rank.title}", style = MaterialTheme.typography.titleLarge,
+                        color = heroIvory, fontFamily = GenesisHeadingFont)
+                }
                 if (painting != null) OriginalImage("hero-path/512/$painting", rank.title,
                     Modifier.fillMaxWidth().height(260.dp))
                 Text("${rank.threshold} XP · ${if (xp >= rank.threshold) "Достигнут" else "Впереди"}",
                     color = heroGold)
                 Text("Опыт ранга сохраняется навсегда и не тратится.",
                     style = MaterialTheme.typography.bodySmall, color = heroMuted)
-                TextButton(onClick = onDismiss, colors = ButtonDefaults.textButtonColors(contentColor = heroGold)) {
-                    Text("Закрыть")
-                }
+
             }
         }
     }

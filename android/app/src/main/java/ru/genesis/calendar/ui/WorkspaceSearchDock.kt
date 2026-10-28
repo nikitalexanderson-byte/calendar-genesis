@@ -31,7 +31,7 @@ internal fun WorkspaceSearchDock(query: String, onQuery: (String) -> Unit, label
     BackHandler(expanded) { close() }
     val searchColor = if (LocalEveningTheme.current) Color(0xff173c4b) else Color(0xffe0eef5)
     val searchInk = if (LocalEveningTheme.current) Color(0xffedf6fb) else Color(0xff193c50)
-    CompositionLocalProvider(LocalPreserveCalendarColors provides true) {
+    CompositionLocalProvider(LocalPreserveCalendarColors provides true, LocalAffairsControlOutlined provides false) {
     Box(modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.BottomEnd) {
         if (!expanded) {
             FilledTonalIconButton(onClick = { expanded = true },

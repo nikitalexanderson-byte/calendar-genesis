@@ -233,7 +233,7 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
     }
     if(map==null) WorkspaceSearchDock(query,{query=it},"Поиск карт","mindmaps-search",Modifier.align(Alignment.BottomCenter))
     }
-    if(create) AlertDialog(onDismissRequest={create=false},title={Text(if(map==null)"Новая карта" else "Настройка карты")},text={Column {OutlinedTextField(title,{title=it},label={Text("Название карты")});OutlinedTextField(description,{description=it.take(12000)},label={Text("Описание")});if(map==null)FlowRow {listOf("empty" to "Пустая карта","idea" to "Идея","project" to "Проект","decision" to "Решение").forEach {(id,label)->FilterChip(selected=template==id,onClick={template=id},label={Text(label)})}}}},confirmButton={TextButton(enabled=title.isNotBlank()&&!busy&&!readOnly,onClick={if(map==null){val next=MindmapDocument.new(title,newMapProjectId,template,::defaultLabel).copy(description=description);save(next);open(next.id)}else save(map.copy(title=title.trim(),description=description));create=false}){Text("Сохранить")}},dismissButton={TextButton(onClick={create=false}){Text("Отмена")}})
+    if(create) AlertDialog(onDismissRequest={create=false},title={Text(if(map==null)"Новая карта" else "Настройка карты")},text={Column {OutlinedTextField(title,{title=it},label={Text("Название карты")});OutlinedTextField(description,{description=it.take(12000)},label={Text("Описание")});if(map==null) MindmapTemplatePicker(template) { template=it }}},confirmButton={TextButton(enabled=title.isNotBlank()&&!busy&&!readOnly,onClick={if(map==null){val next=MindmapDocument.new(title,newMapProjectId,template,::defaultLabel).copy(description=description);save(next);open(next.id)}else save(map.copy(title=title.trim(),description=description));create=false}){Text("Сохранить")}},dismissButton={TextButton(onClick={create=false}){Text("Отмена")}})
     if(editing!=null&&map!=null&&node!=null&&readOnly) AlertDialog(onDismissRequest={editing=null},title={Text(label(node))},
         text={Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)) {
             Text("Карта доступна для просмотра.")
@@ -241,7 +241,7 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
             linkedTask(node)?.let { task->TextButton(onClick={onTask(task,node.occurrenceDate)}){Text("Открыть карточку задачи")} }
             if(node.kind=="project"&&projects.any {it.id==node.refId})TextButton(onClick={onProject(node.refId!!)}){Text("Открыть проект")}
         }},confirmButton={TextButton(onClick={editing=null}){Text("Закрыть")}})
-    if(editing!=null&&map!=null&&node!=null&&!readOnly) AlertDialog(onDismissRequest={closeNodeEditor()},title={Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+    if(editing!=null&&map!=null&&node!=null&&!readOnly) AlertDialog(onDismissRequest={closeNodeEditor()},showCloseButton=false,title={Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
         Text(label(node),Modifier.weight(1f))
         AffairsIconButton("Закрыть",AffairsAction.CLOSE,{closeNodeEditor()},Modifier.testTag("mindmap-node-close"),enabled=!busy)
     }},text={Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)) {

@@ -91,7 +91,7 @@ fun AuthorTimePicker(value: String, use24: Boolean, onChange: (String) -> Unit) 
     Dialog(onDismissRequest = { open = false }) {
         Surface(shape = AffairsLayout.shape) {
             Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("Часы · Минуты", style = MaterialTheme.typography.titleMedium)
+                EditorDialogHeader("Часы · Минуты", "author-time-close") { open = false }
                 val parsed = runCatching { LocalTime.parse(value) }.getOrDefault(LocalTime.MIDNIGHT)
                 val current by rememberUpdatedState(parsed)
                 val commit by rememberUpdatedState(onChange)
@@ -196,8 +196,7 @@ fun AuthorDatePicker(value: String, mode: CalendarMode, minDate: LocalDate? = nu
         Surface(shape=AffairsLayout.shape) {
             Column(Modifier.padding(12.dp).verticalScroll(rememberScrollState())) {
                 val range = calendar.monthRange(shown,mode)
-                Text(when(mode){CalendarMode.SACRED->"Выберите день круга";CalendarMode.LUNAR->"Выберите лунный день";else->"Выберите дату"},
-                    style=MaterialTheme.typography.titleLarge)
+                EditorDialogHeader(when(mode){CalendarMode.SACRED->"Выберите день круга";CalendarMode.LUNAR->"Выберите лунный день";else->"Выберите дату"}, "author-date-close") { open = false }
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
                     TextButton(enabled=range.start > firstDate,
                         onClick={shown=range.start.minusDays(1)}){Text("←")}
@@ -244,7 +243,7 @@ fun AuthorDatePicker(value: String, mode: CalendarMode, minDate: LocalDate? = nu
                         repeat(columns-week.size) { Spacer(Modifier.weight(1f)) }
                     }
                 }
-                TextButton(onClick={open=false}){Text("Закрыть")}
+
             }
         }
     }

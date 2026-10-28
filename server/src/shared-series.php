@@ -31,7 +31,7 @@ function genesisSharedSeriesTemplate(string $actor,string $projectId,string $roo
         if($children){$q=$db->prepare('SELECT id FROM shared_tasks_read WHERE parent_task_id=? ORDER BY created_at,id');$q->execute([$row['id']]);array_push($ids,...$q->fetchAll(PDO::FETCH_COLUMN));}
     }
     $root=$rows[0];$anchor=$root['due_date']??$root['start_date'];
-    $open=$db->prepare('SELECT id FROM shared_project_statuses WHERE project_id=? AND is_done=0 ORDER BY position,id LIMIT 1');$open->execute([$projectId]);$fallback=$open->fetchColumn();$open->closeCursor();
+    $open=$db->prepare('SELECT id FROM shared_project_statuses WHERE project_id=? AND is_done=0 AND is_chaos=0 ORDER BY position,id LIMIT 1');$open->execute([$projectId]);$fallback=$open->fetchColumn();$open->closeCursor();
     if(!$fallback)throw new InvalidArgumentException('SERIES_TEMPLATE_UNAVAILABLE');
     $nodes=[];
     foreach($rows as $row){
@@ -45,7 +45,7 @@ function genesisSharedSeriesTemplate(string $actor,string $projectId,string $roo
         $offset=static fn(?string $date)=>$date===null?null:($anchor===null?0:genesisCalendarDayNumber($date)-genesisCalendarDayNumber($anchor));
         $nodes[]=['sourceId'=>$row['id'],'parentSourceId'=>$row['id']===$rootId?null:$row['parent_task_id'],
             'title'=>$row['title'],'description'=>$row['description'],'tags'=>json_decode($row['tags_json'],true),
-            'entryType'=>$row['entry_type'],'statusId'=>$done?$fallback:$row['status_id'],'categoryId'=>$row['category_id'],
+            'entryType'=>$row['entry_type'],'statusId'=>$done?(str_starts_with($row['status_id'],'chaos-')?genesisSharedProjectInboxStatus($db,$projectId,false):$fallback):$row['status_id'],'categoryId'=>$row['category_id'],
             'assigneeId'=>$row['assignee_id'],'priority'=>(int)$row['priority'],'checklists'=>$lists,
             'customFields'=>(object)genesisSharedCustomTaskValues($row['id']),
             'dueOffset'=>$row['id']===$rootId?0:$offset($row['due_date']),'startOffset'=>$offset($row['start_date']),
@@ -54,6 +54,19 @@ function genesisSharedSeriesTemplate(string $actor,string $projectId,string $roo
             'approverIds'=>array_column(genesisSharedTaskApprovals($row['id']),'userId')];
     }
     genesisSharedSeriesValidateTemplate($projectId,$nodes);
+    return $nodes;
+}
+
+/** Resolve the one-time workspace relocation without rewriting encrypted saved templates. */
+function genesisSharedSeriesSavedTemplate(array $series): array
+{
+    $nodes=json_decode(genesisSharedContentDecrypt($series['template_json']),true,512,JSON_THROW_ON_ERROR);
+    $q=genesisDb()->prepare('SELECT inbox_project_id FROM shared_workspace_inbox_relocations WHERE destination_project_id=?');
+    $q->execute([$series['project_id']]);$roots=$q->fetchAll(PDO::FETCH_COLUMN);$q->closeCursor();
+    if($roots)foreach($nodes as &$node){
+        $status=genesisDb()->prepare('SELECT project_id FROM shared_project_statuses WHERE id=?');$status->execute([$node['statusId']]);$original=$status->fetchColumn();$status->closeCursor();
+        if(in_array($original,$roots,true))$node['statusId']=genesisSharedProjectInboxStatus(genesisDb(),$series['project_id'],false);
+    }unset($node);
     return $nodes;
 }
 
@@ -129,7 +142,7 @@ function genesisSharedSeriesPreview(string $actor,string $projectId,string $task
     $settings=genesisSharedSeriesSettings($input['settings']??null);
     if(!empty($input['seriesId'])&&empty($input['refreshTemplate'])){
         $series=genesisSharedSeriesAccess($actor,$projectId,(string)$input['seriesId'],true);
-        $template=json_decode(genesisSharedContentDecrypt($series['template_json']),true,512,JSON_THROW_ON_ERROR);
+        $template=genesisSharedSeriesSavedTemplate($series);
         genesisSharedSeriesValidateTemplate($projectId,$template);
     }else $template=genesisSharedSeriesTemplate($actor,$projectId,$taskId,$settings['cloneChildren']);
     return ['taskCount'=>count($template),'checklistCount'=>array_sum(array_map(static fn($n)=>count($n['checklists']),$template)),
@@ -163,7 +176,7 @@ function genesisSharedSeriesSave(string $actor,string $projectId,string $taskId,
         if(!is_bool($input['paused']??false)||!is_bool($input['refreshTemplate']??false))throw new InvalidArgumentException('SERIES_INVALID');
         $template=(!$old||!empty($input['refreshTemplate']))
             ? genesisSharedSeriesTemplate($actor,$projectId,$taskId,$settings['cloneChildren'])
-            : json_decode(genesisSharedContentDecrypt($old['template_json']),true,512,JSON_THROW_ON_ERROR);
+            : genesisSharedSeriesSavedTemplate($old);
         if($old&&$settings['cloneChildren']!==json_decode($old['rule_json'],true)['cloneChildren']&&empty($input['refreshTemplate']))throw new InvalidArgumentException('SERIES_REFRESH_REQUIRED');
         genesisSharedSeriesValidateTemplate($projectId,$template);
         $now=genesisNow();$id=$seriesId??genesisUuid();$paused=(int)($input['paused']??(bool)($old['paused']??false));
@@ -267,7 +280,7 @@ function genesisSharedSeriesMaterialize(array $series,array $settings,string $ke
         $db->prepare("INSERT INTO shared_series_instances VALUES(?,?,NULL,?,?,'skipped',?)")->execute([$series['id'],$key,$date,$ordinal,genesisNow()]);
         return true;
     }
-    $nodes=json_decode(genesisSharedContentDecrypt($series['template_json']),true,512,JSON_THROW_ON_ERROR);
+    $nodes=genesisSharedSeriesSavedTemplate($series);
     genesisSharedSeriesValidateTemplate($series['project_id'],$nodes);
     $ids=[];$newLists=[];$created=[];
     foreach($nodes as $node){

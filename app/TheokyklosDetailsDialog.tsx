@@ -11,6 +11,8 @@ import { catalogText, sacredWordCopy } from "./catalog-i18n";
 import {
   applyHabitLifecycleToWorkspace,
   createHabitFromSacredPractice,
+  findStandardSacredHabit,
+  additionalSacredHabits,
   habitDateKey,
   isHabitScheduledForDate,
   updateHabitCompletion,
@@ -24,6 +26,8 @@ import { useDialogAccessibility } from "./use-dialog-accessibility";
 import { TheokyklosRestorationContext } from "./TheokyklosRestorationContext";
 import "./theokyklos-practices.css";
 import { habitLifecycleState } from "./habit-lifecycle";
+import { SacredHabitRestoreAction } from "./SacredHabitRestoreAction";
+import { restoreSacredHabit } from "./sacred-habit-restore";
 
 function localized(copy: TheokyklosLocalizedText, language: Language) {
   return catalogText(copy, language);
@@ -136,9 +140,11 @@ export function TheokyklosDetailsDialog({ segment, language, workspace, date, ca
               : translateText("Выберите обычное действие и выполните его один раз в поддержку этого сектора.", language)}</p>
             {!sectorHabits.length ? <p className="theokyklos-practice-notice" role="note">{practiceCopy(language).warning}</p> : null}
             <div>
-              {(sectorHabits.length
-                ? sectorHabits.map((habit) => ({ habit, practice: sectorPractices.find((practice) => practice.id === habit.sacredPracticeId) }))
-                : sectorPractices.map((practice) => ({ habit: null, practice })))
+              {sectorPractices.map(practice => ({ habit: findStandardSacredHabit(workspace.habits, practice.id), practice }))
+                .concat(additionalSacredHabits(workspace.habits, practiceSectorId).flatMap(habit => {
+                  const practice = sectorPractices.find(row => row.id === habit.sacredPracticeId);
+                  return practice ? [{ habit, practice }] : [];
+                }))
                 .filter((item) => item.practice)
                 .map(({ habit, practice }) => {
                   const lifecycle = habit ? habitLifecycleState(habit) : null;
@@ -149,6 +155,8 @@ export function TheokyklosDetailsDialog({ segment, language, workspace, date, ca
                     <article className={`${habit ? "started" : "suggested"}${habit && !habit.active ? " paused" : ""}`} style={{ "--practice-color": habit?.color ?? practice!.color } as CSSProperties} key={habit?.id ?? practice!.id}>
                       <span aria-hidden="true">{habit?.emoji ?? practice!.emoji}</span>
                       <div className="theokyklos-practice-copy"><small>{habit ? (habit.active ? (language === "en" ? "Active practice" : "Активная практика") : (language === "en" ? "Paused" : "На паузе")) : (language === "en" ? "Suggested practice" : "Предлагаемая практика")}</small><strong data-no-translate>{habit ? habitDisplayText(habit, language).title : catalogText(practice!.title, language)}</strong><p data-no-translate>{habit ? habitDisplayText(habit, language).description : catalogText(practice!.description, language)}</p><blockquote data-no-translate>{catalogText(practice!.myth, language)}</blockquote></div>
+                      {habit ? <div className="theokyklos-practice-restore"><SacredHabitRestoreAction habit={habit} language={language}
+                        disabled={!workspace.habitSettings.enabled} onRestore={() => onChange(restoreSacredHabit(workspace, habit.id, language))} /></div> : null}
                       {habit ? (
                         habit.active ? <div className="theokyklos-practice-actions"><button type="button" className={completion?.completed ? "completed" : ""} disabled={!canTrack} onClick={() => onChange(updateHabitCompletion(workspace, habit, date, { completed: !completion?.completed }))}>{completion?.completed ? `✓ ${language === "en" ? "Done" : "Выполнено"}` : (language === "en" ? "Mark today" : "Отметить сегодня")}</button><button type="button" className="disable" onClick={() => onChange({ ...workspace, habits: workspace.habits.map((item) => item.id === habit.id ? markTrackerEntityChanged({ ...item, active: false }) : item) })}>{language === "en" ? "Disable" : "Отключить"}</button></div>
                           : <button type="button" disabled={!workspace.habitSettings.enabled || lifecycle?.conflict} onClick={() => onChange(applyHabitLifecycleToWorkspace(workspace, { id: `habit-state:${crypto.randomUUID()}`, habitId: habit.id, action: needsRestore ? "restore" : "resume", at: new Date().toISOString(), heads: lifecycle!.heads.map(row => row.id) }))}>{needsRestore ? translateText("Восстановить", language) : language === "en" ? "Enable again" : "Включить снова"}</button>

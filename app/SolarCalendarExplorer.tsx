@@ -1,4 +1,6 @@
 "use client";
+import { solarModelTranslator } from "./solar-model-copy";
+import { localizeSolarModel } from "./solar-model-localization.js";
 import { useCallback, useEffect, useRef, useState, type PointerEvent, type KeyboardEvent } from "react";
 import { MONTHS, PYATA_DETAILS, getGregorianDate, getSacredDate, getSacredDay } from "./calendar-data";
 import { DialogCloseButton } from "./DialogCloseButton";
@@ -19,7 +21,7 @@ const selectorFor = (s: Selection) => s.kind === "pentad" ? `[data-kind="pentad"
 export default function SolarCalendarExplorer({ year, language, onClose, onOpenDate }: {
   year: number; language: Language; onClose: () => void; onOpenDate: (month: number, day: number) => void;
 }) {
-  const english = language === "en";
+
   const dialogRef = useDialogAccessibility<HTMLElement>(onClose);
   const host = useRef<HTMLDivElement>(null);
   const layer = useRef<HTMLDivElement>(null);
@@ -92,10 +94,11 @@ export default function SolarCalendarExplorer({ year, language, onClose, onOpenD
       const svg = document.documentElement;
       if (svg.localName !== "svg" || document.querySelector("parsererror")) throw Error("SVG_INVALID");
       const imported = window.document.adoptNode(svg);
+      localizeSolarModel(imported, solarModelTranslator(language), language);
       targets.current.clear(); siblings.current.clear();
       imported.querySelectorAll<SVGGraphicsElement>("[data-kind]").forEach((node, index) => {
         const s = readSelection(node), month = translateText(MONTHS[s.month].name, language);
-        const label = s.kind === "month" ? month : s.kind === "pentad" ? `${month} · ${english ? "Pentad" : "Пята"} ${Math.ceil(s.day / 5)}` : `${month} · ${english ? "Day" : "День"} ${s.day}`;
+        const label = s.kind === "month" ? month : s.kind === "pentad" ? `${month} · ${translateText("Пята", language)} ${Math.ceil(s.day / 5)}` : `${month} · ${translateText("День", language)} ${s.day}`;
         node.setAttribute("role", "button"); node.setAttribute("aria-label", label); node.setAttribute("tabindex", index === 0 ? "0" : "-1");
         targets.current.set(selectorFor(s), node);
         const group = siblings.current.get(s.kind) ?? []; group.push(node); siblings.current.set(s.kind, group);
@@ -104,7 +107,7 @@ export default function SolarCalendarExplorer({ year, language, onClose, onOpenD
       layer.current?.replaceChildren(imported); setReady(true);
     }).catch(() => { if (!controller.signal.aborted) setFailed(true); });
     return () => { controller.abort(); };
-  }, [attempt, language, english]);
+  }, [attempt, language]);
 
   useEffect(() => {
     const node = host.current;
@@ -167,43 +170,43 @@ export default function SolarCalendarExplorer({ year, language, onClose, onOpenD
   };
   const month = selection?.month ?? 0, day = selection?.day ?? 1, pentad = Math.ceil(day / 5);
   const currentMonth = MONTHS[month], dayLimit = month === 12 ? getSacredDate(getGregorianDate(year,0,1)).apeironDays : 30;
-  const sacredDay = getSacredDay(month, day);
+  const sacredDay = getSacredDay(month, day, language);
   const exists = day <= dayLimit;
   const date = exists ? getGregorianDate(year, month, day) : null;
   const monthLabel = translateText(currentMonth.name, language);
   return <div className="modal-backdrop solar-model-backdrop">
     <section ref={dialogRef} className="solar-model-dialog" role="dialog" aria-modal="true" aria-labelledby="solar-model-title" aria-describedby="solar-model-help" tabIndex={-1}>
-      <header className="solar-model-header"><div><h2 id="solar-model-title">{english ? "GENESIS circle" : "Круг GENESIS"}</h2><p>{english ? "Solar calendar" : "Солнечный календарь"} · {year}</p></div>
-        <DialogCloseButton onClick={onClose} aria-label={english ? "Close calendar model" : "Закрыть модель календаря"} /></header>
+      <header className="solar-model-header"><div><h2 id="solar-model-title">{translateText("Круг GENESIS", language)}</h2><p>{translateText("Солнечный календарь", language)} · {year}</p></div>
+        <DialogCloseButton onClick={onClose} aria-label={translateText("Закрыть модель календаря", language)} /></header>
       <div className="solar-model-layout">
         <div className="solar-model-canvas">
-          <div className="solar-model-toolbar"><button type="button" onClick={reset} disabled={!ready}>{english ? "Whole circle" : "Весь круг"}</button>
-            <div><button type="button" disabled={!ready || zoom <= 100} onClick={() => moveCamera(zoomSolarCamera(currentCamera(), 1.4))} aria-label={english ? "Zoom out" : "Отдалить"}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14" /></svg></button>
-              <output aria-label={english ? "Scale" : "Масштаб"}>{zoom}%</output>
-              <button type="button" disabled={!ready || zoom >= 1563} onClick={() => moveCamera(zoomSolarCamera(currentCamera(), 1 / 1.4))} aria-label={english ? "Zoom in" : "Приблизить"}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5v14" /></svg></button></div></div>
+          <div className="solar-model-toolbar"><button type="button" onClick={reset} disabled={!ready}>{translateText("Весь круг", language)}</button>
+            <div><button type="button" disabled={!ready || zoom <= 100} onClick={() => moveCamera(zoomSolarCamera(currentCamera(), 1.4))} aria-label={translateText("Отдалить", language)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14" /></svg></button>
+              <output aria-label={translateText("Масштаб", language)}>{zoom}%</output>
+              <button type="button" disabled={!ready || zoom >= 1563} onClick={() => moveCamera(zoomSolarCamera(currentCamera(), 1 / 1.4))} aria-label={translateText("Приблизить", language)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5v14" /></svg></button></div></div>
           {/* SVG buttons own keyboard focus; this group delegates their pointer and key events. */}
           {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
-          <div ref={host} className="solar-svg-host" role="group" aria-label={english ? "Interactive calendar circle" : "Интерактивный круг календаря"} aria-describedby="solar-model-help"
+          <div ref={host} className="solar-svg-host" role="group" aria-label={translateText("Интерактивный круг календаря", language)} aria-describedby="solar-model-help"
             onClick={event => { if (moved.current) return; const target = event.target instanceof Element ? event.target.closest("[data-kind]") : null; if (target) select(readSelection(target)); }}
             onKeyDown={keyboard} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerEnd} onPointerCancel={pointerEnd}
             onPointerOver={event => { const target = event.target instanceof Element ? event.target.closest("[data-kind]") : null; if (target === hovered.current) return; hovered.current?.removeAttribute("data-hovered"); target?.setAttribute("data-hovered", "true"); hovered.current = target; }}
-            onPointerLeave={() => { hovered.current?.removeAttribute("data-hovered"); hovered.current = null; pointers.current.clear(); gesture.current = null; }}><div ref={layer} className="solar-svg-layer" /></div>
-          {!ready ? <div className="solar-model-loading" role={failed ? "alert" : "status"}><p>{failed ? (english ? "The calendar could not load." : "Не удалось загрузить календарь.") : (english ? "Loading the circle…" : "Открываем круг…")}</p>
-            {failed ? <button type="button" onClick={() => { setFailed(false); setAttempt(n => n + 1); }}>{english ? "Retry" : "Повторить"}</button> : null}</div> : null}
-          <p id="solar-model-help" className="solar-model-help">{english ? "Select a month, pentad or day to explore. Drag to move; use the wheel or pinch to zoom." : "Нажмите на месяц, пяту или день, чтобы приблизить. Перетаскивайте круг; меняйте масштаб колёсиком или двумя пальцами."}</p>
+            onPointerLeave={() => { hovered.current?.removeAttribute("data-hovered"); hovered.current = null; pointers.current.clear(); gesture.current = null; }}><div ref={layer} className="solar-svg-layer" data-no-translate /></div>
+          {!ready ? <div className="solar-model-loading" role={failed ? "alert" : "status"}><p>{failed ? (translateText("Не удалось загрузить календарь.", language)) : (translateText("Открываем круг…", language))}</p>
+            {failed ? <button type="button" onClick={() => { setFailed(false); setAttempt(n => n + 1); }}>{translateText("Повторить", language)}</button> : null}</div> : null}
+          <p id="solar-model-help" className="solar-model-help">{translateText("Нажмите на месяц, пяту или день, чтобы приблизить. Перетаскивайте круг; меняйте масштаб колёсиком или двумя пальцами.", language)}</p>
         </div>
-        <aside className="solar-model-inspector" aria-label={english ? "Calendar navigation" : "Навигация по кругу"}>
+        <aside className="solar-model-inspector" aria-label={translateText("Навигация по кругу", language)}>
           <div className="solar-model-selectors">
-            <label>{english ? "Month" : "Месяц"}<select value={selection ? month : ""} disabled={!ready} onChange={e => select({ kind: "month", month: Number(e.target.value), day: 1 })}><option value="" disabled>{english ? "Choose a month" : "Выберите месяц"}</option>{MONTHS.map(item => <option key={item.index} value={item.index}>{translateText(item.name, language)}</option>)}</select></label>
-            <label>{english ? "Pentad" : "Пята"}<select value={selection?.kind === "month" || !selection ? "" : pentad} disabled={!ready || !selection || month === 12} onChange={e => select({ kind: "pentad", month, day: (Number(e.target.value) - 1) * 5 + 1 })}><option value="" disabled>{english ? "Choose a pentad" : "Выберите пяту"}</option>{PYATA_DETAILS.map((item,index) => <option value={index + 1} key={item.title}>{index + 1} · {translateText(item.title,language)}</option>)}</select></label>
-            <label>{english ? "Day" : "День"}<select value={selection?.kind === "day" ? day : ""} disabled={!ready || !selection} onChange={e => select({ kind: "day", month, day: Number(e.target.value) })}><option value="" disabled>{english ? "Choose a day" : "Выберите день"}</option>{Array.from({ length: dayLimit }, (_,index) => <option value={index+1} key={index}>{index + 1} · {translateText(getSacredDay(month,index+1).name.split("(")[0].trim(),language)}</option>)}</select></label>
+            <label>{translateText("Месяц", language)}<select value={selection ? month : ""} disabled={!ready} onChange={e => select({ kind: "month", month: Number(e.target.value), day: 1 })}><option value="" disabled>{translateText("Выберите месяц", language)}</option>{MONTHS.map(item => <option key={item.index} value={item.index}>{translateText(item.name, language)}</option>)}</select></label>
+            <label>{translateText("Пята", language)}<select value={selection?.kind === "month" || !selection ? "" : pentad} disabled={!ready || !selection || month === 12} onChange={e => select({ kind: "pentad", month, day: (Number(e.target.value) - 1) * 5 + 1 })}><option value="" disabled>{translateText("Выберите пяту", language)}</option>{PYATA_DETAILS.map((item,index) => <option value={index + 1} key={item.title}>{index + 1} · {translateText(item.title,language)}</option>)}</select></label>
+            <label>{translateText("День", language)}<select value={selection?.kind === "day" ? day : ""} disabled={!ready || !selection} onChange={e => select({ kind: "day", month, day: Number(e.target.value) })}><option value="" disabled>{translateText("Выберите день", language)}</option>{Array.from({ length: dayLimit }, (_,index) => <option value={index+1} key={index}>{index + 1} · {translateText(getSacredDay(month,index+1,language).name.split("(")[0].trim(),language)}</option>)}</select></label>
           </div>
           <div className="solar-model-selection" aria-live="polite">
-            <h3>{selection ? selection.kind === "day" ? translateText(sacredDay.name.split("(")[0].trim(),language) : monthLabel : (english ? "A year in one circle" : "Год в одном круге")}</h3>
-            <p>{selection ? selection.kind === "month" ? translateText(currentMonth.title,language) : selection.kind === "pentad" ? translateText(PYATA_DETAILS[pentad-1].description,language) : translateText(sacredDay.description,language) : (english ? "12 months, 72 pentads and 360 days. Apeiron lies at the centre, outside the regular count." : "12 месяцев, 72 пяты и 360 дней. В центре — Апейрон, вне обычного счёта.")}</p>
-            {selection && selection.kind !== "month" && date ? <time dateTime={`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`}>{date.toLocaleDateString(english ? "en-GB" : "ru-RU", { day:"numeric", month:"long", year:"numeric" })}{selection.kind === "pentad" ? ` — ${getGregorianDate(year,month,Math.min(day+4,dayLimit)).toLocaleDateString(english ? "en-GB" : "ru-RU",{day:"numeric",month:"long"})}` : ""}</time> : null}
-            {selection && !exists ? <p>{english ? "This unmanifest day is not part of the selected year." : "В выбранном году этот неявный день не входит в календарный счёт."}</p> : null}
-            {selection ? <button type="button" className="solar-model-open-day" disabled={!exists} onClick={() => onOpenDate(month,day)}>{english ? "Open day in calendar" : "Открыть день в календаре"}</button> : null}
+            <h3>{selection ? selection.kind === "day" ? translateText(sacredDay.name.split("(")[0].trim(),language) : monthLabel : (translateText("Год в одном круге", language))}</h3>
+            <p>{selection ? selection.kind === "month" ? translateText(currentMonth.title,language) : selection.kind === "pentad" ? translateText(PYATA_DETAILS[pentad-1].description,language) : translateText(sacredDay.description,language) : (translateText("12 месяцев, 72 пяты и 360 дней. В центре — Апейрон, вне обычного счёта.", language))}</p>
+            {selection && selection.kind !== "month" && date ? <time dateTime={`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`}>{date.toLocaleDateString(language, { day:"numeric", month:"long", year:"numeric" })}{selection.kind === "pentad" ? ` — ${getGregorianDate(year,month,Math.min(day+4,dayLimit)).toLocaleDateString(language,{day:"numeric",month:"long"})}` : ""}</time> : null}
+            {selection && !exists ? <p>{translateText("В выбранном году этот неявный день не входит в календарный счёт.", language)}</p> : null}
+            {selection ? <button type="button" className="solar-model-open-day" disabled={!exists} onClick={() => onOpenDate(month,day)}>{translateText("Открыть день в календаре", language)}</button> : null}
           </div>
         </aside>
       </div>

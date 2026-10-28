@@ -32,7 +32,8 @@ internal fun SacredHabitsBlock(workspace: LocalHabitWorkspace, today: LocalDate,
     disabled: Boolean, requestedOpen: Boolean, onRequestedOpenConsumed: () -> Unit,
     experimental: Boolean = false,
     onStart: (TheokyklosPractice) -> Unit, onEdit: (Habit) -> Unit,
-    onComplete: (Habit,Boolean) -> Unit, onToggle: (Habit) -> Unit, onDelete: (Habit) -> Unit = {}) {
+    onComplete: (Habit,Boolean) -> Unit, onToggle: (Habit) -> Unit, onDelete: (Habit) -> Unit = {},
+    onRestore: (Habit) -> Unit = {}) {
     val context=LocalContext.current
     val english=LocalGenesisLanguage.current=="en"
     val catalog=remember(context,english) {
@@ -112,9 +113,7 @@ internal fun SacredHabitsBlock(workspace: LocalHabitWorkspace, today: LocalDate,
                             Text(if(english)sector.patrons.en else sector.patrons.ru,
                                 style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.primary)
                         }
-                        IconButton(onClick={selectedId=null},modifier=Modifier.testTag("sacred-sector-close")) {
-                            Text("×",style=MaterialTheme.typography.headlineSmall)
-                        }
+                        AffairsIconButton("Закрыть", AffairsAction.CLOSE, { selectedId = null }, Modifier.testTag("sacred-sector-close"))
                     }
                     OriginalImage(sector.art,if(english)sector.title.en else sector.title.ru,
                         Modifier.fillMaxWidth().height(150.dp))
@@ -145,7 +144,7 @@ internal fun SacredHabitsBlock(workspace: LocalHabitWorkspace, today: LocalDate,
                             Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(7.dp)) {
                                 Text("${habit?.emoji ?: practice.emoji} ${habit?.let { habitDisplayTitle(it) } ?: if(english)practice.title.en else practice.title.ru}",
                                     style=MaterialTheme.typography.titleMedium)
-                                Text(habit?.description ?: if(english)practice.description.en else practice.description.ru,
+                                Text(habit?.let { habitDisplayDescription(it) } ?: if(english)practice.description.en else practice.description.ru,
                                     style=MaterialTheme.typography.bodyMedium)
                                 Text(if(english)practice.myth.en else practice.myth.ru,
                                     style=MaterialTheme.typography.bodySmall,
@@ -181,6 +180,9 @@ internal fun SacredHabitsBlock(workspace: LocalHabitWorkspace, today: LocalDate,
                                     OutlinedButton(onClick={onToggle(habit)},enabled=!disabled) {
                                         Text(if(habit.active) { if(english)"Pause" else "Пауза" }
                                             else if(english)"Resume" else "Возобновить")
+                                    }
+                                    SacredHabitRestoreAction(habit, practice, disabled) {
+                                        onRestore(restoreSacredHabitContent(habit, practice, english))
                                     }
                                 }
                             }

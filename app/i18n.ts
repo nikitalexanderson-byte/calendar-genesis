@@ -4,6 +4,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import englishTranslations from "./translations.en.json";
 import physisEnglish from "./physis/copy.en.json";
 import solarModelEnglish from "./solar-calendar-copy.en.json";
+import refinementCopy from "./ui-refinement-copy.json";
 import affairsTranslations from "./native-affairs-translations.json";
 import habitReportTranslations from "./habit-report-translations.json";
 import dailyAdviceCopy from "./daily-advice-copy.json";
@@ -933,6 +934,7 @@ const englishCatalog: Record<string, string> = {
   ...solarModelEnglish,
   ...(englishTranslations as Record<string, string>),
   ...ui_en,
+  ...refinementCopy.en,
   ...curatedTranslations,
   ...englishYear,
 };
@@ -947,6 +949,7 @@ const rawCatalogs: Record<Exclude<Language, "ru">, Record<string, string>> = {
 const sharedWorkTranslations = { en:work_en, el:work_el, de:work_de, fr:work_fr, es:work_es, it:work_it, pt:work_pt,
   pl:work_pl, sr:work_sr, uk:work_uk, zh:work_zh, tr:work_tr, ja:work_ja };
 for (const language of Object.keys(rawCatalogs) as Exclude<Language, "ru">[]) {
+  Object.assign(rawCatalogs[language], refinementCopy[language]);
   // Physis is a web-only RU/EN pilot. Preserve existing translations elsewhere;
   // languages without a Physis translation use its reviewed English copy.
   for (const [source, translated] of Object.entries(physisEnglish)) {

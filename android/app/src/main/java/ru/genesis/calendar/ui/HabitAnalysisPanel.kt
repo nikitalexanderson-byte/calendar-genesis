@@ -86,10 +86,10 @@ internal val habitActivityLabels = mapOf("completed" to "Выполнено", "a
                 FilterChip(year, { year = true }, { Text("Год") }, shape = AffairsLayout.controlShape, modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("habit-analysis-year"))
             }
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                AffairsIconButton("Назад", AffairsAction.BACK, { anchorValue = period.start.minusDays(1).toString(); selectedDate = "" }, Modifier.testTag("habit-analysis-previous"))
+                AffairsIconButton("Назад", AffairsAction.BACK, { anchorValue = period.start.minusDays(1).toString(); selectedDate = "" }, Modifier.testTag("habit-analysis-previous"), outlined = false)
                 Text(periodLabel(period.start) + " — " + periodLabel(period.end), Modifier.weight(1f).padding(horizontal = 8.dp).testTag("habit-analysis-period"),
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center, style = MaterialTheme.typography.titleSmall)
-                AffairsIconButton("Вперёд", AffairsAction.NEXT, { anchorValue = period.end.plusDays(1).toString(); selectedDate = "" }, Modifier.testTag("habit-analysis-next"))
+                AffairsIconButton("Вперёд", AffairsAction.NEXT, { anchorValue = period.end.plusDays(1).toString(); selectedDate = "" }, Modifier.testTag("habit-analysis-next"), outlined = false)
             }
         }
         if (habit != null) {

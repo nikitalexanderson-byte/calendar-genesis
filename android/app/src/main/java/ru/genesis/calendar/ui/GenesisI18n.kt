@@ -1903,7 +1903,7 @@ private object TranslationCatalog {
                             Log.e("GenesisI18n", "Could not load $name: ${error.javaClass.simpleName}")
                         }
                     }
-                    listOf("native-data-export-translations.json", "native-data-import-translations.json", "native-bulk-translations.json", "native-template-labels.json", "native-automations-translations.json", "native-saved-views-translations.json", "custom-field-recovery-translations.json", "habit-report-translations.json", "native-mobile-design-translations.json").forEach { name ->
+                    listOf("native-data-export-translations.json", "native-data-import-translations.json", "native-bulk-translations.json", "native-template-labels.json", "native-automations-translations.json", "native-saved-views-translations.json", "custom-field-recovery-translations.json", "habit-report-translations.json", "native-mobile-design-translations.json", "native-calendar-month-copy.json", "ui-refinement-copy.json").forEach { name ->
                         objectAsset(name).getJSONObject("en").let { catalog -> catalog.keys().forEach { put(it, catalog.getString(it)) } }
                     }
                     runCatching {
@@ -1934,6 +1934,13 @@ private object TranslationCatalog {
                 dictionary = it
             }
         }
+
+    fun solarLabels(context: android.content.Context, language: String): Map<String, String> {
+        translate(context, "Круг GENESIS", language) // Initialize the selected bundled dictionary.
+        val common = JSONObject(context.assets.open("originals/i18n/solar-model-labels.json").bufferedReader().use { it.readText() }).getJSONObject(language)
+        return (if (language == "en") source(context) + nativeCopy else foreignDictionaries[language].orEmpty()) +
+            common.keys().asSequence().associateWith { common.getString(it) }
+    }
 
     fun translate(context: android.content.Context, text: String, language: String): String =
         resolved.getOrPut("$language\u0000$text") {
@@ -1968,7 +1975,7 @@ private object TranslationCatalog {
                                 json.keys().forEach { put(it, json.getString(it)) }
                             }
                         }
-                    listOf("native-data-export-translations.json", "native-data-import-translations.json", "native-bulk-translations.json", "native-template-labels.json", "native-automations-translations.json", "native-saved-views-translations.json", "custom-field-recovery-translations.json", "native-mobile-design-translations.json").forEach { name ->
+                    listOf("native-data-export-translations.json", "native-data-import-translations.json", "native-bulk-translations.json", "native-template-labels.json", "native-automations-translations.json", "native-saved-views-translations.json", "custom-field-recovery-translations.json", "native-mobile-design-translations.json", "native-calendar-month-copy.json", "ui-refinement-copy.json").forEach { name ->
                       context.assets.open("originals/i18n/$name").bufferedReader().use { reader ->
                             JSONObject(reader.readText()).getJSONObject(language).let { json ->
                                 json.keys().forEach { put(it, json.getString(it)) }
@@ -2028,6 +2035,8 @@ private object TranslationCatalog {
         else (nativeCopy[normalized] ?: english[normalized] ?: text)
     }
 }
+
+internal fun solarModelLabels(context: android.content.Context, language: String) = TranslationCatalog.solarLabels(context, language)
 
 internal fun translateGenesisText(context: android.content.Context, source: String, language: String): String =
     if (language == "ru") source else TranslationCatalog.translate(context, source, language)

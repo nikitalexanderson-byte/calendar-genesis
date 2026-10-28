@@ -74,7 +74,7 @@ internal fun SharedTaskCreateDialog(controller: AuthController, language: String
         try {
             val loaded = controller.sharedProject(projectId)
             snapshot = loaded
-            statusId = loaded.optJSONArray("statuses")?.optJSONObject(0)?.optString("id").orEmpty()
+            statusId = ""
         } catch (error: CancellationException) { throw error }
         catch (error: Exception) { message = error.message ?: if (en) "Could not load task lists." else "Не удалось загрузить списки задач." }
     }
@@ -147,8 +147,9 @@ internal fun SharedTaskCreateDialog(controller: AuthController, language: String
                                 TextButton(onClick = { dueDate = "" }) { Text(if (en) "Clear" else "Убрать срок") }
                             }
                             if (snapshot != null) {
-                                Text(if (en) "Task list" else "Список задач", style = MaterialTheme.typography.titleSmall)
+                                Text(if (en) "Board" else "Доска", style = MaterialTheme.typography.titleSmall)
                                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    FilterChip(selected = statusId.isBlank(), onClick = { statusId = "" }, label = { Text("Хаос-бокс проекта") })
                                     rows("statuses").forEach { item -> FilterChip(selected = statusId == item.optString("id"),
                                         onClick = { statusId = item.optString("id") },
                                         label = { Text(item.optString("title")) }) }
@@ -180,7 +181,7 @@ internal fun SharedTaskCreateDialog(controller: AuthController, language: String
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     TextButton(enabled = !busy, onClick = onDismiss) { Text(if (en) "Close" else "Закрыть") }
-                    Button(enabled = !busy && snapshot != null && statusId.isNotBlank() &&
+                    Button(enabled = !busy && snapshot != null && projectId.isNotBlank() &&
                         title.trim().isNotBlank() && validDate,
                         modifier = Modifier.testTag("save-shared-task"), onClick = {
                             val destination = projectId

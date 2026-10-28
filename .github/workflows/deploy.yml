@@ -143,6 +143,7 @@ jobs:
           php server/tests/smoke.php
           php server/tests/shared-projects.php
           php server/tests/shared-mutation-receipts.php
+          php server/tests/shared-project-inboxes-migration.php
           GENESIS_IMPROVEMENTS_TEST=isolated php server/tests/shared-mindmap-conversion.php
           php server/tests/shared-session-lock.php
           GENESIS_IMPROVEMENTS_TEST=isolated php server/tests/shared-project-access.php
