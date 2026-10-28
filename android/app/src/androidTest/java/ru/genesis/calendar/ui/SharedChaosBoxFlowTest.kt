@@ -116,7 +116,7 @@ class SharedChaosBoxFlowTest {
         compose.onNodeWithTag("affairs-page-header").assertDoesNotExist()
     }
 
-    @Test fun spaceContainsProjectsAndLegacyTasksStayAvailableOnlyUnderDisclosure() {
+    @Test fun spaceContainsOnlyProjectsAndHidesLegacyInboxControls() {
         val fixture = ChaosFixture()
         open(fixture)
         click("shared-space-${fixture.spaceA}")
@@ -124,17 +124,13 @@ class SharedChaosBoxFlowTest {
         compose.onNodeWithTag("shared-inbox-create-task").assertDoesNotExist()
         compose.onNodeWithTag("shared-project-inbox").assertDoesNotExist()
         compose.onNodeWithTag("shared-task-root-task").assertDoesNotExist()
-        click("shared-legacy-tasks", scroll = true)
-        await("shared-task-root-task")
-        compose.onNodeWithTag("shared-inbox-list-${fixture.spaceList}").assertExists()
-        click("shared-task-root-task", scroll = true)
-        await("shared-task-title-input")
-        compose.onNodeWithTag("shared-task-title-input").assertTextContains("Мысль без проекта")
-        assertEquals(fixture.inboxA to "root-task", fixture.taskReads.last())
-        click("shared-back")
-        await("shared-project-${fixture.projectA}")
-        compose.onNodeWithTag("shared-inbox-create-task").assertDoesNotExist()
-        capture("space-projects-and-legacy-history")
+        compose.onNodeWithTag("shared-legacy-tasks").assertDoesNotExist()
+        compose.onNodeWithTag("shared-inbox-list-${fixture.spaceList}").assertDoesNotExist()
+        capture("space-projects-only")
+        click("shared-project-${fixture.projectA}", scroll = true)
+        await("shared-task-project-a-1")
+        assertPlainInlineInbox()
+        compose.onNodeWithTag("shared-task-root-task").assertDoesNotExist()
     }
 
     @Test fun inboxVisibilityRemainsIndependentInsideEachProject() {
@@ -255,9 +251,8 @@ class SharedChaosBoxFlowTest {
         open(fixture)
         click("shared-space-${fixture.spaceA}")
         compose.onNodeWithTag("shared-project-inbox").assertDoesNotExist()
-        click("shared-legacy-tasks", scroll = true)
-        await("shared-task-root-task")
-        compose.onNodeWithContentDescription("Завершить задачу: Мысль без проекта").assertDoesNotExist()
+        compose.onNodeWithTag("shared-legacy-tasks").assertDoesNotExist()
+        compose.onNodeWithTag("shared-task-root-task").assertDoesNotExist()
         compose.onNode(hasContentDescription("Изменить статус") and hasAnyAncestor(hasTestTag("shared-project-inbox")))
             .assertDoesNotExist()
         compose.onNodeWithTag("shared-inbox-create-task").assertDoesNotExist()
