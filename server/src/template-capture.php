@@ -44,9 +44,10 @@ function genesisSharedTemplateCapture(string $actor,string $projectId,?string $t
             ??(new DateTimeImmutable('now',new DateTimeZone($context['timeZone'])))->format('Y-m-d');
         genesisCalendarDate($anchor);
         $offset=static fn(?string $date):?array=>$date===null?null:['amount'=>genesisCalendarDayNumber($date)-genesisCalendarDayNumber($anchor),'unit'=>'day'];
-        $allLabels=array_column(genesisSharedLabels($actor,$spaceId),null,'id');$labelIds=[];$projects=[];$fields=[];
+        $allLabels=array_column(genesisSharedLabels($actor,$spaceId),null,'id');$labelIds=[];$projects=[];$fields=[];$openStatuses=[];
         foreach($projectRows as $id=>$row){
-            $q=$db->prepare('SELECT id,title,is_done,color,task_title_lines,visible_task_count,image_url FROM shared_project_statuses WHERE project_id=? ORDER BY position,id');$q->execute([$id]);$statusRows=$q->fetchAll();
+            $q=$db->prepare('SELECT id,title,is_done,color,task_title_lines,visible_task_count,image_url FROM shared_project_statuses WHERE project_id=? AND is_chaos=0 ORDER BY position,id');$q->execute([$id]);$statusRows=$q->fetchAll();
+            foreach($statusRows as $status)if(!(bool)$status['is_done']){$openStatuses[$id]=$status;break;}
             $statuses=array_map(static fn($s)=>['key'=>$s['id'],'title'=>$s['title'],'isDone'=>(bool)$s['is_done'],'color'=>$s['color'],
                 'taskTitleLines'=>(int)($s['task_title_lines']??($s['is_done']?2:0)),'visibleTaskCount'=>(int)($s['visible_task_count']??($s['is_done']?5:0))],$statusRows);
             foreach($statusRows as $status)if(!empty($status['image_url']))$notices[]=['code'=>'BOARD_IMAGE_EXCLUDED','projectKey'=>$id,'title'=>$status['title']];
@@ -74,6 +75,13 @@ function genesisSharedTemplateCapture(string $actor,string $projectId,?string $t
         }if(!$advanced)throw new InvalidArgumentException('TASK_RELATION_CYCLE');}
         $tasks=[];
         foreach($ordered as $id=>$row){
+            // Keep template schema v1 readable by installed clients. A new copy of an inbox
+            // task starts on the first open board, with the normal mapping notice; its source stays intact.
+            if(str_starts_with($row['status_id'],'chaos-')){
+                $open=$openStatuses[$row['project_id']]??null;
+                if($open===null)throw new InvalidArgumentException('TEMPLATE_OPEN_STATUS_REQUIRED');
+                $row['status_id']=$open['id'];$notices[]=['code'=>'STATUS_MAPPED','taskKey'=>$id,'title'=>$open['title']];
+            }
             $labels=genesisSharedLabelIds('task',$id);foreach($labels as $label)$labelIds[$label]=true;
             $dependencies=genesisSharedDependencyIds($id);$outside=array_values(array_diff($dependencies,array_keys($taskRows)));
             if($outside)$notices[]=['code'=>'EXTERNAL_DEPENDENCIES_EXCLUDED','taskKey'=>$id,'count'=>count($outside)];
