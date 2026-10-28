@@ -747,9 +747,9 @@ private fun InboxProjectCard(inbox: List<LocalTask>, projects: List<GenesisProje
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         AffairsIconButton(if (atBottom) "Переместить вверх" else "Переместить вниз",
                             if (atBottom) AffairsAction.MOVE_UP else AffairsAction.MOVE_DOWN,
-                            onMove, Modifier.testTag("personal-move-inbox"))
+                            onMove, Modifier.testTag("personal-move-inbox"), outlined = false)
                         AffairsIconButton("Скрыть хаос-бокс", AffairsAction.HIDE,
-                            onHide, Modifier.testTag("personal-hide-inbox"))
+                            onHide, Modifier.testTag("personal-hide-inbox"), outlined = false)
                     }
                 }
             }

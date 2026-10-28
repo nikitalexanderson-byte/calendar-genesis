@@ -124,11 +124,11 @@ class DiaryScreenTest {
         compose.onNodeWithTag("diary-editor-error").performScrollTo()
             .assertTextContains("Введённые данные остаются в форме.", substring = true)
         compose.onNodeWithContentDescription("Закрыть").performClick()
-        compose.onNodeWithText("Сохранить черновик").performClick()
+        compose.onNodeWithContentDescription("Сохранить черновик").performClick()
         compose.onNodeWithTag("diary-close-error").assertIsDisplayed()
         capture("local-storage-error", "diary-close-error")
         store.failWrites = false
-        compose.onNodeWithText("Сохранить черновик").performClick()
+        compose.onNodeWithContentDescription("Сохранить черновик").performClick()
         compose.waitUntil(20_000) { repository.state.value.records.any { it.draft } }
         compose.onNodeWithTag("diary-editor").assertDoesNotExist()
     }
@@ -216,7 +216,7 @@ class DiaryScreenTest {
         compose.onNodeWithTag("diary-body").performTextReplacement("Текст до поворота экрана")
         restoration.emulateSavedInstanceStateRestore(); await("diary-body")
         compose.onNodeWithTag("diary-body").assertTextContains("Текст до поворота экрана")
-        compose.onNodeWithContentDescription("Закрыть").performClick(); compose.onNodeWithText("Сохранить черновик").performClick()
+        compose.onNodeWithContentDescription("Закрыть").performClick(); compose.onNodeWithContentDescription("Сохранить черновик").performClick()
         compose.waitUntil(20_000) { repository.state.value.records.any { it.draft } }
         val row = repository.state.value.records.single { it.draft }
         assertEquals("Текст до поворота экрана", row.note.body)

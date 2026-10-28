@@ -70,13 +70,15 @@ private val conflictProperties = mapOf("title" to "Название", "descripti
             }
         },
         confirmButton = {
-            FlowRow(Modifier.fillMaxWidth().testTag("workspace-conflict-footer"), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onKeepLocal, enabled = !busy && visible >= preview.fields.size,
-                    modifier = Modifier.heightIn(min = 48.dp).testTag("workspace-conflict-keep-local").semantics { contentDescription = phoneAction }) { Text("Телефон") }
-                OutlinedButton(onKeepRemote, enabled = !busy && visible >= preview.fields.size,
-                    modifier = Modifier.heightIn(min = 48.dp).testTag("workspace-conflict-keep-remote").semantics { contentDescription = websiteAction }) { Text("Сайт") }
-                AffairsIconButton("Отмена", AffairsAction.CLOSE, onDismiss, Modifier.testTag("workspace-conflict-cancel"), !busy)
-            }
+            DialogActionRow(
+                DialogIconAction("Отмена", AffairsAction.BACK, onDismiss, enabled = !busy,
+                    modifier = Modifier.testTag("workspace-conflict-cancel")),
+                DialogIconAction(phoneAction, AffairsAction.PHONE, onKeepLocal, enabled = !busy && visible >= preview.fields.size,
+                    modifier = Modifier.testTag("workspace-conflict-keep-local")),
+                DialogIconAction(websiteAction, AffairsAction.WEBSITE, onKeepRemote, enabled = !busy && visible >= preview.fields.size,
+                    modifier = Modifier.testTag("workspace-conflict-keep-remote")),
+                modifier = Modifier.testTag("workspace-conflict-footer")
+            )
         })
 }
 

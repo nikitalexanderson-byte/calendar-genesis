@@ -286,12 +286,15 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
             title = { Text(if (recurring) "Удалить повторение?" else "Удалить задачу?") },
             text = { Text(if (recurring) "Можно удалить только $occurrenceDate или всю серию."
                 else "Напоминание этой задачи будет отменено.") },
-            confirmButton = { Column {
-                if (recurring) TextButton({ onDeleteOccurrence?.invoke(task, occurrenceDate); deletingTaskId = null }) {
-                    Text("Только этот день") }
-                TextButton({ onDeleteTask(task); deletingTaskId = null },
+            confirmButton = { if (recurring) DialogActionRow(
+                DialogIconAction("Отмена", AffairsAction.BACK, { deletingTaskId = null }),
+                DialogIconAction("Только этот день", AffairsAction.CALENDAR,
+                    { onDeleteOccurrence?.invoke(task, occurrenceDate); deletingTaskId = null }, destructive = true),
+                DialogIconAction("Вся серия", AffairsAction.DELETE, { onDeleteTask(task); deletingTaskId = null },
+                    destructive = true, modifier = Modifier.testTag("calendar-inline-delete-confirm"))
+            ) else TextButton({ onDeleteTask(task); deletingTaskId = null },
                     Modifier.testTag("calendar-inline-delete-confirm")) { Text(if (recurring) "Вся серия" else "Удалить") }
-            } }, dismissButton = { TextButton({ deletingTaskId = null }) { Text("Отмена") } })
+            }, dismissButton = if (recurring) null else ({ TextButton({ deletingTaskId = null }) { Text("Отмена") } }))
     }
     sharedListDate?.let { rawDate ->
         CalendarSharedTaskListDialog(LocalDate.parse(rawDate), loadSharedDay,
@@ -460,7 +463,9 @@ private fun GregorianMonthHero(date: LocalDate, zone: ZoneId, locale: Locale) {
                     .replaceFirstChar { it.titlecase(locale) }, Modifier.testTag("gregorian-month-name"),
                     style = MaterialTheme.typography.titleLarge)
                 Text("Григорианский месяц", style = MaterialTheme.typography.labelMedium)
-                Text("Обычный календарь отображения. Дата и повторение задач выбираются отдельно.",
+                Text(gregorianMonthOrigin(date.monthValue), Modifier.testTag("gregorian-month-origin"),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(gregorianMonthNature(date.monthValue, zone), Modifier.testTag("gregorian-month-nature"),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             }
@@ -979,20 +984,20 @@ private fun CalendarTaskListDialog(date: LocalDate, tasks: List<LocalTask>, use2
             title = { Text(if (recurring) "Удалить повторение?" else "Удалить задачу?") },
             text = { Text(if (recurring) "Можно удалить только ${date} или всю серию."
                 else "Напоминание этой задачи будет отменено.") },
-            confirmButton = {
-                Column {
-                    if (recurring) TextButton(onClick = { onDeleteOccurrence?.invoke(task); deletingId = null },
-                        modifier = Modifier.heightIn(min = 48.dp).testTag("calendar-delete-occurrence")) {
-                        Text("Только этот день")
-                    }
-                    TextButton(onClick = { onDelete(task); deletingId = null },
+            confirmButton = { if (recurring) DialogActionRow(
+                DialogIconAction("Отмена", AffairsAction.BACK, { deletingId = null }),
+                DialogIconAction("Только этот день", AffairsAction.CALENDAR,
+                    { onDeleteOccurrence?.invoke(task); deletingId = null }, destructive = true,
+                    modifier = Modifier.testTag("calendar-delete-occurrence")),
+                DialogIconAction("Вся серия", AffairsAction.DELETE, { onDelete(task); deletingId = null },
+                    destructive = true, modifier = Modifier.testTag("calendar-delete-confirm"))
+            ) else TextButton(onClick = { onDelete(task); deletingId = null },
                         modifier = Modifier.heightIn(min = 48.dp).testTag("calendar-delete-confirm")) {
-                        Text(if (recurring) "Вся серия" else "Удалить")
+                        Text("Удалить")
                     }
-                }
             },
-            dismissButton = { TextButton(onClick = { deletingId = null },
-                modifier = Modifier.heightIn(min = 48.dp)) { Text("Отмена") } })
+            dismissButton = if (recurring) null else ({ TextButton(onClick = { deletingId = null },
+                modifier = Modifier.heightIn(min = 48.dp)) { Text("Отмена") } }))
     }
 }
 
@@ -1176,7 +1181,7 @@ private fun CalendarYearOverview(calendar: GenesisCalendar, shown: LocalDate, mo
     val context = LocalContext.current
     val suggestionPrefs = remember(context) { context.getSharedPreferences("genesis.calendar-suggestions", android.content.Context.MODE_PRIVATE) }
     var springSuggestionDismissed by remember { mutableStateOf(suggestionPrefs.getBoolean("spring-year-dismissed", false)) }
-    Box(Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 8.dp)) {
+    Box(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
         CalendarPeriodPager(period,
             runCatching { calendar.shiftYear(period, mode, -1) }.getOrNull()?.takeIf { calendar.yearRange(it,mode).end.year >= 1900 },
             runCatching { calendar.shiftYear(period, mode, 1) }.getOrNull()?.takeIf { it.year <= 2100 },
@@ -1281,10 +1286,8 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(bottom = 12.dp)) {
                 item(key = "year-navigation") {
-                    Card(Modifier.fillMaxWidth().testTag("calendar-year-navigation-card"),
-                        shape = AffairsLayout.shape,
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = .45f))) {
+                    Surface(Modifier.fillMaxWidth().testTag("calendar-year-navigation-card"),
+                        shape = AffairsLayout.shape, color = MaterialTheme.colorScheme.surface) {
                         CalendarPeriodNavigation(yearLabel, true, onPrevious, onNext, onToday)
                     }
                 }
@@ -1364,8 +1367,7 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
                                 if (index > 0) HorizontalDivider(color = accent.copy(alpha = .28f))
                                 CalendarYearMonthCard(calendar, start, mode,
                                     if (mode == CalendarMode.SACRED) group.firstOrdinal + index + 1
-                                    else if (!sacredFeaturesEnabled && gregorianYearStartsInMarch) (start.monthValue + 9) % 12 + 1
-                                    else start.monthValue,
+                                    else gregorianMonthOrdinal(start.monthValue, gregorianYearStartsInMarch),
                                     name, title,
                                     taskCounts[start] ?: YearTaskCount(0, 0), onMonth, locale, seasonRegionZone, shown.year)
                             }
@@ -1487,8 +1489,8 @@ private fun CalendarYearMonthCard(calendar: GenesisCalendar, start: LocalDate, m
                     CalendarMode.PROFANE -> day.month.getDisplayName(TextStyle.FULL_STANDALONE, locale) to ""
                 }
                 height("САКРАЛЬНЫЙ МЕСЯЦ XIII", type.labelSmall) + height(translate(info.first), type.titleLarge) +
-                    if (candidate == CalendarMode.PROFANE) height(translate(gregorianMonthOrigin(day.monthValue)), type.bodySmall, 1) +
-                        height(translate(gregorianMonthNature(day.monthValue, seasonRegionZone)), type.bodySmall, 1) + height("31", type.labelSmall)
+                    if (candidate == CalendarMode.PROFANE) height(translate(gregorianMonthOrigin(day.monthValue)), type.bodySmall) +
+                        height(translate(gregorianMonthNature(day.monthValue, seasonRegionZone)), type.bodySmall) + height("31", type.labelSmall)
                     else height(translate(info.second), type.bodySmall) + height(yearTileRange(calendar.monthRange(day, candidate), locale), type.labelMedium) +
                         if (candidate == CalendarMode.LUNAR) height("30", type.labelSmall) else 0
             }
@@ -1512,16 +1514,14 @@ private fun CalendarYearMonthCard(calendar: GenesisCalendar, start: LocalDate, m
                             .clip(AffairsLayout.controlShape).testTag("gregorian-year-art-$start"), darkThemeBrightness = .82f)
                 }
                 Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.Center) {
-                    if (mode == CalendarMode.PROFANE) Text(start.monthValue.toString(), color = gold,
+                    if (mode == CalendarMode.PROFANE) Text(ordinal.toString(), color = gold,
                         style = type.labelSmall, modifier = Modifier.testTag("gregorian-year-month-number-${start.monthValue}"))
                     if (mode != CalendarMode.PROFANE) Text(label(if (mode == CalendarMode.SACRED) sacredIndex else ordinal - 1),
                         color = gold, style = type.labelSmall)
                     Text(name, color = mainInk, style = type.titleLarge)
                     if (mode == CalendarMode.PROFANE) {
-                        Text(gregorianMonthOrigin(start.monthValue), color = detailInk, style = type.bodySmall,
-                            maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                        Text(gregorianMonthNature(start.monthValue, seasonRegionZone), color = detailInk, style = type.bodySmall,
-                            maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                        Text(gregorianMonthOrigin(start.monthValue), color = detailInk, style = type.bodySmall)
+                        Text(gregorianMonthNature(start.monthValue, seasonRegionZone), color = detailInk, style = type.bodySmall)
                     }
                     if (title.isNotBlank()) Text(title, color = detailInk, style = type.bodySmall)
                     if (mode != CalendarMode.PROFANE) Text(yearTileRange(range, locale), color = mainInk, style = type.labelMedium,

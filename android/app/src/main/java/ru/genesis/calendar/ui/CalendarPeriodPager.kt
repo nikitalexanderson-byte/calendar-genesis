@@ -2,7 +2,6 @@ package ru.genesis.calendar.ui
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -150,12 +149,9 @@ private fun PeriodArrow(direction: Int, period: String, onClick: () -> Unit) {
     val pressed by interaction.collectIsPressedAsState()
     val shift by animateFloatAsState(if (pressed) direction * 3f else 0f, spring(stiffness = Spring.StiffnessLow), label = "arrow-press")
     val ink = MaterialTheme.colorScheme.primary
-    androidx.compose.material3.Surface(shape = AffairsLayout.controlShape, color = MaterialTheme.colorScheme.surfaceContainerLowest,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = .35f))) {
-        IconButton(onClick, Modifier.size(48.dp).testTag("calendar-$period-${if (direction < 0) "previous" else "next"}")
-            .semantics { contentDescription = label }, interactionSource = interaction) {
-            GenesisLucideIcon(if (direction < 0) "chevron-left" else "chevron-right",
-                Modifier.size(24.dp), tint = ink)
-        }
+    IconButton(onClick, Modifier.size(48.dp).testTag("calendar-$period-${if (direction < 0) "previous" else "next"}")
+        .semantics { contentDescription = label }, interactionSource = interaction) {
+        GenesisLucideIcon(if (direction < 0) "chevron-left" else "chevron-right",
+            Modifier.size(24.dp).offset(x = shift.dp), tint = ink)
     }
 }

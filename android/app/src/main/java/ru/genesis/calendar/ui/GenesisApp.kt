@@ -460,7 +460,10 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     destination.section?.let { menuSwipeState.select(destination.page, it) }
                     tab = destination.page
                 }, actions = {
-                    if (tab == "Сегодня") TodayThemeButton(eveningTheme, !themeSwitchBusy) {
+                    val themeOnRoot = LocalWorkspaceThemeToggleAllowed.current &&
+                        (tab != "Проекты" || menuSwipeState.projectArea == "shared" || menuSwipeState.personalView == "projects")
+                    if (themeOnRoot && tab in setOf("Сегодня", "Календарь", "Сакральное", "Дневник", "Проекты", "Привычки", "Сообщения"))
+                        TodayThemeButton(eveningTheme, !themeSwitchBusy, calendar = tab == "Календарь") {
                         themeSwitchBusy = true
                         scope.launch {
                             try {
@@ -1377,15 +1380,17 @@ internal fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,stru
         title={Text(if(onDeleteOccurrence!=null) "Удалить повторение?" else "Удалить задачу?")},
         text={Text(if(onDeleteOccurrence!=null) "Можно удалить только $occurrenceDate или всю серию."
             else "Напоминание этой задачи будет отменено.")},
-        confirmButton={
-            Column {
-                if(onDeleteOccurrence!=null) TextButton(onClick={onDeleteOccurrence(occurrenceDate);confirmDelete=false},
-                    modifier=Modifier.testTag("delete-occurrence")){Text("Только этот день")}
-                TextButton(onClick={onDelete?.invoke();confirmDelete=false},
-                    modifier=Modifier.testTag("delete-series")){Text(if(onDeleteOccurrence!=null) "Вся серия" else "Удалить")}
-            }
+        confirmButton={ if (onDeleteOccurrence != null) DialogActionRow(
+            DialogIconAction("Отмена", AffairsAction.BACK, { confirmDelete = false }),
+            DialogIconAction("Только этот день", AffairsAction.CALENDAR,
+                { onDeleteOccurrence(occurrenceDate); confirmDelete = false }, destructive = true,
+                modifier = Modifier.testTag("delete-occurrence")),
+            DialogIconAction("Вся серия", AffairsAction.DELETE, { onDelete?.invoke(); confirmDelete = false },
+                destructive = true, modifier = Modifier.testTag("delete-series"))
+        ) else TextButton(onClick = { onDelete?.invoke(); confirmDelete = false },
+            modifier = Modifier.testTag("delete-series")) { Text("Удалить") }
         },
-        dismissButton={TextButton(onClick={confirmDelete=false}){Text("Отмена")}})
+        dismissButton=if(onDeleteOccurrence != null) null else ({TextButton(onClick={confirmDelete=false}){Text("Отмена")}}))
 }
 
 private fun projectPath(projects: List<GenesisProject>, selectedId: String?): List<GenesisProject> {

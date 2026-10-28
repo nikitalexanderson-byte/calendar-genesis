@@ -40,9 +40,9 @@ import androidx.compose.ui.unit.dp
                 Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                     AffairsIconButton(if(layout.atBottom) "Переместить вверх" else "Переместить вниз",
                         if(layout.atBottom) AffairsAction.MOVE_UP else AffairsAction.MOVE_DOWN,
-                        {onLayout(layout.copy(atBottom=!layout.atBottom))},Modifier.testTag("shared-move-inbox"))
+                        {onLayout(layout.copy(atBottom=!layout.atBottom))},Modifier.testTag("shared-move-inbox"), outlined=false)
                     AffairsIconButton("Скрыть хаос-бокс",AffairsAction.HIDE,
-                        {onLayout(layout.copy(hidden=true))},Modifier.testTag("shared-hide-inbox"))
+                        {onLayout(layout.copy(hidden=true))},Modifier.testTag("shared-hide-inbox"), outlined=false)
                 }
             }
             content()

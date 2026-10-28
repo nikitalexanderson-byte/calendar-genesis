@@ -30,14 +30,16 @@ internal data class MobileDestination(val page: String, val section: String?, va
 
 internal class WorkspaceHeaderContent(val title: State<String>, val subtitle: State<String?>,
     val actions: State<@Composable () -> Unit>, val navigation: State<@Composable () -> Unit>,
-    val singleLine: State<Boolean>, val titleIsUserContent: State<Boolean>, val expandSubtitle: State<Boolean>)
+    val singleLine: State<Boolean>, val titleIsUserContent: State<Boolean>, val expandSubtitle: State<Boolean>,
+    val showThemeToggle: State<Boolean>)
 internal val LocalWorkspaceHeader = staticCompositionLocalOf<MutableState<WorkspaceHeaderContent?>?> { null }
+internal val LocalWorkspaceThemeToggleAllowed = staticCompositionLocalOf { true }
 
 /** A screen owns its actions; the shell renders them before the shared calendar controls. */
 @Composable
 internal fun WorkspaceScreenHeader(title: String, subtitle: String? = null,
     navigation: @Composable () -> Unit = {}, singleLine: Boolean = false, titleIsUserContent: Boolean = false, expandSubtitle: Boolean = false,
-    actions: @Composable () -> Unit = {}): Boolean {
+    showThemeToggle: Boolean = true, actions: @Composable () -> Unit = {}): Boolean {
     val host = LocalWorkspaceHeader.current ?: return false
     val latestTitle = rememberUpdatedState(title)
     val latestSubtitle = rememberUpdatedState(subtitle)
@@ -46,8 +48,9 @@ internal fun WorkspaceScreenHeader(title: String, subtitle: String? = null,
     val latestSingleLine = rememberUpdatedState(singleLine)
     val latestUserContent = rememberUpdatedState(titleIsUserContent)
     val latestExpandSubtitle = rememberUpdatedState(expandSubtitle)
+    val latestThemeToggle = rememberUpdatedState(showThemeToggle)
     val entry = remember { WorkspaceHeaderContent(latestTitle, latestSubtitle, latestActions,
-        latestNavigation, latestSingleLine, latestUserContent, latestExpandSubtitle) }
+        latestNavigation, latestSingleLine, latestUserContent, latestExpandSubtitle, latestThemeToggle) }
     DisposableEffect(host) {
         host.value = entry
         onDispose { if (host.value === entry) host.value = null }
@@ -105,7 +108,7 @@ internal fun mobileDestinations(pages: List<String>, visibility: UiVisibility,
             // Leave the underlying screen visible without reserving an empty strip in the menu.
             // Larger accessibility fonts get room to wrap instead of being clipped.
             val configuration = LocalConfiguration.current
-            val preferredWidth = if (configuration.fontScale > 1.15f) 320 else 288
+            val preferredWidth = if (configuration.fontScale > 1.15f) 304 else 264
             val width = (configuration.screenWidthDp - 56).coerceAtMost(preferredWidth).dp
             ModalDrawerSheet(Modifier.width(width).testTag("workspace-drawer"),
                 drawerShape = RoundedCornerShape(topEnd = 10.dp, bottomEnd = 10.dp),
@@ -114,8 +117,8 @@ internal fun mobileDestinations(pages: List<String>, visibility: UiVisibility,
                 Column(Modifier.fillMaxHeight().verticalScroll(rememberScrollState())
                     .padding(horizontal = 12.dp, vertical = 8.dp)) {
                     Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        GenesisBrandLogo(Modifier.size(40.dp))
-                        Text("Genesis Tasker", Modifier.weight(1f).padding(start = 12.dp),
+                        GenesisBrandLogo(Modifier.size(36.dp))
+                        Text("Genesis Tasker", Modifier.weight(1f).padding(start = 8.dp),
                             style = MaterialTheme.typography.titleLarge)
                         val closeLabel = genesisTranslate("Закрыть меню")
                         IconButton(onClick = { scope.launch { drawer.close() } },
@@ -201,7 +204,8 @@ internal fun mobileDestinations(pages: List<String>, visibility: UiVisibility,
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                         screenHeader.value?.actions?.value?.invoke()
-                        actions()
+                        CompositionLocalProvider(LocalWorkspaceThemeToggleAllowed provides
+                            (screenHeader.value?.showThemeToggle?.value != false)) { actions() }
                     }
                 }
             }

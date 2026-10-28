@@ -6,6 +6,14 @@ import org.junit.Test
 import ru.genesis.calendar.domain.CalendarRange
 
 class CalendarVisualDataTest {
+    @Test fun marchYearNumbersCrossTheCivilYearBoundaryWithoutChangingDates() {
+        val start = LocalDate.of(2026, 3, 1)
+        assertEquals((1..12).toList(), (0L..11L).map { gregorianMonthOrdinal(start.plusMonths(it).monthValue, true) })
+        assertEquals(11, gregorianMonthOrdinal(1, true))
+        assertEquals(12, gregorianMonthOrdinal(2, true))
+        assertEquals((1..12).toList(), (1..12).map { gregorianMonthOrdinal(it, false) })
+    }
+
 
     @Test
     fun `lunar cells format sacred dates as day pyata and month`() {
