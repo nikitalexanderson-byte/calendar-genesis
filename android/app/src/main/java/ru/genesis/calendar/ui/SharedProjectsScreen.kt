@@ -1600,7 +1600,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                 }
                 val projectInbox: @Composable () -> Unit = {
                     SharedChaosBox(unassigned.size, unassignedChildren.size, projectInboxLayout, setProjectInboxLayout,
-                        Modifier.onGloballyPositioned { dropBounds["board:"] = it.boundsInWindow() }.testTag("shared-project-inbox")) {
+                        Modifier.onGloballyPositioned { dropBounds["board:"] = it.boundsInWindow() }) {
                         if (unassigned.isEmpty() && unassignedChildren.isEmpty()) Text("Задач без списка пока нет.", style = MaterialTheme.typography.bodyMedium)
                         unassignedChildren.forEach { renderChild(it) }
                         unassigned.forEach { renderTask(it) }
