@@ -24,11 +24,11 @@ internal fun EditorDialogHeader(title: String, closeTag: String, onClose: () -> 
 /** Editors and confirmations share alignment, heading semantics and the same close target. */
 @Composable
 internal fun GenesisDialogHeader(closeTag: String = "dialog-close", onClose: (() -> Unit)?,
-    title: @Composable () -> Unit) {
+    enabled: Boolean = true, title: @Composable () -> Unit) {
     val closeLabel = genesisTranslate("Закрыть")
     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.weight(1f).semantics { heading() }) { title() }
-        if (onClose != null) IconButton(onClick = onClose, modifier = Modifier.size(48.dp).testTag(closeTag)
+        if (onClose != null) IconButton(onClick = onClose, enabled = enabled, modifier = Modifier.size(48.dp).testTag(closeTag)
             .semantics { contentDescription = closeLabel }) {
             GenesisLucideIcon("x", Modifier.size(22.dp))
         }

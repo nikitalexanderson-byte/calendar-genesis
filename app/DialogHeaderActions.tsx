@@ -7,7 +7,7 @@ import './dialog-controls.css';
 
 const dialogs = 'dialog[open], [role="dialog"], [role="alertdialog"]';
 type Control = HTMLButtonElement | HTMLInputElement;
-type Entry = { root: HTMLElement; host: HTMLElement; title: string; close: HTMLButtonElement; sources: Control[]; disabled: boolean[]; saveLabel: string; closeLabel: string; alternativesLabel: string };
+type Entry = { root: HTMLElement; host: HTMLElement; title: string; subtitle: string; close: HTMLButtonElement; sources: Control[]; disabled: boolean[]; saveLabel: string; closeLabel: string; alternativesLabel: string };
 const label = (button: Control) => (button.getAttribute('aria-label') || (button instanceof HTMLInputElement ? button.value : button.textContent) || '').trim();
 const normalized = (value: string) => value.toLocaleLowerCase().replace(/[.…!]+$/g, '').trim();
 const saveWords = [...new Set(LANGUAGES.map(language => normalized(translateText('Сохранить', language))))];
@@ -58,7 +58,7 @@ function Header({ entry }: { entry: Entry }) {
     finally { requestAnimationFrame(() => { lock.current = false; }); }
   };
   return <header ref={header} className="dialog-universal-header">
-    <h2>{entry.title}</h2>
+    <div className="dialog-universal-title"><h2>{entry.title}</h2>{entry.subtitle && <p>{entry.subtitle}</p>}</div>
     <div className="dialog-universal-actions">
       {primary.length > 0 && <button type="button" className="dialog-save-button" data-no-translate aria-label={entry.saveLabel} data-tooltip={entry.saveLabel} disabled={primary.some(disabled)} onClick={() => save(primary)}><ExperimentalIcon name="save" /></button>}
       {alternatives.length > 0 && <div className="dialog-save-alternatives"><button type="button" className="dialog-save-button" data-no-translate aria-label={entry.alternativesLabel} data-tooltip={entry.alternativesLabel} aria-expanded={more} aria-haspopup="menu" onClick={() => setMore(value => !value)}><svg className="experimental-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>{more && <div className="dialog-save-menu" role="menu">{alternatives.map((button, index) => <button key={index} role="menuitem" type="button" disabled={disabled(button)} onClick={() => save([button])}><ExperimentalIcon name="save" /><span>{label(button)}</span></button>)}</div>}</div>}
@@ -90,7 +90,11 @@ export function DialogHeaderActions() {
         const close = [...content.querySelectorAll<HTMLButtonElement>('button.dialog-close-button')].find(button => own(button, root) && !button.closest('[data-dialog-header-host]'));
         const labelled = (root.getAttribute('aria-labelledby') ?? '').split(/\s+/).map(id => document.getElementById(id)).find(element => element && content.contains(element));
         const title = labelled ?? [...content.querySelectorAll<HTMLElement>('h1,h2,h3,[role="heading"]')].find(element => !element.closest('[data-dialog-header-host]') && own(element, root));
-        const titleText = title?.textContent?.trim() || root.getAttribute('aria-label')?.trim();
+        const heading = title?.cloneNode(true) as HTMLElement | undefined;
+        const subtitles = [...(heading?.querySelectorAll('[data-dialog-subtitle]') ?? [])];
+        const subtitle = subtitles.map(element => element.textContent?.trim()).filter(Boolean).join(' · ');
+        subtitles.forEach(element => element.remove());
+        const titleText = heading?.textContent?.trim() || root.getAttribute('aria-label')?.trim();
         if (!close || !titleText) continue;
         active.add(root);
         let item = managed.get(root);
@@ -111,12 +115,12 @@ export function DialogHeaderActions() {
         for (const previous of item.marked) if (!marked.has(previous)) previous.removeAttribute('data-dialog-header-source');
         for (const element of marked) if (!element.hasAttribute('data-dialog-header-source')) element.setAttribute('data-dialog-header-source', 'true');
         item.marked = marked;
-        next.push({ root, host: item.host, title: titleText, close, sources, disabled: [disabled(close), ...sources.map(disabled)], saveLabel: translateText('Сохранить'), closeLabel: translateText('Закрыть'), alternativesLabel: translateText('Дополнительные действия') });
+        next.push({ root, host: item.host, title: titleText, subtitle, close, sources, disabled: [disabled(close), ...sources.map(disabled)], saveLabel: translateText('Сохранить'), closeLabel: translateText('Закрыть'), alternativesLabel: translateText('Дополнительные действия') });
       }
       for (const root of managed.keys()) if (!active.has(root)) clear(root);
       setEntries(current => current.length === next.length && current.every((entry, index) => {
         const other = next[index];
-        return entry.root === other.root && entry.title === other.title && entry.close === other.close && entry.saveLabel === other.saveLabel && entry.closeLabel === other.closeLabel && entry.alternativesLabel === other.alternativesLabel && entry.sources.length === other.sources.length && entry.sources.every((source, position) => source === other.sources[position]) && entry.disabled.every((disabled, position) => disabled === other.disabled[position]);
+        return entry.root === other.root && entry.title === other.title && entry.subtitle === other.subtitle && entry.close === other.close && entry.saveLabel === other.saveLabel && entry.closeLabel === other.closeLabel && entry.alternativesLabel === other.alternativesLabel && entry.sources.length === other.sources.length && entry.sources.every((source, position) => source === other.sources[position]) && entry.disabled.every((disabled, position) => disabled === other.disabled[position]);
       }) ? current : next);
     };
     const schedule = () => { if (!frame) frame = requestAnimationFrame(scan); };

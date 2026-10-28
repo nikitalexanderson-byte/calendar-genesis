@@ -709,13 +709,9 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
     fun requestDismiss() { if (!busy) { if (hasChanges) discardConfirmation = true else onDismiss() } }
     Dialog(onDismissRequest=::requestDismiss, properties=androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth=false)) { Surface(Modifier.widthIn(max=720.dp).fillMaxWidth().padding(12.dp),shape=MaterialTheme.shapes.large) {
         Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment=Alignment.CenterVertically) {
+            GenesisDialogHeader(closeTag = "habit-editor-close", onClose = ::requestDismiss, enabled = !busy) {
                 Text(if(existing==null) "Новая привычка" else "Изменить привычку",
-                    modifier=Modifier.weight(1f),style=MaterialTheme.typography.titleLarge)
-                IconButton(onClick=::requestDismiss,enabled=!busy,modifier=Modifier.size(48.dp).testTag("habit-editor-close")
-                    .semantics { contentDescription = "Закрыть редактор привычки" }) {
-                    GenesisLucideIcon("x")
-                }
+                    style=MaterialTheme.typography.titleLarge)
             }
             EditorSection("Основное") {
             if(initial.practiceGoal != null) {

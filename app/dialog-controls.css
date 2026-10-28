@@ -3,7 +3,9 @@
 [data-dialog-header-host] { position: sticky; top: 0; z-index: 20; flex-shrink: 0; grid-column: 1 / -1; background: var(--surface, var(--paper)); }
 .dialog-universal-header { position:relative; isolation:isolate; display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 64px; padding: 10px var(--dialog-header-inline, 0px); margin-bottom: 16px; border-bottom: 1px solid var(--line); background: var(--surface, var(--paper)); color: var(--ink); }
 .dialog-universal-header::before { content:''; position:absolute; z-index:-1; inset:calc(-1 * var(--dialog-edge-top,0px)) calc(-1 * var(--dialog-edge-right,0px)) 0 calc(-1 * var(--dialog-edge-left,0px)); background:var(--surface,var(--paper)); pointer-events:none; }
-.dialog-universal-header > h2 { min-width: 0; flex: 1; margin: 0 !important; font: 500 24px/1.3 var(--font-heading); overflow-wrap: anywhere; }
+.dialog-universal-title { min-width: 0; flex: 1; }
+.dialog-universal-title > h2 { margin: 0 !important; font: 500 24px/1.3 var(--font-heading); overflow-wrap: anywhere; }
+.dialog-universal-title > p { margin: 4px 0 0; color: var(--ink-soft); font: 400 14px/1.5 var(--font-ui); overflow-wrap: anywhere; }
 .dialog-universal-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; }
 html[data-genesis-theme] .dialog-universal-actions > button,
 html[data-genesis-theme] .dialog-universal-actions .dialog-save-alternatives > button {
@@ -16,7 +18,7 @@ html[data-genesis-theme] .dialog-universal-actions button:focus-visible { outlin
 .dialog-save-alternatives { position: relative; }
 .dialog-save-menu { position: absolute; z-index: 21; inset-inline-end: 0; top: calc(100% + 8px); display: grid; gap: 6px; width: min(300px, calc(100vw - 48px)); padding: 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); box-shadow: 0 8px 24px #07171b30; }
 .dialog-save-menu > button { display: flex; gap: 12px; align-items: center; min-height: 44px; padding: 8px 12px; text-align: start; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
-@media (max-width: 600px) { .dialog-universal-header { gap: 8px; } .dialog-universal-header > h2 { font-size: 20px; } }
+@media (max-width: 600px) { .dialog-universal-header { gap: 8px; } .dialog-universal-title > h2 { font-size: 20px; } }
 html[data-genesis-theme] { --ui-layer-dialog: 1600; }
 html[data-genesis-theme] :is(.modal-backdrop, .stoicheion-letter-dialog) { z-index: var(--ui-layer-dialog); }
 html[data-genesis-theme] button.dialog-close-button,

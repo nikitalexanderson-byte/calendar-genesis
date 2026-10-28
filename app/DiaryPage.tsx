@@ -48,7 +48,7 @@ function NoteEditor({ record, language, onClose }: { record?: DiaryRecord; langu
     } catch (failure) { setError(failure instanceof Error && failure.message.includes('DIARY_REVISION_CONFLICT') ? text.conflict : text.error); }
     finally { setSaving(false); }
   };
-  return <div className="modal-backdrop"><section className="modal diary-editor" ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="diary-editor-title" data-no-translate>
+  return <div className="modal-backdrop"><section className="modal diary-editor" data-exp-ui="dialog" ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="diary-editor-title" data-no-translate>
     <header><h2 id="diary-editor-title">{record ? text.editing : text.newNote}</h2><DialogCloseButton aria-label={text.closeDraft} disabled={saving} onClick={() => void close()} /></header>
     <form onSubmit={event => void save(event)}>
       <label>{text.heading}<input data-dialog-initial-focus value={note.title} maxLength={200} onChange={event => setNote({ ...note, title: event.target.value })} /></label>

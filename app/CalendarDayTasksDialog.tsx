@@ -17,7 +17,7 @@ export default function CalendarDayTasksDialog({date, dateLabel, personal, share
   const t = (text: string) => translateText(text, language);
   useEffect(() => { dialog.current?.showModal(); }, []);
   return <dialog ref={dialog} className="calendar-day-tasks-dialog" aria-labelledby="calendar-day-tasks-title" onClose={onClose}>
-    <header><h2 id="calendar-day-tasks-title">{t("Все задачи")}<span>{dateLabel}</span></h2>
+    <header><h2 id="calendar-day-tasks-title">{t("Все задачи")} <span data-dialog-subtitle>{dateLabel}</span></h2>
       <DialogCloseButton type="button" aria-label={t("Закрыть")} onClick={onClose}/>
     </header>
     <div className="calendar-day-task-columns">
