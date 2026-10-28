@@ -96,7 +96,7 @@ function CalendarTaskControl<T extends PopoverTask>({ tasks, total = tasks.lengt
     {expanded && typeof document !== "undefined" ? createPortal(<div ref={popupRef} className={`calendar-task-popover calendar-stable-task-popover ${shared ? "calendar-shared-task-popover" : "calendar-personal-task-popover"}`}
       onPointerEnter={openPopover} onPointerLeave={event => {if(event.pointerType === "mouse")closePopoverSoon();}}
       id={id} role="dialog" aria-label={`${title} · ${dateLabel}`}>
-      <header><strong>{title} · {total}</strong>
+      <header><h2>{title} · {total}<span data-dialog-subtitle>{dateLabel}</span></h2>
         <DialogCloseButton type="button" onClick={() => onOpenKey("")} aria-label={english ? "Close task list" : "Закрыть список задач"} />
       </header>
       <ul>{tasks.map(task => <li className={task.completedAt || task.done ? "done" : ""} key={task.id}>
