@@ -258,6 +258,7 @@ internal fun workflowMessage(code: String, copy: JSONObject): String? { return c
             AffairsPageHeader(copy.getString("heading"), if (lost) "" else data?.getJSONObject("context")?.getJSONObject("project")?.getString("title").orEmpty(),
                 contextIsUserContent = true, onBack = ::leave, backEnabled = !editor.busy, actions = {
                     AffairsIconButton("Обновить", AffairsAction.REFRESH, { refresh++; generation++; history = null }, Modifier.testTag("workflow-refresh"), !editor.busy && !loading)
+                        AffairsIconButton("Закрыть", AffairsAction.CLOSE, ::leave)
                 })
             BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                 if (maxWidth >= 720.dp) Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {

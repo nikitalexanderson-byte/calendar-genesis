@@ -13,6 +13,7 @@ private val renamedPractices = ConcurrentHashMap<String, Map<String, TheokyklosP
 /** Display renamed defaults by stable practice ID; never rewrite saved or custom text. */
 @Composable
 internal fun habitDisplayTitle(habit: Habit): String {
+    if (habit.stoicheionRestoration != null) return restorationHabitDisplay(habit).first
     val practiceId = habit.sacredPracticeId ?: return habit.title
     val context = LocalContext.current.applicationContext
     val language = LocalGenesisLanguage.current

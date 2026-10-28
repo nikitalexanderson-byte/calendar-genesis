@@ -337,6 +337,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                 uiReadySpace = targetSpace
                 projectId = destination?.takeIf { it.spaceId == targetSpace && projects.any { project -> project.optString("id") == it.projectId } }?.projectId
                     ?: restoredProjectId.takeIf { id -> projects.any { it.optString("id") == id } }.orEmpty()
+                if (projectId == destination?.projectId) taskId = destination.taskId
             }
         } catch (error: Exception) { if (error is kotlinx.coroutines.CancellationException) throw error; message = error.message ?: "Ошибка сервера" }
         else { projects = emptyList(); archivedProjects = emptyList() }
@@ -504,10 +505,8 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         run {
             val destination = if (destinationProjectId == sourceProjectId) sourceSnapshot
                 else controller.sharedProject(destinationProjectId)
-            val statusId = destinationStatusId.ifBlank {
-                destination?.optJSONArray("statuses")?.optJSONObject(0)?.optString("id").orEmpty()
-            }
-            if (statusId.isBlank()) return@run
+            if (destination?.optJSONObject("project")?.optInt("isInbox") == 1) return@run
+            val statusId = destinationStatusId
             val moved = controller.moveSharedTask(sourceProjectId, task.getString("id"), JSONObject()
                 .put("destinationProjectId", destinationProjectId).put("statusId", statusId)
                 .put("expectedRevision", task.getInt("revision"))
@@ -785,10 +784,11 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                             AuthorDatePicker(newTaskDueDate, preferences.input) { newTaskDueDate = it }
                             TextButton(onClick = { newTaskDueDate = "" }) { Text(if (en) "Clear" else "Убрать срок") }
                         }
-                        Text(if (en) "Task list / status" else "Список задач / статус", style = MaterialTheme.typography.titleSmall)
+                        Text(if (en) "Board" else "Доска", style = MaterialTheme.typography.titleSmall)
                         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            FilterChip(selected = newTaskStatusId.isBlank(), onClick = { newTaskStatusId = "" }, label = { Text("Хаос-бокс проекта") })
                             statuses.forEach { status -> FilterChip(
-                                selected = (newTaskStatusId.ifBlank { statuses.firstOrNull()?.optString("id").orEmpty() }) == status.optString("id"),
+                                selected = newTaskStatusId == status.optString("id"),
                                 onClick = { newTaskStatusId = status.optString("id") },
                                 label = { Text(sharedStatusLabel(status.optString("title"), en)) }) }
                         }
@@ -858,7 +858,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                         val fields = createCustom.fields(requireNotNull(newCustomBinding)).put("title", taskTitle.trim())
                             .put("description", newTaskDescription.trim()).put("entryType", newTaskEntryType)
                             .put("dueDate", newTaskDueDate.ifBlank { null } ?: JSONObject.NULL)
-                            .put("statusId", newTaskStatusId.ifBlank { statuses.first().getString("id") })
+                            .put("statusId", newTaskStatusId)
                             .put("categoryId", newTaskCategoryId.ifBlank { null } ?: JSONObject.NULL)
                             .put("assigneeId", newTaskAssigneeId.ifBlank { null } ?: JSONObject.NULL)
                         val conversionJournal = if (taskExtensions.conversionMap.isNotBlank()) {
@@ -1495,35 +1495,6 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                 headerActions(false)
                 }
                 val inboxLists=projects.filter {it.optString("kind")=="task-list"&&it.optString("parentId").let {parent->parent.isBlank()||parent=="null"||parent==inboxId}}
-                val previousTasks: @Composable ()->Unit = {
-                    val oldCount = inlineInboxReader.pageState.value?.optInt("total") ?: inboxProject?.optInt("taskCount") ?: 0
-                    if (inboxProject != null && (oldCount > 0 || inboxLists.isNotEmpty())) AffairsDisclosure("Ранее сохранённые задачи",
-                        Modifier.testTag("shared-legacy-tasks")) {
-                        val inboxSnapshot=inlineInboxSnapshot
-                        val inboxStatuses=inboxSnapshot?.optJSONArray("statuses")?.rows().orEmpty()
-                        val inboxTasks=inlineInboxReader.pageState.value?.optJSONArray("tasks")?.rows().orEmpty()
-                        if(inlineInboxFailure.isNotBlank()||inlineInboxReader.error.isNotBlank()) {
-                            Text(inlineInboxFailure.ifBlank {inlineInboxReader.error},color=MaterialTheme.colorScheme.error)
-                            TextButton(onClick={inlineInboxRetry++;run {inlineInboxReader.refresh()}}) {Text("Повторить")}
-                        } else if(inboxSnapshot==null||inlineInboxReader.pageState.value==null) LinearProgressIndicator(Modifier.fillMaxWidth())
-                        else if(inboxTasks.isEmpty()&&inboxLists.isEmpty()) Text("Задач без проекта пока нет.",style=MaterialTheme.typography.bodyMedium)
-                        inboxLists.forEach {list->
-                            OutlinedButton(onClick={selectProject(list.getString("id"))},modifier=Modifier.fillMaxWidth().testTag("shared-inbox-list-${list.optString("id")}")) {
-                                AffairsActionIcon(AffairsAction.TASK_LIST);Spacer(Modifier.width(8.dp));androidx.compose.material3.Text(list.optString("title"),Modifier.weight(1f))
-                            }
-                        }
-                        inboxTasks.forEach {task->
-                            SharedTaskCard(task,inboxStatuses,inboxSnapshot?.optJSONObject("project")?.optBoolean("canOrganizeTasks")==true,busy,en,calendarMode,null,null,
-                                onOpen={selectProject(inboxId);taskId=task.getString("id")},onMove={status->moveTaskTo(task,inboxId,status)},
-                                onDragStart={position->draggingTask=task;draggingAt=position},
-                                onDragMove={amount->draggingAt=(draggingAt ?: Offset.Zero)+amount},onDragEnd={finishDrag()},
-                                onDragCancel={draggingTask=null;draggingAt=null},compact=true)
-                        }
-                        if(inlineInboxReader.pageState.value?.optBoolean("hasMore")==true) TextButton(enabled=!inlineInboxReader.busy,onClick={run {inlineInboxReader.more()}}) {Text("Показать ещё")}
-                    }
-                }
-
-
                 if (showArchived) {
                     Text("Архив проектов", style = MaterialTheme.typography.titleMedium)
                     archivedProjects.forEach { item -> Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
@@ -1549,7 +1520,6 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                     if (uiReadySpace == spaceId && projects.none { it.optInt("isInbox") == 0 })
                         Text("В этом разделе пока нет проектов.", style = MaterialTheme.typography.bodyMedium)
                 }
-                previousTasks()
                 if (uiReadySpace != spaceId) LinearProgressIndicator(Modifier.fillMaxWidth())
             }
         }
@@ -1558,8 +1528,9 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
             if (taskId.isBlank() && project.optInt("isInbox")==0) {
                 BoxWithConstraints(Modifier.fillMaxWidth()) {
                 val buttonCount = 5 + (if (canWrite) 1 else 0) + (if (canEditTask && statuses.isNotEmpty() || canWrite) 1 else 0)
+                val buttonGap = 6.dp
                 val buttonWidth = with(LocalDensity.current) {
-                    kotlin.math.floor(maxWidth.toPx() / buttonCount).toDp()
+                    kotlin.math.floor((maxWidth.toPx() - buttonGap.toPx() * (buttonCount - 1)) / buttonCount).toDp()
                 }
                 CompositionLocalProvider(LocalAffairsControlWidth provides buttonWidth,
                     LocalMinimumInteractiveComponentSize provides 0.dp) {
@@ -1569,7 +1540,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                     SharedWorkspaceViewChoice(activeView, { viewOverride = it }, compact = true)
                     SharedWorkspaceCreateMenu(!busy, canEditTask && statuses.isNotEmpty(), canWrite,
                         onTask = { kind ->
-                            newTaskEntryType = kind; newTaskStatusId = statuses.firstOrNull()?.optString("id").orEmpty()
+                            newTaskEntryType = kind; newTaskStatusId = ""
                             newTaskCategoryId = ""; newTaskAssigneeId = ""; createCustomProjectId = projectId; createModal = "task"
                         }, onContainer = { kind ->
                             createKind = kind; parentId = projectId; parentBoardId = ""; createModal = "project"
@@ -1602,6 +1573,39 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                 }
                 if (taskPage == null && listContext.valid && listContext.reader.error.isBlank()) LinearProgressIndicator(Modifier.fillMaxWidth())
                 else if (activeView != "calendar" && taskPage != null && tasks.isEmpty()) Text("По вашему запросу ничего не найдено.", style = MaterialTheme.typography.bodyMedium)
+                val children = projects.filter { it.optString("parentId") == projectId }
+                val boardIds = statuses.map { it.getString("id") }.toSet()
+                val unassigned = tasks.filter { it.optString("statusId") !in boardIds }
+                val unassignedChildren = children.filter { it.optString("boardStatusId") !in boardIds }
+                val renderTask: @Composable (JSONObject) -> Unit = { task ->
+                    SharedTaskCard(task, statuses, canOrganize, busy, en, calendarMode,
+                    onArchive = { taskExtensions.lifecycleAction = "archive" to task }, onTrash = { taskExtensions.lifecycleAction = "trash" to task },
+                    customFields = listContext.catalog.fields, customCalendar = SharedCustomCalendar.initial(preferences).copy(mode = calendarMode),
+                        category = categories.firstOrNull { it.optString("id") == task.optString("categoryId") },
+                        completedBy = members.firstOrNull { it.optString("userId") == task.optString("completedBy") }?.optString("displayName"),
+                    assignedTo = members.firstOrNull { it.optString("userId") == task.optString("assigneeId") }?.optString("displayName"),
+                        onOpen = { taskId = task.getString("id") },
+                        onMove = { destination -> moveTaskStatus(task, destination) },
+                    onDragStart = { position -> draggingTask = task; draggingAt = position },
+                    onDragMove = { amount -> draggingAt = (draggingAt ?: Offset.Zero) + amount },
+                    onDragEnd = { finishDrag() },
+                    onDragCancel = { draggingTask = null; draggingAt = null }, compact=activeView != "board")
+                }
+                val renderChild: @Composable (JSONObject) -> Unit = { child ->
+                    OutlinedButton(onClick = { selectProject(child.getString("id")) }, modifier = Modifier.fillMaxWidth()
+                        .testTag("shared-list-child-${child.optString("id")}")) {
+                        AffairsActionIcon(if (child.optString("kind") == "task-list") AffairsAction.TASK_LIST else AffairsAction.PROJECT)
+                        Spacer(Modifier.width(8.dp)); androidx.compose.material3.Text(child.optString("title"), Modifier.weight(1f))
+                    }
+                }
+                val projectInbox: @Composable () -> Unit = {
+                    SharedChaosBox(unassigned.size, unassignedChildren.size, projectInboxLayout, setProjectInboxLayout,
+                        Modifier.onGloballyPositioned { dropBounds["board:"] = it.boundsInWindow() }.testTag("shared-project-inbox")) {
+                        if (unassigned.isEmpty() && unassignedChildren.isEmpty()) Text("Задач без списка пока нет.", style = MaterialTheme.typography.bodyMedium)
+                        unassignedChildren.forEach { renderChild(it) }
+                        unassigned.forEach { renderTask(it) }
+                    }
+                }
             if (activeView == "gantt") key(projectId) {
                 SharedGanttView(tasks.map { task -> if (sharedTaskHasPending(task.optString("id"), pendingTasks))
                     JSONObject(task.toString()).put("pending", true) else task }, statuses,
@@ -1709,6 +1713,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                     }
                 }
             } else if (activeView == "board") {
+                if (!projectInboxLayout.atBottom) projectInbox()
                 Text(if (en) "Swipe across the board to view all statuses."
                     else "Проведите по доске, чтобы увидеть все статусы.", style = MaterialTheme.typography.bodySmall)
                 LazyRow(Modifier.fillMaxWidth().onGloballyPositioned { boardViewport = it.boundsInWindow() }.testTag("shared-boards"), state = boardScroll, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1736,7 +1741,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                             onCreateProject = { createKind = "project"; parentId = projectId; parentBoardId = status.getString("id"); createModal = "project" })
                         SharedBoardImage(status.optString("imageUrl"))
                         projects.filter { it.optString("parentId") == projectId && (it.optString("boardStatusId") == status.optString("id") ||
-                            it.optString("boardStatusId").let { value -> value.isBlank() || value == "null" } && status == statuses.firstOrNull()) }.forEach { child ->
+                            false) }.forEach { child ->
                             OutlinedButton(onClick = { selectProject(child.getString("id")) }, modifier = Modifier.fillMaxWidth()) {
                                 Text(child.optString("title"), modifier = Modifier.fillMaxWidth())
                             }
@@ -1763,44 +1768,12 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                         }
                     } }
                 }
+                if (projectInboxLayout.atBottom) projectInbox()
             } else {
-                val children = projects.filter { it.optString("parentId") == projectId }
-                val boardIds = statuses.map { it.getString("id") }.toSet()
-                val unassigned = tasks.filter { it.optString("statusId") !in boardIds }
-                val unassignedChildren = children.filter { it.optString("boardStatusId") !in boardIds && statuses.isEmpty() }
-                val renderTask: @Composable (JSONObject) -> Unit = { task ->
-                    SharedTaskCard(task, statuses, canOrganize, busy, en, calendarMode,
-                    onArchive = { taskExtensions.lifecycleAction = "archive" to task }, onTrash = { taskExtensions.lifecycleAction = "trash" to task },
-                    customFields = listContext.catalog.fields, customCalendar = SharedCustomCalendar.initial(preferences).copy(mode = calendarMode),
-                        category = categories.firstOrNull { it.optString("id") == task.optString("categoryId") },
-                        completedBy = members.firstOrNull { it.optString("userId") == task.optString("completedBy") }?.optString("displayName"),
-                    assignedTo = members.firstOrNull { it.optString("userId") == task.optString("assigneeId") }?.optString("displayName"),
-                        onOpen = { taskId = task.getString("id") },
-                        onMove = { destination -> moveTaskStatus(task, destination) },
-                    onDragStart = { position -> draggingTask = task; draggingAt = position },
-                    onDragMove = { amount -> draggingAt = (draggingAt ?: Offset.Zero) + amount },
-                    onDragEnd = { finishDrag() },
-                    onDragCancel = { draggingTask = null; draggingAt = null }, compact=true)
-                }
-                val renderChild: @Composable (JSONObject) -> Unit = { child ->
-                    OutlinedButton(onClick = { selectProject(child.getString("id")) }, modifier = Modifier.fillMaxWidth()
-                        .testTag("shared-list-child-${child.optString("id")}")) {
-                        AffairsActionIcon(if (child.optString("kind") == "task-list") AffairsAction.TASK_LIST else AffairsAction.PROJECT)
-                        Spacer(Modifier.width(8.dp)); androidx.compose.material3.Text(child.optString("title"), Modifier.weight(1f))
-                    }
-                }
-                val projectInbox: @Composable () -> Unit = {
-                    SharedChaosBox(unassigned.size, unassignedChildren.size, projectInboxLayout, setProjectInboxLayout) {
-                        if (unassigned.isEmpty() && unassignedChildren.isEmpty()) Text("Задач без списка пока нет.", style = MaterialTheme.typography.bodyMedium)
-                        unassignedChildren.forEach { renderChild(it) }
-                        unassigned.forEach { renderTask(it) }
-                    }
-                }
                 if (!projectInboxLayout.atBottom) projectInbox()
                 statuses.forEachIndexed { index, status ->
                     val boardTasks = tasks.filter { it.optString("statusId") == status.getString("id") }
-                    val boardChildren = children.filter { it.optString("boardStatusId") == status.getString("id") ||
-                        it.optString("boardStatusId") !in boardIds && index == 0 }
+                    val boardChildren = children.filter { it.optString("boardStatusId") == status.getString("id") }
                     Surface(Modifier.fillMaxWidth().testTag("shared-list-board-${status.getString("id")}"), shape = AffairsLayout.shape,
                         color = MaterialTheme.colorScheme.surface) {
                         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -2053,7 +2026,7 @@ private fun SharedWorkspaceCreateMenu(enabled: Boolean, canCreateTask: Boolean, 
                 val container = kind == "task-list" || kind == "project"
                 DropdownMenuItem(text = { Text(label) }, enabled = enabled && if (container) canCreateContainer else canCreateTask,
                     leadingIcon = { if (kind == "event" || kind == "meeting") GenesisLucideIcon(if (kind == "event") "calendar-days" else "users-round")
-                        else AffairsActionIcon(if (kind == "task-list") AffairsAction.TASK_LIST else if (kind == "project") AffairsAction.PROJECT else AffairsAction.TASK) },
+                        else AffairsActionIcon(if (kind == "task-list") AffairsAction.TASK_LIST else if (kind == "project") AffairsAction.PROJECT else AffairsAction.CREATE_TASK) },
                     modifier = Modifier.testTag("shared-create-$kind-option"), onClick = { open = false
                         if (container) onContainer(kind) else onTask(kind)
                     })
@@ -2086,7 +2059,8 @@ internal fun SharedTaskCard(task: JSONObject, statuses: List<JSONObject>, canOrg
     val currentStatus = statuses.firstOrNull { it.optString("id") == task.optString("statusId") }
     val completed = currentStatus?.optInt("isDone") == 1 ||
         task.optString("completedAt").let { it.isNotBlank() && it != "null" }
-    val toggleStatus = statuses.firstOrNull { (it.optInt("isDone") == 1) != completed }
+    val toggleStatus = if (currentStatus == null) JSONObject().put("id", "chaos-${if (completed) "open" else "done"}:${task.getString("projectId")}")
+        else statuses.firstOrNull { (it.optInt("isDone") == 1) != completed }
     val dueDate = task.optString("dueDate").takeUnless { it.isBlank() || it == "null" }
     val dueLabel = dueDate?.let { runCatching {
         GenesisCalendar().formatDate(LocalDate.parse(it), calendarMode)
@@ -2117,6 +2091,8 @@ internal fun SharedTaskCard(task: JSONObject, statuses: List<JSONObject>, canOrg
             AffairsIconButton("Изменить статус", AffairsAction.MORE, { actionsOpen = true },
                 Modifier.testTag("shared-task-actions-${task.optString("id")}"), enabled = !busy, outlined = false)
             DropdownMenu(actionsOpen, { actionsOpen = false }) {
+                DropdownMenuItem(text = { Text("Хаос-бокс проекта") }, enabled = !busy && currentStatus != null,
+                    onClick = { actionsOpen = false; onMove("") })
                 statuses.forEach { status -> DropdownMenuItem(text = { Text(sharedStatusLabel(status.getString("title"), en)) },
                     enabled = !busy && task.optString("statusId") != status.optString("id"),
                     onClick = { actionsOpen = false; onMove(status.getString("id")) }) }
@@ -2176,7 +2152,7 @@ private fun SharedStatusHeader(status: JSONObject, en: Boolean, canManage: Boole
                         "meeting" to "Создать встречу", "project" to "Создать подпроект").forEach { (kind, label) ->
                         DropdownMenuItem(text = { Text(label) }, modifier = Modifier.testTag("shared-board-create-$kind-${status.optString("id")}"),
                             leadingIcon = { AffairsActionIcon(when (kind) { "task-list" -> AffairsAction.TASK_LIST; "project" -> AffairsAction.PROJECT
-                                "event" -> AffairsAction.CALENDAR; "meeting" -> AffairsAction.TEAM; else -> AffairsAction.TASK }) }, onClick = {
+                                "event" -> AffairsAction.CALENDAR; "meeting" -> AffairsAction.TEAM; else -> AffairsAction.CREATE_TASK }) }, onClick = {
                                 open = false
                                 when (kind) { "task-list" -> onCreateList(); "project" -> onCreateProject(); else -> onCreateTask(kind) }
                             })

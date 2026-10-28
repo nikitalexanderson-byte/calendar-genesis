@@ -170,7 +170,7 @@ internal fun StoicheionMotionDialog(mode: String, busy: Boolean, onCancel: () ->
                     Text(if (mode == "daily") "Проведите рукой над знаками" else "Соберите девять ликов движением",
                         Modifier.weight(1f), style = MaterialTheme.typography.titleLarge,
                         color = Color(0xfffffcf6))
-                    TextButton(onClick = onCancel) { Text("×", color = Color(0xffdfc17e)) }
+                    AffairsIconButton("Закрыть", AffairsAction.CLOSE, onCancel, contentColor = Color(0xffdfc17e))
                 }
                 Text("Проведите пальцем несколько раз. Движение создаёт зерно расклада.",
                     color = Color(0xfffffcf6), style = MaterialTheme.typography.bodyMedium)

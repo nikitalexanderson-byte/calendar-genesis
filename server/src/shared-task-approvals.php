@@ -71,9 +71,10 @@ function genesisSharedApproveTask(string $userId, string $projectId, string $tas
         $query->execute(['task' => $taskId, 'project' => $projectId, 'user' => $userId]);
         $task = $query->fetch();
         if (!$task) throw new GenesisSharedAccessException();
-        $status = $db->prepare('SELECT id FROM shared_project_statuses WHERE project_id = :project AND is_done = 1 ORDER BY position LIMIT 1');
+        $status = $db->prepare('SELECT id FROM shared_project_statuses WHERE project_id = :project AND is_done = 1 AND is_chaos=0 ORDER BY position LIMIT 1');
         $status->execute(['project' => $projectId]); $doneId = $status->fetchColumn();
         if (!$doneId) throw new GenesisSharedAccessException('Добавьте доску для выполненных задач.', 409);
+        if (str_starts_with($task['status_id'],'chaos-')) $doneId=genesisSharedProjectInboxStatus($db,$projectId,true);
         $now = genesisNow();
         $approved = $db->prepare('UPDATE shared_task_approvals SET approved_at = :now WHERE task_id = :task AND user_id = :user AND approved_at IS NULL');
         $approved->execute(['now' => $now, 'task' => $taskId, 'user' => $userId]);

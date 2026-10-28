@@ -75,8 +75,7 @@ internal fun HabitPersonalizationFields(emoji: String, color: String, isKeyHabit
             Column(Modifier.fillMaxWidth().heightIn(max = 560.dp).verticalScroll(
                 androidx.compose.foundation.rememberScrollState()).padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(if (english) "Habit emoji" else "Эмодзи привычки",
-                    style = MaterialTheme.typography.titleLarge)
+                EditorDialogHeader(if (english) "Habit emoji" else "Эмодзи привычки", "habit-emoji-close") { emojiPickerOpen = false }
                 Row(Modifier.fillMaxWidth().horizontalScroll(androidx.compose.foundation.rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     emojiCategories.forEach { category -> FilterChip(emojiCategory == category.id,
@@ -97,9 +96,7 @@ internal fun HabitPersonalizationFields(emoji: String, color: String, isKeyHabit
                         Text(if (english) "Show more emoji" else "Показать ещё эмодзи")
                     }
                 }
-                TextButton(onClick = { emojiPickerOpen = false }) {
-                    Text(if (english) "Close" else "Закрыть")
-                }
+
             }
         }
     }

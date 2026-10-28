@@ -782,6 +782,17 @@
       "targetSha256": "eb2cf7d9df3402a10ef6fff7077493317e6a0a9ed659a178a1ebdb659bc4be5e",
       "paths": 5,
       "strokeWidth": "2"
+    },
+    {
+      "name": "file-plus-2",
+      "package": "lucide-static@1.61.0",
+      "source": "package/icons/file-plus-2.svg",
+      "sourceUrl": "https://unpkg.com/lucide-static@1.61.0/icons/file-plus-2.svg",
+      "sourceSha256": "95e53eaa0c482dc6d97e4ddab08694c6bd25b15d6387bafe141cd374ca0d15fa",
+      "target": "lucide_file_plus_2.xml",
+      "targetSha256": "54ac5708ff4abad7da7cdea70493fc96a871150260744f8ac10eca54e1fd4820",
+      "paths": 2,
+      "strokeWidth": "2"
     }
   ],
   "lucidePackage": {

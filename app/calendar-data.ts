@@ -15,7 +15,7 @@ import ukrainianDays from "./calendar-days.uk.json";
 import chineseDays from "./calendar-days.zh.json";
 import turkishDays from "./calendar-days.tr.json";
 import japaneseDays from "./calendar-days.ja.json";
-import { getRuntimeLanguage, runtimeLocale, translateText } from "./i18n";
+import { getRuntimeLanguage, runtimeLocale, translateText, type Language } from "./i18n";
 
 export type SacredDay = {
   id: string;
@@ -532,9 +532,8 @@ export function calendarDateNote(date: Date, mode: CalendarMode) {
   return "";
 }
 
-export function getSacredDay(monthIndex: number, day: number) {
+export function getSacredDay(monthIndex: number, day: number, language: Language = getRuntimeLanguage()) {
   const sacredDay = MONTHS[monthIndex]?.days[day - 1] ?? MONTHS[12].days[0];
-  const language = getRuntimeLanguage();
   if (language === "ru") return sacredDay;
   const index = monthIndex < 12 ? (monthIndex * 30) + day - 1 : 360 + day - 1;
   const catalog = {en:ENGLISH_DAYS,el:greekDays,de:germanDays,fr:frenchDays,es:spanishDays,

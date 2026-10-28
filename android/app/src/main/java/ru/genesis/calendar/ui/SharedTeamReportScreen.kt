@@ -52,7 +52,7 @@ import java.time.ZoneId
             value = if (app == null) UiPreferences() else LocalPreferences(context, app.workspaceScope).values.first()
         }
         val settings = preferences
-        if (settings == null) Dialog(onClose) { CircularProgressIndicator() }
+        if (settings == null) Dialog(onClose) { Surface { Column(Modifier.padding(16.dp)) { EditorDialogHeader("Загрузка…", "loading-close", onClose); CircularProgressIndicator() } } }
         else TeamReportContent(controller, spaceId, projectId, projectTitle, initialFilter, initialMode, statuses, settings, onClose, onLost)
     }
 }

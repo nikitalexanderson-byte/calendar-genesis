@@ -52,7 +52,7 @@ internal typealias DataImportPicker = ((DataImportPickedSource?) -> Unit) -> Uni
             value = if (app != null) LocalPreferences(context, app.workspaceScope).values.first() else UiPreferences()
         }
         val settings = preferences
-        if (settings == null) Dialog(onClose) { CircularProgressIndicator() }
+        if (settings == null) Dialog(onClose) { Surface { Column(Modifier.padding(16.dp)) { EditorDialogHeader("Загрузка…", "loading-close", onClose); CircularProgressIndicator() } } }
         else DataImportContent(controller, spaceId, projectId, projectTitle, canWrite, canCreate, settings, onClose, onChanged, onOpenProject, picker)
     }
 }

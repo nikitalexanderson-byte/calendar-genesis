@@ -330,7 +330,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     val rows = page.getJSONArray("tasks")
                     for (index in 0 until rows.length()) rows.getJSONObject(index).let { row ->
                         entries += SharedCalendarEntry(row.getString("id"), row.getString("title"), row.getString("dueDate"),
-                            row.optString("projectTitle"), !row.isNull("completedAt"))
+                            row.optString("projectTitle"), !row.isNull("completedAt"), row.getString("projectId"), row.getString("spaceId"))
                     }
                     cursor = page.optString("nextCursor").takeUnless { it.isBlank() || it == "null" }
                 } while (cursor != null)
@@ -403,6 +403,8 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
         }
     }
     val eveningTheme = rememberEveningTheme(AppearanceSettings.read(habitWorkspace.settings.rawJson, prefs.theme))
+    var themeSwitchBusy by remember { mutableStateOf(false) }
+    var themeSwitchError by remember { mutableStateOf<String?>(null) }
     val accountGate = !testWorkspace && (!activeScope.startsWith("account-") || authState.user == null || !authState.ready)
     val welcomeVisible = accountGate && !(authState.busy && authState.user != null)
     val window = LocalContext.current.activity()?.window
@@ -458,6 +460,22 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     destination.section?.let { menuSwipeState.select(destination.page, it) }
                     tab = destination.page
                 }, actions = {
+                    if (tab == "Сегодня") TodayThemeButton(eveningTheme, !themeSwitchBusy) {
+                        themeSwitchBusy = true
+                        scope.launch {
+                            try {
+                                val next = AppearanceSettings.read(habitWorkspace.settings.rawJson, prefs.theme)
+                                    .copy(mode = if (eveningTheme) "light" else "evening")
+                                habitSettingsRepository.updateAppearance(next.json())
+                                themeSwitchError = null
+                                val theme = if (next.mode == "evening") "standart-dark" else "standart"
+                                if (!testWorkspace && authState.user != null) authController.updateSharedPreference("theme", theme)
+                                else prefsStore.set("theme", theme)
+                            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+                            catch (_: Exception) { themeSwitchError = "Не удалось сохранить тему. Повторите попытку." }
+                            finally { themeSwitchBusy = false }
+                        }
+                    }
                     Box(Modifier.testTag("global-calendar-switch")) {
                         CalendarModeSwitcher(prefs.display, {
                             changeDisplayCalendar(nextAvailableCalendarMode(prefs.display,
@@ -531,6 +549,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                 val pageContent: @Composable (String, MenuSwipeState) -> Unit = { visibleTab, visibleSwipeState ->
                   Column(Modifier.fillMaxSize()) {
                   error?.let { Text(it,color=MaterialTheme.colorScheme.error,modifier=Modifier.padding(12.dp)) }
+                  themeSwitchError?.let { Text(it,color=MaterialTheme.colorScheme.error,modifier=Modifier.padding(12.dp)) }
                   when(visibleTab) {
                     "Привычки" -> HabitsScreen(app,true,prefs.input,prefs.display,authState.accountSettings,taskLists,visibleSwipeState,
                         openSacredHabits=requestedSacredHabits,
@@ -618,6 +637,25 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         experimental=true, tasks=tasks, use24=prefs.use24,
                         sharedTasks=sharedCalendarEntries, sharedCounts=sharedCalendarCounts,
                         onOpenSharedProjects={ menuSwipeState.projectArea="shared"; tab="Проекты"; menuSwipeState.personalView="projects" },
+                        loadSharedDay={ day ->
+                            val entries = mutableListOf<SharedCalendarEntry>()
+                            var cursor: String? = null
+                            do {
+                                val result = authController.querySharedTasks(org.json.JSONObject()
+                                    .put("dueFrom", day.toString()).put("dueTo", day.toString()).put("completion", "any"), cursor)
+                                val rows = result.getJSONArray("tasks")
+                                for (i in 0 until rows.length()) rows.getJSONObject(i).let { row ->
+                                    entries += SharedCalendarEntry(row.getString("id"), row.getString("title"), row.getString("dueDate"),
+                                        row.optString("projectTitle"), !row.isNull("completedAt"), row.getString("projectId"), row.getString("spaceId"))
+                                }
+                                cursor = result.optString("nextCursor").takeUnless { it.isBlank() || it == "null" }
+                            } while (cursor != null)
+                            entries
+                        },
+                        onOpenSharedTask={ task ->
+                            invitationDestination = SharedInvitationDestination(task.spaceId, task.projectId, task.id)
+                            menuSwipeState.projectArea="shared"; tab="Проекты"; menuSwipeState.personalView="projects"
+                        },
                         weekStartsOnSunday=prefs.weekStartsOnSunday,
                         gregorianYearStartsInMarch=prefs.gregorianYearStartsInMarch,
                         onStartGregorianYearInMarch={
@@ -684,8 +722,6 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                                 onMoveToToday = { task -> model.save(task.copy(date=todayDate.toString())) {} },
                                 onOpen = { taskId -> selected=todayPageDate;editId=taskId;creating=false },
                                 showCreate = "quickCreate" !in uiVisibility.hiddenTodayBlocks)
-                            if ("tasks" !in uiVisibility.hiddenTodayBlocks && habitTrackingEnabled && "habits" !in uiVisibility.hiddenTodayBlocks)
-                                Spacer(Modifier.height(24.dp))
                             if (habitTrackingEnabled && "habits" !in uiVisibility.hiddenTodayBlocks) TodayHabitTrackerBlock {
                                 TodayHabitsContent(app, todayDate, habitWorkspace,
                                     onOpenHabits = { tab = "Привычки" }, showTopDivider = false)
@@ -853,7 +889,7 @@ private fun TodayTasksPanel(tasks: List<LocalTask>, missedTasks: List<LocalTask>
 }
 
 @Composable
-private fun TodayHabitTrackerBlock(content: @Composable ColumnScope.() -> Unit) {
+internal fun TodayHabitTrackerBlock(content: @Composable ColumnScope.() -> Unit) {
     Surface(Modifier.fillMaxWidth().testTag("today-habit-tracker-block"), shape = AffairsLayout.shape,
         color = if (LocalEveningTheme.current) Color(0xff1b302b) else Color(0xffdeede4)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp), content = content)

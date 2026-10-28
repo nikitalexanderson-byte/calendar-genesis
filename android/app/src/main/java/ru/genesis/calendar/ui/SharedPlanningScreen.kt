@@ -321,6 +321,7 @@ import ru.genesis.calendar.data.UiPreferences
                     onBack = { leave(onClose) }, actions = {
                         AffairsIconButton("Обновить", AffairsAction.REFRESH, ::refreshPlanning,
                             Modifier.testTag("planning-refresh"), enabled = !busy && !editor.busy)
+                        AffairsIconButton("Закрыть", AffairsAction.CLOSE, { leave(onClose) })
                     })
                 BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                     if (maxWidth >= 720.dp) Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {

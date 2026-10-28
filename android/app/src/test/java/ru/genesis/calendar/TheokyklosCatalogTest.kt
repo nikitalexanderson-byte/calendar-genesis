@@ -10,11 +10,25 @@ import ru.genesis.calendar.domain.TheokyklosCatalogSource
 import ru.genesis.calendar.domain.habits.HabitEngine
 import ru.genesis.calendar.ui.toHabit
 import ru.genesis.calendar.ui.standardSacredHabit
+import ru.genesis.calendar.ui.canRestoreSacredHabit
+import ru.genesis.calendar.ui.restoreSacredHabitContent
 import ru.genesis.calendar.domain.StoicheionRestoration
 import ru.genesis.calendar.domain.StoicheionRestorationTest
 import java.time.LocalDate
 
 class TheokyklosCatalogTest {
+    @Test fun restoringCustomizedSacredContentKeepsIdentityScheduleAndHistoryReferences() {
+        val practice = catalog.practices.first()
+        val original = practice.toHabit(CalendarMode.SACRED)
+        val edited = original.copy(title = "Моё название", description = "Моя инструкция", emoji = "🌿", color = "#123456", active = false)
+        val restored = restoreSacredHabitContent(edited, practice, false)
+        assertTrue(canRestoreSacredHabit(edited, practice))
+        assertEquals(edited.copy(title = practice.title.ru, description = practice.description.ru,
+            emoji = practice.emoji, color = practice.color), restored)
+        assertFalse(canRestoreSacredHabit(restored, practice))
+        val reading = edited.copy(stoicheionRestoration = StoicheionRestorationTest.fixture())
+        assertSame(reading, restoreSacredHabitContent(reading, practice, false))
+    }
     private val catalog by lazy {
         TheokyklosCatalogSource.parse(File("src/main/assets/catalogs/theokyklos.json").readText(Charsets.UTF_8))
     }

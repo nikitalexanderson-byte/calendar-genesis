@@ -19,7 +19,7 @@ import kotlinx.coroutines.launch
 import org.json.JSONObject
 import ru.genesis.calendar.auth.AuthController
 
-internal data class SharedInvitationDestination(val spaceId: String, val projectId: String)
+internal data class SharedInvitationDestination(val spaceId: String, val projectId: String, val taskId: String = "")
 
 @Composable
 internal fun SharedInvitationNotices(controller: AuthController, userId: String, language: String,

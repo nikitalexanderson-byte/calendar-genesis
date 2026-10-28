@@ -20,6 +20,7 @@ fun GenesisLucideIcon(name: String, modifier: Modifier = Modifier.size(24.dp),
 
 internal fun genesisLucideResource(name: String): Int = when (name.replace('_', '-')) {
     "board-plus" -> R.drawable.genesis_board_plus
+    "file-plus-2" -> R.drawable.lucide_file_plus_2
     "message-circle" -> R.drawable.lucide_message_circle
     "paperclip" -> R.drawable.lucide_paperclip
     "send" -> R.drawable.lucide_send
@@ -160,6 +161,7 @@ internal fun AffairsAction.lucideName(): String = when (this) {
     AffairsAction.GANTT -> "chart-no-axes-gantt"
     AffairsAction.PROJECT -> "folder"
     AffairsAction.TASK_LIST, AffairsAction.TASK -> "list-checks"
+    AffairsAction.CREATE_TASK -> "file-plus-2"
     AffairsAction.UNDO -> "undo-2"
     AffairsAction.TEMPLATE -> "layout-template"
     AffairsAction.SUBTASK -> "list-tree"

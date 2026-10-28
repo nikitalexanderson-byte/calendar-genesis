@@ -241,15 +241,15 @@ import java.time.Instant
     }
     Dialog(onDismissRequest = ::requestClose,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        Box(Modifier.fillMaxSize().safeDrawingPadding(), contentAlignment = Alignment.Center) {
-            Surface(Modifier.widthIn(max = 720.dp).fillMaxWidth().fillMaxHeight(.94f).testTag("diary-editor"),
+        BoxWithConstraints(Modifier.fillMaxWidth().safeDrawingPadding().imePadding().padding(12.dp), contentAlignment = Alignment.Center) {
+            Surface(Modifier.widthIn(max = 720.dp).fillMaxWidth().heightIn(max = maxHeight).testTag("diary-editor"),
                 shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.surface) {
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text(if (record == null) "Новая запись" else "Редактирование записи", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
                         AffairsIconButton("Закрыть", AffairsAction.CLOSE, ::requestClose, enabled = !saving)
                     }
-                    Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         OutlinedTextField(form.getString("title"), { update("title", it.take(200)) }, Modifier.fillMaxWidth().testTag("diary-title"),
                             label = { Text("Заголовок") }, singleLine = false, maxLines = 2, enabled = !saving, shape = RoundedCornerShape(10.dp))
                         OutlinedTextField(form.getString("body"), { update("body", it.take(30_000)) }, Modifier.fillMaxWidth().heightIn(min = 180.dp).testTag("diary-body"),
@@ -287,7 +287,7 @@ import java.time.Instant
                         } }, enabled = valid && !saving, modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("diary-save"), shape = RoundedCornerShape(10.dp)) {
                             Text(if (conflict) "Сохранить копию" else "Сохранить")
                         }
-                        TextButton(::requestClose, enabled = !saving, modifier = Modifier.heightIn(min = 48.dp)) { Text("Отмена") }
+                        TextButton(::requestClose, enabled = !saving, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) { Text("Отмена") }
                     }
                 }
             }

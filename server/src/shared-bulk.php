@@ -91,7 +91,7 @@ function genesisSharedBulkScope(string $actor,array $selection,?string $cursor=n
     $q=$db->prepare('SELECT p.id,p.space_id AS spaceId,p.title,COUNT(*) AS taskCount FROM shared_tasks_history_read t JOIN shared_projects p ON p.id=t.project_id WHERE '.$where.($after===null?'':' AND p.id>?').' GROUP BY p.id ORDER BY p.id LIMIT 101');
     $q->execute($after===null?$values:[...$values,$after]);$projects=$q->fetchAll();$q->closeCursor();$hasMore=count($projects)>100;if($hasMore)array_pop($projects);
     foreach($projects as&$project){
-        $q=$db->prepare('SELECT id,title,is_done AS isDone FROM shared_project_statuses WHERE project_id=? ORDER BY position,id');$q->execute([$project['id']]);$project['statuses']=$q->fetchAll();$q->closeCursor();$project['taskCount']=(int)$project['taskCount'];
+        $q=$db->prepare('SELECT id,title,is_done AS isDone FROM shared_project_statuses WHERE project_id=? AND is_chaos=0 ORDER BY position,id');$q->execute([$project['id']]);$project['statuses']=$q->fetchAll();$q->closeCursor();$project['taskCount']=(int)$project['taskCount'];
         foreach($project['statuses']as&$status)$status['isDone']=(bool)$status['isDone'];unset($status);
     }unset($project);
     $nextCursor=$hasMore?genesisEncrypt(json_encode(['signature'=>$signature,'id'=>end($projects)['id']],JSON_THROW_ON_ERROR)):null;

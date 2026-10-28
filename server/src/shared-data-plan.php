@@ -35,6 +35,8 @@ function genesisDataImportPlan(string $actor,array $parsed):array{
     genesisSharedRequireEnabled($actor);$data=$parsed['data'];$options=$parsed['options'];$new=$options['projectId']===null;
     $destination=genesisTemplateDestinationState($actor,$options);$space=$destination['space'];$blockers=[];$notices=$data['notices'];
     $issue=static function(string $code,string $field='')use(&$blockers):void{$blockers[]=['code'=>$code,'field'=>$field];};
+    if($new&&$options['parentProjectId']===null)foreach($data['projects'] as $project)
+        if($project['kind']==='task-list'&&$project['parentKey']===null)$issue('SHARED_PROJECT_REQUIRED',$project['key']);
     if($new&&!genesisSharedSpacePermission($space,'createProjects'))$issue('SHARED_SPACE_FORBIDDEN');
     if(!$new&&count($data['projects'])!==1)$issue('DATA_TREE_DESTINATION_REQUIRED');
     if(!$new&&($data['projects'][0]['categories']||$data['projects'][0]['description']!==''||$data['projects'][0]['archivedAt']!==null))$notices[]=['code'=>'DATA_PROJECT_SETTINGS_UNCHANGED','field'=>''];
@@ -47,7 +49,7 @@ function genesisDataImportPlan(string $actor,array $parsed):array{
         $initialStatuses[$project['key']]=$destinationOpen;
         if($new)foreach($project['statuses'] as $status)if(!$status['isDone']){$initialStatuses[$project['key']]=$status['key'];break;}
     }
-    foreach($data['projects'] as $project)foreach($project['statuses'] as $status){$sourceStatuses[$status['key']]=$status;if($new){$statusMap[$status['key']]=$status['key'];continue;}$target=$options['statusMap'][$status['key']]??null;
+    foreach($data['projects'] as $project)foreach($project['statuses'] as $status){$sourceStatuses[$status['key']]=$status;if($status['isChaos']&&!$new){$statusMap[$status['key']]=($status['isDone']?'chaos-done:':'chaos-open:').$options['projectId'];continue;}if($new){$statusMap[$status['key']]=$status['key'];continue;}$target=$options['statusMap'][$status['key']]??null;
         if($target===null)$issue('DATA_STATUS_MAPPING_REQUIRED',$status['key']);elseif(!isset($targetStatuses[$target]))$issue('DATA_STATUS_UNAVAILABLE',$status['key']);elseif((bool)$targetStatuses[$target]['isDone']!==$status['isDone'])$issue('DATA_STATUS_KIND_MISMATCH',$status['key']);$statusMap[$status['key']]=$target;
     }
     $targetLabels=array_column($destination['labels'],null,'id');$labelMap=[];$newLabels=[];foreach($data['labels'] as $label){$target=$options['labelMap'][$label['key']]??(isset($targetLabels[$label['key']])?$label['key']:'new');if(array_key_exists($label['key'],$options['labelMap']))$target=$options['labelMap'][$label['key']];

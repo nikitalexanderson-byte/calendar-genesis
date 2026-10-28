@@ -3,6 +3,8 @@ import { readFile } from "node:fs/promises";
 const languages = ["el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja"];
 const english = { ...JSON.parse(await readFile(new URL("../app/ui-translations/en.json", import.meta.url), "utf8")), ...JSON.parse(await readFile(new URL("../app/translations.en.json", import.meta.url), "utf8")),
   ...JSON.parse(await readFile(new URL("../app/curated-translations.en.json", import.meta.url), "utf8")) };
+const refinementCopy = JSON.parse(await readFile(new URL("../app/ui-refinement-copy.json", import.meta.url), "utf8"));
+Object.assign(english, refinementCopy.en);
 const missing = [];
 const habitReportCopy = JSON.parse(await readFile(new URL("../app/habit-report-translations.json", import.meta.url), "utf8"));
 const fieldRecoveryCopy = JSON.parse(await readFile(new URL("../app/custom-field-recovery-translations.json", import.meta.url), "utf8"));
@@ -104,11 +106,11 @@ for (const language of languages) {
     : ["ja", "de", "fr"].includes(language) ? [language, `${language}.b`] : [language];
   const catalog = Object.assign({}, ...await Promise.all(files.map(async (name) =>
     JSON.parse(await readFile(new URL(`../app/translations.${name}.json`, import.meta.url), "utf8")))));
-  Object.assign(catalog, JSON.parse(await readFile(new URL(`../app/ui-translations/${language}.json`, import.meta.url), "utf8")), fieldRecoveryCopy[language]);
+  Object.assign(catalog, JSON.parse(await readFile(new URL(`../app/ui-translations/${language}.json`, import.meta.url), "utf8")), fieldRecoveryCopy[language], refinementCopy[language]);
   Object.assign(catalog, habitReportCopy[language]);
   Object.assign(catalog,JSON.parse(await readFile(new URL(`../app/shared-work-translations/${language}.json`,import.meta.url),"utf8")));
   const affairs = JSON.parse(await readFile(new URL("../app/native-affairs-translations.json", import.meta.url), "utf8"))[language];
-  const englishUi = JSON.parse(await readFile(new URL("../app/ui-translations/en.json", import.meta.url), "utf8"));
+  const englishUi = { ...JSON.parse(await readFile(new URL("../app/ui-translations/en.json", import.meta.url), "utf8")), ...refinementCopy.en };
   for (const [source, translated] of Object.entries(affairs)) if (source in englishUi && !(source in catalog)) catalog[source] = translated;
   for (const key of Object.keys(english)) {
     if (typeof catalog[key] !== "string" || !catalog[key].trim()) missing.push(`${language}: missing ${key}`);

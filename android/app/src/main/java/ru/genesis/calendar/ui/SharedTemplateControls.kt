@@ -118,6 +118,7 @@ internal fun templateIssueMessage(code: String, copy: JSONObject) = copy.getJSON
     Box(modifier.semantics(mergeDescendants = true) { contentDescription = description; this.selected = selected }) {
       TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(), tooltip = { PlainTooltip { Text(label) } }, state = rememberTooltipState()) {
         OutlinedIconButton(onClick, enabled = enabled, shape = AffairsLayout.controlShape,
+            border = if (action == AffairsAction.CLOSE) null else IconButtonDefaults.outlinedIconButtonBorder(enabled),
             colors = IconButtonDefaults.outlinedIconButtonColors(containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else androidx.compose.ui.graphics.Color.Transparent,
                 contentColor = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant),
             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).semantics { contentDescription = description; this.selected = selected }) { AffairsActionIcon(action) }

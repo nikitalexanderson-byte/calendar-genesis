@@ -63,8 +63,9 @@ private val ru = Locale.forLanguageTag("ru")
 private val calendarIncompleteColor = Color(0xffb63b42)
 private val calendarCompletedColor = Color(0xff255b59)
 data class SharedCalendarEntry(val id: String, val title: String, val dueDate: String,
-    val projectTitle: String, val completed: Boolean)
+    val projectTitle: String, val completed: Boolean, val projectId: String = "", val spaceId: String = "")
 internal val LocalSharedCalendarCounts = compositionLocalOf<Map<String,Int>> { emptyMap() }
+private val LocalOpenSharedCalendarDay = compositionLocalOf<(LocalDate) -> Unit> { {} }
 private val LocalSharedCalendarTasks = compositionLocalOf<Map<String, List<SharedCalendarEntry>>> { emptyMap() }
 
 private enum class GregorianSeason(val title: String, val englishTitle: String,
@@ -136,7 +137,9 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
     hiddenSubmenus: Set<String> = emptySet(),
     sharedTasks: List<SharedCalendarEntry> = emptyList(),
     sharedCounts: Map<String,Int> = emptyMap(),
-    onOpenSharedProjects: () -> Unit = {}) {
+    onOpenSharedProjects: () -> Unit = {},
+    loadSharedDay: suspend (LocalDate) -> List<SharedCalendarEntry> = { day -> sharedTasks.filter { it.dueDate == day.toString() } },
+    onOpenSharedTask: (SharedCalendarEntry) -> Unit = {}) {
     val mode = if (LocalSacredFeaturesEnabled.current) mode else CalendarMode.PROFANE
     val calendar = remember { GenesisCalendar() }
     var shown by rememberSaveable(mode, date) { mutableStateOf(date.toString()) }
@@ -146,6 +149,7 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
     val yearView = if ("calendar.month" in hiddenSubmenus) true
         else if ("calendar.year" in hiddenSubmenus) false
         else menuSwipeState?.calendar == "year" || menuSwipeState == null && localYearView
+    var sharedListDate by rememberSaveable { mutableStateOf<String?>(null) }
     var taskListDate by rememberSaveable { mutableStateOf<String?>(null) }
     var focusDayRequest by rememberSaveable { mutableIntStateOf(0) }
     var deletingTaskId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -213,7 +217,8 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
 
     val sharedTasksByDate = remember(sharedTasks) { sharedTasks.groupBy { it.dueDate } }
     CompositionLocalProvider(LocalCalendarPeriodSwipeEnabled provides periodSwipeEnabled,
-        LocalSharedCalendarCounts provides sharedCounts, LocalSharedCalendarTasks provides sharedTasksByDate) {
+        LocalSharedCalendarCounts provides sharedCounts, LocalSharedCalendarTasks provides sharedTasksByDate,
+        LocalOpenSharedCalendarDay provides { sharedListDate = it.toString() }) {
     Column(Modifier.fillMaxSize()) {
         val submenuItems = listOf(SubmenuItem("month", "Месяц"), SubmenuItem("year", "Год"))
             .filter { "calendar.${it.id}" !in hiddenSubmenus }
@@ -287,6 +292,11 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
                 TextButton({ onDeleteTask(task); deletingTaskId = null },
                     Modifier.testTag("calendar-inline-delete-confirm")) { Text(if (recurring) "Вся серия" else "Удалить") }
             } }, dismissButton = { TextButton({ deletingTaskId = null }) { Text("Отмена") } })
+    }
+    sharedListDate?.let { rawDate ->
+        CalendarSharedTaskListDialog(LocalDate.parse(rawDate), loadSharedDay,
+            onDismiss = { sharedListDate = null }, onOpen = { sharedListDate = null; onOpenSharedTask(it) },
+            onOpenDay = { sharedListDate = null; shown = rawDate; selected = rawDate; focusDayRequest++; onSelect(LocalDate.parse(rawDate)) })
     }
     taskListDate?.let { rawDate ->
         val taskDate = LocalDate.parse(rawDate)
@@ -391,16 +401,14 @@ private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange
         val dayContent: @Composable () -> Unit = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SelectedDayCard(calendar, selected, mode, experimental, solarLocation)
-                Card(Modifier.fillMaxWidth().testTag("calendar-day-actions"),
-                    shape = AffairsLayout.shape,
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = .45f))) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        taskActions(selected)
-                        habitActions?.let { habits ->
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                            Box(Modifier.testTag("calendar-habits-card")) { habits(selected) }
-                        }
+                Card(Modifier.fillMaxWidth().testTag("calendar-day-actions"), shape = AffairsLayout.shape,
+                    colors = CardDefaults.cardColors(containerColor = if (LocalEveningTheme.current)
+                        Color(0xff302a1f) else Color(0xfff3e8cc))) {
+                    Column(Modifier.padding(16.dp)) { taskActions(selected) }
+                }
+                habitActions?.let { habits ->
+                    TodayHabitTrackerBlock {
+                        Box(Modifier.testTag("calendar-habits-card")) { habits(selected) }
                     }
                 }
             }
@@ -806,6 +814,7 @@ private fun BoxScope.CalendarMonthTaskRail(date: LocalDate, total: Int, complete
     onTasks: (LocalDate) -> Unit) {
     val shared = if (enabled) LocalSharedCalendarCounts.current[date.toString()] ?: 0 else 0
     if (total == 0 && shared == 0) return
+    val openShared = LocalOpenSharedCalendarDay.current
     val locale = Locale.forLanguageTag(LocalGenesisLanguage.current)
     val taskDescription = genesisTranslate("$total задач на ${date.format(dateLabel(locale))}. Открыть список.")
     // An overlay keeps both anchors independent without contributing to the cell's measured size.
@@ -816,7 +825,8 @@ private fun BoxScope.CalendarMonthTaskRail(date: LocalDate, total: Int, complete
             CalendarPersonalCountDisc(total, completed, 18.dp, Modifier.testTag("calendar-task-count-disc-$date"))
         }
         if (shared > 0) SharedTaskCountDisc(shared, "$shared ${genesisTranslate("общих задач")}",
-            Modifier.align(Alignment.BottomEnd).testTag("calendar-shared-count-$date"), 18.dp)
+            Modifier.align(Alignment.BottomEnd).testTag("calendar-shared-count-$date")
+                .clickable { openShared(date) }, 18.dp)
     }
 }
 
@@ -824,8 +834,9 @@ private fun BoxScope.CalendarMonthTaskRail(date: LocalDate, total: Int, complete
 private fun CalendarSharedBadge(date: LocalDate, modifier: Modifier = Modifier) {
     val count = LocalSharedCalendarCounts.current[date.toString()] ?: 0
     if (count == 0) return
+    val openShared = LocalOpenSharedCalendarDay.current
     val label = if (LocalGenesisLanguage.current == "en") "shared tasks" else "общих задач"
-    SharedTaskCountDisc(count, "$count $label", modifier.padding(3.dp).testTag("calendar-shared-count-$date"))
+    SharedTaskCountDisc(count, "$count $label", modifier.padding(3.dp).testTag("calendar-shared-count-$date").clickable { openShared(date) })
 }
 
 @Composable
@@ -903,9 +914,7 @@ private fun CalendarTaskListDialog(date: LocalDate, tasks: List<LocalTask>, use2
                         Text(date.format(dateLabel(locale)), style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    TextButton(onClick = onDismiss, modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)) {
-                        Text("Закрыть")
-                    }
+                    AffairsIconButton("Закрыть", AffairsAction.CLOSE, onDismiss)
                 }
                 HorizontalDivider(color = Color(0x44b28a4a))
                 LazyColumn(Modifier.weight(1f, fill = false), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1358,7 +1367,7 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
                                     else if (!sacredFeaturesEnabled && gregorianYearStartsInMarch) (start.monthValue + 9) % 12 + 1
                                     else start.monthValue,
                                     name, title,
-                                    taskCounts[start] ?: YearTaskCount(0, 0), onMonth, locale, seasonRegionZone)
+                                    taskCounts[start] ?: YearTaskCount(0, 0), onMonth, locale, seasonRegionZone, shown.year)
                             }
                             }
                         }
@@ -1378,7 +1387,7 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
                     val (start, name, title) = entry
                     Box(Modifier.weight(1f)) {
                         CalendarYearMonthCard(calendar, start, mode, ordinal + 1, name, title,
-                            taskCounts[start] ?: YearTaskCount(0, 0), onMonth, locale, seasonRegionZone)
+                            taskCounts[start] ?: YearTaskCount(0, 0), onMonth, locale, seasonRegionZone, shown.year)
                     }
                 }
                 if (row.size < yearColumns) Spacer(Modifier.weight(1f))
@@ -1431,7 +1440,7 @@ private fun yearTileRange(range: CalendarRange, locale: Locale): String =
 @Composable
 private fun CalendarYearMonthCard(calendar: GenesisCalendar, start: LocalDate, mode: CalendarMode, ordinal: Int,
     name: String, title: String, taskCount: YearTaskCount, onMonth: (LocalDate) -> Unit,
-    locale: Locale, seasonRegionZone: ZoneId) {
+    locale: Locale, seasonRegionZone: ZoneId, geometryYear: Int) {
     val english = LocalGenesisLanguage.current == "en"
     val range = calendar.monthRange(start, mode)
     val sacredIndex = if (mode == CalendarMode.SACRED) calendar.sacredDate(start).monthIndex else -1
@@ -1448,6 +1457,8 @@ private fun CalendarYearMonthCard(calendar: GenesisCalendar, start: LocalDate, m
     val type = MaterialTheme.typography
     val density = LocalDensity.current
     val measurer = rememberTextMeasurer()
+    val noteContext = LocalContext.current
+    val noteLanguage = LocalGenesisLanguage.current
     fun label(index: Int): String = when (mode) {
         CalendarMode.LUNAR -> if (english) "LUNAR MONTH ${index + 1}" else "ЛУННЫЙ МЕСЯЦ ${index + 1}"
         CalendarMode.PROFANE -> ""
@@ -1455,32 +1466,33 @@ private fun CalendarYearMonthCard(calendar: GenesisCalendar, start: LocalDate, m
             else if (english) "SACRED MONTH ${SacredCatalog.months[index].roman}"
             else "САКРАЛЬНЫЙ МЕСЯЦ ${SacredCatalog.months[index].roman}"
     }
-    // Measure the whole year's real copy once per width/type scale. Counts never change tile height.
-    val year = if (mode == CalendarMode.LUNAR) calendar.lunarDate(start).year.sacredYear else calendar.sacredDate(start).sacredYear
-    val allStarts = remember(mode, year, start.year) { when (mode) {
-        CalendarMode.SACRED -> SacredCatalog.months.indices.map { calendar.gregorianDate(year, it, 1) }
-        CalendarMode.LUNAR -> calendar.lunarYear(year).let { y -> (0 until y.monthCount).map { calendar.lunarMonthStart(y.startMonthIndex + it) } }
-        CalendarMode.PROFANE -> (1..12).map { LocalDate.of(start.year, it, 1) }
-    } }
+    val year = calendar.sacredDate(LocalDate.of(geometryYear, 7, 1)).sacredYear
+    val allMonths = remember(year, geometryYear) {
+        val sacred = SacredCatalog.months.indices.map { CalendarMode.SACRED to calendar.gregorianDate(year, it, 1) }
+        val lunar = calendar.lunarYear(year).let { y -> (0 until y.monthCount).map { CalendarMode.LUNAR to calendar.lunarMonthStart(y.startMonthIndex + it) } }
+        sacred + lunar + (1..12).map { CalendarMode.PROFANE to LocalDate.of(geometryYear, it, 1) }
+    }
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val artWidth = 76.dp
         val textWidth = with(density) { (maxWidth - artWidth - 66.dp).coerceAtLeast(64.dp).roundToPx() }
-        val tileHeight = remember(textWidth, mode, year, type, density.fontScale, locale) {
-            fun height(text: String, style: ComposeTextStyle): Int =
-                measurer.measure(AnnotatedString(text), style, constraints = Constraints(maxWidth = textWidth)).size.height
-            val tallest = allStarts.mapIndexed { index, day ->
-                val info = when (mode) {
-                    CalendarMode.SACRED -> SacredCatalog.months[index].let { it.name to it.title }
+        val tileHeight = remember(textWidth, year, type, density.fontScale, locale, seasonRegionZone, noteLanguage) {
+            fun translate(value: String) = translateGenesisText(noteContext, value, noteLanguage)
+            fun height(text: String, style: ComposeTextStyle, lines: Int = Int.MAX_VALUE): Int =
+                measurer.measure(AnnotatedString(text), style, maxLines = lines,
+                    constraints = Constraints(maxWidth = textWidth)).size.height
+            val tallest = allMonths.maxOf { (candidate, day) ->
+                val info = when (candidate) {
+                    CalendarMode.SACRED -> SacredCatalog.months[calendar.sacredDate(day).monthIndex].let { it.name to it.title }
                     CalendarMode.LUNAR -> calendar.lunarDate(day).month.let { it.name to it.title }
-                    CalendarMode.PROFANE -> day.month.getDisplayName(TextStyle.FULL_STANDALONE, locale)
-                        .replaceFirstChar { it.titlecase(locale) } to ""
+                    CalendarMode.PROFANE -> day.month.getDisplayName(TextStyle.FULL_STANDALONE, locale) to ""
                 }
-                height(info.first, type.titleLarge) +
-                    (if (mode != CalendarMode.PROFANE) height(label(index), type.labelSmall) +
-                        height(info.second, type.bodySmall) + height(yearTileRange(calendar.monthRange(day, mode), locale), type.labelMedium) else 0)
-            }.max()
-            maxOf(112.dp,
-                with(density) { tallest.toDp() } + 30.dp) + 24.dp
+                height("САКРАЛЬНЫЙ МЕСЯЦ XIII", type.labelSmall) + height(translate(info.first), type.titleLarge) +
+                    if (candidate == CalendarMode.PROFANE) height(translate(gregorianMonthOrigin(day.monthValue)), type.bodySmall, 1) +
+                        height(translate(gregorianMonthNature(day.monthValue, seasonRegionZone)), type.bodySmall, 1) + height("31", type.labelSmall)
+                    else height(translate(info.second), type.bodySmall) + height(yearTileRange(calendar.monthRange(day, candidate), locale), type.labelMedium) +
+                        if (candidate == CalendarMode.LUNAR) height("30", type.labelSmall) else 0
+            }
+            maxOf(112.dp, with(density) { tallest.toDp() } + 6.dp) + 24.dp
         }
         Card(onClick = { onMonth(start) }, modifier = Modifier.fillMaxWidth().height(tileHeight).testTag(monthTag),
             shape = AffairsLayout.shape,
@@ -1492,9 +1504,9 @@ private fun CalendarYearMonthCard(calendar: GenesisCalendar, start: LocalDate, m
                 horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 when (mode) {
                     CalendarMode.SACRED -> OriginalImage(sacredMonthArtPath(sacredIndex), "Иллюстрация месяца $name",
-                        Modifier.width(artWidth).height(112.dp), darkThemeBrightness = .82f)
+                        Modifier.width(artWidth).height(112.dp).clip(AffairsLayout.controlShape), darkThemeBrightness = .82f)
                     CalendarMode.LUNAR -> OriginalImage(lunarMonthArtPath(ordinal - 1), "Иллюстрация месяца $name",
-                        Modifier.width(artWidth).height(112.dp).testTag("lunar-year-art-$ordinal"), darkThemeBrightness = .82f)
+                        Modifier.width(artWidth).height(112.dp).clip(AffairsLayout.controlShape).testTag("lunar-year-art-$ordinal"), darkThemeBrightness = .82f)
                     CalendarMode.PROFANE -> OriginalImage(gregorianMonthArtPath(start.monthValue - 1, seasonRegionZone),
                         "Иллюстрация месяца $name", Modifier.width(artWidth).height(112.dp)
                             .clip(AffairsLayout.controlShape).testTag("gregorian-year-art-$start"), darkThemeBrightness = .82f)
@@ -1505,6 +1517,12 @@ private fun CalendarYearMonthCard(calendar: GenesisCalendar, start: LocalDate, m
                     if (mode != CalendarMode.PROFANE) Text(label(if (mode == CalendarMode.SACRED) sacredIndex else ordinal - 1),
                         color = gold, style = type.labelSmall)
                     Text(name, color = mainInk, style = type.titleLarge)
+                    if (mode == CalendarMode.PROFANE) {
+                        Text(gregorianMonthOrigin(start.monthValue), color = detailInk, style = type.bodySmall,
+                            maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                        Text(gregorianMonthNature(start.monthValue, seasonRegionZone), color = detailInk, style = type.bodySmall,
+                            maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                    }
                     if (title.isNotBlank()) Text(title, color = detailInk, style = type.bodySmall)
                     if (mode != CalendarMode.PROFANE) Text(yearTileRange(range, locale), color = mainInk, style = type.labelMedium,
                         modifier = Modifier.testTag(if (mode == CalendarMode.LUNAR) "lunar-year-range-$ordinal" else "sacred-year-range-$sacredIndex"))

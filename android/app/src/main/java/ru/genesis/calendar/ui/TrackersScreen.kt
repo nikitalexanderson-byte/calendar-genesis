@@ -70,12 +70,13 @@ fun TrackersScreen(app: GenesisApplication, experimental: Boolean = false) {
     LaunchedEffect(current?.revision) {
         if (current != null) runCatching { ru.genesis.calendar.reminders.SleepReminderScheduler.restore(app) }
     }
+    val suggestedSleepTitle = genesisTranslate("Сон и пробуждение")
     val availablePlans = current?.sleepPlans.orEmpty()
     var planChoiceOpen by remember { mutableStateOf(false) }
     fun openSleepPlan() {
         val availablePlans = workspace?.sleepPlans.orEmpty()
         if (workspace == null || busy || storageError) return
-        if (availablePlans.isEmpty()) planEditor = SleepPlan(TrackerEntity.create("sleep-plan"), dailySleepSchedule(date, inputMode))
+        if (availablePlans.isEmpty()) planEditor = SleepPlan(TrackerEntity.create("sleep-plan"), dailySleepSchedule(date, inputMode), title = suggestedSleepTitle)
         else if (availablePlans.size == 1) planEditor = availablePlans.first()
         else planChoiceOpen = true
     }
@@ -488,7 +489,7 @@ private fun SleepObservationEditor(plan: SleepPlan,entry: SleepEntry?,date: Loca
     val wakeTime=wake.takeIf { it.isNotEmpty() }?.let(LocalTime::parse)
     Dialog(onDismissRequest=onDismiss) { Surface(shape=MaterialTheme.shapes.large) {
         Column(Modifier.padding(16.dp).imePadding().verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-            Text("Запись сна · $date",style=MaterialTheme.typography.titleLarge)
+            EditorDialogHeader("Запись сна · $date", "sleep-entry-close") { if (!busy) onDismiss() }
             Text("Дата относится к засыпанию. Если пробуждение не позже засыпания по часам, используется следующий день.",style=MaterialTheme.typography.bodySmall)
             Text("Засыпание");AuthorTimePicker(bed,use24) { if(!busy)bed=it }
             Text("Пробуждение");AuthorTimePicker(wake,use24) { if(!busy)wake=it }

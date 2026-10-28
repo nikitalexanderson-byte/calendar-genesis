@@ -487,7 +487,8 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                     recordCompletion(habit.id,checked,null,current.settings.feedback)
                 } } },
                 onToggle={ habit -> scope.launch { runAction { repository.save(habit.copy(active=!habit.active)) } } },
-                onDelete = { deleteCandidate = it })
+                onDelete = { deleteCandidate = it },
+                onRestore = { habit -> scope.launch { runAction { repository.save(habit) } } })
 
             }
         }
@@ -626,11 +627,11 @@ private fun ExperimentalHabitCard(habit: Habit, entry: HabitCompletion?, schedul
                     AffairsActionIcon(if (detailsOpen) AffairsAction.COLLAPSE else AffairsAction.EXPAND)
                 }
                 if (scheduled) AffairsIconButton("Таймер привычки $displayTitle", AffairsAction.TIMER,
-                    onTimer, Modifier.testTag("habit-timer-open-${habit.id}"), !disabled)
+                    onTimer, Modifier.testTag("habit-timer-open-${habit.id}"), !disabled, outlined = false)
             }
             if (detailsOpen) {
                 HorizontalDivider()
-                if (habit.description.isNotEmpty()) androidx.compose.material3.Text(habit.description, style = MaterialTheme.typography.bodyMedium)
+                if (habit.description.isNotEmpty()) androidx.compose.material3.Text(habitDisplayDescription(habit), style = MaterialTheme.typography.bodyMedium)
                 Text(calendar + " · " + genesisTranslate("Приоритет") + ": ${habit.priority}/10",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (habit.ritualId != "none") Text(if (habit.ritualId == "custom") habit.ritualName

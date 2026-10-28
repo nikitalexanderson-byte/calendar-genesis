@@ -248,6 +248,7 @@ import java.util.Locale
                 AffairsPageHeader(report?.getJSONObject("sprint")?.getString("title") ?: copy.getString("heading"),
                     if (report == null) "" else copy.getString("heading"), titleIsUserContent = true, onBack = ::back, actions = {
                         AffairsIconButton("Обновить", AffairsAction.REFRESH, { scope.launch { state.refresh() } }, Modifier.testTag("report-refresh"), !state.busy && !state.lost)
+                        AffairsIconButton("Закрыть", AffairsAction.CLOSE, ::back)
                     })
                 BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                     if (maxWidth >= 720.dp) Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {

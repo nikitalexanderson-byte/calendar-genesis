@@ -143,6 +143,7 @@ export default defineConfig({
             { name: "physis-reference-data", test: /app[\\/]physis[\\/](?:exercise-library-data\.ts|exercise-expansion-data\.ts|exercise-media-data\.json|food-reference-data\.json|supplement-reference-data\.ts)$/, priority: 46 },
             // The growing web-only pilot dictionary must not inflate locale-core.
             { name: "locale-physis", test: /app[\\/]physis[\\/]copy\.en\.json$/, priority: 46 },
+            { name: "locale-refinements", test: /app[\\/]ui-refinement-copy\.json$/, priority: 46 },
             { name: "public-documents", test: /app[\\/](?:LegalPage\.tsx|legal-content\.ts)$/, priority: 14 },
             ...["el","de","fr","es","it","pt","pl","sr","uk","zh","tr","ja"].map(locale => ({
               name: `locale-restoration-${locale}`,

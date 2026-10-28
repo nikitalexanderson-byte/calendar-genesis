@@ -156,9 +156,7 @@ function genesisSharedConvertChecklistItem(string $userId, string $projectId, st
             }
             if ((int)$task['revision'] !== ($input['expectedRevision'] ?? null)) throw new GenesisSharedAccessException('SHARED_TASK_CONFLICT', 409);
             if ($task['completed_at'] !== null) throw new GenesisSharedAccessException('TASK_PARENT_COMPLETED', 409);
-            $status = $db->prepare('SELECT id FROM shared_project_statuses WHERE project_id=? AND is_done=0 ORDER BY position,id LIMIT 1');
-            $status->execute([$projectId]); $statusId = $status->fetchColumn();
-            if (!$statusId) throw new InvalidArgumentException('INVALID_STATUS');
+            $statusId = $task['status_id'];
             $created = genesisSharedTask($userId, $projectId, ['title' => $item['title'], 'statusId' => $statusId,
                 'assigneeId' => $item['assigneeId'], 'dueDate' => $item['dueDate'], 'priority' => (int)$task['priority']]);
             $item['linkedTaskId'] = $created['id']; $item['done'] = false;

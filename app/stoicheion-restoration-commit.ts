@@ -16,7 +16,7 @@ import { habitRuleFrontier } from "./habit-rule-history";
 import { calendarModeForRecurrence } from "./task-recurrence";
 import { restorationExpired, restorationWorks, workFromSnapshot, type RestorationWork, type RestorationWorkspace } from "./stoicheion-restoration-work";
 
-export function restorationRecommendation(source: RestorationSource, sectorId: string, plan: RestorationPlan, language: Language) {
+export function restorationRecommendation(source: RestorationSource, sectorId: string, plan: Pick<RestorationPlan, "need" | "supportIds" | "resourceLetterId">, language: Language) {
   const local = (value: { ru: string; en: string }) => restorationLocal(value, language);
   const sector = RESTORATION_SECTORS.find(item => item.id === sectorId)!;
   const guidance = sector.needs[plan.need];
