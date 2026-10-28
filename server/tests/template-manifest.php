@@ -64,6 +64,12 @@ try{
  tmCheck(in_array('EXTERNAL_DEPENDENCIES_EXCLUDED',array_column($captured['notices'],'code'),true),'Capture silently dropped an external reference');
  $tree=genesisSharedTemplateCapture($user,$root['id'],null,['calendarMode'=>'sacred','calendarContext'=>$context,'anchorDate'=>'2026-10-18']);
  tmCheck(count($tree['manifest']['projects'])===2&&count($tree['manifest']['tasks'])===3&&count($tree['sourceProjectIds'])===2,'Project capture lost its tree or tasks');
+ tmCheck(count($tree['manifest']['projects'][0]['statuses'])===3,'Capture exposed project inbox rows as template boards');
+ $inboxTask=genesisSharedTask($user,$root['id'],['title'=>'Inbox capture']);
+ $inboxCapture=genesisSharedTemplateCapture($user,$root['id'],$inboxTask['id'],['calendarMode'=>'sacred','calendarContext'=>$context,'anchorDate'=>'2026-10-18']);
+ tmCheck($inboxCapture['manifest']['tasks'][0]['statusKey']===$snapshot['statuses'][0]['id'],'Inbox capture does not have a valid visible status mapping');
+ tmCheck(in_array('STATUS_MAPPED',array_column($inboxCapture['notices'],'code'),true),'Inbox capture silently changed placement');
+ tmCheck(genesisSharedGetTask($user,$root['id'],$inboxTask['id'])['statusId']==='chaos-open:'.$root['id'],'Capture moved the original inbox task');
  tmCheck($db->inTransaction(),'Task factory committed caller transaction');
  $db->rollBack();tmCheck($counts()===$before,'Atomic rollback left tree/labels/fields/values/receipts/audit');
  $ordinary=genesisSharedCreateProject($user,$spaceId,['title'=>'C1 ordinary caller']);tmCheck(!$db->inTransaction(),'Ordinary project caller leaked transaction');

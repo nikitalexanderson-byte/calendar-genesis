@@ -62,6 +62,7 @@ function genesisTemplateDestinationState(string $actor,array $options):array
     $db=genesisDb();$spaceId=$options['spaceId'];$space=genesisSharedSpaceAccess($spaceId,$actor);$project=null;$parent=null;
     foreach(['projectId','parentProjectId'] as $key)if($options[$key]!==null){
         $row=genesisSharedProjectAccess($options[$key],$actor,'write');if($row['space_id']!==$spaceId)throw new GenesisSharedAccessException();
+        genesisSharedRequireTaskProject($row);
         if($key==='projectId')$project=$row;else $parent=$row;
     }
     $queries=[
@@ -72,11 +73,11 @@ function genesisTemplateDestinationState(string $actor,array $options):array
     $fields=genesisSharedCustomFields($actor,$spaceId,$project['id']??null);if($project===null)$fields=array_values(array_filter($fields,static fn($f)=>$f['projectId']===null));
     $labels=genesisSharedLabels($actor,$spaceId);$statuses=[];$categories=[];
     if($project!==null){
-        $q=$db->prepare('SELECT id,title,is_done AS isDone,revision FROM shared_project_statuses WHERE project_id=? ORDER BY position,id');$q->execute([$project['id']]);$statuses=$q->fetchAll();
+        $q=$db->prepare('SELECT id,title,is_done AS isDone,revision FROM shared_project_statuses WHERE project_id=? AND is_chaos=0 ORDER BY position,id');$q->execute([$project['id']]);$statuses=$q->fetchAll();
         $q=$db->prepare('SELECT id,title,color,revision FROM shared_project_categories WHERE project_id=? ORDER BY position,id');$q->execute([$project['id']]);$categories=$q->fetchAll();
         $q=$db->prepare('SELECT user_id,role FROM shared_project_members WHERE project_id=? ORDER BY user_id');$q->execute([$project['id']]);$state[]=$q->fetchAll();
     }
-    if($parent!==null){$q=$db->prepare('SELECT id,revision FROM shared_project_statuses WHERE project_id=? ORDER BY id');$q->execute([$parent['id']]);$state[]=$q->fetchAll();}
+    if($parent!==null){$q=$db->prepare('SELECT id,revision FROM shared_project_statuses WHERE project_id=? AND is_chaos=0 ORDER BY id');$q->execute([$parent['id']]);$state[]=$q->fetchAll();}
     $q=$db->prepare('SELECT COUNT(*) FROM shared_custom_fields WHERE space_id=? AND archived_at IS NULL');$q->execute([$spaceId]);$fieldCount=(int)$q->fetchColumn();
     $members=genesisTemplateDestinationMembers($actor,$spaceId,$options['projectId'],$options['parentProjectId']);
     $q=$db->prepare("SELECT name,amount FROM resource_quota_limits WHERE name IN('projects_per_space','projects_per_user','tasks_per_project','tasks_per_user') ORDER BY name");$q->execute();$limits=array_column($q->fetchAll(),'amount','name');
@@ -272,7 +273,7 @@ function genesisSharedApplyTemplate(string $actor,string $id,array $input):array
             $definitions=array_map(static function($s){unset($s['key']);return $s;},$project['statuses']);
             $created=genesisSharedCreateProject($actor,$spaceId,['title'=>$project['title'],'description'=>$project['description'],'tags'=>$project['tags'],'kind'=>$project['kind'],'layout'=>$project['layout'],
                 'parentId'=>$parent,'boardStatusId'=>$board,'statuses'=>$definitions,'labelIds'=>$options['include']['labels']?$labels($project['labelKeys']):[]]);$projectIds[$key]=$created['id'];
-            $q=$db->prepare('SELECT id FROM shared_project_statuses WHERE project_id=? ORDER BY position,id');$q->execute([$created['id']]);$ids=$q->fetchAll(PDO::FETCH_COLUMN);
+            $q=$db->prepare('SELECT id FROM shared_project_statuses WHERE project_id=? AND is_chaos=0 ORDER BY position,id');$q->execute([$created['id']]);$ids=$q->fetchAll(PDO::FETCH_COLUMN);
             foreach($project['statuses'] as $i=>$status)$statusIds[$status['key']]=$ids[$i];
             foreach($project['categories'] as $category)$categoryIds[$category['key']]=genesisSharedCreateCategory($actor,$created['id'],['title'=>$category['title'],'color'=>$category['color']])['id'];
         }

@@ -50,6 +50,7 @@ try{
     $db->exec('DROP TRIGGER c1_apply_failure');taCheck($failed&&$counts()===$before,'Late failure leaked a partial project, field, task, notification or receipt');
     $result=genesisSharedApplyTemplate($user,$id,$command);$after=$counts();
     taCheck($result['projectCount']===2&&$result['taskCount']===4,'Wrong apply counts');
+    foreach($result['statusIds'] as $statusId)taCheck(!str_starts_with($statusId,'chaos-'),'Internal inbox status displaced a template board');
     taCheck(genesisSharedApplyTemplate($user,$id,$command)===$result&&$counts()===$after,'Lost response retry created duplicates');
     taReject(fn()=>genesisSharedApplyTemplate($user,$id,[...$command,'title'=>'Changed request']),'TEMPLATE_OPERATION_REUSED');
     $created=genesisSharedGetTask($user,$result['projectIds']['root'],$result['taskIds']['parent']);
