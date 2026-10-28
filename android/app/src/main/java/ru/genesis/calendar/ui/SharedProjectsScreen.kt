@@ -32,6 +32,7 @@ import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -1557,10 +1558,13 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
             if (taskId.isBlank() && project.optInt("isInbox")==0) {
                 BoxWithConstraints(Modifier.fillMaxWidth()) {
                 val buttonCount = 5 + (if (canWrite) 1 else 0) + (if (canEditTask && statuses.isNotEmpty() || canWrite) 1 else 0)
-                CompositionLocalProvider(LocalAffairsControlWidth provides maxWidth / buttonCount,
+                val buttonWidth = with(LocalDensity.current) {
+                    kotlin.math.floor(maxWidth.toPx() / buttonCount).toDp()
+                }
+                CompositionLocalProvider(LocalAffairsControlWidth provides buttonWidth,
                     LocalMinimumInteractiveComponentSize provides 0.dp) {
                 Row(Modifier.fillMaxWidth().testTag("shared-create-actions"),
-                    horizontalArrangement = Arrangement.spacedBy(0.dp), verticalAlignment = Alignment.CenterVertically) {
+                    horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     SharedMindmapButton { taskExtensions.mindmapsOpen = true }
                     SharedWorkspaceViewChoice(activeView, { viewOverride = it }, compact = true)
                     SharedWorkspaceCreateMenu(!busy, canEditTask && statuses.isNotEmpty(), canWrite,
