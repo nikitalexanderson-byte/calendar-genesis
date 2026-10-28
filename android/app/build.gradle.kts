@@ -44,8 +44,8 @@ android {
         applicationId = "ru.genesis.calendar"
         minSdk = 26
         targetSdk = 37
-        versionCode = 112
-        versionName = "3.0.5"
+        versionCode = 113
+        versionName = "3.0.6"
         buildConfigField("boolean", "PLAY_DISTRIBUTION", "false")
         buildConfigField("boolean", "TRIAL_BUILD", "false")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -56,7 +56,7 @@ android {
         buildConfigField("String", "GENESIS_ORIGIN", "\"$genesisOrigin\"")
         buildConfigField("String", "GENESIS_HOST", "\"${genesisUri.host}\"")
         resValue("string", "launch_url", genesisUrl)
-        resValue("string", "app_name", "GENESIS 3.0")
+        resValue("string", "app_name", "Genesis Tasker")
     }
 
     signingConfigs {
@@ -71,7 +71,7 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix = debugApplicationSuffix
-            resValue("string", "app_name", "GENESIS 3.0 · Проверка")
+            resValue("string", "app_name", "Genesis Tasker · Проверка")
         }
         release {
             if (releaseSigningReady) signingConfig = signingConfigs.getByName("genesisRelease")
@@ -107,7 +107,7 @@ abstract class GenesisAssetsTask : Sync() {
 val genesisAssets = tasks.register<GenesisAssetsTask>("genesisAssets") {
     assetsDirectory.set(layout.buildDirectory.dir("generated/genesisAssets"))
     from(rootProject.file("../public")) {
-        include("icons/**", "weekday-art/**", "day-art-v1/**", "month-art-v4/**", "lunar-month-art-v1/**",
+        include("mindmap-icons/**", "icons/**", "weekday-art/**", "day-art-v1/**", "month-art-v4/**", "lunar-month-art-v1/**",
             "theokyklos-art/**", "theokyklos-symbols/**", "stoicheion-cards/**",
             "achievement-art/**", "habit-ranks/**", "habit-reward-art/**", "hero-path/**",
             "calendar-art/**", "gregorian-months-v1/**", "tracker-art/**", "genesis-hero.png", "month-frieze-v2.png")
@@ -135,6 +135,7 @@ val genesisAssets = tasks.register<GenesisAssetsTask>("genesisAssets") {
     from(rootProject.file("../app/planning-translations.json")) { into("i18n") }
     from(rootProject.file("../app/daily-advice-copy.json")) { into("i18n") }
     from(rootProject.file("../app/native-mobile-design-translations.json")) { into("i18n") }
+    from(rootProject.file("../app")) { include("mindmap-icon-catalog.json", "mindmap-icon-names.json", "mindmap-feature-copy.json"); into("catalogs") }
     from(rootProject.file("../app/daily-advice-affinity.json")) { into("catalogs") }
     from(rootProject.file("../app/daily-advice-topics.json")) { into("catalogs") }
     from(rootProject.file("../app/sprint-report-translations.json")) { into("i18n") }

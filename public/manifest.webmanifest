@@ -1,17 +1,25 @@
 {
-  "name": "GENESIS",
-  "short_name": "GENESIS",
+  "name": "Genesis Tasker",
+  "short_name": "Genesis Tasker",
   "description": "Календарь задач и менеджер проектов с офлайн-доступом, планом дня, напоминаниями и синхронизацией Google Calendar.",
   "id": "./",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui"
+  ],
   "orientation": "any",
   "background_color": "#07171b",
   "theme_color": "#07171b",
   "lang": "ru",
-  "categories": ["productivity", "lifestyle", "utilities"],
+  "categories": [
+    "productivity",
+    "lifestyle",
+    "utilities"
+  ],
   "icons": [
     {
       "src": "./icons/icon-192.png",

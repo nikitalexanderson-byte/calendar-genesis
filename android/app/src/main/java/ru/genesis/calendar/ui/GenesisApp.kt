@@ -235,6 +235,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     var mindmapTaskDraft by remember { mutableStateOf<LocalTask?>(null) }
     var creatingSharedTask by rememberSaveable { mutableStateOf(false) }
     var newTaskProjectId by rememberSaveable { mutableStateOf<String?>(null) }
+    var newTaskEntryType by rememberSaveable { mutableStateOf("task") }
     var newTaskListId by rememberSaveable { mutableStateOf<String?>(null) }
     val mindmapUid=mindmapAccountUid(authState.user?.uid,authState.ready,activeScope)
     val mapsRepo=remember(mindmapUid,activeScope) {mindmapUid?.let {uid->ru.genesis.calendar.data.MindmapRepository(app.database,activeScope,uid,authController.mindmapTransport(uid))}}
@@ -433,7 +434,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     }
             } else {
             val accountStatus = if (activeScope.startsWith("account-"))
-                "Аккаунт GENESIS · защищённая локальная копия"
+                "Аккаунт Genesis.\nЗащищенная локальная копия."
             else if(BuildConfig.DEBUG) "Изолированное тестовое пространство · только на этом устройстве"
             else "Локальные черновики · аккаунт не подключён"
             val saveStatus = when {
@@ -442,7 +443,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                 authState.requiresSignIn -> "Сохранено на устройстве · требуется вход"
                 pendingWrites > 0 || pendingPreferences.isNotEmpty() -> "Сохранено на устройстве · ожидает синхронизации"
                 authState.busy || accountTaskSync?.loading == true -> "Синхронизация…"
-                pendingWrites == 0 && accountTaskSync?.confirmed == true && authState.checkedAt != null -> "Синхронизировано"
+                pendingWrites == 0 && accountTaskSync?.confirmed == true && authState.checkedAt != null -> "Синхронизированно."
                 else -> "Сохранено на этом устройстве"
             }
             val destinations = mobileDestinations(visiblePages, uiVisibility, sharedProjectsEnabled,
@@ -497,7 +498,8 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         onMindmaps={mindmapProjectId=it;mindmapsOpen=true},
                         initialProjectId=requestedMindmapProject,onInitialProjectConsumed={requestedMindmapProject=null},
                         onOpenTask={ editId=it;creating=false },
-                        onCreateTask={ newTaskProjectId=it;newTaskListId=null;editId=null;creating=true },
+                        onCreateTask={ newTaskEntryType="task";newTaskProjectId=it;newTaskListId=null;editId=null;creating=true },
+                        onCreateEntry={ project, kind -> newTaskEntryType=kind;newTaskProjectId=project;newTaskListId=null;editId=null;creating=true },
                         onCreateList={creatingTaskList=true},
                         onCreateListTask={ list -> newTaskListId=list.id;newTaskProjectId=structure.taskListLinks
                             .firstOrNull { it.taskListId==list.id }?.projectId;editId=null;creating=true },
@@ -682,6 +684,8 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                                 onMoveToToday = { task -> model.save(task.copy(date=todayDate.toString())) {} },
                                 onOpen = { taskId -> selected=todayPageDate;editId=taskId;creating=false },
                                 showCreate = "quickCreate" !in uiVisibility.hiddenTodayBlocks)
+                            if ("tasks" !in uiVisibility.hiddenTodayBlocks && habitTrackingEnabled && "habits" !in uiVisibility.hiddenTodayBlocks)
+                                Spacer(Modifier.height(24.dp))
                             if (habitTrackingEnabled && "habits" !in uiVisibility.hiddenTodayBlocks) TodayHabitTrackerBlock {
                                 TodayHabitsContent(app, todayDate, habitWorkspace,
                                     onOpenHabits = { tab = "Привычки" }, showTopDivider = false)
@@ -717,8 +721,8 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
             val existing=tasks.find { it.id==editId }
             if(creating || existing!=null) TaskEditor(existing ?: mindmapTaskDraft,selected,prefs,structure,newTaskProjectId,
                 authState.accountSettings,taskLists,newTaskListId,
-                onDismiss={creating=false;editId=null;mindmapTaskDraft=null;scope.launch {mapsRepo?.clearConversionDraft()}},
-                onSave={draft -> model.saveEditor(draft){creating=false;editId=null;mindmapTaskDraft=null;scope.launch {mapsRepo?.clearConversionDraft()}}},
+                onDismiss={creating=false;editId=null;newTaskEntryType="task";mindmapTaskDraft=null;scope.launch {mapsRepo?.clearConversionDraft()}},
+                onSave={draft -> model.saveEditor(draft){creating=false;editId=null;newTaskEntryType="task";mindmapTaskDraft=null;scope.launch {mapsRepo?.clearConversionDraft()}}},
                 onSwitchToShared=if(existing==null && tab=="Проекты" && sharedProjectsEnabled) ({
                     creating=false; creatingSharedTask=true
                 }) else null,
@@ -730,7 +734,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     { date -> model.excludeOccurrence(series,date) { creating=false;editId=null } }
                 },
                 showSelectedOccurrence=tab=="Сегодня" || tab=="Календарь",
-                saveError=error, saving=savingTask)
+                saveError=error, saving=savingTask, initialEntryType=newTaskEntryType)
             if (creatingSharedTask && sharedProjectsEnabled) SharedTaskCreateDialog(authController,prefs.language,
                 onDismiss={creatingSharedTask=false}, onSwitchToPersonal={creatingSharedTask=false;creating=true})
             transferTask?.let { privateTask ->
@@ -817,7 +821,7 @@ private fun TodayTasksPanel(tasks: List<LocalTask>, missedTasks: List<LocalTask>
                         Modifier.padding(14.dp), style = MaterialTheme.typography.bodyMedium)
                 }
             } else tasks.forEach { task ->
-                Surface(Modifier.fillMaxWidth().testTag("task-${task.id}"), shape = RoundedCornerShape(14.dp),
+                Surface(Modifier.fillMaxWidth().testTag("task-${task.id}"), shape = AffairsLayout.shape,
                     color = if (task.done) completedTaskSurface else if(LocalEveningTheme.current)
                         MaterialTheme.colorScheme.surfaceContainerLowest else Color(0xfff7f1e5),
                     contentColor = if (task.done) completedTaskInk else MaterialTheme.colorScheme.onSurface,
@@ -992,7 +996,7 @@ private fun TodayHeroGroup(tag: String, content: @Composable ColumnScope.() -> U
 internal fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,structure:WorkspaceStructure,initialProjectId:String?,
     accountSettings:ru.genesis.calendar.auth.AccountSettings?, taskLists:List<GoogleTaskList>, initialTaskListId:String?, onDismiss:()->Unit,
     onSave:(LocalTask)->Unit,onSwitchToShared:(()->Unit)?=null,onTransfer:(()->Unit)?,onDelete:(()->Unit)?,onDeleteOccurrence:((String)->Unit)?,showSelectedOccurrence:Boolean,
-    startDeleteConfirmation:Boolean=false, saveError:String?=null, saving:Boolean=false) {
+    startDeleteConfirmation:Boolean=false, saveError:String?=null, saving:Boolean=false, initialEntryType:String="task") {
     var title by rememberSaveable(task?.id) { mutableStateOf(task?.title ?: "") }
     var description by rememberSaveable(task?.id) { mutableStateOf(task?.description ?: "") }
     var date by rememberSaveable(task?.id) { mutableStateOf(task?.date ?: selected) }
@@ -1023,9 +1027,10 @@ internal fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,stru
     var absoluteCalendarMode by rememberSaveable(task?.id) { mutableStateOf(prefs.input) }
     val yandex = accountSettings?.authProvider == "yandex"
     val yandexFields = remember(task?.id) { JSONObject(task?.sourceFieldsJson ?: "{}") }
-    var yandexEntryType by rememberSaveable(task?.id) { mutableStateOf(yandexFields.optString("yandexEntryType", "task")) }
+    var entryType by rememberSaveable(task?.id, initialEntryType) { mutableStateOf(yandexFields.optString("entryType", initialEntryType)) }
+    var yandexEntryType by rememberSaveable(task?.id) { mutableStateOf(yandexFields.optString("yandexEntryType", if (entryType in setOf("event", "meeting")) "meeting" else "task")) }
     var yandexEndDate by rememberSaveable(task?.id) { mutableStateOf(yandexFields.optString("endDate").takeIf { it.matches(Regex("\\d{4}-\\d{2}-\\d{2}")) } ?: date) }
-    var yandexEndTime by rememberSaveable(task?.id) { mutableStateOf(yandexFields.optString("yandexEndTime")) }
+    var yandexEndTime by rememberSaveable(task?.id) { mutableStateOf(yandexFields.optString("yandexEndTime", yandexFields.optString("endTime"))) }
     var yandexLocation by rememberSaveable(task?.id) { mutableStateOf(yandexFields.optString("yandexLocation")) }
     var yandexTelemost by rememberSaveable(task?.id) { mutableStateOf(yandexFields.optString("yandexTelemostUrl")) }
     var yandexAttendees by rememberSaveable(task?.id) { mutableStateOf(yandexFields.optJSONArray("yandexAttendees")?.let { rows ->
@@ -1047,7 +1052,7 @@ internal fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,stru
         runCatching { TaskOccurrences.occursOn(task,LocalDate.parse(selected)) }.getOrDefault(false)) selected
         else task?.date ?: selected
     val draftFingerprint = listOf(title, description, date, time, priority, projectId, listId,
-        recurrence, reminders, syncTargets, formCalendarMode, yandexEntryType, yandexEndDate,
+        recurrence, reminders, syncTargets, formCalendarMode, entryType, yandexEntryType, yandexEndDate,
         yandexEndTime, yandexLocation, yandexTelemost, yandexAttendees, yandexOptionalAttendees,
         yandexBusy, yandexVisibility, yandexReminders).joinToString("\u001f")
     val originalFingerprint = rememberSaveable(task?.id) { draftFingerprint }
@@ -1060,7 +1065,7 @@ internal fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,stru
         Surface(Modifier.widthIn(max = 840.dp).fillMaxWidth().padding(12.dp),shape=AffairsLayout.shape) {
             Column(Modifier.padding(16.dp).imePadding()) {
                 EditorDialogHeader(if (yandex) (if(task==null) "Новая запись Яндекс.Календаря" else "Изменить запись Яндекс.Календаря")
-                    else if(task==null) "Новая задача" else "Изменить задачу",
+                    else if(task==null) when (entryType) { "event" -> "Новое событие"; "meeting" -> "Новая встреча"; else -> "Новая задача" } else "Изменить задачу",
                     "close-task-editor", { requestExit(onDismiss) })
               Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())
                 .testTag("task-editor-scroll"),
@@ -1073,6 +1078,13 @@ internal fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,stru
                 }
                 EditorSection("Основное") {
                     task?.let { PersonalTaskDiscussion(it) }
+                    if (!yandex) FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf("task" to "Задача", "event" to "Событие", "meeting" to "Встреча").forEach { (kind, label) ->
+                            FilterChip(entryType == kind, { entryType = kind }, { Text(label) },
+                                modifier = Modifier.testTag("personal-entry-$kind"))
+                        }
+                    }
+
                     OutlinedTextField(title,{title=it},label={Text("Название")},modifier=Modifier.fillMaxWidth().testTag("task-title"))
                     OutlinedTextField(description,{description=it},label={Text("Описание")},modifier=Modifier.fillMaxWidth())
                     if (yandex) {
@@ -1135,6 +1147,11 @@ internal fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,stru
                 }
                 if (!yandex || time.isNotBlank()) AuthorTimePicker(time,prefs.use24){time=it}
                 }
+                }
+                if (!yandex && entryType in setOf("event", "meeting") && date.isNotBlank()) EditorSection("Окончание") {
+                    AuthorDatePicker(yandexEndDate, formCalendarMode, minDate = LocalDate.parse(date),
+                        modifier = Modifier.fillMaxWidth().testTag("personal-entry-end-date")) { yandexEndDate = it }
+                    if (time.isNotBlank()) AuthorTimePicker(yandexEndTime, prefs.use24) { yandexEndTime = it }
                 }
                 if (yandex) {
                     if (yandexEntryType == "meeting") {
@@ -1262,11 +1279,11 @@ internal fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,stru
                         }.getOrDefault(0)
                         validation = when {
                             date.isNotBlank() && start == null -> "Выберите корректную дату задачи."
-                            yandex && yandexEntryType == "meeting" && time.isNotBlank() &&
+                            (entryType in setOf("event", "meeting") || yandex && yandexEntryType == "meeting") && time.isNotBlank() &&
                                 (runCatching { LocalDateTime.parse("${yandexEndDate}T${yandexEndTime}") }.getOrNull()
                                     ?.isAfter(runCatching { LocalDateTime.parse("${date}T${time}") }.getOrNull()) != true) ->
                                 "Окончание встречи должно быть позже её начала."
-                            yandex && yandexEntryType == "meeting" && yandexEndDate < date ->
+                            (entryType in setOf("event", "meeting") || yandex && yandexEntryType == "meeting") && yandexEndDate < date ->
                                 "Окончание встречи должно быть позже её начала."
                             yandex && yandexEntryType == "meeting" &&
                                 (yandexAttendees + "," + yandexOptionalAttendees).split(',', ';', '\n')
@@ -1282,7 +1299,8 @@ internal fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,stru
                             else -> null
                         }
                         val source = JSONObject(task?.sourceFieldsJson ?: "{}")
-                        source.put("calendarMode",formCalendarMode.wireValue)
+                        source.put("calendarMode",formCalendarMode.wireValue).put("entryType", if (entryType == "birthday") entryType else if (yandex) if (yandexEntryType == "meeting") "meeting" else "task" else entryType)
+                        if (!yandex && entryType in setOf("event", "meeting")) source.put("endDate", yandexEndDate).put("endTime", yandexEndTime)
                         if (yandex) {
                             source.put("yandexEntryType", yandexEntryType)
                                 .put("yandexEndTime", yandexEndTime).put("yandexLocation", yandexLocation.trim())
@@ -1383,7 +1401,7 @@ internal fun ProjectHierarchyPicker(projects: List<GenesisProject>, selectedId: 
         }
     }
     if (path.isNotEmpty()) {
-        Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(12.dp)) {
+        Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = AffairsLayout.shape) {
             Text("Выбрано: ${path.joinToString(" › ") { it.title }}",
                 Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp),
                 style = MaterialTheme.typography.bodySmall,
@@ -1901,7 +1919,7 @@ private fun SettingsStatusTile(label: String, value: String, active: Boolean, mo
     Surface(modifier.semantics(mergeDescendants = true) {
         contentDescription = "$accessibleLabel: $accessibleValue"
         stateDescription = accessibleState
-    }, shape = RoundedCornerShape(14.dp),
+    }, shape = AffairsLayout.shape,
         color = if(active) Color(0xffe4efe9) else Color(0xffffe0d6),
         border = BorderStroke(1.dp, if(active) Color(0x66255b59) else Color(0x66a5543f))) {
         Column(Modifier.padding(11.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {

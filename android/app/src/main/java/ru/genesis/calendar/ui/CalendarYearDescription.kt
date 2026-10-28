@@ -210,21 +210,13 @@ private fun SacredYearDetailsDialog(onDismiss: () -> Unit) {
     }
     Dialog(onDismissRequest = onDismiss) {
         Surface(Modifier.fillMaxWidth().fillMaxHeight(0.92f).testTag("sacred-year-details-dialog"),
-            shape = RoundedCornerShape(24.dp), color = yearCardBackground,
-            border = BorderStroke(1.dp, Color(0x88e4bd64))) {
-            LazyColumn(contentPadding = PaddingValues(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            shape = AffairsLayout.shape, color = MaterialTheme.colorScheme.surface) {
+            LazyColumn(contentPadding = PaddingValues(AffairsLayout.gutter), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 item {
-                    Row(verticalAlignment = Alignment.Top) {
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                            MaterialText(copy("САКРАЛЬНАЯ ГЕОМЕТРИЯ ВРЕМЕНИ", "SACRED GEOMETRY OF TIME"),
-                                style = MaterialTheme.typography.labelMedium, color = yearCardGold)
-                            MaterialText(copy("Почему наш год устроен именно так?", "Why is our year structured this way?"),
-                                style = MaterialTheme.typography.headlineSmall, color = yearCardText)
-                        }
-                        IconButton(onClick = onDismiss, modifier = Modifier.testTag("sacred-year-details-close")) {
-                            MaterialText("×", style = MaterialTheme.typography.headlineSmall, color = yearCardGold)
-                        }
-                    }
+                    EditorDialogHeader(copy("САКРАЛЬНАЯ ГЕОМЕТРИЯ ВРЕМЕНИ", "SACRED GEOMETRY OF TIME"),
+                        "sacred-year-details-close", onDismiss)
+                    MaterialText(copy("Почему наш год устроен именно так?", "Why is our year structured this way?"),
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 item { YearDetailsSection("✦", copy("Основа", "Foundation"), listOf(
                     copy("Почему наш год начинается в день весеннего равноденствия? Почему в месяце ровно 30 дней, разбитых на 6 «пят», а самих месяцев 12, плюс «скрытый» 13-й месяц?", "Why does the year begin on the spring equinox? Why does each month contain 30 days arranged into six pentads, with twelve months plus a hidden thirteenth?"),
@@ -244,12 +236,12 @@ private fun SacredYearDetailsDialog(onDismiss: () -> Unit) {
 
 @Composable
 private fun YearDetailsSection(symbol: String, title: String, paragraphs: List<String>) {
-    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = Color(0xff061f21),
-        border = BorderStroke(1.dp, Color(0x445f8a7d))) {
-        Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Surface(Modifier.fillMaxWidth(), shape = AffairsLayout.shape, color = MaterialTheme.colorScheme.surfaceContainerLow,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+        Column(Modifier.padding(AffairsLayout.gutter), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             MaterialText(symbol, style = MaterialTheme.typography.headlineSmall)
-            MaterialText(title, style = MaterialTheme.typography.titleLarge, color = Color(0xffffdda0))
-            paragraphs.forEach { MaterialText(it, style = MaterialTheme.typography.bodyMedium, color = yearCardMuted) }
+            MaterialText(title, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+            paragraphs.forEach { MaterialText(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
     }
 }

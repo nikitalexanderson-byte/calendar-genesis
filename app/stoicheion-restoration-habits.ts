@@ -22,6 +22,6 @@ export function createRestorationHabit(practice: SacredPractice, snapshot: Resto
 
 export function isEligibleRestorationHabit(habit: Habit): boolean {
   return habit.active && habitLifecycleState(habit).status === "active" && habit.schedule.recurrence.enabled
-    && !habit.stoicheionRestoration && !habit.practiceGoal && !habit.measurement && !habit.intervalSchedule && !habit.periodGoal
+    && !habit.stoicheionRestoration && !habit.sacredPracticeId && !habit.practiceGoal && !habit.measurement && !habit.intervalSchedule && !habit.periodGoal
     && ["none", "binary"].includes(habit.scoringMode);
 }

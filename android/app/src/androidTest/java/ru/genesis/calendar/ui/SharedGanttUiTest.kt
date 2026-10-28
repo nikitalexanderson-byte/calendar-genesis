@@ -92,6 +92,8 @@ class SharedGanttUiTest {
             }
         } } }
         compose.onNodeWithTag("gantt-bar-qa-gantt").performScrollTo().performClick()
+        compose.mainClock.advanceTimeBy(400)
+        compose.waitUntil(5000) { compose.onAllNodesWithTag("gantt-resize-end-qa-gantt").fetchSemanticsNodes().isNotEmpty() }
         val handle = compose.onNodeWithTag("gantt-resize-end-qa-gantt").performScrollTo().assertHeightIsAtLeast(48.dp)
         handle.performTouchInput { down(center) }
         compose.mainClock.advanceTimeBy(800)

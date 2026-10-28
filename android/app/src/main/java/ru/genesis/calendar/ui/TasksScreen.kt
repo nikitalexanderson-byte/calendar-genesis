@@ -258,7 +258,7 @@ import ru.genesis.calendar.data.*
         }.onFailure { error = it.message ?: "Не удалось загрузить проекты." }
     }
     Dialog({ if(!busy) onDismiss() }, properties=DialogProperties(usePlatformDefaultWidth=false)) {
-        Surface(Modifier.widthIn(max = 840.dp).fillMaxWidth().padding(12.dp),shape=RoundedCornerShape(20.dp)) {
+        Surface(Modifier.widthIn(max = 840.dp).fillMaxWidth().padding(12.dp),shape=AffairsLayout.shape) {
             Column(Modifier.padding(16.dp).imePadding()) {
                 EditorDialogHeader("Новый список задач", "close-task-list-editor", { if(!busy) onDismiss() })
                 Column(Modifier.weight(1f,fill=false).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(10.dp)) {

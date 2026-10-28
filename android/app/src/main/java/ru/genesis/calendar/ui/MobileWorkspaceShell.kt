@@ -102,7 +102,11 @@ internal fun mobileDestinations(pages: List<String>, visibility: UiVisibility,
     // An open drawer can always be dismissed; closed-screen gestures belong to each feature.
     ModalNavigationDrawer(drawerState = drawer, gesturesEnabled = drawer.isOpen,
         drawerContent = {
-            val width = (LocalConfiguration.current.screenWidthDp - 40).coerceAtMost(344).dp
+            // Leave the underlying screen visible without reserving an empty strip in the menu.
+            // Larger accessibility fonts get room to wrap instead of being clipped.
+            val configuration = LocalConfiguration.current
+            val preferredWidth = if (configuration.fontScale > 1.15f) 320 else 288
+            val width = (configuration.screenWidthDp - 56).coerceAtMost(preferredWidth).dp
             ModalDrawerSheet(Modifier.width(width).testTag("workspace-drawer"),
                 drawerShape = RoundedCornerShape(topEnd = 10.dp, bottomEnd = 10.dp),
                 drawerContainerColor = MaterialTheme.colorScheme.surface,
@@ -111,7 +115,7 @@ internal fun mobileDestinations(pages: List<String>, visibility: UiVisibility,
                     .padding(horizontal = 12.dp, vertical = 8.dp)) {
                     Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         GenesisBrandLogo(Modifier.size(40.dp))
-                        Text("GENESIS", Modifier.weight(1f).padding(start = 12.dp),
+                        Text("Genesis Tasker", Modifier.weight(1f).padding(start = 12.dp),
                             style = MaterialTheme.typography.titleLarge)
                         val closeLabel = genesisTranslate("Закрыть меню")
                         IconButton(onClick = { scope.launch { drawer.close() } },
@@ -149,15 +153,19 @@ internal fun mobileDestinations(pages: List<String>, visibility: UiVisibility,
                     }
                     HorizontalDivider(Modifier.padding(top = 16.dp, bottom = 8.dp),
                         color = MaterialTheme.colorScheme.outlineVariant)
-                    GenesisAccountFooter(accountStatus)
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)
+                    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp)
+                        .testTag("drawer-account-row"), verticalAlignment = Alignment.Top,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        GenesisAccountFooter(accountStatus, Modifier.weight(1f))
+                        footerActions()
+                    }
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
                         .testTag("drawer-version-row"), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("GENESIS Calendar ${BuildConfig.VERSION_NAME}\nСборка · ${BuildConfig.VERSION_CODE}",
+                        Text("Genesis Tasker ${BuildConfig.VERSION_NAME}\nСборка · ${BuildConfig.VERSION_CODE}",
                             Modifier.weight(1f).testTag("trial-build-info"),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.labelSmall)
-                        footerActions()
                     }
                 }
             }

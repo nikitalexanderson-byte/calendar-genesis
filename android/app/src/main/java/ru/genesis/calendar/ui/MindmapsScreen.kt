@@ -219,7 +219,8 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
                                 {val next=collapsed.toMutableSet();if(!next.add(n.id))next.remove(n.id);changeView(JSONObject(view.toString()).put("collapsed",org.json.JSONArray(next.toList())))},contentColor=ink)
                             TextButton(onClick={selected=n.id;text=n.text;note=n.note;editing=n.id},modifier=Modifier.weight(1f).testTag("mindmap-node-${n.id}"),
                                 colors=ButtonDefaults.textButtonColors(contentColor=ink)) {
-                                Column(Modifier.fillMaxWidth()) {
+                                n.mindmapIcon()?.let { MindmapGlyph(it, Modifier.padding(end = 8.dp).size(24.dp), ink) }
+                                Column(Modifier.weight(1f)) {
                                     androidx.compose.material3.Text(label(n),color=ink)
                                     Text(when(n.kind){"task"->if(linkedTask(n)?.done==true)"Выполнено" else "Задача GENESIS";"project"->"Проект GENESIS";else->"Мысль"},color=ink,style=MaterialTheme.typography.bodySmall)
                                 }
@@ -265,6 +266,9 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
         }
         TextButton(onClick={colorsExpanded=!colorsExpanded},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)) {
             Text("Оформление",Modifier.weight(1f));AffairsActionIcon(if(colorsExpanded)AffairsAction.COLLAPSE else AffairsAction.EXPAND)
+        }
+        MindmapIconPicker(node.mindmapIcon(), enabled = !busy) { icon ->
+            save(editorDocument.copy(nodes = editorDocument.nodes.map { if (it.id == node.id) it.withMindmapIcon(icon) else it }))
         }
         if(colorsExpanded) {
         fun setColor(key:String,value:String?) {val style=JSONObject(node.style?.toString() ?: "{}");if(value==null)style.remove(key) else style.put(key,value);save(map.copy(nodes=map.nodes.map {if(it.id==node.id)it.copy(style=style.takeIf {it.length()>0}) else it}))}
@@ -318,11 +322,11 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
 }
 
 @Composable
-private fun NativeMindmapCanvas(map:MindmapDocument,rows:List<Pair<MindmapNode,Int>>,view:JSONObject,label:(MindmapNode)->String,onSelect:(String)->Unit,onView:(JSONObject)->Unit,onAdd:(Offset)->Unit,onLink:(String,String)->Unit,modifier:Modifier,readOnly:Boolean=false,resetKey:Int=0) {
+internal fun NativeMindmapCanvas(map:MindmapDocument,rows:List<Pair<MindmapNode,Int>>,view:JSONObject,label:(MindmapNode)->String,onSelect:(String)->Unit,onView:(JSONObject)->Unit,onAdd:(Offset)->Unit,onLink:(String,String)->Unit,modifier:Modifier,readOnly:Boolean=false,resetKey:Int=0) {
     var connecting by remember {mutableStateOf<String?>(null)}
     val horizontal=rememberScrollState();val vertical=rememberScrollState()
     val density=LocalDensity.current.density
-    val positions=view.optJSONObject("positions") ?: JSONObject();var drag by remember {mutableStateOf<Pair<String,Offset>?>(null)};var menu by remember {mutableStateOf<Offset?>(null)}
+    val positions=view.optJSONObject("positions") ?: JSONObject();var drag by remember {mutableStateOf<Pair<String,Offset>?>(null)};var menu by remember {mutableStateOf<Offset?>(null)};var menuAnchor by remember {mutableStateOf(Offset.Zero)}
     val located=rows.mapIndexed {i,pair->val saved=positions.optJSONObject(pair.first.id);val point=if(drag?.first==pair.first.id)drag!!.second else Offset(saved?.optDouble("x",24.0+pair.second*260)?.toFloat() ?: (24+pair.second*260).toFloat(),saved?.optDouble("y",24.0+i*112)?.toFloat() ?: (24+i*112).toFloat());pair.first to point};val byId=located.toMap()
     val savedZoom=view.optDouble("zoom",1.0).coerceIn(.4,2.0).toFloat()
     var zoom by remember(map.id) { mutableFloatStateOf(savedZoom) }
@@ -345,6 +349,12 @@ private fun NativeMindmapCanvas(map:MindmapDocument,rows:List<Pair<MindmapNode,I
             stateDescription="$scaleState ${(zoom*100).roundToInt()}%"
             customActions=listOf(CustomAccessibilityAction(zoomIn) { latestOnView(JSONObject(latestView.toString()).put("zoom",(zoom+.2f).coerceAtMost(2f)));true },
                 CustomAccessibilityAction(zoomOut) { latestOnView(JSONObject(latestView.toString()).put("zoom",(zoom-.2f).coerceAtLeast(.4f)));true })
+        }
+        .pointerInput(map.id, readOnly) {
+            if (!readOnly) detectTapGestures(onLongPress = { point ->
+                menuAnchor = point
+                menu = Offset((point.x + horizontal.value) / zoom, (point.y + vertical.value) / zoom)
+            })
         }
         .pointerInput(map.id) {
             awaitEachGesture {
@@ -369,7 +379,7 @@ private fun NativeMindmapCanvas(map:MindmapDocument,rows:List<Pair<MindmapNode,I
         Box(Modifier.fillMaxSize().horizontalScroll(horizontal).verticalScroll(vertical)) {
             Box(Modifier.width((contentWidth*zoom).dp).height((contentHeight*zoom).dp)) {
             Box(Modifier.width(contentWidth.dp).height(contentHeight.dp).graphicsLayer(scaleX=zoom,scaleY=zoom,transformOrigin=TransformOrigin(0f,0f))
-                .pointerInput(map.id,readOnly){detectTapGestures(onTap={if(!readOnly)menu=it})}) {
+) {
                 Canvas(Modifier.matchParentSize()) {located.forEach { (n,p)->n.parentId?.let {parentId->byId[map.nodes.first {it.id==parentId}] }?.let {parent->val a=Offset((parent.x+220)*density,(parent.y+42)*density);val b=Offset(p.x*density,(p.y+42)*density);val path=Path().apply{moveTo(a.x,a.y);cubicTo(a.x+40*density,a.y,b.x-40*density,b.y,b.x,b.y)};drawPath(path,mapColor(map.appearance?.optString("lineColor"),mapColor(n.style?.optString("border"),line)),style=androidx.compose.ui.graphics.drawscope.Stroke(2*density))} }
                     map.links.forEach {link->val a=located.firstOrNull {it.first.id==link.from}?.second;val b=located.firstOrNull {it.first.id==link.to}?.second;if(a!=null&&b!=null){val path=Path().apply {moveTo((a.x+110)*density,(a.y+84)*density);quadraticTo((maxOf(a.x,b.x)+260)*density,(a.y+b.y)/2*density,(b.x+110)*density,b.y*density)};drawPath(path,mapColor(link.color,line),style=Stroke(2*density,pathEffect=androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(5*density,5*density))))}}
                 }
@@ -379,13 +389,23 @@ private fun NativeMindmapCanvas(map:MindmapDocument,rows:List<Pair<MindmapNode,I
                     val ink=if(n.style?.has("fill")==true)if(fill.luminance()>.179f)Color.Black else Color.White else MaterialTheme.colorScheme.onSurface
                     Surface(onClick={val from=connecting;if(from!=null&&from!=n.id){onLink(from,n.id);connecting=null}else onSelect(n.id)},shape=MaterialTheme.shapes.medium,color=fill,contentColor=ink,border=BorderStroke(1.dp,mapColor(n.style?.optString("border"),MaterialTheme.colorScheme.outline)),
                     modifier=Modifier.testTag("mindmap-node-${n.id}").zIndex(if(drag?.first==n.id)10f else 0f).offset {IntOffset(point.x.dp.roundToPx(),point.y.dp.roundToPx())}.width(220.dp).height(84.dp).pointerInput(n.id,readOnly){detectDragGesturesAfterLongPress(onDragEnd={val moved=drag;drag=null;if(moved!=null){val next=JSONObject(currentView.toString());val ps=next.optJSONObject("positions") ?: JSONObject();ps.put(n.id,JSONObject().put("x",moved.second.x).put("y",moved.second.y));onView(next.put("positions",ps))}},onDragCancel={drag=null}){change,delta->if(readOnly)return@detectDragGesturesAfterLongPress;change.consume();val start=drag?.takeIf {it.first==n.id}?.second ?: currentPoint;drag=n.id to Offset((start.x+delta.x/density).coerceAtLeast(0f),(start.y+delta.y/density).coerceAtLeast(0f))}}) {
-                    Column(Modifier.padding(start=12.dp,top=12.dp,end=if(readOnly)40.dp else 56.dp)){Text(if(n.kind=="idea")"Мысль" else "GENESIS",style=MaterialTheme.typography.labelSmall);Text(label(n),maxLines=2,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.titleSmall)}
+                    Row(Modifier.padding(start=12.dp,top=12.dp,end=if(readOnly)40.dp else 56.dp), verticalAlignment=Alignment.CenterVertically) {
+                        n.mindmapIcon()?.let { MindmapGlyph(it, Modifier.padding(end=8.dp).size(24.dp), ink) }
+                        Column(Modifier.weight(1f)){Text(if(n.kind=="idea")"Мысль" else "GENESIS",style=MaterialTheme.typography.labelSmall);Text(label(n),maxLines=2,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.titleSmall)}
+                    }
                     if(!readOnly)Box(Modifier.fillMaxSize(),contentAlignment=Alignment.CenterEnd){AffairsIconButton("Создать связь",AffairsAction.LINK,{val from=connecting;if(from!=null&&from!=n.id){onLink(from,n.id);connecting=null}else connecting=if(from==n.id)null else n.id},contentColor=ink)}
                     }
                 }
-                DropdownMenu(expanded=menu!=null,onDismissRequest={menu=null}) {DropdownMenuItem(text={Text("Добавить мысль")},onClick={val point=menu;menu=null;if(point!=null)onAdd(Offset(point.x/density,point.y/density))})}
+
             }
         }
+        }
+        Box(Modifier.offset { IntOffset(menuAnchor.x.roundToInt(), menuAnchor.y.roundToInt()) }.size(1.dp)) {
+            DropdownMenu(expanded=menu!=null&&!readOnly,onDismissRequest={menu=null}) {
+                DropdownMenuItem(text={Text("Добавить мысль")}, modifier=Modifier.testTag("mindmap-context-add"),
+                    leadingIcon={AffairsActionIcon(AffairsAction.ADD)},
+                    onClick={val point=menu;menu=null;if(point!=null)onAdd(Offset(point.x/density,point.y/density))})
+            }
         }
         if(connecting!=null)Surface(color=MaterialTheme.colorScheme.surface,modifier=Modifier.align(Alignment.TopCenter)){TextButton(onClick={connecting=null}){Text("Отменить соединение")}}
     }

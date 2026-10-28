@@ -80,7 +80,7 @@ fun WelcomeScreen(state: AuthPanelState, controller: AuthController, language: S
         val intro: @Composable () -> Unit = {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 OriginalImage("icons/icon-192.png", "GENESIS", Modifier.size(44.dp))
-                Text("GENESIS", Modifier.padding(start = 10.dp),
+                Text("Genesis Tasker", Modifier.padding(start = 10.dp),
                     color = welcomeCream,
                     style = MaterialTheme.typography.titleLarge.copy(fontFamily = GenesisHeadingFont))
             }
@@ -92,9 +92,9 @@ fun WelcomeScreen(state: AuthPanelState, controller: AuthController, language: S
                 Text(if (language == "en") "GENESIS · CALENDAR AND PROJECT MANAGER"
                     else "GENESIS · КАЛЕНДАРЬ И МЕНЕДЖЕР ПРОЕКТОВ",
                     color = welcomeGold, style = MaterialTheme.typography.labelMedium)
-                Text("GENESIS", color = welcomeCream,
+                Text("Genesis Tasker", color = welcomeCream,
                     style = MaterialTheme.typography.displayMedium.copy(
-                        fontFamily = GenesisHeadingFont, letterSpacing = 5.sp))
+                        fontFamily = GenesisHeadingFont, letterSpacing = 0.sp))
                 Text(if (language == "en") "Task and project\ncalendar"
                     else "Календарь задач\nи проектов",
                     color = welcomeGold,

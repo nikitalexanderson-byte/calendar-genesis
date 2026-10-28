@@ -222,10 +222,11 @@ import kotlin.math.min
     Surface(modifier.fillMaxWidth().testTag("today-daily-advice"), shape = AffairsLayout.shape) {
         Box {
             if (bitmap != null) Box(Modifier.matchParentSize()) {
-                Image(bitmap.asImageBitmap(), null, Modifier.fillMaxWidth(.60f).fillMaxHeight().align(Alignment.CenterEnd).testTag("daily-advice-art"),
+                Image(bitmap.asImageBitmap(), null, Modifier.fillMaxSize().testTag("daily-advice-art"),
                     contentScale = ContentScale.Crop)
                 Box(Modifier.matchParentSize().background(Brush.horizontalGradient(
-                    0f to surface, .28f to surface, .40f to surface.copy(alpha = .88f),
+                    0f to surface.copy(alpha = if (LocalEveningTheme.current) .84f else .90f),
+                    .40f to surface.copy(alpha = .86f),
                     .70f to surface.copy(alpha = .76f),
                     1f to surface.copy(alpha = if (LocalEveningTheme.current) .58f else .76f))))
             }

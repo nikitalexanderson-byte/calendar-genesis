@@ -1,6 +1,7 @@
 "use client";
 
 import { habitDisplayText } from "./habit-display-text";
+import { IconActionButton } from "./IconActionButton";
 import { DialogCloseButton } from "./DialogCloseButton";
 import type { CalendarContext } from "./calendar-context";
 
@@ -69,6 +70,7 @@ import {
   canRecordHabitOnDate,
   createHabitFromSacredPractice,
   findStandardSacredHabit,
+  additionalSacredHabits,
   createHabitFromTemplate,
   currentHabitQuests,
   claimedStreakMilestones,
@@ -1329,6 +1331,7 @@ function SacredHabitLibrary({
   onChange,
   onStart,
   onEdit,
+  onDelete,
 }: {
   workspace: HabitWorkspace;
   date: string;
@@ -1337,6 +1340,7 @@ function SacredHabitLibrary({
   onChange: (workspace: HabitWorkspace) => void;
   onStart: (practice: SacredPractice) => void;
   onEdit: (habit: Habit) => void;
+  onDelete: (habit: Habit) => void;
 }) {
   const isEnglish = language === "en";
   const [selectedSectorId, setSelectedSectorId] = useState<SacredPracticeSectorId | null>(null);
@@ -1347,6 +1351,11 @@ function SacredHabitLibrary({
   const sector = selectedSectorId ? segments.get(selectedSectorId) : null;
   const describedSector = describedSectorId ? segments.get(describedSectorId) : null;
   const practices = selectedSectorId ? sacredPracticesForSector(selectedSectorId) : [];
+  const practiceRows = practices.map(practice => ({ practice, habit: findStandardSacredHabit(workspace.habits, practice.id) }))
+    .concat(selectedSectorId ? additionalSacredHabits(workspace.habits, selectedSectorId).flatMap(habit => {
+      const practice = SACRED_PRACTICES.find(item => item.id === habit.stoicheionRestoration?.practiceId);
+      return practice ? [{ practice, habit }] : [];
+    }) : []);
   const sectorDialogRef = useDialogAccessibility<HTMLElement>(closeSectorDialog, Boolean(selectedSectorId && sector));
   const renderSectorTab = (sectorId: SacredPracticeSectorId) => {
     const item = segments.get(sectorId)!;
@@ -1415,21 +1424,21 @@ function SacredHabitLibrary({
             <p>{catalogText(sector.essence, language)}</p>
           </div>
           <div className="sacred-practice-grid">
-          {practices.map((practice) => {
-          const habit = findStandardSacredHabit(workspace.habits, practice.id);
+          {practiceRows.map(({ practice, habit }) => {
           const entry = habit ? completionFor(workspace, habit.id, date) : undefined;
           const canTrack = habit?.active && isHabitScheduledForDate(habit, date, calendarMode, workspace.habitCompletions) && canRecordHabitOnDate(habit.createdDate, date, habitDateKey(new Date()));
           const timeLabel = habit
             ? (habit.preferredTime ? `${isEnglish ? "Strict time" : "Строго"} ${habit.preferredTime}` : (isEnglish ? "No strict time" : "Без строгого времени"))
             : `${isEnglish ? "Suggested" : "Рекомендуется"} ${practice.suggestedTime}`;
           return (
-            <article className={`${habit ? "started" : ""}${habit && !habit.active ? " paused" : ""}`} style={{ "--habit-color": habit?.color ?? practice.color } as CSSProperties} key={practice.id}>
+            <article className={`${habit ? "started" : ""}${habit && !habit.active ? " paused" : ""}`} style={{ "--habit-color": habit?.color ?? practice.color } as CSSProperties} key={habit?.stoicheionRestoration ? habit.id : practice.id} data-sacred-practice={practice.id} data-restoration-habit={habit?.stoicheionRestoration ? habit.id : undefined}>
               <header><span aria-hidden="true">{habit?.emoji ?? practice.emoji}</span><div><small data-no-translate>{catalogText(sector.patrons, language)}</small><h3 data-no-translate>{habit ? habitDisplayText(habit, language).title : catalogText(practice.title, language)}</h3></div>{habit ? <em>{habit.active ? (isEnglish ? "Active" : "Активна") : (isEnglish ? "Paused" : "На паузе")}</em> : null}</header>
               <p data-no-translate>{habit ? habitDisplayText(habit, language).description : catalogText(practice.description, language)}</p>
               <blockquote data-no-translate>{catalogText(practice.myth, language)}</blockquote>
               <footer>
                 {habit ? (
                   <div className="sacred-practice-actions">
+                    {habit.stoicheionRestoration ? <IconActionButton icon="delete" label={translateText("Удалить привычку",language)} onClick={() => { closeSectorDialog(); onDelete(habit); }}/> : null}
                     <button type="button" className="sacred-practice-edit" onClick={() => { setSelectedSectorId(null); onEdit(habit); }}>{isEnglish ? "Edit" : "Изменить"}</button>
                     {habit.active ? <>
                       <button
@@ -1739,6 +1748,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
           onChange={onChange}
           onStart={(practice) => saveHabit(createHabitFromSacredPractice(practice, creationDate, calendarMode, language))}
           onEdit={setEditingHabit}
+          onDelete={removeHabit}
         /></HabitSectionBlock> : null}
       </div>
       </div>

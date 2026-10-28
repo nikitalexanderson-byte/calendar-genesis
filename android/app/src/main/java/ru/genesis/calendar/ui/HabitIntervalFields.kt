@@ -87,9 +87,22 @@ internal fun HabitIntervalMarks(habit: Habit, entry: HabitCompletion?, enabled: 
                 modifier=Modifier.fillMaxWidth().testTag("habit-interval-marks-toggle")) {
                 Text("Отметки повторений:", Modifier.weight(1f)); Text(" ${marks.size} / ${times.size}")
             }
-            if(expanded) FlowRow(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                times.forEach { time -> FilterChip(selected=time in marks,onClick={onMark(time,time !in marks)},
-                    enabled=enabled,label={Text(intervalTimeLabel(time,prefs.use24))},modifier=Modifier.testTag("habit-interval-mark-$time")) }
+            if(expanded) BoxWithConstraints(Modifier.fillMaxWidth().testTag("habit-interval-grid")) {
+                val fontScale = androidx.compose.ui.platform.LocalDensity.current.fontScale
+                val minimumCell = (if (prefs.use24) 80.dp else 112.dp) * fontScale
+                val columns = ((maxWidth + 8.dp) / (minimumCell + 8.dp)).toInt().coerceIn(1, 6)
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    times.chunked(columns).forEach { row ->
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            row.forEach { time -> FilterChip(selected=time in marks,onClick={onMark(time,time !in marks)},
+                                enabled=enabled,label={Text(intervalTimeLabel(time,prefs.use24), Modifier.fillMaxWidth(),
+                                    textAlign=androidx.compose.ui.text.style.TextAlign.Center,
+                                    style=MaterialTheme.typography.labelLarge.copy(fontFeatureSettings="tnum"))},
+                                modifier=Modifier.weight(1f).height(48.dp).testTag("habit-interval-mark-$time")) }
+                            repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
+                        }
+                    }
+                }
             }
         }
     }

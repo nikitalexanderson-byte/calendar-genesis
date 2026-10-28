@@ -16,9 +16,9 @@ import androidx.compose.ui.unit.dp
 internal fun SettingsPreferenceCard(title: String, modifier: Modifier = Modifier,
     description: String? = null, eyebrow: String? = null,
     content: @Composable ColumnScope.() -> Unit) {
-    Card(modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xfffff8e9)),
-        border = BorderStroke(1.dp, Color(0x55b28a4a))) {
+    Card(modifier.fillMaxWidth(), shape = AffairsLayout.shape,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             eyebrow?.let { Text(it, style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.primary) }

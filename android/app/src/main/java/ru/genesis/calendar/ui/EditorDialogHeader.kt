@@ -13,14 +13,22 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.unit.dp
 
 @Composable
 internal fun EditorDialogHeader(title: String, closeTag: String, onClose: () -> Unit) {
+    GenesisDialogHeader(closeTag, onClose) { Text(title, style = MaterialTheme.typography.titleLarge) }
+}
+
+/** Editors and confirmations share alignment, heading semantics and the same close target. */
+@Composable
+internal fun GenesisDialogHeader(closeTag: String = "dialog-close", onClose: (() -> Unit)?,
+    title: @Composable () -> Unit) {
     val closeLabel = genesisTranslate("Закрыть")
     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
-        IconButton(onClick = onClose, modifier = Modifier.size(48.dp).testTag(closeTag)
+        Box(Modifier.weight(1f).semantics { heading() }) { title() }
+        if (onClose != null) IconButton(onClick = onClose, modifier = Modifier.size(48.dp).testTag(closeTag)
             .semantics { contentDescription = closeLabel }) {
             GenesisLucideIcon("x", Modifier.size(22.dp))
         }

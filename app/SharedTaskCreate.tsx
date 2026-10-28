@@ -80,11 +80,11 @@ export function SharedTaskCreate({ language, enabledCalendars,
     const timer = window.setTimeout(() => { if (live) setLoadingProjects(true); }, 0);
     void listSharedProjects(spaceId).then((items) => {
       if (!live) return;
-      const writable = items.filter((item) => ["owner", "manager", "member"].includes(item.role));
+      const writable = items.filter((item) => !item.isInbox && ["owner", "manager", "member"].includes(item.role));
       setProjects(writable);
       setProjectId((current) => writable.some((item) => item.id === current) ? current
         : writable.find((item) => item.id === initialProjectId)?.id
-          ?? writable.find((item) => item.isInbox)?.id ?? writable[0]?.id ?? "");
+          ?? writable[0]?.id ?? "");
     }).catch((error: unknown) => { if (live) setMessage(error instanceof Error ? error.message : String(error)); })
       .finally(() => { window.clearTimeout(timer); if (live) setLoadingProjects(false); });
     return () => { live = false; window.clearTimeout(timer); };
@@ -104,7 +104,7 @@ export function SharedTaskCreate({ language, enabledCalendars,
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!snapshot || snapshot.project.id !== projectId || !title.trim() || !statusId || busy || imageReading || approvalRequired && !approverIds.length) return;
+    if (!snapshot || snapshot.project.isInbox || snapshot.project.id !== projectId || !title.trim() || !statusId || busy || imageReading || approvalRequired && !approverIds.length) return;
     setBusy(true); setMessage("");
     try {
       const created = await createSharedTask(snapshot.project.id, {
@@ -145,10 +145,9 @@ export function SharedTaskCreate({ language, enabledCalendars,
         setSpaceId(event.target.value); setProjects([]); setProjectId(""); setSnapshot(null);
       }}>{spaces.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>
       {loadingProjects ? <p role="status">{english ? "Loading projects…" : "Загружаем проекты…"}</p>
-        : projects.length ? <label>{english ? "Project or shared inbox" : "Проект или общий хаос-бокс"}
+        : projects.length ? <label>{english ? "Project" : "Проект"}
         <select value={projectId} onChange={(event) => { setProjectId(event.target.value); setSnapshot(null); }}>
-          {projects.filter(item => item.isInbox).map(item => <option key={item.id} value={item.id}>
-            {english ? "Shared inbox" : "Хаос-бокс пространства"} · {formatTaskCount(item.taskCount ?? 0, language as import("./i18n").Language)}</option>)}
+
           {sharedProjectTree(projects).map(({ project, depth }) => <option key={project.id} value={project.id}>
             {depth ? `${"\u00a0\u00a0".repeat(depth)}↳ ` : ""}{project.title} · {formatTaskCount(project.taskCount ?? 0, language as import("./i18n").Language)}</option>)}</select></label>
         : <p role="status">{english ? "No project in this workspace allows you to add tasks." : "В этом пространстве нет проекта, в который вы можете добавить задачу."}</p>}

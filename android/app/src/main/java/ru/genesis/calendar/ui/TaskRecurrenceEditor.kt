@@ -83,7 +83,7 @@ internal fun TaskRecurrenceEditor(value: RecurrenceConfig, startDate: String, in
     }
     val count = if (value.enabled) dates.size else 1
     Surface(Modifier.fillMaxWidth().testTag("task-recurrence-editor"),
-        shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = AffairsLayout.shape, color = MaterialTheme.colorScheme.surfaceContainerLow,
         border = BorderStroke(1.dp,MaterialTheme.colorScheme.outlineVariant)) {
     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

@@ -121,12 +121,12 @@ internal fun HabitTimerShelf(workspace: LocalHabitWorkspace, owner: String, requ
                         modifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = 48.dp).testTag("habit-timer-start"),
                         contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp)) { Text("Начать", style = MaterialTheme.typography.labelSmall) }
                 }
-                if (mode == "pomodoro") FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(work, { work = it.take(3) }, Modifier.widthIn(min = 120.dp, max = 200.dp), enabled = !busy,
-                        label = { Text("Рабочий интервал, мин") }, supportingText = { MaterialText("1–180") }, isError = !validWork,
+                if (mode == "pomodoro") Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(work, { work = it.take(3) }, Modifier.weight(1f).testTag("habit-timer-work-minutes"), enabled = !busy,
+                        label = { Text("Рабочий интервал, мин", style = MaterialTheme.typography.labelSmall) }, supportingText = { MaterialText("1–180") }, isError = !validWork,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true)
-                    OutlinedTextField(rest, { rest = it.take(3) }, Modifier.widthIn(min = 120.dp, max = 200.dp), enabled = !busy,
-                        label = { Text("Перерыв, мин") }, supportingText = { MaterialText("0–120") }, isError = !validRest,
+                    OutlinedTextField(rest, { rest = it.take(3) }, Modifier.weight(1f).testTag("habit-timer-rest-minutes"), enabled = !busy,
+                        label = { Text("Перерыв, мин", style = MaterialTheme.typography.labelSmall) }, supportingText = { MaterialText("0–120") }, isError = !validRest,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true)
                 }
                 if (ownPending) Text("Уже есть незавершённая сессия. Завершите или отмените её перед новым стартом.")

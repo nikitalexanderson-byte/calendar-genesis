@@ -47,8 +47,16 @@ import androidx.compose.ui.window.DialogProperties
     titleContentColor: Color = AlertDialogDefaults.titleContentColor,
     textContentColor: Color = AlertDialogDefaults.textContentColor,
     tonalElevation: Dp = 0.dp, properties: DialogProperties = DialogProperties()) {
+    val framedTitle: (@Composable () -> Unit)? = title?.let { content ->
+        {
+            GenesisDialogHeader(onClose = if (properties.dismissOnBackPress || properties.dismissOnClickOutside)
+                onDismissRequest else null) {
+                androidx.compose.material3.ProvideTextStyle(MaterialTheme.typography.titleLarge) { content() }
+            }
+        }
+    }
     androidx.compose.material3.AlertDialog(onDismissRequest, confirmButton,
-        modifier.border(1.dp, MaterialTheme.colorScheme.secondary, shape), dismissButton, icon, title, text,
+        modifier.border(1.dp, MaterialTheme.colorScheme.secondary, shape), dismissButton, icon, framedTitle, text,
         shape, containerColor, iconContentColor, titleContentColor, textContentColor, tonalElevation, properties)
 }
 

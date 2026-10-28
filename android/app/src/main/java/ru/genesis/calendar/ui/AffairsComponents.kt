@@ -38,38 +38,41 @@ internal object AffairsLayout {
     val controlShape = RoundedCornerShape(10.dp)
 }
 
+internal val LocalAffairsControlWidth = compositionLocalOf { 48.dp }
+
 /** Warm inbox distinguishes unassigned work without the semantics of an error. */
 @Composable internal fun chaosBoxColor() = if (LocalEveningTheme.current) Color(0xff302b1f) else Color(0xfff0e2bc)
 @Composable internal fun chaosBoxBorder() = if (LocalEveningTheme.current) Color(0xffa58b58) else Color(0xffb99858)
 
-internal enum class AffairsAction { BACK, NEXT, MORE, CLOSE, SEARCH, FILTER, SORT, EXPAND, COLLAPSE, REFRESH, MOVE, MOVE_UP, MOVE_DOWN, ADD, EDIT, SETTINGS, DELETE, REPORT, IMPORT, HISTORY, VIEW, HIDE, MINDMAP, LIST, BOARD, CALENDAR, GANTT, PROJECT, TASK_LIST, UNDO, TEMPLATE, SUBTASK, DECREASE, TASK, AUTOMATION, PAUSE, RESUME, ARCHIVE, RESTORE, TIMER, LINK, CENTER, TEAM }
+internal enum class AffairsAction { BACK, NEXT, MORE, CLOSE, SEARCH, FILTER, SORT, EXPAND, COLLAPSE, REFRESH, MOVE, MOVE_UP, MOVE_DOWN, ADD, EDIT, SETTINGS, DELETE, REPORT, IMPORT, HISTORY, VIEW, HIDE, MINDMAP, LIST, BOARD, CALENDAR, GANTT, PROJECT, TASK_LIST, UNDO, TEMPLATE, SUBTASK, DECREASE, TASK, AUTOMATION, PAUSE, RESUME, ARCHIVE, RESTORE, TIMER, LINK, CENTER, TEAM, CREATE_BOARD, TOOLS }
 
-@Composable internal fun GenesisAccountFooter(status: String) {
-    Text(status, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+@Composable internal fun GenesisAccountFooter(status: String, modifier: Modifier = Modifier) {
+    Text(status, modifier.padding(vertical = 4.dp)
         .testTag("app-account-status"), style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 /** The same 24-unit, rounded line geometry as GenesisVectorIcon. */
 @Composable internal fun AffairsActionIcon(action: AffairsAction, modifier: Modifier = Modifier) {
-    GenesisLucideIcon(action.lucideName(), modifier.size(24.dp))
+    GenesisLucideIcon(action.lucideName(), modifier.size(if (LocalAffairsControlWidth.current < 48.dp) 22.dp else 24.dp))
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable internal fun AffairsIconButton(label: String, action: AffairsAction, onClick: () -> Unit,
     modifier: Modifier = Modifier, enabled: Boolean = true, fillWidth: Boolean = false, selected: Boolean? = null,
-    contentColor: Color = Color.Unspecified) {
+    contentColor: Color = Color.Unspecified, outlined: Boolean = true) {
     val description = genesisTranslate(label)
     TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
         tooltip = { PlainTooltip { Text(label) } }, state = rememberTooltipState()) {
         OutlinedIconButton(onClick = onClick, enabled = enabled, shape = AffairsLayout.controlShape,
+            border = if (outlined) IconButtonDefaults.outlinedIconButtonBorder(enabled) else null,
             colors = if (selected == true) IconButtonDefaults.outlinedIconButtonColors(
                 containerColor = MaterialTheme.colorScheme.secondaryContainer,
                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
                 else if (contentColor != Color.Unspecified) IconButtonDefaults.outlinedIconButtonColors(contentColor = contentColor)
                 else IconButtonDefaults.outlinedIconButtonColors(),
             modifier = modifier.then(if (fillWidth) Modifier.fillMaxWidth().heightIn(min = AffairsLayout.touchTarget)
-                else Modifier.size(AffairsLayout.touchTarget))
+                else Modifier.size(width = LocalAffairsControlWidth.current, height = AffairsLayout.touchTarget))
                 .semantics { contentDescription = description; if (selected != null) this.selected = selected }) { AffairsActionIcon(action) }
     }
 }
@@ -132,7 +135,7 @@ internal enum class AffairsAction { BACK, NEXT, MORE, CLOSE, SEARCH, FILTER, SOR
     label: String, modifier: Modifier = Modifier, labelAsPlaceholder: Boolean = false) {
     val accessibleLabel = genesisTranslate(label)
     OutlinedTextField(value, onChange, label = if (labelAsPlaceholder) null else ({ Text(label) }),
-        placeholder = if (labelAsPlaceholder) ({ Text(label) }) else null, singleLine = true,
+        placeholder = if (labelAsPlaceholder) ({ Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) }) else null, singleLine = true,
         leadingIcon = { AffairsActionIcon(AffairsAction.SEARCH) },
         trailingIcon = if (value.isNotEmpty()) ({
             AffairsIconButton("Очистить поиск", AffairsAction.CLOSE, { onChange("") })

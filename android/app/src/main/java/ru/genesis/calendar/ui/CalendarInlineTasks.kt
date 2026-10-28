@@ -29,7 +29,7 @@ internal fun calendarModeLabel(mode: CalendarMode): String = when(mode) {
     Column(Modifier.fillMaxWidth().testTag("calendar-inline-tasks"), verticalArrangement=Arrangement.spacedBy(10.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Surface(Modifier.size(44.dp),shape=RoundedCornerShape(14.dp),
+            Surface(Modifier.size(44.dp),shape=AffairsLayout.shape,
                 color=if(LocalEveningTheme.current) MaterialTheme.colorScheme.secondaryContainer else Color(0xff123b36)) {
                 Box(contentAlignment=Alignment.Center) {
                     GenesisVectorIcon(GenesisPageIcon.TASKS,Modifier.size(28.dp),
@@ -48,7 +48,7 @@ internal fun calendarModeLabel(mode: CalendarMode): String = when(mode) {
         }
         if(tasks.isEmpty()) Text("На этот день задач нет.",style=MaterialTheme.typography.bodySmall)
         tasks.forEach { task ->
-            Surface(Modifier.fillMaxWidth(),shape=RoundedCornerShape(14.dp),
+            Surface(Modifier.fillMaxWidth(),shape=AffairsLayout.shape,
                 color=if(task.done) completedTaskSurface else MaterialTheme.colorScheme.surfaceContainerLowest,
                 border=BorderStroke(1.dp,MaterialTheme.colorScheme.outlineVariant)) {
                 Column(Modifier.padding(8.dp)) {

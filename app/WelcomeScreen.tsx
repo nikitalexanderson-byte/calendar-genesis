@@ -94,7 +94,7 @@ export function WelcomeScreen({ nativeAndroidApkUrl, busy, error, language, onLa
       <header className="welcome-nav">
         <a className="welcome-brand" href="/" aria-label={copy.home}>
           <span className="solar-mark"><i /></span>
-          <span><strong>GENESIS</strong><small>{copy.tagline}</small></span>
+          <span><strong data-no-translate>Genesis Tasker</strong><small>{copy.tagline}</small></span>
         </a>
         <nav aria-label={copy.legalNav}>
           <a href="/privacy">{copy.privacy}</a>
@@ -106,7 +106,7 @@ export function WelcomeScreen({ nativeAndroidApkUrl, busy, error, language, onLa
       <section className="welcome-grid">
         <div className="welcome-copy">
           <span className="welcome-kicker">{copy.kicker}</span>
-          <h1><span>GENESIS</span><em data-no-translate>{WELCOME_TITLES[language] ?? copy.title}</em></h1>
+          <h1><span data-no-translate>Genesis Tasker</span><em data-no-translate>{WELCOME_TITLES[language] ?? copy.title}</em></h1>
           <p className="welcome-purpose">{copy.purpose}</p>
           <section className="google-data-purpose" aria-labelledby="google-purpose-title">
             <h2 id="google-purpose-title">{copy.googlePurposeTitle}</h2>

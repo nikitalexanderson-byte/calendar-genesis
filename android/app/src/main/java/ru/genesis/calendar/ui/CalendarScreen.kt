@@ -443,10 +443,10 @@ private fun GregorianMonthHero(date: LocalDate, zone: ZoneId, locale: Locale) {
         Box(Modifier.fillMaxWidth()) {
             Box(Modifier.matchParentSize()) {
                 OriginalImage(gregorianMonthArtPath(date.monthValue - 1, zone), null,
-                    Modifier.width(88.dp).fillMaxHeight().testTag("gregorian-month-art"), darkThemeBrightness = .82f)
+                    Modifier.width(120.dp).fillMaxHeight().testTag("gregorian-month-art"), darkThemeBrightness = .82f)
             }
-            Row(Modifier.fillMaxWidth().heightIn(min = 96.dp), verticalAlignment = Alignment.CenterVertically) {
-            Spacer(Modifier.width(88.dp))
+            Row(Modifier.fillMaxWidth().heightIn(min = 190.dp), verticalAlignment = Alignment.CenterVertically) {
+            Spacer(Modifier.width(120.dp))
             Column(Modifier.weight(1f).padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(date.month.getDisplayName(TextStyle.FULL_STANDALONE, locale)
                     .replaceFirstChar { it.titlecase(locale) }, Modifier.testTag("gregorian-month-name"),
@@ -1333,7 +1333,7 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
                             Modifier.matchParentSize().alpha(if (apeiron) .76f else if (LocalEveningTheme.current) .78f else .39f)
                                 .testTag("$prefix-season-art-$seasonKey"), darkThemeBrightness = .82f)
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Box(Modifier.fillMaxWidth().height(92.dp).background(
+                            Box(Modifier.fillMaxWidth().height(56.dp).background(
                                 Brush.verticalGradient(listOf(
                                     headerTone.copy(alpha = .97f),
                                     headerTone.copy(alpha = .80f),
@@ -1500,13 +1500,15 @@ private fun CalendarYearMonthCard(calendar: GenesisCalendar, start: LocalDate, m
                             .clip(AffairsLayout.controlShape).testTag("gregorian-year-art-$start"), darkThemeBrightness = .82f)
                 }
                 Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.Center) {
+                    if (mode == CalendarMode.PROFANE) Text(start.monthValue.toString(), color = gold,
+                        style = type.labelSmall, modifier = Modifier.testTag("gregorian-year-month-number-${start.monthValue}"))
                     if (mode != CalendarMode.PROFANE) Text(label(if (mode == CalendarMode.SACRED) sacredIndex else ordinal - 1),
                         color = gold, style = type.labelSmall)
                     Text(name, color = mainInk, style = type.titleLarge)
                     if (title.isNotBlank()) Text(title, color = detailInk, style = type.bodySmall)
                     if (mode != CalendarMode.PROFANE) Text(yearTileRange(range, locale), color = mainInk, style = type.labelMedium,
                         modifier = Modifier.testTag(if (mode == CalendarMode.LUNAR) "lunar-year-range-$ordinal" else "sacred-year-range-$sacredIndex"))
-                    Text(if (english) "${range.dates().size} days" else "${range.dates().size} дней",
+                    if (mode != CalendarMode.SACRED) Text(if (english) "${range.dates().size} days" else "${range.dates().size} дней",
                         Modifier.padding(top = 6.dp).testTag("calendar-year-days-$ordinal"), color = detailInk, style = type.labelSmall)
                 }
                 Column(Modifier.width(23.dp).testTag("calendar-year-counts-$ordinal"),

@@ -28,6 +28,11 @@ import java.util.concurrent.ConcurrentHashMap
 val LocalGenesisLanguage = compositionLocalOf { "ru" }
 
 private val nativeCopy = mapOf(
+    "Ранее сохранённые задачи" to "Previously saved tasks",
+    "Нажмите полосу и потяните её края. Двойное нажатие открывает задачу. Удерживайте карточку для переноса. Шаг времени — 15 минут." to "Tap a bar and drag its edges. Double-tap to open the task. Hold a card to move it. Times snap to 15 minutes.",
+    "Аккаунт Genesis." to "Genesis account.",
+    "Защищенная локальная копия." to "Protected local copy.",
+    "Синхронизированно." to "Synced.",
     "Создать план сна" to "Create sleep plan",
     "Выберите план сна" to "Choose sleep plan",
     "Удалить сохранённый цикл?" to "Delete saved cycle?",

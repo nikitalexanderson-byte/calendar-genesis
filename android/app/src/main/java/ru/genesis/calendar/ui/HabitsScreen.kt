@@ -223,7 +223,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
         else -> "Привычки"
     }
     val subtitle = when (area) {
-        "catalogue" -> null
+        "catalogue", "history" -> null
         "today", "library" -> GenesisCalendar().formatDate(today, displayCalendarMode)
         else -> "Привычки"
     }
@@ -453,7 +453,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                                 Triple("Серия","${current.progress.currentStreak} дн.","🔥"),
                                 Triple("Лавры",current.progress.laurelsBalance.toString(),"🌿"),
                             ).forEach { (label, value, icon) ->
-                                Surface(Modifier.weight(1f), shape = RoundedCornerShape(12.dp),
+                                Surface(Modifier.weight(1f), shape = AffairsLayout.shape,
                                     color = Color(0xff143b39)) {
                                     Column(Modifier.padding(9.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                                         Text(icon,style=MaterialTheme.typography.titleMedium)
@@ -486,7 +486,8 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                 onComplete={ habit,checked -> scope.launch { runAction {
                     recordCompletion(habit.id,checked,null,current.settings.feedback)
                 } } },
-                onToggle={ habit -> scope.launch { runAction { repository.save(habit.copy(active=!habit.active)) } } })
+                onToggle={ habit -> scope.launch { runAction { repository.save(habit.copy(active=!habit.active)) } } },
+                onDelete = { deleteCandidate = it })
 
             }
         }

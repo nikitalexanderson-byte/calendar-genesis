@@ -106,7 +106,7 @@ internal class SharedTaskListReader(private val gateway: SharedWorkspaceGateway)
 
 /** The month uses aggregate counts from the same predicates, not an unfiltered snapshot. */
 @Composable internal fun rememberSharedTaskCalendarCounts(gateway: SharedWorkspaceGateway, filter: JSONObject,
-    metadata: String, mode: ru.genesis.calendar.domain.CalendarMode, anchor: java.time.LocalDate, active: Boolean): JSONObject {
+    metadata: String, mode: ru.genesis.calendar.domain.CalendarMode, anchor: java.time.LocalDate, active: Boolean): SharedTaskListReader {
     val reader = rememberSharedTaskListReader(gateway)
     val range = ru.genesis.calendar.domain.GenesisCalendar().monthRange(anchor, mode)
     val month = JSONObject(filter.toString()).apply {
@@ -114,5 +114,5 @@ internal class SharedTaskListReader(private val gateway: SharedWorkspaceGateway)
         put("dueFrom", range.start.toString()); put("dueTo", range.end.toString())
     }
     ObserveSharedTaskList(reader, month, "position", metadata, active, active) {}
-    return if (active) reader.pageState.value?.optJSONObject("dateCounts") ?: JSONObject() else JSONObject()
+    return reader
 }

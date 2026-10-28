@@ -25,6 +25,9 @@ internal class SharedTaskListContext(val project: String, val query: SharedTaskF
     var catalog = SharedTaskFieldCatalog(emptyList(), false, ""); private set
     var sort = "position"; private set
     var valid = true; private set
+    var calendarReader: SharedTaskListReader? = null
+    val calendarTasks: List<JSONObject> get() = calendarReader?.pageState?.value?.optJSONArray("tasks")?.let { rows ->
+        (0 until rows.length()).map(rows::getJSONObject) }.orEmpty()
     private var calendarCountsJson by mutableStateOf("{}")
     var calendarCounts: JSONObject
         get() = JSONObject(calendarCountsJson)
@@ -44,8 +47,9 @@ internal class SharedTaskListContext(val project: String, val query: SharedTaskF
 
 @Composable internal fun ObserveSharedTaskListContext(context: SharedTaskListContext, gateway: ru.genesis.calendar.auth.SharedWorkspaceGateway,
     filter: JSONObject, active: Boolean, ready: Boolean, view: String, mode: CalendarMode, anchor: java.time.LocalDate, onLost: () -> Unit) {
-    context.calendarCounts = rememberSharedTaskCalendarCounts(gateway, filter, context.catalog.identity, mode, anchor,
+    context.calendarReader = rememberSharedTaskCalendarCounts(gateway, filter, context.catalog.identity, mode, anchor,
         active && ready && context.valid && view == "calendar" && context.project.isNotBlank())
+    context.calendarCounts = context.calendarReader?.pageState?.value?.optJSONObject("dateCounts") ?: JSONObject()
     ObserveSharedTaskList(context.reader, filter, context.sort, context.catalog.identity, active,
         context.valid && ready && context.project.isNotBlank(), onLost)
 }

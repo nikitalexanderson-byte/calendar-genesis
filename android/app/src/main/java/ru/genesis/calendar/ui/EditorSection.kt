@@ -16,7 +16,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 internal fun EditorSection(title: String, modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit) {
-    Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
+    Surface(modifier.fillMaxWidth(), shape = AffairsLayout.shape,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
