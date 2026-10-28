@@ -179,7 +179,7 @@ try {
             $publicRoot = dirname(__DIR__);
             $rawRelease = @file_get_contents($publicRoot . '/android-update.json');
             $release = $rawRelease === false ? null : json_decode($rawRelease, true);
-            $notice = genesisAndroidSupportNotice($language,
+            $notice = genesisAndroidUpdateNotice($language,
                 (string)($_SERVER['HTTP_X_GENESIS_APP_VERSION'] ?? ''), is_array($release) ? $release : null);
             if ($notice !== null && is_file($publicRoot . '/downloads/GENESIS-Android-Native-' . $release['versionName'] . '.apk'))
                 array_unshift($ads, $notice);
