@@ -184,3 +184,44 @@ function genesisAndroidSupportNotice(string $language, string $installedVersion,
         'repeatHours' => 1,
     ];
 }
+
+/** Announce only a published newer APK, independently of the support policy.
+ * Installed clients identify their version; the same ad disappears after upgrading.
+ * New clients keep this notice visible instead of applying commercial ad frequency.
+ */
+function genesisAndroidUpdateNotice(string $language, string $installedVersion, ?array $release): ?array
+{
+    $published = $release['versionName'] ?? null;
+    $code = $release['versionCode'] ?? null;
+    if (!is_string($published) || !is_int($code) || $code < 1
+        || !preg_match('/\A[0-9]+(?:\.[0-9]+){1,3}\z/', $published)
+        || !preg_match('/\A[0-9]+(?:\.[0-9]+){1,3}\z/', $installedVersion)
+        || !version_compare($installedVersion, $published, '<')) return null;
+    $copy = [
+        'ru' => ['Доступна новая версия', 'Скачайте обновление: улучшенный интерфейс и исправления. Установите поверх приложения, чтобы сохранить данные.'],
+        'en' => ['A new version is available', 'Download the update for interface improvements and fixes. Install over the existing app to keep your data.'],
+        'el' => ['Διατίθεται νέα έκδοση', 'Κατεβάστε την ενημέρωση με βελτιώσεις και διορθώσεις. Εγκαταστήστε την πάνω από την υπάρχουσα εφαρμογή για να διατηρήσετε τα δεδομένα σας.'],
+        'de' => ['Eine neue Version ist verfügbar', 'Laden Sie das Update mit Verbesserungen und Fehlerbehebungen herunter. Installieren Sie es über die bestehende App, um Ihre Daten zu behalten.'],
+        'fr' => ['Une nouvelle version est disponible', 'Téléchargez la mise à jour avec ses améliorations et correctifs. Installez-la sur l’application existante pour conserver vos données.'],
+        'es' => ['Hay una nueva versión disponible', 'Descarga la actualización con mejoras y correcciones. Instálala sobre la aplicación existente para conservar tus datos.'],
+        'it' => ['È disponibile una nuova versione', 'Scarica l’aggiornamento con miglioramenti e correzioni. Installalo sull’app esistente per conservare i tuoi dati.'],
+        'pt' => ['Está disponível uma nova versão', 'Transfira a atualização com melhorias e correções. Instale sobre a aplicação existente para manter os seus dados.'],
+        'pl' => ['Dostępna jest nowa wersja', 'Pobierz aktualizację z ulepszeniami i poprawkami. Zainstaluj ją na istniejącej aplikacji, aby zachować dane.'],
+        'sr' => ['Доступна је нова верзија', 'Преузмите ажурирање са побољшањима и исправкама. Инсталирајте преко постојеће апликације да сачувате податке.'],
+        'uk' => ['Доступна нова версія', 'Завантажте оновлення з покращеннями та виправленнями. Встановіть поверх наявного застосунку, щоб зберегти дані.'],
+        'zh' => ['新版本已发布', '下载更新，获取界面改进和问题修复。请覆盖安装现有应用以保留数据。'],
+        'tr' => ['Yeni bir sürüm mevcut', 'Arayüz iyileştirmeleri ve düzeltmeler için güncellemeyi indirin. Verilerinizi korumak için mevcut uygulamanın üzerine yükleyin.'],
+        'ja' => ['新しいバージョンがあります', '画面の改善と不具合修正を含む更新をダウンロードしてください。データを保持するため、既存のアプリに上書きインストールしてください。'],
+    ];
+    [$title, $description] = $copy[$language] ?? $copy['en'];
+    return [
+        'id' => 'android-update-' . $code,
+        'kind' => 'android-update',
+        'targetVersionCode' => $code,
+        'title' => $title . ' · ' . $published,
+        'description' => $description,
+        'imageUrl' => 'https://genesiscalendar.com/genesis-hero.png',
+        'linkUrl' => 'https://genesiscalendar.com/api/android/download',
+        'repeatHours' => 0,
+    ];
+}
