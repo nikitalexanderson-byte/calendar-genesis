@@ -1,0 +1,9 @@
+# BEGIN GENESIS DOMAIN REDIRECT
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteCond %{HTTP_HOST} ^(?:www\.)?genesiscalendar\.ru(?::[0-9]+)?$ [NC]
+RewriteRule ^\.well-known/acme-challenge/ - [END]
+RewriteCond %{HTTP_HOST} ^(?:www\.)?genesiscalendar\.ru(?::[0-9]+)?$ [NC]
+RewriteRule ^ genesiscalendar-redirect/index.php [END]
+</IfModule>
+# END GENESIS DOMAIN REDIRECT
