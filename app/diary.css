@@ -75,7 +75,7 @@ html[data-genesis-theme] .genesis-app .diary-note footer button { display:grid; 
 .diary-archive-heading { margin:24px 0; }
 .diary-archive-heading h2 { margin:0; font:400 26px/1.25 var(--font-heading); }
 .diary-archive-heading p { margin-top:8px; color:var(--ink-soft); }
-.diary-editor { box-sizing:border-box; width:min(660px,calc(100vw - 24px)); max-height:calc(100dvh - 32px); padding:24px; overflow:auto; color:var(--ink); background:var(--surface); font-family:var(--font-ui); }
+.diary-editor { box-sizing:border-box; width:min(660px,100%); max-height:calc(100dvh - 40px); padding:24px; overflow:auto; color:var(--ink); background:var(--surface); font-family:var(--font-ui); }
 .diary-editor > header { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:20px; }
 .diary-editor h2 { margin:0; font:400 28px/1.2 var(--font-heading); color:var(--ink); }
 .diary-editor > :is(header,[data-dialog-header-wrapper],[data-dialog-header-host]) { position:static !important; top:auto; }
