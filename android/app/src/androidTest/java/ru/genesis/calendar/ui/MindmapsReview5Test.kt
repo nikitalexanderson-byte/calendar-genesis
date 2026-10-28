@@ -82,8 +82,8 @@ class MindmapsReview5Test {
             capture("search-query")
             val field=compose.onNodeWithTag("mindmaps-search").fetchSemanticsNode().boundsInRoot
             val close=compose.onNodeWithTag("mindmaps-search-close").fetchSemanticsNode().boundsInRoot
-            assertEquals("Search and close heights: $field / $close",field.height,close.height,1f)
-            assertEquals("Search and close top: $field / $close",field.top,close.top,1f)
+            assertEquals("Search and close centers: $field / $close",field.center.y,close.center.y,1f)
+            assertTrue(field.right <= close.left)
             compose.onNodeWithTag("mindmaps-search").performTextReplacement("")
             compose.onNodeWithTag("mindmaps-search-close").performClick()
             compose.onNodeWithTag("mindmaps-actions").performClick();compose.onNodeWithTag("mindmaps-archive").performClick()

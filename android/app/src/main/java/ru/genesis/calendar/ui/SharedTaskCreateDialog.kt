@@ -62,10 +62,9 @@ internal fun SharedTaskCreateDialog(controller: AuthController, language: String
         try {
             val rows = controller.sharedProjects(spaceId).getJSONArray("projects")
             projects = (0 until rows.length()).map(rows::getJSONObject).filter {
-                it.optString("role") in setOf("owner", "manager", "member")
+                it.optInt("isInbox") == 0 && it.optString("role") in setOf("owner", "manager", "member")
             }
-            projectId = projects.firstOrNull { it.optInt("isInbox") == 1 }?.optString("id")
-                ?: projects.firstOrNull()?.optString("id").orEmpty()
+            projectId = projects.firstOrNull()?.optString("id").orEmpty()
         } catch (error: CancellationException) { throw error }
         catch (error: Exception) { message = error.message ?: if (en) "Could not load projects." else "Не удалось загрузить проекты." }
     }
@@ -86,7 +85,7 @@ internal fun SharedTaskCreateDialog(controller: AuthController, language: String
     val validDate = dueDate.isBlank() || runCatching { LocalDate.parse(dueDate) }.isSuccess
     Dialog(onDismissRequest = { if (!busy) onDismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.fillMaxWidth().widthIn(max = 700.dp).padding(12.dp),
-            shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp)) {
+            shape = AffairsLayout.shape) {
             Column(Modifier.padding(16.dp).imePadding()) {
                 EditorDialogHeader(if (en) "New task" else "Новая задача", "close-shared-task-editor") {
                     if (!busy) onDismiss()
@@ -100,8 +99,8 @@ internal fun SharedTaskCreateDialog(controller: AuthController, language: String
                     }
                     if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
                     else if (spaces.isEmpty()) Text(if (en)
-                        "There is no shared workspace whose inbox can receive a task. Create a workspace in Shared projects."
-                        else "Нет общего пространства, в хаос-бокс которого можно отправить задачу. Создайте пространство в общих проектах.")
+                        "Create a workspace, then invite people and add a project."
+                        else "Создайте пространство, затем добавьте проект и пригласите участников.")
                     else {
                         Text(if (en) "Workspace" else "Пространство", style = MaterialTheme.typography.titleSmall)
                         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -111,9 +110,9 @@ internal fun SharedTaskCreateDialog(controller: AuthController, language: String
                         if (projects.isEmpty()) Text(if (en) "No project in this workspace allows you to add tasks."
                             else "В этом пространстве нет проекта, в который вы можете добавить задачу.")
                         else {
-                            Text(if (en) "Project or shared inbox" else "Проект или хаос-бокс", style = MaterialTheme.typography.titleSmall)
+                            Text(if (en) "Project" else "Проект", style = MaterialTheme.typography.titleSmall)
                             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                projects.sortedByDescending { it.optInt("isInbox") }.forEach { item ->
+                                projects.forEach { item ->
                                     FilterChip(selected = projectId == item.optString("id"),
                                         onClick = { projectId = item.optString("id") },
                                         label = { Text(if (item.optInt("isInbox") == 1)
@@ -185,6 +184,7 @@ internal fun SharedTaskCreateDialog(controller: AuthController, language: String
                         title.trim().isNotBlank() && validDate,
                         modifier = Modifier.testTag("save-shared-task"), onClick = {
                             val destination = projectId
+                            if (projects.none { it.optString("id") == destination && it.optInt("isInbox") == 0 }) return@Button
                             val fields = JSONObject().put("title", title.trim()).put("description", description.trim())
                                 .put("statusId", statusId).put("dueDate", if (dueDate.isBlank()) JSONObject.NULL else dueDate)
                                 .put("categoryId", if (categoryId.isBlank()) JSONObject.NULL else categoryId)

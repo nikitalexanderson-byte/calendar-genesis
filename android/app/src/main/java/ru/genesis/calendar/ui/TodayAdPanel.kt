@@ -45,17 +45,25 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import org.json.JSONObject
 import ru.genesis.calendar.auth.AuthController
+import ru.genesis.calendar.BuildConfig
 import java.net.HttpURLConnection
 import java.net.URL
 import java.io.ByteArrayOutputStream
 import java.util.Locale
 
-private data class NativeAd(val id: String, val title: String, val description: String,
-    val imageUrl: String, val linkUrl: String, val repeatHours: Int) {
+internal data class NativeAd(val id: String, val title: String, val description: String,
+    val imageUrl: String, val linkUrl: String, val repeatHours: Int, val targetVersionCode: Int? = null) {
+    val isUpdate: Boolean get() = targetVersionCode != null
+    fun canShow(installedVersionCode: Int, dismissed: Boolean, lastShown: Long, now: Long): Boolean =
+        targetVersionCode?.let { it > installedVersionCode }
+            ?: (!dismissed && (lastShown == 0L || now - lastShown >= repeatHours * 3_600_000L))
+    fun destination(playDistribution: Boolean): String = if (isUpdate && playDistribution)
+        "https://play.google.com/store/apps/details?id=ru.genesis.calendar" else linkUrl
     companion object {
         fun fromJson(value: JSONObject) = NativeAd(value.getString("id"), value.getString("title"),
             value.getString("description"), value.getString("imageUrl"),
-            value.getString("linkUrl"), value.getInt("repeatHours"))
+            value.getString("linkUrl"), value.getInt("repeatHours"),
+            value.optInt("targetVersionCode").takeIf { value.optString("kind") == "android-update" && it > 0 })
     }
 }
 
@@ -138,13 +146,14 @@ internal fun TodayAdPanel(controller: AuthController, userId: String?, language:
             val response = controller.todayAds(language, country)
             val array = response.getJSONArray("ads")
             (0 until array.length()).map { NativeAd.fromJson(array.getJSONObject(it)) }
+                .filter { it.targetVersionCode == null || it.targetVersionCode > BuildConfig.VERSION_CODE }
         }.getOrDefault(emptyList())
     }
     var dismissed by remember(userId, language) { mutableStateOf(false) }
     val ad = remember(candidates, userId, language, dismissed) {
-        if (dismissed || userId == null) null else candidates.firstOrNull { candidate ->
+        if (userId == null) null else candidates.firstOrNull { candidate ->
             val last = prefs.getLong("$userId:${candidate.id}", 0L)
-            last == 0L || System.currentTimeMillis() - last >= candidate.repeatHours * 3_600_000L
+            candidate.canShow(BuildConfig.VERSION_CODE, dismissed, last, System.currentTimeMillis())
         }
     }
     if (ad == null) return
@@ -173,7 +182,7 @@ internal fun TodayAdPanel(controller: AuthController, userId: String?, language:
         }
     }
     LaunchedEffect(visible, resumed, ad.id) {
-        while (visible && resumed && viewedSeconds < 60) { delay(1_000); viewedSeconds++ }
+        while (!ad.isUpdate && visible && resumed && viewedSeconds < 60) { delay(1_000); viewedSeconds++ }
     }
     Card(Modifier.fillMaxWidth().testTag("today-ad-card")
         .onGloballyPositioned { coordinates ->
@@ -192,11 +201,11 @@ internal fun TodayAdPanel(controller: AuthController, userId: String?, language:
                 androidx.compose.material3.Text(ad.title, style = MaterialTheme.typography.titleLarge)
                 androidx.compose.material3.Text(ad.description, style = MaterialTheme.typography.bodyMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(ad.linkUrl))
+                    Button(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(ad.destination(BuildConfig.PLAY_DISTRIBUTION)))
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }, modifier = Modifier.weight(1f)) {
                         androidx.compose.material3.Text(copy.open)
                     }
-                    OutlinedButton(onClick = { dismissed = true }, enabled = viewedSeconds >= 60,
+                    if (!ad.isUpdate) OutlinedButton(onClick = { dismissed = true }, enabled = viewedSeconds >= 60,
                         modifier = Modifier.weight(1f).testTag("today-ad-close")) {
                         androidx.compose.material3.Text(if (viewedSeconds >= 60) copy.close
                             else "${copy.wait} ${60 - viewedSeconds} ${copy.unit}")

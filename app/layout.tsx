@@ -22,19 +22,19 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     metadataBase: new URL(origin),
     title: {
-      default: "GENESIS",
-      template: "%s · GENESIS",
+      default: "Genesis Tasker",
+      template: "%s · Genesis Tasker",
     },
     description:
       "GENESIS — календарь задач и менеджер проектов с планом дня, напоминаниями и необязательной синхронизацией Google Calendar и Google Tasks.",
-    applicationName: "GENESIS",
+    applicationName: "Genesis Tasker",
     manifest: "/manifest.webmanifest",
     category: "productivity",
-    keywords: ["календарь", "планировщик", "эллинизм", "лунный календарь", "GENESIS"],
+    keywords: ["календарь", "планировщик", "эллинизм", "лунный календарь", "Genesis Tasker"],
     appleWebApp: {
       capable: true,
       statusBarStyle: "black-translucent",
-      title: "GENESIS",
+      title: "Genesis Tasker",
     },
     icons: {
       icon: [
@@ -44,7 +44,7 @@ export async function generateMetadata(): Promise<Metadata> {
       apple: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
     },
     openGraph: {
-      title: "GENESIS",
+      title: "Genesis Tasker",
       description: "Календарь задач и менеджер проектов с синхронизацией Google Calendar и Google Tasks.",
       type: "website",
       url: origin,
@@ -52,7 +52,7 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     twitter: {
       card: "summary_large_image",
-      title: "GENESIS",
+      title: "Genesis Tasker",
       description: "Календарь задач и менеджер проектов с синхронизацией Google Calendar и Google Tasks.",
       images: [`${origin}/og.png`],
     },

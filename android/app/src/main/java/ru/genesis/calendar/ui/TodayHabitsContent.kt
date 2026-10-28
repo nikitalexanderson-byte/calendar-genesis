@@ -102,7 +102,7 @@ internal fun TodayHabitsContent(app: GenesisApplication, date: LocalDate,
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (showTopDivider) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp),verticalAlignment=Alignment.CenterVertically) {
-            Surface(Modifier.size(44.dp),shape=RoundedCornerShape(14.dp),color=if(LocalEveningTheme.current)
+            Surface(Modifier.size(44.dp),shape=AffairsLayout.shape,color=if(LocalEveningTheme.current)
                 MaterialTheme.colorScheme.secondaryContainer else Color(0xff123b36)) {
                 Box(contentAlignment=Alignment.Center) {
                     GenesisVectorIcon(GenesisPageIcon.HABITS,Modifier.size(28.dp),if(LocalEveningTheme.current)
@@ -128,7 +128,7 @@ internal fun TodayHabitsContent(app: GenesisApplication, date: LocalDate,
         scheduled.forEach { habit ->
             val entry = entries[habit.id]
             Surface(Modifier.fillMaxWidth().testTag("today-habit-${habit.id}"),
-                shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                shape = AffairsLayout.shape, color = MaterialTheme.colorScheme.surfaceContainerLowest,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,

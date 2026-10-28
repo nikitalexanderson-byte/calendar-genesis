@@ -86,20 +86,20 @@ const CYRILLIC = /[А-Яа-яЁё]/;
 const TRANSLATABLE_ATTRIBUTES = ["aria-label", "placeholder", "title", "alt", "data-tooltip"] as const;
 const ENGLISH_DESCRIPTION = "GENESIS is a task calendar and project manager with daily planning, reminders, and optional Google Calendar and Google Tasks synchronization.";
 const PAGE_TITLES: Record<Language, string> = {
-  ru: "GENESIS — календарь задач и менеджер проектов",
-  en: "GENESIS — Task Calendar and Project Manager",
-  el: "GENESIS — Ημερολόγιο εργασιών και διαχείριση έργων",
-  de: "GENESIS — Aufgabenkalender und Projektverwaltung",
-  fr: "GENESIS — Calendrier des tâches et gestion de projets",
-  es: "GENESIS — Calendario de tareas y gestión de proyectos",
-  it: "GENESIS — Calendario delle attività e gestione progetti",
-  pt: "GENESIS — Calendário de tarefas e gestão de projetos",
-  pl: "GENESIS — Kalendarz zadań i zarządzanie projektami",
-  sr: "GENESIS — Календар задатака и управљање пројектима",
-  uk: "GENESIS — Календар завдань і керування проєктами",
-  zh: "GENESIS — 任务日历与项目管理",
-  tr: "GENESIS — Görev Takvimi ve Proje Yönetimi",
-  ja: "GENESIS — タスクカレンダーとプロジェクト管理",
+  ru: "Genesis Tasker — календарь задач и менеджер проектов",
+  en: "Genesis Tasker — Task Calendar and Project Manager",
+  el: "Genesis Tasker — Ημερολόγιο εργασιών και διαχείριση έργων",
+  de: "Genesis Tasker — Aufgabenkalender und Projektverwaltung",
+  fr: "Genesis Tasker — Calendrier des tâches et gestion de projets",
+  es: "Genesis Tasker — Calendario de tareas y gestión de proyectos",
+  it: "Genesis Tasker — Calendario delle attività e gestione progetti",
+  pt: "Genesis Tasker — Calendário de tarefas e gestão de projetos",
+  pl: "Genesis Tasker — Kalendarz zadań i zarządzanie projektami",
+  sr: "Genesis Tasker — Календар задатака и управљање пројектима",
+  uk: "Genesis Tasker — Календар завдань і керування проєктами",
+  zh: "Genesis Tasker — 任务日历与项目管理",
+  tr: "Genesis Tasker — Görev Takvimi ve Proje Yönetimi",
+  ja: "Genesis Tasker — タスクカレンダーとプロジェクト管理",
 };
 const APP_BASE = (process.env.NEXT_PUBLIC_GENESIS_BASE_PATH?.trim() || "").replace(/\/$/, "");
 

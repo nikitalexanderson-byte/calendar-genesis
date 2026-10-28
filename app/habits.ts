@@ -1425,6 +1425,11 @@ export function createHabitFromTemplate(
   };
 }
 
+/** Every non-deleted reading cycle is an additional card, even when several use the same practice. */
+export function additionalSacredHabits(habits: readonly Habit[], sectorId: string): Habit[] {
+  return habits.filter(habit => habit.stoicheionRestoration?.sectorId === sectorId && habitLifecycleState(habit).status !== "deleted");
+}
+
 /** Reading cycles remain separate from the two standard practices in each sacred sector. */
 export function findStandardSacredHabit(habits: readonly Habit[], practiceId: string): Habit | undefined {
   return habits.find(habit => habit.sacredPracticeId === practiceId && !habit.stoicheionRestoration);

@@ -32,7 +32,7 @@ internal fun SacredHabitsBlock(workspace: LocalHabitWorkspace, today: LocalDate,
     disabled: Boolean, requestedOpen: Boolean, onRequestedOpenConsumed: () -> Unit,
     experimental: Boolean = false,
     onStart: (TheokyklosPractice) -> Unit, onEdit: (Habit) -> Unit,
-    onComplete: (Habit,Boolean) -> Unit, onToggle: (Habit) -> Unit) {
+    onComplete: (Habit,Boolean) -> Unit, onToggle: (Habit) -> Unit, onDelete: (Habit) -> Unit = {}) {
     val context=LocalContext.current
     val english=LocalGenesisLanguage.current=="en"
     val catalog=remember(context,english) {
@@ -167,6 +167,9 @@ internal fun SacredHabitsBlock(workspace: LocalHabitWorkspace, today: LocalDate,
                                         TextButton(onClick={selectedId=null;onEdit(habit)},enabled=!disabled) {
                                             Text(if(english)"Edit" else "Изменить")
                                         }
+                                        if (habit.stoicheionRestoration != null) AffairsIconButton("Удалить привычку", AffairsAction.DELETE,
+                                            { selectedId = null; onDelete(habit) }, Modifier.testTag("sacred-restoration-delete-${habit.id}"),
+                                            enabled = !disabled, contentColor = MaterialTheme.colorScheme.error, outlined = false)
                                         if(habit.active) {
                                             TextButton(onClick={onComplete(habit,entry?.completed!=true)},
                                                 enabled=!disabled&&scheduled) {

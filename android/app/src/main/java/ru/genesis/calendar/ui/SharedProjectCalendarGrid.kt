@@ -1,6 +1,11 @@
 package ru.genesis.calendar.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.semantics.*
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -19,10 +24,13 @@ import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.Locale
 
-/** Shared tasks use the same cells, date arithmetic and artwork as the main calendar. */
+/** Project planning retains calendar-specific date arithmetic, with task cards as the primary cell content. */
 @Composable internal fun SharedProjectCalendarGrid(calendar: GenesisCalendar, anchor: LocalDate, mode: CalendarMode,
     selected: LocalDate, sundayFirst: Boolean, counts: JSONObject, onChoose: (LocalDate) -> Unit,
-    dropBounds: MutableMap<String, Rect>, draggingAt: Offset?) {
+    dropBounds: MutableMap<String, Rect>, draggingAt: Offset?, tasks: List<JSONObject> = emptyList(),
+    onTask: (JSONObject) -> Unit = {}, canEdit: Boolean = false,
+    onTaskDragStart: (JSONObject, Offset) -> Unit = { _, _ -> }, onTaskDragMove: (Offset) -> Unit = {},
+    onTaskDragEnd: () -> Unit = {}, onTaskDragCancel: () -> Unit = {}) {
     val range = remember(anchor, mode) { calendar.monthRange(anchor, mode) }
     val dates = when (mode) {
         CalendarMode.PROFANE -> gregorianGridDates(range, sundayFirst)
@@ -48,24 +56,35 @@ import java.util.Locale
                 if (mode == CalendarMode.LUNAR && row % 2 == 0) Text(
                     listOf("Декада Роста", "Декада Полноты", "Декада Исхода")[(row / 2).coerceAtMost(2)],
                     style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 4.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                     week.forEach { date ->
                         val adjacent = date !in range.start..range.end
                         val bounds = dropBounds[date.toString()]
                         val hovered = !adjacent && draggingAt != null && bounds?.contains(draggingAt) == true
-                        val cell = Modifier.weight(1f).height(84.dp).onGloballyPositioned {
-                            if (!adjacent) dropBounds[date.toString()] = it.boundsInWindow()
+                        val day = when (mode) {
+                            CalendarMode.SACRED -> calendar.sacredDate(date).day
+                            CalendarMode.LUNAR -> calendar.lunarDate(date).day
+                            else -> date.dayOfMonth
                         }
-                        if (mode == CalendarMode.LUNAR) LunarCalendarDay(calendar, date, selected == date || hovered, onChoose,
-                            cell, 0, adjacent, .42f, onChoose, null)
-                        else {
-                            val sacred = calendar.sacredDate(date)
-                            CalendarDay(calendar, date, if (mode == CalendarMode.SACRED) sacred.day else date.dayOfMonth,
-                                if (mode == CalendarMode.SACRED) listOf("I", "II", "III", "IIII", "V")[(sacred.day - 1) % 5] else null,
-                                calendar.formatDate(date, mode), selected == date || hovered, onChoose, cell,
-                                calendar.moonInfo(date), if (mode == CalendarMode.SACRED) "${date.dayOfMonth}.${date.monthValue}" else null,
-                                0, null, patron = if (mode == CalendarMode.PROFANE) weekdayPatronMark(date) else null,
-                                adjacent = adjacent, onTaskBadgeClick = onChoose)
+                        val dayTasks = tasks.filter { it.optString("dueDate") == date.toString() }
+                        Surface(onClick = { onChoose(date) },
+                            modifier = Modifier.weight(1f).heightIn(min = 156.dp).fillMaxHeight()
+                                .onGloballyPositioned { if (!adjacent) dropBounds[date.toString()] = it.boundsInWindow() }
+                                .testTag("shared-calendar-day-$date").semantics {
+                                    contentDescription = calendar.formatDate(date, mode)
+                                    this.selected = selected == date
+                                }, shape = AffairsLayout.shape,
+                            color = if (selected == date || hovered) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                            border = BorderStroke(if (hovered) 2.dp else 1.dp, if (hovered || selected == date) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)) {
+                            Column(Modifier.padding(3.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Text(day.toString(), style = MaterialTheme.typography.labelLarge,
+                                    color = if (adjacent) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
+                                dayTasks.take(2).forEach { task ->
+                                    SharedCalendarTaskChip(task, canEdit, { onTask(task) }, onTaskDragStart, onTaskDragMove, onTaskDragEnd, onTaskDragCancel)
+                                }
+                                val remaining = (counts.optInt(date.toString()) - dayTasks.take(2).size).coerceAtLeast(0)
+                                if (remaining > 0) Text("+$remaining", Modifier.fillMaxWidth(), style = MaterialTheme.typography.labelSmall)
+                            }
                         }
                     }
                     repeat(columns - week.size) { Spacer(Modifier.weight(1f)) }
@@ -74,5 +93,22 @@ import java.util.Locale
         }
         }
     }
+    }
+}
+
+
+@Composable private fun SharedCalendarTaskChip(task: JSONObject, editable: Boolean, onOpen: () -> Unit,
+    onStart: (JSONObject, Offset) -> Unit, onMove: (Offset) -> Unit, onEnd: () -> Unit, onCancel: () -> Unit) {
+    var topLeft by remember { mutableStateOf(Offset.Zero) }
+    Surface(onClick = onOpen, shape = AffairsLayout.controlShape, color = MaterialTheme.colorScheme.secondaryContainer,
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("shared-calendar-task-${task.optString("id")}")
+            .onGloballyPositioned { topLeft = it.boundsInWindow().topLeft }
+            .pointerInput(task.optString("id"), task.optInt("revision"), editable) {
+                if (editable && !task.optBoolean("pending")) detectDragGesturesAfterLongPress(
+                    onDragStart = { onStart(task, topLeft + it) }, onDrag = { change, delta -> change.consume(); onMove(delta) },
+                    onDragEnd = onEnd, onDragCancel = onCancel)
+            }) {
+        androidx.compose.material3.Text(task.optString("title"), Modifier.padding(3.dp),
+            style = MaterialTheme.typography.labelSmall, maxLines = 3, overflow = TextOverflow.Ellipsis)
     }
 }

@@ -241,7 +241,7 @@ test("new restoration habits default to one completion in the divination's two-d
     assert.equal(ordinary.practiceGoal.requiredCompletions, 1);
     assert.equal(ordinary.schedule.endDate, "2026-10-23");
     assert.equal(cycleHabits.isEligibleRestorationHabit(ordinary), false, "A finite practice cannot be reused as an ordinary recurring host");
-    const recurring = {...habit,stoicheionRestoration:null,practiceGoal:null};
+    const recurring = {...habit,stoicheionRestoration:null,practiceGoal:null,sacredPracticeId:null,sacredSectorId:null};
     assert.equal(cycleHabits.isEligibleRestorationHabit(recurring), true);
     assert.equal(cycleHabits.isEligibleRestorationHabit({...recurring,active:false}), false);
   }

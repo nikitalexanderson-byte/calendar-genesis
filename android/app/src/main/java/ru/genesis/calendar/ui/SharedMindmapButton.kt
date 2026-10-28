@@ -25,7 +25,7 @@ import androidx.compose.ui.unit.dp
         FilledIconButton(onClick, interactionSource = interaction, shape = AffairsLayout.controlShape,
             colors = IconButtonDefaults.filledIconButtonColors(containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary),
-            modifier = Modifier.size(48.dp).scale(scale).testTag("shared-mindmaps-open")
+            modifier = Modifier.size(width = LocalAffairsControlWidth.current, height = 48.dp).scale(scale).testTag("shared-mindmaps-open")
                 .semantics { contentDescription = label }) { AffairsActionIcon(AffairsAction.MINDMAP) }
     }
 }

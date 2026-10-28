@@ -103,7 +103,7 @@ internal fun StoicheionRestorationScreen(source: RestorationSource?, letters: Li
                                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                                     Text(catalog.sectors.getValue(snapshot.sectorId).title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
                                     AffairsIconButton("Удалить цикл", AffairsAction.DELETE, { deleteCycle = habit },
-                                        Modifier.testTag("restoration-delete-cycle-${habit.id}"), enabled = !busy, contentColor = MaterialTheme.colorScheme.error)
+                                        Modifier.testTag("restoration-delete-cycle-${habit.id}"), enabled = !busy, contentColor = MaterialTheme.colorScheme.error, outlined = false)
                                 }
                                 Text("${snapshot.sourceDate} · ${letters.first { it.id == snapshot.letterId }.name}")
                                 Text("${habit.emoji} ${habit.title}", style = MaterialTheme.typography.bodySmall)

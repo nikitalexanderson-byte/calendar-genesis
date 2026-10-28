@@ -89,7 +89,7 @@ fun AuthorTimePicker(value: String, use24: Boolean, onChange: (String) -> Unit) 
     OutlinedButton(onClick = { open = true }) { Text(if (value.isEmpty()) "Выбрать время" else timeLabel(value, use24)) }
     if (!open) return
     Dialog(onDismissRequest = { open = false }) {
-        Surface(shape = RoundedCornerShape(20.dp)) {
+        Surface(shape = AffairsLayout.shape) {
             Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("Часы · Минуты", style = MaterialTheme.typography.titleMedium)
                 val parsed = runCatching { LocalTime.parse(value) }.getOrDefault(LocalTime.MIDNIGHT)
@@ -179,7 +179,7 @@ fun timeLabel(value: String, use24: Boolean): String {
 @Composable
 fun AuthorDatePicker(value: String, mode: CalendarMode, minDate: LocalDate? = null,
     calculationContext: ru.genesis.calendar.domain.CalendarContext? = null, maxDate: LocalDate? = null, enabled: Boolean = true,
-    placeholder: String? = null, modifier: Modifier = Modifier, onChange: (String) -> Unit) {
+    placeholder: String? = null, modifier: Modifier = Modifier, displayMode: CalendarMode = mode, onChange: (String) -> Unit) {
     val mode = if (LocalSacredFeaturesEnabled.current) mode else CalendarMode.PROFANE
     var open by rememberSaveable { mutableStateOf(false) }
     val context = calculationContext ?: ru.genesis.calendar.domain.CalendarContext()
@@ -188,12 +188,12 @@ fun AuthorDatePicker(value: String, mode: CalendarMode, minDate: LocalDate? = nu
     val firstDate = LocalDate.of(1900, 1, 1)
     val lastDate = minOf(LocalDate.of(2100, 12, 31), maxDate ?: LocalDate.of(2100, 12, 31))
     OutlinedButton(onClick = { open=true }, enabled = enabled, modifier = modifier) {
-        Text(if (value.isBlank() && placeholder != null) placeholder else runCatching { calendar.formatDate(date,mode) }.getOrDefault(value))
+        Text(if (value.isBlank() && placeholder != null) placeholder else runCatching { calendar.formatDate(date, if (LocalSacredFeaturesEnabled.current) displayMode else CalendarMode.PROFANE) }.getOrDefault(value))
     }
     if (!open || !enabled) return
     var shown by remember { mutableStateOf(date.coerceIn(firstDate, lastDate)) }
     Dialog(onDismissRequest={open=false}) {
-        Surface(shape=RoundedCornerShape(20.dp)) {
+        Surface(shape=AffairsLayout.shape) {
             Column(Modifier.padding(12.dp).verticalScroll(rememberScrollState())) {
                 val range = calendar.monthRange(shown,mode)
                 Text(when(mode){CalendarMode.SACRED->"Выберите день круга";CalendarMode.LUNAR->"Выберите лунный день";else->"Выберите дату"},

@@ -84,7 +84,7 @@ internal fun SolarPlaceSettings() {
             "Choose a city for accurate times in its local time zone."),
         MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.testTag("solar-place-settings")) {
         if (selected != null) {
-            Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
+            Card(Modifier.fillMaxWidth(), shape = AffairsLayout.shape,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                 Row(Modifier.fillMaxWidth().padding(14.dp),
@@ -132,7 +132,7 @@ internal fun SolarPlaceSettings() {
             modifier = Modifier.testTag("solar-place-error")) }
         if (results.isNotEmpty()) {
             Card(Modifier.fillMaxWidth().testTag("solar-place-suggestions"),
-                shape = RoundedCornerShape(16.dp),
+                shape = AffairsLayout.shape,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                 results.forEachIndexed { index, place ->

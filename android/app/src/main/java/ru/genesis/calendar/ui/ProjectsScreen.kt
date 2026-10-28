@@ -153,7 +153,8 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
     menuSwipeState: MenuSwipeState? = null, voiceRequest: NativeVoiceAction? = null,
     onVoiceRequestConsumed: () -> Unit = {},
     sharedController: AuthController? = null, sharedAccount: AccountSettings? = null,
-    onMindmaps: (String?)->Unit = {}, initialProjectId:String?=null,onInitialProjectConsumed:()->Unit={}) {
+    onMindmaps: (String?)->Unit = {}, initialProjectId:String?=null,onInitialProjectConsumed:()->Unit={},
+    onCreateEntry: (String?, String) -> Unit = { project, _ -> onCreateTask(project) }) {
     val repo = remember(app) { WorkspaceStructureRepository(app) }
     val loadedStructure by produceState<WorkspaceStructure?>(null, repo) {
         repo.workspace.collect { value = it }
@@ -360,15 +361,23 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
                         WorkspaceHeaderButton(genesisTranslate("Создать или открыть"), "personal-actions",
                             onClick = { createActionsOpen = true }) { GenesisLucideIcon("plus") }
                         DropdownMenu(createActionsOpen, { createActionsOpen = false }) {
-                            DropdownMenuItem(text = { Text("Создать задачу") }, onClick = {
-                                createActionsOpen = false; onCreateTask(null)
-                            }, modifier = Modifier.testTag("personal-create-task"))
-                            DropdownMenuItem(text = { Text("Создать список") }, onClick = {
-                                createActionsOpen = false; onCreateList()
-                            }, modifier = Modifier.testTag("personal-create-list"))
-                            DropdownMenuItem(text = { Text("Создать проект") }, onClick = {
-                                createActionsOpen = false; creating = true; editing = null; error = null
-                            }, modifier = Modifier.testTag("create-project"))
+                            val order = if (structure.projects.isEmpty()) listOf("project", "task", "list", "event", "meeting")
+                                else listOf("task", "list", "event", "meeting", "project")
+                            order.forEach { kind ->
+                                val label = when (kind) { "project" -> "Создать проект"; "list" -> "Создать список"
+                                    "event" -> "Создать событие"; "meeting" -> "Создать встречу"; else -> "Создать задачу" }
+                                DropdownMenuItem(text = { Text(label) },
+                                    leadingIcon = { GenesisLucideIcon(when (kind) { "project" -> "folder-plus"; "list" -> "list-checks"
+                                        "event" -> "calendar-days"; "meeting" -> "users-round"; else -> "plus" }) },
+                                    onClick = { createActionsOpen = false
+                                        when (kind) {
+                                            "project" -> { creating = true; editing = null; error = null }
+                                            "list" -> onCreateList()
+                                            "task" -> onCreateTask(null)
+                                            else -> onCreateEntry(null, kind)
+                                        }
+                                    }, modifier = Modifier.testTag(if (kind == "project") "create-project" else "personal-create-$kind"))
+                            }
                             HorizontalDivider()
                             DropdownMenuItem(text = { Text(if (inboxLayout.hidden) "Показать хаос-бокс" else "Скрыть хаос-бокс") },
                                 leadingIcon = { AffairsActionIcon(if (inboxLayout.hidden) AffairsAction.VIEW else AffairsAction.HIDE) },
@@ -596,15 +605,13 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
             modifier = Modifier.testTag("project-move-announcement")) } }
     }
     WorkspaceSearchDock(searchQuery, { searchQuery = it }, "Поиск задач", "personal-task-search",
-        Modifier.align(Alignment.BottomCenter)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TaskListSortChoice(taskSort, setTaskSort, Modifier.weight(1f), compact = true)
+        Modifier.align(Alignment.BottomCenter), below = {
+            if (categoryFiltersOpen || categoriesExpanded) categoriesContent()
+        }) {
+            TaskListSortChoice(taskSort, setTaskSort, Modifier, compact = true, iconOnly = true)
             AffairsIconButton("Категории жизни", AffairsAction.FILTER,
                 { categoryFiltersOpen = !categoryFiltersOpen }, Modifier.testTag("personal-category-filters"),
                 selected = categoryFiltersOpen || selectedCategory != null)
-        }
-        if (categoryFiltersOpen || categoriesExpanded) categoriesContent()
     }
     pickup?.let { held ->
         ProjectDropOverlay(held, structure.projects, experimental, workspaceBounds, dropBounds)
@@ -780,7 +787,7 @@ private fun TaskDestinationMenu(task: LocalTask, projects: List<GenesisProject>,
     var query by remember(task.id) { mutableStateOf("") }
     val taskActionsLabel = genesisTranslate("Действия с задачей") + ": " + task.title
     Box {
-        AffairsIconButton(taskActionsLabel, AffairsAction.MORE, { actionsOpen = true }, contentColor = tint)
+        AffairsIconButton(taskActionsLabel, AffairsAction.MORE, { actionsOpen = true }, contentColor = tint, outlined = false)
         DropdownMenu(actionsOpen, { actionsOpen = false }) {
             DropdownMenuItem(text = { Text("Переместить задачу") }, leadingIcon = { AffairsActionIcon(AffairsAction.MOVE) },
                 modifier = Modifier.testTag("move-task-${task.id}"),
@@ -973,7 +980,7 @@ private fun ProjectEditor(structure: WorkspaceStructure, existing: GenesisProjec
     Dialog(onDismissRequest = onDismiss,
         properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.fillMaxWidth().widthIn(max = 720.dp).padding(12.dp),
-            shape = RoundedCornerShape(20.dp)) {
+            shape = AffairsLayout.shape) {
             Column(Modifier.fillMaxWidth().padding(16.dp).imePadding()) {
                 EditorDialogHeader(if (existing == null) "Новый проект" else "Изменить проект",
                     "close-project-editor", onDismiss)

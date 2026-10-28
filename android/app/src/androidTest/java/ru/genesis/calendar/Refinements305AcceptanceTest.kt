@@ -81,7 +81,8 @@ class Refinements305AcceptanceTest {
         compose.onNodeWithTag("daily-advice-body").assertTextEquals(body)
         val bounds = compose.onNodeWithTag("today-daily-advice").fetchSemanticsNode().boundsInRoot
         val art = compose.onNodeWithTag("daily-advice-art", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
-        assertEquals(bounds.width * .4f, art.left - bounds.left, 2f)
+        assertEquals(bounds.left, art.left, 2f)
+        assertEquals(bounds.width, art.width, 2f)
         compose.onNodeWithTag("daily-advice-favorite").performScrollTo().assertHeightIsAtLeast(48.dp).performClick()
         assertEquals("favorite", liked)
         capture("advice")

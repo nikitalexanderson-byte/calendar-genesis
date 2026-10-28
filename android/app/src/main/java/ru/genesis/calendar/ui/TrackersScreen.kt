@@ -73,14 +73,19 @@ fun TrackersScreen(app: GenesisApplication, experimental: Boolean = false) {
     val availablePlans = current?.sleepPlans.orEmpty()
     var planChoiceOpen by remember { mutableStateOf(false) }
     fun openSleepPlan() {
-        if (availablePlans.isEmpty()) planEditor = SleepPlan(TrackerEntity.create("sleep-plan"), dailySleepSchedule(date, prefs.input))
+        val availablePlans = workspace?.sleepPlans.orEmpty()
+        if (workspace == null || busy || storageError) return
+        if (availablePlans.isEmpty()) planEditor = SleepPlan(TrackerEntity.create("sleep-plan"), dailySleepSchedule(date, inputMode))
         else if (availablePlans.size == 1) planEditor = availablePlans.first()
         else planChoiceOpen = true
     }
     val planLabel = if (availablePlans.isEmpty()) "Создать план сна" else "Изменить план сна"
     val headerInShell = WorkspaceScreenHeader("Сон и настроение", actions = {
-        WorkspaceHeaderButton(genesisTranslate(planLabel), "sleep-plan-header", enabled = current != null && !busy && !storageError,
-            onClick = { openSleepPlan() }) { GenesisLucideIcon(if (availablePlans.isEmpty()) "plus" else "pencil") }
+        // Read the live state in the hosted action; a captured initial null workspace left this button disabled.
+        val headerPlans = workspace?.sleepPlans.orEmpty()
+        WorkspaceHeaderButton(genesisTranslate(if (headerPlans.isEmpty()) "Создать план сна" else "Изменить план сна"),
+            "sleep-plan-header", enabled = workspace != null && !busy && !storageError,
+            onClick = { openSleepPlan() }) { GenesisLucideIcon(if (headerPlans.isEmpty()) "plus" else "pencil") }
     })
     if (planChoiceOpen) AlertDialog(onDismissRequest = { planChoiceOpen = false }, title = { Text("Выберите план сна") },
         text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -200,7 +205,8 @@ fun TrackersScreen(app: GenesisApplication, experimental: Boolean = false) {
                     }
                 }
             }
-            if(current.sleepPlans.isEmpty()) Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp),
+            if(current.sleepPlans.isEmpty()) Surface(onClick = { openSleepPlan() },
+                enabled = !busy && !storageError, modifier = Modifier.fillMaxWidth().testTag("sleep-plan-empty"), shape = RoundedCornerShape(10.dp),
                 color = MaterialTheme.colorScheme.surfaceContainerLow, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                 Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically) {
@@ -449,14 +455,16 @@ private fun SleepPlanEditor(plan: SleepPlan,use24: Boolean,busy: Boolean,error: 
                     enabled=!busy&&rules.size<20) { Text("＋ Добавить правило") }
             }
             error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
-            Row {
-                TextButton(onClick=onDismiss,enabled=!busy) { Text("Отмена") }
-                Button(enabled=!busy&&title.isNotBlank()&&bed.isNotBlank()&&wake.isNotBlank()&&runCatching { ZoneId.of(zone) }.isSuccess,onClick={
+            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick=onDismiss,enabled=!busy,
+                    modifier=Modifier.weight(1f).fillMaxHeight().testTag("sleep-plan-cancel")) { Text("Отмена") }
+                Button(modifier=Modifier.weight(1f).fillMaxHeight().testTag("sleep-plan-save"),
+                    enabled=!busy&&title.isNotBlank()&&bed.isNotBlank()&&wake.isNotBlank()&&runCatching { ZoneId.of(zone) }.isSuccess,onClick={
                     onSave(plan.copy(title=title.trim(),targetBedtime=LocalTime.parse(bed),targetWakeTime=LocalTime.parse(wake),
                         schedule=schedule.copy(timezone=zone),active=active,qualityEnabled=qualityEnabled,
                         scoringEnabled=scoringEnabled,rules=rules,reminderEnabled=reminderEnabled,
                         reminderMinutesBefore=reminderMinutesBefore))
-                }) { Text("Сохранить план") }
+                }) { Text("Сохранить") }
             }
         }
     } }

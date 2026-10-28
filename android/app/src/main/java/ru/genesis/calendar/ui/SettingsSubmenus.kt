@@ -71,7 +71,7 @@ internal fun SettingsSubmenu(selectedId: String, language: String, showLabels: B
     BoxWithConstraints(Modifier.fillMaxWidth()
         .then(if (outlined) Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
             .then(navigationSubmenuGroupAnchor())
-            .border(1.dp, outlineColor, RoundedCornerShape(19.dp))
+            .border(1.dp, outlineColor, AffairsLayout.shape)
             .padding(horizontal = 5.dp, vertical = 4.dp) else Modifier)
         .testTag("settings-submenu")) {
         if (!showLabels) {
@@ -105,7 +105,7 @@ private fun SettingsSubmenuButton(item: SettingsSectionDestination, picked: Bool
     language: String, showLabels: Boolean, onSelect: (String) -> Unit,
     modifier: Modifier = Modifier) {
     val localizedTitle = genesisTranslate(item.title(language))
-    Surface(onClick = { onSelect(item.id) }, shape = RoundedCornerShape(15.dp),
+    Surface(onClick = { onSelect(item.id) }, shape = AffairsLayout.shape,
         color = if (picked) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
         border = BorderStroke(1.dp, if (picked) MaterialTheme.colorScheme.primary
             else MaterialTheme.colorScheme.outlineVariant),

@@ -116,7 +116,10 @@ html[data-genesis-theme] .genesis-app .shared-projects-guide > i {
   html[data-genesis-theme] .genesis-app .app-brand-header > button > img { flex: 0 0 32px; width: 32px; height: 32px; }
   html[data-genesis-theme] .genesis-app .app-brand-header > button > strong { font-size: 22px; letter-spacing: .02em; white-space: nowrap; }
   html[data-genesis-theme] .genesis-app .app-brand-header[data-header-stacked] > button { flex-direction: column; gap: 1px; width: 44px; min-width: 44px; }
-  html[data-genesis-theme] .genesis-app .app-brand-header[data-header-stacked] > button > strong { font-size: 10px; }
+  html[data-genesis-theme] .genesis-app .app-brand-header[data-header-stacked] > button > strong {
+    max-width: 44px; font-size: 10px; line-height: 1.1; letter-spacing: 0;
+    white-space: normal; text-align: center; text-wrap: balance;
+  }
   html[data-genesis-theme] .genesis-app .app-brand-header > .topbar-calendar-choice {
     display: flex; flex: 0 0 auto; flex-wrap: nowrap; gap: 2px; width: auto; min-width: 0; margin: 0; padding: 3px;
     border: 1px solid var(--line); border-radius: 10px; background: var(--surface);

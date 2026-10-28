@@ -180,7 +180,7 @@ test("provenance compares all nine cards, and saved copies remain independent", 
 test("one existing habit cannot be assigned to two different cards", () => {
   const source=fixture(),before=workspace();
   const initial=commit.materializeRestorationStrategy(source,before,options).habits[0];
-  const habit={...initial,id:crypto.randomUUID(),stoicheionRestoration:undefined,practiceGoal:null};
+  const habit={...initial,id:crypto.randomUUID(),stoicheionRestoration:undefined,practiceGoal:null,sacredPracticeId:null,sacredSectorId:null};
   const [a,b]=model.reversedSectors(source);source.plans[a].linkedHabitId=habit.id;source.plans[b].linkedHabitId=habit.id;
   assert.throws(()=>commit.materializeRestorationStrategy(source,{...before,habits:[habit]},options),/DUPLICATE_HABIT/);
   assert.equal(habit.stoicheionRestoration,undefined);
@@ -211,4 +211,30 @@ test("all 14 languages cover every recommendation, preserve source indexes, and 
       assert.ok(action.length<=1600,`${language}: ${sector.id}/${need}: ${action.length} > 1600`);
     }
   }
+});
+
+
+test("reading practices append beside the standard pair, and deleting one leaves other cycles intact", () => {
+  const habits = calendarModule("app/habits.ts");
+  const lifecycle = calendarModule("app/habit-lifecycle.ts");
+  const factory = calendarModule("app/stoicheion-restoration-habits.ts");
+  const sector = "northwest";
+  const pair = SACRED_PRACTICES.filter(item => item.sectorId === sector).map(item => habits.createHabitFromSacredPractice(item, options.today, "sacred", "ru"));
+  assert.equal(pair.length, 2);
+  const before = {...workspace(), habits: pair};
+  const first = commit.materializeRestorationStrategy(fixture(), before, options);
+  const another = fixture(); another.sourceSeed += 1;
+  const second = commit.materializeRestorationStrategy(another, first, options);
+  for (const standard of pair) {
+    assert.deepEqual(second.habits.find(row => row.id === standard.id), standard);
+    assert.equal(factory.isEligibleRestorationHabit({...standard, practiceGoal: null}), false);
+    assert.equal(habits.findStandardSacredHabit(second.habits, standard.sacredPracticeId).id, standard.id);
+  }
+  const extra = habits.additionalSacredHabits(second.habits, sector);
+  assert.equal(extra.length, 2);
+  assert.notEqual(extra[0].id, extra[1].id);
+  const deleted = lifecycle.applyHabitLifecycleCommand(extra[0], {id:"delete-extra",habitId:extra[0].id,action:"delete",at:options.startedAt,heads:lifecycle.habitLifecycleState(extra[0]).heads.map(row=>row.id)});
+  const after = second.habits.map(row => row.id === deleted.id ? deleted : row);
+  assert.equal(habits.additionalSacredHabits(after,sector).length, 1);
+  assert.equal(habits.findStandardSacredHabit(after,pair[0].sacredPracticeId).id,pair[0].id);
 });

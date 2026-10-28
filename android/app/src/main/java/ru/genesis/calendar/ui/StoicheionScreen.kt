@@ -205,7 +205,7 @@ fun StoicheionScreen(app: GenesisApplication, divinationDisabled: Boolean,
                                                 Text("${loaded.first { it.id == snapshot.letterId }.symbol} · ${restorationCatalog.sectors.getValue(snapshot.sectorId).title}",
                                                     Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
                                                 AffairsIconButton("Удалить цикл", AffairsAction.DELETE, { deleteCycle = habit },
-                                                    Modifier.testTag("stoicheion-delete-cycle-${habit.id}"), contentColor = MaterialTheme.colorScheme.error)
+                                                    Modifier.testTag("stoicheion-delete-cycle-${habit.id}"), contentColor = MaterialTheme.colorScheme.error, outlined = false)
                                             }
                                             Text("${habit.emoji} ${habit.title}", style = MaterialTheme.typography.bodySmall)
                                             Text("${snapshot.sourceDate} · ${restorationCatalog.copy(if (completed == 10) "completed" else "progress")} $completed/10",

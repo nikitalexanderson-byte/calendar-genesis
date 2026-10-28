@@ -190,8 +190,9 @@ class DiaryScreenTest {
         compose.onNodeWithTag("diary-search-open").performClick(); await("diary-search")
         val search = compose.onNodeWithTag("diary-search").fetchSemanticsNode().boundsInRoot
         val closeSearch = compose.onNodeWithTag("diary-search-close").fetchSemanticsNode().boundsInRoot
-        org.junit.Assert.assertEquals("Diary close must match search height", search.height, closeSearch.height, 1f)
-        org.junit.Assert.assertEquals("Diary close must align with search", search.top, closeSearch.top, 1f)
+        org.junit.Assert.assertEquals("Diary search controls share a vertical center", search.center.y, closeSearch.center.y, 1f)
+        assertTrue(search.right <= closeSearch.left)
+        compose.onNodeWithTag("diary-search-close").assertHeightIsAtLeast(48.dp).assertWidthIsAtLeast(48.dp)
         capture("search")
         compose.onNodeWithTag("diary-search").performTextReplacement("нет такой записи")
         compose.onNodeWithTag("diary-note-$id").assertDoesNotExist()

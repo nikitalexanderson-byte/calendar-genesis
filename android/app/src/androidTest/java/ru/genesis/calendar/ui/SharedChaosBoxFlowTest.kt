@@ -96,7 +96,9 @@ class SharedChaosBoxFlowTest {
     private fun click(tag: String, scroll: Boolean = false) {
         await(tag)
         if (scroll) compose.onNodeWithTag(tag).performScrollTo()
-        compose.onNodeWithTag(tag).performClick()
+        if (tag == "shared-legacy-tasks") {
+            compose.onNode(hasClickAction() and hasAnyAncestor(hasTestTag(tag))).performClick()
+        } else compose.onNodeWithTag(tag).performClick()
     }
 
     private fun capture(name: String) {
@@ -114,101 +116,46 @@ class SharedChaosBoxFlowTest {
         compose.onNodeWithTag("affairs-page-header").assertDoesNotExist()
     }
 
-    @Test fun spaceInboxStaysInlineAndTaskBackReturnsToTheSameProjectList() {
+    @Test fun spaceContainsProjectsAndLegacyTasksStayAvailableOnlyUnderDisclosure() {
         val fixture = ChaosFixture()
         open(fixture)
-        compose.onNodeWithTag("workspace-title").assertTextEquals("Общие дела")
         click("shared-space-${fixture.spaceA}")
+        await("shared-project-${fixture.projectA}")
+        compose.onNodeWithTag("shared-inbox-create-task").assertDoesNotExist()
+        compose.onNodeWithTag("shared-project-inbox").assertDoesNotExist()
+        compose.onNodeWithTag("shared-task-root-task").assertDoesNotExist()
+        click("shared-legacy-tasks", scroll = true)
         await("shared-task-root-task")
-        assertPlainInlineInbox()
-        compose.onNodeWithTag("workspace-title").assertTextEquals("Команда Альфа")
-        compose.onNodeWithTag("shared-project-${fixture.projectA}").assertExists()
-        compose.onNodeWithTag("shared-inbox-list-${fixture.spaceList}")
-            .assert(hasAnyAncestor(hasTestTag("shared-project-inbox")))
-        compose.onNodeWithTag("shared-task-root-task")
-            .assert(hasAnyAncestor(hasTestTag("shared-project-inbox")))
-        compose.onNodeWithTag("shared-project-${fixture.inboxA}").assertDoesNotExist()
-        compose.onNodeWithTag("shared-task-search-open").assertDoesNotExist()
-        compose.onNodeWithTag("shared-view-selector").assertDoesNotExist()
-        capture("space-inbox-inline")
-
+        compose.onNodeWithTag("shared-inbox-list-${fixture.spaceList}").assertExists()
         click("shared-task-root-task", scroll = true)
         await("shared-task-title-input")
-        compose.onNodeWithTag("workspace-title").assertTextEquals("Задача")
         compose.onNodeWithTag("shared-task-title-input").assertTextContains("Мысль без проекта")
-        compose.onNodeWithTag("shared-task-search-open").assertDoesNotExist()
         assertEquals(fixture.inboxA to "root-task", fixture.taskReads.last())
         click("shared-back")
         await("shared-project-${fixture.projectA}")
-        await("shared-task-root-task")
-        compose.onNodeWithTag("workspace-title").assertTextEquals("Команда Альфа")
-        compose.onNodeWithTag("shared-task-title-input").assertDoesNotExist()
-        compose.onNodeWithTag("shared-task-search-open").assertDoesNotExist()
-        assertPlainInlineInbox()
-
-        click("shared-inbox-list-${fixture.spaceList}", scroll = true)
-        await("shared-task-space-list-task")
-        compose.onNodeWithTag("workspace-title").assertTextEquals("Входящий список")
-        click("shared-back")
-        await("shared-project-${fixture.projectA}")
-        assertPlainInlineInbox()
+        compose.onNodeWithTag("shared-inbox-create-task").assertDoesNotExist()
+        capture("space-projects-and-legacy-history")
     }
 
-    @Test fun hideAndPositionBelongToTheirAccountSpaceAndProject() {
+    @Test fun inboxVisibilityRemainsIndependentInsideEachProject() {
         val fixture = ChaosFixture()
         open(fixture)
         click("shared-space-${fixture.spaceA}")
-        await("shared-task-root-task")
-        click("shared-move-inbox", scroll = true)
-        compose.onNodeWithTag("shared-project-inbox").performScrollTo()
-        val inbox = compose.onNodeWithTag("shared-project-inbox").fetchSemanticsNode()
-        val project = compose.onNodeWithTag("shared-project-${fixture.projectA}").fetchSemanticsNode()
-        assertTrue("Moving the inbox down must put it after the project cards",
-            inbox.positionInRoot.y >= project.positionInRoot.y + project.size.height)
-        assertTrue(context.getSharedPreferences("genesis.shared-inbox-layout.v1", 0)
-            .getBoolean("$testAccount:space:${fixture.spaceA}:bottom", false))
-        click("shared-hide-inbox", scroll = true)
-        await("shared-show-inbox")
-        compose.onNodeWithTag("shared-task-root-task").assertDoesNotExist()
-        compose.onNodeWithTag("shared-project-${fixture.projectA}").assertExists()
-
         click("shared-project-${fixture.projectA}", scroll = true)
         await("shared-task-project-a-1")
         assertPlainInlineInbox()
-        compose.onNodeWithTag("shared-list-child-${fixture.projectList}")
-            .assert(hasAnyAncestor(hasTestTag("shared-list-board-todo")))
         click("shared-hide-inbox", scroll = true)
         await("shared-show-inbox")
-        compose.onNodeWithTag("shared-task-project-a-1").assertExists()
         click("shared-back")
-        await("shared-project-${fixture.projectB}")
-        compose.onNodeWithTag("shared-show-inbox").assertExists()
         click("shared-project-${fixture.projectB}", scroll = true)
         await("shared-task-project-b-task")
         assertPlainInlineInbox()
         click("shared-back")
-        await("shared-project-${fixture.projectA}")
         click("shared-project-${fixture.projectA}", scroll = true)
-        await("shared-show-inbox")
-
-        compose.runOnIdle { account = "$testAccount-other" }
-        await("shared-task-project-a-1")
-        assertPlainInlineInbox()
-        compose.runOnIdle { account = testAccount }
         await("shared-show-inbox")
         compose.onNodeWithTag("shared-project-inbox").assertDoesNotExist()
         click("shared-show-inbox", scroll = true)
-        await("shared-task-project-a-1")
-
-        click("shared-back")
-        await("shared-project-${fixture.projectA}")
-        compose.onNodeWithTag("shared-show-inbox").assertExists()
-        click("shared-back")
-        await("shared-space-${fixture.spaceB}")
-        click("shared-space-${fixture.spaceB}")
-        await("shared-task-space-b-task")
-        assertPlainInlineInbox()
-        capture("independent-space-inbox")
+        compose.onNodeWithTag("shared-task-project-a-1").assertExists()
     }
 
     @Test fun projectSearchSortAndFiltersUseAFixedDockAndCorrectQueryPages() {
@@ -245,7 +192,7 @@ class SharedChaosBoxFlowTest {
         await("shared-task-search-close")
         val field = compose.onNodeWithTag("shared-task-search").fetchSemanticsNode().boundsInRoot
         val close = compose.onNodeWithTag("shared-task-search-close").fetchSemanticsNode().boundsInRoot
-        assertTrue("The search field and close button must have equal heights: $field / $close", abs(field.height - close.height) <= 1.5f)
+        assertTrue("Search controls must share a vertical center: $field / $close", abs(field.center.y - close.center.y) <= 1.5f)
         compose.onNodeWithTag("shared-task-search")
             .assert(hasAnyAncestor(hasTestTag("shared-task-search-dock")))
         compose.onNode(hasTestTag("shared-task-search-dock") and hasAnyAncestor(hasTestTag("shared-project-inbox")))
@@ -284,14 +231,10 @@ class SharedChaosBoxFlowTest {
         open(fixture)
         click("shared-space-${fixture.spaceA}")
         val create = compose.onNodeWithTag("shared-create-project").fetchSemanticsNode().boundsInRoot
-        val add = compose.onNodeWithTag("shared-inbox-create-task")
-            .assert(hasAnyAncestor(hasTestTag("shared-space-actions"))).assertHeightIsAtLeast(48.dp)
-            .fetchSemanticsNode().boundsInRoot
-        compose.onNodeWithTag("shared-inbox-create-list").assertDoesNotExist()
+        compose.onNodeWithTag("shared-inbox-create-task").assertDoesNotExist()
         val team = compose.onNodeWithTag("shared-space-team").assertHeightIsAtLeast(48.dp).fetchSemanticsNode().boundsInRoot
         val data = compose.onNodeWithTag("shared-space-data").assertHeightIsAtLeast(48.dp).fetchSemanticsNode().boundsInRoot
-        assertTrue(create.right <= add.left && add.right <= team.left && team.right <= data.left)
-        assertEquals(add.center.y, data.center.y, 1f)
+        assertTrue(create.right <= team.left && team.right <= data.left)
         click("shared-project-${fixture.projectA}", scroll = true)
         for (view in listOf("calendar", "gantt")) {
             click("shared-view-selector")
@@ -311,8 +254,9 @@ class SharedChaosBoxFlowTest {
         val fixture = ChaosFixture(viewer = true)
         open(fixture)
         click("shared-space-${fixture.spaceA}")
+        compose.onNodeWithTag("shared-project-inbox").assertDoesNotExist()
+        click("shared-legacy-tasks", scroll = true)
         await("shared-task-root-task")
-        assertPlainInlineInbox()
         compose.onNodeWithContentDescription("Завершить задачу: Мысль без проекта").assertDoesNotExist()
         compose.onNode(hasContentDescription("Изменить статус") and hasAnyAncestor(hasTestTag("shared-project-inbox")))
             .assertDoesNotExist()
@@ -333,7 +277,39 @@ class SharedChaosBoxFlowTest {
 
     private data class Query(val filter: JSONObject, val cursor: String?, val sort: String)
 
-    private class ChaosFixture(private val viewer: Boolean = false) : SharedWorkspaceGateway {
+    @Test fun toolbarFitsWithoutScrollingAndLongPressDropsOnTheBoardItself() {
+        val fixture = ChaosFixture(allowMove = true)
+        open(fixture)
+        click("shared-space-${fixture.spaceA}")
+        click("shared-project-${fixture.projectA}", scroll = true)
+        await("shared-create-actions")
+        val row = compose.onNodeWithTag("shared-create-actions").fetchSemanticsNode().boundsInRoot
+        val tags = listOf("shared-mindmaps-open", "shared-view-selector", "shared-create-task", "shared-create-board", "shared-work-actions", "shared-team-actions", "shared-actions")
+        val buttons = tags.map { compose.onNodeWithTag(it).fetchSemanticsNode().boundsInRoot }
+        assertEquals(7, buttons.size)
+        buttons.forEach { assertTrue(it.left >= row.left - 1 && it.right <= row.right + 1); assertEquals(buttons.first().width, it.width, 2f) }
+        click("shared-view-selector"); click("shared-view-board")
+        compose.onNodeWithTag("shared-boards").performScrollTo()
+        await("shared-task-project-a-1")
+        val source = compose.onNodeWithTag("shared-task-project-a-1").fetchSemanticsNode().boundsInRoot
+        val target = compose.onNodeWithTag("shared-board-done").fetchSemanticsNode().boundsInRoot
+        // Drop in the visible left edge of the next board, above the detached drop panel.
+        val drop = androidx.compose.ui.geometry.Offset(target.left + 12f, target.top + 70f)
+        compose.onNodeWithTag("shared-task-project-a-1").performTouchInput {
+            down(androidx.compose.ui.geometry.Offset(30f, 30f))
+        }
+        compose.mainClock.advanceTimeBy(800)
+        compose.onNodeWithTag("shared-task-project-a-1").performTouchInput {
+            moveTo(drop - source.topLeft, 400); up()
+        }
+        compose.waitUntil(10_000) { fixture.mutations > 0 }
+        assertEquals("done", fixture.lastMove?.getString("statusId"))
+        assertEquals("project-a-1", fixture.lastMovedTask)
+        assertEquals(1, fixture.lastMove?.getInt("expectedRevision"))
+        capture("board-direct-drop-and-toolbar")
+    }
+
+    private class ChaosFixture(private val viewer: Boolean = false, private val allowMove: Boolean = false) : SharedWorkspaceGateway {
         val spaceA = "chaos-space-a"
         val spaceB = "chaos-space-b"
         val inboxA = "chaos-inbox-a"
@@ -345,6 +321,8 @@ class SharedChaosBoxFlowTest {
         val queries = CopyOnWriteArrayList<Query>()
         val taskReads = CopyOnWriteArrayList<Pair<String, String>>()
         var mutations = 0
+        var lastMove: JSONObject? = null
+        var lastMovedTask = ""
         private val expanded = mutableMapOf<String, List<String>>()
         private val role get() = if (viewer) "viewer" else "owner"
         private val containers get() = listOf(
@@ -433,8 +411,13 @@ class SharedChaosBoxFlowTest {
                 .put("nextCursor", if (next < matching.size) next.toString() else JSONObject.NULL)
         }
         override suspend fun moveSharedTask(projectId: String, taskId: String, changes: JSONObject): JSONObject {
+            check(allowMove && !viewer)
+            val task = tasks.first { it.getString("id") == taskId && it.getString("projectId") == projectId }
+            check(task.getInt("revision") == changes.getInt("expectedRevision"))
+            lastMove = JSONObject(changes.toString()); lastMovedTask = taskId
+            task.put("projectId", changes.getString("destinationProjectId")).put("statusId", changes.getString("statusId")).put("revision", task.getInt("revision") + 1)
             mutations++
-            error("The read-only flow must never mutate a task")
+            return JSONObject().put("task", JSONObject(task.toString()))
         }
     }
 }

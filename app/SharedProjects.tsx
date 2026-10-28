@@ -102,7 +102,7 @@ import { type CalendarMode, MONTHS, LUNAR_DECADES, ELEMENTS, formatCalendarDate,
 import { translateText } from "./i18n";
 import { restoredSharedProject, sharedProjectTree } from "./shared-expansion";
 import { formatTaskCount } from "./task-count-i18n";
-import { InboxToolbar, InboxRestore, InboxResizeBoundary } from "./InboxToolbar";
+import { InboxToolbar, InboxResizeBoundary } from "./InboxToolbar";
 import type { InboxPosition } from "./ui-visibility";
 import { ProjectViewSwitch } from "./ProjectViewSwitch";
 import { defaultProjectView, type ProjectView } from "./project-view-order";
@@ -225,6 +225,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   const [completedPulse, setCompletedPulse] = useState(false);
   const { notice, announce } = useActionNotice();
   const uiSaveQueue = useRef<Promise<unknown>>(Promise.resolve());
+  const [legacyTasksOpen, setLegacyTasksOpen] = useState(false);
   const [inboxPreview, setInboxPreview] = useState<SharedProjectSnapshot | null>(null);
   const [googleSettings, setGoogleSettings] = useState<SharedGoogleSettings | null>(null);
   const [googleBusy, setGoogleBusy] = useState(false);
@@ -329,7 +330,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   const snapshot = useMemo(() => snapshotBase && projectId === snapshotBase.project.id && activeView !== "gantt" ? { ...snapshotBase, tasks: projectPage.page?.tasks ?? [], taskPage: projectPage.page ?? undefined } : snapshotBase, [snapshotBase, projectPage.page, projectId, activeView]);
   const inboxProject = projects.find((project) => project.spaceId === spaceId && Boolean(project.isInbox));
   const inboxProjectId = inboxProject?.id;
-  const inboxPage = useSharedTaskPage(inboxProjectId && !inboxHidden ? {projectIds:[inboxProjectId]} : null,taskSort,activityKey);
+  const inboxPage = useSharedTaskPage(inboxProjectId && legacyTasksOpen ? {projectIds:[inboxProjectId]} : null,taskSort,activityKey);
   const taskProjectId = taskSnapshot?.project.id;
   const selectedTask = taskSnapshot?.tasks.find((task) => task.id === taskId);
   useSharedTaskRead(selectedTask && !selectedTask.pending ? taskProjectId : undefined, selectedTask?.id,
@@ -586,10 +587,11 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   const submitTask = (event: FormEvent) => {
     event.preventDefault();
     if (!newTaskDestination || !newTaskTitle.trim() || newTaskImageReading) return;
-    const destinationProjectId = newTaskDestination.projectId || inboxProject?.id;
+    const destinationProjectId = newTaskDestination.projectId;
     if (!destinationProjectId) return;
     void run(async () => {
       const destination = await loadSharedProject(destinationProjectId);
+      if (destination.project.isInbox) throw new Error(translateText("Выберите проект", language as import("./i18n").Language));
       if (newApprovalRequired && !newApproverIds.length) throw new Error(english ? "Select at least one participant." : "Выберите хотя бы одного участника.");
       const statusId = (newApprovalRequired ? undefined : newTaskDestination.statusId) ?? destination.statuses.find((status) => !status.isDone)?.id ?? destination.statuses[0]?.id;
       if (!statusId) throw new Error(english ? "Reload the workspace to create a task." : "Откройте пространство повторно, чтобы создать задачу.");
@@ -1142,6 +1144,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   }
   const taskDestinationProjects = sharedProjectTree(projects.filter(project => taskDestinationIds.has(project.id)));
   const openCreateTask = (project: SharedProject, status?: SharedStatus, kind: "task" | "task-list" | "meeting" | "event" = "task", chooseProject = false) => {
+    if (project.isInbox) return;
     setNewTaskFiles([]);
     setNewApprovalRequired(false); setNewApproverIds([]);
     setNewEntryType(kind === "meeting" || kind === "event" ? kind : "task");
@@ -1388,16 +1391,15 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
         </div>
       </>}
     </section> : null}
-    {spaceId && inboxHidden ? <InboxRestore english={english} onRestore={() => onInboxHidden(false)} /> : null}
-    <div className="shared-projects-shell" hidden={!spaceId} data-inbox-workspace data-inbox-position={inboxPosition} data-inbox-hidden={inboxHidden}>
-    <aside className="shared-projects-sidebar" hidden={inboxHidden} data-inbox-compact={inboxCompact} id="shared-projects-sidebar" aria-label={english ? "Workspace inbox" : "Хаос-бокс пространства"}>
+    {!projectId && spaceId && (inboxProject?.taskCount ?? 0) > 0 ? <button type="button" className="secondary-button" aria-expanded={legacyTasksOpen}
+      onClick={() => { setLegacyTasksOpen(value => !value); onInboxHidden(false); }}><ExperimentalIcon name="history"/>{translateText("Ранее сохранённые задачи",language as import("./i18n").Language)}</button> : null}
+    <div className="shared-projects-shell" hidden={!spaceId} data-inbox-workspace data-inbox-position={inboxPosition} data-inbox-hidden={!legacyTasksOpen || inboxHidden}>
+    <aside className="shared-projects-sidebar" hidden={!legacyTasksOpen || inboxHidden} data-inbox-compact={inboxCompact} id="shared-projects-sidebar" aria-label={english ? "Workspace inbox" : "Хаос-бокс пространства"}>
       {inboxProject ? <section className="inbox-card shared-projects-inbox-card"
-        data-shared-drop-project={inboxProject.id}
         data-drop-active={dropTarget?.projectId === inboxProject.id && !dropTarget.statusId || undefined}
         aria-label={english ? "Shared inbox" : "Хаос-бокс"}>
-          <InboxToolbar title={english ? "Inbox" : "Хаос-бокс"} scopeLabel={english ? "this workspace" : "этого пространства"} count={inboxPage.page?.total ?? inboxProject.taskCount ?? 0}
-            english={english} position={inboxPosition} compact={inboxCompact} onCompact={onInboxCompact} onPosition={onInboxPosition} onHide={() => onInboxHidden(true)} />
-          <p>{english ? "New tasks start here. Open a task or drag it to a board to organize it." : "Новые задачи появляются здесь. Откройте задачу или перетащите её на доску, чтобы распределить."}</p>
+          <InboxToolbar title={translateText("Ранее сохранённые задачи", language as import("./i18n").Language)} scopeLabel={english ? "this workspace" : "этого пространства"} count={inboxPage.page?.total ?? inboxProject.taskCount ?? 0}
+            english={english} position={inboxPosition} compact={inboxCompact} onCompact={onInboxCompact} onPosition={onInboxPosition} onHide={() => { setLegacyTasksOpen(false); onInboxHidden(true); }} />
         <div className="shared-projects-inbox-items">
           {!visibleInbox ? <p role="status">{english ? "Loading tasks…" : "Загружаем задачи…"}</p>
             : visibleInbox.tasks.length ? visibleInbox.tasks.map((task) => <article key={task.id} data-shared-task-id={task.id} data-unread-comments={task.unreadCommentCount??0} data-task-display={tasksCompact ? "compact" : "detailed"} className={`shared-inbox-task shared-affair-draggable${locatedTaskId === task.id ? " task-location-highlight" : ""}`}
@@ -1413,7 +1415,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       </section> : null}
     </aside>
 
-    {!inboxHidden ? <InboxResizeBoundary position={inboxPosition} width={inboxWidth} onWidth={onInboxWidth} /> : null}
+    {legacyTasksOpen && !inboxHidden ? <InboxResizeBoundary position={inboxPosition} width={inboxWidth} onWidth={onInboxWidth} /> : null}
     <main className="shared-projects-main">
 
     {snapshot && snapshot.project.id === projectId ? <>
@@ -1615,8 +1617,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
         (english ? "Choose or create a project" : "Выберите или создайте проект")}</h2>
       <p>{!spaces.length ? (english ? "Create a workspace, then invite people and add a project." : "Создайте пространство, затем добавьте проект и пригласите участников.") :
         (english ? "Choose a project or create one in the toolbar above." : "Выберите проект или создайте новый в строке сверху.")}</p>
-      {inboxProject && (visibleInbox?.project.permissions?.editTasks ?? ["owner", "manager", "member"].includes(inboxProject.role)) ? <button type="button" className="primary-button"
-        onClick={() => openCreateTask(inboxProject)}><ExperimentalIcon name="plus" />{english ? "Create task" : "Создать задачу"}</button> : null}
+
     </section> : null}
     {!snapshot && spaceId ? projectCategorySection : null}
     {!snapshot && selectedSpace ? <Suspense fallback={null}><SharedSpaceCollaboration key={spaceId} userId={userId} spaceId={spaceId} language={language}/></Suspense> : null}
@@ -1928,7 +1929,6 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
               const contextId = target?.id ?? inboxProject?.id;
               if (contextId) void loadSharedProject(contextId).then(setNewTaskContext).catch(() => undefined);
             }}>
-            <option value="">{english ? "Workspace inbox (no project)" : "Хаос-бокс пространства (без проекта)"}</option>
             {taskDestinationProjects.filter(({ project }) => project.kind !== "task-list" && (project.permissions?.editTasks ?? ["owner", "manager", "member"].includes(project.role)))
               .map(({ project, depth }) => <option value={project.id} key={project.id}>{depth ? `${"\u00a0\u00a0".repeat(depth)}↳ ` : ""}{project.title}</option>)}
           </select></label> : <p className="shared-task-destination">{english ? "Create in" : "Место создания"}: <strong>{newTaskDestination.title}</strong></p>}

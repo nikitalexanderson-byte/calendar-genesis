@@ -108,25 +108,13 @@ internal fun CalendarReferenceDialog(mode: CalendarMode, onDismiss: () -> Unit) 
     }
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(Modifier.fillMaxWidth(.94f).fillMaxHeight(.92f)
+        Surface(Modifier.widthIn(max = AffairsLayout.formMaxWidth).fillMaxWidth(.94f).fillMaxHeight(.92f)
             .testTag("calendar-reference-dialog-${mode.wireValue}"),
-            shape = RoundedCornerShape(24.dp), color = Color(0xff08282a),
-            border = BorderStroke(1.dp, Color(0x88e4bd64))) {
-            LazyColumn(contentPadding = PaddingValues(18.dp),
+            shape = AffairsLayout.shape, color = MaterialTheme.colorScheme.surface) {
+            LazyColumn(contentPadding = PaddingValues(AffairsLayout.gutter),
                 verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 item {
-                    Row(verticalAlignment = Alignment.Top) {
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                            Text(copy("СПРАВОЧНАЯ ИНФОРМАЦИЯ", "REFERENCE"),
-                                style = MaterialTheme.typography.labelMedium, color = Color(0xffe4bd64))
-                            Text(title, Modifier.semantics { heading() },
-                                style = MaterialTheme.typography.headlineSmall, color = Color(0xfff5edda))
-                        }
-                        IconButton(onClick = onDismiss, modifier = Modifier.size(48.dp)
-                            .testTag("calendar-reference-close")) {
-                            Text("×", style = MaterialTheme.typography.headlineSmall, color = Color(0xffe4bd64))
-                        }
-                    }
+                    EditorDialogHeader(title, "calendar-reference-close", onDismiss)
                 }
                 sections.forEach { section ->
                     item { CalendarReferenceSectionCard(section) }
@@ -143,14 +131,14 @@ internal fun CalendarReferenceDialog(mode: CalendarMode, onDismiss: () -> Unit) 
 
 @Composable
 private fun CalendarReferenceSectionCard(section: CalendarReferenceSection) {
-    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = Color(0xff061f21),
-        border = BorderStroke(1.dp, Color(0x445f8a7d))) {
-        Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Surface(Modifier.fillMaxWidth(), shape = AffairsLayout.shape, color = MaterialTheme.colorScheme.surfaceContainerLow,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+        Column(Modifier.padding(AffairsLayout.gutter), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(section.symbol, style = MaterialTheme.typography.headlineSmall)
             Text(section.title, Modifier.semantics { heading() },
-                style = MaterialTheme.typography.titleLarge, color = Color(0xffffdda0))
+                style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
             section.paragraphs.forEach {
-                Text(it, style = MaterialTheme.typography.bodyMedium, color = Color(0xffb8cac4))
+                Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

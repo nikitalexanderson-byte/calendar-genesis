@@ -274,10 +274,10 @@ class MobileRedesignFlowTest {
         compose.onNodeWithTag("drawer-Календарь-year").assertDoesNotExist()
         capture("drawer-always-labels")
         compose.onNodeWithTag("account-refresh").performScrollTo()
-            .assert(hasAnyAncestor(hasTestTag("drawer-version-row")))
+            .assert(hasAnyAncestor(hasTestTag("drawer-account-row")))
         checkTarget("account-refresh")
         compose.onAllNodes(hasTestTag("account-refresh") and hasAnyAncestor(hasTestTag("app-header"))).assertCountEquals(0)
-        capture("drawer-refresh-by-version")
+        capture("drawer-refresh-by-account")
         device.pressBack(); drawerClosed()
         compose.onNodeWithTag("account-refresh").assertIsNotDisplayed()
         compose.onNode(switchTag(CalendarMode.PROFANE), useUnmergedTree = true).performClick()
@@ -474,18 +474,18 @@ class MobileRedesignFlowTest {
         }
         navigate(personalRoute, assertSelection = false)
         compose.onNodeWithTag("personal-task-search-open").performClick()
-        fun equalSearchHeight() {
+        fun alignedSearchControls() {
             val field = compose.onNodeWithTag("personal-task-search").fetchSemanticsNode().boundsInRoot
             val close = compose.onNodeWithTag("personal-task-search-close").fetchSemanticsNode().boundsInRoot
-            assertEquals("Close and search must have equal heights", field.height, close.height, 1f)
-            assertEquals("Close and search must align at top", field.top, close.top, 1f)
+            assertEquals("Close and search must share a vertical center", field.center.y, close.center.y, 1f)
+            assertTrue(field.right <= close.left)
             checkTarget("personal-task-search-close")
         }
-        equalSearchHeight()
+        alignedSearchControls()
         capture("review5-search-empty")
         compose.onNodeWithTag("personal-task-search").performClick()
         compose.onNodeWithTag("personal-task-search").performTextInput("Разобрать")
-        equalSearchHeight()
+        alignedSearchControls()
         capture("review5-search-query")
         if (width <= 390) {
             val keyboardPackage = android.provider.Settings.Secure.getString(app.contentResolver,
@@ -494,13 +494,13 @@ class MobileRedesignFlowTest {
             field.click()
             assertTrue("Search must open the real keyboard", device.wait(
                 androidx.test.uiautomator.Until.hasObject(androidx.test.uiautomator.By.pkg(keyboardPackage)), 10_000))
-            equalSearchHeight()
+            alignedSearchControls()
             capture("review5-search-keyboard")
         }
         compose.onNodeWithTag("personal-task-search-close").performClick()
         compose.onNodeWithTag("personal-task-search-open").performClick()
         compose.onNodeWithTag("personal-task-search").assertTextContains("Разобрать")
-        checks.put("search:equal-height-empty-query-keyboard-close-retains-query")
+        checks.put("search:center-aligned-empty-query-keyboard-close-retains-query")
     }
 
     @Test fun review4WholeTaskAndListDragBetweenInboxProjectsAndSubprojects() {

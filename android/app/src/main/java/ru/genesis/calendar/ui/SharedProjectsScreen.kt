@@ -5,6 +5,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.lazy.items
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.BackHandler
@@ -30,6 +32,7 @@ import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -474,6 +477,26 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     var draggingAt by remember { mutableStateOf<Offset?>(null) }
     var rootPosition by remember { mutableStateOf(Offset.Zero) }
     val dropBounds = remember { mutableStateMapOf<String, Rect>() }
+    val boardScroll = rememberLazyListState()
+    var boardViewport by remember { mutableStateOf(Rect.Zero) }
+    val latestDragPosition by rememberUpdatedState(draggingAt)
+    val boardEdge = with(androidx.compose.ui.platform.LocalDensity.current) { 40.dp.toPx() }
+    LaunchedEffect(draggingTask?.optString("id"), activeView) {
+        if (draggingTask == null || activeView != "board") return@LaunchedEffect
+        while (isActive) {
+            val point = latestDragPosition
+            if (point != null && point.y in boardViewport.top..boardViewport.bottom) {
+                val direction = when {
+                    point.x > boardViewport.right - boardEdge -> 1f
+                    point.x < boardViewport.left + boardEdge -> -1f
+                    else -> 0f
+                }
+                if (direction != 0f) boardScroll.scrollBy(direction * 12f)
+            }
+            kotlinx.coroutines.delay(16)
+        }
+    }
+
     fun moveTaskTo(task: JSONObject, destinationProjectId: String, destinationStatusId: String = "") {
         val sourceProjectId=task.optString("projectId",projectId)
         val sourceSnapshot=if(sourceProjectId==projectId) snapshot else inlineInboxSnapshot
@@ -510,10 +533,11 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     fun finishDrag() {
         val task = draggingTask
         val position = draggingAt
-        val destination = if (position != null) dropBounds.entries.firstOrNull { it.value.contains(position) }?.key else null
+        val destination = if (position != null) dropBounds.entries
+            .filter { it.value.contains(position) }.minByOrNull { it.value.width * it.value.height }?.key else null
         val dateTarget = if (activeView == "calendar" && position != null)
             calendarDropBounds.entries.firstOrNull { it.value.contains(position) }?.key else null
-        draggingTask = null; draggingAt = null; dropBounds.clear()
+        draggingTask = null; draggingAt = null
         if (task != null && dateTarget != null && canEditTask && !task.optBoolean("pending") &&
             task.optString("projectId") == projectId && !sharedTaskHasPending(task.optString("id"), pendingTasks)) run {
             val id = task.getString("id")
@@ -526,7 +550,8 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
             if (changed.optBoolean("pending")) message = "Изменение сохранено на устройстве и синхронизируется после подключения."
         }
         if (task != null && destination != null) {
-            if (destination.startsWith("status:")) moveTaskTo(task, projectId, destination.removePrefix("status:"))
+            if (destination.startsWith("status:") || destination.startsWith("board:"))
+                moveTaskStatus(task, destination.substringAfter(":"))
             if (destination.startsWith("project:")) moveTaskTo(task, destination.removePrefix("project:"))
         }
     }
@@ -1458,11 +1483,6 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                     }
                 }
             } else {
-                val createInboxTask: (() -> Unit)? = if(sharedTaskCanEdit(inlineInboxSnapshot?.optJSONObject("project"))) ({
-                    projectId=inboxId;snapshot=inlineInboxSnapshot;createCustomProjectId=inboxId;newTaskEntryType="task"
-                    newTaskStatusId=inlineInboxSnapshot?.optJSONArray("statuses")?.optJSONObject(0)?.optString("id").orEmpty()
-                    newTaskCategoryId="";newTaskAssigneeId="";createModal="task"
-                }) else null
                 Row(Modifier.fillMaxWidth().testTag("shared-space-actions"),
                     horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (spaceCanCreate) Button(onClick = {
@@ -1472,14 +1492,13 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                     Text("Создать общий проект", style = MaterialTheme.typography.labelLarge)
                 }
                 else Spacer(Modifier.weight(1f))
-                createInboxTask?.let { create -> AffairsIconButton("Создать задачу", AffairsAction.ADD, create,
-                    Modifier.testTag("shared-inbox-create-task"), enabled = !busy) }
                 headerActions(false)
                 }
                 val inboxLists=projects.filter {it.optString("kind")=="task-list"&&it.optString("parentId").let {parent->parent.isBlank()||parent=="null"||parent==inboxId}}
-                val spaceInbox: @Composable ()->Unit = {
-                    if(inboxProject!=null) SharedChaosBox(inlineInboxReader.pageState.value?.optInt("total") ?: inboxProject.optInt("taskCount"),inboxLists.size,
-                        spaceInboxLayout,setSpaceInboxLayout) {
+                val previousTasks: @Composable ()->Unit = {
+                    val oldCount = inlineInboxReader.pageState.value?.optInt("total") ?: inboxProject?.optInt("taskCount") ?: 0
+                    if (inboxProject != null && (oldCount > 0 || inboxLists.isNotEmpty())) AffairsDisclosure("Ранее сохранённые задачи",
+                        Modifier.testTag("shared-legacy-tasks")) {
                         val inboxSnapshot=inlineInboxSnapshot
                         val inboxStatuses=inboxSnapshot?.optJSONArray("statuses")?.rows().orEmpty()
                         val inboxTasks=inlineInboxReader.pageState.value?.optJSONArray("tasks")?.rows().orEmpty()
@@ -1496,14 +1515,14 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                         inboxTasks.forEach {task->
                             SharedTaskCard(task,inboxStatuses,inboxSnapshot?.optJSONObject("project")?.optBoolean("canOrganizeTasks")==true,busy,en,calendarMode,null,null,
                                 onOpen={selectProject(inboxId);taskId=task.getString("id")},onMove={status->moveTaskTo(task,inboxId,status)},
-                                onDragStart={position->draggingTask=task;draggingAt=position;dropBounds.clear()},
+                                onDragStart={position->draggingTask=task;draggingAt=position},
                                 onDragMove={amount->draggingAt=(draggingAt ?: Offset.Zero)+amount},onDragEnd={finishDrag()},
-                                onDragCancel={draggingTask=null;draggingAt=null;dropBounds.clear()},compact=true)
+                                onDragCancel={draggingTask=null;draggingAt=null},compact=true)
                         }
                         if(inlineInboxReader.pageState.value?.optBoolean("hasMore")==true) TextButton(enabled=!inlineInboxReader.busy,onClick={run {inlineInboxReader.more()}}) {Text("Показать ещё")}
                     }
                 }
-                if(!spaceInboxLayout.atBottom) spaceInbox()
+
 
                 if (showArchived) {
                     Text("Архив проектов", style = MaterialTheme.typography.titleMedium)
@@ -1530,15 +1549,22 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                     if (uiReadySpace == spaceId && projects.none { it.optInt("isInbox") == 0 })
                         Text("В этом разделе пока нет проектов.", style = MaterialTheme.typography.bodyMedium)
                 }
-                if(spaceInboxLayout.atBottom) spaceInbox()
+                previousTasks()
                 if (uiReadySpace != spaceId) LinearProgressIndicator(Modifier.fillMaxWidth())
             }
         }
         if (projectId.isNotBlank() && project == null) LinearProgressIndicator(Modifier.fillMaxWidth())
         if (project != null) {
             if (taskId.isBlank() && project.optInt("isInbox")==0) {
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).testTag("shared-create-actions"),
-                    horizontalArrangement = Arrangement.spacedBy(3.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) {
+                BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val buttonCount = 5 + (if (canWrite) 1 else 0) + (if (canEditTask && statuses.isNotEmpty() || canWrite) 1 else 0)
+                val buttonWidth = with(LocalDensity.current) {
+                    kotlin.math.floor(maxWidth.toPx() / buttonCount).toDp()
+                }
+                CompositionLocalProvider(LocalAffairsControlWidth provides buttonWidth,
+                    LocalMinimumInteractiveComponentSize provides 0.dp) {
+                Row(Modifier.fillMaxWidth().testTag("shared-create-actions"),
+                    horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     SharedMindmapButton { taskExtensions.mindmapsOpen = true }
                     SharedWorkspaceViewChoice(activeView, { viewOverride = it }, compact = true)
                     SharedWorkspaceCreateMenu(!busy, canEditTask && statuses.isNotEmpty(), canWrite,
@@ -1548,9 +1574,11 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                         }, onContainer = { kind ->
                             createKind = kind; parentId = projectId; parentBoardId = ""; createModal = "project"
                         })
-                    if (canWrite) AffairsIconButton("Создать доску", AffairsAction.BOARD, { createModal = "status" },
+                    if (canWrite) AffairsIconButton("Создать доску", AffairsAction.CREATE_BOARD, { createModal = "status" },
                         Modifier.testTag("shared-create-board"), enabled = !busy && statuses.size < 30)
                     headerActions(false)
+                }
+                }
                 }
 
                 SharedTaskListQueryStatus(listContext.reader, listContext.valid)
@@ -1624,7 +1652,16 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                     }
                 }
                 SharedProjectCalendarGrid(calendarEngine, calendarAnchor, calendarMode, calendarDay, preferences.weekStartsOnSunday,
-                    listContext.calendarCounts, { calendarDay = it }, calendarDropBounds, draggingAt)
+                    listContext.calendarCounts, { calendarDay = it }, calendarDropBounds, draggingAt,
+                    tasks = listContext.calendarTasks, onTask = { taskId = it.getString("id") }, canEdit = canEditTask && !busy,
+                    onTaskDragStart = { task, point -> draggingTask = task; draggingAt = point },
+                    onTaskDragMove = { draggingAt = draggingAt?.plus(it) }, onTaskDragEnd = { finishDrag() },
+                    onTaskDragCancel = { draggingTask = null; draggingAt = null })
+                listContext.calendarReader?.let { reader ->
+                    if (reader.pageState.value?.optBoolean("hasMore") == true) TextButton(enabled = !reader.busy,
+                        onClick = { run { reader.more() } }, modifier = Modifier.testTag("shared-calendar-more")) { Text("Показать ещё") }
+                    if (reader.error.isNotBlank()) TextButton(onClick = { run { reader.refresh() } }) { Text("Повторить") }
+                }
                 Text(calendarEngine.formatDate(calendarDay, calendarMode),
                     style = MaterialTheme.typography.titleMedium)
                 val due = tasks.filter { it.optString("dueDate") == calendarDay.toString() }
@@ -1638,10 +1675,10 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                     assignedTo = members.firstOrNull { it.optString("userId") == task.optString("assigneeId") }?.optString("displayName"),
                     onOpen = { taskId = task.getString("id") },
                     onMove = { destination -> moveTaskStatus(task, destination) },
-                    onDragStart = { position -> draggingTask = task; draggingAt = position; dropBounds.clear() },
+                    onDragStart = { position -> draggingTask = task; draggingAt = position },
                     onDragMove = { amount -> draggingAt = (draggingAt ?: Offset.Zero) + amount },
                     onDragEnd = { finishDrag() },
-                    onDragCancel = { draggingTask = null; draggingAt = null; dropBounds.clear() }) }
+                    onDragCancel = { draggingTask = null; draggingAt = null }) }
                 Surface(Modifier.fillMaxWidth().testTag("shared-calendar-undated"), shape = AffairsLayout.shape,
                     color = MaterialTheme.colorScheme.surfaceContainerLow) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1674,10 +1711,16 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
             } else if (activeView == "board") {
                 Text(if (en) "Swipe across the board to view all statuses."
                     else "Проведите по доске, чтобы увидеть все статусы.", style = MaterialTheme.typography.bodySmall)
-                LazyRow(Modifier.fillMaxWidth().testTag("shared-boards"), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(statuses, key = { it.getString("id") }) { status -> Column(Modifier.width(250.dp)
+                LazyRow(Modifier.fillMaxWidth().onGloballyPositioned { boardViewport = it.boundsInWindow() }.testTag("shared-boards"), state = boardScroll, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(statuses, key = { it.getString("id") }) { status ->
+                        val boardKey = "board:${status.getString("id")}"
+                        DisposableEffect(boardKey) { onDispose { dropBounds.remove(boardKey) } }
+                        val hovered = draggingAt?.let { dropBounds[boardKey]?.contains(it) } == true
+                        Column(Modifier.width(250.dp)
+                        .onGloballyPositioned { dropBounds[boardKey] = it.boundsInWindow() }
+                        .testTag("shared-board-${status.getString("id")}")
                         .background(runCatching { Color(android.graphics.Color.parseColor(status.optString("color"))) }
-                            .getOrDefault(MaterialTheme.colorScheme.primary).copy(alpha = .12f), RoundedCornerShape(14.dp))
+                            .getOrDefault(MaterialTheme.colorScheme.primary).copy(alpha = if (hovered) .32f else .12f), AffairsLayout.shape)
                         .padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         SharedStatusHeader(status, en, canInvite, canWrite, busy,
                             onSettings = { openBoard(status) },
@@ -1713,10 +1756,10 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                     assignedTo = members.firstOrNull { it.optString("userId") == task.optString("assigneeId") }?.optString("displayName"),
                                 onOpen = { taskId = task.getString("id") },
                                 onMove = { destination -> moveTaskStatus(task, destination) },
-                    onDragStart = { position -> draggingTask = task; draggingAt = position; dropBounds.clear() },
+                    onDragStart = { position -> draggingTask = task; draggingAt = position },
                     onDragMove = { amount -> draggingAt = (draggingAt ?: Offset.Zero) + amount },
                     onDragEnd = { finishDrag() },
-                    onDragCancel = { draggingTask = null; draggingAt = null; dropBounds.clear() })
+                    onDragCancel = { draggingTask = null; draggingAt = null })
                         }
                     } }
                 }
@@ -1734,10 +1777,10 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                     assignedTo = members.firstOrNull { it.optString("userId") == task.optString("assigneeId") }?.optString("displayName"),
                         onOpen = { taskId = task.getString("id") },
                         onMove = { destination -> moveTaskStatus(task, destination) },
-                    onDragStart = { position -> draggingTask = task; draggingAt = position; dropBounds.clear() },
+                    onDragStart = { position -> draggingTask = task; draggingAt = position },
                     onDragMove = { amount -> draggingAt = (draggingAt ?: Offset.Zero) + amount },
                     onDragEnd = { finishDrag() },
-                    onDragCancel = { draggingTask = null; draggingAt = null; dropBounds.clear() }, compact=true)
+                    onDragCancel = { draggingTask = null; draggingAt = null }, compact=true)
                 }
                 val renderChild: @Composable (JSONObject) -> Unit = { child ->
                     OutlinedButton(onClick = { selectProject(child.getString("id")) }, modifier = Modifier.fillMaxWidth()
@@ -1910,16 +1953,15 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     }
     if(project!=null&&project.optInt("isInbox")==0&&taskId.isBlank()) WorkspaceSearchDock(taskSearch,{taskSearch=it},"Поиск задач","shared-task-search",
         Modifier.align(androidx.compose.ui.Alignment.BottomCenter),controls={
-            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
                 SharedTaskFieldSort(taskSort,setTaskSort,listContext.query,listContext.catalog.fields,iconOnly=true)
                 BadgedBox(badge={if(filterCount>0)Badge {Text(filterCount.toString())}}) {
                     AffairsIconButton("Фильтры",AffairsAction.FILTER,{filtersOpen=true},Modifier.testTag("shared-filters"))
                 }
-                if(filterCount>0||taskSearch.isNotBlank()) TextButton(onClick={statusFilter="";completionFilter="any";assigneeFilter="";priorityFilter=-1;taskSearch="";listContext.query.reset()}) {Text("Сбросить")}
-            }
+
         })
-    if (draggingTask != null && draggingAt != null) {
-        val drag = draggingTask!!
+    val drag = draggingTask
+    val dragPosition = draggingAt
+    if (drag != null && dragPosition != null) {
         if (activeView != "calendar") Surface(Modifier.align(androidx.compose.ui.Alignment.BottomCenter).fillMaxWidth().padding(8.dp),
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             shape = MaterialTheme.shapes.medium, shadowElevation = 10.dp) {
@@ -1930,7 +1972,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                     horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     statuses.forEach { status ->
                         val key = "status:${status.optString("id")}"
-                        val hover = dropBounds[key]?.contains(draggingAt!!) == true
+                        val hover = dropBounds[key]?.contains(dragPosition) == true
                         Surface(Modifier.onGloballyPositioned { dropBounds[key] = it.boundsInWindow() }
                             .testTag("shared-drop-$key"), color = if (hover) MaterialTheme.colorScheme.primaryContainer
                                 else MaterialTheme.colorScheme.surfaceContainerLow,
@@ -1941,12 +1983,12 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                 }
                 Row(Modifier.horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    projects.filter { it.optString("id") != projectId &&
+                    projects.filter { it.optInt("isInbox") == 0 && it.optString("id") != projectId &&
                         (it.optString("role") in setOf("owner", "manager") ||
                             it.optString("spaceRole") in setOf("owner", "admin") ||
                             it.optInt("canOrganizeTasks") == 1) }.forEach { destination ->
                         val key = "project:${destination.optString("id")}"
-                        val hover = dropBounds[key]?.contains(draggingAt!!) == true
+                        val hover = dropBounds[key]?.contains(dragPosition) == true
                         Surface(Modifier.onGloballyPositioned { dropBounds[key] = it.boundsInWindow() }
                             .testTag("shared-drop-$key"), color = if (hover) MaterialTheme.colorScheme.primaryContainer
                                 else MaterialTheme.colorScheme.surfaceContainerLow,
@@ -1958,8 +2000,10 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
             }
         }
         Surface(Modifier.offset {
-            IntOffset((draggingAt!!.x - rootPosition.x - 70.dp.toPx()).roundToInt(),
-                (draggingAt!!.y - rootPosition.y - 24.dp.toPx()).roundToInt())
+            // Placement may run once after release, before recomposition removes the preview.
+            val point = draggingAt ?: dragPosition
+            IntOffset((point.x - rootPosition.x - 70.dp.toPx()).roundToInt(),
+                (point.y - rootPosition.y - 24.dp.toPx()).roundToInt())
         }.widthIn(max = 180.dp), color = MaterialTheme.colorScheme.primaryContainer,
             shape = MaterialTheme.shapes.small, shadowElevation = 12.dp) {
             Text(drag.optString("title"), Modifier.padding(8.dp), maxLines = 1)
@@ -2070,7 +2114,8 @@ internal fun SharedTaskCard(task: JSONObject, statuses: List<JSONObject>, canOrg
         metadata = metadata, unreadComments = task.optInt("unreadCommentCount"), enabled = !busy,
         onComplete = if (canOrganize && toggleStatus != null) ({ onMove(toggleStatus.getString("id")) }) else null,
         actions = if (canOrganize) ({ Box {
-            AffairsIconButton("Изменить статус", AffairsAction.MORE, { actionsOpen = true }, enabled = !busy)
+            AffairsIconButton("Изменить статус", AffairsAction.MORE, { actionsOpen = true },
+                Modifier.testTag("shared-task-actions-${task.optString("id")}"), enabled = !busy, outlined = false)
             DropdownMenu(actionsOpen, { actionsOpen = false }) {
                 statuses.forEach { status -> DropdownMenuItem(text = { Text(sharedStatusLabel(status.getString("title"), en)) },
                     enabled = !busy && task.optString("statusId") != status.optString("id"),
@@ -2121,8 +2166,8 @@ private fun SharedStatusHeader(status: JSONObject, en: Boolean, canManage: Boole
             androidx.compose.material3.Text(sharedStatusLabel(status.getString("title"), en), Modifier.fillMaxWidth(), style = MaterialTheme.typography.titleMedium)
         } else Text(sharedStatusLabel(status.getString("title"), en), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
         if (canManage || canCreate) Box {
-            AffairsIconButton("Действия с доской", AffairsAction.MORE, { open = true },
-                Modifier.testTag("shared-status-actions-${status.optString("id")}"), enabled = !busy)
+            AffairsIconButton("Действия с доской", AffairsAction.SETTINGS, { open = true },
+                Modifier.testTag("shared-status-actions-${status.optString("id")}"), enabled = !busy, outlined = false)
             DropdownMenu(open, { open = false }) {
                 if (canManage) DropdownMenuItem(text = { Text("Настройки доски") }, leadingIcon = { AffairsActionIcon(AffairsAction.SETTINGS) },
                     modifier = Modifier.testTag("shared-board-settings-${status.optString("id")}"), onClick = { open = false; onSettings() })

@@ -76,7 +76,7 @@ internal fun habitLifecycleFailure(code: String?) = when (code) {
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         if (scheduled) AffairsIconButton("Таймер", AffairsAction.TIMER, onTimer, Modifier.testTag("habit-timer-open-${habit.id}"), enabled)
         Box {
-            AffairsIconButton("Действия привычки", AffairsAction.MORE, { expanded = true }, Modifier.testTag("habit-actions-${habit.id}"), enabled)
+            AffairsIconButton("Действия привычки", AffairsAction.MORE, { expanded = true }, Modifier.testTag("habit-actions-${habit.id}"), enabled, outlined = false)
             DropdownMenu(expanded, { expanded = false }) {
                 DropdownMenuItem(text = { Text("Изменить") }, leadingIcon = { GenesisLucideIcon("pencil") },
                     onClick = { expanded = false; onEdit() }, modifier = Modifier.testTag("edit-habit-${habit.id}"))

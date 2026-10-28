@@ -6868,7 +6868,7 @@ export function GenesisCalendar() {
     return (
       <main className="auth-loading" role="status" aria-live="polite">
         <span className="auth-sun"><i /></span>
-        <strong>GENESIS</strong>
+        <strong data-no-translate>Genesis Tasker</strong>
         <p>Открываем личное пространство…</p>
       </main>
     );
@@ -6877,7 +6877,7 @@ export function GenesisCalendar() {
   if (isGoogleSyncConfigured && (!cloudUser || privateDeviceAccessBlocked())) {
     return (
       <Suspense fallback={<main className="welcome-shell"><section className="welcome-card">
-        <h1>GENESIS</h1><p>{language === "en" ? "Calendars, tasks and habits in one place." : "Календари, задачи и привычки в одном месте."}</p>
+        <h1 data-no-translate>Genesis Tasker</h1><p>{language === "en" ? "Calendars, tasks and habits in one place." : "Календари, задачи и привычки в одном месте."}</p>
         <p>{SERVICE_IDENTITY[language === "en" ? "en" : "ru"]}</p>
         <a href="/privacy">{language === "en" ? "Privacy policy" : "Политика конфиденциальности"}</a>
       </section></main>}>
@@ -6942,14 +6942,14 @@ export function GenesisCalendar() {
         }} /> : null}
       <a className="skip-link" href="#main-content">К основному содержанию</a>
       <aside id="app-sidebar" ref={sidebarRef} className="app-sidebar" aria-label={translateText("Основная навигация",language)} data-exp-ui="navigation" inert={sidebarHidden} aria-hidden={sidebarHidden || undefined}>
-        <button className="brand-mark" type="button" onClick={selectToday} aria-label="GENESIS — на главную">
+        <button className="brand-mark" type="button" onClick={selectToday} aria-label={`Genesis Tasker · ${translateText("На главную", language)}`}>
           <span
             className="brand-icon"
             data-genesis-preserve="brand-icon"
             style={{ backgroundImage: `url("${APP_BASE}/icons/icon-round-v2.png")` }}
             aria-hidden="true"
           />
-          <strong>GENESIS</strong>
+          <strong data-no-translate>Genesis Tasker</strong>
           {sacredFeaturesEnabled ? <small data-no-translate>{language === "el" ? "ἡμερολόγιον" : language === "uk" ? "Гемерологіон" : language === "ru" || language === "sr" ? "Гемерологион" : "Hemerologion"}</small>
             : <small className="brand-motto" data-no-translate><span>{translateText("Порядок в делах",language)}</span><span>{translateText("Порядок в разуме",language)}</span></small>}
         </button>
@@ -6989,9 +6989,9 @@ export function GenesisCalendar() {
 
       <section className="app-stage" data-exp-layout="stage">
         <header ref={compactHeaderRef} className="app-brand-header" data-compact-header={compactHeader || undefined}>
-          <button type="button" onClick={selectToday} aria-label="GENESIS — на главную">
+          <button type="button" onClick={selectToday} aria-label={`Genesis Tasker · ${translateText("На главную", language)}`}>
             <img src={`${APP_BASE}/icons/icon-round-v2.png`} alt="" aria-hidden="true" data-genesis-preserve="web-header-logo" />
-            <strong data-no-translate>GENESIS</strong>
+            <strong data-no-translate>Genesis Tasker</strong>
           </button>
           {compactHeader && experimentalThemeActive ? renderDisplayCalendarChoice(language === "en" ? "Display calendar" : "Календарь отображения", "topbar-calendar-choice") : null}
           {compactHeader ? renderTopbarActions() : null}

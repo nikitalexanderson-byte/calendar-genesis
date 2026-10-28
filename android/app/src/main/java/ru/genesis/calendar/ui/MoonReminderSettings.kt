@@ -49,7 +49,7 @@ private fun MoonLeadChoices(kind: String, selected: Set<Int>, onSelect: (Set<Int
             Surface(onClick = { onSelect(if(days==0) emptySet() else if(active) selected-days else selected+days) },
                 modifier = Modifier.weight(1f).height(48.dp).testTag("moon-$kind-lead-$days")
                     .semantics { this.selected = active },
-                shape = RoundedCornerShape(12.dp),
+                shape = AffairsLayout.shape,
                 color = if (active) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                 Box(Modifier.fillMaxSize().padding(horizontal = 2.dp), contentAlignment = Alignment.Center) {
