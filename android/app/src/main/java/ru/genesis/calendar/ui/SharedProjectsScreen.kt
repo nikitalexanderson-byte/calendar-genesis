@@ -936,20 +936,20 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
             SelectionContainer { androidx.compose.material3.Text(draft.optJSONObject("body")?.toString(2).orEmpty(),
                 Modifier.heightIn(max = 240.dp).verticalScroll(rememberScrollState())) }
         } },
-        confirmButton = { Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextButton(onClick = { run {
+        confirmButton = { DialogActionRow(
+            DialogIconAction("Повторить", AffairsAction.REFRESH, { run {
                 controller.retryFailedSharedMutation(draft.getString("requestId"))
                 pendingTasks = controller.queuedSharedTasks(projectId)
                 failedDraft = null
                 refreshProject(projectId)
-            } }, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp).testTag("shared-pending-retry")) { Text(if (en) "Retry" else "Повторить") }
-            TextButton(onClick = { failedDraft = null }, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text(if (en) "Close" else "Закрыть") }
-        } },
-        dismissButton = { TextButton(onClick = { run {
-            controller.discardFailedSharedMutation(draft.getString("requestId"))
-            pendingTasks = controller.queuedSharedTasks(projectId)
-            failedDraft = null
-        } }, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text(if (en) "Remove local draft" else "Удалить локальный черновик") } }) }
+            } }, enabled = !busy, modifier = Modifier.testTag("shared-pending-retry")),
+            DialogIconAction("Удалить локальный черновик", AffairsAction.DELETE, { run {
+                controller.discardFailedSharedMutation(draft.getString("requestId"))
+                pendingTasks = controller.queuedSharedTasks(projectId)
+                failedDraft = null
+            } }, enabled = !busy, destructive = true),
+            DialogIconAction("Закрыть", AffairsAction.BACK, { failedDraft = null }, enabled = !busy)
+        ) }) }
     val chooseBoardImage = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         val target = pendingImageBoard
         pendingImageBoard = null
@@ -1407,7 +1407,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     }
     val headerInShell = WorkspaceScreenHeader(sharedHeaderTitle,sharedHeaderSubtitle,
         navigation={if(spaceId.isNotBlank()) WorkspaceHeaderButton(genesisTranslate("Назад"),"shared-back",enabled=!busy,onClick={navigateBack()}) {AffairsActionIcon(AffairsAction.BACK)}},
-        singleLine=spaceId.isNotBlank(),titleIsUserContent=taskId.isBlank()&&spaceId.isNotBlank()) {
+        singleLine=spaceId.isNotBlank(),titleIsUserContent=taskId.isBlank()&&spaceId.isNotBlank(), showThemeToggle=spaceId.isBlank()) {
         if (!projectToolbar && !spaceToolbar) headerActions(true)
     }
 

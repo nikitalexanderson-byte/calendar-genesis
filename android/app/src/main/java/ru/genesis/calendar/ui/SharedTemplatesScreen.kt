@@ -271,6 +271,12 @@ import java.util.UUID
     if (erase) AlertDialog(onDismissRequest = { erase = false }, title = { Text(draftCopy.getString("discard")) }, text = { Text("Изменения шаблона не меняют ранее созданные задачи.") },
         confirmButton = { TextButton({ erase = false; run { state.discard() } }, Modifier.testTag("template-discard-confirm")) { Text("Удалить") } }, dismissButton = { TextButton({ erase = false }) { Text("Отмена") } })
     if (leave) AlertDialog(onDismissRequest = { leave = false }, title = { Text("Сохранить изменения?") }, text = { Text("Не удалось сохранить последние изменения. Попробуйте сохранить копию или закройте окно без них.") },
-        confirmButton = { TextButton({ run { state.saveOwnCopy(); if (state.error.isBlank()) { leave = false; state.close(); onClose() } } }) { Text("Сохранить копию") } },
-        dismissButton = { Column { TextButton({ leave = false }) { Text("Отмена") }; TextButton({ leave = false; state.close(); onClose() }, Modifier.testTag("template-leave-unsaved")) { Text("Закрыть без сохранения") } } })
+        confirmButton = { DialogActionRow(
+            DialogIconAction("Отмена", AffairsAction.EDIT, { leave = false }),
+            DialogIconAction("Закрыть без сохранения", AffairsAction.UNDO, { leave = false; state.close(); onClose() },
+                destructive = true, modifier = Modifier.testTag("template-leave-unsaved")),
+            DialogIconAction("Сохранить копию", AffairsAction.COPY, { run {
+                state.saveOwnCopy(); if (state.error.isBlank()) { leave = false; state.close(); onClose() }
+            } })
+        ) })
 }

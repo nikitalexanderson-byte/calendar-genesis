@@ -160,7 +160,7 @@ import java.io.InputStream
         if (state.selected != null) "Сквозное шифрование" else null,
         navigation = { if (state.selected != null) WorkspaceHeaderButton(genesisTranslate("Назад"), "messaging-back", onClick = ::back) {
             GenesisLucideIcon("chevron-left")
-        } }, actions = headerActions)
+        } }, showThemeToggle = state.selected == null, actions = headerActions)
     Column(Modifier.fillMaxSize().imePadding().testTag("messaging-screen")) {
         if (!headerInShell) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             AffairsIconButton("Назад", AffairsAction.BACK, ::back)

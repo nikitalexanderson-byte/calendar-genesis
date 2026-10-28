@@ -58,9 +58,11 @@ fun StoicheionScreen(app: GenesisApplication, divinationDisabled: Boolean,
         catch (error: CancellationException) { throw error }
         catch (_: Exception) { value = null }
     }
-    val restorationCatalog = remember(context, language) {
-        runCatching { StoicheionRestorationCatalogSource.load(context, language) }.getOrNull()
+    var restorationReload by remember { mutableIntStateOf(0) }
+    val restorationCatalogResult = remember(context, language, restorationReload) {
+        runCatching { StoicheionRestorationCatalogSource.load(context, language) }
     }
+    val restorationCatalog = restorationCatalogResult.getOrNull()
     val scope = rememberCoroutineScope()
     var deleteCycle by remember { mutableStateOf<ru.genesis.calendar.domain.habits.Habit?>(null) }
     val today by produceState(LocalDate.now()) {
@@ -72,7 +74,8 @@ fun StoicheionScreen(app: GenesisApplication, divinationDisabled: Boolean,
     val now by produceState(System.currentTimeMillis()) {
         while (true) { delay(1_000L); value = System.currentTimeMillis() }
     }
-    val theokyklos = remember(context, language) { runCatching { TheokyklosCatalogSource.load(context, language) }.getOrNull() }
+    val theokyklosResult = remember(context, language, restorationReload) { runCatching { TheokyklosCatalogSource.load(context, language) } }
+    val theokyklos = theokyklosResult.getOrNull()
     val letters by produceState<List<StoicheionLetter>?>(null, context, language) {
         value = withContext(Dispatchers.IO) {
             runCatching {
@@ -187,7 +190,9 @@ fun StoicheionScreen(app: GenesisApplication, divinationDisabled: Boolean,
                         } else StoicheionDrawPanel(loaded, draws, now, saving, drawError,
                             onBegin = beginMotion, onSelect = { selected = it },
                             restorationLabel = restorationCatalog?.copy("begin"),
-                            onRestore = if (restorationCatalog == null) null else { { openRestoration(null) } })
+                            onRestore = if (restorationCatalog == null || theokyklos == null) null else { { openRestoration(null) } },
+                            restorationError = restorationCatalogResult.isFailure || theokyklosResult.isFailure,
+                            onReloadRestoration = { restorationReload++ })
                         if (!divinationDisabled && restorationCatalog != null) {
                             val cycles = StoicheionRestoration.visibleHabits(habitWorkspace?.habits.orEmpty())
                             if (cycles.isNotEmpty()) {
@@ -215,15 +220,18 @@ fun StoicheionScreen(app: GenesisApplication, divinationDisabled: Boolean,
                                 }
                             }
                         }
-                        Text("Основной греческий ряд · 24", style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary)
-                        Text("Выберите букву", style = MaterialTheme.typography.titleLarge)
-                        Text("Откройте метафизический профиль, прямое и перевёрнутое положение, практику и число.",
-                            style = MaterialTheme.typography.bodySmall)
+                        StoicheionSection(OracleTone.SAGE, "stoicheion-catalog-block") {
+                            Text("Основной греческий ряд · 24", style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary)
+                            Text("Выберите букву", style = MaterialTheme.typography.titleLarge)
+                            Text("Откройте метафизический профиль, прямое и перевёрнутое положение, практику и число.",
+                                style = MaterialTheme.typography.bodySmall)
+                        }
                     }
                 }
                 items(loaded, key = { it.id }) { letter ->
-                    Card(onClick = { selected = StoicheionSelection(letter) }, modifier = Modifier.fillMaxWidth()
+                    Card(onClick = { selected = StoicheionSelection(letter) },
+                        colors = CardDefaults.cardColors(containerColor = oracleSectionColor(OracleTone.SAGE)), modifier = Modifier.fillMaxWidth()
                         .testTag("stoicheion-letter-${letter.id}")) {
                         StoicheionCardFace(letter, Modifier.fillMaxWidth())
                     }

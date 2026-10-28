@@ -34,7 +34,8 @@ object StoicheionRestorationCatalogSource {
     }
     /** Match the authored web catalog's source order; JSON object iteration order is not portable. */
     fun translationMap(raw: String, uiRaw: String, practicesRaw: String, language: String, values: JSONArray?): Map<String, String> {
-        val pairs = Regex("""\{\s*"ru"\s*:\s*("(?:\\.|[^"\\])*")\s*,\s*"en"\s*:\s*("(?:\\.|[^"\\])*")\s*}""").findAll(raw).map {
+        // Possessive chunks avoid one recursive regex frame per character on Android's small stacks.
+        val pairs = Regex("""\{\s*"ru"\s*:\s*("(?:[^"\\]++|\\.)*+")\s*,\s*"en"\s*:\s*("(?:[^"\\]++|\\.)*+")\s*}""").findAll(raw).map {
             JSONObject("{\"v\":${it.groupValues[1]}}").getString("v") to JSONObject("{\"v\":${it.groupValues[2]}}").getString("v")
         }.toMutableList()
         val root = JSONObject(raw)

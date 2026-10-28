@@ -8,6 +8,17 @@ import org.junit.Test
 import ru.genesis.calendar.domain.StoicheionRestorationCatalogSource
 
 class RestorationCatalogLocalizationTest {
+    @Test fun longBilingualParagraphsDoNotExhaustTheParserStack() {
+        val russian = "Длинный текст с кавычками \"и переносом\"\n".repeat(2_000)
+        val english = "Long text with quotes \"and a newline\"\n".repeat(2_000)
+        // Preserve the authored ru/en field order independently of JSONObject's key iterator.
+        val pair = "{\"ru\":" + JSONObject.quote(russian) + ",\"en\":" + JSONObject.quote(english) + "}"
+        val ordered = "{\"text\":$pair,\"auxiliaries\":[]}"
+        val map = StoicheionRestorationCatalogSource.translationMap(ordered,
+            "{\"ru\":{},\"en\":{}}", "{\"practices\":[]}", "en", null)
+        assertEquals(english, map[russian])
+    }
+
     @Test fun everyAuthoredLocaleUsesTheSameSourceIndexAndLocalizesPracticeContent() {
         val raw = File("../../app/stoicheion-restoration-content.json").readText()
         val ui = File("../../app/stoicheion-restoration-ui.json").readText()

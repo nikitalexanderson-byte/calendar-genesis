@@ -142,7 +142,7 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
                 }
             }
     }
-    val headerInShell = WorkspaceScreenHeader(headerTitle, headerSubtitle,
+    val headerInShell = WorkspaceScreenHeader(headerTitle, headerSubtitle, showThemeToggle = false,
         navigation={ WorkspaceHeaderButton(if(mapId==null) backLabel else "Все майндмепы", "mindmaps-back", onClick=::goBack) {
             AffairsActionIcon(AffairsAction.BACK)
         } }, singleLine=true, titleIsUserContent=map!=null, actions={ if (map == null) headerActions(Modifier) })

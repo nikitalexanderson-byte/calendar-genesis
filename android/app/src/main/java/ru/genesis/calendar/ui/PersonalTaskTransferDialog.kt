@@ -133,12 +133,9 @@ internal fun PersonalTaskTransferDialog(task: LocalTask, controller: AuthControl
                 else "Эту задачу можно скопировать; личный оригинал останется на месте.", style = MaterialTheme.typography.bodySmall)
             if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
         } },
-        confirmButton = { Row {
-            TextButton(onClick = { publish(false) }, enabled = !busy && snapshot != null,
-                modifier = Modifier.heightIn(min = 44.dp)) { Text(if (en) "Copy" else "Копировать") }
-            TextButton(onClick = { publish(true) }, enabled = !busy && snapshot != null && canMove,
-                modifier = Modifier.heightIn(min = 44.dp)) { Text(if (en) "Move" else "Переместить") }
-        } },
-        dismissButton = { TextButton(onClick = onDismiss, enabled = !busy,
-            modifier = Modifier.heightIn(min = 44.dp)) { Text(if (en) "Cancel" else "Отмена") } })
+        confirmButton = { DialogActionRow(
+            DialogIconAction("Отмена", AffairsAction.BACK, onDismiss, enabled = !busy),
+            DialogIconAction("Копировать", AffairsAction.COPY, { publish(false) }, enabled = !busy && snapshot != null),
+            DialogIconAction("Переместить", AffairsAction.MOVE, { publish(true) }, enabled = !busy && snapshot != null && canMove)
+        ) })
 }

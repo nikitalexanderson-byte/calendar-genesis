@@ -57,90 +57,121 @@ private fun countdown(seconds: Int) = "%02d:%02d".format(seconds / 60, seconds %
 @Composable
 internal fun StoicheionDrawPanel(letters: List<StoicheionLetter>, draws: StoicheionDraws?, now: Long,
     busy: Boolean, error: String?, onBegin: (String) -> Unit, onSelect: (StoicheionSelection) -> Unit,
-    restorationLabel: String? = null, onRestore: (() -> Unit)? = null) {
+    restorationLabel: String? = null, onRestore: (() -> Unit)? = null,
+    restorationError: Boolean = false, onReloadRestoration: () -> Unit = {}) {
     val daily = draws?.daily
     val dailyLetter = daily?.let { StoicheionReading.cardOfDay(letters, it.seed) }
     val spread = draws?.spread
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Карта дня", style = MaterialTheme.typography.titleLarge)
-        Text("Один из 24 авторских образов на сегодня. Выбор сохраняется на этом устройстве.",
-            style = MaterialTheme.typography.bodyMedium)
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        if (dailyLetter == null) {
-            Button(onClick = { onBegin("daily") }, enabled = draws != null && !busy,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("stoicheion-draw-daily")) {
-                Text("Начать выбор карты дня")
-            }
-        } else {
-            val reversed = StoicheionReading.reversed(daily.seed)
-            Card(onClick = { onSelect(StoicheionSelection(dailyLetter, reversed)) },
-                modifier = Modifier.fillMaxWidth().testTag("stoicheion-daily-result")) {
-                Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    StoicheionCardFace(dailyLetter, Modifier.width(126.dp)
-                        .graphicsLayer { rotationZ = if (reversed) 180f else 0f })
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(dailyLetter.name, style = MaterialTheme.typography.titleMedium)
-                        Text(dailyLetter.tagline, style = MaterialTheme.typography.bodySmall)
-                        Text(orientation(reversed), style = MaterialTheme.typography.labelMedium)
-                        Text("Открыть полный профиль", color = MaterialTheme.colorScheme.primary,
-                            style = MaterialTheme.typography.labelMedium)
-                    }
-                }
-            }
-            RerollAction(daily, now, busy, "Перебросить карту") { onBegin("daily") }
-            Text("Космический круг и девять ликов силы", style = MaterialTheme.typography.titleLarge)
-            Text("Девять букв соотносятся со сторонами света и центром. Расклад начинается с карты дня и вашего движения.",
+        StoicheionSection(OracleTone.GOLD, "stoicheion-daily-block") {
+            Text("Карта дня", style = MaterialTheme.typography.titleLarge)
+            Text("Один из 24 авторских образов на сегодня. Выбор сохраняется на этом устройстве.",
                 style = MaterialTheme.typography.bodyMedium)
-            if (spread == null) {
-                Button(onClick = { onBegin("spread") }, enabled = !busy,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("stoicheion-draw-spread")) {
-                    Text("Начать расклад")
+            if (dailyLetter == null) {
+                Button(onClick = { onBegin("daily") }, enabled = draws != null && !busy,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("stoicheion-draw-daily")) {
+                    Text("Начать выбор карты дня")
                 }
             } else {
-                val cards = StoicheionReading.spread(letters, spread.seed)
-                stoicheionPositions.chunked(3).forEachIndexed { row, positions ->
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                        positions.forEachIndexed { column, position ->
-                            val (letter, reversedCard) = cards[row * 3 + column]
-                            Card(onClick = { onSelect(StoicheionSelection(letter, reversedCard, position)) },
-                                modifier = Modifier.weight(1f).testTag("stoicheion-spread-${position.id}")) {
-                                Column(Modifier.padding(5.dp), horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Text(position.direction, style = MaterialTheme.typography.labelSmall, maxLines = 2)
-                                    StoicheionCardFace(letter, Modifier.fillMaxWidth()
-                                        .graphicsLayer { rotationZ = if (reversedCard) 180f else 0f })
-                                    Text("${letter.name} · ${letter.value}", style = MaterialTheme.typography.labelSmall,
-                                        maxLines = 2)
-                                    Text(orientation(reversedCard), style = MaterialTheme.typography.bodySmall,
-                                        maxLines = 2)
+                val reversed = StoicheionReading.reversed(daily.seed)
+                Card(onClick = { onSelect(StoicheionSelection(dailyLetter, reversed)) },
+                    colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                    modifier = Modifier.fillMaxWidth().testTag("stoicheion-daily-result")) {
+                    Row(Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        StoicheionCardFace(dailyLetter, Modifier.width(106.dp)
+                            .graphicsLayer { rotationZ = if (reversed) 180f else 0f })
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(dailyLetter.name, style = MaterialTheme.typography.titleMedium)
+                            Text(dailyLetter.tagline, style = MaterialTheme.typography.bodySmall)
+                            Text(orientation(reversed), style = MaterialTheme.typography.labelMedium)
+                            Text("Открыть полный профиль", color = MaterialTheme.colorScheme.primary,
+                                style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                }
+                RerollAction(daily, now, busy, "Перебросить карту") { onBegin("daily") }
+            }
+        }
+        if (dailyLetter != null) {
+            val cards = spread?.let { StoicheionReading.spread(letters, it.seed) }
+            StoicheionSection(OracleTone.BLUE, "stoicheion-spread-block") {
+                Text("Космический круг и девять ликов силы", style = MaterialTheme.typography.titleLarge)
+                Text("Девять букв соотносятся со сторонами света и центром. Расклад начинается с карты дня и вашего движения.",
+                    style = MaterialTheme.typography.bodyMedium)
+                if (cards == null) {
+                    Button(onClick = { onBegin("spread") }, enabled = !busy,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("stoicheion-draw-spread")) {
+                        Text("Начать расклад")
+                    }
+                } else {
+                    stoicheionPositions.chunked(3).forEachIndexed { row, positions ->
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                            positions.forEachIndexed { column, position ->
+                                val (letter, reversedCard) = cards[row * 3 + column]
+                                Card(onClick = { onSelect(StoicheionSelection(letter, reversedCard, position)) },
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                    modifier = Modifier.weight(1f).testTag("stoicheion-spread-${position.id}")) {
+                                    Column(Modifier.padding(4.dp), horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Text(position.direction, style = MaterialTheme.typography.labelSmall, maxLines = 2)
+                                        StoicheionCardFace(letter, Modifier.fillMaxWidth()
+                                            .graphicsLayer { rotationZ = if (reversedCard) 180f else 0f })
+                                        Text("${letter.name} · ${letter.value}", style = MaterialTheme.typography.labelSmall, maxLines = 2)
+                                        Text(orientation(reversedCard), style = MaterialTheme.typography.bodySmall, maxLines = 2)
+                                    }
                                 }
                             }
                         }
                     }
                 }
-                val total = cards.sumOf { it.first.value }
-                Card(Modifier.fillMaxWidth().testTag("stoicheion-isopsephy"),
-                    shape = AffairsLayout.shape,
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = .65f))) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            }
+            if (spread != null && cards != null) {
+                StoicheionSection(OracleTone.MAUVE, "stoicheion-restoration-block") {
+                    Text("Решение ситуации", style = MaterialTheme.typography.titleLarge)
+                    Column(Modifier.testTag("stoicheion-isopsephy"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        val total = cards.sumOf { it.first.value }
                         Text("ἰσοψηφία · Пифмен расклада", style = MaterialTheme.typography.titleMedium)
                         Text("${cards.joinToString(" + ") { it.first.value.toString() }} = $total")
                         Text("${StoicheionReading.trace(total).joinToString(" → ")} · ${StoicheionReading.pythmen(total)}",
                             style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
                         Text("Числовые значения девяти букв складываются до корня от 1 до 9.",
                             style = MaterialTheme.typography.bodySmall)
-                        if (onRestore != null && cards.any { it.second }) Button(onClick = onRestore,
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("stoicheion-restoration-begin")) {
-                            Text(restorationLabel.orEmpty())
+                    }
+                    // Keep the entry visible even for an all-upright spread; the journey explains that state.
+                    Button(onClick = { onRestore?.invoke() }, enabled = onRestore != null && !busy,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("stoicheion-restoration-begin")) {
+                        Text(restorationLabel ?: "Начать восполнение")
+                    }
+                    if (restorationError) {
+                        Text("Не удалось открыть восполнение. Повторите загрузку.", color = MaterialTheme.colorScheme.error)
+                        TextButton(onClick = onReloadRestoration, modifier = Modifier.heightIn(min = 48.dp)) {
+                            Text("Повторить загрузку")
                         }
                     }
+                    RerollAction(spread, now, busy, "Перебросить расклад") { onBegin("spread") }
                 }
-                RerollAction(spread, now, busy, "Перебросить расклад") { onBegin("spread") }
             }
         }
-        HorizontalDivider()
+    }
+}
+
+internal enum class OracleTone { GOLD, BLUE, MAUVE, SAGE }
+
+@Composable internal fun oracleSectionColor(tone: OracleTone): Color {
+    val pair = when (tone) {
+        OracleTone.GOLD -> 0xfff2e8d3 to 0xff302a1e
+        OracleTone.BLUE -> 0xffe0eaf0 to 0xff202e36
+        OracleTone.MAUVE -> 0xffede3ed to 0xff302632
+        OracleTone.SAGE -> 0xffdfede4 to 0xff1b3029
+    }
+    return Color(if (LocalEveningTheme.current) pair.second else pair.first)
+}
+
+@Composable internal fun StoicheionSection(tone: OracleTone, tag: String, content: @Composable ColumnScope.() -> Unit) {
+    Surface(Modifier.fillMaxWidth().testTag(tag), shape = AffairsLayout.shape, color = oracleSectionColor(tone)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
     }
 }
 

@@ -196,7 +196,7 @@ import java.time.Instant
                     }
                 }
                 AffairsIconButton(if (note.archived) "Восстановить запись" else "В архив", if (note.archived) AffairsAction.RESTORE else AffairsAction.ARCHIVE,
-                    onArchive, Modifier.testTag("diary-archive-${note.id}"), enabled = !busy)
+                    onArchive, Modifier.testTag("diary-archive-${note.id}"), enabled = !busy, outlined = false)
             }
         }
     }
@@ -305,13 +305,14 @@ import java.time.Instant
             if (error) Text("Не удалось сохранить запись. Введённые данные остаются в форме.",
                 color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("diary-close-error"))
         } },
-        confirmButton = { TextButton(onClick = { scope.launch { if (keep()) { closeConfirm = false; onClose() } } }, enabled = valid && !saving) { Text("Сохранить черновик") } },
-        dismissButton = { Row {
-            TextButton(onClick = { closeConfirm = false }) { Text("Продолжить") }
-            TextButton(onClick = { scope.launch {
+        confirmButton = { DialogActionRow(
+            DialogIconAction("Продолжить редактирование", AffairsAction.EDIT, { closeConfirm = false }, enabled = !saving),
+            DialogIconAction("Отменить изменения", AffairsAction.UNDO, { scope.launch {
                 try { draftKey?.let { repository.discardDraft(it) }; closeConfirm = false; onClose() }
                 catch (cancel: CancellationException) { throw cancel }
                 catch (_: Exception) { error = true }
-            } }, enabled = !saving) { Text("Отменить изменения") }
-        } })
+            } }, enabled = !saving, destructive = true),
+            DialogIconAction("Сохранить черновик", AffairsAction.SAVE,
+                { scope.launch { if (keep()) { closeConfirm = false; onClose() } } }, enabled = valid && !saving)
+        ) })
 }
