@@ -141,7 +141,7 @@ jobs:
           php server/tests/google-incremental.php
           php server/tests/shared-content-storage.php
           php server/tests/smoke.php
-          php server/tests/shared-projects.php
+          php -r 'define("GENESIS_LOCAL_TEST_CONFIG", realpath("server/config.php")); require "server/tests/shared-projects.php";'
           php server/tests/shared-mutation-receipts.php
           php server/tests/shared-project-inboxes-migration.php
           GENESIS_IMPROVEMENTS_TEST=isolated php server/tests/shared-mindmap-conversion.php

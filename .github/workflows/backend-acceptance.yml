@@ -45,10 +45,10 @@ jobs:
           '
           php -l server/src/shared-projects.php
           php -l server/tests/shared-sprint-reports.php
-          for name in shared-mutation-receipts shared-mindmap-conversion shared-projects template-manifest template-apply shared-data-exchange shared-sprint-reports shared-sprint-flow-model shared-reports-history shared-reports-integration shared-workflows workflow-integrations shared-automations shared-notifications daily-advice; do
+          for name in shared-mutation-receipts shared-mindmap-conversion shared-projects template-manifest template-apply shared-data-exchange shared-sprint-reports shared-sprint-flow-model shared-reports-history shared-reports-integration shared-workflows workflow-integrations shared-automations shared-notifications daily-advice messenger; do
             # Each test owns a fresh disposable database; no runtime account data is used.
             rm -f -- "$GENESIS_SMOKE_ROOT/genesis.sqlite" "$GENESIS_SMOKE_ROOT/genesis.sqlite-wal" "$GENESIS_SMOKE_ROOT/genesis.sqlite-shm"
-            php "server/tests/$name.php" | tee "output/backend-acceptance/$name.log"
+            php -r 'define("GENESIS_LOCAL_TEST_CONFIG", realpath("server/config.php")); require $argv[1];' "server/tests/$name.php" | tee "output/backend-acceptance/$name.log"
           done
       - name: Save test diagnostics
         if: always()
