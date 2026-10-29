@@ -2,7 +2,7 @@
 import { usePhysisAccess } from "./physis/access";
 import { PhysisAccessNotice } from "./physis/AccessNotice";
 const PhysisPage = lazy(() => import("./physis/PhysisPage").then(module => ({ default: module.PhysisPage })));
-import { TodayAdvice } from "./TodayAdvice";
+const TodayAdvice = lazy(() => import("./TodayAdvice").then(module => ({ default: module.TodayAdvice })));
 import { DialogCloseButton } from "./DialogCloseButton";
 import { useMobileLayout, useCompactHeader } from "./use-mobile-layout";
 import { useHeaderControlSize } from "./use-header-control-size";
@@ -5247,7 +5247,7 @@ export function GenesisCalendar() {
           </div>
         </section>
 
-        {cloudUser ? <TodayAdvice key={cloudUser.uid} user={cloudUser} habits={habitWorkspace.habits} tasks={tasks} day={todayDateValue} ready={hydrated && syncStatus !== "syncing"} onOpenDiary={() => { setProjectsArea("personal"); setMindmapsOpen(false); setDiaryOpen(true); navigateTo("projects"); const url = new URL(location.href); url.searchParams.set("diary", "1"); history.replaceState(history.state, "", url); }} /> : null}
+        {cloudUser ? <Suspense fallback={null}><TodayAdvice key={cloudUser.uid} user={cloudUser} habits={habitWorkspace.habits} tasks={tasks} day={todayDateValue} ready={hydrated && syncStatus !== "syncing"} onOpenDiary={() => { setProjectsArea("personal"); setMindmapsOpen(false); setDiaryOpen(true); navigateTo("projects"); const url = new URL(location.href); url.searchParams.set("diary", "1"); history.replaceState(history.state, "", url); }} /></Suspense> : null}
 
         {cloudUser ? <TodayAdBlock key={`${cloudUser.uid}:${language}`} language={language} userId={cloudUser.uid} /> : null}
 
