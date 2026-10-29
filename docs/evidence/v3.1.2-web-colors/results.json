@@ -1,0 +1,170 @@
+[
+  {
+    "width": 360,
+    "theme": "standart",
+    "mode": "profane",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 360,
+    "theme": "standart",
+    "mode": "sacred",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 360,
+    "theme": "standart",
+    "mode": "lunar",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 360,
+    "theme": "standart-dark",
+    "mode": "profane",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 360,
+    "theme": "standart-dark",
+    "mode": "sacred",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 360,
+    "theme": "standart-dark",
+    "mode": "lunar",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 390,
+    "theme": "standart",
+    "mode": "profane",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 390,
+    "theme": "standart",
+    "mode": "sacred",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 390,
+    "theme": "standart",
+    "mode": "lunar",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 390,
+    "theme": "standart-dark",
+    "mode": "profane",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 390,
+    "theme": "standart-dark",
+    "mode": "sacred",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 390,
+    "theme": "standart-dark",
+    "mode": "lunar",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 768,
+    "theme": "standart",
+    "mode": "profane",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 768,
+    "theme": "standart",
+    "mode": "sacred",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 768,
+    "theme": "standart",
+    "mode": "lunar",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 768,
+    "theme": "standart-dark",
+    "mode": "profane",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 768,
+    "theme": "standart-dark",
+    "mode": "sacred",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 768,
+    "theme": "standart-dark",
+    "mode": "lunar",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 1440,
+    "theme": "standart",
+    "mode": "profane",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 1440,
+    "theme": "standart",
+    "mode": "sacred",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 1440,
+    "theme": "standart",
+    "mode": "lunar",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 1440,
+    "theme": "standart-dark",
+    "mode": "profane",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 1440,
+    "theme": "standart-dark",
+    "mode": "sacred",
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 1440,
+    "theme": "standart-dark",
+    "mode": "lunar",
+    "overflow": false,
+    "errors": []
+  }
+]
