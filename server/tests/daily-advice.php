@@ -14,7 +14,7 @@ function adviceReject(callable $action): void {
 }
 function adviceFixture(string $name, string $category): array {
     return ['id' => 'advice-' . substr(hash('sha256', $name), 0, 24), 'body' => 'Isolated test: ' . $name,
-        'language' => 'en', 'categories' => [$category], 'sources' => []];
+        'language' => 'en', 'categories' => [$category], 'sources' => []] + ($category === 'aphrodisia' ? ['requiresAdult'=>false,'aphrodisiaTheme'=>'aesthetics'] : []);
 }
 $migration = dirname(__DIR__) . '/migrations/080_daily_advice.sql';
 $legacy = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
@@ -62,7 +62,7 @@ try {
 } finally { $rotationBackup = null; if (is_file($rotationBackupPath)) unlink($rotationBackupPath); }
 
 $preferences = genesisAdvicePreferences([]);
-adviceExpect($preferences['enabled'] && $preferences['smart'] && count($preferences['categories']) === 6, 'Wrong defaults');
+adviceExpect($preferences['enabled'] && $preferences['smart'] && count($preferences['categories']) === 5, 'Wrong defaults');
 foreach ([['enabled' => 'false'], ['smart' => false, 'categories' => []], ['categories' => ['unknown']], ['unknown' => true]] as $input) adviceReject(fn() => genesisAdvicePreferences($input));
 foreach ([['hermetica' => -1], ['hermetica' => '1'], ['hermetica' => 1001], ['habitTitles' => []]] as $input) adviceReject(fn() => genesisAdviceScores($input));
 
@@ -116,7 +116,7 @@ foreach (['Europe/Moscow', 'Pacific/Kiritimati', 'America/Los_Angeles', 'Europe/
         foreach ([0, 1, -4] as $offset) adviceExpect(!isset(genesisAdvicePhaseLeads(genesisCalendarAddDays($eventDay, $offset), $zone)[$phase]), 'Lunar advice appeared on or after the phase or too early');
     }
 }
-adviceExpect(genesisAdviceAvailableCategories() === ['aretology', 'hermetica', 'kourotrophy', 'hestiology'], 'Available settings categories do not match the four published collections');
+adviceExpect(genesisAdviceAvailableCategories() === ['aretology', 'hermetica', 'kourotrophy', 'hestiology', 'aphrodisia'], 'Available settings categories do not match the five published collections');
 adviceExpect(genesisAdviceDailyLimit($preferences, genesisAdviceCatalog()) === 4, 'Smart selection did not include the fourth published collection');
 $hermeticaPosts = array_values(array_filter(genesisAdviceCatalog(), static fn($entry) => in_array('hermetica', $entry['categories'], true)));
 adviceExpect(count($hermeticaPosts) === 151 && $hermeticaPosts[13]['timeOfDay'] === 'morning', 'Hermetica source count or morning practice is wrong');
@@ -146,7 +146,7 @@ foreach ([5, 8, 11] as $hour) adviceExpect(genesisChooseAdvice([$home, $morning,
 foreach ([18, 23, 0, 4] as $hour) adviceExpect(genesisChooseAdvice([$home, $morning, $evening], $preferences, $smartHome, [], 'time', [], [], ['hour' => $hour])['id'] === $evening['id'], 'Evening advice missed its local window');
 foreach ([12, 17] as $hour) adviceExpect(genesisChooseAdvice([$home, $morning, $evening], $preferences, $smartHome, [], 'time', [], [], ['hour' => $hour])['id'] === $home['id'], 'A timed practice leaked into the wrong period');
 $allCategories = array_map(static fn($category) => adviceFixture('limit ' . $category, $category), GENESIS_ADVICE_CATEGORIES);
-foreach ([1 => 3, 2 => 3, 3 => 3, 4 => 4, 5 => 5, 6 => 6] as $selected => $expectedLimit) adviceExpect(genesisAdviceDailyLimit(['smart' => false, 'categories' => array_slice(GENESIS_ADVICE_CATEGORIES, 0, $selected)], $allCategories) === $expectedLimit, 'Wrong selected-category daily limit');
+foreach ([1 => 3, 2 => 3, 3 => 3, 4 => 4, 5 => 5, 6 => 6] as $selected => $expectedLimit) adviceExpect(genesisAdviceDailyLimit(['smart' => false, 'categories' => array_slice(GENESIS_ADVICE_CATEGORIES, 0, $selected), 'aphrodisiaAdult' => true], $allCategories) === $expectedLimit, 'Wrong selected-category daily limit');
 $clothing = [...adviceFixture('home clothing', 'hestiology'), 'topics' => ['clothing']];
 $attributes = [...adviceFixture('home attributes', 'hestiology'), 'topics' => ['attributes']];
 $homeManual = ['enabled' => true, 'smart' => false, 'categories' => ['hestiology']];
@@ -186,6 +186,23 @@ $allowedAlternation = [...$afterAretology, ...$rareContext];
 adviceExpect(genesisChooseAdvice([$clothing, $food], $preferences, $smartHome, [], 'rare-alternation', [], [], $blockedAlternation)['id'] === $food['id'], 'Category alternation bypassed the rare clothing gate');
 adviceExpect(genesisChooseAdvice([$clothing, $food], $preferences, $smartHome, [], 'rare-alternation', [], [], $allowedAlternation)['id'] === $clothing['id'], 'Category alternation suppressed clothing on an eligible rare day');
 
+// Explicit opt-in and authoritative per-entry age filtering.
+$aphroAdult = [...adviceFixture('ADULT', 'aphrodisia'), 'requiresAdult' => true, 'aphrodisiaTheme' => 'love'];
+$aphroArt = [...adviceFixture('ART', 'aphrodisia'), 'requiresAdult' => false, 'aphrodisiaTheme' => 'aesthetics'];
+$aphroMind = [...adviceFixture('MIND', 'aphrodisia'), 'requiresAdult' => false, 'aphrodisiaTheme' => 'consciousness'];
+$minor = genesisAdvicePreferences(['smart' => false, 'categories' => ['aphrodisia'], 'aphrodisiaAdult' => false]);
+$adult = genesisAdvicePreferences([...$minor, 'aphrodisiaAdult' => true]);
+adviceExpect(!in_array('aphrodisia', genesisAdvicePreferences([])['categories'], true), 'Aphrodisia was enabled by default');
+adviceExpect(genesisChooseAdvice([$aphroAdult, $aphroArt], genesisAdvicePreferences([]), $scores, [], 'off', [], []) === null, 'Smart mode silently opted into Aphrodisia');
+for ($i=0;$i<20;$i++) {
+    adviceExpect(genesisChooseAdvice([$aphroAdult,$aphroArt],$minor,$scores,[],'minor'.$i,[],[])['id']===$aphroArt['id'],'Adult advice leaked to a minor');
+}
+adviceExpect(genesisChooseAdvice([$aphroAdult],$adult,$scores,[],'adult',[],[])['id']===$aphroAdult['id'],'Confirmed adult cannot read adult advice');
+adviceExpect(!genesisAdviceAgeAllowed($aphroAdult,$minor), 'A previously selected adult entry remained readable');
+adviceExpect(!genesisAdviceAgeAllowed([...$aphroAdult,'requiresAdult'=>null],$minor), 'Missing age metadata failed open');
+$themeHistory=[['advice_id'=>$aphroArt['id'],'day_key'=>'2026-10-29','entry_json'=>json_encode($aphroArt)]];
+adviceExpect(genesisChooseAdvice([$aphroArt,$aphroMind],$minor,$scores,$themeHistory,'themes',[],[])['aphrodisiaTheme']==='consciousness','Aphrodisia themes did not alternate');
+
 $db = genesisDb(); $ids = [];
 for ($index = 0; $index < 3; $index++) {
     $id = 'advice-test-' . bin2hex(random_bytes(8)); $ids[] = $id;
@@ -193,11 +210,11 @@ for ($index = 0; $index < 3; $index++) {
 }
 try {
     [$alice, $bob, $charlie] = $ids;
-    adviceExpect(!in_array('aphrodisia', genesisAdviceAvailableCategories(), true), 'Legacy fallback fixture must use an unpublished category');
-    genesisUpdateAccountPreferences($bob, ['advicePreferences' => ['smart' => false, 'categories' => ['aphrodisia']]]);
+    adviceExpect(!in_array('psychopompia', genesisAdviceAvailableCategories(), true), 'Legacy fallback fixture must use an unpublished category');
+    genesisUpdateAccountPreferences($bob, ['advicePreferences' => ['smart' => false, 'categories' => ['psychopompia']]]);
     $legacyFallback = genesisDailyAdvice($bob, []);
     adviceExpect($legacyFallback['state'] === 'ready' && $legacyFallback['advice']['categories'] === ['aretology'], 'Saved unavailable manual category suppressed the displayed Aretology selection');
-    adviceExpect(genesisAdvicePreferences(genesisFindUser($bob)['advice_preferences_json'])['categories'] === ['aphrodisia'], 'Reading advice unexpectedly rewrote legacy preferences');
+    adviceExpect(genesisAdvicePreferences(genesisFindUser($bob)['advice_preferences_json'])['categories'] === ['psychopompia'], 'Reading advice unexpectedly rewrote legacy preferences');
     genesisUpdateAccountPreferences($alice, ['advicePreferences' => ['smart' => false, 'categories' => ['hermetica']]]);
     genesisUpdateAccountPreferences($alice, ['stoicheionDivinationDisabled' => true, 'uiVisibility' => ['sacredFeaturesEnabled' => false]]);
     $saved = genesisAdvicePreferences(genesisFindUser($alice)['advice_preferences_json']);
@@ -242,6 +259,9 @@ try {
         adviceExpect($resolved['title'] === $translation['title'] && $resolved['body'] === $translation['body'], 'Historical daily advice retained an obsolete title or mismatched body');
         adviceExpect($resolved['id'] === $fastingPost['id'] && $resolved['image'] === $fastingPost['image'] && $resolved['categories'] === ['aretology'], 'Correcting a historical title changed its identity or illustration');
     }
+    // Keep this replay fixture in an unrestricted collection; Aphrodisia now requires explicit consent.
+    $versioned = array_values(array_filter(genesisAdviceCatalog(), static fn($entry) => $entry['categories'] === ['hermetica']))[0];
+    $localizedRow['entry_json'] = json_encode($versioned, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
     $db->prepare('UPDATE daily_advice_days SET advice_id=?,entry_json=? WHERE user_id=?')->execute([$versioned['id'], $localizedRow['entry_json'], $alice]);
     foreach (GENESIS_ADVICE_LANGUAGES as $language) {
         genesisUpdateAccountPreferences($alice, ['language' => $language]);

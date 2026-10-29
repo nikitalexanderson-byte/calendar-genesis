@@ -38,7 +38,7 @@ test("runtime translations and PDF keep Unicode, colors, full copy and saved geo
     const { translateText, setRuntimeLanguage, newMindmap, mindmapPrintHtml, legalPages } = await import(pathToFileURL(fileURLToPath(path)).href);
     assert.ok(legalPages.terms.sections.some(([title, body]) => title === dailyAdviceCopy.ru.privacyTitle && body === dailyAdviceCopy.ru.privacyNotice));
     assert.ok(!legalPages.privacy.sections.some(([title, body]) => title === dailyAdviceCopy.ru.privacyTitle || body === dailyAdviceCopy.ru.privacyNotice));
-    assert.ok(legalPages.privacy.sections.some(([title, body]) => title === dailyAdviceCopy.ru.dataTitle && body === dailyAdviceCopy.ru.dataNotice));
+    assert.ok(legalPages.privacy.sections.some(([title, body]) => title === dailyAdviceCopy.ru.dataTitle && body === dailyAdviceCopy.ru.dataNotice + " " + dailyAdviceCopy.ru.ageData));
     for (const lang of languages) {
       for (const field of ["privacyTitle", "privacyNotice", "dataTitle", "dataNotice"]) assert.equal(translateText(dailyAdviceCopy.ru[field], lang), dailyAdviceCopy[lang][field], `${lang}: advice legal text ${field}`);
       for (const [source, expected] of Object.entries(habitReportCopy[lang])) assert.equal(translateText(source, lang), expected, `${lang}: report ${source}`);

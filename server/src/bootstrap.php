@@ -262,6 +262,17 @@ function genesisSessionIsPrimaryGoogleUser(array $user): bool
         && hash_equals((string)$user['google_sub'], (string)($_SESSION['auth_identity']['sub'] ?? ''));
 }
 
+/** A verified, still-linked Google identity opens the canonical owner's account. */
+function genesisSessionOwnsGoogleAccount(array $user): bool
+{
+    // genesisCurrentUserId rechecks primary sub or the exact live link ID on every call.
+    if (genesisUserProvider($user) !== 'google' || genesisCurrentUserId() !== (string)$user['id']) return false;
+    if (($_SESSION['auth_identity']['kind'] ?? '') === 'primary') return genesisSessionIsPrimaryGoogleUser($user);
+    return ($_SESSION['auth_identity']['kind'] ?? '') === 'linked'
+        && is_string($_SESSION['auth_identity']['account_id'] ?? null) && $_SESSION['auth_identity']['account_id'] !== ''
+        && is_string($_SESSION['auth_identity']['sub'] ?? null) && $_SESSION['auth_identity']['sub'] !== '';
+}
+
 function genesisRequireUserId(): string
 {
     $id = genesisCurrentUserId();

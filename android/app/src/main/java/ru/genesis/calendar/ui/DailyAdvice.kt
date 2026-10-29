@@ -121,7 +121,8 @@ import kotlin.math.min
             catch (_: Exception) { failed = true }
             finally { loading = false }
         }
-        val card = response?.advice?.takeUnless { it.dismissed }
+        val card = response?.advice?.takeUnless { it.dismissed || (it.requiresAdult && preferences.aphrodisiaAdult != true) ||
+            ("aphrodisia" in it.categories && ("aphrodisia" !in preferences.categories || preferences.aphrodisiaAdult == null)) }
         if (failed) Row(Modifier.fillMaxWidth().testTag("daily-advice-load-error").semantics { liveRegion = LiveRegionMode.Polite },
             horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -245,7 +246,9 @@ import kotlin.math.min
                 NativeText(card.body, Modifier.testTag("daily-advice-body"), style = MaterialTheme.typography.bodyLarge)
                 val names = copy.getJSONArray("categories")
                 NativeText(copy.getString("title") + " · " + card.categories.joinToString(" · ") {
-                    names.getString(adviceCategories.indexOf(it))
+                    if (it == "aphrodisia" && card.aphrodisiaTheme != null) copy.getString(when(card.aphrodisiaTheme) {
+                        "love" -> "themeLove"; "aesthetics" -> "themeAesthetics"; else -> "themeConsciousness"
+                    }) else names.getString(adviceCategories.indexOf(it))
                 }, style = MaterialTheme.typography.bodySmall)
                 if (rotation != null && rotation.dailyLimit > 1) NativeText(
                     copy.getString("position").replace("{current}", rotation.sequence.toString())
@@ -304,6 +307,7 @@ import kotlin.math.min
     var saved by remember(preferences) { mutableStateOf(preferences) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf(false) }
+    var ageCategories by remember { mutableStateOf<List<String>?>(null) }
     val scope = rememberCoroutineScope()
     fun change(patch: JSONObject) {
         if (busy || !enabled) return
@@ -344,9 +348,11 @@ import kotlin.math.min
                         val canChange = enabled && !busy && category in available && (!checked || selected.size > 1)
                         Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("advice-category-" + category)
                             .toggleable(checked, enabled = canChange, role = Role.Checkbox) { check ->
-                                change(JSONObject().put("categories", JSONArray(available.filter {
+                                val categories = available.filter {
                                     if (it == category) check else it in selected
-                                })))
+                                }
+                                if (category == "aphrodisia" && check) ageCategories = categories
+                                else change(JSONObject().put("categories", JSONArray(categories)))
                             }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Checkbox(checked, null, enabled = canChange)
                             Column(Modifier.weight(1f)) {
@@ -359,6 +365,22 @@ import kotlin.math.min
                     }
                     NativeText(copy.getString("oneCategory"), style = MaterialTheme.typography.bodyMedium)
                 }
+                if (saved.smart && "aphrodisia" in available) {
+                    val checked = "aphrodisia" in selected
+                    Row(Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("advice-category-aphrodisia")
+                        .toggleable(checked, enabled=enabled && !busy, role=Role.Checkbox) { check ->
+                            val categories=available.filter { if(it=="aphrodisia") check else it in selected }
+                            if(check) ageCategories=categories else change(JSONObject().put("categories",JSONArray(categories)))
+                        }, verticalAlignment=Alignment.CenterVertically) {
+                        Checkbox(checked,null,enabled=enabled && !busy)
+                        NativeText(copy.getJSONArray("categories").getString(4),Modifier.weight(1f))
+                    }
+                }
+                if ("aphrodisia" in available && "aphrodisia" in selected) {
+                    TextButton(onClick = { ageCategories = saved.categories }, enabled = enabled && !busy,
+                        modifier = Modifier.heightIn(min = 48.dp).testTag("advice-age-manage")) { NativeText(copy.getString("ageManage")) }
+                    NativeText(copy.getString(if(saved.aphrodisiaAdult == true) "ageAllowed" else "ageRestricted"), style = MaterialTheme.typography.bodyMedium)
+                }
                 NativeText(copy.getString("scopeHint"), style = MaterialTheme.typography.bodyMedium)
                 if (!catalogAvailable) NativeText(copy.getString("pending"), style = MaterialTheme.typography.bodyMedium)
             }
@@ -366,6 +388,13 @@ import kotlin.math.min
                 modifier = Modifier.testTag("daily-advice-settings-error").semantics { liveRegion = LiveRegionMode.Polite })
             AffairsDisclosure(copy.getString("privacyTitle")) {
                 NativeText(copy.getString("privacyNotice"), style = MaterialTheme.typography.bodyMedium)
+                NativeText(copy.getString("ageLegal"), style = MaterialTheme.typography.bodyMedium)
             }
     }
+    ageCategories?.let { categories -> AlertDialog(onDismissRequest = { ageCategories = null },
+        title = { NativeText(copy.getString("ageQuestion")) }, text = { NativeText(copy.getString("ageHint")) },
+        confirmButton = { TextButton(onClick = { ageCategories = null; change(JSONObject().put("categories", JSONArray(categories)).put("aphrodisiaAdult", true)) },
+            modifier = Modifier.heightIn(min = 48.dp).testTag("advice-age-yes")) { NativeText(copy.getString("ageYes")) } },
+        dismissButton = { TextButton(onClick = { ageCategories = null; change(JSONObject().put("categories", JSONArray(categories)).put("aphrodisiaAdult", false)) },
+            modifier = Modifier.heightIn(min = 48.dp).testTag("advice-age-no")) { NativeText(copy.getString("ageNo")) } }) }
 }

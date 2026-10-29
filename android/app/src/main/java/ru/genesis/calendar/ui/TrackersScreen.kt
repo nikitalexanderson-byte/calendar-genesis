@@ -93,7 +93,7 @@ fun TrackersScreen(app: GenesisApplication, experimental: Boolean = false) {
             availablePlans.forEach { plan -> OutlinedButton(onClick = { planChoiceOpen = false; planEditor = plan }, modifier = Modifier.fillMaxWidth()) {
                 androidx.compose.material3.Text(plan.title)
             } }
-        } }, confirmButton = { TextButton(onClick = { planChoiceOpen = false }) { Text("Закрыть") } })
+        } }, confirmButton = {})
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
         if (!headerInShell) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text("Сон и настроение", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
@@ -299,7 +299,7 @@ fun TrackersScreen(app: GenesisApplication, experimental: Boolean = false) {
     } }
     if(moodEditor) {
         val existing=workspace?.moodEntries?.firstOrNull { it.date==date }
-        MoodObservationEditor(workspace?.moodEntries.orEmpty(),if(existing!=null)date else LocalDate.now(),inputMode,
+        MoodObservationEditor(workspace?.moodEntries.orEmpty(),if(existing!=null)date else LocalDate.now(),viewMode,
             prefs.language,emojiCategories,busy,error,
             onDismiss={if(!busy)moodEditor=false}) { chosenDate,value,note,customLabel,customEmoji ->
             val target=workspace?.moodEntries?.firstOrNull { it.date==chosenDate }
@@ -354,7 +354,7 @@ private fun TrackerLightMetric(label: String, value: String, modifier: Modifier 
 }
 
 @Composable
-private fun SleepPlanEditor(plan: SleepPlan,use24: Boolean,busy: Boolean,error: String?,onDismiss: () -> Unit,onSave: (SleepPlan) -> Unit) {
+internal fun SleepPlanEditor(plan: SleepPlan,use24: Boolean,busy: Boolean,error: String?,onDismiss: () -> Unit,onSave: (SleepPlan) -> Unit) {
     var title by rememberSaveable(plan.id) { mutableStateOf(plan.title) }
     var bed by rememberSaveable(plan.id) { mutableStateOf(plan.targetBedtime.toString()) }
     var wake by rememberSaveable(plan.id) { mutableStateOf(plan.targetWakeTime.toString()) }
@@ -378,12 +378,13 @@ private fun SleepPlanEditor(plan: SleepPlan,use24: Boolean,busy: Boolean,error: 
             OutlinedTextField(title,{title=it},label={Text("Название")},enabled=!busy,modifier=Modifier.fillMaxWidth())
             if (LocalSacredFeaturesEnabled.current) {
             Text(if(english) "Plan calendar" else "Календарь плана",style=MaterialTheme.typography.titleSmall)
-            Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 listOf(CalendarMode.SACRED,CalendarMode.PROFANE,CalendarMode.LUNAR).forEach { option ->
                     FilterChip(selected=mode==option,enabled=!busy,onClick={
                         val next=dailySleepSchedule(schedule.startDate,option)
                         schedule=schedule.copy(recurrence=next.recurrence.copy(rangeEnd=schedule.endDate?.toString() ?: ""))
-                    },label={Text(when(option) {CalendarMode.SACRED->"Сакральный";CalendarMode.PROFANE->"Григорианский";CalendarMode.LUNAR->"Лунный"})})
+                    },modifier=Modifier.weight(1f).heightIn(min=48.dp),
+                        label={CompactChoiceLabel(when(option) {CalendarMode.SACRED->"Сакральный";CalendarMode.PROFANE->"Григорианский";CalendarMode.LUNAR->"Лунный"})})
                 }
             }
             }
@@ -393,8 +394,16 @@ private fun SleepPlanEditor(plan: SleepPlan,use24: Boolean,busy: Boolean,error: 
                 val end=schedule.endDate?.let { maxOf(it,start) }
                 schedule=schedule.copy(startDate=start,endDate=end,recurrence=schedule.recurrence.copy(rangeStart=value,rangeEnd=end?.toString() ?: ""))
             } }
-            Text("Планируемое засыпание");AuthorTimePicker(bed,use24) { if(!busy)bed=it }
-            Text("Планируемое пробуждение");AuthorTimePicker(wake,use24) { if(!busy)wake=it }
+            Row(Modifier.fillMaxWidth().testTag("sleep-plan-times"),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(4.dp)) {
+                    Text("Засыпать:",style=MaterialTheme.typography.labelLarge,maxLines=1)
+                    AuthorTimePicker(bed,use24,Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("sleep-plan-bedtime")) { if(!busy)bed=it }
+                }
+                Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(4.dp)) {
+                    Text("Просыпаться:",style=MaterialTheme.typography.labelLarge,maxLines=1)
+                    AuthorTimePicker(wake,use24,Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("sleep-plan-wake")) { if(!busy)wake=it }
+                }
+            }
             OutlinedTextField(zone,{zone=it},label={Text("Часовой пояс · Europe/Moscow")},enabled=!busy,modifier=Modifier.fillMaxWidth())
             Row { Checkbox(active,{active=it},enabled=!busy);Text("План активен",Modifier.padding(top=12.dp)) }
             Row { Checkbox(qualityEnabled,{qualityEnabled=it},enabled=!busy);Text("Оценивать качество",Modifier.padding(top=12.dp)) }
@@ -427,19 +436,24 @@ private fun SleepPlanEditor(plan: SleepPlan,use24: Boolean,busy: Boolean,error: 
                         Column(Modifier.padding(10.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
                             Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
                                 Text("Правило",Modifier.weight(1f),style=MaterialTheme.typography.labelLarge)
-                                AffairsIconButton("Удалить правило", AffairsAction.DELETE, { rules=rules.filterNot { it.id==rule.id } }, enabled=!busy)
+                                AffairsIconButton("Удалить правило", AffairsAction.DELETE, { rules=rules.filterNot { it.id==rule.id } },
+                                    Modifier.testTag("sleep-rule-delete-${rule.id}"), enabled=!busy, outlined=false)
                             }
-                            Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+                            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
                                 FilterChip(rule.field=="bedtime",{rules=rules.map { if(it.id==rule.id)it.copy(field="bedtime") else it }},
-                                    enabled=!busy,label={Text("Засыпание")})
+                                    modifier=Modifier.weight(1f).height(48.dp).testTag("sleep-rule-bedtime-${rule.id}"),
+                                    enabled=!busy,label={CompactChoiceLabel("Засыпание")})
                                 FilterChip(rule.field=="wake",{rules=rules.map { if(it.id==rule.id)it.copy(field="wake") else it }},
-                                    enabled=!busy,label={Text("Пробуждение")})
+                                    modifier=Modifier.weight(1f).height(48.dp).testTag("sleep-rule-wake-${rule.id}"),
+                                    enabled=!busy,label={CompactChoiceLabel("Пробуждение")})
                             }
-                            Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+                            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
                                 FilterChip(rule.operator=="on-or-before",{rules=rules.map { if(it.id==rule.id)it.copy(operator="on-or-before") else it }},
-                                    enabled=!busy,label={Text("Не позже")})
+                                    modifier=Modifier.weight(1f).height(48.dp).testTag("sleep-rule-before-${rule.id}"),
+                                    enabled=!busy,label={CompactChoiceLabel("Не позже")})
                                 FilterChip(rule.operator=="after",{rules=rules.map { if(it.id==rule.id)it.copy(operator="after") else it }},
-                                    enabled=!busy,label={Text("Позже")})
+                                    modifier=Modifier.weight(1f).height(48.dp).testTag("sleep-rule-after-${rule.id}"),
+                                    enabled=!busy,label={CompactChoiceLabel("Позже")})
                             }
                             AuthorTimePicker(rule.threshold.toString(),use24) { time ->
                                 if(!busy) rules=rules.map { if(it.id==rule.id)it.copy(threshold=LocalTime.parse(time)) else it }
@@ -471,7 +485,7 @@ private fun SleepPlanEditor(plan: SleepPlan,use24: Boolean,busy: Boolean,error: 
     } }
 }
 
-private fun dailySleepSchedule(date: LocalDate,mode: CalendarMode): TrackerSchedule {
+internal fun dailySleepSchedule(date: LocalDate,mode: CalendarMode): TrackerSchedule {
     val base=HabitEngine(GenesisCalendar()).defaultSchedule(date,mode)
     val days=when(mode) { CalendarMode.PROFANE -> listOf(1); CalendarMode.SACRED -> (1..5).toList(); CalendarMode.LUNAR -> (1..30).toList() }
     return base.copy(recurrence=base.recurrence.copy(days=days))
@@ -520,7 +534,7 @@ private fun SleepObservationEditor(plan: SleepPlan,entry: SleepEntry?,date: Loca
 }
 
 @Composable
-private fun MoodObservationEditor(entries: List<MoodEntry>,initialDate: LocalDate,mode: CalendarMode,
+internal fun MoodObservationEditor(entries: List<MoodEntry>,initialDate: LocalDate,mode: CalendarMode,
     language: String,emojiCategories: List<FullEmojiCategory>,busy: Boolean,error: String?,
     onDismiss: () -> Unit,onSave: (LocalDate,Int,String,String,String) -> Unit) {
     var dateValue by rememberSaveable(initialDate.toString()) { mutableStateOf(initialDate.toString()) }
@@ -541,7 +555,7 @@ private fun MoodObservationEditor(entries: List<MoodEntry>,initialDate: LocalDat
                     Modifier.testTag("mood-editor-close"), enabled = !busy)
             }
             Text("Дата настроения",style=MaterialTheme.typography.labelLarge)
-            AuthorDatePicker(dateValue,mode) { if(!busy) dateValue=it }
+            AuthorDatePicker(dateValue,mode,enabled=!busy,modifier=Modifier.testTag("mood-editor-date")) { dateValue=it }
             TextButton(onClick={dateValue=LocalDate.now().toString()},enabled=!busy) { Text("Сегодня") }
             MoodCatalog.options.forEach { option -> FilterChip(!custom&&selected==option.value,{
                 selected=option.value;custom=false
@@ -567,8 +581,8 @@ private fun MoodObservationEditor(entries: List<MoodEntry>,initialDate: LocalDat
                     FlowRow(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(4.dp),
                         verticalArrangement=Arrangement.spacedBy(4.dp)) {
                         category.emojis.take(visibleEmojiCount).forEach { emoji ->
-                            FilterChip(customEmoji==emoji,onClick={customEmoji=emoji},enabled=!busy,
-                                label={Text(emoji)},modifier=Modifier.testTag("mood-emoji-$emoji"))
+                            FullEmojiChoice(emoji,customEmoji,category.variants[emojiVariantKey(emoji)].orEmpty(),
+                                {customEmoji=it},Modifier.testTag("mood-emoji-$emoji"),enabled=!busy)
                         }
                     }
                     if(visibleEmojiCount<category.emojis.size) TextButton(

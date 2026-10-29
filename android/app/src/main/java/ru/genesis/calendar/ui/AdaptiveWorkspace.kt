@@ -26,10 +26,13 @@ import androidx.compose.ui.unit.dp
             horizontalArrangement = Arrangement.spacedBy(20.dp)) {
             Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)) { header(); rhythm() }
-            Column(Modifier.weight(1.15f).fillMaxHeight().verticalScroll(rememberScrollState())) { tasks() }
+            Column(Modifier.weight(1.15f).fillMaxHeight().verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)) { tasks() }
         } else LazyColumn(Modifier.fillMaxSize().testTag("today-list"),
             contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            item { header() }; item { tasks() }; item { rhythm() }
+            item { header() }
+            item { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { tasks() } }
+            item { rhythm() }
         }
     }
 }

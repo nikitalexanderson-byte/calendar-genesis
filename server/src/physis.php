@@ -17,19 +17,19 @@ const GENESIS_PHYSIS_RETENTION_DAYS = 90;
 
 function genesisPhysisRequireOwner(): string
 {
-    // Reuse the normal primary site login, including sessions predating the pilot.
+    // Reuse the canonical account through either its primary or a live linked login.
     $config = genesisConfig();
     $enabled = array_key_exists('physis_enabled', $config) ? $config['physis_enabled'] : GENESIS_PHYSIS_WEB_ENABLED;
     if ($enabled !== true) throw new GenesisPhysisException(403, 'PHYSIS_UNAVAILABLE');
     $id = genesisCurrentUserId();
     $identity = $_SESSION['auth_identity'] ?? [];
-    if ($id === null || !is_array($identity) || ($identity['kind'] ?? '') !== 'primary'
+    if ($id === null || !is_array($identity)
         || !in_array($identity['channel'] ?? 'unknown', ['web', 'unknown'], true)) {
         throw new GenesisPhysisException(403, 'PHYSIS_UNAVAILABLE');
     }
     $user = genesisFindUser($id);
     if ($user === null || genesisUserProvider($user) !== 'google'
-        || !genesisSessionIsPrimaryGoogleUser($user)
+        || !genesisSessionOwnsGoogleAccount($user)
         || !in_array(strtolower(trim((string)$user['email'])), GENESIS_PHYSIS_EMAILS, true)) {
         throw new GenesisPhysisException(403, 'PHYSIS_UNAVAILABLE');
     }

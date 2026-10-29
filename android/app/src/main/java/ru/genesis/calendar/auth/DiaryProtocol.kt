@@ -14,6 +14,11 @@ internal interface DiaryGateway {
     suspend fun workspace(): JSONObject
     /** GET when body is null; otherwise PUT. The transport must keep its existing session generation guards. */
     suspend fun request(path: String, body: JSONObject? = null): JSONObject
+    suspend fun remove(id: String, expectedRevision: Long): JSONObject = throw UnsupportedOperationException("DIARY_DELETE_UNAVAILABLE")
+}
+
+internal data class DiaryDeletion(val id: String, val revision: Long, val updatedAt: String, val localOnly: Boolean) {
+    fun json() = JSONObject().put("id", id).put("revision", revision).put("updatedAt", updatedAt).put("localOnly", localOnly)
 }
 
 internal data class DiaryEnvelope(val id: String, val revision: Long, val updatedAt: String, val bodyJson: String) {
@@ -23,7 +28,8 @@ internal data class DiaryEnvelope(val id: String, val revision: Long, val update
 
 internal object DiaryProtocol {
     fun allowedRoute(method: String, path: String): Boolean = method == "GET" && path == "/diary" ||
-        method == "PUT" && path.matches(Regex("/diary/[A-Za-z0-9_-]{1,100}"))
+        method == "GET" && path == "/diary/settings" ||
+        method in setOf("PUT", "DELETE") && path.matches(Regex("/diary/[A-Za-z0-9_-]{1,100}")) && (method != "DELETE" || path != "/diary/settings")
     fun aad(owner: String, id: String): ByteArray = "genesis-mindmap-v1:$owner:diary-note:v1:$id".toByteArray(Charsets.UTF_8)
     fun key(workspace: JSONObject): ByteArray {
         val row = workspace.getJSONObject("workspace")
@@ -72,6 +78,18 @@ internal object DiaryProtocol {
         val revision = integer(value.opt("revision"), 1)
         require(revision == expectedRevision + 1 && DiaryNote.validDate(value.opt("updatedAt"))) { "DIARY_INVALID_RECEIPT" }
         return revision
+    }
+    fun deletions(response: JSONObject): List<DiaryDeletion> {
+        val rows = response.optJSONArray("deleted") ?: JSONArray()
+        return (0 until rows.length()).map { index ->
+            val row = rows.getJSONObject(index); val id = row.getString("id")
+            require(DiaryNote.idPattern.matches(id) && DiaryNote.validDate(row.opt("updatedAt")) && row.opt("localOnly") is Boolean) { "DIARY_INVALID_RESPONSE" }
+            DiaryDeletion(id, integer(row.opt("revision"), 2), row.getString("updatedAt"), row.getBoolean("localOnly"))
+        }.also { require(it.map { row -> row.id }.distinct().size == it.size) { "DIARY_INVALID_RESPONSE" } }
+    }
+    fun settings(response: JSONObject): Pair<Boolean, Long>? = response.optJSONObject("settings")?.let { row ->
+        require(row.opt("syncEnabled") is Boolean) { "DIARY_INVALID_RESPONSE" }
+        row.getBoolean("syncEnabled") to integer(row.opt("revision"), 0)
     }
     /** WebCrypto HKDF-SHA256 -> 512-bit HMAC-SHA256 key (WebCrypto default HMAC key length), scoped to this account and purpose. */
     fun privateAdviceId(workspaceKey: ByteArray, owner: String, adviceId: String): String {

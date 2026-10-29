@@ -116,12 +116,30 @@ class ReminderScheduler(private val context: Context) {
     fun showHabitTonePreview(tone: String, english: Boolean): Boolean =
         showHabitTonePreview(tone, if (english) "en" else "ru")
 
+    fun showFeedbackPreviewNotification(language: String, title: String, body: String): Boolean {
+        createChannels(language)
+        if (!notificationsAllowed() || !channelAllowed(ACHIEVEMENT_CHANNEL)) return false
+        val note = NotificationCompat.Builder(context, ACHIEVEMENT_CHANNEL)
+            // Foreground completion effects own audio/haptics; never add a second OS chime.
+            .setSilent(true)
+            .setSmallIcon(R.drawable.ic_notification).setContentTitle("GENESIS · $title")
+            .setContentText(body).setContentIntent(openHabitsIntent())
+            .setCategory(NotificationCompat.CATEGORY_STATUS).setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setAutoCancel(true).build()
+        return try {
+            NotificationManagerCompat.from(context).notify("habit-feedback-test", 7303, note); true
+        } catch (_: SecurityException) { false }
+        catch (_: Exception) { false }
+    }
+
     fun showAchievementNotification(count: Int, language: String): Boolean {
         if (count <= 0) return false
         createChannels(language)
         if (!notificationsAllowed() || !channelAllowed(ACHIEVEMENT_CHANNEL)) return false
         val body = achievementNotificationBody(language, count)
         val note = NotificationCompat.Builder(context, ACHIEVEMENT_CHANNEL)
+            // Foreground completion effects own audio/haptics; never add a second OS chime.
+            .setSilent(true)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("GENESIS · ${notificationAuxCopy(language).achievementTitle}")
             .setContentText(body).setContentIntent(openHabitsIntent())

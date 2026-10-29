@@ -166,8 +166,8 @@ import java.time.ZoneId
         SideEffect { window?.let { WindowInsetsControllerCompat(it, it.decorView).apply {
             isAppearanceLightStatusBars = !evening; isAppearanceLightNavigationBars = !evening
         } } }
-        Surface(Modifier.fillMaxSize()) {
-            Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding().padding(16.dp).testTag("shared-team-report"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        GenesisModalFrame(::back) {
+            Column(Modifier.fillMaxSize().padding(16.dp).testTag("shared-team-report"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 AffairsPageHeader(if (compactHeader) "Отчёт" else "Отчёт по совместной работе", title, contextIsUserContent = true, contextMaxLines = 2, onBack = ::back, actions = {
                     AffairsIconButton("Обновить отчёт", AffairsAction.REFRESH, { scope.launch { state.refresh() } }, Modifier.testTag("team-refresh"), !state.busy && !state.lost)
                     AffairsIconButton("Закрыть", AffairsAction.CLOSE, onClose, Modifier.testTag("team-close"))

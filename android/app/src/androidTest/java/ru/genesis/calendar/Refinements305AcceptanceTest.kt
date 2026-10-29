@@ -115,7 +115,7 @@ class Refinements305AcceptanceTest {
         val unplaced = JSONObject().put("id", "unplaced-305").put("title", "Подготовить материалы").put("statusId", "todo").put("revision", 1)
         content { Column(Modifier.safeDrawingPadding().verticalScroll(rememberScrollState()).padding(12.dp)) {
             if (gantt) SharedGanttView(listOf(scheduled, unplaced), listOf(JSONObject().put("id", "todo").put("isDone", false)),
-                mode, CalendarMode.PROFANE, true, true, false, {}, { _, _ -> })
+                mode, CalendarMode.PROFANE, true, true, false, {}, { row, patch -> JSONObject(row.toString()).apply { patch.keys().forEach { put(it, patch.get(it)) }; put("revision", row.getInt("revision") + 1) } })
             else SharedProjectCalendarGrid(GenesisCalendar(), date, mode, date, true, JSONObject(), {}, remember { mutableMapOf() }, null)
         } }
         CalendarMode.entries.forEach { next ->

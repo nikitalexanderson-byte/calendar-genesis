@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
 import { LEGAL_UPDATED, legalPages } from "./app/legal-content";
+import feedbackAudioManifest from "./public/feedback-audio/manifest.json";
 import mindmapIconCatalog from "./app/mindmap-icon-catalog.json";
 import { SERVICE_IDENTITY } from "./app/public-service";
 
@@ -13,6 +14,29 @@ const configuredBase = process.env.GENESIS_BASE_PATH?.trim() || "/";
 const base = configuredBase.endsWith("/") ? configuredBase : `${configuredBase}/`;
 const apiUrl = process.env.GENESIS_API_URL?.trim() || `${base.replace(/\/$/, "")}/api`;
 const PRECACHE_STATIC_REVISION = "lunar-cool-calendar-art-v8";
+
+/** Source phrases are identical across locales; ship them once instead of in every UI dictionary. */
+function compactUiLocaleTransport(): Plugin {
+  const languages = ["en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja"];
+  const catalogs = new Map(languages.map(language => [language, JSON.parse(readFileSync(path.join(projectRoot, "app/ui-translations", `${language}.json`), "utf8")) as Record<string, string>]));
+  const keys = [...new Set([...catalogs.values()].flatMap(Object.keys))];
+  const prefix = "\0genesis-ui-translations/";
+  return {
+    name: "genesis-compact-ui-locale-transport", apply: "build", enforce: "pre",
+    resolveId(source) {
+      if (source === "genesis-ui-source-phrases") return "\0genesis-ui-source-phrases";
+      const language = source.match(/(?:^|[\\/])ui-translations[\\/]([a-z]{2})\.json$/)?.[1];
+      if (language && catalogs.has(language)) return `${prefix}${language}.json.js`;
+    },
+    load(id) {
+      if (id === "\0genesis-ui-source-phrases") return `const keys=${JSON.stringify(keys)};export function restore(values){return Object.fromEntries(keys.flatMap((key,i)=>values[i]===null?[]:[[key,values[i]]]))}`;
+      if (id.startsWith(prefix)) {
+        const catalog = catalogs.get(id.slice(prefix.length, -8));
+        if (catalog) return `import {restore} from 'genesis-ui-source-phrases';export default restore(${JSON.stringify(keys.map(key => catalog[key] ?? null))});`;
+      }
+    },
+  };
+}
 
 function publicLegalDocuments(): Plugin {
   const escape = (text: string) => text.replace(/[&<>"']/g, (character) => ({
@@ -78,7 +102,7 @@ function offlinePrecacheManifest(basePath: string): Plugin {
         "fonts/experimental/SourceSerif4-latin-ext.woff2",
         "fonts/experimental/SourceSerif4-latin.woff2"];
       const iconFiles = mindmapIconCatalog.map(icon => `mindmap-icons/${icon.id}.png`);
-      const staticFiles = [...fonts, ...iconFiles, "habit-reminder-worker.js", "icons/icon-round-v2.png", "mindmap-icons/LICENSE.txt", "mindmap-icons/SOURCE.txt", "mindmap-icons/GENESIS-100-PNG.zip", "sounds/task.wav", "sounds/habit.wav"];
+      const staticFiles = [...feedbackAudioManifest.files.map(cue => `feedback-audio/${cue.file}`), ...fonts, ...iconFiles, "habit-reminder-worker.js", "icons/icon-round-v2.png", "mindmap-icons/LICENSE.txt", "mindmap-icons/SOURCE.txt", "mindmap-icons/GENESIS-100-PNG.zip", "sounds/task.wav", "sounds/habit.wav"];
       const fingerprint = createHash("sha256").update(`${PRECACHE_STATIC_REVISION}\n${requiredFiles.join("\n")}`);
       staticFiles.forEach((file) => fingerprint.update(readFileSync(path.join(projectRoot, "public", file))));
       const version = fingerprint.digest("hex").slice(0, 16);
@@ -104,7 +128,7 @@ export default defineConfig({
   root: path.join(projectRoot, "beget"),
   base,
   publicDir: path.join(projectRoot, "public"),
-  plugins: [react(), offlinePrecacheManifest(base), publicLegalDocuments()],
+  plugins: [compactUiLocaleTransport(), react(), offlinePrecacheManifest(base), publicLegalDocuments()],
   define: {
     "process.env.NEXT_PUBLIC_GENESIS_MINDMAPS": JSON.stringify(process.env.GENESIS_MINDMAPS === "true" ? "true" : "false"),
     "process.env.NEXT_PUBLIC_GENESIS_API_URL": JSON.stringify(apiUrl),
@@ -162,9 +186,10 @@ export default defineConfig({
             })),
             ...["en","el","de","fr","es","it","pt","pl","sr","uk","zh","tr","ja"].map((locale) => ({
               name: `locale-ui-${locale}`,
-              test: new RegExp(`ui-translations[\\\\/]${locale}\\.json$`),
+              test: new RegExp(`ui-translations[\\\\/]${locale}\\.json(?:\\.js)?$`),
               priority: 46,
             })),
+            { name: "locale-ui-source-phrases", test: /genesis-ui-source-phrases$/, priority: 47 },
             ...["el.a", "el.b", "de", "de.b", "fr", "fr.b", "es", "it", "pt", "pl", "sr.a", "sr.b", "uk.a", "uk.b", "zh", "tr", "ja", "ja.b"].map((locale) => ({
               name: `locale-${locale}`,
               test: new RegExp(`translations\\.${locale}\\.json$`),

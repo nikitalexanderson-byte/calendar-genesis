@@ -4,6 +4,8 @@ import { useDiary } from './DiaryProvider';
 import { DIARY_COLORS, newDiaryNote, restoreDiaryNote, diaryCustomInk, type DiaryNote } from './diary-model';
 import type { DiaryRecord } from './diary-storage';
 import copy from './diary-copy.json';
+import { diaryCopy } from './diary-copy';
+import { DiarySettings, DiaryDeleteDialog } from './DiarySettings';
 import { DiaryMark } from './DiaryLaunchButton';
 import { ExperimentalIcon } from './ExperimentalIcon';
 import { DialogCloseButton } from './DialogCloseButton';
@@ -20,7 +22,7 @@ function customNoteStyle(color?: string): CSSProperties | undefined {
   return { '--note-paper': color, '--note-ink': ink, '--note-soft': ink } as CSSProperties;
 }
 function NoteEditor({ record, language, onClose }: { record?: DiaryRecord; language: string; onClose: () => void }) {
-  const text: Copy = language === 'en' ? copy.en : copy.ru; const diary = useDiary();
+  const text: Copy = diaryCopy(language); const diary = useDiary();
   const [note, setNote] = useState<DiaryNote>(() => record?.note ?? newDiaryNote());
   const [error, setError] = useState(''); const [draftStatus, setDraftStatus] = useState(''); const [saving, setSaving] = useState(false);
   const actions = useRef(diary); useEffect(() => { actions.current = diary; }, [diary]);
@@ -45,7 +47,7 @@ function NoteEditor({ record, language, onClose }: { record?: DiaryRecord; langu
       await diary.save(asCopy ? { ...value, id: crypto.randomUUID(), advice: undefined, reaction: null, archived: false, createdAt: value.updatedAt } : value, asCopy ? undefined : record);
       if (asCopy) { if (record?.draftKey) diary.discard(record.draftKey); else diary.discardOwn(note.id); }
       onClose();
-    } catch (failure) { setError(failure instanceof Error && failure.message.includes('DIARY_REVISION_CONFLICT') ? text.conflict : text.error); }
+    } catch (failure) { setError(failure instanceof Error && /DIARY_(REVISION_CONFLICT|NOTE_DELETED|LOCAL_UPLOAD_PENDING)/.test(failure.message) ? text.conflict : text.error); }
     finally { setSaving(false); }
   };
   return <div className="modal-backdrop"><section className="modal diary-editor" data-exp-ui="dialog" ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="diary-editor-title" data-no-translate>
@@ -64,9 +66,10 @@ function NoteEditor({ record, language, onClose }: { record?: DiaryRecord; langu
   </section></div>;
 }
 export default function DiaryPage({ language, onClose }: { language: string; onClose: () => void }) {
-  const text = language === 'en' ? copy.en : copy.ru; const diary = useDiary();
+  const text = diaryCopy(language); const diary = useDiary();
   const [tab, setTab] = useState<'board' | 'favorites' | 'archive'>('board'); const [query, setQuery] = useState('');
   const [editing, setEditing] = useState<DiaryRecord | 'new' | null>(null); const [error, setError] = useState('');
+  const [settingsOpen, setSettingsOpen] = useState(false); const [deleting, setDeleting] = useState<DiaryRecord | null>(null);
   const drafts = diary.records.filter(row => row.draftKey);
   const notes = diary.records.filter(row => !row.draftKey && (tab === 'archive' ? row.note.archived : !row.note.archived && (tab !== 'favorites' || row.note.reaction === 'favorite'))
     && `${row.note.title}\n${row.note.body}`.toLocaleLowerCase().includes(query.toLocaleLowerCase()))
@@ -84,11 +87,14 @@ export default function DiaryPage({ language, onClose }: { language: string; onC
     <div className="diary-toolbar"><button type="button" className="primary-button" disabled={diary.loading || diary.error} onClick={() => setEditing('new')}><ExperimentalIcon name="plus"/>{text.newNote}</button>
       <div className="diary-tabs" role="group" aria-label={text.title}>{(['board', 'favorites'] as const).map(id => <button type="button" key={id} aria-pressed={tab === id} onClick={() => setTab(id)}>{text[id]}</button>)}</div>
       <label className="diary-search"><ExperimentalIcon name="search"/><input type="search" aria-label={text.search} placeholder={text.search} value={query} onChange={event => setQuery(event.target.value)}/></label>
-      <details className="diary-more"><summary aria-label={text.more} title={text.more}><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg></summary><div><button type="button" aria-pressed={tab === 'archive'} onClick={event => { setTab('archive'); event.currentTarget.closest('details')?.removeAttribute('open'); }}><ExperimentalIcon name="archive"/>{text.archive}</button></div></details>
+      <details className="diary-more"><summary aria-label={text.more} title={text.more}><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg></summary><div>
+        <button type="button" onClick={event => { setSettingsOpen(true); event.currentTarget.closest('details')?.removeAttribute('open'); }}><ExperimentalIcon name="settings"/>{text.settings}</button>
+        <button type="button" aria-pressed={tab === 'archive'} onClick={event => { setTab('archive'); event.currentTarget.closest('details')?.removeAttribute('open'); }}><ExperimentalIcon name="archive"/>{text.archive}</button></div></details>
     </div>
     {diary.loading ? <p role="status">{text.loading}</p> : null}
     {diary.error || error ? <div className="diary-notice" role="alert"><p>{error || text.error}</p><button type="button" onClick={() => { setError(''); void diary.refresh(); }}>{text.retry}</button></div> : null}
     {diary.offline ? <p className="diary-notice" role="status">{text.offline}</p> : null}
+    {!diary.syncEnabled ? <p className="diary-notice" role="status">{text.localOnly}</p> : null}
     {drafts.length ? <details className="diary-drafts"><summary>{text.drafts} · {drafts.length}</summary><p>{text.draftHint}</p>{drafts.map(row => <div key={row.draftKey}><button type="button" onClick={() => setEditing(row)}>{row.note.title || text.untitled}</button></div>)}</details> : null}
     {tab === 'archive' ? <div className="diary-archive-heading"><h2>{text.archive}</h2><p>{text.archiveHint}</p></div> : null}
     {!diary.loading && !diary.error && !notes.length ? <div className="diary-empty"><DiaryMark/><h2>{query ? text.emptySearch : tab === 'archive' ? text.emptyArchive : tab === 'favorites' ? text.emptyFavorites : text.empty}</h2>{!query && tab === 'board' ? <p>{text.emptyHint}</p> : null}</div> : null}
@@ -96,10 +102,13 @@ export default function DiaryPage({ language, onClose }: { language: string; onC
       <div className="diary-note-meta"><time dateTime={row.note.createdAt}>{new Intl.DateTimeFormat(language, { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(row.note.createdAt))}</time>{row.note.reaction === 'dislike' ? <span><AdviceDislikeIcon/>{text.disliked}</span> : row.note.advice ? <span>{text.advice}</span> : null}</div>
       <button type="button" className="diary-note-open" onClick={() => setEditing(row)} aria-label={`${text.edit}: ${row.note.title || text.untitled}`}><h2>{row.note.title || text.untitled}</h2><p>{row.note.body}</p></button>
       <footer><button type="button" disabled={diary.busy} aria-label={row.note.pinned ? text.unpin : text.pin} title={row.note.pinned ? text.unpin : text.pin} aria-pressed={row.note.pinned} onClick={() => void change(row, { ...row.note, pinned: !row.note.pinned })}><ExperimentalIcon name="map-pin"/></button>
-        {row.note.advice ? <button type="button" disabled={diary.busy} aria-label={row.note.reaction === 'favorite' ? text.unfavorite : text.favorite} title={row.note.reaction === 'favorite' ? text.unfavorite : text.favorite} aria-pressed={row.note.reaction === 'favorite'} onClick={() => void change(row, { ...row.note, reaction: row.note.reaction === 'favorite' ? null : 'favorite', archived: false })}><ExperimentalIcon name="heart"/></button> : null}
+        {row.note.advice ? <button type="button" className="diary-favorite" disabled={diary.busy} aria-label={row.note.reaction === 'favorite' ? text.unfavorite : text.favorite} title={row.note.reaction === 'favorite' ? text.unfavorite : text.favorite} aria-pressed={row.note.reaction === 'favorite'} onClick={() => void change(row, { ...row.note, reaction: row.note.reaction === 'favorite' ? null : 'favorite', archived: false })}><ExperimentalIcon name="star"/></button> : null}
         <button type="button" disabled={diary.busy} aria-label={row.note.archived ? text.restore : text.toArchive} title={row.note.archived ? text.restore : text.toArchive} onClick={() => void change(row, row.note.archived ? restoreDiaryNote(row.note) : { ...row.note, archived: true })}><ExperimentalIcon name={row.note.archived ? 'undo' : 'archive'}/></button>
+        <button type="button" disabled={diary.busy} aria-label={text.deleteNote} title={text.deleteNote} onClick={() => setDeleting(row)}><ExperimentalIcon name="trash"/></button>
       </footer>
     </article>)}</div>
     {editing ? <NoteEditor key={editing === 'new' ? 'new' : editing.draftKey || editing.note.id} record={editing === 'new' ? undefined : editing} language={language} onClose={() => setEditing(null)} /> : null}
+    {settingsOpen ? <DiarySettings language={language} onClose={() => setSettingsOpen(false)}/> : null}
+    {deleting ? <DiaryDeleteDialog language={language} record={deleting} onClose={() => setDeleting(null)}/> : null}
   </section>;
 }

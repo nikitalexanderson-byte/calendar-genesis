@@ -1,6 +1,7 @@
 "use client";
 
-import type { Language } from "./i18n";
+import { translateText, type Language } from "./i18n";
+import copy from "./habit-feedback-copy.json";
 import type { HabitFeedbackEvent } from "./habit-feedback";
 
 type HabitCompletionFeedbackProps = {
@@ -8,13 +9,6 @@ type HabitCompletionFeedbackProps = {
   language: Language;
   showGamification: boolean;
 };
-
-function feedbackHeading(event: HabitFeedbackEvent, isEnglish: boolean) {
-  if (event.kind === "rank-up") return isEnglish ? `New rank — ${event.rankTitleEn}` : `Новый ранг — ${event.rankTitle}`;
-  if (event.kind === "perfect-day") return isEnglish ? "Perfect Day" : "Идеальный день";
-  if (event.kind === "daily-goal") return isEnglish ? "Daily goal achieved" : "Дневная цель выполнена";
-  return isEnglish ? "Completed" : "Выполнено";
-}
 
 export function HabitCompletionFeedback({ event, language, showGamification }: HabitCompletionFeedbackProps) {
   const isEnglish = language === "en";
@@ -28,7 +22,7 @@ export function HabitCompletionFeedback({ event, language, showGamification }: H
     >
       <span className="habit-feedback-symbol" aria-hidden="true">{event.habitEmoji || "✓"}</span>
       <div>
-        <small>{feedbackHeading(event, isEnglish)}</small>
+        <small>{(copy[language] ?? copy.en)[event.kind]}{event.kind === "rank-up" ? ` — ${translateText(isEnglish ? event.rankTitleEn : event.rankTitle, language)}` : ""}</small>
         <strong data-no-translate>{event.habitTitle}</strong>
         {showGamification && (event.xp > 0 || event.laurels > 0) ? (
           <p>

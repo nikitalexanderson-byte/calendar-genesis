@@ -213,6 +213,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     }
     var serverAssistantOpen by rememberSaveable(activeScope) { mutableStateOf(false) }
     var messagingSpaceId by rememberSaveable(activeScope) { mutableStateOf<String?>(null) }
+    var messagingProjectId by rememberSaveable(activeScope) { mutableStateOf<String?>(null) }
     var serverAssistantAvailable by remember(activeScope) { mutableStateOf(false) }
     val hasAssistantPlan by remember(app, activeScope) {
         app.database.dao().observeDocument(activeScope, "assistant-plan-v1").map { it != null }
@@ -349,8 +350,8 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
             serverUiVisibility == pendingUiVisibility) pendingUiVisibility = null
     }
     val visiblePages = listOf("Сегодня", "Проекты", "Календарь", "Привычки", "Сакральное", "Настройки", "Дневник", "Сообщения")
-        .filter { (it != "Дневник" || !testWorkspace && authState.user != null && "projects" !in uiVisibility.hiddenMenuItems) &&
-            (it != "Сообщения" || !testWorkspace && authState.user != null && sharedProjectsEnabled && "projects" !in uiVisibility.hiddenMenuItems && "projects.shared" !in uiVisibility.hiddenSubmenus) &&
+        .filter { (it != "Дневник" || !testWorkspace && authState.user != null) &&
+            (it != "Сообщения" || !testWorkspace && authState.user != null) &&
             (habitTrackingEnabled || it != "Привычки") && menuVisibilityId(it) !in uiVisibility.hiddenMenuItems &&
             (it != "Сакральное" || (uiVisibility.sacredFeaturesEnabled && !("stoicheion" in uiVisibility.hiddenMenuItems &&
                 "theokyklos" in uiVisibility.hiddenMenuItems))) }
@@ -427,6 +428,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
           LocalTimerDisplayMode provides prefs.display,
           LocalTimerUse24 provides prefs.use24,
           LocalGenesisUserId provides (authState.user?.uid?:"local")) {
+        if (!accountGate) HabitFeedbackHost(app, activeScope)
         Surface(Modifier.fillMaxSize().testTag(if (eveningTheme) "app-theme-Evening" else "app-theme-Standart"),color=MaterialTheme.colorScheme.background) {
             if (accountGate) {
                 if (authState.busy && authState.user != null) AuthTransitionScreen(authState.message)
@@ -594,7 +596,8 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                             Modifier.testTag("projects-area-switch"))
                         if(sharedProjectsEnabled && visibleSwipeState.projectArea=="shared") key(invitationDestination) {
                             SharedProjectsScreen(authController,prefs.language,invitationDestination,prefs,
-                                onPrivateMessages={ space -> messagingSpaceId=space;tab="Сообщения" })
+                                onPrivateMessages={ space -> messagingSpaceId=space;tab="Сообщения" },
+                                onProjectChat={ project -> messagingProjectId=project;tab="Сообщения" })
                         }
                         else personalAffairsContent(visibleSwipeState)
                     }
@@ -605,7 +608,14 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         val repository = remember(app, activeScope, uid) {
                             ru.genesis.calendar.data.MessagingRepository.room(app.database, activeScope, uid, authController.messagingGateway(uid))
                         }
-                        MessagingScreen(repository, messagingSpaceId) { menuSwipeState.projectArea="shared";tab="Проекты" }
+                        val messenger = remember(app, activeScope, uid) {
+                            ru.genesis.calendar.data.MessengerRepository.room(app.database, activeScope, uid, authController.messagingGateway(uid))
+                        }
+                        MessengerScreen(messenger, prefs.language, initialProjectId=messagingProjectId,
+                            onInitialProjectOpened={messagingProjectId=null},
+                            legacy = if(sharedProjectsEnabled) ({ MessagingScreen(repository, messagingSpaceId) { tab="Сообщения" } }) else null) {
+                            tab="Сегодня"
+                        }
                     }
                     "Задачи" -> personalAffairsContent(visibleSwipeState)
                     "Настройки" -> SettingsScreen(app, prefs, visibleSwipeState.settings,
@@ -735,7 +745,9 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                 }
                 // Save each workspace's scroll/form UI state when another drawer destination opens.
                 // No horizontal root pager: it would intercept map and calendar gestures.
-                val screenKey = "$tab-${menuSwipeState.section(tab) ?: "root"}"
+                // Month and year share one date owner. Restoring a separate month subtree
+                // would overwrite the date just chosen in the year overview.
+                val screenKey = workspaceScreenStateKey(tab, menuSwipeState)
                 Box(Modifier.fillMaxWidth().weight(1f).testTag("main-content")) {
                     screenStates.SaveableStateProvider(screenKey) {
                         CompositionLocalProvider(LocalFixedSubmenu provides true,
@@ -1865,52 +1877,40 @@ private fun MenuVisibilitySettings(prefs: UiPreferences,
             Text(if (prefs.language == "en") "Today and Settings always remain available."
                 else "«Сегодня» и «Настройки» всегда доступны.", style = MaterialTheme.typography.bodySmall)
             Text(if (prefs.language == "en") "Main menu" else "Главное меню", style = MaterialTheme.typography.titleSmall)
-            listOf("Дела" to "projects", "Календарь" to "calendar",
-                "Привычки" to "habits", "Сакральное" to "sacred")
-                .forEach { (label, id) ->
-                    val sacredHidden = id == "sacred" && "stoicheion" in visibility.hiddenMenuItems &&
-                        "theokyklos" in visibility.hiddenMenuItems
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text(genesisTranslate(label), Modifier.weight(1f))
-                        Switch(checked = id !in visibility.hiddenMenuItems && !sacredHidden,
-                            enabled = accountSettings != null,
-                            onCheckedChange = { checked -> onSetVisibility(visibility.copy(
-                                hiddenMenuItems = if (checked) {
-                                    if (id == "sacred") visibility.hiddenMenuItems - setOf("sacred", "stoicheion", "theokyklos")
-                                    else visibility.hiddenMenuItems - id
-                                } else visibility.hiddenMenuItems + id)) },
-                            modifier = Modifier.testTag("menu-visibility-$id"))
-                    }
+            menuVisibilityDestinations().forEach { destination ->
+                val fixed = destination.page in setOf("Сегодня", "Настройки")
+                Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    GenesisVectorIcon(destination.icon, Modifier.size(24.dp), animated = false)
+                    Text(genesisTranslate(destination.title), Modifier.weight(1f))
+                    Switch(checked = fixed || menuDestinationVisible(destination, visibility),
+                        enabled = !fixed && accountSettings != null,
+                        onCheckedChange = { onSetVisibility(setMenuDestinationVisible(destination, visibility, it)) },
+                        modifier = Modifier.testTag("menu-visibility-${destination.page}-${destination.section}"))
                 }
+            }
             Text(if (prefs.language == "en") "Submenus" else "Подменю", style = MaterialTheme.typography.titleSmall)
-            listOf("Задачи" to "tasks.tasks", "Списки задач" to "tasks.lists",
-                "Личные дела" to "projects.personal", "Общие дела" to "projects.shared",
+            val submenus = listOf("Личные дела" to "projects.personal", "Общие дела" to "projects.shared",
                 "Месяц" to "calendar.month", "Год" to "calendar.year",
-                "Привычки" to "habits.habits", "Сон и настроение" to "habits.sleep",
                 "Стойхейон" to "sacred.stoicheion", "Теокиклос" to "sacred.theokyklos")
-                .forEach { (label, id) ->
-                    val group = id.substringBefore('.')
-                    val visibleCount = listOf("tasks.tasks", "tasks.lists", "projects.personal", "projects.shared",
-                        "calendar.month", "calendar.year", "habits.habits", "habits.sleep",
-                        "sacred.stoicheion", "sacred.theokyklos")
-                        .count { it.startsWith("$group.") && !submenuHidden(it) }
-                    val lastVisible = !submenuHidden(id) && visibleCount == 1
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text(genesisTranslate(label), Modifier.weight(1f))
-                        Switch(checked = !submenuHidden(id),
-                            enabled = accountSettings != null && !lastVisible &&
-                                !(id == "projects.personal" && !sharedProjectsEnabled),
-                            onCheckedChange = { checked -> onSetVisibility(visibility.copy(
-                                hiddenMenuItems = if (checked && id.startsWith("sacred."))
-                                    visibility.hiddenMenuItems - id.substringAfter('.') else visibility.hiddenMenuItems,
-                                hiddenSubmenus = if (checked) visibility.hiddenSubmenus - id
-                                    else visibility.hiddenSubmenus + id)) },
-                            modifier = Modifier.testTag("submenu-visibility-$id"))
-                    }
+            submenus.forEach { (label, id) ->
+                val group = id.substringBefore('.')
+                val lastVisible = !submenuHidden(id) && submenus.count {
+                    it.second.startsWith("$group.") && !submenuHidden(it.second) } == 1
+                Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(genesisTranslate(label), Modifier.weight(1f))
+                    Switch(checked = !submenuHidden(id), enabled = accountSettings != null && !lastVisible &&
+                        !(id == "projects.personal" && !sharedProjectsEnabled),
+                        onCheckedChange = { checked -> onSetVisibility(visibility.copy(
+                            hiddenMenuItems = if (checked && id.startsWith("sacred."))
+                                visibility.hiddenMenuItems - id.substringAfter('.') else visibility.hiddenMenuItems,
+                            hiddenSubmenus = if (checked) visibility.hiddenSubmenus - id else visibility.hiddenSubmenus + id)) },
+                        modifier = Modifier.testTag("submenu-visibility-$id"))
                 }
+            }
             Text(if (prefs.language == "en") "Today" else "Экран «Сегодня»", style = MaterialTheme.typography.titleSmall)
             listOf("Ритм дня" to "rhythm", "Быстрое создание" to "quickCreate",
-                "Задачи дня" to "tasks", "Привычки дня" to "habits", "Подробности дня" to "details")
+                "Задачи дня" to "tasks", "Трекер привычек" to "habits", "Подробности дня" to "details")
                 .forEach { (label, id) ->
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text(genesisTranslate(label), Modifier.weight(1f))
@@ -1922,22 +1922,20 @@ private fun MenuVisibilitySettings(prefs: UiPreferences,
                             modifier = Modifier.testTag("today-visibility-$id"))
                     }
                 }
-            if (visibility.sacredFeaturesEnabled) {
             Text(if (prefs.language == "en") "Available calendars" else "Доступные календари",
                 style = MaterialTheme.typography.titleSmall)
             listOf(CalendarMode.PROFANE to "Григорианский", CalendarMode.SACRED to "Сакральный",
                 CalendarMode.LUNAR to "Лунный").forEach { (mode, label) ->
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(genesisTranslate(label), Modifier.weight(1f))
-                    Switch(checked = mode.wireValue in visibility.enabledCalendars,
-                        enabled = accountSettings != null &&
+                    Switch(checked = mode.wireValue in visibility.visibleCalendars,
+                        enabled = accountSettings != null && visibility.sacredFeaturesEnabled &&
                             !(visibility.enabledCalendars.size == 1 && mode.wireValue in visibility.enabledCalendars),
                         onCheckedChange = { checked -> onSetVisibility(visibility.copy(
                             enabledCalendars = if (checked) visibility.enabledCalendars + mode.wireValue
                                 else visibility.enabledCalendars - mode.wireValue)) },
                         modifier = Modifier.testTag("calendar-visibility-${mode.wireValue}"))
                 }
-            }
             }
 
                 }

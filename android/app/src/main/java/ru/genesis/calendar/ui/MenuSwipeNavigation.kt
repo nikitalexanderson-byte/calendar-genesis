@@ -21,6 +21,9 @@ import kotlinx.coroutines.flow.drop
 
 internal data class SwipeDestination(val page: String, val section: String? = null)
 
+internal fun workspaceScreenStateKey(page: String, state: MenuSwipeState): String =
+    if (page == "Календарь") "calendar" else "$page-${state.section(page) ?: "root"}"
+
 class MenuSwipeState {
     var tasks by mutableStateOf("tasks")
     var personalView by mutableStateOf("projects")
@@ -110,6 +113,7 @@ internal fun menuSwipeSequence(includeSubmenus: Boolean, habitsEnabled: Boolean,
 internal fun menuVisibilityId(page: String): String = when (page) {
     "Задачи" -> "tasks"; "Проекты" -> "projects"; "Календарь" -> "calendar"
     "Привычки" -> "habits"; "Сакральное" -> "sacred"
+    "Дневник" -> "diary"; "Сообщения" -> "messages"
     else -> ""
 }
 

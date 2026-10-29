@@ -3477,8 +3477,11 @@ export function GenesisCalendar() {
         const achievement = normalized.habitSettings.feedback.achievementPopups
           ? ACHIEVEMENTS.find((definition) => definition.id === achievementUnlock?.achievementId)
           : undefined;
+        const questCompleted = normalized.habitSettings.feedback.questsEnabled && normalized.quests.some(quest => quest.completedAt && !habitWorkspace.quests.some(previous => previous.id === quest.id && previous.completedAt));
         const kind = rankChanged
           ? "rank-up"
+          : questCompleted ? "quest"
+          : achievement ? "achievement"
           : nextGoal.status === "perfect" && previousGoal.status !== "perfect"
             ? "perfect-day"
             : ["qualified", "perfect"].includes(nextGoal.status) && !["qualified", "perfect"].includes(previousGoal.status)

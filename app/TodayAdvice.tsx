@@ -40,7 +40,9 @@ export function TodayAdvice({ user, habits, tasks, day, ready, onOpenDiary }: { 
   const advice = saved?.key === requestKey ? saved.result.advice : null;
   const diaryNote = advice ? diary.records.find(row => !row.draftKey && row.note.advice?.id === advice.id)?.note : undefined;
   const archived = diaryNote?.reaction === 'dislike';
-  const shown = ready && preferences.enabled && advice && !advice.dismissed && !archived;
+  const shown = ready && preferences.enabled && advice && !advice.dismissed && !archived
+    && (!advice.requiresAdult || preferences.aphrodisiaAdult === true)
+    && (!advice.categories.includes("aphrodisia") || (preferences.categories.includes("aphrodisia") && preferences.aphrodisiaAdult !== null));
 
   useEffect(() => {
     const online = () => setRetry(value => value + 1);
@@ -119,7 +121,9 @@ export function TodayAdvice({ user, habits, tasks, day, ready, onOpenDiary }: { 
       </button>
     </header>
     <p className="daily-advice-body" lang={advice.language}>{advice.body}</p>
-    <footer><span className="daily-advice-category-name">{copy.title} · {advice.categories.map(id => copy.categories[ADVICE_CATEGORIES.indexOf(id)]).join(" · ")}</span>
+    <footer><span className="daily-advice-category-name">{copy.title} · {advice.categories.map(id => id === "aphrodisia" && advice.aphrodisiaTheme
+      ? copy[`theme${advice.aphrodisiaTheme === "love" ? "Love" : advice.aphrodisiaTheme === "aesthetics" ? "Aesthetics" : "Consciousness"}`]
+      : copy.categories[ADVICE_CATEGORIES.indexOf(id)]).join(" · ")}</span>
     {advice.sources.map((source, index) => <span key={index} lang={advice.language}>
       {source.kind === "quote" ? copy.source : copy.inspired}: {[source.author, source.work, source.reference].filter(Boolean).join(" · ")}
     </span>)}</footer>

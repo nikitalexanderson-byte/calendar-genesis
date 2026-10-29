@@ -1,7 +1,5 @@
 package ru.genesis.calendar.ui
 
-import android.media.AudioManager
-import android.media.ToneGenerator
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -10,13 +8,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import java.time.LocalDate
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import ru.genesis.calendar.GenesisApplication
 import ru.genesis.calendar.data.HabitsRepository
@@ -39,7 +34,6 @@ internal fun TodayHabitsContent(app: GenesisApplication, date: LocalDate,
     val entries = workspace.completions.filter { it.date == date }.associateBy { it.habitId }
     val completed = scheduled.count { entries[it.id]?.completed == true }
     val scope = rememberCoroutineScope()
-    val haptic = LocalHapticFeedback.current
     val language = LocalGenesisLanguage.current
     val english = language == "en"
     var busy by remember { mutableStateOf(false) }
@@ -51,19 +45,8 @@ internal fun TodayHabitsContent(app: GenesisApplication, date: LocalDate,
         busy = true
         scope.launch {
             try {
-                val result = repository.complete(habit.id, checked, quality, date)
+                repository.complete(habit.id, checked, quality, date)
                 error = null
-                if (checked) {
-                    val feedback = workspace.settings.feedback
-                    if (feedback.haptics) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    if (feedback.sound) {
-                        val tone = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 35)
-                        try { tone.startTone(ToneGenerator.TONE_PROP_ACK, 120); delay(140) }
-                        finally { tone.release() }
-                    }
-                    if (feedback.achievementPopups && result.newlyUnlockedAchievements > 0)
-                        app.scheduler.showAchievementNotification(result.newlyUnlockedAchievements, language)
-                }
             } catch (e: CancellationException) { throw e }
             catch (e: IllegalArgumentException) { error = e.message }
             catch (_: Exception) { error = "Не удалось сохранить отметку привычки. Повторите попытку." }
@@ -75,18 +58,9 @@ internal fun TodayHabitsContent(app: GenesisApplication, date: LocalDate,
         busy=true
         scope.launch {
             try {
-                val result = repository.completeInterval(habit.id,time,checked,date)
+                repository.completeInterval(habit.id,time,checked,date)
                 error=null
                 if(checked) {
-                    val feedback=workspace.settings.feedback
-                    if(feedback.haptics) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    if(feedback.sound) {
-                        val tone=ToneGenerator(AudioManager.STREAM_NOTIFICATION,35)
-                        try { tone.startTone(ToneGenerator.TONE_PROP_ACK,120); delay(140) }
-                        finally { tone.release() }
-                    }
-                    if(feedback.achievementPopups && result.newlyUnlockedAchievements>0)
-                        app.scheduler.showAchievementNotification(result.newlyUnlockedAchievements,language)
                     val marks=habitIntervalMarks(habit,entries[habit.id]).toMutableSet().apply { add(time) }
                     if(habit.scoringMode.startsWith("quality") && entries[habit.id]?.qualityValue==null &&
                         habit.intervalSchedule!!.times().all { it in marks }) ratingHabit=habit
@@ -119,7 +93,8 @@ internal fun TodayHabitsContent(app: GenesisApplication, date: LocalDate,
         if (scheduled.isNotEmpty()) LinearProgressIndicator(
             progress = { completed.toFloat() / scheduled.size }, modifier = Modifier.fillMaxWidth())
         Text("Привычки дня", style = MaterialTheme.typography.titleMedium)
-        HabitTimerShelf(workspace, repository.timerOwner, timerHabitId, { timerHabitId = null }, !busy) {
+        HabitTimerShelf(workspace, repository.timerOwner, null, { timerHabitId = null }, !busy,
+            excludedHabitIds = scheduled.mapTo(hashSetOf()) { it.id }) {
             repository.applyTimer(it); Unit
         }
         if (scheduled.isEmpty()) Text("На этот день привычек нет.",
@@ -152,11 +127,14 @@ internal fun TodayHabitsContent(app: GenesisApplication, date: LocalDate,
                         repository.recordMeasurement(habit.id,date,amount,entryId,replaces,note);Unit
                     },onQuality={quality -> repository.complete(habit.id,true,quality,date);Unit})
                 HabitPeriodGoalProgress(habit,workspace.measurements,workspace.completions,date)
-                TextButton(onClick = { timerHabitId = habit.id },
-                    enabled = !busy && date == LocalDate.now() && engine.isScheduled(habit, date, workspace.completions),
-                    contentPadding = PaddingValues(vertical = 8.dp),
-                    modifier = Modifier.fillMaxWidth().testTag("habit-timer-open-${habit.id}")) {
-                    Text("Таймер", Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Start)
+                AffairsIconButton(genesisTranslate("Таймер") + " · " + habitDisplayTitle(habit), AffairsAction.TIMER,
+                    { timerHabitId = if (timerHabitId == habit.id) null else habit.id },
+                    Modifier.testTag("habit-timer-open-${habit.id}"),
+                    !busy && date == LocalDate.now() && engine.isScheduled(habit, date, workspace.completions), outlined = false)
+                if (timerHabitId == habit.id) Box(Modifier.testTag("habit-timer-inline-${habit.id}")) {
+                    HabitTimerShelf(workspace, repository.timerOwner, habit.id, { timerHabitId = null }, !busy, embedded = true) {
+                        repository.applyTimer(it); Unit
+                    }
                 }
                 }
             }

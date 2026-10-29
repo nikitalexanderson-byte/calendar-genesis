@@ -61,6 +61,8 @@ export function ExperimentalIcon({ name, className = "" }: { name: string; class
     {name === "delete" ? <path d="M3 6h18M9 6V4h6v2M5 6l1 14h12l1-14M10 10v6m4-6v6"/> : null}
     {name === "open" ? <path d="M7 7h10v10M7 17 17 7"/> : null}
     {name === "chevron" ? <path d="m9 18 6-6-6-6"/> : null}
+    {name === "chevron-left" ? <path d="m15 18-6-6 6-6"/> : null}
+    {name === "send" ? <><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></> : null}
     {name === "search" ? <><circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/></> : null}
     {name === "close" ? <path d="m6 6 12 12M6 18 18 6"/> : null}
     {name === "chevron-down" ? <path d="m6 9 6 6 6-6"/> : null}

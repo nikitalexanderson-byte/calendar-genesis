@@ -216,7 +216,7 @@ internal fun customFieldOperationLabel(op: String) = when (op) {
                 }
             }
             if (choices.size > limit) OutlinedButton({ limit += 5 }, Modifier.heightIn(min = 48.dp).testTag("field-sort-more")) { Text("Показать ещё") }
-        } }, confirmButton = { TextButton({ open = false }, Modifier.heightIn(min = 48.dp)) { Text("Закрыть") } })
+        } }, confirmButton = {})
 }
 
 @Composable internal fun SharedTaskListFilterDialog(status: String, completion: String, assignee: String, priority: Int,

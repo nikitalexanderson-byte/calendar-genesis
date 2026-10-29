@@ -68,7 +68,7 @@ import java.util.Locale
                         }
                         val dayTasks = tasks.filter { it.optString("dueDate") == date.toString() }
                         Surface(onClick = { onChoose(date) },
-                            modifier = Modifier.weight(1f).heightIn(min = 156.dp).fillMaxHeight()
+                            modifier = Modifier.weight(1f).heightIn(min = 78.dp).fillMaxHeight()
                                 .onGloballyPositioned { if (!adjacent) dropBounds[date.toString()] = it.boundsInWindow() }
                                 .testTag("shared-calendar-day-$date").semantics {
                                     contentDescription = calendar.formatDate(date, mode)
@@ -77,13 +77,15 @@ import java.util.Locale
                             color = if (selected == date || hovered) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
                             border = BorderStroke(if (hovered) 2.dp else 1.dp, if (hovered || selected == date) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)) {
                             Column(Modifier.padding(3.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                Text(day.toString(), style = MaterialTheme.typography.labelLarge,
-                                    color = if (adjacent) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
-                                dayTasks.take(2).forEach { task ->
+                                val remaining = (counts.optInt(date.toString()) - dayTasks.take(1).size).coerceAtLeast(0)
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text(day.toString(), style = MaterialTheme.typography.labelLarge,
+                                        color = if (adjacent) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
+                                    if (remaining > 0) Text("+$remaining", style = MaterialTheme.typography.labelSmall)
+                                }
+                                dayTasks.take(1).forEach { task ->
                                     SharedCalendarTaskChip(task, canEdit, { onTask(task) }, onTaskDragStart, onTaskDragMove, onTaskDragEnd, onTaskDragCancel)
                                 }
-                                val remaining = (counts.optInt(date.toString()) - dayTasks.take(2).size).coerceAtLeast(0)
-                                if (remaining > 0) Text("+$remaining", Modifier.fillMaxWidth(), style = MaterialTheme.typography.labelSmall)
                             }
                         }
                     }

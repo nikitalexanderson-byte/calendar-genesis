@@ -158,16 +158,7 @@ internal val habitActivityLabels = mapOf("completed" to "Выполнено", "a
         }
         HabitAnalysisBlock(null, "habit-analysis-comparison") {
             AffairsDisclosure("Сравнение") {
-                comparison?.let { data ->
-                    Text("Сравниваются только прошедшие дни обоих периодов.", style = MaterialTheme.typography.bodySmall)
-                    MaterialText("${calendar.formatDate(data.start, mode)} — ${calendar.formatDate(data.start.plusDays(maxOf(0, data.elapsed - 1).toLong()), mode)} · " +
-                        "${number.format(data.current.completed)}/${number.format(data.current.planned)} · ${percent(data.current.percent)}", Modifier.testTag("habit-comparison-current"))
-                    if (data.previousEnd != null) MaterialText("${calendar.formatDate(data.previousStart, mode)} — ${calendar.formatDate(data.previousEnd, mode)} · " +
-                        "${number.format(data.previous.completed)}/${number.format(data.previous.planned)} · ${percent(data.previous.percent)}", Modifier.testTag("habit-comparison-previous"))
-                    MaterialText((if (data.absoluteChange > 0) "+" else "") + number.format(data.absoluteChange) + " · " + percent(data.changePercent), Modifier.testTag("habit-comparison-change"))
-                    if (data.changePercent == null) Text("Нет базы для процентного сравнения", style = MaterialTheme.typography.bodySmall)
-                    if (data.current.unknown + data.previous.unknown > 0) MaterialText(genesisTranslate("Доступность неизвестна") + ": " + number.format(data.current.unknown + data.previous.unknown), style = MaterialTheme.typography.bodySmall)
-                }
+                comparison?.let { data -> HabitComparisonDetails(data, calendar, mode) }
             }
         }
     }

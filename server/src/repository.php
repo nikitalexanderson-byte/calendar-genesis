@@ -181,7 +181,7 @@ function genesisUiVisibility(mixed $value): array
     $decoded = is_string($value) ? json_decode($value, true) : $value;
     if (!is_array($decoded)) $decoded = [];
     $allowed = [
-        'hiddenMenuItems' => ['tasks', 'projects', 'calendar', 'habits', 'sacred', 'stoicheion', 'theokyklos'],
+        'hiddenMenuItems' => ['tasks', 'projects', 'calendar', 'habits', 'sacred', 'stoicheion', 'theokyklos', 'diary', 'messages'],
         'hiddenSubmenus' => ['tasks.tasks', 'tasks.lists', 'projects.personal', 'projects.shared',
             'calendar.month', 'calendar.year', 'habits.habits', 'habits.sleep',
             'sacred.stoicheion', 'sacred.theokyklos'],
@@ -333,7 +333,7 @@ function genesisUserForClient(array $user): array
         'advicePreferences' => genesisAdvicePreferences($user['advice_preferences_json'] ?? '{}'),
         'adviceCatalogAvailable' => genesisAdviceCatalog() !== [],
         'adviceAvailableCategories' => genesisAdviceAvailableCategories(),
-        'isAdmin' => genesisIsAdminUser($user) && genesisSessionIsPrimaryGoogleUser($user),
+        'isAdmin' => genesisIsAdminUser($user) && genesisSessionOwnsGoogleAccount($user),
         'sharedProjectsEligible' => genesisSharedEligible($user),
         'sharedProjectsLifetimeAccess' => genesisSharedTester($user),
         'sharedProjectsEnabled' => genesisSharedEligible($user) && !empty($user['shared_projects_enabled']),
@@ -892,7 +892,7 @@ function genesisSaveMetrics(string $userId, array $payload): void
 
 function genesisRequireAdmin(array $user): void
 {
-    if (!genesisIsAdminUser($user) || !genesisSessionIsPrimaryGoogleUser($user)) {
+    if (!genesisIsAdminUser($user) || !genesisSessionOwnsGoogleAccount($user)) {
         genesisJson(['error' => 'FORBIDDEN'], 403);
     }
 }

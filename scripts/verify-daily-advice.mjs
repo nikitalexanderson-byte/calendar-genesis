@@ -9,6 +9,7 @@ const root = fileURLToPath(new URL("../", import.meta.url));
 /** Bind each reviewed translation to its ID, language, body, category and artwork. */
 export function verifyAdvicePairing(entry, language, content, reviewed) {
   const payload = [entry.id, entry.contentVersion, entry.categories, entry.image, language, content.title, content.body];
+  if(entry.categories.includes("aphrodisia")) payload.push(entry.requiresAdult, entry.aphrodisiaTheme);
   const actual = createHash("sha256").update(JSON.stringify(payload)).digest("hex");
   if (reviewed?.locales?.[language] !== actual) throw new Error(`Unreviewed advice title/body pairing: ${entry.id} (${language})`);
 }
@@ -20,7 +21,7 @@ export async function verifyDailyAdvice(base = root) {
   const review = JSON.parse(await readFile(resolve(base, "server/content/daily-advice-pairings.json"), "utf8"));
   if (review.version !== 1 || !review.entries || typeof review.entries !== "object") throw new Error("Missing advice pairing review");
   const catalogById = new Map(catalog.items.map(entry => [entry.id, entry]));
-  for (const category of ["aretology", "hermetica", "kourotrophy", "hestiology"]) {
+  for (const category of ["aretology", "hermetica", "kourotrophy", "hestiology", "aphrodisia"]) {
     if (!catalog.items.some(entry => entry.categories.includes(category))) continue;
     const source = JSON.parse(await readFile(resolve(base, `server/content/${category}-source-manifest.json`), "utf8"));
     for (const original of source.entries) {
@@ -39,6 +40,7 @@ export async function verifyDailyAdvice(base = root) {
     if (entry.status === "draft") { drafts++; continue; }
     published++;
     if (!/^[a-z0-9-]{1,80}$/.test(entry.contentVersion) || !entry.title?.trim() || !entry.body?.trim()) throw new Error(`Unprepared advice: ${entry.id}`);
+    if(entry.categories.includes("aphrodisia") && (typeof entry.requiresAdult !== "boolean" || !["love","aesthetics","consciousness"].includes(entry.aphrodisiaTheme))) throw new Error(`Missing Aphrodisia classification: ${entry.id}`);
     const reviewed = review.entries[entry.id];
     if (reviewed?.contentVersion !== entry.contentVersion || reviewed?.title !== entry.title
       || Object.keys(reviewed.locales ?? {}).sort().join() !== [...adviceLanguages].sort().join()) throw new Error(`Missing advice pairing review: ${entry.id}`);

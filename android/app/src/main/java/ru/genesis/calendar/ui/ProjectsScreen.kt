@@ -234,6 +234,18 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
     var pickup by remember { mutableStateOf<TaskPickup?>(null) }
     var workspaceBounds by remember { mutableStateOf(Rect.Zero) }
     val dropBounds = remember { mutableStateMapOf<String, Rect>() }
+    val latestPickup by rememberUpdatedState(pickup)
+    val dragEdge=with(LocalDensity.current) { 72.dp.toPx() }
+    LaunchedEffect(pickup?.id) {
+        if(pickup == null) return@LaunchedEffect
+        val edge=dragEdge
+        while(true) {
+            val point=latestPickup?.position ?: break
+            val direction=when { point.y < workspaceBounds.top+edge -> -1f; point.y > workspaceBounds.bottom-edge -> 1f; else -> 0f }
+            if(direction != 0f) listState.scrollBy(direction*edge/6f)
+            delay(16)
+        }
+    }
     val ordered = remember(structure) { WorkspaceStructureCodec.ordered(structure) }
     val visible = ordered.filter { selectedCategory == null || it.first.categoryId == selectedCategory }
         .map { (project,depth) -> project to if (selectedCategory == null) depth else 0 }
@@ -306,7 +318,6 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
         }
     }
     val onPickup: (LocalTask, Offset) -> Unit = { task, point ->
-        dropBounds.clear()
         pickup = TaskPickup(task.id, task.title, task.projectId, point)
     }
     val onDrag: (Offset) -> Unit = { delta -> pickup = pickup?.let { it.copy(position = it.position + delta) } }
@@ -334,13 +345,11 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
             }
         }
         pickup = null
-        dropBounds.clear()
     }
 
     val listCard: @Composable (GoogleTaskList) -> Unit = { list ->
         DraggableWorkspaceBlock("list-${list.id}", list.title, pickup?.list?.id == list.id,
             onStart = { point ->
-                dropBounds.clear()
                 pickup = TaskPickup("list-${list.id}", list.title, listProjectId(list), point, list)
             }, onMove = onDrag, onFinish = onRelease) {
         PersonalTaskListCard(list, orderedTasks.filter { it.belongsToList(list) &&
@@ -391,6 +400,8 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
 
     Box(Modifier.fillMaxSize().onGloballyPositioned { workspaceBounds = it.boundsInRoot() }) {
     val inboxContent: @Composable () -> Unit = {
+        DisposableEffect(Unit) { onDispose { dropBounds.remove(inboxDropId) } }
+        Box(Modifier.fillMaxWidth().onGloballyPositioned { dropBounds[inboxDropId]=it.boundsInRoot() }) {
         InboxProjectCard(inbox, structure.projects, experimental, pickup?.id,
             onPickup, onDrag, onRelease, onOpenTask, moveTask,
             onDeleteClick = { deleteTaskCandidate = it }, onCompleteTask = onCompleteTask, listCount = inboxLists.size,
@@ -403,6 +414,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
             onHide = { setInboxLayout(inboxLayout.copy(hidden = true)) }) {
             inboxLists.forEach { list -> key(list.accountId, list.id) { listCard(list) } }
         }
+    }
     }
     val categoriesContent: @Composable () -> Unit = {
             Card(Modifier.fillMaxWidth().testTag("life-categories-card"), shape = RoundedCornerShape(10.dp),
@@ -508,10 +520,14 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
         if (visible.isEmpty()) item { Text("В этом разделе пока нет проектов.") }
         items(visible, key = { it.first.id }) { (project, depth) ->
             val count = tasksByProject[project.id].orEmpty().size
+            DisposableEffect(project.id) { onDispose { dropBounds.remove(project.id) } }
+            val hovered = pickup?.let { it.originId != project.id && dropBounds[project.id]?.contains(it.position) == true } == true
             Surface(onClick = { selectedProject = if (selectedProject == project.id) null else project.id },
-                color = if (selectedProject == project.id) MaterialTheme.colorScheme.surfaceContainerLow
+                color = if (hovered) MaterialTheme.colorScheme.primaryContainer else if (selectedProject == project.id) MaterialTheme.colorScheme.surfaceContainerLow
                 else MaterialTheme.colorScheme.surface, shape = MaterialTheme.shapes.medium,
-                modifier = Modifier.fillMaxWidth().testTag("project-drop-${project.id}"),
+                modifier = Modifier.fillMaxWidth().onGloballyPositioned { dropBounds[project.id] = it.boundsInRoot() }
+                    .then(if(hovered) Modifier.border(2.dp,MaterialTheme.colorScheme.primary,AffairsLayout.shape) else Modifier)
+                    .testTag("project-drop-${project.id}"),
                 tonalElevation = if (experimental) 0.dp else 1.dp) {
                 Column(Modifier.fillMaxWidth()
                     .padding(start = (16 + depth.coerceAtMost(5) * 14).dp, end = 16.dp, top = 14.dp, bottom = 14.dp),
@@ -614,7 +630,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
                 selected = categoryFiltersOpen || selectedCategory != null)
     }
     pickup?.let { held ->
-        ProjectDropOverlay(held, structure.projects, experimental, workspaceBounds, dropBounds)
+        ProjectDropOverlay(held, experimental, workspaceBounds)
     }
     }
 
@@ -844,74 +860,9 @@ private fun TaskDestinationMenu(task: LocalTask, projects: List<GenesisProject>,
 }
 
 @Composable
-private fun BoxScope.ProjectDropOverlay(held: TaskPickup, projects: List<GenesisProject>,
-    experimental: Boolean, workspaceBounds: Rect, dropBounds: MutableMap<String, Rect>) {
+private fun BoxScope.ProjectDropOverlay(held: TaskPickup, experimental: Boolean, workspaceBounds: Rect) {
     val density = LocalDensity.current
-    val targetScroll = rememberScrollState()
-    var targetListBounds by remember { mutableStateOf(Rect.Zero) }
-    val parchment = if (experimental) Color(0xfff7f1e5) else MaterialTheme.colorScheme.onSurface
-    val background = if (experimental) Color(0xff071d20) else MaterialTheme.colorScheme.surfaceContainerHigh
     val gold = if (experimental) Color(0xffdfc17e) else MaterialTheme.colorScheme.primary
-    data class Target(val id: String, val title: String, val depth: Int, val parentPath: String)
-    val entries = (listOf(Target(inboxDropId, "Хаос-бокс", 0, "")) +
-        WorkspaceStructureCodec.ordered(WorkspaceStructure(projects = projects)).map { (project, depth) ->
-            Target(project.id, project.title, depth, projectBreadcrumb(projects, project.parentId))
-        }).filterNot { it.id == (held.originId ?: inboxDropId) }
-    LaunchedEffect(held.position, targetListBounds, targetScroll.maxValue) {
-        if (targetListBounds == Rect.Zero || targetScroll.maxValue == 0) return@LaunchedEffect
-        val edge = with(density) { 72.dp.toPx() }
-        while (true) {
-            val speed = when {
-                held.position.y < targetListBounds.top + edge -> -with(density) { 13.dp.toPx() }
-                held.position.y > targetListBounds.bottom - edge -> with(density) { 13.dp.toPx() }
-                else -> 0f
-            }
-            if (speed == 0f) break
-            val consumed = targetScroll.scrollBy(speed)
-            if (kotlin.math.abs(consumed) < .5f) break
-            delay(16)
-        }
-    }
-    Surface(Modifier.align(Alignment.BottomCenter).fillMaxWidth().heightIn(max = 490.dp)
-        .padding(12.dp).testTag("drag-overlay"),
-        shape = MaterialTheme.shapes.large, color = background,
-        border = BorderStroke(2.dp, gold), shadowElevation = 18.dp) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Переносим «${held.title}»", color = parchment,
-                style = MaterialTheme.typography.titleMedium, maxLines = 2)
-            Text(if (held.list == null) "Отпустите задачу над нужным проектом" else "Отпустите список над нужным проектом", color = gold,
-                style = MaterialTheme.typography.bodySmall)
-            Column(Modifier.fillMaxWidth().weight(1f).onGloballyPositioned {
-                    targetListBounds = it.boundsInRoot()
-                }.verticalScroll(targetScroll).testTag("drag-overlay-target-list"),
-                verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                entries.forEach { target ->
-                    val id = target.id
-                    val hovered = dropBounds[id]?.contains(held.position) == true
-                    Surface(Modifier.fillMaxWidth().heightIn(min = 56.dp)
-                        .onGloballyPositioned { dropBounds[id] = it.boundsInRoot() }
-                        .testTag("drag-overlay-target-$id"),
-                        color = if (hovered) gold else if (experimental) Color(0xff103632)
-                            else MaterialTheme.colorScheme.surface,
-                        shape = MaterialTheme.shapes.medium,
-                        border = BorderStroke(if (hovered) 2.dp else 1.dp,
-                            if (hovered) parchment else gold.copy(alpha = .45f))) {
-                        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.padding(start = (target.depth * 14).dp)) {
-                                Text(projectHierarchyLabel(target.title, target.depth),
-                                    color = if (hovered) background else parchment,
-                                    style = MaterialTheme.typography.titleSmall, maxLines = 2)
-                                if (target.parentPath.isNotEmpty()) Text("В составе: ${target.parentPath}",
-                                    color = if (hovered) background.copy(alpha = .75f) else gold,
-                                    style = MaterialTheme.typography.labelSmall, maxLines = 1)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
     val ghostWidth = with(density) { 228.dp.toPx() }
     val ghostHeight = with(density) { 68.dp.toPx() }
     Surface(Modifier.align(Alignment.TopStart).offset {

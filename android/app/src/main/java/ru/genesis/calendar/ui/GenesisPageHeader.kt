@@ -105,7 +105,7 @@ internal fun PageInformationAction(title: String, description: String, inHeader:
     }
     if (showDescription) AlertDialog(
         onDismissRequest = { showDescription = false }, title = { Text(title) }, text = { Text(description) },
-        confirmButton = { TextButton(onClick = { showDescription = false }) { Text("Закрыть") } })
+        confirmButton = {})
 }
 
 /** Small native interpretation of the site's living SVG mandala; no WebView is needed. */

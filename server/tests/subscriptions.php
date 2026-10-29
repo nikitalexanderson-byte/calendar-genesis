@@ -17,6 +17,8 @@ function checkSubscription(bool $condition, string $message): void {
 $bootstrap = file_get_contents(__DIR__ . '/../src/bootstrap.php');
 if (!preg_match('/function genesisSessionIsPrimaryGoogleUser\(array \$user\): bool\s*\{.*?^\}/ms', $bootstrap, $match)) throw new RuntimeException('Primary identity guard missing');
 eval($match[0]);
+if (!preg_match('/function genesisSessionOwnsGoogleAccount\(array \$user\): bool\s*\{.*?^\}/ms', $bootstrap, $match)) throw new RuntimeException('Account identity guard missing');
+eval($match[0]);
 require __DIR__ . '/../src/repository.php';
 require __DIR__ . '/../src/subscriptions.php';
 

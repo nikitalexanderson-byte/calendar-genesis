@@ -137,11 +137,12 @@ class DiaryScreenTest {
         compose.setContent { Content() }; await("diary-create")
         compose.onNodeWithTag("diary-create").performClick(); await("diary-editor")
         compose.onNodeWithTag("diary-body").performClick()
-        compose.onNodeWithTag("diary-body").performTextReplacement("Длинный текст записи. ".repeat(100))
         compose.waitUntil(10_000) {
             androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
                 .executeShellCommand("dumpsys input_method").contains("mInputShown=true")
         }
+        compose.onNodeWithTag("diary-body").performTextReplacement("Длинный текст записи. ".repeat(100))
+        compose.onNodeWithTag("diary-body").assertTextContains("Длинный текст записи.", substring = true)
         compose.onNodeWithTag("diary-save").assertIsDisplayed().assertIsEnabled()
         capture("keyboard", "diary-editor")
         val device = androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())

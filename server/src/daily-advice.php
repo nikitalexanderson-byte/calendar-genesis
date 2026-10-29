@@ -9,18 +9,21 @@ const GENESIS_ADVICE_TOPICS = ['nutrition', 'training', 'recovery', 'discipline'
 function genesisAdvicePreferences(mixed $value): array
 {
     $value = is_string($value) ? json_decode($value, true, 16, JSON_THROW_ON_ERROR) : $value;
-    if (!is_array($value) || array_diff(array_keys($value), ['enabled', 'smart', 'categories'])) {
+    if (!is_array($value) || array_diff(array_keys($value), ['enabled', 'smart', 'categories', 'aphrodisiaAdult'])) {
         throw new InvalidArgumentException('INVALID_ADVICE_PREFERENCES');
     }
     $result = ['enabled' => $value['enabled'] ?? true, 'smart' => $value['smart'] ?? true,
-        'categories' => $value['categories'] ?? GENESIS_ADVICE_CATEGORIES];
-    if (!is_bool($result['enabled']) || !is_bool($result['smart']) || !is_array($result['categories'])
+        'categories' => $value['categories'] ?? array_values(array_diff(GENESIS_ADVICE_CATEGORIES, ['aphrodisia'])),
+        'aphrodisiaAdult' => $value['aphrodisiaAdult'] ?? null];
+    if (!is_bool($result['enabled']) || !is_bool($result['smart']) || ($result['aphrodisiaAdult'] !== null && !is_bool($result['aphrodisiaAdult'])) || !is_array($result['categories'])
         || !array_is_list($result['categories']) || array_filter($result['categories'],
             static fn($id) => !is_string($id) || !in_array($id, GENESIS_ADVICE_CATEGORIES, true))) {
         throw new InvalidArgumentException('INVALID_ADVICE_PREFERENCES');
     }
     $result['categories'] = array_values(array_unique($result['categories']));
     if (!$result['smart'] && $result['categories'] === []) throw new InvalidArgumentException('ADVICE_CATEGORY_REQUIRED');
+    if ($result['aphrodisiaAdult'] === null) $result['categories'] = array_values(array_diff($result['categories'], ['aphrodisia']));
+    if ($result['categories'] === []) $result['categories'] = array_values(array_diff(GENESIS_ADVICE_CATEGORIES, ['aphrodisia']));
     return $result;
 }
 
@@ -59,6 +62,10 @@ function genesisAdviceCatalog(): array
         }
         if (isset($entry['timeOfDay']) && !in_array($entry['timeOfDay'], ['morning', 'evening'], true)) throw new RuntimeException('INVALID_ADVICE_TIME');
         if (isset($entry['priority']) && !is_bool($entry['priority'])) throw new RuntimeException('INVALID_ADVICE_PRIORITY');
+        if (in_array('aphrodisia', $entry['categories'], true) && (!is_bool($entry['requiresAdult'] ?? null)
+            || !in_array($entry['aphrodisiaTheme'] ?? null, ['love', 'aesthetics', 'consciousness'], true))) {
+            throw new RuntimeException('INVALID_APHRODISIA_CONTENT');
+        }
         $ids[$entry['id']] = true;
         if (($entry['status'] ?? 'published') !== 'draft') $items[] = $entry;
     }
@@ -163,7 +170,8 @@ function genesisAdviceClothing(array $entry): bool
 
 function genesisAdviceDailyLimit(array $preferences, array $items): int
 {
-    $available = genesisAdviceAvailableCategories($items);
+    $available = genesisAdviceAvailableCategories(array_values(array_filter($items,
+        static fn($entry) => genesisAdviceAgeAllowed($entry, $preferences))));
     return min(6, max(3, count($preferences['smart'] ? $available : array_intersect($available, $preferences['categories']))));
 }
 
@@ -182,6 +190,14 @@ function genesisAdviceFamilyAffinity(array $topics): float
     return $interest;
 }
 
+function genesisAdviceAgeAllowed(array $entry, array $preferences): bool
+{
+    // Missing metadata in a historical Aphrodisia snapshot fails closed.
+    return !in_array('aphrodisia', $entry['categories'], true)
+        || (in_array('aphrodisia', $preferences['categories'], true) && ($preferences['aphrodisiaAdult'] ?? null) !== null
+            && (($entry['requiresAdult'] ?? true) === false || $preferences['aphrodisiaAdult'] === true));
+}
+
 function genesisChooseAdvice(array $items, array $preferences, array $scores, array $history, string $seed,
     array $topicScores = [], ?array $phaseLeads = null, array $localContext = []): ?array
 {
@@ -190,11 +206,15 @@ function genesisChooseAdvice(array $items, array $preferences, array $scores, ar
         : array_values(array_intersect($available, $preferences['categories']));
     // Match the settings' effective selection when an older account selected only unpublished categories.
     if ($categories === []) $categories = $preferences['smart'] ? $available : array_slice($available, 0, 1);
+    if (!in_array('aphrodisia', $preferences['categories'], true) || ($preferences['aphrodisiaAdult'] ?? null) === null) {
+        $categories = array_values(array_diff($categories, ['aphrodisia']));
+    }
     $phaseLeads ??= genesisAdvicePhaseLeads(genesisAdviceDayKey(), genesisAdviceTimeZone());
     $day = $localContext['day'] ?? genesisAdviceDayKey();
     $hour = $localContext['hour'] ?? (int)(new DateTimeImmutable('now', new DateTimeZone(genesisAdviceTimeZone())))->format('G');
     $excluded = $localContext['excluded'] ?? [];
     $eligible = array_values(array_filter($items, static fn($entry) => ($entry['status'] ?? 'published') !== 'draft'
+        && genesisAdviceAgeAllowed($entry, $preferences)
         && !in_array($entry['id'], $excluded, true) && array_intersect($entry['categories'], $categories) !== []
         && genesisAdviceScheduledFor($entry, $phaseLeads)
         && (!$preferences['smart'] || genesisAdviceTimeMatches($entry, $hour))));
@@ -230,12 +250,34 @@ function genesisChooseAdvice(array $items, array $preferences, array $scores, ar
             $eligible = array_values(array_filter($eligible, static fn($entry) => !genesisAdviceClothing($entry)));
         }
     }
+    // Balance all three Aphrodisia meanings, rather than letting its larger love pool
+    // overwhelm aesthetics and consciousness. Other categories retain their ranking.
+    $themeCounts = ['love' => 0, 'aesthetics' => 0, 'consciousness' => 0];
+    $previousTheme = null;
+    foreach ($history as $row) {
+        $theme = json_decode($row['entry_json'], true)['aphrodisiaTheme'] ?? null;
+        if (isset($themeCounts[$theme ?? ''])) { $themeCounts[$theme]++; $previousTheme ??= $theme; }
+    }
+    $themes = array_values(array_unique(array_filter(array_column($eligible, 'aphrodisiaTheme'))));
+    if ($themes !== []) {
+        $minimum = min(array_map(static fn($theme) => $themeCounts[$theme], $themes));
+        $eligible = array_values(array_filter($eligible, static fn($entry) => !isset($entry['aphrodisiaTheme'])
+            || $themeCounts[$entry['aphrodisiaTheme']] === $minimum));
+    }
     // Explicit Next alternates categories within the least-shown round, preserving no-repeat history.
     if ($eligible !== [] && ($localContext['previousCategories'] ?? []) !== []) {
         $minimum = min(array_map(static fn($entry) => $shownCounts[$entry['id']] ?? 0, $eligible));
         $round = array_values(array_filter($eligible, static fn($entry) => ($shownCounts[$entry['id']] ?? 0) === $minimum));
         $different = array_values(array_filter($round, static fn($entry) => array_diff($entry['categories'], $localContext['previousCategories']) !== []));
         $eligible = $different !== [] ? $different : $round;
+    }
+    // Within Aphrodisia, rotate love, aesthetics and consciousness, while retaining
+    // no-repeat rounds. Intimate entries were removed before this balancing step.
+    if ($previousTheme !== null && $eligible !== []) {
+        $minimum = min(array_map(static fn($entry) => $shownCounts[$entry['id']] ?? 0, $eligible));
+        $round = array_values(array_filter($eligible, static fn($entry) => ($shownCounts[$entry['id']] ?? 0) === $minimum));
+        $different = array_values(array_filter($round, static fn($entry) => ($entry['aphrodisiaTheme'] ?? null) !== $previousTheme));
+        if ($different !== []) $eligible = $different;
     }
     $best = null; $bestRank = null;
     foreach ($eligible as $entry) {
@@ -301,6 +343,8 @@ function genesisDailyAdvice(string $userId, array $payload, ?array $catalogFixtu
             $query = $db->prepare('SELECT * FROM daily_advice_days WHERE user_id = ? AND day_key = ?');
             $query->execute([$userId, $day]); $row = $query->fetch();
             $drawPreferences = is_array($row) ? genesisAdvicePreferences($row['selection_json']) : $preferences;
+            // Safety choice is current, even when today's selection preferences are frozen.
+            $drawPreferences['aphrodisiaAdult'] = $preferences['aphrodisiaAdult'];
             $slots = $db->prepare('SELECT advice_id FROM daily_advice_entries WHERE user_id=? AND day_key=? ORDER BY slot');
             $slots->execute([$userId, $day]); $todayIds = $slots->fetchAll(PDO::FETCH_COLUMN);
             $limit = is_array($row) ? (int)$row['draw_limit'] : genesisAdviceDailyLimit($drawPreferences, $items);
@@ -308,10 +352,11 @@ function genesisDailyAdvice(string $userId, array $payload, ?array $catalogFixtu
             $history->execute([$userId]); $viewed = $history->fetchAll();
             $local = ['day' => $day, 'hour' => (int)(new DateTimeImmutable('now', new DateTimeZone(genesisAdviceTimeZone())))->format('G'), 'excluded' => $todayIds, 'user' => $userId];
             $oldEntry = is_array($row) ? json_decode($row['entry_json'], true, 32, JSON_THROW_ON_ERROR) : null;
+            $ageBlocked = is_array($oldEntry) && !genesisAdviceAgeAllowed($oldEntry, $preferences);
             $timeChanged = is_array($oldEntry) && $drawPreferences['smart'] && !genesisAdviceTimeMatches($oldEntry, $local['hour']);
             $requestedNext = $advance && is_array($row) && $payload['fromId'] === $row['advice_id'] && $payload['dayKey'] === $day;
             if ($requestedNext) $local['previousCategories'] = $oldEntry['categories'];
-            if (!is_array($row) || (($requestedNext || $timeChanged) && $row['dismissed_at'] === null && count($todayIds) < $limit)) {
+            if (!is_array($row) || (($requestedNext || $timeChanged || $ageBlocked) && ($row['dismissed_at'] === null || $ageBlocked) && count($todayIds) < $limit)) {
                 // The optional fixture is used only by isolated backend tests, never by HTTP input.
                 if ($requestedNext) {
                     foreach (['daily_advice_days', 'daily_advice_entries'] as $table) {
@@ -327,13 +372,13 @@ function genesisDailyAdvice(string $userId, array $payload, ?array $catalogFixtu
                         ->execute([$userId, $day, count($todayIds) + 1, $entry['id'], $row['entry_json'], genesisNow()]);
                     $db->prepare('INSERT INTO daily_advice_days(user_id,day_key,advice_id,entry_json,created_at,draw_limit,selection_json) VALUES (?,?,?,?,?,?,?) ON CONFLICT(user_id,day_key) DO UPDATE SET advice_id=excluded.advice_id,entry_json=excluded.entry_json,created_at=excluded.created_at,viewed_at=NULL,dismissed_at=NULL')
                         ->execute([$userId, $day, $entry['id'], $row['entry_json'], genesisNow(), $limit, json_encode($drawPreferences, JSON_THROW_ON_ERROR)]);
-                    $todayIds[] = $entry['id']; $local['excluded'] = $todayIds; $timeChanged = false;
+                    $todayIds[] = $entry['id']; $local['excluded'] = $todayIds; $timeChanged = false; $ageBlocked = false;
                 }
             }
             $result['state'] = $items === [] ? 'empty' : 'no-match';
             $result['sequence'] = count($todayIds); $result['dailyLimit'] = $limit;
             $result['remaining'] = max(0, $limit - count($todayIds));
-            if (is_array($row) && !$timeChanged) {
+            if (is_array($row) && !$timeChanged && !$ageBlocked) {
                 $result['advice'] = genesisAdviceForClient($row, $user['language'] ?? 'ru'); $result['state'] = 'ready';
                 $result['canNext'] = $row['dismissed_at'] === null && $result['remaining'] > 0
                     && genesisChooseAdvice($items, $drawPreferences, $scores, $viewed, $userId . ':' . $day, $topics, null, $local) !== null;

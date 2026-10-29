@@ -124,9 +124,11 @@ internal fun workflowMessage(code: String, copy: JSONObject): String? { return c
     }
     val labels = listOf("statuses" to genesisTranslate("Настройки"), "transitions" to copy.getString("transitions"), "history" to genesisTranslate("История"))
     @Composable fun Navigation(modifier: Modifier) {
-        Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) { labels.forEach { (id, label) ->
-            if (section == id) FilledTonalButton({ section = id }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("workflow-section-$id")) { androidx.compose.material3.Text(label) }
-            else OutlinedButton({ section = id }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("workflow-section-$id")) { androidx.compose.material3.Text(label) }
+        Row(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) { labels.forEach { (id, label) ->
+            Box(Modifier.weight(1f)) {
+            AffairsIconButton(label, when (id) { "statuses" -> AffairsAction.SETTINGS; "transitions" -> AffairsAction.LINK; else -> AffairsAction.HISTORY },
+                { section = id }, Modifier.testTag("workflow-section-$id"), fillWidth = true, selected = section == id)
+            }
         } }
     }
     @Composable fun EditorActions() {
@@ -169,9 +171,9 @@ internal fun workflowMessage(code: String, copy: JSONObject): String? { return c
             }
             if (editor.phase == "editing") {
                 androidx.compose.material3.Text(drafts.getString(if (editor.saved) "saved" else "saving"), Modifier.testTag("workflow-draft-status"), style = MaterialTheme.typography.bodySmall)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button({ scope.launch { editor.submit() } }, Modifier.heightIn(min = 48.dp).testTag("workflow-save"), enabled = writable && !stale) { Text("Сохранить") }
-                    OutlinedButton({ scope.launch { editor.discard() } }, Modifier.heightIn(min = 48.dp).testTag("workflow-discard"), enabled = !editor.busy) { androidx.compose.material3.Text(copy.getString("cancel")) }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton({ scope.launch { editor.discard() } }, Modifier.weight(1f).heightIn(min = 48.dp).testTag("workflow-discard"), enabled = !editor.busy) { androidx.compose.material3.Text(copy.getString("cancel")) }
+                    Button({ scope.launch { editor.submit() } }, Modifier.weight(1f).heightIn(min = 48.dp).testTag("workflow-save"), enabled = writable && !stale) { Text("Сохранить") }
                 }
             } else if (editor.phase == "rejected" || editor.phase == "pending" && editor.record?.optInt("attempts") == 0) {
                 OutlinedButton({ scope.launch { editor.discard() } }, Modifier.testTag("workflow-discard"), enabled = !editor.busy) { androidx.compose.material3.Text(drafts.getString("discard")) }
@@ -254,18 +256,22 @@ internal fun workflowMessage(code: String, copy: JSONObject): String? { return c
         }
     }
     Dialog(onDismissRequest = ::leave, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        Surface(Modifier.fillMaxSize()) { Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding().padding(AffairsLayout.gutter).testTag("shared-workflow-screen"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            AffairsPageHeader(copy.getString("heading"), if (lost) "" else data?.getJSONObject("context")?.getJSONObject("project")?.getString("title").orEmpty(),
-                contextIsUserContent = true, onBack = ::leave, backEnabled = !editor.busy, actions = {
-                    AffairsIconButton("Обновить", AffairsAction.REFRESH, { refresh++; generation++; history = null }, Modifier.testTag("workflow-refresh"), !editor.busy && !loading)
-                        AffairsIconButton("Закрыть", AffairsAction.CLOSE, ::leave)
-                })
-            BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-                if (maxWidth >= 720.dp) Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                    Navigation(Modifier.width(224.dp)); Content(Modifier.weight(1f).fillMaxHeight(), false)
-                } else Content(Modifier.fillMaxSize(), true)
-            }
-        } }
+        GenesisModalFrame(::leave) {
+                Column(Modifier.testTag("shared-workflow-screen")) {
+                    AffairsDialogHeader(copy.getString("heading"), if (lost) "" else data?.getJSONObject("context")?.getJSONObject("project")?.getString("title").orEmpty(),
+                        onClose = ::leave, onBack = ::leave, enabled = !editor.busy,
+                        closeTag = "workflow-close", backTag = "workflow-back", actions = {
+                            AffairsIconButton("Обновить", AffairsAction.REFRESH, { refresh++; generation++; history = null },
+                                Modifier.testTag("workflow-refresh"), !editor.busy && !loading)
+                        })
+                    HorizontalDivider()
+                    BoxWithConstraints(Modifier.weight(1f, fill = false).fillMaxWidth().padding(16.dp)) {
+                        if (maxWidth >= 840.dp) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                            Navigation(Modifier.width(224.dp)); Content(Modifier.weight(1f), false)
+                        } else Content(Modifier.fillMaxWidth(), true)
+                    }
+                }
+        }
     }
 }
 

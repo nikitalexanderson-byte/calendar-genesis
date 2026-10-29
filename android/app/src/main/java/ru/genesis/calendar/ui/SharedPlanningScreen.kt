@@ -314,8 +314,8 @@ import ru.genesis.calendar.data.UiPreferences
         }
     }
     Dialog(onDismissRequest = { leave(onClose) }, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        Surface(Modifier.fillMaxSize()) {
-            Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding().padding(16.dp).testTag("shared-planning-screen"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        GenesisModalFrame({ leave(onClose) }) {
+            Column(Modifier.fillMaxSize().padding(16.dp).testTag("shared-planning-screen"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 AffairsPageHeader(if (accessLost) copy.getString("heading") else project.getString("title"),
                     if (accessLost) "" else copy.getString("heading"), titleIsUserContent = true,
                     onBack = { leave(onClose) }, actions = {

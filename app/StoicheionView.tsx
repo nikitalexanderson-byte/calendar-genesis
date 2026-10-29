@@ -12,6 +12,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { stoicheionReadingSections } from "./stoicheion-reading";
+import {splitStoicheionReading} from './stoicheion-reading-layout';
 import {
   getStoicheionLetters,
   type StoicheionLetter,
@@ -363,14 +364,14 @@ function LetterDetails({
   const guidance = position ? sacredSectorGuidance(position.id) : null;
   const practices = position ? sacredPracticesForSector(position.id) : [];
   const sections = stoicheionReadingSections(formatGreekTerms(letter.content, getRuntimeLanguage()));
-  const orientationSections = sections.filter((section) => /^(Парадное положение|Перев[её]рнутое положение|Upright position|Reversed position)/i.test(section.heading));
-  const profileSections = sections.filter((section) => !orientationSections.includes(section));
+  const readingText=splitStoicheionReading(formatGreekTerms(letter.content,language),letter.id);
+  const orientationSections=[{heading:translateText('Парадное положение',language),body:readingText.upright},
+    {heading:translateText('Перевёрнутое положение',language),body:readingText.reversed}];
+  const profileSections=stoicheionReadingSections(readingText.profile);
   const drawReading = reversed !== null;
   const [readingMoreOpen, setReadingMoreOpen] = useState(orientationSections.length === 0);
   const renderSection = (section: (typeof sections)[number], index: number) => {
-    const selected = reversed !== null && (reversed
-      ? /^(Перев[её]рнутое положение|Reversed position)/i.test(section.heading)
-      : /^(Парадное положение|Upright position)/i.test(section.heading));
+    const selected = reversed !== null && section===orientationSections[reversed?1:0];
     return <section className={drawReading && selected ? "stoicheion-reading-selected" : undefined} key={`${letter.id}-${index}`}>
       {section.heading ? <h3 data-no-translate>{section.heading}</h3> : null}
       <div className="stoicheion-reading-body" data-no-translate>{section.body.split(/\n{2,}/).filter(Boolean).map((paragraph,bodyIndex)=>{
@@ -400,7 +401,6 @@ function LetterDetails({
         <small>{language === "en" ? "Sacred words" : "Священные слова"}</small>
         <div>{sector.words.map((word) => <span key={word.greek} data-no-translate><b lang={language === "el" ? "grc" : language}>{sacredWordCopy(word.greek, language, word.pronunciation.ru)}</b><em>{catalogText(word.pronunciation, language)}</em></span>)}</div>
       </div>
-      {practiceActions()}
       {onOpenTheokyklosSector ? <button type="button" className="secondary-button" onClick={() => { onClose(); onOpenTheokyklosSector(position.id); }}>{language === "en" ? "Open the Theokyklos sector" : "Открыть сектор Теокиклоса"}<ExperimentalIcon name="chevron" /></button> : null}
     </section>
   ) : null;
@@ -438,6 +438,7 @@ function LetterDetails({
           </div>
         </header>
         <div className="stoicheion-letter-copy">
+          {drawReading?<div className="stoicheion-orientation-readings">{orientationSections.map(renderSection)}</div>:null}
           {position ? <section className="stoicheion-spread-position">
             <span className="eyebrow">{language === "en" ? "Spread sector" : "Сектор расклада"}</span>
             <h3>{sector ? catalogText(sector.title, language) : position.direction}</h3>
@@ -447,15 +448,14 @@ function LetterDetails({
             {sector ? <p data-no-translate>{catalogText(sector.description, language)}</p> : null}
           </section> : null}
           {drawReading ? <>
-            <div className="stoicheion-orientation-readings">{orientationSections.map(renderSection)}</div>
-            {reversed && position ? <section className="stoicheion-recommended-practices">{onStartRestoration
-              ? <StoicheionActionButton icon="restoration" className="primary-button" data-no-translate disabled={restorationAction === "preparing"} onClick={() => { onClose(); requestAnimationFrame(() => onStartRestoration(position.id)); }}>{restorationText[restorationAction]}</StoicheionActionButton>
-              : practiceActions(true)}</section> : null}
+            {sectorPractice}
             <details className="stoicheion-reading-more" open={readingMoreOpen} onToggle={event => setReadingMoreOpen(event.currentTarget.open)}>
               <summary>{translateText("Полная информация о карте", language)}</summary>
-              <div>{profileSections.map(renderSection)}{sectorPractice}</div>
+              <div>{profileSections.map(renderSection)}</div>
             </details>
-          </> : <>{sections.map(renderSection)}{sectorPractice}</>}
+            {position?<section className="stoicheion-recommended-practices">{practiceActions(true)}
+              {reversed&&onStartRestoration?<StoicheionActionButton icon="restoration" className="primary-button" data-no-translate disabled={restorationAction === "preparing"} onClick={() => { onClose(); requestAnimationFrame(() => onStartRestoration(position.id)); }}>{restorationText[restorationAction]}</StoicheionActionButton>:null}</section>:null}
+          </> : <>{sections.map(renderSection)}{sectorPractice}{position?practiceActions():null}</>}
         </div>
       </article>
     </div>,

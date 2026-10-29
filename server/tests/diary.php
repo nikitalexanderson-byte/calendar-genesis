@@ -26,5 +26,30 @@ $db->exec('VACUUM INTO '.$db->quote($fixture.'/backup.sqlite'));$backup=new PDO(
 diaryExpect($backup->query('SELECT COUNT(*) FROM personal_diary_notes')->fetchColumn()===2,'Runtime backup omitted notes.');
 $columns=$db->query('PRAGMA table_info(personal_diary_notes)')->fetchAll(PDO::FETCH_COLUMN,1);
 foreach(['title','body','advice_id','reaction','archived'] as $name)diaryExpect(!in_array($name,$columns,true),'Plaintext metadata column present.');
-$db->exec("DELETE FROM users WHERE id='a'");diaryExpect(genesisDiaryNotes('a')===[]&&count(genesisDiaryNotes('b'))===1,'Account cascade crossed owners.');
+try{genesisDeleteDiaryNote('a','same-id',['expectedRevision'=>1]);throw new RuntimeException('Deleted a newer note.');}
+catch(GenesisResourceLimitException $error){diaryExpect($error->getMessage()==='DIARY_REVISION_CONFLICT','Wrong delete conflict.');}
+$deleted=genesisDeleteDiaryNote('a','same-id',['expectedRevision'=>2]);diaryExpect($deleted['deleted']&&$deleted['revision']===3,'Delete failed.');
+diaryExpect(genesisDiaryNotes('a')===[]&&count(genesisDiaryNotes('b'))===1,'Deletion crossed owner boundary.');
+diaryExpect(genesisDeleteDiaryNote('a','same-id',['expectedRevision'=>2])===$deleted,'Delete replay changed receipt.');
+try{genesisSaveDiaryNote('a','same-id',$body);throw new RuntimeException('Resurrected a deleted note.');}
+catch(GenesisResourceLimitException $error){diaryExpect($error->getMessage()==='DIARY_NOTE_DELETED','Wrong deleted error.');}
+genesisSaveDiaryNote('a','local-copy',$body);
+$snapshot=genesisDiarySnapshot('a');$mode=['syncEnabled'=>false,'expectedRevision'=>0,'expectedSnapshot'=>$snapshot];
+$changed=[...$body,'expectedRevision'=>1,'ciphertext'=>base64_encode(random_bytes(88))];genesisSaveDiaryNote('a','local-copy',$changed);
+try{genesisUpdateDiarySettings('a',$mode);throw new RuntimeException('Purged a newer snapshot.');}
+catch(GenesisResourceLimitException $error){diaryExpect($error->getMessage()==='DIARY_SNAPSHOT_CHANGED','Wrong snapshot conflict.');}
+diaryExpect(count(genesisDiaryNotes('a'))===1,'Failed privacy transition removed notes.');
+$mode['expectedSnapshot']=genesisDiarySnapshot('a');$private=genesisUpdateDiarySettings('a',$mode);
+diaryExpect(!$private['settings']['syncEnabled']&&$private['removed']===1&&genesisDiaryNotes('a')===[],'Local-only did not remove server copies.');
+diaryExpect(genesisUpdateDiarySettings('a',$mode)===$private,'Privacy retry was not idempotent.');
+try{genesisSaveDiaryNote('a','new-other-device',$body);throw new RuntimeException('Another device uploaded while disabled.');}
+catch(GenesisResourceLimitException $error){diaryExpect($error->getMessage()==='DIARY_SYNC_DISABLED','Wrong disabled error.');}
+try{$db->prepare('INSERT INTO personal_diary_notes VALUES(?,?,?,?,?,?,?,?)')->execute(['a','old-server',1,1,$body['iv'],$body['ciphertext'],'legacy',$now]);throw new RuntimeException('Legacy writer bypassed privacy.');}
+catch(PDOException $error){diaryExpect(str_contains($error->getMessage(),'DIARY_SYNC_DISABLED'),'Wrong rollback guard.');}
+diaryExpect(count(genesisDiaryNotes('b'))===1&&genesisDiarySettings('b')['syncEnabled'],'Privacy change crossed accounts.');
+$public=genesisUpdateDiarySettings('a',['syncEnabled'=>true,'expectedRevision'=>1,'expectedSnapshot'=>genesisDiarySnapshot('a')]);
+diaryExpect($public['settings']['syncEnabled'],'Could not enable synchronization.');genesisSaveDiaryNote('a','new-copy-id',$body);
+try{genesisSaveDiaryNote('a','same-id',$body);throw new RuntimeException('Old note ID restored after enabling.');}
+catch(GenesisResourceLimitException $error){diaryExpect($error->getMessage()==='DIARY_NOTE_DELETED','Wrong resurrection guard.');}
+$db->exec("DELETE FROM users WHERE id='a'");diaryExpect(genesisDiaryNotes('a')===[]&&genesisDiaryDeletions('a')===[]&&count(genesisDiaryNotes('b'))===1,'Account cascade crossed owners.');
 echo "Diary: opaque envelopes, owner isolation, CAS/replay, validation, legacy compatibility, backup and account cascade passed.\n";

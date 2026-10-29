@@ -62,8 +62,7 @@ internal fun HabitPersonalizationFields(emoji: String, color: String, isKeyHabit
     Row(Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         habitEmojis.forEach { option ->
-            FilterChip(selected = emoji == option, onClick = { onEmoji(option) }, enabled = enabled,
-                label = { Text(option) })
+            FullEmojiChoice(option,emoji,emojiCategories.firstNotNullOfOrNull { it.variants[emojiVariantKey(option)] }.orEmpty(),onEmoji,enabled=enabled)
         }
     }
     TextButton(onClick = { emojiPickerOpen = true }, enabled = enabled,
@@ -86,8 +85,8 @@ internal fun HabitPersonalizationFields(emoji: String, color: String, isKeyHabit
                     FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         category.emojis.take(visibleEmojiCount).forEach { option ->
-                            FilterChip(emoji == option, onClick = { onEmoji(option); emojiPickerOpen = false },
-                                label = { Text(option) }, modifier = Modifier.testTag("habit-emoji-choice-$option"))
+                            FullEmojiChoice(option,emoji,category.variants[emojiVariantKey(option)].orEmpty(),
+                                { onEmoji(it); emojiPickerOpen=false }, Modifier.testTag("habit-emoji-choice-$option"), enabled)
                         }
                     }
                     if (visibleEmojiCount < category.emojis.size) TextButton(

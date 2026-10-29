@@ -41,6 +41,12 @@ internal object AffairsLayout {
 internal val LocalAffairsControlWidth = compositionLocalOf { 48.dp }
 internal val LocalAffairsControlOutlined = compositionLocalOf { true }
 
+@Composable internal fun AffairsLoading(modifier: Modifier = Modifier) {
+    Box(modifier.fillMaxWidth().heightIn(min = 144.dp), contentAlignment = Alignment.Center) {
+        CircularProgressIndicator(Modifier.size(36.dp), color = MaterialTheme.colorScheme.primary)
+    }
+}
+
 /** Warm inbox distinguishes unassigned work without the semantics of an error. */
 @Composable internal fun chaosBoxColor() = if (LocalEveningTheme.current) Color(0xff302b1f) else Color(0xfff0e2bc)
 @Composable internal fun chaosBoxBorder() = if (LocalEveningTheme.current) Color(0xffa58b58) else Color(0xffb99858)
@@ -55,7 +61,7 @@ internal enum class AffairsAction { BACK, NEXT, MORE, CLOSE, SEARCH, FILTER, SOR
 
 /** The same 24-unit, rounded line geometry as GenesisVectorIcon. */
 @Composable internal fun AffairsActionIcon(action: AffairsAction, modifier: Modifier = Modifier) {
-    GenesisLucideIcon(action.lucideName(), modifier.size(if (LocalAffairsControlWidth.current < 48.dp) 22.dp else 24.dp))
+    GenesisLucideIcon(action.lucideName(), modifier.size(if (action == AffairsAction.CLOSE || LocalAffairsControlWidth.current < 48.dp) 22.dp else 24.dp))
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -82,6 +88,14 @@ internal enum class AffairsAction { BACK, NEXT, MORE, CLOSE, SEARCH, FILTER, SOR
     icon: GenesisPageIcon = GenesisPageIcon.PROJECTS, onBack: (() -> Unit)? = null,
     backLabel: String = "Назад", backEnabled: Boolean = true, titleIsUserContent: Boolean = false,
     contextIsUserContent: Boolean = false, contextMaxLines: Int = Int.MAX_VALUE, actions: @Composable RowScope.() -> Unit = {}) {
+    if (LocalGenesisModal.current) {
+        Box(Modifier.testTag("affairs-page-header")) {
+            AffairsDialogHeader(title, if (contextIsUserContent) context else genesisTranslate(context),
+                onClose = null, onBack = onBack, backEnabled = backEnabled, backTag = "affairs-back",
+                titleIsUserContent = titleIsUserContent, subtitleMaxLines = contextMaxLines, actions = actions)
+        }
+        return
+    }
     Surface(shape = AffairsLayout.shape, color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier.fillMaxWidth().testTag("affairs-page-header")) {

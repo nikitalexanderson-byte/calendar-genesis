@@ -35,10 +35,14 @@ class DiaryProtocolTest {
         assertTrue(runCatching { DiaryProtocol.receipt(JSONObject().put("revision", 99).put("updatedAt", note.updatedAt), 0) }.isFailure)
         assertEquals(1L, DiaryProtocol.receipt(JSONObject().put("revision", 1).put("updatedAt", note.updatedAt), 0))
     }
-    @Test fun routeAllowlistHasNoDeleteOrForeignDocumentEndpoint() {
+    @Test fun routeAllowlistRestrictsDeletionAndSettingsToDiary() {
         assertTrue(DiaryProtocol.allowedRoute("GET", "/diary"))
         assertTrue(DiaryProtocol.allowedRoute("PUT", "/diary/note-1"))
-        for ((method, path) in listOf("DELETE" to "/diary/note-1", "GET" to "/diary/note-1", "PUT" to "/diary", "PUT" to "/diary/../config", "PUT" to "/mindmaps/note-1"))
+        assertTrue(DiaryProtocol.allowedRoute("DELETE", "/diary/note-1"))
+        assertTrue(DiaryProtocol.allowedRoute("GET", "/diary/settings"))
+        assertTrue(DiaryProtocol.allowedRoute("PUT", "/diary/settings"))
+        assertFalse(DiaryProtocol.allowedRoute("DELETE", "/diary/settings"))
+        for ((method, path) in listOf( "GET" to "/diary/note-1", "PUT" to "/diary", "PUT" to "/diary/../config", "PUT" to "/mindmaps/note-1"))
             assertFalse(DiaryProtocol.allowedRoute(method, path))
     }
     @Test fun adviceSnapshotsUnknownFieldsAndReversibleArchiveSurviveEdits() {

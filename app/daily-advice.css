@@ -67,6 +67,13 @@ html[data-genesis-theme] .genesis-app .daily-advice-action-row > [aria-pressed="
 .daily-advice-privacy { margin: 12px 0 0; color: var(--ink-soft); font-size: 13px; line-height: 1.65; }
 .daily-advice-privacy h3 { margin: 0 0 8px; color: var(--ink); font: 500 15px/1.5 var(--font-ui); }
 .daily-advice-privacy p { margin: 0; }
+.daily-advice-age-dialog { width: min(440px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: auto; box-sizing: border-box; padding: 20px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); }
+.daily-advice-age-dialog::backdrop { background: rgb(0 0 0 / .48); }
+.daily-advice-age-dialog header { display: flex; align-items: start; gap: 12px; }
+.daily-advice-age-dialog h2 { flex: 1; margin: 0; font-size: 20px; }
+.daily-advice-age-dialog p { line-height: 1.6; }
+.daily-advice-age-actions { display: flex; gap: 12px; }
+.daily-advice-age-actions button { flex: 1; min-height: 44px; padding: 10px; }
 @media (max-width: 600px) {
   .daily-advice-card { padding: 16px; }
   .daily-advice-illustrated { padding: 12px; }

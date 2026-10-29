@@ -137,10 +137,16 @@ internal fun SharedMindmapsScreen(gateway: SharedWorkspaceGateway, space: String
         }
     }
     if (!ready) {
+        val hosted = WorkspaceScreenHeader("Общие майндмепы", "Общие дела", showThemeToggle = false,
+            navigation = { WorkspaceHeaderButton(genesisTranslate("Назад"), "shared-mindmaps-back", onClick = onClose) {
+                AffairsActionIcon(AffairsAction.BACK)
+            } })
         Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            AffairsPageHeader("Общие майндмепы", "Общие дела", onBack = onClose)
-            if (error.isBlank()) LinearProgressIndicator(Modifier.fillMaxWidth()) else Text(error, color = MaterialTheme.colorScheme.error)
-            OutlinedButton(onClick = { retry++ }) { Text("Обновить") }
+            if (!hosted) AffairsPageHeader("Общие майндмепы", "Общие дела", onBack = onClose)
+            if (error.isBlank()) AffairsLoading(Modifier.weight(1f)) else {
+                Text(error, color = MaterialTheme.colorScheme.error)
+                OutlinedButton(onClick = { retry++ }) { Text("Обновить") }
+            }
         }
         return
     }

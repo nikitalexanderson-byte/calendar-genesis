@@ -71,7 +71,7 @@ try {
     }
     $db->prepare('UPDATE users SET email=:email WHERE id=:id')->execute(['email' => GENESIS_PHYSIS_EMAILS[0], 'id' => 'owner-a']);
     genesisEstablishGoogleSession($owner, 'linked-sub', ['sub' => 'linked-sub', 'email' => GENESIS_PHYSIS_EMAILS[0], 'email_verified' => true], 'web');
-    physisFailure(static fn() => genesisPhysisRequireOwner(), 403, 'PHYSIS_UNAVAILABLE');
+    physisExpect(genesisPhysisRequireOwner() === 'owner-a', 'Verified linked web login lost the canonical Physis owner.');
     genesisEstablishGoogleSession($owner, 'owner-a-sub');
     physisExpect(genesisPhysisRequireOwner() === 'owner-a', 'Normal primary site session denied.');
 
@@ -99,7 +99,7 @@ try {
     if (!$listener) throw new RuntimeException('Cannot reserve local HTTP port.');
     $address = stream_socket_get_name($listener, false); fclose($listener);
     $command = [PHP_BINARY]; if (($ini = php_ini_loaded_file()) !== false) array_push($command, '-c', $ini);
-    array_push($command, '-S', $address, __DIR__ . '/physis-router.php');
+    array_push($command, '-S', $address, 'server/tests/physis-router.php');
     putenv('GENESIS_PHYSIS_TEST_DIR=' . $fixture);
     $process = proc_open($command, [0 => ['pipe', 'r'], 1 => ['file', $fixture . '/http.log', 'a'], 2 => ['file', $fixture . '/http.log', 'a']], $pipes, dirname(__DIR__, 2));
     if (!is_resource($process)) throw new RuntimeException('HTTP server did not start.');
@@ -115,10 +115,10 @@ try {
         preg_match('/^HTTP\/\S+ (\d+)/', ($http_response_header ?? [])[0] ?? '', $status);
         return ['status' => (int)($status[1] ?? 0), 'data' => json_decode($bytes ?: '{}', true), 'headers' => $http_response_header ?? []];
     };
-    foreach ([$other, $otherOld, $native, $dNative, $linked, []] as $denied) {
+    foreach ([$other, $otherOld, $native, $dNative, []] as $denied) {
         foreach ([['GET', 'access'], ['GET', 'vault'], ['GET', 'records'], ['POST', 'records'], ['PUT', 'vault'], ['POST', 'rotate'], ['GET', 'export'], ['GET', 'records/foreign-id']] as [$method, $path]) {
             $reply = $request('physis/v1/' . $path, $denied, $method, $method === 'GET' ? null : '{}');
-            physisExpect($reply['status'] === 403 && ($reply['data']['error'] ?? '') === 'PHYSIS_UNAVAILABLE', 'Denied identity reached ' . $path . ': ' . json_encode($reply['data']));
+            physisExpect($reply['status'] === 403 && ($reply['data']['error'] ?? '') === 'PHYSIS_UNAVAILABLE', 'Denied identity reached ' . $path . ' (HTTP ' . $reply['status'] . '): ' . json_encode($reply['data']) . '\n' . substr((string)@file_get_contents($fixture . '/http.log'), -2500));
         }
     }
     physisExpect($request('physis/v1/access', $a)['data']['ownerId'] === 'owner-a', 'Access identity mismatch.');
@@ -131,7 +131,7 @@ try {
         physisExpect($testerAccess['status'] === 200 && $testerAccess['data']['ownerId'] === $expectedOwner, 'New pilot tester denied.');
         physisExpect($request('physis/v1/vault', $testerSession)['status'] === 200, 'New pilot tester cannot open own vault.');
     }
-    foreach ([$old, $legacyNoClaims, $unverified] as $normal) {
+    foreach ([$old, $legacyNoClaims, $unverified, $linked] as $normal) {
         $reply = $request('physis/v1/access', $normal);
         physisExpect($reply['status'] === 200 && $reply['data']['ownerId'] === 'owner-a', 'Normal site login required extra confirmation.');
         physisExpect($request('physis/v1/vault', $normal)['status'] === 200, 'Normal login cannot open vault.');
@@ -183,7 +183,7 @@ try {
     foreach ([1, 2] as $number) {
         file_put_contents($fixture . '/race-' . $number . '.json', genesisPhysisEncode(physisTestWrite([physisTestChange($id, 'update', 1)])));
         $workerCommand = [PHP_BINARY]; if ($ini !== false) array_push($workerCommand, '-c', $ini);
-        array_push($workerCommand, __DIR__ . '/physis-worker.php', 'race-' . $number . '.json');
+        array_push($workerCommand, 'server/tests/physis-worker.php', 'race-' . $number . '.json');
         $worker = proc_open($workerCommand, [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['file', $fixture . '/worker.log', 'a']], $workerPipes, dirname(__DIR__, 2));
         if (!is_resource($worker)) throw new RuntimeException('Worker did not start.');
         fclose($workerPipes[0]); $workers[] = [$worker, $workerPipes[1]];
@@ -255,11 +255,11 @@ try {
     physisExpect($request('physis/v1/records', $a, 'POST', '{}')['status'] === 403, 'Feature flag did not revoke writes.');
     physisExpect(!isset($request('physis/v1/access', $old)['data']['reauthRequired']), 'Disabled pilot still exposed a reauthentication entry.');
     unset($config['physis_enabled']); file_put_contents($fixture . '/config.php', '<?php return ' . var_export($config, true) . ';');
-    foreach ([$a, $b, $c, $d] as $allowedBrowser) {
+    foreach ([$a, $b, $c, $d, $linked] as $allowedBrowser) {
         physisExpect($request('physis/v1/access', $allowedBrowser)['status'] === 200, 'Released browser pilot denied an allowed verified account.');
     }
     // The Git-controlled rollout must never enable the same account's native session.
-    foreach ([$native, $dNative, $other, $linked, []] as $denied) {
+    foreach ([$native, $dNative, $other, []] as $denied) {
         foreach ([['GET', 'access'], ['GET', 'vault'], ['GET', 'records'], ['POST', 'records'], ['PUT', 'vault'], ['POST', 'rotate']] as [$method, $path]) {
             physisExpect($request('physis/v1/' . $path, $denied, $method, $method === 'GET' ? null : '{}')['status'] === 403, 'Default browser rollout bypassed identity/channel guard.');
         }

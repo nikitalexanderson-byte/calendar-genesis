@@ -84,9 +84,9 @@ fun PriorityControl(value: Int, onChange: (Int) -> Unit) {
 }
 
 @Composable
-fun AuthorTimePicker(value: String, use24: Boolean, onChange: (String) -> Unit) {
+fun AuthorTimePicker(value: String, use24: Boolean, modifier: Modifier = Modifier, onChange: (String) -> Unit) {
     var open by rememberSaveable { mutableStateOf(false) }
-    OutlinedButton(onClick = { open = true }) { Text(if (value.isEmpty()) "Выбрать время" else timeLabel(value, use24)) }
+    OutlinedButton(onClick = { open = true }, modifier = modifier) { Text(if (value.isEmpty()) "Выбрать время" else timeLabel(value, use24)) }
     if (!open) return
     Dialog(onDismissRequest = { open = false }) {
         Surface(shape = AffairsLayout.shape) {

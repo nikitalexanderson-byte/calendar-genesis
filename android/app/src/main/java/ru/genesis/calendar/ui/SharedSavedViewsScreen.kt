@@ -66,16 +66,12 @@ internal fun savedViewMessage(code: String): String = when (code) {
     DisposableEffect(state) { onDispose { scope.launch(NonCancellable) { try { if (state.dirty) state.saveLocal() } finally { state.pause() } } } }
     Dialog(onDismissRequest = ::close, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         BackHandler { if (conditions) conditions = false else if (detail) detail = false else close() }
-        BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing), contentAlignment = Alignment.Center) {
-            DialogBackdrop(::close, Modifier.matchParentSize())
+        GenesisModalFrame(::close) {
             val wide = maxWidth >= 864.dp
-            Surface(Modifier.widthIn(max = 1120.dp).fillMaxWidth().padding(12.dp).heightIn(max = maxHeight * .96f).imePadding(), shape = AffairsLayout.shape) {
                 Column(Modifier.testTag("saved-views-screen")) {
-                    Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        if (detail && !wide) AffairsIconButton("Назад", AffairsAction.BACK, { if (conditions) conditions = false else detail = false })
-                        Text("Сохранённые представления", Modifier.weight(1f).semantics { heading() }, style = MaterialTheme.typography.titleLarge)
-                        AffairsIconButton("Закрыть", AffairsAction.CLOSE, ::close, Modifier.testTag("saved-views-close"))
-                    }
+                    AffairsDialogHeader("Сохранённые представления", onClose = ::close,
+                        onBack = if (detail && !wide) ({ if (conditions) conditions = false else detail = false }) else null,
+                        closeTag = "saved-views-close", backTag = "saved-views-back")
                     if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("saved-view-progress"))
                     HorizontalDivider()
                     if (state.error.isNotBlank()) Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -145,7 +141,6 @@ internal fun savedViewMessage(code: String): String = when (code) {
                         }
                     }
                 }
-            }
         }
     }
     bulkOrigin?.let { raw ->

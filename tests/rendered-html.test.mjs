@@ -833,6 +833,7 @@ test("habit feedback settings are conservative, normalized and independently con
     achievementPopups: false,
     questsEnabled: false,
     gamificationWidgets: false,
+    soundScheme: "calm",
   });
   assert.equal(DEFAULT_HABIT_FEEDBACK_SETTINGS.sound, false, "sound must require explicit consent");
   assert.equal(DEFAULT_HABIT_FEEDBACK_SETTINGS.haptics, false, "haptics must require explicit consent");
@@ -3520,7 +3521,9 @@ test("ships complete English sacred-day and Stoicheion datasets", async () => {
   assert.match(calendarDatePicker, /getSacredDay\(sacredMonth, day\.day\)/);
   assert.match(stoicheionData, /getStoicheionLetters/);
   assert.match(stoicheionView, /getStoicheionLetters\(language\)/);
-  assert.match(stoicheionView, /Upright position/);
+  assert.match(stoicheionView, /translateText\('Парадное положение',language\)/);
+  const orientationCopy = { ...JSON.parse(await readFile(new URL("../app/curated-translations.en.json", import.meta.url), "utf8")), ...JSON.parse(await readFile(new URL("../app/translations.en.json", import.meta.url), "utf8")), ...JSON.parse(await readFile(new URL("../app/ui-translations/en.json", import.meta.url), "utf8")) };
+  assert.equal(orientationCopy["Парадное положение"], "Upright position");
 });
 
 test("uses Quinta terminology throughout the English interface", async () => {

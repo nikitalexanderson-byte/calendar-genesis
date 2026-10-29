@@ -55,7 +55,7 @@ private val ganttRowHeight = 64.dp
 /** Uses the same filtered, paginated task reader and revision checks as the other project views. */
 @Composable internal fun SharedGanttView(tasks: List<JSONObject>, statuses: List<JSONObject>,
     calendarMode: CalendarMode, inputCalendarMode: CalendarMode, use24: Boolean, canEdit: Boolean,
-    busy: Boolean, onOpen: (JSONObject) -> Unit, onSchedule: suspend (JSONObject, JSONObject) -> Unit,
+    busy: Boolean, onOpen: (JSONObject) -> Unit, onSchedule: suspend (JSONObject, JSONObject) -> JSONObject,
     gateway: ru.genesis.calendar.auth.SharedWorkspaceGateway? = null, baseFilter: JSONObject = JSONObject(), bounds: JSONObject? = null,
     onDragScroll: (Float) -> Unit = {}) {
     val calendar = remember { GenesisCalendar() }
@@ -75,15 +75,22 @@ private val ganttRowHeight = 64.dp
         else sharedGanttPeriods(anchor, scale, calendarMode, calendar)
     }
     val source = if (gateway != null) rememberSharedGanttData(gateway, baseFilter, periods, scale, baseFilter.toString()) else null
+    val edits = remember(gateway, baseFilter.toString(), LocalGenesisUserId.current) { SharedGanttEdits(scope) }
+    val persist by rememberUpdatedState(onSchedule)
+    val authoritative = if (source == null) tasks else source.scheduled.ganttRows() + source.unscheduled.ganttRows() + source.completed.ganttRows()
+    LaunchedEffect(authoritative.map { it.toString() }) { edits.reconcile(authoritative) }
+    val readable = source == null || (source.scheduled.pageState.value != null && source.unscheduled.pageState.value != null)
+    val visible = if (readable) (authoritative.map { edits.rows[it.optString("id")] ?: it } + edits.rows.values)
+        .distinctBy { it.optString("id") } else authoritative
     val done = statuses.filter { it.optInt("isDone") == 1 || it.optBoolean("isDone") }.map { it.optString("id") }.toSet()
-    val active = (source?.scheduled?.ganttRows() ?: tasks).filter { it.optString("statusId") !in done }
+    val active = visible.filter { it.optString("statusId") !in done }
     val scheduled = active.filter { sharedGanttSpan(it)?.let { span -> scale != SharedGanttScale.HOURS || span.timed } == true }
     val rows = scheduled.filter { sharedGanttSpan(it)!!.let { span -> span.end > periods.first().start && span.start < periods.last().end } }
-    val unscheduled = source?.unscheduled?.ganttRows() ?: active.filter { it !in scheduled }
-    val completed = source?.completed?.ganttRows() ?: tasks.filter { it.optString("statusId") in done }
+    val unscheduled = active.filter { it !in scheduled }
+    val completed = visible.filter { it.optString("statusId") in done }
     var editingJson by rememberSaveable { mutableStateOf("") }
-    var saving by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf("") }
+    val saving = edits.saving
+    val error = edits.error
     val timelineScroll = rememberScrollState()
     var trackBounds by remember { mutableStateOf(Rect.Zero) }
     var rootPosition by remember { mutableStateOf(Offset.Zero) }
@@ -93,23 +100,17 @@ private val ganttRowHeight = 64.dp
     val dragScrollEdge = with(LocalDensity.current) { 180.dp.toPx() }
     val locale = Locale.forLanguageTag(LocalGenesisLanguage.current)
     LaunchedEffect(anchor, scale, calendarMode, fit) { timelineScroll.scrollTo(0); dragTask = null; dragPoint = null }
-    val save: suspend (JSONObject, JSONObject) -> Boolean = { task, changes ->
-        if (saving || busy || !canEdit || task.optBoolean("pending")) false
+    val save: (JSONObject, JSONObject) -> Boolean = { task, changes ->
+        if (busy || !canEdit || !readable || task.optBoolean("pending")) false
         else {
-            saving = true
-            error = ""
-            try {
-                onSchedule(task, changes)
+            edits.submit(task, changes, { row, patch -> persist(row, patch) }) {
                 source?.scheduled?.refresh(); source?.unscheduled?.refresh(); source?.completed?.refresh()
-                true
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (failure: Exception) {
-                error = "Не удалось сохранить сроки. Обновите задачи и повторите попытку."
-                false
-            } finally {
-                saving = false
+                if (source != null && listOf(source.scheduled, source.unscheduled, source.completed).all {
+                        it.error.isBlank() && it.pageState.value != null }) {
+                    edits.reconcile(source.scheduled.ganttRows() + source.unscheduled.ganttRows() + source.completed.ganttRows(), dropMissing = true)
+                }
             }
+            true
         }
     }
     Box(Modifier.fillMaxWidth().onGloballyPositioned { rootPosition = it.boundsInWindow().topLeft }) {
@@ -130,12 +131,12 @@ private val ganttRowHeight = 64.dp
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     AffairsIconButton("Предыдущий период", AffairsAction.BACK, {
                         fit = false; anchorValue = sharedGanttShift(anchor, scale, calendarMode, calendar, -1).toString()
-                    }, Modifier.testTag("gantt-previous"), !saving)
+                    }, Modifier.testTag("gantt-previous"), !saving, outlined = false)
                     AuthorDatePicker(anchorValue, calendarMode, enabled = !saving,
                         modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("gantt-anchor")) { anchorValue = it; fit = false }
                     AffairsIconButton("Следующий период", AffairsAction.NEXT, {
                         fit = false; anchorValue = sharedGanttShift(anchor, scale, calendarMode, calendar, 1).toString()
-                    }, Modifier.testTag("gantt-next"), !saving)
+                    }, Modifier.testTag("gantt-next"), !saving, outlined = false)
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                     TextButton({ anchorValue = LocalDate.now().toString(); fit = false }) { Text("Сегодня") }
@@ -146,7 +147,7 @@ private val ganttRowHeight = 64.dp
             }
         }
         if (error.isNotEmpty()) Text(error, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("gantt-error"))
-        if (saving) LinearProgressIndicator(Modifier.fillMaxWidth())
+        if (saving) AffairsLoading(Modifier.height(48.dp))
         Surface(shape = AffairsLayout.shape, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
             Column {
                 Row(Modifier.fillMaxWidth()) {
@@ -186,9 +187,9 @@ private val ganttRowHeight = 64.dp
                             Column {
                         rows.forEach { task -> key(task.getString("id")) {
                             GanttTaskRow(task, periods, scale, calendarMode, calendar,
-                                editable = canEdit && !busy && !saving && !task.optBoolean("pending"),
+                                editable = canEdit && !busy && readable && !task.optBoolean("pending"),
                                 onOpen = { onOpen(task) },
-                                onMove = { changes -> scope.launch { save(task, changes) } })
+                                onMove = { changes -> save(task, changes) })
                         } }
                             }
                         }
@@ -286,14 +287,17 @@ private val ganttRowHeight = 64.dp
     val x = sharedGanttAxis(periods, preview.start).coerceIn(0.0, periods.size.toDouble())
     val end = sharedGanttAxis(periods, preview.end).coerceIn(0.0, periods.size.toDouble())
     val trackWidth = ganttCellWidth * periods.size
-    val touchX = (x * ganttCellWidth.value).toFloat().coerceIn(0f, trackWidth.value - 48f)
+    val visualWidth = max(48f, ((end - x) * ganttCellWidth.value).toFloat()).coerceAtMost(trackWidth.value)
+    val visualStart = (x * ganttCellWidth.value).toFloat().coerceIn(0f, trackWidth.value - visualWidth)
+    val visualEnd = visualStart + visualWidth
     val stroke = MaterialTheme.colorScheme.outlineVariant
     val todayInk = MaterialTheme.colorScheme.secondary
     val today = sharedGanttAxis(periods, LocalDate.now().toEpochDay().toDouble())
     val label = task.optString("title") + ": " + calendar.formatDate(LocalDate.ofEpochDay(floor(preview.start).toLong()), mode) +
         " — " + calendar.formatDate(LocalDate.ofEpochDay(floor(preview.end - (if (preview.timed) 0.0 else 1.0)).toLong()), mode)
     fun finish() { if (delta != 0.0) move(changes()); delta = 0.0; edge = null }
-    Box(Modifier.width(trackWidth).height(ganttRowHeight).testTag("gantt-task-$id")) {
+    val finishMove by rememberUpdatedState({ finish() })
+    Box(Modifier.width(trackWidth).height(ganttRowHeight).testTag("gantt-task-$id"), contentAlignment = Alignment.CenterStart) {
         Canvas(Modifier.matchParentSize()) {
             repeat(periods.size + 1) { index ->
                 val left = index * ganttCellWidth.toPx()
@@ -302,26 +306,26 @@ private val ganttRowHeight = 64.dp
             if (today in 0.0..periods.size.toDouble()) drawLine(todayInk,
                 Offset((today * ganttCellWidth.toPx()).toFloat(), 0f), Offset((today * ganttCellWidth.toPx()).toFloat(), size.height), 2.dp.toPx())
         }
-        Surface(modifier = Modifier.offset(x = touchX.dp).width(max(if (handles) 96f else 48f, ((end * ganttCellWidth.value) - touchX).toFloat()).dp)
+        Surface(modifier = Modifier.offset(x = visualStart.dp).width(visualWidth.dp)
             .height(48.dp).testTag("gantt-bar-$id").semantics { contentDescription = label }
             .combinedClickable(onClick = { if (editable) handles = true else onOpen() }, onDoubleClick = onOpen)
-            .pointerInput(id, task.optInt("revision"), periods, editable) {
+            .pointerInput(id, periods, editable) {
                 if (editable) detectDragGesturesAfterLongPress(onDragStart = { delta = 0.0; edge = null },
                     onDrag = { change, amount -> change.consume(); delta += amount.x / pixels },
-                    onDragCancel = { delta = 0.0; edge = null }, onDragEnd = { finish() })
+                    onDragCancel = { delta = 0.0; edge = null }, onDragEnd = { finishMove() })
             }, shape = AffairsLayout.shape, color = androidx.compose.ui.graphics.Color.Transparent) {
             Box(contentAlignment = Alignment.CenterStart) {
-                Box(Modifier.offset(x = ((x * ganttCellWidth.value) - touchX).toFloat().dp)
-                    .width(max(4f, ((end - x) * ganttCellWidth.value).toFloat()).dp).height(28.dp)
+                Box(Modifier.fillMaxWidth().height(28.dp).testTag("gantt-strip-$id")
                     .background(MaterialTheme.colorScheme.primaryContainer, AffairsLayout.shape)
                     .border(BorderStroke(if (handles) 2.dp else 1.dp, MaterialTheme.colorScheme.primary), AffairsLayout.shape))
             }
         }
         if (handles && editable) {
             // Quiet grips sit on the selected strip. Their invisible touch areas stay 48dp.
-            val left = touchX.coerceAtMost(trackWidth.value - 96f)
-            val right = max(left + 48f, (end * ganttCellWidth.value).toFloat() - 24f).coerceAtMost(trackWidth.value - 48f)
-            listOf(true to left, false to right).forEach { (startEdge, position) ->
+            listOf(true to visualStart, false to visualEnd).forEach { (startEdge, boundary) ->
+                // Place the large touch areas mainly outside the strip, so short spans
+                // keep two separate resize targets without detaching the visible grips.
+                val position = (boundary - if (startEdge) 44f else 4f).coerceIn(0f, trackWidth.value - 48f)
                 val edgeLabel = genesisTranslate(if (startEdge) "Изменить начало" else "Изменить окончание")
                 var gripWindowX by remember(id, startEdge) { mutableFloatStateOf(0f) }
                 Box(Modifier.offset(x = position.dp).size(48.dp)
@@ -329,7 +333,7 @@ private val ganttRowHeight = 64.dp
                     .testTag("gantt-resize-${if (startEdge) "start" else "end"}-$id")
                     .semantics { contentDescription = edgeLabel }
                     .combinedClickable(onClick = {}, onDoubleClick = onOpen)
-                    .pointerInput(id, task.optInt("revision"), periods, startEdge, editable) {
+                    .pointerInput(id, periods, startEdge, editable) {
                         awaitEachGesture {
                             val down = awaitFirstDown(requireUnconsumed = false)
                             val originWindowX = gripWindowX + down.position.x
@@ -345,12 +349,14 @@ private val ganttRowHeight = 64.dp
                                         delta = ((gripWindowX + change.position.x - originWindowX) / pixels).toDouble()
                                         change.consume()
                                     }
-                                    if (released) finish()
+                                    if (released) finishMove()
                                 } finally { delta = 0.0; edge = null }
                             }
                         }
-                    }, contentAlignment = Alignment.Center) {
-                    Box(Modifier.width(4.dp).height(24.dp).background(MaterialTheme.colorScheme.primary, AffairsLayout.shape))
+                    }, contentAlignment = Alignment.CenterStart) {
+                    Box(Modifier.offset(x = (boundary - position - if (startEdge) 0f else 4f).dp)
+                        .width(4.dp).height(24.dp).testTag("gantt-grip-${if (startEdge) "start" else "end"}-$id")
+                        .background(MaterialTheme.colorScheme.primary, AffairsLayout.shape))
                 }
             }
         }
@@ -363,7 +369,7 @@ private val ganttRowHeight = 64.dp
         Text("Не удалось загрузить задачи.", color = MaterialTheme.colorScheme.error)
         TextButton({ scope.launch { reader.refresh() } }) { Text("Повторить") }
     }
-    if (reader.busy && reader.pageState.value == null) LinearProgressIndicator(Modifier.fillMaxWidth())
+    if (reader.busy && reader.pageState.value == null) AffairsLoading()
     if (reader.pageState.value?.optBoolean("hasMore") == true) TextButton({ scope.launch { reader.more() } },
         enabled = !reader.busy, modifier = Modifier.heightIn(min = 48.dp).testTag(tag)) { Text("Показать ещё") }
 }

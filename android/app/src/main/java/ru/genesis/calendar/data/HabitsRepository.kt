@@ -18,7 +18,7 @@ data class HabitNotificationSettings(val enabled: Boolean = false, val motivatio
 
 data class HabitFeedbackSettings(val animations: Boolean = true, val sound: Boolean = false,
     val haptics: Boolean = false, val achievementPopups: Boolean = true,
-    val questsEnabled: Boolean = true, val gamificationWidgets: Boolean = true)
+    val questsEnabled: Boolean = true, val gamificationWidgets: Boolean = true, val soundScheme: String = "calm")
 
 private fun defaultHabitSettingsJson() = JSONObject().put("enabled", true)
     .put("nativeAppearance", JSONObject().put("mode", "scheduled")
@@ -28,7 +28,7 @@ private fun defaultHabitSettingsJson() = JSONObject().put("enabled", true)
         .put("quietHoursStart", "22:00").put("quietHoursEnd", "07:30"))
     .put("feedback", JSONObject().put("animations", true).put("sound", false)
         .put("haptics", false).put("achievementPopups", true).put("questsEnabled", true)
-        .put("gamificationWidgets", true)).toString()
+        .put("gamificationWidgets", true).put("soundScheme", "calm")).toString()
 
 data class HabitSettings(val enabled: Boolean = true,
     val notifications: HabitNotificationSettings = HabitNotificationSettings(),
@@ -70,7 +70,7 @@ class HabitsRepository(private val app: GenesisApplication) {
         if(record == null) LocalHabitWorkspace() else HabitDocument.decode(cipher.decrypt(record.encrypted,"$scope/habits"),record.revision)
     }.flowOn(Dispatchers.IO)
 
-    private suspend fun mutate(preserveEconomy: Boolean = false, skipNoop: Boolean = false, change: (LocalHabitWorkspace) -> LocalHabitWorkspace): Pair<LocalHabitWorkspace, LocalHabitWorkspace> {
+    private suspend fun mutate(preserveEconomy: Boolean = false, skipNoop: Boolean = false, feedback: Boolean = false, change: (LocalHabitWorkspace) -> LocalHabitWorkspace): Pair<LocalHabitWorkspace, LocalHabitWorkspace> {
         lateinit var mutation: Pair<LocalHabitWorkspace, LocalHabitWorkspace>
         db.withTransaction {
             val record=dao.document(scope,"habits")
@@ -90,12 +90,13 @@ class HabitsRepository(private val app: GenesisApplication) {
             if (scope.startsWith("account-")) dao.putOutbox(OutboxRecord(scope,"habits",next.revision,UUID.randomUUID().toString()))
             mutation = current to next
         }
+        if (feedback) habitFeedbackTransition(scope, mutation.first, mutation.second)?.let(app::offerHabitFeedback)
         app.scheduler.restoreHabitNotifications()
         return mutation
     }
 
     suspend fun refresh() { if(dao.document(scope,"habits") != null) mutate { it } }
-    suspend fun applyTimer(command: HabitTimerCommand) = mutate { workspace ->
+    suspend fun applyTimer(command: HabitTimerCommand) = mutate(feedback = true) { workspace ->
         require(command.owner == timerOwner) { "HABIT_TIMER_OTHER_DEVICE" }
         HabitTimerWorkspace.apply(workspace, command)
     }
@@ -168,7 +169,7 @@ class HabitsRepository(private val app: GenesisApplication) {
 
     suspend fun complete(id: String, completed: Boolean, quality: Double? = null,
         date: LocalDate = LocalDate.now()): HabitCompletionResult {
-        val (before, after) = mutate { workspace ->
+        val (before, after) = mutate(feedback = true) { workspace ->
             val habit=workspace.habits.firstOrNull { it.id==id } ?: error("Привычка не найдена")
             val today=LocalDate.now()
             require(date == today) { "Отметьте привычку в день выполнения." }
@@ -186,7 +187,7 @@ class HabitsRepository(private val app: GenesisApplication) {
         return HabitCompletionResult(after.achievementUnlocks.count { it.achievementId !in known })
     }
 
-    suspend fun completeFromReminder(target: HabitReminderTarget, quality: Double? = null) = mutate { workspace ->
+    suspend fun completeFromReminder(target: HabitReminderTarget, quality: Double? = null) = mutate(feedback = true) { workspace ->
         check(app.workspaceScope == scope) { "HABIT_REMINDER_SCOPE_CHANGED" }
         val habit = workspace.habits.firstOrNull { it.id == target.habitId }
         val action = habitReminderAction(habit, target, workspace.completions, workspace.measurements)
@@ -209,7 +210,7 @@ class HabitsRepository(private val app: GenesisApplication) {
         }
     }
 
-    suspend fun recordIntervalFromReminder(target: HabitReminderTarget, time: String, checked: Boolean) = mutate { workspace ->
+    suspend fun recordIntervalFromReminder(target: HabitReminderTarget, time: String, checked: Boolean) = mutate(feedback = true) { workspace ->
         check(app.workspaceScope == scope) { "HABIT_REMINDER_SCOPE_CHANGED" }
         val habit = requireNotNull(workspace.habits.firstOrNull { it.id == target.habitId }) { "HABIT_REMINDER_unavailable" }
         require(habitReminderAction(habit, target, workspace.completions, workspace.measurements) in setOf("input", "interval")) { "HABIT_REMINDER_stale" }
@@ -220,7 +221,7 @@ class HabitsRepository(private val app: GenesisApplication) {
 
     suspend fun completeInterval(id: String, time: String, completed: Boolean,
         date: LocalDate = LocalDate.now()): HabitCompletionResult {
-        val (before, after) = mutate { workspace ->
+        val (before, after) = mutate(feedback = true) { workspace ->
             val habit = workspace.habits.firstOrNull { it.id == id } ?: error("Привычка не найдена")
             require(HabitMeasurements.effective(HabitMeasurements.rule(habit,date)) == null)
             require(date == LocalDate.now()) { "Отметьте привычку в день выполнения." }
@@ -234,7 +235,7 @@ class HabitsRepository(private val app: GenesisApplication) {
 
     suspend fun recordMeasurement(id: String, date: LocalDate, value: Long?, entryId: String? = null,
         replaces: List<String> = emptyList(), note: String = "", operationId: String = "habit-value-${UUID.randomUUID()}",
-        reminderTarget: HabitReminderTarget? = null) = mutate { workspace ->
+        reminderTarget: HabitReminderTarget? = null) = mutate(feedback = true) { workspace ->
         val habit = workspace.habits.firstOrNull { it.id == id } ?: error("Привычка не найдена")
         if (reminderTarget != null) {
             check(app.workspaceScope == scope) { "HABIT_REMINDER_SCOPE_CHANGED" }
@@ -504,7 +505,11 @@ internal object HabitDocument {
             .put("sound", value.feedback.sound).put("haptics", value.feedback.haptics)
             .put("achievementPopups", value.feedback.achievementPopups)
             .put("questsEnabled", value.feedback.questsEnabled)
-            .put("gamificationWidgets", value.feedback.gamificationWidgets))
+            .put("gamificationWidgets", value.feedback.gamificationWidgets).apply {
+                // Preserve the raw shape of old portable backups until a scheme is selected.
+                if (value.feedback.soundScheme != "calm" || root.optJSONObject("feedback")?.has("soundScheme") == true)
+                    put("soundScheme", habitSoundScheme(value.feedback.soundScheme))
+            })
         return root
     }
 
@@ -520,7 +525,7 @@ internal object HabitDocument {
             time("dailyGoalTime", "20:30"), time("quietHoursStart", "22:00"), time("quietHoursEnd", "07:30")),
             HabitFeedbackSettings(feedback.optBoolean("animations", true), feedback.optBoolean("sound", false),
                 feedback.optBoolean("haptics", false), feedback.optBoolean("achievementPopups", true),
-                feedback.optBoolean("questsEnabled", true), feedback.optBoolean("gamificationWidgets", true)),
+                feedback.optBoolean("questsEnabled", true), feedback.optBoolean("gamificationWidgets", true), habitSoundScheme(feedback.optString("soundScheme"))),
             root.toString())
     }
 }

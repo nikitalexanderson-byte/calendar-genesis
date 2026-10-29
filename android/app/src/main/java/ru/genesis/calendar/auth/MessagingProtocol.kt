@@ -14,6 +14,17 @@ internal object MessagingProtocol {
         "INVALID_MESSAGE_KEY", "INVALID_CIPHERTEXT", "INVALID_PRIVATE_FILES")
     private const val UUID = "[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}"
     fun allowedRoute(method: String, path: String): Boolean {
+        if (path == "/shared/messenger/conversations") return method in setOf("GET", "POST")
+        if (path == "/shared/messenger/contacts") return method in setOf("GET", "POST", "DELETE")
+        if (path == "/shared/messenger/blocks") return method == "POST"
+        if (path == "/shared/messenger/projects") return method == "GET"
+        if (path == "/shared/messenger/devices") return method in setOf("GET", "POST")
+        if (Regex("/shared/messenger/devices/$UUID").matches(path)) return method == "DELETE"
+        if (Regex("/shared/messenger/conversations/$UUID").matches(path)) return method == "GET"
+        if (Regex("/shared/messenger/conversations/$UUID/(membership|read)").matches(path)) return method == "POST"
+        if (Regex("/shared/messenger/conversations/$UUID/messages\\?before=[0-9]{1,16}(?:&deviceId=$UUID)?").matches(path)) return method == "GET"
+        if (Regex("/shared/messenger/conversations/$UUID/messages").matches(path)) return method == "POST"
+        if (Regex("/shared/messenger/conversations/$UUID/messages/$UUID").matches(path)) return method in setOf("PATCH", "DELETE")
         if (path == "/shared/messaging/key") return method in setOf("GET", "POST")
         if (path == "/shared/messaging/inbox") return method == "GET"
         if (Regex("/shared/messaging/contacts\\?q=[A-Za-z0-9_%+.*~-]*(?:&cursor=$UUID)?").matches(path)) return method == "GET"

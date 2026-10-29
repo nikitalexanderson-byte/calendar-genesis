@@ -51,8 +51,9 @@ internal fun habitTimerError(error: Throwable): String = when {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun HabitTimerShelf(workspace: LocalHabitWorkspace, owner: String, requestedHabitId: String?, onClose: () -> Unit,
-    enabled: Boolean = true, onCommand: suspend (HabitTimerCommand) -> Unit) {
-    val sessions = remember(workspace.timers) { HabitTimers.sessions(workspace.timers) }
+    enabled: Boolean = true, embedded: Boolean = false, excludedHabitIds: Set<String> = emptySet(), onCommand: suspend (HabitTimerCommand) -> Unit) {
+    val allSessions = remember(workspace.timers) { HabitTimers.sessions(workspace.timers) }
+    val sessions = allSessions.filter { if (embedded) it.root.habitId == requestedHabitId else it.root.habitId !in excludedHabitIds }
     val pending = sessions.filter { it.state?.status !in setOf("saved", "discarded") }
     val habit = workspace.habits.firstOrNull { it.id == requestedHabitId }
     if (habit == null && pending.isEmpty() && requestedHabitId == null && sessions.none { it.state?.status == "saved" }) return
@@ -77,7 +78,7 @@ internal fun HabitTimerShelf(workspace: LocalHabitWorkspace, owner: String, requ
         if (busy || !enabled) return
         busy = true; retry = command; error = null
         scope.launch {
-            try { onCommand(command); retry = null; if (command.action == "start") onClose() }
+            try { onCommand(command); retry = null; if (command.action == "start" && !embedded) onClose() }
             catch (cancelled: CancellationException) { throw cancelled }
             catch (failure: Exception) { error = habitTimerError(failure) }
             finally { busy = false; now = Instant.now() }
@@ -96,14 +97,15 @@ internal fun HabitTimerShelf(workspace: LocalHabitWorkspace, owner: String, requ
     fun label(state: HabitTimerState) = when (state.status) {
         "paused" -> "На паузе"; "finished" -> "Завершена"; "saved" -> "Сессия сохранена"; "discarded" -> "Отмена"; else -> "Идёт работа"
     }
-    val ownPending = pending.any { it.root.owner == owner }
+    val ownPending = allSessions.any { it.root.owner == owner && it.state?.status !in setOf("saved", "discarded") }
     val validWork = work.matches(Regex("\\d{1,3}")) && (work.toIntOrNull() ?: 0) in 1..180
     val validRest = rest.matches(Regex("\\d{1,3}")) && (rest.toIntOrNull() ?: -1) in 0..120
-    OutlinedCard(Modifier.fillMaxWidth().testTag("habit-timer-panel")) {
+    OutlinedCard(Modifier.fillMaxWidth().testTag("habit-timer-panel"),
+        border = if (embedded) androidx.compose.foundation.BorderStroke(0.dp, androidx.compose.ui.graphics.Color.Transparent) else CardDefaults.outlinedCardBorder()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Таймер", style = MaterialTheme.typography.titleLarge)
-                if (requestedHabitId != null) TextButton(onClick = onClose) { Text("Закрыть") }
+                if (requestedHabitId != null) AffairsIconButton("Свернуть", AffairsAction.COLLAPSE, onClose, outlined = false)
             }
             habit?.let { target ->
                 MaterialText(target.title, style = MaterialTheme.typography.titleMedium)
