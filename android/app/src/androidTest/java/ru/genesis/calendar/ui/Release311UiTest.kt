@@ -83,6 +83,30 @@ class Release311UiTest {
             capture("selected-day-${choice.wireValue}")
         }
     }
+    @Test fun allCalendarsCenterThePeriodAndKeepTodayOnlyAtTheMonthDescriptionCorner() {
+        var mode by mutableStateOf(CalendarMode.PROFANE)
+        val navigation=MenuSwipeState()
+        compose.setContent { Frame { CalendarScreen(java.time.LocalDate.of(2026,10,29),mode,{},
+            experimental=true,menuSwipeState=navigation) } }
+        for(choice in CalendarMode.entries) {
+            compose.runOnIdle { mode=choice;navigation.calendar="month" }
+            compose.onNodeWithTag("calendar-month-navigation").performScrollTo()
+            val previous=compose.onNodeWithTag("calendar-month-previous").fetchSemanticsNode().boundsInRoot
+            val next=compose.onNodeWithTag("calendar-month-next").fetchSemanticsNode().boundsInRoot
+            val period=compose.onNodeWithTag("calendar-month-period").fetchSemanticsNode().boundsInRoot
+            assertEquals((previous.right+next.left)/2f,period.center.x,1f)
+            compose.onNodeWithTag("calendar-month-today").performScrollTo()
+            val today=compose.onNodeWithTag("calendar-month-today").fetchSemanticsNode().boundsInRoot
+            val description=compose.onNodeWithTag("month-description-layout").fetchSemanticsNode().boundsInRoot
+            assertTrue(today.right<=description.right+1f && today.right>=description.right-40f)
+            assertTrue(today.top>=description.top && today.top<description.top+50f)
+            capture("month-today-${choice.wireValue}")
+            compose.runOnIdle { navigation.calendar="year" }
+            compose.onNodeWithTag("calendar-month-today").assertDoesNotExist()
+            compose.onNodeWithText("Сегодня").assertDoesNotExist()
+            capture("year-${choice.wireValue}")
+        }
+    }
     @Test fun manualUpdateFailureCanRetryWithoutAnyAccountSession() {
         val calls=AtomicInteger()
         compose.setContent {Frame {AndroidUpdateCheckAction(iconOnly=false,check={if(calls.incrementAndGet()==1)throw IOException("offline") else null})}}

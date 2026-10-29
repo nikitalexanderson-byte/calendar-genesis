@@ -16,13 +16,14 @@ import java.time.LocalDate
 /** A shared sunrise/sunset group in each Today calendar mode, with no clock or date navigation. */
 @Composable
 internal fun TodaySolarTimes(date: LocalDate, location: SolarLocation, calendar: GenesisCalendar) {
+    val ink = if (LocalEveningTheme.current) Color(0xfffff8e9) else MaterialTheme.colorScheme.onSurface
     Surface(Modifier.fillMaxWidth().testTag("today-solar-times"), shape = AffairsLayout.shape,
-        color = Color.Black.copy(alpha = .16f), contentColor = Color(0xfffff8e9),
+        color = if (LocalEveningTheme.current) Color.Black.copy(alpha = .16f) else MaterialTheme.colorScheme.surface.copy(alpha=.88f), contentColor = ink,
         border = BorderStroke(1.dp, Color(0x66dfc17e))) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Сегодня", style = MaterialTheme.typography.labelLarge)
-            SunriseSunsetLine(date, location, calendar, accent = Color(0xfffff8e9),
-                textColor = Color(0xfffff8e9), modifier = Modifier.fillMaxWidth())
+            SunriseSunsetLine(date, location, calendar, accent = ink,
+                textColor = ink, modifier = Modifier.fillMaxWidth())
         }
     }
 }

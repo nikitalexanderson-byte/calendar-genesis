@@ -322,11 +322,11 @@ private fun SleepTrackerGroup(experimental: Boolean, content: @Composable Column
     } else Column(verticalArrangement=Arrangement.spacedBy(14.dp),content=content)
 }
 
-private fun moodEmoji(value: Int) =
+internal fun moodEmoji(value: Int) =
     listOf("😣", "😔", "😢", "😰", "😴", "😐", "😌", "🧠", "🙂", "😊", "🤩", "🥳")[value.coerceIn(-5,6)+5]
 
 @Composable
-private fun moodOptionLabel(value: Int): String {
+internal fun moodOptionLabel(value: Int): String {
     val option=MoodTracker.option(value.toDouble())
     return if(LocalGenesisLanguage.current=="en") option.labelEn else option.label
 }
@@ -492,7 +492,7 @@ internal fun dailySleepSchedule(date: LocalDate,mode: CalendarMode): TrackerSche
 }
 
 @Composable
-private fun SleepObservationEditor(plan: SleepPlan,entry: SleepEntry?,date: LocalDate,use24: Boolean,busy: Boolean,error: String?,onDismiss: () -> Unit,
+internal fun SleepObservationEditor(plan: SleepPlan,entry: SleepEntry?,date: LocalDate,use24: Boolean,busy: Boolean,error: String?,onDismiss: () -> Unit,
     onSave: (LocalTime?,LocalTime?,Double?,String) -> Unit) {
     val key="${plan.id}:$date"
     var bed by rememberSaveable(key) { mutableStateOf(entry?.fellAsleepAt?.toString() ?: "") }
@@ -527,7 +527,7 @@ private fun SleepObservationEditor(plan: SleepPlan,entry: SleepEntry?,date: Loca
             Row {
                 TextButton(onClick=onDismiss,enabled=!busy) { Text("Отмена") }
                 Button(enabled=!busy&&(bedtime!=null||wakeTime!=null||quality!=null||note.isNotBlank()),
-                    onClick={onSave(bedtime,wakeTime,quality?.toDouble(),note)}) { Text("Сохранить запись") }
+                    modifier=Modifier.testTag("sleep-entry-save"), onClick={onSave(bedtime,wakeTime,quality?.toDouble(),note)}) { Text("Сохранить запись") }
             }
         }
     } }
@@ -536,7 +536,7 @@ private fun SleepObservationEditor(plan: SleepPlan,entry: SleepEntry?,date: Loca
 @Composable
 internal fun MoodObservationEditor(entries: List<MoodEntry>,initialDate: LocalDate,mode: CalendarMode,
     language: String,emojiCategories: List<FullEmojiCategory>,busy: Boolean,error: String?,
-    onDismiss: () -> Unit,onSave: (LocalDate,Int,String,String,String) -> Unit) {
+    onDismiss: () -> Unit,fixedDate: Boolean = false,onSave: (LocalDate,Int,String,String,String) -> Unit) {
     var dateValue by rememberSaveable(initialDate.toString()) { mutableStateOf(initialDate.toString()) }
     val date=LocalDate.parse(dateValue)
     val entry=entries.firstOrNull { it.date==date }
@@ -555,12 +555,14 @@ internal fun MoodObservationEditor(entries: List<MoodEntry>,initialDate: LocalDa
                     Modifier.testTag("mood-editor-close"), enabled = !busy)
             }
             Text("Дата настроения",style=MaterialTheme.typography.labelLarge)
-            AuthorDatePicker(dateValue,mode,enabled=!busy,modifier=Modifier.testTag("mood-editor-date")) { dateValue=it }
-            TextButton(onClick={dateValue=LocalDate.now().toString()},enabled=!busy) { Text("Сегодня") }
+            if (fixedDate) Text(dateValue) else {
+                AuthorDatePicker(dateValue,mode,enabled=!busy,modifier=Modifier.testTag("mood-editor-date")) { dateValue=it }
+                TextButton(onClick={dateValue=LocalDate.now().toString()},enabled=!busy) { Text("Сегодня") }
+            }
             MoodCatalog.options.forEach { option -> FilterChip(!custom&&selected==option.value,{
                 selected=option.value;custom=false
             },enabled=!busy,
-                label={Text("${moodEmoji(option.value)} ${moodOptionLabel(option.value)}")},modifier=Modifier.fillMaxWidth()) }
+                label={Text("${moodEmoji(option.value)} ${moodOptionLabel(option.value)}")},modifier=Modifier.fillMaxWidth().testTag("mood-value-${option.value}")) }
             FilterChip(custom,onClick={custom=true;if(selected==null)selected=0},enabled=!busy,
                 label={Text("✨ Своё настроение")},modifier=Modifier.fillMaxWidth().testTag("custom-mood-choice"))
             if(custom) {
@@ -605,7 +607,7 @@ internal fun MoodObservationEditor(entries: List<MoodEntry>,initialDate: LocalDa
             Row {
                 TextButton(onClick=onDismiss,enabled=!busy) { Text("Отмена") }
                 Button(enabled=!busy&&selected!=null&&(!custom||(customLabel.isNotBlank()&&customEmoji.isNotBlank())),
-                    onClick={selected?.let { onSave(date,it,note,if(custom)customLabel else "",if(custom)customEmoji else "") }}) {
+                    modifier=Modifier.testTag("mood-entry-save"), onClick={selected?.let { onSave(date,it,note,if(custom)customLabel else "",if(custom)customEmoji else "") }}) {
                     Text("Сохранить")
                 }
             }

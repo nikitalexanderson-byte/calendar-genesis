@@ -15,7 +15,10 @@ import ru.genesis.calendar.domain.habits.TrackerSchedule
 import ru.genesis.calendar.domain.trackers.*
 
 data class LocalTrackersWorkspace(val sleepPlans: List<SleepPlan> = emptyList(),val sleepEntries: List<SleepEntry> = emptyList(),
-    val moodEntries: List<MoodEntry> = emptyList(),val revision: Long = 0)
+    val moodEntries: List<MoodEntry> = emptyList(),val revision: Long = 0,
+    val addictionTrackers: List<AddictionTracker> = emptyList(),val addictionEntries: List<AddictionEntry> = emptyList(),
+    // Older native documents never loaded these collections. Absence must not erase web records.
+    val addictionDataLoaded: Boolean = false)
 
 /** Local observations only. One authenticated encrypted document; no rewards or cloud writes. */
 class TrackersRepository(app: GenesisApplication) {
@@ -74,7 +77,31 @@ class TrackersRepository(app: GenesisApplication) {
             customLabel=customLabel,customEmoji=customEmoji)
         current.copy(moodEntries=current.moodEntries.filterNot { it.date==date }+entry)
     }
-    suspend fun resetTracking() = mutate { LocalTrackersWorkspace(revision = it.revision) }
+    suspend fun saveAddiction(tracker: AddictionTracker) = mutate { current ->
+        require(tracker.trackedBehavior.isNotBlank() && tracker.trackedBehavior.length <= 500) { "Введите название до 500 символов." }
+        require(tracker.status in setOf("active", "paused", "archived"))
+        require(tracker.cleanDayPoints >= 0 && tracker.relapsePenalty >= 0)
+        ZoneId.of(tracker.schedule.timezone)
+        val previous = current.addictionTrackers.firstOrNull { it.id == tracker.id }
+        require(previous == null || previous.entity.version == tracker.entity.version) { "Запись изменилась. Откройте её заново." }
+        // A new local tracker can be merged by ID only after cloud collections have been imported.
+        require(current.addictionDataLoaded || !scope.startsWith("account-")) { "Обновите данные аккаунта и повторите попытку." }
+        current.copy(addictionDataLoaded = true, addictionTrackers = current.addictionTrackers.filterNot { it.id == tracker.id } +
+            tracker.copy(entity = tracker.entity.changed(Instant.now().toString())))
+    }
+    suspend fun saveAbstinence(trackerId: String, date: LocalDate, cleanDay: Boolean, relapse: Boolean,
+        craving: Int, trigger: String, note: String, expectedVersion: Int) = mutate { current ->
+        val tracker = current.addictionTrackers.firstOrNull { it.id == trackerId } ?: error("Трекер не найден")
+        require(tracker.status == "active") { "Трекер на паузе." }
+        require(craving in 0..10)
+        val previous = current.addictionEntries.firstOrNull { it.trackerId == trackerId && it.date == date }
+        require((previous?.entity?.version ?: 0) == expectedVersion) { "Запись изменилась. Откройте её заново." }
+        val stamp = Instant.now().toString()
+        val meta = (previous?.entity ?: TrackerEntity.create("addiction-entry", stamp)).changed(stamp)
+        val entry = AddictionTrackerRules.entry(meta, tracker, date, cleanDay, relapse, craving.toDouble(), trigger, note, stamp)
+        current.copy(addictionEntries = current.addictionEntries.filterNot { it.trackerId == trackerId && it.date == date } + entry)
+    }
+    suspend fun resetTracking() = mutate { LocalTrackersWorkspace(revision = it.revision, addictionDataLoaded = it.addictionDataLoaded) }
 }
 
 internal object TrackersDocument {
@@ -106,7 +133,17 @@ internal object TrackersDocument {
             .put("wokeAt",e.wokeAt?.toString() ?: "").put("durationMinutes",e.durationMinutes ?: JSONObject.NULL).put("quality",e.quality ?: JSONObject.NULL)
             .put("deviationMinutes",e.deviationMinutes ?: JSONObject.NULL).put("note",e.note).put("score",e.score) }))
         .put("moodEntries",JSONArray(w.moodEntries.map { e -> entity(e.entity).put("date",e.date.toString()).put("recordedAt",e.recordedAt).put("moodValue",e.moodValue)
-            .put("note",e.note).put("tags",JSONArray(e.tags)).put("customLabel",e.customLabel).put("customEmoji",e.customEmoji) })).toString()
+            .put("note",e.note).put("tags",JSONArray(e.tags)).put("customLabel",e.customLabel).put("customEmoji",e.customEmoji) }))
+        .apply { if (w.addictionDataLoaded) {
+            put("addictionTrackers", JSONArray(w.addictionTrackers.map { t -> entity(t.entity).put("schedule", schedule(t.schedule))
+                .put("trackedBehavior", t.trackedBehavior).put("description", t.description).put("status", t.status)
+                .put("cleanDayPoints", t.cleanDayPoints).put("relapsePenalty", t.relapsePenalty)
+                .put("reminderEnabled", t.reminderEnabled).put("reminderTime", t.reminderTime) }))
+            put("addictionEntries", JSONArray(w.addictionEntries.map { e -> entity(e.entity).put("trackerId", e.trackerId)
+                .put("date", e.date.toString()).put("cleanDay", e.cleanDay).put("relapse", e.relapse)
+                .put("cravingIntensity", e.cravingIntensity).put("trigger", e.trigger).put("note", e.note)
+                .put("timestamp", e.timestamp).put("score", e.score) }))
+        } }.toString()
     fun decode(json: String,revision: Long): LocalTrackersWorkspace {
         val v=JSONObject(json); require(v.getInt("localSchema")==1) { "Неподдерживаемая версия трекеров" }
         return LocalTrackersWorkspace(
@@ -119,6 +156,13 @@ internal object TrackersDocument {
                 if(e.isNull("deviationMinutes"))null else e.getInt("deviationMinutes"),e.getString("note"),e.getDouble("score")) },
             v.getJSONArray("moodEntries").objects().map { e -> val tags=e.getJSONArray("tags")
                 MoodEntry(entity(e),LocalDate.parse(e.getString("date")),e.getString("recordedAt"),e.getInt("moodValue"),e.getString("note"),
-                    (0 until tags.length()).map(tags::getString),e.optString("customLabel"),e.optString("customEmoji")) },revision)
+                    (0 until tags.length()).map(tags::getString),e.optString("customLabel"),e.optString("customEmoji")) },revision,
+            (v.optJSONArray("addictionTrackers") ?: JSONArray()).objects().map { t -> AddictionTracker(entity(t), schedule(t.getJSONObject("schedule")),
+                t.getString("trackedBehavior"), t.optString("description"), t.getString("status"), t.getInt("cleanDayPoints"),
+                t.getInt("relapsePenalty"), t.optBoolean("reminderEnabled"), t.optString("reminderTime", "20:00")) },
+            (v.optJSONArray("addictionEntries") ?: JSONArray()).objects().map { e -> AddictionEntry(entity(e), e.getString("trackerId"),
+                LocalDate.parse(e.getString("date")), e.getBoolean("cleanDay"), e.getBoolean("relapse"), e.getInt("cravingIntensity"),
+                e.optString("trigger"), e.optString("note"), e.getString("timestamp"), e.getInt("score")) },
+            v.has("addictionTrackers") && v.has("addictionEntries"))
     }
 }

@@ -40,7 +40,9 @@ internal class CloudAccountImporter(private val db: GenesisDatabase, private val
         fun trackersDocument(document: JSONObject): String = JSONObject().put("localSchema", 1)
             .put("sleepPlans", document.getJSONArray("sleepPlans"))
             .put("sleepEntries", document.getJSONArray("sleepEntries"))
-            .put("moodEntries", document.getJSONArray("moodEntries")).toString()
+            .put("moodEntries", document.getJSONArray("moodEntries"))
+            .put("addictionTrackers", document.optJSONArray("addictionTrackers") ?: JSONArray())
+            .put("addictionEntries", document.optJSONArray("addictionEntries") ?: JSONArray()).toString()
     }
 
     suspend fun import(snapshot: CloudAccountSnapshot): Result {

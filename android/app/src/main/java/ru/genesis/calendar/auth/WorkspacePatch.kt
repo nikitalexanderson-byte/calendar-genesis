@@ -16,6 +16,7 @@ internal object WorkspacePatch {
         "projects" to "id", "categories" to "id", "taskListLinks" to "taskListId", "taskLists" to "id",
         "habits" to "id", "habitCompletions" to "id", "habitMeasurements" to "id", "habitTimers" to "id", "habitHistory" to "id", "sleepPlans" to "id",
         "sleepEntries" to "id", "moodEntries" to "id", "dailyGoalRecords" to "date",
+        "addictionTrackers" to "id", "addictionEntries" to "id",
         "quests" to "id", "achievementUnlocks" to "achievementId",
         "rewardTransactions" to "idempotencyKey", "streakFreezeTransactions" to "idempotencyKey",
     )
@@ -24,7 +25,7 @@ internal object WorkspacePatch {
         "habits" to listOf("habits", "habitCompletions", "habitMeasurements", "habitTimers", "habitHistory", "dailyGoalRecords", "quests",
             "achievementUnlocks", "rewardTransactions", "streakFreezeTransactions", "userProgress",
             "habitSettings", "hiddenDefaultTemplates", "habitTimerEpoch"),
-        "trackers" to listOf("sleepPlans", "sleepEntries", "moodEntries"),
+        "trackers" to listOf("sleepPlans", "sleepEntries", "moodEntries", "addictionTrackers", "addictionEntries"),
     )
 
     fun emptyDocument(): JSONObject = JSONObject().put("trackerSchemaVersion", 16)
@@ -176,6 +177,7 @@ internal object WorkspacePatch {
                     if(part.has(source)) output.put(target, part.get(source)) }
         }
         trackers?.let { part -> listOf("sleepPlans", "sleepEntries", "moodEntries").forEach { output.put(it, part.getJSONArray(it)) } }
+        trackers?.let { part -> listOf("addictionTrackers", "addictionEntries").forEach { if (part.has(it)) output.put(it, part.getJSONArray(it)) } }
         return output
     }
 

@@ -67,7 +67,11 @@ import java.util.UUID
     if(legacyOpen&&legacy!=null){Column(Modifier.fillMaxSize()){TextButton({legacyOpen=false},Modifier.heightIn(min=48.dp)){Text(c("back"))};legacy()};return}
     val current=state.selected;val own=current?.members?.firstOrNull{it.userId==repository.owner}
     val header=WorkspaceScreenHeader(current?.title?:c("title"),current?.let{c(it.kind)},navigation={if(current!=null)WorkspaceHeaderButton(c("back"),"messenger-back",onClick=::back){GenesisLucideIcon("chevron-left")}},showThemeToggle=current==null,actions={
-        if(current!=null) {
+        if(current==null) {
+            WorkspaceHeaderButton(c("newChat"), "messenger-new", enabled=!busy, onClick={
+                modal="new";creationId=UUID.randomUUID().toString();run{projects=repository.projects()}
+            }) { GenesisLucideIcon("message-circle") }
+        } else {
         WorkspaceHeaderButton(c("members"),"messenger-members",onClick={modal="members"}){GenesisLucideIcon("users-round")}
         Box{var menu by remember{mutableStateOf(false)};WorkspaceHeaderButton(c("actions"),"messenger-actions",onClick={menu=true}){GenesisLucideIcon("ellipsis")}
             DropdownMenu(menu,{menu=false}){
@@ -80,7 +84,12 @@ import java.util.UUID
         }
     })
     Column(Modifier.fillMaxSize().imePadding().testTag("messenger-screen"),verticalArrangement=Arrangement.spacedBy(8.dp)){
-        if(!header)Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){AffairsIconButton(c("back"),AffairsAction.BACK,::back);Text(current?.title?:c("title"),Modifier.weight(1f))}
+        if(!header)Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
+            AffairsIconButton(c("back"),AffairsAction.BACK,::back);Text(current?.title?:c("title"),Modifier.weight(1f))
+            if(current==null) WorkspaceHeaderButton(c("newChat"),"messenger-new",enabled=!busy,onClick={
+                modal="new";creationId=UUID.randomUUID().toString();run{projects=repository.projects()}
+            }) { GenesisLucideIcon("message-circle") }
+        }
         if(busy)Row(Modifier.fillMaxWidth().padding(horizontal=12.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)){CircularProgressIndicator(Modifier.size(20.dp),strokeWidth=2.dp);Text(c("loading"),style=MaterialTheme.typography.bodySmall)}
         if(failure.isNotBlank())Row(Modifier.fillMaxWidth().padding(horizontal=12.dp),verticalAlignment=Alignment.CenterVertically){Text(failure,Modifier.weight(1f),color=MaterialTheme.colorScheme.error);AffairsIconButton(c("close"),AffairsAction.CLOSE,{failure=""})}
         if(current==null){
@@ -88,9 +97,6 @@ import java.util.UUID
                 tab, { next -> if (!busy) { if (next == "contacts") run { repository.contacts(); tab = next } else tab = next } },
                 Modifier.testTag("messenger-submenu"))
             if(tab=="chats") Row(Modifier.fillMaxWidth().padding(horizontal=12.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)){
-                MessengerActionButton(c("newChat"), "message-circle", "messenger-new", Modifier.weight(1f), !busy) {
-                    modal="new";creationId=UUID.randomUUID().toString();run{projects=repository.projects()}
-                }
                 MessengerActionButton(c("refresh"), "refresh-cw", "messenger-refresh", Modifier.weight(1f), !busy) { run { repository.inbox() } }
                 MessengerActionButton(c("devices"), "phone-source", "messenger-devices", Modifier.weight(1f), !busy) { run { devices=repository.devices();modal="devices" } }
                 MessengerActionButton(c("legacy"), "history", "messenger-legacy", Modifier.weight(1f), !busy && legacy!=null) { legacyOpen=true }

@@ -35,31 +35,39 @@ private val LocalWorkspaceDragOwner = staticCompositionLocalOf<WorkspaceDragOwne
         Box(modifier.onGloballyPositioned { owner.origin = it.boundsInRoot().topLeft }
             .pointerInput(owner) {
                 var active: WorkspaceDragSource? = null
+                fun finish(cancelled: Boolean) {
+                    val source = active
+                    // The callback may immediately move/recycle its card and dispose its modifier.
+                    // Release ownership before it changes the tree, and finish every gesture once.
+                    active = null
+                    source?.finish?.invoke(cancelled)
+                }
                 try {
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
                         val point = owner.origin + down.position
-                        val source = owner.sources.filter { it.bounds.contains(point) }
+                        val source = owner.sources.toList().filter { it.bounds.contains(point) }
                             .minByOrNull { it.bounds.width * it.bounds.height } ?: return@awaitEachGesture
                         val held = awaitLongPressOrCancellation(down.id) ?: return@awaitEachGesture
                         active = source
-                        source.start(point - source.bounds.topLeft)
                         held.consume()
+                        source.start(point - source.bounds.topLeft)
                         while (true) {
-                            // Consume before child scrollables see a move. Ordinary scrolling remains untouched
-                            // until a source has actually been held for the platform's long-press interval.
+                            // Reserve the move before child scrollables, then let that event finish
+                            // traversing children before callbacks can move/dispose their nodes.
                             val event = awaitPointerEvent(PointerEventPass.Initial)
                             val change = event.changes.firstOrNull { it.id == down.id }
-                            if (change == null || change.isConsumed) {
-                                active = null; source.finish(true); break
-                            }
-                            val delta = change.position - change.previousPosition
-                            change.consume()
-                            if (!change.pressed) { active = null; source.finish(false); break }
-                            source.move(delta)
+                            val cancelled = change == null || change.isConsumed
+                            val delta = change?.let { it.position - it.previousPosition } ?: Offset.Zero
+                            val pressed = change?.pressed == true
+                            if (!cancelled) change?.consume()
+                            awaitPointerEvent(PointerEventPass.Final)
+                            if (cancelled) { finish(true); break }
+                            if (!pressed) { finish(false); break }
+                            if (delta.x.isFinite() && delta.y.isFinite()) active?.move?.invoke(delta)
                         }
                     }
-                } finally { active?.finish?.invoke(true) }
+                } finally { finish(true) }
             }, content = content)
     }
 }

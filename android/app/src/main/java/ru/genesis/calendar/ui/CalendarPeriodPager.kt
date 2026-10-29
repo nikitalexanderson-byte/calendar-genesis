@@ -124,7 +124,7 @@ internal fun <T : Any> CalendarPeriodPager(period: T, previousPeriod: T?, nextPe
 
 @Composable
 internal fun CalendarPeriodNavigation(title: String, year: Boolean,
-    onPrevious: () -> Unit, onNext: () -> Unit, onToday: (() -> Unit)? = null) {
+    onPrevious: () -> Unit, onNext: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     val english = LocalGenesisLanguage.current == "en"
     Row(Modifier.fillMaxWidth().testTag(if (year) "calendar-year-navigation" else "calendar-month-navigation")
@@ -133,9 +133,6 @@ internal fun CalendarPeriodNavigation(title: String, year: Boolean,
         PeriodArrow(-1, if (year) "year" else "month", onPrevious)
         Text(title, Modifier.weight(1f).testTag(if (year) "calendar-year-period" else "calendar-month-period"),
             color = colors.onSurface, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
-        if (onToday != null) TextButton(onClick = onToday,
-            modifier = Modifier.heightIn(min = 48.dp).testTag(if (year) "calendar-year-today" else "calendar-month-today"),
-            contentPadding = PaddingValues(horizontal = 8.dp)) { Text("Сегодня") }
         PeriodArrow(1, if (year) "year" else "month", onNext)
     }
 }

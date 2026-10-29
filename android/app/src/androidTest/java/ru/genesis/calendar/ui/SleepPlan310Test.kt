@@ -53,7 +53,7 @@ class SleepPlan310Test {
         val calendar=GenesisCalendar();val date=LocalDate.of(2026,10,29)
         var mode by mutableStateOf(CalendarMode.PROFANE)
         compose.setContent { CompositionLocalProvider(LocalGenesisLanguage provides "ru") {
-            MaterialTheme(colorScheme=standart) { MoodObservationEditor(emptyList(),date,mode,"ru",emptyList(),false,null,{}, {_,_,_,_,_->}) }
+            MaterialTheme(colorScheme=standart) { MoodObservationEditor(emptyList(),date,mode,"ru",emptyList(),false,null,{}, onSave={_,_,_,_,_->}) }
         } }
         for(choice in CalendarMode.entries){
             compose.runOnIdle {mode=choice}

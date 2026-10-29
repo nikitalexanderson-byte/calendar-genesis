@@ -62,4 +62,23 @@ class TrackersDocumentTest {
         assertThrows(Exception::class.java) { TrackersDocument.decode("{}",0) }
         assertThrows(IllegalArgumentException::class.java) { TrackersDocument.decode("{\"localSchema\":2}",0) }
     }
+
+    @Test fun abstinenceCloudImportAndLocalRoundTripRetainScheduleHistoryAndScores() {
+        val tracker = AddictionTracker(meta.copy(id="abstinence"), schedule, "Test", "Context", "active", 12, 3, true, "19:45")
+        val entry = AddictionTrackerRules.entry(meta.copy(id="observation"), tracker, date, true, false, 4.0, "Trigger", "Note", meta.updatedAt)
+        val data = LocalTrackersWorkspace(addictionTrackers=listOf(tracker), addictionEntries=listOf(entry), addictionDataLoaded=true)
+        val json = TrackersDocument.encode(data)
+        assertEquals(data, TrackersDocument.decode(json, 0))
+        val imported = TrackersDocument.decode(CloudAccountImporter.trackersDocument(org.json.JSONObject(json)), 0)
+        assertEquals(data, imported)
+        assertEquals(12, imported.addictionEntries.single().score)
+        assertFalse(json.contains("xpAwarded"))
+    }
+
+    @Test fun oldNativeDocumentKeepsUnknownAbstinenceCollectionsAbsent() {
+        val legacy = LocalTrackersWorkspace()
+        val json = TrackersDocument.encode(TrackersDocument.decode(TrackersDocument.encode(legacy), 0))
+        assertFalse(org.json.JSONObject(json).has("addictionTrackers"))
+        assertFalse(org.json.JSONObject(json).has("addictionEntries"))
+    }
 }
