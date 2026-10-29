@@ -1,4 +1,9 @@
+export const HABIT_SOUND_SCHEMES = ["calm", "epic", "futuristic"] as const;
+export type HabitSoundScheme = typeof HABIT_SOUND_SCHEMES[number];
+export const HABIT_FEEDBACK_KINDS = ["completion", "daily-goal", "perfect-day", "achievement", "quest", "rank-up"] as const;
+
 export type HabitFeedbackSettings = {
+  soundScheme: HabitSoundScheme;
   animations: boolean;
   sound: boolean;
   haptics: boolean;
@@ -7,7 +12,7 @@ export type HabitFeedbackSettings = {
   gamificationWidgets: boolean;
 };
 
-export type HabitFeedbackKind = "completion" | "daily-goal" | "perfect-day" | "rank-up";
+export type HabitFeedbackKind = typeof HABIT_FEEDBACK_KINDS[number];
 
 export type HabitFeedbackEvent = {
   id: string;
@@ -24,6 +29,7 @@ export type HabitFeedbackEvent = {
 };
 
 export const DEFAULT_HABIT_FEEDBACK_SETTINGS: HabitFeedbackSettings = {
+  soundScheme: "calm",
   animations: true,
   sound: false,
   haptics: false,
@@ -34,6 +40,7 @@ export const DEFAULT_HABIT_FEEDBACK_SETTINGS: HabitFeedbackSettings = {
 
 export function normalizeHabitFeedbackSettings(value: Partial<HabitFeedbackSettings> | null | undefined): HabitFeedbackSettings {
   return {
+    soundScheme: HABIT_SOUND_SCHEMES.includes(value?.soundScheme as HabitSoundScheme) ? value!.soundScheme! : "calm",
     animations: typeof value?.animations === "boolean" ? value.animations : DEFAULT_HABIT_FEEDBACK_SETTINGS.animations,
     sound: typeof value?.sound === "boolean" ? value.sound : DEFAULT_HABIT_FEEDBACK_SETTINGS.sound,
     haptics: typeof value?.haptics === "boolean" ? value.haptics : DEFAULT_HABIT_FEEDBACK_SETTINGS.haptics,
@@ -50,46 +57,30 @@ function hapticPattern(kind: HabitFeedbackKind) {
   return 22;
 }
 
-function feedbackNotes(kind: HabitFeedbackKind) {
-  if (kind === "rank-up") return [392, 523.25, 659.25];
-  if (kind === "perfect-day") return [440, 554.37, 659.25];
-  if (kind === "daily-goal") return [392, 523.25];
-  return [440];
-}
+let activeCue: HTMLAudioElement | null = null;
 
-function playFeedbackSound(kind: HabitFeedbackKind) {
-  if (typeof window === "undefined" || typeof window.AudioContext !== "function") return;
+export function playFeedbackSound(kind: HabitFeedbackKind, scheme: HabitSoundScheme = "calm") {
+  if (typeof window === "undefined" || typeof window.Audio !== "function") return;
   try {
-    const context = new window.AudioContext();
-    const master = context.createGain();
-    const notes = feedbackNotes(kind);
-    const now = context.currentTime;
-    master.gain.setValueAtTime(0.0001, now);
-    master.gain.exponentialRampToValueAtTime(0.085, now + 0.018);
-    master.gain.exponentialRampToValueAtTime(0.0001, now + Math.max(0.24, notes.length * 0.12 + 0.08));
-    master.connect(context.destination);
-    notes.forEach((frequency, index) => {
-      const oscillator = context.createOscillator();
-      const noteGain = context.createGain();
-      const start = now + index * 0.1;
-      oscillator.type = "sine";
-      oscillator.frequency.setValueAtTime(frequency, start);
-      noteGain.gain.setValueAtTime(0.0001, start);
-      noteGain.gain.exponentialRampToValueAtTime(0.7, start + 0.012);
-      noteGain.gain.exponentialRampToValueAtTime(0.0001, start + 0.16);
-      oscillator.connect(noteGain);
-      noteGain.connect(master);
-      oscillator.start(start);
-      oscillator.stop(start + 0.18);
-    });
-    window.setTimeout(() => { void context.close(); }, 700);
+    activeCue?.pause();
+    const safeScheme = HABIT_SOUND_SCHEMES.includes(scheme) ? scheme : "calm";
+    const safeKind = HABIT_FEEDBACK_KINDS.includes(kind) ? kind : "completion";
+    const cue = new window.Audio(`/feedback-audio/${safeScheme}-${safeKind}.wav`);
+    cue.volume = .8;
+    activeCue = cue;
+    const release = () => { if (activeCue === cue) activeCue = null; };
+    cue.onended = release;
+    cue.onerror = release;
+    void cue.play().catch(release);
   } catch {
-    // Feedback must never block an offline completion on restricted devices.
+    // A successful offline completion remains successful when audio is unavailable.
   }
 }
 
 export function deliverHabitFeedback(kind: HabitFeedbackKind, settings: HabitFeedbackSettings) {
   if (typeof window === "undefined") return;
-  if (settings.haptics && typeof navigator.vibrate === "function") navigator.vibrate(hapticPattern(kind));
-  if (settings.sound) playFeedbackSound(kind);
+  try {
+    if (settings.haptics && typeof navigator.vibrate === "function") navigator.vibrate(hapticPattern(kind));
+  } catch { /* Device vibration restrictions must not suppress sound or a saved completion. */ }
+  if (settings.sound) playFeedbackSound(kind, settings.soundScheme);
 }

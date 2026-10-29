@@ -177,7 +177,7 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
                                 if(r.unsynced||r.document.pinned) Text(if(r.unsynced)"Черновик на устройстве" else "Закреплена",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.secondary)
                             }
                             Box {
-                                AffairsIconButton("Действия с картой",AffairsAction.MORE,{mapActionsOpen=true})
+                                AffairsIconButton("Действия с картой",AffairsAction.MORE,{mapActionsOpen=true},outlined=false)
                                 DropdownMenu(mapActionsOpen,{mapActionsOpen=false}) {
                                     DropdownMenuItem(text={Text(if(r.document.pinned)"Открепить" else "Закрепить")},enabled=!busy&&!readOnly,onClick={mapActionsOpen=false;save(r.document.copy(pinned=!r.document.pinned))})
                                     DropdownMenuItem(text={Text(if(archived)"Восстановить" else "Архивировать")},enabled=!busy&&!readOnly,onClick={mapActionsOpen=false;save(r.document.copy(archived=!r.document.archived))})
@@ -216,7 +216,7 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
                         Row(Modifier.fillMaxWidth().padding(start=(depth.coerceAtMost(3)*12).dp).background(fill,MaterialTheme.shapes.small)
                             .border(1.dp,mapColor(n.style?.optString("border"),MaterialTheme.colorScheme.outlineVariant),MaterialTheme.shapes.small),verticalAlignment=Alignment.CenterVertically) {
                             if(map.nodes.any {it.parentId==n.id}) AffairsIconButton(if(n.id in collapsed)"Развернуть ветку" else "Свернуть ветку",if(n.id in collapsed)AffairsAction.EXPAND else AffairsAction.COLLAPSE,
-                                {val next=collapsed.toMutableSet();if(!next.add(n.id))next.remove(n.id);changeView(JSONObject(view.toString()).put("collapsed",org.json.JSONArray(next.toList())))},contentColor=ink)
+                                {val next=collapsed.toMutableSet();if(!next.add(n.id))next.remove(n.id);changeView(JSONObject(view.toString()).put("collapsed",org.json.JSONArray(next.toList())))},contentColor=ink,outlined=false)
                             TextButton(onClick={selected=n.id;text=n.text;note=n.note;editing=n.id},modifier=Modifier.weight(1f).testTag("mindmap-node-${n.id}"),
                                 colors=ButtonDefaults.textButtonColors(contentColor=ink)) {
                                 n.mindmapIcon()?.let { MindmapGlyph(it, Modifier.padding(end = 8.dp).size(24.dp), ink) }
@@ -240,7 +240,7 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
             if(node.note.isNotBlank()) androidx.compose.material3.Text(node.note)
             linkedTask(node)?.let { task->TextButton(onClick={onTask(task,node.occurrenceDate)}){Text("Открыть карточку задачи")} }
             if(node.kind=="project"&&projects.any {it.id==node.refId})TextButton(onClick={onProject(node.refId!!)}){Text("Открыть проект")}
-        }},confirmButton={TextButton(onClick={editing=null}){Text("Закрыть")}})
+        }},confirmButton={})
     if(editing!=null&&map!=null&&node!=null&&!readOnly) AlertDialog(onDismissRequest={closeNodeEditor()},showCloseButton=false,title={Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
         Text(label(node),Modifier.weight(1f))
         AffairsIconButton("Закрыть",AffairsAction.CLOSE,{closeNodeEditor()},Modifier.testTag("mindmap-node-close"),enabled=!busy)
@@ -313,10 +313,10 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
         LazyColumn(Modifier.weight(1f,fill=false)) {items(tasks.filter {it.title.contains(pickerQuery,true)},key={it.id}) {t->TextButton(onClick={if(t.recurrence.enabled){occurrenceTask=t;occurrenceDate=t.date}else {save(map.copy(nodes=map.nodes+MindmapNode(UUID.randomUUID().toString(),node.id,"task",refId=t.id)));picker=false}}){Text(t.title)} };items(projects.filter {it.title.contains(pickerQuery,true)},key={it.id}) {p->TextButton(onClick={save(map.copy(nodes=map.nodes+MindmapNode(UUID.randomUUID().toString(),node.id,"project",refId=p.id)));picker=false}){Text("Проект · ${p.title}")} }
             item {taskPickerFooter()}
         }
-    }},confirmButton={TextButton(onClick={picker=false}){Text("Закрыть")}})
+    }},confirmButton={})
     if(occurrenceTask!=null&&map!=null&&node!=null)AlertDialog(onDismissRequest={occurrenceTask=null},title={Text("День повторения")},text={Column {AuthorDatePicker(occurrenceDate,ru.genesis.calendar.domain.CalendarMode.PROFANE){occurrenceDate=it};Text("На карте будет только выбранный экземпляр.")}},confirmButton={TextButton(enabled=runCatching {TaskOccurrences.occursOn(occurrenceTask!!,java.time.LocalDate.parse(occurrenceDate))}.getOrDefault(false),onClick={save(map.copy(nodes=map.nodes+MindmapNode(UUID.randomUUID().toString(),node.id,"task",refId=occurrenceTask!!.id,occurrenceDate=occurrenceDate)));occurrenceTask=null;picker=false}){Text("Привязать этот день")}},dismissButton={TextButton(onClick={occurrenceTask=null}){Text("Отмена")}})
     if(import||export)AlertDialog(onDismissRequest={import=false;export=false},title={Text(if(import)"Импорт JSON" else "Экспорт JSON")},text={OutlinedTextField(text,{if(import)text=it},readOnly=export,label={Text("Документ GENESIS")},modifier=Modifier.heightIn(max=360.dp))},confirmButton={TextButton(enabled=export||!readOnly,onClick={if(import)run {val file=JSONObject(text);require(file.getString("format")=="genesis-mindmap"&&file.getInt("version")==1);val source=MindmapDocument.parse(file.getJSONObject("document"));val copy=source.copy(id=UUID.randomUUID().toString());repo.save(copy);open(copy.id)};import=false;export=false}){Text(if(import)"Импортировать копию" else "Закрыть")}})
-    history?.let { versions->AlertDialog(onDismissRequest={history=null},title={Text("История карты")},text={LazyColumn {items(versions,key={it.revision}) {r->TextButton(enabled=!readOnly,onClick={if(map!=null){if(serverPreview)run {repo.adoptServer(map.id);open(map.id)}else save(r.document.copy(id=map.id))};history=null}){Text("Версия ${r.revision} · ${r.document.title}")} } }},confirmButton={TextButton(onClick={history=null}){Text("Закрыть")}}) }
+    history?.let { versions->AlertDialog(onDismissRequest={history=null},title={Text("История карты")},text={LazyColumn {items(versions,key={it.revision}) {r->TextButton(enabled=!readOnly,onClick={if(map!=null){if(serverPreview)run {repo.adoptServer(map.id);open(map.id)}else save(r.document.copy(id=map.id))};history=null}){Text("Версия ${r.revision} · ${r.document.title}")} } }},confirmButton={}) }
     // Recovery also binds a previously committed conversion after process death.
     LaunchedEffect(map?.id,tasks,records,busy) {if(onConvertIdea==null&&!readOnly&&map!=null&&!busy&&!record.unsynced) {val recovered=map.nodes.map { n->if(n.kind=="idea")tasks.firstOrNull {it.id==map.taskId(n.id)}?.let {n.copy(kind="task",text="",refId=it.id)} ?: n else n };if(recovered!=map.nodes)run {repo.save(map.copy(nodes=recovered))} } }
 }

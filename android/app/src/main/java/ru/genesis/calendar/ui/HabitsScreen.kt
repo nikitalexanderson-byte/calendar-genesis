@@ -2,8 +2,6 @@ package ru.genesis.calendar.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
-import android.media.AudioManager
-import android.media.ToneGenerator
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -24,9 +22,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.unit.dp
 import ru.genesis.calendar.ui.Dialog
 import androidx.lifecycle.Lifecycle
@@ -34,7 +30,6 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import java.time.*
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collect
 import ru.genesis.calendar.GenesisApplication
@@ -105,7 +100,6 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
     }
     var busy by remember { mutableStateOf(false) }
     var today by remember { mutableStateOf(LocalDate.now()) }
-    val hapticFeedback = LocalHapticFeedback.current
     val language = LocalGenesisLanguage.current
     val english = language == "en"
     val engine=HabitEngine(GenesisCalendar())
@@ -134,36 +128,21 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
             throw IllegalArgumentException("Привычка сохранена на устройстве. Синхронизация Google пока не завершена — повторите сохранение.")
         }
     }
-    suspend fun completionFeedback(settings: HabitFeedbackSettings) {
-        if (settings.haptics) hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-        if (settings.sound) {
-            val tone = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 35)
-            tone.startTone(ToneGenerator.TONE_PROP_ACK, 120)
-            delay(140)
-            tone.release()
-        }
-    }
     suspend fun recordCompletion(id: String, checked: Boolean, quality: Double?, settings: HabitFeedbackSettings) {
-        val result = repository.complete(id, checked, quality)
+        repository.complete(id, checked, quality)
         if (checked) {
             workspace?.habits?.firstOrNull { it.id==id }?.let { externalSync.advanceTaskAfterCompletion(it,LocalDate.now()) }
-            completionFeedback(settings)
-            if (settings.achievementPopups && result.newlyUnlockedAchievements > 0)
-                app.scheduler.showAchievementNotification(result.newlyUnlockedAchievements, language)
         }
     }
     suspend fun recordInterval(habit: Habit, time: String, checked: Boolean, settings: HabitFeedbackSettings) {
         val previous=workspace?.completions?.firstOrNull { it.habitId==habit.id && it.date==LocalDate.now() }
         val marks=habitIntervalMarks(habit,previous).toMutableSet()
         if(checked) marks.add(time) else marks.remove(time)
-        val result=repository.completeInterval(habit.id,time,checked)
+        repository.completeInterval(habit.id,time,checked)
         if(checked) {
             if(previous?.completed!=true && habit.intervalSchedule!!.times().all { it in marks } &&
                 (!habit.scoringMode.startsWith("quality") || previous?.qualityValue!=null))
                 externalSync.advanceTaskAfterCompletion(habit,LocalDate.now())
-            completionFeedback(settings)
-            if(settings.achievementPopups && result.newlyUnlockedAchievements>0)
-                app.scheduler.showAchievementNotification(result.newlyUnlockedAchievements,language)
         }
     }
     LaunchedEffect(repository) {
@@ -287,13 +266,20 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                     } }
                 }
                 val timerSessions = HabitTimers.sessions(current.timers)
+                val inlineTimerIds = current.habits.filter { habit ->
+                    val status = habitPracticeLibraryStatus(habit, current.completions)
+                    if (area == "library") status == habitState && status !in setOf("archived", "deleted")
+                    else status == "active" || status == "completed" && current.completions.any {
+                        it.habitId == habit.id && it.date == today && it.completed }
+                }.mapTo(hashSetOf()) { it.id }
                 val pendingTimers = timerSessions.any { it.state?.status !in setOf("saved", "discarded") }
                 if (!pendingTimers && timerHabitId == null && timerSessions.any { it.state?.status == "saved" })
                     OutlinedButton(onClick = { timerHistoryOpen = !timerHistoryOpen }, modifier = Modifier.fillMaxWidth()) {
                         Text(if (timerHistoryOpen) "Скрыть сессии таймера" else "Сессии таймера")
                     }
-                if (pendingTimers || timerHabitId != null || timerHistoryOpen) Box(Modifier.bringIntoViewRequester(timerFocus)) {
-                HabitTimerShelf(current, repository.timerOwner, timerHabitId, { timerHabitId = null }, !busy && !storageError) {
+                if (pendingTimers || timerHistoryOpen) Box(Modifier.bringIntoViewRequester(timerFocus)) {
+                HabitTimerShelf(current, repository.timerOwner, null, { timerHistoryOpen = false }, !busy && !storageError,
+                    excludedHabitIds = if (timerHistoryOpen) emptySet() else inlineTimerIds) {
                     repository.applyTimer(it); Unit
                 }
                 }
@@ -323,7 +309,13 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                             onEdit = { edit = habit; editorOpen = true },
                             onToggle = { scope.launch { runAction { changeAvailability(habit, if (habit.active) "pause" else "resume") } } },
                             onArchive = { scope.launch { runAction { changeAvailability(habit, "archive") } } },
-                            onTimer = { timerHabitId = habit.id }, onDelete = { deleteCandidate = habit })
+                            onTimer = { timerHabitId = if (timerHabitId == habit.id) null else habit.id }, onDelete = { deleteCandidate = habit },
+                            timerContent = if (timerHabitId == habit.id) { {
+                                Box(Modifier.bringIntoViewRequester(timerFocus).testTag("habit-timer-inline-${habit.id}")) {
+                                    HabitTimerShelf(current, repository.timerOwner, habit.id, { timerHabitId = null },
+                                        !busy && !storageError, embedded = true) { repository.applyTimer(it); Unit }
+                                }
+                            } } else null)
                     }
                     }
                 }
@@ -471,9 +463,10 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                     onClaimAmphora = { rankId -> scope.launch { runAction { repository.claimHeroPathAmphora(rankId) } } },
                     onRevealHiddenPath = { scope.launch { runAction { repository.revealHiddenHeroicPath() } } },
                     onBuySpark = { scope.launch { runAction { repository.buyHestiaSpark() } } },
-                    showQuests = current.settings.feedback.questsEnabled)
+                    showQuests = false)
             }
 
+                if (current.settings.feedback.questsEnabled) HabitQuestPanel(current, today)
                 if (!current.settings.feedback.gamificationWidgets) Text("Виджеты развития скрыты в настройках привычек. Накопленные награды и прогресс сохранены.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -498,7 +491,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
         modifier = Modifier.testTag("habit-data-dialog"), title = { Text("Данные привычек") },
         text = { Column(Modifier.fillMaxWidth().heightIn(max = 480.dp).verticalScroll(rememberScrollState())) {
             HabitBackupPanel(app, requireNotNull(workspace), inDialog = true)
-        } }, confirmButton = { TextButton(onClick = { dataOpen = false }) { Text("Закрыть") } })
+        } }, confirmButton = {})
     if(editorOpen) HabitEditor(edit,busy,error,inputCalendarMode,accountSettings,voiceDraftTitle,
         onChooseRule={chosen,heads,operation -> scope.launch { runAction {
             try { repository.resolveRule(requireNotNull(edit).id,chosen,heads,operation);editorOpen=false }
@@ -550,7 +543,7 @@ private fun ExperimentalHabitCard(habit: Habit, entry: HabitCompletion?, schedul
     animate: Boolean, today: LocalDate, measurements: List<HabitMeasurementEvent>, completions: List<HabitCompletion>,
     onComplete: (Boolean, Double?) -> Unit, onEdit: () -> Unit, onIntervalComplete: (String, Boolean) -> Unit,
     onRecord: suspend (Long?, String?, List<String>, String) -> Unit, onQuality: suspend (Double) -> Unit,
-    onHistory: () -> Unit, onToggle: () -> Unit, onArchive: () -> Unit, onTimer: () -> Unit, onDelete: () -> Unit) {
+    onHistory: () -> Unit, onToggle: () -> Unit, onArchive: () -> Unit, onTimer: () -> Unit, onDelete: () -> Unit, timerContent: (@Composable () -> Unit)? = null) {
     val rule = HabitMeasurements.rule(habit, today)
     val displayTitle = habitDisplayTitle(habit)
     val measured = HabitMeasurements.effective(rule) != null
@@ -629,6 +622,7 @@ private fun ExperimentalHabitCard(habit: Habit, entry: HabitCompletion?, schedul
                 if (scheduled) AffairsIconButton("Таймер привычки $displayTitle", AffairsAction.TIMER,
                     onTimer, Modifier.testTag("habit-timer-open-${habit.id}"), !disabled, outlined = false)
             }
+            timerContent?.invoke()
             if (detailsOpen) {
                 HorizontalDivider()
                 if (habit.description.isNotEmpty()) androidx.compose.material3.Text(habitDisplayDescription(habit), style = MaterialTheme.typography.bodyMedium)

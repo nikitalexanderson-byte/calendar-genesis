@@ -191,8 +191,7 @@ internal class AuthSessionClient(context: Context) {
     fun workspace(expected: Long): JSONObject = request(expected, "/workspace", null)
     fun habitReminderStatus(expected: Long): JSONObject = request(expected, "/habit-reminders/status", null)
     fun mindmaps(expected: Long, path:String, body:JSONObject?=null):JSONObject = request(expected,path,body,method=if(body==null)"GET" else "PUT")
-    fun diary(expected: Long, path: String, body: JSONObject? = null): JSONObject {
-        val method = if (body == null) "GET" else "PUT"
+    fun diary(expected: Long, path: String, body: JSONObject? = null, method: String = if (body == null) "GET" else "PUT"): JSONObject {
         require(DiaryProtocol.allowedRoute(method, path))
         return request(expected, path, body, method = method)
     }
@@ -719,6 +718,7 @@ internal class AuthSessionClient(context: Context) {
                             path.endsWith("/project-access") && code in ProjectAccessProtocol.errors ||
                             (path.startsWith("/shared/bulk") || path.startsWith("/shared/views/options")) && SharedBulkProtocol.errorCode(code) ||
                             path.contains("/automations") && SharedAutomationProtocol.errorCode(code)) AuthApiError(code)
+                        else if (path.startsWith("/shared/messenger/") && (code.startsWith("MESSENGER_") || code in MessagingProtocol.errors || code.startsWith("INVALID_"))) AuthApiError(code)
                         else if ((path.startsWith("/shared/private-conversations/") || path == "/shared/messaging/key") && code in MessagingProtocol.errors) AuthApiError(code)
                         else if (path.startsWith("/shared/projects/") && path.contains("/tasks") && code in sharedTaskDetailErrors) AuthApiError(code)
                         else customFieldFailure(status, payload) ?: workflowFailure(status, payload)

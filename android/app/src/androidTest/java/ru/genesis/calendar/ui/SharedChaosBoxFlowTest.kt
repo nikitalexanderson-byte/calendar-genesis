@@ -304,6 +304,31 @@ class SharedChaosBoxFlowTest {
         capture("board-direct-drop-and-toolbar")
     }
 
+    @Test fun listLongPressDropsOnTheActualListWithoutASubstituteTray() {
+        val fixture=ChaosFixture(allowMove=true)
+        open(fixture)
+        click("shared-space-${fixture.spaceA}")
+        click("shared-project-${fixture.projectA}",scroll=true)
+        await("shared-list-board-todo")
+        compose.onNodeWithTag("shared-task-project-a-1").performScrollTo()
+        val source=compose.onNodeWithTag("shared-task-project-a-1").fetchSemanticsNode().boundsInRoot
+        compose.onNodeWithTag("shared-task-project-a-1").performTouchInput { down(center) }
+        compose.mainClock.advanceTimeBy(800)
+        // Scroll the actual list while the task is held, then release over its header.
+        compose.onNodeWithTag("shared-list-board-done").performScrollTo()
+        val target=compose.onNodeWithTag("shared-list-board-done").fetchSemanticsNode().boundsInRoot
+        val currentSource=compose.onNodeWithTag("shared-task-project-a-1").fetchSemanticsNode().boundsInRoot
+        compose.onNodeWithTag("shared-task-project-a-1").performTouchInput {
+            moveTo(androidx.compose.ui.geometry.Offset(target.center.x,target.top+30f)-currentSource.topLeft,400);up()
+        }
+        compose.waitUntil(10000) { fixture.mutations>0 }
+        assertEquals("done",fixture.lastMove?.getString("statusId"))
+        assertEquals("project-a-1",fixture.lastMovedTask)
+        assertEquals(1,fixture.lastMove?.getInt("expectedRevision"))
+        compose.onAllNodes(hasTestTag("shared-drop-project:${fixture.projectA}")).assertCountEquals(0)
+        capture("list-direct-drop")
+    }
+
     private class ChaosFixture(private val viewer: Boolean = false, private val allowMove: Boolean = false) : SharedWorkspaceGateway {
         val spaceA = "chaos-space-a"
         val spaceB = "chaos-space-b"

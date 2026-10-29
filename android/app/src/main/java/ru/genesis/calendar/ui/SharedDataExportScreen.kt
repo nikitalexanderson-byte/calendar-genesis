@@ -101,13 +101,10 @@ internal typealias DataExportPicker = (String, String, (DataExportDestination?) 
       BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         Surface(Modifier.widthIn(max = AffairsLayout.formMaxWidth).fillMaxWidth().padding(16.dp).heightIn(max = maxHeight * .94f).imePadding(), shape = AffairsLayout.shape) {
             Column(Modifier.testTag("data-export-screen")) {
-                Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Экспорт данных", Modifier.weight(1f).testTag("export-heading").semantics { heading() }, style = MaterialTheme.typography.headlineSmall)
-                    AffairsIconButton("Закрыть", AffairsAction.CLOSE, ::close, Modifier.testTag("export-close"))
-                }
+                AffairsDialogHeader("Экспорт данных", projectTitle, ::close, closeTag = "export-close", titleTag = "export-heading")
+                HorizontalDivider()
                 Column(Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)
                     .testTag("export-content"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    if (projectTitle.isNotBlank()) androidx.compose.material3.Text(projectTitle, style = MaterialTheme.typography.titleMedium)
                     Text("Экспорт охватывает все разрешённые данные выбранного объёма, независимо от текущей страницы.", style = MaterialTheme.typography.bodyMedium)
                     ExportChoice("Объём", selection,
                         (if (projectId.isBlank()) emptyList() else listOf("project" to "Текущий проект", "tree" to "Проект с подпроектами")) +

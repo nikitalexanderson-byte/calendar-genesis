@@ -62,7 +62,7 @@ internal fun WorkspaceScreenHeader(title: String, subtitle: String? = null,
 internal fun mobileDestinations(pages: List<String>, visibility: UiVisibility,
     sharedEnabled: Boolean, settingsSubmenus: Boolean): List<MobileDestination> = buildList {
     fun entry(page: String, section: String?, title: String, icon: GenesisPageIcon, group: String) {
-        if (page in pages) add(MobileDestination(page, section, title, icon, group))
+        if (page in pages && menuVisibilityId(page) !in visibility.hiddenMenuItems) add(MobileDestination(page, section, title, icon, group))
     }
     entry("Сегодня", null, "Сегодня", GenesisPageIcon.TODAY, "Мой день")
     if (listOf("calendar.month", "calendar.year").any { it !in visibility.hiddenSubmenus })
@@ -70,8 +70,7 @@ internal fun mobileDestinations(pages: List<String>, visibility: UiVisibility,
     if (!sharedEnabled || listOf("projects.personal", "projects.shared").any { it !in visibility.hiddenSubmenus })
         entry("Проекты", null, "Дела", GenesisPageIcon.PROJECTS, "Рабочее пространство")
     entry("Дневник", null, "Дневник", GenesisPageIcon.DIARY, "Рабочее пространство")
-    if (sharedEnabled && "projects.shared" !in visibility.hiddenSubmenus)
-        entry("Сообщения", null, "Личные сообщения", GenesisPageIcon.MESSAGES, "Рабочее пространство")
+    entry("Сообщения", null, "Личные сообщения", GenesisPageIcon.MESSAGES, "Рабочее пространство")
     if ("habits.habits" !in visibility.hiddenSubmenus)
         entry("Привычки", "Привычки", "Привычки", GenesisPageIcon.HABITS, "Развитие")
     if ("habits.sleep" !in visibility.hiddenSubmenus)

@@ -55,26 +55,30 @@ try {
     sharedExpect(genesisSharedTaskAttachments($task['id']) === [], 'Rejected attachment was persisted.');
     // Two independent writers compete for the final slot, using the real task transaction.
     $workers = [];
-    $workerCode = 'require "server/src/bootstrap.php"; require "server/src/repository.php";
+    $workerCode = (defined('GENESIS_LOCAL_TEST_CONFIG') ? 'define("GENESIS_LOCAL_TEST_CONFIG", ' . var_export((string)GENESIS_LOCAL_TEST_CONFIG, true) . '); ' : '') . 'require "server/src/bootstrap.php"; require "server/src/repository.php";
         require "server/src/google.php"; require "server/src/shared-projects.php";
         try { genesisSharedTask(' . var_export($owner['id'], true) . ',' . var_export($source['id'], true) . ',
         ["title"=>"Concurrent synthetic task","statusId"=>' . var_export($sourceStatus, true) . ']); exit(0); }
         catch (PDOException $e) { exit(str_contains($e->getMessage(), "GENESIS_QUOTA_EXCEEDED") ? 42 : 43); }';
     $command = [PHP_BINARY];
     if (($ini = php_ini_loaded_file()) !== false) array_push($command, '-c', $ini);
-    array_push($command, '-r', $workerCode);
+    // Windows CLI arguments cannot reliably carry a Unicode fixture path in -r source.
+    $workerFile = tempnam(sys_get_temp_dir(), 'genesis-quota-');
+    file_put_contents($workerFile, '<?php ' . $workerCode);
+    array_push($command, $workerFile);
     for ($index = 0; $index < 2; $index++) {
         $process = proc_open($command, [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, dirname(__DIR__, 2));
         sharedExpect(is_resource($process), 'Cannot start quota race worker.');
         fclose($pipes[0]); $workers[] = [$process, $pipes];
     }
-    $exits = [];
+    $exits = []; $workerErrors = [];
     foreach ($workers as [$process, $pipes]) {
-        stream_get_contents($pipes[1]); stream_get_contents($pipes[2]);
+        stream_get_contents($pipes[1]); $workerErrors[] = stream_get_contents($pipes[2]);
         fclose($pipes[1]); fclose($pipes[2]); $exits[] = proc_close($process);
     }
+    @unlink($workerFile);
     sort($exits);
-    sharedExpect($exits === [0, 42], 'Concurrent quota did not allow exactly one writer.');
+    sharedExpect($exits === [0, 42], 'Concurrent quota did not allow exactly one writer: ' . json_encode($exits) . ' ' . implode(' ', $workerErrors));
     sharedExpect(count(genesisSharedProjectSnapshot($owner['id'], $source['id'])['tasks']) === 1,
         'Concurrent writers exceeded the last task slot.');
 } finally {

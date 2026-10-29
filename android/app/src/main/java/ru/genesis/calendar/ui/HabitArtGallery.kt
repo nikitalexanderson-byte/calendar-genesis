@@ -242,11 +242,11 @@ private fun questTitle(quest: HabitQuest, workspace: LocalHabitWorkspace): Strin
 }
 
 @Composable
-private fun HabitQuestPanel(workspace: LocalHabitWorkspace, today: LocalDate) {
+internal fun HabitQuestPanel(workspace: LocalHabitWorkspace, today: LocalDate) {
     val quests = HabitQuests.current(workspace.quests, today)
-    Card(Modifier.fillMaxWidth().testTag("habit-quest-panel"), shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xffeee9f4)),
-        border = BorderStroke(1.dp, Color(0x77665c88))) {
+    Card(Modifier.fillMaxWidth().testTag("habit-quest-panel"), shape = AffairsLayout.shape,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer)) {
         Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Surface(Modifier.size(40.dp), shape = RoundedCornerShape(12.dp), color = Color(0xff665c88)) {
@@ -254,7 +254,7 @@ private fun HabitQuestPanel(workspace: LocalHabitWorkspace, today: LocalDate) {
                         Text("⚔", color = Color.White, style = MaterialTheme.typography.titleMedium)
                     }
                 }
-                Text("Испытания", style = MaterialTheme.typography.titleMedium, color = Color(0xff332d4d))
+                Text("Испытания", style = MaterialTheme.typography.titleMedium)
             }
             Text("Составлены из вашего активного ритма · награда — Лавры, не XP ранга",
                 style = MaterialTheme.typography.bodySmall)

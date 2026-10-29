@@ -117,6 +117,14 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
         }
         override suspend fun request(method: String, path: String, body: JSONObject?): JSONObject {
             check()
+            if (path.startsWith("/shared/messenger/")) {
+                val generation = client.currentGeneration()
+                if (!mutableState.value.ready || mutableState.value.requiresSignIn) throw AuthFailure(AuthFailure.Kind.NETWORK)
+                return withContext(Dispatchers.IO) {
+                    check(); val result = client.messaging(generation, method, path, body)
+                    check(); if (!client.isCurrent(generation)) throw CancellationException(); result
+                }
+            }
             return sharedOnlineCall { api, generation -> api.messaging(generation, method, path, body) }.also { check() }
         }
     }
@@ -153,6 +161,11 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
             check(); check(!mutableState.value.requiresSignIn)
             val generation = client.currentGeneration()
             return withContext(Dispatchers.IO) { client.diary(generation, path, body) }.also { check() }
+        }
+        override suspend fun remove(id: String, expectedRevision: Long): JSONObject {
+            check(); check(!mutableState.value.requiresSignIn)
+            val generation = client.currentGeneration()
+            return withContext(Dispatchers.IO) { client.diary(generation, "/diary/$id", JSONObject().put("expectedRevision", expectedRevision), "DELETE") }.also { check() }
         }
     }
 
@@ -230,7 +243,7 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
 
     internal suspend fun saveAdvicePreferences(uid: String, patch: JSONObject): AdvicePreferences {
         checkAdviceAccount(uid)
-        require(patch.length() > 0 && patch.keys().asSequence().all { it in setOf("enabled", "smart", "categories") })
+        require(patch.length() > 0 && patch.keys().asSequence().all { it in setOf("enabled", "smart", "categories", "aphrodisiaAdult") })
         val generation = client.currentGeneration()
         val response = withContext(Dispatchers.IO) { client.updatePreferences(generation, JSONObject().put("advicePreferences", patch)) }
         checkAdviceAccount(uid)

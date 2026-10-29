@@ -62,11 +62,8 @@ import java.util.Locale
     DisposableEffect(state) { onDispose { scope.launch(NonCancellable) { try { if (state.dirty) state.saveLocal() } finally { state.close() } } } }
     Dialog(onDismissRequest = ::close, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         BackHandler(onBack = ::close)
-        BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing), contentAlignment = Alignment.Center) {
-            DialogBackdrop(::close, Modifier.matchParentSize())
+        GenesisModalFrame(::close) {
             val compactIme = WindowInsets.ime.getBottom(LocalDensity.current) > 0 && maxHeight < 360.dp
-            Surface(Modifier.widthIn(max = 1120.dp).fillMaxWidth().padding(horizontal = 12.dp, vertical = if (compactIme) 4.dp else 12.dp)
-                .heightIn(max = if (compactIme) maxHeight else maxHeight * .96f).imePadding(), shape = AffairsLayout.shape) {
                 Column(Modifier.testTag("shared-automation-editor")) {
                     if (!compactIme) AutomationEditorHeader(headerTitle, projectTitle, false, ::close) { template = null; close() }
                     if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("automation-editor-progress"))
@@ -128,7 +125,6 @@ import java.util.Locale
                         }
                     }
                 }
-            }
         }
     }
     if (leave) AlertDialog(onDismissRequest = { leave = false }, title = { Text("Несохранённые изменения") }, text = { Text("Не удалось сохранить последние изменения. Оставьте свою копию или вернитесь к редактированию.") },
@@ -141,15 +137,8 @@ import java.util.Locale
 
 @Composable private fun AutomationEditorHeader(title: String, projectTitle: String?, compact: Boolean,
     onBack: () -> Unit, onClose: () -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(if (compact) 4.dp else 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        AffairsIconButton("Назад", AffairsAction.BACK, onBack, Modifier.testTag("automation-editor-back"))
-        Column(Modifier.weight(1f).padding(horizontal = 8.dp)) {
-            Text(title, Modifier.semantics { heading() }, style = MaterialTheme.typography.titleLarge,
-                maxLines = if (compact) 1 else Int.MAX_VALUE, overflow = TextOverflow.Ellipsis)
-            if (!compact && projectTitle != null) androidx.compose.material3.Text(projectTitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        AffairsIconButton("Закрыть", AffairsAction.CLOSE, onClose, Modifier.testTag("automation-editor-close"))
-    }
+    AffairsDialogHeader(title, projectTitle.orEmpty(), onClose, onBack,
+        closeTag = "automation-editor-close", backTag = "automation-editor-back", compact = compact)
 }
 
 @Composable private fun AutomationEditorNotice(error: String?) {

@@ -30,7 +30,7 @@ import androidx.compose.ui.unit.dp
     TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
         tooltip = { PlainTooltip { Text("Общие майндмепы") } }, state = rememberTooltipState()) {
         OutlinedIconButton(onClick, interactionSource = interaction, shape = AffairsLayout.controlShape,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = .65f)),
+            border = if (LocalAffairsControlOutlined.current) BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = .65f)) else null,
             colors = IconButtonDefaults.outlinedIconButtonColors(containerColor = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = ink),
             modifier = Modifier.size(width = LocalAffairsControlWidth.current, height = 48.dp).testTag("shared-mindmaps-open")

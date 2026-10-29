@@ -243,8 +243,8 @@ import java.util.Locale
         }
     }
     Dialog(onDismissRequest = ::back, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        Surface(Modifier.fillMaxSize()) {
-            Column(Modifier.fillMaxSize().safeDrawingPadding().padding(16.dp).testTag("shared-sprint-report"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        GenesisModalFrame(::back) {
+            Column(Modifier.fillMaxSize().padding(16.dp).testTag("shared-sprint-report"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 AffairsPageHeader(report?.getJSONObject("sprint")?.getString("title") ?: copy.getString("heading"),
                     if (report == null) "" else copy.getString("heading"), titleIsUserContent = true, onBack = ::back, actions = {
                         AffairsIconButton("Обновить", AffairsAction.REFRESH, { scope.launch { state.refresh() } }, Modifier.testTag("report-refresh"), !state.busy && !state.lost)

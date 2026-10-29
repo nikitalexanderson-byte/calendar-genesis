@@ -8,14 +8,17 @@ internal val adviceCategories = listOf("aretology", "hermetica", "kourotrophy", 
 internal val adviceTopics = listOf("nutrition", "training", "recovery", "discipline", "clothing", "attributes", "cleaning", "home_order")
 
 data class AdvicePreferences(val enabled: Boolean = true, val smart: Boolean = true,
-    val categories: List<String> = adviceCategories) {
+    val categories: List<String> = adviceCategories.filter { it != "aphrodisia" }, val aphrodisiaAdult: Boolean? = null) {
     fun toJson(): JSONObject = JSONObject().put("enabled", enabled).put("smart", smart).put("categories", JSONArray(categories))
+        .put("aphrodisiaAdult", aphrodisiaAdult ?: JSONObject.NULL)
     companion object {
         fun fromJson(value: JSONObject?): AdvicePreferences {
             val selected = value?.optJSONArray("categories")
-            val categories = adviceCategories.filter { id -> selected == null || (0 until selected.length()).any { selected.optString(it) == id } }
+            val adult = value?.opt("aphrodisiaAdult") as? Boolean
+            val categories = adviceCategories.filter { id -> (selected == null || (0 until selected.length()).any { selected.optString(it) == id }) &&
+                (id != "aphrodisia" || adult != null) }
             return AdvicePreferences(value?.optBoolean("enabled", true) != false,
-                value?.optBoolean("smart", true) != false, categories.ifEmpty { adviceCategories })
+                value?.optBoolean("smart", true) != false, categories.ifEmpty { adviceCategories.filter { it != "aphrodisia" } }, adult)
         }
     }
 }
@@ -29,7 +32,7 @@ internal interface DailyAdviceGateway {
 internal data class DailyAdviceSource(val kind: String, val author: String, val work: String, val reference: String)
 internal data class DailyAdvice(val id: String, val day: String, val title: String, val body: String,
     val language: String, val categories: List<String>, val image: String?, val dismissed: Boolean,
-    val sources: List<DailyAdviceSource>)
+    val sources: List<DailyAdviceSource>, val aphrodisiaTheme: String? = null, val requiresAdult: Boolean = false)
 internal data class DailyAdviceResponse(val day: String, val state: String, val advice: DailyAdvice?,
     val sequence: Int = 1, val dailyLimit: Int = 1, val canNext: Boolean = false)
 
@@ -76,6 +79,8 @@ internal object DailyAdviceProtocol {
             }
         }
         return DailyAdviceResponse(day, state, DailyAdvice(id, day, title, body, row.getString("language"),
-            categories, row.optString("image").takeIf { artworkPattern.matches(it) }, row.getBoolean("dismissed"), sources), sequence, limit, canNext)
+            categories, row.optString("image").takeIf { artworkPattern.matches(it) }, row.getBoolean("dismissed"), sources,
+            row.optString("aphrodisiaTheme").takeIf { it in setOf("love", "aesthetics", "consciousness") },
+            row.optBoolean("requiresAdult", "aphrodisia" in categories)), sequence, limit, canNext)
     }
 }

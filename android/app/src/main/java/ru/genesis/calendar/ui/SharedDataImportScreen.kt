@@ -112,15 +112,14 @@ internal typealias DataImportPicker = ((DataImportPickedSource?) -> Unit) -> Uni
         BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             Surface(Modifier.widthIn(max = AffairsLayout.formMaxWidth).fillMaxWidth().padding(16.dp).heightIn(max = maxHeight * .94f).imePadding(), shape = AffairsLayout.shape) {
                 Column(Modifier.testTag("data-import-screen")) {
-                    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(if (historyOpen) "История импорта" else "Импорт данных", Modifier.weight(1f).testTag("import-heading").semantics { heading() }, style = MaterialTheme.typography.headlineSmall)
+                    AffairsDialogHeader(if (historyOpen) "История импорта" else "Импорт данных", title, ::close,
+                        closeTag = "import-close", titleTag = "import-heading") {
                         AffairsIconButton(if (historyOpen) "Импорт данных" else "История импорта", if (historyOpen) AffairsAction.IMPORT else AffairsAction.HISTORY,
                             { historyOpen = !historyOpen }, Modifier.testTag("import-history-toggle"), enabled = !locked)
-                        AffairsIconButton("Закрыть", AffairsAction.CLOSE, ::close, Modifier.testTag("import-close"))
                     }
+                    HorizontalDivider()
                     Column(Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).testTag("import-content"),
                         verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        if (title.isNotBlank()) androidx.compose.material3.Text(title, style = MaterialTheme.typography.titleMedium)
                         if (!state.loaded) Text("Загрузка…")
                         else if (historyOpen) ImportHistory(state, { undoCandidate = it }, onOpenProject = { id -> state.close(); onClose(); onOpenProject(id) })
                         else {

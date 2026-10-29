@@ -111,12 +111,12 @@ test("all fourteen interface locales cover every control and all six categories"
 
 test("published advice has complete titles and bodies in all fourteen languages and distinct real artwork", async () => {
   const result = await verifyDailyAdvice();
-  assert.deepEqual(result, { published: 552, drafts: 0, languages: 14, illustrations: 552 });
+  assert.deepEqual(result, { published: 672, drafts: 0, languages: 14, illustrations: 672 });
   const catalog = JSON.parse(await readFile(new URL("../server/content/daily-advice.json", import.meta.url), "utf8"));
   assert.equal(catalog.items.filter(entry => entry.categories.includes("hestiology")).length, 152);
   assert.equal(catalog.items.filter(entry => entry.categories.includes("kourotrophy")).length, 89);
   assert.equal(catalog.items.filter(entry => entry.categories.includes("hermetica")).length, 151);
-  assert.deepEqual([...new Set(catalog.items.flatMap(entry => entry.categories))].sort(), ["aretology", "hermetica", "hestiology", "kourotrophy"]);
+  assert.deepEqual([...new Set(catalog.items.flatMap(entry => entry.categories))].sort(), ["aphrodisia", "aretology", "hermetica", "hestiology", "kourotrophy"]);
   assert.equal(catalog.items[18].title, "Точность Прямодействия");
   assert.ok(catalog.items[18].body.endsWith("Любая задача, которую ты решил довести до конца, должна выполняться с предельной интенсивностью, без оглядки на усталость."));
   assert.equal(catalog.items[18].status, undefined);
@@ -212,4 +212,29 @@ test("smart affinity uses only active, current habits and keeps all six numeric 
   assert.deepEqual(Object.keys(scores), adviceCategories);
   assert.equal(advicePreferences({ enabled: false }).enabled, false);
   assert.equal(advicePreferences().smart, true);
+});
+
+
+test("Aphrodisia requires explicit opt-in, including legacy default selections", () => {
+  assert.ok(!advicePreferences().categories.includes("aphrodisia"));
+  assert.ok(!advicePreferences({categories: adviceCategories}).categories.includes("aphrodisia"));
+  const selected={categories: ["aphrodisia"], aphrodisiaAdult: false};
+  assert.deepEqual(advicePreferences(selected).categories,["aphrodisia"]);
+  assert.equal(advicePreferences(selected).aphrodisiaAdult,false);
+  assert.equal(advicePreferences({...selected,aphrodisiaAdult:true}).aphrodisiaAdult,true);
+});
+
+test("Aphrodisia source, age flags and themes are paired with every published translation", async () => {
+  const catalog=JSON.parse(await readFile(new URL("../server/content/daily-advice.json",import.meta.url),"utf8"));
+  const entries=catalog.items.filter(e => e.categories.includes("aphrodisia"));
+  assert.equal(entries.length,120);
+  assert.equal(entries.filter(e=>e.requiresAdult).length,64);
+  assert.deepEqual([...new Set(entries.map(e=>e.aphrodisiaTheme))].sort(),["aesthetics","consciousness","love"]);
+  const manifest=JSON.parse(await readFile(new URL("../server/content/aphrodisia-source-manifest.json",import.meta.url),"utf8"));
+  assert.equal(manifest.entries.length,120);
+  for(const entry of entries) {
+    const source=manifest.entries.find(e=>e.id===entry.id);
+    assert.equal(entry.requiresAdult,source.requiresAdult);
+    assert.equal(entry.aphrodisiaTheme,source.aphrodisiaTheme);
+  }
 });

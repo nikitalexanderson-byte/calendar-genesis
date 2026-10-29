@@ -17,6 +17,7 @@ import {useSharedTaskSort} from "./use-personal-task-display";
 import {MindmapLaunchButton} from "./MindmapLaunchButton";
 import { SharedEstimateInputs, SharedEstimateValues } from './SharedTaskEstimates';
 import { SharedMemberMessageButton } from './SharedMemberMessageButton';
+import {messengerText} from './messenger-copy';
 import { estimateDraft, estimateInput, planningText, type EstimateDraft } from './shared-planning';
 
 import { type ReactNode, type CSSProperties, type FormEvent, Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
@@ -1398,6 +1399,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
           <h2>{snapshot.project.isInbox ? (english ? "Team tasks" : "Задачи команды") : snapshot.project.title}</h2>
         </div>
       <div className="shared-context-actions">
+        {!snapshot.project.isInbox&&snapshot.project.kind!=='task-list'?<IconActionButton icon="mail" label={messengerText('project',language)} data-project-chat-trigger onClick={()=>window.dispatchEvent(new CustomEvent('genesis:messenger-project',{detail:{projectId:snapshot.project.id}}))}/>:null}
         {!snapshot.project.isInbox?<IconActionButton icon="list" label={planningText('heading',language as import('./i18n').Language)} data-planning-trigger onClick={()=>setPlanningScope(snapshot)}/>:null}
         <IconActionButton icon="copy" label={translateText("Шаблоны",language as import('./i18n').Language)} data-template-trigger onClick={()=>setTemplateScope({context:snapshot})}/>
         <IconActionButton icon="automation" label={translateText("Автоматизации",language as import('./i18n').Language)} data-automation-trigger onClick={()=>setAutomationScope(snapshot)}/>

@@ -100,12 +100,11 @@ internal fun bulkErrorText(code: String) = when {
             BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Surface(Modifier.widthIn(max = AffairsLayout.formMaxWidth).fillMaxWidth().padding(12.dp).heightIn(max = maxHeight * .94f).imePadding(), shape = AffairsLayout.shape) {
                     Column(Modifier.testTag("shared-bulk-screen")) {
-                        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(if (state.pane == "history") "История операций" else "Массовые действия", Modifier.weight(1f).semantics { heading() }, style = MaterialTheme.typography.titleLarge)
-                                if (state.pane == "configure" && state.editable) AffairsIconButton("Выбрать задачи", AffairsAction.BACK, { state.choose() }, Modifier.testTag("bulk-back"), enabled = !state.busy)
-                                else AffairsIconButton("История операций", AffairsAction.HISTORY, { scope.launch { state.showHistory() } }, Modifier.testTag("bulk-history"), enabled = !state.busy)
+                        AffairsDialogHeader(if (state.pane == "history") "История операций" else "Массовые действия",
+                            onClose = ::close, onBack = if (state.pane == "configure" && state.editable) ({ state.choose() }) else null,
+                            backEnabled = !state.busy, closeTag = "bulk-close", backTag = "bulk-back") {
+                                if (state.pane != "configure" || !state.editable) AffairsIconButton("История операций", AffairsAction.HISTORY, { scope.launch { state.showHistory() } }, Modifier.testTag("bulk-history"), enabled = !state.busy)
                                 AffairsIconButton("Обновить", AffairsAction.REFRESH, { scope.launch { state.refresh() } }, Modifier.testTag("bulk-refresh"), enabled = !state.busy)
-                                AffairsIconButton("Закрыть", AffairsAction.CLOSE, ::close, Modifier.testTag("bulk-close"))
                         }
                         HorizontalDivider()
                         val scroll = rememberScrollState()

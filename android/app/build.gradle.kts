@@ -44,8 +44,8 @@ android {
         applicationId = "ru.genesis.calendar"
         minSdk = 26
         targetSdk = 37
-        versionCode = 116
-        versionName = "3.0.9"
+        versionCode = 117
+        versionName = "3.1.0"
         buildConfigField("boolean", "PLAY_DISTRIBUTION", "false")
         buildConfigField("boolean", "TRIAL_BUILD", "false")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -107,7 +107,7 @@ abstract class GenesisAssetsTask : Sync() {
 val genesisAssets = tasks.register<GenesisAssetsTask>("genesisAssets") {
     assetsDirectory.set(layout.buildDirectory.dir("generated/genesisAssets"))
     from(rootProject.file("../public")) {
-        include("mindmap-icons/**", "icons/**", "weekday-art/**", "day-art-v1/**", "month-art-v4/**", "lunar-month-art-v1/**",
+        include("feedback-audio/**", "mindmap-icons/**", "icons/**", "weekday-art/**", "day-art-v1/**", "month-art-v4/**", "lunar-month-art-v1/**",
             "theokyklos-art/**", "theokyklos-symbols/**", "stoicheion-cards/**",
             "achievement-art/**", "habit-ranks/**", "habit-reward-art/**", "hero-path/**",
             "calendar-art/**", "gregorian-months-v1/**", "tracker-art/**", "genesis-hero.png", "month-frieze-v2.png")
@@ -135,6 +135,9 @@ val genesisAssets = tasks.register<GenesisAssetsTask>("genesisAssets") {
     from(rootProject.file("../app/custom-field-recovery-translations.json")) { into("i18n") }
     from(rootProject.file("../app/planning-translations.json")) { into("i18n") }
     from(rootProject.file("../app/daily-advice-copy.json")) { into("i18n") }
+    from(rootProject.file("../app/messenger-copy.json")) { into("i18n") }
+    from(rootProject.file("../app/diary-copy.json")) { into("i18n") }
+    from(rootProject.file("../app/habit-feedback-copy.json")) { into("i18n") }
     from(rootProject.file("../app/native-mobile-design-translations.json")) { into("i18n") }
     from(rootProject.file("../app/native-calendar-month-copy.json")) { into("i18n") }
     from(rootProject.file("../app")) { include("mindmap-icon-catalog.json", "mindmap-icon-names.json", "mindmap-feature-copy.json"); into("catalogs") }
@@ -147,10 +150,12 @@ val genesisAssets = tasks.register<GenesisAssetsTask>("genesisAssets") {
     from(rootProject.file("../app/habit-practice-copy.json")) { into("i18n") }
     from(rootProject.file("../app/emoji-catalog.json")) { into("i18n") }
     from(rootProject.file("../app/emoji-full-catalog.json")) { into("i18n") }
+    from(rootProject.file("../app/emoji-variant-copy.json")) { into("i18n") }
     from(rootProject.file("../app")) { include("calendar-days.*.json"); into("i18n") }
     from(rootProject.file("../app/stoicheion.en.json")) { into("i18n") }
     from(rootProject.file("../app/stoicheion-restoration-content.json")) { into("catalogs") }
     from(rootProject.file("../app/stoicheion-restoration-ui.json")) { into("catalogs") }
+    from(rootProject.file("../app/stoicheion-reading-layout.json")) { into("catalogs") }
     from(rootProject.file("../app/stoicheion-restoration-locales")) { into("catalogs/stoicheion-restoration-locales") }
     from(rootProject.file("../app/catalog-translations")) {
         include("*.json")

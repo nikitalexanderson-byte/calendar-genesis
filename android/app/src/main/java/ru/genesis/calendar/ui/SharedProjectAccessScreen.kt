@@ -90,8 +90,8 @@ import java.util.Locale
     Dialog(onDismissRequest = ::leave, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         val window = (LocalView.current.parent as? DialogWindowProvider)?.window; val evening = LocalEveningTheme.current
         SideEffect { window?.let { WindowInsetsControllerCompat(it, it.decorView).apply { isAppearanceLightStatusBars = !evening; isAppearanceLightNavigationBars = !evening } } }
-        Surface(Modifier.fillMaxSize()) {
-            Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding().padding(16.dp).testTag("shared-project-access"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        GenesisModalFrame(::leave) {
+            Column(Modifier.fillMaxSize().padding(16.dp).testTag("shared-project-access"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 AffairsPageHeader("Доступ к проектам", directory?.getJSONObject("space")?.getString("title").orEmpty(), contextIsUserContent = true, contextMaxLines = 2, actions = {
                     AffairsIconButton("Обновить список проектов", AffairsAction.REFRESH, { scope.launch { loadDirectory(); if (editor?.ready == true) editor.refresh() else editor?.load() } },
                         Modifier.testTag("access-refresh"), !directoryBusy && editor?.busy != true)

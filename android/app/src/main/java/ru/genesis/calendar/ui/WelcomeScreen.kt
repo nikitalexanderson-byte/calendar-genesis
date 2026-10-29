@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.testTag
@@ -49,192 +50,110 @@ private val welcomeGold = Color(0xFFC8A45E)
 private val welcomeCream = Color(0xFFF6F0DF)
 private val welcomeMuted = Color(0xFFB8C9C2)
 
-/** Account-backed workspace is deliberately inaccessible before the encrypted bootstrap succeeds. */
+/** A single Google entry for the account used throughout GENESIS. */
 @Composable
 fun WelcomeScreen(state: AuthPanelState, controller: AuthController, language: String,
-    preferredLanguage: String? = null,
-    onLanguage: (String) -> Unit) {
+    preferredLanguage: String? = null, onLanguage: (String) -> Unit) {
     val context = LocalContext.current
     val activity = context.activity()
-    var yandexAvailable by remember { mutableStateOf(false) }
-    LaunchedEffect(controller, state.ready, state.busy) {
-        if (!state.busy) {
-            yandexAvailable = controller.yandexAvailable()
-        }
-    }
-    val yandexSdk = remember(context) {
-        if (BuildConfig.YANDEX_CLIENT_ID.isNotBlank()) YandexAuthSdk.create(YandexAuthOptions(context)) else null
-    }
-    val yandexSignInError = genesisTranslate("Вход через Яндекс не завершён")
-    val yandexLauncher = if (yandexSdk != null) rememberLauncherForActivityResult(yandexSdk.contract) { result ->
-        when (result) {
-            is YandexAuthResult.Success -> controller.signInWithYandex(result.token.value, preferredLanguage ?: language)
-            is YandexAuthResult.Failure -> Toast.makeText(context, yandexSignInError, Toast.LENGTH_SHORT).show()
-            YandexAuthResult.Cancelled -> Unit
-        }
-    } else null
-    val showYandex = yandexAvailable && yandexLauncher != null
+    WelcomeContent(state, language, onLanguage,
+        onSignIn = { activity?.let { controller.signIn(it, preferredLanguage) } },
+        signInEnabled = activity != null, onRetry = controller::checkSession,
+        onWeb = { openWebsite(context) },
+        onLegal = { path -> context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(BuildConfig.GENESIS_ORIGIN + path))) })
+}
+
+@Composable internal fun WelcomeContent(state: AuthPanelState, language: String, onLanguage: (String) -> Unit,
+    onSignIn: () -> Unit, signInEnabled: Boolean = true, onRetry: () -> Unit, onWeb: () -> Unit,
+    onLegal: (String) -> Unit) {
     BoxWithConstraints(Modifier.fillMaxSize().background(Brush.verticalGradient(
-        listOf(welcomeNight, welcomeGreen, welcomeNight)))
-        .safeDrawingPadding().imePadding().testTag("genesis-welcome")) {
-        val intro: @Composable () -> Unit = {
+        listOf(welcomeNight, welcomeGreen, welcomeNight))).safeDrawingPadding().testTag("genesis-welcome")) {
+        @Composable fun Intro() {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 OriginalImage("icons/icon-192.png", "GENESIS", Modifier.size(44.dp))
-                Text("Genesis Tasker", Modifier.padding(start = 10.dp),
-                    color = welcomeCream,
+                Text("Genesis Tasker", Modifier.padding(start = 10.dp), color = welcomeCream,
                     style = MaterialTheme.typography.titleLarge.copy(fontFamily = GenesisHeadingFont))
             }
             Text("Выбор языка", color = welcomeMuted, style = MaterialTheme.typography.labelMedium)
             LanguageChips(language, dark = true, flagsOnly = true, onLanguage = onLanguage)
-            HorizontalDivider(color = welcomeGold.copy(alpha = 0.24f))
-            Column(Modifier.testTag("welcome-intro"),
-                verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(if (language == "en") "GENESIS · CALENDAR AND PROJECT MANAGER"
-                    else "GENESIS · КАЛЕНДАРЬ И МЕНЕДЖЕР ПРОЕКТОВ",
-                    color = welcomeGold, style = MaterialTheme.typography.labelMedium)
-                Text("Genesis Tasker", color = welcomeCream,
-                    style = MaterialTheme.typography.displayMedium.copy(
-                        fontFamily = GenesisHeadingFont, letterSpacing = 0.sp))
-                Text(if (language == "en") "Task and project\ncalendar"
-                    else "Календарь задач\nи проектов",
-                    color = welcomeGold,
-                    style = MaterialTheme.typography.headlineLarge.copy(
-                        fontFamily = GenesisHeadingFont, fontStyle = FontStyle.Italic))
-                Text(if (language == "en")
-                    "Plan tasks, projects and recurring practices. Keep your private workspace synchronized across the web and your devices."
-                    else "Планируйте задачи, проекты и повторяющиеся практики. Личное пространство синхронизируется с сайтом и вашими устройствами.",
-                    color = welcomeMuted, style = MaterialTheme.typography.bodyLarge)
-            }
+            HorizontalDivider(color = welcomeGold.copy(alpha = .24f))
+            androidx.compose.foundation.text.BasicText(genesisTranslate("Календарь задач и проектов"),
+                Modifier.fillMaxWidth().testTag("welcome-purpose-title"), maxLines = 1, softWrap = false,
+                style = MaterialTheme.typography.headlineLarge.copy(color = welcomeGold,
+                    fontFamily = GenesisHeadingFont, fontStyle = FontStyle.Italic),
+                autoSize = androidx.compose.foundation.text.TextAutoSize.StepBased(minFontSize = 14.sp, maxFontSize = 32.sp))
+            Text("Планируйте задачи, проекты и повторяющиеся практики. Личное пространство синхронизируется с сайтом и вашими устройствами.",
+                Modifier.testTag("welcome-intro"), color = welcomeMuted, style = MaterialTheme.typography.bodyLarge)
         }
-        val details: @Composable () -> Unit = {
-            Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(
-                topStart = 6.dp, topEnd = 26.dp, bottomStart = 26.dp, bottomEnd = 6.dp),
-                color = welcomeCream) {
-                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Surface(Modifier.size(52.dp), shape = CircleShape, color = welcomeNight,
-                            border = BorderStroke(1.dp, welcomeGold)) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text("•", color = welcomeGold,
-                                    style = MaterialTheme.typography.displaySmall)
-                            }
-                        }
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text(if (language == "en") "PRIVATE WORKSPACE" else "ЛИЧНОЕ ПРОСТРАНСТВО",
-                                color = welcomeGold, style = MaterialTheme.typography.labelSmall)
-                            Text(if (language == "en") "Sign in to GENESIS" else "Войти в GENESIS",
-                                color = welcomeNight,
-                                style = MaterialTheme.typography.titleLarge.copy(fontFamily = GenesisHeadingFont))
-                        }
+        @Composable fun SignIn() {
+            Surface(Modifier.fillMaxWidth().testTag("welcome-auth-card"), shape = AffairsLayout.shape,
+                color = welcomeGreen, border = BorderStroke(1.dp, welcomeGold.copy(alpha = .4f))) {
+                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        WelcomeMeaningIcon("lock-keyhole", "account")
+                        Text("Войти в GENESIS", color = welcomeCream,
+                            style = MaterialTheme.typography.titleLarge.copy(fontFamily = GenesisHeadingFont))
                     }
-                    Text(if (showYandex && language == "en")
-                            "Choose Google or Yandex sign-in. GENESIS receives basic profile data from your chosen provider. Connect the calendar separately."
-                        else if (showYandex)
-                            "Выберите вход через Google или Яндекс. GENESIS получит основные данные профиля от выбранного сервиса. Подключение календаря выполняется отдельно."
-                        else if (language == "en")
-                            "Sign in with Google to open your encrypted GENESIS data and synchronized tasks."
-                        else "Войдите через Google, чтобы открыть зашифрованные данные GENESIS и синхронизированные задачи.",
-                        color = Color(0xFF405B59), style = MaterialTheme.typography.bodyMedium)
-                    if (showYandex) Text(if (language == "en") "Russian law provides local sign-in methods for users in Russia (Federal Law 149-FZ, Article 8)."
-                        else "Для пользователей, находящихся в России, закон РФ предусматривает российские способы входа (149-ФЗ, ст. 8).",
-                        color = Color(0xFF405B59), style = MaterialTheme.typography.bodySmall)
-                    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp),
-                        color = Color(0xFFE8E9DE)) {
-                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                            Text(if (showYandex) "Безопасный вход"
-                                else if (language == "en") "SECURE SIGN-IN THROUGH GOOGLE"
-                                else "БЕЗОПАСНЫЙ ВХОД ЧЕРЕЗ GOOGLE",
-                                color = Color(0xFF2E7770), style = MaterialTheme.typography.labelSmall)
-                            Text(if (language == "en" && state.checkedAt == null) "Checking your session…"
-                                else if (language == "en" && state.user == null) "Sign in is required to use the app."
-                                else state.message,
-                                color = if (state.user != null && state.checkedAt != null)
-                                    Color(0xFF9B3434) else Color(0xFF405B59),
-                                style = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier.testTag("welcome-status"))
-                        }
+                    Text("Вход через Google открывает ваши данные GENESIS. Подключение календаря и задач выполняется отдельно.",
+                        color = welcomeMuted, style = MaterialTheme.typography.bodyMedium)
+                    if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth(), color = welcomeGold, trackColor = welcomeNight)
+                    if (state.checkedAt == null || state.message !in setOf("На сервере нет активного входа.", "Серверная сессия ещё не проверена.")) {
+                        Text(if (state.checkedAt == null) "Проверяем аккаунт…" else state.message,
+                            Modifier.testTag("welcome-status"), color = welcomeMuted, style = MaterialTheme.typography.bodySmall)
+                    }
+                    if (state.user == null) ProviderSignInIcon("google", Color.White, Color(0xFF202124),
+                        genesisTranslate("Войти через Google"), "welcome-google-sign-in", !state.busy && signInEnabled,
+                        Modifier.fillMaxWidth(), onSignIn)
+                    else Button(onRetry, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
+                        .testTag("welcome-google-sign-in"), colors = ButtonDefaults.buttonColors(containerColor = welcomeGold, contentColor = welcomeNight)) {
+                        Text(if (state.busy) "Проверяем аккаунт…" else "Повторить синхронизацию")
+                    }
+                    TextButton(onWeb, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("welcome-open-web")) {
+                        Text("Открыть веб-версию", color = welcomeMuted, style = MaterialTheme.typography.labelMedium)
                     }
                 }
             }
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                WelcomeTrustLine("▣", if (showYandex && language == "en")
-                    "Tasks sync through the selected calendar after connection"
-                    else if (showYandex)
-                    "Задачи синхронизируются через выбранный календарь после подключения"
-                    else if (language == "en") "Tasks stay in Google and on your device"
-                    else "Задачи остаются в Google и на вашем устройстве")
-                WelcomeTrustLine("◇", if (language == "en") "Project structure is transmitted encrypted"
-                    else "Структура проектов передаётся зашифрованной")
-                WelcomeTrustLine("◉", if (language == "en") "Private data opens only after sign-in"
-                    else "Личные данные открываются только после входа")
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                WelcomeTrustLine("calendar-days", "Календарь и задачи на ваших устройствах")
+                WelcomeTrustLine("network", "Защищённая структура проектов")
+                WelcomeTrustLine("shield-check", "Личное пространство после входа")
             }
         }
-        if (maxWidth >= 760.dp) {
-            Row(Modifier.fillMaxSize().padding(horizontal = 28.dp), horizontalArrangement = Arrangement.spacedBy(32.dp)) {
-                Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())
-                    .padding(top = 24.dp, bottom = if (showYandex) 210.dp else 150.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)) { intro() }
-                Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())
-                    .padding(top = 24.dp, bottom = if (showYandex) 210.dp else 150.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)) { details() }
-            }
-        } else Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-            .padding(start = 20.dp, top = 16.dp, end = 20.dp,
-                bottom = if (showYandex) 210.dp else 150.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)) { intro(); details() }
-        Surface(Modifier.align(Alignment.BottomCenter).widthIn(max = 720.dp).fillMaxWidth(),
-            color = welcomeNight, shadowElevation = 12.dp) {
-            Column(Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth(),
-                    color = welcomeGold, trackColor = welcomeGreen)
-                if (state.user == null) {
-                    Text(if (language == "en") "SIGN IN WITH:" else "ВОЙТИ ЧЕРЕЗ:",
-                        Modifier.fillMaxWidth(), color = welcomeMuted,
-                        style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        ProviderSignInIcon("google", Color.White, Color(0xFF202124),
-                            if (language == "en") "Sign in with Google" else "Войти через Google",
-                            "welcome-google-sign-in", !state.busy && activity != null,
-                            Modifier.weight(1f)) { activity?.let { controller.signIn(it, preferredLanguage) } }
-                        if (showYandex) ProviderSignInIcon("yandex", Color(0xFFFFF7F4), Color(0xFF202124),
-                            if (language == "en") "Sign in with Yandex" else "Войти через Яндекс",
-                            "welcome-yandex-sign-in", !state.busy,
-                            Modifier.weight(1f)) { yandexLauncher?.launch(YandexAuthLoginOptions()) }
-                    }
-                    if (showYandex) Row(Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text(if (language == "en") "Recommended for users who are not Russian citizens"
-                            else "Рекомендуется тем, кто не является гражданином России",
-                            Modifier.weight(1f), color = welcomeMuted,
-                            style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center)
-                        Text(if (language == "en") "Recommended for Russian citizens"
-                            else "Рекомендуется гражданам России",
-                            Modifier.weight(1f), color = welcomeMuted,
-                            style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center)
-                    }
-                } else {
-                    Button(onClick = controller::checkSession, enabled = !state.busy,
-                        colors = ButtonDefaults.buttonColors(containerColor = welcomeGold,
-                            contentColor = welcomeNight, disabledContainerColor = Color(0xFF615C4E),
-                            disabledContentColor = welcomeCream),
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("welcome-google-sign-in")) {
-                        Text(if (state.busy) {
-                            if (language == "en") "Checking account…" else "Проверяем аккаунт…"
-                        } else if (language == "en") "Retry synchronization" else "Повторить синхронизацию")
-                    }
+        @Composable fun Legal() {
+            Column(Modifier.fillMaxWidth().testTag("welcome-legal"), horizontalAlignment = Alignment.CenterHorizontally) {
+                TextButton({ onLegal("/terms") }, Modifier.heightIn(min = 48.dp).testTag("welcome-terms")) {
+                    Text("Пользовательское соглашение", color = welcomeMuted, style = MaterialTheme.typography.labelMedium)
                 }
-                TextButton(onClick = { openWebsite(context) }, modifier = Modifier.fillMaxWidth()
-                    .testTag("welcome-open-web")) {
-                    Text(if (language == "en") "Open the web version" else "Открыть веб-версию",
-                        color = welcomeMuted, style = MaterialTheme.typography.labelMedium)
+                TextButton({ onLegal("/privacy") }, Modifier.heightIn(min = 48.dp).testTag("welcome-privacy")) {
+                    Text("Политика конфиденциальности", color = welcomeMuted, style = MaterialTheme.typography.labelMedium)
                 }
             }
         }
+        if (maxWidth >= 760.dp) Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(28.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(32.dp)) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) { Intro() }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) { SignIn() }
+            }
+            Legal()
+        } else Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)) { Intro(); SignIn(); Legal() }
     }
 }
 
+@Composable private fun WelcomeMeaningIcon(icon: String, tag: String) {
+    val enabled = android.animation.ValueAnimator.areAnimatorsEnabled()
+    var entered by remember { mutableStateOf(false) }
+    LaunchedEffect(icon) { entered = true }
+    val scale by androidx.compose.animation.core.animateFloatAsState(if (entered || !enabled) 1f else .8f,
+        animationSpec = androidx.compose.animation.core.tween(if (enabled) 350 else 0), label = "welcome-$tag")
+    Surface(Modifier.size(44.dp).testTag("welcome-icon-$tag"), shape = AffairsLayout.controlShape,
+        color = welcomeNight, border = BorderStroke(1.dp, welcomeGold.copy(alpha = .4f))) {
+        Box(contentAlignment = Alignment.Center) {
+            GenesisLucideIcon(icon, Modifier.size(26.dp).graphicsLayer { scaleX = scale; scaleY = scale }, welcomeGold)
+        }
+    }
+}
 @Composable
 private fun ProviderSignInIcon(provider: String, background: Color, foreground: Color,
     description: String, tag: String, enabled: Boolean, modifier: Modifier, onClick: () -> Unit) {
@@ -264,12 +183,7 @@ private fun ProviderSignInIcon(provider: String, background: Color, foreground: 
 private fun WelcomeTrustLine(symbol: String, text: String) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Surface(Modifier.size(36.dp), shape = CircleShape, color = welcomeGreen,
-            border = BorderStroke(1.dp, welcomeGold.copy(alpha = .42f))) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(symbol, color = welcomeGold, style = MaterialTheme.typography.titleMedium)
-            }
-        }
+        WelcomeMeaningIcon(symbol, symbol)
         Text(text, Modifier.weight(1f), color = welcomeMuted,
             style = MaterialTheme.typography.bodySmall)
     }

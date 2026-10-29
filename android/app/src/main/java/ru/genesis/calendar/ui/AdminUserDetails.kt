@@ -115,7 +115,7 @@ internal fun AdminUserDetails(user: JSONObject, onClose: () -> Unit) {
             AdminDetail("Синхронизация Google", genesisTranslate(adminSyncStatus(user.optString("androidGoogleSyncStatus"), user.optString("androidLastServerSyncAt"))))
             AdminDetail("Последняя синхронизация", adminDate(user.optString("androidLastServerSyncAt")))
             Text("Версия появляется после контакта приложения с сервером и не доказывает, что приложение всё ещё установлено. Анонимные скачивания не связаны с аккаунтом.", style = MaterialTheme.typography.bodySmall)
-        } }, confirmButton = { TextButton(onClick = onClose) { Text("Закрыть") } })
+        } }, confirmButton = {})
 }
 
 @Composable private fun AdminDetail(label: String, value: String) {

@@ -6,19 +6,22 @@ import familyAffinity from "./daily-advice-family.json" with { type: "json" };
 
 export const ADVICE_CATEGORIES = ["aretology", "hermetica", "kourotrophy", "hestiology", "aphrodisia", "psychopompia"] as const;
 export type AdviceCategory = typeof ADVICE_CATEGORIES[number];
-export type AdvicePreferences = { enabled: boolean; smart: boolean; categories: AdviceCategory[] };
+export type AdvicePreferences = { enabled: boolean; smart: boolean; categories: AdviceCategory[]; aphrodisiaAdult?: boolean | null };
 export type AdviceScores = Record<AdviceCategory, number>;
 export const ADVICE_TOPICS = ["nutrition", "training", "recovery", "discipline", "clothing", "attributes", "cleaning", "home_order", "parenting", "sons", "heritage", "fatherhood", "motherhood"] as const;
 export type AdviceTopicScores = Record<typeof ADVICE_TOPICS[number], number>;
 export type DailyAdvice = {
   id: string; dayKey: string; categories: AdviceCategory[]; title?: string; image?: string; body: string; language: string; dismissed: boolean;
   sources: { author?: string; work: string; reference?: string; kind: "inspired" | "quote" }[];
+  aphrodisiaTheme?: "love" | "aesthetics" | "consciousness"; requiresAdult?: boolean;
 };
 export type DailyAdviceResponse = { dayKey: string; advice: DailyAdvice | null; state: "disabled" | "empty" | "no-match" | "ready"; sequence?: number; dailyLimit?: number; remaining?: number; canNext?: boolean };
 
 export function advicePreferences(value?: Partial<AdvicePreferences> | null): AdvicePreferences {
-  const categories = ADVICE_CATEGORIES.filter(id => !value?.categories || value.categories.includes(id));
-  return { enabled: value?.enabled !== false, smart: value?.smart !== false, categories: categories.length ? categories : [...ADVICE_CATEGORIES] };
+  const categories = ADVICE_CATEGORIES.filter(id => (!value?.categories || value.categories.includes(id))
+    && (id !== "aphrodisia" || typeof value?.aphrodisiaAdult === "boolean"));
+  return { enabled: value?.enabled !== false, smart: value?.smart !== false, categories: categories.length ? categories : ADVICE_CATEGORIES.filter(id => id !== "aphrodisia"),
+    aphrodisiaAdult: typeof value?.aphrodisiaAdult === "boolean" ? value.aphrodisiaAdult : null };
 }
 
 function adviceHabitSignals(habits: readonly Habit[], day: string) {

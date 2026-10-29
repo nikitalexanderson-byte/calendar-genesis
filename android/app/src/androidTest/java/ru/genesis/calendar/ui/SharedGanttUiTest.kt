@@ -22,6 +22,10 @@ class SharedGanttUiTest {
         .put("statusId", "todo").put("revision", 4)
     private val statuses = listOf(JSONObject().put("id", "todo").put("isDone", 0), JSONObject().put("id", "done").put("isDone", 1))
 
+    private fun acknowledged(row: JSONObject, patch: JSONObject) = JSONObject(row.toString()).apply {
+        patch.keys().forEach { put(it, patch.get(it)) }; put("revision", row.getInt("revision") + 1)
+    }
+
     @Test fun longPressMovesDatesWhilePreservingDurationAndTaskIdentity() {
         val start = java.time.LocalDate.now().let { it.minusDays(it.dayOfWeek.value - 1L) }
         val scheduled = JSONObject(task.toString()).put("startDate", start.toString()).put("dueDate", start.plusDays(1).toString())
@@ -29,7 +33,7 @@ class SharedGanttUiTest {
         compose.setContent { MaterialTheme(colorScheme = standart) { Surface {
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                 SharedGanttView(listOf(scheduled), statuses, CalendarMode.PROFANE, CalendarMode.PROFANE, true, true, false,
-                    onOpen = {}, onSchedule = { row, patch -> assertEquals("qa-gantt", row.getString("id")); saved = patch })
+                    onOpen = {}, onSchedule = { row, patch -> assertEquals("qa-gantt", row.getString("id")); saved = patch; acknowledged(row, patch) })
             }
         } } }
         compose.onNodeWithTag("gantt-bar-qa-gantt").performScrollTo().performTouchInput { down(center) }
@@ -49,7 +53,7 @@ class SharedGanttUiTest {
         compose.setContent { MaterialTheme(colorScheme = standart) {
             Surface { Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                 SharedGanttView(listOf(task), statuses, CalendarMode.PROFANE, CalendarMode.PROFANE, true, true, false,
-                    onOpen = {}, onSchedule = { row, patch -> savedTask = row; savedPatch = patch })
+                    onOpen = {}, onSchedule = { row, patch -> savedTask = row; savedPatch = patch; acknowledged(row, patch) })
             } }
         } }
         compose.onNodeWithTag("gantt-schedule-qa-gantt").performScrollTo().performClick()
@@ -71,7 +75,7 @@ class SharedGanttUiTest {
         compose.setContent { MaterialTheme(colorScheme = standart) {
             Surface { Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                 SharedGanttView(listOf(task, completed), statuses, CalendarMode.PROFANE, CalendarMode.PROFANE, true, false, false,
-                    onOpen = { opened = it.getString("id") }, onSchedule = { _, _ -> fail("Viewer must not change dates") })
+                    onOpen = { opened = it.getString("id") }, onSchedule = { _, _ -> error("Viewer must not change dates") })
             } }
         } }
         compose.onNodeWithTag("gantt-schedule-qa-gantt").assertDoesNotExist()
@@ -88,7 +92,7 @@ class SharedGanttUiTest {
         compose.setContent { MaterialTheme(colorScheme = standart) { Surface {
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                 SharedGanttView(listOf(scheduled), statuses, CalendarMode.PROFANE, CalendarMode.PROFANE, true, true, false,
-                    onOpen = {}, onSchedule = { row, changes -> assertEquals(4, row.getInt("revision")); patch = changes })
+                    onOpen = {}, onSchedule = { row, changes -> assertEquals(4, row.getInt("revision")); patch = changes; acknowledged(row, changes) })
             }
         } } }
         compose.onNodeWithTag("gantt-bar-qa-gantt").performScrollTo().performClick()

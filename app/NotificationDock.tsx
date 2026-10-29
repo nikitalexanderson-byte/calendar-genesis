@@ -19,6 +19,7 @@ import { collaborationText } from "./collaboration-copy";
 import { clampDockPosition, clampDockSize, dockHome, dockSavedPosition, dockPositionToLayout, loadNotificationPanelSize, saveNotificationPanelSize, newestUnseenToken, NOTIFICATION_PREVIEW_MS, type DockBounds, type DockPosition, type DockSize, type NoticeActivity } from "./notification-dock-model";
 import "./notification-dock.css";
 const PrivateNotices = lazy(() => import("./SharedSpaceCollaboration").then(module => ({ default: module.SharedPrivateNotices })));
+const Messenger = lazy(() => import("./Messenger"));
 const emptyActivity: NoticeActivity = { count: 0, tokens: [], title: "" };
 type Props = { userId: string; language: Language; mode:CalendarMode; appBase: string; sharedEnabled: boolean; invitationsEnabled: boolean;
   layout: AccountLayout; onLayoutChange: (patch: Partial<AccountLayout>) => void; headerTarget: HTMLElement | null;
@@ -43,7 +44,7 @@ export default function NotificationDock({ userId, language, mode, appBase, shar
   const resize = useRef<{pointerId:number;startX:number;startY:number;origin:DockPosition;size:DockSize}|null>(null);
   const t = (text: string) => translateText(text, language);
   const sharedCount = sharedEnabled ? overview ? overview.newTasks + overview.newProjects + overview.newComments+(overview.newNotifications??0) : notifications.filter(item=>!item.isRead).length : 0;
-  const count = sharedCount + notes.length + (sharedEnabled ? privateActivity.count : 0) + (invitationsEnabled ? invitationActivity.count : 0);
+  const count = sharedCount + notes.length + privateActivity.count + (invitationsEnabled ? invitationActivity.count : 0);
   const expanded = open;
   const collapse = useCallback(() => { actionController.current?.abort();setOpen(false);setUnreadOnly(true);setPreview(null); }, [setUnreadOnly]);
   const show = () => { setOpen(true); setPreview(null); };
@@ -184,10 +185,10 @@ export default function NotificationDock({ userId, language, mode, appBase, shar
           <div className="notification-dock-header-actions">
           {sharedEnabled?<button type="button" className="notification-drag-handle" aria-label={t("Настройки уведомлений")} title={t("Настройки уведомлений")} onClick={()=>setSettingsOpen(true)}><ExperimentalIcon name="settings"/></button>:null}
           <DialogCloseButton aria-label={t("Свернуть уведомления")} onClick={() => { collapse(); requestAnimationFrame(() => toggle.current?.focus({ preventScroll: true })); }} /></div></header>
-        {sharedEnabled?<div className="notification-pane-tabs" role="group" aria-label={t("Уведомления и сообщения")}>
+        <div className="notification-pane-tabs" role="group" aria-label={t("Уведомления и сообщения")}>
           <button type="button" className="secondary-button" aria-pressed={pane==='updates'} onClick={()=>setPane('updates')}><ExperimentalIcon name="list"/><span>{t("Уведомления")}</span></button>
           <button type="button" className="secondary-button" aria-pressed={pane==='messages'} onClick={openMessages}><ExperimentalIcon name="mail"/><span>{collaborationText('messageTab',language)}</span></button>
-        </div>:null}
+        </div>
         <div className="notification-dock-list">
           <div className="notification-updates" hidden={pane==='messages'}>
           {sharedEnabled?<div className="notification-inbox-filter" role="group" aria-label={t("Фильтр обновлений")}><button type="button" className="secondary-button" aria-pressed={unreadOnly} disabled={Boolean(busy)} onClick={()=>setUnreadOnly(true)}>{t("Непрочитанные")}</button><button type="button" className="secondary-button" aria-pressed={!unreadOnly} disabled={Boolean(busy)} onClick={()=>setUnreadOnly(false)}>{t("Все")}</button></div>:null}
@@ -204,7 +205,8 @@ export default function NotificationDock({ userId, language, mode, appBase, shar
           {nextCursor ? <button type="button" className="secondary-button notification-load-more" disabled={loadingMore} onClick={() => void loadMore()}>{t(loadingMore ? "Загрузка…" : "Показать ещё")}</button> : null}
           {invitationsEnabled ? <SharedInvitationNotices userId={userId} english={language === "en"} persistent onActivity={setInvitationActivity} onAccepted={destination => { collapse(); onAccepted(destination); }} /> : null}
           </div>
-          {sharedEnabled ? <Suspense fallback={null}><PrivateNotices key={userId} userId={userId} language={language} embedded active={expanded} view={pane==='messages'?'contacts':'notices'} onActivity={setPrivateActivity} onConversationOpen={openMessages} /></Suspense> : null}
+          {userId?<Suspense fallback={null}><Messenger key={userId} userId={userId} language={language} active={expanded} view={pane==='messages'?'contacts':'notices'} onActivity={setPrivateActivity} onConversationOpen={openMessages} legacyEnabled={sharedEnabled}/></Suspense>:null}
+          {sharedEnabled&&pane==='updates'?<Suspense fallback={null}><PrivateNotices userId={userId} language={language} embedded active={expanded} view="notices" onConversationOpen={openMessages}/></Suspense>:null}
         </div>
         {!mobile?<button type="button" className="notification-resize-handle" aria-label={t("Изменить размер уведомлений")} title={t("Потяните угол или используйте стрелки")} onPointerDown={startResize} onPointerMove={moveResize} onPointerUp={endResize} onPointerCancel={endResize} onKeyDown={resizeWithKeyboard}><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M4 13 13 4M9 13l4-4"/></svg></button>:null}
       </div>

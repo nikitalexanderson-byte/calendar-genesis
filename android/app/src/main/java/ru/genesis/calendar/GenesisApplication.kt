@@ -4,11 +4,18 @@ import android.app.Application
 import androidx.room.Room
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import ru.genesis.calendar.data.*
 import ru.genesis.calendar.reminders.ReminderScheduler
 
 class GenesisApplication : Application() {
+    private val feedback = kotlinx.coroutines.flow.MutableSharedFlow<HabitFeedbackEvent>(
+        extraBufferCapacity = 8, onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST)
+    val habitFeedback = feedback.asSharedFlow()
+    fun offerHabitFeedback(event: HabitFeedbackEvent) {
+        if (event.scope == workspaceScope) feedback.tryEmit(event)
+    }
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val localScope = if (BuildConfig.DEBUG) "internal-validation-v1" else "local-drafts-v1"
     private val activeScope = MutableStateFlow(localScope)

@@ -682,6 +682,26 @@ try {
         // Shared routes do not write the session. Release its file lock before
         // Google I/O, downloads or queries so parallel reads are not queued behind them.
         $userId = genesisSharedRequestUserId($method);
+        if (($segments[1] ?? '') === 'messenger') {
+            $resource=$segments[2]??'';$id=$segments[3]??'';
+            if ($resource==='contacts' && count($segments)===3 && in_array($method,['GET','POST','DELETE'],true)) genesisJson(genesisMessengerContacts($userId,$method==='GET'?null:genesisReadJson(),$method));
+            if ($resource==='blocks' && count($segments)===3 && $method==='POST') genesisJson(genesisMessengerBlock($userId,genesisReadJson()));
+            if ($resource==='devices' && count($segments)===3 && in_array($method,['GET','POST'],true)) genesisJson(genesisMessengerDevices($userId,$method==='GET'?null:genesisReadJson()));
+            if ($resource==='devices' && count($segments)===4 && $method==='DELETE') genesisJson(genesisMessengerRevokeDevice($userId,$id));
+            if ($resource==='projects' && count($segments)===3 && $method==='GET') genesisJson(genesisMessengerProjects($userId));
+            if ($resource==='conversations') {
+                if (count($segments)===3 && $method==='GET') genesisJson(genesisMessengerInbox($userId));
+                if (count($segments)===3 && $method==='POST') genesisJson(genesisMessengerCreate($userId,genesisReadJson()),201);
+                if (count($segments)===4 && $method==='GET') genesisJson(genesisMessengerChat($userId,$id));
+                if (count($segments)===5) {
+                    if ($segments[4]==='membership' && $method==='POST') genesisJson(genesisMessengerMembership($userId,$id,genesisReadJson()));
+                    if ($segments[4]==='read' && $method==='POST') genesisJson(genesisMessengerRead($userId,$id,genesisReadJson()));
+                    if ($segments[4]==='messages' && $method==='GET') genesisJson(genesisMessengerMessages($userId,$id,(int)($_GET['before']??0),isset($_GET['deviceId'])?(string)$_GET['deviceId']:null));
+                    if ($segments[4]==='messages' && $method==='POST') genesisJson(genesisMessengerSave($userId,$id,genesisReadJson()),201);
+                }
+                if (count($segments)===6 && $segments[4]==='messages' && in_array($method,['PATCH','DELETE'],true)) genesisJson(genesisMessengerSave($userId,$id,genesisReadJson(),$method,$segments[5]));
+            }
+        }
         if ($path === 'shared/messaging/key') {
             if ($method === 'GET') genesisJson(genesisSharedMessagingKey($userId));
             if ($method === 'POST') genesisJson(genesisSharedMessagingKey($userId,genesisReadJson()));
@@ -1124,8 +1144,13 @@ try {
 
     if ($segments && $segments[0] === 'diary') {
         $userId=genesisRequireUserId(); header('Cache-Control: no-store');
-        if ($method==='GET' && count($segments)===1) genesisJson(['notes'=>genesisDiaryNotes($userId)]);
+        if ($method==='GET' && count($segments)===1) genesisJson(['notes'=>genesisDiaryNotes($userId),'deleted'=>genesisDiaryDeletions($userId),'settings'=>genesisDiarySettings($userId),'snapshot'=>genesisDiarySnapshot($userId)]);
+        if (count($segments)===2 && $segments[1]==='settings') {
+            if ($method==='GET')genesisJson(['settings'=>genesisDiarySettings($userId),'snapshot'=>genesisDiarySnapshot($userId),'deleted'=>genesisDiaryDeletions($userId)]);
+            if ($method==='PUT'){genesisRequireCsrf();genesisJson(genesisUpdateDiarySettings($userId,genesisReadJson()));}
+        }
         if ($method==='PUT' && count($segments)===2) { genesisRequireCsrf(); genesisJson(genesisSaveDiaryNote($userId,$segments[1],genesisReadJson())); }
+        if ($method==='DELETE' && count($segments)===2) { genesisRequireCsrf(); genesisJson(genesisDeleteDiaryNote($userId,$segments[1],genesisReadJson())); }
     }
     if ($path === 'stoicheion-workspace') {
         $userId = genesisRequireUserId(); header('Cache-Control: no-store');

@@ -324,7 +324,7 @@ import java.io.InputStream
             Text("Сверьте этот код с собеседником по другому каналу. Совпадение подтверждает ключи устройств.")
             SelectionContainer { androidx.compose.material3.Text(state.securityCode.orEmpty(), style = MaterialTheme.typography.titleMedium) }
         }
-    }, confirmButton = { TextButton({ security = false }) { Text("Закрыть") } })
+    }, confirmButton = {})
     if (cancelEditConfirm) AlertDialog(onDismissRequest = { cancelEditConfirm = false }, title = { Text("Отменить редактирование сообщения?") },
         text = { Text("Несохранённая правка и выбранные файлы будут удалены из черновика. Отправленное сообщение сохранится.") },
         confirmButton = { TextButton({ cancelEditConfirm = false; run { repository.cancelEdit() } }, enabled = !busy) { Text("Отменить редактирование") } },

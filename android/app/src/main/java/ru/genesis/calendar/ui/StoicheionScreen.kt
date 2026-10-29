@@ -1,6 +1,7 @@
 package ru.genesis.calendar.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -242,6 +243,8 @@ fun StoicheionScreen(app: GenesisApplication, divinationDisabled: Boolean,
     deleteCycle?.let { candidate -> SavedCycleDeleteDialog(candidate, habitsRepository) { deleteCycle = null } }
     selected?.let { reading ->
         val letter = reading.letter
+        val readingText=remember(letter.id,letter.content){splitStoicheionReading(context,letter.id,letter.content)}
+        var detailsOpen by remember(letter.id){mutableStateOf(false)}
         Dialog(onDismissRequest = { selected = null },
             properties = DialogProperties(usePlatformDefaultWidth = false)) {
             Surface(Modifier.widthIn(max = 840.dp).fillMaxWidth().fillMaxHeight(.94f).padding(horizontal = 12.dp),
@@ -262,10 +265,17 @@ fun StoicheionScreen(app: GenesisApplication, divinationDisabled: Boolean,
                             color = MaterialTheme.colorScheme.primary)
                         Text("Числовое значение ${letter.value} · пифмен ${letter.pythmen}",
                             style = MaterialTheme.typography.labelLarge)
-                        reading.reversed?.let { Text(if (it) "Перевёрнутое положение" else "Парадное положение",
-                            color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleSmall) }
-                        letter.content.split("\n\n").forEach { paragraph ->
-                            Text(paragraph, style = MaterialTheme.typography.bodyMedium)
+                        if(reading.reversed!=null) listOf(false to readingText.upright,true to readingText.reversed).forEach { (reversed,text) ->
+                            val chosen=reading.reversed==reversed
+                            Surface(Modifier.fillMaxWidth().testTag(if(reversed)"stoicheion-reading-reversed"else"stoicheion-reading-upright"),
+                                shape=MaterialTheme.shapes.medium,
+                                color=if(chosen)MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow,
+                                border=if(chosen)BorderStroke(2.dp,MaterialTheme.colorScheme.primary)else null) {
+                                Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
+                                    Text(if(reversed)"Перевёрнутое положение"else"Парадное положение",style=MaterialTheme.typography.titleSmall)
+                                    Text(text,style=MaterialTheme.typography.bodyMedium)
+                                }
+                            }
                         }
                         reading.position?.let { position ->
                             HorizontalDivider()
@@ -291,14 +301,27 @@ fun StoicheionScreen(app: GenesisApplication, divinationDisabled: Boolean,
                                         else "${word.greek} · ${word.pronunciation.ru} · ${word.meaning.ru}",
                                         style = MaterialTheme.typography.bodySmall)
                                 }
-                                theokyklos.practicesFor(position.id).forEach { practice ->
-                                    Text(if (english) "${practice.emoji} ${practice.title.en} — ${practice.description.en}"
-                                        else "${practice.emoji} ${practice.title.ru} — ${practice.description.ru}",
-                                        style = MaterialTheme.typography.bodySmall)
-                                }
                                 TextButton(onClick = { selected = null; onOpenTheokyklosSector(position.id) }) {
                                     Text("Открыть сектор Теокиклоса →")
                                 }
+                            }
+                        }
+                        if(reading.reversed!=null) {
+                            TextButton(onClick={detailsOpen=!detailsOpen},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("stoicheion-reading-more")) {
+                                Text("Полная информация о карте",Modifier.weight(1f))
+                                GenesisLucideIcon(if(detailsOpen)"chevron-up"else"chevron-down")
+                            }
+                            if(detailsOpen)Text(readingText.profile,modifier=Modifier.testTag("stoicheion-reading-profile"),style=MaterialTheme.typography.bodyMedium)
+                        } else Text(letter.content,style=MaterialTheme.typography.bodyMedium)
+                        reading.position?.let { position ->
+                            theokyklos?.practicesFor(position.id)?.takeIf{it.isNotEmpty()}?.let { practices ->
+                                HorizontalDivider()
+                                Text("Сакральные привычки",style=MaterialTheme.typography.titleMedium)
+                                practices.forEach { practice ->
+                                    Text(if(english)"${practice.emoji} ${practice.title.en} — ${practice.description.en}"
+                                        else "${practice.emoji} ${practice.title.ru} — ${practice.description.ru}",style=MaterialTheme.typography.bodyMedium)
+                                }
+                                TextButton(onClick={selected=null;onOpenHabits()},modifier=Modifier.heightIn(min=48.dp)) {Text("Привычки")}
                             }
                         }
                     }

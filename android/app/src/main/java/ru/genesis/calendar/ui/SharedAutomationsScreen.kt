@@ -140,20 +140,10 @@ import java.util.Locale
 }
 
 @Composable private fun AutomationHeader(state: SharedAutomationsState, onList: () -> Unit, onRefresh: () -> Unit, onClose: () -> Unit) {
-    val actions: @Composable RowScope.() -> Unit = {
-        if (state.ruleId.isNotEmpty()) AffairsIconButton("К списку правил", AffairsAction.BACK, onList,
-            Modifier.testTag("automation-back"), enabled = !state.busy && state.record == null)
+    AffairsDialogHeader("Автоматизации", onClose = onClose,
+        onBack = if (state.ruleId.isNotEmpty()) onList else null, closeTag = "automation-close",
+        backTag = "automation-back", backEnabled = !state.busy && state.record == null) {
         AffairsIconButton("Обновить", AffairsAction.REFRESH, onRefresh, Modifier.testTag("automation-refresh"), enabled = !state.busy)
-        AffairsIconButton("Закрыть", AffairsAction.CLOSE, onClose, Modifier.testTag("automation-close"))
-    }
-    BoxWithConstraints(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp)) {
-        if (maxWidth < 480.dp) Column(Modifier.fillMaxWidth()) {
-            Text("Автоматизации", Modifier.fillMaxWidth().padding(end = 12.dp).semantics { heading() }, style = MaterialTheme.typography.titleLarge)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically, content = actions)
-        } else Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Автоматизации", Modifier.weight(1f).semantics { heading() }, style = MaterialTheme.typography.titleLarge)
-            actions()
-        }
     }
 }
 

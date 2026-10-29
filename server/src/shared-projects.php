@@ -17,6 +17,7 @@ require_once __DIR__ . '/shared-member-categories.php';
 require_once __DIR__ . '/entry-types.php';
 require_once __DIR__ . '/shared-presence.php';
 require_once __DIR__ . '/shared-private-messages.php';
+require_once __DIR__ . '/messenger.php';
 require_once __DIR__ . '/shared-task-details.php';
 require_once __DIR__ . '/shared-task-lifecycle.php';
 require_once __DIR__ . '/shared-task-query.php';

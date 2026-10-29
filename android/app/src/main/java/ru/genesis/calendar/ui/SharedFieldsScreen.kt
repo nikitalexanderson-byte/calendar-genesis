@@ -79,12 +79,9 @@ internal fun fieldEditorMessage(code: String, hasRecord: Boolean = true): String
     DisposableEffect(state) { onDispose { scope.launch(NonCancellable) { try { if (state.dirty) state.saveLocal() } finally { state.close() } } } }
     Dialog(onDismissRequest = ::close, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         BackHandler(onBack = ::back)
-        BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing), contentAlignment = Alignment.Center) {
-            DialogBackdrop(::close, Modifier.matchParentSize())
+        GenesisModalFrame(::close) {
             val compactIme = WindowInsets.ime.getBottom(LocalDensity.current) > 0 && maxHeight < 360.dp
             val wideWindow = maxWidth >= 864.dp && !compactIme
-            Surface(Modifier.widthIn(max = 1120.dp).fillMaxWidth().padding(horizontal = 12.dp, vertical = if (compactIme) 4.dp else 12.dp)
-                .heightIn(max = if (compactIme) maxHeight else maxHeight * .96f).imePadding(), shape = AffairsLayout.shape) {
                 Column(Modifier.testTag("shared-fields-screen")) {
                     if (!compactIme) FieldScreenHeader(state, detail, ::back, ::close) { scope.launch { state.load() } }
                     if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("field-progress"))
@@ -122,7 +119,6 @@ internal fun fieldEditorMessage(code: String, hasRecord: Boolean = true): String
                             { scope.launch { state.rebase() } }, { scope.launch { state.discard(); if (state.record == null) { detail = false; onChanged() } } }, { discard = true })
                     }
                 }
-            }
         }
     }
     if (discard) AlertDialog(onDismissRequest = { discard = false }, title = { Text("Удалить черновик?") },
@@ -136,15 +132,10 @@ internal fun fieldEditorMessage(code: String, hasRecord: Boolean = true): String
 }
 
 @Composable private fun FieldScreenHeader(state: SharedFieldEditorState, detail: Boolean, back: () -> Unit, close: () -> Unit, refresh: () -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Пользовательские поля", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { heading() })
-        if (state.projectTitle.isNotBlank()) androidx.compose.material3.Text(state.projectTitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (detail) TemplateIconButton("Назад", AffairsAction.BACK, !state.busy, Modifier.size(48.dp).testTag("field-back"), onClick = back)
-            TemplateIconButton("Обновить", AffairsAction.REFRESH, !state.busy, Modifier.size(48.dp).testTag("field-refresh"), onClick = refresh)
-            Spacer(Modifier.weight(1f))
-            TemplateIconButton("Закрыть", AffairsAction.CLOSE, !state.busy, Modifier.size(48.dp).testTag("field-close"), onClick = close)
-        }
+    AffairsDialogHeader("Пользовательские поля", state.projectTitle, close,
+        onBack = if (detail) back else null, enabled = !state.busy,
+        closeTag = "field-close", backTag = "field-back") {
+        AffairsIconButton("Обновить", AffairsAction.REFRESH, refresh, Modifier.testTag("field-refresh"), enabled = !state.busy)
     }
 }
 @Composable private fun FieldNotice(state: SharedFieldEditorState) {

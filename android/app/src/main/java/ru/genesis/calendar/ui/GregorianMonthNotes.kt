@@ -2,10 +2,10 @@ package ru.genesis.calendar.ui
 
 import java.time.ZoneId
 
-/** Short historical notes; April's disputed etymology is deliberately left open. */
+/** Short historical notes distinguish disputed etymologies from established dedications. */
 internal fun gregorianMonthOrigin(month: Int): String = listOf(
-    "Назван в честь бога Януса", "Назван по обряду очищения Februa",
-    "Назван в честь бога Марса", "От латинского названия Aprilis",
+    "Назван в честь бога Януса", "Название связывают с этрусским богом Фебруусом",
+    "Назван в честь бога Марса", "По одной из версий, от латинского aperire — «открывать», «раскрывать»",
     "Назван в честь богини Майи", "Назван в честь богини Юноны",
     "Назван в честь диктатора Юлия Цезаря", "Назван в честь императора Августа",
     "От латинского septem — семь", "От латинского octo — восемь",

@@ -49,7 +49,10 @@ try {
     $db->prepare('UPDATE linked_google_accounts SET owner_user_id = :admin WHERE owner_user_id = :owner')
         ->execute(['admin' => $admin['id'], 'owner' => $owner['id']]);
     genesisEstablishGoogleSession($admin, $secondarySub);
-    sharedExpect(!genesisUserForClient($admin)['isAdmin'], 'Linked identity inherited admin capability.');
+    sharedExpect(genesisUserForClient($admin)['isAdmin'], 'A verified linked login lost its canonical account privileges.');
+    sharedExpect(genesisUserForClient($admin)['uid'] === $admin['id'], 'A linked login created a different account.');
+    sharedExpect(genesisSessionOwnsGoogleAccount($admin), 'A verified linked login lost its account.');
+    sharedExpect(!genesisSessionOwnsGoogleAccount($owner), 'A linked login gained another account.');
     require __DIR__ . '/security-auth-http.php';
     securityHttpLifecycle($admin, $secondarySub);
 

@@ -2,6 +2,8 @@
 import { DialogCloseButton } from "./DialogCloseButton";
 import { AdvicePrivacyNotice, DailyAdviceSettings } from "./DailyAdviceSettings";
 import { SharedNotificationPreferencesDialog } from "./SharedNotificationPreferences";
+import habitFeedbackCopy from "./habit-feedback-copy.json";
+import { HabitFeedbackSoundSettings } from "./HabitFeedbackSoundSettings";
 import { HabitReminderSettings } from "./HabitReminderSettings";
 import { sharedNotificationLabel } from "./notification-settings-model";
 /* eslint-disable @next/next/no-img-element -- Google profile pictures are remote OAuth assets. */
@@ -991,7 +993,7 @@ export function AccountPanel({ user, onOpenPhysis, guideSharedProjects = false, 
               <i aria-hidden="true" />
             </label>
             <label className="account-switch-row compact">
-              <span><strong>{user.language === "en" ? "Completion sound" : "Звук выполнения"}</strong><small>{user.language === "en" ? "A brief local tone. Off by default and never downloaded from a server." : "Короткий локальный сигнал. По умолчанию выключен и не загружается с сервера."}</small></span>
+              <span><strong>{user.language === "en" ? "Completion sound" : "Звук выполнения"}</strong><small>{habitFeedbackCopy[user.language].webSoundHint}</small></span>
               <input type="checkbox" role="switch" checked={habitFeedbackSettings.sound} onChange={(event) => onHabitFeedbackSettingsChange({ ...habitFeedbackSettings, sound: event.target.checked })} aria-label={user.language === "en" ? "Completion sound" : "Звук выполнения"} />
               <i aria-hidden="true" />
             </label>
@@ -1015,6 +1017,7 @@ export function AccountPanel({ user, onOpenPhysis, guideSharedProjects = false, 
               <input type="checkbox" role="switch" checked={habitFeedbackSettings.gamificationWidgets} onChange={(event) => onHabitFeedbackSettingsChange({ ...habitFeedbackSettings, gamificationWidgets: event.target.checked })} aria-label={user.language === "en" ? "Gamification widgets" : "Игровые блоки"} />
               <i aria-hidden="true" />
             </label>
+            <HabitFeedbackSoundSettings language={user.language} settings={habitFeedbackSettings} onChange={onHabitFeedbackSettingsChange} />
           </fieldset>
           {!habitTrackingEnabled ? <p className="account-preference-status" role="status">{user.language === "en" ? "Enable habit tracking to change these settings" : "Включите трекинг привычек, чтобы изменить эти настройки"}</p> : null}
         </section>

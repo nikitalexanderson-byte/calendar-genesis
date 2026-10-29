@@ -13,8 +13,8 @@ import ru.genesis.calendar.R
 /** Official Lucide 1.61.0 geometry. ISC notices and source hashes: android/third-party-licenses. */
 @Composable
 fun GenesisLucideIcon(name: String, modifier: Modifier = Modifier.size(24.dp),
-    tint: Color = LocalContentColor.current) {
-    Icon(painter = painterResource(genesisLucideResource(name)), contentDescription = null,
+    tint: Color = LocalContentColor.current, filled: Boolean = false) {
+    Icon(painter = painterResource(if (name == "star" && filled) R.drawable.genesis_star_filled else genesisLucideResource(name)), contentDescription = null,
         modifier = modifier, tint = tint)
 }
 

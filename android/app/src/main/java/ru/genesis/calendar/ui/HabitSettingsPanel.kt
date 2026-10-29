@@ -185,18 +185,7 @@ internal fun HabitSettingsPanel(app: GenesisApplication, use24: Boolean) {
             Text("Выберите, как GENESIS подтверждает выполнение привычки. Системное ограничение движения всегда имеет приоритет.",
                 style = MaterialTheme.typography.bodyMedium)
             val enabled = settings.enabled && !busy
-            FeedbackSwitch("Короткие анимации", "Плавный отклик галочки, карточки и прогресса.", settings.feedback.animations, enabled,
-                "habit-feedback-animations") { save(settings.copy(feedback = settings.feedback.copy(animations = it))) }
-            FeedbackSwitch("Звук выполнения", "Короткий локальный сигнал; не загружается с сервера.", settings.feedback.sound, enabled,
-                "habit-feedback-sound") { save(settings.copy(feedback = settings.feedback.copy(sound = it))) }
-            FeedbackSwitch("Тактильный отклик", "Лёгкая вибрация на поддерживаемых устройствах.", settings.feedback.haptics, enabled,
-                "habit-feedback-haptics") { save(settings.copy(feedback = settings.feedback.copy(haptics = it))) }
-            FeedbackSwitch("Уведомления о достижениях", "Показывать новое достижение в уведомлении о выполнении.", settings.feedback.achievementPopups, enabled,
-                "habit-feedback-achievements") { save(settings.copy(feedback = settings.feedback.copy(achievementPopups = it))) }
-            FeedbackSwitch("Испытания", "Создавать и показывать ежедневные, недельные и эпические испытания.", settings.feedback.questsEnabled, enabled,
-                "habit-feedback-quests") { save(settings.copy(feedback = settings.feedback.copy(questsEnabled = it))) }
-            FeedbackSwitch("Игровые блоки", "Показывать ранги, Лавры, награды серии и достижения.", settings.feedback.gamificationWidgets, enabled,
-                "habit-feedback-gamification") { save(settings.copy(feedback = settings.feedback.copy(gamificationWidgets = it))) }
+            HabitFeedbackControls(app, settings.feedback, enabled) { save(settings.copy(feedback = it)) }
             if (!settings.enabled) Text("Включите трекинг привычек, чтобы изменить эти настройки.",
                 color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         }
@@ -240,7 +229,7 @@ private fun PreferenceSwitchRow(title: String, description: String, checked: Boo
 }
 
 @Composable
-private fun FeedbackSwitch(title: String, description: String, checked: Boolean, enabled: Boolean,
+internal fun FeedbackSwitch(title: String, description: String, checked: Boolean, enabled: Boolean,
     tag: String, onChecked: (Boolean) -> Unit) {
     PreferenceSwitchRow(title, description, checked, enabled, tag, onChecked)
     HorizontalDivider(color = Color(0x33b28a4a))

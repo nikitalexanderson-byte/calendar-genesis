@@ -48,6 +48,8 @@ import java.time.Instant
     var error by remember { mutableStateOf(false) }
     var more by remember { mutableStateOf(false) }
     var discard by remember { mutableStateOf<DiaryRecord?>(null) }
+    var deleteNote by remember { mutableStateOf<DiaryRecord?>(null) }
+    var settingsOpen by remember { mutableStateOf(false) }
     fun refresh() { scope.launch {
         loading = true; error = false
         try { repository.loadCached(); repository.refresh() }
@@ -83,6 +85,8 @@ import java.time.Instant
             Box {
                 WorkspaceHeaderButton(genesisTranslate("Действия дневника"), "diary-actions", onClick = { more = true }) { GenesisLucideIcon("ellipsis") }
                 DropdownMenu(more, { more = false }) {
+                    DropdownMenuItem(text = { Text(diaryText("settings")) }, leadingIcon = { GenesisLucideIcon("settings") },
+                        modifier = Modifier.testTag("diary-settings-open"), onClick = { more = false; settingsOpen = true })
                     DropdownMenuItem(text = { Text("Избранное") }, leadingIcon = { GenesisLucideIcon("star") },
                         modifier = Modifier.testTag("diary-favorites-open"),
                         onClick = { tab = "favorites"; more = false })
@@ -119,6 +123,8 @@ import java.time.Instant
         }
         if (state.offline) Text("Нет сети. Доступна защищённая локальная копия дневника.",
             Modifier.padding(horizontal = 12.dp, vertical = 8.dp).testTag("diary-offline"), style = MaterialTheme.typography.bodySmall)
+        if (!state.syncEnabled) Text(diaryText("localOnly"), Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+            .testTag("diary-local-only"), style = MaterialTheme.typography.bodySmall)
         LazyColumn(Modifier.fillMaxSize().testTag("diary-notes"), contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 92.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item { Text("Записи и черновики зашифрованы. Архивирование можно отменить.", style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -149,6 +155,7 @@ import java.time.Instant
                 DiaryNoteCard(row, busy || state.protected, onOpen = { editing = row.draftKey ?: "note:${row.note.id}"; newEditor = false },
                     onPin = { change(row, row.note.changed { put("pinned", !row.note.pinned) }) },
                     onArchive = { change(row, if (row.note.archived) row.note.restored() else row.note.changed { put("archived", true) }) },
+                    onDelete = { deleteNote = row },
                     onFavorite = { change(row, row.note.changed { put("reaction", if (row.note.reaction == "favorite") JSONObject.NULL else "favorite"); put("archived", false) }) })
             }
         }
@@ -163,11 +170,13 @@ import java.time.Instant
             catch (_: Exception) { error = true }
         } }) { Text("Удалить черновик") } }, dismissButton = { TextButton(onClick = { discard = null }) { Text("Отмена") } }) }
     val editingRecord = state.records.firstOrNull { (it.draftKey ?: "note:${it.note.id}") == editing }
+    if (settingsOpen) DiaryPrivacySettings(repository, state) { settingsOpen = false }
+    deleteNote?.let { row -> DiaryDeleteConfirmation(repository, row) { deleteNote = null } }
     if (newEditor || editingRecord != null) DiaryEditor(repository, editingRecord, onClose = { newEditor = false; editing = null })
 }
 
 @Composable private fun DiaryNoteCard(record: DiaryRecord, busy: Boolean, onOpen: () -> Unit,
-    onPin: () -> Unit, onArchive: () -> Unit, onFavorite: () -> Unit) {
+    onPin: () -> Unit, onArchive: () -> Unit, onDelete: () -> Unit, onFavorite: () -> Unit) {
     val note = record.note
     val accent = note.customColor?.let { Color(android.graphics.Color.parseColor(it)) } ?: diaryPresetColor(note.color)
     Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -191,12 +200,17 @@ import java.time.Instant
                 }
                 if (note.adviceId != null) {
                     val favoriteLabel = genesisTranslate(if (note.reaction == "favorite") "Убрать из избранного" else "В избранное")
-                    IconButton(onFavorite, Modifier.size(48.dp).semantics { contentDescription = favoriteLabel }, enabled = !busy) {
-                        GenesisLucideIcon("star", tint = if (note.reaction == "favorite") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                    IconButton(onFavorite, Modifier.size(48.dp).semantics { contentDescription = favoriteLabel }
+                        .testTag("diary-favorite-${note.id}"), enabled = !busy) {
+                        GenesisLucideIcon("star", tint = if (note.reaction == "favorite") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            filled = note.reaction == "favorite")
                     }
                 }
                 AffairsIconButton(if (note.archived) "Восстановить запись" else "В архив", if (note.archived) AffairsAction.RESTORE else AffairsAction.ARCHIVE,
                     onArchive, Modifier.testTag("diary-archive-${note.id}"), enabled = !busy, outlined = false)
+                AffairsIconButton(diaryText("deleteNote"), AffairsAction.DELETE, onDelete,
+                    Modifier.testTag("diary-delete-${note.id}"), enabled = !busy, outlined = false,
+                    contentColor = MaterialTheme.colorScheme.error)
             }
         }
     }
@@ -282,7 +296,9 @@ import java.time.Instant
                                 onClose()
                             } catch (cancel: CancellationException) { throw cancel }
                             catch (_: DiaryConflict) { conflict = true; draftKey = repository.state.value.records.firstOrNull { it.draft && it.note.id == form.getString("id") }?.draftKey }
-                            catch (_: Exception) { error = true }
+                            catch (failure: Exception) {
+                                if (failure.message in setOf("DIARY_NOTE_DELETED", "DIARY_LOCAL_UPLOAD_PENDING")) conflict = true else error = true
+                            }
                             finally { saving = false }
                         } }, enabled = valid && !saving, modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("diary-save"), shape = RoundedCornerShape(10.dp)) {
                             Text(if (conflict) "Сохранить копию" else "Сохранить")

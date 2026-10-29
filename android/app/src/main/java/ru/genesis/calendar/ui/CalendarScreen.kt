@@ -33,6 +33,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -152,6 +153,15 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
     var sharedListDate by rememberSaveable { mutableStateOf<String?>(null) }
     var taskListDate by rememberSaveable { mutableStateOf<String?>(null) }
     var focusDayRequest by rememberSaveable { mutableIntStateOf(0) }
+    // rememberSaveable can restore an older period even when its input date changed
+    // while this screen was absent. The externally selected day wins on re-entry.
+    var appliedExternalDate by rememberSaveable { mutableStateOf(date.toString()) }
+    LaunchedEffect(date) {
+        if (appliedExternalDate != date.toString()) {
+            shown = date.toString(); selected = date.toString()
+            appliedExternalDate = date.toString(); focusDayRequest++
+        }
+    }
     var deletingTaskId by rememberSaveable { mutableStateOf<String?>(null) }
     var deletingDate by rememberSaveable { mutableStateOf(date.toString()) }
     var voiceScrollToken by remember { mutableIntStateOf(0) }
@@ -232,6 +242,7 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
             onMonth = {
                 if ("calendar.month" !in hiddenSubmenus) {
                     shown = it.toString(); selected = it.toString(); localYearView = false
+                    focusDayRequest++
                     menuSwipeState?.calendar = "month"
                     onSelect(it)
                 }
@@ -451,14 +462,8 @@ private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange
 private fun GregorianMonthHero(date: LocalDate, zone: ZoneId, locale: Locale) {
     Surface(Modifier.fillMaxWidth().testTag("calendar-month-description"), shape = AffairsLayout.shape,
         color = MaterialTheme.colorScheme.primaryContainer) {
-        Box(Modifier.fillMaxWidth()) {
-            Box(Modifier.matchParentSize()) {
-                OriginalImage(gregorianMonthArtPath(date.monthValue - 1, zone), null,
-                    Modifier.width(120.dp).fillMaxHeight().testTag("gregorian-month-art"), darkThemeBrightness = .82f)
-            }
-            Row(Modifier.fillMaxWidth().heightIn(min = 190.dp), verticalAlignment = Alignment.CenterVertically) {
-            Spacer(Modifier.width(120.dp))
-            Column(Modifier.weight(1f).padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        MonthDescriptionLayout(gregorianMonthArtPath(date.monthValue - 1, zone),
+            "Иллюстрация месяца ${date.month}", "gregorian-month-art") {
                 Text(date.month.getDisplayName(TextStyle.FULL_STANDALONE, locale)
                     .replaceFirstChar { it.titlecase(locale) }, Modifier.testTag("gregorian-month-name"),
                     style = MaterialTheme.typography.titleLarge)
@@ -467,8 +472,6 @@ private fun GregorianMonthHero(date: LocalDate, zone: ZoneId, locale: Locale) {
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(gregorianMonthNature(date.monthValue, zone), Modifier.testTag("gregorian-month-nature"),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            }
         }
     }
 }
@@ -476,27 +479,20 @@ private fun GregorianMonthHero(date: LocalDate, zone: ZoneId, locale: Locale) {
 @Composable
 private fun LunarMonthHero(lunar: ru.genesis.calendar.domain.LunarDateInfo) {
     Box(Modifier.fillMaxWidth().testTag("calendar-month-description").background(Color(0xff082e2f))) {
-        Box(Modifier.matchParentSize()) {
-            OriginalImage(lunarMonthArtPath(lunar.monthOrdinal - 1), "Иллюстрация месяца ${lunar.month.name}",
-                Modifier.width(104.dp).fillMaxHeight().testTag("lunar-month-art"), darkThemeBrightness = .82f)
-        }
-        Row(Modifier.fillMaxWidth().heightIn(min = 160.dp)) {
-        Spacer(Modifier.width(104.dp))
-        Column(Modifier.weight(1f).padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        MonthDescriptionLayout(lunarMonthArtPath(lunar.monthOrdinal - 1),
+            "Иллюстрация месяца ${lunar.month.name}", "lunar-month-art") {
             Text(lunar.month.name, style = MaterialTheme.typography.titleLarge, color = Color(0xfffff5df))
             Text(lunar.month.title, style = MaterialTheme.typography.titleSmall, color = Color(0xffffe9b5))
             Text(lunar.month.description, style = MaterialTheme.typography.bodySmall, color = Color(0xffd5e5df))
-        }
         }
     }
 }
 
 @Composable
 private fun SacredMonthHero(month: SacredMonth, year: Int) {
-        Row(Modifier.fillMaxWidth().testTag("sacred-month-hero").background(Color(0xff082e2f))) {
-            OriginalImage(sacredMonthArtPath(month.index), "Иллюстрация месяца ${month.name}",
-                Modifier.width(120.dp).height(190.dp), darkThemeBrightness = .82f)
-            Column(Modifier.weight(1f).padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Box(Modifier.fillMaxWidth().testTag("sacred-month-hero").background(Color(0xff082e2f))) {
+            MonthDescriptionLayout(sacredMonthArtPath(month.index),
+                "Иллюстрация месяца ${month.name}", "sacred-month-art") {
                 Text("${month.season} · ${month.roman} месяц · $year", style = MaterialTheme.typography.labelSmall,
                     color = Color(0xffdfc17e))
                 Text(month.name, style = MaterialTheme.typography.titleLarge, color = Color(0xfffff5df))
@@ -504,6 +500,18 @@ private fun SacredMonthHero(month: SacredMonth, year: Int) {
                 Text(month.description, style = MaterialTheme.typography.bodySmall, color = Color(0xffd5e5df))
             }
         }
+}
+
+/** Lunar's 160dp composition is shared by all calendars. Long translations remain readable. */
+@Composable private fun MonthDescriptionLayout(image: String, description: String, artTag: String,
+    content: @Composable ColumnScope.() -> Unit) {
+    val height = 160.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)
+    Row(Modifier.fillMaxWidth().height(height).testTag("month-description-layout")) {
+        OriginalImage(image, description, Modifier.width(104.dp).fillMaxHeight().testTag(artTag),
+            darkThemeBrightness = .82f)
+        Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp), content = content)
+    }
 }
 
 @Composable
@@ -698,7 +706,7 @@ internal fun LunarCalendarDay(calendar: GenesisCalendar, date: LocalDate, select
     Surface(onClick = { onChoose(date) }, enabled = !adjacent,
         modifier = modifier.heightIn(min = 72.dp)
             .then(if (adjacent) Modifier.alpha(adjacentAlpha) else Modifier)
-            .semantics { contentDescription = description }.testTag("calendar-day-$date"),
+            .semantics { contentDescription = description; this.selected = selected }.testTag("calendar-day-$date"),
         shape = MaterialTheme.shapes.medium,
         color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
         border = BorderStroke(if (selected || !adjacent && date == LocalDate.now()) 2.dp else 1.dp,
@@ -745,7 +753,7 @@ internal fun CalendarDay(calendar: GenesisCalendar, date: LocalDate, number: Int
     Surface(onClick = { onChoose(date) }, enabled = !adjacent,
         modifier = modifier.heightIn(min = if (crossDate != null) 72.dp else 60.dp)
         .then(if (adjacent) Modifier.alpha(0.42f) else Modifier)
-        .semantics { contentDescription = dayDescription }
+        .semantics { contentDescription = dayDescription; this.selected = selected }
         .testTag("calendar-day-$date"),
         shape = MaterialTheme.shapes.medium,
         color = when {

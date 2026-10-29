@@ -26,7 +26,14 @@ function securityHttpLifecycle(array $admin, string $secondarySub): void
     $address = stream_socket_get_name($listener, false); fclose($listener);
     $command = [PHP_BINARY];
     if (($ini = php_ini_loaded_file()) !== false) array_push($command, '-c', $ini);
-    array_push($command, '-S', $address, 'server/public/api/index.php');
+    if (!defined('GENESIS_LOCAL_TEST_CONFIG') || !is_file((string)GENESIS_LOCAL_TEST_CONFIG)) {
+        throw new RuntimeException('HTTP harness requires an explicit synthetic configuration.');
+    }
+    $router = tempnam(sys_get_temp_dir(), 'genesis-security-router-');
+    file_put_contents($router, '<?php define("GENESIS_LOCAL_TEST_CONFIG", ' . var_export((string)GENESIS_LOCAL_TEST_CONFIG, true)
+        . '); require ' . var_export(dirname(__DIR__) . '/public/api/index.php', true) . ';');
+    $files[] = $router;
+    array_push($command, '-S', $address, $router);
     $log = tempnam(sys_get_temp_dir(), 'genesis-security-http-');
     $process = proc_open($command, [0 => ['pipe', 'r'], 1 => ['file', $log, 'a'], 2 => ['file', $log, 'a']], $pipes, dirname(__DIR__, 2));
     if (!is_resource($process)) throw new RuntimeException('Cannot start security HTTP server.');
@@ -44,7 +51,9 @@ function securityHttpLifecycle(array $admin, string $secondarySub): void
             if ($socket !== false) { fclose($socket); break; }
             usleep(100000);
         }
-        sharedExpect($request('admin/stats', $linkedCookie, $linkedCsrf)['status'] === 403, 'Linked cookie accessed admin API.');
+        sharedExpect($request('admin/stats', $linkedCookie, $linkedCsrf)['status'] === 200, 'Verified linked cookie lost its account admin API.');
+        $linkedBootstrap=$request('bootstrap', $linkedCookie, $linkedCsrf);
+        sharedExpect(($linkedBootstrap['data']['user']['uid']??'') === $admin['id'], 'Linked bootstrap changed the canonical user ID.');
         sharedExpect($request('admin/stats', $primaryCookie, $primaryCsrf)['status'] === 200, 'Primary cookie lost admin API.');
         sharedExpect($request('bootstrap', $linkedCookie, $linkedCsrf)['status'] === 200, 'Valid linked cookie lost workspace access.');
         $oversized = '{"padding":"' . str_repeat('x', 256 * 1024) . '"}';
@@ -66,5 +75,5 @@ function securityHttpLifecycle(array $admin, string $secondarySub): void
         foreach ($files as $file) if (is_file($file)) unlink($file);
         $_SESSION = $saved;
     }
-    echo "Security HTTP: linked admin denied, unlink read/write revoked, primary preserved, bounded body and logout passed.\n";
+    echo "Security HTTP: linked account privileges, unlink read/write revoked, primary preserved, bounded body and logout passed.\n";
 }
