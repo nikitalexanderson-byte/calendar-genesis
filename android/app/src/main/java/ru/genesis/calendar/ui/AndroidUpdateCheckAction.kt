@@ -16,6 +16,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.Lifecycle
@@ -43,7 +44,7 @@ internal fun rememberUpdateResumeEpoch(): Int {
 /** Manual checks remain available when reminders are off or account sign-in has expired. */
 @Composable
 internal fun AndroidUpdateCheckAction(iconOnly: Boolean = true,
-    check: () -> AndroidRelease? = ::fetchAndroidRelease) {
+    check: () -> AndroidRelease? = ::fetchAndroidRelease, plainIcon: Boolean = false) {
     val context = LocalContext.current
     val currentCheck by rememberUpdatedState(check)
     var request by remember { mutableIntStateOf(0) }
@@ -77,7 +78,12 @@ internal fun AndroidUpdateCheckAction(iconOnly: Boolean = true,
         release = result.getOrNull()
     }
     val label = genesisTranslate(if (checking) "Проверяем обновления…" else "Проверить обновления")
-    if (iconOnly) WorkspaceHeaderButton(label, "app-update-check", enabled = !checking,
+    if (iconOnly && plainIcon) androidx.compose.material3.IconButton(onClick = begin, enabled = !checking,
+        modifier = Modifier.size(48.dp).testTag("app-update-check").semantics { contentDescription = label },
+        colors = androidx.compose.material3.IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant)) {
+        GenesisLucideIcon("download", Modifier.size(22.dp))
+    }
+    else if (iconOnly) WorkspaceHeaderButton(label, "app-update-check", enabled = !checking,
         onClick = begin) { GenesisLucideIcon("download") }
     else Button(begin, Modifier.fillMaxWidth().testTag("app-update-check-settings"), enabled = !checking) {
         GenesisLucideIcon("download")

@@ -22,7 +22,8 @@ import androidx.compose.ui.graphics.Color
 /** Search stays above the keyboard and outside the scrolling list. Closing preserves the query. */
 @Composable
 internal fun WorkspaceSearchDock(query: String, onQuery: (String) -> Unit, label: String,
-    tag: String, modifier: Modifier = Modifier, below: (@Composable () -> Unit)? = null, controls: (@Composable () -> Unit)? = null) {
+    tag: String, modifier: Modifier = Modifier, below: (@Composable () -> Unit)? = null, controls: (@Composable () -> Unit)? = null,
+    leading: (@Composable () -> Unit)? = null) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     val focus = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
@@ -34,6 +35,9 @@ internal fun WorkspaceSearchDock(query: String, onQuery: (String) -> Unit, label
     CompositionLocalProvider(LocalPreserveCalendarColors provides true, LocalAffairsControlOutlined provides false) {
     Box(modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.BottomEnd) {
         if (!expanded) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically) {
+            Box { leading?.invoke() }
             FilledTonalIconButton(onClick = { expanded = true },
                 modifier = Modifier.size(56.dp).testTag("$tag-open").semantics { contentDescription = searchLabel }, shape = AffairsLayout.controlShape,
                 colors = IconButtonDefaults.filledTonalIconButtonColors(
@@ -42,6 +46,7 @@ internal fun WorkspaceSearchDock(query: String, onQuery: (String) -> Unit, label
                     contentColor = if (query.isNotBlank()) MaterialTheme.colorScheme.onPrimary
                         else MaterialTheme.colorScheme.onPrimaryContainer)) {
                 GenesisLucideIcon("search", Modifier.size(24.dp))
+            }
             }
         } else Surface(Modifier.fillMaxWidth().animateContentSize().testTag("$tag-dock"),
             shape = AffairsLayout.shape, color = searchColor, contentColor = searchInk,

@@ -5,9 +5,9 @@ import { sharedTaskDetailsError } from "./shared-task-details";
 import { translateText } from "./i18n";
 
 /** Bounded pages, refreshed on the existing five-second cadence. A changed generation replaces the collection. */
-export function useSharedTaskPage(filter: SharedTaskFilter | null, sort: SharedTaskSort = "position", refreshKey?: unknown) {
+export function useSharedTaskPage(filter: SharedTaskFilter | null, sort: SharedTaskSort = "position", refreshKey?: unknown, ownerKey?: string) {
   const filterKey = JSON.stringify(filter);
-  const key = JSON.stringify([filter, sort]);
+  const key = JSON.stringify([filter, sort, ownerKey]);
   const [state, setState] = useState<{key: string; page: SharedTaskPage} | null>(null);
   const [failure, setFailure] = useState<{key:string;message:string} | null>(null);
   const [busy, setBusy] = useState(false);

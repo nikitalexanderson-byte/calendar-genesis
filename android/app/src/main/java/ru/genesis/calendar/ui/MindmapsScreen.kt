@@ -34,6 +34,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.customActions
@@ -121,8 +122,11 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
     val headerActions: @Composable (Modifier) -> Unit = { actionsModifier ->
             Box(actionsModifier) {
                 if (map == null) WorkspaceHeaderButton("Действия с картой", "mindmaps-actions", onClick={files=true}) { AffairsActionIcon(AffairsAction.MORE) }
-                else AffairsIconButton("Действия с картой", AffairsAction.MORE, { files = true },
-                    Modifier.fillMaxWidth().testTag("mindmaps-actions"))
+                else OutlinedIconButton(onClick={exportMenu=true}, enabled=!busy,
+                    modifier=Modifier.size(48.dp).testTag("mindmap-export-menu")
+                        .semantics { contentDescription=genesisTranslate("Экспорт") }, shape=AffairsLayout.controlShape) {
+                    GenesisLucideIcon("download")
+                }
                 DropdownMenu(files,{files=false}) {
                     if(map==null) {
                         DropdownMenuItem(text={Text(if(archived) "Активные карты" else "Архив")},
@@ -130,14 +134,6 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
                             modifier=Modifier.testTag("mindmaps-archive"), onClick={files=false;archived=!archived})
                         DropdownMenuItem(text={Text("Импорт JSON")},enabled=!readOnly,leadingIcon={AffairsActionIcon(AffairsAction.IMPORT)},onClick={files=false;text="";import=true})
                         DropdownMenuItem(text={Text("Обновить")},leadingIcon={AffairsActionIcon(AffairsAction.REFRESH)},onClick={files=false;run {repo.refresh()}})
-                    } else {
-                        DropdownMenuItem(text={Text("Название и описание")},enabled=!readOnly,leadingIcon={AffairsActionIcon(AffairsAction.EDIT)},onClick={files=false;title=map.title;description=map.description;create=true})
-                        HorizontalDivider()
-                        DropdownMenuItem(text={Text("Отменить изменение")},leadingIcon={AffairsActionIcon(AffairsAction.UNDO)},enabled=undo.isNotEmpty()&&!busy&&!readOnly,onClick={files=false;val old=undo.last();undo=undo.dropLast(1);save(old,false)})
-                        DropdownMenuItem(text={Text("История")},leadingIcon={AffairsActionIcon(AffairsAction.HISTORY)},onClick={files=false;run {serverPreview=false;history=repo.history(map.id)}})
-                        DropdownMenuItem(text={Text("Экспорт")},leadingIcon={GenesisLucideIcon("download")},
-                            trailingIcon={GenesisLucideIcon("chevron-right")}, modifier=Modifier.testTag("mindmap-export-menu"),
-                            onClick={files=false;exportMenu=true})
                     }
                 }
                 DropdownMenu(exportMenu && map!=null,{exportMenu=false}) {
@@ -196,15 +192,16 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
                 }
             }
         } else {
-            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min),horizontalArrangement=Arrangement.spacedBy(6.dp),verticalAlignment=Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).height(IntrinsicSize.Min)
+                .testTag("mindmap-toolbar"),horizontalArrangement=Arrangement.spacedBy(6.dp),verticalAlignment=Alignment.CenterVertically) {
                 val structure = view.optString("mode") == "structure"
-                Box(Modifier.weight(1f)) { AffairsIconButton(if (structure) "Показать карту" else "Показать структуру",
+                Box { AffairsIconButton(if (structure) "Показать карту" else "Показать структуру",
                     if (structure) AffairsAction.MINDMAP else AffairsAction.SUBTASK, {
                         query = ""; changeView(JSONObject(view.toString()).put("mode", if (structure) "map" else "structure"))
-                    }, Modifier.fillMaxWidth().testTag("mindmap-mode-toggle")) }
-                Box(Modifier.weight(1f)) {
+                    }, Modifier.testTag("mindmap-mode-toggle")) }
+                Box {
                     AffairsIconButton("Добавить",AffairsAction.ADD,{addMenu=true},enabled=!busy&&!readOnly,
-                        modifier=Modifier.fillMaxWidth().testTag("mindmap-add-node"))
+                        modifier=Modifier.testTag("mindmap-add-node"))
                     DropdownMenu(addMenu,{addMenu=false}) {
                         DropdownMenuItem(text={Text("Добавить мысль")},leadingIcon={AffairsActionIcon(AffairsAction.ADD)},
                             modifier=Modifier.testTag("mindmap-add-thought"),onClick={addMenu=false;add()})
@@ -212,7 +209,16 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
                             modifier=Modifier.testTag("mindmap-add-from-affairs"),onClick={addMenu=false;picker=true})
                     }
                 }
-                headerActions(Modifier.weight(1f))
+                AffairsIconButton("Отменить изменение", AffairsAction.UNDO, {
+                    val old=undo.last();undo=undo.dropLast(1);save(old,false)
+                }, Modifier.testTag("mindmap-undo"), enabled=undo.isNotEmpty()&&!busy&&!readOnly)
+                AffairsIconButton("Название и описание", AffairsAction.EDIT, {
+                    title=map.title;description=map.description;create=true
+                }, Modifier.testTag("mindmap-title-description"), enabled=!busy&&!readOnly)
+                AffairsIconButton("История", AffairsAction.HISTORY, {
+                    run {serverPreview=false;history=repo.history(map.id)}
+                }, Modifier.testTag("mindmap-history"), enabled=!busy)
+                headerActions(Modifier.semantics { contentDescription=genesisTranslate("Экспорт") })
             }
             if(view.optString("focus").isNotBlank()&&view.optString("focus")!="null")TextButton(onClick={changeView(JSONObject(view.toString()).removeFocus())}){Text("Вся карта")}
             val collapsed=view.optJSONArray("collapsed")?.let { a->(0 until a.length()).map {a.optString(it)}.toSet() } ?: emptySet()
@@ -242,13 +248,14 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
             }
         }
     }
-    if (map != null) Box(Modifier.align(Alignment.BottomStart).padding(12.dp)) {
-        AffairsIconButton("К началу", AffairsAction.CENTER, {
-            query = ""; resetCanvas++; changeView(JSONObject(view.toString()).removeFocus().put("mode", "map").put("zoom", 1.0))
-        }, Modifier.testTag("mindmap-reset"))
-    }
     key(mapId) { WorkspaceSearchDock(query,{query=it},if(map==null) "Поиск карт" else "Найти узел",
-        if(map==null) "mindmaps-search" else "mindmap-node-search",Modifier.align(Alignment.BottomCenter)) }
+        if(map==null) "mindmaps-search" else "mindmap-node-search",Modifier.align(Alignment.BottomCenter),
+        leading=if(map!=null) ({
+            FilledTonalIconButton(onClick={
+                query="";resetCanvas++;changeView(JSONObject(view.toString()).removeFocus().put("mode","map").put("zoom",1.0))
+            }, modifier=Modifier.size(56.dp).testTag("mindmap-reset").semantics { contentDescription=genesisTranslate("К началу") },
+                shape=AffairsLayout.controlShape) { AffairsActionIcon(AffairsAction.CENTER) }
+        }) else null) }
     }
     if(create) AlertDialog(onDismissRequest={create=false},title={Text(if(map==null)"Новая карта" else "Настройка карты")},text={Column {OutlinedTextField(title,{title=it},label={Text("Название карты")});OutlinedTextField(description,{description=it.take(12000)},label={Text("Описание")});if(map==null) MindmapTemplatePicker(template) { template=it }}},confirmButton={TextButton(enabled=title.isNotBlank()&&!busy&&!readOnly,onClick={if(map==null){val next=MindmapDocument.new(title,newMapProjectId,template,::defaultLabel).copy(description=description);save(next);open(next.id)}else save(map.copy(title=title.trim(),description=description));create=false}){Text("Сохранить")}},dismissButton={TextButton(onClick={create=false}){Text("Отмена")}})
     if(editing!=null&&map!=null&&node!=null&&readOnly) AlertDialog(onDismissRequest={editing=null},title={Text(label(node))},

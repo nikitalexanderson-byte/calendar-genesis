@@ -488,7 +488,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         }, size = 48.dp, interactive = uiVisibility.visibleCalendars.size > 1)
                     }
                 }, footerActions = {
-                    AndroidUpdateCheckAction()
+                    AndroidUpdateCheckAction(plainIcon = true)
                     val refreshBusy = !testWorkspace && (authState.busy || accountTaskSync?.loading == true)
                     WorkspaceAccountRefreshButton(genesisTranslate(if (refreshBusy)
                         "Получаем изменения с сервера…" else "$saveStatus. Обновить аккаунт"),
@@ -736,7 +736,12 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                                 onComplete = model::complete,
                                 onMoveToToday = { task -> model.save(task.copy(date=todayDate.toString())) {} },
                                 onOpen = { taskId -> selected=todayPageDate;editId=taskId;creating=false },
-                                showCreate = "quickCreate" !in uiVisibility.hiddenTodayBlocks)
+                                showCreate = "quickCreate" !in uiVisibility.hiddenTodayBlocks,
+                                sharedController = authController.takeIf { sharedProjectsEnabled },
+                                onOpenShared = { task ->
+                                    invitationDestination = SharedInvitationDestination(task.spaceId, task.projectId, task.id)
+                                    menuSwipeState.projectArea="shared"; tab="Проекты"; menuSwipeState.personalView="projects"
+                                })
                             if (habitTrackingEnabled && "habits" !in uiVisibility.hiddenTodayBlocks) TodayHabitTrackerBlock {
                                 TodayHabitsContent(app, todayDate, habitWorkspace,
                                     onOpenHabits = { tab = "Привычки" }, showTopDivider = false)
@@ -845,7 +850,16 @@ private fun AuthTransitionScreen(message: String) {
 private fun TodayTasksPanel(tasks: List<LocalTask>, missedTasks: List<LocalTask>, selected: String, use24: Boolean,
     structure: WorkspaceStructure, onCreate: () -> Unit, onComplete: (LocalTask) -> Unit,
     onMoveToToday: (LocalTask) -> Unit, onOpen: (String) -> Unit,
-    showCreate: Boolean = true) {
+    showCreate: Boolean = true,
+    sharedController: ru.genesis.calendar.auth.SharedWorkspaceGateway? = null,
+    onOpenShared: (SharedCalendarEntry) -> Unit = {}) {
+    val sharedReader = sharedController?.let { controller ->
+        rememberSharedTaskListReader(controller).also { reader ->
+            ObserveSharedTaskList(reader, JSONObject().put("dueFrom", selected).put("dueTo", selected)
+                .put("completion", "any"), "position", "today:$selected", true, true) {}
+        }
+    }
+    val hasShared = (sharedReader?.pageState?.value?.optInt("total") ?: 0) > 0
     Card(Modifier.fillMaxWidth().testTag("today-tasks-section"), shape = AffairsLayout.shape,
         colors = CardDefaults.cardColors(containerColor = if (LocalEveningTheme.current) Color(0xff302a1f) else Color(0xfff3e8cc))) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -859,7 +873,7 @@ private fun TodayTasksPanel(tasks: List<LocalTask>, missedTasks: List<LocalTask>
                 }
                 Column(Modifier.weight(1f)) {
                     Text("Задачи дня", style = MaterialTheme.typography.titleLarge)
-                    Text(if (tasks.isEmpty()) "День свободен для нового замысла" else
+                    Text(if (tasks.isEmpty() && !hasShared) "День свободен для нового замысла" else
                         "${tasks.count { it.done }} из ${tasks.size} выполнено",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -868,9 +882,11 @@ private fun TodayTasksPanel(tasks: List<LocalTask>, missedTasks: List<LocalTask>
                     Text("Создать")
                 }
             }
+            if (hasShared) Text("Личные", style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.testTag("today-personal-tasks-title"))
             if (tasks.isEmpty()) {
                 Surface(Modifier.fillMaxWidth(), shape = AffairsLayout.shape, color = MaterialTheme.colorScheme.surface) {
-                    Text("На сегодня задач нет. Можно оставить день свободным или создать задачу.",
+                    Text(if (hasShared) "${genesisTranslate("Личные")} · 0" else "На сегодня задач нет. Можно оставить день свободным или создать задачу.",
                         Modifier.padding(14.dp), style = MaterialTheme.typography.bodyMedium)
                 }
             } else tasks.forEach { task ->
@@ -901,6 +917,7 @@ private fun TodayTasksPanel(tasks: List<LocalTask>, missedTasks: List<LocalTask>
                 }
             }
             TodayMissedTasksCard(missedTasks, onComplete, onMoveToToday)
+            sharedReader?.let { TodaySharedTasks(it, selected, onOpenShared) }
         }
     }
 }
@@ -929,7 +946,8 @@ internal fun GenesisBrandLogo(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun OriginalImage(path: String, description: String?, modifier: Modifier=Modifier, dimInDarkTheme: Boolean = true, darkThemeBrightness: Float = 1f) {
+fun OriginalImage(path: String, description: String?, modifier: Modifier=Modifier, dimInDarkTheme: Boolean = true,
+    darkThemeBrightness: Float = 1f, lightThemeBrightness: Float = 1f) {
     val context=LocalContext.current
     var imageWidth by remember(path) { mutableIntStateOf(0) }
     var imageHeight by remember(path) { mutableIntStateOf(0) }
@@ -945,14 +963,15 @@ fun OriginalImage(path: String, description: String?, modifier: Modifier=Modifie
         }
     }
     val localizedDescription = description?.let { genesisTranslate(it) }
+    val brightness = if (LocalEveningTheme.current) darkThemeBrightness else lightThemeBrightness
     Box((if(LocalEveningTheme.current && dimInDarkTheme) modifier.alpha(.86f) else modifier).onSizeChanged {
         imageWidth = it.width; imageHeight = it.height
     }) {
         bitmap?.let { Image(it.asImageBitmap(),localizedDescription,
             Modifier.fillMaxSize(),contentScale=ContentScale.Crop,
-            colorFilter = if (LocalEveningTheme.current && darkThemeBrightness < 1f)
+            colorFilter = if (brightness != 1f)
                 androidx.compose.ui.graphics.ColorFilter.colorMatrix(androidx.compose.ui.graphics.ColorMatrix().apply {
-                    setToScale(darkThemeBrightness, darkThemeBrightness, darkThemeBrightness, 1f)
+                    setToScale(brightness, brightness, brightness, 1f)
                 }) else null) }
     }
 }
@@ -968,6 +987,8 @@ internal fun DayHeader(date: LocalDate, mode: CalendarMode) {
         todayHeroCopy(date, if (sacredFeaturesEnabled) mode else CalendarMode.PROFANE, calendar, language)
     }
     val civilDate = date.format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.forLanguageTag(language)))
+    val lightHero = !LocalEveningTheme.current
+    val heroSecondary = if (lightHero) MaterialTheme.colorScheme.onSurfaceVariant else Color(0xfffff8e9)
     Card(Modifier.fillMaxWidth().testTag("today-hero"), shape = AffairsLayout.shape,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         if (!sacredFeaturesEnabled) {
@@ -979,26 +1000,32 @@ internal fun DayHeader(date: LocalDate, mode: CalendarMode) {
             }
         } else Box(Modifier.fillMaxWidth()) {
             OriginalImage(copy.imagePath,
-                null, Modifier.matchParentSize().testTag("today-calendar-image"), dimInDarkTheme = false)
-            Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = .16f)))
+                null, Modifier.matchParentSize().testTag("today-calendar-image"), dimInDarkTheme = false,
+                lightThemeBrightness = 1.25f)
+            Box(Modifier.matchParentSize().background(if (lightHero) Brush.verticalGradient(
+                0f to MaterialTheme.colorScheme.surface.copy(alpha=.18f),
+                .45f to MaterialTheme.colorScheme.surface.copy(alpha=.32f),
+                1f to MaterialTheme.colorScheme.surface.copy(alpha=.58f)) else Brush.verticalGradient(
+                listOf(Color.Black.copy(alpha=.16f), Color.Black.copy(alpha=.16f)))))
             CompositionLocalProvider(LocalPreserveCalendarColors provides true) {
             androidx.compose.material3.Surface(Modifier.fillMaxWidth().testTag("today-hero-copy"),
                 shape = AffairsLayout.shape, border = BorderStroke(1.dp, Color(0x80dfc17e)),
-                color = Color.Black.copy(alpha = .48f), contentColor = Color.White) {
-                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                color = if (lightHero) Color.Transparent else Color.Black.copy(alpha = .48f),
+                contentColor = if (lightHero) MaterialTheme.colorScheme.onSurface else Color.White) {
+                    Column(Modifier.padding(12.dp).padding(top=if(lightHero) 80.dp else 0.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         TodayHeroGroup("today-hero-context") {
                         Text(copy.title, style = MaterialTheme.typography.headlineSmall, fontFamily = GenesisHeadingFont)
                         Text(if (mode == CalendarMode.PROFANE) civilDate else copy.footerDate,
                             Modifier.testTag("today-civil-date"), style = MaterialTheme.typography.bodyMedium)
                         if (mode == CalendarMode.PROFANE) Text(copy.footerDate, Modifier.testTag("today-hero-date"),
-                            style = MaterialTheme.typography.labelMedium, color = Color(0xfffff8e9))
+                            style = MaterialTheme.typography.labelMedium, color = heroSecondary)
                         Text(mobileCalendarCopy(language).calendarName(mode), Modifier.testTag("today-calendar-name"),
-                            style = MaterialTheme.typography.labelMedium, color = Color(0xfffff8e9))
+                            style = MaterialTheme.typography.labelMedium, color = heroSecondary)
                         Text(copy.month.uppercase(Locale.forLanguageTag(language)),
-                            style = MaterialTheme.typography.labelLarge, color = Color(0xfffff8e9))
+                            style = MaterialTheme.typography.labelLarge, color = heroSecondary)
                         if (mode == CalendarMode.PROFANE) Text(gregorianYearPosition(date, language),
                             Modifier.testTag("today-gregorian-year-position"),
-                            style = MaterialTheme.typography.bodySmall, color = Color(0xfffff8e9))
+                            style = MaterialTheme.typography.bodySmall, color = heroSecondary)
                         }
                         if (mode == CalendarMode.LUNAR) TodayHeroGroup("today-hero-moon") {
                             val moon = remember(date) { calendar.moonInfo(date) }
@@ -1008,7 +1035,7 @@ internal fun DayHeader(date: LocalDate, mode: CalendarMode) {
                                     MoonPhaseIcon(moon.phaseStep, size = 48.dp)
                                 }
                                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Text(moon.epithet, style = MaterialTheme.typography.titleMedium, color = Color(0xfffff8e9))
+                                    Text(moon.epithet, style = MaterialTheme.typography.titleMedium, color = heroSecondary)
                                     Text("${moon.direction} · ${moon.phase} · ${moon.illumination}%",
                                         style = MaterialTheme.typography.bodyMedium)
                                 }
@@ -1028,7 +1055,7 @@ internal fun DayHeader(date: LocalDate, mode: CalendarMode) {
                             additionalDetails.forEach { Text(it, style = MaterialTheme.typography.bodySmall) }
                         }
                         TodaySolarTimes(date, solarLocation, calendar)
-                        copy.badge?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = Color(0xfffff8e9)) }
+                        copy.badge?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = heroSecondary) }
                     }
                 }
             }
@@ -1039,8 +1066,10 @@ internal fun DayHeader(date: LocalDate, mode: CalendarMode) {
 @Composable
 private fun TodayHeroGroup(tag: String, content: @Composable ColumnScope.() -> Unit) {
     androidx.compose.material3.Surface(Modifier.fillMaxWidth().testTag(tag), shape = AffairsLayout.shape,
-        color = Color.Black.copy(alpha = .20f), contentColor = Color.White,
-        border = BorderStroke(1.dp, Color(0xffffe7ae).copy(alpha = .18f))) {
+        color = if (LocalEveningTheme.current) Color.Black.copy(alpha = .20f) else MaterialTheme.colorScheme.surface.copy(alpha=.88f),
+        contentColor = if (LocalEveningTheme.current) Color.White else MaterialTheme.colorScheme.onSurface,
+        border = BorderStroke(1.dp, if (LocalEveningTheme.current) Color(0xffffe7ae).copy(alpha = .18f)
+            else MaterialTheme.colorScheme.outlineVariant.copy(alpha=.6f))) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp), content = content)
     }
 }

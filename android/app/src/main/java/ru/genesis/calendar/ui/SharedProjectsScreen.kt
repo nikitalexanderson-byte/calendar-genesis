@@ -1861,7 +1861,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                                 refreshProjects(spaceId)
                             } }
                         }
-                        tasks.filter { it.getString("statusId") == status.getString("id") }.forEach { task ->
+                        tasks.filter { it.optString("statusId") == status.getString("id") }.forEach { task -> key(task.getString("id")) {
                             SharedTaskCard(task, statuses, canOrganize, busy, en, calendarMode,
                     onArchive = { taskExtensions.lifecycleAction = "archive" to task }, onTrash = { taskExtensions.lifecycleAction = "trash" to task },
                     customFields = listContext.catalog.fields, customCalendar = SharedCustomCalendar.initial(preferences).copy(mode = calendarMode),
@@ -1874,7 +1874,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                     onDragMove = { amount -> draggingAt = (draggingAt ?: Offset.Zero) + amount },
                     onDragEnd = { finishDrag() },
                     onDragCancel = { draggingTask = null; draggingAt = null })
-                        }
+                        } }
                     } }
                 }
                 if (projectInboxLayout.atBottom) projectInbox()
@@ -2048,10 +2048,10 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         })
     val drag = draggingTask ?: draggingContainer
     val dragPosition = draggingAt
-    if (drag != null && dragPosition != null) {
+    if (drag != null && dragPosition != null && dragPosition.x.isFinite() && dragPosition.y.isFinite()) {
         Surface(Modifier.offset {
             // Placement may run once after release, before recomposition removes the preview.
-            val point = draggingAt ?: dragPosition
+            val point = draggingAt?.takeIf { it.x.isFinite() && it.y.isFinite() } ?: dragPosition
             IntOffset((point.x - rootPosition.x - 70.dp.toPx()).roundToInt(),
                 (point.y - rootPosition.y - 24.dp.toPx()).roundToInt())
         }.widthIn(max = 180.dp), color = MaterialTheme.colorScheme.primaryContainer,

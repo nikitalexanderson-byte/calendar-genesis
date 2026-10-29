@@ -1815,6 +1815,10 @@ export function GenesisCalendar() {
   }, [cloudUser?.uid, cloudUser?.sharedProjectsEnabled, selectedGregorianYear]);
   const sharedDayPage = useSharedTaskPage(cloudUser?.sharedProjectsEnabled && dayDetailsOpen ? {dueFrom:selectedDateValue,dueTo:selectedDateValue,completion:"open"} : null);
   const sharedDayTasks = sharedDayPage.page?.tasks.map(sharedCalendarProjection) ?? [];
+  const sharedTodayPage = useSharedTaskPage(cloudUser?.sharedProjectsEnabled && view === "today"
+    ? {dueFrom:todayDateValue,dueTo:todayDateValue,completion:"any"} : null, "position", undefined, cloudUser?.uid);
+  const sharedTodayTasks = sharedTodayPage.page?.tasks.map(sharedCalendarProjection) ?? [];
+  const hasSharedTodayTasks = (sharedTodayPage.page?.total ?? 0) > 0;
   const newTaskDueDate = taskUndated ? "" : taskDueDate || (view === "today" || view === "all-tasks" ? todayDateValue : selectedDateValue);
   const newTaskEndDate = taskUndated ? "" : taskEndDate || newTaskDueDate;
   const selectedMonth = MONTHS[monthIndex];
@@ -5265,6 +5269,7 @@ export function GenesisCalendar() {
               <button type="button" className="secondary-button" onClick={() => navigateTo("projects")}>{isEnglish ? "Go to affairs" : "Перейти к делам"}</button>
             </div>
           </header>
+          {hasSharedTodayTasks ? <h3 className="today-task-scope-title">{isEnglish ? "Personal" : "Личные"}</h3> : null}
           {todayTasks.length ? (
             <div className="today-task-list" aria-live="polite">
               {todayTasks.map((task) => (
@@ -5288,9 +5293,26 @@ export function GenesisCalendar() {
           ) : (
             <div className="today-tasks-empty" role="status">
               <span aria-hidden="true">✓</span>
-              <div><strong>{isEnglish ? "No tasks for today" : "На сегодня задач нет"}</strong><p>{isEnglish ? "You can leave the day open or create a task above." : "Можно оставить день свободным или создать задачу выше."}</p></div>
+              <div><strong>{hasSharedTodayTasks ? `${isEnglish ? "Personal" : "Личные"}: 0` : isEnglish ? "No tasks for today" : "На сегодня задач нет"}</strong><p>{isEnglish ? "You can leave the day open or create a task above." : "Можно оставить день свободным или создать задачу выше."}</p></div>
             </div>
           )}
+          {hasSharedTodayTasks ? <section className="today-shared-tasks" aria-labelledby="today-shared-tasks-title">
+            <h3 id="today-shared-tasks-title" className="today-task-scope-title">{isEnglish ? "Shared" : "Общие"} · {sharedTodayPage.page?.total}</h3>
+            <div className="today-task-list" aria-live="polite">
+              {sharedTodayTasks.map(task => <article className={task.completedAt ? "done" : ""} key={task.id}>
+                <button type="button" className="task-check" aria-pressed={Boolean(task.completedAt)}
+                  disabled={calendarCompletionBusy === task.id}
+                  aria-label={namedAction(task.completedAt ? "Вернуть задачу" : "Завершить задачу", task.title, language)}
+                  onClick={() => void completeSharedCalendarTask(task)}>{task.completedAt ? <ExperimentalIcon name="check" /> : null}</button>
+                <button type="button" className="today-task-open" onClick={() => openSharedCalendarTask(task)}>
+                  <strong data-no-translate>{task.title}</strong><span><em>{task.projectTitle}</em></span>
+                </button>
+              </article>)}
+            </div>
+            <SharedTaskPageControls page={sharedTodayPage.page} loaded={sharedTodayTasks.length} busy={sharedTodayPage.busy}
+              onMore={() => void sharedTodayPage.more()} onRefresh={() => void sharedTodayPage.refresh()} error={sharedTodayPage.error} />
+          </section> : sharedTodayPage.error ? <div role="status"><p>{translateText("Не удалось загрузить данные", language)}</p>
+            <button type="button" className="secondary-button" onClick={() => void sharedTodayPage.refresh()}>{isEnglish ? "Retry" : "Повторить"}</button></div> : null}
         </section> : null}
 
         {habitWorkspace.habitSettings.enabled && showToday("habits") ? (
@@ -5541,15 +5563,10 @@ export function GenesisCalendar() {
   };
 
   const renderCurrentMonthButton = () => {
-    const currentMonth = activeCalendarMode === "sacred"
-      ? sacredYear === todayInfo.sacredYear && monthIndex === todayInfo.monthIndex
-      : activeCalendarMode === "lunar" ? selectedLunarMonthIndex === lunarMonthIndex(today)
-        : selectedDate.getFullYear() === today.getFullYear() && selectedDate.getMonth() === today.getMonth();
-    if (currentMonth) return null;
     return <div className="calendar-month-footer"><button type="button" className="calendar-current-month" aria-label={discoveryCopy[language].returnMonth}
       onClick={() => { selectCalendarDate(new Date()); setDayDetailsOpen(false); }}>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M7 3v4M17 3v4M4 10h16M10 21H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5"/><path d="m15 13-3 3 3 3m-3-3h5a3 3 0 0 1 0 6"/></svg>
-      <span data-no-translate>{discoveryCopy[language].thisMonth}</span>
+      <span>{translateText("Сегодня", language)}</span>
     </button></div>;
   };
 
