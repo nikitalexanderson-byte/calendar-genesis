@@ -31,6 +31,7 @@ import { useSharedTaskPage } from "./use-shared-task-page";
 import { useCalendarTaskPreviews } from "./use-calendar-task-previews";
 import { CalendarCellTasks } from "./CalendarCellTasks";
 import { SharedTaskPageControls, SharedTaskPageCount } from "./SharedTaskPageControls";
+import { sharedMovePreview } from './shared-move-preview';
 import { SharedTaskBatches } from "./SharedTaskBatches";
 import {
   searchSharedAffairs, type SharedAffairSearch,
@@ -176,7 +177,12 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   const [spaces, setSpaces] = useState<SharedSpace[]>([]);
   const spacesRequest = useRef(0);
   const [spaceId, setSpaceId] = useState(initialPlace.spaceId);
-  const [projects, setProjects] = useState<SharedProject[]>([]);
+  const [projectRows, setProjects] = useState<SharedProject[]>([]);
+  const [projectMoves, setProjectMoves] = useState<Record<string,SharedProject>>({});
+  const projects = useMemo(()=>projectRows.map(project=>{
+    const preview=projectMoves[project.id];
+    return preview && project.revision<=preview.revision ? preview : project;
+  }),[projectRows,projectMoves]);
   const [archivedProjects, setArchivedProjects] = useState<SharedProject[]>([]);
   const [projectId, setProjectId] = useState(initialPlace.projectId);
   const projectIdRef = useRef(projectId);
@@ -225,7 +231,10 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   const [completedPulse, setCompletedPulse] = useState(false);
   const { notice, announce } = useActionNotice();
   const uiSaveQueue = useRef<Promise<unknown>>(Promise.resolve());
-  const [inboxPreview, setInboxPreview] = useState<SharedProjectSnapshot | null>(null);
+  const [inboxPreviewBase, setInboxPreview] = useState<SharedProjectSnapshot | null>(null);
+  const [optimisticMoves, setOptimisticMoves] = useState<Record<string, SharedTask>>({});
+  const [retryMove, setRetryMove] = useState<{task:SharedTask;destinationProjectId:string;statusId:string;position:number;schedule?:GanttTaskDates;nextView?:"list"|"board"}|null>(null);
+  const inboxPreview = useMemo(() => sharedMovePreview(inboxPreviewBase, optimisticMoves), [inboxPreviewBase, optimisticMoves]);
   const [googleSettings, setGoogleSettings] = useState<SharedGoogleSettings | null>(null);
   const [googleBusy, setGoogleBusy] = useState(false);
   const [googleStatus, setGoogleStatus] = useState("");
@@ -326,7 +335,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   const undatedPage = useSharedTaskPage(projectId && activeView === "calendar" ? {projectIds:[projectId],undated:true,completion:"open",...appliedPriority} : null, projectSort, activityKey);
   const completedPage = useSharedTaskPage(projectId && activeView === "calendar" ? {projectIds:[projectId],...rangeFilter,completion:"completed",...appliedPriority} : null, projectSort, activityKey);
   const choicesPage = useSharedTaskPage(projectId && calendarTaskPicker ? {projectIds:[projectId],completion:"open",q:calendarTaskSearch} : null, "title", activityKey);
-  const snapshot = useMemo(() => snapshotBase && projectId === snapshotBase.project.id && activeView !== "gantt" ? { ...snapshotBase, tasks: projectPage.page?.tasks ?? [], taskPage: projectPage.page ?? undefined } : snapshotBase, [snapshotBase, projectPage.page, projectId, activeView]);
+  const snapshot = useMemo(() => sharedMovePreview(snapshotBase && projectId === snapshotBase.project.id && activeView !== "gantt" ? { ...snapshotBase, tasks: projectPage.page?.tasks ?? [], taskPage: projectPage.page ?? undefined } : snapshotBase, optimisticMoves), [snapshotBase, projectPage.page, projectId, activeView, optimisticMoves]);
   const inboxProject = projects.find((project) => project.spaceId === spaceId && Boolean(project.isInbox));
   const inboxProjectId = inboxProject?.id;
   const taskProjectId = taskSnapshot?.project.id;
@@ -620,7 +629,11 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   };
   const moveTaskTo = (task: SharedTask, destinationProjectId: string, statusId = "", position = 0, schedule?:GanttTaskDates, nextView?:"list"|"board") => {
     if (busy) return;
+    setOptimisticMoves(current=>({...current,[task.id]:{...task,...schedule,projectId:destinationProjectId,statusId,pending:true}}));
+    const clearPreview = () => setOptimisticMoves(current=>{const next={...current};delete next[task.id];return next;});
     void run(async () => {
+      let confirmed=false;
+      try {
       const destination = destinationProjectId === snapshot?.project.id
         ? snapshot : await loadSharedProject(destinationProjectId);
       if (destination.project.isInbox) throw new Error(translateText("Выберите проект", language as import("./i18n").Language));
@@ -636,7 +649,10 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
           : "Перенос сохранён на устройстве и ожидает подключения к сети.");
         return;
       }
+      confirmed=true;
+      setOptimisticMoves(current=>({...current,[task.id]:{...task,...moved}}));
       if (projectId) await refreshProject(projectId);
+      await projectPage.refresh();
       await refreshProjects(spaceId);
       if (taskId === task.id) {
         const result = await loadSharedProject(destinationProjectId);
@@ -647,7 +663,12 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       const inbox = projects.find((project) => project.isInbox);
       if (inbox) setInboxPreview(await loadSharedProject(inbox.id));
       if (nextView) setViewOverride(nextView);
+      setRetryMove(null);
       setMessage(english ? "Task moved." : "Задача перемещена.");
+      } catch(error) {
+        if(!confirmed){clearPreview();setRetryMove({task,destinationProjectId,statusId,position,schedule,nextView});}
+        throw error;
+      }
     });
   };
   const moveTask = (task: SharedTask, statusId: string) => {
@@ -737,10 +758,16 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
         if (parent.id === child.id) return;
         visited.add(parent.id); parent = projects.find((project) => project.id === parent?.parentId);
       }
+      setProjectMoves(current=>({...current,[child.id]:{...child,parentId:destination.projectId,boardStatusId:destination.statusId||null}}));
+      const clear=()=>setProjectMoves(current=>{const next={...current};delete next[child.id];return next;});
       void run(async () => {
-        await updateSharedProject(child.id, { title: child.title, description: child.description, tags: child.tags,
-          layout: child.layout, parentId: destination.projectId, boardStatusId: destination.statusId || null, expectedRevision: child.revision });
-        await refreshProjects(spaceId);
+        let confirmed=false;
+        try {
+          const changed=await updateSharedProject(child.id, { title: child.title, description: child.description, tags: child.tags,
+            layout: child.layout, parentId: destination.projectId, boardStatusId: destination.statusId || null, expectedRevision: child.revision });
+          confirmed=true;setProjectMoves(current=>({...current,[child.id]:changed}));
+          await refreshProjects(spaceId);clear();
+        } catch(error) {if(!confirmed)clear();throw error;}
       });
     }
   };
@@ -1325,6 +1352,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
     <ActionNotice message={notice}/>
     {projectToComplete ? <ProjectCompletionDialog fileRetentionWarning title={projectToComplete.title} onCancel={() => setProjectToComplete(null)} onConfirm={confirmProjectCompletion} /> : null}
     {message ? <p className="shared-projects-message" role="status">{message}</p> : null}
+    {message && retryMove ? <button type="button" disabled={busy} onClick={()=>moveTaskTo(retryMove.task,retryMove.destinationProjectId,retryMove.statusId,retryMove.position,retryMove.schedule,retryMove.nextView)}>{translateText('Повторить')}</button> : null}
     {readError ? <div className="shared-projects-message shared-projects-read-error" role="status"><span>{readError}</span>
       <IconActionButton icon="map-refresh" label={translateText("Повторить")} onClick={() => window.dispatchEvent(new Event(SHARED_RETRY_EVENT))}/></div> : null}
     {offline ? <p className="shared-projects-offline-status" role="status">{english

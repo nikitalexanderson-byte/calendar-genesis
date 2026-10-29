@@ -220,6 +220,7 @@ import kotlin.math.min
     reaction: String? = null, reactionBusy: Boolean = false, reactionError: Boolean = false,
     onReaction: ((String) -> Unit)? = null, onOpenDiary: (() -> Unit)? = null, onDismiss: () -> Unit) {
     val surface = MaterialTheme.colorScheme.surface
+    var shareFailed by remember(card.id) { mutableStateOf(false) }
     Surface(modifier.fillMaxWidth().testTag("today-daily-advice"), shape = AffairsLayout.shape) {
         Box {
             if (bitmap != null) Box(Modifier.matchParentSize()) {
@@ -261,7 +262,7 @@ import kotlin.math.min
                         listOf(source.author, source.work, source.reference).filter { it.isNotBlank() }.joinToString(" · "),
                         style = MaterialTheme.typography.bodySmall)
                 }
-                if (onReaction != null || onNext != null || onOpenDiary != null) Row(Modifier.fillMaxWidth(),
+                Row(Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     val favoriteLabel = genesisTranslate("Избранное")
                     val dislikeLabel = genesisTranslate("Не нравится")
@@ -288,7 +289,10 @@ import kotlin.math.min
                             .semantics { contentDescription = "Дневник" }) {
                         GenesisLucideIcon("book-open", Modifier.size(24.dp))
                     }
+                    AdviceShareButton(card, bitmap, copy) { shareFailed = it }
                 }
+                if (shareFailed) NativeText(copy.getString("shareError"), color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.testTag("daily-advice-share-error").semantics { liveRegion = LiveRegionMode.Polite })
                 if (reactionBusy) LinearProgressIndicator(Modifier.fillMaxWidth())
                 if (reactionError) Text("Не удалось сохранить. Черновик остаётся в дневнике.",
                     color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)

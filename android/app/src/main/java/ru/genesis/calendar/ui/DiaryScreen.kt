@@ -194,10 +194,6 @@ import java.time.Instant
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 ContentText(note.createdAt.take(10), Modifier.weight(1f), style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-                val pinLabel = genesisTranslate(if (note.pinned) "Открепить запись" else "Закрепить запись")
-                IconButton(onPin, Modifier.size(48.dp).semantics { contentDescription = pinLabel }.testTag("diary-pin-${note.id}"), enabled = !busy) {
-                    GenesisLucideIcon("pin", tint = if (note.pinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-                }
                 if (note.adviceId != null) {
                     val favoriteLabel = genesisTranslate(if (note.reaction == "favorite") "Убрать из избранного" else "В избранное")
                     IconButton(onFavorite, Modifier.size(48.dp).semantics { contentDescription = favoriteLabel }
@@ -205,6 +201,10 @@ import java.time.Instant
                         GenesisLucideIcon("star", tint = if (note.reaction == "favorite") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                             filled = note.reaction == "favorite")
                     }
+                }
+                val pinLabel = genesisTranslate(if (note.pinned) "Открепить запись" else "Закрепить запись")
+                IconButton(onPin, Modifier.size(48.dp).semantics { contentDescription = pinLabel }.testTag("diary-pin-${note.id}"), enabled = !busy) {
+                    GenesisLucideIcon("pin", tint = if (note.pinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 AffairsIconButton(if (note.archived) "Восстановить запись" else "В архив", if (note.archived) AffairsAction.RESTORE else AffairsAction.ARCHIVE,
                     onArchive, Modifier.testTag("diary-archive-${note.id}"), enabled = !busy, outlined = false)

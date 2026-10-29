@@ -55,6 +55,13 @@ html[data-genesis-theme] .genesis-app .daily-advice-action-row > [aria-pressed="
 .daily-advice-settings > div > p, .daily-advice-settings .daily-advice-note { color: var(--ink-soft); font-size: 13px; line-height: 1.6; }
 .daily-advice-settings .daily-advice-categories { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 20px; min-width: 0; margin: 0; padding: 12px 0 0; border: 0; }
 .daily-advice-categories legend { color: var(--ink); font-weight: 500; }
+.advice-share-dialog{width:min(620px,calc(100vw - 24px));max-height:calc(100dvh - 24px);overflow:auto;box-sizing:border-box;margin:auto;padding:16px;border:1px solid var(--ui-accent);border-radius:10px;background:var(--surface);color:var(--ink)}
+.advice-share-dialog::backdrop{background:rgb(0 0 0 / .48)}
+.advice-share-dialog>header{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.advice-share-dialog h2{flex:1;margin:0;font-size:20px}
+.advice-share-dialog>img{display:block;max-width:100%;width:100%;height:auto}
+.advice-share-dialog>footer{display:flex;gap:12px;flex-wrap:wrap;margin-top:16px}
+.advice-share-dialog>footer>*{display:inline-flex;align-items:center;justify-content:center;flex:1;min-height:44px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit;text-decoration:none;text-align:center}
 .daily-advice-category { display: flex; align-items: flex-start; gap: 10px; min-width: 0; padding: 12px 0; cursor: pointer; }
 .daily-advice-category[data-unavailable="true"] { cursor: default; }
 .daily-advice-category[data-unavailable="true"] strong { color: var(--ink-soft); }

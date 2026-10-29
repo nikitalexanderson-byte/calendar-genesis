@@ -66,7 +66,7 @@ class Android310AcceptanceTest {
             }
             compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag(tag))
             compose.onNodeWithTag(tag).performClick()
-            compose.onNodeWithTag("calendar-month-navigation-card").assertExists()
+            compose.onNodeWithTag("calendar-month-navigation-card").assertIsDisplayed()
             compose.runOnIdle { assertEquals("Chosen $choice month must survive submenu restoration", expected, selected) }
             val period = compose.onNodeWithTag("calendar-month-period").fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.Text].joinToString { it.text }
             val expectedName = when(choice) {

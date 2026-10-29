@@ -98,7 +98,11 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
     val pageActive = LocalNavigationPageContext.current?.active != false && lifecycleState.isAtLeast(Lifecycle.State.STARTED)
     var spaces by remember { mutableStateOf(emptyList<JSONObject>()) }
-    var projects by remember { mutableStateOf(emptyList<JSONObject>()) }
+    var projectRows by remember { mutableStateOf(emptyList<JSONObject>()) }
+    val projectMoves = remember(controller) { mutableStateMapOf<String, JSONObject>() }
+    val projects = projectRows.map { actual ->
+        projectMoves[actual.optString("id")]?.takeIf { actual.optInt("revision") <= it.optInt("revision") } ?: actual
+    }
     var archivedProjects by remember { mutableStateOf(emptyList<JSONObject>()) }
     var snapshot by remember { mutableStateOf<JSONObject?>(null) }
     var googleSettings by remember { mutableStateOf<JSONObject?>(null) }
@@ -168,6 +172,8 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     var showUndated by remember { mutableStateOf(true) }
     val listContext = rememberSharedTaskListContext(controller, projectId, preferences)
     var taskPage by listContext.reader.pageState
+    val optimisticMoves = remember(controller) { mutableStateMapOf<String,JSONObject>() }
+    var retryMove by remember { mutableStateOf<Triple<JSONObject,String,String>?>(null) }
     var taskSearch by rememberSaveable(projectId) { mutableStateOf("") }
     var openedTask by remember { mutableStateOf<JSONObject?>(null) }
     var editTaskDetails by rememberSaveable(stateSaver = Saver<JSONObject, String>(
@@ -238,7 +244,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         val rows = response.getJSONArray("projects").rows()
         val archived = archivedResponse.getJSONArray("projects").rows()
         if (archivedProjects.map { it.toString() } != archived.map { it.toString() }) archivedProjects = archived
-        if (projects.map { it.toString() } != rows.map { it.toString() }) projects = rows
+        if (projects.map { it.toString() } != rows.map { it.toString() }) projectRows = rows
         if (rows.none { it.getString("id") == projectId }) projectId = ""
     }
     suspend fun refreshProject(id: String) {
@@ -248,7 +254,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                 if (templatesOpen) templateAccessLost = true
                 templatesOpen = false; templatesCaptureId = ""; snapshot = null
                 openedTask = null; taskPage = null; taskId = ""; projectId = ""
-                projects = projects.filterNot { it.optString("id") == id }
+                projectRows = projectRows.filterNot { it.optString("id") == id }
             }
             throw failure
         }
@@ -341,7 +347,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                 if (projectId == destination?.projectId) taskId = destination.taskId
             }
         } catch (error: Exception) { if (error is kotlinx.coroutines.CancellationException) throw error; message = error.message ?: "Ошибка сервера" }
-        else { projects = emptyList(); archivedProjects = emptyList() }
+        else { projectRows = emptyList(); archivedProjects = emptyList() }
     }
     LaunchedEffect(projectId, pageActive) {
         if (!pageActive) return@LaunchedEffect
@@ -360,7 +366,17 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     val project = snapshot?.getJSONObject("project")
     val statuses = snapshot?.getJSONArray("statuses")?.rows().orEmpty()
     val categories = snapshot?.optJSONArray("categories")?.rows().orEmpty()
-    val tasks = taskPage?.optJSONArray("tasks")?.rows().orEmpty()
+    LaunchedEffect(taskPage, pendingTasks) {
+        taskPage?.optJSONArray("tasks")?.rows()?.forEach { actual ->
+            val id = actual.optString("id")
+            val preview = optimisticMoves[id]
+            if (preview != null && actual.optInt("revision") > preview.optInt("revision") &&
+                !actual.optBoolean("pending") && !sharedTaskHasPending(id, pendingTasks)) optimisticMoves.remove(id)
+        }
+    }
+    val tasks = taskPage?.optJSONArray("tasks")?.rows().orEmpty().map {
+        optimisticMoves[it.optString("id")] ?: it
+    }.filter { it.optString("projectId") == projectId }
     val inboxProject = projects.firstOrNull { it.optInt("isInbox") == 1 }
     val (spaceInboxLayout,setSpaceInboxLayout)=rememberSharedChaosLayout("space:$spaceId")
     val (projectInboxLayout,setProjectInboxLayout)=rememberSharedChaosLayout("project:$projectId")
@@ -504,11 +520,16 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
     fun moveTaskTo(task: JSONObject, destinationProjectId: String, destinationStatusId: String = "") {
         val sourceProjectId=task.optString("projectId",projectId)
         val sourceSnapshot=if(sourceProjectId==projectId) snapshot else inlineInboxSnapshot
-        if (sourceSnapshot?.optJSONObject("project")?.optBoolean("canOrganizeTasks")!=true || destinationProjectId.isBlank()) return
+        if (sourceSnapshot?.optJSONObject("project")?.optBoolean("canOrganizeTasks")!=true || destinationProjectId.isBlank() || busy) return
+        val movingId = task.getString("id")
+        optimisticMoves[movingId] = JSONObject(task.toString()).put("projectId",destinationProjectId)
+            .put("statusId",destinationStatusId).put("pending",true)
         run {
+          var confirmed = false
+          try {
             val destination = if (destinationProjectId == sourceProjectId) sourceSnapshot
                 else controller.sharedProject(destinationProjectId)
-            if (destination?.optJSONObject("project")?.optInt("isInbox") == 1) return@run
+            require(destination?.optJSONObject("project")?.optInt("isInbox") != 1) {"Выберите проект"}
             val statusId = destinationStatusId
             val moved = controller.moveSharedTask(sourceProjectId, task.getString("id"), JSONObject()
                 .put("destinationProjectId", destinationProjectId).put("statusId", statusId)
@@ -523,9 +544,22 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                     else "Перенос сохранён на устройстве и синхронизируется после подключения."
                 return@run
             }
+            confirmed = true
+            optimisticMoves[movingId] = moved.getJSONObject("task")
             refreshProjects(spaceId)
             if(sourceProjectId==projectId) {projectId = destinationProjectId;refreshProject(destinationProjectId)}
             else inlineInboxReader.refresh()
+            if(projectId == destinationProjectId) listContext.reader.refresh()
+            optimisticMoves.remove(movingId)
+            retryMove = null
+          } catch (cancelled:kotlinx.coroutines.CancellationException) {throw cancelled}
+          catch (failure:Exception) {
+            if (!confirmed) {
+                optimisticMoves.remove(movingId)
+                retryMove = Triple(JSONObject(task.toString()),destinationProjectId,destinationStatusId)
+            }
+            throw failure
+          }
         }
     }
     fun moveTaskStatus(task: JSONObject, destination: String) {
@@ -549,13 +583,24 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
             while(cursor.isNotBlank() && visited.add(cursor) && cursor != container.optString("id")) {
                 cursor=projects.firstOrNull { it.optString("id")==cursor }?.optString("parentId").orEmpty()
             }
-            if(parent.isNotBlank() && cursor != container.optString("id") && container.optString("role") in setOf("owner","manager")) run {
-                controller.updateSharedProject(container.getString("id"),JSONObject()
-                    .put("title",container.optString("title")).put("description",container.optString("description"))
-                    .put("layout",container.optString("layout","list")).put("parentId",parent)
-                    .put("boardStatusId",board).put("expectedRevision",container.getInt("revision")))
-                refreshProjects(spaceId)
-                if(projectId.isNotBlank()) refreshProject(projectId)
+            if(parent.isNotBlank() && cursor != container.optString("id") && container.optString("role") in setOf("owner","manager") && !busy) {
+                val id = container.getString("id")
+                projectMoves[id] = JSONObject(container.toString()).put("parentId", parent).put("boardStatusId", board)
+                run {
+                    var confirmed = false
+                    try {
+                        val changed = controller.updateSharedProject(id,JSONObject()
+                            .put("title",container.optString("title")).put("description",container.optString("description"))
+                            .put("layout",container.optString("layout","list")).put("parentId",parent)
+                            .put("boardStatusId",board).put("expectedRevision",container.getInt("revision")))
+                        confirmed = true
+                        projectMoves[id] = changed.optJSONObject("project") ?: projectMoves.getValue(id)
+                        refreshProjects(spaceId)
+                        projectMoves.remove(id)
+                        if(projectId.isNotBlank()) refreshProject(projectId)
+                    } catch(cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+                    catch(failure: Exception) { if(!confirmed) projectMoves.remove(id); throw failure }
+                }
             }
         }
         if (task != null && dateTarget != null && canEditTask && !task.optBoolean("pending") &&
@@ -583,12 +628,10 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         DisposableEffect(id) { onDispose { dropBounds.remove(target) } }
         Modifier.onGloballyPositioned { origin=it.boundsInWindow().topLeft;dropBounds[target]=it.boundsInWindow() }
             .then(if(hovered) Modifier.border(2.dp,MaterialTheme.colorScheme.primary,AffairsLayout.shape) else Modifier)
-            .pointerInput(id,item.optInt("revision"),busy) {
-                if(!busy && item.optString("role") in setOf("owner","manager")) detectDragGesturesAfterLongPress(
-                    onDragStart={ draggingTask=null;draggingContainer=item;draggingAt=origin+it },
-                    onDrag={ change,amount -> change.consume();draggingAt=(draggingAt?:Offset.Zero)+amount },
-                    onDragEnd={ finishDrag() },onDragCancel={ draggingContainer=null;draggingAt=null })
-            }
+            .workspaceDragSource(id, enabled = !busy && item.optString("role") in setOf("owner","manager"),
+                onStart={ draggingTask=null;draggingContainer=item;draggingAt=origin+it },
+                onMove={ amount -> draggingAt=(draggingAt?:Offset.Zero)+amount },
+                onFinish={ cancelled -> if(cancelled) {draggingContainer=null;draggingAt=null} else finishDrag() })
     }
     val categoryColors = listOf("#2d6c68", "#a5543f", "#b18b48", "#665c88", "#54718a")
     val scrollPositions = remember { mutableMapOf<String, ScrollState>() }
@@ -1468,7 +1511,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         if (!projectToolbar && !spaceToolbar) headerActions(true)
     }
 
-    Box(Modifier.fillMaxSize().onGloballyPositioned {
+    WorkspaceDragHost(Modifier.fillMaxSize().onGloballyPositioned {
         rootPosition = it.boundsInWindow().topLeft
         listViewport = it.boundsInWindow()
     }) {
@@ -1512,6 +1555,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                 modifier = Modifier.testTag("shared-feedback"), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
             else Text(message, modifier = Modifier.testTag("shared-feedback"),
                 color = if (messageIsError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+            retryMove?.let { (task,target,status) -> TextButton(onClick={moveTaskTo(task,target,status)},enabled=!busy) {Text("Повторить")} }
         }
         if (projectId.isBlank()) {
             if (spaceId.isBlank()) {
@@ -2107,15 +2151,16 @@ internal fun SharedTaskCard(task: JSONObject, statuses: List<JSONObject>, canOrg
     val metadata = listOfNotNull(statusLabel.takeUnless {compact},
         dueLabel, assignedTo?.takeIf(String::isNotBlank), priority,
         completedBy?.takeIf { completed }?.let { genesisTranslate("Выполнил(а): ") + it })
+    val currentDragStart by rememberUpdatedState(onDragStart)
+    val currentDragMove by rememberUpdatedState(onDragMove)
+    val currentDragEnd by rememberUpdatedState(onDragEnd)
+    val currentDragCancel by rememberUpdatedState(onDragCancel)
     val dragModifier = if (canOrganize && !busy && onDragStart != null) Modifier
         .onGloballyPositioned { topLeft = it.boundsInWindow().topLeft }
-        .pointerInput(task.optString("id"), task.optInt("revision")) {
-            detectDragGesturesAfterLongPress(
-                onDragStart = { onDragStart(topLeft + it) },
-                onDragEnd = { onDragEnd?.invoke() },
-                onDragCancel = { onDragCancel?.invoke() },
-                onDrag = { change, amount -> change.consume(); onDragMove?.invoke(amount) })
-        } else Modifier
+        .workspaceDragSource(task.optString("id"),
+            onStart = { currentDragStart?.invoke(topLeft + it) },
+            onMove = { currentDragMove?.invoke(it) },
+            onFinish = { if(it) currentDragCancel?.invoke() else currentDragEnd?.invoke() }) else Modifier
     AffairsTaskRow(task.getString("title"), completed, onOpen,
         modifier = Modifier.then(dragModifier).testTag("shared-task-${task.optString("id")}"),
         metadata = metadata, unreadComments = task.optInt("unreadCommentCount"), enabled = !busy,

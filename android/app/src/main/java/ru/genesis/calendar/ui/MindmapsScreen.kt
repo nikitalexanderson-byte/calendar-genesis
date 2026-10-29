@@ -68,7 +68,8 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
     var editing by rememberSaveable { mutableStateOf<String?>(null) };var text by rememberSaveable { mutableStateOf("") };var note by rememberSaveable { mutableStateOf("") }
     var occurrenceTask by remember {mutableStateOf<LocalTask?>(null)};var occurrenceDate by rememberSaveable {mutableStateOf("")}
     var remove by remember { mutableStateOf(false) };var picker by remember { mutableStateOf(false) };var files by remember { mutableStateOf(false) }
-    var searchOpen by rememberSaveable { mutableStateOf(false) }
+    var exportMenu by remember { mutableStateOf(false) }
+    var addMenu by remember { mutableStateOf(false) }
     var resetCanvas by remember { mutableIntStateOf(0) }
     var discardNodeDraft by remember { mutableStateOf(false) }
     var pickerQuery by rememberSaveable { mutableStateOf("") }
@@ -79,7 +80,7 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
     val record=records.firstOrNull { it.document.id==mapId };val map=record?.document;val node=map?.nodes?.firstOrNull { it.id==selected } ?: map?.nodes?.firstOrNull()
     fun run(action:suspend ()->Unit) { if(busy)return;busy=true;error=null;scope.launch {try { action() }catch(e:Exception){error=e.message ?: "Не удалось сохранить. Черновик остаётся на устройстве."}finally{busy=false} } }
     fun save(next:MindmapDocument,remember:Boolean=true) { if(busy)return;if(readOnly){error="Нет доступа к изменению карты.";return};if(remember&&map!=null)undo=(undo+map).takeLast(20);run { repo.save(next) } }
-    fun open(id:String) {mapId=id;selected=null;editing=null;undo=emptyList();query="";searchOpen=false;files=false}
+    fun open(id:String) {mapId=id;selected=null;editing=null;undo=emptyList();query="";exportMenu=false;files=false}
     fun changeView(next:JSONObject) {view=next;mapId?.let { id->scope.launch { repo.saveView(id,next) } } }
     fun add(sibling:Boolean=false,point:Offset?=null) {if(map==null||node==null||busy||readOnly)return;val next=MindmapNode(UUID.randomUUID().toString(),if(sibling)node.parentId ?: node.id else node.id,text=defaultLabel("Новая мысль"))
         val previousNodes=map.nodes.map {if(editing!=null&&it.id==node.id)it.copy(text=if(it.kind=="idea")text else "",note=note) else it}
@@ -101,7 +102,7 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
         if(uri!=null&&snapshot!=null)run {withContext(Dispatchers.IO){context.contentResolver.openOutputStream(uri)?.use {writeMindmapPdf(it,snapshot.first,snapshot.second,snapshot.third,outlineTitle)} ?: error("Не удалось открыть файл PDF.")}}
     }
     LaunchedEffect(repo) { runCatching { repo.loadCached() };runCatching { repo.refresh() }.onFailure { error=it.message ?: "Открыта защищённая копия устройства." } }
-    LaunchedEffect(repo,mapId) { mapId?.let { view=repo.view(it) ?: JSONObject().put("mode","map").put("zoom",1.0) } }
+    LaunchedEffect(repo,mapId) { mapId?.let { view=(repo.view(it) ?: JSONObject().put("zoom",1.0)).put("mode","map") } }
     LaunchedEffect(picker,pickerQuery) { if(picker&&!readOnly)onTaskSearch(pickerQuery) }
     LaunchedEffect(map?.id,map?.nodes?.filter {it.kind=="task"}?.map {it.refId}?.joinToString()) {
         onResolveTaskIds(map?.nodes?.filter {it.kind=="task"}?.mapNotNull {it.refId}?.toSet().orEmpty())
@@ -110,7 +111,7 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
         if(node!=null&&((node.kind=="idea"&&text!=node.text)||note!=node.note)) discardNodeDraft=true
         else editing=null
     }
-    fun goBack() { when { mapId!=null -> { mapId=null;query="";searchOpen=false }; archived -> archived=false; else -> onBack() } }
+    fun goBack() { when { mapId!=null -> { mapId=null;query="";exportMenu=false }; archived -> archived=false; else -> onBack() } }
     BackHandler {if(editing!=null)closeNodeEditor() else goBack()}
     val headerTitle = map?.title ?: "Майндмепы"
     val headerSubtitle = if(map==null) {
@@ -130,14 +131,21 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
                         DropdownMenuItem(text={Text("Импорт JSON")},enabled=!readOnly,leadingIcon={AffairsActionIcon(AffairsAction.IMPORT)},onClick={files=false;text="";import=true})
                         DropdownMenuItem(text={Text("Обновить")},leadingIcon={AffairsActionIcon(AffairsAction.REFRESH)},onClick={files=false;run {repo.refresh()}})
                     } else {
-                        DropdownMenuItem(text={Text("Добавить из дел")},enabled=!readOnly,leadingIcon={AffairsActionIcon(AffairsAction.TASK)},onClick={files=false;picker=true})
-                        DropdownMenuItem(text={Text("Найти узел")},leadingIcon={AffairsActionIcon(AffairsAction.SEARCH)},onClick={files=false;searchOpen=true})
                         DropdownMenuItem(text={Text("Название и описание")},enabled=!readOnly,leadingIcon={AffairsActionIcon(AffairsAction.EDIT)},onClick={files=false;title=map.title;description=map.description;create=true})
                         HorizontalDivider()
                         DropdownMenuItem(text={Text("Отменить изменение")},leadingIcon={AffairsActionIcon(AffairsAction.UNDO)},enabled=undo.isNotEmpty()&&!busy&&!readOnly,onClick={files=false;val old=undo.last();undo=undo.dropLast(1);save(old,false)})
                         DropdownMenuItem(text={Text("История")},leadingIcon={AffairsActionIcon(AffairsAction.HISTORY)},onClick={files=false;run {serverPreview=false;history=repo.history(map.id)}})
-                        DropdownMenuItem(text={Text("Экспорт JSON")},leadingIcon={GenesisLucideIcon("file-json")},onClick={files=false;text=JSONObject().put("format","genesis-mindmap").put("version",1).put("document",map.json()).toString(2);export=true})
-                        DropdownMenuItem(text={Text("Экспорт PDF")},leadingIcon={GenesisLucideIcon("file-text")},enabled=!busy,onClick={files=false;pdfSnapshot=Triple(map,map.nodes.associate {it.id to label(it)},JSONObject(view.toString()));pdfLauncher.launch("GENESIS-map.pdf")})
+                        DropdownMenuItem(text={Text("Экспорт")},leadingIcon={GenesisLucideIcon("download")},
+                            trailingIcon={GenesisLucideIcon("chevron-right")}, modifier=Modifier.testTag("mindmap-export-menu"),
+                            onClick={files=false;exportMenu=true})
+                    }
+                }
+                DropdownMenu(exportMenu && map!=null,{exportMenu=false}) {
+                    if(map!=null) {
+                        DropdownMenuItem(text={Text("Экспорт JSON")},leadingIcon={GenesisLucideIcon("file-json")},
+                            modifier=Modifier.testTag("mindmap-export-json"),onClick={exportMenu=false;text=JSONObject().put("format","genesis-mindmap").put("version",1).put("document",map.json()).toString(2);export=true})
+                        DropdownMenuItem(text={Text("Экспорт PDF")},leadingIcon={GenesisLucideIcon("file-text")},enabled=!busy,
+                            modifier=Modifier.testTag("mindmap-export-pdf"),onClick={exportMenu=false;pdfSnapshot=Triple(map,map.nodes.associate {it.id to label(it)},JSONObject(view.toString()));pdfLauncher.launch("GENESIS-map.pdf")})
                     }
                 }
             }
@@ -194,21 +202,24 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
                     if (structure) AffairsAction.MINDMAP else AffairsAction.SUBTASK, {
                         query = ""; changeView(JSONObject(view.toString()).put("mode", if (structure) "map" else "structure"))
                     }, Modifier.fillMaxWidth().testTag("mindmap-mode-toggle")) }
-                Box(Modifier.weight(1f)) { AffairsIconButton("К началу", AffairsAction.CENTER, {
-                    query = ""; resetCanvas++; changeView(JSONObject(view.toString()).removeFocus().put("zoom", 1.0))
-                }, Modifier.fillMaxWidth().testTag("mindmap-reset")) }
-                Box(Modifier.weight(1f)) { AffairsIconButton("Добавить мысль",AffairsAction.ADD,{add()},enabled=!busy&&!readOnly,modifier=Modifier.fillMaxWidth().testTag("mindmap-add-node")) }
+                Box(Modifier.weight(1f)) {
+                    AffairsIconButton("Добавить",AffairsAction.ADD,{addMenu=true},enabled=!busy&&!readOnly,
+                        modifier=Modifier.fillMaxWidth().testTag("mindmap-add-node"))
+                    DropdownMenu(addMenu,{addMenu=false}) {
+                        DropdownMenuItem(text={Text("Добавить мысль")},leadingIcon={AffairsActionIcon(AffairsAction.ADD)},
+                            modifier=Modifier.testTag("mindmap-add-thought"),onClick={addMenu=false;add()})
+                        DropdownMenuItem(text={Text("Добавить из дел")},leadingIcon={AffairsActionIcon(AffairsAction.TASK)},
+                            modifier=Modifier.testTag("mindmap-add-from-affairs"),onClick={addMenu=false;picker=true})
+                    }
+                }
                 headerActions(Modifier.weight(1f))
             }
             if(view.optString("focus").isNotBlank()&&view.optString("focus")!="null")TextButton(onClick={changeView(JSONObject(view.toString()).removeFocus())}){Text("Вся карта")}
-            if(searchOpen) Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                AffairsSearchField(query,{query=it.take(200)},"Найти узел",Modifier.weight(1f))
-                AffairsIconButton("Закрыть поиск",AffairsAction.CLOSE,{searchOpen=false;query=""})
-            }
             val collapsed=view.optJSONArray("collapsed")?.let { a->(0 until a.length()).map {a.optString(it)}.toSet() } ?: emptySet()
             val rows=map.rows(collapsed,view.optString("focus").takeIf {it.isNotBlank()&&it!="null"})
-            if(view.optString("mode")=="map"&&query.isBlank()) NativeMindmapCanvas(map,rows,view,::label,{id->selected=id;text=map.nodes.first {it.id==id}.text;note=map.nodes.first {it.id==id}.note;editing=id},::changeView,{add(point=it)},{from,to->if(!map.links.any {it.from==from&&it.to==to||it.from==to&&it.to==from})save(map.copy(links=map.links+MindmapLink(UUID.randomUUID().toString(),from,to,"Связано с")))},Modifier.weight(1f),readOnly,resetCanvas)
-            else LazyColumn(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(4.dp)) {
+            if(view.optString("mode")=="map"&&query.isBlank()) NativeMindmapCanvas(map,rows,view,::label,{id->selected=id;text=map.nodes.first {it.id==id}.text;note=map.nodes.first {it.id==id}.note;editing=id},::changeView,{add(point=it)},{from,to->if(!map.links.any {it.from==from&&it.to==to||it.from==to&&it.to==from})save(map.copy(links=map.links+MindmapLink(UUID.randomUUID().toString(),from,to,"Связано с")))},Modifier.weight(1f),readOnly,resetCanvas,
+                onAffair={picker=true},onHome={resetCanvas++;changeView(JSONObject(view.toString()).removeFocus().put("zoom",1.0))})
+            else LazyColumn(Modifier.weight(1f),contentPadding=PaddingValues(bottom=88.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
                 items(rows.filter {label(it.first).contains(query,true)||it.first.note.contains(query,true)},key={it.first.id}) { (n,depth)->
                     val fill=mapColor(n.style?.optString("fill"),MaterialTheme.colorScheme.surface)
                     val ink=if(n.style?.has("fill")==true) if(fill.luminance()>.179f)Color.Black else Color.White else MaterialTheme.colorScheme.onSurface
@@ -231,7 +242,13 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
             }
         }
     }
-    if(map==null) WorkspaceSearchDock(query,{query=it},"Поиск карт","mindmaps-search",Modifier.align(Alignment.BottomCenter))
+    if (map != null) Box(Modifier.align(Alignment.BottomStart).padding(12.dp)) {
+        AffairsIconButton("К началу", AffairsAction.CENTER, {
+            query = ""; resetCanvas++; changeView(JSONObject(view.toString()).removeFocus().put("mode", "map").put("zoom", 1.0))
+        }, Modifier.testTag("mindmap-reset"))
+    }
+    key(mapId) { WorkspaceSearchDock(query,{query=it},if(map==null) "Поиск карт" else "Найти узел",
+        if(map==null) "mindmaps-search" else "mindmap-node-search",Modifier.align(Alignment.BottomCenter)) }
     }
     if(create) AlertDialog(onDismissRequest={create=false},title={Text(if(map==null)"Новая карта" else "Настройка карты")},text={Column {OutlinedTextField(title,{title=it},label={Text("Название карты")});OutlinedTextField(description,{description=it.take(12000)},label={Text("Описание")});if(map==null) MindmapTemplatePicker(template) { template=it }}},confirmButton={TextButton(enabled=title.isNotBlank()&&!busy&&!readOnly,onClick={if(map==null){val next=MindmapDocument.new(title,newMapProjectId,template,::defaultLabel).copy(description=description);save(next);open(next.id)}else save(map.copy(title=title.trim(),description=description));create=false}){Text("Сохранить")}},dismissButton={TextButton(onClick={create=false}){Text("Отмена")}})
     if(editing!=null&&map!=null&&node!=null&&readOnly) AlertDialog(onDismissRequest={editing=null},title={Text(label(node))},
@@ -322,18 +339,27 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
 }
 
 @Composable
-internal fun NativeMindmapCanvas(map:MindmapDocument,rows:List<Pair<MindmapNode,Int>>,view:JSONObject,label:(MindmapNode)->String,onSelect:(String)->Unit,onView:(JSONObject)->Unit,onAdd:(Offset)->Unit,onLink:(String,String)->Unit,modifier:Modifier,readOnly:Boolean=false,resetKey:Int=0) {
-    var connecting by remember {mutableStateOf<String?>(null)}
+internal fun NativeMindmapCanvas(map:MindmapDocument,rows:List<Pair<MindmapNode,Int>>,view:JSONObject,label:(MindmapNode)->String,onSelect:(String)->Unit,onView:(JSONObject)->Unit,onAdd:(Offset)->Unit,onLink:(String,String)->Unit,modifier:Modifier,readOnly:Boolean=false,resetKey:Int=0,
+    onAffair:()->Unit={},onHome:()->Unit={}) {
+    var connecting by remember(map.id) {mutableStateOf<String?>(null)}
+    BackHandler(connecting!=null) {connecting=null}
+    LaunchedEffect(readOnly,resetKey) {connecting=null}
     val horizontal=rememberScrollState();val vertical=rememberScrollState()
     val density=LocalDensity.current.density
     val positions=view.optJSONObject("positions") ?: JSONObject();var drag by remember {mutableStateOf<Pair<String,Offset>?>(null)};var menu by remember {mutableStateOf<Offset?>(null)};var menuAnchor by remember {mutableStateOf(Offset.Zero)}
     val located=rows.mapIndexed {i,pair->val saved=positions.optJSONObject(pair.first.id);val point=if(drag?.first==pair.first.id)drag!!.second else Offset(saved?.optDouble("x",24.0+pair.second*260)?.toFloat() ?: (24+pair.second*260).toFloat(),saved?.optDouble("y",24.0+i*112)?.toFloat() ?: (24+i*112).toFloat());pair.first to point};val byId=located.toMap()
     val savedZoom=view.optDouble("zoom",1.0).coerceIn(.4,2.0).toFloat()
     var zoom by remember(map.id) { mutableFloatStateOf(savedZoom) }
+    val currentLocated by rememberUpdatedState(located)
+    val currentZoom by rememberUpdatedState(zoom)
     var pendingScroll by remember { mutableStateOf<Offset?>(null) }
     val latestView by rememberUpdatedState(view);val latestOnView by rememberUpdatedState(onView)
     LaunchedEffect(savedZoom) { zoom=savedZoom }
-    LaunchedEffect(resetKey) { horizontal.scrollTo(0);vertical.scrollTo(0) }
+    LaunchedEffect(map.id,resetKey) {
+        val root=located.firstOrNull {it.first.parentId==null}?.second ?: Offset.Zero
+        horizontal.scrollTo(((root.x-16f)*density*zoom).roundToInt().coerceAtLeast(0))
+        vertical.scrollTo(((root.y-16f)*density*zoom).roundToInt().coerceAtLeast(0))
+    }
     LaunchedEffect(pendingScroll) { pendingScroll?.let { target->
         withFrameNanos { }
         horizontal.scrollTo(target.x.roundToInt().coerceAtLeast(0));vertical.scrollTo(target.y.roundToInt().coerceAtLeast(0))
@@ -344,16 +370,23 @@ internal fun NativeMindmapCanvas(map:MindmapDocument,rows:List<Pair<MindmapNode,
     val scaleState=genesisTranslate("Масштаб")
     val zoomIn=genesisTranslate("Увеличить масштаб");val zoomOut=genesisTranslate("Уменьшить масштаб")
     CompositionLocalProvider(LocalPreserveCalendarColors provides true) {
-    Box(modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium).background(background).testTag("mindmap-canvas")
+    Column(modifier.fillMaxWidth()) {
+    if(connecting!=null) Row(Modifier.fillMaxWidth().testTag("mindmap-link-controls"),verticalAlignment=Alignment.CenterVertically) {
+        Text("Выберите второй узел для связи",Modifier.weight(1f),style=MaterialTheme.typography.bodySmall)
+        TextButton(onClick={connecting=null},modifier=Modifier.testTag("mindmap-cancel-link")) { Text("Отменить соединение") }
+    }
+    Box(Modifier.weight(1f).fillMaxWidth().clip(MaterialTheme.shapes.medium).background(background).testTag("mindmap-canvas")
         .semantics {
             stateDescription="$scaleState ${(zoom*100).roundToInt()}%"
             customActions=listOf(CustomAccessibilityAction(zoomIn) { latestOnView(JSONObject(latestView.toString()).put("zoom",(zoom+.2f).coerceAtMost(2f)));true },
                 CustomAccessibilityAction(zoomOut) { latestOnView(JSONObject(latestView.toString()).put("zoom",(zoom-.2f).coerceAtLeast(.4f)));true })
         }
         .pointerInput(map.id, readOnly) {
-            if (!readOnly) detectTapGestures(onLongPress = { point ->
+            detectTapGestures(onTap={connecting=null},onLongPress = { point ->
+                val documentPoint=Offset((point.x+horizontal.value)/(currentZoom*density),(point.y+vertical.value)/(currentZoom*density))
+                if(currentLocated.any { (_, nodePoint) -> documentPoint.x in nodePoint.x..(nodePoint.x+220f) && documentPoint.y in nodePoint.y..(nodePoint.y+84f) }) return@detectTapGestures
                 menuAnchor = point
-                menu = Offset((point.x + horizontal.value) / zoom, (point.y + vertical.value) / zoom)
+                menu = documentPoint
             })
         }
         .pointerInput(map.id) {
@@ -387,13 +420,13 @@ internal fun NativeMindmapCanvas(map:MindmapDocument,rows:List<Pair<MindmapNode,
                     val currentPoint by rememberUpdatedState(point);val currentView by rememberUpdatedState(view)
                     val fill=mapColor(n.style?.optString("fill"),MaterialTheme.colorScheme.surface)
                     val ink=if(n.style?.has("fill")==true)if(fill.luminance()>.179f)Color.Black else Color.White else MaterialTheme.colorScheme.onSurface
-                    Surface(onClick={val from=connecting;if(from!=null&&from!=n.id){onLink(from,n.id);connecting=null}else onSelect(n.id)},shape=MaterialTheme.shapes.medium,color=fill,contentColor=ink,border=BorderStroke(1.dp,mapColor(n.style?.optString("border"),MaterialTheme.colorScheme.outline)),
+                    Surface(onClick={val from=connecting;if(from!=null){connecting=null;if(from!=n.id&&!readOnly)onLink(from,n.id)}else onSelect(n.id)},shape=MaterialTheme.shapes.medium,color=fill,contentColor=ink,border=BorderStroke(if(connecting==n.id) 2.dp else 1.dp,if(connecting==n.id)MaterialTheme.colorScheme.primary else mapColor(n.style?.optString("border"),MaterialTheme.colorScheme.outline)),
                     modifier=Modifier.testTag("mindmap-node-${n.id}").zIndex(if(drag?.first==n.id)10f else 0f).offset {IntOffset(point.x.dp.roundToPx(),point.y.dp.roundToPx())}.width(220.dp).height(84.dp).pointerInput(n.id,readOnly){detectDragGesturesAfterLongPress(onDragEnd={val moved=drag;drag=null;if(moved!=null){val next=JSONObject(currentView.toString());val ps=next.optJSONObject("positions") ?: JSONObject();ps.put(n.id,JSONObject().put("x",moved.second.x).put("y",moved.second.y));onView(next.put("positions",ps))}},onDragCancel={drag=null}){change,delta->if(readOnly)return@detectDragGesturesAfterLongPress;change.consume();val start=drag?.takeIf {it.first==n.id}?.second ?: currentPoint;drag=n.id to Offset((start.x+delta.x/density).coerceAtLeast(0f),(start.y+delta.y/density).coerceAtLeast(0f))}}) {
                     Row(Modifier.padding(start=12.dp,top=12.dp,end=if(readOnly)40.dp else 56.dp), verticalAlignment=Alignment.CenterVertically) {
                         n.mindmapIcon()?.let { MindmapGlyph(it, Modifier.padding(end=8.dp).size(24.dp), ink) }
                         Column(Modifier.weight(1f)){Text(if(n.kind=="idea")"Мысль" else "GENESIS",style=MaterialTheme.typography.labelSmall);Text(label(n),maxLines=2,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.titleSmall)}
                     }
-                    if(!readOnly)Box(Modifier.fillMaxSize(),contentAlignment=Alignment.CenterEnd){AffairsIconButton("Создать связь",AffairsAction.LINK,{val from=connecting;if(from!=null&&from!=n.id){onLink(from,n.id);connecting=null}else connecting=if(from==n.id)null else n.id},contentColor=ink)}
+                    if(!readOnly)Box(Modifier.fillMaxSize(),contentAlignment=Alignment.CenterEnd){AffairsIconButton(if(connecting==n.id)"Отменить соединение" else "Создать связь",AffairsAction.LINK,{val from=connecting;if(from!=null&&from!=n.id){connecting=null;onLink(from,n.id)}else connecting=if(from==n.id)null else n.id},modifier=Modifier.testTag("mindmap-connect-${n.id}"),contentColor=ink,selected=connecting==n.id)}
                     }
                 }
 
@@ -401,13 +434,21 @@ internal fun NativeMindmapCanvas(map:MindmapDocument,rows:List<Pair<MindmapNode,
         }
         }
         Box(Modifier.offset { IntOffset(menuAnchor.x.roundToInt(), menuAnchor.y.roundToInt()) }.size(1.dp)) {
-            DropdownMenu(expanded=menu!=null&&!readOnly,onDismissRequest={menu=null}) {
+            DropdownMenu(expanded=menu!=null,onDismissRequest={menu=null}) {
                 DropdownMenuItem(text={Text("Добавить мысль")}, modifier=Modifier.testTag("mindmap-context-add"),
                     leadingIcon={AffairsActionIcon(AffairsAction.ADD)},
-                    onClick={val point=menu;menu=null;if(point!=null)onAdd(Offset(point.x/density,point.y/density))})
+                    enabled=!readOnly,onClick={val point=menu;menu=null;if(point!=null)onAdd(point)})
+                DropdownMenuItem(text={Text("Добавить из дел")},leadingIcon={AffairsActionIcon(AffairsAction.TASK)},
+                    enabled=!readOnly,modifier=Modifier.testTag("mindmap-context-affair"),onClick={menu=null;onAffair()})
+                DropdownMenuItem(text={Text("К началу")},leadingIcon={AffairsActionIcon(AffairsAction.CENTER)},
+                    modifier=Modifier.testTag("mindmap-context-home"),onClick={menu=null;connecting=null;onHome()})
+                if(view.optString("focus").isNotBlank()) DropdownMenuItem(text={Text("Вся карта")},
+                    leadingIcon={AffairsActionIcon(AffairsAction.MINDMAP)},onClick={menu=null;onView(JSONObject(view.toString()).removeFocus())})
+                if(connecting!=null)DropdownMenuItem(text={Text("Отменить соединение")},
+                    leadingIcon={AffairsActionIcon(AffairsAction.CLOSE)},onClick={menu=null;connecting=null})
             }
         }
-        if(connecting!=null)Surface(color=MaterialTheme.colorScheme.surface,modifier=Modifier.align(Alignment.TopCenter)){TextButton(onClick={connecting=null}){Text("Отменить соединение")}}
+    }
     }
     }
 }

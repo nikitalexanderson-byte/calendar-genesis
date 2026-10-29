@@ -73,7 +73,7 @@ class Messenger310Test {
     }
     @Test fun newChatDialogAndContactsNeedNoAdditionalLogin(){
         content();compose.waitUntil(15000){repository.state.value.ready}
-        compose.onNodeWithTag("messenger-new").performClick();compose.onNodeWithText("Секретный чат").assertExists();compose.onAllNodesWithText("Личный чат").assertCountEquals(2);capture("new-chat")
+        compose.onNodeWithTag("messenger-new").performClick();compose.onNodeWithContentDescription("Секретный чат").assertExists();compose.onNodeWithContentDescription("Личный чат").assertExists();capture("new-chat")
         compose.onNodeWithText("Отмена").performClick()
         compose.waitUntil(10000){runCatching{compose.onNodeWithText("Контакты").assertIsEnabled()}.isSuccess}
         compose.onNodeWithText("Контакты").performClick()

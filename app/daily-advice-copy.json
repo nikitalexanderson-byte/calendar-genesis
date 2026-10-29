@@ -53,7 +53,11 @@
     "themeLove": "Афродистика - любовь",
     "themeAesthetics": "Афродистика - эстетика",
     "themeConsciousness": "Афродистика - сознание",
-    "ageData": "В настройках аккаунта также хранится ответ на вопрос о достижении 18 лет для фильтрации интимных советов «Афродистики»; дата рождения и документы не запрашиваются."
+    "ageData": "В настройках аккаунта также хранится ответ на вопрос о достижении 18 лет для фильтрации интимных советов «Афродистики»; дата рождения и документы не запрашиваются.",
+    "share": "Поделиться советом",
+    "sharePreparing": "Создаём изображение…",
+    "shareError": "Не удалось поделиться советом. Повторите попытку.",
+    "shareDownload": "Скачать изображение"
   },
   "en": {
     "title": "Daily advice",
@@ -109,7 +113,11 @@
     "themeLove": "Aphrodistics - love",
     "themeAesthetics": "Aphrodistics - aesthetics",
     "themeConsciousness": "Aphrodistics - consciousness",
-    "ageData": "The account settings also store the answer to the question about reaching 18 years of age to filter intimate advice from Afrodistics; date of birth and documents are not requested."
+    "ageData": "The account settings also store the answer to the question about reaching 18 years of age to filter intimate advice from Afrodistics; date of birth and documents are not requested.",
+    "share": "Share advice",
+    "sharePreparing": "Creating image…",
+    "shareError": "Could not share this advice. Please try again.",
+    "shareDownload": "Download image"
   },
   "el": {
     "title": "Συμβουλή της ημέρας",
@@ -165,7 +173,11 @@
     "themeLove": "Αφροδιστικά - αγάπη",
     "themeAesthetics": "Αφροδιστικές – αισθητικές",
     "themeConsciousness": "Αφροδιστικά – συνείδηση",
-    "ageData": "Οι ρυθμίσεις λογαριασμού αποθηκεύουν επίσης την απάντηση στην ερώτηση σχετικά με την ηλικία των 18 ετών για να φιλτράρουν τις προσωπικές συμβουλές από την Afrodistics. ημερομηνία γέννησης και έγγραφα δεν ζητούνται."
+    "ageData": "Οι ρυθμίσεις λογαριασμού αποθηκεύουν επίσης την απάντηση στην ερώτηση σχετικά με την ηλικία των 18 ετών για να φιλτράρουν τις προσωπικές συμβουλές από την Afrodistics. ημερομηνία γέννησης και έγγραφα δεν ζητούνται.",
+    "share": "Κοινοποίηση συμβουλής",
+    "sharePreparing": "Δημιουργία εικόνας…",
+    "shareError": "Δεν ήταν δυνατή η κοινοποίηση. Δοκιμάστε ξανά.",
+    "shareDownload": "Λήψη εικόνας"
   },
   "de": {
     "title": "Tagesimpuls",
@@ -221,7 +233,11 @@
     "themeLove": "Aphrodistik – Liebe",
     "themeAesthetics": "Aphrodistik – Ästhetik",
     "themeConsciousness": "Aphrodistik – Bewusstsein",
-    "ageData": "In den Kontoeinstellungen wird auch die Antwort auf die Frage nach dem Erreichen des 18. Lebensjahres gespeichert, um intime Ratschläge von Afrodistics zu filtern. Geburtsdatum und Unterlagen werden nicht verlangt."
+    "ageData": "In den Kontoeinstellungen wird auch die Antwort auf die Frage nach dem Erreichen des 18. Lebensjahres gespeichert, um intime Ratschläge von Afrodistics zu filtern. Geburtsdatum und Unterlagen werden nicht verlangt.",
+    "share": "Tipp teilen",
+    "sharePreparing": "Bild wird erstellt…",
+    "shareError": "Der Tipp konnte nicht geteilt werden. Versuchen Sie es erneut.",
+    "shareDownload": "Bild herunterladen"
   },
   "fr": {
     "title": "Conseil du jour",
@@ -277,7 +293,11 @@
     "themeLove": "Aphrodistique - amour",
     "themeAesthetics": "Aphrodistique - esthétique",
     "themeConsciousness": "Aphrodistique - conscience",
-    "ageData": "Les paramètres du compte stockent également la réponse à la question sur l'âge de 18 ans pour filtrer les conseils intimes d'Afrodistics ; la date de naissance et les documents ne sont pas demandés."
+    "ageData": "Les paramètres du compte stockent également la réponse à la question sur l'âge de 18 ans pour filtrer les conseils intimes d'Afrodistics ; la date de naissance et les documents ne sont pas demandés.",
+    "share": "Partager le conseil",
+    "sharePreparing": "Création de l’image…",
+    "shareError": "Impossible de partager ce conseil. Réessayez.",
+    "shareDownload": "Télécharger l’image"
   },
   "es": {
     "title": "Consejo del día",
@@ -333,7 +353,11 @@
     "themeLove": "Afrodistas - amor",
     "themeAesthetics": "Afrodista - estética",
     "themeConsciousness": "Afrodista - conciencia",
-    "ageData": "La configuración de la cuenta también almacena la respuesta a la pregunta sobre cumplir 18 años para filtrar consejos íntimos de Afrodistics; No se solicitan fecha de nacimiento ni documentos."
+    "ageData": "La configuración de la cuenta también almacena la respuesta a la pregunta sobre cumplir 18 años para filtrar consejos íntimos de Afrodistics; No se solicitan fecha de nacimiento ni documentos.",
+    "share": "Compartir consejo",
+    "sharePreparing": "Creando imagen…",
+    "shareError": "No se pudo compartir el consejo. Inténtalo de nuevo.",
+    "shareDownload": "Descargar imagen"
   },
   "it": {
     "title": "Consiglio del giorno",
@@ -389,7 +413,11 @@
     "themeLove": "Afrodistici: amore",
     "themeAesthetics": "Afrodistica - estetica",
     "themeConsciousness": "Afrodistici: coscienza",
-    "ageData": "Le impostazioni dell'account memorizzano anche la risposta alla domanda sul raggiungimento dei 18 anni per filtrare i consigli intimi di Afrodistics; non sono richiesti data di nascita e documenti."
+    "ageData": "Le impostazioni dell'account memorizzano anche la risposta alla domanda sul raggiungimento dei 18 anni per filtrare i consigli intimi di Afrodistics; non sono richiesti data di nascita e documenti.",
+    "share": "Condividi il consiglio",
+    "sharePreparing": "Creazione immagine…",
+    "shareError": "Impossibile condividere il consiglio. Riprova.",
+    "shareDownload": "Scarica immagine"
   },
   "pt": {
     "title": "Conselho do dia",
@@ -445,7 +473,11 @@
     "themeLove": "Afrodística - amor",
     "themeAesthetics": "Afrodística - estética",
     "themeConsciousness": "Afrodística - consciência",
-    "ageData": "As configurações da conta também armazenam a resposta à pergunta sobre atingir 18 anos para filtrar conselhos íntimos de Afrodística; data de nascimento e documentos não são solicitados."
+    "ageData": "As configurações da conta também armazenam a resposta à pergunta sobre atingir 18 anos para filtrar conselhos íntimos de Afrodística; data de nascimento e documentos não são solicitados.",
+    "share": "Compartilhar conselho",
+    "sharePreparing": "Criando imagem…",
+    "shareError": "Não foi possível compartilhar o conselho. Tente novamente.",
+    "shareDownload": "Baixar imagem"
   },
   "pl": {
     "title": "Porada dnia",
@@ -501,7 +533,11 @@
     "themeLove": "Afrodystyka - miłość",
     "themeAesthetics": "Afrodystyka - estetyka",
     "themeConsciousness": "Afrodystyka - świadomość",
-    "ageData": "W ustawieniach konta zapisana jest także odpowiedź na pytanie o ukończenie 18 roku życia, aby filtrować intymne porady od Afrodistics; data urodzenia i dokumenty nie są wymagane."
+    "ageData": "W ustawieniach konta zapisana jest także odpowiedź na pytanie o ukończenie 18 roku życia, aby filtrować intymne porady od Afrodistics; data urodzenia i dokumenty nie są wymagane.",
+    "share": "Udostępnij poradę",
+    "sharePreparing": "Tworzenie obrazu…",
+    "shareError": "Nie udało się udostępnić porady. Spróbuj ponownie.",
+    "shareDownload": "Pobierz obraz"
   },
   "sr": {
     "title": "Савет дана",
@@ -557,7 +593,11 @@
     "themeLove": "Афродистика - љубав",
     "themeAesthetics": "Афродистика - естетика",
     "themeConsciousness": "Афродистика – свест",
-    "ageData": "Подешавања налога такође чувају одговор на питање о навршењу 18 година како би филтрирали интимне савете из Афродистице; датум рођења и документи се не траже."
+    "ageData": "Подешавања налога такође чувају одговор на питање о навршењу 18 година како би филтрирали интимне савете из Афродистице; датум рођења и документи се не траже.",
+    "share": "Подели савет",
+    "sharePreparing": "Прављење слике…",
+    "shareError": "Савет није могао да се подели. Покушајте поново.",
+    "shareDownload": "Преузми слику"
   },
   "uk": {
     "title": "Порада дня",
@@ -613,7 +653,11 @@
     "themeLove": "Афродистика - кохання",
     "themeAesthetics": "Афродистика – естетика",
     "themeConsciousness": "Афродистика – свідомість",
-    "ageData": "У налаштуваннях облікового запису також зберігається відповідь на питання про досягнення 18 років для фільтрації інтимних порад «Афродистики»; дата народження та документи не запитуються."
+    "ageData": "У налаштуваннях облікового запису також зберігається відповідь на питання про досягнення 18 років для фільтрації інтимних порад «Афродистики»; дата народження та документи не запитуються.",
+    "share": "Поділитися порадою",
+    "sharePreparing": "Створюємо зображення…",
+    "shareError": "Не вдалося поділитися порадою. Спробуйте ще раз.",
+    "shareDownload": "Завантажити зображення"
   },
   "zh": {
     "title": "每日建议",
@@ -669,7 +713,11 @@
     "themeLove": "春药——爱情",
     "themeAesthetics": "春药 - 美学",
     "themeConsciousness": "催情术 - 意识",
-    "ageData": "帐户设置还存储有关年满 18 岁的问题的答案，以过滤来自 Afrodistics 的私密建议；不要求提供出生日期和文件。"
+    "ageData": "帐户设置还存储有关年满 18 岁的问题的答案，以过滤来自 Afrodistics 的私密建议；不要求提供出生日期和文件。",
+    "share": "分享建议",
+    "sharePreparing": "正在生成图片…",
+    "shareError": "无法分享此建议，请重试。",
+    "shareDownload": "下载图片"
   },
   "tr": {
     "title": "Günün tavsiyesi",
@@ -725,7 +773,11 @@
     "themeLove": "Afrodistik - aşk",
     "themeAesthetics": "Afrodistik - estetik",
     "themeConsciousness": "Afrodistik - bilinç",
-    "ageData": "Hesap ayarları ayrıca Afrodistik'ten özel tavsiyeleri filtrelemek için 18 yaşına ulaşmayla ilgili sorunun cevabını da saklar; doğum tarihi ve belgeler istenmez."
+    "ageData": "Hesap ayarları ayrıca Afrodistik'ten özel tavsiyeleri filtrelemek için 18 yaşına ulaşmayla ilgili sorunun cevabını da saklar; doğum tarihi ve belgeler istenmez.",
+    "share": "Öneriyi paylaş",
+    "sharePreparing": "Görsel oluşturuluyor…",
+    "shareError": "Öneri paylaşılamadı. Yeniden deneyin.",
+    "shareDownload": "Görseli indir"
   },
   "ja": {
     "title": "今日の助言",
@@ -781,6 +833,10 @@
     "themeLove": "媚薬 - 愛",
     "themeAesthetics": "媚薬 - 美学",
     "themeConsciousness": "媚薬 - 意識",
-    "ageData": "アカウント設定には、アフロディスティックスからの親密なアドバイスをフィルタリングするために、18 歳に達するかどうかに関する質問への回答も保存されます。生年月日や書類の提出は求められません。"
+    "ageData": "アカウント設定には、アフロディスティックスからの親密なアドバイスをフィルタリングするために、18 歳に達するかどうかに関する質問への回答も保存されます。生年月日や書類の提出は求められません。",
+    "share": "アドバイスを共有",
+    "sharePreparing": "画像を作成中…",
+    "shareError": "共有できませんでした。もう一度お試しください。",
+    "shareDownload": "画像をダウンロード"
   }
 }

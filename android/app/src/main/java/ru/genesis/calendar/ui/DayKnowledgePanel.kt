@@ -344,22 +344,23 @@ internal fun CalendarSelectedDayFacts(date: LocalDate, calendar: GenesisCalendar
             }
         }
         CalendarMode.LUNAR -> Surface(Modifier.fillMaxWidth().testTag("calendar-selected-lunar"), shape = RoundedCornerShape(16.dp),
-            color = deepTeal, border = BorderStroke(1.dp, Color(0x55dfc17e))) {
+            color = if (LocalEveningTheme.current) deepTeal else MaterialTheme.colorScheme.primaryContainer,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     MoonPhaseIcon(moon.phaseStep, size = 46.dp)
                     Column(Modifier.weight(1f)) {
                         Text("Лунный календарь", style = MaterialTheme.typography.labelMedium,
-                            color = Color(0xffdfc17e), fontWeight = FontWeight.Bold)
+                            color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                         Text("${moon.day} лунный день · ${moon.phase}", style = MaterialTheme.typography.titleSmall,
-                            color = Color(0xfffff7e7))
+                            color = MaterialTheme.colorScheme.onPrimaryContainer)
                         Text("${moon.epithet} · ${moon.direction} · освещённость ${moon.illumination}%",
-                            style = MaterialTheme.typography.bodySmall, color = Color(0xffa9beb8))
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
                     }
                 }
                 Text("${lunar.month.name} · ${lunar.decade}${if (lunar.isThreshold) " · Рубеж" else ""}",
-                    style = MaterialTheme.typography.bodySmall, color = Color(0xffd8c28e))
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
                 if (moon.event.isNotBlank()) Text(moon.event, style = MaterialTheme.typography.labelMedium,
                     color = moonGold, fontWeight = FontWeight.Bold)
             }

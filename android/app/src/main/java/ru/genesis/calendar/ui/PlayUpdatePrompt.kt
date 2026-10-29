@@ -26,7 +26,8 @@ internal fun PlayUpdatePrompt(context:Context,checkedAt:Long?) {
     val launcher=rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result->
         if(result.resultCode!=android.app.Activity.RESULT_OK){dismissedVersion=offered?.availableVersionCode() ?: 0;offered=null}
     }
-    LaunchedEffect(checkedAt) {
+    val resumeEpoch = rememberUpdateResumeEpoch()
+    LaunchedEffect(checkedAt, resumeEpoch) {
         val info=suspendCancellableCoroutine<AppUpdateInfo?> { continuation-> manager.appUpdateInfo.addOnSuccessListener {if(continuation.isActive)continuation.resume(it)}.addOnFailureListener {if(continuation.isActive)continuation.resume(null)} }
         if(info!=null&&info.availableVersionCode()!=dismissedVersion&&shouldOfferPlayUpdate(info.updateAvailability(),info.installStatus(),info.isUpdateTypeAllowed(AppUpdateType.FLEXIBLE)))offered=info
     }

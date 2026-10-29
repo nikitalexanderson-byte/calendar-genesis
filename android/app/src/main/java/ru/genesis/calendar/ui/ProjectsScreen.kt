@@ -100,17 +100,10 @@ private fun DraggableTaskRow(task: LocalTask, pickedUp: Boolean,
     Row(Modifier.fillMaxWidth().testTag("drag-task-${task.id}")
         .semantics { contentDescription = dragDescription }
         .onGloballyPositioned { bounds = it.boundsInRoot() }
-        .pointerInput(task.id) {
-            detectDragGesturesAfterLongPress(
-                onDragStart = { offset ->
-                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    start(task, bounds.topLeft + offset)
-                },
-                onDrag = { change, delta -> change.consume(); move(delta) },
-                onDragEnd = { finish(false) },
-                onDragCancel = { finish(true) }
-            )
-        }
+        .workspaceDragSource(task.id, onStart = { offset ->
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            start(task, bounds.topLeft + offset)
+        }, onMove = { move(it) }, onFinish = { finish(it) })
         .background(if (pickedUp) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
         .clip(AffairsLayout.shape)
         .background(MaterialTheme.colorScheme.surfaceContainerLowest)
@@ -121,7 +114,7 @@ private fun DraggableTaskRow(task: LocalTask, pickedUp: Boolean,
 }
 
 @Composable
-private fun DraggableWorkspaceBlock(id: String, title: String, pickedUp: Boolean,
+internal fun DraggableWorkspaceBlock(id: String, title: String, pickedUp: Boolean,
     onStart: (Offset) -> Unit, onMove: (Offset) -> Unit, onFinish: (Boolean) -> Unit,
     content: @Composable () -> Unit) {
     var bounds by remember(id) { mutableStateOf(Rect.Zero) }
@@ -132,12 +125,9 @@ private fun DraggableWorkspaceBlock(id: String, title: String, pickedUp: Boolean
     val label = genesisTranslate("Удерживайте «$title» и перетащите в проект")
     Box(Modifier.fillMaxWidth().testTag("drag-block-$id").semantics { contentDescription = label }
         .onGloballyPositioned { bounds = it.boundsInRoot() }
-        .pointerInput(id) {
-            detectDragGesturesAfterLongPress(onDragStart = {
-                haptics.performHapticFeedback(HapticFeedbackType.LongPress); start(bounds.topLeft + it)
-            }, onDrag = { change, delta -> change.consume(); move(delta) },
-                onDragEnd = { finish(false) }, onDragCancel = { finish(true) })
-        }.graphicsLayer { alpha = if (pickedUp) .48f else 1f }) { content() }
+        .workspaceDragSource(id, onStart = {
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress); start(bounds.topLeft + it)
+        }, onMove = { move(it) }, onFinish = { finish(it) }).graphicsLayer { alpha = if (pickedUp) .48f else 1f }) { content() }
 }
 
 /** One native screen adapted from the web Projects workspace. Standart uses its existing Material roles. */
@@ -169,7 +159,21 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
     val (taskSort,setTaskSort)=rememberTaskListSort("personal")
     val (inboxLayout, setInboxLayout) = rememberPersonalInboxLayout(app)
     val projectStartIndex = if (!inboxLayout.hidden && !inboxLayout.atBottom) 2 else 1
-    val orderedTasks=remember(tasks,taskSort){orderPersonalTasks(tasks,taskSort)}
+    val optimisticMoves = remember(app.workspaceScope) { mutableStateMapOf<String, LocalTask>() }
+    val optimisticListLinks = remember(app.workspaceScope) { mutableStateMapOf<String,String?>() }
+    val visibleTasks = tasks.map { optimisticMoves[it.id] ?: it }
+    LaunchedEffect(tasks) {
+        optimisticMoves.entries.toList().forEach { (id, preview) ->
+            if (tasks.any { it.id == id && it.revision > preview.revision && it.projectId == preview.projectId })
+                optimisticMoves.remove(id)
+        }
+    }
+    LaunchedEffect(structure) {
+        optimisticListLinks.entries.toList().forEach { (id,target) ->
+            if (structure.taskListLinks.firstOrNull {it.taskListId==id}?.projectId == target) optimisticListLinks.remove(id)
+        }
+    }
+    val orderedTasks=remember(visibleTasks,taskSort){orderPersonalTasks(visibleTasks,taskSort)}
     var searchQuery by rememberSaveable(app.workspaceScope) { mutableStateOf("") }
     var createActionsOpen by remember { mutableStateOf(false) }
     var categoryFiltersOpen by rememberSaveable(app.workspaceScope) { mutableStateOf(false) }
@@ -196,6 +200,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
     var categoriesExpanded by rememberSaveable(app.workspaceScope) { mutableStateOf(false) }
     val listState = rememberLazyListState()
     var error by remember { mutableStateOf<String?>(null) }
+    var retryMove by remember { mutableStateOf<Pair<String,String>?>(null) }
     LaunchedEffect(voiceRequest,structure.revision) {
         if(voiceRequest!=null) {
             when(voiceRequest) {
@@ -252,7 +257,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
     val knownLists = remember(taskLists, tasks, structure) {
         userTaskLists(taskListsForTasks(taskLists + structure.taskLists, tasks))
     }
-    fun listProjectId(list: GoogleTaskList): String? = structure.taskListLinks
+    fun listProjectId(list: GoogleTaskList): String? = if(optimisticListLinks.containsKey(list.id)) optimisticListLinks[list.id] else structure.taskListLinks
         .firstOrNull { it.taskListId == list.id }?.projectId
         ?.takeIf { id -> structure.projects.any { it.id == id } }
     val inboxLists = knownLists.filter { listProjectId(it) == null }
@@ -298,6 +303,12 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
     val activeCount = tasks.count { !it.done }
     val projectSummary = mobileCalendarCopy(language).let { "${it.projects}: $projectCount\n${it.activeTasks}: $activeCount" }
     val moveTask: (String, String) -> Unit = { taskId, targetId ->
+        val target = structure.projects.firstOrNull { it.id == targetId }
+        val current = tasks.firstOrNull { it.id == taskId }
+        if (current != null && current.projectId != targetId && (targetId == inboxDropId || target != null)) {
+            optimisticMoves[taskId] = current.copy(projectId = target?.id ?: inboxDropId,
+                categoryId = target?.categoryId, project = target?.title.orEmpty())
+        }
         scope.launch {
             try {
                 val project = if (targetId == inboxDropId) null else {
@@ -313,8 +324,12 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
                         else "«${task.title}» перенесена в «${project.title}»."
                 }
                 error = null
-            } catch (e: IllegalArgumentException) { error = e.message ?: "Не удалось перенести задачу." }
-            catch (_: Exception) { error = "Не удалось перенести задачу. Повторите попытку." }
+                retryMove = null
+            } catch (cancel: kotlinx.coroutines.CancellationException) { throw cancel }
+            catch (e: Exception) {
+                optimisticMoves.remove(taskId); retryMove = taskId to targetId
+                error = e.message ?: "Не удалось перенести задачу. Повторите попытку."
+            }
         }
     }
     val onPickup: (LocalTask, Offset) -> Unit = { task, point ->
@@ -327,11 +342,17 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
                 if (held.list == null) moveTask(held.id, id) else {
                     val list = held.list
                     val origin = listProjectId(list)
+                    val target = structure.projects.firstOrNull { it.id == id }
+                    val movingTasks = tasks.filter { it.belongsToList(list) && personalTaskProjectId(it, structure) == origin }
+                    if(id == inboxDropId || target != null) {
+                        optimisticListLinks[list.id] = target?.id
+                        movingTasks.forEach { task -> optimisticMoves[task.id]=task.copy(projectId=target?.id ?: inboxDropId,
+                            categoryId=target?.categoryId,project=target?.title.orEmpty()) }
+                    }
                     scope.launch {
                         try {
-                            val target = structure.projects.firstOrNull { it.id == id }
                             require(id == inboxDropId || target != null) { "Проект больше не существует." }
-                            tasks.filter { it.belongsToList(list) && personalTaskProjectId(it, structure) == origin }.forEach { task ->
+                            movingTasks.forEach { task ->
                                 app.repository.save(task.copy(projectId = target?.id ?: inboxDropId,
                                     categoryId = target?.categoryId, project = target?.title.orEmpty()))
                             }
@@ -339,7 +360,10 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
                             moveAnnouncement = "«${list.title}» перенесён в «${target?.title ?: "Хаос-бокс"}»."
                             error = null
                         } catch (cancel: kotlinx.coroutines.CancellationException) { throw cancel }
-                        catch (e: Exception) { error = e.message ?: "Не удалось перенести список. Повторите попытку." }
+                        catch (e: Exception) {
+                            optimisticListLinks.remove(list.id);movingTasks.forEach {optimisticMoves.remove(it.id)}
+                            error = e.message ?: "Не удалось перенести список. Повторите попытку."
+                        }
                     }
                 }
             }
@@ -387,18 +411,12 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
                                         }
                                     }, modifier = Modifier.testTag(if (kind == "project") "create-project" else "personal-create-$kind"))
                             }
-                            HorizontalDivider()
-                            DropdownMenuItem(text = { Text(if (inboxLayout.hidden) "Показать хаос-бокс" else "Скрыть хаос-бокс") },
-                                leadingIcon = { AffairsActionIcon(if (inboxLayout.hidden) AffairsAction.VIEW else AffairsAction.HIDE) },
-                                onClick = {
-                                    createActionsOpen = false; setInboxLayout(inboxLayout.copy(hidden = !inboxLayout.hidden))
-                                }, modifier = Modifier.testTag("personal-toggle-inbox"))
                         }
                     }
     }
     val headerInShell = WorkspaceScreenHeader("Личные дела", projectSummary, expandSubtitle = true, actions = headerActions)
 
-    Box(Modifier.fillMaxSize().onGloballyPositioned { workspaceBounds = it.boundsInRoot() }) {
+    WorkspaceDragHost(Modifier.fillMaxSize().onGloballyPositioned { workspaceBounds = it.boundsInRoot() }) {
     val inboxContent: @Composable () -> Unit = {
         DisposableEffect(Unit) { onDispose { dropBounds.remove(inboxDropId) } }
         Box(Modifier.fillMaxWidth().onGloballyPositioned { dropBounds[inboxDropId]=it.boundsInRoot() }) {
@@ -616,7 +634,10 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
         }
         if (!inboxLayout.hidden && inboxLayout.atBottom) item(key = "personal-inbox") { inboxContent() }
         }
-        error?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.error) } }
+        error?.let { message -> item { Column {
+            Text(message, color = MaterialTheme.colorScheme.error)
+            retryMove?.let { (id,target) -> TextButton({ moveTask(id,target) }) { Text("Повторить") } }
+        } } }
         moveAnnouncement?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.testTag("project-move-announcement")) } }
     }

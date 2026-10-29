@@ -28,6 +28,13 @@ import java.util.concurrent.ConcurrentHashMap
 val LocalGenesisLanguage = compositionLocalOf { "ru" }
 
 private val nativeCopy = mapOf(
+    "Выберите второй узел для связи" to "Select the second node to connect",
+    "Доступно обновление приложения. Скачайте его прямо здесь." to "An app update is available. Download it here.",
+    "Установлена актуальная версия" to "You have the latest version",
+    "Не удалось открыть Google Play. Проверьте соединение и повторите попытку." to "Could not open Google Play. Check your connection and try again.",
+    "Не удалось проверить обновления. Проверьте интернет и повторите попытку." to "Could not check for updates. Check your connection and try again.",
+    "Проверяем обновления…" to "Checking for updates…",
+    "Проверить обновления" to "Check for updates",
     "Ранее сохранённые задачи" to "Previously saved tasks",
     "Нажмите полосу и потяните её края. Двойное нажатие открывает задачу. Удерживайте карточку для переноса. Шаг времени — 15 минут." to "Tap a bar and drag its edges. Double-tap to open the task. Hold a card to move it. Times snap to 15 minutes.",
     "Аккаунт Genesis." to "Genesis account.",

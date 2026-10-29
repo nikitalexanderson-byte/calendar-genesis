@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 
 internal val LocalGenesisModal = compositionLocalOf { false }
+internal val LocalGenesisModalFramePending = compositionLocalOf { false }
 
 /** Only the card is opaque; the surrounding area remains Android's dimmed backdrop. */
 @Composable internal fun GenesisModalFrame(onDismissRequest: () -> Unit,
@@ -31,7 +32,9 @@ internal val LocalGenesisModal = compositionLocalOf { false }
         androidx.compose.material3.Surface(Modifier.widthIn(max = maxWidth).fillMaxWidth().padding(12.dp)
             .heightIn(max = maxHeight * .94f).testTag("genesis-modal-surface"), shape = AffairsLayout.shape,
             color = MaterialTheme.colorScheme.surface.copy(alpha = 1f), shadowElevation = 12.dp) {
-            BoxWithConstraints(Modifier.fillMaxWidth(), content = content)
+            CompositionLocalProvider(LocalGenesisModalFramePending provides false) {
+                BoxWithConstraints(Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.secondary, AffairsLayout.shape), content = content)
+            }
         }
     }
 }
@@ -65,18 +68,12 @@ internal val LocalGenesisModal = compositionLocalOf { false }
             dialog.setCustomTitle(header)
         }
         dialog.window?.let { window ->
-            val original = window.decorView.background
-            val padding = android.graphics.Rect()
-            original?.getPadding(padding)
             val frame = android.graphics.drawable.GradientDrawable().apply {
                 setColor(fill)
                 cornerRadius = 10f * density
                 setStroke(kotlin.math.max(1, density.toInt()), stroke)
             }
-            val layers = android.graphics.drawable.LayerDrawable(arrayOf(
-                original ?: android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT), frame))
-            layers.setLayerInset(1, padding.left, padding.top, padding.right, padding.bottom)
-            window.setBackgroundDrawable(layers)
+            window.setBackgroundDrawable(frame)
         }
     }
 }
@@ -98,9 +95,11 @@ internal val LocalGenesisModal = compositionLocalOf { false }
             }
     }
     CompositionLocalProvider(LocalAffairsControlOutlined provides false, LocalGenesisModal provides true,
+        LocalGenesisModalFramePending provides false,
         LocalAffairsControlWidth provides 48.dp) {
     androidx.compose.material3.AlertDialog(onDismissRequest, confirmButton,
-        modifier.background(containerColor.compositeOver(MaterialTheme.colorScheme.surface.copy(alpha=1f)), shape), dismissButton, icon, framedTitle, text,
+        modifier.background(containerColor.compositeOver(MaterialTheme.colorScheme.surface.copy(alpha=1f)), shape)
+            .border(1.dp, MaterialTheme.colorScheme.secondary, shape), dismissButton, icon, framedTitle, text,
         shape, containerColor.compositeOver(MaterialTheme.colorScheme.surface.copy(alpha=1f)), iconContentColor, titleContentColor, textContentColor, tonalElevation, properties)
     }
 }
@@ -111,6 +110,7 @@ internal val LocalGenesisModal = compositionLocalOf { false }
         // The caller's opaque Surface owns the frame. Painting the window here also
         // paints its outside-tap area, turning bounded dialogs into full-screen sheets.
         CompositionLocalProvider(LocalAffairsControlOutlined provides false, LocalGenesisModal provides true,
+            LocalGenesisModalFramePending provides true,
             LocalAffairsControlWidth provides 48.dp) { content() }
     }
 }
