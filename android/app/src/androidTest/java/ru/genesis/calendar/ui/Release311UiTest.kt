@@ -71,7 +71,10 @@ class Release311UiTest {
     }
     @Test fun selectedDayGlassKeepsArtworkAndCompactReadableContentInEveryCalendar() {
         var mode by mutableStateOf(CalendarMode.PROFANE)
-        compose.setContent { Frame { CalendarScreen(java.time.LocalDate.of(2026,10,29),mode,{},experimental=true) } }
+        var date by mutableStateOf(java.time.LocalDate.of(2026,4,1))
+        compose.setContent { Frame { CalendarScreen(date,mode,{},experimental=true) } }
+        capture("april-month-header")
+        compose.runOnIdle { date=java.time.LocalDate.of(2026,10,29) }
         for(choice in CalendarMode.entries) {
             compose.runOnIdle { mode=choice }
             compose.onNodeWithTag("calendar-selected-day").performScrollTo()
