@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
@@ -71,8 +72,11 @@ internal fun Surface(modifier: Modifier = Modifier, shape: Shape = RectangleShap
     color: Color = MaterialTheme.colorScheme.surface, contentColor: Color = contentColorFor(color),
     tonalElevation: Dp = 0.dp, shadowElevation: Dp = 0.dp, border: BorderStroke? = null,
     content: @Composable () -> Unit) {
+    val modalBorder = if (LocalGenesisModalFramePending.current) BorderStroke(1.dp, MaterialTheme.colorScheme.secondary) else border
     androidx.compose.material3.Surface(modifier, shape, eveningSurface(color), eveningInk(contentColor),
-        tonalElevation, shadowElevation, border, content)
+        tonalElevation, shadowElevation, modalBorder) {
+        CompositionLocalProvider(LocalGenesisModalFramePending provides false) { content() }
+    }
 }
 
 @Composable

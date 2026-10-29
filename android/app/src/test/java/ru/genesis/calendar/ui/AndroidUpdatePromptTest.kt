@@ -19,8 +19,8 @@ class AndroidUpdatePromptTest {
         val body = """{"versionCode":49,"versionName":"2.4.3","sha256":"$hash"}"""
         assertEquals(AndroidRelease(49, "2.4.3", hash), newerAndroidRelease(body, 48))
         assertNull(newerAndroidRelease(body, 49))
-        assertNull(newerAndroidRelease("""{"versionCode":49,"versionName":"../unsafe","sha256":"$hash"}""", 48))
-        assertNull(newerAndroidRelease("""{"versionCode":49,"versionName":"2.4.3","sha256":"bad"}""", 48))
+        assertTrue(runCatching {newerAndroidRelease("""{"versionCode":49,"versionName":"../unsafe","sha256":"$hash"}""", 48)}.isFailure)
+        assertTrue(runCatching {newerAndroidRelease("""{"versionCode":49,"versionName":"2.4.3","sha256":"bad"}""", 48)}.isFailure)
     }
 
     @Test fun rejectsDamagedDownloadedApk() {
@@ -42,6 +42,14 @@ class AndroidUpdatePromptTest {
         assertTrue(requireNotNull(newerAndroidRelease(body, 75)).required)
         assertNull(newerAndroidRelease(body, 76))
         assertFalse(requireNotNull(newerAndroidRelease(body.replace(":76}", ":74}"), 75)).required)
-        assertNull(newerAndroidRelease(body.replace(":76}", ":77}"), 75))
+        assertTrue(runCatching {newerAndroidRelease(body.replace(":76}", ":77}"), 75)}.isFailure)
+    }
+
+    @Test fun damagedMetadataNeverMeansTheInstalledAppIsCurrent() {
+        val hash="a".repeat(64)
+        assertTrue(runCatching {newerAndroidRelease("""{"versionCode":1,"versionName":"3.1.1","sha256":"bad"}""",117)}.isFailure)
+        assertTrue(runCatching {newerAndroidRelease("""{"versionCode":0,"versionName":"3.1.1","sha256":"$hash"}""",117)}.isFailure)
+        assertTrue(runCatching {newerAndroidRelease("<html>server error</html>",117)}.isFailure)
+        assertNull(newerAndroidRelease("""{"versionCode":117,"versionName":"3.1.0","sha256":"$hash"}""",117))
     }
 }

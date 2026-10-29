@@ -31,6 +31,7 @@ import ru.genesis.calendar.BuildConfig
 import java.net.HttpURLConnection
 import java.net.URL
 import java.io.File
+import java.io.IOException
 import java.security.MessageDigest
 
 internal data class AndroidRelease(val versionCode: Int, val versionName: String, val sha256: String,
@@ -42,9 +43,9 @@ internal fun newerAndroidRelease(body: String, installedCode: Int): AndroidRelea
     val name = json.getString("versionName")
     val sha256 = json.getString("sha256")
     val minimumCode = json.optInt("minimumSupportedVersionCode", 0)
-    if (code <= installedCode || !Regex("[0-9]+(?:\\.[0-9]+){1,3}").matches(name)) return null
-    if (!Regex("[a-fA-F0-9]{64}").matches(sha256)) return null
-    if (minimumCode < 0 || minimumCode > code) return null
+    require(code > 0 && Regex("[0-9]+(?:\\.[0-9]+){1,3}").matches(name) &&
+        Regex("[a-fA-F0-9]{64}").matches(sha256) && minimumCode in 0..code) { "UPDATE_METADATA_INVALID" }
+    if (code <= installedCode) return null
     return AndroidRelease(code, name, sha256.lowercase(), minimumCode > installedCode)
 }
 
@@ -72,18 +73,29 @@ internal fun updateInstallIntent(context: Context, apk: Uri): Intent =
 
 internal fun fetchAndroidRelease(): AndroidRelease? {
     val connection = URL("${ru.genesis.calendar.auth.AUTH_ORIGIN}/android-update.json").openConnection() as HttpURLConnection
-    connection.connectTimeout = 5_000
-    connection.readTimeout = 5_000
+    connection.connectTimeout = 10_000
+    connection.readTimeout = 12_000
     connection.useCaches = false
+    connection.setRequestProperty("Cache-Control", "no-cache")
+    connection.setRequestProperty("Pragma", "no-cache")
     try {
-        if (connection.responseCode != HttpURLConnection.HTTP_OK) return null
-        val body = connection.inputStream.bufferedReader().use { it.readText() }
-        if (body.length > 8_192) return null
+        if (connection.responseCode != HttpURLConnection.HTTP_OK) throw IOException("UPDATE_CHECK_FAILED")
+        val body = connection.inputStream.bufferedReader().use { reader ->
+            val result = StringBuilder()
+            val buffer = CharArray(1_024)
+            while (result.length <= 8_192) {
+                val count = reader.read(buffer, 0, minOf(buffer.size, 8_193 - result.length))
+                if (count < 0) break
+                result.append(buffer, 0, count)
+            }
+            result.toString()
+        }
+        if (body.length > 8_192) throw IOException("UPDATE_METADATA_INVALID")
         return newerAndroidRelease(body, BuildConfig.VERSION_CODE)
     } finally { connection.disconnect() }
 }
 
-/** Checks after a completed account sync, once per offered version in this app session. */
+/** Release discovery is public and must also work with expired or missing account sessions. */
 @Composable
 internal fun AndroidUpdatePrompt(context: Context, synchronizedAt: Long?, enabled: Boolean,
     offerOptional: Boolean = true) {
@@ -91,8 +103,9 @@ internal fun AndroidUpdatePrompt(context: Context, synchronizedAt: Long?, enable
     if (BuildConfig.PLAY_DISTRIBUTION) { PlayUpdatePrompt(context,synchronizedAt);return }
     var release by remember { mutableStateOf<AndroidRelease?>(null) }
     var lastOffered by remember { mutableIntStateOf(0) }
-    LaunchedEffect(enabled, synchronizedAt, offerOptional) {
-        if (enabled && synchronizedAt != null) {
+    val resumeEpoch = rememberUpdateResumeEpoch()
+    LaunchedEffect(enabled, synchronizedAt, offerOptional, resumeEpoch) {
+        if (enabled) {
             val found = withContext(Dispatchers.IO) { runCatching(::fetchAndroidRelease).getOrNull() }
             if (found != null && (found.required || offerOptional && !BuildConfig.PLAY_DISTRIBUTION)
                 && (found.required || found.versionCode != lastOffered)) {
@@ -168,7 +181,7 @@ internal fun AndroidUpdateDialog(context: Context, release: AndroidRelease, onDi
                 downloaded != null -> "Обновление скачано. Установите его через системный установщик Android."
                 downloadId > 0 -> "Скачиваем обновление…"
                 release.required -> "Поддержка установленной версии завершена. Синхронизация сохранённых данных доступна; для дальнейшей работы установите обновление."
-                else -> "После синхронизации доступно обновление приложения. Скачайте его прямо здесь."
+                else -> "Доступно обновление приложения. Скачайте его прямо здесь."
             })
         },
         confirmButton = {

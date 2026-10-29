@@ -130,7 +130,7 @@ internal fun releaseNotesTitle(): String = notes[LocalGenesisLanguage.current]?.
 
 @Composable
 internal fun ReleaseNotesDialog(onDismiss: () -> Unit) {
-    val copy = (notes[LocalGenesisLanguage.current] ?: notes.getValue("ru")).copy(changes = mobileReleaseChanges)
+    val copy = (notes[LocalGenesisLanguage.current] ?: notes.getValue("ru")).copy(changes = release311Changes[LocalGenesisLanguage.current] ?: release311Changes.getValue("ru"))
     AlertDialog(onDismissRequest = onDismiss,
         modifier = Modifier.testTag("release-notes-dialog"),
         title = { Text("${copy.title} · ${BuildConfig.VERSION_NAME}") },
@@ -159,3 +159,76 @@ internal fun ReleaseNotesAutoDialog(enabled: Boolean) {
     }
     if (show) ReleaseNotesDialog { show = false }
 }
+
+private val release311Changes = mapOf(
+    "ru" to listOf(
+        "Советом можно поделиться картинкой с иллюстрацией, полным текстом и ссылкой на приложение.",
+        "Переписки, календари и майндмепы стали удобнее: компактные действия, светлые подложки и меню карты.",
+        "Исправлены переносы задач и списков, отмена связей и открытие месяца из годового вида.",
+        "Обновления проверяются без входа. Статус отсутствия сети перенесён в боковую панель."),
+    "en" to listOf(
+        "Share advice as an image with its artwork, full text and an app link.",
+        "Chats, calendars and mind maps have clearer actions, light surfaces and map menus.",
+        "Fixed task and list moves, cancelling connections and opening months from the year view.",
+        "Check for updates without signing in. Offline status is now in the sidebar."),
+    "de" to listOf(
+        "Ratschläge als Bild mit Illustration, vollständigem Text und App-Link teilen.",
+        "Chats, Kalender und Mindmaps bieten übersichtlichere Aktionen, helle Flächen und Kartenmenüs.",
+        "Aufgaben und Listen verschieben, Verbindungen abbrechen und Monate aus der Jahresansicht öffnen: Fehler behoben.",
+        "Updates ohne Anmeldung prüfen. Der Offline-Status steht jetzt in der Seitenleiste."),
+    "el" to listOf(
+        "Μοιραστείτε συμβουλές ως εικόνα με εικονογράφηση, πλήρες κείμενο και σύνδεσμο εφαρμογής.",
+        "Συνομιλίες, ημερολόγια και νοητικοί χάρτες με σαφέστερες ενέργειες, φωτεινά πλαίσια και μενού χάρτη.",
+        "Διορθώθηκαν οι μετακινήσεις εργασιών και λιστών, η ακύρωση συνδέσεων και το άνοιγμα μήνα από την προβολή έτους.",
+        "Έλεγχος ενημερώσεων χωρίς σύνδεση. Η κατάσταση εκτός δικτύου βρίσκεται στην πλαϊνή στήλη."),
+    "es" to listOf(
+        "Comparte consejos como imagen con ilustración, texto completo y enlace a la aplicación.",
+        "Chats, calendarios y mapas mentales con acciones más claras, superficies claras y menús del mapa.",
+        "Corregidos los movimientos de tareas y listas, la cancelación de conexiones y la apertura de meses desde la vista anual.",
+        "Busca actualizaciones sin iniciar sesión. El estado sin conexión está en la barra lateral."),
+    "fr" to listOf(
+        "Partagez un conseil en image avec son illustration, le texte intégral et un lien vers l’application.",
+        "Discussions, calendriers et cartes mentales : actions plus claires, surfaces claires et menus de carte.",
+        "Déplacement des tâches et listes, annulation des liens et ouverture des mois depuis la vue annuelle corrigés.",
+        "Vérifiez les mises à jour sans connexion au compte. L’état hors ligne apparaît dans la barre latérale."),
+    "it" to listOf(
+        "Condividi consigli come immagini con illustrazione, testo completo e link all’app.",
+        "Chat, calendari e mappe mentali con azioni più chiare, superfici chiare e menu della mappa.",
+        "Corretti gli spostamenti di attività ed elenchi, l’annullamento dei collegamenti e l’apertura dei mesi dalla vista annuale.",
+        "Controlla gli aggiornamenti senza accedere. Lo stato offline è nella barra laterale."),
+    "ja" to listOf(
+        "イラスト、全文、アプリへのリンクを含む画像でアドバイスを共有できます。",
+        "チャット、カレンダー、マインドマップの操作、明るい背景、マップメニューを改善しました。",
+        "タスクとリストの移動、接続のキャンセル、年表示から月を開く動作を修正しました。",
+        "ログインせずに更新を確認できます。オフライン状態はサイドバーに表示されます。"),
+    "pl" to listOf(
+        "Udostępniaj porady jako obraz z ilustracją, pełnym tekstem i linkiem do aplikacji.",
+        "Czaty, kalendarze i mapy myśli mają czytelniejsze działania, jasne tła i menu mapy.",
+        "Poprawiono przenoszenie zadań i list, anulowanie połączeń i otwieranie miesięcy z widoku roku.",
+        "Sprawdzaj aktualizacje bez logowania. Stan offline jest teraz w panelu bocznym."),
+    "pt" to listOf(
+        "Partilhe conselhos como imagem com ilustração, texto completo e ligação à aplicação.",
+        "Conversas, calendários e mapas mentais com ações mais claras, superfícies claras e menus do mapa.",
+        "Corrigidos movimentos de tarefas e listas, cancelamento de ligações e abertura de meses na vista anual.",
+        "Verifique atualizações sem iniciar sessão. O estado offline está na barra lateral."),
+    "sr" to listOf(
+        "Поделите савет као слику са илустрацијом, целим текстом и везом ка апликацији.",
+        "Преписке, календари и мапе ума имају прегледније радње, светле подлоге и меније мапе.",
+        "Исправљени су премештање задатака и листа, отказивање веза и отварање месеца из годишњег приказа.",
+        "Провера ажурирања без пријаве. Статус без мреже је у бочном панелу."),
+    "uk" to listOf(
+        "Діліться порадою як зображенням з ілюстрацією, повним текстом і посиланням на застосунок.",
+        "Листування, календарі та мапи думок мають зручніші дії, світлі підкладки й меню мапи.",
+        "Виправлено перенесення завдань і списків, скасування зв’язків та відкриття місяця з річного вигляду.",
+        "Перевірка оновлень без входу. Статус відсутності мережі перенесено до бічної панелі."),
+    "zh" to listOf(
+        "将建议分享为包含插图、全文和应用链接的图片。",
+        "聊天、日历和思维导图改进了操作、浅色背景和导图菜单。",
+        "修复了任务和列表移动、取消连线以及从年视图打开月份的问题。",
+        "无需登录即可检查更新。离线状态现显示在侧边栏中。"),
+    "tr" to listOf(
+        "Önerileri çizim, tam metin ve uygulama bağlantısı içeren görseller olarak paylaşın.",
+        "Sohbetler, takvimler ve zihin haritalarında daha anlaşılır işlemler, açık yüzeyler ve harita menüleri.",
+        "Görev ve liste taşıma, bağlantı iptali ve yıl görünümünden ay açma düzeltildi.",
+        "Oturum açmadan güncellemeleri kontrol edin. Çevrimdışı durumu yan panelde.")
+)

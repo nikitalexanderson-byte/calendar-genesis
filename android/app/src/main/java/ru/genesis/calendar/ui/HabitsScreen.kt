@@ -236,7 +236,8 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
             }
         }
     }
-    val headerInShell = WorkspaceScreenHeader(title, subtitle, navigation = headerNavigation, actions = headerActions)
+    val headerInShell = WorkspaceScreenHeader(title, subtitle, navigation = headerNavigation, actions = headerActions,
+        showThemeToggle = false)
     areaStates.SaveableStateProvider(area) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp).testTag("habit-workspace-$area"),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {

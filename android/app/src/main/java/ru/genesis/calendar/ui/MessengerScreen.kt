@@ -15,6 +15,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
@@ -65,25 +67,33 @@ import java.util.UUID
     if(legacyOpen&&legacy!=null){Column(Modifier.fillMaxSize()){TextButton({legacyOpen=false},Modifier.heightIn(min=48.dp)){Text(c("back"))};legacy()};return}
     val current=state.selected;val own=current?.members?.firstOrNull{it.userId==repository.owner}
     val header=WorkspaceScreenHeader(current?.title?:c("title"),current?.let{c(it.kind)},navigation={if(current!=null)WorkspaceHeaderButton(c("back"),"messenger-back",onClick=::back){GenesisLucideIcon("chevron-left")}},showThemeToggle=current==null,actions={
-        if(current==null)WorkspaceHeaderButton(c("newChat"),"messenger-new",onClick={modal="new";creationId=UUID.randomUUID().toString();run{projects=repository.projects()}}){GenesisLucideIcon("message-circle")}
-        else WorkspaceHeaderButton(c("members"),"messenger-members",onClick={modal="members"}){GenesisLucideIcon("users-round")}
+        if(current!=null) {
+        WorkspaceHeaderButton(c("members"),"messenger-members",onClick={modal="members"}){GenesisLucideIcon("users-round")}
         Box{var menu by remember{mutableStateOf(false)};WorkspaceHeaderButton(c("actions"),"messenger-actions",onClick={menu=true}){GenesisLucideIcon("ellipsis")}
             DropdownMenu(menu,{menu=false}){
-                DropdownMenuItem(text={Text(c("refresh"))},onClick={menu=false;run{if(current==null)repository.inbox()else repository.refresh()}})
+                DropdownMenuItem(text={Text(c("refresh"))},onClick={menu=false;run{repository.refresh()}})
                 DropdownMenuItem(text={Text(c("devices"))},onClick={menu=false;run{devices=repository.devices();modal="devices"}})
                 if(state.securityCode!=null)DropdownMenuItem(text={Text(c("security"))},onClick={menu=false;modal="security"})
                 if(legacy!=null)DropdownMenuItem(text={Text(c("legacy"))},onClick={menu=false;legacyOpen=true})
             }
         }
+        }
     })
     Column(Modifier.fillMaxSize().imePadding().testTag("messenger-screen"),verticalArrangement=Arrangement.spacedBy(8.dp)){
-        if(!header)Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){AffairsIconButton(c("back"),AffairsAction.BACK,::back);Text(current?.title?:c("title"),Modifier.weight(1f));AffairsIconButton(c("newChat"),AffairsAction.ADD,{modal="new";run{projects=repository.projects()}})}
+        if(!header)Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){AffairsIconButton(c("back"),AffairsAction.BACK,::back);Text(current?.title?:c("title"),Modifier.weight(1f))}
         if(busy)Row(Modifier.fillMaxWidth().padding(horizontal=12.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)){CircularProgressIndicator(Modifier.size(20.dp),strokeWidth=2.dp);Text(c("loading"),style=MaterialTheme.typography.bodySmall)}
         if(failure.isNotBlank())Row(Modifier.fillMaxWidth().padding(horizontal=12.dp),verticalAlignment=Alignment.CenterVertically){Text(failure,Modifier.weight(1f),color=MaterialTheme.colorScheme.error);AffairsIconButton(c("close"),AffairsAction.CLOSE,{failure=""})}
         if(current==null){
-            Row(Modifier.fillMaxWidth().padding(horizontal=12.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)){
-                FilterChip(tab=="chats",{tab="chats"},{Text(c("chats"))},Modifier.weight(1f).heightIn(min=48.dp),enabled=!busy)
-                FilterChip(tab=="contacts",{run{repository.contacts();tab="contacts"}},{Text(c("contacts"))},Modifier.weight(1f).heightIn(min=48.dp),enabled=!busy)
+            ConnectedSubmenu(listOf(SubmenuItem("chats", c("chats")), SubmenuItem("contacts", c("contacts"))),
+                tab, { next -> if (!busy) { if (next == "contacts") run { repository.contacts(); tab = next } else tab = next } },
+                Modifier.testTag("messenger-submenu"))
+            if(tab=="chats") Row(Modifier.fillMaxWidth().padding(horizontal=12.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                MessengerActionButton(c("newChat"), "message-circle", "messenger-new", Modifier.weight(1f), !busy) {
+                    modal="new";creationId=UUID.randomUUID().toString();run{projects=repository.projects()}
+                }
+                MessengerActionButton(c("refresh"), "refresh-cw", "messenger-refresh", Modifier.weight(1f), !busy) { run { repository.inbox() } }
+                MessengerActionButton(c("devices"), "phone-source", "messenger-devices", Modifier.weight(1f), !busy) { run { devices=repository.devices();modal="devices" } }
+                MessengerActionButton(c("legacy"), "history", "messenger-legacy", Modifier.weight(1f), !busy && legacy!=null) { legacyOpen=true }
             }
             if(tab=="contacts")Row(Modifier.fillMaxWidth().padding(horizontal=12.dp),verticalAlignment=Alignment.CenterVertically){OutlinedTextField(email,{email=it.take(254)},Modifier.weight(1f),label={Text(c("email"))},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Email));AffairsIconButton(c("addContact"),AffairsAction.ADD,{run{repository.addContact(email);email=""}},enabled=!busy)}
             LazyColumn(Modifier.weight(1f),contentPadding=PaddingValues(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
@@ -134,7 +144,12 @@ import java.util.UUID
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     listOf("direct", "group", "project", "secret").forEach { k ->
                         FilterChip(kind == k, { kind = k; creationId = UUID.randomUUID().toString() },
-                            { CompactChoiceLabel(c(k)) }, Modifier.weight(1f).heightIn(min = 48.dp))
+                            { Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                if (k == "project") Text("PRO") else GenesisLucideIcon(when(k) {
+                                    "direct" -> "user-round"; "group" -> "users-round"; else -> "eye"
+                                })
+                            } }, Modifier.weight(1f).heightIn(min = 48.dp)
+                                .semantics { contentDescription = c(k) }.testTag("messenger-kind-$k"))
                     }
                 }
                 if (kind == "project") {

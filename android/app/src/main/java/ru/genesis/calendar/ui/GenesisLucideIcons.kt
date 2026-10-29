@@ -26,6 +26,7 @@ internal fun genesisLucideResource(name: String): Int = when (name.replace('_', 
     "message-circle" -> R.drawable.lucide_message_circle
     "paperclip" -> R.drawable.lucide_paperclip
     "send" -> R.drawable.lucide_send
+    "share-2" -> R.drawable.lucide_share_2
     "key-round" -> R.drawable.lucide_key_round
     "lock-keyhole" -> R.drawable.lucide_lock_keyhole
     "bookmark" -> R.drawable.lucide_bookmark

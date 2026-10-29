@@ -11,6 +11,8 @@ import { useDiary } from './DiaryProvider';
 import diaryLabels from './diary-copy.json';
 import { ExperimentalIcon } from './ExperimentalIcon';
 import { DiaryMark } from './DiaryLaunchButton';
+import { AdviceShareButton } from './AdviceShareButton';
+import { translateText } from './i18n';
 
 export function TodayAdvice({ user, habits, tasks, day, ready, onOpenDiary }: { user: GenesisUser; habits: readonly Habit[]; tasks: readonly AdvicePersonalTask[]; day: string; ready: boolean; onOpenDiary?: () => void }) {
   const diary = useDiary(); const diaryText = user.language === 'en' ? diaryLabels.en : diaryLabels.ru;
@@ -135,6 +137,7 @@ export function TodayAdvice({ user, habits, tasks, day, ready, onOpenDiary }: { 
           <ExperimentalIcon name="map-refresh"/><span className="daily-advice-next-label">{copy.next}</span>
         </button> : null}
         {diaryNote?.reaction === 'favorite' && onOpenDiary ? <button type="button" className="daily-advice-icon-action" aria-label={diaryText.openDiary} title={diaryText.openDiary} onClick={onOpenDiary}><DiaryMark/></button> : null}
+        <AdviceShareButton key={advice.id} advice={advice} copy={copy} closeLabel={translateText('Закрыть', user.language)}/>
       </div>
       {typeof saved?.result.dailyLimit === "number" ? <span role="status" aria-live="polite">{copy.position.replace("{current}", String(saved.result.sequence ?? 1)).replace("{limit}", String(saved.result.dailyLimit))}{!saved.result.canNext ? ` · ${copy.limitReached}` : ""}</span> : null}
     </div>

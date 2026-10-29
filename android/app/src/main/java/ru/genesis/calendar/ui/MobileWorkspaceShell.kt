@@ -89,6 +89,7 @@ internal fun mobileDestinations(pages: List<String>, visibility: UiVisibility,
     titleOverride: String? = null, subtitle: String? = null,
     onNavigate: (MobileDestination) -> Unit, actions: @Composable RowScope.() -> Unit,
     footerActions: @Composable RowScope.() -> Unit = {},
+    footerDetails: @Composable () -> Unit = {},
     content: @Composable ColumnScope.() -> Unit) {
     val drawer = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -161,6 +162,7 @@ internal fun mobileDestinations(pages: List<String>, visibility: UiVisibility,
                         GenesisAccountFooter(accountStatus, Modifier.weight(1f))
                         footerActions()
                     }
+                    footerDetails()
                     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
                         .testTag("drawer-version-row"), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)) {

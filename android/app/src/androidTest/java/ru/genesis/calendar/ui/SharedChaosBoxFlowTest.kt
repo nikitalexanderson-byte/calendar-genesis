@@ -273,7 +273,7 @@ class SharedChaosBoxFlowTest {
     private data class Query(val filter: JSONObject, val cursor: String?, val sort: String)
 
     @Test fun toolbarFitsWithoutScrollingAndLongPressDropsOnTheBoardItself() {
-        val fixture = ChaosFixture(allowMove = true)
+        val fixture = ChaosFixture(allowMove = true, delayedMove = true)
         open(fixture)
         click("shared-space-${fixture.spaceA}")
         click("shared-project-${fixture.projectA}", scroll = true)
@@ -297,6 +297,10 @@ class SharedChaosBoxFlowTest {
         compose.onNodeWithTag("shared-task-project-a-1").performTouchInput {
             moveTo(drop - source.topLeft, 400); up()
         }
+        compose.waitUntil(10_000) { fixture.moveStarted }
+        compose.onNode(hasTestTag("shared-task-project-a-1") and hasAnyAncestor(hasTestTag("shared-board-done"))).assertExists()
+        assertEquals("Transport is deliberately waiting", 0, fixture.mutations)
+        fixture.releaseMove.complete(Unit)
         compose.waitUntil(10_000) { fixture.mutations > 0 }
         assertEquals("done", fixture.lastMove?.getString("statusId"))
         assertEquals("project-a-1", fixture.lastMovedTask)
@@ -329,7 +333,9 @@ class SharedChaosBoxFlowTest {
         capture("list-direct-drop")
     }
 
-    private class ChaosFixture(private val viewer: Boolean = false, private val allowMove: Boolean = false) : SharedWorkspaceGateway {
+    private class ChaosFixture(private val viewer: Boolean = false, private val allowMove: Boolean = false, private val delayedMove: Boolean = false) : SharedWorkspaceGateway {
+        val releaseMove = kotlinx.coroutines.CompletableDeferred<Unit>()
+        @Volatile var moveStarted = false
         val spaceA = "chaos-space-a"
         val spaceB = "chaos-space-b"
         val inboxA = "chaos-inbox-a"
@@ -432,6 +438,8 @@ class SharedChaosBoxFlowTest {
         }
         override suspend fun moveSharedTask(projectId: String, taskId: String, changes: JSONObject): JSONObject {
             check(allowMove && !viewer)
+            moveStarted = true
+            if(delayedMove) releaseMove.await()
             val task = tasks.first { it.getString("id") == taskId && it.getString("projectId") == projectId }
             check(task.getInt("revision") == changes.getInt("expectedRevision"))
             lastMove = JSONObject(changes.toString()); lastMovedTask = taskId

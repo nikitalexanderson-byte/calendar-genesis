@@ -242,7 +242,8 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
             onMonth = {
                 if ("calendar.month" !in hiddenSubmenus) {
                     shown = it.toString(); selected = it.toString(); localYearView = false
-                    focusDayRequest++
+                    focusDayRequest = 0
+                    appliedExternalDate = it.toString()
                     menuSwipeState?.calendar = "month"
                     onSelect(it)
                 }
@@ -360,7 +361,10 @@ private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange
     val density = LocalDensity.current
     BoxWithConstraints(Modifier.fillMaxSize().testTag("calendar-month")) {
         val twoPanes = maxWidth >= 840.dp
-        LaunchedEffect(focusDayRequest) { if (focusDayRequest > 0) previewRequested = true }
+        LaunchedEffect(range.start, focusDayRequest) {
+            if (focusDayRequest > 0) previewRequested = true
+            else { previewRequested = false; scroll.scrollTo(0) }
+        }
         LaunchedEffect(selected, previewRequested, selectedDayTop, scroll.maxValue, twoPanes) {
             if (!twoPanes && previewRequested && selectedDayTop >= 0) scroll.animateScrollTo(selectedDayTop)
         }
@@ -468,8 +472,10 @@ private fun GregorianMonthHero(date: LocalDate, zone: ZoneId, locale: Locale) {
                     .replaceFirstChar { it.titlecase(locale) }, Modifier.testTag("gregorian-month-name"),
                     style = MaterialTheme.typography.titleLarge)
                 Text("Григорианский месяц", style = MaterialTheme.typography.labelMedium)
-                Text(gregorianMonthOrigin(date.monthValue), Modifier.testTag("gregorian-month-origin"),
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                androidx.compose.material3.Text(genesisTranslate(gregorianMonthOrigin(date.monthValue)), Modifier.testTag("gregorian-month-origin"),
+                    style = MaterialTheme.typography.bodySmall.copy(lineBreak = androidx.compose.ui.text.style.LineBreak.Heading),
+                    maxLines = 2, autoSize = TextAutoSize.StepBased(minFontSize = 10.sp, maxFontSize = 12.sp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(gregorianMonthNature(date.monthValue, zone), Modifier.testTag("gregorian-month-nature"),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -1116,36 +1122,45 @@ private fun ExperimentalSelectedDayCard(calendar: GenesisCalendar, date: LocalDa
         CalendarMode.PROFANE -> weekday!!.description
         CalendarMode.SACRED -> day.description
     }
+    val lightHero = !LocalEveningTheme.current
+    val heroInk = if (lightHero) MaterialTheme.colorScheme.onSurface else Color(0xfff9f2e2)
+    val heroSecondary = if (lightHero) MaterialTheme.colorScheme.onSurface else Color(0xffeee6d7)
+    val heroAccent = if (lightHero) MaterialTheme.colorScheme.primary else Color(0xffdfc17e)
     Card(Modifier.fillMaxWidth().testTag("calendar-selected-day"), shape = RoundedCornerShape(20.dp),
         border = BorderStroke(1.dp, Color(0x66dfc17e)),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
         Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
-            Box(Modifier.fillMaxWidth().heightIn(min = 300.dp).testTag("calendar-day-hero")) {
+            Box(Modifier.fillMaxWidth().heightIn(min = 220.dp).testTag("calendar-day-hero")) {
                 OriginalImage(heroPath, heroTitle, Modifier.matchParentSize().testTag("calendar-weekday-art"))
-                Box(Modifier.matchParentSize().background(Brush.verticalGradient(
-                    0f to Color(0x15040e10), .45f to Color(0x55040e10), 1f to Color(0xf5071d20))))
-                Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(18.dp),
+                Box(Modifier.matchParentSize().background(if (lightHero) Brush.verticalGradient(
+                    0f to MaterialTheme.colorScheme.surface.copy(alpha = .20f),
+                    .40f to MaterialTheme.colorScheme.surface.copy(alpha = .42f),
+                    .65f to MaterialTheme.colorScheme.surface.copy(alpha = .91f),
+                    1f to MaterialTheme.colorScheme.surface.copy(alpha = .97f))
+                    else Brush.verticalGradient(0f to Color(0x15040e10), .45f to Color(0x55040e10), 1f to Color(0xf5071d20))))
+                Column(Modifier.align(Alignment.BottomStart).fillMaxWidth()
+                    .background(if(lightHero) MaterialTheme.colorScheme.surface.copy(alpha=.78f) else Color.Transparent).padding(18.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(modeTitle, style = MaterialTheme.typography.labelMedium, color = Color(0xffdfc17e))
+                    Text(modeTitle, style = MaterialTheme.typography.labelMedium, color = heroAccent)
                     Text(primaryDate, style = MaterialTheme.typography.headlineSmall,
-                        color = Color(0xfff9f2e2), modifier = Modifier.testTag("calendar-selected-primary-date"))
+                        color = heroInk, modifier = Modifier.testTag("calendar-selected-primary-date"))
                     if (mode == CalendarMode.PROFANE) {
                         Column(Modifier.testTag("calendar-selected-gregorian"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text("${date.dayOfYear}-й из ${date.lengthOfYear()} дней года · ${date.lengthOfMonth()} дней в месяце",
-                                style = MaterialTheme.typography.bodySmall, color = Color(0xffeee6d7))
-                            SunriseSunsetLine(date, solarLocation, calendar, Color(0xfff4deb0), Color(0xfff4deb0))
+                                style = MaterialTheme.typography.bodySmall, color = heroSecondary)
+                            SunriseSunsetLine(date, solarLocation, calendar, heroAccent, heroSecondary)
                             calendar.solarEvent(date)?.let { event ->
                                 Text("${event.symbol} ${event.name} · ${event.instant.atZone(calendar.zoneId).format(DateTimeFormatter.ofPattern("HH:mm z", locale))}",
-                                    style = MaterialTheme.typography.labelMedium, color = Color(0xffdfc17e))
+                                    style = MaterialTheme.typography.labelMedium, color = heroAccent)
                             }
                         }
                     } else {
-                        Text(heroTitle, style = MaterialTheme.typography.titleMedium, color = Color(0xfff1e5cb))
+                        Text(heroTitle, style = MaterialTheme.typography.titleMedium, color = heroInk)
                         Text(heroDescription, style = MaterialTheme.typography.bodyMedium,
-                            color = Color(0xffeee6d7), maxLines = if(mode==CalendarMode.LUNAR) 6 else 4)
+                            color = heroSecondary, maxLines = if(mode==CalendarMode.LUNAR) 6 else 4)
                     }
                     moon?.event?.takeIf { it.isNotBlank() }?.let { event ->
-                        Text(event, style=MaterialTheme.typography.labelMedium,color=Color(0xffdfc17e))
+                        Text(event, style=MaterialTheme.typography.labelMedium,color=heroAccent)
                     }
                 }
             }
@@ -1528,7 +1543,9 @@ private fun CalendarYearMonthCard(calendar: GenesisCalendar, start: LocalDate, m
                         color = gold, style = type.labelSmall)
                     Text(name, color = mainInk, style = type.titleLarge)
                     if (mode == CalendarMode.PROFANE) {
-                        Text(gregorianMonthOrigin(start.monthValue), color = detailInk, style = type.bodySmall)
+                        androidx.compose.material3.Text(genesisTranslate(gregorianMonthOrigin(start.monthValue)), color = detailInk,
+                            style = type.bodySmall.copy(lineBreak = androidx.compose.ui.text.style.LineBreak.Heading), maxLines = 2,
+                            autoSize = TextAutoSize.StepBased(minFontSize = 10.sp, maxFontSize = 12.sp))
                         Text(gregorianMonthNature(start.monthValue, seasonRegionZone), color = detailInk, style = type.bodySmall)
                     }
                     if (title.isNotBlank()) Text(title, color = detailInk, style = type.bodySmall)

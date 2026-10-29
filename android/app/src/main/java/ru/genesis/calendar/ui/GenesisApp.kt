@@ -488,10 +488,16 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         }, size = 48.dp, interactive = uiVisibility.visibleCalendars.size > 1)
                     }
                 }, footerActions = {
+                    AndroidUpdateCheckAction()
                     val refreshBusy = !testWorkspace && (authState.busy || accountTaskSync?.loading == true)
                     WorkspaceAccountRefreshButton(genesisTranslate(if (refreshBusy)
                         "Получаем изменения с сервера…" else "$saveStatus. Обновить аккаунт"),
                         enabled = !refreshBusy, onClick = { if (!testWorkspace) authController.refresh() })
+                }, footerDetails = {
+                    if (!testWorkspace && accountTaskSync != null) {
+                        ru.genesis.calendar.auth.AccountTaskSyncNotice(accountTaskSync,
+                            Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                    }
                 }) {
                 if(!testWorkspace && authState.requiresSignIn) {
                     Text("Для синхронизации повторите вход. Данные и напоминания доступны на устройстве.",
@@ -504,10 +510,6 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                 if (!testWorkspace) ru.genesis.calendar.auth.WorkspaceSyncNotice(authState,
                     authController::syncPending, authController::keepLocalWorkspaceChanges,
                     authController::keepRemoteWorkspaceChanges)
-                if (!testWorkspace && accountTaskSync != null) {
-                    ru.genesis.calendar.auth.AccountTaskSyncNotice(accountTaskSync,
-                        Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
-                }
                 val personalAffairsContent: @Composable (MenuSwipeState) -> Unit = { visibleSwipeState ->
                     if(mindmapsOpen && authState.user!=null) {
                         val uid=authState.user!!.uid
@@ -815,7 +817,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
         if (!testWorkspace && !accountGate) YandexCalendarFirstRunDialog(authState, authController)
         ReleaseNotesAutoDialog(!testWorkspace && !accountGate && !authState.offerGoogleServices)
         AndroidUpdatePrompt(app, authState.checkedAt,
-            !testWorkspace && authState.ready && authState.user != null,
+            !testWorkspace && !authState.offerGoogleServices,
             offerOptional = prefs.updateRemindersEnabled)
       }
       }
@@ -1661,6 +1663,7 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sectionId:
                         modifier = Modifier.testTag("update-reminders-toggle"))
                 }
             }
+            AndroidUpdateCheckAction(iconOnly = false)
             if (prefs.updateRemindersEnabled) AndroidUpdateBanner()
         }
         SettingsSection("G", "Аккаунт GENESIS", "Вход, синхронизация и связанные Google-аккаунты",
