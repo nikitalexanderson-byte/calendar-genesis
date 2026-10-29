@@ -2219,7 +2219,7 @@ html[data-genesis-theme] .genesis-app .section-hero-art-olympus { --oracle-art-r
 .android-install-panel h2 { margin: 0 0 16px; font: 400 20px/1.3 "Source Serif 4", Georgia, serif; }
 html[data-genesis-theme="standart-dark"] :is(.android-install-welcome, .android-install-panel) .android-download-button { background: var(--gold, #e4c78c); color: #12241c; }
 html[data-genesis-theme="standart-dark"] :is(.android-install-welcome, .android-install-panel) .android-download-button:hover { background: color-mix(in srgb, var(--gold, #e4c78c) 90%, white); }
-/* Calendar artwork remains the same in every mode; text fades into the theme surface. */
+/* Calendar navigation and Today task groups; artwork keeps the established web palette. */
 html[data-genesis-theme] .genesis-app .calendar-header { position: relative; }
 html[data-genesis-theme] .genesis-app .calendar-header > div:first-of-type { padding-top: 48px; }
 html[data-genesis-theme] .genesis-app .calendar-header > .calendar-month-footer { position: absolute; grid-column: auto; grid-row: auto; top: 12px; right: 16px; width: auto; }
@@ -2229,27 +2229,5 @@ html[data-genesis-theme] .genesis-app .calendar-month-footer .calendar-current-m
   html[data-genesis-theme] .genesis-app .calendar-month-title .calendar-inline-symbol { position: absolute; left: 0; }
   html[data-genesis-theme] .genesis-app .calendar-month-title h1 { flex: 1; text-align: center; }
 }
-html[data-genesis-theme="standart"] .genesis-app .hero-card :is(.hero-number, .hero-number span, .hero-number small, .hero-date) { color: var(--ink); }
 html[data-genesis-theme] .genesis-app .today-task-scope-title { margin: 16px 0 10px; font: 600 16px/1.4 var(--font-ui); color: var(--ink); }
 html[data-genesis-theme] .genesis-app .today-shared-tasks { margin-top: 20px; }
-html[data-genesis-theme] .genesis-app .day-details-introduction { --calendar-hero-paper: var(--surface); background: var(--calendar-hero-paper); }
-html[data-genesis-theme] .genesis-app:not([data-sacred-features="false"]) .day-details-introduction { padding: 0; }
-html[data-genesis-theme] .genesis-app:not([data-sacred-features="false"]) .day-details-heading { margin-top: 144px; padding-top: 96px; background: linear-gradient(180deg, transparent, var(--calendar-hero-paper) 80px); border-radius: 0; }
-html[data-genesis-theme] .genesis-app .day-details-art { object-position: center 30%; }
-html[data-genesis-theme="standart"] .genesis-app .day-details-art { filter: brightness(1.25); }
-html[data-genesis-theme="standart"] .genesis-app .day-details-heading :is(h2, p, .eyebrow, .selected-solar-event) { color: var(--ink); }
-html[data-genesis-theme="standart"] .genesis-app .day-details-heading .selected-day-symbol { color: var(--teal); border-color: var(--line); }
-html[data-genesis-theme="standart"] .genesis-app:not([data-sacred-features="false"]) .hero-card {
-  color: var(--ink);
-  background-image: linear-gradient(100deg, color-mix(in srgb, var(--surface) 96%, transparent), color-mix(in srgb, var(--surface) 89%, transparent) 42%, color-mix(in srgb, var(--surface) 24%, transparent)), var(--genesis-hero-image, none), var(--genesis-hero-fallback, none);
-}
-html[data-genesis-theme="standart"] .genesis-app .hero-card .hero-copy :is(h1, p, .eyebrow, .hero-month, .hero-description) { color: var(--ink); }
-html[data-genesis-theme="standart"] .genesis-app .hero-card .calendar-today-solar { color: var(--ink); background: color-mix(in srgb, var(--surface) 88%, transparent); border-color: var(--line); }
-html[data-genesis-theme="standart"] .genesis-app .hero-card .calendar-solar-control > small { color: var(--muted); }
-@media (max-width: 760px) {
-  html[data-genesis-theme] .genesis-app:not([data-sacred-features="false"]) .day-details-heading { margin-top: 128px; padding-top: 96px; }
-  html[data-genesis-theme="standart"] .genesis-app:not([data-sacred-features="false"]) .today-view .hero-card {
-    padding-top: 112px;
-    background-image: linear-gradient(180deg, color-mix(in srgb, var(--surface) 18%, transparent), color-mix(in srgb, var(--surface) 40%, transparent) 100px, color-mix(in srgb, var(--surface) 94%, transparent) 220px), var(--genesis-hero-image, none), var(--genesis-hero-fallback, none);
-  }
-}
