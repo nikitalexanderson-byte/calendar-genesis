@@ -6,6 +6,32 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class WorkspacePatchTest {
+    @Test fun oldNativeMoodEditDoesNotEraseAbstinenceAndConcurrentWebEntries() {
+        val old = base().put("addictionEntries", JSONArray().put(JSONObject().put("id", "e1").put("note", "Preserve")))
+        val part = JSONObject().put("sleepPlans", JSONArray()).put("sleepEntries", JSONArray())
+            .put("moodEntries", JSONArray().put(JSONObject().put("id", "m1").put("moodValue", 2)))
+        val local = WorkspacePatch.localDocument(old, null, null, part)
+        val remote = JSONObject(old.toString()).apply { getJSONArray("addictionEntries").put(JSONObject().put("id", "e2")) }
+        val result = WorkspacePatch.apply(old, local, remote, setOf("trackers"), 4, stamp(), "android")
+        assertEquals(2, result.document.getJSONArray("addictionEntries").length())
+        assertEquals("Preserve", result.document.getJSONArray("addictionEntries").getJSONObject(0).getString("note"))
+        assertEquals(1, result.document.getJSONArray("addictionTrackers").length())
+    }
+
+    @Test fun abstinenceEditsMergeUnrelatedWebChangesAndStopOnConflictingDayResults() {
+        val old = base().put("addictionEntries", JSONArray().put(JSONObject().put("id", "e1")
+            .put("cleanDay", false).put("note", "Old").put("cravingIntensity", 0)))
+        val local = JSONObject(old.toString()).apply { getJSONArray("addictionEntries").getJSONObject(0).put("cleanDay", true) }
+        val remote = JSONObject(old.toString()).apply { getJSONArray("addictionEntries").getJSONObject(0).put("note", "Web") }
+        val result = WorkspacePatch.apply(old, local, remote, setOf("trackers"), 4, stamp(), "android").document
+        assertTrue(result.getJSONArray("addictionEntries").getJSONObject(0).getBoolean("cleanDay"))
+        assertEquals("Web", result.getJSONArray("addictionEntries").getJSONObject(0).getString("note"))
+        local.getJSONArray("addictionEntries").getJSONObject(0).put("cravingIntensity", 4)
+        remote.getJSONArray("addictionEntries").getJSONObject(0).put("cravingIntensity", 8)
+        assertThrows(WorkspacePatch.Conflict::class.java) {
+            WorkspacePatch.apply(old, local, remote, setOf("trackers"), 4, stamp(), "android")
+        }
+    }
     @Test fun derivedClocksMergeButConflictingGoalChoicesStillStop() {
         val clock="2026-10-19T10:00:00Z"
         val old=base().put("dailyGoalRecords",JSONArray().put(JSONObject().put("date","2026-10-19")

@@ -1,6 +1,9 @@
 package ru.genesis.calendar.ui
 
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.runtime.*
@@ -8,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 
@@ -39,24 +43,30 @@ private val LocalWorkspaceDragOwner = staticCompositionLocalOf<WorkspaceDragOwne
                     source?.finish?.invoke(cancelled)
                 }
                 try {
-                    // Foundation owns event consumption and pointer-up/cancellation dispatch.
-                    // Mutating the boards during the Initial pass can detach a node while the
-                    // same event is still being dispatched to its children.
-                    detectDragGesturesAfterLongPress(
-                        onDragStart = { position ->
-                            val point = owner.origin + position
-                            val source = owner.sources.toList().filter { it.bounds.contains(point) }
-                                .minByOrNull { it.bounds.width * it.bounds.height }
-                            active = source
-                            source?.let { it.start(point - it.bounds.topLeft) }
-                        },
-                        onDrag = { change, delta ->
-                            if (active != null && delta.x.isFinite() && delta.y.isFinite()) {
-                                change.consume(); active?.move?.invoke(delta)
-                            }
-                        },
-                        onDragEnd = { finish(false) },
-                        onDragCancel = { finish(true) })
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        val point = owner.origin + down.position
+                        val source = owner.sources.toList().filter { it.bounds.contains(point) }
+                            .minByOrNull { it.bounds.width * it.bounds.height } ?: return@awaitEachGesture
+                        val held = awaitLongPressOrCancellation(down.id) ?: return@awaitEachGesture
+                        active = source
+                        held.consume()
+                        source.start(point - source.bounds.topLeft)
+                        while (true) {
+                            // Reserve the move before child scrollables, then let that event finish
+                            // traversing children before callbacks can move/dispose their nodes.
+                            val event = awaitPointerEvent(PointerEventPass.Initial)
+                            val change = event.changes.firstOrNull { it.id == down.id }
+                            val cancelled = change == null || change.isConsumed
+                            val delta = change?.let { it.position - it.previousPosition } ?: Offset.Zero
+                            val pressed = change?.pressed == true
+                            if (!cancelled) change?.consume()
+                            awaitPointerEvent(PointerEventPass.Final)
+                            if (cancelled) { finish(true); break }
+                            if (!pressed) { finish(false); break }
+                            if (delta.x.isFinite() && delta.y.isFinite()) active?.move?.invoke(delta)
+                        }
+                    }
                 } finally { finish(true) }
             }, content = content)
     }

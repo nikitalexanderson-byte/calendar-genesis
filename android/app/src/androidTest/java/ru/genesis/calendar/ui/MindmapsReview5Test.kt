@@ -95,9 +95,14 @@ class MindmapsReview5Test {
             val mode=compose.onNodeWithTag("mindmap-mode-toggle").fetchSemanticsNode().boundsInRoot
             val reset=compose.onNodeWithTag("mindmap-reset").fetchSemanticsNode().boundsInRoot
             val add=compose.onNodeWithTag("mindmap-add-node").fetchSemanticsNode().boundsInRoot
-            val more=compose.onNodeWithTag("mindmaps-actions").fetchSemanticsNode().boundsInRoot
-            assertEquals(mode.width,add.width,1f);assertEquals(mode.width,more.width,1f)
-            assertTrue(mode.left<add.left&&add.left<more.left)
+            val toolbarTags=listOf("mindmap-mode-toggle","mindmap-add-node","mindmap-undo",
+                "mindmap-title-description","mindmap-history","mindmap-export-menu")
+            val toolbarButtons=toolbarTags.map { compose.onNodeWithTag(it).fetchSemanticsNode().boundsInRoot }
+            toolbarButtons.forEach { assertEquals(mode.width,it.width,1f);assertEquals(mode.center.y,it.center.y,1f) }
+            toolbarButtons.zipWithNext().forEach { (before,after)->assertTrue(before.left<after.left) }
+            val searchButton=compose.onNodeWithTag("mindmaps-search-open").fetchSemanticsNode().boundsInRoot
+            assertEquals(reset.center.y,searchButton.center.y,1f)
+            assertEquals(reset.width,searchButton.width,1f)
             assertTrue(reset.top>mode.bottom && reset.left<add.left)
             compose.onNodeWithContentDescription("Увеличить масштаб").assertDoesNotExist()
             capture("canvas")
@@ -133,8 +138,7 @@ class MindmapsReview5Test {
             }
             assertPaintedColor();capture("colored-canvas")
             compose.onNodeWithTag("mindmap-mode-toggle").assertContentDescriptionEquals("Показать структуру").performClick();assertPaintedColor();capture("colored-structure")
-            compose.onNodeWithTag("mindmaps-actions").performClick()
-            compose.onNodeWithText("Экспорт").performClick()
+            compose.onNodeWithTag("mindmap-export-menu").performScrollTo().performClick()
             compose.onNodeWithText("Экспорт JSON").assertIsDisplayed();compose.onNodeWithText("Экспорт PDF").assertIsDisplayed();capture("export-menu")
             UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
             compose.onNodeWithTag("mindmaps-back").performClick()

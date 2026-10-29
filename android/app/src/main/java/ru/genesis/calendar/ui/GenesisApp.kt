@@ -742,9 +742,10 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                                     invitationDestination = SharedInvitationDestination(task.spaceId, task.projectId, task.id)
                                     menuSwipeState.projectArea="shared"; tab="Проекты"; menuSwipeState.personalView="projects"
                                 })
-                            if (habitTrackingEnabled && "habits" !in uiVisibility.hiddenTodayBlocks) TodayHabitTrackerBlock {
-                                TodayHabitsContent(app, todayDate, habitWorkspace,
+                            if ("habits" !in uiVisibility.hiddenTodayBlocks) TodayHabitTrackerBlock {
+                                if (habitTrackingEnabled) TodayHabitsContent(app, todayDate, habitWorkspace,
                                     onOpenHabits = { tab = "Привычки" }, showTopDivider = false)
+                                TodayTrackersContent(app, todayDate, prefs)
                             }
                     })
                   }

@@ -115,6 +115,8 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
     fun goBack() { when { mapId!=null -> { mapId=null;query="";exportMenu=false }; archived -> archived=false; else -> onBack() } }
     BackHandler {if(editing!=null)closeNodeEditor() else goBack()}
     val headerTitle = map?.title ?: "Майндмепы"
+    val exportLabel = genesisTranslate("Экспорт")
+    val resetLabel = genesisTranslate("К началу")
     val headerSubtitle = if(map==null) {
         (if(backLabel=="К общим делам") "Общие дела" else "Личные дела") +
             (if(archived) " · Архив" else projects.firstOrNull {it.id==projectId}?.title?.let {" · $it"} ?: "")
@@ -124,7 +126,7 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
                 if (map == null) WorkspaceHeaderButton("Действия с картой", "mindmaps-actions", onClick={files=true}) { AffairsActionIcon(AffairsAction.MORE) }
                 else OutlinedIconButton(onClick={exportMenu=true}, enabled=!busy,
                     modifier=Modifier.size(48.dp).testTag("mindmap-export-menu")
-                        .semantics { contentDescription=genesisTranslate("Экспорт") }, shape=AffairsLayout.controlShape) {
+                        .semantics { contentDescription=exportLabel }, shape=AffairsLayout.controlShape) {
                     GenesisLucideIcon("download")
                 }
                 DropdownMenu(files,{files=false}) {
@@ -218,7 +220,7 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
                 AffairsIconButton("История", AffairsAction.HISTORY, {
                     run {serverPreview=false;history=repo.history(map.id)}
                 }, Modifier.testTag("mindmap-history"), enabled=!busy)
-                headerActions(Modifier.semantics { contentDescription=genesisTranslate("Экспорт") })
+                headerActions(Modifier)
             }
             if(view.optString("focus").isNotBlank()&&view.optString("focus")!="null")TextButton(onClick={changeView(JSONObject(view.toString()).removeFocus())}){Text("Вся карта")}
             val collapsed=view.optJSONArray("collapsed")?.let { a->(0 until a.length()).map {a.optString(it)}.toSet() } ?: emptySet()
@@ -253,7 +255,7 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
         leading=if(map!=null) ({
             FilledTonalIconButton(onClick={
                 query="";resetCanvas++;changeView(JSONObject(view.toString()).removeFocus().put("mode","map").put("zoom",1.0))
-            }, modifier=Modifier.size(56.dp).testTag("mindmap-reset").semantics { contentDescription=genesisTranslate("К началу") },
+            }, modifier=Modifier.size(56.dp).testTag("mindmap-reset").semantics { contentDescription=resetLabel },
                 shape=AffairsLayout.controlShape) { AffairsActionIcon(AffairsAction.CENTER) }
         }) else null) }
     }
