@@ -100,7 +100,7 @@ class MindmapsReview5Test {
             val toolbarButtons=toolbarTags.map { compose.onNodeWithTag(it).fetchSemanticsNode().boundsInRoot }
             toolbarButtons.forEach { assertEquals(mode.width,it.width,1f);assertEquals(mode.center.y,it.center.y,1f) }
             toolbarButtons.zipWithNext().forEach { (before,after)->assertTrue(before.left<after.left) }
-            val searchButton=compose.onNodeWithTag("mindmaps-search-open").fetchSemanticsNode().boundsInRoot
+            val searchButton=compose.onNodeWithTag("mindmap-node-search-open").fetchSemanticsNode().boundsInRoot
             assertEquals(reset.center.y,searchButton.center.y,1f)
             assertEquals(reset.width,searchButton.width,1f)
             assertTrue(reset.top>mode.bottom && reset.left<add.left)
