@@ -190,7 +190,7 @@ export default defineConfig({
               priority: 46,
             })),
             { name: "locale-ui-source-phrases", test: /genesis-ui-source-phrases$/, priority: 47 },
-            ...["el.a", "el.b", "de", "de.b", "fr", "fr.b", "es", "it", "pt", "pl", "sr.a", "sr.b", "uk.a", "uk.b", "zh", "tr", "ja", "ja.b"].map((locale) => ({
+            ...["el.a", "el.b", "de", "de.b", "fr", "fr.b", "es", "es.b", "it", "it.b", "pt", "pl", "pl.b", "sr.a", "sr.b", "uk.a", "uk.b", "zh", "tr", "ja", "ja.b"].map((locale) => ({
               name: `locale-${locale}`,
               test: new RegExp(`translations\\.${locale}\\.json$`),
               priority: 45,

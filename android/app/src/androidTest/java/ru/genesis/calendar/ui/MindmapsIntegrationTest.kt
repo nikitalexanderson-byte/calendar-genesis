@@ -125,12 +125,13 @@ class MindmapsIntegrationTest {
             compose.onNodeWithTag("mindmap-node-text").performTextReplacement("One task across views")
             compose.onNodeWithText("Создать задачу из мысли").performScrollTo().performClick()
             compose.waitUntil(10000) {compose.onAllNodesWithTag("save-task").fetchSemanticsNodes().isNotEmpty()}
-            compose.onNodeWithTag("save-task").performScrollTo().performClick()
+            // Save is in the editor's fixed footer, outside task-editor-scroll.
+            compose.onNodeWithTag("save-task").assertIsDisplayed().assertIsEnabled().performClick()
             compose.waitUntil(15000) {repository.records.value.first {it.document.id==map.id}.document.nodes.any {it.id==thought.id&&it.kind=="task"}}
             compose.onNodeWithTag("mindmap-node-${thought.id}").performScrollTo().performClick()
             compose.onNodeWithText("Открыть карточку задачи").performScrollTo().performClick()
             compose.onNodeWithTag("task-title").performScrollTo().performTextReplacement("Changed in ordinary task repository")
-            compose.onNodeWithTag("save-task").performScrollTo().performClick()
+            compose.onNodeWithTag("save-task").assertIsDisplayed().assertIsEnabled().performClick()
             compose.waitUntil(5000) {compose.onAllNodesWithText("Changed in ordinary task repository").fetchSemanticsNodes().isNotEmpty()}
             screenshot("mindmaps-realme-light.png")
             compose.runOnIdle {dark=true}

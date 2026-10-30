@@ -117,8 +117,8 @@ val genesisAssets = tasks.register<GenesisAssetsTask>("genesisAssets") {
     from(rootProject.file("../app")) { include("solar-model-localization.js", "solar-model-labels.json", "ui-refinement-copy.json"); into("i18n") }
     from(rootProject.file("../app")) {
         include("translations.el.a.json", "translations.el.b.json", "translations.de.json", "translations.de.b.json", "translations.fr.json", "translations.fr.b.json",
-            "translations.es.json", "translations.it.json", "translations.pt.json",
-            "translations.pl.json", "translations.sr.a.json", "translations.sr.b.json",
+            "translations.es.json", "translations.es.b.json", "translations.it.json", "translations.it.b.json", "translations.pt.json",
+            "translations.pl.json", "translations.pl.b.json", "translations.sr.a.json", "translations.sr.b.json",
             "translations.uk.a.json", "translations.uk.b.json",
             "translations.zh.json", "translations.tr.json", "translations.ja.json", "translations.ja.b.json")
         into("i18n")

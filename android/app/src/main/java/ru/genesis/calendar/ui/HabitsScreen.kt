@@ -1,5 +1,6 @@
 package ru.genesis.calendar.ui
 
+import android.content.Context
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.animation.animateContentSize
@@ -23,6 +24,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import ru.genesis.calendar.ui.Dialog
 import androidx.lifecycle.Lifecycle
@@ -551,6 +553,13 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
     }
 }
 
+internal fun habitCompletionDescription(context: Context, language: String, title: String, completed: Boolean): String =
+    translateGenesisText(context, if (completed) "{title}: снять отметку" else "{title}: отметить выполнение", language)
+        .replace("{title}", title)
+
+internal fun habitTimerDescription(context: Context, language: String, title: String): String =
+    translateGenesisText(context, "Таймер привычки {title}", language).replace("{title}", title)
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ExperimentalHabitCard(habit: Habit, entry: HabitCompletion?, scheduled: Boolean, disabled: Boolean,
@@ -562,6 +571,10 @@ private fun ExperimentalHabitCard(habit: Habit, entry: HabitCompletion?, schedul
     val displayTitle = habitDisplayTitle(habit)
     val measured = HabitMeasurements.effective(rule) != null
     val completed = entry?.completed == true
+    val context = LocalContext.current
+    val language = LocalGenesisLanguage.current
+    val completionDescription = habitCompletionDescription(context, language, displayTitle, completed)
+    val timerDescription = habitTimerDescription(context, language, displayTitle)
     val status = when {
         !habit.active -> "На паузе"
         completed -> "Выполнено сегодня"
@@ -622,7 +635,7 @@ private fun ExperimentalHabitCard(habit: Habit, entry: HabitCompletion?, schedul
                 Checkbox(checked = completed, enabled = scheduled && !disabled,
                     onCheckedChange = { onComplete(it, null) },
                     modifier = Modifier.size(48.dp).testTag("habit-complete-${habit.id}")
-                        .semantics { contentDescription = "$displayTitle: ${if (completed) "снять отметку" else "отметить выполнение"}" })
+                        .semantics { contentDescription = completionDescription })
             }
             HabitIntervalMarks(habit, entry, scheduled && !disabled, onIntervalComplete)
             HabitPeriodGoalProgress(habit, measurements, completions, today, showDetails = detailsOpen, compact = true)
@@ -633,8 +646,8 @@ private fun ExperimentalHabitCard(habit: Habit, entry: HabitCompletion?, schedul
                     Text(if (detailsOpen) "Свернуть" else "Подробнее", Modifier.weight(1f))
                     AffairsActionIcon(if (detailsOpen) AffairsAction.COLLAPSE else AffairsAction.EXPAND)
                 }
-                if (scheduled && habit.timerEnabled) AffairsIconButton("Таймер привычки $displayTitle", AffairsAction.TIMER,
-                    onTimer, Modifier.testTag("habit-timer-open-${habit.id}"), !disabled, outlined = false)
+                if (scheduled && habit.timerEnabled) AffairsIconButton(timerDescription, AffairsAction.TIMER,
+                    onTimer, Modifier.testTag("habit-timer-open-${habit.id}"), !disabled, outlined = false, translate = false)
             }
             timerContent?.invoke()
             if (detailsOpen) {

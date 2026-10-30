@@ -16,7 +16,7 @@ const curatedEnglish = JSON.parse(await readFile(new URL("../app/curated-transla
 test("all web/Android UI additions have exact copy in every language", async () => {
   const en = { ...await read("en"), ...await ui("en"), ...curatedEnglish };
   for (const lang of languages) {
-    const names = ["el", "sr", "uk"].includes(lang) ? [`${lang}.a`, `${lang}.b`] : ["de", "fr", "ja"].includes(lang) ? [lang, `${lang}.b`] : [lang];
+    const names = ["el", "sr", "uk"].includes(lang) ? [`${lang}.a`, `${lang}.b`] : ["de", "fr", "ja", "es", "it", "pl"].includes(lang) ? [lang, `${lang}.b`] : [lang];
     const catalog = Object.assign({}, affairs[lang], ...await Promise.all(names.map(read)), await ui(lang), lang === "en" ? curatedEnglish : {});
     for (const key of Object.keys(en)) assert.ok(catalog[key]?.trim(), `${lang}: ${key}`);
   }
@@ -42,7 +42,7 @@ test("runtime translations and PDF keep Unicode, colors, full copy and saved geo
     for (const lang of languages) {
       for (const field of ["privacyTitle", "privacyNotice", "dataTitle", "dataNotice"]) assert.equal(translateText(dailyAdviceCopy.ru[field], lang), dailyAdviceCopy[lang][field], `${lang}: advice legal text ${field}`);
       for (const [source, expected] of Object.entries(habitReportCopy[lang])) assert.equal(translateText(source, lang), expected, `${lang}: report ${source}`);
-      const names = ["el", "sr", "uk"].includes(lang) ? [`${lang}.a`, `${lang}.b`] : ["de", "fr", "ja"].includes(lang) ? [lang, `${lang}.b`] : [lang];
+      const names = ["el", "sr", "uk"].includes(lang) ? [`${lang}.a`, `${lang}.b`] : ["de", "fr", "ja", "es", "it", "pl"].includes(lang) ? [lang, `${lang}.b`] : [lang];
       const catalog = Object.assign({}, affairs[lang], ...await Promise.all(names.map(read)), await ui(lang), lang === "en" ? curatedEnglish : {});
       assert.equal(translateText("Майндмепы", lang), catalog["Майндмепы"]);
       assert.equal(translateText("Ширина хаос-бокса", lang), catalog["Ширина хаос-бокса"]);

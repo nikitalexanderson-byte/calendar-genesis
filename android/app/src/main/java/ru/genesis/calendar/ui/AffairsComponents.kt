@@ -71,10 +71,11 @@ internal enum class AffairsAction { BACK, NEXT, MORE, CLOSE, SEARCH, FILTER, SOR
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable internal fun AffairsIconButton(label: String, action: AffairsAction, onClick: () -> Unit,
     modifier: Modifier = Modifier, enabled: Boolean = true, fillWidth: Boolean = false, selected: Boolean? = null,
-    contentColor: Color = Color.Unspecified, outlined: Boolean = LocalAffairsControlOutlined.current) {
-    val description = genesisTranslate(label)
+    contentColor: Color = Color.Unspecified, outlined: Boolean = LocalAffairsControlOutlined.current,
+    translate: Boolean = true) {
+    val description = if (translate) genesisTranslate(label) else label
     TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-        tooltip = { PlainTooltip { Text(label) } }, state = rememberTooltipState()) {
+        tooltip = { PlainTooltip { Text(label, translate = translate) } }, state = rememberTooltipState()) {
         OutlinedIconButton(onClick = onClick, enabled = enabled, shape = AffairsLayout.controlShape,
             border = if (outlined && action != AffairsAction.CLOSE) IconButtonDefaults.outlinedIconButtonBorder(enabled) else null,
             colors = if (selected == true) IconButtonDefaults.outlinedIconButtonColors(

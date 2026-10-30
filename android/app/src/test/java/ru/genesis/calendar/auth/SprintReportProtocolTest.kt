@@ -52,6 +52,91 @@ class SprintReportProtocolTest {
     private fun task(index: Int) = JSONObject().put("id", "task-$index").put("projectId", "current-project").put("title", "Текущая задача $index").put("archived", index % 2 == 0).put("revision", 3)
     private fun page(start: Int, end: Int, total: Int = 131) = JSONObject().put("asOf", "2026-10-20T08:00:00Z")
         .put("items", JSONArray((start until end).map(::task))).put("total", total).put("unavailable", 0).put("nextCursor", if (end < total) "opaque-cursor-$end" else JSONObject.NULL)
+    private fun hiddenStatus(id: String, position: Any, done: Boolean) = JSONObject().put("id", id).put("title", "Хаос-бокс")
+        .put("color", JSONObject.NULL).put("position", position).put("revision", 1).put("isDone", if (done) 1 else 0)
+    private fun reportWithHiddenStatuses(unit: String): JSONObject = sprintReportFixture(unit).apply {
+        val ordinary = getJSONArray("statuses").getJSONObject(0)
+        put("statuses", JSONArray((0 until 30).map { index -> JSONObject(ordinary.toString())
+            .put("id", if (index == 0) "open" else "status-$index").put("position", index) })
+            .put(hiddenStatus("chaos-open:project", -2, false)).put(hiddenStatus("chaos-done:project", -1, true)))
+        for (point in SprintReportProtocol.rows(getJSONObject("flow").getJSONArray("series"))) {
+            point.getJSONObject("statuses").put("chaos-open:project", sprintMetric(2, 6)).put("chaos-done:project", sprintMetric(1, 3))
+            point.getJSONObject("wipStatuses").put("chaos-open:project", sprintMetric(2, 6))
+        }
+    }
+    private fun invalidReport(action: () -> Unit) {
+        val failure = runCatching(action).exceptionOrNull()
+        assertTrue("Expected a protocol validation failure, got $failure", failure is IllegalArgumentException)
+        assertEquals("SPRINT_REPORT_INVALID", failure?.message)
+    }
+    @Test fun thirtyBoardStatusesAndTwoScopedInboxStatusesParseOnlineAndOfflineForEveryUnit() {
+        for (unit in SprintReportProtocol.units) {
+            val online = report(reportWithHiddenStatuses(unit), unit)
+            for (parsed in listOf(online, SprintReportProtocol.offline(online))) {
+                val statuses = SprintReportProtocol.rows(parsed.getJSONArray("statuses"))
+                assertEquals(32, statuses.size)
+                assertEquals(-2, statuses.first { it.getString("id") == "chaos-open:project" }.getInt("position"))
+                assertEquals(-1, statuses.first { it.getString("id") == "chaos-done:project" }.getInt("position"))
+                assertTrue(statuses.first { it.getString("id") == "chaos-done:project" }.getBoolean("isDone"))
+                assertEquals(unit, parsed.getJSONObject("flow").getString("unit"))
+                for (point in SprintReportProtocol.rows(parsed.getJSONObject("flow").getJSONArray("series"))) {
+                    assertEquals(2, point.getJSONObject("statuses").getJSONObject("chaos-open:project").getInt("tasks"))
+                    assertEquals(3, point.getJSONObject("statuses").getJSONObject("chaos-done:project").getInt("value"))
+                    assertEquals(6, point.getJSONObject("wipStatuses").getJSONObject("chaos-open:project").getInt("value"))
+                }
+            }
+            assertTrue(online.has("token")); assertFalse(SprintReportProtocol.offline(online).has("token"))
+        }
+    }
+    @Test fun hiddenStatusesNeverAllowOtherNamespacesOrCrossProjectReferences() {
+        for (identifier in listOf("chaos-open:other", "chaos-done:other", "chaos-open:", "chaos-other:project",
+            "other:project", "chaos-open:project:extra", "chaos-open:project\n", "x".repeat(201))) {
+            invalidReport { report(sprintReportFixture().apply { getJSONArray("statuses").getJSONObject(0).put("id", identifier) }) }
+            for (key in listOf("statuses", "wipStatuses")) invalidReport {
+                report(sprintReportFixture().apply { getJSONObject("flow").getJSONArray("series").getJSONObject(0)
+                    .put(key, JSONObject().put(identifier, sprintMetric())) })
+            }
+        }
+    }
+    @Test fun statusTypesPositionsDuplicatesAndCountsStayBounded() {
+        for (position in listOf<Any>(-1, Int.MAX_VALUE.toLong() + 1, 0.5, "0", false)) invalidReport {
+            report(sprintReportFixture().apply { getJSONArray("statuses").getJSONObject(0).put("position", position) })
+        }
+        for (position in listOf<Any>(0, -3, -2.0, "-2", false, JSONObject.NULL)) invalidReport {
+            report(sprintReportFixture().apply { getJSONArray("statuses").put(hiddenStatus("chaos-open:project", position, false)) })
+        }
+        invalidReport { report(sprintReportFixture().apply { getJSONArray("statuses").put(hiddenStatus("chaos-done:project", -2, true)) }) }
+        invalidReport { report(sprintReportFixture().apply {
+            val statuses = getJSONArray("statuses"); statuses.put(JSONObject(statuses.getJSONObject(0).toString()))
+        }) }
+        invalidReport { report(sprintReportFixture().apply {
+            val hidden = hiddenStatus("chaos-open:project", -2, false)
+            getJSONArray("statuses").put(hidden).put(JSONObject(hidden.toString()))
+        }) }
+        invalidReport { report(reportWithHiddenStatuses("points").apply {
+            val ordinary = SprintReportProtocol.rows(getJSONArray("statuses")).take(30)
+            put("statuses", JSONArray(ordinary).put(JSONObject(ordinary.first().toString()).put("id", "status-30").put("position", 30)))
+        }) }
+        invalidReport { report(reportWithHiddenStatuses("points").apply {
+            getJSONArray("statuses").put(JSONObject(getJSONArray("statuses").getJSONObject(0).toString()).put("id", "status-30").put("position", 30))
+        }) }
+    }
+    @Test fun hiddenStatusCompatibilityDoesNotBroadenProjectSprintOrTaskIds() {
+        val hidden = "chaos-open:project"
+        assertFalse(PlanningLifecycle.id(hidden))
+        invalidReport {
+            val raw = sprintReportFixture().put("projectId", hidden).apply { getJSONObject("sprint").put("projectId", hidden) }
+            SprintReportProtocol.snapshot(hidden, "sprint", "points", raw)
+        }
+        invalidReport {
+            val raw = sprintReportFixture().apply { getJSONObject("sprint").put("id", hidden) }
+            SprintReportProtocol.snapshot("project", hidden, "points", raw)
+        }
+        for (key in listOf("id", "projectId")) invalidReport {
+            val raw = page(0, 1, 1).apply { getJSONArray("items").getJSONObject(0).put(key, hidden) }
+            SprintReportProtocol.sources(report(), SprintReportProtocol.query("tasks", "plan"), raw)
+        }
+    }
     @Test fun zeroNullAndIndependentUnitsKeepTheirMeanings() {
         val raw = sprintReportFixture("hours")
         raw.getJSONObject("flow").getJSONObject("summary").put("delivered", sprintMetric(1, 0))

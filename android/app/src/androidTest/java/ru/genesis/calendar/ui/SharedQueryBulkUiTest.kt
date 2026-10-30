@@ -9,15 +9,19 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import org.json.JSONObject
+import org.json.JSONArray
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.Assert.*
 import ru.genesis.calendar.PagerTestActivity
+import ru.genesis.calendar.captureNativeWindow
 import ru.genesis.calendar.auth.*
 import ru.genesis.calendar.data.UiPreferences
 import java.io.File
+import java.util.Collections
+import java.util.concurrent.atomic.AtomicInteger
 
 class SharedQueryBulkUiTest {
     @get:Rule val compose = createAndroidComposeRule<PagerTestActivity>()
@@ -26,20 +30,59 @@ class SharedQueryBulkUiTest {
     private var dark by mutableStateOf(false)
     private var language by mutableStateOf("ru")
     private var incoming: JSONObject? = null
+    @Volatile private var traceConfigure = false
+    private val inputSequence = AtomicInteger()
+    private val inputEvents = Collections.synchronizedList(mutableListOf<JSONObject>())
+    private val diagnosticErrors = Collections.synchronizedList(mutableListOf<Throwable>())
+    private fun inputEvent(sequence: Int, stage: String, stamp: String?, input: JSONObject, result: String? = null) {
+        runCatching {
+            inputEvents.add(JSONObject().put("sequence", sequence).put("stage", stage).put("atNanos", System.nanoTime())
+                .put("stamp", stamp ?: JSONObject.NULL).put("form", input.optJSONObject("form")?.let { JSONObject(it.toString()) } ?: JSONObject.NULL)
+                .put("result", result ?: JSONObject.NULL))
+        }.onFailure { diagnosticErrors.add(it) }
+    }
     @Before fun open() = fixture.open()
     @After fun close() = fixture.close()
     @Composable private fun Content() { key(epoch) {
+        val gateway = remember { object : SharedWorkspaceGateway by fixture.gateway {
+            override suspend fun saveSharedBulkInput(context: String, stamp: String?, input: JSONObject): JSONObject {
+                if (!traceConfigure) return fixture.gateway.saveSharedBulkInput(context, stamp, input)
+                val sequence = inputSequence.incrementAndGet(); inputEvent(sequence, "started", stamp, input)
+                try {
+                    return fixture.gateway.saveSharedBulkInput(context, stamp, input).also { saved ->
+                        inputEvent(sequence, "returned", saved.optString("stamp"), input, saved.optString("phase"))
+                    }
+                } catch (failure: Throwable) { inputEvent(sequence, "failed", stamp, input, failure.toString()); throw failure }
+            }
+        } }
         CompositionLocalProvider(LocalGenesisLanguage provides language, LocalEveningTheme provides dark, LocalGenesisUserId provides fixture.base.actor) {
             MaterialTheme(colorScheme = if (dark) evening else standart) { Surface(Modifier.fillMaxSize()) {
                 val origin = incoming ?: fixture.origin()
-                SharedBulkScreen(fixture.gateway, SharedBulkProtocol.QUERY_SCOPE, origin.getJSONObject("filter"), origin.getString("sort"), UiPreferences(), {}, {}, {}, { _, _ -> }, origin)
+                SharedBulkScreen(gateway, SharedBulkProtocol.QUERY_SCOPE, origin.getJSONObject("filter"), origin.getString("sort"), UiPreferences(), {}, {}, {}, { _, _ -> }, origin)
             } }
         }
     } }
     private fun await(tag: String) {
-        compose.waitUntil(30_000) { compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
-        compose.waitUntil(30_000) { compose.onAllNodesWithTag("bulk-working").fetchSemanticsNodes().isEmpty() }
-        compose.waitForIdle()
+        try {
+            compose.waitUntil(30_000) { compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
+            compose.waitUntil(30_000) { compose.onAllNodesWithTag("bulk-working").fetchSemanticsNodes().isEmpty() }
+            compose.waitForIdle()
+        } catch (failure: Throwable) {
+            fun diagnostic(action: () -> Unit) {
+                try { action() } catch (diagnosticFailure: Throwable) { failure.addSuppressed(diagnosticFailure) }
+            }
+            synchronized(diagnosticErrors) { diagnosticErrors.forEach { failure.addSuppressed(it) } }
+            diagnostic {
+                val proof = JSONObject().put("awaitedTag", tag).put("ownedProjects", JSONArray().put(fixture.base.project).put(fixture.second))
+                    .put("failure", failure.stackTraceToString()).put("projectReads", fixture.projectReads).put("sentCount", fixture.sent.size)
+                    .put("inputRecord", fixture.service().loadInput(SharedBulkProtocol.QUERY_SCOPE) ?: JSONObject.NULL)
+                    .put("commandRecord", fixture.service().load(SharedBulkProtocol.QUERY_SCOPE) ?: JSONObject.NULL)
+                    .put("inputEvents", JSONArray(synchronized(inputEvents) { inputEvents.toList() }))
+                File(fixture.base.app.filesDir, "query-bulk-failure-$tag.json").writeText(proof.toString(2))
+            }
+            diagnostic { captureNativeWindow(File(fixture.base.app.filesDir, "query-bulk-failure-$tag.png")) }
+            throw failure
+        }
     }
     private fun click(tag: String, scroll: Boolean = true) {
         if (scroll && tag !in setOf("bulk-configure", "bulk-preview", "bulk-confirm", "bulk-retry")) compose.onNodeWithTag(tag).performScrollTo()
@@ -55,6 +98,7 @@ class SharedQueryBulkUiTest {
         }
     }
     @Test fun perProjectStatusControlsRequireBothMappingsBeforeAnExplicitPreview() {
+        traceConfigure = true
         compose.setContent { Content() }; configure(); kind("status")
         compose.onNodeWithTag("bulk-preview").assertIsNotEnabled()
         for (project in listOf(fixture.base.project, fixture.second)) {

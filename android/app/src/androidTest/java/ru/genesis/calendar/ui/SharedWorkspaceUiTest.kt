@@ -22,6 +22,7 @@ import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
 import ru.genesis.calendar.PagerTestActivity
+import ru.genesis.calendar.captureNativeWindow
 import ru.genesis.calendar.auth.SharedWorkspaceGateway
 import java.io.File
 
@@ -831,12 +832,39 @@ class SharedWorkspaceUiTest {
     }
 
     private fun selectFixtureProject(fixture: WorkspaceFixture) {
-        compose.waitUntil(5_000) { compose.onAllNodesWithTag("shared-space-$spaceFixture").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithTag("shared-space-$spaceFixture").performClick()
-        compose.onNodeWithTag("shared-project-$projectFixture").performClick()
-        compose.waitUntil(5_000) { compose.onAllNodesWithTag("shared-view-list").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithTag("shared-view-list").performScrollTo().performClick()
-        compose.waitUntil(5_000) { fixture.queries.isNotEmpty() }
+        var phase = "space"
+        try {
+            compose.waitUntil(5_000) { compose.onAllNodesWithTag("shared-space-$spaceFixture").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithTag("shared-space-$spaceFixture").performClick()
+            phase = "project"; compose.onNodeWithTag("shared-project-$projectFixture").performClick()
+            // View choices are popup items; opening the real selector is a separate action.
+            phase = "view-menu"
+            compose.waitUntil(5_000) { compose.onAllNodesWithTag("shared-view-selector").fetchSemanticsNodes().isNotEmpty() }
+            val selector = compose.onNodeWithTag("shared-view-selector")
+            if (runCatching { selector.assertIsDisplayed() }.isFailure) selector.performScrollTo()
+            selector.assertIsDisplayed().assertIsEnabled().performClick()
+            compose.waitUntil(5_000) { compose.onAllNodesWithTag("shared-view-list").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithTag("shared-view-list").assertIsDisplayed().performClick()
+            phase = "list-query"; compose.waitUntil(5_000) { fixture.queries.isNotEmpty() }
+        } catch (failure: Throwable) {
+            val instrumentation = InstrumentationRegistry.getInstrumentation()
+            val directory = instrumentation.targetContext.getExternalFilesDir(null) ?: instrumentation.targetContext.cacheDir
+            val name = "workspace313-select-$phase-${System.currentTimeMillis()}"
+            fun diagnostic(action: () -> Unit) {
+                try { action() } catch (diagnosticFailure: Throwable) { failure.addSuppressed(diagnosticFailure) }
+            }
+            diagnostic {
+                val proof = JSONObject().put("ownedSpaceId", spaceFixture).put("ownedProjectId", projectFixture)
+                    .put("phase", phase).put("failure", failure.stackTraceToString()).put("snapshots", fixture.snapshots)
+                    .put("queries", JSONArray(fixture.queries.map { JSONObject(it.toString()) }))
+                    .put("records", JSONArray(fixture.records.map { JSONObject(it.toString()) }))
+                    .put("role", fixture.role).put("planning", fixture.planning).put("editPermission", fixture.editPermission ?: JSONObject.NULL)
+                    .put("creates", fixture.creates).put("updates", fixture.updates).put("queueCount", fixture.queue.size)
+                File(directory, "$name.json").writeText(proof.toString(2))
+            }
+            diagnostic { captureNativeWindow(File(directory, "$name.png")) }
+            throw failure
+        }
     }
 
     private fun openEstimateTask(fixture: WorkspaceFixture, restoration: StateRestorationTester? = null) {
@@ -1091,7 +1119,7 @@ class SharedWorkspaceUiTest {
         compose.onNodeWithTag("affairs-save").performClick()
         compose.waitUntil(5_000) { fixture.records.single().optString("title") == "Обновлённый план команды" }
         compose.onNodeWithTag("affairs-back").performScrollTo().performClick()
-        compose.onNodeWithTag("shared-view-list").assertExists()
+        compose.onNodeWithTag("shared-view-selector").assertIsDisplayed().assertContentDescriptionEquals("Список")
         compose.onNodeWithTag("shared-task-title-input").assertDoesNotExist()
         compose.onNodeWithTag("shared-task-qa-task").assertIsDisplayed()
         compose.onNodeWithTag("shared-project-$projectFixture").assertDoesNotExist()

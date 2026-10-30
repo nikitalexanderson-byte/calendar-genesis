@@ -23,6 +23,18 @@ for (const [slug, title] of Object.entries(pages)) {
   assert.match(html, /<script type="module"[^>]*src="[^"]+\.js"/, `${slug}: interactive client must remain available`);
   assert.doesNotMatch(html, /genesiscalendar\.ru|yandex|яндекс|beget/i, `${slug}: old public references must be absent`);
   assert.doesNotMatch(body, /Логвинов|Logvinov|jurijjlogvinov@gmail\.com/i, `${slug}: retired personal identity must be absent`);
+  if (slug === "privacy" || slug === "delete-account") {
+    const retention = body.match(/<h2>Общие задачи и вложения после удаления аккаунта<\/h2><p>([\s\S]*?)<\/p>/)?.[1];
+    assert.ok(retention, `${slug}: shared-data retention must be readable without JavaScript`);
+    assert.match(retention, /после удаления аккаунта[\s\S]*вложения[\s\S]*сохраняться для других участников/i,
+      `${slug}: account deletion must not promise deletion of other participants' shared files`);
+    assert.match(retention, /передаче владения проектом/, `${slug}: ownership transfer must be explained`);
+    assert.match(retention, /право редактирования задачи/, `${slug}: removing a file requires task edit rights`);
+    for (const label of ["Редактировать", "Убрать файл", "Сохранить задачу", "Файлы задачи", "Убрать", "Сохранить"])
+      assert.ok(retention.includes(`«${label}»`), `${slug}: existing file-removal action ${label} must be identified`);
+    assert.match(retention, /резервные копии[\s\S]*ротации/, `${slug}: backup rotation must be explained`);
+    assert.match(retention, /мгновенное стирание[\s\S]*не гарантируется/, `${slug}: instant backup erasure must not be promised`);
+  }
   if (slug === "privacy") {
     assert.ok(body.includes("Hostinger") && body.includes("Google API Services User Data Policy"));
     assert.ok(body.length > 10000, "privacy: complete policy must be served in the initial response");

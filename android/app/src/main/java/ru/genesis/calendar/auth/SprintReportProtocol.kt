@@ -20,6 +20,20 @@ internal object SprintReportProtocol {
         val raw = value.get(key); require(raw is String && raw.length <= max) { invalid }; return raw
     }
     private fun id(value: JSONObject, key: String): String = text(value, key, 200).toString().also { require(PlanningLifecycle.id(it)) { invalid } }
+    // The server retains two project-scoped inbox statuses outside the 30 ordinary board statuses.
+    private fun hiddenStatusPosition(status: String, project: String): Int? = when (status) {
+        "chaos-open:$project" -> -2
+        "chaos-done:$project" -> -1
+        else -> null
+    }
+    private fun validStatusId(status: String, project: String) = status.length <= 200 &&
+        (PlanningLifecycle.id(status) || hiddenStatusPosition(status, project) != null)
+    private fun statusId(value: JSONObject, project: String): String = text(value, "id", 200).toString().also { require(validStatusId(it, project)) { invalid } }
+    private fun statusPosition(value: Any, hidden: Int?): Number {
+        if (hidden == null) return count(value)
+        require((value is Int || value is Long) && (value as Number).toLong() == hidden.toLong()) { invalid }
+        return hidden
+    }
     private fun bool(value: JSONObject, key: String): Boolean = value.get(key).also { require(it is Boolean) { invalid } } as Boolean
     private fun count(raw: Any): Long {
         require(raw is Int || raw is Long) { invalid }
@@ -49,10 +63,10 @@ internal object SprintReportProtocol {
     }
     fun emptyMetric(observed: Boolean): JSONObject = JSONObject().put("tasks", if (observed) 0 else JSONObject.NULL)
         .put("unestimated", 0).put("knownValue", if (observed) 0 else JSONObject.NULL).put("value", if (observed) 0 else JSONObject.NULL)
-    private fun metricMap(value: Any): JSONObject {
+    private fun metricMap(value: Any, project: String): JSONObject {
         if (value is JSONArray) { require(value.length() == 0) { invalid }; return JSONObject() }
         require(value is JSONObject && value.length() <= 20_030) { invalid }
-        return JSONObject().apply { (value as JSONObject).keys().forEach { key -> require(PlanningLifecycle.id(key)) { invalid }; put(key, metric(value.getJSONObject(key))) } }
+        return JSONObject().apply { (value as JSONObject).keys().forEach { key -> require(validStatusId(key, project)) { invalid }; put(key, metric(value.getJSONObject(key))) } }
     }
     fun snapshot(project: String, sprint: String, unit: String, value: JSONObject, offline: Boolean = false): JSONObject {
         require(unit in units && id(value, "projectId") == project) { invalid }
@@ -62,11 +76,13 @@ internal object SprintReportProtocol {
         val launch = period(value.getJSONObject("launch")); val launchUnit = value.getJSONObject("launch").opt("estimateUnit")
         require(launchUnit == null || launchUnit == JSONObject.NULL || launchUnit in setOf("points", "hours")) { invalid }
         launch.put("estimateUnit", launchUnit ?: JSONObject.NULL)
-        val statuses = rows(value.getJSONArray("statuses")); require(statuses.size <= 30 && statuses.map { id(it, "id") }.distinct().size == statuses.size) { invalid }
-        val cleanStatuses = statuses.map { status ->
+        val statuses = rows(value.getJSONArray("statuses")); require(statuses.size <= 32) { invalid }
+        val statusIds = statuses.map { statusId(it, project) }
+        require(statusIds.distinct().size == statuses.size && statusIds.count { hiddenStatusPosition(it, project) == null } <= 30) { invalid }
+        val cleanStatuses = statuses.zip(statusIds).map { (status, identifier) ->
             val done = status.get("isDone"); require(done is Boolean || done is Int && done in 0..1) { invalid }
-            JSONObject().put("id", id(status, "id")).put("title", text(status, "title", 1000)).put("color", text(status, "color", 50, true))
-                .put("position", count(status.get("position"))).put("revision", count(status.get("revision"))).put("isDone", done == true || done == 1)
+            JSONObject().put("id", identifier).put("title", text(status, "title", 1000)).put("color", text(status, "color", 50, true))
+                .put("position", statusPosition(status.get("position"), hiddenStatusPosition(identifier, project))).put("revision", count(status.get("revision"))).put("isDone", done == true || done == 1)
         }
         val flow = value.getJSONObject("flow"); require(text(flow, "unit", 10) == unit) { invalid }
         val cleanFlow = JSONObject().put("available", bool(flow, "available")).put("unit", unit)
@@ -98,7 +114,7 @@ internal object SprintReportProtocol {
                     .put("sourceKind", text(point, "sourceKind", 100)).put("connectPrevious", bool(point, "connectPrevious"))
                     .put("coverage", pointCoverage).put("unknownTasks", count(point.get("unknownTasks"))).apply {
                         for (key in listOf("scope", "remaining", "done", "wip")) put(key, metric(point.getJSONObject(key)))
-                        for (key in listOf("statuses", "wipStatuses")) put(key, metricMap(point.get(key)))
+                        for (key in listOf("statuses", "wipStatuses")) put(key, metricMap(point.get(key), project))
                         for (key in listOf("historyGap", "gapWithinBucket")) if (point.has(key)) put(key, bool(point, key))
                     }
             }

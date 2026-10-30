@@ -33,10 +33,13 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import ru.genesis.calendar.PagerTestActivity
+import ru.genesis.calendar.captureNativeWindow
 import ru.genesis.calendar.auth.*
 import ru.genesis.calendar.data.UiPreferences
 import java.io.File
 import java.util.UUID
+import java.util.Collections
+import java.util.concurrent.atomic.AtomicInteger
 
 /** Real Compose dialogs, native TLS and encrypted drafts; opt-in isolated application only. */
 class SharedTemplatesUiTest {
@@ -53,6 +56,20 @@ class SharedTemplatesUiTest {
     private var writeAllowed by mutableStateOf(true)
     private var parentScreen = false
     @Volatile private var readRevoked = false
+    @Volatile private var traceDependencySaves = false
+    private val dependencySaveSequence = AtomicInteger()
+    private val dependencySaveEvents = Collections.synchronizedList(mutableListOf<JSONObject>())
+    private val dependencyDiagnosticErrors = Collections.synchronizedList(mutableListOf<Throwable>())
+    private fun dependencySaveEvent(sequence: Int, stage: String, edit: JSONObject, result: String? = null) {
+        runCatching {
+            val main = edit.optJSONObject("request")?.optJSONObject("manifest")?.optJSONArray("tasks")?.let { rows ->
+                PlanningLifecycle.rows(rows).firstOrNull { it.optString("key") == "main" }
+            }
+            dependencySaveEvents.add(JSONObject().put("sequence", sequence).put("stage", stage).put("atNanos", System.nanoTime())
+                .put("mainPresent", main != null).put("dependencies", main?.optJSONArray("dependsOnKeys")?.let { JSONArray(it.toString()) } ?: JSONObject.NULL)
+                .put("result", result ?: JSONObject.NULL))
+        }.onFailure { dependencyDiagnosticErrors.add(it) }
+    }
     @Before fun open() { fixture.open(); snapshot = fixture.client.sharedProject(fixture.generation, fixture.project) }
     @After fun close() {
         try { fixture.close() } finally {
@@ -87,6 +104,19 @@ class SharedTemplatesUiTest {
             override suspend fun flushSharedOfflineTasks() = 0
             override suspend fun queuedSharedTasks(projectId: String) = emptyList<JSONObject>()
             override suspend fun querySharedTasks(filter: JSONObject, cursor: String?) = withContext(Dispatchers.IO) { fixture.client.querySharedTasks(fixture.generation, filter, cursor) }
+            override suspend fun saveSharedTemplateDraft(project: String, stamp: String?, edit: JSONObject): JSONObject {
+                if (!traceDependencySaves) return fixture.gateway.saveSharedTemplateDraft(project, stamp, edit)
+                val sequence = dependencySaveSequence.incrementAndGet()
+                dependencySaveEvent(sequence, "started", edit)
+                try {
+                    return fixture.gateway.saveSharedTemplateDraft(project, stamp, edit).also { saved ->
+                        runCatching { dependencySaveEvent(sequence, "returned", saved.getJSONObject("edit"), saved.optString("phase")) }
+                            .onFailure { dependencyDiagnosticErrors.add(it) }
+                    }
+                } catch (failure: Throwable) {
+                    dependencySaveEvent(sequence, "failed", edit, failure.toString()); throw failure
+                }
+            }
             override suspend fun sendSharedTemplateDraft(project: String, stamp: String): JSONObject = withContext(Dispatchers.IO) {
                 templateSendCalls++
                 fixture.service { loseReply.also { loseReply = false } }.send(project, stamp)
@@ -168,6 +198,7 @@ class SharedTemplatesUiTest {
         }
     }
     @Test fun aFiftyFirstDependencyHasANameAndCannotDiscardTheProtectedGraph() {
+        traceDependencySaves = true
         val manifest = JSONObject(fixture.source("system:publication").getJSONObject("manifest").toString())
         val root = manifest.getJSONArray("projects").getJSONObject(0); val project = root.getString("key")
         val status = root.getJSONArray("statuses").getJSONObject(0).getString("key")
@@ -193,9 +224,23 @@ class SharedTemplatesUiTest {
         compose.mainClock.advanceTimeBy(500); compose.waitForIdle()
         try { compose.waitUntil(30_000) { savedManifest().getJSONArray("tasks").getJSONObject(0).getJSONArray("dependsOnKeys").toString().contains("dep:51") } }
         catch (failure: Throwable) {
-            println("Protected dependency keys: " + savedManifest().getJSONArray("tasks").getJSONObject(0).getJSONArray("dependsOnKeys"))
-            println("Visible editor error: " + runCatching { compose.onNodeWithTag("template-error").printToString() }.getOrDefault("none"))
-            screen(File(fixture.app.filesDir, "template-failure-dependency-save.png")); throw failure
+            fun diagnostic(action: () -> Unit) {
+                try { action() } catch (diagnosticFailure: Throwable) { failure.addSuppressed(diagnosticFailure) }
+            }
+            synchronized(dependencyDiagnosticErrors) { dependencyDiagnosticErrors.forEach { failure.addSuppressed(it) } }
+            diagnostic {
+                val record = fixture.service().load(fixture.project)
+                val main = record?.optJSONObject("edit")?.optJSONObject("request")?.optJSONObject("manifest")?.optJSONArray("tasks")?.let { rows ->
+                    PlanningLifecycle.rows(rows).firstOrNull { it.optString("key") == "main" }
+                }
+                val proof = JSONObject().put("ownedProjectId", fixture.project).put("ownedTaskKey", "main")
+                    .put("failure", failure.stackTraceToString()).put("draftPhase", record?.optString("phase") ?: "none")
+                    .put("savedDependencies", main?.optJSONArray("dependsOnKeys") ?: JSONObject.NULL)
+                    .put("saveEvents", JSONArray(synchronized(dependencySaveEvents) { dependencySaveEvents.toList() }))
+                File(fixture.app.filesDir, "template-failure-dependency-save.json").writeText(proof.toString(2))
+            }
+            diagnostic { captureNativeWindow(File(fixture.app.filesDir, "template-failure-dependency-save.png")) }
+            throw failure
         }
         for (night in listOf(false, true)) { compose.runOnIdle { dark = night }; compose.onNodeWithTag("template-dependency-limit").performScrollTo(); fixCapture("dependency-limit") }
         assertEquals("Protected dependency graph", fixture.service().load(fixture.project)!!.getJSONObject("edit").getJSONObject("request").getString("title"))

@@ -2031,7 +2031,7 @@ private object TranslationCatalog {
             runCatching {
                 val names = if (language in setOf("el", "sr", "uk"))
                     listOf("translations.$language.a.json", "translations.$language.b.json")
-                    else if (language in setOf("de", "fr", "ja")) listOf("translations.$language.json", "translations.$language.b.json")
+                    else if (language in setOf("de", "fr", "ja", "es", "it", "pl")) listOf("translations.$language.json", "translations.$language.b.json")
                     else listOf("translations.$language.json")
                 buildMap {
                     putAll(mobileWorkspaceCopy)

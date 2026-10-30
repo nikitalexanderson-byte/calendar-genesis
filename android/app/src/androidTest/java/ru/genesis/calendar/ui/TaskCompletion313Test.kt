@@ -15,6 +15,7 @@ import org.junit.Test
 import ru.genesis.calendar.*
 import ru.genesis.calendar.data.*
 import ru.genesis.calendar.domain.RecurrenceConfig
+import java.io.File
 import java.time.LocalDate
 import java.util.UUID
 
@@ -132,13 +133,46 @@ class TaskCompletion313Test {
         return compose.onNode(isToggleable() and hasAnyAncestor(row), useUnmergedTree = true)
     }
 
+    private fun awaitCheckbox(page: String, id: String, checked: Boolean, phase: String): SemanticsNodeInteraction {
+        val node = checkbox(page, id)
+        val started = android.os.SystemClock.elapsedRealtime()
+        try {
+            // Room commit, invalidation Flow and lifecycle-aware Compose collection
+            // are separate asynchronous steps. Wait for this actual task checkbox.
+            compose.waitUntil(10_000) {
+                runCatching { if (checked) node.assertIsOn() else node.assertIsOff(); true }.getOrDefault(false)
+            }
+            return if (checked) node.assertIsOn() else node.assertIsOff()
+        } catch (failure: Throwable) {
+            val key = when (page) { "Сегодня" -> "today"; "Календарь" -> "calendar"; else -> "affairs" }
+            val file = File(app.getExternalFilesDir(null), "completion313-$key-$phase-$id")
+            runCatching {
+                fun snapshot(task: LocalTask?): Any = task?.let { JSONObject().put("id", it.id)
+                    .put("done", it.done).put("revision", it.revision).put("recurring", it.recurrence.enabled) } ?: JSONObject.NULL
+                val vm = runCatching { model() }.getOrNull()
+                val record = runCatching { runBlocking { withTimeout(2_000) { app.repository.get(id) } } }.getOrNull()
+                val proof = JSONObject().put("page", key).put("phase", phase).put("expectedChecked", checked)
+                    .put("elapsedMs", android.os.SystemClock.elapsedRealtime() - started).put("scope", app.workspaceScope)
+                    .put("lifecycle", compose.activity.lifecycle.currentState.name).put("database", snapshot(record))
+                    .put("modelFlow", snapshot(vm?.tasks?.value?.firstOrNull { it.id == id }))
+                    .put("modelError", vm?.error?.value ?: JSONObject.NULL)
+                    .put("checkbox", runCatching { node.printToString() }.getOrElse { it.javaClass.simpleName })
+                File(file.path + ".json").writeText(proof.toString(2))
+                println("QA313_CHECKBOX_UI_TIMEOUT=$proof")
+            }.exceptionOrNull()?.let { failure.addSuppressed(it) }
+            runCatching { captureNativeWindow(File(file.path + ".png")) }
+                .exceptionOrNull()?.let { failure.addSuppressed(it) }
+            throw failure
+        }
+    }
+
     private fun exerciseCheckboxes(page: String) {
         val tasks = listOf(seed(), seed(recurring = true))
         openPage(page)
         tasks.forEach { task ->
             checkbox(page, task.id).assertIsOff().performClick()
             compose.waitUntil(10_000) { stored(task.id).done }
-            checkbox(page, task.id).assertIsOn()
+            awaitCheckbox(page, task.id, true, "completed")
             assertEquals(task.revision + 1, stored(task.id).revision)
         }
         if (page == "Календарь") compose.onNodeWithContentDescription("Закрыть").performClick()
@@ -146,9 +180,9 @@ class TaskCompletion313Test {
         compose.waitUntil(10_000) { compose.onAllNodesWithTag("workspace-menu").fetchSemanticsNodes().isNotEmpty() }
         openPage(page)
         tasks.forEach { task ->
-            checkbox(page, task.id).assertIsOn().performClick()
+            awaitCheckbox(page, task.id, true, "recreated").performClick()
             compose.waitUntil(10_000) { !stored(task.id).done }
-            checkbox(page, task.id).assertIsOff()
+            awaitCheckbox(page, task.id, false, "undone")
             assertEquals(task.revision + 2, stored(task.id).revision)
         }
         val series = stored(tasks.last().id)

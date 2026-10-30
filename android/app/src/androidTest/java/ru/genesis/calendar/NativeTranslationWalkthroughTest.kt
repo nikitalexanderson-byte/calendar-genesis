@@ -52,6 +52,7 @@ class NativeTranslationWalkthroughTest {
         val dayIndex = 210
         val day = SacredCatalog.months.flatMap { it.days }[dayIndex]
         val userTitle = "Задача {title} и проект\nМосква"
+        val habitTitle = "Привычка {title} $1 \\ [Москва].*\nМосква"
         val date = LocalDate.of(2026, 10, 16)
         for (language in listOf("ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja")) {
             val copy = catalog.getJSONObject(language)
@@ -61,6 +62,13 @@ class NativeTranslationWalkthroughTest {
                 assertEquals("$language: $source", translated, translateGenesisText(app, source, language))
             assertTranslation("Новая привычка", copy.getString("Новая привычка"))
             assertTranslation("Разделы и действия привычек", copy.getString("Разделы и действия привычек"))
+            for (completed in listOf(false, true)) {
+                val key = if (completed) "{title}: снять отметку" else "{title}: отметить выполнение"
+                assertEquals("$language: habit completion=$completed preserves the literal title",
+                    expected(key, "title" to habitTitle), habitCompletionDescription(app, language, habitTitle, completed))
+            }
+            assertEquals("$language: habit timer preserves the literal title",
+                expected("Таймер привычки {title}", "title" to habitTitle), habitTimerDescription(app, language, habitTitle))
             for (phase in listOf("Новолуние", "Молодой серп", "Первая четверть", "Растущая луна",
                 "Полнолуние", "Убывающая луна", "Последняя четверть", "Старый серп"))
                 assertTranslation(phase, copy.getString(phase))

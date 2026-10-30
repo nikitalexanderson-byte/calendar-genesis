@@ -3,6 +3,7 @@ package ru.genesis.calendar
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
 import java.time.LocalDate
@@ -72,6 +73,7 @@ class StoreListing313CaptureTest {
             prefs.set("language", language); prefs.set("theme", "standart")
             prefs.set("display", "profane"); prefs.set("input", "profane")
             prefs.set("settingsSubmenuEnabled", "true")
+            prefs.set("stoicheionDivinationDisabled", "false")
             val date = LocalDate.now()
             val structure = WorkspaceStructureRepository(app)
             structure.saveProject(GenesisProject(project, null, null, copy("Личные планы", "Personal plans"), "", emptyList(), "active", 0))
@@ -80,6 +82,20 @@ class StoreListing313CaptureTest {
             val habits = HabitsRepository(app)
             val initialHabits = habits.workspace.first()
             habits.updateSettings(initialHabits.settings.copy(enabled = true))
+            suspend fun setCaptureTheme(dark: Boolean) {
+                val current = habits.workspace.first().settings
+                val raw = org.json.JSONObject(current.rawJson)
+                val appearance = raw.optJSONObject("nativeAppearance") ?: org.json.JSONObject()
+                raw.put("nativeAppearance", appearance.put("mode", if (dark) "evening" else "light"))
+                habits.updateSettings(current.copy(rawJson = raw.toString()))
+                prefs.set("theme", if (dark) "standart-dark" else "standart")
+                val tag = if (dark) "app-theme-Evening" else "app-theme-Standart"
+                compose.waitUntil(10_000) { compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
+                compose.onNodeWithTag(tag).assertIsDisplayed()
+            }
+            // A saved automatic schedule overrides the account colour preference.
+            // Set the real appearance mode and assert it before taking store assets.
+            setCaptureTheme(false)
             habits.save(Habit(TrackerEntity.create("habit", id = "$token-habit"), copy("Читать каждый день", "Read every day"),
                 date, HabitEngine(GenesisCalendar()).defaultSchedule(date, CalendarMode.PROFANE),
                 emoji = "📖", timerEnabled = true))
@@ -97,11 +113,17 @@ class StoreListing313CaptureTest {
             compose.onNodeWithTag("submenu-year").performClick(); await("calendar-year")
             capture("calendar-year")
             open("Привычки", "Привычки"); await("habit-view-today")
-            prefs.set("theme", "standart-dark")
+            setCaptureTheme(true)
             compose.waitForIdle(); capture("habits-dark")
-            prefs.set("theme", "standart")
+            setCaptureTheme(false)
             open("Привычки", "Сон и настроение"); await("sleep-plan-header"); capture("sleep")
             open("Сакральное", "stoicheion"); await("stoicheion-grid")
+            // The grid exists while the bundled cards are still being read on IO.
+            // Wait for actual scrollable content before looking for an offscreen card.
+            compose.waitUntil(15_000) {
+                compose.onNodeWithTag("stoicheion-grid").fetchSemanticsNode()
+                    .config[SemanticsProperties.VerticalScrollAxisRange].maxValue() > 0f
+            }
             compose.onNodeWithTag("stoicheion-grid").performScrollToNode(hasTestTag("stoicheion-timeline-cards"))
             val viewport = compose.onNodeWithTag("stoicheion-grid").fetchSemanticsNode().boundsInRoot
             val block = compose.onNodeWithTag("stoicheion-timeline-block").fetchSemanticsNode().boundsInRoot
@@ -130,6 +152,7 @@ class StoreListing313CaptureTest {
             prefs.set("language", original.language); prefs.set("theme", original.theme ?: "")
             prefs.set("display", original.display.wireValue); prefs.set("input", original.input.wireValue)
             prefs.set("settingsSubmenuEnabled", original.settingsSubmenuEnabled.toString())
+            prefs.set("stoicheionDivinationDisabled", original.divinationDisabled.toString())
             app.scheduler.restoreHabitNotifications()
             ru.genesis.calendar.reminders.SleepReminderScheduler.restore(app)
         }

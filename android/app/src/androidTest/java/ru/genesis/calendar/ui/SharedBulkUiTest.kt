@@ -14,16 +14,27 @@ import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
 import ru.genesis.calendar.PagerTestActivity
+import ru.genesis.calendar.captureNativeWindow
 import ru.genesis.calendar.auth.*
 import ru.genesis.calendar.data.UiPreferences
 import ru.genesis.calendar.domain.CalendarMode
 import java.io.File
 import java.time.Instant
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 
 private const val bulkProject = "bulk-project"
 private const val bulkOp = "10000000-0000-4000-8000-000000000099"
 private class BulkUiFixture : SharedWorkspaceGateway {
+    private val gatewayCalls = ConcurrentHashMap<String, AtomicInteger>()
+    @Volatile private var lastGatewayCall = "created"
+    private fun <T> tracked(name: String, action: () -> T): T {
+        gatewayCalls.getOrPut(name) { AtomicInteger() }.incrementAndGet()
+        lastGatewayCall = "$name:start"
+        try { return action().also { lastGatewayCall = "$name:returned" } }
+        catch (failure: Throwable) { lastGatewayCall = "$name:threw:${failure.javaClass.simpleName}"; throw failure }
+    }
     private val storage = object : PlanningJournalStorage {
         val values = mutableMapOf<String, String>()
         override fun <T> locked(block: () -> T): T = synchronized(this, block)
@@ -39,12 +50,14 @@ private class BulkUiFixture : SharedWorkspaceGateway {
         override fun check() { }
         override fun hasTaskQueue() = queue
         override fun scope(selection: JSONObject): JSONObject {
+            gatewayCalls.getOrPut("scope") { AtomicInteger() }.incrementAndGet()
             selected = if (selection.getString("mode") == "all") taskCount else selection.getJSONArray("items").length()
             return JSONObject().put("total", selected).put("hasMore", false).put("nextCursor", JSONObject.NULL).put("projects", JSONArray().put(
                 JSONObject().put("id", bulkProject).put("spaceId", "bulk-space").put("title", "План команды").put("taskCount", selected)
                     .put("statuses", JSONArray().put(JSONObject().put("id", "open").put("title", "Открыто").put("isDone", false)))))
         }
         override fun preview(body: JSONObject): JSONObject {
+            gatewayCalls.getOrPut("preview") { AtomicInteger() }.incrementAndGet()
             previews++; reportState = "preview"; sent += body.toString(); previewAction = body.getJSONObject("action"); mode = body.getJSONObject("selection").getString("mode")
             failure?.let { throw AuthApiError(it) }
             if (lose) { lose = false; throw AuthFailure(AuthFailure.Kind.NETWORK) }
@@ -52,11 +65,11 @@ private class BulkUiFixture : SharedWorkspaceGateway {
         }
     }
     private fun service() = SharedBulkDraftService(PlanningJournal(storage, contract = SharedBulkJournalContract), "bulk-ui", access)
-    override suspend fun sharedBulkDraft(projectId: String) = service().load(projectId)
-    override suspend fun saveSharedBulkDraft(projectId: String, stamp: String?, edit: JSONObject) = service().save(projectId, stamp, edit)
-    override suspend fun prepareSharedBulkDraft(projectId: String, stamp: String) = service().prepare(projectId, stamp)
-    override suspend fun sendSharedBulkDraft(projectId: String, stamp: String) = service().send(projectId, stamp)
-    override suspend fun removeSharedBulkDraft(projectId: String, stamp: String) = service().remove(projectId, stamp)
+    override suspend fun sharedBulkDraft(projectId: String) = tracked("loadDraft") { service().load(projectId) }
+    override suspend fun saveSharedBulkDraft(projectId: String, stamp: String?, edit: JSONObject) = tracked("saveDraft") { service().save(projectId, stamp, edit) }
+    override suspend fun prepareSharedBulkDraft(projectId: String, stamp: String) = tracked("prepareDraft") { service().prepare(projectId, stamp) }
+    override suspend fun sendSharedBulkDraft(projectId: String, stamp: String) = tracked("sendDraft") { service().send(projectId, stamp) }
+    override suspend fun removeSharedBulkDraft(projectId: String, stamp: String) = tracked("removeDraft") { service().remove(projectId, stamp) }
     override suspend fun sharedProject(projectId: String) = JSONObject().put("project", JSONObject().put("id", bulkProject).put("spaceId", "bulk-space")
         .put("title", "План команды").put("role", "owner").put("permissions", JSONObject().put("editTasks", canWrite)))
     override suspend fun sortedSharedTasks(filter: JSONObject, cursor: String?, sort: String): JSONObject {
@@ -87,13 +100,20 @@ private class BulkUiFixture : SharedWorkspaceGateway {
                     .put("title", "Результат задачи ${index + 1}").put("available", true) } }))
             .put("hasMore", end < selected).put("nextCursor", if (end < selected) end else JSONObject.NULL)
     }
-    override suspend fun sharedBulkReport(id: String, after: Long) = report(after)
+    override suspend fun sharedBulkReport(id: String, after: Long) = tracked("readReport") { report(after) }
     override suspend fun sharedBulkCommand(id: String, command: String, after: Long): JSONObject {
+        gatewayCalls.getOrPut("command:$command") { AtomicInteger() }.incrementAndGet()
         if (command == "confirm") { if (queue) error("BULK_LOCAL_QUEUE"); confirms++; reportState = "running" }
         if (command == "cancel") reportState = "cancelled"
         if (command in setOf("advance", "resume")) reportState = "done"
         return report(after)
     }
+    fun diagnostic(): JSONObject = JSONObject().put("ownedProjectId", bulkProject).put("ownedOperationId", bulkOp)
+        .put("lastGatewayCall", lastGatewayCall).put("gatewayCalls", JSONObject(gatewayCalls.mapValues { it.value.get() }))
+        .put("selected", selected).put("taskCount", taskCount).put("previews", previews).put("confirms", confirms)
+        .put("taskPages", taskPages).put("queue", queue).put("reportState", reportState).put("mode", mode)
+        .put("reportAction", JSONObject(previewAction.toString()))
+        .put("draftPhase", service().load(bulkProject)?.optString("phase") ?: "none")
     override suspend fun sharedBulkHistory(cursor: String?) = JSONObject().put("operations", JSONArray().put(JSONObject().put("id", bulkOp)
         .put("state", reportState).put("createdAt", "2026-10-20T09:00:00Z").put("errorCode", JSONObject.NULL).put("action", previewAction).put("mode", mode).put("counts", report().getJSONObject("counts"))))
         .put("hasMore", false).put("nextCursor", JSONObject.NULL)
@@ -106,6 +126,23 @@ private class BulkUiFixture : SharedWorkspaceGateway {
 
 class SharedBulkUiTest {
     @get:Rule val compose = createAndroidComposeRule<PagerTestActivity>()
+    private fun captureFailure(fixture: BulkUiFixture, phase: String, failure: Throwable) {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val directory = context.getExternalFilesDir(null) ?: context.cacheDir
+        val name = "bulk313-$phase-${System.currentTimeMillis()}"
+        fun diagnostic(action: () -> Unit) {
+            try { action() } catch (captureFailure: Throwable) { failure.addSuppressed(captureFailure) }
+        }
+        // These reads never re-enter Compose/Espresso after its original idle timeout.
+        diagnostic {
+            val traces = Thread.getAllStackTraces().entries.sortedBy { it.key.id }.joinToString("\n\n") { (thread, frames) ->
+                "Thread ${thread.id} ${thread.name} ${thread.state}\n" + frames.joinToString("\n") { "  at $it" }
+            }
+            File(directory, "$name-threads.txt").writeText(traces)
+        }
+        diagnostic { File(directory, "$name.json").writeText(fixture.diagnostic().put("testPhase", phase).put("failure", failure.stackTraceToString()).toString(2)) }
+        diagnostic { captureNativeWindow(File(directory, "$name.png")) }
+    }
     private fun open(fixture: BulkUiFixture = BulkUiFixture(), prefs: UiPreferences = UiPreferences(), restore: StateRestorationTester? = null,
         sacred: Boolean = true, onTask: (String, String) -> Unit = { _, _ -> }) {
         val content: @Composable () -> Unit = { CompositionLocalProvider(LocalGenesisLanguage provides "ru", LocalSacredFeaturesEnabled provides sacred) {
@@ -124,15 +161,24 @@ class SharedBulkUiTest {
     }
     private fun chooseKind(kind: String) { compose.onNodeWithTag("bulk-kind").performScrollTo().performClick(); compose.onNodeWithTag("bulk-kind-$kind").performScrollTo().performClick() }
     @Test fun choosingTasksNeverCompletesThemAndPreviewNeedsAnExplicitApply() {
-        val fixture = BulkUiFixture(); open(fixture)
-        val pageBounds = compose.onNodeWithTag("bulk-select-page").getUnclippedBoundsInRoot()
-        val allBounds = compose.onNodeWithTag("bulk-select-all").getUnclippedBoundsInRoot()
-        val pageHeight = pageBounds.bottom - pageBounds.top
-        val allHeight = allBounds.bottom - allBounds.top
-        assertEquals(pageHeight, allHeight); assertTrue(pageHeight.value >= 48f)
-        select(fixture); assertEquals(0, fixture.confirms); preview()
-        assertEquals(1, fixture.selected); assertEquals(1, fixture.previews); assertEquals(0, fixture.confirms)
-        compose.onNodeWithTag("bulk-confirm").performClick(); compose.waitUntil(10000) { fixture.confirms == 1 }; assertEquals(1, fixture.previews)
+        val fixture = BulkUiFixture()
+        var phase = "open"
+        try {
+            open(fixture)
+            val pageBounds = compose.onNodeWithTag("bulk-select-page").getUnclippedBoundsInRoot()
+            val allBounds = compose.onNodeWithTag("bulk-select-all").getUnclippedBoundsInRoot()
+            val pageHeight = pageBounds.bottom - pageBounds.top
+            val allHeight = allBounds.bottom - allBounds.top
+            assertEquals(pageHeight, allHeight); assertTrue(pageHeight.value >= 48f)
+            phase = "select"; select(fixture); assertEquals(0, fixture.confirms)
+            phase = "preview"; preview()
+            assertEquals(1, fixture.selected); assertEquals(1, fixture.previews); assertEquals(0, fixture.confirms)
+            phase = "confirm"
+            compose.onNodeWithTag("bulk-confirm").performClick(); compose.waitUntil(10000) { fixture.confirms == 1 }; assertEquals(1, fixture.previews)
+        } catch (failure: Throwable) {
+            try { captureFailure(fixture, phase, failure) } catch (diagnosticFailure: Throwable) { failure.addSuppressed(diagnosticFailure) }
+            throw failure
+        }
     }
     @Test fun allResultsDoesNotFetchAllPagesAndReportHasBoundedPaging() {
         val fixture = BulkUiFixture().apply { taskCount = 131 }; open(fixture); select(fixture, true); preview()
