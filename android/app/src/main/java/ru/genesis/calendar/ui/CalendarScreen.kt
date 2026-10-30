@@ -31,6 +31,7 @@ import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.selected
@@ -383,6 +384,7 @@ private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange
         }
         val choose: (LocalDate) -> Unit = { day -> previewRequested = true; onChoose(day) }
         val monthContent: @Composable () -> Unit = {
+        CalendarFlowNameplate(mode)
         CalendarPeriodPager(range,
             remember(range, mode) { runCatching { calendar.monthRange(range.start.minusDays(1), mode) }.getOrNull()?.takeIf { it.end.year >= 1900 } },
             remember(range, mode) { runCatching { calendar.monthRange(range.end.plusDays(1), mode) }.getOrNull()?.takeIf { it.start.year <= 2100 } },
@@ -471,6 +473,24 @@ private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange
                     (viewportHeight - selectedDayHeight).coerceAtLeast(0).toDp()
                 })))
             }
+        }
+    }
+}
+
+/** The calendar identity belongs to the period's scroll flow, independently of its controls. */
+@Composable
+private fun CalendarFlowNameplate(mode: CalendarMode) {
+    Surface(Modifier.fillMaxWidth().testTag("calendar-flow-nameplate"),
+        shape = AffairsLayout.shape, color = MaterialTheme.colorScheme.surface) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Box(Modifier.size(28.dp).testTag("calendar-flow-icon")) {
+                GenesisVectorIcon(GenesisPageIcon.CALENDAR, Modifier.fillMaxSize(),
+                    tint = MaterialTheme.colorScheme.primary)
+            }
+            UntranslatedText(mobileCalendarCopy(LocalGenesisLanguage.current).calendarName(mode),
+                Modifier.weight(1f).testTag("calendar-flow-name").semantics { heading() },
+                style = MaterialTheme.typography.titleLarge, maxLines = 1)
         }
     }
 }
@@ -1335,6 +1355,7 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
             LazyColumn(Modifier.fillMaxSize().testTag("calendar-year"), state = yearListState,
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(bottom = 12.dp)) {
+                item(key = "calendar-nameplate") { CalendarFlowNameplate(mode) }
                 item(key = "year-navigation") {
                     Surface(Modifier.fillMaxWidth().testTag("calendar-year-navigation-card"),
                         shape = AffairsLayout.shape, color = MaterialTheme.colorScheme.surface) {

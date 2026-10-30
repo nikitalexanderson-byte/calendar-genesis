@@ -49,7 +49,7 @@ class CalendarSacredVisibilityTest {
             compose.onNodeWithTag("calendar-selected-fact-blocks").assertDoesNotExist()
             compose.onNodeWithTag("calendar-selected-patron").assertDoesNotExist()
             compose.onNodeWithTag("calendar-mode-icon-profane", useUnmergedTree = true).assertDoesNotExist()
-            compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
+            compose.onNodeWithTag("calendar-flow-nameplate").assertIsNotDisplayed()
             compose.onAllNodesWithContentDescription("равноденствие", substring = true,
                 ignoreCase = true).assertCountEquals(0)
             compose.runOnIdle { sacred = true }
@@ -60,7 +60,7 @@ class CalendarSacredVisibilityTest {
         compose.onNodeWithText("Год").performClick()
         compose.onNodeWithTag("calendar-year-panel").assertExists()
         compose.onNodeWithTag("calendar-mode-icon-profane", useUnmergedTree = true).assertDoesNotExist()
-        compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
+        compose.onNodeWithTag("calendar-flow-nameplate").assertIsDisplayed()
         for (eveningMode in listOf(false, true)) {
             compose.runOnIdle { dark = eveningMode; sacred = false }
             compose.onNodeWithTag("calendar-year").performScrollToIndex(0)
@@ -95,7 +95,8 @@ class CalendarSacredVisibilityTest {
         for (eveningMode in listOf(false, true)) for (fromMarch in listOf(false, true)) {
             compose.runOnIdle { dark = eveningMode; march = fromMarch }
             compose.onNodeWithTag("calendar-year-description-profane").assertDoesNotExist()
-            compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
+            compose.onNodeWithTag("calendar-year").performScrollToIndex(0)
+            compose.onNodeWithTag("calendar-flow-nameplate").assertIsDisplayed()
             val firstMonth = if (fromMarch) "2026-03-01" else "2026-01-01"
             compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag("calendar-year-month-$firstMonth"))
             compose.onNode(hasTestTag("gregorian-year-art-$firstMonth") and hasAnyAncestor(hasTestTag("calendar-year-month-$firstMonth")),

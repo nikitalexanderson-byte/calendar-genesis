@@ -73,7 +73,7 @@ class CalendarMobileLayoutTest {
         CalendarMode.entries.forEach { nextMode ->
             compose.runOnIdle { mode = nextMode }
             compose.onNodeWithText("Месяц").performClick()
-            compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
+            compose.onNodeWithTag("calendar-flow-nameplate").assertIsDisplayed()
             val switch = compose.onNodeWithTag("calendar-view-switch").fetchSemanticsNode().boundsInRoot
             val navigation = compose.onNodeWithTag("calendar-month-navigation-card").fetchSemanticsNode().boundsInRoot
             assertTrue("View controls must precede the period", switch.bottom <= navigation.top)
@@ -82,7 +82,7 @@ class CalendarMobileLayoutTest {
             compose.onNodeWithTag("calendar-view-switch").assertIsDisplayed()
             capture("${nextMode.name.lowercase()}-month-scrolled")
             compose.onNodeWithText("Год").performClick()
-            compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
+            compose.onNodeWithTag("calendar-flow-nameplate").assertIsDisplayed()
             val firstTag = when (nextMode) {
                 CalendarMode.SACRED -> "sacred-year-month-0"
                 CalendarMode.LUNAR -> "lunar-year-month-1"
@@ -101,10 +101,10 @@ class CalendarMobileLayoutTest {
             }
             compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag(lastTag))
             compose.onNodeWithTag(lastTag).assertIsDisplayed()
-            compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
+            compose.onNodeWithTag("calendar-flow-nameplate").assertIsNotDisplayed()
             compose.onNodeWithTag("calendar-view-switch").assertIsDisplayed()
             compose.onNodeWithTag(lastTag).performClick()
-            compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
+            compose.onNodeWithTag("calendar-flow-nameplate").assertIsDisplayed()
         }
     }
 
@@ -231,9 +231,9 @@ class CalendarMobileLayoutTest {
                 }
             }
         }
-        compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
+        compose.onNodeWithTag("calendar-flow-nameplate").assertIsDisplayed()
         compose.onNodeWithText("Year").performClick()
-        compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
+        compose.onNodeWithTag("calendar-flow-nameplate").assertIsDisplayed()
         compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag("calendar-year-month-2026-01-01"))
         compose.onNodeWithTag("gregorian-year-start-1", useUnmergedTree = true).assertDoesNotExist()
         compose.onNodeWithTag("gregorian-year-end-1", useUnmergedTree = true).assertDoesNotExist()

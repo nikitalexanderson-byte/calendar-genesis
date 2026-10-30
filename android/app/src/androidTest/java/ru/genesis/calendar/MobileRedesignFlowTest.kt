@@ -43,7 +43,6 @@ import ru.genesis.calendar.domain.habits.HabitEngine
 import ru.genesis.calendar.domain.habits.TrackerEntity
 import ru.genesis.calendar.ui.AppearanceSettings
 import ru.genesis.calendar.ui.GenesisApp
-import ru.genesis.calendar.ui.calendarName
 import ru.genesis.calendar.ui.LocalGenesisTextLayoutAudit
 import ru.genesis.calendar.ui.splitsWord
 
@@ -187,8 +186,7 @@ class MobileRedesignFlowTest {
         if (route.page == "Проекты" && exists("submenu-personal"))
             compose.onNodeWithTag("submenu-personal").performClick()
         val expectedTitle = when (route.page) {
-            "Календарь" -> ru.genesis.calendar.ui.mobileCalendarCopy("ru").calendarName(
-                runBlocking { LocalPreferences(app, app.workspaceScope).values.first().display })
+            "Календарь" -> "Календарь"
             "Проекты" -> "Личные дела"
             "Сакральное" -> if (route.section == "theokyklos") "Оракул · Теокиклос" else "Оракул · Стойхейон"
             "Настройки" -> "Настройки\n${route.title.removePrefix("Настройки ")}"

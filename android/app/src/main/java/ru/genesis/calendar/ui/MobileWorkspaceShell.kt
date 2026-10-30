@@ -99,8 +99,7 @@ internal fun mobileDestinations(pages: List<String>, visibility: UiVisibility,
     val screenHeader = remember(selectedPage, selectedSection) { mutableStateOf<WorkspaceHeaderContent?>(null) }
     val current = destinations.firstOrNull { it.page == selectedPage && it.section == selectedSection }
         ?: destinations.firstOrNull { it.page == selectedPage }
-    val title = titleOverride ?: if (selectedPage == "Календарь")
-        mobileCalendarCopy(LocalGenesisLanguage.current).calendarName(calendarMode)
+    val title = titleOverride ?: if (selectedPage == "Календарь") "Календарь"
         else if (selectedPage == "Настройки") "Настройки\n${current?.title?.removePrefix("Настройки ") ?: selectedPage}"
         else current?.title ?: selectedPage
     val menuLabel = genesisTranslate("Открыть меню")
