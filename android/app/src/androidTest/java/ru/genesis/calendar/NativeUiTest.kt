@@ -38,18 +38,19 @@ class NativeUiTest {
     }
 
     @Test fun nativeHabitFormPersistsEntry() {
-        compose.onNodeWithTag("navigation-Привычки").performClick()
-        compose.onNodeWithText("Новая привычка").performScrollTo().performClick()
-        compose.onAllNodes(hasSetTextAction()).onFirst().performTextInput("UI synthetic habit")
+        val title = "UI synthetic habit ${UUID.randomUUID()}"
+        compose.openWorkspacePage("Привычки", "Привычки")
+        compose.onNodeWithTag("habit-create").assertIsEnabled().performClick()
+        compose.onAllNodes(hasSetTextAction()).onFirst().performTextInput(title)
         compose.onNodeWithTag("habit-emoji-picker-open").performScrollTo().performClick()
         compose.onNodeWithText("Животные и природа").performScrollTo().performClick()
         compose.onNodeWithTag("habit-emoji-choice-🦋").performScrollTo().performClick()
         compose.onNodeWithTag("habit-emoji").assertTextContains("🦋")
         compose.onNodeWithText("Сохранить").performScrollTo().performClick()
         compose.waitUntil(10_000) {
-            compose.onAllNodesWithText("UI synthetic habit",substring=true).fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithText(title,substring=true).fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onAllNodesWithText("UI synthetic habit",substring=true).onFirst().assertExists()
+        compose.onAllNodesWithText(title,substring=true).onFirst().assertExists()
     }
 
     @Test fun nativeMoodFormPersistsSelection() {

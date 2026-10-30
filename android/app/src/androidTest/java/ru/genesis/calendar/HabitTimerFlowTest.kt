@@ -65,6 +65,9 @@ class HabitTimerFlowTest {
                 }
             }
         }
+        compose.waitUntil(15_000) {
+            runCatching { compose.onNodeWithTag("habit-timer-start", useUnmergedTree = true).assertIsEnabled() }.isSuccess
+        }
         val startButton = compose.onNodeWithTag("habit-timer-start", useUnmergedTree = true)
             .performScrollTo().assertIsEnabled().assertHeightIsAtLeast(48.dp)
         val startBounds = startButton.fetchSemanticsNode().boundsInRoot

@@ -28,9 +28,8 @@ class HabitIntervalFlowTest {
         val app=compose.activity.application as GenesisApplication
         check(BuildConfig.DEBUG && app.workspaceScope=="internal-validation-v1")
         val repository=HabitsRepository(app)
-        val title="UX: Повторять каждые полчаса в выбранном промежутке"
+        val title="UX: Повторять каждые полчаса в выбранном промежутке ${java.util.UUID.randomUUID()}"
         fun saved()=runBlocking { repository.workspace.first() }
-        runBlocking { saved().habits.filter { it.title==title }.forEach { repository.delete(it.id) } }
         fun screenshot(name: String) {
             assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
                 File(app.getExternalFilesDir(null),"habit-interval-$name.png")))
@@ -42,8 +41,8 @@ class HabitIntervalFlowTest {
                 }
             }
         }
-        compose.waitUntil(15_000) { compose.onAllNodesWithText("Мои привычки").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("Новая привычка").performScrollTo().performClick()
+        compose.waitUntil(15_000) { runCatching { compose.onNodeWithTag("habit-create").assertIsEnabled() }.isSuccess }
+        compose.onNodeWithTag("habit-create").performClick()
         compose.onNodeWithText("Название").performTextInput(title)
         compose.onNodeWithTag("habit-interval-enabled").performScrollTo().performClick()
         compose.onNodeWithTag("habit-interval-minutes").performScrollTo().performTextReplacement("0")
@@ -75,7 +74,7 @@ class HabitIntervalFlowTest {
         assertTrue(runBlocking { HabitsRepository(app).workspace.first() }.completions.single { it.habitId==habit.id }.completed)
         compose.onNodeWithTag("habit-interval-mark-09:30").performScrollTo().performClick()
         compose.waitUntil(15_000) { saved().completions.single { it.habitId==habit.id }.completed.not() }
-        val editButton=hasText("Изменить") and hasAnyAncestor(hasTestTag("habit-card-${habit.id}"))
+        val editButton=hasTestTag("habit-actions-${habit.id}")
         compose.waitUntil(15_000) { compose.onAllNodes(editButton and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
         compose.mainClock.advanceTimeBy(1000)
         compose.onNode(editButton).performScrollTo().assertIsEnabled()
@@ -90,6 +89,7 @@ class HabitIntervalFlowTest {
         compose.onNode(editButton).assertIsDisplayed()
         screenshot("before-edit")
         compose.onNode(editButton).performClick()
+        compose.onNodeWithTag("edit-habit-${habit.id}").assertIsEnabled().performClick()
         compose.waitUntil(15_000) { compose.onAllNodesWithTag("habit-editor-close").fetchSemanticsNodes().isNotEmpty() }
         screenshot("edit-reopened")
         compose.onNodeWithTag("habit-interval-mode-day").performScrollTo().performClick().assertIsSelected()

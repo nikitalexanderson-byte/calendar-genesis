@@ -56,6 +56,9 @@ class HabitSettingsFlowTest {
             )
             toggles.forEach { toggle ->
                 val before = toggle.read(runBlocking { repository.workspace.first().settings.feedback })
+                compose.waitUntil(8_000) {
+                    runCatching { compose.onNodeWithTag(toggle.tag).assertIsEnabled() }.isSuccess
+                }
                 compose.onNodeWithTag(toggle.tag).performScrollTo().assertIsEnabled().performClick()
                 compose.waitUntil(8_000) {
                     toggle.read(runBlocking { repository.workspace.first().settings.feedback }) != before
