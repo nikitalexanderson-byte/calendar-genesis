@@ -14,6 +14,7 @@ import ru.genesis.calendar.data.LocalPreferences
 import ru.genesis.calendar.data.HabitsRepository
 import ru.genesis.calendar.domain.*
 import ru.genesis.calendar.domain.habits.*
+import ru.genesis.calendar.ui.calendarName
 import java.time.LocalDate
 
 class CalendarAndTodayFlowTest {
