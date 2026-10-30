@@ -1,5 +1,6 @@
 package ru.genesis.calendar
 
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.*
 import androidx.room.withTransaction
 import androidx.compose.foundation.rememberScrollState
@@ -55,13 +56,32 @@ class HabitHistoryFlowTest {
             fun visible() = compose.runOnIdle {
                 ViewCompat.getRootWindowInsets(compose.activity.window.decorView)?.isVisible(WindowInsetsCompat.Type.ime()) == true
             }
-            // Production's MobileWorkspaceShell consumes IME insets; this isolated panel host does not.
             // Close only an observed keyboard with the normal Back action, preserving entered values.
             if (visible()) {
                 assertTrue(device.pressBack())
                 compose.waitUntil(5000) { !visible() }
             }
         }
+        fun previewEnvironment(action: SemanticsNodeInteraction): JSONObject = runCatching {
+            val node = action.fetchSemanticsNode()
+            JSONObject().put("actionEnabled", !node.config.contains(SemanticsProperties.Disabled))
+                .put("actionBoundsInRoot", node.boundsInRoot.toString())
+                .put("actionBoundsInWindow", node.boundsInWindow.toString())
+                .put("actionSize", node.size.toString())
+                .put("window", compose.runOnIdle {
+                    val decor = compose.activity.window.decorView
+                    val insets = ViewCompat.getRootWindowInsets(decor)
+                    val frame = android.graphics.Rect().also { decor.getWindowVisibleDisplayFrame(it) }
+                    JSONObject().put("imeInsetsAvailable", insets != null)
+                        .put("imeVisible", insets?.isVisible(WindowInsetsCompat.Type.ime()) ?: JSONObject.NULL)
+                        .put("imeBottom", insets?.getInsets(WindowInsetsCompat.Type.ime())?.bottom ?: JSONObject.NULL)
+                        .put("visibleDisplayFrame", frame.toShortString())
+                        .put("decorWidth", decor.width).put("decorHeight", decor.height)
+                        .put("windowHasFocus", decor.hasWindowFocus())
+                        .put("focusedViewClass", decor.findFocus()?.javaClass?.name ?: JSONObject.NULL)
+                        .put("softInputMode", compose.activity.window.attributes.softInputMode)
+                })
+        }.getOrElse { JSONObject().put("probeFailureClass", it.javaClass.simpleName) }
         // Seed an older imported practice only in the guarded synthetic debug workspace.
         // Production creation correctly refuses a start date in the past.
         try {
@@ -74,6 +94,8 @@ class HabitHistoryFlowTest {
         } }
         val before = saved()
         var dark by mutableStateOf(false)
+            // Match MainActivity and MobileWorkspaceShell rather than testing a different window/IME host.
+            compose.activityRule.scenario.onActivity { it.enableEdgeToEdge() }
             compose.setContent {
                 val all by repository.workspace.collectAsState(initial = LocalHabitWorkspace())
                 val complete = all
@@ -81,7 +103,7 @@ class HabitHistoryFlowTest {
                 SideEffect { rendered.set(complete to shown) }
                 if (render) MaterialTheme(colorScheme = if(dark) evening else standart) {
                     CompositionLocalProvider(LocalGenesisLanguage provides "ru",LocalEveningTheme provides dark) {
-                        Surface(Modifier.fillMaxSize().safeDrawingPadding()) {
+                        Surface(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
                             Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
                                 HabitHistoryPanel(shown,repository,CalendarMode.PROFANE)
                             }
@@ -113,6 +135,7 @@ class HabitHistoryFlowTest {
                 val rule = HabitMeasurements.rule(habit, candidate)
                 formHas(GenesisCalendar(ZoneId.of(rule.schedule.timezone)).formatDate(candidate, CalendarMode.PROFANE) + " · " + rule.schedule.timezone)
             } }
+            val previewEnvironmentBefore = previewEnvironment(previewAction)
             previewAction.performClick()
             assertTrue(saved().history.none { it.habitId in ids })
             // Observe the failure without changing the scenario, retrying, or writing either probe to the repository.
@@ -141,6 +164,8 @@ class HabitHistoryFlowTest {
                     .put("previewErrorVisible", formHas("В этот день запись недоступна. Проверьте дату, значение и действующее правило."))
                     .put("freshSaved", counts(saved())).put("probeWritesToDatabase", false)
                     .put("probeCommandIsReconstruction", true)
+                    .put("environmentBeforeClick", previewEnvironmentBefore)
+                    .put("environmentAfterClick", previewEnvironment(previewAction))
                 rendered.get()?.let { proof.put("renderedAfterClick", counts(it.second)) }
                 previewSource?.let { (complete, shown) ->
                     proof.put("renderedFilteredInput", counts(shown)).put("completeSameRevisionInput", counts(complete))
@@ -203,14 +228,19 @@ class HabitHistoryFlowTest {
             val measuredRule = measuredHabit?.let { HabitMeasurements.rule(it, it.createdDate) }
             fun editableFormValue(label: String) = compose.onAllNodes(hasText(label) and hasSetTextAction() and inForm)
                 .fetchSemanticsNodes().singleOrNull()?.config?.getOrNull(SemanticsProperties.EditableText)?.text
+            fun editableFormFocused(label: String) = compose.onAllNodes(hasText(label) and hasSetTextAction() and inForm)
+                .fetchSemanticsNodes().singleOrNull()?.config?.getOrNull(SemanticsProperties.Focused)
             val amountBefore = editableFormValue("Значение")
             val measuredNoteBefore = editableFormValue("Заметка")
+            val amountFocusedBefore = editableFormFocused("Значение")
+            val measuredNoteFocusedBefore = editableFormFocused("Заметка")
             val measuredSelectedBefore = listOf(binary, quantity).filter { formHas(it.title) }.map { it.id }
             val measuredDefaultDay = measuredRule?.let { measuredInstant.atZone(ZoneId.of(it.schedule.timezone)).toLocalDate().minusDays(1) }
             val measuredDay = measuredHabit?.let { habit -> listOfNotNull(day, measuredDefaultDay).distinct().singleOrNull { candidate ->
                 val rule = HabitMeasurements.rule(habit, candidate)
                 formHas(GenesisCalendar(ZoneId.of(rule.schedule.timezone)).formatDate(candidate, CalendarMode.PROFANE) + " · " + rule.schedule.timezone)
             } }
+            val measuredEnvironmentBefore = previewEnvironment(measuredAction)
             measuredAction.performClick()
             // The original failure is in this second, measured preview; observe it without a retry or write.
             if (compose.onAllNodesWithText("Сохранить").fetchSemanticsNodes().isEmpty()) runCatching {
@@ -226,10 +256,16 @@ class HabitHistoryFlowTest {
                 val proof = JSONObject().put("checkpoint", "measured-preview-before-original-save-assert")
                     .put("probeInstant", measuredInstant.toString()).put("probeWritesToDatabase", false)
                     .put("probeCommandIsReconstruction", true).put("syntheticHabitId", quantity.id)
+                    .put("environmentBeforeClick", measuredEnvironmentBefore)
+                    .put("environmentAfterClick", previewEnvironment(measuredAction))
                     .put("selectedBefore", JSONArray(measuredSelectedBefore))
                     .put("selectedAfter", JSONArray(listOf(binary, quantity).filter { formHas(it.title) }.map { it.id }))
                     .put("amountMatchesBefore", amountBefore == "1").put("amountMatchesAfter", editableFormValue("Значение") == "1")
                     .put("emptyNoteBefore", measuredNoteBefore == "").put("emptyNoteAfter", editableFormValue("Заметка") == "")
+                    .put("amountFocusedBefore", amountFocusedBefore ?: JSONObject.NULL)
+                    .put("amountFocusedAfter", editableFormFocused("Значение") ?: JSONObject.NULL)
+                    .put("noteFocusedBefore", measuredNoteFocusedBefore ?: JSONObject.NULL)
+                    .put("noteFocusedAfter", editableFormFocused("Заметка") ?: JSONObject.NULL)
                     .put("observedDay", measuredDay?.toString() ?: JSONObject.NULL).put("testExpectedDay", day.toString())
                     .put("ruleZone", measuredRule?.schedule?.timezone ?: JSONObject.NULL)
                     .put("formNodes", compose.onAllNodesWithTag("habit-history-form").fetchSemanticsNodes().size)

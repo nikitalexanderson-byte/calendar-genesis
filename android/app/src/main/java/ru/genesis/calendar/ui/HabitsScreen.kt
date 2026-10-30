@@ -91,6 +91,10 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
     var dataOpen by rememberSaveable { mutableStateOf(false) }
     val areaStates = rememberSaveableStateHolder()
     val habitCardStates = rememberSaveableStateHolder()
+    // Keep one provider/card subtree when a habit moves between the remaining and completed grids.
+    val movableHabitCards = remember(app.workspaceScope) {
+        mutableMapOf<String, @Composable (Habit, @Composable (Habit) -> Unit) -> Unit>()
+    }
     // A completed card moves between grids; keep its interval disclosure outside either grid subtree.
     var expandedIntervalHabitIds by rememberSaveable(app.workspaceScope) { mutableStateOf(arrayListOf<String>()) }
     var timerHabitId by remember { mutableStateOf<String?>(null) }
@@ -295,7 +299,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                     repository.applyTimer(it); Unit
                 }
                 }
-                val renderHabit: @Composable (Habit) -> Unit = { habit ->
+                val habitCardContent: @Composable (Habit) -> Unit = { habit ->
                     val state = HabitLifecycle.state(habit)
                     val entry = current.completions.firstOrNull { it.habitId == habit.id && it.date == today }
                     val scheduled = runCatching { engine.isScheduled(habit, today, current.completions) }.getOrDefault(false)
@@ -335,6 +339,13 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                             } } else null)
                     }
                     }
+                }
+                val renderHabit: @Composable (Habit) -> Unit = { habit ->
+                    val card = movableHabitCards.getOrPut("$area:${habit.id}") {
+                        movableContentOf { item: Habit, render: @Composable (Habit) -> Unit -> render(item) }
+                    }
+                    // Pass the current renderer so workspace data and action callbacks never stay captured in the cache.
+                    card(habit, habitCardContent)
                 }
                 if (area == "library") {
                     HabitLifecycleFilters(current, habitState) { habitState = it }

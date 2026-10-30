@@ -15,6 +15,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.unit.Density
@@ -27,6 +29,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.*
@@ -81,6 +84,7 @@ class PersonalProjectLibrary313Test {
     private val width get() = InstrumentationRegistry.getArguments().getString("genesisWidth")?.toIntOrNull() ?: 390
     private val dark get() = InstrumentationRegistry.getArguments().getString("genesisEvening") == "true"
     private var hideSearchKeyboard: (() -> Unit)? = null
+    private val statusActionTrace = JSONArray()
 
     private data class Baseline(val scope: String, val structure: DocumentRecord?, val tasks: List<TaskRecord>,
         val outbox: List<OutboxRecord>, val reminders: List<ReminderRecord>,
@@ -128,8 +132,76 @@ class PersonalProjectLibrary313Test {
         button.assertIsEnabled().performClick()
     }
     private fun edit(id: String) { menu(id); compose.onNodeWithText("Изменить проект", substring = false).performClick(); ready("project-title") }
-    private fun saveProject() { click("save-project"); compose.waitUntil(15_000) {
-        compose.onAllNodesWithTag("project-title").fetchSemanticsNodes().isEmpty() } }
+    private fun settleIme() {
+        compose.runOnIdle { hideSearchKeyboard?.invoke() }
+        compose.waitUntil(5_000) { ViewCompat.getRootWindowInsets(compose.activity.window.decorView)
+            ?.isVisible(WindowInsetsCompat.Type.ime()) != true }
+        compose.waitForIdle()
+    }
+    private fun selectProjectStatus(label: String) {
+        settleIme()
+        statusActionTrace.put(JSONObject().put("phase", "before-status-click").put("label", label)
+            .put("semantics", statusSemantics(label)))
+        clickDialog(label) // Exactly one actual status-chip click; no retry or repository mutation.
+        compose.waitUntil(5_000) { runCatching { dialogText(label).assertIsSelected() }.isSuccess }
+        settleIme()
+        dialogText(label).assertIsSelected()
+        statusActionTrace.put(JSONObject().put("phase", "status-selected").put("label", label)
+            .put("semantics", statusSemantics(label)))
+    }
+    private fun saveProject(expectedStatusLabel: String? = null, beforeSave: (() -> Unit)? = null) {
+        if (expectedStatusLabel != null) settleIme()
+        ready("save-project")
+        expectedStatusLabel?.let { dialogText(it).assertIsSelected() }
+        beforeSave?.invoke()
+        // Re-read the existing enabled Save control; use the same single production callback.
+        click("save-project")
+        compose.waitUntil(15_000) { compose.onAllNodesWithTag("project-title").fetchSemanticsNodes().isEmpty() }
+    }
+    private fun semanticSnapshot(matcher: SemanticsMatcher): JSONObject {
+        val result = JSONObject()
+        return runCatching {
+            val rows = compose.onAllNodes(matcher, useUnmergedTree = true).fetchSemanticsNodes()
+            result.put("count", rows.size).put("nodes", JSONArray(rows.map { node ->
+                JSONObject().put("id", node.id).put("bounds", node.boundsInRoot.toString())
+                    .put("selected", node.config.getOrNull(SemanticsProperties.Selected) ?: JSONObject.NULL)
+                    .put("disabled", node.config.contains(SemanticsProperties.Disabled))
+                    .put("config", node.config.toString())
+            }))
+        }.getOrElse { result.put("error", it.javaClass.simpleName + ": " + it.message) }
+    }
+    private fun statusSemantics(label: String) = semanticSnapshot(
+        hasText(label, substring = false) and hasClickAction() and hasAnyAncestor(isDialog()))
+    private fun passiveDiagnostic(app: GenesisApplication, short: String, checkpoint: String) {
+        check(app !== realApplication)
+        val data = JSONObject().put("checkpoint", checkpoint).put("probeWritesDatabase", false)
+            .put("statusActionTrace", statusActionTrace)
+        runCatching {
+            runBlocking { withTimeout(3_000) { app.database.withTransaction {
+                val path = File(app.database.openHelper.writableDatabase.path)
+                check(path.name.startsWith("qa313-projects-") && path.name.endsWith("-genesis.db"))
+                val record = app.database.dao().document(app.workspaceScope, "structure")
+                data.put("database", path.name).put("revision", record?.revision ?: JSONObject.NULL)
+                    .put("currentStructure", record?.let { JSONObject(LocalCipher().decrypt(it.encrypted,
+                        "${app.workspaceScope}/structure")) } ?: JSONObject.NULL)
+                    .put("privateOutbox", JSONArray(app.database.dao().outbox(app.workspaceScope).map {
+                        JSONObject().put("entityId", it.entityId).put("revision", it.revision).put("operationId", it.operationId)
+                    }))
+            } } }
+        }.exceptionOrNull()?.let { data.put("readFailure", it.javaClass.simpleName + ": " + it.message) }
+        data.put("activityDecorImeVisible", ViewCompat.getRootWindowInsets(compose.activity.window.decorView)
+            ?.isVisible(WindowInsetsCompat.Type.ime()) ?: JSONObject.NULL)
+            .put("saveButton", semanticSnapshot(hasTestTag("save-project")))
+            .put("editorTitle", semanticSnapshot(hasTestTag("project-title")))
+            .put("completedChip", statusSemantics("Завершён")).put("activeChip", statusSemantics("Активен"))
+            .put("dialogTree", runCatching { compose.onNode(isDialog()).printToString() }
+                .getOrElse { it.javaClass.simpleName + ": " + it.message })
+        runCatching { shot(short, "diagnostic-$checkpoint") }
+            .onSuccess { data.put("screenshot", "projects313-$short-diagnostic-$checkpoint.png") }
+            .onFailure { data.put("screenshotFailure", it.javaClass.simpleName + ": " + it.message) }
+        File(target.getExternalFilesDir(null), "personal-project313-status-$short-$checkpoint.json").writeText(data.toString(2))
+        println("QA313_PROJECT_STATUS_DIAGNOSTIC=$data")
+    }
     private fun structure(app: GenesisApplication) = runBlocking { WorkspaceStructureRepository(app).workspace.first() }
     private fun waitProject(app: GenesisApplication, predicate: (GenesisProject) -> Boolean): GenesisProject {
         compose.waitUntil(15_000) { structure(app).projects.any(predicate) }
@@ -284,9 +356,13 @@ class PersonalProjectLibrary313Test {
             click("personal-task-search-close")
             row(parent.id); row(child.id); row(disposable.id)
             // Completed/active are the shipped project editor controls, not task checkbox stubs.
-            edit(child.id); clickDialog("Завершён"); saveProject()
+            edit(child.id); selectProjectStatus("Завершён")
+            saveProject("Завершён") { passiveDiagnostic(app, short, "before-completed-save") }
+            passiveDiagnostic(app, short, "after-completed-save")
             waitProject(app) { it.id == child.id && it.status == "completed" }
-            edit(child.id); clickDialog("Активен"); saveProject()
+            edit(child.id); selectProjectStatus("Активен")
+            saveProject("Активен") { passiveDiagnostic(app, short, "before-active-save") }
+            passiveDiagnostic(app, short, "after-active-save")
             waitProject(app) { it.id == child.id && it.status == "active" }
             val cancelDocument = runBlocking { app.database.dao().document(scope, "structure") }
             val cancelQueue = runBlocking { app.database.dao().outbox(scope).sortedBy { it.entityId } }
@@ -338,7 +414,13 @@ class PersonalProjectLibrary313Test {
                 .put("deleteCancelDocumentAndQueueUnchanged", true).put("freshRoomCiphertextEqual", true)
                 .put("freshRepositoryAndActualEditorReopened", true).put("sortPersistedAfterRemount", true)
                 .put("privateStructureRevision", fresh.revision)
-        } catch (error: Throwable) { failure = error; throw error }
+        } catch (error: Throwable) {
+            failure = error
+            // The isolated database still exists here. Diagnostics are read-only and precede every cleanup step.
+            runCatching { passiveDiagnostic(app, short, "failure-before-cleanup") }
+                .exceptionOrNull()?.let(error::addSuppressed)
+            throw error
+        }
         finally {
             val cleanupErrors = mutableListOf<Throwable>()
             fun cleanupStep(action: () -> Unit) { runCatching(action).exceptionOrNull()?.let(cleanupErrors::add) }

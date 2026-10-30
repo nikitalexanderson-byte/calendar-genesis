@@ -180,6 +180,7 @@ class RestorationLifecycle313Test {
             compose.onNodeWithTag("restoration-complete-today").assertIsEnabled().performClick()
             compose.waitUntil(15_000) { fresh().completions.count { it.habitId == id && it.completed && it.date == today } == 1 }
             val completed = fresh()
+            val historyBeforePause = completed.habits.single { it.id == id }.lifecycleHistory
             assertRetained("active", completed)
             // Reopen the actual saved-cycle route with a new screen/repository below.
             library("active")
@@ -193,7 +194,14 @@ class RestorationLifecycle313Test {
             val after = fresh()
             assertEquals(initial.habits, after.habits.filterNot { it.id == id })
             assertEquals(initial.completions, after.completions.filterNot { it.habitId == id })
-            assertEquals(listOf("pause", "resume"), stored().lifecycleHistory.map { it.action }.filter { it != "observe" })
+            val historyAfterResume = stored().lifecycleHistory
+            assertEquals(historyBeforePause, historyAfterResume.take(historyBeforePause.size))
+            val newTransitions = historyAfterResume.drop(historyBeforePause.size)
+            assertEquals(2, newTransitions.size)
+            assertEquals(listOf("pause", "resume"), newTransitions.map { it.action })
+            assertEquals(listOf(newTransitions.first().id), newTransitions.last().replaces)
+            proof.put("retainedLifecyclePrefixCount", historyBeforePause.size)
+                .put("newLifecycleTransitions", JSONArray(newTransitions.map { it.action }))
             proof.put("completed", true)
         } catch (failure: Throwable) {
             observedFailure = failure
