@@ -21,6 +21,45 @@ class HabitPracticeGoalTest {
     }
     private fun completed(h: Habit, day: LocalDate)=engine.updateCompletion(emptyList(),h,day,day,true,null,"",day.toString()+"T12:00:00.000Z")
 
+    @Test fun todaysCompletionSurvivesLaterPauseAndResumeWithoutAllowingPausedWrites() {
+        val today = LocalDate.now(ZoneId.of("UTC"))
+        val schedule = StoicheionRestoration.dailySchedule(engine.defaultSchedule(today, CalendarMode.PROFANE))
+            .let { it.copy(endDate = today.plusDays(8), recurrence = it.recurrence.copy(rangeEnd = today.plusDays(8).toString())) }
+        val h = habit().copy(createdDate = today, schedule = schedule,
+            practiceGoal = HabitPracticeGoal(requiredCompletions = 3, startDate = today))
+        val entries = engine.updateCompletion(emptyList(), h, today, today, true, null, "retained",
+            "${today}T10:00:00.000Z")
+        val paused = HabitLifecycle.apply(h, HabitLifecycleCommand("pause", h.id,
+            "${today}T11:00:00.000Z", "pause", emptyList()))
+        assertEquals(listOf(today), HabitPracticeGoals.progress(h, entries, today)!!.dates)
+        assertEquals(listOf(today), HabitPracticeGoals.progress(paused, entries, today)!!.dates)
+        assertEquals("open", HabitPracticeGoals.progress(paused, entries, today)!!.status)
+        assertFalse(engine.isScheduled(paused, today, entries))
+        assertSame(entries, engine.updateCompletion(entries, paused, today, today, false, null, "changed",
+            "${today}T11:30:00.000Z"))
+        val resumed = HabitLifecycle.apply(paused, HabitLifecycleCommand("resume", h.id,
+            "${today}T12:00:00.000Z", "resume", listOf("pause")))
+        assertEquals(listOf(today), HabitPracticeGoals.progress(resumed, entries, today)!!.dates)
+
+        // A stale offline mark written during the pause remains invalid after Resume.
+        val stale = entries.map { it.copy(entity = it.entity.changed("${today}T11:30:00.000Z")) }
+        assertTrue(HabitPracticeGoals.progress(paused, stale, today)!!.dates.isEmpty())
+        assertTrue(HabitPracticeGoals.progress(resumed, stale, today)!!.dates.isEmpty())
+        assertTrue(HabitPracticeGoals.progress(h.copy(active = false), entries, today)!!.dates.isEmpty())
+        assertTrue(HabitPracticeGoals.progress(h.copy(practiceGoal = h.practiceGoal!!.copy(startDate = today.plusDays(1))), entries, today)!!.dates.isEmpty())
+        assertTrue(HabitPracticeGoals.progress(h.copy(schedule = schedule.copy(endDate = today.minusDays(1))), entries, today)!!.dates.isEmpty())
+
+        val archive = HabitLifecycle.apply(h, HabitLifecycleCommand("archive", h.id,
+            "${today}T11:00:00.000Z", "archive", emptyList()))
+        val conflict = HabitLifecycle.project(h.copy(lifecycleHistory = HabitLifecycle.merge(paused.lifecycleHistory, archive.lifecycleHistory)))
+        assertTrue(HabitPracticeGoals.progress(conflict, entries, today)!!.dates.isEmpty())
+        val root = HabitMeasurements.rule(h, today)
+        val rules = h.copy(ruleHistory = listOf(root,
+            root.copy(id = "left", supersedes = listOf(root.id)), root.copy(id = "right", supersedes = listOf(root.id))))
+        assertTrue(HabitPracticeGoals.progress(rules, entries, today)!!.dates.isEmpty())
+        assertEquals("conflict", HabitPracticeGoals.progress(rules, entries, today)!!.status)
+    }
+
     @Test fun everyInputCalendarAllowsEitherDayAndClosesAfterOneCompletion() {
         for(mode in CalendarMode.entries) {
             val h=habit(mode)

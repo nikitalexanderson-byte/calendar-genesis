@@ -146,8 +146,17 @@ class ThemeToday313Test {
             compose.onNodeWithTag("calendar-day-$otherDate").performScrollTo().performClick()
             proof.put("calendarSelectionAfterClick", compose.onNodeWithTag("calendar-day-$otherDate")
                 .printToString())
-            // Touch delivery and the rendered selected semantics settle in separate
-            // frames. Wait for this one click; never click again to make it pass.
+            // The cell's 48dp task counter can receive this one touch. Follow its
+            // shipped Show-day action rather than touching the cell a second time.
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithTag("calendar-dialog-show-day").fetchSemanticsNodes().isNotEmpty() ||
+                    runCatching { compose.onNodeWithTag("calendar-day-$otherDate").fetchSemanticsNode()
+                        .config[androidx.compose.ui.semantics.SemanticsProperties.Selected] }.getOrDefault(false)
+            }
+            if (compose.onAllNodesWithTag("calendar-dialog-show-day").fetchSemanticsNodes().isNotEmpty()) {
+                compose.onNodeWithTag("calendar-dialog-show-day").assertIsEnabled().performClick()
+                checkpoints.put("calendar:task-counter-popup-actual-show-day-action")
+            }
             compose.waitUntil(10_000) {
                 runCatching { compose.onNodeWithTag("calendar-day-$otherDate").fetchSemanticsNode()
                     .config[androidx.compose.ui.semantics.SemanticsProperties.Selected] }.getOrDefault(false)

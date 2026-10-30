@@ -91,6 +91,8 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
     var dataOpen by rememberSaveable { mutableStateOf(false) }
     val areaStates = rememberSaveableStateHolder()
     val habitCardStates = rememberSaveableStateHolder()
+    // A completed card moves between grids; keep its interval disclosure outside either grid subtree.
+    var expandedIntervalHabitIds by rememberSaveable(app.workspaceScope) { mutableStateOf(arrayListOf<String>()) }
     var timerHabitId by remember { mutableStateOf<String?>(null) }
     var timerHistoryOpen by rememberSaveable { mutableStateOf(false) }
     val timerFocus = remember { BringIntoViewRequester() }
@@ -311,6 +313,11 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                             onIntervalComplete = { time, checked -> scope.launch { runAction {
                                 recordInterval(habit, time, checked, current.settings.feedback)
                             } } },
+                            intervalExpanded = habit.id in expandedIntervalHabitIds,
+                            onIntervalExpandedChange = { expanded ->
+                                expandedIntervalHabitIds = ArrayList(if (expanded) (expandedIntervalHabitIds + habit.id).distinct()
+                                    else expandedIntervalHabitIds - habit.id)
+                            },
                             onRecord = { amount, entryId, replaces, note ->
                                 repository.recordMeasurement(habit.id, today, amount, entryId, replaces, note); Unit
                             },
@@ -559,6 +566,7 @@ internal fun habitTimerDescription(context: Context, language: String, title: St
 private fun ExperimentalHabitCard(habit: Habit, entry: HabitCompletion?, scheduled: Boolean, disabled: Boolean,
     animate: Boolean, today: LocalDate, measurements: List<HabitMeasurementEvent>, completions: List<HabitCompletion>,
     onComplete: (Boolean, Double?) -> Unit, onEdit: () -> Unit, onIntervalComplete: (String, Boolean) -> Unit,
+    intervalExpanded: Boolean, onIntervalExpandedChange: (Boolean) -> Unit,
     onRecord: suspend (Long?, String?, List<String>, String) -> Unit, onQuality: suspend (Double) -> Unit,
     onHistory: () -> Unit, onToggle: () -> Unit, onArchive: () -> Unit, onTimer: () -> Unit, onDelete: () -> Unit, timerContent: (@Composable () -> Unit)? = null) {
     val rule = HabitMeasurements.rule(habit, today)
@@ -631,7 +639,8 @@ private fun ExperimentalHabitCard(habit: Habit, entry: HabitCompletion?, schedul
                     modifier = Modifier.size(48.dp).testTag("habit-complete-${habit.id}")
                         .semantics { contentDescription = completionDescription })
             }
-            HabitIntervalMarks(habit, entry, scheduled && !disabled, onIntervalComplete)
+            HabitIntervalMarks(habit, entry, scheduled && !disabled, expanded = intervalExpanded,
+                onExpandedChange = onIntervalExpandedChange, onMark = onIntervalComplete)
             HabitPeriodGoalProgress(habit, measurements, completions, today, showDetails = detailsOpen, compact = true)
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
