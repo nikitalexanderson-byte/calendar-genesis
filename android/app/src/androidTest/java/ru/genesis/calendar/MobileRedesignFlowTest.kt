@@ -615,8 +615,31 @@ class MobileRedesignFlowTest {
                     route.page == "Дневник" -> capture("diary")
                     route.page == "Привычки" && route.section == "Привычки" -> {
                         checkTarget("habit-create")
-                        val daily = compose.onNodeWithTag("habit-view-today").fetchSemanticsNode().boundsInRoot
-                        val library = compose.onNodeWithTag("habit-view-library").fetchSemanticsNode().boundsInRoot
+                        val dailyNode = compose.onNodeWithTag("habit-view-today").fetchSemanticsNode()
+                        val libraryNode = compose.onNodeWithTag("habit-view-library").fetchSemanticsNode()
+                        val daily = dailyNode.boundsInRoot
+                        val library = libraryNode.boundsInRoot
+                        // Observe the actual nodes before a strict alignment assertion can stop the run.
+                        runCatching {
+                            fun bounds(value: androidx.compose.ui.geometry.Rect) = JSONObject()
+                                .put("left", value.left).put("top", value.top)
+                                .put("right", value.right).put("bottom", value.bottom)
+                                .put("width", value.width).put("height", value.height)
+                            File(folder, "$suffix-habits-view-alignment.json").writeText(JSONObject()
+                                .put("widthDp", width).put("fontScale", fontScale).put("dark", dark)
+                                .put("daily", JSONObject().put("boundsInRootPx", bounds(daily))
+                                    .put("measuredWidthPx", dailyNode.size.width).put("measuredHeightPx", dailyNode.size.height)
+                                    .put("density", dailyNode.layoutInfo.density.density)
+                                    .put("fontScale", dailyNode.layoutInfo.density.fontScale))
+                                .put("library", JSONObject().put("boundsInRootPx", bounds(library))
+                                    .put("measuredWidthPx", libraryNode.size.width).put("measuredHeightPx", libraryNode.size.height)
+                                    .put("density", libraryNode.layoutInfo.density.density)
+                                    .put("fontScale", libraryNode.layoutInfo.density.fontScale))
+                                .put("heightDifferencePx", kotlin.math.abs(daily.height - library.height))
+                                .put("widthDifferencePx", kotlin.math.abs(daily.width - library.width)).toString(2))
+                        }.onFailure { android.util.Log.e("GENESIS_LAYOUT_DIAGNOSTIC", "Habit bounds capture failed", it) }
+                        runCatching { captureNativeWindow(File(folder, "$suffix-habits-before-alignment.png")) }
+                            .onFailure { android.util.Log.e("GENESIS_LAYOUT_DIAGNOSTIC", "Habit window capture failed", it) }
                         assertTrue("Habit views must stay aligned at the current font scale", kotlin.math.abs(daily.height - library.height) <= 1f)
                         assertTrue("Habit views must have equal widths", kotlin.math.abs(daily.width - library.width) <= 1f)
                         checks.put("habits:views-equal-size-and-header-create")

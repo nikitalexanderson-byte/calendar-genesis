@@ -25,6 +25,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 
 /** Native extension of STANDART: Material roles come from the existing green/paper/gold themes. */
@@ -154,8 +155,11 @@ internal enum class AffairsAction { BACK, NEXT, MORE, CLOSE, SEARCH, FILTER, SOR
 @Composable internal fun AffairsSearchField(value: String, onChange: (String) -> Unit,
     label: String, modifier: Modifier = Modifier, labelAsPlaceholder: Boolean = false) {
     val accessibleLabel = genesisTranslate(label)
+    // A scaled fixed line height can exceed the field's single-line content slot.
+    val fieldTextStyle = MaterialTheme.typography.bodyLarge.copy(lineHeight = TextUnit.Unspecified)
     OutlinedTextField(value, onChange, label = if (labelAsPlaceholder) null else ({ Text(label) }),
-        placeholder = if (labelAsPlaceholder) ({ Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) }) else null, singleLine = true,
+        placeholder = if (labelAsPlaceholder) ({ Text(label, style = fieldTextStyle, maxLines = 1, overflow = TextOverflow.Ellipsis) }) else null,
+        singleLine = true, textStyle = fieldTextStyle,
         leadingIcon = { AffairsActionIcon(AffairsAction.SEARCH) },
         trailingIcon = if (value.isNotEmpty()) ({
             AffairsIconButton("Очистить поиск", AffairsAction.CLOSE, { onChange("") })

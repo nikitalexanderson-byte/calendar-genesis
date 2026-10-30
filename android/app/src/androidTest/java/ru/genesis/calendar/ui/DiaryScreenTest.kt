@@ -189,8 +189,48 @@ class DiaryScreenTest {
                     assertTrue("$checkpoint: words split across lines: $split", split.isEmpty())
                     required.forEach { text ->
                         val layout = requireNotNull(layouts[text]) { "$checkpoint: no rendered layout for $text" }
-                        assertFalse("$checkpoint: clipped/ellipsized label: $text", layout.didOverflowWidth || layout.didOverflowHeight ||
-                            layout.multiParagraph.didExceedMaxLines || (0 until layout.lineCount).any { layout.isLineEllipsized(it) })
+                        val clipped = layout.didOverflowWidth || layout.didOverflowHeight ||
+                            layout.multiParagraph.didExceedMaxLines || (0 until layout.lineCount).any { layout.isLineEllipsized(it) }
+                        if (clipped) {
+                            val diagnosticName = "diary-locale-360-font1.3-${checkpoint.replace('/', '-')}-clipped-label"
+                            runCatching {
+                                val input = layout.layoutInput
+                                val lines = JSONArray()
+                                for (line in 0 until layout.lineCount) lines.put(JSONObject()
+                                    .put("index", line).put("start", layout.getLineStart(line))
+                                    .put("end", layout.getLineEnd(line)).put("visibleEnd", layout.getLineEnd(line, visibleEnd = true))
+                                    .put("topPx", layout.getLineTop(line)).put("bottomPx", layout.getLineBottom(line))
+                                    .put("baselinePx", layout.getLineBaseline(line)).put("leftPx", layout.getLineLeft(line))
+                                    .put("rightPx", layout.getLineRight(line)).put("ellipsized", layout.isLineEllipsized(line)))
+                                val nodes = JSONArray()
+                                compose.onAllNodesWithText(text, useUnmergedTree = true).fetchSemanticsNodes().forEach { node ->
+                                    val bounds = node.boundsInRoot
+                                    nodes.put(JSONObject().put("leftPx", bounds.left).put("topPx", bounds.top)
+                                        .put("rightPx", bounds.right).put("bottomPx", bounds.bottom)
+                                        .put("widthPx", bounds.width).put("heightPx", bounds.height)
+                                        .put("measuredWidthPx", node.size.width).put("measuredHeightPx", node.size.height))
+                                }
+                                File(context.getExternalFilesDir(null), "$diagnosticName.json").writeText(JSONObject()
+                                    .put("checkpoint", checkpoint).put("label", text).put("layoutText", input.text.text)
+                                    .put("fontSize", input.style.fontSize.toString()).put("lineHeight", input.style.lineHeight.toString())
+                                    .put("fontFamily", input.style.fontFamily.toString()).put("fontWeight", input.style.fontWeight.toString())
+                                    .put("letterSpacing", input.style.letterSpacing.toString()).put("style", input.style.toString())
+                                    .put("density", input.density.density).put("fontScale", input.density.fontScale)
+                                    .put("constraintsPx", JSONObject().put("minWidth", input.constraints.minWidth)
+                                        .put("maxWidth", input.constraints.maxWidth).put("minHeight", input.constraints.minHeight)
+                                        .put("maxHeight", input.constraints.maxHeight))
+                                    .put("sizePx", JSONObject().put("width", layout.size.width).put("height", layout.size.height))
+                                    .put("paragraphWidthPx", layout.multiParagraph.width).put("paragraphHeightPx", layout.multiParagraph.height)
+                                    .put("maxLines", input.maxLines).put("softWrap", input.softWrap).put("overflow", input.overflow.toString())
+                                    .put("lineCount", layout.lineCount).put("didOverflowWidth", layout.didOverflowWidth)
+                                    .put("didOverflowHeight", layout.didOverflowHeight).put("hasVisualOverflow", layout.hasVisualOverflow)
+                                    .put("didExceedMaxLines", layout.multiParagraph.didExceedMaxLines)
+                                    .put("lines", lines).put("semanticsNodes", nodes).toString(2))
+                            }.onFailure { android.util.Log.e("GENESIS_LAYOUT_DIAGNOSTIC", "Diary layout capture failed: $checkpoint", it) }
+                            runCatching { captureNativeWindow(File(context.getExternalFilesDir(null), "$diagnosticName.png")) }
+                                .onFailure { android.util.Log.e("GENESIS_LAYOUT_DIAGNOSTIC", "Diary window capture failed: $checkpoint", it) }
+                        }
+                        assertFalse("$checkpoint: clipped/ellipsized label: $text", clipped)
                     }
                     states.put(JSONObject().put("checkpoint", checkpoint).put("renderedStrings", layouts.size)
                         .put("checkedLabels", JSONArray(required.toList())))
