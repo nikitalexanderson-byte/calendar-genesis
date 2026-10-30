@@ -194,7 +194,7 @@ internal fun SharedMindmapsScreen(gateway: SharedWorkspaceGateway, space: String
                 newMapProjectId = preferredProject?.takeIf { id -> mappedProjects.any { it.id == id } }
                     ?: projects.firstOrNull { sharedTaskCanEdit(it) && it.optInt("isInbox") == 0 }?.getString("id"),
                 backLabel = "К общим делам", onTaskSearch = { search = it }, onResolveTaskIds = { referenceIds = it }, taskPickerFooter = {
-                    if (searchBusy || actionBusy) LinearProgressIndicator(Modifier.fillMaxWidth())
+                    if (searchBusy || actionBusy) WorkspaceLoadingLine(Modifier.fillMaxWidth())
                     if (cursor != null) OutlinedButton(onClick = { run { loadSearch(true) } }, enabled = !actionBusy) { Text("Загрузить ещё") }
                 })
         }

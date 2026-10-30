@@ -116,12 +116,12 @@ import java.util.Locale
                         Status()
                         if (editor != null && directory != null) {
                             if (!editor.restrictedMember && editor.data != null) Text("Ограничения по проектам доступны для участников и гостей.", style = MaterialTheme.typography.bodyMedium)
-                            if (editor.record != null && !editor.active) Button({ editor.restore() }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("access-restore"), enabled = !editor.busy) { androidx.compose.material3.Text(drafts.getString("restore")) }
+                            if (editor.record != null && !editor.active) Button({ editor.restore() }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("access-restore"), enabled = !editor.busy) { UntranslatedText(drafts.getString("restore")) }
                             if (editor.active && editor.data != null && editor.restrictedMember) ProjectAccessFields(editor)
-                            if (editor.conflicted || editor.active && editor.copies.isNotEmpty()) OutlinedButton({ scope.launch { editor.versions() } }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("access-versions"), enabled = !editor.busy) { androidx.compose.material3.Text(planning.getString("draftVersions")) }
+                            if (editor.conflicted || editor.active && editor.copies.isNotEmpty()) OutlinedButton({ scope.launch { editor.versions() } }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("access-versions"), enabled = !editor.busy) { UntranslatedText(planning.getString("draftVersions")) }
                             if ((!editor.active || editor.conflicted) && editor.copies.isNotEmpty()) ProjectAccessCopies(editor)
                             if (editor.phase == "rejected") OutlinedButton({ scope.launch { editor.rebase() } }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("access-rebase"), enabled = editor.controls) { Text("Обновить предпросмотр") }
-                            if (editor.phase in setOf("pending", "received")) androidx.compose.material3.Text(sharedWorkflowCopy("workflow-draft-translations.json").getString("pending"), Modifier.testTag("access-pending"), style = MaterialTheme.typography.bodyMedium)
+                            if (editor.phase in setOf("pending", "received")) UntranslatedText(sharedWorkflowCopy("workflow-draft-translations.json").getString("pending"), Modifier.testTag("access-pending"), style = MaterialTheme.typography.bodyMedium)
                         }
                     }
                     val showPreview = !editing && editor?.preview != null
@@ -132,14 +132,14 @@ import java.util.Locale
                         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).testTag("access-content"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                             if (showPreview) {
                                 val member = directory?.let { importRows(it.getJSONArray("members")) }?.find { it.getString("userId") == user }
-                                member?.let { androidx.compose.material3.Text(it.getString("displayName"), style = MaterialTheme.typography.titleSmall) }
+                                member?.let { UntranslatedText(it.getString("displayName"), style = MaterialTheme.typography.titleSmall) }
                                 Status(); ProjectAccessPreview(editor) { editing = true }
                             } else Editor()
                             Spacer(Modifier.height(8.dp))
                         }
                     }
                 }
-                if (directoryBusy || editor?.busy == true) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("access-loading"))
+                if (directoryBusy || editor?.busy == true) WorkspaceLoadingLine(Modifier.fillMaxWidth().testTag("access-loading"))
                 if (editor != null && editor.ready && directory != null && (editor.restrictedMember || editor.phase in setOf("pending", "received"))) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     when {
                         editor.phase in setOf("pending", "received") -> Button({ scope.launch { editor.retry() } }, Modifier.weight(1f).heightIn(min = 48.dp).testTag("access-retry"), enabled = editor.ready && !editor.busy && !editor.lost) { Text("Повторить") }
@@ -154,7 +154,7 @@ import java.util.Locale
             }
         }
     }
-    if (discard && editor != null) AlertDialog({ discard = false }, title = { androidx.compose.material3.Text(drafts.getString("discard") + "?") },
+    if (discard && editor != null) AlertDialog({ discard = false }, title = { UntranslatedText(drafts.getString("discard") + "?") },
         confirmButton = { TextButton({ discard = false; scope.launch { editor.discard() } }) { Text("Удалить") } }, dismissButton = { TextButton({ discard = false }) { Text("Отмена") } })
 }
 
@@ -163,17 +163,17 @@ import java.util.Locale
     val language = LocalGenesisLanguage.current; val number = remember(language) { NumberFormat.getIntegerInstance(Locale.forLanguageTag(language)) }
     val date = remember(language) { DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT).withLocale(Locale.forLanguageTag(language)).withZone(ZoneId.systemDefault()) }
     AffairsDisclosure(planning.getString("draftVersions"), Modifier.testTag("access-copy-list")) {
-        androidx.compose.material3.Text(planning.getString("draftVersionsHint"), style = MaterialTheme.typography.bodySmall)
+        UntranslatedText(planning.getString("draftVersionsHint"), style = MaterialTheme.typography.bodySmall)
         editor.copies.forEach { value -> Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             val draft = value.getJSONObject("edit").getJSONObject("draft"); val grants = importRows(draft.getJSONArray("grants"))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                androidx.compose.material3.Text(if (draft.getBoolean("allProjects")) genesisTranslate("Все проекты пространства, включая будущие") else genesisTranslate("Проекты") + ": " + number.format(grants.size), style = MaterialTheme.typography.bodyMedium)
+                UntranslatedText(if (draft.getBoolean("allProjects")) genesisTranslate("Все проекты пространства, включая будущие") else genesisTranslate("Проекты") + ": " + number.format(grants.size), style = MaterialTheme.typography.bodyMedium)
                 if (!draft.getBoolean("allProjects")) {
                     val labels = listOf("member" to "Редактирование", "commenter" to "Комментарии", "viewer" to "Просмотр", "none" to "Нет доступа")
                     val counts = labels.mapNotNull { (role, title) -> grants.count { it.getString("role") == role }.takeIf { it > 0 }?.let { genesisTranslate(title) + ": " + number.format(it) } }
-                    androidx.compose.material3.Text(counts.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    UntranslatedText(counts.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                androidx.compose.material3.Text(date.format(Instant.ofEpochMilli(value.getLong("savedAt"))), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                UntranslatedText(date.format(Instant.ofEpochMilli(value.getLong("savedAt"))), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             AffairsIconButton(planning.getString("useDraftVersion"), AffairsAction.EDIT, { scope.launch { editor.useCopy(value) } }, Modifier.testTag("access-use-${value.getString("id")}"), editor.controls && !editor.active && editor.phase !in setOf("pending", "received"))
             AffairsIconButton(drafts.getString("discard"), AffairsAction.DELETE, { scope.launch { editor.removeCopy(value) } }, Modifier.testTag("access-remove-${value.getString("id")}"), !editor.busy)

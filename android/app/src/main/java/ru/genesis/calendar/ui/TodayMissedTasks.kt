@@ -46,7 +46,7 @@ internal fun TodayMissedTasksCard(tasks: List<LocalTask>, onComplete: (LocalTask
                                 modifier = Modifier.size(48.dp).testTag("complete-missed-${task.id}")
                                     .semantics { contentDescription = task.title })
                             Column(Modifier.weight(1f)) {
-                                androidx.compose.material3.Text(task.title, style = MaterialTheme.typography.bodyMedium)
+                                UntranslatedText(task.title, style = MaterialTheme.typography.bodyMedium)
                                 Text(task.date, style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }

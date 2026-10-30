@@ -167,7 +167,7 @@ import java.io.InputStream
             Text("Личные сообщения", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
             headerActions()
         }
-        if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+        if (busy) WorkspaceLoadingLine(Modifier.fillMaxWidth())
         if (error.isNotBlank()) Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(error, Modifier.weight(1f), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             AffairsIconButton("Закрыть", AffairsAction.CLOSE, { error = "" })
@@ -214,7 +214,7 @@ import java.io.InputStream
                     items(state.participants.filter { it.id != repository.ownerUid }, key = { it.id }) { peer ->
                         TextButton({ if (initialSpaceId != null) run { repository.open(initialSpaceId, peer.id) } }, Modifier.fillMaxWidth().heightIn(min = 64.dp), enabled = state.keyReady && !busy) {
                             Column(Modifier.weight(1f), horizontalAlignment = Alignment.Start) {
-                                androidx.compose.material3.Text(peer.name, style = MaterialTheme.typography.titleSmall)
+                                UntranslatedText(peer.name, style = MaterialTheme.typography.titleSmall)
                                 Text(if (peer.viewing) "Сейчас в пространстве" else "Участник пространства", style = MaterialTheme.typography.bodySmall)
                             }
                             GenesisLucideIcon("chevron-right")
@@ -262,11 +262,11 @@ import java.io.InputStream
                             if (row.deleted) Text("Сообщение удалено", style = MaterialTheme.typography.bodySmall)
                             else if (row.failed) Text("Не удалось расшифровать сообщение. Проверьте ключ и код безопасности.", color = MaterialTheme.colorScheme.error)
                             else row.content?.let { content ->
-                                SelectionContainer { androidx.compose.material3.Text(content.text, style = MaterialTheme.typography.bodyLarge) }
+                                SelectionContainer { UntranslatedText(content.text, style = MaterialTheme.typography.bodyLarge) }
                                 content.files.forEach { file ->
                                     TextButton({ download = row to file; exportFile.launch(file.name) }, Modifier.fillMaxWidth().heightIn(min = 48.dp), enabled = !busy) {
                                         GenesisLucideIcon("download", Modifier.size(20.dp)); Spacer(Modifier.width(8.dp))
-                                        androidx.compose.material3.Text(file.name, Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                        UntranslatedText(file.name, Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
                                         Text("${(file.size + 1023) / 1024} КБ", style = MaterialTheme.typography.labelSmall)
                                     }
                                 }
@@ -287,7 +287,7 @@ import java.io.InputStream
                             AffairsIconButton("Отменить редактирование", AffairsAction.CLOSE, { cancelEditConfirm = true }, enabled = !busy && !state.pending)
                         }
                         draft.files.forEach { file -> Row(verticalAlignment = Alignment.CenterVertically) {
-                            androidx.compose.material3.Text(file.name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            UntranslatedText(file.name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                             AffairsIconButton("Убрать файл", AffairsAction.CLOSE, { run { repository.removeFile(file.id) } }, enabled = !busy && !state.pending)
                         } }
                         if (state.pending) {
@@ -322,7 +322,7 @@ import java.io.InputStream
     if (security) AlertDialog(onDismissRequest = { security = false }, title = { Text("Код безопасности") }, text = {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Сверьте этот код с собеседником по другому каналу. Совпадение подтверждает ключи устройств.")
-            SelectionContainer { androidx.compose.material3.Text(state.securityCode.orEmpty(), style = MaterialTheme.typography.titleMedium) }
+            SelectionContainer { UntranslatedText(state.securityCode.orEmpty(), style = MaterialTheme.typography.titleMedium) }
         }
     }, confirmButton = {})
     if (cancelEditConfirm) AlertDialog(onDismissRequest = { cancelEditConfirm = false }, title = { Text("Отменить редактирование сообщения?") },
@@ -361,10 +361,10 @@ import java.io.InputStream
 @Composable private fun MessagingNoticeRow(notice: MessagingNotice, busy: Boolean, onClick: () -> Unit) {
     TextButton(onClick, Modifier.fillMaxWidth().heightIn(min = 64.dp), enabled = !busy) {
         Column(Modifier.weight(1f), horizontalAlignment = Alignment.Start) {
-            androidx.compose.material3.Text(notice.peerName, style = MaterialTheme.typography.titleMedium)
-            androidx.compose.material3.Text(notice.spaceTitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            UntranslatedText(notice.peerName, style = MaterialTheme.typography.titleMedium)
+            UntranslatedText(notice.spaceTitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        if (notice.unread > 0) Badge { androidx.compose.material3.Text(notice.unread.toString()) }
+        if (notice.unread > 0) Badge { UntranslatedText(notice.unread.toString()) }
         Spacer(Modifier.width(8.dp)); GenesisLucideIcon("chevron-right", Modifier.size(20.dp))
     }
     HorizontalDivider()

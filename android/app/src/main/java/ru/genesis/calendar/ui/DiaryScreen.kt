@@ -9,7 +9,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.material3.Text as ContentText
+import ru.genesis.calendar.ui.UntranslatedText as ContentText
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -113,7 +113,7 @@ import java.time.Instant
             Spacer(Modifier.width(8.dp))
             Text("Назад в дневник")
         }
-        if (loading) LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 8.dp))
+        if (loading) WorkspaceLoadingLine(Modifier.fillMaxWidth().padding(top = 8.dp))
         if (error || state.protected) Row(Modifier.fillMaxWidth().padding(12.dp).semantics { liveRegion = LiveRegionMode.Polite },
             verticalAlignment = Alignment.CenterVertically) {
             Text(if (state.protected) "Формат дневника изменился. Обновите приложение; записи сохранены."

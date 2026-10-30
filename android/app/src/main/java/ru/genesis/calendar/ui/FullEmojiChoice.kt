@@ -32,7 +32,7 @@ import org.json.JSONObject
             onLongClickLabel=if(options.size>1)labels.getString(0)else null)
             .semantics{contentDescription=emoji;this.selected=selected},
             shape=RoundedCornerShape(10.dp),color=if(selected)MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow) {
-            Box(contentAlignment=Alignment.Center){androidx.compose.material3.Text(emoji,fontSize=24.sp)
+            Box(contentAlignment=Alignment.Center){UntranslatedText(emoji,fontSize=24.sp)
                 if(options.size>1) GenesisLucideIcon("chevron-down",Modifier.size(10.dp).align(Alignment.BottomEnd).padding(1.dp))}
         }
         DropdownMenu(open,{open=false},modifier=Modifier.widthIn(max=288.dp)) {
@@ -42,7 +42,7 @@ import org.json.JSONObject
                     Surface(Modifier.size(48.dp).combinedClickable(enabled=enabled,role=Role.Button,onClick={open=false;onChoose(option)})
                         .testTag("emoji-variant-$option").semantics{contentDescription=option;this.selected=value==option},shape=RoundedCornerShape(10.dp),
                         color=if(value==option)MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface) {
-                        Box(contentAlignment=Alignment.Center){androidx.compose.material3.Text(option,fontSize=24.sp)}
+                        Box(contentAlignment=Alignment.Center){UntranslatedText(option,fontSize=24.sp)}
                     }
                 }
             }

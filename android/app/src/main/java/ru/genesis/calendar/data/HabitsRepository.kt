@@ -75,7 +75,8 @@ class HabitsRepository(private val app: GenesisApplication) {
         db.withTransaction {
             val record=dao.document(scope,"habits")
             val current=if(record==null) LocalHabitWorkspace() else HabitDocument.decode(cipher.decrypt(record.encrypted,"$scope/habits"),record.revision)
-            val candidate=observeChangedHabitAvailability(current,change(current),Instant.now().toString())
+            val changedAt = Instant.now().toString()
+            val candidate=observeChangedHabitAvailability(current,HabitTimerWorkspace.finishDisabled(change(current),changedAt,timerOwner),changedAt)
             // A known lifecycle replay must retain the exact encrypted document and pending outbox identity.
             if (skipNoop && candidate == current) { mutation=current to current; return@withTransaction }
             val lifecycleChanged=candidate.habits.any { habit -> current.habits.firstOrNull { it.id==habit.id }?.let {
@@ -404,7 +405,7 @@ internal object HabitDocument {
                 .apply { it.startDate?.let { start -> put("startDate",start.toString()) } }) }
         }
         .put("emoji",h.emoji).put("priority",h.priority).put("isKeyHabit",h.isKeyHabit).put("ritualId",h.ritualId).put("ritualName",h.ritualName).put("color",h.color)
-        .put("active",h.active).put("sourceTemplateId",h.sourceTemplateId ?: JSONObject.NULL).put("sacredPracticeId",h.sacredPracticeId ?: JSONObject.NULL)
+        .put("active",h.active).put("timerEnabled",h.timerEnabled).put("sourceTemplateId",h.sourceTemplateId ?: JSONObject.NULL).put("sacredPracticeId",h.sacredPracticeId ?: JSONObject.NULL)
         .put("sacredSectorId",h.sacredSectorId ?: JSONObject.NULL).put("preferredTime",h.preferredTime).put("scoringMode",h.scoringMode).put("qualityScale",h.qualityScale)
         .put("intervalSchedule",h.intervalSchedule?.let { interval -> JSONObject().put("intervalMinutes",interval.intervalMinutes)
             .put("startTime",interval.startTime).put("endTime",interval.endTime).put("completionMode",interval.completionMode) } ?: JSONObject.NULL)
@@ -425,6 +426,7 @@ internal object HabitDocument {
                     r.getString("time") != v.getString("preferredTime")) "custom" else "habit",
                 r.optInt("minutesBefore",0).coerceIn(0,1440),r.optBoolean("allowDuringQuietHours",false)))
             .copy(measurement = optionalMeasurement(v), ruleHistory = optionalRules(v), periodGoal = optionalPeriodGoal(v),
+                timerEnabled = v.optBoolean("timerEnabled", true),
                 lifecycleHistory = if(v.has("lifecycleHistory")) HabitLifecycleCodec.decode(v.getJSONArray("lifecycleHistory")) else emptyList(),
                 stoicheionRestoration = StoicheionRestorationCodec.decode(v.optJSONObject("stoicheionRestoration")),
                 practiceGoal = v.optJSONObject("practiceGoal")?.let { HabitPracticeGoal(it.getInt("version"),it.getInt("requiredCompletions"),it.getInt("penaltyLaurels"),it.nullable("startDate")?.let(LocalDate::parse)) },

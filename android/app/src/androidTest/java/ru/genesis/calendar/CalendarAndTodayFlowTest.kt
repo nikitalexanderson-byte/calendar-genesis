@@ -28,29 +28,26 @@ class CalendarAndTodayFlowTest {
         val habits = HabitsRepository(app)
         try {
             val date = LocalDate.now()
+            compose.openWorkspacePage("Сегодня")
             runBlocking { habits.save(Habit(TrackerEntity.create("habit", id = "today-reading-validation"),
                 "Чтение для проверки", date, HabitEngine(GenesisCalendar()).defaultSchedule(date, CalendarMode.PROFANE))) }
             runBlocking { prefs.set("display", "sacred") }
             compose.waitUntil(10_000) {
                 compose.onAllNodes(hasTestTag("app-theme-Standart") or hasTestTag("app-theme-Evening")).fetchSemanticsNodes().isNotEmpty()
             }
-            compose.onNodeWithText("СЕГОДНЯ").assertExists()
+            compose.onNodeWithTag("workspace-title").assertTextEquals("Сегодня")
             compose.onNodeWithTag("today-hero-copy", useUnmergedTree = true).assertExists()
             compose.onNodeWithTag("today-hero-description", useUnmergedTree = true).assertExists()
-            compose.onNodeWithTag("day-knowledge").assertDoesNotExist()
-            compose.onNodeWithTag("today-day-details-toggle").assertTextContains("Подробнее о дне").performClick()
-            compose.waitUntil(5_000) {
-                compose.onAllNodesWithTag("today-day-details").fetchSemanticsNodes().isNotEmpty()
-            }
-            compose.onNodeWithTag("today-day-details").performScrollTo()
+            compose.scrollToTodayNode(hasTestTag("today-day-details"))
+            compose.onNodeWithTag("today-day-details").assertIsDisplayed()
             compose.onNodeWithTag("day-knowledge").assertExists()
-            compose.onNodeWithTag("today-day-details-toggle").assertTextContains("Скрыть подробности")
             val todayImage = File(app.cacheDir, "today-after.png")
             assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(todayImage))
+            compose.scrollToTodayNode(hasTestTag("today-hero"))
             runBlocking { prefs.set("display", "profane") }
             compose.waitUntil(10_000) {
-                compose.onAllNodesWithText("ГРИГОРИАНСКИЙ КАЛЕНДАРЬ", substring = true)
-                    .fetchSemanticsNodes().isNotEmpty()
+                runCatching { compose.onNodeWithTag("today-calendar-name").assertTextEquals(
+                    ru.genesis.calendar.ui.mobileCalendarCopy("ru").calendarName(CalendarMode.PROFANE)) }.isSuccess
             }
             assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
                 File(app.cacheDir, "today-profane-after.png")))
@@ -69,25 +66,30 @@ class CalendarAndTodayFlowTest {
             compose.scrollToTodayNode(hasTestTag("today-hero"))
             runBlocking { prefs.set("display", "lunar") }
             compose.waitUntil(10_000) {
-                compose.onAllNodesWithText("ЛУННЫЙ КАЛЕНДАРЬ", substring = true)
-                    .fetchSemanticsNodes().isNotEmpty()
+                runCatching { compose.onNodeWithTag("today-calendar-name").assertTextEquals(
+                    ru.genesis.calendar.ui.mobileCalendarCopy("ru").calendarName(CalendarMode.LUNAR)) }.isSuccess
             }
-            compose.onNodeWithTag("today-lunar-standard-image", useUnmergedTree = true).assertExists()
+            compose.onNodeWithTag("today-calendar-image", useUnmergedTree = true).assertExists()
             assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
                 File(app.cacheDir, "today-lunar-after.png")))
             runBlocking { prefs.set("display", "sacred") }
             compose.waitUntil(10_000) {
-                compose.onAllNodesWithText("МЕСЯЦ", substring = true)
-                    .fetchSemanticsNodes().isNotEmpty()
+                runCatching { compose.onNodeWithTag("today-calendar-name").assertTextEquals(
+                    ru.genesis.calendar.ui.mobileCalendarCopy("ru").calendarName(CalendarMode.SACRED)) }.isSuccess
             }
             compose.scrollToTodayNode(hasTestTag("day-rhythm-expand"))
             compose.onNodeWithTag("day-rhythm-expand").assertExists()
             compose.scrollToTodayNode(hasTestTag("today-day-details"))
             compose.onNodeWithTag("day-knowledge").assertExists()
-            compose.onNodeWithTag("navigation-Календарь").performClick()
+            val calendar = GenesisCalendar()
+            val equinox = calendar.solarEvents(calendar.sacredDate(date).sacredYear).single { it.name == "Осеннее равноденствие" }
+            compose.openWorkspacePage("Календарь", "year")
+            val monthTag = "sacred-year-month-${calendar.sacredDate(equinox.date).monthIndex}"
+            compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag(monthTag))
+            compose.onNodeWithTag(monthTag).performClick()
             compose.onNodeWithTag("pyata-1").performScrollTo().performClick()
             compose.onNodeWithText("Явление идеи.", substring = true).assertExists()
-            compose.onNodeWithTag("calendar-day-2026-09-23").performScrollTo().performClick()
+            compose.onNodeWithTag("calendar-day-${equinox.date}").performScrollTo().performClick()
             compose.waitUntil(10_000) {
                 compose.onAllNodesWithText("Осеннее равноденствие", substring = true)
                     .fetchSemanticsNodes().isNotEmpty()

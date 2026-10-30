@@ -49,13 +49,13 @@ internal fun SharedTaskReviewSettingsPanel(gateway: SharedTaskReviewGateway, pro
         Text("Правила основного проекта применяются и к его подпроектам.", style = MaterialTheme.typography.bodySmall)
         val current = data
         if (current == null || policyJson.isBlank()) {
-            if (error.isBlank()) LinearProgressIndicator(Modifier.fillMaxWidth())
+            if (error.isBlank()) WorkspaceLoadingLine(Modifier.fillMaxWidth())
             OutlinedButton(enabled = !busy, onClick = { run { apply(gateway.sharedTaskReviewSettings(projectId)) } }) { Text("Обновить данные") }
         } else {
             val policy = JSONObject(policyJson)
             val stale = current.getInt("revision") != baseRevision
             val editable = current.getBoolean("canManage") && !busy && !disabled && !stale
-            androidx.compose.material3.Text(current.getString("rootTitle"), style = MaterialTheme.typography.titleSmall)
+            UntranslatedText(current.getString("rootTitle"), style = MaterialTheme.typography.titleSmall)
             ReviewPolicyCheckbox("Включить проверку выполненных задач", policy.getBoolean("enabled"), editable) {
                 policyJson = JSONObject(policyJson).put("enabled", it).toString(); saved = false
             }
@@ -93,7 +93,7 @@ internal fun SharedTaskReviewSettingsPanel(gateway: SharedTaskReviewGateway, pro
             } }) { Text("Сохранить правила проверки") }
             OutlinedButton(enabled = !busy, onClick = { discard = true }) { Text("Обновить данные") }
         }
-        if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+        if (busy) WorkspaceLoadingLine(Modifier.fillMaxWidth())
         if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
         if (saved) Text("Правила проверки сохранены.", color = MaterialTheme.colorScheme.primary)
     }

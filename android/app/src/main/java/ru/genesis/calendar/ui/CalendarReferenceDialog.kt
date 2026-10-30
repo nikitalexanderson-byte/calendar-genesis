@@ -68,7 +68,7 @@ internal fun CalendarReferenceDialog(mode: CalendarMode, onDismiss: () -> Unit) 
             )),
         )
         CalendarMode.SACRED -> listOf(
-            CalendarReferenceSection("☉", copy("Солнечно-лунный календарь", "Solar-lunar calendar"), listOf(
+            CalendarReferenceSection("☉", copy("Солнечный календарь", "Solar calendar"), listOf(
                 copy("Год GENESIS начинается в день весеннего равноденствия и раскрывается через двенадцать месяцев. Каждый месяц несёт собственный образ, цвет, стихию и смысл — не просто отрезок времени, а отдельную ступень годового пути.",
                     "The GENESIS year begins on the spring equinox and unfolds through twelve months. Each month carries its own image, color, element, and meaning—a distinct stage of the annual path."),
                 copy("В каждом месяце ровно 30 дней. Вместо привычных недель время собрано в шесть пят: коротких пятидневных ритмов, где нечётные и чётные пяты сменяют друг друга. Так солнечная мера года соединяется с живым лунным дыханием.",

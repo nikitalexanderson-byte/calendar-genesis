@@ -102,6 +102,14 @@ class TrackersRepository(app: GenesisApplication) {
         current.copy(addictionEntries = current.addictionEntries.filterNot { it.trackerId == trackerId && it.date == date } + entry)
     }
     suspend fun resetTracking() = mutate { LocalTrackersWorkspace(revision = it.revision, addictionDataLoaded = it.addictionDataLoaded) }
+
+    suspend fun deleteAddiction(id: String, expectedVersion: Int) = mutate { current ->
+        val tracker = current.addictionTrackers.firstOrNull { it.id == id } ?: error("Трекер не найден")
+        require(tracker.entity.version == expectedVersion) { "Запись изменилась. Откройте её заново." }
+        require(current.addictionDataLoaded || !scope.startsWith("account-")) { "Обновите данные аккаунта и повторите попытку." }
+        current.copy(addictionDataLoaded = true, addictionTrackers = current.addictionTrackers.filterNot { it.id == id },
+            addictionEntries = current.addictionEntries.filterNot { it.trackerId == id })
+    }
 }
 
 internal object TrackersDocument {

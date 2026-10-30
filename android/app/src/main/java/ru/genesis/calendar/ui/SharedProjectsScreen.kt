@@ -342,8 +342,8 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                 val ids = state.optJSONArray("expandedIds") ?: JSONArray()
                 expandedIds = (0 until ids.length()).map(ids::getString).toSet()
                 uiReadySpace = targetSpace
-                projectId = destination?.takeIf { it.spaceId == targetSpace && projects.any { project -> project.optString("id") == it.projectId } }?.projectId
-                    ?: restoredProjectId.takeIf { id -> projects.any { it.optString("id") == id } }.orEmpty()
+                projectId = destination?.takeIf { it.spaceId == targetSpace && projectRows.any { project -> project.optString("id") == it.projectId } }?.projectId
+                    ?: restoredProjectId.takeIf { id -> projectRows.any { it.optString("id") == id } }.orEmpty()
                 if (projectId == destination?.projectId) taskId = destination.taskId
             }
         } catch (error: Exception) { if (error is kotlinx.coroutines.CancellationException) throw error; message = error.message ?: "Ошибка сервера" }
@@ -805,7 +805,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                 "category" -> if (en) "New category" else "Новая категория"
                 else -> if (en) "Invite a participant" else "Пригласить участника"
             })
-                if (modal == "task") androidx.compose.material3.Text(
+                if (modal == "task") UntranslatedText(
                     listOfNotNull(spaces.firstOrNull { it.optString("id") == spaceId }?.optString("title")?.takeIf { it.isNotBlank() },
                         project?.optString("title")?.takeIf { it.isNotBlank() }).joinToString(" / "),
                     modifier = Modifier.testTag("shared-create-destination"),
@@ -1028,10 +1028,10 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
         text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(if (en) "This change could not be sent. Your draft is kept on this device."
                 else "Изменение не удалось отправить. Черновик сохранён на устройстве.")
-            androidx.compose.material3.Text(customFailureMessages[draft.optString("error")]?.takeIf { it.isNotBlank() }
+            UntranslatedText(customFailureMessages[draft.optString("error")]?.takeIf { it.isNotBlank() }
                 ?: workflowMessage(draft.optString("error"), workflowCopy) ?: draft.optString("error"), style = MaterialTheme.typography.bodySmall)
             if (messageIsError && message.isNotBlank()) Text(message, color = MaterialTheme.colorScheme.error)
-            SelectionContainer { androidx.compose.material3.Text(draft.optJSONObject("body")?.toString(2).orEmpty(),
+            SelectionContainer { UntranslatedText(draft.optJSONObject("body")?.toString(2).orEmpty(),
                 Modifier.heightIn(max = 240.dp).verticalScroll(rememberScrollState())) }
         } },
         confirmButton = { DialogActionRow(
@@ -1132,7 +1132,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                     else "В копию попадают название проекта, название, срок и статус задачи. Описание и сведения об участниках остаются в GENESIS.",
                     style = MaterialTheme.typography.bodySmall)
                 val google = googleSettings
-                if (google == null) Text(if (en) "Loading Google options…" else "Загружаем настройки Google…")
+                if (google == null) WorkspaceLoadingText(if (en) "Loading Google options…" else "Загружаем настройки Google…")
                 else {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                         Text(if (en) "Copy to my Google Tasks" else "Копировать в мои Google Tasks", modifier = Modifier.weight(1f))
@@ -1430,12 +1430,12 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
             if (project?.optString("spaceRole") == "owner" && shows(SharedProjectMenu.TEAM)) DropdownMenuItem(text = { Text("Доступ к проектам") }, modifier = Modifier.testTag("shared-project-access-open"),
                 leadingIcon = { GenesisLucideIcon("key-round") }, onClick = { closeActions(); projectAccessOpen = true })
             if (project?.optInt("isInbox") == 0 && shows(SharedProjectMenu.WORK)) DropdownMenuItem(
-                text = { androidx.compose.material3.Text(sharedPlanningCopy().getString("heading")) },
+                text = { UntranslatedText(sharedPlanningCopy().getString("heading")) },
                 modifier = Modifier.testTag("shared-planning-open"),
                 leadingIcon = { AffairsActionIcon(AffairsAction.CALENDAR) },
                 onClick = { closeActions(); planningOpen = true })
             if (project?.optInt("isInbox") == 0 && shows(SharedProjectMenu.WORK)) DropdownMenuItem(
-                text = { androidx.compose.material3.Text(workflowCopy.getString("heading")) },
+                text = { UntranslatedText(workflowCopy.getString("heading")) },
                 modifier = Modifier.testTag("shared-workflow-open"),
                 leadingIcon = { GenesisLucideIcon("git-branch") },
                 onClick = { closeActions(); workflowProject = projectId })
@@ -1551,7 +1551,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
             }
         }
         if (message.isNotBlank() && taskId.isBlank()) {
-            if (templateAccessLost) androidx.compose.material3.Text(templateIssueMessage("TEMPLATE_PERMISSION_CHANGED", templateCopy),
+            if (templateAccessLost) UntranslatedText(templateIssueMessage("TEMPLATE_PERMISSION_CHANGED", templateCopy),
                 modifier = Modifier.testTag("shared-feedback"), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
             else Text(message, modifier = Modifier.testTag("shared-feedback"),
                 color = if (messageIsError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
@@ -1578,7 +1578,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             GenesisVectorIcon(GenesisPageIcon.PROJECTS_SHARED, Modifier.size(24.dp), MaterialTheme.colorScheme.primary)
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                androidx.compose.material3.Text(item.getString("title"), style = MaterialTheme.typography.titleMedium)
+                                UntranslatedText(item.getString("title"), style = MaterialTheme.typography.titleMedium)
                                 Text(sharedRoleLabel(item.optString("role"), en), style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
@@ -1613,7 +1613,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                     if (workflowRepairProjects.isNotEmpty()) {
                         Text("Корзина", style = MaterialTheme.typography.titleMedium)
                         workflowRepairProjects.forEach { item -> Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                            androidx.compose.material3.Text(item.getString("title"), Modifier.weight(1f))
+                            UntranslatedText(item.getString("title"), Modifier.weight(1f))
                             AffairsIconButton(workflowCopy.getString("heading"), AffairsAction.SETTINGS,
                                 { workflowProject = item.getString("id") }, Modifier.testTag("shared-workflow-trash-${item.getString("id")}"))
                         } }
@@ -1703,7 +1703,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                     OutlinedButton(onClick = { selectProject(child.getString("id")) }, modifier = Modifier.fillMaxWidth().then(containerInteraction(child))
                         .testTag("shared-list-child-${child.optString("id")}")) {
                         AffairsActionIcon(if (child.optString("kind") == "task-list") AffairsAction.TASK_LIST else AffairsAction.PROJECT)
-                        Spacer(Modifier.width(8.dp)); androidx.compose.material3.Text(child.optString("title"), Modifier.weight(1f))
+                        Spacer(Modifier.width(8.dp)); UntranslatedText(child.optString("title"), Modifier.weight(1f))
                     }
                 }
                 val projectInbox: @Composable () -> Unit = {
@@ -1926,7 +1926,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                         AffairsIconButton("Сохранить как шаблон", AffairsAction.TEMPLATE, { templatesCaptureId = taskId; templatesOpen = true },
                             Modifier.testTag("shared-task-save-template"), enabled = !busy && !taskPending)
                     }
-                    if (!canEditTask) androidx.compose.material3.Text(selectedTask.getString("title"), style = MaterialTheme.typography.titleLarge)
+                    if (!canEditTask) UntranslatedText(selectedTask.getString("title"), style = MaterialTheme.typography.titleLarge)
                     if (selectedTask.optString("seriesId").let { it.isNotBlank() && it != "null" }) {
                         Text(genesisTranslate("Серия общих задач"), style = MaterialTheme.typography.titleSmall)
                         Text(genesisTranslate("Изменения задачи относятся к этому повтору. Настройки серии действуют только на ещё не созданные задачи."), style = MaterialTheme.typography.bodySmall)
@@ -1993,7 +1993,7 @@ private fun SharedProjectsContent(controller: SharedWorkspaceGateway, language: 
                             editTaskCategoryId = resolved.fields.optString("categoryId").takeUnless { it == "null" }.orEmpty()
                         }
                     } else {
-                        if (selectedTask.optString("description").isNotBlank()) androidx.compose.material3.Text(selectedTask.getString("description"))
+                        if (selectedTask.optString("description").isNotBlank()) UntranslatedText(selectedTask.getString("description"))
                         SharedTaskEstimates(selectedTask, editTaskDetails, planningEnabled, false,
                             busy || taskPending || taskArchived, { editTaskDetails = it })
                         customDraft?.let { custom -> SharedTaskCustomFields(selectedTask, editTaskDetails, custom, preferences, false,
@@ -2217,7 +2217,7 @@ private fun SharedStatusHeader(status: JSONObject, en: Boolean, canManage: Boole
         if (canManage) TextButton(onClick = { title = status.getString("title"); editing = true; failed = false },
             enabled = !busy, modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("shared-board-title-${status.optString("id")}"),
             contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp)) {
-            androidx.compose.material3.Text(sharedStatusLabel(status.getString("title"), en), Modifier.fillMaxWidth(), style = MaterialTheme.typography.titleMedium)
+            UntranslatedText(sharedStatusLabel(status.getString("title"), en), Modifier.fillMaxWidth(), style = MaterialTheme.typography.titleMedium)
         } else Text(sharedStatusLabel(status.getString("title"), en), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
         if (canManage || canCreate) Box {
             AffairsIconButton("Действия с доской", AffairsAction.SETTINGS, { open = true },
@@ -2261,7 +2261,7 @@ private fun SharedProjectTree(projects: List<JSONObject>, expanded: Set<String>,
                 GenesisVectorIcon(if (item.optString("kind") == "task-list") GenesisPageIcon.TASK_LISTS
                     else GenesisPageIcon.PROJECTS, Modifier.size(24.dp), MaterialTheme.colorScheme.primary)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    androidx.compose.material3.Text(item.optString("title"), style = MaterialTheme.typography.titleMedium)
+                    UntranslatedText(item.optString("title"), style = MaterialTheme.typography.titleMedium)
                     Text(if (item.optString("kind") == "task-list") "Список задач" else "Проект",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }

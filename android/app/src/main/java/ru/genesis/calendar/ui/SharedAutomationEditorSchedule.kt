@@ -67,7 +67,7 @@ import java.util.Locale
         generateSequence(maxOf(today, anchor)) { it.plusDays(1) }.takeWhile { it <= through }.filter { engine.matches(anchor.toString(), config, it.toString()) }.take(5).toList()
     }.getOrDefault(emptyList()) }
     val calendar = remember(input.context) { GenesisCalendar(ZoneId.of(input.context.timeZone), input.context.version, input.context.gregorianYearStart) }
-    androidx.compose.material3.Text(genesisTranslate("Следующие даты: {dates}").replace("{dates}", nextDates.joinToString(" · ") { calendar.formatDate(it, inputMode) }.ifEmpty { genesisTranslate("Не найдено") }),
+    UntranslatedText(genesisTranslate("Следующие даты: {dates}").replace("{dates}", nextDates.joinToString(" · ") { calendar.formatDate(it, inputMode) }.ifEmpty { genesisTranslate("Не найдено") }),
         style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("automation-schedule-next"))
     Text("Несуществующие дни пропускаются. Апейрон не входит в сакральные повторы; 13-й лунный месяц выбирается только в годах, где он есть.", style = MaterialTheme.typography.bodySmall)
 }
@@ -86,7 +86,7 @@ import java.util.Locale
                     val actual = if (emptyAll && selected.isEmpty()) (1..maximum).toList() else selected
                     val next = (if (number in actual) actual - number else actual + number).distinct().sorted()
                     if (next.isNotEmpty()) onChange(if (emptyAll && next.size == maximum) emptyList() else next)
-                }, enabled = enabled, label = { androidx.compose.material3.Text(labels[number] ?: format.format(number)) },
+                }, enabled = enabled, label = { UntranslatedText(labels[number] ?: format.format(number)) },
                     modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("$tag-$number"))
             }
             repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }

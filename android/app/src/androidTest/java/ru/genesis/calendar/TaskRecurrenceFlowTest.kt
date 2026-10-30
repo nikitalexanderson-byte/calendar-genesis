@@ -21,6 +21,7 @@ class TaskRecurrenceFlowTest {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
         check(BuildConfig.DEBUG && app.packageName.endsWith(".debug"))
         val title = "UI серия ${UUID.randomUUID()}"
+        compose.openWorkspacePage("Сегодня")
         compose.scrollToTodayNode(hasTestTag("create-task"))
         compose.onNodeWithTag("create-task").performClick()
         compose.onNodeWithTag("task-title").performTextInput(title)
@@ -51,7 +52,7 @@ class TaskRecurrenceFlowTest {
         compose.onNodeWithText("Интервал · 1").performScrollTo()
         compose.onNodeWithTag("recurrence-pattern-daily").performClick()
         compose.onNodeWithTag("recurrence-count").assertExists()
-        compose.onNodeWithTag("save-task").performScrollTo().performClick()
+        compose.onNodeWithTag("save-task").assertIsDisplayed().assertIsEnabled().performClick()
         compose.waitUntil(10_000) { runBlocking {
             app.repository.tasks.first().any { it.title == title && it.recurrence.enabled }
         } }

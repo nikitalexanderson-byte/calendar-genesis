@@ -6,7 +6,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
-import androidx.compose.material3.Text as MaterialText
+import ru.genesis.calendar.ui.UntranslatedText as MaterialText
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -113,7 +113,7 @@ import ru.genesis.calendar.data.*
                 onApply = { scope.launch { run { withContext(Dispatchers.IO) { service.apply(value.id) }; draft = null; message = "Восстановление завершено." } } },
                 onCancel = { scope.launch { run { withContext(Dispatchers.IO) { service.cancel(value.id) }; draft = null } } }) }
             if (workspace.habits.isEmpty() && draft == null) Text("Сначала проверьте копию. До применения данные не меняются.", style = MaterialTheme.typography.bodySmall)
-            if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+            if (busy) WorkspaceLoadingLine(Modifier.fillMaxWidth())
             error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("habit-restore-error")) }
             message?.let { Text(it, Modifier.testTag("habit-backup-result")) }
         }

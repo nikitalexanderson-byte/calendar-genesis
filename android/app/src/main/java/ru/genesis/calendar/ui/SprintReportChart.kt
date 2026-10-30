@@ -46,11 +46,11 @@ internal fun reportPlot(points: List<JSONObject>, read: (JSONObject) -> JSONObje
     val scheme = MaterialTheme.colorScheme
     val palette = listOf(scheme.primary, scheme.secondary, scheme.tertiary, scheme.onSurfaceVariant)
     Column(Modifier.fillMaxWidth().testTag("report-chart-$id"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        androidx.compose.material3.Text("$title · $unit", style = MaterialTheme.typography.titleSmall)
+        UntranslatedText("$title · $unit", style = MaterialTheme.typography.titleSmall)
         if (values.none { it.value != null }) Text("Нет данных") else {
             Row(Modifier.fillMaxWidth().height(184.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Column(Modifier.width(64.dp).fillMaxHeight(), verticalArrangement = Arrangement.SpaceBetween) {
-                    for (fraction in listOf(1.0, .5, 0.0)) androidx.compose.material3.Text(number.format(ceiling * fraction),
+                    for (fraction in listOf(1.0, .5, 0.0)) UntranslatedText(number.format(ceiling * fraction),
                         style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant)
                 }
                 Canvas(Modifier.weight(1f).fillMaxHeight().semantics { contentDescription = "$title · $unit" }) {
@@ -95,14 +95,14 @@ internal fun reportPlot(points: List<JSONObject>, read: (JSONObject) -> JSONObje
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                androidx.compose.material3.Text(date(points.first().getString("date")), Modifier.weight(1f), style = MaterialTheme.typography.labelSmall)
-                if (points.size > 1) androidx.compose.material3.Text(date(points.last().getString("date")), Modifier.weight(1f), style = MaterialTheme.typography.labelSmall)
+                UntranslatedText(date(points.first().getString("date")), Modifier.weight(1f), style = MaterialTheme.typography.labelSmall)
+                if (points.size > 1) UntranslatedText(date(points.last().getString("date")), Modifier.weight(1f), style = MaterialTheme.typography.labelSmall)
             }
         }
         if (stack) FlowRow(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             statuses.forEachIndexed { index, status -> Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Canvas(Modifier.size(12.dp).padding(top = 3.dp)) { drawCircle(palette[index % palette.size]) }
-                androidx.compose.material3.Text(status.second, style = MaterialTheme.typography.bodySmall)
+                UntranslatedText(status.second, style = MaterialTheme.typography.bodySmall)
             } }
         }
     }

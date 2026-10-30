@@ -121,6 +121,6 @@ internal fun AdminUserDetails(user: JSONObject, onClose: () -> Unit) {
 @Composable private fun AdminDetail(label: String, value: String) {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        androidx.compose.material3.Text(value, style = MaterialTheme.typography.bodyMedium)
+        UntranslatedText(value, style = MaterialTheme.typography.bodyMedium)
     }
 }

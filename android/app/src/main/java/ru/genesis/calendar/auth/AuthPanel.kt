@@ -35,6 +35,8 @@ import ru.genesis.calendar.ui.Button
 import ru.genesis.calendar.ui.OutlinedButton
 import ru.genesis.calendar.ui.TextButton
 import ru.genesis.calendar.ui.genesisTranslate
+import ru.genesis.calendar.ui.WorkspaceStatusNotice
+import ru.genesis.calendar.ui.WorkspaceLoadingLine
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -85,7 +87,7 @@ fun AuthPanel(app: GenesisApplication, localLanguage: String) {
             "Защищённая учётная запись и состояние сессии") {
             Text("После входа данные сайта открываются в отдельной защищённой копии. Локальные черновики не перезаписываются.",
                 style = MaterialTheme.typography.bodySmall)
-            if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+            if (state.busy) WorkspaceLoadingLine(Modifier.fillMaxWidth())
             state.user?.let { identity ->
                 Text(identity.displayName, style = MaterialTheme.typography.titleSmall)
                 Text(identity.email, style = MaterialTheme.typography.bodySmall)
@@ -147,7 +149,7 @@ fun AuthPanel(app: GenesisApplication, localLanguage: String) {
                     else "Задачи Google: ${cloud.tasks} · списки: ${cloud.taskLists ?: 0}")
             }
             if (taskSync.scope == app.workspaceScope) {
-                AccountTaskSyncNotice(taskSync)
+                // The shared drawer footer owns task synchronization notices.
                 taskSync.received?.let { count ->
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("Получено с сервера:", style = MaterialTheme.typography.bodySmall)
@@ -247,11 +249,8 @@ fun AuthPanel(app: GenesisApplication, localLanguage: String) {
 @Composable
 fun AccountTaskSyncNotice(state: AccountTaskSyncState, modifier: Modifier = Modifier) {
     val notice = state.notice ?: return
-    Column(modifier.fillMaxWidth().testTag("account-task-sync-status"),
-        verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    WorkspaceStatusNotice(notice, modifier.testTag("account-task-sync-status"), isError = state.issue != null) {
         if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
-        Text(notice, style = MaterialTheme.typography.bodySmall,
-            color = if (state.issue == null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error)
     }
 }
 

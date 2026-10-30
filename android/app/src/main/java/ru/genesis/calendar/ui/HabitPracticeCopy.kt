@@ -23,7 +23,7 @@ import ru.genesis.calendar.domain.habits.HabitLifecycle
     val copy = habitPracticeCopy()
     val state = when(progress.status) { "completed" -> copy.getString("completed"); "missed" -> copy.getString("missed")
         else -> copy.getString("progress") + ": ${progress.dates.size}/${progress.goal.requiredCompletions}" }
-    androidx.compose.material3.Text(state + " · " + copy.getString("deadline") + ": ${progress.deadline}",
+    UntranslatedText(state + " · " + copy.getString("deadline") + ": ${progress.deadline}",
         style=MaterialTheme.typography.bodySmall,color=if(progress.status=="missed") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
 }
 

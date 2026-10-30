@@ -9,6 +9,7 @@ import org.junit.Assert.*
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import ru.genesis.calendar.BuildConfig
 import ru.genesis.calendar.data.LocalCipher
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
@@ -18,7 +19,7 @@ import java.util.concurrent.atomic.AtomicInteger
 @RunWith(AndroidJUnit4::class)
 class PlanningDraftStoreTest {
     private fun context() = InstrumentationRegistry.getInstrumentation().targetContext.also {
-        check(it.packageName == "ru.genesis.calendar.g1qa.debug")
+        check(BuildConfig.DEBUG && it.packageName in setOf("ru.genesis.calendar.g1qa.debug", "ru.genesis.calendar.v313.debug"))
     }
     private fun preferences(context: Context) = context.getSharedPreferences("genesis.shared.planning.v1", Context.MODE_PRIVATE)
     private fun key(account: String, project: String) = "planning-v1:${account.length}:$account:${project.length}:$project"

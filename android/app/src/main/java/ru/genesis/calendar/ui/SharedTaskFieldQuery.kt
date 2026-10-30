@@ -122,7 +122,7 @@ internal fun customFieldOperationLabel(op: String) = when (op) {
         val field = fields.find { it.getString("id") == row.optString("fieldId") }
         Row(Modifier.fillMaxWidth().testTag("field-criterion-$index"), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                androidx.compose.material3.Text(field?.getString("title") ?: unavailable, style = MaterialTheme.typography.titleSmall)
+                UntranslatedText(field?.getString("title") ?: unavailable, style = MaterialTheme.typography.titleSmall)
                 Text(customFieldOperationLabel(row.getString("op")), style = MaterialTheme.typography.bodySmall)
                 if (row.has("value") && field != null) {
                     val value = row.get("value")
@@ -131,7 +131,7 @@ internal fun customFieldOperationLabel(op: String) = when (op) {
                         field.getString("type") == "date" -> genesisTranslate(sharedTaskFieldValueText(field, value, language, displayCalendar, unavailable))
                         else -> sharedTaskFieldValueText(field, value, language, displayCalendar, unavailable)
                     }
-                    androidx.compose.material3.Text(text, style = MaterialTheme.typography.bodyMedium)
+                    UntranslatedText(text, style = MaterialTheme.typography.bodyMedium)
                 }
             }
             AffairsIconButton("Убрать фильтр", AffairsAction.CLOSE, { remove(index) }, Modifier.testTag("field-criterion-remove-$index"))
@@ -190,7 +190,7 @@ internal fun customFieldOperationLabel(op: String) = when (op) {
     val label = if (query.customSort.isBlank()) genesisTranslate(default.ru) else
         (field?.getString("title") ?: genesisTranslate("Недоступно")) + " · " + genesisTranslate(if (current.lastOrNull() == "desc") "По убыванию" else "По возрастанию")
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        if (!iconOnly) androidx.compose.material3.Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+        if (!iconOnly) UntranslatedText(label, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
         AffairsIconButton(genesisTranslate("Сортировка") + ": " + label, AffairsAction.SORT, { open = true }, Modifier.testTag("shared-field-sort"))
     }
     if (open) AlertDialog(onDismissRequest = { open = false }, title = { Text("Сортировка") },
@@ -205,7 +205,7 @@ internal fun customFieldOperationLabel(op: String) = when (op) {
             var limit by rememberSaveable(search) { mutableIntStateOf(5) }
             val choices = fields.filter { it.getString("type") != "multi" && it.getString("title").contains(search, true) }
             choices.take(limit).forEach { choice ->
-                androidx.compose.material3.Text(choice.getString("title"), style = MaterialTheme.typography.titleSmall)
+                UntranslatedText(choice.getString("title"), style = MaterialTheme.typography.titleSmall)
                 if (choice.getBoolean("archived")) Text("Архив", style = MaterialTheme.typography.labelSmall)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("asc" to "По возрастанию", "desc" to "По убыванию").forEach { (direction, title) ->
@@ -277,7 +277,7 @@ internal fun sharedTaskFieldValueText(field: JSONObject, value: Any?, language: 
                 field.getString("type") == "date" -> genesisTranslate(sharedTaskFieldValueText(field, value, language, safeCalendar, unavailable))
                 else -> sharedTaskFieldValueText(field, value, language, safeCalendar, unavailable)
             }
-            androidx.compose.material3.Text(field.getString("title") + ": " + text,
+            UntranslatedText(field.getString("title") + ": " + text,
                 Modifier.widthIn(min = 160.dp, max = 400.dp).testTag("task-list-field-${field.getString("id")}"), style = MaterialTheme.typography.bodySmall)
         }
     }

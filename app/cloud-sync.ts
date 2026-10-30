@@ -159,6 +159,7 @@ export type GenesisTask = {
 export type GenesisUser = {
   uid: string;
   subscriptionPlan?: SubscriptionPlan;
+  featureAccess?: import("./feature-access").FeatureAccess;
   authProvider?: "google" | "yandex";
   displayName: string | null;
   email: string | null;
@@ -356,7 +357,7 @@ export type AdminStats = {
   }> };
 };
 
-export type StoicheionDrawKind = "daily" | "spread";
+export type StoicheionDrawKind = "daily" | "spread" | "timeline";
 
 export type StoicheionDrawRecord = {
   kind: StoicheionDrawKind;

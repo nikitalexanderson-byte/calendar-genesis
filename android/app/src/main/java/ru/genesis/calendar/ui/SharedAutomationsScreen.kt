@@ -73,8 +73,8 @@ import java.util.Locale
                         LaunchedEffect(state.ruleId, state.cursor, state.runCursor, state.deleted) { scroll.scrollTo(0) }
                         Column(Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(scroll).padding(16.dp).testTag("automation-content"),
                             verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                            state.project?.let { androidx.compose.material3.Text(it.getString("title"), style = MaterialTheme.typography.titleMedium) }
-                            if (!state.loaded) Text("Загрузка…")
+                            state.project?.let { UntranslatedText(it.getString("title"), style = MaterialTheme.typography.titleMedium) }
+                            if (!state.loaded) WorkspaceLoadingText()
                             else if (state.ruleId.isEmpty()) state.page?.let { page ->
                                 AutomationLibrary(state, page, onSelect = { id -> scope.launch { state.choose(id) } },
                                     onCreate = { writerRule = ""; writerMode = "new" },
@@ -88,7 +88,7 @@ import java.util.Locale
                                 { copy -> writerRule = rule.getString("id"); writerMode = if (copy) "copy" else "edit" }) } }
                             state.page?.let { page ->
                                 AffairsDisclosure("Фоновая обработка", Modifier.testTag("automation-worker")) {
-                                    if (!page.isNull("workerCompletedAt")) androidx.compose.material3.Text(bulkHistoryTimestamp(page.getString("workerCompletedAt"), language, ZoneId.systemDefault()), style = MaterialTheme.typography.bodySmall)
+                                    if (!page.isNull("workerCompletedAt")) UntranslatedText(bulkHistoryTimestamp(page.getString("workerCompletedAt"), language, ZoneId.systemDefault()), style = MaterialTheme.typography.bodySmall)
                                     Text(if (state.workerFresh) "Фоновый обработчик отвечает." else "Нет свежего подтверждения фоновой обработки. Запуски могут задерживаться.", style = MaterialTheme.typography.bodyMedium)
                                 }
                             }
@@ -96,7 +96,7 @@ import java.util.Locale
                         if (state.busy || state.error.isNotBlank() || state.record != null) {
                         HorizontalDivider()
                         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("automation-working"))
+                            if (state.busy) WorkspaceLoadingLine(Modifier.fillMaxWidth().testTag("automation-working"))
                             if (state.error.isNotBlank()) Text(automationErrorText(state.error), Modifier.testTag("automation-error").semantics { liveRegion = LiveRegionMode.Polite },
                                 color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
                             when (state.phase) {
@@ -160,7 +160,7 @@ import java.util.Locale
     rows.take(limit).forEach { rule -> OutlinedButton({ onSelect(rule.getString("id")) }, enabled = !state.busy && state.record == null,
         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("automation-rule-${rule.getString("id")}")) {
         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            androidx.compose.material3.Text(rule.getString("title"), style = MaterialTheme.typography.titleSmall)
+            UntranslatedText(rule.getString("title"), style = MaterialTheme.typography.titleSmall)
             Text(if (rule.getBoolean("deleted")) "Удалено" else if (rule.getBoolean("enabled")) "Включено" else "Выключено", style = MaterialTheme.typography.bodyMedium)
         }
     } }
@@ -171,7 +171,7 @@ import java.util.Locale
 @Composable private fun AutomationFact(label: String, value: String, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        androidx.compose.material3.Text(value, style = MaterialTheme.typography.bodyLarge)
+        UntranslatedText(value, style = MaterialTheme.typography.bodyLarge)
     }
 }
 
@@ -179,7 +179,7 @@ import java.util.Locale
     onCommand: (String, Boolean?, String?) -> Unit, onTask: (String) -> Unit, onEdit: (Boolean) -> Unit) {
     val definition = rule.getJSONObject("definition"); val parameters = automationCanReadParameters(state)
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        androidx.compose.material3.Text(rule.getString("title"), Modifier.weight(1f).semantics { heading() }, style = MaterialTheme.typography.titleLarge)
+        UntranslatedText(rule.getString("title"), Modifier.weight(1f).semantics { heading() }, style = MaterialTheme.typography.titleLarge)
         if (state.canManage) AffairsIconButton(if (rule.getBoolean("deleted")) "Восстановить правило" else "Удалить правило", if (rule.getBoolean("deleted")) AffairsAction.UNDO else AffairsAction.DELETE,
             { onCommand("deleted", !rule.getBoolean("deleted"), null) }, Modifier.testTag("automation-delete-restore"), enabled = state.canMutate)
     }
@@ -210,7 +210,7 @@ import java.util.Locale
             val label = if (condition.getString("field") == "custom") state.field(fieldId.orEmpty())?.getString("title") ?: t("Недоступно") else t(automationFieldLabel(condition.getString("field")))
             val operator = condition.getString("operator")
             val value = if (operator in setOf("missing", "present")) "" else automationReference(state, condition.getString("field"), condition.get("value"), fieldId, t).text
-            androidx.compose.material3.Text(label + " · " + t(automationOperatorLabel(operator)) + value.takeIf(String::isNotEmpty)?.let { ": $it" }.orEmpty(), style = MaterialTheme.typography.bodyMedium)
+            UntranslatedText(label + " · " + t(automationOperatorLabel(operator)) + value.takeIf(String::isNotEmpty)?.let { ": $it" }.orEmpty(), style = MaterialTheme.typography.bodyMedium)
         }
         if (conditions.size > count) OutlinedButton({ count += 5 }, Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Показать ещё") }
     }
@@ -233,14 +233,14 @@ import java.util.Locale
     }
     AffairsDisclosure("Журнал запусков", Modifier.testTag("automation-runs")) {
         val scope = rememberCoroutineScope(); val page = state.runs
-        if (page == null) Text("Загрузка…") else {
+        if (page == null) WorkspaceLoadingText() else {
             val rows = importRows(page.getJSONArray("runs")); var count by rememberSaveable(state.runCursor) { mutableIntStateOf(5) }
             if (rows.isEmpty()) Text("Запусков пока нет.")
             rows.take(count).forEach { run -> Column(Modifier.fillMaxWidth().testTag("automation-run-${run.getString("id")}"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(bulkStateLabel(run.getString("state")), style = MaterialTheme.typography.titleSmall)
-                androidx.compose.material3.Text(bulkHistoryTimestamp(run.getString("createdAt"), state.language, ZoneId.systemDefault()), style = MaterialTheme.typography.bodySmall)
+                UntranslatedText(bulkHistoryTimestamp(run.getString("createdAt"), state.language, ZoneId.systemDefault()), style = MaterialTheme.typography.bodySmall)
                 if (!run.isNull("taskTitle")) OutlinedButton({ onTask(run.getString("taskId")) }, enabled = !state.busy,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("automation-run-task-${run.getString("id")}")) { androidx.compose.material3.Text(run.getString("taskTitle")) }
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("automation-run-task-${run.getString("id")}")) { UntranslatedText(run.getString("taskTitle")) }
                 AutomationFact("Попытки", run.getInt("attempts").toString())
                 if (!run.isNull("errorCode")) Text(automationErrorText(run.getString("errorCode")), style = MaterialTheme.typography.bodyMedium)
                 run.optJSONObject("result")?.let { result ->
@@ -286,7 +286,7 @@ import java.util.Locale
 @Composable private fun AutomationPages(next: Boolean, previous: Int, enabled: Boolean, tag: String, onPage: (Boolean) -> Unit) {
     if (next || previous > 0) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
         AffairsIconButton("Предыдущая страница", AffairsAction.BACK, { onPage(false) }, Modifier.testTag("$tag-previous"), enabled = enabled && previous > 0)
-        androidx.compose.material3.Text(genesisTranslate("Страница") + " ${previous + 1}", style = MaterialTheme.typography.bodyMedium)
+        UntranslatedText(genesisTranslate("Страница") + " ${previous + 1}", style = MaterialTheme.typography.bodyMedium)
         AffairsIconButton("Следующая страница", AffairsAction.BACK, { onPage(true) }, Modifier.rotate(180f).testTag("$tag-next"), enabled = enabled && next)
     }
 }

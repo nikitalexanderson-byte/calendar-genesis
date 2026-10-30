@@ -2,7 +2,7 @@ package ru.genesis.calendar.ui
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
-import androidx.compose.material3.Text as MaterialText
+import ru.genesis.calendar.ui.UntranslatedText as MaterialText
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier

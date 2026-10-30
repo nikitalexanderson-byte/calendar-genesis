@@ -44,6 +44,8 @@ import ru.genesis.calendar.domain.habits.TrackerEntity
 import ru.genesis.calendar.ui.AppearanceSettings
 import ru.genesis.calendar.ui.GenesisApp
 import ru.genesis.calendar.ui.calendarName
+import ru.genesis.calendar.ui.LocalGenesisTextLayoutAudit
+import ru.genesis.calendar.ui.splitsWord
 
 /** Actual shell, encrypted local repositories and synthetic data; never enters a user account. */
 class MobileRedesignFlowTest {
@@ -68,6 +70,7 @@ class MobileRedesignFlowTest {
     private lateinit var previousHabitSettings: HabitSettings
     private val checks = JSONArray()
     private val images = JSONArray()
+    private val wordLayouts = linkedMapOf<String, Boolean>()
     private var seeded = false
     private val folder get() = File(app.getExternalFilesDir(null), "3.0-captures").apply { mkdirs() }
     private val orientation get() = if (compose.activity.resources.displayMetrics.widthPixels > compose.activity.resources.displayMetrics.heightPixels) "landscape" else "portrait"
@@ -151,7 +154,8 @@ class MobileRedesignFlowTest {
                     this.fontScale = this@MobileRedesignFlowTest.fontScale
                 }
                 CompositionLocalProvider(LocalDensity provides Density(density, fontScale),
-                    LocalConfiguration provides config) {
+                    LocalConfiguration provides config,
+                    LocalGenesisTextLayoutAudit provides { text, layout -> wordLayouts[text] = layout.splitsWord() }) {
                     GenesisApp(app, null, testWorkspace = true)
                 }
             }
@@ -215,6 +219,8 @@ class MobileRedesignFlowTest {
         }
         assertTrue("PNG was not written for $scene", target.length() > 1024)
         images.put(target.name)
+        assertEquals("Words split in $scene: ${wordLayouts.filterValues { it }.keys}",
+            emptyList<String>(), wordLayouts.filterValues { it }.keys.toList())
     }
     private fun checkTarget(tag: String) {
         val node = compose.onNodeWithTag(tag).assertIsDisplayed().fetchSemanticsNode()
@@ -388,6 +394,8 @@ class MobileRedesignFlowTest {
         val sacredCurrent = height("sacred-year-month-${ru.genesis.calendar.domain.GenesisCalendar().sacredDate(LocalDate.now()).monthIndex}")
         assertEquals("Task counts must not grow sacred year tiles", sacredFirst, sacredCurrent, 1f)
         capture("review4-sacred-year-equal-tiles")
+        compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag("calendar-year-description-toggle-sacred"))
+        compose.onNodeWithTag("calendar-year-description-toggle-sacred").performClick()
         compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag("solar-model-open"))
         compose.onNodeWithTag("solar-model-open").assertIsDisplayed()
         runBlocking { prefs.set("display", "profane") }

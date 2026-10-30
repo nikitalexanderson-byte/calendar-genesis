@@ -43,7 +43,7 @@ internal fun sharedDetailDate(value:String,mode:CalendarMode):String = runCatchi
             }
             Text("Родительская задача",style=MaterialTheme.typography.titleSmall)
             OutlinedButton({onOpen(project,parentId)},enabled=!working&&saved&&parent!=null,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)) {
-                androidx.compose.material3.Text(parent?.optString("title")?:genesisTranslate(if(failed)"Недоступно" else "Загрузка…"))
+                UntranslatedText(parent?.optString("title")?:genesisTranslate(if(failed)"Недоступно" else "Загрузка…"))
             }
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 if(failed) AffairsIconButton("Обновить",AffairsAction.REFRESH,{attempt++},enabled=!working)
@@ -57,7 +57,7 @@ internal fun sharedDetailDate(value:String,mode:CalendarMode):String = runCatchi
             choices.pageState.value?.getJSONArray("tasks")?.let { rows -> for(index in 0 until rows.length()) {
                 val row=rows.getJSONObject(index);val target=row.getString("id")
                 if(target!=id&&target!=parentId) OutlinedButton({onChange(JSONObject(draft.toString()).put("parentTaskId",target))},enabled=!working,
-                    modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)) { androidx.compose.material3.Text(row.getString("title")) }
+                    modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)) { UntranslatedText(row.getString("title")) }
             } }
             RelationPageControls(choices)
         }
@@ -65,10 +65,10 @@ internal fun sharedDetailDate(value:String,mode:CalendarMode):String = runCatchi
             val child=rows.getJSONObject(index)
             OutlinedButton({onOpen(child.getString("projectId"),child.getString("id"))},enabled=!working&&saved,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)) {
                 Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(4.dp)) {
-                    androidx.compose.material3.Text(child.getString("title"))
+                    UntranslatedText(child.getString("title"))
                     Text(if(!child.isNull("archivedAt"))"Архив задач" else if(!child.isNull("completedAt"))"Выполнено" else "В работе",style=MaterialTheme.typography.bodySmall)
-                    androidx.compose.material3.Text(members.firstOrNull { it.optString("userId")==child.optString("assigneeId") }?.optString("displayName")?:genesisTranslate(if(child.isNull("assigneeId"))"Не назначен" else "Бывший участник"),style=MaterialTheme.typography.bodySmall)
-                    if(!child.isNull("dueDate")) androidx.compose.material3.Text(sharedDetailDate(child.getString("dueDate"),mode),style=MaterialTheme.typography.bodySmall)
+                    UntranslatedText(members.firstOrNull { it.optString("userId")==child.optString("assigneeId") }?.optString("displayName")?:genesisTranslate(if(child.isNull("assigneeId"))"Не назначен" else "Бывший участник"),style=MaterialTheme.typography.bodySmall)
+                    if(!child.isNull("dueDate")) UntranslatedText(sharedDetailDate(child.getString("dueDate"),mode),style=MaterialTheme.typography.bodySmall)
                 }
             }
         } }
@@ -92,7 +92,7 @@ internal fun sharedDetailDate(value:String,mode:CalendarMode):String = runCatchi
 
 @Composable private fun RelationPageControls(reader:SharedTaskListReader) {
     val scope=rememberCoroutineScope();val page=reader.pageState.value
-    if(page==null&&reader.error.isBlank())Text("Загрузка…")
+    if(page==null&&reader.error.isBlank())WorkspaceLoadingText()
     if(reader.error.isNotBlank()) {
         Text("Не удалось загрузить данные",color=MaterialTheme.colorScheme.error)
         AffairsIconButton("Обновить",AffairsAction.REFRESH,{scope.launch{reader.refresh()}},enabled=!reader.busy)

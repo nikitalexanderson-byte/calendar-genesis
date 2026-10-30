@@ -22,10 +22,10 @@ import androidx.compose.ui.unit.dp
             }) else null, actions = actions) {
             Column(Modifier.padding(start = if (onBack == null) 8.dp else 0.dp,
                 top = 8.dp, bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                androidx.compose.material3.Text(if (titleIsUserContent) title else genesisTranslate(title),
+                UntranslatedText(if (titleIsUserContent) title else genesisTranslate(title),
                     Modifier.testTag(titleTag), style = MaterialTheme.typography.titleLarge,
                     maxLines = if (compact) 1 else Int.MAX_VALUE, overflow = TextOverflow.Ellipsis)
-                if (!compact && subtitle.isNotBlank()) androidx.compose.material3.Text(subtitle,
+                if (!compact && subtitle.isNotBlank()) UntranslatedText(subtitle,
                     style = MaterialTheme.typography.bodySmall, maxLines = subtitleMaxLines, overflow = TextOverflow.Ellipsis,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }

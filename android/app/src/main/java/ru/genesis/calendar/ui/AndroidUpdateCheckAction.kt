@@ -44,7 +44,8 @@ internal fun rememberUpdateResumeEpoch(): Int {
 /** Manual checks remain available when reminders are off or account sign-in has expired. */
 @Composable
 internal fun AndroidUpdateCheckAction(iconOnly: Boolean = true,
-    check: () -> AndroidRelease? = ::fetchAndroidRelease, plainIcon: Boolean = false) {
+    check: () -> AndroidRelease? = ::fetchAndroidRelease, plainIcon: Boolean = false,
+    onStatus: (String?) -> Unit = {}) {
     val context = LocalContext.current
     val currentCheck by rememberUpdatedState(check)
     var request by remember { mutableIntStateOf(0) }
@@ -78,6 +79,16 @@ internal fun AndroidUpdateCheckAction(iconOnly: Boolean = true,
         release = result.getOrNull()
     }
     val label = genesisTranslate(if (checking) "Проверяем обновления…" else "Проверить обновления")
+    val status = when {
+        checking -> "Проверяем обновления…"
+        storeFailed -> "Не удалось открыть Google Play. Проверьте соединение и повторите попытку."
+        failed -> "Не удалось проверить обновления. Проверьте интернет и повторите попытку."
+        else -> "Установлена актуальная версия"
+    }
+    val reportStatus by rememberUpdatedState(onStatus)
+    LaunchedEffect(visible, checking, release, status, plainIcon) {
+        if (plainIcon) reportStatus(if (visible && release == null) status else null)
+    }
     if (iconOnly && plainIcon) androidx.compose.material3.IconButton(onClick = begin, enabled = !checking,
         modifier = Modifier.size(48.dp).testTag("app-update-check").semantics { contentDescription = label },
         colors = androidx.compose.material3.IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant)) {
@@ -93,11 +104,11 @@ internal fun AndroidUpdateCheckAction(iconOnly: Boolean = true,
     if (visible) {
         val available = release
         if (available != null) AndroidUpdateDialog(context, available) { visible = false }
-        else AlertDialog(onDismissRequest = { visible = false }, title = { Text("Обновления приложения") },
+        else if (!plainIcon) AlertDialog(onDismissRequest = { visible = false }, title = { Text("Обновления приложения") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        if (checking) CircularProgressIndicator(Modifier.size(24.dp).testTag("app-update-check-progress"), strokeWidth = 2.dp)
+                        if (checking) WorkspaceLoadingIndicator(Modifier.size(24.dp).testTag("app-update-check-progress"), strokeWidth = 2.dp)
                         Text(when {
                             checking -> "Проверяем обновления…"
                             storeFailed -> "Не удалось открыть Google Play. Проверьте соединение и повторите попытку."

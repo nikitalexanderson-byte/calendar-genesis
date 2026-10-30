@@ -3281,7 +3281,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(stoicheion, /Перевёрнутое положение/);
   assert.match(stoicheion, /PREVIEW_POSITIONS/);
   assert.match(stoicheion, /stoicheion-compass-rose/);
-  assert.match(stoicheion, /Водите мышью по экрану или проведите пальцем/);
+  assert.match(JSON.parse(await readFile(new URL("../app/stoicheion-timeline.json", import.meta.url), "utf8")).ru.motionGeneralHint, /Водите мышью по экрану или проведите пальцем/);
   assert.doesNotMatch(stoicheion, />ΣΤ</);
   assert.doesNotMatch(stoicheion, /STOICHEION_SOURCE_COUNT/);
   assert.doesNotMatch(stoicheion, /STOICHEION_TOTAL_COUNT/);

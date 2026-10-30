@@ -172,7 +172,7 @@ fun StoicheionScreen(app: GenesisApplication, divinationDisabled: Boolean,
         when {
             loaded == null -> item(span = { GridItemSpan(maxLineSpan) }) {
                 Box(Modifier.fillMaxWidth().height(120.dp), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                    WorkspaceLoadingIndicator()
                 }
             }
             loaded.size != 24 -> item(span = { GridItemSpan(maxLineSpan) }) {
@@ -263,6 +263,13 @@ fun StoicheionScreen(app: GenesisApplication, divinationDisabled: Boolean,
                         }
                         Text(letter.tagline, style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.primary)
+                        reading.timePosition?.let { position ->
+                            val copy = stoicheionTimelineCopy()
+                            UntranslatedText(position.title, style = MaterialTheme.typography.titleMedium)
+                            UntranslatedText(position.meaning, style = MaterialTheme.typography.bodyMedium)
+                            UntranslatedText(copy.getString(if (reading.reversed == true) "reversedEffect" else "uprightEffect"),
+                                style = MaterialTheme.typography.bodyMedium)
+                        }
                         Text("Числовое значение ${letter.value} · пифмен ${letter.pythmen}",
                             style = MaterialTheme.typography.labelLarge)
                         if(reading.reversed!=null) listOf(false to readingText.upright,true to readingText.reversed).forEach { (reversed,text) ->
@@ -335,12 +342,12 @@ fun StoicheionScreen(app: GenesisApplication, divinationDisabled: Boolean,
             if (!saving) scope.launch {
                 saving = true
                 try {
-                    val prior = if (mode == "daily") draws?.daily else draws?.spread
+                    val prior = when (mode) { "daily" -> draws?.daily; "timeline" -> draws?.timeline; else -> draws?.spread }
                     var chosen = seed
                     if (mode == "daily" && prior != null && letters != null &&
                         StoicheionReading.cardOfDay(letters!!, chosen) == StoicheionReading.cardOfDay(letters!!, prior.seed))
                         chosen = (chosen + 1L) and 0xffff_ffffL
-                    if (mode == "spread" && prior?.seed == chosen) chosen = (chosen + 1L) and 0xffff_ffffL
+                    if (mode != "daily" && prior?.seed == chosen) chosen = (chosen + 1L) and 0xffff_ffffL
                     repository.save(mode, chosen)
                     drawError = null
                     selected = null

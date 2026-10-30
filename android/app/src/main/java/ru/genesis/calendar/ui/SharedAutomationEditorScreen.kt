@@ -66,7 +66,7 @@ import java.util.Locale
             val compactIme = WindowInsets.ime.getBottom(LocalDensity.current) > 0 && maxHeight < 360.dp
                 Column(Modifier.testTag("shared-automation-editor")) {
                     if (!compactIme) AutomationEditorHeader(headerTitle, projectTitle, false, ::close) { template = null; close() }
-                    if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("automation-editor-progress"))
+                    if (state.busy) WorkspaceLoadingLine(Modifier.fillMaxWidth().testTag("automation-editor-progress"))
                     HorizontalDivider()
                     if (!compactIme) AutomationEditorNotice(noticeError)
                     val scroll = rememberScrollState()
@@ -169,12 +169,12 @@ import java.util.Locale
         state.preview?.let { result ->
             Text(if (result.getBoolean("matches")) "Условия выполнены" else "Условия не выполнены", style = MaterialTheme.typography.titleMedium, modifier = Modifier.testTag("automation-editor-preview-result"))
             val number = NumberFormat.getIntegerInstance(Locale.forLanguageTag(state.language))
-            if (!result.isNull("taskRevision")) androidx.compose.material3.Text(genesisTranslate("Версия задачи: {revision}").replace("{revision}", number.format(result.getInt("taskRevision"))), style = MaterialTheme.typography.bodySmall)
+            if (!result.isNull("taskRevision")) UntranslatedText(genesisTranslate("Версия задачи: {revision}").replace("{revision}", number.format(result.getInt("taskRevision"))), style = MaterialTheme.typography.bodySmall)
             result.optJSONObject("effects")?.let { effect ->
                 Text(if (effect.getBoolean("updated")) "Параметры задачи будут изменены." else "Параметры задачи не изменятся.", style = MaterialTheme.typography.bodyMedium)
                 AutomationEditorEffects(state, effect)
-                androidx.compose.material3.Text(genesisTranslate("Будет создано задач: {count}").replace("{count}", number.format(effect.getInt("createdTaskCount"))), style = MaterialTheme.typography.bodyMedium)
-                androidx.compose.material3.Text(genesisTranslate("Получателей уведомления: {count}").replace("{count}", number.format(effect.getInt("notifications"))), style = MaterialTheme.typography.bodyMedium)
+                UntranslatedText(genesisTranslate("Будет создано задач: {count}").replace("{count}", number.format(effect.getInt("createdTaskCount"))), style = MaterialTheme.typography.bodyMedium)
+                UntranslatedText(genesisTranslate("Получателей уведомления: {count}").replace("{count}", number.format(effect.getInt("notifications"))), style = MaterialTheme.typography.bodyMedium)
                 val notices = effect.getJSONArray("notices"); for (index in 0 until notices.length()) Text(automationEditorErrorText(notices.getString(index)), style = MaterialTheme.typography.bodySmall)
             }
         }
@@ -187,7 +187,7 @@ import java.util.Locale
     AffairsDisclosure("Мои копии", Modifier.testTag("automation-editor-copies")) {
         var limit by rememberSaveable { mutableIntStateOf(5) }
         state.copies.take(limit).forEach { entry ->
-            androidx.compose.material3.Text(entry.getJSONObject("edit").getString("title"), style = MaterialTheme.typography.titleSmall)
+            UntranslatedText(entry.getJSONObject("edit").getString("title"), style = MaterialTheme.typography.titleSmall)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TemplateIconButton("Открыть копию", AffairsAction.VIEW, state.editable && !state.dirty, Modifier.weight(1f).testTag("automation-editor-copy-${entry.getString("id")}")) { scope.launch { state.useCopy(entry.getString("id")) } }
                 TemplateIconButton("Удалить копию", AffairsAction.DELETE, state.editable, Modifier.weight(1f)) { scope.launch { state.removeCopy(entry.getString("id")) } }

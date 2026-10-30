@@ -92,9 +92,9 @@ internal fun SolarPlaceSettings() {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(copy("Выбранный город", "Selected city"),
                             style = MaterialTheme.typography.labelMedium)
-                        androidx.compose.material3.Text(selected?.placeName.orEmpty(),
+                        UntranslatedText(selected?.placeName.orEmpty(),
                             style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        androidx.compose.material3.Text(selected?.timeZoneId.orEmpty(),
+                        UntranslatedText(selected?.timeZoneId.orEmpty(),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -127,7 +127,7 @@ internal fun SolarPlaceSettings() {
             "Type at least 2 letters in your language or English, then choose a suggestion."),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodySmall)
-        if (loading) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("solar-place-loading"))
+        if (loading) WorkspaceLoadingLine(Modifier.fillMaxWidth().testTag("solar-place-loading"))
         error?.let { Text(it, color = MaterialTheme.colorScheme.error,
             modifier = Modifier.testTag("solar-place-error")) }
         if (results.isNotEmpty()) {
@@ -141,10 +141,10 @@ internal fun SolarPlaceSettings() {
                         .testTag("solar-place-option-${place.id ?: index}")
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        androidx.compose.material3.Text(place.name,
+                        UntranslatedText(place.name,
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.SemiBold)
-                        androidx.compose.material3.Text(
+                        UntranslatedText(
                             listOf(place.region, place.country).filter(String::isNotBlank)
                                 .distinct().joinToString(", "),
                             style = MaterialTheme.typography.bodySmall,

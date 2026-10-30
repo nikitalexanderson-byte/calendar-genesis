@@ -74,7 +74,7 @@ internal fun habitLifecycleFailure(code: String?) = when (code) {
     onEdit: () -> Unit, onToggle: () -> Unit, onArchive: () -> Unit, onTimer: () -> Unit, onDelete: () -> Unit) {
     var expanded by remember(habit.id) { mutableStateOf(false) }
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        if (scheduled) AffairsIconButton("Таймер", AffairsAction.TIMER, onTimer, Modifier.testTag("habit-timer-open-${habit.id}"), enabled, outlined = false)
+        if (scheduled && habit.timerEnabled) AffairsIconButton("Таймер", AffairsAction.TIMER, onTimer, Modifier.testTag("habit-timer-open-${habit.id}"), enabled, outlined = false)
         Box {
             AffairsIconButton("Действия привычки", AffairsAction.MORE, { expanded = true }, Modifier.testTag("habit-actions-${habit.id}"), enabled, outlined = false)
             DropdownMenu(expanded, { expanded = false }) {
@@ -122,7 +122,7 @@ internal fun habitLifecycleFailure(code: String?) = when (code) {
     for (habit in habits) {
         val state = HabitLifecycle.state(habit)
         Column(Modifier.fillMaxWidth().testTag("retired-habit-${habit.id}").padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            androidx.compose.material3.Text(habit.emoji + " " + habitDisplayTitle(habit), style = MaterialTheme.typography.titleMedium)
+            UntranslatedText(habit.emoji + " " + habitDisplayTitle(habit), style = MaterialTheme.typography.titleMedium)
             if(habit.practiceGoal != null) HabitPracticeStatus(habit,workspace.completions)
             else Text(genesisTranslate("Выполнено дней") + ": " + number.format(habitCompletionCount(economy.completions, habit.id)) + " · " +
                 habitPracticeCopy().getString("retention"), style = MaterialTheme.typography.bodySmall)

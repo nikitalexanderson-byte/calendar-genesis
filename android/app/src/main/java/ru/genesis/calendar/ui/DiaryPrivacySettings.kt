@@ -60,7 +60,7 @@ import ru.genesis.calendar.data.DiaryState
                 AffairsActionIcon(AffairsAction.DELETE); Spacer(Modifier.width(8.dp)); Text(diaryText("purgeServer"))
             }
             Text(diaryText("backupRetention"), style = MaterialTheme.typography.bodySmall)
-            if (busy) CircularProgressIndicator(Modifier.size(28.dp))
+            if (busy) WorkspaceLoadingIndicator(Modifier.size(28.dp))
             if (error && confirmation == null) Text(diaryText("settingsError"), color = MaterialTheme.colorScheme.error)
         } }, confirmButton = {})
     confirmation?.let { action ->
@@ -70,7 +70,7 @@ import ru.genesis.calendar.data.DiaryState
             text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(diaryText(when (action) { "enable" -> "enableBody"; "purge" -> "purgeBody"; else -> "disableBody" }))
                 if (error) Text(diaryText("settingsError"), color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("diary-settings-error"))
-                if (busy) CircularProgressIndicator(Modifier.size(28.dp))
+                if (busy) WorkspaceLoadingIndicator(Modifier.size(28.dp))
             } },
             confirmButton = { Button({ change(action == "enable") }, enabled = !busy, modifier = Modifier.testTag("diary-sync-confirm")) { Text(if (action == "purge") genesisTranslate("Удалить") else diaryText("apply")) } },
             dismissButton = { TextButton({ confirmation = null }, enabled = !busy) { Text(diaryText("cancel")) } })

@@ -1,0 +1,17 @@
+.stoicheion-timeline-section { display: grid; gap: 18px; color: var(--ink); background: var(--surface); border-color: var(--line); border-radius: 10px; }
+.stoicheion-timeline-section > header { display: block; }
+.stoicheion-timeline-method summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.stoicheion-timeline-method summary::after { content: "+"; margin-inline-start: auto; }
+.stoicheion-timeline-method[open] summary::after { content: "−"; }
+.stoicheion-timeline-method p { max-width: 72ch; }
+.stoicheion-timeline-section > header p { color: var(--ink-soft); }
+.stoicheion-timeline-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(6px, 2vw, 18px); }
+.stoicheion-timeline-card { container-type: inline-size; display: flex; flex-direction: column; align-items: stretch; gap: 10px; min-width: 0; padding: clamp(6px, 1.5vw, 16px); border: 1px solid var(--line); border-radius: 10px; background: color-mix(in srgb, var(--ink) 3%, var(--surface)); color: var(--ink); cursor: pointer; text-align: center; }
+.stoicheion-timeline-card > strong { font-size: clamp(10px, 11cqw, 16px); }
+.stoicheion-timeline-card > b, .stoicheion-timeline-card > span:not(.stoicheion-card-visual) { font-size: clamp(9px, 10cqw, 14px); }
+.stoicheion-timeline-card > .stoicheion-card-visual { align-self: center; }
+.stoicheion-timeline-card :is(strong, b, span) { overflow-wrap: normal; word-break: normal; hyphens: none; }
+.stoicheion-timeline-card:hover { border-color: currentColor; }
+.stoicheion-timeline-card:focus-visible, .stoicheion-timeline-method summary:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.stoicheion-timeline-begin { justify-self: start; min-height: 44px; }
+@media (max-width: 620px) { .stoicheion-nine-section.stoicheion-timeline-section { padding: 18px 12px; } }

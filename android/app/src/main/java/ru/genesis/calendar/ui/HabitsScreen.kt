@@ -219,6 +219,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
             DropdownMenu(screenMenuOpen, { screenMenuOpen = false }) {
                 listOf(
                     Triple("library", "Все привычки", "list-checks"),
+                    Triple("abstinence", "Воздержание", "shield-check"),
                     Triple("history", "История и статистика", "chart-no-axes-column"),
                     Triple("catalogue", "Подборка привычек", "layout-template"),
                     Triple("development", "Путь Героя и награды", "sparkles"),
@@ -235,6 +236,10 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                     onClick = { openArea("data") }, modifier = Modifier.testTag("habit-open-data"))
             }
         }
+    }
+    if (area == "abstinence") {
+        AbstinenceScreen(app) { area = workspaceArea }
+        return
     }
     val headerInShell = WorkspaceScreenHeader(title, subtitle, navigation = headerNavigation, actions = headerActions,
         showThemeToggle = false)
@@ -253,20 +258,28 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         val current = workspace
         if (current == null) {
-            if (!storageError) CircularProgressIndicator()
+            if (!storageError) WorkspaceLoadingIndicator()
         } else {
             if (area in setOf("today", "library")) {
                 HabitWorkspaceTabs(area, ::openArea)
+                OutlinedButton(onClick = { openArea("abstinence") },
+                    modifier = Modifier.fillMaxWidth().testTag("habit-abstinence-open")) {
+                    GenesisLucideIcon("shield-check", Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Воздержание", maxLines = 1)
+                }
                 HabitDaySummary(current, today) { openArea("history") }
                 HabitReminderFocus(app, current, repository, reminderRequest)
                 current.habits.filter { HabitRuleHistory.state(it, LocalDate.MAX).conflicts.isNotEmpty() }.forEach { habit ->
                     OutlinedCard(Modifier.fillMaxWidth()) { Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        androidx.compose.material3.Text(habitDisplayTitle(habit), style = MaterialTheme.typography.titleSmall)
+                        UntranslatedText(habitDisplayTitle(habit), style = MaterialTheme.typography.titleSmall)
                         Text("Правила изменены на нескольких устройствах. Выберите действующий вариант.", color = MaterialTheme.colorScheme.error)
                         TextButton(onClick = { edit = habit; editorOpen = true }) { Text("Открыть историю правил") }
                     } }
                 }
-                val timerSessions = HabitTimers.sessions(current.timers)
+                val timerSessions = HabitTimers.sessions(current.timers).filter { session ->
+                    current.habits.firstOrNull { it.id == session.root.habitId }?.timerEnabled != false
+                }
                 val inlineTimerIds = current.habits.filter { habit ->
                     val status = habitPracticeLibraryStatus(habit, current.completions)
                     if (area == "library") status == habitState && status !in setOf("archived", "deleted")
@@ -311,7 +324,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                             onToggle = { scope.launch { runAction { changeAvailability(habit, if (habit.active) "pause" else "resume") } } },
                             onArchive = { scope.launch { runAction { changeAvailability(habit, "archive") } } },
                             onTimer = { timerHabitId = if (timerHabitId == habit.id) null else habit.id }, onDelete = { deleteCandidate = habit },
-                            timerContent = if (timerHabitId == habit.id) { {
+                            timerContent = if (habit.timerEnabled && timerHabitId == habit.id) { {
                                 Box(Modifier.bringIntoViewRequester(timerFocus).testTag("habit-timer-inline-${habit.id}")) {
                                     HabitTimerShelf(current, repository.timerOwner, habit.id, { timerHabitId = null },
                                         !busy && !storageError, embedded = true) { repository.applyTimer(it); Unit }
@@ -523,10 +536,10 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
         AlertDialog(onDismissRequest={if(!busy) deleteCandidate=null},
             title={Text("Удалить привычку")},
             text={Column(Modifier.heightIn(max=confirmationHeight).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-                if(HabitPracticeGoals.progress(habit,workspace?.completions.orEmpty(),LocalDate.now()) != null) androidx.compose.material3.Text(habitPracticeCopy().getString("deleteNotice"))
+                if(HabitPracticeGoals.progress(habit,workspace?.completions.orEmpty(),LocalDate.now()) != null) UntranslatedText(habitPracticeCopy().getString("deleteNotice"))
                 else Text(if(retainsLaurels) "Рубеж 50 дней достигнут: Лавры сохранятся. История останется доступной для восстановления."
                     else "Удаление до 50 уникальных дней выполнения обнуляет весь баланс Лавров. История останется доступной для восстановления.")
-                androidx.compose.material3.Text(habitDisplayTitle(habit))
+                UntranslatedText(habitDisplayTitle(habit))
             }},
             confirmButton={TextButton(enabled=!busy,onClick={scope.launch {
                 runAction {
@@ -573,7 +586,7 @@ private fun ExperimentalHabitCard(habit: Habit, entry: HabitCompletion?, schedul
                     Box(contentAlignment = Alignment.Center) { Text(habit.emoji, style = MaterialTheme.typography.titleMedium) }
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    androidx.compose.material3.Text(displayTitle, style = MaterialTheme.typography.titleMedium)
+                    UntranslatedText(displayTitle, style = MaterialTheme.typography.titleMedium)
                     Text(status, style = MaterialTheme.typography.bodySmall,
                         color = if (completed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                     if (habit.preferredTime.isNotBlank() || habit.isKeyHabit) Text(
@@ -620,13 +633,13 @@ private fun ExperimentalHabitCard(habit: Habit, entry: HabitCompletion?, schedul
                     Text(if (detailsOpen) "Свернуть" else "Подробнее", Modifier.weight(1f))
                     AffairsActionIcon(if (detailsOpen) AffairsAction.COLLAPSE else AffairsAction.EXPAND)
                 }
-                if (scheduled) AffairsIconButton("Таймер привычки $displayTitle", AffairsAction.TIMER,
+                if (scheduled && habit.timerEnabled) AffairsIconButton("Таймер привычки $displayTitle", AffairsAction.TIMER,
                     onTimer, Modifier.testTag("habit-timer-open-${habit.id}"), !disabled, outlined = false)
             }
             timerContent?.invoke()
             if (detailsOpen) {
                 HorizontalDivider()
-                if (habit.description.isNotEmpty()) androidx.compose.material3.Text(habitDisplayDescription(habit), style = MaterialTheme.typography.bodyMedium)
+                if (habit.description.isNotEmpty()) UntranslatedText(habitDisplayDescription(habit), style = MaterialTheme.typography.bodyMedium)
                 Text(calendar + " · " + genesisTranslate("Приоритет") + ": ${habit.priority}/10",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (habit.ritualId != "none") Text(if (habit.ritualId == "custom") habit.ritualName
@@ -668,6 +681,7 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
     var ritualId by rememberSaveable(initial.id) { mutableStateOf(initial.ritualId) }
     var ritualName by rememberSaveable(initial.id) { mutableStateOf(initial.ritualName) }
     var preferredTime by rememberSaveable(initial.id) { mutableStateOf(initial.preferredTime) }
+    var timerEnabled by rememberSaveable(initial.id) { mutableStateOf(initial.timerEnabled) }
     var reminder by remember(initial.id) { mutableStateOf(initial.reminder) }
     var intervalSchedule by remember(initial.id) { mutableStateOf(initial.intervalSchedule) }
     var measurement by remember(initial.id) { mutableStateOf(initial.measurement) }
@@ -698,7 +712,7 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
     var discardConfirmation by rememberSaveable(initial.id) { mutableStateOf(false) }
     val hasChanges = title != editorInitialTitle || description != initial.description || emoji != initial.emoji || color != initial.color ||
         isKeyHabit != initial.isKeyHabit || ritualId != initial.ritualId || ritualName != initial.ritualName ||
-        preferredTime != initial.preferredTime || reminder != initial.reminder || intervalSchedule != initial.intervalSchedule ||
+        preferredTime != initial.preferredTime || timerEnabled != initial.timerEnabled || reminder != initial.reminder || intervalSchedule != initial.intervalSchedule ||
         measurement != initial.measurement || periodGoal != initial.periodGoal || priority != initial.priority || scoring != initial.scoringMode ||
         start != initial.schedule.startDate.toString() || end != initial.schedule.endDate?.toString().orEmpty() || config != initial.schedule.recurrence
     fun requestDismiss() { if (!busy) { if (hasChanges) discardConfirmation = true else onDismiss() } }
@@ -710,8 +724,8 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
             }
             EditorSection("Основное") {
             if(initial.practiceGoal != null) {
-                androidx.compose.material3.Text(habitPracticeCopy().getString("warning"),style=MaterialTheme.typography.bodySmall)
-                androidx.compose.material3.Text(habitPracticeCopy().getString("deadline") + ": $end · ${initial.schedule.timezone}")
+                UntranslatedText(habitPracticeCopy().getString("warning"),style=MaterialTheme.typography.bodySmall)
+                UntranslatedText(habitPracticeCopy().getString("deadline") + ": $end · ${initial.schedule.timezone}")
             }
             OutlinedTextField(title,{title=it},label={Text("Название")},modifier=Modifier.fillMaxWidth(),enabled=!busy)
             OutlinedTextField(description,{description=it},label={Text("Описание")},modifier=Modifier.fillMaxWidth(),enabled=!busy)
@@ -726,6 +740,12 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
                 onRitual={ ritualId=it; if(it!="custom") ritualName="" },
                 onRitualName={ ritualName=it.take(60) })
             PriorityControl(priority) { if(!busy) priority=it }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Таймер", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+                Switch(timerEnabled, { timerEnabled = it }, enabled = !busy,
+                    modifier = Modifier.testTag("habit-timer-enabled").genesisDescription("Таймер"))
+            }
             }
             EditorSection("Календарь и срок") {
             if (LocalSacredFeaturesEnabled.current) {
@@ -889,7 +909,7 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
                 Button(enabled=!busy&&HabitRuleHistory.state(initial,LocalDate.MAX).conflicts.isEmpty()&&measurementValid&&periodValid&&title.isNotBlank()&&normalizedHabitColor(color)!=null&&normalizedHabitEmoji(emoji)!=null&&
                     (ritualId!="custom"||ritualName.isNotBlank())&&
                     (limit==0||config.days.isNotEmpty())&&(end.isEmpty()||end>=start)&&(initial.practiceGoal==null||end.isNotEmpty())&&intervalSchedule?.valid()!=false,onClick={
-                    onSave(initial.copy(title=if (title.trim() == editorInitialTitle) initial.title else title.trim(),description=description,priority=priority,scoringMode=scoring,
+                    onSave(initial.copy(title=if (title.trim() == editorInitialTitle) initial.title else title.trim(),description=description,priority=priority,scoringMode=scoring,timerEnabled=timerEnabled,
                         createdDate=if(existing==null) LocalDate.parse(start) else initial.createdDate,
                         emoji=requireNotNull(normalizedHabitEmoji(emoji)),color=requireNotNull(normalizedHabitColor(color)),
                         isKeyHabit=isKeyHabit,ritualId=ritualId,ritualName=if(ritualId=="custom") ritualName.trim() else "",

@@ -138,17 +138,17 @@ private fun templateApplyForm(state: SharedTemplateState) = SharedTemplateApplyF
     var limit by rememberSaveable { mutableIntStateOf(5) }
     Column(Modifier.fillMaxWidth().testTag("template-preview"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Предварительный результат", style = MaterialTheme.typography.titleLarge)
-        androidx.compose.material3.Text(genesisTranslate("Проектов: {projects}. Задач: {tasks}.").replace("{projects}", number.format(if (preview.getString("kind") == "project") projects.size else 0)).replace("{tasks}", number.format(tasks.size)), style = MaterialTheme.typography.bodyMedium)
+        UntranslatedText(genesisTranslate("Проектов: {projects}. Задач: {tasks}.").replace("{projects}", number.format(if (preview.getString("kind") == "project") projects.size else 0)).replace("{tasks}", number.format(tasks.size)), style = MaterialTheme.typography.bodyMedium)
         if (!state.previewCurrent) Text("Предпросмотр устарел. Обновите его перед применением.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         TemplateIssues(preview.getJSONArray("blockers"), copy, "Нужно исправить", "template-blockers")
         TemplateIssues(preview.getJSONArray("notices"), copy, "Изменения и пропуски", "template-notices")
         if (preview.getString("kind") == "project") AffairsDisclosure("Структура проекта") { projects.forEach { project ->
-            androidx.compose.material3.Text(project.getString("title"), style = MaterialTheme.typography.titleSmall)
-            SharedTemplateEdits.rows(project.getJSONArray("statuses")).forEach { status -> androidx.compose.material3.Text(status.getString("title"), style = MaterialTheme.typography.bodyMedium) }
+            UntranslatedText(project.getString("title"), style = MaterialTheme.typography.titleSmall)
+            SharedTemplateEdits.rows(project.getJSONArray("statuses")).forEach { status -> UntranslatedText(status.getString("title"), style = MaterialTheme.typography.bodyMedium) }
         } }
         tasks.take(limit).forEach { task -> key(task.getString("key")) {
             Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                androidx.compose.material3.Text(task.getString("title"), style = MaterialTheme.typography.titleMedium)
+                UntranslatedText(task.getString("title"), style = MaterialTheme.typography.titleMedium)
                 if (!task.isNull("dueDate")) Text(date(task.getString("dueDate")), style = MaterialTheme.typography.bodyMedium)
                 if (!task.isNull("startDate")) Text(date(task.getString("startDate")), style = MaterialTheme.typography.bodyMedium)
                 if (state.edit?.getString("kind") == "template-apply") TemplatePreviewFields(state, preview, task, preferences)

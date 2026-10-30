@@ -111,6 +111,14 @@ function workspaceFixture(kind = "duration") {
   habit.measurement = kind === "binary" ? null : { kind, unit: kind === "duration" ? "min" : "pages", target: 10_000, quickAdd: 1000 };
   return { habit, date, workspace: { ...habits.EMPTY_HABIT_WORKSPACE, habits: [habit] } };
 }
+
+test("shared document normalization preserves the Android timer choice through a JSON round trip", () => {
+  const { habit, workspace } = workspaceFixture();
+  const normalize = value => habits.normalizeHabitWorkspace(plain({ ...workspace, habits: [value] })).habits[0];
+  assert.equal(normalize({ ...habit, timerEnabled: false }).timerEnabled, false);
+  assert.notEqual(normalize(habit).timerEnabled, false);
+  assert.notEqual(normalize({ ...habit, timerEnabled: true }).timerEnabled, false);
+});
 const command = (action, at, extra = {}) => ({ action, owner: "device", at, id: action, sessionId: "session", ...extra });
 
 test("failed save leaves a finished session; repeated save and sync give one entry and one XP ceiling", () => {

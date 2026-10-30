@@ -54,16 +54,16 @@ internal fun MindmapNode.withMindmapIcon(icon: String?): MindmapNode {
     var query by remember { mutableStateOf("") }
     TextButton({ open = !open }, enabled = enabled, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("mindmap-icon-picker")) {
         selected?.let { MindmapGlyph(it, Modifier.padding(end = 8.dp).size(24.dp)) }
-        androidx.compose.material3.Text(copy.getString("icon"), Modifier.weight(1f))
+        UntranslatedText(copy.getString("icon"), Modifier.weight(1f))
         AffairsActionIcon(if (open) AffairsAction.COLLAPSE else AffairsAction.EXPAND)
     }
     if (open) {
         AffairsSearchField(query, { query = it.take(80) }, copy.getString("search"), Modifier.testTag("mindmap-icon-search"))
-        TextButton({ onChoose(null); open = false }, enabled = enabled) { androidx.compose.material3.Text(copy.getString("none")) }
+        TextButton({ onChoose(null); open = false }, enabled = enabled) { UntranslatedText(copy.getString("none")) }
         val icons = (0 until catalog.length()).map(catalog::getJSONObject).filter {
             labels.getString(it.getInt("index")).contains(query, true) || it.getString("id").contains(query, true)
         }
-        if (icons.isEmpty()) androidx.compose.material3.Text(copy.getString("empty"))
+        if (icons.isEmpty()) UntranslatedText(copy.getString("empty"))
         LazyVerticalGrid(GridCells.Adaptive(48.dp), Modifier.fillMaxWidth().height(240.dp)) {
             items(icons, key = { it.getString("id") }) { entry ->
                 val id = entry.getString("id")

@@ -43,6 +43,7 @@ data class Habit(
     val lifecycleHistory: List<HabitLifecycleEvent> = emptyList(),
     val stoicheionRestoration: StoicheionRestorationSnapshot? = null,
     val practiceGoal: HabitPracticeGoal? = null,
+    val timerEnabled: Boolean = true,
 ) {
     init { require(periodGoal?.metric != "sum" || measurement != null) { "HABIT_PERIOD_MEASUREMENT_REQUIRED" } }
     val id: String get() = entity.id

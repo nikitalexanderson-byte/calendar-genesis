@@ -3,6 +3,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/daily-advice.php';
 require_once __DIR__.'/account-email.php';
 require_once __DIR__.'/habit-reminders.php';
+require_once __DIR__.'/feature-access.php';
 
 const GENESIS_ADMIN_EMAIL = 'nikitalexanderson@gmail.com';
 
@@ -322,6 +323,7 @@ function genesisUserForClient(array $user): array
     return [
         'uid' => (string)$user['id'],
         'subscriptionPlan' => (string)($user['subscription_plan'] ?? 'free'),
+        'featureAccess' => genesisFeatureAccessForUser($user),
         'authProvider' => genesisUserProvider($user),
         'displayName' => (string)$user['display_name'],
         'email' => (string)$user['email'],
@@ -1141,7 +1143,10 @@ function genesisStoicheionDrawForClient(array $row): array
 function genesisStoicheionDraws(string $userId): array
 {
     $dayKey = genesisClientDayKey();
-    $statement = genesisDb()->prepare('SELECT * FROM stoicheion_draws WHERE user_id = :user_id AND day_key = :day_key');
+    $statement = genesisDb()->prepare('SELECT user_id, day_key, draw_kind, seed_value, attempt_count, first_draw_at, updated_at
+        FROM stoicheion_draws WHERE user_id = :user_id AND day_key = :day_key
+        UNION ALL SELECT user_id, day_key, draw_kind, seed_value, attempt_count, first_draw_at, updated_at
+        FROM stoicheion_timeline_draws WHERE user_id = :user_id AND day_key = :day_key');
     $statement->execute(['user_id' => $userId, 'day_key' => $dayKey]);
     $draws = [];
     foreach ($statement->fetchAll() as $row) {
@@ -1160,7 +1165,7 @@ function genesisSaveStoicheionDraw(string $userId, string $kind, int $seed): arr
     if (!empty($user['stoicheion_divination_disabled'])) {
         throw new DomainException('Гадания по картам отключены в личном кабинете.');
     }
-    if (!in_array($kind, ['daily', 'spread'], true)) {
+    if (!in_array($kind, ['daily', 'spread', 'timeline'], true)) {
         throw new InvalidArgumentException('Неизвестный вид расклада.');
     }
     if ($seed < 0 || $seed > 4294967295) {
@@ -1169,13 +1174,14 @@ function genesisSaveStoicheionDraw(string $userId, string $kind, int $seed): arr
     $db = genesisDb();
     $dayKey = genesisClientDayKey();
     $now = genesisNow();
+    $drawTable = $kind === 'timeline' ? 'stoicheion_timeline_draws' : 'stoicheion_draws';
     $db->exec('BEGIN IMMEDIATE');
     try {
-        $statement = $db->prepare('SELECT * FROM stoicheion_draws WHERE user_id = :user_id AND day_key = :day_key AND draw_kind = :draw_kind LIMIT 1');
+        $statement = $db->prepare("SELECT * FROM $drawTable WHERE user_id = :user_id AND day_key = :day_key AND draw_kind = :draw_kind LIMIT 1");
         $statement->execute(['user_id' => $userId, 'day_key' => $dayKey, 'draw_kind' => $kind]);
         $existing = $statement->fetch();
         if (!is_array($existing)) {
-            $db->prepare('INSERT INTO stoicheion_draws (user_id, day_key, draw_kind, seed_value, attempt_count, first_draw_at, updated_at) VALUES (:user_id, :day_key, :draw_kind, :seed_value, 1, :first_draw_at, :updated_at)')->execute([
+            $db->prepare("INSERT INTO $drawTable (user_id, day_key, draw_kind, seed_value, attempt_count, first_draw_at, updated_at) VALUES (:user_id, :day_key, :draw_kind, :seed_value, 1, :first_draw_at, :updated_at)")->execute([
                 'user_id' => $userId,
                 'day_key' => $dayKey,
                 'draw_kind' => $kind,
@@ -1191,7 +1197,7 @@ function genesisSaveStoicheionDraw(string $userId, string $kind, int $seed): arr
                     ? 'Переброс на сегодня уже использован.'
                     : 'Трёхминутное окно для переброса завершилось.');
             }
-            $db->prepare('UPDATE stoicheion_draws SET seed_value = :seed_value, attempt_count = 2, updated_at = :updated_at WHERE user_id = :user_id AND day_key = :day_key AND draw_kind = :draw_kind')->execute([
+            $db->prepare("UPDATE $drawTable SET seed_value = :seed_value, attempt_count = 2, updated_at = :updated_at WHERE user_id = :user_id AND day_key = :day_key AND draw_kind = :draw_kind")->execute([
                 'seed_value' => $seed,
                 'updated_at' => $now,
                 'user_id' => $userId,
@@ -1431,6 +1437,7 @@ function genesisAccountDataLocations(): array
         'android_download_activity' => 'user_id',
         'android_client_reports' => 'user_id',
         'stoicheion_draws' => 'user_id',
+        'stoicheion_timeline_draws' => 'user_id',
         'linked_google_accounts' => 'owner_user_id',
         'yandex_calendar_connections' => 'user_id',
         'yandex_calendar_tasks' => 'user_id',

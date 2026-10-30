@@ -159,7 +159,7 @@ internal fun SacredHabitsBlock(workspace: LocalHabitWorkspace, today: LocalDate,
                                         (if(scheduled)"запланирована сегодня" else "сегодня не запланирована")
                                 },style=MaterialTheme.typography.labelSmall)
                                 if(habit==null) {
-                                    androidx.compose.material3.Text(habitPracticeCopy().getString("warning"),style=MaterialTheme.typography.bodySmall)
+                                    UntranslatedText(habitPracticeCopy().getString("warning"),style=MaterialTheme.typography.bodySmall)
                                     Button(onClick={onStart(practice)},enabled=!disabled) { Text(if(english)"Begin practice" else "Начать практику") }
                                 } else {
                                     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)) {

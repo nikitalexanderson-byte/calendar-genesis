@@ -59,10 +59,14 @@ catch (DomainException $error) { checkSubscription($error->getMessage() === 'SUB
 checkSubscription(genesisFindUser('member')['subscription_plan'] === 'premium4life', 'Conflict overwrote status');
 try { genesisAdminSetSubscription('admin', 'missing', 'free', 'free'); throw new RuntimeException('Missing target accepted'); }
 catch (DomainException $error) { checkSubscription($error->getMessage() === 'SUBSCRIPTION_USER_NOT_FOUND', 'Wrong missing target'); }
-foreach ([['member','primary','member-sub'], ['admin','linked','admin-sub'], ['admin','primary','wrong-sub'], ['yandex','primary','other-sub']] as [$actor,$kind,$sub]) {
-    $_SESSION = ['user_id' => $actor, 'auth_identity' => ['kind' => $kind, 'sub' => $sub]];
+foreach ([['member','primary','member-sub',null], ['admin','linked','admin-sub','linked-account'],
+    ['admin','linked','linked-member-sub','linked-account'], ['admin','primary','wrong-sub',null],
+    ['yandex','primary','other-sub',null]] as [$actor,$kind,$sub,$accountId]) {
+    $_SESSION = ['user_id' => $actor, 'auth_identity' => ['kind' => $kind, 'sub' => $sub, 'account_id' => $accountId]];
+    $beforePlan = genesisFindUser('member')['subscription_plan'];
     try { genesisAdminSetSubscription($actor, 'member', 'free', 'premium4life'); throw new RuntimeException('Forbidden identity accepted'); }
     catch (SubscriptionTestResponse $error) { checkSubscription($error->status === 403, 'Wrong access response'); }
+    checkSubscription(genesisFindUser('member')['subscription_plan'] === $beforePlan, 'Forbidden identity changed the plan');
 }
 try { $db->exec("UPDATE users SET subscription_plan='unexpected' WHERE id='member'"); throw new RuntimeException('Database accepted invalid plan'); }
 catch (PDOException) {}

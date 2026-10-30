@@ -60,7 +60,8 @@ import java.util.Locale
             AffairsIconButton("Обновить обсуждение", AffairsAction.REFRESH, { scope.launch { state.refresh() } },
                 Modifier.testTag("shared-comments-refresh"), enabled = !state.loading && !state.sending)
         }
-        if (state.loading && !state.loaded) LinearProgressIndicator(Modifier.fillMaxWidth())
+        if (state.loading && !state.loaded) WorkspaceLoadingLine(Modifier.fillMaxWidth())
+        WorkspaceBackgroundStatus(state.loading && state.loaded, genesisTranslate("Загрузка…"))
         if (state.error.isNotBlank()) Text("Не удалось загрузить комментарии. Повторите обновление.", color = MaterialTheme.colorScheme.error)
         if (state.offline) Text("Сохранённые комментарии. Обновление после подключения.", style = MaterialTheme.typography.bodySmall)
         if (state.loaded && state.comments.isEmpty()) Text("Комментариев пока нет.", style = MaterialTheme.typography.bodyMedium,
@@ -75,7 +76,7 @@ import java.util.Locale
             if (expanded) {
                 if (state.hasMore) TextButton(onClick = { scope.launch { state.refresh(older = true) } },
                     enabled = !state.loading, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("shared-comments-older")) {
-                    Text(if (state.loading) "Загрузка…" else "Загрузить более ранние комментарии")
+                    Text("Загрузить более ранние комментарии")
                 }
                 history.forEach { comment -> key(comment.getString("id")) {
                     SharedComment(comment, account, root.height.toFloat() - footer, onVisible)
@@ -121,12 +122,12 @@ import java.util.Locale
     }, shape = AffairsLayout.shape, color = if (own) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                androidx.compose.material3.Text(comment.optString("authorName").ifBlank { if (own) genesisTranslate("Вы") else genesisTranslate("Участник") },
+                UntranslatedText(comment.optString("authorName").ifBlank { if (own) genesisTranslate("Вы") else genesisTranslate("Участник") },
                     style = MaterialTheme.typography.titleSmall)
-                if (timestamp.isNotBlank()) androidx.compose.material3.Text(timestamp, style = MaterialTheme.typography.labelSmall,
+                if (timestamp.isNotBlank()) UntranslatedText(timestamp, style = MaterialTheme.typography.labelSmall,
                     color = if (own) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            SelectionContainer { androidx.compose.material3.Text(comment.getString("body"), style = MaterialTheme.typography.bodyMedium) }
+            SelectionContainer { UntranslatedText(comment.getString("body"), style = MaterialTheme.typography.bodyMedium) }
         }
     }
 }

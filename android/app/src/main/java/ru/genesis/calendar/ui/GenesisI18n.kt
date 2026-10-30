@@ -1,6 +1,9 @@
 package ru.genesis.calendar.ui
 
 import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
@@ -17,7 +20,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.sp
 import org.json.JSONArray
 import org.json.JSONObject
 import android.util.Log
@@ -28,6 +33,9 @@ import java.util.concurrent.ConcurrentHashMap
 val LocalGenesisLanguage = compositionLocalOf { "ru" }
 
 private val nativeCopy = mapOf(
+    "Показывать предложение после синхронизации и плашку в боковой панели." to "Show a prompt after synchronization and a notice in the side menu.",
+    "Солнечный календарь" to "Solar calendar",
+    "Требуется вход" to "Sign in required",
     "Выберите второй узел для связи" to "Select the second node to connect",
     "Доступно обновление приложения. Скачайте его прямо здесь." to "An app update is available. Download it here.",
     "Установлена актуальная версия" to "You have the latest version",
@@ -82,7 +90,7 @@ private val nativeCopy = mapOf(
     "Круг GENESIS" to "GENESIS circle",
     "Закрыть модель календаря" to "Close calendar model",
     "Выберите месяц, пяту или день. Масштабируйте двумя пальцами и перемещайте круг." to
-        "Choose a month, pentad or day. Pinch to zoom and drag to move the circle.",
+        "Choose a month, Quinta or day. Pinch to zoom and drag to move the circle.",
     "Уменьшить модель" to "Zoom out",
     "Весь круг" to "Whole circle",
     "Увеличить модель" to "Zoom in",
@@ -1000,7 +1008,7 @@ private val nativeCopy = mapOf(
     "Сакральная геометрия времени" to
         "Sacred geometry of time",
     "Почему наш год начинается в день весеннего равноденствия? Почему в месяце ровно 30 дней, разбитых на 6 «пят» (пятидневок), а самих месяцев 12, плюс «скрытый» 13-й месяц?" to
-        "Why does the year begin on the spring equinox? Why does each month contain 30 days arranged into six pentads, with twelve months plus a hidden thirteenth?",
+        "Why does the year begin on the spring equinox? Why does each month contain 30 days arranged into six Quintas, with twelve months plus a hidden thirteenth?",
     "Это не случайность. Это классическая сакральная геометрия времени, где каждый день — шаг в процессе эволюции духа. Разберём эту структуру через оптику античной теологии Пифагора, Гесиода и Гомера." to
         "This is sacred geometry of time, where every day is a step in the evolution of spirit. We can read it through Pythagoras, Hesiod, and Homer.",
     "Почему год начинается в весеннее равноденствие?" to
@@ -1010,7 +1018,7 @@ private val nativeCopy = mapOf(
     "Пентада: 5 стихий и геометрия восхождения" to
         "Pentad: five elements and the geometry of ascent",
     "Каждая Пята (5 дней) — микрокосм, отражающий процесс «Анабасиса», восхождения души от плотной материи к чистому свету. Дни идут в строгом порядке: Земля — Вода — Воздух — Огонь — Эфир." to
-        "Each Pentad is a microcosm of the soul's ascent from dense matter to pure light: Earth, Water, Air, Fire, and Aether.",
+        "Each Quinta is a microcosm of the soul's ascent from dense matter to pure light: Earth, Water, Air, Fire, and Aether.",
     "Пифагор — геометрия плотности. Мир строится от стабильного к тонкому. Земля — статика (куб), Вода — текучесть, Воздух — форма. Огонь стоит выше Воздуха, потому что он активен и трансформирует элементы. Эфир — квинтэссенция, венец творения." to
         "Pythagoras gives a geometry of density: the world rises from stable Earth through Water and Air to transforming Fire and the quintessence of Aether.",
     "Гесиод — хронология творения. В «Теогонии» путь идёт от тяжести к сиянию: сначала Хаос и твёрдая Земля, затем Вода, Небо и чистый Свет. Огонь — инструмент богов, стоящий над стихиями." to
@@ -1018,11 +1026,11 @@ private val nativeCopy = mapOf(
     "Гомер — раздел мира. Аид получил недра, Посейдон — море, Зевс — высокое небо. Движение всегда идёт снизу вверх. Успех любого дела требует пройти эти пять шагов: от «заземления» идеи до её «одухотворения» в эфире." to
         "Homer divides the world among the underworld, sea, and high sky. Every undertaking must pass these five steps, from grounding an idea to spiritualizing it in Aether.",
     "Гексада: 6 Пят и Куб Событий" to
-        "Hexad: six Pentads and the Cube of Events",
+        "Hexad: six Quintas and the Cube of Events",
     "Если Пята — инструмент стихий, то Гексада (число 6) — рамка времени, в которой этот инструмент действует. Шесть пят образуют 30 дней месяца." to
-        "If the Pentad is the elemental instrument, the Hexad is its frame in time. Six Pentads form a 30-day month.",
+        "If the Quinta is the elemental instrument, the Hexad is its frame in time. Six Quintas form a 30-day month.",
     "Для пифагорейцев 6 — первое совершенное число (1 + 2 + 3 = 6), число сотворения мира и гармонии. Это также число граней куба, самой устойчивой фигуры. Шесть Пят — шесть сторон «событийного куба» месяца. Пока не пройдёшь все шесть, не увидишь объёмную картину." to
-        "For the Pythagoreans, six is the first perfect number and the number of the cube's faces. Six Pentads are the six sides of the month's event cube; only the complete passage reveals the whole.",
+        "For the Pythagoreans, six is the first perfect number and the number of the cube's faces. Six Quintas are the six sides of the month's event cube; only the complete passage reveals the whole.",
     "У Гесиода это шесть поколений теогонии и веков творения. У Гомера — шесть граней эпического «Агона», пути героя." to
         "Hesiod sees six generations and ages of creation; Homer gives six faces to the heroic path.",
     "СПРАВОЧНАЯ ИНФОРМАЦИЯ" to
@@ -1199,7 +1207,7 @@ private val nativeCopy = mapOf(
     "СМЫСЛ ДНЯ" to "MEANING OF THE DAY", "САКРАЛЬНЫЙ КАЛЕНДАРЬ · СМЫСЛ ДНЯ" to
         "SACRED CALENDAR · MEANING OF THE DAY", "ПИФАГОРЕЙСКИЙ СМЫСЛ" to "PYTHAGOREAN MEANING",
     "Пята, стихия и пифагорейский смысл выбранного сакрального дня." to
-        "The pentad, element, and Pythagorean meaning of the selected sacred day.",
+        "The Quinta, element, and Pythagorean meaning of the selected sacred day.",
     "Пространство первообразов" to "Realm of archetypes",
     "Иллюстрация сакрального дня:" to "Sacred day illustration:",
     "НОВОЛУНИЕ" to "NEW MOON", "ПОЛНОЛУНИЕ" to "FULL MOON",
@@ -2065,12 +2073,20 @@ fun Text(text: String, modifier: Modifier = Modifier, color: Color = Color.Unspe
     textAlign: TextAlign? = null, lineHeight: TextUnit = TextUnit.Unspecified,
     overflow: TextOverflow = TextOverflow.Clip, softWrap: Boolean = true,
     maxLines: Int = Int.MAX_VALUE, minLines: Int = 1,
-    onTextLayout: (TextLayoutResult) -> Unit = {}, style: TextStyle = LocalTextStyle.current) {
-    androidx.compose.material3.Text(text = genesisTranslate(text), modifier = modifier,
-        color = eveningInk(color), fontSize = fontSize, fontStyle = fontStyle, fontWeight = fontWeight,
+    onTextLayout: (TextLayoutResult) -> Unit = {}, style: TextStyle = LocalTextStyle.current,
+    autoSize: TextAutoSize? = null, translate: Boolean = true, adjustInk: Boolean = true) {
+    val translated = if (translate) genesisTranslate(text) else text
+    val ink = (if (adjustInk) eveningInk(color) else color).let { if (it != Color.Unspecified) it
+        else if (style.color != Color.Unspecified) style.color else LocalContentColor.current }
+    val resolvedStyle = style.merge(color = ink, fontSize = fontSize, fontStyle = fontStyle, fontWeight = fontWeight,
         fontFamily = fontFamily, letterSpacing = letterSpacing, textDecoration = textDecoration,
-        textAlign = textAlign, lineHeight = lineHeight, overflow = overflow, softWrap = softWrap,
-        maxLines = maxLines, minLines = minLines, onTextLayout = onTextLayout, style = style)
+        textAlign = textAlign ?: TextAlign.Unspecified, lineHeight = lineHeight).copy(hyphens = Hyphens.None)
+    val preferred = resolvedStyle.fontSize.takeIf { it != TextUnit.Unspecified } ?: 14.sp
+    val fitting = autoSize ?: remember(preferred, maxLines) { WholeWordTextAutoSize(preferred, maxLines == 1) }
+    val audit = LocalGenesisTextLayoutAudit.current
+    BasicText(text = translated, modifier = modifier, style = resolvedStyle,
+        overflow = overflow, softWrap = softWrap, maxLines = maxLines, minLines = minLines,
+        autoSize = fitting, onTextLayout = { result -> onTextLayout(result); audit?.invoke(translated, result) })
 }
 
 @Composable internal fun Modifier.genesisDescription(source: String): Modifier {

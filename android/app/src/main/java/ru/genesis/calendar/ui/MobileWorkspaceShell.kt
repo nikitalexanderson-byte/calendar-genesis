@@ -90,9 +90,11 @@ internal fun mobileDestinations(pages: List<String>, visibility: UiVisibility,
     onNavigate: (MobileDestination) -> Unit, actions: @Composable RowScope.() -> Unit,
     footerActions: @Composable RowScope.() -> Unit = {},
     footerDetails: @Composable () -> Unit = {},
+    footerStatusLines: List<String>? = null,
     content: @Composable ColumnScope.() -> Unit) {
     val drawer = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    val backgroundStatuses = remember { mutableStateMapOf<Any, String>() }
     val screenHeader = remember(selectedPage, selectedSection) { mutableStateOf<WorkspaceHeaderContent?>(null) }
     val current = destinations.firstOrNull { it.page == selectedPage && it.section == selectedSection }
         ?: destinations.firstOrNull { it.page == selectedPage }
@@ -156,13 +158,31 @@ internal fun mobileDestinations(pages: List<String>, visibility: UiVisibility,
                     }
                     HorizontalDivider(Modifier.padding(top = 16.dp, bottom = 8.dp),
                         color = MaterialTheme.colorScheme.outlineVariant)
-                    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp)
-                        .testTag("drawer-account-row"), verticalAlignment = Alignment.Top,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        GenesisAccountFooter(accountStatus, Modifier.weight(1f))
-                        footerActions()
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+                        .testTag("drawer-account-row"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        (footerStatusLines ?: accountStatus.lines()).filter { it.isNotBlank() }.forEachIndexed { index, line ->
+                            Text(line, Modifier.fillMaxWidth().testTag("drawer-account-status-$index"), maxLines = 1,
+                                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                     footerDetails()
+                    if (backgroundStatuses.isNotEmpty()) Surface(
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).testTag("drawer-background-status"),
+                        shape = AffairsLayout.shape, color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            backgroundStatuses.values.distinct().forEach { message ->
+                                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    androidx.compose.material3.CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                                    Text(message, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                        }
+                    }
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).testTag("drawer-actions"),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        content = footerActions)
                     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
                         .testTag("drawer-version-row"), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -174,7 +194,7 @@ internal fun mobileDestinations(pages: List<String>, visibility: UiVisibility,
                 }
             }
         }) {
-        CompositionLocalProvider(LocalWorkspaceHeader provides screenHeader) {
+        CompositionLocalProvider(LocalWorkspaceHeader provides screenHeader, LocalWorkspaceBackgroundStatuses provides backgroundStatuses) {
         Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
             Surface(color = MaterialTheme.colorScheme.surface) {
                 Row(Modifier.fillMaxWidth().heightIn(min = 72.dp).padding(horizontal = 4.dp, vertical = 6.dp)
@@ -191,7 +211,7 @@ internal fun mobileDestinations(pages: List<String>, visibility: UiVisibility,
                         val compactTitle = screenHeader.value?.singleLine?.value == true
                         val currentTitle = screenHeader.value?.title?.value ?: title
                         val currentSubtitle = if (screenHeader.value != null) screenHeader.value?.subtitle?.value else subtitle
-                        androidx.compose.material3.Text(
+                        UntranslatedText(
                             if (screenHeader.value?.titleIsUserContent?.value == true) currentTitle else genesisTranslate(currentTitle),
                             Modifier.testTag("workspace-title").then(if (compactTitle && android.animation.ValueAnimator.areAnimatorsEnabled())
                                 Modifier.basicMarquee(iterations = Int.MAX_VALUE, initialDelayMillis = 1800) else Modifier),

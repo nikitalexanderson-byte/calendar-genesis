@@ -70,7 +70,7 @@ internal class SharedAutomationTemplateConfiguration(private val gateway: Shared
     DisposableEffect(state) { onDispose { state.close() } }
     LaunchedEffect(state) { state.review() }
     Column(Modifier.fillMaxWidth().testTag("automation-template-configuration"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+        if (state.busy) WorkspaceLoadingLine(Modifier.fillMaxWidth())
         if (state.error.isNotBlank()) Text(templateIssueMessage(state.error, copy), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.testTag("automation-template-error"))
         val form = state.form()

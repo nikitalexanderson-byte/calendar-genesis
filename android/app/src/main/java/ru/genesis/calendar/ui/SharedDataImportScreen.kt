@@ -52,7 +52,7 @@ internal typealias DataImportPicker = ((DataImportPickedSource?) -> Unit) -> Uni
             value = if (app != null) LocalPreferences(context, app.workspaceScope).values.first() else UiPreferences()
         }
         val settings = preferences
-        if (settings == null) Dialog(onClose) { Surface { Column(Modifier.padding(16.dp)) { EditorDialogHeader("Загрузка…", "loading-close", onClose); CircularProgressIndicator() } } }
+        if (settings == null) Dialog(onClose) { Surface { Column(Modifier.padding(16.dp)) { EditorDialogHeader("Загрузка…", "loading-close", onClose); WorkspaceLoadingIndicator() } } }
         else DataImportContent(controller, spaceId, projectId, projectTitle, canWrite, canCreate, settings, onClose, onChanged, onOpenProject, picker)
     }
 }
@@ -120,7 +120,7 @@ internal typealias DataImportPicker = ((DataImportPickedSource?) -> Unit) -> Uni
                     HorizontalDivider()
                     Column(Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).testTag("import-content"),
                         verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        if (!state.loaded) Text("Загрузка…")
+                        if (!state.loaded) WorkspaceLoadingText()
                         else if (historyOpen) ImportHistory(state, { undoCandidate = it }, onOpenProject = { id -> state.close(); onClose(); onOpenProject(id) })
                         else {
                             ImportMainForm(state, canWrite, canCreate, calendars, !locked, ::chooseFile)
@@ -137,7 +137,7 @@ internal typealias DataImportPicker = ((DataImportPickedSource?) -> Unit) -> Uni
                     }
                     HorizontalDivider()
                     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (locked) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text(if (pendingPicker != null) "Выберите файл." else "Выполнение…", Modifier.testTag("import-working"), style = MaterialTheme.typography.bodyMedium) }
+                        if (locked) { WorkspaceLoadingLine(Modifier.fillMaxWidth()); Text(if (pendingPicker != null) "Выберите файл." else "Выполнение…", Modifier.testTag("import-working"), style = MaterialTheme.typography.bodyMedium) }
                         if (state.error.isNotBlank()) Text(importErrorText(state.error), Modifier.testTag("import-error").semantics { liveRegion = LiveRegionMode.Polite }, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
                         if (state.message.isNotBlank()) Text(state.message, Modifier.testTag("import-message").semantics { liveRegion = LiveRegionMode.Polite }, style = MaterialTheme.typography.bodyMedium)
                         if (!historyOpen && state.previewCurrent && state.preview?.optBoolean("canApply") == false) {

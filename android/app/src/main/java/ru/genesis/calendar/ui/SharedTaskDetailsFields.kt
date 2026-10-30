@@ -118,7 +118,7 @@ internal fun SharedTaskDetailsFields(task: JSONObject, draft: JSONObject, onChan
     for (listIndex in 0 until checklists.length()) key(checklists.getJSONObject(listIndex).getString("id")) {
         val checklist = checklists.getJSONObject(listIndex)
         fun changeList(action: (JSONObject) -> Unit) = change { action(it.getJSONArray("checklists").getJSONObject(listIndex)) }
-        if (readOnly) androidx.compose.material3.Text(checklist.optString("title"), style = MaterialTheme.typography.titleSmall)
+        if (readOnly) UntranslatedText(checklist.optString("title"), style = MaterialTheme.typography.titleSmall)
         else OutlinedTextField(checklist.optString("title"), { value -> if (value.length <= 160) changeList { it.put("title",value) } },
             label = { Text("Название чек-листа") }, enabled = !disabled, isError = checklist.optString("title").isBlank(),
             modifier = Modifier.fillMaxWidth().testTag("shared-checklist-title-${checklist.getString("id")}"))
@@ -140,7 +140,7 @@ internal fun SharedTaskDetailsFields(task: JSONObject, draft: JSONObject, onChan
                     modifier=Modifier.semantics { contentDescription=completionLabel },
                     onCheckedChange = { done -> changeItem { it.put("done",done) } })
                 Column(Modifier.weight(1f)) {
-                    if (readOnly) androidx.compose.material3.Text(item.optString("title"))
+                    if (readOnly) UntranslatedText(item.optString("title"))
                     else OutlinedTextField(item.optString("title"),{ value -> if(value.length <= 500)changeItem { it.put("title",value) } },label={Text("Название пункта")},
                         enabled=!disabled,isError=item.optString("title").isBlank(),modifier=Modifier.fillMaxWidth().testTag("shared-checklist-item-${item.getString("id")}"))
                     if (item.optBoolean("linkUnavailable")) Text("Связанная задача недоступна", style = MaterialTheme.typography.bodySmall)
@@ -148,15 +148,15 @@ internal fun SharedTaskDetailsFields(task: JSONObject, draft: JSONObject, onChan
             }
             AffairsDisclosure("Срок, исполнитель и действия") {
                 if (readOnly) {
-                    androidx.compose.material3.Text(members.firstOrNull { it.optString("userId")==item.optString("assigneeId") }?.optString("displayName") ?: genesisTranslate(if(item.isNull("assigneeId"))"Не назначен" else "Бывший участник"))
-                    if (!item.isNull("dueDate")) androidx.compose.material3.Text(sharedDetailDate(item.getString("dueDate"),mode))
+                    UntranslatedText(members.firstOrNull { it.optString("userId")==item.optString("assigneeId") }?.optString("displayName") ?: genesisTranslate(if(item.isNull("assigneeId"))"Не назначен" else "Бывший участник"))
+                    if (!item.isNull("dueDate")) UntranslatedText(sharedDetailDate(item.getString("dueDate"),mode))
                 } else {
                     TemplateMember("Исполнитель",item.opt("assigneeId") as? String,members,!disabled,"shared-checklist-assignee-${item.getString("id")}") { value -> changeItem { it.put("assigneeId",value ?: JSONObject.NULL) } }
                     if (item.isNull("dueDate")) AffairsIconButton("Срок пункта",AffairsAction.TIMER,{ changeItem { it.put("dueDate",java.time.LocalDate.now().toString()) } },enabled=!disabled)
                     else {
                         Text("Срок пункта")
                         if (!disabled) AuthorDatePicker(item.getString("dueDate"),mode) { value -> changeItem { it.put("dueDate",value) } }
-                        else androidx.compose.material3.Text(sharedDetailDate(item.getString("dueDate"),mode))
+                        else UntranslatedText(sharedDetailDate(item.getString("dueDate"),mode))
                         AffairsIconButton("Убрать дату",AffairsAction.CLOSE,{ changeItem { it.put("dueDate",JSONObject.NULL) } },enabled=!disabled)
                     }
                 }

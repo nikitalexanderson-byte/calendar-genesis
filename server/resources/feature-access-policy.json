@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "revision": "3.1.3-prepared",
+  "enforcementEnabled": false,
+  "features": {
+    "calendar": ["free", "standart", "premium", "business"],
+    "tasks": ["free", "standart", "premium", "business"],
+    "habits": ["free", "standart", "premium", "business"],
+    "trackers": ["free", "standart", "premium", "business"],
+    "habit-timer": ["free", "standart", "premium", "business"],
+    "diary": ["free", "standart", "premium", "business"],
+    "mindmaps": ["free", "standart", "premium", "business"],
+    "stoicheion": ["free", "standart", "premium", "business"],
+    "theokyklos": ["free", "standart", "premium", "business"],
+    "shared-projects": ["free", "standart", "premium", "business"],
+    "automations": ["free", "standart", "premium", "business"],
+    "calendar-sync": ["free", "standart", "premium", "business"],
+    "assistant": ["free", "standart", "premium", "business"],
+    "data-export": ["free", "standart", "premium", "business"]
+  }
+}

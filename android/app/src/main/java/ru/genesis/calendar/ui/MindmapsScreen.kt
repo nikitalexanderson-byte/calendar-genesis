@@ -194,8 +194,10 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
                 }
             }
         } else {
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).height(IntrinsicSize.Min)
-                .testTag("mindmap-toolbar"),horizontalArrangement=Arrangement.spacedBy(6.dp),verticalAlignment=Alignment.CenterVertically) {
+            BoxWithConstraints(Modifier.fillMaxWidth().testTag("mindmap-toolbar-viewport")) {
+            Row(Modifier.horizontalScroll(rememberScrollState()).widthIn(min = maxWidth).height(IntrinsicSize.Min)
+                .testTag("mindmap-toolbar"),horizontalArrangement=Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                verticalAlignment=Alignment.CenterVertically) {
                 val structure = view.optString("mode") == "structure"
                 Box { AffairsIconButton(if (structure) "Показать карту" else "Показать структуру",
                     if (structure) AffairsAction.MINDMAP else AffairsAction.SUBTASK, {
@@ -222,6 +224,7 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
                 }, Modifier.testTag("mindmap-history"), enabled=!busy)
                 headerActions(Modifier)
             }
+            }
             if(view.optString("focus").isNotBlank()&&view.optString("focus")!="null")TextButton(onClick={changeView(JSONObject(view.toString()).removeFocus())}){Text("Вся карта")}
             val collapsed=view.optJSONArray("collapsed")?.let { a->(0 until a.length()).map {a.optString(it)}.toSet() } ?: emptySet()
             val rows=map.rows(collapsed,view.optString("focus").takeIf {it.isNotBlank()&&it!="null"})
@@ -240,7 +243,7 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
                                 colors=ButtonDefaults.textButtonColors(contentColor=ink)) {
                                 n.mindmapIcon()?.let { MindmapGlyph(it, Modifier.padding(end = 8.dp).size(24.dp), ink) }
                                 Column(Modifier.weight(1f)) {
-                                    androidx.compose.material3.Text(label(n),color=ink)
+                                    UntranslatedText(label(n),color=ink)
                                     Text(when(n.kind){"task"->if(linkedTask(n)?.done==true)"Выполнено" else "Задача GENESIS";"project"->"Проект GENESIS";else->"Мысль"},color=ink,style=MaterialTheme.typography.bodySmall)
                                 }
                             }
@@ -263,7 +266,7 @@ internal fun MindmapsScreen(repo:MindmapRepository,tasks:List<LocalTask>,project
     if(editing!=null&&map!=null&&node!=null&&readOnly) AlertDialog(onDismissRequest={editing=null},title={Text(label(node))},
         text={Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)) {
             Text("Карта доступна для просмотра.")
-            if(node.note.isNotBlank()) androidx.compose.material3.Text(node.note)
+            if(node.note.isNotBlank()) UntranslatedText(node.note)
             linkedTask(node)?.let { task->TextButton(onClick={onTask(task,node.occurrenceDate)}){Text("Открыть карточку задачи")} }
             if(node.kind=="project"&&projects.any {it.id==node.refId})TextButton(onClick={onProject(node.refId!!)}){Text("Открыть проект")}
         }},confirmButton={})
@@ -356,6 +359,7 @@ internal fun NativeMindmapCanvas(map:MindmapDocument,rows:List<Pair<MindmapNode,
     val horizontal=rememberScrollState();val vertical=rememberScrollState()
     val density=LocalDensity.current.density
     val positions=view.optJSONObject("positions") ?: JSONObject();var drag by remember {mutableStateOf<Pair<String,Offset>?>(null)};var menu by remember {mutableStateOf<Offset?>(null)};var menuAnchor by remember {mutableStateOf(Offset.Zero)}
+    LaunchedEffect(readOnly) { if (readOnly) { menu = null; drag = null } }
     val located=rows.mapIndexed {i,pair->val saved=positions.optJSONObject(pair.first.id);val point=if(drag?.first==pair.first.id)drag!!.second else Offset(saved?.optDouble("x",24.0+pair.second*260)?.toFloat() ?: (24+pair.second*260).toFloat(),saved?.optDouble("y",24.0+i*112)?.toFloat() ?: (24+i*112).toFloat());pair.first to point};val byId=located.toMap()
     val savedZoom=view.optDouble("zoom",1.0).coerceIn(.4,2.0).toFloat()
     var zoom by remember(map.id) { mutableFloatStateOf(savedZoom) }
@@ -444,11 +448,13 @@ internal fun NativeMindmapCanvas(map:MindmapDocument,rows:List<Pair<MindmapNode,
         }
         Box(Modifier.offset { IntOffset(menuAnchor.x.roundToInt(), menuAnchor.y.roundToInt()) }.size(1.dp)) {
             DropdownMenu(expanded=menu!=null,onDismissRequest={menu=null}) {
+                if (!readOnly) {
                 DropdownMenuItem(text={Text("Добавить мысль")}, modifier=Modifier.testTag("mindmap-context-add"),
                     leadingIcon={AffairsActionIcon(AffairsAction.ADD)},
                     enabled=!readOnly,onClick={val point=menu;menu=null;if(point!=null)onAdd(point)})
                 DropdownMenuItem(text={Text("Добавить из дел")},leadingIcon={AffairsActionIcon(AffairsAction.TASK)},
                     enabled=!readOnly,modifier=Modifier.testTag("mindmap-context-affair"),onClick={menu=null;onAffair()})
+                }
                 DropdownMenuItem(text={Text("К началу")},leadingIcon={AffairsActionIcon(AffairsAction.CENTER)},
                     modifier=Modifier.testTag("mindmap-context-home"),onClick={menu=null;connecting=null;onHome()})
                 if(view.optString("focus").isNotBlank()) DropdownMenuItem(text={Text("Вся карта")},

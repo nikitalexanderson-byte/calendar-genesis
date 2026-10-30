@@ -70,7 +70,7 @@ private fun NumberGrid(title: String, numbers: List<Int>, selected: List<Int>,
 /** Same one-task series semantics as the site's RecurrenceBuilder; display calendar is independent. */
 @Composable
 internal fun TaskRecurrenceEditor(value: RecurrenceConfig, startDate: String, inputMode: CalendarMode,
-    sharedSeries: Boolean = false, onChange: (RecurrenceConfig) -> Unit): Int {
+    sharedSeries: Boolean = false, tracker: Boolean = false, onChange: (RecurrenceConfig) -> Unit): Int {
     val engine = remember { RecurrenceEngine(GenesisCalendar()) }
     val context = value.calendarContext ?: CalendarContext(version = 1)
     val calendar = remember(context) { GenesisCalendar(ZoneId.of(context.timeZone), context.version, context.gregorianYearStart) }
@@ -89,7 +89,7 @@ internal fun TaskRecurrenceEditor(value: RecurrenceConfig, startDate: String, in
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Column(Modifier.weight(1f)) {
                 Text(if (sharedSeries) "Расписание серии" else "Повторение", style = MaterialTheme.typography.titleMedium)
-                Text(if (sharedSeries) "Отдельная задача на каждую дату" else if (value.enabled) "Одна задача · календарный ритм" else "Одиночная задача без повторений",
+                if (!tracker) Text(if (sharedSeries) "Отдельная задача на каждую дату" else if (value.enabled) "Одна задача · календарный ритм" else "Одиночная задача без повторений",
                     style = MaterialTheme.typography.bodySmall)
             }
             if (!sharedSeries) Switch(checked = value.enabled, onCheckedChange = { enabled ->
@@ -193,7 +193,7 @@ internal fun TaskRecurrenceEditor(value: RecurrenceConfig, startDate: String, in
                 onChange(value.copy(days = toggleRequired(value.days, it)))
             }
         }
-        Text("$count повторений одной задачи", style = MaterialTheme.typography.titleSmall,
+        if (!tracker) Text("$count повторений одной задачи", style = MaterialTheme.typography.titleSmall,
             color = if (count in 1..500) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
             modifier = Modifier.testTag("recurrence-count"))
         if (count == 0) Text("В выбранном периоде нет дат для этого правила.", color = MaterialTheme.colorScheme.error)

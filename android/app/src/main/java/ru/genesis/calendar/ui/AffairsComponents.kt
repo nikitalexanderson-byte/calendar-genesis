@@ -42,8 +42,12 @@ internal val LocalAffairsControlWidth = compositionLocalOf { 48.dp }
 internal val LocalAffairsControlOutlined = compositionLocalOf { true }
 
 @Composable internal fun AffairsLoading(modifier: Modifier = Modifier) {
+    if (LocalWorkspaceBackgroundStatuses.current != null) {
+        WorkspaceBackgroundStatus(true, genesisTranslate("Загрузка…"))
+        return
+    }
     Box(modifier.fillMaxWidth().heightIn(min = 144.dp), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator(Modifier.size(36.dp), color = MaterialTheme.colorScheme.primary)
+        WorkspaceLoadingIndicator(Modifier.size(36.dp), color = MaterialTheme.colorScheme.primary)
     }
 }
 
@@ -107,9 +111,9 @@ internal enum class AffairsAction { BACK, NEXT, MORE, CLOSE, SEARCH, FILTER, SOR
                 GenesisVectorIcon(icon, Modifier.size(30.dp), MaterialTheme.colorScheme.primary)
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                androidx.compose.material3.Text(if (titleIsUserContent) title else genesisTranslate(title),
+                UntranslatedText(if (titleIsUserContent) title else genesisTranslate(title),
                     style = MaterialTheme.typography.titleLarge)
-                if (context.isNotBlank()) androidx.compose.material3.Text(
+                if (context.isNotBlank()) UntranslatedText(
                     if (contextIsUserContent) context else genesisTranslate(context), style = MaterialTheme.typography.bodySmall, maxLines = contextMaxLines, overflow = TextOverflow.Ellipsis,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -125,7 +129,7 @@ internal enum class AffairsAction { BACK, NEXT, MORE, CLOSE, SEARCH, FILTER, SOR
     var expanded by rememberSaveable { mutableStateOf(initiallyExpanded) }
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedButton(onClick = { expanded = !expanded }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-            if (titleIsUserContent) androidx.compose.material3.Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+            if (titleIsUserContent) UntranslatedText(title, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
             else Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
             AffairsActionIcon(if (expanded) AffairsAction.COLLAPSE else AffairsAction.EXPAND)
         }
@@ -139,7 +143,7 @@ internal enum class AffairsAction { BACK, NEXT, MORE, CLOSE, SEARCH, FILTER, SOR
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Button(onClick = onSave, enabled = enabled && !busy, modifier = Modifier.fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp).heightIn(min = 48.dp).testTag("affairs-save")) {
-                if (busy) CircularProgressIndicator(Modifier.size(18.dp).padding(end = 4.dp), strokeWidth = 2.dp)
+                if (busy) WorkspaceLoadingIndicator(Modifier.size(18.dp).padding(end = 4.dp), strokeWidth = 2.dp)
                 Text(if (busy) "Сохранение…" else "Сохранить")
             }
         }
@@ -188,13 +192,13 @@ internal enum class AffairsAction { BACK, NEXT, MORE, CLOSE, SEARCH, FILTER, SOR
                 }
                 Column(Modifier.weight(1f).padding(start = if (onComplete == null) 8.dp else 0.dp,
                     top = 9.dp, bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (titleContent != null) titleContent() else androidx.compose.material3.Text(title, style = MaterialTheme.typography.titleSmall,
+                    if (titleContent != null) titleContent() else UntranslatedText(title, style = MaterialTheme.typography.titleSmall,
                         fontWeight = if (unreadComments > 0) FontWeight.Bold else FontWeight.Medium,
                         color = if (completed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
                 }
                 actions?.invoke()
             }
-            if (metadata.isNotEmpty()) androidx.compose.material3.Text(metadata.filter(String::isNotBlank).joinToString(" · "),
+            if (metadata.isNotEmpty()) UntranslatedText(metadata.filter(String::isNotBlank).joinToString(" · "),
                 modifier = Modifier.padding(horizontal = 8.dp), style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (unreadComments > 0 && titleContent == null) Box(Modifier.padding(horizontal = 8.dp)) { UnreadCommentBadge(unreadComments) }

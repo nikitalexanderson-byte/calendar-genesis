@@ -578,6 +578,13 @@ try {
         'first_draw_at' => $now,
         'updated_at' => $now,
     ]);
+    $db->prepare('INSERT OR REPLACE INTO stoicheion_timeline_draws (user_id, day_key, draw_kind, seed_value, attempt_count, first_draw_at, updated_at) VALUES (:user_id, :day_key, :draw_kind, 42, 1, :first_draw_at, :updated_at)')->execute([
+        'user_id' => $userId,
+        'day_key' => '2026-09-18',
+        'draw_kind' => 'timeline',
+        'first_draw_at' => $now,
+        'updated_at' => $now,
+    ]);
     $db->prepare('INSERT OR REPLACE INTO categories (id, user_id, name, color, created_at, updated_at) VALUES (:id, :user_id, :name, :color, :created_at, :updated_at)')->execute([
         'id' => 'test-deletion-category',
         'user_id' => $userId,

@@ -37,7 +37,7 @@ internal fun templateMemberTitle(value: JSONObject) = value.optString("displayNa
                 onValueChange = { checked -> onChange((selected.filterNot { it == id } + if (checked) listOf(id) else emptyList()).distinct()) })
             .semantics(mergeDescendants = true) { contentDescription = title }, verticalAlignment = Alignment.CenterVertically) {
             Checkbox(id in selected, null, enabled = enabled && (id in selected || selected.size < maxSelected), modifier = Modifier.clearAndSetSemantics { })
-            androidx.compose.material3.Text(title, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+            UntranslatedText(title, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
         } }
         if (choices.size > limit) TemplateOutlinedButton({ limit += 5 }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("$tag-more")) { Text("Показать ещё") }
         if (maxSelected == 50 && selected.size >= maxSelected) Text("Выбрано 50 зависимостей. Уберите одну, чтобы выбрать другую.", Modifier.testTag("template-dependency-limit"), style = MaterialTheme.typography.bodySmall)
@@ -121,7 +121,7 @@ internal fun templateMemberTitle(value: JSONObject) = value.optString("displayNa
                 if (!task.isNull("startTime")) for ((field, label) in listOf("startTime" to "Время начала", "endTime" to "Время окончания")) {
                     Text(label, style = MaterialTheme.typography.titleSmall)
                     if (enabled) AuthorTimePicker(task.getString(field), preferences.use24) { value -> change { it.put(field, value) } }
-                    else androidx.compose.material3.Text(timeLabel(task.getString(field), preferences.use24), style = MaterialTheme.typography.bodyMedium)
+                    else UntranslatedText(timeLabel(task.getString(field), preferences.use24), style = MaterialTheme.typography.bodyMedium)
                 }
             }
             AffairsDisclosure("Связи и исполнители") {
@@ -153,7 +153,7 @@ internal fun templateMemberTitle(value: JSONObject) = value.optString("displayNa
     val pending = state.edit?.getJSONObject("inputs")?.optString(path).orEmpty()
     AffairsDisclosure("Текстовые теги") {
         tags.forEach { tag -> Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            androidx.compose.material3.Text(tag, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+            UntranslatedText(tag, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
             AffairsIconButton("Убрать", AffairsAction.CLOSE, { state.proposeManifest { SharedTemplateEdits.update(manifest, collection, id) { it.put("tags", JSONArray(tags.filterNot { value -> value == tag })) } } }, enabled = state.editable)
         } }
         TemplateField("Тег", pending, state.editable && tags.size < 30, "template-tag-input", maxLength = 80) { state.changeInput(path, it) }

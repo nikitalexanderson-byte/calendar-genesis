@@ -205,16 +205,16 @@ import ru.genesis.calendar.data.UiPreferences
             var expanded by remember { mutableStateOf(false) }
             Box {
                 OutlinedButton(onClick = { expanded = true }, enabled = !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("planning-bucket")) {
-                    androidx.compose.material3.Text(selectedBucket?.optString("title") ?: copy.getString("backlog"), Modifier.weight(1f))
+                    UntranslatedText(selectedBucket?.optString("title") ?: copy.getString("backlog"), Modifier.weight(1f))
                     AffairsActionIcon(AffairsAction.EXPAND)
                 }
                 DropdownMenu(expanded, { expanded = false }) {
-                    DropdownMenuItem(text = { androidx.compose.material3.Text(copy.getString("backlog")) },
+                    DropdownMenuItem(text = { UntranslatedText(copy.getString("backlog")) },
                         modifier = Modifier.testTag("planning-select-backlog"), onClick = { bucket = "backlog"; selected = null; expanded = false })
                     planningRows(data?.optJSONArray("sprints")).forEach { sprint ->
                         DropdownMenuItem(text = { Column {
-                            androidx.compose.material3.Text(sprint.getString("title"))
-                            androidx.compose.material3.Text(copy.getString(when (sprint.getString("state")) { "active" -> "active"; "completed" -> "completed"; else -> "planned" }), style = MaterialTheme.typography.bodySmall)
+                            UntranslatedText(sprint.getString("title"))
+                            UntranslatedText(copy.getString(when (sprint.getString("state")) { "active" -> "active"; "completed" -> "completed"; else -> "planned" }), style = MaterialTheme.typography.bodySmall)
                         } }, modifier = Modifier.testTag("planning-select-${sprint.getString("id")}"),
                             onClick = { bucket = sprint.getString("id"); selected = null; expanded = false })
                     }
@@ -222,19 +222,19 @@ import ru.genesis.calendar.data.UiPreferences
             }
             selectedBucket?.let { sprint ->
                 Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                    androidx.compose.material3.Text(copy.getString(when (sprint.getString("state")) { "active" -> "active"; "completed" -> "completed"; else -> "planned" }), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+                    UntranslatedText(copy.getString(when (sprint.getString("state")) { "active" -> "active"; "completed" -> "completed"; else -> "planned" }), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
                     AffairsIconButton(sharedWorkflowCopy("sprint-report-translations.json").getString("heading"), AffairsAction.REPORT,
                         { reportSprint = sprint.getString("id") }, Modifier.testTag("planning-sprint-report"), !busy && !editor.busy && !accessLost)
                 }
                 Text(planningPeriod(sprint, language), style = MaterialTheme.typography.bodyMedium)
-                if (sprint.optString("goal").isNotBlank()) androidx.compose.material3.Text(sprint.getString("goal"))
+                if (sprint.optString("goal").isNotBlank()) UntranslatedText(sprint.getString("goal"))
             }
             data?.optJSONObject("totals")?.optJSONObject(bucket)?.let { totals -> SharedPlanningTotals(totals, copy, number) }
             data?.optJSONObject("byAssignee")?.optJSONObject(bucket)?.takeIf { it.length() > 0 }?.let { groups ->
                 AffairsDisclosure(copy.getString("byAssignee")) {
                     groups.keys().forEach { id ->
                         Column(Modifier.testTag("planning-assignee-$id"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            androidx.compose.material3.Text(members.find { it.optString("userId") == id }?.optString("displayName") ?: t(if (id == "unassigned") "Не назначен" else "Недоступно"), style = MaterialTheme.typography.titleSmall)
+                            UntranslatedText(members.find { it.optString("userId") == id }?.optString("displayName") ?: t(if (id == "unassigned") "Не назначен" else "Недоступно"), style = MaterialTheme.typography.titleSmall)
                             SharedPlanningTotals(groups.getJSONObject(id), copy, number)
                         }
                     }
@@ -250,14 +250,14 @@ import ru.genesis.calendar.data.UiPreferences
             data?.takeUnless { accessLost }?.let { fresh -> item {
                 SharedPlanningEditor(editor, fresh, selectedBucket, projectId, authorPreferences, readOnly, scope)
             } }
-            if (loading) item { LinearProgressIndicator(Modifier.fillMaxWidth().testTag("planning-loading")) }
+            if (loading) item { WorkspaceLoadingLine(Modifier.fillMaxWidth().testTag("planning-loading")) }
             if (readOnly) item { Text("Нет связи: показана последняя защищённая копия команды.") }
-            if (data?.optJSONObject("config")?.optBoolean("enabled") == false) item { androidx.compose.material3.Text(copy.getString("disabled")) }
+            if (data?.optJSONObject("config")?.optBoolean("enabled") == false) item { UntranslatedText(copy.getString("disabled")) }
             if (error.isNotBlank()) item { Column(Modifier.testTag("planning-error")) {
-                androidx.compose.material3.Text(error, color = MaterialTheme.colorScheme.error)
+                UntranslatedText(error, color = MaterialTheme.colorScheme.error)
                 TextButton(onClick = ::refreshPlanning, enabled = !busy) { Text("Обновить") }
             } }
-            if (notice.isNotBlank()) item { androidx.compose.material3.Text(notice, Modifier.testTag("planning-notice")) }
+            if (notice.isNotBlank()) item { UntranslatedText(notice, Modifier.testTag("planning-notice")) }
             if (editor.completion && editor.phase == "editing" && data != null) {
                 items(editor.tasks, key = { "completion-" + it.getString("id") }) { task ->
                     SharedPlanningCompletionRow(editor, requireNotNull(data), task) { leave { onTask(task.getString("id")) } }
@@ -281,17 +281,17 @@ import ru.genesis.calendar.data.UiPreferences
                     if (selected?.optString("id") == task.getString("id")) {
                         Column(Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         val stale = needsRebase || selected?.optInt("revision") != task.optInt("revision")
-                        if (stale) androidx.compose.material3.Text(copy.getString("conflict"), Modifier.testTag("planning-selection-conflict"))
+                        if (stale) UntranslatedText(copy.getString("conflict"), Modifier.testTag("planning-selection-conflict"))
                         var targets by remember { mutableStateOf(false) }
                         Box {
                             OutlinedButton({ targets = true }, enabled = !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("planning-destination")) {
-                                androidx.compose.material3.Text(planningRows(data?.optJSONArray("sprints")).find { it.optString("id") == destination }?.optString("title") ?: copy.getString("backlog"), Modifier.weight(1f))
+                                UntranslatedText(planningRows(data?.optJSONArray("sprints")).find { it.optString("id") == destination }?.optString("title") ?: copy.getString("backlog"), Modifier.weight(1f))
                                 AffairsActionIcon(AffairsAction.EXPAND)
                             }
                             DropdownMenu(targets, { targets = false }) {
-                                DropdownMenuItem(text = { androidx.compose.material3.Text(copy.getString("backlog")) }, onClick = { destination = "backlog"; targets = false })
+                                DropdownMenuItem(text = { UntranslatedText(copy.getString("backlog")) }, onClick = { destination = "backlog"; targets = false })
                                 planningRows(data?.optJSONArray("sprints")).filter { it.optString("state") != "completed" }.forEach { sprint ->
-                                    DropdownMenuItem(text = { androidx.compose.material3.Text(sprint.getString("title")) }, modifier = Modifier.testTag("planning-destination-${sprint.getString("id")}"),
+                                    DropdownMenuItem(text = { UntranslatedText(sprint.getString("title")) }, modifier = Modifier.testTag("planning-destination-${sprint.getString("id")}"),
                                         onClick = { destination = sprint.getString("id"); targets = false })
                                 }
                             }
@@ -307,7 +307,7 @@ import ru.genesis.calendar.data.UiPreferences
             }
             if (!loading && error.isBlank() && page != null && planningRows(page?.optJSONArray("tasks")).isEmpty()) item { Text("Здесь пока нет задач", Modifier.testTag("planning-empty")) }
             item {
-                page?.let { androidx.compose.material3.Text(t("Показано: {loaded} из {total}").replace("{loaded}", number.format(planningRows(it.optJSONArray("tasks")).size)).replace("{total}", number.format(it.optInt("total")))) }
+                page?.let { UntranslatedText(t("Показано: {loaded} из {total}").replace("{loaded}", number.format(planningRows(it.optJSONArray("tasks")).size)).replace("{total}", number.format(it.optInt("total")))) }
                 if (page?.optString("nextCursor")?.let { it.isNotBlank() && it != "null" } == true) TextButton(::more, enabled = !busy, modifier = Modifier.testTag("planning-more")) { Text("Показать ещё") }
             }
             }
@@ -340,10 +340,10 @@ import ru.genesis.calendar.data.UiPreferences
 
 @Composable private fun SharedPlanningTotals(totals: JSONObject, copy: JSONObject, number: NumberFormat) {
     Column(Modifier.fillMaxWidth().testTag("planning-totals"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        androidx.compose.material3.Text(copy.getString("count") + ": " + number.format(totals.getInt("count")), style = MaterialTheme.typography.titleSmall)
+        UntranslatedText(copy.getString("count") + ": " + number.format(totals.getInt("count")), style = MaterialTheme.typography.titleSmall)
         for (unit in listOf("points", "hours")) {
             val values = totals.getJSONObject(unit)
-            androidx.compose.material3.Text(copy.getString(unit) + ": " + number.format(values.getDouble("value")) + " · " + copy.getString("unestimated") + ": " + number.format(values.getInt("unestimated")), style = MaterialTheme.typography.bodyMedium)
+            UntranslatedText(copy.getString(unit) + ": " + number.format(values.getDouble("value")) + " · " + copy.getString("unestimated") + ": " + number.format(values.getInt("unestimated")), style = MaterialTheme.typography.bodyMedium)
         }
     }
 }

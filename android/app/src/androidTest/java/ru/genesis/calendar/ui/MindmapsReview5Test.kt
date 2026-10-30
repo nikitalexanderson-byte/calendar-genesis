@@ -100,6 +100,9 @@ class MindmapsReview5Test {
             val toolbarButtons=toolbarTags.map { compose.onNodeWithTag(it).fetchSemanticsNode().boundsInRoot }
             toolbarButtons.forEach { assertEquals(mode.width,it.width,1f);assertEquals(mode.center.y,it.center.y,1f) }
             toolbarButtons.zipWithNext().forEach { (before,after)->assertTrue(before.left<after.left) }
+            val toolbarViewport = compose.onNodeWithTag("mindmap-toolbar-viewport").fetchSemanticsNode().boundsInRoot
+            if (toolbarButtons.last().right <= toolbarViewport.right + 1f) assertEquals("Toolbar group is exactly centered",
+                toolbarViewport.center.x, (toolbarButtons.first().left + toolbarButtons.last().right) / 2f, 1f)
             val searchButton=compose.onNodeWithTag("mindmap-node-search-open").fetchSemanticsNode().boundsInRoot
             assertEquals(reset.center.y,searchButton.center.y,1f)
             assertEquals(reset.width,searchButton.width,1f)

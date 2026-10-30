@@ -126,7 +126,7 @@ internal fun SolarCalendarModel(calendar: GenesisCalendar, shown: LocalDate,
                             onRelease = { it.stopLoading(); it.destroy(); view = null })
                         }
                     }
-                    if (!ready && !failed) CircularProgressIndicator()
+                    if (!ready && !failed) WorkspaceLoadingIndicator()
                     if (failed) Text("Не удалось открыть модель календаря.", color = MaterialTheme.colorScheme.error)
                 }
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

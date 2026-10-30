@@ -11,14 +11,21 @@ object TaskOccurrences {
     private val engine = RecurrenceEngine(GenesisCalendar())
 
     fun standaloneDraft(task:LocalTask,date:String):LocalTask {
-        require(occursOn(task,LocalDate.parse(date))) { "Этот день не входит в серию." }
+        val occurrenceDate = LocalDate.parse(date)
+        require(occursOn(task,occurrenceDate)) { "Этот день не входит в серию." }
         val id="occurrence-"+MessageDigest.getInstance("SHA-256").digest("${task.id}:$date".toByteArray()).joinToString("") {"%02x".format(it)}
         val source=JSONObject(task.sourceFieldsJson).apply {
             put("recurrenceSeriesId",task.id);put("recurrenceOriginalDate",date)
             put("mindmapOccurrenceParentRevision",task.revision)
             remove("googleEventId");remove("googleTaskId");put("googleLinks",JSONObject())
-            val end=optString("endDate").takeIf {it.isNotBlank()&&it!="null"} ?: task.date
-            put("endDate",LocalDate.parse(date).plusDays(java.time.temporal.ChronoUnit.DAYS.between(LocalDate.parse(task.date),LocalDate.parse(end))).toString())
+            val start = LocalDate.parse(task.date)
+            // Match LocalTask.json(): absent/invalid imported end dates describe one day.
+            val end = runCatching { LocalDate.parse(optString("endDate")) }.getOrNull()
+                ?.takeIf { it >= start } ?: start
+            put("endDate",occurrenceDate.plusDays(java.time.temporal.ChronoUnit.DAYS.between(start,end)).toString())
+            // The range has already moved. LocalTask.json must not shift it again
+            // relative to the parent's original dueDate when persisting the draft.
+            put("dueDate", date)
         }
         return task.copy(id=id,date=date,revision=0,recurrence=task.recurrence.copy(enabled=false),recurrenceExcludedDates=emptyList(),sourceFieldsJson=source.toString(),reminderAt=null,reminders=task.reminders?.filter {it.kind=="relative"})
     }

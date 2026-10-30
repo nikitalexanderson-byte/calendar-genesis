@@ -50,7 +50,7 @@ private val updateBannerCopy = mapOf(
 
 /** Remains in Settings until the installed version catches up with the release manifest. */
 @Composable
-internal fun AndroidUpdateBanner() {
+internal fun AndroidUpdateBanner(compact: Boolean = false) {
     if (BuildConfig.PLAY_DISTRIBUTION) return
     val context = LocalContext.current
     val language = LocalGenesisLanguage.current
@@ -68,20 +68,25 @@ internal fun AndroidUpdateBanner() {
         val glow by rememberInfiniteTransition(label = "update-banner-glow").animateFloat(
             .60f, 1f, infiniteRepeatable(tween(1700), RepeatMode.Reverse),
             label = "update-banner-border")
-        Surface(Modifier.fillMaxWidth().testTag("android-update-banner"),
+        if (compact) WorkspaceStatusNotice("${copy.title}\nGENESIS ${available.versionName}",
+            Modifier.padding(horizontal = 16.dp, vertical = 4.dp).testTag("android-update-banner")) {
+            TextButton(onClick = { dialogOpen = true }, modifier = Modifier.testTag("android-update-banner-action")) {
+                UntranslatedText(copy.action, maxLines = 1)
+            }
+        } else Surface(Modifier.fillMaxWidth().testTag("android-update-banner"),
             color = Color(0xff123b36), shape = MaterialTheme.shapes.large,
             border = BorderStroke(2.dp, Color(0xfff2cc78).copy(alpha = glow)),
             shadowElevation = 6.dp) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                androidx.compose.material3.Text(copy.title, color = Color(0xffffefc2),
+                UntranslatedText(copy.title, color = Color(0xffffefc2),
                     style = MaterialTheme.typography.titleMedium)
-                androidx.compose.material3.Text("GENESIS ${available.versionName}", color = Color(0xffd3e5d9),
+                UntranslatedText("GENESIS ${available.versionName}", color = Color(0xffd3e5d9),
                     style = MaterialTheme.typography.bodyMedium)
                 Button(onClick = { dialogOpen = true },
                     modifier = Modifier.fillMaxWidth().testTag("android-update-banner-action"),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xfff2cc78),
                         contentColor = Color(0xff182522))) {
-                    androidx.compose.material3.Text(copy.action)
+                    UntranslatedText(copy.action)
                 }
             }
         }

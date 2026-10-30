@@ -14,6 +14,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -52,7 +53,7 @@ import java.time.ZoneId
             value = if (app == null) UiPreferences() else LocalPreferences(context, app.workspaceScope).values.first()
         }
         val settings = preferences
-        if (settings == null) Dialog(onClose) { Surface { Column(Modifier.padding(16.dp)) { EditorDialogHeader("Загрузка…", "loading-close", onClose); CircularProgressIndicator() } } }
+        if (settings == null) Dialog(onClose) { Surface { Column(Modifier.padding(16.dp)) { EditorDialogHeader("Загрузка…", "loading-close", onClose); WorkspaceLoadingIndicator() } } }
         else TeamReportContent(controller, spaceId, projectId, projectTitle, initialFilter, initialMode, statuses, settings, onClose, onLost)
     }
 }
@@ -80,6 +81,7 @@ import java.time.ZoneId
         "time" to "Время цикла", "daily" to "Динамика выбранных задач", "estimates" to estimateHeading)
     val lifecycle = LocalLifecycleOwner.current.lifecycle.currentStateAsState().value
     val compactHeader = LocalConfiguration.current.screenWidthDp < 720
+    val showFooter = state.busy || state.error.isNotBlank() || ((pane == "conditions" || state.report == null) && state.metric == null)
     fun update(value: JSONObject) { state.change(value); savedOptions = value.toString() }
     fun back() { if (state.metric != null || state.task != null) state.back() else onClose() }
     DisposableEffect(state) { onDispose { state.close() } }
@@ -110,46 +112,65 @@ import java.time.ZoneId
             }
         }
     }
-    @Composable fun Body(modifier: Modifier, compact: Boolean) {
+    @Composable fun Header(compact: Boolean) {
+        val actions: @Composable RowScope.() -> Unit = {
+            AffairsIconButton("Обновить отчёт", AffairsAction.REFRESH, { scope.launch { state.refresh() } }, Modifier.testTag("team-refresh"), !state.busy && !state.lost)
+            AffairsIconButton("Закрыть", AffairsAction.CLOSE, onClose, Modifier.testTag("team-close"))
+        }
+        if (compact) AffairsDialogHeader("Отчёт", onClose = null, onBack = ::back, backTag = "affairs-back", compact = true, actions = actions)
+        else AffairsPageHeader(if (compactHeader) "Отчёт" else "Отчёт по совместной работе", title, contextIsUserContent = true,
+            contextMaxLines = 2, onBack = ::back, actions = actions)
+    }
+    @Composable fun Footer(compact: Boolean) {
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 16.dp)) {
+            if (state.busy) WorkspaceLoadingLine(Modifier.fillMaxWidth().testTag("team-loading"))
+            if (state.error.isNotBlank()) Text(teamReportError(state.error), Modifier.testTag("team-error").semantics { liveRegion = LiveRegionMode.Polite },
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+            if ((pane == "conditions" || state.report == null) && state.metric == null) Button({ scope.launch { state.refresh() } },
+                enabled = !state.busy && !state.lost, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("team-apply")) { Text("Обновить отчёт") }
+        }
+    }
+    @Composable fun Body(modifier: Modifier, compact: Boolean, chromeInside: Boolean) {
         val scroll = androidx.compose.foundation.lazy.rememberLazyListState()
         LaunchedEffect(pane, state.metric, state.task?.optString("id")) { scroll.scrollToItem(0) }
-        LazyColumn(modifier.testTag("team-content"), state = scroll, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            if (compact && state.metric == null) item { Navigation(Modifier.fillMaxWidth(), true) }
+        LazyColumn(modifier.testTag("team-content"), state = scroll, verticalArrangement = Arrangement.spacedBy(if (chromeInside) 8.dp else 16.dp)) {
+            if (chromeInside) item(key = "chrome:header") { Header(true) }
+            if (compact && state.metric == null) item(key = "chrome:navigation") { Navigation(Modifier.fillMaxWidth(), true) }
             val task = state.task; val sources = state.sources
             when {
-                task != null -> item {
+                task != null -> item(key = "content:task") {
                     Column(Modifier.fillMaxWidth().testTag("team-task"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         TeamHeading("Задача")
-                        androidx.compose.material3.Text(task.getString("title"), style = MaterialTheme.typography.titleLarge)
-                        task.optString("description").takeIf { it.isNotBlank() }?.let { androidx.compose.material3.Text(it, style = MaterialTheme.typography.bodyMedium) }
+                        UntranslatedText(task.getString("title"), style = MaterialTheme.typography.titleLarge)
+                        task.optString("description").takeIf { it.isNotBlank() }?.let { UntranslatedText(it, style = MaterialTheme.typography.bodyMedium) }
                         if (!task.isNull("archivedAt")) Text("Архив")
                         SharedTaskEstimates(task, sharedTaskDetailDraft(task), true, false, true, {})
                         SharedTaskDetailsFields(task, sharedTaskDetailDraft(task), {}, true)
                     }
                 }
                 state.metric != null -> {
-                    item {
+                    item(key = "content:sources") {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             TeamHeading("Точная выборка задач")
-                            if (sources != null) androidx.compose.material3.Text("${sources.getJSONArray("tasks").length()} / ${sources.getInt("total")}", Modifier.testTag("team-source-count"), style = MaterialTheme.typography.bodyMedium)
+                            if (sources != null) UntranslatedText("${sources.getJSONArray("tasks").length()} / ${sources.getInt("total")}", Modifier.testTag("team-source-count"), style = MaterialTheme.typography.bodyMedium)
                             if (sources?.getInt("total") == 0) Text("Задач нет.")
                         }
                     }
-                    items(sources?.let { importRows(it.getJSONArray("tasks")) }.orEmpty(), key = { it.getString("id") }) { reference ->
+                    items(sources?.let { importRows(it.getJSONArray("tasks")) }.orEmpty(), key = { "task:${it.getString("id")}" }) { reference ->
                         TextButton({ scope.launch { state.openTask(reference) } }, enabled = state.ready,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("team-source-${reference.getString("id")}")) {
-                            androidx.compose.material3.Text(reference.getString("title"), Modifier.fillMaxWidth(), style = MaterialTheme.typography.bodyMedium)
+                            UntranslatedText(reference.getString("title"), Modifier.fillMaxWidth(), style = MaterialTheme.typography.bodyMedium)
                         }
                     }
-                    if (sources?.isNull("nextCursor") == false) item {
+                    if (sources?.isNull("nextCursor") == false) item(key = "content:more") {
                         OutlinedButton({ state.metric?.let { scope.launch { state.choose(it, true) } } }, enabled = state.ready,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("team-sources-more")) { Text("Показать ещё") }
                     }
                 }
-                pane == "conditions" -> item {
+                pane == "conditions" -> item(key = "content:conditions") {
                     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) { TeamReportFields(state, space, project, calendars, statuses, ::update) }
                 }
-                state.report != null -> item {
+                state.report != null -> item(key = "content:report") {
                     key(state.report) {
                         CompositionLocalProvider(LocalTeamReportChoose provides { selected: String -> scope.launch { state.choose(selected) }; Unit }) {
                             Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) { TeamReportSections(state, pane) }
@@ -157,7 +178,8 @@ import java.time.ZoneId
                     }
                 }
             }
-            item { Spacer(Modifier.height(8.dp)) }
+            if (chromeInside && showFooter) item(key = "chrome:footer") { Footer(true) }
+            item(key = "chrome:space") { Spacer(Modifier.height(8.dp)) }
         }
     }
     Dialog(onDismissRequest = ::back, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
@@ -167,22 +189,20 @@ import java.time.ZoneId
             isAppearanceLightStatusBars = !evening; isAppearanceLightNavigationBars = !evening
         } } }
         GenesisModalFrame(::back) {
-            Column(Modifier.fillMaxSize().padding(16.dp).testTag("shared-team-report"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                AffairsPageHeader(if (compactHeader) "Отчёт" else "Отчёт по совместной работе", title, contextIsUserContent = true, contextMaxLines = 2, onBack = ::back, actions = {
-                    AffairsIconButton("Обновить отчёт", AffairsAction.REFRESH, { scope.launch { state.refresh() } }, Modifier.testTag("team-refresh"), !state.busy && !state.lost)
-                    AffairsIconButton("Закрыть", AffairsAction.CLOSE, onClose, Modifier.testTag("team-close"))
-                })
+            val compactIme = WindowInsets.ime.getBottom(LocalDensity.current) > 0 && maxHeight < 360.dp
+            val spacing = if (compactIme) 8.dp else 16.dp
+            Column(Modifier.fillMaxSize().padding(spacing).testTag("shared-team-report"), verticalArrangement = Arrangement.spacedBy(spacing)) {
+                if (!compactIme) Header(false)
                 BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-                    if (maxWidth >= 720.dp) Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                        Navigation(Modifier.width(248.dp).fillMaxHeight().verticalScroll(rememberScrollState()), false)
-                        Body(Modifier.weight(1f).fillMaxHeight(), false)
-                    } else Body(Modifier.fillMaxSize(), true)
+                    val wideNavigation = maxWidth >= 720.dp && !compactIme
+                    // Keep Body at one call site so IME resizing preserves the focused input.
+                    Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                        if (wideNavigation)
+                            Navigation(Modifier.width(248.dp).fillMaxHeight().verticalScroll(rememberScrollState()), false)
+                        Body(Modifier.weight(1f).fillMaxHeight(), !wideNavigation, compactIme)
+                    }
                 }
-                if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("team-loading"))
-                if (state.error.isNotBlank()) Text(teamReportError(state.error), Modifier.testTag("team-error").semantics { liveRegion = LiveRegionMode.Polite },
-                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
-                if ((pane == "conditions" || state.report == null) && state.metric == null) Button({ scope.launch { state.refresh() } },
-                    enabled = !state.busy && !state.lost, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("team-apply")) { Text("Обновить отчёт") }
+                if (!compactIme && showFooter) Footer(false)
             }
         }
     }

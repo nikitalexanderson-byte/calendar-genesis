@@ -110,7 +110,7 @@ import java.util.Locale
                     onDragStart = { onStart(task, topLeft + it) }, onDrag = { change, delta -> change.consume(); onMove(delta) },
                     onDragEnd = onEnd, onDragCancel = onCancel)
             }) {
-        androidx.compose.material3.Text(task.optString("title"), Modifier.padding(3.dp),
+        UntranslatedText(task.optString("title"), Modifier.padding(3.dp),
             style = MaterialTheme.typography.labelSmall, maxLines = 3, overflow = TextOverflow.Ellipsis)
     }
 }

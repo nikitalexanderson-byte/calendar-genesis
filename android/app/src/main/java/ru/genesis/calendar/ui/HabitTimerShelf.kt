@@ -3,7 +3,7 @@ package ru.genesis.calendar.ui
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
-import androidx.compose.material3.Text as MaterialText
+import ru.genesis.calendar.ui.UntranslatedText as MaterialText
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -53,9 +53,13 @@ internal fun habitTimerError(error: Throwable): String = when {
 internal fun HabitTimerShelf(workspace: LocalHabitWorkspace, owner: String, requestedHabitId: String?, onClose: () -> Unit,
     enabled: Boolean = true, embedded: Boolean = false, excludedHabitIds: Set<String> = emptySet(), onCommand: suspend (HabitTimerCommand) -> Unit) {
     val allSessions = remember(workspace.timers) { HabitTimers.sessions(workspace.timers) }
-    val sessions = allSessions.filter { if (embedded) it.root.habitId == requestedHabitId else it.root.habitId !in excludedHabitIds }
+    val sessions = allSessions.filter { session ->
+        workspace.habits.firstOrNull { it.id == session.root.habitId }?.timerEnabled != false &&
+            (if (embedded) session.root.habitId == requestedHabitId else session.root.habitId !in excludedHabitIds)
+    }
     val pending = sessions.filter { it.state?.status !in setOf("saved", "discarded") }
     val habit = workspace.habits.firstOrNull { it.id == requestedHabitId }
+    if (habit?.timerEnabled == false) return
     if (habit == null && pending.isEmpty() && requestedHabitId == null && sessions.none { it.state?.status == "saved" }) return
     val language = LocalGenesisLanguage.current; val locale = Locale.forLanguageTag(language)
     val display = LocalTimerDisplayMode.current; val use24 = LocalTimerUse24.current
@@ -100,12 +104,15 @@ internal fun HabitTimerShelf(workspace: LocalHabitWorkspace, owner: String, requ
     val ownPending = allSessions.any { it.root.owner == owner && it.state?.status !in setOf("saved", "discarded") }
     val validWork = work.matches(Regex("\\d{1,3}")) && (work.toIntOrNull() ?: 0) in 1..180
     val validRest = rest.matches(Regex("\\d{1,3}")) && (rest.toIntOrNull() ?: -1) in 0..120
-    OutlinedCard(Modifier.fillMaxWidth().testTag("habit-timer-panel"),
-        border = if (embedded) androidx.compose.foundation.BorderStroke(0.dp, androidx.compose.ui.graphics.Color.Transparent) else CardDefaults.outlinedCardBorder()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Таймер", style = MaterialTheme.typography.titleLarge)
-                if (requestedHabitId != null) AffairsIconButton("Свернуть", AffairsAction.COLLAPSE, onClose, outlined = false)
+    OutlinedCard(Modifier.fillMaxWidth().testTag("habit-timer-panel"), shape = AffairsLayout.shape,
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text("Таймер", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
+                if (requestedHabitId != null) AffairsIconButton("Свернуть", AffairsAction.COLLAPSE, onClose,
+                    Modifier.testTag("habit-timer-collapse"), outlined = false)
             }
             habit?.let { target ->
                 MaterialText(target.title, style = MaterialTheme.typography.titleMedium)
@@ -115,7 +122,7 @@ internal fun HabitTimerShelf(workspace: LocalHabitWorkspace, owner: String, requ
                             modifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = 48.dp).testTag("habit-timer-mode-$kind").semantics { selected = mode == kind },
                             shape = AffairsLayout.controlShape, contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp),
                             colors = ButtonDefaults.outlinedButtonColors(containerColor = if (mode == kind) MaterialTheme.colorScheme.secondaryContainer else androidx.compose.ui.graphics.Color.Transparent)) {
-                            Text(label, style = MaterialTheme.typography.labelSmall)
+                            CompactChoiceLabel(label)
                         }
                     }
                     Button(onClick = { execute(command("start")) }, enabled = enabled && !busy && owner.isNotEmpty() && !ownPending

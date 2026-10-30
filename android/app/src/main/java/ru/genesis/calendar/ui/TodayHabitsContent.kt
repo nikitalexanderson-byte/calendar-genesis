@@ -127,11 +127,11 @@ internal fun TodayHabitsContent(app: GenesisApplication, date: LocalDate,
                         repository.recordMeasurement(habit.id,date,amount,entryId,replaces,note);Unit
                     },onQuality={quality -> repository.complete(habit.id,true,quality,date);Unit})
                 HabitPeriodGoalProgress(habit,workspace.measurements,workspace.completions,date)
-                AffairsIconButton(genesisTranslate("Таймер") + " · " + habitDisplayTitle(habit), AffairsAction.TIMER,
+                if (habit.timerEnabled) AffairsIconButton(genesisTranslate("Таймер") + " · " + habitDisplayTitle(habit), AffairsAction.TIMER,
                     { timerHabitId = if (timerHabitId == habit.id) null else habit.id },
                     Modifier.testTag("habit-timer-open-${habit.id}"),
                     !busy && date == LocalDate.now() && engine.isScheduled(habit, date, workspace.completions), outlined = false)
-                if (timerHabitId == habit.id) Box(Modifier.testTag("habit-timer-inline-${habit.id}")) {
+                if (habit.timerEnabled && timerHabitId == habit.id) Box(Modifier.testTag("habit-timer-inline-${habit.id}")) {
                     HabitTimerShelf(workspace, repository.timerOwner, habit.id, { timerHabitId = null }, !busy, embedded = true) {
                         repository.applyTimer(it); Unit
                     }

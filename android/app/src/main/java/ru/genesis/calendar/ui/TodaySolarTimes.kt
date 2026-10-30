@@ -18,7 +18,7 @@ import java.time.LocalDate
 internal fun TodaySolarTimes(date: LocalDate, location: SolarLocation, calendar: GenesisCalendar) {
     val ink = if (LocalEveningTheme.current) Color(0xfffff8e9) else MaterialTheme.colorScheme.onSurface
     Surface(Modifier.fillMaxWidth().testTag("today-solar-times"), shape = AffairsLayout.shape,
-        color = if (LocalEveningTheme.current) Color.Black.copy(alpha = .16f) else MaterialTheme.colorScheme.surface.copy(alpha=.88f), contentColor = ink,
+        color = if (LocalEveningTheme.current) Color.Black.copy(alpha = .26f) else Color.Transparent, contentColor = ink,
         border = BorderStroke(1.dp, Color(0x66dfc17e))) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Сегодня", style = MaterialTheme.typography.labelLarge)

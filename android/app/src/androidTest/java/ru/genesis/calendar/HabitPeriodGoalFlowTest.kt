@@ -56,9 +56,10 @@ class HabitPeriodGoalFlowTest {
             }
         }
         compose.waitUntil(15_000) { compose.onAllNodesWithTag("habit-period-progress-${habit.id}").fetchSemanticsNodes().isNotEmpty() }
+        val addTag = "habit-measurement-quick-${habit.id}"
         repeat(3) { index ->
-            compose.waitUntil(15_000) { compose.onAllNodesWithText("Добавить выполнение").filter(isEnabled()).fetchSemanticsNodes().isNotEmpty() }
-            compose.onNodeWithText("Добавить выполнение").performScrollTo().performClick()
+            compose.waitUntil(15_000) { compose.onAllNodesWithTag(addTag).filter(isEnabled()).fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithTag(addTag).assertTextContains("Добавить выполнение").performScrollTo().performClick()
             compose.waitUntil(15_000) { saved().measurements.count { it.habitId==habit.id }==index+1 }
         }
         val workspace=saved()
@@ -70,13 +71,13 @@ class HabitPeriodGoalFlowTest {
         compose.waitUntil(15_000) { HabitPeriodGoals.progress(habit,date,saved().measurements,saved().completions)!!.value==2L }
         compose.waitUntil(15_000) { compose.onAllNodesWithText("Восстановить запись").filter(isEnabled()).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Восстановить запись").performScrollTo().performClick()
-        compose.onNodeWithText("Сохранить").performScrollTo().performClick()
+        compose.onNodeWithTag("habit-measurement-save-${habit.id}").assertTextContains("Сохранить").performScrollTo().performClick()
         compose.waitUntil(15_000) { HabitPeriodGoals.progress(habit,date,saved().measurements,saved().completions)!!.value==3L }
         compose.onNodeWithText("Записи · 3").performScrollTo().performClick()
         val reload=runBlocking { HabitsRepository(app).workspace.first() }
         assertEquals(3L,HabitPeriodGoals.progress(reload.habits.single { it.id==habit.id },date,reload.measurements,reload.completions)!!.value)
         assertEquals(10,reload.completions.single { it.habitId==habit.id }.xpAwarded)
-        compose.waitUntil(15_000) { compose.onAllNodesWithText("Добавить выполнение").filter(isEnabled()).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(15_000) { compose.onAllNodesWithTag(addTag).filter(isEnabled()).fetchSemanticsNodes().isNotEmpty() }
         val device=UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
         compose.onNodeWithTag("habit-period-progress-${habit.id}").performScrollTo()
         assertTrue(device.takeScreenshot(File(app.getExternalFilesDir(null),"d2-period-light.png")))

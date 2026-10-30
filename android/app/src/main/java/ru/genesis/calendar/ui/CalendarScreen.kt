@@ -135,7 +135,7 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
     dayHabits: (@Composable (LocalDate) -> Unit)? = null,
     menuSwipeState: MenuSwipeState? = null, periodSwipeEnabled: Boolean = true,
     voiceRequest: NativeVoiceAction? = null, onVoiceRequestConsumed: () -> Unit = {},
-    hiddenSubmenus: Set<String> = emptySet(),
+    hiddenSubmenus: Set<String> = emptySet(), entryRequest: Int = 0,
     sharedTasks: List<SharedCalendarEntry> = emptyList(),
     sharedCounts: Map<String,Int> = emptyMap(),
     onOpenSharedProjects: () -> Unit = {},
@@ -153,11 +153,26 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
     var sharedListDate by rememberSaveable { mutableStateOf<String?>(null) }
     var taskListDate by rememberSaveable { mutableStateOf<String?>(null) }
     var focusDayRequest by rememberSaveable { mutableIntStateOf(0) }
+    var appliedEntryRequest by rememberSaveable { mutableIntStateOf(0) }
     // rememberSaveable can restore an older period even when its input date changed
     // while this screen was absent. The externally selected day wins on re-entry.
     var appliedExternalDate by rememberSaveable { mutableStateOf(date.toString()) }
-    LaunchedEffect(date) {
-        if (appliedExternalDate != date.toString()) {
+    // Internal period navigation must not be mistaken for an external request to reveal a day.
+    fun selectDate(target: LocalDate, revealDay: Boolean = false) {
+        shown = target.toString()
+        selected = target.toString()
+        appliedExternalDate = target.toString()
+        focusDayRequest = if (revealDay) focusDayRequest + 1 else 0
+        onSelect(target)
+    }
+    LaunchedEffect(date, entryRequest) {
+        // A menu entry can arrive together with a restored/external date. Handle
+        // both in one effect so the date cannot re-enable day focus afterwards.
+        if (entryRequest > 0 && entryRequest != appliedEntryRequest) {
+            appliedEntryRequest = entryRequest
+            shown = date.toString(); selected = date.toString()
+            appliedExternalDate = date.toString(); focusDayRequest = 0
+        } else if (appliedExternalDate != date.toString()) {
             shown = date.toString(); selected = date.toString()
             appliedExternalDate = date.toString(); focusDayRequest++
         }
@@ -183,7 +198,7 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
                         if(action.step>0) period.end.plusDays(1) else period.start.minusDays(1)
                     }
                 }.getOrNull()
-                if(target!=null && target.year in 1900..2100) { shown=target.toString();selected=target.toString();onSelect(target) }
+                if(target!=null && target.year in 1900..2100) selectDate(target)
                 localYearView=action.year;menuSwipeState?.calendar=if(action.year) "year" else "month"
             }
             is NativeVoiceAction.CalendarSwipe -> {
@@ -193,12 +208,12 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
                         if(action.step>0) it.end.plusDays(1) else it.start.minusDays(1)
                     }
                 }.getOrNull()
-                if(target!=null && target.year in 1900..2100) { shown=target.toString();selected=target.toString();onSelect(target) }
+                if(target!=null && target.year in 1900..2100) selectDate(target)
             }
             is NativeVoiceAction.CalendarDate -> {
                 val target=runCatching { LocalDate.of(action.year,action.month,action.day) }.getOrNull()
                 if(target!=null && target.year in 1900..2100) {
-                    shown=target.toString();selected=target.toString();onSelect(target)
+                    selectDate(target, revealDay = true)
                     localYearView=false;menuSwipeState?.calendar="month"
                 }
             }
@@ -213,7 +228,7 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
                     }
                 } }.getOrNull()
                 if(target!=null && target.year in 1900..2100) {
-                    shown=target.toString();selected=target.toString();onSelect(target)
+                    selectDate(target)
                     localYearView=false;menuSwipeState?.calendar="month"
                 }
             }
@@ -241,28 +256,30 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
             onStartGregorianYearInMarch,voiceScrollToken,voiceScrollDirection,
             onMonth = {
                 if ("calendar.month" !in hiddenSubmenus) {
-                    shown = it.toString(); selected = it.toString(); localYearView = false
-                    focusDayRequest = 0
-                    appliedExternalDate = it.toString()
+                    selectDate(it)
+                    localYearView = false
                     menuSwipeState?.calendar = "month"
-                    onSelect(it)
                 }
             },
-            onYear = { shown = it.toString(); onSelect(it) })
+            onDay = {
+                if ("calendar.month" !in hiddenSubmenus) {
+                    selectDate(it, revealDay = true)
+                    localYearView = false
+                    menuSwipeState?.calendar = "month"
+                }
+            },
+            onYear = { selectDate(it) })
         else if (range.isFailure) Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Этот период вне диапазона офлайн-календаря.", color = MaterialTheme.colorScheme.error)
         }
         else CalendarMonthContent(calendar, range.getOrThrow(), mode, onModeChange,
-            LocalDate.parse(selected), experimental, tasks, focusDayRequest,
+            LocalDate.parse(selected), experimental, tasks, focusDayRequest, entryRequest,
             voiceScrollToken,voiceScrollDirection,seasonRegionZone,
             weekStartsOnSunday, lunarByDecade, onLunarLayoutChange={ lunarByDecade=it },
-            onNavigate = { shown = it.toString(); selected = it.toString(); onSelect(it) },
-            onChoose = { selected = it.toString(); onSelect(it) },
-            onToday = {
-                val today = LocalDate.now()
-                shown = today.toString(); selected = today.toString(); onSelect(today)
-            },
+            onNavigate = { selectDate(it) },
+            onChoose = { selectDate(it, revealDay = true) },
+            onToday = { selectDate(LocalDate.now()) },
             onOpenTaskList = { taskListDate = it.toString() },
             taskActions = { day ->
                 val dayTasks = TaskOccurrences.byDate(tasks, day, day)[day.toString()].orEmpty()
@@ -332,7 +349,7 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
 @Composable
 private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange, mode: CalendarMode,
     onModeChange: (CalendarMode) -> Unit, selected: LocalDate, experimental: Boolean, tasks: List<LocalTask>,
-    focusDayRequest: Int, voiceScrollToken: Int, voiceScrollDirection: String, seasonRegionZone: ZoneId,
+    focusDayRequest: Int, entryRequest: Int, voiceScrollToken: Int, voiceScrollDirection: String, seasonRegionZone: ZoneId,
     weekStartsOnSunday: Boolean, lunarByDecade: Boolean,
     onLunarLayoutChange: (Boolean) -> Unit,
     onNavigate: (LocalDate) -> Unit, onChoose: (LocalDate) -> Unit, onToday: () -> Unit,
@@ -357,7 +374,7 @@ private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange
     val density = LocalDensity.current
     BoxWithConstraints(Modifier.fillMaxSize().testTag("calendar-month")) {
         val twoPanes = maxWidth >= 840.dp
-        LaunchedEffect(range.start, focusDayRequest) {
+        LaunchedEffect(range.start, focusDayRequest, entryRequest) {
             if (focusDayRequest > 0) previewRequested = true
             else { previewRequested = false; scroll.scrollTo(0) }
         }
@@ -444,7 +461,7 @@ private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange
             }
         } else {
             Column(Modifier.fillMaxSize().onSizeChanged { viewportHeight = it.height }
-                .verticalScroll(scroll).padding(horizontal = 8.dp),
+                .verticalScroll(scroll).testTag("calendar-month-scroll").padding(horizontal = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 monthContent()
                 Box(Modifier.fillMaxWidth().onGloballyPositioned {
@@ -466,10 +483,10 @@ private fun GregorianMonthHero(date: LocalDate, zone: ZoneId, locale: Locale, on
             "Иллюстрация месяца ${date.month}", "gregorian-month-art", onToday, heading = {
                 Text(date.month.getDisplayName(TextStyle.FULL_STANDALONE, locale)
                     .replaceFirstChar { it.titlecase(locale) }, Modifier.testTag("gregorian-month-name"),
-                    style = MaterialTheme.typography.titleLarge)
+                    style = MaterialTheme.typography.titleLarge, maxLines = 1)
             }) {
                 Text("Григорианский месяц", style = MaterialTheme.typography.labelMedium)
-                androidx.compose.material3.Text(genesisTranslate(gregorianMonthOrigin(date.monthValue)), Modifier.testTag("gregorian-month-origin"),
+                UntranslatedText(genesisTranslate(gregorianMonthOrigin(date.monthValue)), Modifier.testTag("gregorian-month-origin"),
                     style = MaterialTheme.typography.bodySmall.copy(lineBreak = androidx.compose.ui.text.style.LineBreak.Heading),
                     maxLines = 2, autoSize = TextAutoSize.StepBased(minFontSize = 10.sp, maxFontSize = 12.sp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -484,7 +501,7 @@ private fun LunarMonthHero(lunar: ru.genesis.calendar.domain.LunarDateInfo, onTo
     Box(Modifier.fillMaxWidth().testTag("calendar-month-description").background(Color(0xff082e2f))) {
         MonthDescriptionLayout(lunarMonthArtPath(lunar.monthOrdinal - 1),
             "Иллюстрация месяца ${lunar.month.name}", "lunar-month-art", onToday, heading = {
-            Text(lunar.month.name, style = MaterialTheme.typography.titleLarge, color = Color(0xfffff5df))
+            Text(lunar.month.name, style = MaterialTheme.typography.titleLarge, color = Color(0xfffff5df), maxLines = 1)
         }, todayInk=Color(0xffffe9b5)) {
             Text(lunar.month.title, style = MaterialTheme.typography.titleSmall, color = Color(0xffffe9b5))
             Text(lunar.month.description, style = MaterialTheme.typography.bodySmall, color = Color(0xffd5e5df))
@@ -497,31 +514,35 @@ private fun SacredMonthHero(month: SacredMonth, year: Int, onToday: () -> Unit) 
         Box(Modifier.fillMaxWidth().testTag("sacred-month-hero").background(Color(0xff082e2f))) {
             MonthDescriptionLayout(sacredMonthArtPath(month.index),
                 "Иллюстрация месяца ${month.name}", "sacred-month-art", onToday, heading = {
+                Text(month.name, style = MaterialTheme.typography.titleLarge, color = Color(0xfffff5df), maxLines = 1)
+            }, todayInk=Color(0xffffe9b5)) {
                 Text("${month.season} · ${month.roman} месяц · $year", style = MaterialTheme.typography.labelSmall,
                     color = Color(0xffdfc17e))
-            }, todayInk=Color(0xffffe9b5)) {
-                Text(month.name, style = MaterialTheme.typography.titleLarge, color = Color(0xfffff5df))
                 Text(month.title, style = MaterialTheme.typography.titleSmall, color = Color(0xffffe9b5))
                 Text(month.description, style = MaterialTheme.typography.bodySmall, color = Color(0xffd5e5df))
             }
         }
 }
 
-/** Lunar's 160dp composition is shared by all calendars. Long translations remain readable. */
+/** The whole description determines the block height; only the page itself scrolls. */
 @Composable private fun MonthDescriptionLayout(image: String, description: String, artTag: String,
     onToday: () -> Unit, heading: @Composable () -> Unit, todayInk: Color = Color.Unspecified,
     content: @Composable ColumnScope.() -> Unit) {
     val height = 160.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)
-    Row(Modifier.fillMaxWidth().height(height).testTag("month-description-layout")) {
+    Row(Modifier.fillMaxWidth().heightIn(min = height).height(IntrinsicSize.Min).testTag("month-description-layout")) {
         OriginalImage(image, description, Modifier.width(104.dp).fillMaxHeight().testTag(artTag),
             darkThemeBrightness = .82f)
-        Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(12.dp),
+        Column(Modifier.weight(1f).padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment=Alignment.Top, horizontalArrangement=Arrangement.spacedBy(4.dp)) {
-                Box(Modifier.weight(1f)) { heading() }
-                TextButton(onClick=onToday, modifier=Modifier.heightIn(min=48.dp).testTag("calendar-month-today"),
-                    colors=ButtonDefaults.textButtonColors(contentColor=if(todayInk==Color.Unspecified) MaterialTheme.colorScheme.primary else todayInk),
-                    contentPadding=PaddingValues(horizontal=4.dp)) { Text("Сегодня") }
+            Row(Modifier.fillMaxWidth(), verticalAlignment=Alignment.CenterVertically, horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                Box(Modifier.weight(1f).testTag("month-description-name")) { heading() }
+                Button(onClick=onToday, modifier=Modifier.heightIn(min=48.dp).testTag("calendar-month-today"),
+                    colors=ButtonDefaults.buttonColors(
+                        containerColor=if(todayInk==Color.Unspecified) MaterialTheme.colorScheme.secondaryContainer else Color(0xff224b48),
+                        contentColor=if(todayInk==Color.Unspecified) MaterialTheme.colorScheme.onSecondaryContainer else todayInk),
+                    contentPadding=PaddingValues(horizontal=10.dp), shape=AffairsLayout.controlShape) {
+                    Text("Сегодня", maxLines=1, style=MaterialTheme.typography.labelMedium)
+                }
             }
             content()
         }
@@ -1138,18 +1159,15 @@ private fun ExperimentalSelectedDayCard(calendar: GenesisCalendar, date: LocalDa
         border = BorderStroke(1.dp, Color(0x66dfc17e)),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
         Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
-            Box(Modifier.fillMaxWidth().heightIn(min = 220.dp).testTag("calendar-day-hero")) {
-                OriginalImage(heroPath, heroTitle, Modifier.fillMaxWidth().height(300.dp).testTag("calendar-weekday-art"),
+            Box(Modifier.fillMaxWidth().testTag("calendar-day-hero")) {
+                OriginalImage(heroPath, heroTitle, Modifier.matchParentSize().testTag("calendar-weekday-art"),
                     lightThemeBrightness=1.25f)
-                Box(Modifier.fillMaxWidth().height(300.dp).background(if (lightHero) Brush.verticalGradient(
-                    0f to MaterialTheme.colorScheme.surface.copy(alpha = .12f),
-                    .40f to MaterialTheme.colorScheme.surface.copy(alpha = .20f),
-                    .65f to MaterialTheme.colorScheme.surface.copy(alpha = .93f),
-                    .84f to MaterialTheme.colorScheme.surface.copy(alpha = .99f),
-                    1f to MaterialTheme.colorScheme.surfaceContainerLow)
-                    else Brush.verticalGradient(0f to Color(0x15040e10), .45f to Color(0x55040e10), 1f to MaterialTheme.colorScheme.surfaceContainerLow)))
-                Column(Modifier.align(Alignment.BottomStart).fillMaxWidth()
-                    .padding(top=184.dp).padding(18.dp),
+                Box(Modifier.matchParentSize().background(if (lightHero) Brush.verticalGradient(
+                    0f to MaterialTheme.colorScheme.surface.copy(alpha = .72f),
+                    .55f to MaterialTheme.colorScheme.surface.copy(alpha = .76f),
+                    1f to MaterialTheme.colorScheme.surface.copy(alpha = .82f))
+                    else Brush.verticalGradient(0f to Color(0xb3040e10), 1f to Color(0xd6040e10))))
+                Column(Modifier.fillMaxWidth().padding(18.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(modeTitle, style = MaterialTheme.typography.labelMedium, color = heroAccent)
                     Text(primaryDate, style = MaterialTheme.typography.headlineSmall,
@@ -1166,8 +1184,7 @@ private fun ExperimentalSelectedDayCard(calendar: GenesisCalendar, date: LocalDa
                         }
                     } else {
                         Text(heroTitle, style = MaterialTheme.typography.titleMedium, color = heroInk)
-                        Text(heroDescription, style = MaterialTheme.typography.bodyMedium,
-                            color = heroSecondary, maxLines = if(mode==CalendarMode.LUNAR) 6 else 4)
+                        Text(heroDescription, style = MaterialTheme.typography.bodyMedium, color = heroSecondary)
                     }
                     moon?.event?.takeIf { it.isNotBlank() }?.let { event ->
                         Text(event, style=MaterialTheme.typography.labelMedium,color=heroAccent)
@@ -1206,7 +1223,7 @@ private fun CalendarYearOverview(calendar: GenesisCalendar, shown: LocalDate, mo
     gregorianYearStartsInMarch: Boolean, regionalSeasonArt: Boolean, seasonRegionZone: ZoneId,
     onStartGregorianYearInMarch: () -> Unit,
     voiceScrollToken: Int, voiceScrollDirection: String,
-    onMonth: (LocalDate) -> Unit, onYear: (LocalDate) -> Unit) {
+    onMonth: (LocalDate) -> Unit, onDay: (LocalDate) -> Unit, onYear: (LocalDate) -> Unit) {
     val period = if (mode == CalendarMode.PROFANE) LocalDate.of(
         shown.year - if (gregorianYearStartsInMarch && shown.monthValue < 3) 1 else 0,
         if (gregorianYearStartsInMarch) 3 else 1, 1)
@@ -1224,7 +1241,7 @@ private fun CalendarYearOverview(calendar: GenesisCalendar, shown: LocalDate, mo
                 gregorianYearStartsInMarch, regionalSeasonArt, seasonRegionZone,
                 springSuggestionDismissed, onStartGregorianYearInMarch,
                 { springSuggestionDismissed = true; suggestionPrefs.edit().putBoolean("spring-year-dismissed", true).apply() },
-                onMonth, previous, next,voiceScrollToken,voiceScrollDirection,page==period)
+                onMonth, onDay, previous, next,voiceScrollToken,voiceScrollDirection,page==period)
         }
     }
 }
@@ -1235,7 +1252,7 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
     gregorianYearStartsInMarch: Boolean, regionalSeasonArt: Boolean, seasonRegionZone: ZoneId,
     springSuggestionDismissed: Boolean, onStartGregorianYearInMarch: () -> Unit,
     onDismissSpringSuggestion: () -> Unit,
-    onMonth: (LocalDate) -> Unit,
+    onMonth: (LocalDate) -> Unit, onDay: (LocalDate) -> Unit,
     onPrevious: () -> Unit, onNext: () -> Unit,
     voiceScrollToken: Int, voiceScrollDirection: String, activePage: Boolean) {
     val locale = Locale.forLanguageTag(LocalGenesisLanguage.current)
@@ -1345,7 +1362,7 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
                             .testTag("calendar-year-solar-points"), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             events.chunked(if (yearColumns == 2) 4 else 2).forEach { pair ->
                                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    pair.forEach { event -> SolarPointTile(event, calendar, onMonth, Modifier.weight(1f)) }
+                                    pair.forEach { event -> SolarPointTile(event, calendar, onDay, Modifier.weight(1f)) }
                                 }
                             }
                         }
@@ -1440,18 +1457,18 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
                     verticalAlignment = Alignment.Top,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        androidx.compose.material3.Text(copy.title, color = Color(0xfffff5df),
+                        UntranslatedText(copy.title, color = Color(0xfffff5df),
                             style = MaterialTheme.typography.titleMedium)
-                        androidx.compose.material3.Text(copy.body, color = Color(0xffc8d9d4),
+                        UntranslatedText(copy.body, color = Color(0xffc8d9d4),
                             style = MaterialTheme.typography.bodySmall)
                         TextButton(onClick = onStartGregorianYearInMarch,
                             modifier = Modifier.testTag("spring-year-switch")) {
-                            androidx.compose.material3.Text(copy.action, color = Color(0xffdfc17e))
+                            UntranslatedText(copy.action, color = Color(0xffdfc17e))
                         }
                     }
                     IconButton(onClick = onDismissSpringSuggestion,
                         modifier = Modifier.size(48.dp).testTag("spring-year-dismiss")) {
-                        androidx.compose.material3.Text("×", color = Color(0xffdfc17e),
+                        UntranslatedText("×", color = Color(0xffdfc17e),
                             style = MaterialTheme.typography.headlineSmall,
                             modifier = Modifier.semantics { contentDescription = copy.dismiss })
                     }
@@ -1461,7 +1478,7 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
         }
         item(key = "year-description") {
         Box(Modifier.padding(horizontal = 10.dp)) {
-            CalendarYearDescriptionCard(calendar, shown, mode, gregorianYearStartsInMarch, onMonth)
+            CalendarYearDescriptionCard(calendar, shown, mode, gregorianYearStartsInMarch, onDay)
         }
         }
             }
@@ -1553,7 +1570,7 @@ private fun CalendarYearMonthCard(calendar: GenesisCalendar, start: LocalDate, m
                         color = gold, style = type.labelSmall)
                     Text(name, color = mainInk, style = type.titleLarge)
                     if (mode == CalendarMode.PROFANE) {
-                        androidx.compose.material3.Text(genesisTranslate(gregorianMonthOrigin(start.monthValue)), color = detailInk,
+                        UntranslatedText(genesisTranslate(gregorianMonthOrigin(start.monthValue)), color = detailInk,
                             style = type.bodySmall.copy(lineBreak = androidx.compose.ui.text.style.LineBreak.Heading), maxLines = 2,
                             autoSize = TextAutoSize.StepBased(minFontSize = 10.sp, maxFontSize = 12.sp))
                         Text(gregorianMonthNature(start.monthValue, seasonRegionZone), color = detailInk, style = type.bodySmall)

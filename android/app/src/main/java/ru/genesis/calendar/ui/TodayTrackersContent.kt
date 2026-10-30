@@ -1,5 +1,6 @@
 package ru.genesis.calendar.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -15,8 +16,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import ru.genesis.calendar.GenesisApplication
 import ru.genesis.calendar.data.*
-import ru.genesis.calendar.domain.CalendarMode
-import ru.genesis.calendar.domain.habits.TrackerEntity
 import ru.genesis.calendar.domain.trackers.*
 
 /** One account-scoped encrypted repository, shared with the sleep/mood screen and web workspace. */
@@ -44,39 +43,19 @@ internal fun TodayTrackersContent(app: GenesisApplication, date: LocalDate, pref
     var moodEditor by remember(date, repo) { mutableStateOf<List<MoodEntry>?>(null) }
     var sleepEditor by remember(date, repo) { mutableStateOf<Pair<SleepPlan, SleepEntry?>?>(null) }
     var abstinenceEditor by remember(date, repo) { mutableStateOf<Pair<AddictionTracker, AddictionEntry?>?>(null) }
-    var createAbstinence by remember(date, repo) { mutableStateOf(false) }
-    var chooseSleepPlan by remember(date, repo) { mutableStateOf(false) }
-    var planEditor by remember(date, repo) { mutableStateOf<SleepPlan?>(null) }
-    val newPlanTitle = genesisTranslate("Сон и пробуждение")
     val canEdit = !busy && date == LocalDate.now()
     val current = data
     if (current == null) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Сон и настроение", style = MaterialTheme.typography.titleMedium)
-        if (error == null) LinearProgressIndicator(Modifier.fillMaxWidth())
+        if (error == null) WorkspaceLoadingLine(Modifier.fillMaxWidth())
         else { Text(error!!, color = MaterialTheme.colorScheme.error); TextButton(onClick = { retry++ }) { Text("Повторить") } }
     } else {
         TodayTrackerCards(current, date, canEdit,
             onMood = { error = null; moodEditor = current.moodEntries },
             onSleep = { plan, entry -> error = null; sleepEditor = plan to entry },
             onAbstinence = { tracker, entry -> error = null; abstinenceEditor = tracker to entry },
-            onOpenSleep = { error = null; if (current.sleepPlans.isEmpty())
-                planEditor = SleepPlan(TrackerEntity.create("sleep-plan"), dailySleepSchedule(date, prefs.input), title = newPlanTitle)
-                else chooseSleepPlan = true },
-            onCreateAbstinence = { error = null; createAbstinence = true },
-            use24 = prefs.use24,
-            canCreateAbstinence = current.addictionDataLoaded || !app.workspaceScope.startsWith("account-"))
+            use24 = prefs.use24)
     }
-    if (chooseSleepPlan) AlertDialog(onDismissRequest = { chooseSleepPlan = false }, title = { Text("Выберите план сна") },
-        text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            current?.sleepPlans.orEmpty().forEach { plan -> TextButton(onClick = { chooseSleepPlan = false; planEditor = plan }) {
-                androidx.compose.material3.Text(plan.title)
-            } }
-            TextButton(onClick = { chooseSleepPlan = false; planEditor = SleepPlan(TrackerEntity.create("sleep-plan"),
-                dailySleepSchedule(date, prefs.input), title = newPlanTitle) }) { Text("Создать план сна") }
-        } }, confirmButton = {})
-    planEditor?.let { plan -> SleepPlanEditor(plan, prefs.use24, busy, error, { if (!busy) planEditor = null }) { next ->
-        if (canEdit) scope.launch { save({ repo.savePlan(next) }, { planEditor = null }) }
-    } }
     moodEditor?.let { snapshot ->
         val entry = snapshot.firstOrNull { it.date == date }
         MoodObservationEditor(snapshot, date, prefs.input, prefs.language, remember(app) { fullEmojiCatalog(app) }, busy, error,
@@ -97,80 +76,79 @@ internal fun TodayTrackersContent(app: GenesisApplication, date: LocalDate, pref
                 entry?.entity?.version ?: 0) }, { abstinenceEditor = null }) }
         }
     }
-    if (createAbstinence) {
-        var title by rememberSaveable { mutableStateOf("") }
-        AlertDialog(onDismissRequest = { if (!busy) createAbstinence = false }, title = { Text("Добавить трекер воздержания") },
-            text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(title, { if (it.length <= 500) title = it }, label = { Text("Наблюдаемое поведение") }, enabled = !busy,
-                    modifier = Modifier.fillMaxWidth().testTag("abstinence-name"))
-                Text("Каждый день", style = MaterialTheme.typography.bodySmall)
-                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            } }, confirmButton = { TextButton(enabled = canEdit && title.isNotBlank(), onClick = {
-                scope.launch { save({ repo.saveAddiction(AddictionTracker(TrackerEntity.create("addiction"),
-                    dailySleepSchedule(date, prefs.input), trackedBehavior = title.trim())) }, { createAbstinence = false }) }
-            }) { Text("Создать") } }, dismissButton = { TextButton(enabled = !busy, onClick = { createAbstinence = false }) { Text("Отмена") } })
-    }
 }
 
 @Composable
 internal fun TodayTrackerCards(data: LocalTrackersWorkspace, date: LocalDate, enabled: Boolean,
     onMood: () -> Unit, onSleep: (SleepPlan, SleepEntry?) -> Unit,
-    onAbstinence: (AddictionTracker, AddictionEntry?) -> Unit, onOpenSleep: () -> Unit,
-    onCreateAbstinence: () -> Unit, canCreateAbstinence: Boolean, use24: Boolean = true) {
+    onAbstinence: (AddictionTracker, AddictionEntry?) -> Unit, use24: Boolean = true) {
     val mood = data.moodEntries.firstOrNull { it.date == date }
     val sleep = data.sleepPlans.filter { it.active && TrackerSchedules.isScheduled(it.schedule, date) }
-    val abstinence = data.addictionTrackers.filter { it.status == "active" && TrackerSchedules.isScheduled(it.schedule, date) }
+    val abstinence = data.addictionTrackers.filter {
+        it.status == "active" && it.trackedBehavior.isNotBlank() && TrackerSchedules.isScheduled(it.schedule, date)
+    }
     Column(Modifier.fillMaxWidth().testTag("today-observations"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        HorizontalDivider()
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Column(Modifier.weight(1f)) {
-                Text("Настроение дня", style = MaterialTheme.typography.titleMedium)
+        TodayObservationSummary("Настроение дня", "heart-pulse",
+            if (mood == null) "Выбрать настроение" else "Изменить настроение",
+            "today-mood-edit", enabled, onMood,
+            actionText = if (mood == null) "Выбрать" else "Поменять") {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (mood != null) UntranslatedText(
+                    mood.customEmoji.ifBlank { MoodTracker.option(mood.moodValue.toDouble()).symbol },
+                    style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
                 if (mood == null) Text("Не выбрано", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                else androidx.compose.material3.Text(
-                    (mood.customEmoji.ifBlank { moodEmoji(mood.moodValue) }) + " " +
-                        (mood.customLabel.ifBlank { moodOptionLabel(mood.moodValue) }))
+                else if (mood.customLabel.isNotBlank()) UntranslatedText(mood.customLabel,
+                    style = MaterialTheme.typography.titleMedium)
+                else Text(moodOptionLabel(mood.moodValue), style = MaterialTheme.typography.titleMedium)
             }
-            AffairsIconButton(if (mood == null) "Выбрать настроение" else "Изменить настроение", AffairsAction.EDIT, onMood,
-                Modifier.testTag("today-mood-edit"), enabled)
         }
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Сон", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-            AffairsIconButton("Открыть планы сна", AffairsAction.SETTINGS, onOpenSleep, Modifier.testTag("today-sleep-plans"), enabled)
-        }
-        if (sleep.isEmpty()) Text("На этот день ничего не запланировано.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         sleep.forEach { plan ->
             val entry = data.sleepEntries.firstOrNull { it.planId == plan.id && it.date == date }
-            Row(Modifier.fillMaxWidth().testTag("today-sleep-${plan.id}"), verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Column(Modifier.weight(1f)) {
-                    androidx.compose.material3.Text(plan.title, style = MaterialTheme.typography.titleSmall)
+            Box(Modifier.testTag("today-sleep-${plan.id}")) {
+            TodayObservationSummary("Сон", "moon", "Запись сна", "today-sleep-edit-${plan.id}", enabled,
+                { onSleep(plan, entry) }) {
+                    UntranslatedText(plan.title, style = MaterialTheme.typography.titleMedium)
                     Text("Засыпание" + ": " + (entry?.fellAsleepAt?.let { timeLabel(it.toString(), use24) } ?: "—") +
                         " · " + "Пробуждение" + ": " + (entry?.wokeAt?.let { timeLabel(it.toString(), use24) } ?: "—"),
-                        style = MaterialTheme.typography.bodySmall)
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     entry?.quality?.let { Text("Качество: $it из 10", style = MaterialTheme.typography.bodySmall) }
-                }
-                AffairsIconButton("Запись сна", AffairsAction.EDIT, { onSleep(plan, entry) },
-                    Modifier.testTag("today-sleep-edit-${plan.id}"), enabled)
+            }
             }
         }
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Воздержание", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-            AffairsIconButton("Добавить трекер воздержания", AffairsAction.ADD, onCreateAbstinence,
-                Modifier.testTag("today-abstinence-add"), enabled && canCreateAbstinence)
-        }
-        if (!canCreateAbstinence) Text("Обновите данные аккаунта и повторите попытку.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        else if (abstinence.isEmpty()) Text("На этот день ничего не запланировано.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         abstinence.forEach { tracker ->
             val entry = data.addictionEntries.firstOrNull { it.trackerId == tracker.id && it.date == date }
-            Row(Modifier.fillMaxWidth().testTag("today-abstinence-${tracker.id}"), verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Column(Modifier.weight(1f)) {
-                    androidx.compose.material3.Text(tracker.trackedBehavior, style = MaterialTheme.typography.titleSmall)
-                    Text(when { entry?.relapse == true -> "Срыв"; entry?.cleanDay == true -> "Чистый день"; else -> "Не выбрано" })
+            Box(Modifier.testTag("today-abstinence-${tracker.id}")) {
+            TodayObservationSummary("Воздержание", "shield-check", "Итог дня", "today-abstinence-edit-${tracker.id}",
+                enabled, { onAbstinence(tracker, entry) }) {
+                    UntranslatedText(tracker.trackedBehavior, style = MaterialTheme.typography.titleMedium)
+                    Text(when { entry?.relapse == true -> "Срыв"; entry?.cleanDay == true -> "Чистый день"; else -> "Не выбрано" },
+                        color = if (entry?.relapse == true) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
                     if (entry != null) Text("Сила тяги" + ": ${entry.cravingIntensity}/10", style = MaterialTheme.typography.bodySmall)
-                }
-                AffairsIconButton("Итог дня", AffairsAction.EDIT, { onAbstinence(tracker, entry) },
-                    Modifier.testTag("today-abstinence-edit-${tracker.id}"), enabled)
+            }
+            }
+        }
+    }
+}
+
+/** The whole summary is a native touch target; no separate column of edit/setup buttons. */
+@Composable
+private fun TodayObservationSummary(title: String, icon: String, action: String, tag: String, enabled: Boolean,
+    onClick: () -> Unit, actionText: String? = null, content: @Composable ColumnScope.() -> Unit) {
+    Surface(onClick = onClick, enabled = enabled, shape = AffairsLayout.shape,
+        color = MaterialTheme.colorScheme.surfaceContainerLowest,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 80.dp).testTag(tag).genesisDescription(action)) {
+        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            GenesisLucideIcon(icon, Modifier.size(24.dp), MaterialTheme.colorScheme.primary)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                content()
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                actionText?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary) }
+                GenesisLucideIcon("chevron-right", Modifier.size(20.dp), MaterialTheme.colorScheme.primary)
             }
         }
     }
@@ -187,7 +165,7 @@ internal fun AbstinenceObservationEditor(tracker: AddictionTracker, entry: Addic
     Dialog(onDismissRequest = onDismiss) { Surface(shape = MaterialTheme.shapes.large) {
         Column(Modifier.padding(16.dp).imePadding().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             EditorDialogHeader("Воздержание", "abstinence-close", onDismiss)
-            androidx.compose.material3.Text(tracker.trackedBehavior, style = MaterialTheme.typography.titleMedium)
+            UntranslatedText(tracker.trackedBehavior, style = MaterialTheme.typography.titleMedium)
             FilterChip(clean, { clean = true; relapse = false }, enabled = !busy, label = { Text("Чистый день") },
                 modifier = Modifier.heightIn(min = 48.dp).testTag("abstinence-clean"))
             FilterChip(relapse, { relapse = true; clean = false }, enabled = !busy, label = { Text("Срыв") },

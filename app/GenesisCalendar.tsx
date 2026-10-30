@@ -7156,6 +7156,7 @@ export function GenesisCalendar() {
                     onSelectedSectorClosed={clearRequestedTheokyklosSector}
                     onChange={updateHabitWorkspace}
                     onOpenHabits={() => navigateTo("habits")}
+                    onOpenStoicheion={() => navigateTo("stoicheion")}
                   />
                 </Suspense>
               ) : null}

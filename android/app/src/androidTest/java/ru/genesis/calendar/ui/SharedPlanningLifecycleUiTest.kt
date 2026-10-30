@@ -18,13 +18,16 @@ import org.junit.After
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
+import ru.genesis.calendar.BuildConfig
 import ru.genesis.calendar.PagerTestActivity
 import ru.genesis.calendar.auth.*
 import java.util.UUID
 import java.io.File
 
 private class LifecycleFixture(active: Boolean = false) : SharedWorkspaceGateway, PlanningDraftAccess {
-    val context = InstrumentationRegistry.getInstrumentation().targetContext.also { check(it.packageName == "ru.genesis.calendar.g1qa.debug") }
+    val context = InstrumentationRegistry.getInstrumentation().targetContext.also {
+        check(BuildConfig.DEBUG && it.packageName in setOf("ru.genesis.calendar.g1qa.debug", "ru.genesis.calendar.v313.debug"))
+    }
     val account = "qa-lifecycle-${UUID.randomUUID()}"
     val store = PlanningDraftStore(context)
     @Volatile var diskFailure = false

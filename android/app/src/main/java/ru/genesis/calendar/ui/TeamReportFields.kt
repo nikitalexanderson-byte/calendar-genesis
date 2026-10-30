@@ -102,7 +102,7 @@ import java.time.ZoneId
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Checkbox(id in selected, { checked -> edit { it.put("cycleStartStatusIds", JSONArray(selected.filterNot { value -> value == id } + if (checked) listOf(id) else emptyList())) } }, enabled = enabled,
                 modifier = Modifier.testTag("team-cycle-$id"))
-            androidx.compose.material3.Text(status.getString("title"), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+            UntranslatedText(status.getString("title"), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
         }
         } }
         if (limit < statuses.size) OutlinedButton({ limit += 5 }, enabled = enabled, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Показать ещё") }

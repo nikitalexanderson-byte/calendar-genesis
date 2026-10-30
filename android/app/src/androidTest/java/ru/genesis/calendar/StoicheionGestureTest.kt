@@ -46,4 +46,5 @@ class StoicheionGestureTest {
 
     @Test fun fingerDrawsDailyCard() = fingerCompletes("daily")
     @Test fun fingerDrawsNineCardSpread() = fingerCompletes("spread")
+    @Test fun fingerDrawsThreeCardTimeline() = fingerCompletes("timeline")
 }

@@ -84,6 +84,7 @@ data class AccountSettings(
     val advicePreferences: AdvicePreferences = AdvicePreferences(),
     val adviceAvailableCategories: List<String> = listOf("aretology", "hestiology"),
     val adviceCatalogAvailable: Boolean = true,
+    val featureAccess: FeatureAccess = FeatureAccess(),
 ) {
     companion object {
         fun fromResponse(response: JSONObject): AccountSettings? {
@@ -130,7 +131,8 @@ data class AccountSettings(
                 UiVisibility.fromJson(user.optJSONObject("uiVisibility")),
                 AdvicePreferences.fromJson(user.optJSONObject("advicePreferences")),
                 user.optJSONArray("adviceAvailableCategories")?.strings()?.filter { it in adviceCategories } ?: listOf("aretology", "hestiology"),
-                user.optBoolean("adviceCatalogAvailable", true))
+                user.optBoolean("adviceCatalogAvailable", true),
+                FeatureAccess.fromJson(user.optJSONObject("featureAccess")))
         }
     }
 }

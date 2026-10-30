@@ -8,7 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.*
-import androidx.compose.material3.Text as NativeText
+import ru.genesis.calendar.ui.UntranslatedText as NativeText
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -227,10 +227,10 @@ import kotlin.math.min
                 Image(bitmap.asImageBitmap(), null, Modifier.fillMaxSize().testTag("daily-advice-art"),
                     contentScale = ContentScale.Crop)
                 Box(Modifier.matchParentSize().background(Brush.horizontalGradient(
-                    0f to surface.copy(alpha = if (LocalEveningTheme.current) .84f else .90f),
-                    .40f to surface.copy(alpha = .86f),
-                    .70f to surface.copy(alpha = .76f),
-                    1f to surface.copy(alpha = if (LocalEveningTheme.current) .58f else .76f))))
+                    0f to surface.copy(alpha = if (LocalEveningTheme.current) .80f else .78f),
+                    .40f to surface.copy(alpha = .76f),
+                    .70f to surface.copy(alpha = .72f),
+                    1f to surface.copy(alpha = if (LocalEveningTheme.current) .64f else .70f))))
             }
             Column(Modifier.padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -262,8 +262,8 @@ import kotlin.math.min
                         listOf(source.author, source.work, source.reference).filter { it.isNotBlank() }.joinToString(" · "),
                         style = MaterialTheme.typography.bodySmall)
                 }
-                Row(Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().testTag("daily-advice-actions"),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
                     val favoriteLabel = genesisTranslate("Избранное")
                     val dislikeLabel = genesisTranslate("Не нравится")
                     IconToggleButton(checked = reaction == "favorite", onCheckedChange = { onReaction?.invoke("favorite") },
@@ -293,7 +293,7 @@ import kotlin.math.min
                 }
                 if (shareFailed) NativeText(copy.getString("shareError"), color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.testTag("daily-advice-share-error").semantics { liveRegion = LiveRegionMode.Polite })
-                if (reactionBusy) LinearProgressIndicator(Modifier.fillMaxWidth())
+                if (reactionBusy) WorkspaceLoadingLine(Modifier.fillMaxWidth())
                 if (reactionError) Text("Не удалось сохранить. Черновик остаётся в дневнике.",
                     color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 if (nextError) NativeText(copy.getString("nextError"), color = MaterialTheme.colorScheme.error,

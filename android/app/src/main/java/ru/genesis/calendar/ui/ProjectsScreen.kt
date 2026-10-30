@@ -151,7 +151,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
     }
     if (loadedStructure == null) {
         Box(Modifier.fillMaxSize().testTag("projects-loading"), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
+            WorkspaceLoadingIndicator()
         }
         return
     }
@@ -517,7 +517,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
                 }
                 structure.categories.firstOrNull { it.id == selectedCategory }?.let { category ->
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        androidx.compose.material3.Text(category.name, Modifier.weight(1f),
+                        UntranslatedText(category.name, Modifier.weight(1f),
                             style = MaterialTheme.typography.labelLarge)
                         TextButton(onClick = { selectCategory(null) }, modifier = Modifier.heightIn(min = 48.dp)
                             .testTag("personal-reset-category")) { Text("Сбросить") }
@@ -553,7 +553,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
                     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         GenesisVectorIcon(GenesisPageIcon.PROJECTS, Modifier.size(24.dp), MaterialTheme.colorScheme.primary)
-                        androidx.compose.material3.Text(if (experimental) projectHierarchyLabel(project.title, depth)
+                        UntranslatedText(if (experimental) projectHierarchyLabel(project.title, depth)
                             else projectTreeLabel(project.title, depth), Modifier.weight(1f),
                             style = MaterialTheme.typography.titleMedium)
                         Text("$count", style = MaterialTheme.typography.labelLarge)
@@ -644,12 +644,12 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
     WorkspaceSearchDock(searchQuery, { searchQuery = it }, "Поиск задач", "personal-task-search",
         Modifier.align(Alignment.BottomCenter), below = {
             if (categoryFiltersOpen || categoriesExpanded) categoriesContent()
-        }) {
+        }, controls = {
             TaskListSortChoice(taskSort, setTaskSort, Modifier, compact = true, iconOnly = true)
             AffairsIconButton("Категории жизни", AffairsAction.FILTER,
                 { categoryFiltersOpen = !categoryFiltersOpen }, Modifier.testTag("personal-category-filters"),
                 selected = categoryFiltersOpen || selectedCategory != null)
-    }
+        }, active = selectedCategory != null)
     pickup?.let { held ->
         ProjectDropOverlay(held, experimental, workspaceBounds)
     }
@@ -840,7 +840,7 @@ private fun TaskDestinationMenu(task: LocalTask, projects: List<GenesisProject>,
             Column(Modifier.fillMaxWidth().heightIn(max = 580.dp).padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 EditorDialogHeader("Куда перенести задачу?", "project-destination-close") { open = false }
-                androidx.compose.material3.Text(task.title, style = MaterialTheme.typography.bodyMedium)
+                UntranslatedText(task.title, style = MaterialTheme.typography.bodyMedium)
                 OutlinedTextField(query, { query = it }, label = { Text("Найти проект") },
                     singleLine = true, modifier = Modifier.fillMaxWidth().testTag("project-destination-search"))
                 Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())
@@ -861,7 +861,7 @@ private fun TaskDestinationMenu(task: LocalTask, projects: List<GenesisProject>,
                                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp)) {
                                 Column(Modifier.fillMaxWidth().padding(start = (depth * 16).dp),
                                     horizontalAlignment = Alignment.Start) {
-                                    androidx.compose.material3.Text(projectHierarchyLabel(project.title, depth),
+                                    UntranslatedText(projectHierarchyLabel(project.title, depth),
                                         style = MaterialTheme.typography.titleSmall)
                                     project.parentId?.let {
                                         Text("В составе: ${projectBreadcrumb(projects, it)}",

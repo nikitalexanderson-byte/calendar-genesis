@@ -1,5 +1,10 @@
 package ru.genesis.calendar.ui
 
+import android.accessibilityservice.AccessibilityServiceInfo
+import android.content.res.Configuration
+import android.graphics.Rect
+import android.provider.Settings
+import android.view.accessibility.AccessibilityWindowInfo
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -12,6 +17,8 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.unit.Density
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.By
+import androidx.test.uiautomator.Until
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.*
@@ -76,11 +83,21 @@ class SharedTeamReportUiTest {
         compose.runOnIdle { fixture = value; epoch++; closed = false }
         compose.waitUntil(10000) { runCatching { compose.onNodeWithTag("team-open-all").assertIsEnabled() }.isSuccess }
     }
+    private fun assertScrollableViewport() {
+        val bounds = compose.onNodeWithTag("team-content").fetchSemanticsNode().boundsInRoot
+        assertTrue("The team report must have a non-zero scroll viewport before searching for an offscreen control: $bounds",
+            bounds.width > 0f && bounds.height > 0f)
+    }
     private fun click(tag: String) {
-        if (compose.onAllNodesWithTag(tag, useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
+        if (compose.onAllNodesWithTag(tag, useUnmergedTree = true).fetchSemanticsNodes().isEmpty()) {
+            assertScrollableViewport()
             compose.onNodeWithTag("team-content").performScrollToNode(hasTestTag(tag))
+        }
         val node = compose.onNodeWithTag(tag, useUnmergedTree = true)
-        if (runCatching { node.assertIsDisplayed() }.isFailure) node.performScrollTo()
+        if (runCatching { node.assertIsDisplayed() }.isFailure) {
+            assertScrollableViewport()
+            node.performScrollTo()
+        }
         node.assertIsEnabled().performClick(); compose.waitForIdle()
     }
     private fun pane(name: String) {
@@ -111,6 +128,53 @@ class SharedTeamReportUiTest {
         pane("conditions"); compose.onNodeWithTag("team-time-zone").assertTextContains("America/New_York")
         click("team-apply"); pane("summary"); compose.onNodeWithTag("team-open-all").assertExists(); assertEquals(2, f.reports)
         assertEquals("America/New_York", f.lastOptions!!.getJSONObject("calendarContext").getString("timeZone"))
+    }
+    @Test fun landscapeSystemKeyboardKeepsConditionsAndReportReachable() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val device = UiDevice.getInstance(instrumentation)
+        val automation = instrumentation.uiAutomation
+        val originalFlags = automation.serviceInfo.flags
+        val keyboard = requireNotNull(Settings.Secure.getString(instrumentation.targetContext.contentResolver,
+            Settings.Secure.DEFAULT_INPUT_METHOD)).substringBefore('/')
+        try {
+            device.setOrientationLeft()
+            compose.waitUntil(10_000) { compose.activity.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE }
+            val f = TeamUiFixture(); show(f); pane("conditions")
+            compose.onNodeWithTag("team-time-zone").performScrollTo().performTouchInput { click() }
+            assertTrue("The regression must use the real system IME", device.wait(Until.hasObject(By.pkg(keyboard)), 10_000))
+            compose.onNodeWithTag("team-time-zone").performTextReplacement("America/New_York")
+            automation.serviceInfo = automation.serviceInfo.apply { flags = flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS }
+            compose.waitUntil(10_000) {
+                val input = compose.onNodeWithTag("team-time-zone").fetchSemanticsNode()
+                input.boundsInWindow.height >= input.size.height - 1f
+            }
+            val input = compose.onNodeWithTag("team-time-zone").assertIsFocused().fetchSemanticsNode()
+            val imeWindow = requireNotNull(automation.windows.firstOrNull { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD })
+            val imeBounds = Rect().also(imeWindow::getBoundsInScreen)
+            val viewport = compose.onNodeWithTag("team-content").fetchSemanticsNode().boundsInWindow
+            val actualDensity = requireNotNull(density).density
+            assertScrollableViewport()
+            assertTrue("The focused input must remain fully visible above the real system keyboard",
+                input.boundsInWindow.height >= input.size.height - 1f && input.boundsInWindow.bottom <= imeBounds.top + 1f)
+            assertTrue("The landscape IME must leave enough report space for a full input row", viewport.height >= 56f * actualDensity - 1f)
+            val proof = JSONObject().put("imeBounds", imeBounds.toShortString()).put("inputBounds", input.boundsInWindow.toString())
+                .put("inputFullHeight", input.size.height).put("viewportBounds", viewport.toString()).put("density", actualDensity.toDouble())
+            File(instrumentation.targetContext.filesDir, "team-landscape-ime-proof.json").writeText(proof.toString())
+            assertTrue(device.takeScreenshot(File(instrumentation.targetContext.filesDir, "team-landscape-ime.png")))
+
+            // Leave the real keyboard open: navigation must work in the constrained viewport.
+            pane("summary"); compose.onNodeWithTag("team-open-all").assertDoesNotExist()
+            pane("conditions"); compose.onNodeWithTag("team-time-zone").assertTextContains("America/New_York")
+            click("team-apply"); pane("summary"); compose.onNodeWithTag("team-open-all").assertExists()
+            assertEquals(2, f.reports)
+            assertEquals("America/New_York", f.lastOptions!!.getJSONObject("calendarContext").getString("timeZone"))
+            assertFalse(closed)
+        } finally {
+            runCatching { device.pressBack() }
+            automation.serviceInfo = automation.serviceInfo.apply { flags = originalFlags }
+            device.setOrientationNatural()
+            device.unfreezeRotation()
+        }
     }
     @Test fun aChangedReportCannotOpenAnOldTaskAndOfflineClearsResults() {
         val f = TeamUiFixture(); show(f); click("team-open-all")

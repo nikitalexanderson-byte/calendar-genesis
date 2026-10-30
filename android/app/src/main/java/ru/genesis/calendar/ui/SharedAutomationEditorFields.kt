@@ -40,7 +40,7 @@ import java.time.ZoneId
     if (trigger.has("time")) {
         Text("Время", style = MaterialTheme.typography.titleSmall)
         if (enabled) Box(Modifier.testTag("automation-editor-time")) { AuthorTimePicker(trigger.getString("time"), preferences.use24) { value -> state.mutate { it.getJSONObject("definition").getJSONObject("trigger").put("time", value) } } }
-        else androidx.compose.material3.Text(timeLabel(trigger.getString("time"), preferences.use24), style = MaterialTheme.typography.bodyMedium)
+        else UntranslatedText(timeLabel(trigger.getString("time"), preferences.use24), style = MaterialTheme.typography.bodyMedium)
     }
     if (trigger.getString("type") == "schedule") {
         ImportChoice("Применять к", trigger.getString("target"), listOf("tasks" to genesisTranslate("Задачи"), "project" to genesisTranslate("Проект")), enabled, "automation-editor-target") { value ->
@@ -91,7 +91,7 @@ import java.time.ZoneId
         rows.take(limit).forEachIndexed { index, row -> key(SharedAutomationEditorEdits.rowKey(edit, actions, index)) {
             val tag = "automation-editor-${if (actions) "action" else "condition"}-$index"
             Row(Modifier.fillMaxWidth().testTag(tag), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                androidx.compose.material3.Text(genesisTranslate(if (actions) "Действие" else "Условие") + " " + number.format(index + 1), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                UntranslatedText(genesisTranslate(if (actions) "Действие" else "Условие") + " " + number.format(index + 1), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
                 AffairsIconButton("Выше", AffairsAction.BACK, { state.mutate { SharedAutomationEditorEdits.move(it, actions, index, index - 1) } }, Modifier.rotate(90f).testTag("$tag-up"), enabled && index > 0)
                 AffairsIconButton("Ниже", AffairsAction.BACK, { state.mutate { SharedAutomationEditorEdits.move(it, actions, index, index + 1) } }, Modifier.rotate(270f).testTag("$tag-down"), enabled && index < rows.lastIndex)
                 AffairsIconButton("Удалить", AffairsAction.DELETE, { state.mutate { SharedAutomationEditorEdits.remove(it, actions, index) } }, Modifier.testTag("$tag-remove"), enabled && (!actions || rows.size > 1))
@@ -125,7 +125,7 @@ import java.time.ZoneId
         }
     }
     if (operator !in setOf("missing", "present")) when (field) {
-        "project" -> state.project?.let { androidx.compose.material3.Text(it.getString("title"), style = MaterialTheme.typography.bodyMedium) }
+        "project" -> state.project?.let { UntranslatedText(it.getString("title"), style = MaterialTheme.typography.bodyMedium) }
         "custom" -> AutomationEditorTypedValue(state, row, false, index, definition, operator in setOf("contains", "notContains"))
         else -> AutomationEditorReference(state, row, false, index, field, "$tag-value")
     }
@@ -239,7 +239,7 @@ import java.time.ZoneId
             .toggleable(id in ids, enabled, Role.Checkbox) { value -> onChange(JSONArray(ids.filterNot { it == id } + if (value) listOf(id) else emptyList())) }
             .semantics(mergeDescendants = true) { contentDescription = title }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Checkbox(id in ids, null, enabled = enabled, modifier = Modifier.clearAndSetSemantics { })
-            androidx.compose.material3.Text(title, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+            UntranslatedText(title, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
         } }
         if (choices.size > limit) TemplateOutlinedButton({ limit += 5 }, Modifier.fillMaxWidth()) { Text("Показать ещё") }
         if (ids.isNotEmpty()) TemplateOutlinedButton({ onChange(JSONArray()) }, Modifier.fillMaxWidth().testTag("$tag-clear"), enabled) { Text("Очистить") }
