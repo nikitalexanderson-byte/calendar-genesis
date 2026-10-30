@@ -14,6 +14,8 @@ import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
 import java.io.File
@@ -47,6 +49,18 @@ class HabitHistoryFlowTest {
         val ids = setOf(binary.id,quantity.id)
         val rendered = AtomicReference<Pair<LocalHabitWorkspace, LocalHabitWorkspace>?>(null)
         val syntheticNote = "Синтетическая историческая запись"
+        val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+        fun hideImeBeforePreview() {
+            fun visible() = compose.runOnIdle {
+                ViewCompat.getRootWindowInsets(compose.activity.window.decorView)?.isVisible(WindowInsetsCompat.Type.ime()) == true
+            }
+            // Production's MobileWorkspaceShell consumes IME insets; this isolated panel host does not.
+            // Close only an observed keyboard with the normal Back action, preserving entered values.
+            if (visible()) {
+                assertTrue(device.pressBack())
+                compose.waitUntil(5000) { !visible() }
+            }
+        }
         // Seed an older imported practice only in the guarded synthetic debug workspace.
         // Production creation correctly refuses a start date in the past.
         runBlocking { app.database.withTransaction {
@@ -61,8 +75,9 @@ class HabitHistoryFlowTest {
         try {
             compose.setContent {
                 val all by repository.workspace.collectAsState(initial = LocalHabitWorkspace())
-                val shown = all.copy(habits = all.habits.filter { it.id in ids })
-                SideEffect { rendered.set(all to shown) }
+                val complete = all
+                val shown = complete.copy(habits = complete.habits.filter { it.id in ids })
+                SideEffect { rendered.set(complete to shown) }
                 MaterialTheme(colorScheme = if(dark) evening else standart) {
                     CompositionLocalProvider(LocalGenesisLanguage provides "ru",LocalEveningTheme provides dark) {
                         Surface(Modifier.fillMaxSize().safeDrawingPadding()) {
@@ -79,6 +94,7 @@ class HabitHistoryFlowTest {
             compose.onNodeWithText("Исправить историю").performClick()
             compose.onAllNodes(isToggleable()).onFirst().performScrollTo().performClick()
             compose.onNodeWithText("Заметка").performScrollTo().performTextReplacement(syntheticNote)
+            hideImeBeforePreview()
             val previewAction = compose.onNodeWithText("Предпросмотр изменений").performScrollTo()
             val previewSource = compose.runOnIdle { rendered.get() }
             val previewInstant = Instant.now()
@@ -98,7 +114,6 @@ class HabitHistoryFlowTest {
             } }
             previewAction.performClick()
             assertTrue(saved().history.none { it.habitId in ids })
-            val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
             // Observe the failure without changing the scenario, retrying, or writing either probe to the repository.
             if (compose.onAllNodesWithText("Сохранить").fetchSemanticsNodes().isEmpty()) runCatching {
                 fun counts(value: LocalHabitWorkspace): JSONObject {
@@ -179,6 +194,7 @@ class HabitHistoryFlowTest {
             compose.onNodeWithText(quantity.title).performClick()
             assertTrue(saved().measurements.none { it.habitId == quantity.id })
             compose.onNodeWithText("Значение").performScrollTo().performTextReplacement("1")
+            hideImeBeforePreview()
             val measuredAction = compose.onNodeWithText("Предпросмотр изменений").performScrollTo()
             val measuredSource = compose.runOnIdle { rendered.get() }
             val measuredInstant = Instant.now()

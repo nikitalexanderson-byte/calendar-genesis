@@ -40,6 +40,11 @@ class HabitTimerFlowTest {
         check(BuildConfig.DEBUG && app.packageName.endsWith(".debug") && app.workspaceScope == "internal-validation-v1")
         val repository = HabitsRepository(app)
         fun saved() = runBlocking { repository.workspace.first() }
+        fun readyAction(tag: String): SemanticsNodeInteraction {
+            // A committed Room state can precede completion of the UI command callback.
+            compose.waitUntil(15_000) { runCatching { compose.onNodeWithTag(tag).assertIsEnabled() }.isSuccess }
+            return compose.onNodeWithTag(tag).performScrollTo().assertIsEnabled()
+        }
         runBlocking {
             HabitTimers.sessions(saved().timers).filter { it.root.owner == repository.timerOwner && it.state?.status !in setOf("saved", "discarded") }
                 .forEach { repository.applyTimer(HabitTimerCommand("discard", repository.timerOwner, Instant.now().toString(), UUID.randomUUID().toString(), it.id)) }
@@ -64,13 +69,14 @@ class HabitTimerFlowTest {
         }
         compose.setContent {
             val workspace by repository.workspace.collectAsState(initial = LocalHabitWorkspace())
-            SideEffect { renderedTimer.set(workspace) }
+            val timerInput = workspace
+            SideEffect { renderedTimer.set(timerInput) }
             MaterialTheme(colorScheme = if (dark) evening else standart) {
                 CompositionLocalProvider(LocalGenesisLanguage provides "ru", LocalEveningTheme provides dark) {
                     Surface(Modifier.fillMaxSize().safeDrawingPadding()) {
                         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
                             key(mount) {
-                                HabitTimerShelf(workspace, repository.timerOwner, requested, { requested = null }) { command ->
+                                HabitTimerShelf(timerInput, repository.timerOwner, requested, { requested = null }) { command ->
                                     trace("entered", command)
                                     try {
                                         if (command.action == "save" && failSave) { failSave = false; error("Synthetic durable storage failure") }
@@ -126,10 +132,11 @@ class HabitTimerFlowTest {
             throw failure
         }
         val sessionId = HabitTimers.sessions(saved().timers).single { it.root.habitId == habit.id }.id
+        val pauseAction = readyAction("habit-timer-pause")
         val pauseBefore = compose.onAllNodesWithTag("habit-timer-pause").fetchSemanticsNodes()
             .map { !it.config.contains(SemanticsProperties.Disabled) }
         val traceBeforePause = JSONArray(commandTrace.toList())
-        compose.onNodeWithTag("habit-timer-pause").performScrollTo().performClick()
+        pauseAction.performClick()
         try {
             compose.waitUntil(15_000) { HabitTimers.sessions(saved().timers).single { it.id == sessionId }.state?.status == "paused" }
         } catch (failure: Throwable) {
@@ -165,21 +172,21 @@ class HabitTimerFlowTest {
             compose.onAllNodesWithTag("habit-timer-resume").fetchSemanticsNodes().isNotEmpty()
         }.getOrDefault(false) }
         compose.runOnIdle { mount++; dark = true }
-        compose.onNodeWithTag("habit-timer-resume").performScrollTo().assertIsEnabled().performClick()
+        readyAction("habit-timer-resume").performClick()
         compose.waitUntil(15_000) { HabitTimers.sessions(saved().timers).single { it.id == sessionId }.state?.status == "running" }
         val recovered = runBlocking { HabitsRepository(app).workspace.first() }
         assertTrue(HabitTimers.reading(HabitTimers.sessions(recovered.timers).single { it.id == sessionId }.state!!).workMs >= paused)
-        compose.onNodeWithTag("habit-timer-finish").performScrollTo().performClick()
+        readyAction("habit-timer-finish").performClick()
         compose.waitUntil(15_000) { HabitTimers.sessions(saved().timers).single { it.id == sessionId }.state?.status == "finished" }
         compose.onNodeWithTag("habit-timer-review").performScrollTo().assertExists()
         assertTrue(device.takeScreenshot(File(app.getExternalFilesDir(null), "e1-timer-review-dark.png")))
         compose.runOnIdle { dark = false }
-        compose.onNodeWithTag("habit-timer-save").performScrollTo()
+        readyAction("habit-timer-save")
         assertTrue(device.takeScreenshot(File(app.getExternalFilesDir(null), "e1-timer-review-light.png")))
-        compose.onNodeWithTag("habit-timer-save").performClick()
-        compose.onNodeWithTag("habit-timer-retry").performScrollTo().assertIsEnabled()
+        readyAction("habit-timer-save").performClick()
+        readyAction("habit-timer-retry")
         assertEquals("finished", HabitTimers.sessions(saved().timers).single { it.id == sessionId }.state!!.status)
-        compose.onNodeWithTag("habit-timer-retry").performClick()
+        readyAction("habit-timer-retry").performClick()
         compose.waitUntil(15_000) { HabitTimers.sessions(saved().timers).single { it.id == sessionId }.state?.status == "saved" }
         val result = saved()
         assertEquals(1, result.measurements.count { it.habitId == habit.id })

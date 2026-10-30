@@ -1,7 +1,7 @@
 package ru.genesis.calendar
 
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
 import kotlinx.coroutines.flow.first
@@ -37,8 +37,31 @@ class CalendarAndTodayFlowTest {
                 compose.onAllNodes(hasTestTag("app-theme-Standart") or hasTestTag("app-theme-Evening")).fetchSemanticsNodes().isNotEmpty()
             }
             compose.onNodeWithTag("workspace-title").assertTextEquals("Сегодня")
-            compose.onNodeWithTag("today-hero-copy", useUnmergedTree = true).assertExists()
-            compose.onNodeWithTag("today-hero-description", useUnmergedTree = true).assertExists()
+            try {
+                // The theme surface already existed before the preference write. Wait
+                // for the actual calendar content, and compose its lazy item first.
+                compose.scrollToTodayNode(hasTestTag("today-hero"))
+                compose.waitUntil(10_000) {
+                    compose.onAllNodes(hasTestTag("today-calendar-name") and hasText(
+                        ru.genesis.calendar.ui.mobileCalendarCopy("ru").calendarName(CalendarMode.SACRED)),
+                        useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+                }
+                compose.onNodeWithTag("today-hero-copy", useUnmergedTree = true).assertExists()
+                compose.onNodeWithTag("today-hero-description", useUnmergedTree = true).assertExists()
+            } catch (failure: Throwable) {
+                runCatching {
+                    val stored = runBlocking { prefs.values.first() }
+                    val visibility = ru.genesis.calendar.auth.AuthController.get(app).state.value.accountSettings?.uiVisibility
+                    val proof = org.json.JSONObject().put("stage", "actual-sacred-today-hero")
+                        .put("storedDisplay", stored.display.wireValue).put("language", stored.language)
+                        .put("sacredFeaturesEnabled", visibility?.sacredFeaturesEnabled ?: true)
+                        .put("hero", runCatching { compose.onNodeWithTag("today-hero", useUnmergedTree = true)
+                            .printToString() }.getOrElse { it.javaClass.simpleName })
+                    File(app.getExternalFilesDir(null), "today-hero313-failure.json").writeText(proof.toString(2))
+                    captureNativeWindow(File(app.getExternalFilesDir(null), "today-hero313-failure.png"))
+                }.exceptionOrNull()?.let(failure::addSuppressed)
+                throw failure
+            }
             compose.scrollToTodayNode(hasTestTag("today-day-details"))
             compose.onNodeWithTag("today-day-details").assertIsDisplayed()
             compose.onNodeWithTag("day-knowledge").assertExists()

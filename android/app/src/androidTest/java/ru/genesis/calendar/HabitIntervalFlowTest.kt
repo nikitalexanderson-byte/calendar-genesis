@@ -60,23 +60,24 @@ class HabitIntervalFlowTest {
         compose.waitUntil(15_000) { saved().habits.any { it.title==title } }
         val habit=saved().habits.single { it.title==title }
         assertEquals(listOf("09:00","09:30","10:00"),habit.intervalSchedule!!.times())
-        compose.onNodeWithTag("habit-interval-marks-toggle").performScrollTo().performClick()
         val ownCard = hasAnyAncestor(hasTestTag("habit-card-${habit.id}"))
+        fun ownNode(tag: String) = compose.onNode(hasTestTag(tag) and ownCard)
+        ownNode("habit-interval-marks-toggle").performScrollTo().performClick()
         val gridsAfterOpen = compose.onAllNodes(hasTestTag("habit-interval-grid") and ownCard).fetchSemanticsNodes().size
         for(time in listOf("09:00","09:30","10:00")) {
-            compose.onNodeWithTag("habit-interval-mark-$time").performScrollTo().performClick()
+            ownNode("habit-interval-mark-$time").performScrollTo().performClick()
             compose.waitUntil(15_000) { saved().completions.firstOrNull { it.habitId==habit.id }?.completedTimes?.contains(time)==true }
         }
         val entry=saved().completions.single { it.habitId==habit.id && it.date==LocalDate.now() }
         assertTrue(entry.completed)
         assertEquals(10,entry.xpAwarded)
-        compose.waitUntil(15_000) { compose.onAllNodesWithText("3 / 3",substring=true).fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithTag("habit-interval-marks-toggle").performScrollTo()
+        compose.waitUntil(15_000) { compose.onAllNodes(hasText("3 / 3", substring = true) and ownCard).fetchSemanticsNodes().isNotEmpty() }
+        ownNode("habit-interval-marks-toggle").performScrollTo()
         compose.waitForIdle()
         screenshot("marked")
         // A fresh repository reads the encrypted persisted document.
         assertTrue(runBlocking { HabitsRepository(app).workspace.first() }.completions.single { it.habitId==habit.id }.completed)
-        if (compose.onAllNodesWithTag("habit-interval-mark-09:30").fetchSemanticsNodes().isEmpty()) runCatching {
+        if (compose.onAllNodes(hasTestTag("habit-interval-mark-09:30") and ownCard).fetchSemanticsNodes().isEmpty()) runCatching {
             val state = saved(); val current = state.completions.single { it.habitId == habit.id && it.date == LocalDate.now() }
             val proof = JSONObject().put("checkpoint", "before-original-unmark")
                 .put("syntheticHabitId", habit.id).put("revision", state.revision).put("completed", current.completed)
@@ -92,7 +93,7 @@ class HabitIntervalFlowTest {
                 File(app.getExternalFilesDir(null), "habit-interval-missing-unmark.png")))
             File(app.getExternalFilesDir(null), "habit-interval-missing-unmark.json").writeText(proof.toString(2))
         }.onFailure { android.util.Log.e("GENESIS_INTERVAL_DIAG", "Passive interval diagnostic failed: ${it.javaClass.simpleName}") }
-        compose.onNodeWithTag("habit-interval-mark-09:30").performScrollTo().performClick()
+        ownNode("habit-interval-mark-09:30").performScrollTo().performClick()
         compose.waitUntil(15_000) { saved().completions.single { it.habitId==habit.id }.completed.not() }
         val editButton=hasTestTag("habit-actions-${habit.id}")
         compose.waitUntil(15_000) { compose.onAllNodes(editButton and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
@@ -115,7 +116,7 @@ class HabitIntervalFlowTest {
         compose.onNodeWithTag("habit-interval-mode-day").performScrollTo().performClick().assertIsSelected()
         compose.onNodeWithText("Сохранить").performScrollTo().performClick()
         compose.waitUntil(15_000) { saved().habits.single { it.id==habit.id }.intervalSchedule?.completionMode=="day" }
-        compose.onNodeWithTag("habit-interval-marks-toggle").assertDoesNotExist()
+        ownNode("habit-interval-marks-toggle").assertDoesNotExist()
         compose.onNode(hasAnyAncestor(hasTestTag("habit-card-${habit.id}")) and isToggleable())
             .performScrollTo().performClick()
         compose.waitUntil(15_000) { saved().completions.single { it.habitId==habit.id }.completed }
