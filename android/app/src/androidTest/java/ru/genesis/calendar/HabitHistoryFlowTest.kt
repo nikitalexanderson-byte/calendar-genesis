@@ -49,6 +49,7 @@ class HabitHistoryFlowTest {
         val ids = setOf(binary.id,quantity.id)
         val rendered = AtomicReference<Pair<LocalHabitWorkspace, LocalHabitWorkspace>?>(null)
         val syntheticNote = "Синтетическая историческая запись"
+        var render by mutableStateOf(true)
         val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
         fun hideImeBeforePreview() {
             fun visible() = compose.runOnIdle {
@@ -63,6 +64,7 @@ class HabitHistoryFlowTest {
         }
         // Seed an older imported practice only in the guarded synthetic debug workspace.
         // Production creation correctly refuses a start date in the past.
+        try {
         runBlocking { app.database.withTransaction {
             val record=app.database.dao().document(app.workspaceScope,"habits")
             val existing=if(record==null) LocalHabitWorkspace() else HabitDocument.decode(LocalCipher().decrypt(record.encrypted,"${app.workspaceScope}/habits"),record.revision)
@@ -72,13 +74,12 @@ class HabitHistoryFlowTest {
         } }
         val before = saved()
         var dark by mutableStateOf(false)
-        try {
             compose.setContent {
                 val all by repository.workspace.collectAsState(initial = LocalHabitWorkspace())
                 val complete = all
                 val shown = complete.copy(habits = complete.habits.filter { it.id in ids })
                 SideEffect { rendered.set(complete to shown) }
-                MaterialTheme(colorScheme = if(dark) evening else standart) {
+                if (render) MaterialTheme(colorScheme = if(dark) evening else standart) {
                     CompositionLocalProvider(LocalGenesisLanguage provides "ru",LocalEveningTheme provides dark) {
                         Surface(Modifier.fillMaxSize().safeDrawingPadding()) {
                             Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
@@ -270,7 +271,8 @@ class HabitHistoryFlowTest {
             val reloaded = HabitDocument.decode(HabitDocument.encode(saved()),saved().revision)
             assertEquals(saved().history,reloaded.history);assertEquals(saved().measurements,reloaded.measurements)
         } finally {
-            runBlocking { for(id in ids) saved().habits.firstOrNull { it.id==id }?.let { repository.save(it.copy(active=false)) } }
+            compose.runOnIdle { render = false }; compose.waitForIdle()
+            cleanupOwnedHabitFixtureRows(app, ids)
         }
     }
 }

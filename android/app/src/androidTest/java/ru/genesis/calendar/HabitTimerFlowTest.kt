@@ -45,14 +45,15 @@ class HabitTimerFlowTest {
             compose.waitUntil(15_000) { runCatching { compose.onNodeWithTag(tag).assertIsEnabled() }.isSuccess }
             return compose.onNodeWithTag(tag).performScrollTo().assertIsEnabled()
         }
-        runBlocking {
-            HabitTimers.sessions(saved().timers).filter { it.root.owner == repository.timerOwner && it.state?.status !in setOf("saved", "discarded") }
-                .forEach { repository.applyTimer(HabitTimerCommand("discard", repository.timerOwner, Instant.now().toString(), UUID.randomUUID().toString(), it.id)) }
-        }
+        check(HabitTimers.sessions(saved().timers).none {
+            it.root.owner == repository.timerOwner && it.state?.status !in setOf("saved", "discarded")
+        }) { "A pre-existing timer belongs to another invocation; this test will not discard it" }
         val date = LocalDate.now()
         val habit = Habit(TrackerEntity.create("habit", id = "e1-timer-${UUID.randomUUID()}"), "E1 · Чтение", date,
             HabitEngine(GenesisCalendar()).defaultSchedule(date, CalendarMode.PROFANE),
             measurement = HabitMeasurement("duration", "min", 1000, 1000))
+        var render by mutableStateOf(true)
+        try {
         runBlocking { repository.save(habit) }
         var dark by mutableStateOf(false)
         var failSave = true
@@ -71,7 +72,7 @@ class HabitTimerFlowTest {
             val workspace by repository.workspace.collectAsState(initial = LocalHabitWorkspace())
             val timerInput = workspace
             SideEffect { renderedTimer.set(timerInput) }
-            MaterialTheme(colorScheme = if (dark) evening else standart) {
+            if (render) MaterialTheme(colorScheme = if (dark) evening else standart) {
                 CompositionLocalProvider(LocalGenesisLanguage provides "ru", LocalEveningTheme provides dark) {
                     Surface(Modifier.fillMaxSize().safeDrawingPadding()) {
                         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
@@ -193,5 +194,9 @@ class HabitTimerFlowTest {
         runBlocking { repository.applyTimer(HabitTimerCommand("save", repository.timerOwner, Instant.now().toString(), "retry-save", sessionId)) }
         assertEquals(result.measurements, saved().measurements)
         assertEquals(result.completions.sumOf { it.xpAwarded }, saved().completions.sumOf { it.xpAwarded })
+        } finally {
+            compose.runOnIdle { render = false }; compose.waitForIdle()
+            cleanupOwnedHabitFixtureRows(app, setOf(habit.id))
+        }
     }
 }

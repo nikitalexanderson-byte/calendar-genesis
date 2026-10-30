@@ -4,7 +4,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
@@ -28,16 +33,19 @@ class HabitIntervalFlowTest {
 
     @Test fun createMarkReloadAndChangeCompletionMode() {
         val app=compose.activity.application as GenesisApplication
-        check(BuildConfig.DEBUG && app.workspaceScope=="internal-validation-v1")
+        check(BuildConfig.DEBUG && app.packageName.endsWith(".debug") && app.workspaceScope=="internal-validation-v1")
         val repository=HabitsRepository(app)
         val title="UX: Повторять каждые полчаса в выбранном промежутке ${java.util.UUID.randomUUID()}"
+        var render by mutableStateOf(true)
+        var ownedId: String? = null
         fun saved()=runBlocking { repository.workspace.first() }
         fun screenshot(name: String) {
             assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
                 File(app.getExternalFilesDir(null),"habit-interval-$name.png")))
         }
+        try {
         compose.setContent {
-            MaterialTheme(colorScheme=standart) {
+            if (render) MaterialTheme(colorScheme=standart) {
                 Surface(Modifier.fillMaxSize().safeDrawingPadding()) {
                     HabitsScreen(app,true,inputCalendarMode=CalendarMode.PROFANE)
                 }
@@ -59,14 +67,51 @@ class HabitIntervalFlowTest {
         compose.onNodeWithText("Сохранить").performScrollTo().assertIsEnabled().performClick()
         compose.waitUntil(15_000) { saved().habits.any { it.title==title } }
         val habit=saved().habits.single { it.title==title }
+        ownedId = habit.id
         assertEquals(listOf("09:00","09:30","10:00"),habit.intervalSchedule!!.times())
         val ownCard = hasAnyAncestor(hasTestTag("habit-card-${habit.id}"))
         fun ownNode(tag: String) = compose.onNode(hasTestTag(tag) and ownCard)
+        val actionTrace = mutableListOf<JSONObject>()
+        fun readiness(phase: String, tag: String, time: String): JSONObject {
+            val nodes = compose.onAllNodes(hasTestTag(tag) and ownCard).fetchSemanticsNodes()
+            return JSONObject().put("phase", phase).put("time", time).put("tag", tag)
+                .put("nodes", nodes.size).put("enabled", JSONArray(nodes.map { !it.config.contains(SemanticsProperties.Disabled) }))
+                .put("selected", JSONArray(nodes.map { it.config.getOrNull(SemanticsProperties.Selected) ?: JSONObject.NULL }))
+                .put("ownGridNodes", compose.onAllNodes(hasTestTag("habit-interval-grid") and ownCard).fetchSemanticsNodes().size)
+        }
+        fun failureProof(stage: String, tag: String, time: String, failure: Throwable) = runCatching {
+            val state = saved()
+            val entry = state.completions.firstOrNull { it.habitId == habit.id && it.date == LocalDate.now() }
+            val proof = readiness(stage, tag, time).put("checkpoint", "interval-original-action-failed")
+                .put("syntheticHabitId", habit.id).put("revision", state.revision)
+                .put("completed", entry?.completed ?: false).put("completedTimes", JSONArray(entry?.completedTimes.orEmpty()))
+                .put("xpAwarded", entry?.xpAwarded ?: 0).put("actionTrace", JSONArray(actionTrace))
+                .put("exceptionClass", failure.javaClass.name).put("callbackInstrumented", false)
+                .put("probeWritesToDatabase", false).put("probeExpandedGrid", false)
+            proof.put("screenshotSaved", UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
+                File(app.getExternalFilesDir(null), "habit-interval-action-failed.png")))
+            File(app.getExternalFilesDir(null), "habit-interval-action-failed.json").writeText(proof.toString(2))
+        }.onFailure { android.util.Log.e("GENESIS_INTERVAL_DIAG", "Passive action diagnostic failed: ${it.javaClass.simpleName}") }
+        fun readyOwnAction(tag: String, time: String): SemanticsNodeInteraction {
+            actionTrace += readiness("before-ready-wait", tag, time)
+            try {
+                // Room can emit a mark before the host's async command callback clears busy.
+                compose.waitUntil(15_000) { runCatching { ownNode(tag).assertIsEnabled() }.isSuccess }
+                val action = ownNode(tag).performScrollTo().assertIsEnabled()
+                actionTrace += readiness("ready-before-click", tag, time)
+                return action
+            } catch (failure: Throwable) { failureProof("ready-wait-failed", tag, time, failure); throw failure }
+        }
         ownNode("habit-interval-marks-toggle").performScrollTo().performClick()
         val gridsAfterOpen = compose.onAllNodes(hasTestTag("habit-interval-grid") and ownCard).fetchSemanticsNodes().size
         for(time in listOf("09:00","09:30","10:00")) {
-            ownNode("habit-interval-mark-$time").performScrollTo().performClick()
-            compose.waitUntil(15_000) { saved().completions.firstOrNull { it.habitId==habit.id }?.completedTimes?.contains(time)==true }
+            val tag = "habit-interval-mark-$time"
+            val action = readyOwnAction(tag, time)
+            try {
+                action.performClick(); actionTrace += readiness("click-requested", tag, time)
+                compose.waitUntil(15_000) { saved().completions.firstOrNull { it.habitId==habit.id }?.completedTimes?.contains(time)==true }
+                actionTrace += JSONObject().put("phase", "persisted-mark").put("time", time)
+            } catch (failure: Throwable) { failureProof("original-mark-wait-failed", tag, time, failure); throw failure }
         }
         val entry=saved().completions.single { it.habitId==habit.id && it.date==LocalDate.now() }
         assertTrue(entry.completed)
@@ -93,8 +138,12 @@ class HabitIntervalFlowTest {
                 File(app.getExternalFilesDir(null), "habit-interval-missing-unmark.png")))
             File(app.getExternalFilesDir(null), "habit-interval-missing-unmark.json").writeText(proof.toString(2))
         }.onFailure { android.util.Log.e("GENESIS_INTERVAL_DIAG", "Passive interval diagnostic failed: ${it.javaClass.simpleName}") }
-        ownNode("habit-interval-mark-09:30").performScrollTo().performClick()
-        compose.waitUntil(15_000) { saved().completions.single { it.habitId==habit.id }.completed.not() }
+        val unmarkTag = "habit-interval-mark-09:30"
+        val unmarkAction = readyOwnAction(unmarkTag, "09:30")
+        try {
+            unmarkAction.performClick(); actionTrace += readiness("unmark-requested", unmarkTag, "09:30")
+            compose.waitUntil(15_000) { saved().completions.single { it.habitId==habit.id }.completed.not() }
+        } catch (failure: Throwable) { failureProof("original-unmark-wait-failed", unmarkTag, "09:30", failure); throw failure }
         val editButton=hasTestTag("habit-actions-${habit.id}")
         compose.waitUntil(15_000) { compose.onAllNodes(editButton and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
         compose.mainClock.advanceTimeBy(1000)
@@ -117,10 +166,13 @@ class HabitIntervalFlowTest {
         compose.onNodeWithText("Сохранить").performScrollTo().performClick()
         compose.waitUntil(15_000) { saved().habits.single { it.id==habit.id }.intervalSchedule?.completionMode=="day" }
         ownNode("habit-interval-marks-toggle").assertDoesNotExist()
-        compose.onNode(hasAnyAncestor(hasTestTag("habit-card-${habit.id}")) and isToggleable())
-            .performScrollTo().performClick()
+        readyOwnAction("habit-complete-${habit.id}", "daily").performClick()
         compose.waitUntil(15_000) { saved().completions.single { it.habitId==habit.id }.completed }
         screenshot("daily")
-        runBlocking { repository.delete(habit.id) }
+        } finally {
+            compose.runOnIdle { render = false }; compose.waitForIdle()
+            val ids = ownedId?.let { setOf(it) } ?: saved().habits.filter { it.title == title }.map { it.id }.toSet()
+            cleanupOwnedHabitFixtureRows(app, ids)
+        }
     }
 }

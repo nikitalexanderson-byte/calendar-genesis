@@ -144,6 +144,14 @@ class ThemeToday313Test {
                 compose.onAllNodesWithTag("calendar-day-$otherDate").fetchSemanticsNodes().isNotEmpty()
             }
             compose.onNodeWithTag("calendar-day-$otherDate").performScrollTo().performClick()
+            proof.put("calendarSelectionAfterClick", compose.onNodeWithTag("calendar-day-$otherDate")
+                .printToString())
+            // Touch delivery and the rendered selected semantics settle in separate
+            // frames. Wait for this one click; never click again to make it pass.
+            compose.waitUntil(10_000) {
+                runCatching { compose.onNodeWithTag("calendar-day-$otherDate").fetchSemanticsNode()
+                    .config[androidx.compose.ui.semantics.SemanticsProperties.Selected] }.getOrDefault(false)
+            }
             compose.onNodeWithTag("calendar-day-$otherDate").assertIsSelected()
             compose.onNodeWithTag("calendar-selected-day").performScrollTo()
             val locale = Locale.forLanguageTag(originalPreferences.language)
