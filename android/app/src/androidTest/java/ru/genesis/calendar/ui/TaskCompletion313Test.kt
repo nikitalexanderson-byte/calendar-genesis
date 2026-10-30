@@ -118,7 +118,11 @@ class TaskCompletion313Test {
     }
 
     private fun checkbox(page: String, id: String): SemanticsNodeInteraction {
-        if (page == "Календарь") return compose.onNodeWithTag("calendar-task-complete-$id")
+        if (page == "Календарь") {
+            compose.onNode(hasScrollAction() and hasAnyAncestor(hasTestTag("calendar-task-list-dialog")))
+                .performScrollToNode(hasTestTag("calendar-task-complete-$id"))
+            return compose.onNodeWithTag("calendar-task-complete-$id")
+        }
         // Projects uses draggable rows in the inbox and NativeTaskCard in search results.
         // Both must resolve to this task's actual checkbox, never the clickable card.
         val row = if (page == "Проекты") hasTestTag("drag-task-$id") or hasTestTag("task-$id")

@@ -100,7 +100,8 @@ class Release313UiTest {
                 else org.json.JSONObject(app.assets.open("originals/catalogs/future-modeling-locales/$choice.json")
                     .bufferedReader().use { it.readText() })
             compose.onNodeWithTag("future-modeling-open").performScrollTo().performClick()
-            compose.onNodeWithText(guideCopy.getString("title")).assertExists()
+            compose.onNode(hasText(guideCopy.getString("title")) and
+                hasAnyAncestor(hasTestTag("future-modeling-dialog"))).assertExists()
             compose.onNodeWithText(guideCopy.getString("intro")).assertExists()
             compose.onNodeWithTag("future-goal-dionysus").performScrollTo().assertIsDisplayed()
             capture("locale-$choice-guide")
