@@ -1,7 +1,5 @@
 package ru.genesis.calendar
 
-import androidx.activity.compose.setContent
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -19,6 +17,7 @@ import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -30,10 +29,24 @@ import ru.genesis.calendar.ui.*
 class NativeTranslationWalkthroughTest {
     @get:Rule val compose = createAndroidComposeRule<TestWorkspaceActivity>()
 
+    // CJK copy can directly adjoin a literal Cyrillic user field without a word separator.
+    private fun userFieldPattern(value: String) =
+        Regex("(?<![\\p{IsCyrillic}\\p{N}])${Regex.escape(value)}(?![\\p{IsCyrillic}\\p{N}])")
+
     @Test fun dynamicCopyKeepsUserTitlesAndLocaleDatesLiteral() {
         val app = compose.activity.application as GenesisApplication
         check(BuildConfig.DEBUG && app.packageName == "ru.genesis.calendar.v313.debug" &&
             app.workspaceScope == "internal-validation-v1")
+        val userField = "Задача между проектами"
+        val userPattern = userFieldPattern(userField)
+        assertEquals("Chinese hint excludes only the literal user field", "长按任务 并将其拖入项目",
+            "长按任务${userField}并将其拖入项目".replace(userPattern, " "))
+        assertFalse("An extra Cyrillic prefix must remain audited",
+            userPattern.containsMatchIn("长按任务Лишнее${userField}并将其拖入项目"))
+        assertFalse("An extra Cyrillic suffix must remain audited",
+            userPattern.containsMatchIn("长按任务${userField}Лишнее并将其拖入项目"))
+        assertEquals("Surrounding Russian UI must remain audited", "Нажмите   для переноса",
+            "Нажмите $userField для переноса".replace(userPattern, " "))
         val catalog = JSONObject(app.assets.open("originals/i18n/native-mobile-design-translations.json")
             .bufferedReader().use { it.readText() })
         val dayIndex = 210
@@ -81,7 +94,8 @@ class NativeTranslationWalkthroughTest {
     }
 
     @Test fun visitMainScreensInEverySupportedLanguage() {
-        val app = compose.activity.application as GenesisApplication
+        val activity = compose.activity
+        val app = activity.application as GenesisApplication
         check(BuildConfig.DEBUG && app.packageName == "ru.genesis.calendar.v313.debug" &&
             app.workspaceScope == "internal-validation-v1")
         val prefs = LocalPreferences(app, app.workspaceScope)
@@ -93,11 +107,14 @@ class NativeTranslationWalkthroughTest {
         val wordFindings = linkedSetOf<String>()
         val layouts = ConcurrentHashMap<String, Boolean>()
         val states = JSONArray()
+        val completedLanguages = mutableListOf<String>()
+        var checkpoint = "setup"
+        var failure: Throwable? = null
         val ignoredUserCopy = linkedSetOf<String>()
         // Exact catalog-reviewed phrases contain shared Cyrillic words or a proper name also found in Russian.
         val reviewedLocalizedCopy = mapOf(
             "sr" to setOf("Запад · Воде Психе, Посејдон и Амфитрита", "Посејдон и Амфитрита"),
-            "uk" to setOf("Перенести на сьогодні", "IP-адреса"))
+            "uk" to setOf("Перенести на сьогодні", "IP-адреса", "Завершено сьогодні"))
         val acceptedLocalizedCopy = linkedSetOf<String>()
         // Only values read from user-authored fields are exempt. Surrounding UI labels remain audited.
         val userCopy = runBlocking {
@@ -116,8 +133,7 @@ class NativeTranslationWalkthroughTest {
                 add(original.ipRegionLabel)
             }.filter { it.length >= 3 && cyrillic.containsMatchIn(it) }.sortedByDescending { it.length }
         }
-        val userPatterns = userCopy.map { value -> value to
-            Regex("(?<![\\p{L}\\p{N}])${Regex.escape(value)}(?![\\p{L}\\p{N}])") }
+        val userPatterns = userCopy.map { value -> value to userFieldPattern(value) }
         val russianSources = buildSet {
             for (file in listOf("translations.en.json", "ui-translations/en.json", "shared-work-translations/en.json",
                 "curated-translations.en.json", "year-translations/en.json")) {
@@ -143,6 +159,7 @@ class NativeTranslationWalkthroughTest {
                 it.boundsInRoot.overlaps(viewport) }
         }
         fun scan(language: String, state: String) {
+            checkpoint = "$language/$state"
             compose.waitForIdle()
             val text = activeNodes().flatMap { node ->
                 node.config.getOrNull(SemanticsProperties.Text).orEmpty().map { it.text } +
@@ -195,13 +212,12 @@ class NativeTranslationWalkthroughTest {
             findings += "$language/$state: vertical traversal did not reach the end in 30 viewports"
         }
         try {
+            compose.runOnUiThread {
+                activity.textLayoutObserver = { text, layout -> layouts[text] = layout.splitsWord() }
+            }
             runBlocking { prefs.set("display", "sacred"); prefs.set("stoicheionDivinationDisabled", "false") }
-            compose.runOnUiThread { compose.activity.setContent {
-                CompositionLocalProvider(LocalGenesisTextLayoutAudit provides { text, layout -> layouts[text] = layout.splitsWord() }) {
-                    GenesisApp(app, null, testWorkspace = true)
-                }
-            } }
             for (language in languages) {
+                checkpoint = "$language/drawer-entry"
                 layouts.clear()
                 runBlocking { prefs.set("language", language) }
                 compose.waitForIdle()
@@ -215,6 +231,7 @@ class NativeTranslationWalkthroughTest {
                 }
                 scan(language, "drawer")
                 fun visit(page: String, section: String? = null, state: String = page) {
+                    checkpoint = "$language/$state/entry"
                     layouts.clear()
                     compose.openWorkspacePage(page, section)
                     scanPage(language, state)
@@ -230,15 +247,23 @@ class NativeTranslationWalkthroughTest {
                 for (section in listOf("appearance", "habits", "reminders", "shared", "region", "account", "links"))
                     visit("Настройки", section, "settings/$section")
                 visit("Настройки", "appearance", "settings/appearance/reference-entry")
+                checkpoint = "$language/calendar/reference-sacred/entry"
                 compose.onNodeWithTag("calendar-reference-sacred").performScrollTo().performClick()
                 layouts.clear()
                 scanPage(language, "calendar/reference-sacred")
+                checkpoint = "$language/calendar/reference-sacred/close"
                 compose.onNodeWithTag("calendar-reference-close").performClick()
+                completedLanguages += language
                 println("GENESIS_NATIVE_LOCALE_CHECKED=$language")
             }
+            assertEquals("Every supported language completed", languages, completedLanguages)
             assertTrue("Russian interface remnants:\n${findings.joinToString("\n")}", findings.isEmpty())
             assertTrue("Words split across lines:\n${wordFindings.joinToString("\n")}", wordFindings.isEmpty())
+        } catch (error: Throwable) {
+            failure = error
+            throw error
         } finally {
+            compose.runOnUiThread { activity.textLayoutObserver = null }
             runBlocking {
                 prefs.set("language", original.language)
                 prefs.set("display", original.display.wireValue)
@@ -246,6 +271,11 @@ class NativeTranslationWalkthroughTest {
             }
             File(app.getExternalFilesDir(null), "translation-walkthrough-313.json").writeText(JSONObject()
                 .put("states", states).put("russianFindings", JSONArray(findings.toList()))
+                .put("completedLanguages", JSONArray(completedLanguages))
+                .put("traversalComplete", completedLanguages == languages)
+                .put("lastCheckpoint", checkpoint)
+                .put("failure", failure?.let { JSONObject().put("type", it.javaClass.name)
+                    .put("message", it.message).put("stackTrace", it.stackTraceToString()) } ?: JSONObject.NULL)
                 .put("wordSplitFindings", JSONArray(wordFindings.toList()))
                 .put("excludedSyntheticUserStrings", JSONArray(ignoredUserCopy.toList()))
                 .put("reviewedLocalizedCyrillicStrings", JSONArray(acceptedLocalizedCopy.toList()))

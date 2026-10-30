@@ -2,6 +2,7 @@ package ru.genesis.calendar
 
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
 import java.time.LocalDate
@@ -102,9 +103,14 @@ class StoreListing313CaptureTest {
             open("Привычки", "Сон и настроение"); await("sleep-plan-header"); capture("sleep")
             open("Сакральное", "stoicheion"); await("stoicheion-grid")
             compose.onNodeWithTag("stoicheion-grid").performScrollToNode(hasTestTag("stoicheion-timeline-cards"))
-            compose.onNodeWithTag("stoicheion-timeline-past").assertExists()
-            compose.onNodeWithTag("stoicheion-timeline-present").assertExists()
-            compose.onNodeWithTag("stoicheion-timeline-future").assertExists()
+            val viewport = compose.onNodeWithTag("stoicheion-grid").fetchSemanticsNode().boundsInRoot
+            val block = compose.onNodeWithTag("stoicheion-timeline-block").fetchSemanticsNode().boundsInRoot
+            compose.onNodeWithTag("stoicheion-grid").performSemanticsAction(SemanticsActions.ScrollBy) {
+                it(0f, (block.top - viewport.top).coerceAtLeast(0f))
+            }
+            compose.onNodeWithTag("stoicheion-timeline-past").assertIsDisplayed()
+            compose.onNodeWithTag("stoicheion-timeline-present").assertIsDisplayed()
+            compose.onNodeWithTag("stoicheion-timeline-future").assertIsDisplayed()
             capture("timeline")
         } finally {
             ownedTasks.forEach { id ->

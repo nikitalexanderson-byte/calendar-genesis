@@ -3,6 +3,7 @@ package ru.genesis.calendar
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
 import androidx.room.Room
@@ -13,6 +14,7 @@ import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
 import org.junit.Before
+import org.json.JSONObject
 import ru.genesis.calendar.data.*
 
 class ProjectsFlowTest {
@@ -255,19 +257,51 @@ class ProjectsFlowTest {
         compose.onNodeWithTag("projects-screen").performScrollToNode(hasTestTag("project-drop-$originId"))
         compose.onNodeWithTag("project-drop-$originId").performClick()
         beginTaskDrag(taskId)
+        val autoAdvance = compose.mainClock.autoAdvance
         try {
+            compose.mainClock.autoAdvance = false
             val listBounds = compose.onNodeWithTag("projects-screen").fetchSemanticsNode().boundsInRoot
             val origin = workspaceRoot().fetchSemanticsNode().boundsInRoot.topLeft
+            fun scrollPosition() = compose.onNodeWithTag("projects-screen").fetchSemanticsNode()
+                .config[SemanticsProperties.VerticalScrollAxisRange].value()
+            val initialScroll = scrollPosition()
+            val startedAt = compose.mainClock.currentTime
             workspaceRoot().performTouchInput { moveTo(Offset(listBounds.center.x, listBounds.bottom - 8f) - origin) }
-            compose.waitUntil(10_000) {
-                compose.mainClock.advanceTimeBy(32)
-                compose.onAllNodesWithTag("project-drop-$lastId").fetchSemanticsNodes().any {
+            var reached = false
+            var targetBounds = "absent"
+            // The production LaunchedEffect uses delay(16): give it a bounded virtual-time
+            // budget rather than only32ms per expensive emulator semantics poll.
+            for (step in 1..80) {
+                compose.mainClock.advanceTimeBy(100)
+                val targets = compose.onAllNodesWithTag("project-drop-$lastId").fetchSemanticsNodes()
+                targetBounds = targets.singleOrNull()?.boundsInRoot?.toString() ?: "absent"
+                reached = targets.any {
                     it.boundsInRoot.height > 0f && it.boundsInRoot.top >= listBounds.top && it.boundsInRoot.bottom <= listBounds.bottom
                 }
+                if (reached) break
             }
+            val finalScroll = scrollPosition()
+            val proof = JSONObject().put("viewport", listBounds.toString()).put("rootOrigin", origin.toString())
+                .put("finger", Offset(listBounds.center.x, listBounds.bottom - 8f).toString())
+                .put("floatingPreview", compose.onAllNodesWithTag("drag-floating-task").fetchSemanticsNodes()
+                    .singleOrNull()?.boundsInRoot?.toString() ?: "absent")
+                .put("target", targetBounds).put("targetFullyVisible", reached)
+                .put("initialScroll", initialScroll.toDouble()).put("finalScroll", finalScroll.toDouble())
+                .put("virtualElapsedMs", compose.mainClock.currentTime - startedAt)
+            File(app.getExternalFilesDir(null), "projects-auto-scroll-proof.json").writeText(proof.toString())
+            println("QA313_PROJECT_AUTO_SCROLL=$proof")
+            if (!reached) UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+                .takeScreenshot(File(app.getExternalFilesDir(null), "projects-auto-scroll-timeout.png"))
+            assertTrue("Holding at the bottom must fully reveal the18th target within8s of Compose time: $proof", reached)
+            assertTrue("The list must actually scroll while the finger remains held: $proof", finalScroll > initialScroll)
+            compose.onNodeWithTag("drag-floating-task").assertExists()
             compose.onNodeWithTag("project-drop-$lastId").assertIsDisplayed()
             dropTaskOn(lastId)
+            compose.mainClock.autoAdvance = autoAdvance
             compose.waitUntil(10_000) { runBlocking { app.repository.get(taskId)?.projectId == lastId } }
-        } finally { cancelTaskDrag() }
+        } finally {
+            cancelTaskDrag()
+            compose.mainClock.autoAdvance = autoAdvance
+        }
     }
 }
