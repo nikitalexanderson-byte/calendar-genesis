@@ -115,8 +115,16 @@ class PersonalProjectLibrary313Test {
         hasText(text, substring = false) and hasClickAction() and hasAnyAncestor(isDialog()))
     private fun clickDialog(text: String) {
         val node = dialogText(text)
-        if (!node.isDisplayed()) node.performScrollTo()
-        node.assertIsEnabled().performClick()
+        if (!node.isDisplayed()) {
+            // The chips live inside horizontal rows nested in this vertical editor.
+            // Address the outer scroll first; nearest-ancestor scrolling alone can
+            // leave a horizontally scrollable chip below the dialog viewport.
+            compose.onNode(hasAnyAncestor(isDialog()) and
+                SemanticsMatcher.keyIsDefined(SemanticsProperties.VerticalScrollAxisRange))
+                .performScrollToNode(hasText(text, substring = false) and hasClickAction())
+            if (!node.isDisplayed()) node.performScrollTo()
+        }
+        node.assertIsDisplayed().assertIsEnabled().performClick()
     }
     private fun row(id: String): SemanticsNodeInteraction {
         val tag = "project-drop-$id"
@@ -158,10 +166,10 @@ class PersonalProjectLibrary313Test {
         click("save-project")
         compose.waitUntil(15_000) { compose.onAllNodesWithTag("project-title").fetchSemanticsNodes().isEmpty() }
     }
-    private fun semanticSnapshot(matcher: SemanticsMatcher): JSONObject {
+    private fun semanticSnapshot(matcher: SemanticsMatcher, useUnmergedTree: Boolean = true): JSONObject {
         val result = JSONObject()
         return runCatching {
-            val rows = compose.onAllNodes(matcher, useUnmergedTree = true).fetchSemanticsNodes()
+            val rows = compose.onAllNodes(matcher, useUnmergedTree = useUnmergedTree).fetchSemanticsNodes()
             result.put("count", rows.size).put("nodes", JSONArray(rows.map { node ->
                 JSONObject().put("id", node.id).put("bounds", node.boundsInRoot.toString())
                     .put("selected", node.config.getOrNull(SemanticsProperties.Selected) ?: JSONObject.NULL)
@@ -171,7 +179,8 @@ class PersonalProjectLibrary313Test {
         }.getOrElse { result.put("error", it.javaClass.simpleName + ": " + it.message) }
     }
     private fun statusSemantics(label: String) = semanticSnapshot(
-        hasText(label, substring = false) and hasClickAction() and hasAnyAncestor(isDialog()))
+        hasText(label, substring = false) and hasClickAction() and hasAnyAncestor(isDialog()),
+        useUnmergedTree = false)
     private fun passiveDiagnostic(app: GenesisApplication, short: String, checkpoint: String) {
         check(app !== realApplication)
         val data = JSONObject().put("checkpoint", checkpoint).put("probeWritesDatabase", false)

@@ -523,16 +523,70 @@ class MobileRedesignFlowTest {
                 .put("googleTaskListId",listId).toString()))
         }
         navigate(personalRoute)
+        fun workspaceRoot() = compose.onNode(isRoot() and hasAnyDescendant(hasTestTag("projects-screen")))
         fun drag(tag: String, target: String) {
+            val targetTag = if (target == "__genesis_inbox__") "project-inbox" else "project-drop-$target"
             val node = compose.onNodeWithTag(tag, useUnmergedTree = true)
             compose.onNodeWithTag("projects-screen", useUnmergedTree = true).performScrollToNode(hasTestTag(tag))
-            val origin = node.fetchSemanticsNode().boundsInRoot
-            node.performTouchInput { down(center); advanceEventTime(700); moveBy(Offset(0f,4f)) }
-            compose.onNodeWithTag("drag-overlay").assertIsDisplayed()
-            compose.onNodeWithTag("drag-overlay-target-$target").performScrollTo()
-            val destination = compose.onNodeWithTag("drag-overlay-target-$target").fetchSemanticsNode().boundsInRoot.center
-            node.performTouchInput { moveTo(destination-origin.topLeft); advanceEventTime(300); up() }
-            compose.waitUntil(10_000) { !exists("drag-overlay") }
+            val source = node.fetchSemanticsNode()
+            val origin = source.boundsInRoot
+            val rootOrigin = workspaceRoot().fetchSemanticsNode().boundsInRoot.topLeft
+            val startedAt = compose.mainClock.currentTime
+            var phase = "before-long-press"
+            try {
+                // Keep the original single700ms hold. The viewport retains delivery if scrolling recycles the row.
+                workspaceRoot().performTouchInput { down(origin.center - rootOrigin); advanceEventTime(700); moveBy(Offset(0f,4f)) }
+                phase = "floating-preview-assert"
+                //3.1.0 replaced the old destination-sheet overlay with this visible floating card and direct project drops.
+                compose.onNodeWithTag("drag-floating-task").assertIsDisplayed()
+                phase = "reveal-current-drop-target"
+                compose.onNodeWithTag("projects-screen", useUnmergedTree = true).performScrollToNode(hasTestTag(targetTag))
+                val destination = compose.onNodeWithTag(targetTag).assertIsDisplayed().fetchSemanticsNode().boundsInRoot.center
+                val releaseRootOrigin = workspaceRoot().fetchSemanticsNode().boundsInRoot.topLeft
+                phase = "deliver-release"
+                workspaceRoot().performTouchInput { moveTo(destination - releaseRootOrigin); advanceEventTime(300); up() }
+                phase = "floating-preview-dismiss-assert"
+                compose.waitUntil(10_000) { !exists("drag-floating-task") }
+            } catch (failure: Throwable) {
+                // Passive evidence after the original failure; never repeat the hold, drop, or persistence action.
+                runCatching {
+                    fun describeTag(value: String): JSONObject {
+                        val matches = compose.onAllNodesWithTag(value, useUnmergedTree = true).fetchSemanticsNodes()
+                        return JSONObject().put("tag", value).put("count", matches.size).put("nodes", JSONArray(matches.map {
+                            JSONObject().put("boundsInRoot", it.boundsInRoot.toString())
+                                .put("boundsInWindow", it.boundsInWindow.toString()).put("size", it.size.toString())
+                                .put("disabled", it.config.contains(SemanticsProperties.Disabled))
+                                .put("onClick", it.config.contains(SemanticsActions.OnClick))
+                                .put("onLongClick", it.config.contains(SemanticsActions.OnLongClick))
+                                .put("density", it.layoutInfo.density.density.toDouble())
+                                .put("fontScale", it.layoutInfo.density.fontScale.toDouble())
+                        }))
+                    }
+                    val proof = JSONObject().put("phase", phase).put("failureClass", failure.javaClass.simpleName)
+                        .put("sourceTag", tag).put("targetTag", targetTag).put("holdMs", 700).put("movePx", 4)
+                        .put("sourceBefore", origin.toString()).put("sourceSizeBefore", source.size.toString())
+                        .put("rootOriginBefore", rootOrigin.toString()).put("mainClockStartedAt", startedAt)
+                        .put("mainClockAfterFailure", compose.mainClock.currentTime).put("mainClockAutoAdvance", compose.mainClock.autoAdvance)
+                        .put("androidLongPressTimeoutMs", android.view.ViewConfiguration.getLongPressTimeout())
+                        .put("androidTouchSlopPx", android.view.ViewConfiguration.get(compose.activity).scaledTouchSlop)
+                        .put("composeViewConfigurationInstrumented", false)
+                        .put("sdk", Build.VERSION.SDK_INT).put("requestedWidthDp", width).put("requestedFontScale", fontScale.toDouble())
+                        .put("orientation", orientation).put("dark", dark).put("callbackInstrumented", false)
+                        .put("tags", JSONArray(listOf(tag, targetTag, "projects-screen", "drag-floating-task", "drag-overlay",
+                            "workspace-menu", "workspace-drawer").map(::describeTag)))
+                        .put("window", compose.runOnIdle {
+                            val decor = compose.activity.window.decorView
+                            val insets = androidx.core.view.ViewCompat.getRootWindowInsets(decor)
+                            JSONObject().put("hasFocus", decor.hasWindowFocus()).put("decorWidth", decor.width).put("decorHeight", decor.height)
+                                .put("imeVisible", insets?.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime()) ?: JSONObject.NULL)
+                        })
+                    proof.put("screenshotSaved", device.takeScreenshot(File(folder, "$suffix-review4-drag-failure.png")))
+                    File(folder, "$suffix-review4-drag-failure.json").writeText(proof.toString(2))
+                }.onFailure { android.util.Log.e("GENESIS_DRAG_DIAGNOSTIC", "Passive drag proof failed: ${it.javaClass.simpleName}") }
+                // Release the failed fixture's pointer after capturing evidence; cancellation never commits a move.
+                runCatching { workspaceRoot().performTouchInput { cancel() } }
+                throw failure
+            }
         }
         drag("drag-task-$inboxTaskId",projectId)
         compose.waitUntil(10_000) { runBlocking { app.repository.get(inboxTaskId)?.projectId == projectId } }
