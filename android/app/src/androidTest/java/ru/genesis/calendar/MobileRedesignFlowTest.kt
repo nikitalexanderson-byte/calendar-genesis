@@ -169,7 +169,9 @@ class MobileRedesignFlowTest {
     private fun exists(tag: String) = compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
     private fun drawerClosed() {
         compose.waitUntil(5_000) { !compose.onNodeWithTag("workspace-drawer").isDisplayed() }
-        compose.onNodeWithTag("app-account-status").assertIsNotDisplayed()
+        compose.onNodeWithTag("drawer-account-row").assertIsNotDisplayed()
+        compose.onNodeWithTag("drawer-actions").assertIsNotDisplayed()
+        (0..1).forEach { compose.onNodeWithTag("drawer-account-status-$it").assertIsNotDisplayed() }
     }
     private fun openDrawer() {
         if (!compose.onNodeWithTag("workspace-drawer").isDisplayed())
@@ -280,7 +282,7 @@ class MobileRedesignFlowTest {
         compose.onNodeWithTag("drawer-Календарь-year").assertDoesNotExist()
         capture("drawer-always-labels")
         compose.onNodeWithTag("account-refresh").performScrollTo()
-            .assert(hasAnyAncestor(hasTestTag("drawer-account-row")))
+            .assert(hasAnyAncestor(hasTestTag("drawer-actions")))
         checkTarget("account-refresh")
         compose.onAllNodes(hasTestTag("account-refresh") and hasAnyAncestor(hasTestTag("app-header"))).assertCountEquals(0)
         capture("drawer-refresh-by-account")
@@ -569,7 +571,13 @@ class MobileRedesignFlowTest {
         capture("today")
         openDrawer()
         compose.onNodeWithTag(todayRoute.tag).assertIsSelected()
-        compose.onNodeWithTag("app-account-status").assert(hasAnyAncestor(hasTestTag("workspace-drawer")))
+        compose.onNodeWithTag("drawer-account-row").performScrollTo().assertIsDisplayed()
+            .assert(hasAnyAncestor(hasTestTag("workspace-drawer")))
+        (0..1).forEach { index ->
+            compose.onNodeWithTag("drawer-account-status-$index").assertIsDisplayed()
+                .assert(hasAnyAncestor(hasTestTag("drawer-account-row")))
+        }
+        compose.onNodeWithTag("drawer-account-status-2").assertDoesNotExist()
         compose.onNodeWithTag("drawer-Проекты-shared").assertDoesNotExist()
         capture("drawer")
         device.pressBack()
@@ -592,7 +600,11 @@ class MobileRedesignFlowTest {
                 yearRoute -> {
                     await("calendar-year-panel")
                     compose.onNodeWithTag("calendar-year-solar-points").assertDoesNotExist()
-                    checkTarget("calendar-year-today")
+                    // Today belongs to the month description; the year has two period arrows.
+                    compose.onNodeWithTag("calendar-year-today").assertDoesNotExist()
+                    compose.onNodeWithTag("calendar-year-previous").performScrollTo().assertIsDisplayed()
+                    checkTarget("calendar-year-previous")
+                    checkTarget("calendar-year-next")
                     capture("calendar-year")
                     compose.onNodeWithTag("calendar-year-solar-toggle").performClick()
                     compose.onNodeWithTag("calendar-year-solar-points").assertExists()
@@ -648,7 +660,9 @@ class MobileRedesignFlowTest {
         navigate(todayRoute)
         navigate(yearRoute)
         compose.onNodeWithTag("calendar-year-period").assertTextEquals(year)
-        compose.onNodeWithTag("calendar-year-today").performClick()
+        compose.onNodeWithTag("calendar-year-today").assertDoesNotExist()
+        // Undo the single year advance using the actual year control, keeping the context assertion above.
+        compose.onNodeWithTag("calendar-year-previous").performScrollTo().assertIsDisplayed().performClick()
         compose.onNodeWithTag("calendar-year-period").assertTextEquals(LocalDate.now().year.toString())
         navigate(personalRoute)
         showProject()

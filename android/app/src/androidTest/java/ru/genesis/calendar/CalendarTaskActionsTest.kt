@@ -106,7 +106,7 @@ class CalendarTaskActionsTest {
             val remaining = runBlocking { app.repository.get(task.id) }!!
             assertFalse(TaskOccurrences.occursOn(remaining, date))
             assertTrue(TaskOccurrences.occursOn(remaining, next))
-            compose.onNodeWithText("Закрыть").performClick()
+            compose.onNodeWithContentDescription("Закрыть").performClick()
             compose.onNodeWithTag("calendar-task-count-$next").performScrollTo().performClick()
             compose.onNodeWithTag("calendar-task-edit-${task.id}").performClick()
             compose.onNodeWithText("При удалении можно выбрать только $next.", substring = true).assertExists()
