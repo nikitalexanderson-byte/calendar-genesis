@@ -111,6 +111,15 @@ class StoreListing313CaptureTest {
             open("Сегодня"); await("today-list"); capture("today")
             open("Календарь", "month"); await("calendar-month"); capture("calendar-month")
             compose.onNodeWithTag("submenu-year").performClick(); await("calendar-year")
+            // OriginalImage adds its image semantics only after the bundled bitmap has decoded.
+            // Compose being idle alone does not wait for that IO work.
+            for (month in listOf("01", "02")) {
+                val art = hasAnyAncestor(hasTestTag("gregorian-year-art-${date.year}-$month-01")) and
+                    SemanticsMatcher.keyIsDefined(SemanticsProperties.ContentDescription)
+                compose.waitUntil(15_000) {
+                    compose.onAllNodes(art, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+                }
+            }
             capture("calendar-year")
             open("Привычки", "Привычки"); await("habit-view-today")
             setCaptureTheme(true)

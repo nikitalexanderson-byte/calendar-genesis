@@ -179,7 +179,73 @@ class HabitHistoryFlowTest {
             compose.onNodeWithText(quantity.title).performClick()
             assertTrue(saved().measurements.none { it.habitId == quantity.id })
             compose.onNodeWithText("Значение").performScrollTo().performTextReplacement("1")
-            compose.onNodeWithText("Предпросмотр изменений").performScrollTo().performClick()
+            val measuredAction = compose.onNodeWithText("Предпросмотр изменений").performScrollTo()
+            val measuredSource = compose.runOnIdle { rendered.get() }
+            val measuredInstant = Instant.now()
+            val measuredHabit = measuredSource?.second?.habits?.firstOrNull { it.id == quantity.id }
+            val measuredRule = measuredHabit?.let { HabitMeasurements.rule(it, it.createdDate) }
+            fun editableFormValue(label: String) = compose.onAllNodes(hasText(label) and hasSetTextAction() and inForm)
+                .fetchSemanticsNodes().singleOrNull()?.config?.getOrNull(SemanticsProperties.EditableText)?.text
+            val amountBefore = editableFormValue("Значение")
+            val measuredNoteBefore = editableFormValue("Заметка")
+            val measuredSelectedBefore = listOf(binary, quantity).filter { formHas(it.title) }.map { it.id }
+            val measuredDefaultDay = measuredRule?.let { measuredInstant.atZone(ZoneId.of(it.schedule.timezone)).toLocalDate().minusDays(1) }
+            val measuredDay = measuredHabit?.let { habit -> listOfNotNull(day, measuredDefaultDay).distinct().singleOrNull { candidate ->
+                val rule = HabitMeasurements.rule(habit, candidate)
+                formHas(GenesisCalendar(ZoneId.of(rule.schedule.timezone)).formatDate(candidate, CalendarMode.PROFANE) + " · " + rule.schedule.timezone)
+            } }
+            measuredAction.performClick()
+            // The original failure is in this second, measured preview; observe it without a retry or write.
+            if (compose.onAllNodesWithText("Сохранить").fetchSemanticsNodes().isEmpty()) runCatching {
+                fun shape(value: LocalHabitWorkspace): JSONObject {
+                    val habitIds = value.habits.map { it.id }.toSet()
+                    return JSONObject().put("revision", value.revision).put("habits", value.habits.size)
+                        .put("history", value.history.size).put("measurements", value.measurements.size)
+                        .put("completions", value.completions.size).put("goals", value.goals.size).put("quests", value.quests.size)
+                        .put("orphanCompletions", value.completions.count { it.habitId !in habitIds })
+                        .put("orphanMeasurements", value.measurements.count { it.habitId !in habitIds })
+                        .put("orphanHistory", value.history.count { it.habitId !in habitIds })
+                }
+                val proof = JSONObject().put("checkpoint", "measured-preview-before-original-save-assert")
+                    .put("probeInstant", measuredInstant.toString()).put("probeWritesToDatabase", false)
+                    .put("probeCommandIsReconstruction", true).put("syntheticHabitId", quantity.id)
+                    .put("selectedBefore", JSONArray(measuredSelectedBefore))
+                    .put("selectedAfter", JSONArray(listOf(binary, quantity).filter { formHas(it.title) }.map { it.id }))
+                    .put("amountMatchesBefore", amountBefore == "1").put("amountMatchesAfter", editableFormValue("Значение") == "1")
+                    .put("emptyNoteBefore", measuredNoteBefore == "").put("emptyNoteAfter", editableFormValue("Заметка") == "")
+                    .put("observedDay", measuredDay?.toString() ?: JSONObject.NULL).put("testExpectedDay", day.toString())
+                    .put("ruleZone", measuredRule?.schedule?.timezone ?: JSONObject.NULL)
+                    .put("formNodes", compose.onAllNodesWithTag("habit-history-form").fetchSemanticsNodes().size)
+                    .put("previewActionNodes", compose.onAllNodes(hasText("Предпросмотр изменений") and hasClickAction()).fetchSemanticsNodes().size)
+                    .put("previewErrorVisible", formHas("В этот день запись недоступна. Проверьте дату, значение и действующее правило."))
+                    .put("freshSaved", shape(saved()))
+                rendered.get()?.let { proof.put("renderedAfterClick", shape(it.second)) }
+                measuredSource?.let { (complete, shown) ->
+                    proof.put("renderedFilteredInput", shape(shown)).put("completeSameRevisionInput", shape(complete))
+                    val exactInput = measuredSelectedBefore == listOf(quantity.id) && amountBefore == "1" && measuredNoteBefore == "" &&
+                        measuredDay != null && measuredHabit != null && measuredHabit.qualityScale == "none" && measuredHabit.intervalSchedule == null &&
+                        measuredRule?.measurement?.kind == "quantity" && shown.measurements.none { it.habitId == quantity.id } &&
+                        shown.completions.none { it.habitId == quantity.id } && shown.history.none { it.habitId == quantity.id }
+                    proof.put("measuredInputProvenBySemantics", exactInput)
+                    if (exactInput) {
+                        val date = requireNotNull(measuredDay); val habit = requireNotNull(measuredHabit)
+                        val command = HabitHistoryCommand("diagnostic-measured-${UUID.randomUUID()}", measuredInstant.toString(), habit.id, date,
+                            HabitMeasurements.rule(habit, date).id, emptyList(), HabitHistoryValue(false), HabitHistoryMeasurement(1000L))
+                        fun probe(value: LocalHabitWorkspace): JSONObject {
+                            val applied = runCatching { HabitHistory.apply(value, command, measuredInstant) }
+                            val reconciled = applied.mapCatching { reconcileHabitWorkspace(it, measuredInstant.atZone(ZoneId.systemDefault()).toLocalDate(),
+                                ZoneId.systemDefault().id, measuredInstant.toString()) }
+                            val failure = reconciled.exceptionOrNull()
+                            return JSONObject().put("applyOk", applied.isSuccess).put("reconcileOk", reconciled.isSuccess)
+                                .put("exceptionClass", failure?.javaClass?.name ?: JSONObject.NULL)
+                                .put("domainCode", failure?.message?.takeIf { it.matches(Regex("(?:INVALID_HABIT|HABIT_HISTORY|HABIT_MEASUREMENT|HABIT_RULE|HABIT_PERIOD)_[A-Z_]+")) } ?: JSONObject.NULL)
+                        }
+                        proof.put("probeRenderedFiltered", probe(shown)).put("probeCompleteSameRevision", probe(complete))
+                    }
+                }
+                proof.put("screenshotSaved", device.takeScreenshot(File(app.getExternalFilesDir(null), "e3-history-measured-preview-missing-save.png")))
+                File(app.getExternalFilesDir(null), "e3-history-measured-preview-missing-save.json").writeText(proof.toString(2))
+            }.onFailure { android.util.Log.e("GENESIS_HISTORY_DIAG", "Passive measured preview diagnostic failed: ${it.javaClass.simpleName}") }
             compose.onNodeWithText("Сохранить").performScrollTo().performClick()
             compose.waitUntil(15_000) { saved().measurements.any { it.habitId == quantity.id } }
             val value = saved().measurements.single { it.habitId == quantity.id }

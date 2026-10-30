@@ -13,6 +13,8 @@ import java.io.File
 import java.time.LocalDate
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import org.json.JSONArray
+import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -59,6 +61,8 @@ class HabitIntervalFlowTest {
         val habit=saved().habits.single { it.title==title }
         assertEquals(listOf("09:00","09:30","10:00"),habit.intervalSchedule!!.times())
         compose.onNodeWithTag("habit-interval-marks-toggle").performScrollTo().performClick()
+        val ownCard = hasAnyAncestor(hasTestTag("habit-card-${habit.id}"))
+        val gridsAfterOpen = compose.onAllNodes(hasTestTag("habit-interval-grid") and ownCard).fetchSemanticsNodes().size
         for(time in listOf("09:00","09:30","10:00")) {
             compose.onNodeWithTag("habit-interval-mark-$time").performScrollTo().performClick()
             compose.waitUntil(15_000) { saved().completions.firstOrNull { it.habitId==habit.id }?.completedTimes?.contains(time)==true }
@@ -72,6 +76,22 @@ class HabitIntervalFlowTest {
         screenshot("marked")
         // A fresh repository reads the encrypted persisted document.
         assertTrue(runBlocking { HabitsRepository(app).workspace.first() }.completions.single { it.habitId==habit.id }.completed)
+        if (compose.onAllNodesWithTag("habit-interval-mark-09:30").fetchSemanticsNodes().isEmpty()) runCatching {
+            val state = saved(); val current = state.completions.single { it.habitId == habit.id && it.date == LocalDate.now() }
+            val proof = JSONObject().put("checkpoint", "before-original-unmark")
+                .put("syntheticHabitId", habit.id).put("revision", state.revision).put("completed", current.completed)
+                .put("completedTimes", JSONArray(current.completedTimes)).put("xpAwarded", current.xpAwarded)
+                .put("intervalMode", state.habits.single { it.id == habit.id }.intervalSchedule?.completionMode)
+                .put("gridsAfterOpen", gridsAfterOpen)
+                .put("ownCardNodes", compose.onAllNodesWithTag("habit-card-${habit.id}").fetchSemanticsNodes().size)
+                .put("ownGridNodes", compose.onAllNodes(hasTestTag("habit-interval-grid") and ownCard).fetchSemanticsNodes().size)
+                .put("ownToggleNodes", compose.onAllNodes(hasTestTag("habit-interval-marks-toggle") and ownCard).fetchSemanticsNodes().size)
+                .put("ownMissingMarkNodes", compose.onAllNodes(hasTestTag("habit-interval-mark-09:30") and ownCard).fetchSemanticsNodes().size)
+                .put("probeWritesToDatabase", false).put("probeExpandedGrid", false)
+            proof.put("screenshotSaved", UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
+                File(app.getExternalFilesDir(null), "habit-interval-missing-unmark.png")))
+            File(app.getExternalFilesDir(null), "habit-interval-missing-unmark.json").writeText(proof.toString(2))
+        }.onFailure { android.util.Log.e("GENESIS_INTERVAL_DIAG", "Passive interval diagnostic failed: ${it.javaClass.simpleName}") }
         compose.onNodeWithTag("habit-interval-mark-09:30").performScrollTo().performClick()
         compose.waitUntil(15_000) { saved().completions.single { it.habitId==habit.id }.completed.not() }
         val editButton=hasTestTag("habit-actions-${habit.id}")

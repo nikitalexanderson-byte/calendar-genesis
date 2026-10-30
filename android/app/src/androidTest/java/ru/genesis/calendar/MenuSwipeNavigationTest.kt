@@ -107,7 +107,7 @@ class MenuSwipeNavigationTest {
         val original = runBlocking { preferences.values.first() }
         try {
             runBlocking { preferences.set("menuSwipeEnabled", "false") }
-            compose.onNodeWithTag("navigation-Календарь").performClick()
+            compose.openWorkspacePage("Календарь", "month")
             val before = compose.onNodeWithTag("calendar-month-period").fetchSemanticsNode()
                 .config[androidx.compose.ui.semantics.SemanticsProperties.Text].toString()
             compose.onNodeWithTag("calendar-month-navigation").performTouchInput { swipeLeft() }

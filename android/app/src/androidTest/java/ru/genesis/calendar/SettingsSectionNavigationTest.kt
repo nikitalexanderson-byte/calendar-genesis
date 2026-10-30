@@ -79,7 +79,9 @@ class SettingsSectionNavigationTest {
                 "reminders" to "Напоминания", "shared" to "Общие дела", "region" to "Регион",
                 "account" to "Аккаунт GENESIS", "links" to "Ссылки")
             sections.forEachIndexed { index, (id, title) ->
-                if (index > 0) compose.onNodeWithTag("main-content").performTouchInput { swipeLeft() }
+                // The shipped workspace changes settings pages through the drawer;
+                // its root pager was removed before 3.1.3 to preserve feature gestures.
+                if (index > 0) compose.openWorkspacePage("Настройки", id)
                 compose.waitUntil(5_000) {
                     compose.onAllNodes(hasTestTag("workspace-title") and hasText("Настройки\n$title"))
                         .fetchSemanticsNodes().isNotEmpty()
@@ -87,7 +89,7 @@ class SettingsSectionNavigationTest {
                 compose.onNodeWithTag("workspace-title").assertTextEquals("Настройки\n$title")
                 val currentHeader = compose.onNodeWithTag("app-header")
                     .fetchSemanticsNode().boundsInRoot
-                assertTrue("App header must stay fixed while the settings page swipes",
+                assertTrue("App header must stay fixed while the settings page changes",
                     kotlin.math.abs(currentHeader.top - fixedHeader.top) < app.resources.displayMetrics.density)
                 compose.onNodeWithTag("workspace-menu").performClick()
                 compose.waitUntil(5_000) { compose.onNodeWithTag("workspace-drawer").isDisplayed() }
