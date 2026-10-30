@@ -46,6 +46,7 @@ import { restorationCopy, restorationLocal } from "./stoicheion-restoration-copy
 import { readLocalTimelineDraw, saveLocalTimelineDraw, stoicheionTimelineCopy, type StoicheionTimePosition } from "./stoicheion-timeline";
 import "./stoicheion-timeline.css";
 import { FutureModelingGuide } from "./FutureModelingGuide";
+import { StoicheionTimelineHelp } from "./StoicheionTimelineHelp";
 
 const LOCAL_DRAW_STORAGE_PREFIX = "genesis-stoicheion-draws-v2:";
 const STOICHEION_CARD_ART_VERSION = "20260906-anatomy-glow";
@@ -513,6 +514,7 @@ export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSec
   const [selectedReading, setSelectedReading] = useState<SelectedReading | null>(null);
   const restorationRef = useRef<RestorationHandle>(null);
   const [restorationPrimary, setRestorationPrimary] = useState<RestorationPrimaryState>("preparing");
+  const [timelineHelpOpen, setTimelineHelpOpen] = useState(false);
   const restorationText = restorationCopy(language);
   const timeCopy = stoicheionTimelineCopy(language);
   const startRestoration = (sectorId: string | null) => {
@@ -924,18 +926,8 @@ export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSec
           </>
         )}
 
-        {!divinationDisabled && workspace && onWorkspaceChange ? <StoicheionRestoration
-          key={userId} ref={restorationRef} userId={userId} onPrimaryStateChange={setRestorationPrimary}
-          cards={spreadVisible ? spreadCards.map(card => ({letterId:card.letter.id,reversed:card.reversed})) : []}
-          sourceDate={spreadDraw?.dayKey ?? dayKey} sourceSeed={spreadSeed} today={todayDate ?? dayKey}
-          workspace={workspace} calendarMode={calendarMode} onChange={onWorkspaceChange} onOpenHabits={onOpenHabits}
-        /> : null}
-
         {!divinationDisabled ? <section className="stoicheion-nine-section stoicheion-timeline-section" aria-labelledby="stoicheion-timeline-title" data-no-translate>
           <header><div><h2 id="stoicheion-timeline-title">{timeCopy.title}</h2><p>{timeCopy.subtitle}</p></div></header>
-          <details className="stoicheion-timeline-method"><summary>{timeCopy.method}</summary>
-            {timeCopy.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
-          </details>
           {drawError && drawErrorKind === "timeline" ? <p className="stoicheion-draw-error" role="alert">{translateText(drawError, language)}</p> : null}
           {timelineCards.length === 0 ? <button type="button" className="primary-button stoicheion-timeline-begin"
             disabled={!drawsReady || savingKind !== null} onClick={(event) => beginMotion("timeline", false, event.timeStamp)}>{timeCopy.begin}</button>
@@ -956,7 +948,16 @@ export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSec
               {timelineCanReroll ? `${timeCopy.reroll} · ${formatCountdown(timelineRemaining)}`
                 : timelineDraw?.attempts === 2 ? timeCopy.rerollUsed : timeCopy.rerollExpired}
             </StoicheionActionButton></>}
+          <button type="button" className="secondary-button stoicheion-timeline-help" data-testid="stoicheion-timeline-help"
+            aria-haspopup="dialog" aria-expanded={timelineHelpOpen} onClick={() => setTimelineHelpOpen(true)}>{timeCopy.method}</button>
         </section> : null}
+
+        {!divinationDisabled && workspace && onWorkspaceChange ? <StoicheionRestoration
+          key={userId} ref={restorationRef} userId={userId} onPrimaryStateChange={setRestorationPrimary}
+          cards={spreadVisible ? spreadCards.map(card => ({letterId:card.letter.id,reversed:card.reversed})) : []}
+          sourceDate={spreadDraw?.dayKey ?? dayKey} sourceSeed={spreadSeed} today={todayDate ?? dayKey}
+          workspace={workspace} calendarMode={calendarMode} onChange={onWorkspaceChange} onOpenHabits={onOpenHabits}
+        /> : null}
 
         <FutureModelingGuide language={language} />
 
@@ -993,6 +994,9 @@ export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSec
           )}
         </footer>
       </div>
+
+      {timelineHelpOpen && typeof document !== "undefined" ? createPortal(
+        <StoicheionTimelineHelp language={language} onClose={() => setTimelineHelpOpen(false)} />, document.body) : null}
 
       {motion && typeof document !== "undefined" ? createPortal(
         <div

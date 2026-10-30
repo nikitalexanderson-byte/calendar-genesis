@@ -353,7 +353,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                     val remaining = scheduled.filterNot { it in completed }
                     val unscheduled = active.filterNot { it in scheduled }
                     if (remaining.isNotEmpty()) {
-                        HabitSectionHeading("На сегодня", remaining.size)
+                        HabitSectionHeading("Запланировано сегодня", remaining.size)
                         AdaptiveCardGrid(remaining, { it.id }, renderHabit)
                     } else Text(if (scheduled.isNotEmpty()) "Все запланированные привычки выполнены."
                         else "На сегодня нет запланированных привычек.", Modifier.testTag("habit-today-empty"),

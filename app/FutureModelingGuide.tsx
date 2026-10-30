@@ -41,7 +41,7 @@ export function FutureModelingGuideDialog({ language, onClose }: { language: str
       <DialogCloseButton className="future-modeling-close" aria-label={copy.close} onClick={onClose} />
       <header><h2 id="future-modeling-title">{copy.title}</h2><p>{copy.subtitle}</p></header>
       <p id="future-modeling-intro">{copy.intro}</p>
-      {copy.sections.map((section, index) => <section className="future-modeling-step" key={section.title}>
+      {copy.sections.map((section, index) => <section className="future-modeling-step" data-modeling-step={index + 1} key={section.title}>
         <h3>{section.title}</h3>
         {section.paragraphs.map(paragraph => <p key={paragraph}>{paragraph}</p>)}
         {index === 0 ? <div className="future-modeling-sectors">

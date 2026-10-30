@@ -197,7 +197,7 @@ fun StoicheionScreen(app: GenesisApplication, divinationDisabled: Boolean,
                         if (!divinationDisabled && restorationCatalog != null) {
                             val cycles = StoicheionRestoration.visibleHabits(habitWorkspace?.habits.orEmpty())
                             if (cycles.isNotEmpty()) {
-                                Text(restorationCatalog.copy("history"), style = MaterialTheme.typography.titleMedium)
+                                Text(restorationCatalog.copy("history"), Modifier.testTag("stoicheion-saved-cycles-title"), style = MaterialTheme.typography.titleMedium)
                                 cycles.forEach { habit ->
                                     val snapshot = habit.stoicheionRestoration!!
                                     val completed = StoicheionRestoration.completionDates(snapshot, habit.id,
@@ -221,6 +221,7 @@ fun StoicheionScreen(app: GenesisApplication, divinationDisabled: Boolean,
                                 }
                             }
                         }
+                        FutureModelingGuide()
                         StoicheionSection(OracleTone.SAGE, "stoicheion-catalog-block") {
                             Text("Основной греческий ряд · 24", style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.primary)

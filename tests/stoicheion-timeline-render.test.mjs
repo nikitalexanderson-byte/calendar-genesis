@@ -16,6 +16,7 @@ test("real Stoicheion keeps existing seed vectors and renders the complete futur
       load: id => id === entry ? `
         export { StoicheionView, buildStoicheionSpreadReading } from ${JSON.stringify(root + "StoicheionView.tsx")};
         export { FutureModelingGuideDialog, FutureModelingGuide } from ${JSON.stringify(root + "FutureModelingGuide.tsx")};
+        export { StoicheionTimelineHelp } from ${JSON.stringify(root + "StoicheionTimelineHelp.tsx")};
         export { futureModelingCopy } from ${JSON.stringify(root + "future-modeling.ts")};
         export { stoicheionTimelineCopy } from ${JSON.stringify(root + "stoicheion-timeline.ts")};
         export { setRuntimeLanguage } from ${JSON.stringify(root + "i18n.ts")};
@@ -52,12 +53,20 @@ test("real Stoicheion keeps existing seed vectors and renders the complete futur
       const guideIndex = page.indexOf('data-testid="future-modeling-open"');
       const alphabetIndex = page.indexOf('aria-labelledby="stoicheion-alphabet-title"');
       assert.ok(timelineIndex > 0 && timelineIndex < guideIndex && guideIndex < alphabetIndex, `${language}: placement`);
+      const helpIndex = page.indexOf('data-testid="stoicheion-timeline-help"');
+      assert.ok(page.indexOf('class="primary-button stoicheion-timeline-begin"') < helpIndex && helpIndex < guideIndex,
+        `${language}: instructions follow the draw action`);
+      assert.doesNotMatch(page, /<details class="stoicheion-timeline-method"/, language);
       assert.ok(page.includes(api.stoicheionTimelineCopy(language).title), `${language}: timeline title`);
+      const help = renderToStaticMarkup(createElement(api.StoicheionTimelineHelp, { language, onClose() {} }));
+      assert.match(help, /role="dialog" aria-modal="true"/, language);
+      assert.equal((help.match(/<p>/g) ?? []).length, api.stoicheionTimelineCopy(language).paragraphs.length, language);
       const guide = renderToStaticMarkup(createElement(api.FutureModelingGuideDialog, { language, onClose() {} }));
       assert.match(guide, new RegExp(`lang="${language}"`));
       assert.equal((guide.match(/data-modeling-sector=/g) ?? []).length, 9, language);
       assert.equal((guide.match(/data-modeling-goal=/g) ?? []).length, 13, language);
       assert.equal((guide.match(/class="future-modeling-step"/g) ?? []).length, 5, language);
+      assert.deepEqual([...guide.matchAll(/data-modeling-step="(\d)"/g)].map(match => Number(match[1])), [1, 2, 3, 4, 5], language);
       assert.match(guide, /ΑΦΡΟΔΙΤΗ<\/span> · <b>993<\/b>/, language);
       assert.doesNotMatch(guide, /1093|undefined|\[object Object\]/, language);
       assert.ok(guide.includes(api.futureModelingCopy(language).title), `${language}: guide title`);

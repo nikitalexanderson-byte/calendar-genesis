@@ -156,11 +156,10 @@ internal fun StoicheionDrawPanel(letters: List<StoicheionLetter>, draws: Stoiche
         }
         StoicheionTimelinePanel(letters, draws?.timeline, draws != null, now, busy,
             onBegin = { onBegin("timeline") }, onSelect = onSelect)
-        FutureModelingGuide()
     }
 }
 
-internal enum class OracleTone { GOLD, BLUE, MAUVE, SAGE }
+internal enum class OracleTone { GOLD, BLUE, MAUVE, SAGE, CLAY }
 
 @Composable internal fun oracleSectionColor(tone: OracleTone): Color {
     val pair = when (tone) {
@@ -168,6 +167,7 @@ internal enum class OracleTone { GOLD, BLUE, MAUVE, SAGE }
         OracleTone.BLUE -> 0xffe0eaf0 to 0xff202e36
         OracleTone.MAUVE -> 0xffede3ed to 0xff302632
         OracleTone.SAGE -> 0xffdfede4 to 0xff1b3029
+        OracleTone.CLAY -> 0xffeee2d9 to 0xff332923
     }
     return Color(if (LocalEveningTheme.current) pair.second else pair.first)
 }

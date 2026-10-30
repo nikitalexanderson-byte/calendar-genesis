@@ -148,26 +148,33 @@ private fun JSONObject.localized(language: String): String = optString(language)
                     Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         UntranslatedText(copy.getString("intro"), style = MaterialTheme.typography.bodyMedium)
                         copy.getJSONArray("sections").objects().forEachIndexed { index, section ->
-                            UntranslatedText(section.getString("title"), style = MaterialTheme.typography.titleMedium)
-                            val paragraphs = section.getJSONArray("paragraphs")
-                            for (paragraph in 0 until paragraphs.length()) UntranslatedText(paragraphs.getString(paragraph), style = MaterialTheme.typography.bodyMedium)
-                            if (index == 0) content.getJSONArray("sectors").objects().forEach { sector ->
-                                val ids = sector.getJSONArray("deities")
-                                val translated = sectorCopy?.get(sector.getString("id"))
-                                UntranslatedText((translated?.getString("title") ?: sector.getJSONObject("title").localized(language)) + " · " +
-                                    (0 until ids.length()).joinToString(" / ") { deityName(ids.getString(it)) },
-                                    Modifier.testTag("future-sector-${sector.getString("id")}"), style = MaterialTheme.typography.titleSmall)
-                                UntranslatedText(translated?.getString("meaning") ?: sector.getJSONObject("meaning").localized(language), style = MaterialTheme.typography.bodyMedium)
-                                (0 until ids.length()).mapNotNull { deityNote(ids.getString(it)) }.distinct().forEach {
-                                    UntranslatedText(it, style = MaterialTheme.typography.bodySmall)
+                            val tone = listOf(OracleTone.GOLD, OracleTone.BLUE, OracleTone.MAUVE, OracleTone.SAGE, OracleTone.CLAY)[index]
+                            Surface(Modifier.fillMaxWidth().testTag("future-modeling-step-${index + 1}"),
+                                shape = AffairsLayout.shape, color = oracleSectionColor(tone),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+                                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    UntranslatedText(section.getString("title"), style = MaterialTheme.typography.titleMedium)
+                                    val paragraphs = section.getJSONArray("paragraphs")
+                                    for (paragraph in 0 until paragraphs.length()) UntranslatedText(paragraphs.getString(paragraph), style = MaterialTheme.typography.bodyMedium)
+                                    if (index == 0) content.getJSONArray("sectors").objects().forEach { sector ->
+                                        val ids = sector.getJSONArray("deities")
+                                        val translated = sectorCopy?.get(sector.getString("id"))
+                                        UntranslatedText((translated?.getString("title") ?: sector.getJSONObject("title").localized(language)) + " · " +
+                                            (0 until ids.length()).joinToString(" / ") { deityName(ids.getString(it)) },
+                                            Modifier.testTag("future-sector-${sector.getString("id")}"), style = MaterialTheme.typography.titleSmall)
+                                        UntranslatedText(translated?.getString("meaning") ?: sector.getJSONObject("meaning").localized(language), style = MaterialTheme.typography.bodyMedium)
+                                        (0 until ids.length()).mapNotNull { deityNote(ids.getString(it)) }.distinct().forEach {
+                                            UntranslatedText(it, style = MaterialTheme.typography.bodySmall)
+                                        }
+                                    }
+                                    if (index == 1) content.getJSONArray("goals").objects().forEach { goal ->
+                                        UntranslatedText(deityName(goal.getString("deityId")),
+                                            Modifier.testTag("future-goal-${goal.getString("deityId")}"), style = MaterialTheme.typography.titleSmall)
+                                        UntranslatedText(goalCopy?.get(goal.getString("deityId"))?.getString("goal")
+                                            ?: goal.getJSONObject("goal").localized(language), style = MaterialTheme.typography.bodyMedium)
+                                        deityNote(goal.getString("deityId"))?.let { UntranslatedText(it, style = MaterialTheme.typography.bodySmall) }
+                                    }
                                 }
-                            }
-                            if (index == 1) content.getJSONArray("goals").objects().forEach { goal ->
-                                UntranslatedText(deityName(goal.getString("deityId")),
-                                    Modifier.testTag("future-goal-${goal.getString("deityId")}"), style = MaterialTheme.typography.titleSmall)
-                                UntranslatedText(goalCopy?.get(goal.getString("deityId"))?.getString("goal")
-                                    ?: goal.getJSONObject("goal").localized(language), style = MaterialTheme.typography.bodyMedium)
-                                deityNote(goal.getString("deityId"))?.let { UntranslatedText(it, style = MaterialTheme.typography.bodySmall) }
                             }
                         }
                     }

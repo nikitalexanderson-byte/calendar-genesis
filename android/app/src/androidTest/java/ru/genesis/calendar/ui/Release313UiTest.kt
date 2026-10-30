@@ -180,6 +180,13 @@ class Release313UiTest {
             compose.onNode(hasText(guideCopy.getString("title")) and
                 hasAnyAncestor(hasTestTag("future-modeling-dialog"))).assertExists()
             compose.onNodeWithText(guideCopy.getString("intro")).assertExists()
+            val guideSections = guideCopy.getJSONArray("sections")
+            for (index in 0 until guideSections.length()) {
+                compose.onNode(hasText(guideSections.getJSONObject(index).getString("title")) and
+                    hasAnyAncestor(hasTestTag("future-modeling-step-${index + 1}")))
+                    .performScrollTo().assertIsDisplayed()
+                if (choice in listOf("ru", "en")) capture("locale-$choice-guide-step-${index + 1}")
+            }
             compose.onNodeWithTag("future-goal-dionysus").performScrollTo().assertIsDisplayed()
             capture("locale-$choice-guide")
             compose.onNodeWithTag("future-modeling-close").performClick()
@@ -233,6 +240,15 @@ class Release313UiTest {
             StoicheionTimelinePanel(letters, draw, true, 1_000L, false,
                 { draw = StoicheionDraw("timeline", "2026-10-30", 0x12345678L, 1, 1_000L, 181_000L) }, { selected = it })
         } } }
+        val begin = compose.onNodeWithTag("stoicheion-draw-timeline").performScrollTo().fetchSemanticsNode().boundsInRoot
+        val help = compose.onNodeWithTag("stoicheion-timeline-help").fetchSemanticsNode().boundsInRoot
+        assertTrue("Instructions follow the primary action", begin.bottom <= help.top)
+        compose.onNodeWithTag("stoicheion-timeline-help").performScrollTo().performClick()
+        compose.onNodeWithTag("stoicheion-timeline-help-dialog").assertIsDisplayed()
+        assertNull("Reading the instructions must not draw cards", draw)
+        capture("timeline-help-modal")
+        compose.onNodeWithTag("stoicheion-timeline-help-close").performClick()
+        compose.onNodeWithTag("stoicheion-timeline-help-dialog").assertDoesNotExist()
         compose.onNodeWithTag("stoicheion-draw-timeline").performScrollTo().performClick()
         val positions = listOf("past", "present", "future").map { id ->
             compose.onNodeWithTag("stoicheion-timeline-$id").performScrollTo().fetchSemanticsNode().boundsInRoot
