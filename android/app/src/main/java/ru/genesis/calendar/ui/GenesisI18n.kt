@@ -1912,6 +1912,7 @@ private object TranslationCatalog {
     private val taskList = Regex("^(\\d+) задач на (.+)\\. Открыть список\\.$")
     private val phaseIllumination = Regex("^(.+), (\\d+)%$")
     private val isoDate = Regex("^\\d{4}-\\d{2}-\\d{2}$")
+    private val duration = Regex("^(?:(☾ Длительность · |Длительность: ))?(\\d+) ч (\\d+) мин$")
     private val sacredDayNames by lazy { SacredCatalog.months.flatMap { it.days }.map { it.name }.toSet() }
     private val moonPhases = setOf("Новолуние", "Молодой серп", "Первая четверть", "Растущая луна",
         "Полнолуние", "Убывающая луна", "Последняя четверть", "Старый серп")
@@ -1921,6 +1922,10 @@ private object TranslationCatalog {
         translations: Map<String, String>): String? {
         fun format(key: String, vararg values: Pair<String, String>): String? = translations[key]?.let { template ->
             values.fold(template) { result, (name, value) -> result.replace("{$name}", value) }
+        }
+        duration.matchEntire(text)?.let { match ->
+            return format("${match.groupValues[1]}{hours} ч {minutes} мин",
+                "hours" to match.groupValues[2], "minutes" to match.groupValues[3])
         }
         dragTask.matchEntire(text)?.let { match ->
             return format("Удерживайте задачу {title} и перетащите в проект", "title" to match.groupValues[1])

@@ -49,6 +49,8 @@ class NativeTranslationWalkthroughTest {
             "Нажмите $userField для переноса".replace(userPattern, " "))
         val catalog = JSONObject(app.assets.open("originals/i18n/native-mobile-design-translations.json")
             .bufferedReader().use { it.readText() })
+        val refinements = JSONObject(app.assets.open("originals/i18n/ui-refinement-copy.json")
+            .bufferedReader().use { it.readText() })
         val dayIndex = 210
         val day = SacredCatalog.months.flatMap { it.days }[dayIndex]
         val userTitle = "Задача {title} и проект\nМосква"
@@ -60,6 +62,13 @@ class NativeTranslationWalkthroughTest {
                 values.fold(copy.getString(key)) { result, (name, value) -> result.replace("{$name}", value) }
             fun assertTranslation(source: String, translated: String) =
                 assertEquals("$language: $source", translated, translateGenesisText(app, source, language))
+            for (prefix in listOf("", "☾ Длительность · ", "Длительность: ")) {
+                val template = refinements.getJSONObject(language).getString("${prefix}{hours} ч {minutes} мин")
+                for ((hours, minutes) in listOf(8 to 0, 0 to 45, 12 to 30)) {
+                    assertTranslation("$prefix$hours ч $minutes мин",
+                        template.replace("{hours}", hours.toString()).replace("{minutes}", minutes.toString()))
+                }
+            }
             assertTranslation("Новая привычка", copy.getString("Новая привычка"))
             assertTranslation("Разделы и действия привычек", copy.getString("Разделы и действия привычек"))
             for (completed in listOf(false, true)) {

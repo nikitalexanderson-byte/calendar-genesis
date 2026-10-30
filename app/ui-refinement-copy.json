@@ -68,7 +68,10 @@
     "Решение ситуации": "Решение ситуации",
     "Не удалось открыть восполнение. Повторите загрузку.": "Не удалось открыть восполнение. Повторите загрузку.",
     "Повторить загрузку": "Повторить загрузку",
-    "Начать восполнение": "Начать восполнение"
+    "Начать восполнение": "Начать восполнение",
+    "{hours} ч {minutes} мин": "{hours} ч {minutes} мин",
+    "☾ Длительность · {hours} ч {minutes} мин": "☾ Длительность · {hours} ч {minutes} мин",
+    "Длительность: {hours} ч {minutes} мин": "Длительность: {hours} ч {minutes} мин"
   },
   "de": {
     "Вернуть исходную": "Original wiederherstellen",
@@ -139,7 +142,10 @@
     "Решение ситуации": "Die Situation lösen",
     "Не удалось открыть восполнение. Повторите загрузку.": "Die Wiederherstellung konnte nicht geöffnet werden. Bitte erneut laden.",
     "Повторить загрузку": "Erneut laden",
-    "Начать восполнение": "Wiederherstellung beginnen"
+    "Начать восполнение": "Wiederherstellung beginnen",
+    "{hours} ч {minutes} мин": "{hours} Std. {minutes} Min.",
+    "☾ Длительность · {hours} ч {minutes} мин": "☾ Dauer · {hours} Std. {minutes} Min.",
+    "Длительность: {hours} ч {minutes} мин": "Dauer: {hours} Std. {minutes} Min."
   },
   "el": {
     "Вернуть исходную": "Επαναφορά αρχικής",
@@ -210,7 +216,10 @@
     "Решение ситуации": "Επίλυση της κατάστασης",
     "Не удалось открыть восполнение. Повторите загрузку.": "Δεν ήταν δυνατό το άνοιγμα της αποκατάστασης. Δοκιμάστε ξανά.",
     "Повторить загрузку": "Επαναφόρτωση",
-    "Начать восполнение": "Έναρξη αποκατάστασης"
+    "Начать восполнение": "Έναρξη αποκατάστασης",
+    "{hours} ч {minutes} мин": "{hours} ώρ. {minutes} λεπ.",
+    "☾ Длительность · {hours} ч {minutes} мин": "☾ Διάρκεια · {hours} ώρ. {minutes} λεπ.",
+    "Длительность: {hours} ч {minutes} мин": "Διάρκεια: {hours} ώρ. {minutes} λεπ."
   },
   "en": {
     "Вернуть исходную": "Restore original",
@@ -281,7 +290,10 @@
     "Решение ситуации": "Resolve the situation",
     "Не удалось открыть восполнение. Повторите загрузку.": "Restoration could not be opened. Reload and try again.",
     "Повторить загрузку": "Reload",
-    "Начать восполнение": "Begin restoration"
+    "Начать восполнение": "Begin restoration",
+    "{hours} ч {minutes} мин": "{hours} hr {minutes} min",
+    "☾ Длительность · {hours} ч {minutes} мин": "☾ Duration · {hours} hr {minutes} min",
+    "Длительность: {hours} ч {minutes} мин": "Duration: {hours} hr {minutes} min"
   },
   "es": {
     "Вернуть исходную": "Restaurar original",
@@ -352,7 +364,10 @@
     "Решение ситуации": "Resolver la situación",
     "Не удалось открыть восполнение. Повторите загрузку.": "No se pudo abrir la restauración. Vuelve a cargar los datos.",
     "Повторить загрузку": "Volver a cargar",
-    "Начать восполнение": "Iniciar restauración"
+    "Начать восполнение": "Iniciar restauración",
+    "{hours} ч {minutes} мин": "{hours} h {minutes} min",
+    "☾ Длительность · {hours} ч {minutes} мин": "☾ Duración · {hours} h {minutes} min",
+    "Длительность: {hours} ч {minutes} мин": "Duración: {hours} h {minutes} min"
   },
   "fr": {
     "Вернуть исходную": "Rétablir l’original",
@@ -423,7 +438,10 @@
     "Решение ситуации": "Résoudre la situation",
     "Не удалось открыть восполнение. Повторите загрузку.": "Impossible d’ouvrir la restauration. Rechargez les données.",
     "Повторить загрузку": "Recharger",
-    "Начать восполнение": "Commencer la restauration"
+    "Начать восполнение": "Commencer la restauration",
+    "{hours} ч {minutes} мин": "{hours} h {minutes} min",
+    "☾ Длительность · {hours} ч {minutes} мин": "☾ Durée · {hours} h {minutes} min",
+    "Длительность: {hours} ч {minutes} мин": "Durée: {hours} h {minutes} min"
   },
   "it": {
     "Вернуть исходную": "Ripristina originale",
@@ -494,7 +512,10 @@
     "Решение ситуации": "Risolvere la situazione",
     "Не удалось открыть восполнение. Повторите загрузку.": "Impossibile aprire il ripristino. Ricarica i dati.",
     "Повторить загрузку": "Ricarica",
-    "Начать восполнение": "Inizia il ripristino"
+    "Начать восполнение": "Inizia il ripristino",
+    "{hours} ч {minutes} мин": "{hours} h {minutes} min",
+    "☾ Длительность · {hours} ч {minutes} мин": "☾ Durata · {hours} h {minutes} min",
+    "Длительность: {hours} ч {minutes} мин": "Durata: {hours} h {minutes} min"
   },
   "ja": {
     "Вернуть исходную": "元に戻す",
@@ -565,7 +586,10 @@
     "Решение ситуации": "状況の解決",
     "Не удалось открыть восполнение. Повторите загрузку.": "回復を開けませんでした。再読み込みしてください。",
     "Повторить загрузку": "再読み込み",
-    "Начать восполнение": "回復を始める"
+    "Начать восполнение": "回復を始める",
+    "{hours} ч {minutes} мин": "{hours}時間{minutes}分",
+    "☾ Длительность · {hours} ч {minutes} мин": "☾ 時間 · {hours}時間{minutes}分",
+    "Длительность: {hours} ч {minutes} мин": "時間: {hours}時間{minutes}分"
   },
   "pl": {
     "Вернуть исходную": "Przywróć oryginał",
@@ -636,7 +660,10 @@
     "Решение ситуации": "Rozwiązanie sytuacji",
     "Не удалось открыть восполнение. Повторите загрузку.": "Nie udało się otworzyć przywracania. Wczytaj dane ponownie.",
     "Повторить загрузку": "Wczytaj ponownie",
-    "Начать восполнение": "Rozpocznij przywracanie"
+    "Начать восполнение": "Rozpocznij przywracanie",
+    "{hours} ч {minutes} мин": "{hours} godz. {minutes} min",
+    "☾ Длительность · {hours} ч {minutes} мин": "☾ Czas trwania · {hours} godz. {minutes} min",
+    "Длительность: {hours} ч {minutes} мин": "Czas trwania: {hours} godz. {minutes} min"
   },
   "pt": {
     "Вернуть исходную": "Restaurar original",
@@ -707,7 +734,10 @@
     "Решение ситуации": "Resolver a situação",
     "Не удалось открыть восполнение. Повторите загрузку.": "Não foi possível abrir a restauração. Recarregue os dados.",
     "Повторить загрузку": "Recarregar",
-    "Начать восполнение": "Iniciar restauração"
+    "Начать восполнение": "Iniciar restauração",
+    "{hours} ч {minutes} мин": "{hours} h {minutes} min",
+    "☾ Длительность · {hours} ч {minutes} мин": "☾ Duração · {hours} h {minutes} min",
+    "Длительность: {hours} ч {minutes} мин": "Duração: {hours} h {minutes} min"
   },
   "sr": {
     "Вернуть исходную": "Врати изворну",
@@ -778,7 +808,10 @@
     "Решение ситуации": "Решење ситуације",
     "Не удалось открыть восполнение. Повторите загрузку.": "Обнова није могла да се отвори. Поново учитајте податке.",
     "Повторить загрузку": "Учитај поново",
-    "Начать восполнение": "Започни обнову"
+    "Начать восполнение": "Започни обнову",
+    "{hours} ч {minutes} мин": "{hours} ч {minutes} мин",
+    "☾ Длительность · {hours} ч {minutes} мин": "☾ Трајање · {hours} ч {minutes} мин",
+    "Длительность: {hours} ч {minutes} мин": "Трајање: {hours} ч {minutes} мин"
   },
   "tr": {
     "Вернуть исходную": "Özgün hâline döndür",
@@ -849,7 +882,10 @@
     "Решение ситуации": "Durumu çözümleme",
     "Не удалось открыть восполнение. Повторите загрузку.": "Yenilenme açılamadı. Verileri yeniden yükleyin.",
     "Повторить загрузку": "Yeniden yükle",
-    "Начать восполнение": "Yenilenmeye başla"
+    "Начать восполнение": "Yenilenmeye başla",
+    "{hours} ч {minutes} мин": "{hours} sa {minutes} dk",
+    "☾ Длительность · {hours} ч {minutes} мин": "☾ Süre · {hours} sa {minutes} dk",
+    "Длительность: {hours} ч {minutes} мин": "Süre: {hours} sa {minutes} dk"
   },
   "uk": {
     "Вернуть исходную": "Повернути початкову",
@@ -920,7 +956,10 @@
     "Решение ситуации": "Розв’язання ситуації",
     "Не удалось открыть восполнение. Повторите загрузку.": "Не вдалося відкрити відновлення. Завантажте дані знову.",
     "Повторить загрузку": "Завантажити знову",
-    "Начать восполнение": "Почати відновлення"
+    "Начать восполнение": "Почати відновлення",
+    "{hours} ч {minutes} мин": "{hours} год {minutes} хв",
+    "☾ Длительность · {hours} ч {minutes} мин": "☾ Тривалість · {hours} год {minutes} хв",
+    "Длительность: {hours} ч {minutes} мин": "Тривалість: {hours} год {minutes} хв"
   },
   "zh": {
     "Вернуть исходную": "恢复原始习惯",
@@ -991,6 +1030,9 @@
     "Решение ситуации": "化解局面",
     "Не удалось открыть восполнение. Повторите загрузку.": "无法打开修复流程，请重新加载。",
     "Повторить загрузку": "重新加载",
-    "Начать восполнение": "开始修复"
+    "Начать восполнение": "开始修复",
+    "{hours} ч {minutes} мин": "{hours} 小时 {minutes} 分钟",
+    "☾ Длительность · {hours} ч {minutes} мин": "☾ 时长 · {hours} 小时 {minutes} 分钟",
+    "Длительность: {hours} ч {minutes} мин": "时长: {hours} 小时 {minutes} 分钟"
   }
 }
