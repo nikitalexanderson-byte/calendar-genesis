@@ -10,6 +10,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.unit.Density
@@ -28,6 +30,7 @@ import ru.genesis.calendar.domain.habits.*
 import ru.genesis.calendar.domain.trackers.*
 import java.io.File
 import java.time.LocalDate
+import java.util.concurrent.ConcurrentHashMap
 
 /** Synthetic fixtures only; intended to run on the connected Realme at both themes/font scales. */
 class Release313UiTest {
@@ -77,6 +80,69 @@ class Release313UiTest {
             }
         } }
         wordsStayWhole()
+    }
+
+    @Test fun fiveHundredLetterTaskTitlesStayCompleteAtBothFontScales() {
+        val tokens = listOf("Ж".repeat(500), "W".repeat(500), "Ω".repeat(500))
+        val ordinary = "Обычная задача"
+        val paragraph = "Каждое слово остаётся целиком на своей строке"
+        val forcedLines = "Первая строка\nВторая строка"
+        val layouts = ConcurrentHashMap<String, TextLayoutResult>()
+        var fontScale by mutableStateOf(1f)
+        compose.setContent { Frame {
+            val density = LocalDensity.current.density
+            CompositionLocalProvider(LocalGenesisLanguage provides "ru",
+                LocalDensity provides Density(density, fontScale),
+                LocalGenesisTextLayoutAudit provides { text, layout ->
+                    layouts[text] = layout
+                    brokenWords[text] = layout.splitsWord()
+                }) {
+                Column(Modifier.width(120.dp)) {
+                    tokens.take(2).forEachIndexed { index, token ->
+                        TaskTitle(LocalTask(id = "long-token-$index", title = token, date = "2100-01-01"),
+                            Modifier.width(64.dp).testTag("long-token-$index"),
+                            style = MaterialTheme.typography.titleSmall,
+                            maxLines = if (index == 0) Int.MAX_VALUE else 1)
+                    }
+                    UntranslatedText(AnnotatedString(tokens[2]), Modifier.width(64.dp).testTag("long-token-2"),
+                        style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+                    UntranslatedText(ordinary, Modifier.width(120.dp), style = MaterialTheme.typography.titleSmall)
+                    UntranslatedText(paragraph, Modifier.width(100.dp), style = MaterialTheme.typography.bodyMedium)
+                    UntranslatedText(forcedLines, Modifier.width(120.dp).testTag("forced-lines-text"),
+                        style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+                    UntranslatedText("Нулевая ширина", Modifier.size(0.dp).testTag("zero-size-text"),
+                        style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+                }
+            }
+        } }
+        for (scale in listOf(1f, 1.3f)) {
+            compose.runOnIdle {
+                if (fontScale != scale) { layouts.clear(); brokenWords.clear(); fontScale = scale }
+            }
+            compose.waitUntil(5_000) { tokens.all(layouts::containsKey) &&
+                listOf(ordinary, paragraph, forcedLines).all(layouts::containsKey) }
+            tokens.forEachIndexed { index, token ->
+                compose.onNodeWithTag("long-token-$index").assertTextEquals(token)
+                val layout = layouts.getValue(token)
+                assertEquals("$scale/$index keeps the full title", token, layout.layoutInput.text.text)
+                assertEquals("$scale/$index keeps the token on one line", 1, layout.lineCount)
+                assertEquals("$scale/$index renders all 500 letters", token.length, layout.getLineEnd(0, visibleEnd = true))
+                assertFalse("$scale/$index has no clipped content", layout.didOverflowWidth || layout.didOverflowHeight)
+                assertFalse("$scale/$index has no ellipsis", layout.isLineEllipsized(0))
+                assertFalse("$scale/$index has no split word", layout.splitsWord())
+                assertTrue("$scale/$index uses the emergency fit", layout.layoutInput.style.fontSize.value < 8f)
+            }
+            assertEquals("$scale preserves the ordinary label size", 14f,
+                layouts.getValue(ordinary).layoutInput.style.fontSize.value, .001f)
+            val wrapped = layouts.getValue(paragraph)
+            assertEquals("$scale preserves the ordinary paragraph size", 14f, wrapped.layoutInput.style.fontSize.value, .001f)
+            assertTrue("$scale allows ordinary wrapping between words", wrapped.lineCount > 1)
+            compose.onNodeWithTag("forced-lines-text").assertTextEquals(forcedLines)
+            assertEquals("$scale does not shrink an impossible explicit newline toward zero", 8f,
+                layouts.getValue(forcedLines).layoutInput.style.fontSize.value, .001f)
+            compose.onNodeWithTag("zero-size-text").assertWidthIsEqualTo(0.dp).assertHeightIsEqualTo(0.dp)
+            wordsStayWhole()
+        }
     }
 
     @Test fun everyOracleLocaleRendersItsOwnCompleteReferenceAndModal() {

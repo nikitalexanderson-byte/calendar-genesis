@@ -269,14 +269,20 @@ class ProjectsFlowTest {
             workspaceRoot().performTouchInput { moveTo(Offset(listBounds.center.x, listBounds.bottom - 8f) - origin) }
             var reached = false
             var targetBounds = "absent"
+            var targetSize = "absent"
             // The production LaunchedEffect uses delay(16): give it a bounded virtual-time
             // budget rather than only32ms per expensive emulator semantics poll.
             for (step in 1..80) {
                 compose.mainClock.advanceTimeBy(100)
                 val targets = compose.onAllNodesWithTag("project-drop-$lastId").fetchSemanticsNodes()
                 targetBounds = targets.singleOrNull()?.boundsInRoot?.toString() ?: "absent"
+                targetSize = targets.singleOrNull()?.size?.toString() ?: "absent"
                 reached = targets.any {
-                    it.boundsInRoot.height > 0f && it.boundsInRoot.top >= listBounds.top && it.boundsInRoot.bottom <= listBounds.bottom
+                    // boundsInRoot is clipped by the lazy viewport: compare it with the
+                    // complete measured size before considering the destination revealed.
+                    it.boundsInRoot.height >= it.size.height - 1f &&
+                        it.boundsInRoot.width >= it.size.width - 1f &&
+                        it.boundsInRoot.top >= listBounds.top && it.boundsInRoot.bottom <= listBounds.bottom
                 }
                 if (reached) break
             }
@@ -285,7 +291,7 @@ class ProjectsFlowTest {
                 .put("finger", Offset(listBounds.center.x, listBounds.bottom - 8f).toString())
                 .put("floatingPreview", compose.onAllNodesWithTag("drag-floating-task").fetchSemanticsNodes()
                     .singleOrNull()?.boundsInRoot?.toString() ?: "absent")
-                .put("target", targetBounds).put("targetFullyVisible", reached)
+                .put("target", targetBounds).put("targetSize", targetSize).put("targetFullyVisible", reached)
                 .put("initialScroll", initialScroll.toDouble()).put("finalScroll", finalScroll.toDouble())
                 .put("virtualElapsedMs", compose.mainClock.currentTime - startedAt)
             File(app.getExternalFilesDir(null), "projects-auto-scroll-proof.json").writeText(proof.toString())
@@ -296,8 +302,28 @@ class ProjectsFlowTest {
             assertTrue("The list must actually scroll while the finger remains held: $proof", finalScroll > initialScroll)
             compose.onNodeWithTag("drag-floating-task").assertExists()
             compose.onNodeWithTag("project-drop-$lastId").assertIsDisplayed()
-            dropTaskOn(lastId)
+            // Leave the edge and let the production auto-scroll loop observe the new
+            // finger position. Do not scroll the lazy list through semantics here.
+            workspaceRoot().performTouchInput { moveTo(listBounds.center - origin) }
+            compose.mainClock.advanceTimeBy(64)
+            val dropTarget = compose.onNodeWithTag("project-drop-$lastId").fetchSemanticsNode()
+            assertTrue("The complete target must remain visible before dropping: $proof",
+                dropTarget.boundsInRoot.height >= dropTarget.size.height - 1f)
+            val dropPoint = dropTarget.boundsInRoot.center
+            // Deliver the move separately from up: with autoAdvance=false a single
+            // 300ms event batch can release against geometry from an earlier frame.
+            workspaceRoot().performTouchInput { moveTo(dropPoint - origin) }
+            compose.mainClock.advanceTimeByFrame()
+            val releaseBounds = compose.onNodeWithTag("project-drop-$lastId").fetchSemanticsNode().boundsInRoot
+            proof.put("dropPoint", dropPoint.toString()).put("releaseTarget", releaseBounds.toString())
+                .put("releaseScroll", scrollPosition().toDouble())
+            File(app.getExternalFilesDir(null), "projects-auto-scroll-proof.json").writeText(proof.toString())
+            println("QA313_PROJECT_AUTO_SCROLL_RELEASE=$proof")
+            assertTrue("The release point must still be inside the destination after its layout frame: $proof",
+                releaseBounds.contains(dropPoint))
+            workspaceRoot().performTouchInput { up() }
             compose.mainClock.autoAdvance = autoAdvance
+            compose.onNodeWithTag("drag-floating-task").assertDoesNotExist()
             compose.waitUntil(10_000) { runBlocking { app.repository.get(taskId)?.projectId == lastId } }
         } finally {
             cancelTaskDrag()

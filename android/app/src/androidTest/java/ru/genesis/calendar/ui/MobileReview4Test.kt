@@ -48,13 +48,39 @@ class MobileReview4Test {
         captureNativeWindow(file)
         return file
     }
-    private fun assertModelPainted(file: File) {
+    private fun modelColorCount(file: File): Int {
         val bitmap = BitmapFactory.decodeFile(file.absolutePath)
         val colors = mutableSetOf<Int>()
         for (y in bitmap.height*4/10 until bitmap.height*65/100 step 4)
             for (x in bitmap.width/4 until bitmap.width*3/4 step 4) colors += bitmap.getPixel(x,y)
         bitmap.recycle()
-        assertTrue("The SVG must be painted, not only present in the DOM: ${colors.size} colors",colors.size>12)
+        return colors.size
+    }
+    private fun capturePaintedModel(name: String) {
+        // DOM/visual-state callbacks can precede the corresponding compositor frame,
+        // especially with the API35 software renderer. Keep the actual pixel assertion
+        // and wait for that frame instead of accepting the earlier loading screenshot.
+        val deadline = android.os.SystemClock.uptimeMillis() + 15_000
+        var colors = 0
+        var captures = 0
+        var ready = false
+        var file: File? = null
+        do {
+            compose.waitForIdle()
+            ready = compose.activity.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED) &&
+                compose.onAllNodes(hasTestTag("solar-model-fit") and isEnabled()).fetchSemanticsNodes().isNotEmpty()
+            if (ready) {
+                file = capture(name)
+                colors = modelColorCount(file)
+                captures++
+                if (colors > 12) break
+            }
+        } while (android.os.SystemClock.uptimeMillis() < deadline)
+        file?.let { File(it.absolutePath + ".paint.json").writeText(JSONObject()
+            .put("nativeReady", ready).put("colors", colors).put("captures", captures)
+            .put("minimumColorsExclusive", 12).toString()) }
+        assertTrue("The active SVG must be painted, not only present in the DOM: $colors colors, " +
+            "$captures captures, nativeReady=$ready", ready && colors > 12)
     }
 
     @Test fun exactOfflineCircleSupportsZoomSelectionAndOpeningTheCivilDate() {
@@ -78,7 +104,7 @@ class MobileReview4Test {
         println("GENESIS_MODEL_GEOMETRY $modelGeometry")
         val first = compose.onNodeWithTag("solar-model-month").fetchSemanticsNode().config[
             androidx.compose.ui.semantics.SemanticsProperties.Text].single().text
-        assertModelPainted(capture("circle-overview"))
+        capturePaintedModel("circle-overview")
         compose.onNodeWithTag("solar-model-zoom-in").performClick()
         compose.onNodeWithTag("solar-model-zoom-out").performClick()
         compose.onNodeWithTag("solar-model-next").performClick()
@@ -86,7 +112,7 @@ class MobileReview4Test {
             compose.onNodeWithTag("solar-model-month").fetchSemanticsNode().config[
                 androidx.compose.ui.semantics.SemanticsProperties.Text].single().text != first
         }
-        assertModelPainted(capture("circle-selected-month"))
+        capturePaintedModel("circle-selected-month")
         compose.onNodeWithTag("solar-model-open-date").performClick()
         assertTrue(closed)
         val expectedMonth = (calendar.sacredDate(shown).monthIndex + 1) % 13

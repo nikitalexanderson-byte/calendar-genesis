@@ -15,12 +15,15 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.*
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import ru.genesis.calendar.GenesisApplication
+import ru.genesis.calendar.BuildConfig
 import ru.genesis.calendar.PagerTestActivity
 import ru.genesis.calendar.captureNativeWindow
 import ru.genesis.calendar.data.*
+import ru.genesis.calendar.reminders.ReminderScheduler
 import java.io.File
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.first
@@ -33,6 +36,12 @@ class HabitFeedback310Test {
     private var dark by mutableStateOf(false)
     private var settings by mutableStateOf(HabitFeedbackSettings())
     private var enabled by mutableStateOf(true)
+    @Before fun selectIsolatedWorkspace() {
+        val app = context.applicationContext as GenesisApplication
+        check(BuildConfig.DEBUG && app.packageName.endsWith(".debug"))
+        app.activateAccount(null)
+        check(app.workspaceScope == "internal-validation-v1")
+    }
     private fun show() {
         val app = context.applicationContext as GenesisApplication
         compose.setContent {
@@ -102,6 +111,11 @@ class HabitFeedback310Test {
         val app = context.applicationContext as GenesisApplication
         val before = runBlocking { app.database.dao().document(app.workspaceScope, "habits")?.revision }
         val manager = app.getSystemService(android.app.NotificationManager::class.java)
+        app.scheduler.createChannels(language)
+        assertTrue("Notification permission is required for the real-channel test", app.scheduler.notificationsAllowed())
+        assertTrue("Achievement channel must be enabled: importance=" +
+            manager.getNotificationChannel(ReminderScheduler.ACHIEVEMENT_CHANNEL)?.importance,
+            app.scheduler.channelAllowed(ReminderScheduler.ACHIEVEMENT_CHANNEL))
         manager.cancel("habit-feedback-test", 7303)
         manager.cancel("habit-achievement", 7302)
         show()
@@ -112,20 +126,31 @@ class HabitFeedback310Test {
             assertEquals(before, runBlocking { app.database.dao().document(app.workspaceScope, "habits")?.revision })
             compose.onNodeWithTag("feedback-notification-test").performScrollTo().performClick()
             compose.waitUntil(5000) { compose.onAllNodesWithTag("feedback-notification-status").fetchSemanticsNodes().isNotEmpty() }
-            if (androidx.core.app.NotificationManagerCompat.from(app).areNotificationsEnabled()) {
-                val notification = manager.activeNotifications.first { it.id == 7303 && it.tag == "habit-feedback-test" }.notification
-                assertNull(notification.sound); assertNull(notification.vibrate)
-                assertEquals(0, notification.defaults and (android.app.Notification.DEFAULT_SOUND or android.app.Notification.DEFAULT_VIBRATE))
+            compose.waitUntil(5000) { manager.activeNotifications.any { it.id == 7303 && it.tag == "habit-feedback-test" } }
+            val notification = manager.activeNotifications.first { it.id == 7303 && it.tag == "habit-feedback-test" }.notification
+            assertEquals(ReminderScheduler.ACHIEVEMENT_CHANNEL, notification.channelId)
+            assertNull(notification.sound); assertNull(notification.vibrate)
+            assertEquals(0, notification.defaults and (android.app.Notification.DEFAULT_SOUND or android.app.Notification.DEFAULT_VIBRATE))
+            fun offerAndAwait(kind: String, title: String) {
+                // Both phases must reach the lifecycle collector, otherwise a dropped
+                // disabled event would make the negative assertion pass vacuously.
+                compose.runOnIdle {
+                    app.offerHabitFeedback(HabitFeedbackEvent(app.workspaceScope, kind, title, settings, achievements = 1))
+                }
+                compose.waitUntil(5000) {
+                    compose.onAllNodes(hasTestTag("habit-feedback-notice") and hasAnyDescendant(hasText(title)))
+                        .fetchSemanticsNodes().isNotEmpty()
+                }
             }
             compose.runOnIdle { settings = settings.copy(achievementPopups = false) }
             compose.onNodeWithTag("feedback-notification-test").assertIsNotEnabled()
-            app.offerHabitFeedback(HabitFeedbackEvent(app.workspaceScope, "completion", "Test", settings, achievements = 1))
-            compose.waitForIdle()
+            offerAndAwait("completion", "QA feedback disabled")
             assertFalse(manager.activeNotifications.any { it.id == 7302 && it.tag == "habit-achievement" })
             compose.runOnIdle { settings = settings.copy(achievementPopups = true) }
-            app.offerHabitFeedback(HabitFeedbackEvent(app.workspaceScope, "achievement", "Test", settings, achievements = 1))
+            offerAndAwait("achievement", "QA feedback enabled")
             compose.waitUntil(5000) { manager.activeNotifications.any { it.id == 7302 && it.tag == "habit-achievement" } }
             val actual = manager.activeNotifications.first { it.id == 7302 && it.tag == "habit-achievement" }.notification
+            assertEquals(ReminderScheduler.ACHIEVEMENT_CHANNEL, actual.channelId)
             assertNull(actual.sound); assertNull(actual.vibrate)
         } finally {
             manager.cancel("habit-feedback-test", 7303)

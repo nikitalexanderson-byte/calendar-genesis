@@ -31,7 +31,7 @@ class NativeTranslationWalkthroughTest {
 
     // CJK copy can directly adjoin a literal Cyrillic user field without a word separator.
     private fun userFieldPattern(value: String) =
-        Regex("(?<![\\p{IsCyrillic}\\p{N}])${Regex.escape(value)}(?![\\p{IsCyrillic}\\p{N}])")
+        Regex("(?<![\\u0400-\\u052F\\u2DE0-\\u2DFF\\uA640-\\uA69F\\p{N}])${Regex.escape(value)}(?![\\u0400-\\u052F\\u2DE0-\\u2DFF\\uA640-\\uA69F\\p{N}])")
 
     @Test fun dynamicCopyKeepsUserTitlesAndLocaleDatesLiteral() {
         val app = compose.activity.application as GenesisApplication

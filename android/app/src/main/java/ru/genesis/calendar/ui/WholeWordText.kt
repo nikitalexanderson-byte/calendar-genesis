@@ -29,17 +29,48 @@ internal fun TextLayoutResult.splitsWord(): Boolean = (0 until (lineCount - 1).c
 /** Preserve the requested size unless the platform breaks a word or a one-line label overflows. */
 internal data class WholeWordTextAutoSize(val preferred: TextUnit, val fitSingleLine: Boolean) : TextAutoSize {
     override fun TextAutoSizeLayoutScope.getFontSize(constraints: Constraints, text: AnnotatedString): TextUnit {
+        if (constraints.maxWidth == 0 || constraints.maxHeight == 0) return preferred
         val largest = preferred.toPx()
         val smallest = minOf(largest, 8.sp.toPx())
         val step = .5.sp.toPx()
+        fun needsMoreWidth(layout: TextLayoutResult): Boolean = layout.splitsWord() || fitSingleLine &&
+            (layout.didOverflowWidth || layout.multiParagraph.didExceedMaxLines ||
+                layout.lineCount > 1 || (layout.lineCount > 0 && layout.isLineEllipsized(0)))
         var candidate = largest
         while (true) {
             val layout = performLayout(constraints, text, candidate.toSp())
-            val overflow = fitSingleLine && (layout.didOverflowWidth || layout.didOverflowHeight ||
-                (layout.lineCount > 0 && layout.isLineEllipsized(0)))
-            if (!layout.splitsWord() && !overflow) return candidate.toSp()
-            if (candidate <= smallest) return candidate.toSp()
+            val widthFailure = needsMoreWidth(layout)
+            if (!widthFailure && !(fitSingleLine && layout.didOverflowHeight)) return candidate.toSp()
+            if (candidate <= smallest) {
+                // A fixed line height cannot be repaired by reducing only the font size.
+                if (!widthFailure) return candidate.toSp()
+                break
+            }
             candidate = (candidate - step).coerceAtLeast(smallest)
         }
+
+        if (fitSingleLine && text.text.any { it == '\n' || it == '\r' || it == '\u0085' ||
+                it == '\u2028' || it == '\u2029' }) return smallest.toSp()
+        // Only extreme user tokens reach this path. Find a fitting size below the normal 8sp floor,
+        // then retain the largest fitting size. Both loops are bounded, including impossible layouts.
+        var tooLarge = smallest
+        var fitting = smallest
+        var found = false
+        for (attempt in 0 until 20) {
+            fitting *= .5f
+            if (!needsMoreWidth(performLayout(constraints, text, fitting.toSp()))) {
+                found = true
+                break
+            }
+            tooLarge = fitting
+        }
+        // Absolute span sizes or letter spacing can prevent any fit; keep their normal readable floor.
+        if (!found) return smallest.toSp()
+        repeat(8) {
+            val probe = (fitting + tooLarge) / 2f
+            if (needsMoreWidth(performLayout(constraints, text, probe.toSp()))) tooLarge = probe
+            else fitting = probe
+        }
+        return fitting.toSp()
     }
 }
