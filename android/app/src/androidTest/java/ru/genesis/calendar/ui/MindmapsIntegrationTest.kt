@@ -133,10 +133,15 @@ class MindmapsIntegrationTest {
             compose.onNodeWithTag("task-title").performScrollTo().performTextReplacement("Changed in ordinary task repository")
             compose.onNodeWithTag("save-task").assertIsDisplayed().assertIsEnabled().performClick()
             compose.waitUntil(5000) {compose.onAllNodesWithText("Changed in ordinary task repository").fetchSemanticsNodes().isNotEmpty()}
+            compose.onNodeWithTag("mindmap-node-close").assertIsDisplayed().assertIsEnabled().performClick()
             screenshot("mindmaps-realme-light.png")
             compose.runOnIdle {dark=true}
             compose.waitForIdle();screenshot("mindmaps-realme-dark.png")
-            compose.onNodeWithContentDescription("Карта").performClick()
+            compose.onNodeWithTag("mindmap-mode-toggle").assertIsDisplayed()
+                .assertContentDescriptionEquals("Показать структуру").performClick()
+            compose.onNodeWithTag("mindmap-canvas").assertDoesNotExist()
+            compose.onNodeWithTag("mindmap-mode-toggle").assertIsDisplayed()
+                .assertContentDescriptionEquals("Показать карту").performClick()
             compose.onNodeWithTag("mindmap-canvas").assertIsDisplayed()
             screenshot("mindmaps-realme-canvas.png")
             runBlocking {

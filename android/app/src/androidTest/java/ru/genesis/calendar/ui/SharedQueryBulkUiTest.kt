@@ -45,6 +45,7 @@ class SharedQueryBulkUiTest {
     @After fun close() = fixture.close()
     @Composable private fun Content() { key(epoch) {
         val gateway = remember { object : SharedWorkspaceGateway by fixture.gateway {
+            override fun captureSharedBulkInputWriter() = SharedBulkInputWriter { context, stamp, input -> saveSharedBulkInput(context, stamp, input) }
             override suspend fun saveSharedBulkInput(context: String, stamp: String?, input: JSONObject): JSONObject {
                 if (!traceConfigure) return fixture.gateway.saveSharedBulkInput(context, stamp, input)
                 val sequence = inputSequence.incrementAndGet(); inputEvent(sequence, "started", stamp, input)

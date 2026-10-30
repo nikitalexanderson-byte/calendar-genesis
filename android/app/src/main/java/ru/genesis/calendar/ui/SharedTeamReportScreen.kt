@@ -191,7 +191,9 @@ import java.time.ZoneId
         GenesisModalFrame(::back) {
             val compactIme = WindowInsets.ime.getBottom(LocalDensity.current) > 0 && maxHeight < 360.dp
             val spacing = if (compactIme) 8.dp else 16.dp
-            Column(Modifier.fillMaxSize().padding(spacing).testTag("shared-team-report"), verticalArrangement = Arrangement.spacedBy(spacing)) {
+            // Preserve a full input row above a landscape IME, including enlarged text.
+            Column(Modifier.fillMaxSize().padding(horizontal = spacing, vertical = if (compactIme) 0.dp else spacing)
+                .testTag("shared-team-report"), verticalArrangement = Arrangement.spacedBy(spacing)) {
                 if (!compactIme) Header(false)
                 BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                     val wideNavigation = maxWidth >= 720.dp && !compactIme

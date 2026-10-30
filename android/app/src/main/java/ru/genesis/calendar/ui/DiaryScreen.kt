@@ -114,17 +114,12 @@ import java.time.Instant
             Text("Назад в дневник")
         }
         if (loading) WorkspaceLoadingLine(Modifier.fillMaxWidth().padding(top = 8.dp))
-        if (error || state.protected) Row(Modifier.fillMaxWidth().padding(12.dp).semantics { liveRegion = LiveRegionMode.Polite },
-            verticalAlignment = Alignment.CenterVertically) {
-            Text(if (state.protected) "Формат дневника изменился. Обновите приложение; записи сохранены."
-                else "Не удалось обновить дневник. Черновики сохранены на устройстве.", Modifier.weight(1f),
-                color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-            AffairsIconButton("Повторить", AffairsAction.REFRESH, { refresh() }, enabled = !loading && !busy)
-        }
-        if (state.offline) Text("Нет сети. Доступна защищённая локальная копия дневника.",
-            Modifier.padding(horizontal = 12.dp, vertical = 8.dp).testTag("diary-offline"), style = MaterialTheme.typography.bodySmall)
-        if (!state.syncEnabled) Text(diaryText("localOnly"), Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-            .testTag("diary-local-only"), style = MaterialTheme.typography.bodySmall)
+        if (error || state.protected) WorkspacePageNotice(
+            if (state.protected) "Формат дневника изменился. Обновите приложение; записи сохранены."
+            else "Не удалось обновить дневник. Черновики сохранены на устройстве.", "diary-error",
+            isError = true, retryEnabled = !loading && !busy, onRetry = { refresh() })
+        if (state.offline) WorkspacePageNotice("Нет сети. Доступна защищённая локальная копия дневника.", "diary-offline")
+        if (!state.syncEnabled) WorkspacePageNotice(diaryText("localOnly"), "diary-local-only")
         LazyColumn(Modifier.fillMaxSize().testTag("diary-notes"), contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 92.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item { Text("Записи и черновики зашифрованы. Архивирование можно отменить.", style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant) }

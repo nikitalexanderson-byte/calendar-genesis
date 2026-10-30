@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -38,10 +39,16 @@ private class DiaryUiStore : DiaryStore {
 private class DiaryUiGateway : DiaryGateway {
     val key = ByteArray(32) { it.toByte() }
     val rows = mutableMapOf<String, JSONObject>()
+    var offline = false
+    var invalidResponse = false
     override fun check() = Unit
     override suspend fun workspace() = JSONObject().put("workspace", JSONObject().put("keyMode", "account").put("key", Base64.getEncoder().encodeToString(key)))
     override suspend fun request(path: String, body: JSONObject?): JSONObject {
-        if (body == null) return JSONObject().put("notes", JSONArray(rows.values.toList()))
+        if (body == null) {
+            if (offline) throw AuthFailure(AuthFailure.Kind.NETWORK)
+            if (invalidResponse) return JSONObject().put("notes", JSONArray().put(JSONObject().put("version", 99)))
+            return JSONObject().put("notes", JSONArray(rows.values.toList()))
+        }
         val id = path.substringAfterLast('/'); val previous = rows[id]
         val same = previous != null && previous.getString("ciphertext") == body.getString("ciphertext") && previous.getString("iv") == body.getString("iv")
         if (!same) {
@@ -81,6 +88,44 @@ class DiaryScreenTest {
         compose.waitForIdle()
         compose.onNodeWithTag(tag).assertExists()
         captureNativeWindow(File(compose.activity.getExternalFilesDir(null), "diary-${width}-${if (dark) "dark" else "light"}-$name.png"))
+    }
+
+    @Test fun cachedOfflineDiaryShowsItsNoticeOnlyInTheDrawerWithoutAProgressSpinner() {
+        val note = DiaryNote.create("Сохранённая запись доступна без сети", "Офлайн-проверка")
+        runBlocking { repository.refresh(); repository.save(note) }
+        gateway.offline = true
+        compose.setContent { Content() }; await("diary-create")
+        compose.waitUntil(20_000) { repository.state.value.offline }
+        val message = "Нет сети. Доступна защищённая локальная копия дневника."
+        compose.onNode(hasText(message) and hasAnyAncestor(hasTestTag("diary-screen")), useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag("diary-offline").assertDoesNotExist()
+        compose.onNodeWithTag("workspace-menu").performClick()
+        compose.onNodeWithTag("drawer-diary-offline").performScrollTo().assertIsDisplayed()
+        compose.onNode(hasText(message) and hasAnyAncestor(hasTestTag("drawer-diary-offline")), useUnmergedTree = true).assertExists()
+        compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo) and
+            hasAnyAncestor(hasTestTag("drawer-diary-offline")), useUnmergedTree = true).assertCountEquals(0)
+        assertTrue(repository.state.value.records.single().note.sameContent(note))
+    }
+
+    @Test fun protectedDiaryFormatErrorStaysInTheDrawerAndRetryPreservesTheCachedRecord() {
+        val note = DiaryNote.create("Защищённая запись должна сохраниться", "Проверка восстановления")
+        runBlocking { repository.refresh(); repository.save(note) }
+        gateway.invalidResponse = true
+        compose.setContent { Content() }; await("diary-create")
+        compose.waitUntil(20_000) { repository.state.value.protected }
+        val message = "Формат дневника изменился. Обновите приложение; записи сохранены."
+        compose.onNodeWithTag("diary-create").assertIsNotEnabled()
+        compose.onNode(hasText(message) and hasAnyAncestor(hasTestTag("diary-screen")), useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag("workspace-menu").performClick()
+        compose.onNodeWithTag("drawer-diary-error").performScrollTo().assertIsDisplayed()
+        compose.onNode(hasText(message) and hasAnyAncestor(hasTestTag("drawer-diary-error")), useUnmergedTree = true).assertExists()
+        compose.runOnIdle { gateway.invalidResponse = false }
+        compose.onNodeWithTag("drawer-diary-error-retry").performScrollTo().assertIsEnabled().performClick()
+        compose.waitUntil(20_000) { !repository.state.value.protected &&
+            compose.onAllNodesWithTag("drawer-diary-error").fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithTag("drawer-close").performScrollTo().performClick()
+        compose.onNodeWithTag("diary-create").assertIsEnabled()
+        assertTrue(repository.state.value.records.single().note.sameContent(note))
     }
 
     @Test fun palettePresetsAreEqualAndCustomColorAppliesOnlyOnConfirmation() {

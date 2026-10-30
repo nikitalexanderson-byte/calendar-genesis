@@ -3,6 +3,11 @@ package ru.genesis.calendar.auth
 import org.json.JSONObject
 import java.util.UUID
 
+/** A local input writer bound to the account session that created its editor. */
+fun interface SharedBulkInputWriter {
+    suspend fun save(context: String, stamp: String?, input: JSONObject): JSONObject
+}
+
 /** Shared workspace operations implemented by the authenticated controller. */
 interface SharedWorkspaceGateway : SharedTaskLifecycleGateway, SharedTaskFilesGateway, SharedTaskReviewGateway, SharedTaskSeriesGateway, SharedMindmapGateway {
     suspend fun sharedSavedViews(cursor: String? = null): JSONObject = throw UnsupportedOperationException("sharedSavedViews")
@@ -60,6 +65,7 @@ interface SharedWorkspaceGateway : SharedTaskLifecycleGateway, SharedTaskFilesGa
     suspend fun sendSharedAutomationDraft(projectId: String, stamp: String): JSONObject = throw UnsupportedOperationException("sendSharedAutomationDraft")
     suspend fun removeSharedAutomationDraft(projectId: String, stamp: String): Unit = throw UnsupportedOperationException("removeSharedAutomationDraft")
     val supportsSharedBulkInput: Boolean get() = false
+    fun captureSharedBulkInputWriter(): SharedBulkInputWriter = SharedBulkInputWriter { context, stamp, input -> saveSharedBulkInput(context, stamp, input) }
     suspend fun sharedBulkInput(context: String): JSONObject? = null
     suspend fun saveSharedBulkInput(context: String, stamp: String?, input: JSONObject): JSONObject = throw UnsupportedOperationException("saveSharedBulkInput")
     suspend fun removeSharedBulkInput(context: String, stamp: String): Unit = throw UnsupportedOperationException("removeSharedBulkInput")

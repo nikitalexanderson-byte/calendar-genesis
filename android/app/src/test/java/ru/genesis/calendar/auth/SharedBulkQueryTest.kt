@@ -1,6 +1,14 @@
 package ru.genesis.calendar.auth
 
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.yield
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.*
@@ -51,6 +59,9 @@ class SharedBulkQueryTest {
     private inner class Gateway : SharedWorkspaceGateway {
         val storage = MemoryPlanningStorage(); val inputs = PlanningJournal(storage, contract = SharedBulkInputContract)
         var queue = false; var lose = false; var failInput = false; var damagedInput = false; var reads = 0; var projectReads = 0
+        var account = "actor"; var generation = 0L
+        var beforeInputWrite: (suspend () -> Unit)? = null
+        var afterInputCommit: (suspend () -> Unit)? = null
         val sent = mutableListOf<String>(); var response = bulkReportFixture()
         private val access = object : SharedBulkAccess {
             override fun check() { }
@@ -67,10 +78,21 @@ class SharedBulkQueryTest {
                 if (lose) { lose = false; throw AuthFailure(AuthFailure.Kind.NETWORK) }; return response
             }
         }
-        private fun service() = SharedBulkDraftService(PlanningJournal(storage, contract = SharedBulkJournalContract), "actor", access, inputs)
+        private fun service(account: String = this.account) = SharedBulkDraftService(PlanningJournal(storage, contract = SharedBulkJournalContract), account, access, inputs)
         override val supportsSharedBulkInput = true
+        override fun captureSharedBulkInputWriter(): SharedBulkInputWriter {
+            val expectedAccount = account; val expectedGeneration = generation
+            return SharedBulkInputWriter { context, stamp, input -> saveInput(expectedAccount, expectedGeneration, context, stamp, input) }
+        }
         override suspend fun sharedBulkInput(context: String): JSONObject? { if (damagedInput) error("PLANNING_DRAFT_INVALID"); return service().loadInput(context) }
-        override suspend fun saveSharedBulkInput(context: String, stamp: String?, input: JSONObject): JSONObject { if (failInput) error("PLANNING_DRAFT_STORAGE"); return service().saveInput(context, stamp, input) }
+        override suspend fun saveSharedBulkInput(context: String, stamp: String?, input: JSONObject) = saveInput(account, generation, context, stamp, input)
+        private suspend fun saveInput(expectedAccount: String, expectedGeneration: Long, context: String, stamp: String?, input: JSONObject): JSONObject {
+            beforeInputWrite?.invoke()
+            fun current() { if (account != expectedAccount || generation != expectedGeneration) throw CancellationException() }
+            current()
+            if (failInput) error("PLANNING_DRAFT_STORAGE")
+            return service(expectedAccount).saveInput(context, stamp, input).also { afterInputCommit?.invoke(); current() }
+        }
         override suspend fun sharedBulkDraft(projectId: String) = service().load(projectId)
         override suspend fun saveSharedBulkDraft(projectId: String, stamp: String?, edit: JSONObject) = service().save(projectId, stamp, edit)
         override suspend fun prepareSharedBulkDraft(projectId: String, stamp: String) = service().prepare(projectId, stamp)
@@ -99,6 +121,68 @@ class SharedBulkQueryTest {
         stale.change(stale.form.change("days", "-5")); assertFalse(stale.saveInput()); assertEquals("PLANNING_DRAFT_CHANGED", stale.error)
         gateway.failInput = true; first.change(first.form.toggle(first.tasks!!.getJSONArray("tasks").getJSONObject(1))); first.preview()
         assertEquals("PLANNING_DRAFT_STORAGE", first.error); assertEquals(0, gateway.sent.size)
+    }
+    @Test fun cancellingAutosaveAfterItsCommitKeepsTheStampAndNewerInputForConfigure() = runBlocking {
+        val gateway = Gateway(); val first = state(gateway); first.load(); first.selectAll()
+        val committed = CompletableDeferred<Unit>(); val release = CompletableDeferred<Unit>()
+        gateway.afterInputCommit = {
+            committed.complete(Unit)
+            // Like a blocking IO commit, the write finishes before cancellation is delivered to its caller.
+            withContext(NonCancellable) { release.await() }
+            currentCoroutineContext().ensureActive()
+        }
+        val saving = launch { first.saveInput() }; committed.await()
+        first.change(first.form.change("priority", 3)); saving.cancel(); release.complete(Unit); saving.join()
+        gateway.afterInputCommit = null
+        assertTrue(first.dirty); assertEquals(3, first.form.int("priority")); assertEquals(0, gateway.sent.size)
+        first.configureQuery()
+        assertEquals("Configure must use the stamp of the already committed autosave", "configure", first.pane)
+        assertEquals("", first.error); assertTrue(first.inputSaved)
+        val saved = gateway.inputs.load("actor", SharedBulkProtocol.QUERY_SCOPE)!!.getJSONObject("edit")
+        assertEquals(3, saved.getJSONObject("form").getInt("priority"))
+        assertTrue(saved.getJSONObject("form").getBoolean("all"))
+        assertEquals("lunar", saved.getJSONObject("calendar").getString("mode"))
+        assertEquals(0, gateway.sent.size)
+        first.preview()
+        assertEquals(1, gateway.sent.size)
+        assertEquals(3, JSONObject(gateway.sent.single()).getJSONObject("action").getInt("priority"))
+    }
+    @Test fun replacementInputUsesTheSameWriterAndCannotRaceAnInFlightAutosave() = runBlocking {
+        val gateway = Gateway(); val first = state(gateway); first.load(); first.selectAll()
+        val committed = CompletableDeferred<Unit>(); val release = CompletableDeferred<Unit>()
+        gateway.afterInputCommit = { committed.complete(Unit); withContext(NonCancellable) { release.await() } }
+        val saving = launch { first.saveInput() }; committed.await()
+        val replacing = launch { first.newOperation() }; yield()
+        val replacementWaitedForTheWriter = !replacing.isCompleted
+        release.complete(Unit); saving.join(); replacing.join(); gateway.afterInputCommit = null
+        assertTrue("Replacement input must be serialized behind the committed autosave", replacementWaitedForTheWriter)
+        assertEquals("", first.error); assertFalse(first.form.all); assertEquals(0, first.form.selectionCount); assertFalse(first.dirty)
+        val saved = gateway.inputs.load("actor", SharedBulkProtocol.QUERY_SCOPE)!!.getJSONObject("edit")
+        assertFalse(saved.getJSONObject("form").getBoolean("all")); assertEquals(0, saved.getJSONObject("form").getJSONArray("items").length())
+        assertEquals("lunar", saved.getJSONObject("calendar").getString("mode")); assertEquals("Own query", first.title)
+        assertEquals(0, gateway.sent.size)
+    }
+    @Test fun queuedAutosaveAndDisposalCannotRebindOldInputToANewAccountOrSession() = runBlocking {
+        for (switchAccount in listOf(true, false)) {
+            val gateway = Gateway(); val first = state(gateway); first.load(); first.selectAll()
+            val waiting = CompletableDeferred<Unit>(); val release = CompletableDeferred<Unit>()
+            gateway.beforeInputWrite = { waiting.complete(Unit); release.await() }
+            val saving = launch { first.saveInput() }; waiting.await()
+            // Disposal also flushes under NonCancellable, so cancellation of its old screen is insufficient.
+            val queued = launch(NonCancellable) { first.saveInput() }; yield()
+            assertFalse("The second writer must still be waiting for the input mutex", queued.isCompleted)
+            gateway.generation++
+            if (switchAccount) gateway.account = "another-actor"
+            release.complete(Unit); saving.join(); queued.join(); gateway.beforeInputWrite = null
+            assertTrue(saving.isCancelled); assertTrue(queued.isCancelled)
+            assertTrue(first.dirty)
+            assertNull(gateway.inputs.load("actor", SharedBulkProtocol.QUERY_SCOPE))
+            assertNull(gateway.inputs.load("another-actor", SharedBulkProtocol.QUERY_SCOPE))
+            val disposal = runCatching { withContext(NonCancellable) { first.saveInput() } }.exceptionOrNull()
+            assertTrue("A disposal flush started after invalidation must keep its original session", disposal is CancellationException)
+            assertNull(gateway.inputs.load(gateway.account, SharedBulkProtocol.QUERY_SCOPE))
+            assertEquals(0, gateway.sent.size)
+        }
     }
     @Test fun lostQueryPreviewRestoresItsOriginAndExactBodyWithoutAnyProjectOrViewRead() = runBlocking {
         val gateway = Gateway(); gateway.lose = true; val first = state(gateway); first.load(); first.selectAll(); first.configureQuery(); first.preview()

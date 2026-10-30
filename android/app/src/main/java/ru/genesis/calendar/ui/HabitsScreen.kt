@@ -264,12 +264,6 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
         } else {
             if (area in setOf("today", "library")) {
                 HabitWorkspaceTabs(area, ::openArea)
-                OutlinedButton(onClick = { openArea("abstinence") },
-                    modifier = Modifier.fillMaxWidth().testTag("habit-abstinence-open")) {
-                    GenesisLucideIcon("shield-check", Modifier.size(20.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Воздержание", maxLines = 1)
-                }
                 HabitDaySummary(current, today) { openArea("history") }
                 HabitReminderFocus(app, current, repository, reminderRequest)
                 current.habits.filter { HabitRuleHistory.state(it, LocalDate.MAX).conflicts.isNotEmpty() }.forEach { habit ->

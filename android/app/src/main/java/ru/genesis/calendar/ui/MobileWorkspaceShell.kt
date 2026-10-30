@@ -95,6 +95,7 @@ internal fun mobileDestinations(pages: List<String>, visibility: UiVisibility,
     val drawer = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val backgroundStatuses = remember { mutableStateMapOf<Any, String>() }
+    val pageNotices = remember { mutableStateMapOf<Any, WorkspacePageNoticeContent>() }
     val screenHeader = remember(selectedPage, selectedSection) { mutableStateOf<WorkspaceHeaderContent?>(null) }
     val current = destinations.firstOrNull { it.page == selectedPage && it.section == selectedSection }
         ?: destinations.firstOrNull { it.page == selectedPage }
@@ -166,6 +167,10 @@ internal fun mobileDestinations(pages: List<String>, visibility: UiVisibility,
                         }
                     }
                     footerDetails()
+                    pageNotices.values.forEach { notice ->
+                        WorkspacePageNoticeCard(notice, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                            tag = "drawer-${notice.tag}")
+                    }
                     if (backgroundStatuses.isNotEmpty()) Surface(
                         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).testTag("drawer-background-status"),
                         shape = AffairsLayout.shape, color = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -194,7 +199,8 @@ internal fun mobileDestinations(pages: List<String>, visibility: UiVisibility,
                 }
             }
         }) {
-        CompositionLocalProvider(LocalWorkspaceHeader provides screenHeader, LocalWorkspaceBackgroundStatuses provides backgroundStatuses) {
+        CompositionLocalProvider(LocalWorkspaceHeader provides screenHeader, LocalWorkspaceBackgroundStatuses provides backgroundStatuses,
+            LocalWorkspacePageNotices provides pageNotices) {
         Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
             Surface(color = MaterialTheme.colorScheme.surface) {
                 Row(Modifier.fillMaxWidth().heightIn(min = 72.dp).padding(horizontal = 4.dp, vertical = 6.dp)
