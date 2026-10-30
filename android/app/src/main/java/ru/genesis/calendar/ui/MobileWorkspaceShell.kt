@@ -251,8 +251,9 @@ internal fun WorkspaceAccountRefreshButton(description: String, enabled: Boolean
 @Composable
 internal fun WorkspaceHeaderButton(description: String, tag: String, enabled: Boolean = true,
     onClick: () -> Unit, content: @Composable () -> Unit) {
+    val localizedDescription = genesisTranslate(description)
     androidx.compose.material3.Surface(onClick = onClick, enabled = enabled,
-        modifier = Modifier.size(48.dp).testTag(tag).semantics { contentDescription = description },
+        modifier = Modifier.size(48.dp).testTag(tag).semantics { contentDescription = localizedDescription },
         shape = AffairsLayout.controlShape, color = Color(0xff173b38), contentColor = Color(0xffdfc17e),
         border = BorderStroke(1.dp, Color(0xffdfc17e).copy(alpha = .55f))) {
         Box(contentAlignment = Alignment.Center) { content() }

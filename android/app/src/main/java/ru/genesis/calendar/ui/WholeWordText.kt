@@ -30,7 +30,7 @@ internal fun TextLayoutResult.splitsWord(): Boolean = (0 until (lineCount - 1).c
 internal data class WholeWordTextAutoSize(val preferred: TextUnit, val fitSingleLine: Boolean) : TextAutoSize {
     override fun TextAutoSizeLayoutScope.getFontSize(constraints: Constraints, text: AnnotatedString): TextUnit {
         val largest = preferred.toPx()
-        val smallest = minOf(largest, maxOf(8.sp.toPx(), largest * .75f))
+        val smallest = minOf(largest, 8.sp.toPx())
         val step = .5.sp.toPx()
         var candidate = largest
         while (true) {

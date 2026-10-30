@@ -33,8 +33,7 @@ class HabitReminderRecoveryTest {
         val time=LocalTime.now().minusMinutes(20).withSecond(0).withNano(0)
         val at=date.atTime(time).atZone(ZoneId.systemDefault()).toInstant()
         val manager=app.getSystemService(NotificationManager::class.java)
-        val id="late-recovery-habit"
-        repo.delete(id)
+        val id="late-recovery-habit-${java.util.UUID.randomUUID()}"
         val habit=Habit(TrackerEntity.create("habit",id=id),"Проверка отложенной доставки",date,
             HabitEngine(GenesisCalendar()).defaultSchedule(date,CalendarMode.PROFANE),
             preferredTime=time.toString(),reminder=HabitReminder(enabled=true,allowDuringQuietHours=true))

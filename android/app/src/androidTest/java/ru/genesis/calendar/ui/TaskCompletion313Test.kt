@@ -250,6 +250,31 @@ class TaskCompletion313Test {
         assertNull(vm.error.value)
     }
 
+    @Test fun differentSeriesOccurrencesNeverSilentlyShareOnePendingRequest() {
+        val series = seed(recurring = true)
+        val vm = model()
+        val release = CompletableDeferred<Unit>()
+        val entered = CompletableDeferred<Unit>()
+        runBlocking {
+            val lock = async(Dispatchers.Default) { app.scheduler.withMutation { entered.complete(Unit); release.await() } }
+            entered.await()
+            lateinit var first: Job
+            lateinit var second: Job
+            try {
+                compose.runOnUiThread {
+                    first = vm.completeOccurrence(series, today.toString())
+                    assertSame(first, vm.completeOccurrence(series, today.toString()))
+                    second = vm.completeOccurrence(series, today.plusDays(1).toString())
+                    assertNotSame("Different dates represent different checkbox requests", first, second)
+                }
+            } finally { release.complete(Unit) }
+            withTimeout(10_000) { joinAll(lock, first, second) }
+        }
+        val excluded = stored(series.id).recurrenceExcludedDates
+        assertTrue("Both dates must persist, or the stale request must report a conflict",
+            excluded.containsAll(listOf(today.toString(), today.plusDays(1).toString())) || vm.error.value != null)
+    }
+
     @Test fun cancellationDoesNotBecomeASaveErrorAndReleasesTheCompletionGuard() {
         val task = seed()
         val vm = model()

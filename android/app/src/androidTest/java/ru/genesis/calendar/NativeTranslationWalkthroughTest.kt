@@ -9,20 +9,76 @@ import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import java.io.File
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
+import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.json.JSONObject
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import ru.genesis.calendar.data.*
+import ru.genesis.calendar.domain.SacredCatalog
 import ru.genesis.calendar.ui.*
 
 /** Actual mobile routes in the isolated QA package; no account data or remote writes. */
 class NativeTranslationWalkthroughTest {
     @get:Rule val compose = createAndroidComposeRule<TestWorkspaceActivity>()
+
+    @Test fun dynamicCopyKeepsUserTitlesAndLocaleDatesLiteral() {
+        val app = compose.activity.application as GenesisApplication
+        check(BuildConfig.DEBUG && app.packageName == "ru.genesis.calendar.v313.debug" &&
+            app.workspaceScope == "internal-validation-v1")
+        val catalog = JSONObject(app.assets.open("originals/i18n/native-mobile-design-translations.json")
+            .bufferedReader().use { it.readText() })
+        val dayIndex = 210
+        val day = SacredCatalog.months.flatMap { it.days }[dayIndex]
+        val userTitle = "Задача {title} и проект\nМосква"
+        val date = LocalDate.of(2026, 10, 16)
+        for (language in listOf("ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja")) {
+            val copy = catalog.getJSONObject(language)
+            fun expected(key: String, vararg values: Pair<String, String>): String =
+                values.fold(copy.getString(key)) { result, (name, value) -> result.replace("{$name}", value) }
+            fun assertTranslation(source: String, translated: String) =
+                assertEquals("$language: $source", translated, translateGenesisText(app, source, language))
+            assertTranslation("Новая привычка", copy.getString("Новая привычка"))
+            assertTranslation("Разделы и действия привычек", copy.getString("Разделы и действия привычек"))
+            for (phase in listOf("Новолуние", "Молодой серп", "Первая четверть", "Растущая луна",
+                "Полнолуние", "Убывающая луна", "Последняя четверть", "Старый серп"))
+                assertTranslation(phase, copy.getString(phase))
+            assertTranslation("Удерживайте задачу $userTitle и перетащите в проект",
+                expected("Удерживайте задачу {title} и перетащите в проект", "title" to userTitle))
+            for (status in listOf("достигнута", "впереди")) assertTranslation("Дневная цель: 2 · $status",
+                expected("Дневная цель: {count} · {status}", "count" to "2", "status" to copy.getString(status)))
+            for (scheme in listOf("Светлая", "Тёмная")) assertTranslation("$scheme схема с 07:00",
+                expected("$scheme схема с {time}", "time" to "07:00"))
+            val cardName = when (language) { "ru", "sr" -> "Алфа"; "uk" -> "Альфа"; else -> "Alpha" }
+            assertTranslation("Живописная основа карты $cardName",
+                expected("Живописная основа карты {name}", "name" to cardName))
+            val locale = Locale.forLanguageTag(language)
+            val civilDate = date.format(DateTimeFormatter.ofPattern("d MMM uuuu", locale))
+            assertTranslation("7 задач на $civilDate. Открыть список.",
+                expected("{count} задач на {date}. Открыть список.", "count" to "7", "date" to civilDate))
+            val localizedName = if (language == "ru") day.name else JSONArray(app.assets
+                .open("originals/i18n/calendar-days.$language.json").bufferedReader().use { it.readText() })
+                .getJSONObject(dayIndex).getString("name")
+            val moonDay = expected("{day} лунный день", "day" to "7")
+            val count = expected("{count} задач", "count" to "7")
+            val phase = copy.getString("Первая четверть")
+            assertTranslation("1 · ${day.name} · $civilDate · 7 лунный день · Первая четверть, 32% · 7 задач",
+                "1 · $localizedName · $civilDate · $moonDay · $phase, 32% · $count")
+            assertTranslation("16 · 2026-10-16 · $civilDate · 7 лунный день · Первая четверть, 32% · 7 задач",
+                "16 · 2026-10-16 · $civilDate · $moonDay · $phase, 32% · $count")
+            val weekday = date.dayOfWeek.getDisplayName(TextStyle.SHORT, locale).removeSuffix(".")
+            assertTranslation("7 лунный день · Первая четверть · $civilDate · $weekday",
+                "$moonDay · $phase · $civilDate · $weekday")
+        }
+    }
 
     @Test fun visitMainScreensInEverySupportedLanguage() {
         val app = compose.activity.application as GenesisApplication
@@ -38,6 +94,11 @@ class NativeTranslationWalkthroughTest {
         val layouts = ConcurrentHashMap<String, Boolean>()
         val states = JSONArray()
         val ignoredUserCopy = linkedSetOf<String>()
+        // Exact catalog-reviewed phrases contain shared Cyrillic words or a proper name also found in Russian.
+        val reviewedLocalizedCopy = mapOf(
+            "sr" to setOf("Запад · Воде Психе, Посејдон и Амфитрита", "Посејдон и Амфитрита"),
+            "uk" to setOf("Перенести на сьогодні", "IP-адреса"))
+        val acceptedLocalizedCopy = linkedSetOf<String>()
         // Only values read from user-authored fields are exempt. Surrounding UI labels remain audited.
         val userCopy = runBlocking {
             buildSet {
@@ -93,6 +154,10 @@ class NativeTranslationWalkthroughTest {
             if (language != "ru") text.forEach { value ->
                 if (value.trim() in nativeNames) return@forEach
                 val remaining = withoutUserCopy(value)
+                if (remaining in reviewedLocalizedCopy[language].orEmpty()) {
+                    acceptedLocalizedCopy += "$language: $remaining"
+                    return@forEach
+                }
                 if (!cyrillic.containsMatchIn(remaining)) return@forEach
                 val russian = when (language) {
                     "sr" -> Regex("[ЁёЙйЩщЪъЫыЬьЭэЮюЯя]").containsMatchIn(remaining)
@@ -183,6 +248,7 @@ class NativeTranslationWalkthroughTest {
                 .put("states", states).put("russianFindings", JSONArray(findings.toList()))
                 .put("wordSplitFindings", JSONArray(wordFindings.toList()))
                 .put("excludedSyntheticUserStrings", JSONArray(ignoredUserCopy.toList()))
+                .put("reviewedLocalizedCyrillicStrings", JSONArray(acceptedLocalizedCopy.toList()))
                 .put("cyrillicLocaleAudit", "Russian-only letters and known Russian source phrases; shared Cyrillic words are not language proof.")
                 .toString(2))
         }

@@ -1903,6 +1903,69 @@ private object TranslationCatalog {
     private val foreignFragments = ConcurrentHashMap<String, List<Map.Entry<String, String>>>()
     private val resolved = ConcurrentHashMap<String, String>()
     private val cyrillic = Regex("[А-Яа-яЁё]")
+    private val dragTask = Regex("^Удерживайте задачу (.+) и перетащите в проект$", RegexOption.DOT_MATCHES_ALL)
+    private val dailyGoal = Regex("^Дневная цель: (\\d+) · (достигнута|впереди)$")
+    private val schemeTime = Regex("^(Светлая|Тёмная) схема с (\\d{2}:\\d{2})$")
+    private val cardArtwork = Regex("^Живописная основа карты (.+)$")
+    private val lunarDay = Regex("^(\\d+) лунный день$")
+    private val taskCount = Regex("^(\\d+) задач$")
+    private val taskList = Regex("^(\\d+) задач на (.+)\\. Открыть список\\.$")
+    private val phaseIllumination = Regex("^(.+), (\\d+)%$")
+    private val isoDate = Regex("^\\d{4}-\\d{2}-\\d{2}$")
+    private val sacredDayNames by lazy { SacredCatalog.months.flatMap { it.days }.map { it.name }.toSet() }
+    private val moonPhases = setOf("Новолуние", "Молодой серп", "Первая четверть", "Растущая луна",
+        "Полнолуние", "Убывающая луна", "Последняя четверть", "Старый серп")
+
+    /** Recognize authored UI formats before fragment matching; interpolated user copy and locale dates stay literal. */
+    private fun dynamicTranslation(context: android.content.Context, text: String, language: String,
+        translations: Map<String, String>): String? {
+        fun format(key: String, vararg values: Pair<String, String>): String? = translations[key]?.let { template ->
+            values.fold(template) { result, (name, value) -> result.replace("{$name}", value) }
+        }
+        dragTask.matchEntire(text)?.let { match ->
+            return format("Удерживайте задачу {title} и перетащите в проект", "title" to match.groupValues[1])
+        }
+        dailyGoal.matchEntire(text)?.let { match ->
+            val status = translations[match.groupValues[2]] ?: return null
+            return format("Дневная цель: {count} · {status}", "count" to match.groupValues[1], "status" to status)
+        }
+        schemeTime.matchEntire(text)?.let { match ->
+            return format("${match.groupValues[1]} схема с {time}", "time" to match.groupValues[2])
+        }
+        cardArtwork.matchEntire(text)?.let { match ->
+            return format("Живописная основа карты {name}", "name" to match.groupValues[1])
+        }
+        lunarDay.matchEntire(text)?.let { match ->
+            return format("{day} лунный день", "day" to match.groupValues[1])
+        }
+        taskCount.matchEntire(text)?.let { match ->
+            return format("{count} задач", "count" to match.groupValues[1])
+        }
+        taskList.matchEntire(text)?.let { match ->
+            return format("{count} задач на {date}. Открыть список.",
+                "count" to match.groupValues[1], "date" to match.groupValues[2])
+        }
+        phaseIllumination.matchEntire(text)?.let { match ->
+            if (match.groupValues[1] in moonPhases) return translations[match.groupValues[1]]?.let {
+                "$it, ${match.groupValues[2]}%"
+            }
+        }
+        val parts = text.split(" · ")
+        if (parts.size >= 3 && parts[0].toIntOrNull() != null &&
+            (parts[1] in sacredDayNames || isoDate.matches(parts[1]))) {
+            // CalendarDay's third field is already formatted with the selected locale.
+            return parts.mapIndexed { index, part ->
+                if (index == 0 || index == 2) part else translate(context, part, language)
+            }.joinToString(" · ")
+        }
+        if (parts.size >= 4 && lunarDay.matches(parts[0]) && parts[1] in moonPhases) {
+            // LunarCalendarDay also supplies its civil date and weekday in the selected locale.
+            return parts.mapIndexed { index, part ->
+                if (index == 2 || index == 3) part else translate(context, part, language)
+            }.joinToString(" · ")
+        }
+        return null
+    }
 
     private fun source(context: android.content.Context): Map<String, String> =
         dictionary ?: synchronized(this) {
@@ -2033,6 +2096,7 @@ private object TranslationCatalog {
         translations[normalized]?.let { return@getOrPut it }
         val russianKey = if (cyrillic.containsMatchIn(normalized)) normalized else englishReverse[normalized]
         russianKey?.let { translations[it] }?.let { return@getOrPut it }
+        dynamicTranslation(context, normalized, language, translations)?.let { return@getOrPut it }
         if (!cyrillic.containsMatchIn(normalized)) return@getOrPut text
         var pieces = listOf(normalized to false)
         val candidateFragments = if (language == "en") fragments else foreignFragments.getOrPut(language) {

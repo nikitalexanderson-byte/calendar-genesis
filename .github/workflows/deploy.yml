@@ -284,6 +284,7 @@ jobs:
           AAB=android/app/build/outputs/bundle/play/app-play.aab
           test -s "$AAB"
           jarsigner -verify "$AAB" | grep -q 'jar verified'
+          test -s android/app/build/intermediates/merged_manifest/play/processPlayMainManifest/AndroidManifest.xml
           ! grep -q 'android.permission.REQUEST_INSTALL_PACKAGES' \
             android/app/build/intermediates/merged_manifest/play/processPlayMainManifest/AndroidManifest.xml
           # Keep the verified Console bundle with the release even when GitHub

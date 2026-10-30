@@ -14,6 +14,7 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -66,6 +67,16 @@ class Release313UiTest {
         compose.onNodeWithTag("calendar-month-navigation").assertIsDisplayed()
         if (width < 840) assertEquals(0f, compose.onNodeWithTag("calendar-month-scroll").fetchSemanticsNode()
             .config[SemanticsProperties.VerticalScrollAxisRange].value(), 1f)
+    }
+
+    @Test fun narrowAlphabeticLabelsShrinkEnoughToKeepTheirWordsWhole() {
+        compose.setContent { Frame {
+            Column(Modifier.width(64.dp)) {
+                for (label in listOf("Gewohnheitstracker", "Οκτωβρίου", "Завдання"))
+                    UntranslatedText(label, style = MaterialTheme.typography.bodyLarge.copy(fontSize = 20.sp))
+            }
+        } }
+        wordsStayWhole()
     }
 
     @Test fun everyOracleLocaleRendersItsOwnCompleteReferenceAndModal() {

@@ -419,11 +419,17 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
         isAppearanceLightStatusBars = !eveningTheme && !welcomeVisible
         isAppearanceLightNavigationBars = !eveningTheme && !welcomeVisible
     } } }
+    val language = if (testWorkspace || activeScope.startsWith("account-")) prefs.language else welcomePrefs.language
+    val frameworkConfiguration = remember(configuration, language) {
+        Configuration(configuration).apply { setLocale(java.util.Locale.forLanguageTag(language)) }
+    }
+    val context = LocalContext.current
+    val frameworkContext = remember(context, frameworkConfiguration) { GenesisLocaleContext(context, frameworkConfiguration) }
     MaterialTheme(colorScheme=if (eveningTheme) evening else standart, typography = GenesisTypography,
         shapes = GenesisShapes) {
       CompositionLocalProvider(LocalEveningTheme provides eveningTheme) {
-      CompositionLocalProvider(LocalGenesisLanguage provides
-          (if(testWorkspace || activeScope.startsWith("account-")) prefs.language else welcomePrefs.language),
+      CompositionLocalProvider(LocalGenesisLanguage provides language,
+          LocalContext provides frameworkContext, LocalConfiguration provides frameworkConfiguration,
           LocalEnabledCalendars provides CalendarMode.entries
               .filter { it.wireValue in uiVisibility.visibleCalendars }.toSet(),
           LocalSacredFeaturesEnabled provides uiVisibility.sacredFeaturesEnabled,

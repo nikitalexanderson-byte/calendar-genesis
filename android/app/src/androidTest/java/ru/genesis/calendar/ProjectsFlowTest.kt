@@ -24,6 +24,36 @@ class ProjectsFlowTest {
         app.activateAccount(null)
     }
 
+    private fun workspaceRoot() = compose.onNode(isRoot() and hasAnyDescendant(hasTestTag("projects-screen")))
+
+    private fun beginTaskDrag(id: String) {
+        val source = compose.onNodeWithTag("drag-task-$id", useUnmergedTree = true)
+        source.performScrollTo().assertIsDisplayed()
+        val point = source.fetchSemanticsNode().boundsInRoot.center
+        val origin = workspaceRoot().fetchSemanticsNode().boundsInRoot.topLeft
+        try {
+            workspaceRoot().performTouchInput { down(point - origin) }
+            compose.mainClock.advanceTimeBy(800)
+            workspaceRoot().performTouchInput { moveBy(Offset(0f, 4f)) }
+            compose.onNodeWithTag("drag-floating-task").assertExists()
+        } catch (error: Throwable) {
+            cancelTaskDrag()
+            throw error
+        }
+    }
+
+    private fun cancelTaskDrag() { runCatching { workspaceRoot().performTouchInput { cancel() } } }
+
+    private fun dropTaskOn(id: String) {
+        val tag = if (id == "__genesis_inbox__") "project-inbox" else "project-drop-$id"
+        if (!compose.onNodeWithTag(tag).isDisplayed())
+            compose.onNodeWithTag("projects-screen").performScrollToNode(hasTestTag(tag))
+        val target = compose.onNodeWithTag(tag).assertIsDisplayed().fetchSemanticsNode().boundsInRoot.center
+        val origin = workspaceRoot().fetchSemanticsNode().boundsInRoot.topLeft
+        // The viewport retains the pointer even after the lazy source row is recycled.
+        workspaceRoot().performTouchInput { moveTo(target - origin, 300); up() }
+    }
+
     @Test fun projectAndTaskAssignmentPersistEncrypted() = runBlocking {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
         check(BuildConfig.DEBUG && app.packageName.endsWith(".debug"))
@@ -81,13 +111,13 @@ class ProjectsFlowTest {
         }
         compose.waitUntil(10_000) { compose.onAllNodesWithTag("project-title").fetchSemanticsNodes().isEmpty() }
         compose.onAllNodes(hasTestTag("app-theme-Standart") or hasTestTag("app-theme-Evening")).onFirst().assertExists()
-        if (compose.onAllNodesWithTag("category-filter-work").fetchSemanticsNodes().isEmpty()) {
-            compose.onNodeWithTag("projects-screen").performScrollToNode(hasTestTag("category-filter-work"))
-        }
+        compose.onNodeWithTag("personal-task-search-open").performClick()
+        compose.onNodeWithTag("personal-category-filters").assertIsEnabled().performClick()
         compose.onNodeWithTag("category-filter-work").performScrollTo()
         compose.onNodeWithTag("category-filter-work")
             .assert(hasAnyAncestor(hasTestTag("life-categories-card")))
-        compose.onNodeWithTag("category-filter-work").performClick()
+        compose.onNodeWithTag("category-filter-work").performClick().assertIsSelected()
+        compose.onNodeWithTag("personal-task-search-close").performClick()
         compose.onNodeWithTag("projects-screen").performScrollToIndex(0)
         compose.waitForIdle()
         val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
@@ -118,6 +148,9 @@ class ProjectsFlowTest {
             compose.onNodeWithTag("project-inbox").assertExists()
             compose.onNodeWithTag("drag-task-$taskId", useUnmergedTree = true)
                 .performScrollTo().assertIsDisplayed()
+            val taskTitle = runBlocking { requireNotNull(app.repository.get(taskId)).title }
+            compose.onNode(hasContentDescription("Действия с задачей: $taskTitle") and
+                hasAnyAncestor(hasTestTag("drag-task-$taskId")), useUnmergedTree = true).performClick()
             compose.onNodeWithTag("move-task-$taskId").performClick()
             compose.onNodeWithTag("project-destination-search").assertIsDisplayed()
             compose.onNodeWithTag("project-destination-list")
@@ -148,26 +181,12 @@ class ProjectsFlowTest {
                 compose.onAllNodes(hasTestTag("app-theme-Standart") or hasTestTag("app-theme-Evening")).fetchSemanticsNodes().isNotEmpty()
             }
             compose.openWorkspacePage("Проекты")
-            val source = compose.onNodeWithTag("drag-task-$taskId", useUnmergedTree = true)
-            source.performScrollTo()
-            source.assertIsDisplayed()
-            val sourceBounds = source.fetchSemanticsNode().boundsInRoot
-            source.performTouchInput {
-                down(center)
-                advanceEventTime(700)
-                moveBy(Offset(0f, 4f))
-            }
-            compose.onNodeWithTag("drag-overlay").assertExists()
-            val preview = File(app.getExternalFilesDir(null), "projects-drag-preview-after.png")
-            assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(preview))
-            compose.onNodeWithTag("drag-overlay-target-$projectId").performScrollTo()
-            val targetPoint = compose.onNodeWithTag("drag-overlay-target-$projectId")
-                .fetchSemanticsNode().boundsInRoot.center
-            source.performTouchInput {
-                moveTo(Offset(targetPoint.x - sourceBounds.left, targetPoint.y - sourceBounds.top))
-                advanceEventTime(300)
-                up()
-            }
+            beginTaskDrag(taskId)
+            try {
+                val preview = File(app.getExternalFilesDir(null), "projects-drag-preview-after.png")
+                assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(preview))
+                dropTaskOn(projectId)
+            } finally { cancelTaskDrag() }
             compose.waitUntil(10_000) { runBlocking { app.repository.get(taskId)?.projectId == projectId } }
     }
 
@@ -193,20 +212,8 @@ class ProjectsFlowTest {
                 compose.onAllNodesWithTag("projects-screen").fetchSemanticsNodes().isNotEmpty()
             }
             fun dragTo(targetId: String) {
-                val source = compose.onNodeWithTag("drag-task-$taskId", useUnmergedTree = true)
-                source.performScrollTo()
-                source.assertIsDisplayed()
-                val sourceBounds = source.fetchSemanticsNode().boundsInRoot
-                source.performTouchInput { down(center); advanceEventTime(700); moveBy(Offset(0f, 4f)) }
-                compose.onNodeWithTag("drag-overlay").assertExists()
-                compose.onNodeWithTag("drag-overlay-target-$targetId").performScrollTo()
-                val point = compose.onNodeWithTag("drag-overlay-target-$targetId")
-                    .fetchSemanticsNode().boundsInRoot.center
-                source.performTouchInput {
-                    moveTo(Offset(point.x - sourceBounds.left, point.y - sourceBounds.top))
-                    advanceEventTime(150)
-                    up()
-                }
+                beginTaskDrag(taskId)
+                try { dropTaskOn(targetId) } finally { cancelTaskDrag() }
             }
             compose.onNodeWithTag("projects-screen").performScrollToNode(hasTestTag("project-drop-$originId"))
             compose.onNodeWithTag("project-drop-$originId").performClick()
@@ -217,7 +224,8 @@ class ProjectsFlowTest {
             dragTo(destinationId)
             compose.waitUntil(10_000) { runBlocking { app.repository.get(taskId)?.projectId == destinationId } }
             compose.onNodeWithTag("projects-screen").performScrollToNode(hasTestTag("project-drop-$destinationId"))
-            compose.onNodeWithTag("project-drop-$destinationId").performClick()
+            if (compose.onAllNodesWithTag("drag-task-$taskId", useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
+                compose.onNodeWithTag("project-drop-$destinationId").performClick()
             dragTo("__genesis_inbox__")
             compose.waitUntil(10_000) { runBlocking { app.repository.get(taskId)?.projectId == "__genesis_inbox__" } }
     }
@@ -246,20 +254,20 @@ class ProjectsFlowTest {
         compose.openWorkspacePage("Проекты")
         compose.onNodeWithTag("projects-screen").performScrollToNode(hasTestTag("project-drop-$originId"))
         compose.onNodeWithTag("project-drop-$originId").performClick()
-        val source = compose.onNodeWithTag("drag-task-$taskId", useUnmergedTree = true)
-        source.performScrollTo().assertIsDisplayed()
-        val sourceBounds = source.fetchSemanticsNode().boundsInRoot
-        source.performTouchInput { down(center); advanceEventTime(700); moveBy(Offset(0f, 4f)) }
-        val listBounds = compose.onNodeWithTag("drag-overlay-target-list").fetchSemanticsNode().boundsInRoot
-        source.performTouchInput {
-            moveTo(Offset(listBounds.center.x - sourceBounds.left, listBounds.bottom - sourceBounds.top - 8f))
-            advanceEventTime(1_600)
-        }
-        compose.waitUntil(10_000) {
-            compose.onAllNodesWithTag("drag-overlay-target-$lastId")
-                .fetchSemanticsNodes().any { it.boundsInRoot.bottom <= listBounds.bottom }
-        }
-        compose.onNodeWithTag("drag-overlay-target-$lastId").assertIsDisplayed()
-        source.performTouchInput { up() }
+        beginTaskDrag(taskId)
+        try {
+            val listBounds = compose.onNodeWithTag("projects-screen").fetchSemanticsNode().boundsInRoot
+            val origin = workspaceRoot().fetchSemanticsNode().boundsInRoot.topLeft
+            workspaceRoot().performTouchInput { moveTo(Offset(listBounds.center.x, listBounds.bottom - 8f) - origin) }
+            compose.waitUntil(10_000) {
+                compose.mainClock.advanceTimeBy(32)
+                compose.onAllNodesWithTag("project-drop-$lastId").fetchSemanticsNodes().any {
+                    it.boundsInRoot.height > 0f && it.boundsInRoot.top >= listBounds.top && it.boundsInRoot.bottom <= listBounds.bottom
+                }
+            }
+            compose.onNodeWithTag("project-drop-$lastId").assertIsDisplayed()
+            dropTaskOn(lastId)
+            compose.waitUntil(10_000) { runBlocking { app.repository.get(taskId)?.projectId == lastId } }
+        } finally { cancelTaskDrag() }
     }
 }

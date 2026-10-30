@@ -80,7 +80,7 @@ class StoreListing313CaptureTest {
             val initialHabits = habits.workspace.first()
             habits.updateSettings(initialHabits.settings.copy(enabled = true))
             habits.save(Habit(TrackerEntity.create("habit", id = "$token-habit"), copy("Читать каждый день", "Read every day"),
-                date.minusDays(3), HabitEngine(GenesisCalendar()).defaultSchedule(date.minusDays(3), CalendarMode.PROFANE),
+                date, HabitEngine(GenesisCalendar()).defaultSchedule(date, CalendarMode.PROFANE),
                 emoji = "📖", timerEnabled = true))
             val trackers = TrackersRepository(app)
             val schedule = dailySleepSchedule(date.minusDays(7), CalendarMode.PROFANE)

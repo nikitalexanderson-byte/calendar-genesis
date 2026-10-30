@@ -15,7 +15,7 @@ import ru.genesis.calendar.data.TaskRepository
 
 class GenesisViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as GenesisApplication
-    private val completions = mutableMapOf<String, Job>()
+    private val completions = mutableMapOf<Pair<String, String?>, Job>()
     val error = MutableStateFlow<String?>(null)
     val saving = MutableStateFlow(false)
     val tasks = app.repository.tasks.catch { error.value = "Не удалось открыть защищённые данные: ключ недоступен." }
@@ -46,7 +46,8 @@ class GenesisViewModel(application: Application) : AndroidViewModel(application)
     fun completeOccurrence(task: LocalTask, date: String): Job = completeTask(task, date)
 
     private fun completeTask(task: LocalTask, date: String?): Job {
-        completions[task.id]?.takeUnless { it.isCompleted }?.let { return it }
+        val request = task.id to date
+        completions[request]?.takeUnless { it.isCompleted }?.let { return it }
         // A second tap while persistence is pending represents the same checkbox request.
         // Build occurrence drafts inside the guarded coroutine too: imported metadata and
         // invalid dates must never throw directly from an Android click callback.
@@ -59,9 +60,9 @@ class GenesisViewModel(application: Application) : AndroidViewModel(application)
                     val draft = if (date == null) current else TaskOccurrences.standaloneDraft(current, date)
                     draft.copy(done = !task.done)
                 })
-            } finally { completions.remove(task.id) }
+            } finally { completions.remove(request) }
         }
-        completions[task.id] = job
+        completions[request] = job
         job.start()
         return job
     }
