@@ -538,7 +538,7 @@ private fun LunarMonthHero(lunar: ru.genesis.calendar.domain.LunarDateInfo, offe
 @Composable
 private fun SacredMonthHero(month: SacredMonth, year: Int, offerToday: Boolean, onToday: () -> Unit) {
     val accent = if (LocalEveningTheme.current) Color(0xffffe9b5) else MaterialTheme.colorScheme.primary
-        Box(Modifier.fillMaxWidth().testTag("sacred-month-hero").background(Color(0xff082e2f))) {
+    Box(Modifier.fillMaxWidth().testTag("sacred-month-hero").background(Color(0xff082e2f))) {
             MonthDescriptionLayout(sacredMonthArtPath(month.index),
                 "Иллюстрация месяца ${month.name}", "sacred-month-art", offerToday, onToday, heading = {
                 Text(month.name, style = MaterialTheme.typography.titleLarge.copy(lineHeight = 1.1.em), maxLines = 1)
