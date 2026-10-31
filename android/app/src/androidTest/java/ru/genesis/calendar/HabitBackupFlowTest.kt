@@ -1,6 +1,8 @@
 package ru.genesis.calendar
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
@@ -10,7 +12,12 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.room.withTransaction
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.uiautomator.By
+import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.Until
 import java.util.UUID
+import java.io.File
+import org.json.JSONObject
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Before
@@ -126,5 +133,93 @@ class HabitBackupFlowTest {
         compose.onNodeWithTag("habit-restore-apply").performScrollTo().assertIsEnabled().performClick()
         compose.waitUntil(30_000) { runBlocking { service.current().habits.size == 4 } }
         assertNull(runBlocking { service.load() }); assertEquals(source.rewards, runBlocking { service.current().rewards })
+    }
+
+    @Test fun systemFilePickerCancelExportAndRestoreKeepTheOwnedEncryptedHistory() {
+        val original = source()
+        write(original)
+        val service = HabitBackupService(app)
+        val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+        val filename = "QA313-${UUID.randomUUID()}.json"
+        compose.setContent { CompositionLocalProvider(LocalGenesisLanguage provides "ru", LocalEveningTheme provides false) {
+            MaterialTheme(colorScheme = standart) { Surface(Modifier.fillMaxSize()) {
+                Column(Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState())) {
+                    HabitBackupPanel(app, original, inDialog = true)
+                }
+            } }
+        } }
+        fun ready(tag: String) {
+            compose.waitUntil(15_000) { runCatching { compose.onNodeWithTag(tag).assertIsEnabled() }.isSuccess }
+        }
+        fun picker() {
+            assertTrue("A real Android document picker must open", device.wait(Until.hasObject(
+                By.pkg(java.util.regex.Pattern.compile("com\\.(google\\.)?android\\.documentsui"))), 15_000))
+        }
+        fun cancelPicker() {
+            val documents = By.pkg(java.util.regex.Pattern.compile("com\\.(google\\.)?android\\.documentsui"))
+            device.pressBack()
+            // CreateDocument may first consume Back to dismiss its filename keyboard.
+            if (device.hasObject(documents)) device.pressBack()
+            assertTrue("Cancel must return from the document picker", device.wait(Until.gone(documents), 10_000))
+        }
+        ready("habit-export-json")
+        compose.onNodeWithTag("habit-export-json").performClick()
+        picker()
+        cancelPicker()
+        ready("habit-export-json")
+        assertEquals(original.habits, runBlocking { service.current().habits })
+        assertNull(runBlocking { service.load() })
+        compose.onNodeWithTag("habit-restore-file").performClick()
+        picker()
+        cancelPicker()
+        ready("habit-export-json")
+        assertNull(runBlocking { service.load() })
+        compose.onNodeWithTag("habit-export-json").performClick()
+        picker()
+        val nameField = device.wait(Until.findObject(By.clazz("android.widget.EditText")), 10_000)
+        assertNotNull("CreateDocument must expose its filename", nameField)
+        nameField.text = filename
+        val save = device.wait(Until.findObject(By.res("android:id/button1")), 10_000)
+        assertNotNull("CreateDocument must expose Save", save)
+        save.click()
+        compose.waitUntil(15_000) { compose.onAllNodesWithTag("habit-backup-result").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("habit-backup-result").assertTextEquals("Экспорт завершён.")
+        // Only this test's UUID account is emptied to exercise the actual file restore path.
+        write(LocalHabitWorkspace())
+        compose.onNodeWithTag("habit-restore-file").performClick()
+        picker()
+        val exported = device.wait(Until.findObject(By.text(filename)), 15_000)
+        assertNotNull("OpenDocument must offer the actual exported file", exported)
+        exported.click()
+        compose.waitUntil(20_000) { runBlocking { service.load() != null } }
+        val draft = requireNotNull(runBlocking { service.load() })
+        assertEquals(filename, draft.filename)
+        assertEquals(original.habits, draft.preview.backup.workspace().habits)
+        compose.onNodeWithTag("habit-restore-apply").performScrollTo().assertIsEnabled().performClick()
+        compose.waitUntil(20_000) { runBlocking { service.load() == null && service.current().habits.size == original.habits.size } }
+        val restored = runBlocking { service.current() }
+        assertEquals(original.habits.map { it.id }.toSet(), restored.habits.map { it.id }.toSet())
+        for (expected in original.habits) {
+            val actual = restored.habits.single { it.id == expected.id }
+            // Restore deliberately pauses active habits and removes Google bindings.
+            // Every other authored field must survive the exported file unchanged.
+            assertEquals(expected, actual.copy(active = expected.active,
+                lifecycleHistory = expected.lifecycleHistory, reminder = expected.reminder))
+            val status = HabitLifecycle.state(expected).status
+            assertEquals(if (status == "active") "paused" else status, HabitLifecycle.state(actual).status)
+            assertEquals(HabitLifecycle.state(actual).status == "active", actual.active)
+            assertFalse(actual.reminder.syncToGoogleTasks)
+            assertFalse(actual.reminder.showInGoogleCalendar)
+            assertNull(actual.reminder.googleTaskId)
+            assertNull(actual.reminder.googleEventId)
+        }
+        assertEquals(original.completions, restored.completions)
+        assertEquals(original.rewards, restored.rewards)
+        assertEquals(restored.habits, runBlocking { HabitBackupService(app).current().habits })
+        captureNativeWindow(File(app.getExternalFilesDir(null), "backup-picker313-restored.png"))
+        File(app.getExternalFilesDir(null), "backup-picker313-proof.json").writeText(JSONObject()
+            .put("exportedFilename", filename).put("habitCount", original.habits.size)
+            .put("cancelledBothPickersWithoutChanges", true).put("actualExportAndOpenDocument", true)
+            .put("freshServiceRestoredHabitsMatch", true).put("rewardsUnchanged", true).toString(2))
     }
 }

@@ -32,6 +32,7 @@
 | Локализация до нового list hint | Samsung: 14 языков, 696 состояний, 0 Russian/word-split findings; Diary 28 профилей, 644 checkpoints, обе темы, 360dp/font1.3 | `samsung-build21-locales-diary.log`, `samsung-proof21/*.json` |
 | Samsung main29, точный повтор | 6/6 PASS: полный обход 14 языков / 720 состояний / 0 Russian или word-split findings; все 7×13 абзацев, literal fields, interval + timer flag, реальные четыре переноса и полный CRUD проектов | `samsung-build29-locales-timer-projects.log`, `samsung-proof29/` |
 | API35 main29 | 3/3 PASS: обычный чат и два набора translation regressions | `api35-build29-messenger-literal-copy.log` |
+| Системный выбор файла, test30e | API35 1/1 PASS и Samsung API36 1/1 PASS: Cancel обоих pickers без изменений, реальный CreateDocument JSON, OpenDocument того же файла, применение в пустом UUID-пространстве и свежий encrypted service reopen. Все authored fields, IDs, completions и rewards сохранены; импорт штатно ставит активные привычки на паузу и не восстанавливает подключения Google | `api35-build30e-backup-file-picker.log`, `samsung-build30e-backup-file-picker.log`, `{api35,samsung}-backup-picker30e/` |
 | Web 13 олимпийцев | 40 профилей / 520 диалогов / 0 failures; RU/EN 360/390/768/1440, остальные языки 360, обе схемы | `output/playwright/v313/final19-olympians-retest.txt` |
 | Store screenshots | 12 native PNG 1080×1920, синтетические данные, RU6+EN6, исправленный полный английский абзац | `play-listing-final27/manifest.json`, `store-final27/` |
 
@@ -40,6 +41,8 @@
 Один запуск test27 дал `SnapshotStateObserver` multithread error во время обхода. Причина по одному stack trace не установлена; журнал сохранён. Следующий полный обход выявил конкретный непереведённый drag hint, исправленный в main29. Полный main29 walkthrough завершился без этой ошибки и без исключений из аудита.
 
 Снимки source27 сделаны на уже окончательных видимых экранах. Diff main27→main29 меняет только шаблон доступного имени переноса списка в личных проектах; этот элемент не представлен на 12 снимках карточки. В Play сохранены RU6 и EN6 с новыми именами `tasker-313-final27-<lang>-*.png`; оба Save as draft стали disabled, подтверждения и screenshot сохранены в `play-final27-{ru,en}-draft.{txt,jpg}`. Это ещё не публикация карточки.
+
+Test30e добавляет только instrumentation-проверку, код приложения не менялся. Предыдущие 30b/c/d сохранили ошибки fixture: отсутствующий scroll parent и неверное ожидание неизменного active при штатной безопасной паузе после импорта. Итоговый тест отдельно проверяет ожидаемую паузу и отключение Google bindings, не исключая проверки прочих полей и наград. Созданные файлы `QA313-<UUID>.json` скопированы с обоих устройств в evidence; SHA256 совпали, затем удалены только эти два точных тестовых файла. Остальные файлы устройств не читались и не удалялись.
 
 ## Распространение
 
