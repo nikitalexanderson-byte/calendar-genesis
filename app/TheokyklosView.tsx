@@ -16,6 +16,7 @@ import type { SacredPracticeSectorId } from "./sacred-practices";
 import { THEOKYKLOS_SYMBOL_ART } from "./theokyklos-assets";
 import { TheokyklosSymbolImage } from "./TheokyklosSymbolImage";
 import { TheokyklosDetailsDialog } from "./TheokyklosDetailsDialog";
+import { OlympianIsopsephy } from "./OlympianIsopsephy";
 
 type Point = { x: number; y: number };
 
@@ -72,9 +73,10 @@ type TheokyklosViewProps = {
   onSelectedSectorClosed?: () => void;
   onChange: (workspace: HabitWorkspace) => void;
   onOpenHabits?: () => void;
+  onOpenStoicheion?: () => void;
 };
 
-export function TheokyklosView({ language, workspace, date, calendarMode, initialSectorId = null, onSelectedSectorClosed, onChange, onOpenHabits }: TheokyklosViewProps) {
+export function TheokyklosView({ language, workspace, date, calendarMode, initialSectorId = null, onSelectedSectorClosed, onChange, onOpenHabits, onOpenStoicheion }: TheokyklosViewProps) {
   const [selectedId, setSelectedId] = useState<TheokyklosSegmentId | null>(initialSectorId);
   const segmentsById = useMemo(() => new Map(THEOKYKLOS_SEGMENTS.map((segment) => [segment.id, segment])), []);
   const directions = THEOKYKLOS_DIRECTION_IDS.map((id) => segmentsById.get(id)).filter((segment): segment is TheokyklosSegment => Boolean(segment));
@@ -274,6 +276,7 @@ export function TheokyklosView({ language, workspace, date, calendarMode, initia
         {selected ? <TheokyklosDetailsDialog segment={selected} language={language} workspace={workspace} date={date} calendarMode={calendarMode} onChange={onChange} onClose={closeSelected} onOpenHabits={onOpenHabits} /> : null}
       </div>
 
+      <OlympianIsopsephy language={language} onOpenStoicheion={onOpenStoicheion} />
     </section>
   );
 }

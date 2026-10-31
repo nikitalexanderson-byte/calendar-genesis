@@ -19,11 +19,12 @@ data class StoicheionDraw(val kind: String, val dayKey: String, val seed: Long,
     fun canReroll(now: Long): Boolean = attempts == 1 && now < rerollDeadline
 }
 
-data class StoicheionDraws(val daily: StoicheionDraw? = null, val spread: StoicheionDraw? = null)
+data class StoicheionDraws(val daily: StoicheionDraw? = null, val spread: StoicheionDraw? = null,
+    val timeline: StoicheionDraw? = null)
 
 object StoicheionDrawRules {
     fun next(existing: StoicheionDraw?, kind: String, dayKey: String, seed: Long, now: Long): StoicheionDraw {
-        require(kind == "daily" || kind == "spread") { "Неизвестный вид расклада." }
+        require(kind in setOf("daily", "spread", "timeline")) { "Неизвестный вид расклада." }
         require(seed in 0..0xffff_ffffL) { "Зерно расклада указано неверно." }
         require(existing == null || existing.dayKey == dayKey && existing.kind == kind)
         if (existing != null) require(existing.canReroll(now)) {
@@ -47,7 +48,7 @@ internal object StoicheionDrawWire {
             value.getLong("seed"), value.getInt("attempts"),
             Instant.parse(value.getString("firstDrawAt")).toEpochMilli(),
             Instant.parse(value.getString("rerollDeadline")).toEpochMilli())
-        require(draw.kind in setOf("daily", "spread") && draw.seed in 0..0xffff_ffffL && draw.attempts in 1..2)
+        require(draw.kind in setOf("daily", "spread", "timeline") && draw.seed in 0..0xffff_ffffL && draw.attempts in 1..2)
         LocalDate.parse(draw.dayKey)
         return draw
     }
@@ -101,7 +102,7 @@ class StoicheionDrawRepository(private val app: GenesisApplication) {
         val root = currentRoot()
         val days = root.optJSONObject("days") ?: JSONObject().also { root.put("days", it) }
         val values = JSONObject()
-        listOf("daily", "spread").forEach { drawKind ->
+        listOf("daily", "spread", "timeline").forEach { drawKind ->
             draws.optJSONObject(drawKind)?.let { value ->
                 val parsed = StoicheionDrawWire.fromServerJson(value)
                 require(parsed.kind == drawKind && parsed.dayKey == dayKey)
@@ -142,7 +143,8 @@ class StoicheionDrawRepository(private val app: GenesisApplication) {
     private fun read(root: JSONObject, dayKey: String): StoicheionDraws {
         val values = root.optJSONObject("days")?.optJSONObject(dayKey) ?: return StoicheionDraws()
         return StoicheionDraws(values.optJSONObject("daily")?.let { fromJson("daily", dayKey, it) },
-            values.optJSONObject("spread")?.let { fromJson("spread", dayKey, it) })
+            values.optJSONObject("spread")?.let { fromJson("spread", dayKey, it) },
+            values.optJSONObject("timeline")?.let { fromJson("timeline", dayKey, it) })
     }
 
     private fun fromJson(drawKind: String, dayKey: String, value: JSONObject): StoicheionDraw? = runCatching {

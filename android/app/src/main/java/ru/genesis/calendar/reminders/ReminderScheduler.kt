@@ -66,13 +66,14 @@ class ReminderScheduler(private val context: Context) {
         }
         return setStyle(NotificationCompat.DecoratedCustomViewStyle()).setCustomContentView(view).setCustomBigContentView(view)
     }
-    fun createChannels(language: String = "ru", taskChannelId: String = TASK_CHANNEL, habitChannelId: String = HABIT_CHANNEL) {
+    fun createChannels(language: String = "ru", taskChannelId: String = TASK_CHANNEL, habitChannelId: String = HABIT_CHANNEL,
+        legacyTaskChannelId: String = "genesis.tasks.v1", legacyHabitChannelId: String = "genesis.habits.v1") {
         context.getSharedPreferences("genesis.notification.locale.v1", Context.MODE_PRIVATE)
             .edit().putString("language", language).apply()
         val names = notificationChannelNames(language)
         val labels = listOf(taskChannelId, habitChannelId, DAILY_GOAL_CHANNEL, ACHIEVEMENT_CHANNEL).zip(names)
         labels.forEach { (id, label) ->
-            val oldId = when (id) { taskChannelId -> "genesis.tasks.v1"; habitChannelId -> "genesis.habits.v1"; else -> id }
+            val oldId = when (id) { taskChannelId -> legacyTaskChannelId; habitChannelId -> legacyHabitChannelId; else -> id }
             val legacy = notifications.getNotificationChannel(oldId)
             val channel = NotificationChannel(id, label, legacy?.importance ?: NotificationManager.IMPORTANCE_HIGH)
             val defaultSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)

@@ -101,7 +101,7 @@ internal fun SharedTaskFilesPanel(gateway: SharedTaskFilesGateway, task: JSONObj
         files.orEmpty().filterNot { it.getString("id") in removed }.forEach { file ->
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Column(Modifier.weight(1f)) {
-                    androidx.compose.material3.Text(file.getString("name"), style = MaterialTheme.typography.bodyMedium)
+                    UntranslatedText(file.getString("name"), style = MaterialTheme.typography.bodyMedium)
                     Text("${(file.getLong("size") + 1023) / 1024} КБ", style = MaterialTheme.typography.bodySmall)
                 }
                 AffairsIconButton("Скачать файл: ${file.getString("name")}", AffairsAction.IMPORT,
@@ -113,7 +113,7 @@ internal fun SharedTaskFilesPanel(gateway: SharedTaskFilesGateway, task: JSONObj
         drafts.forEachIndexed { index, draft ->
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    androidx.compose.material3.Text(draft.name)
+                    UntranslatedText(draft.name)
                     Text("Готов к прикреплению", style = MaterialTheme.typography.bodySmall)
                 }
                 AffairsIconButton("Убрать выбранный файл: ${draft.name}", AffairsAction.CLOSE,
@@ -127,7 +127,7 @@ internal fun SharedTaskFilesPanel(gateway: SharedTaskFilesGateway, task: JSONObj
         } }) { Text("Продолжить с сохранённой задачей") }
         if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
         if (message.isNotBlank()) Text(message, color = MaterialTheme.colorScheme.primary)
-        if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+        if (busy) WorkspaceLoadingLine(Modifier.fillMaxWidth())
         if (canEdit && !archived) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = { picker.launch(arrayOf("image/*", "application/pdf", "application/*", "text/*")) }, enabled = editable,
                 modifier = Modifier.testTag("shared-task-files-choose")) { Text("Выбрать файлы") }
@@ -145,7 +145,7 @@ internal fun SharedTaskFilesPanel(gateway: SharedTaskFilesGateway, task: JSONObj
         }
     }
     removeCandidate?.let { file -> AlertDialog(onDismissRequest = { removeCandidate = null }, title = { Text("Убрать файл из задачи?") },
-        text = { androidx.compose.material3.Text(file.getString("name")) },
+        text = { UntranslatedText(file.getString("name")) },
         confirmButton = { TextButton(onClick = { run { removed = removed + file.getString("id"); removeCandidate = null
             withContext(Dispatchers.IO) { store.write(drafts, removed, revision) } } }, enabled = !busy) { Text("Убрать") } },
         dismissButton = { TextButton(onClick = { removeCandidate = null }) { Text("Отмена") } }) }

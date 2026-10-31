@@ -84,7 +84,7 @@ internal fun fieldEditorMessage(code: String, hasRecord: Boolean = true): String
             val wideWindow = maxWidth >= 864.dp && !compactIme
                 Column(Modifier.testTag("shared-fields-screen")) {
                     if (!compactIme) FieldScreenHeader(state, detail, ::back, ::close) { scope.launch { state.load() } }
-                    if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("field-progress"))
+                    if (state.busy) WorkspaceLoadingLine(Modifier.fillMaxWidth().testTag("field-progress"))
                     HorizontalDivider()
                     BoxWithConstraints(Modifier.weight(1f, fill = false).fillMaxWidth()) {
                         val wide = maxWidth >= 840.dp && !compactIme
@@ -167,7 +167,7 @@ internal fun fieldEditorMessage(code: String, hasRecord: Boolean = true): String
             modifier = Modifier.fillMaxWidth().testTag("field-row-${field.getString("id")}")) {
             Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    androidx.compose.material3.Text(field.getString("title"), style = MaterialTheme.typography.bodyLarge)
+                    UntranslatedText(field.getString("title"), style = MaterialTheme.typography.bodyLarge)
                     Text(fieldTypeLabel(field.getString("type")), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(if (field.isNull("projectId")) "Всё пространство" else "Этот проект", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -247,17 +247,17 @@ internal fun fieldEditorMessage(code: String, hasRecord: Boolean = true): String
 @Composable private fun FieldReview(state: SharedFieldEditorState, review: JSONObject, language: String) {
     val next = review.getJSONObject("field"); val number = remember(language) { NumberFormat.getIntegerInstance(Locale.forLanguageTag(language)) }
     AffairsDisclosure("Предпросмотр изменений", Modifier.testTag("field-review"), initiallyExpanded = true) {
-        androidx.compose.material3.Text(next.getString("title"), style = MaterialTheme.typography.titleMedium)
+        UntranslatedText(next.getString("title"), style = MaterialTheme.typography.titleMedium)
         Text(fieldTypeLabel(next.getString("type"))); Text(if (next.isNull("projectId")) "Всё пространство" else "Этот проект")
-        androidx.compose.material3.Text(genesisTranslate("Задач со значением: {count}").replace("{count}", number.format(review.getInt("valueCount"))))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Text("Порядок"); androidx.compose.material3.Text(number.format(next.getInt("position"))) }
+        UntranslatedText(genesisTranslate("Задач со значением: {count}").replace("{count}", number.format(review.getInt("valueCount"))))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Text("Порядок"); UntranslatedText(number.format(next.getInt("position"))) }
         CompositionLocalProvider(LocalTemplateInspection provides true) {
             for ((key, label) in listOf("required" to "Обязательное поле", "showCard" to "Показывать в карточке", "showList" to "Показывать в списке", "archived" to "Архив"))
                 TemplateToggle(label, next.getBoolean(key), false, "field-reviewed-$key") { }
         }
         val options = importRows(next.getJSONArray("options")); var limit by rememberSaveable(review.getString("fingerprint")) { mutableIntStateOf(5) }
         options.take(limit).forEach { option ->
-            androidx.compose.material3.Text(option.getString("title"), style = MaterialTheme.typography.bodyMedium)
+            UntranslatedText(option.getString("title"), style = MaterialTheme.typography.bodyMedium)
             if (option.getBoolean("archived")) Text("Архив", style = MaterialTheme.typography.labelMedium)
         }
         if (options.size > limit) TemplateIconButton("Показать ещё", AffairsAction.EXPAND, !state.busy, Modifier.size(48.dp)) { limit += 5 }
@@ -271,8 +271,8 @@ internal fun fieldEditorMessage(code: String, hasRecord: Boolean = true): String
         state.history.take(limit).forEach { row -> val field = row.getJSONObject("field")
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    androidx.compose.material3.Text(field.getString("title"), style = MaterialTheme.typography.bodyLarge)
-                    androidx.compose.material3.Text(bulkHistoryTimestamp(row.getString("createdAt"), language, ZoneId.systemDefault()), style = MaterialTheme.typography.bodySmall)
+                    UntranslatedText(field.getString("title"), style = MaterialTheme.typography.bodyLarge)
+                    UntranslatedText(bulkHistoryTimestamp(row.getString("createdAt"), language, ZoneId.systemDefault()), style = MaterialTheme.typography.bodySmall)
                     Text(fieldTypeLabel(field.getString("type"))); Text(if (field.getBoolean("archived")) "Архив" else "Действующее поле", style = MaterialTheme.typography.bodySmall)
                 }
                 TemplateIconButton("Использовать эти настройки", AffairsAction.UNDO, state.editable && (field.isNull("projectId") || field.optString("projectId") == state.project), Modifier.size(48.dp).testTag("field-restore-${field.getInt("revision")}")) { scope.launch { state.restore(field) } }
@@ -287,7 +287,7 @@ internal fun fieldEditorMessage(code: String, hasRecord: Boolean = true): String
     AffairsDisclosure("Мои копии", Modifier.testTag("field-copies")) {
         state.copies.forEach { copy ->
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                androidx.compose.material3.Text(copy.getJSONObject("edit").getJSONObject("draft").getString("title").ifBlank { genesisTranslate("Без названия") }, Modifier.weight(1f))
+                UntranslatedText(copy.getJSONObject("edit").getJSONObject("draft").getString("title").ifBlank { genesisTranslate("Без названия") }, Modifier.weight(1f))
                 TemplateIconButton("Использовать эти настройки", AffairsAction.UNDO, !state.busy && (state.record == null || state.phase in setOf("editing", "rejected")), Modifier.size(48.dp)) { scope.launch { state.useCopy(copy) } }
                 TemplateIconButton("Удалить", AffairsAction.DELETE, !state.busy, Modifier.size(48.dp)) { scope.launch { state.removeCopy(copy) } }
             }

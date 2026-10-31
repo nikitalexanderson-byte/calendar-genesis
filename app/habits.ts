@@ -216,6 +216,8 @@ export type HabitReminder = {
 };
 
 export type Habit = TrackerEntity & {
+  /** Native per-habit control; retained by the shared encrypted document normalizer. */
+  timerEnabled?: boolean;
   title: string;
   description: string;
   createdDate: string;
@@ -303,6 +305,7 @@ type LegacyHabitSchedule = {
 };
 
 type LegacyHabit = Partial<TrackerEntity> & {
+  timerEnabled?: boolean;
   lifecycleHistory?: HabitLifecycleEvent[];
   id?: string;
   title?: string;
@@ -517,6 +520,7 @@ function normalizeHabit(value: LegacyHabit, fallbackDate: string, calendarMode: 
   return {
     ...normalizeTrackerEntity(value, "habit"),
     title: value.title,
+    ...(value.timerEnabled === false ? { timerEnabled: false } : {}),
     description: typeof value.description === "string" ? value.description : "",
     createdDate,
     emoji: normalizeHabitEmoji(value.emoji ?? templateEmoji),

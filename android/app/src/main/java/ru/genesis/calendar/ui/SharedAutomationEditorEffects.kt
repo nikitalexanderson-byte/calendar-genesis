@@ -27,8 +27,8 @@ import java.util.Locale
     fun reference(rows: List<JSONObject>, value: Any?, idKey: String = "id", titleKey: String = "title") = rows.firstOrNull { it.opt(idKey) == value }?.getString(titleKey) ?: unavailable
     @Composable fun Value(label: String, value: String, userLabel: Boolean = false) {
         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            if (userLabel) androidx.compose.material3.Text(label, style = MaterialTheme.typography.titleSmall) else Text(label, style = MaterialTheme.typography.titleSmall)
-            androidx.compose.material3.Text(value, style = MaterialTheme.typography.bodyMedium)
+            if (userLabel) UntranslatedText(label, style = MaterialTheme.typography.titleSmall) else Text(label, style = MaterialTheme.typography.titleSmall)
+            UntranslatedText(value, style = MaterialTheme.typography.bodyMedium)
         }
     }
     Column(Modifier.fillMaxWidth().testTag("automation-editor-effects"), verticalArrangement = Arrangement.spacedBy(12.dp)) {

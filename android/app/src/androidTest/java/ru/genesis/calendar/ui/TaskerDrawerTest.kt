@@ -49,7 +49,9 @@ class TaskerDrawerTest {
                         MobileWorkspaceShell("Сегодня", null, mobileDestinations(
                             listOf("Сегодня", "Календарь", "Проекты", "Дневник", "Сообщения", "Привычки", "Сакральное", "Настройки"),
                             UiVisibility(), true, true), "Аккаунт Genesis.\nЗащищенная локальная копия.\nСинхронизированно.", true,
-                            onNavigate = {}, actions = {}, footerActions = {
+                            onNavigate = {}, actions = {}, footerStatusLines = listOf(
+                                genesisTranslate("Аккаунт Genesis.").trimEnd('.') + " · " + genesisTranslate("Синхронизированно.").trimEnd('.'),
+                                genesisTranslate("Защищенная локальная копия.").trimEnd('.')), footerActions = {
                                 WorkspaceAccountRefreshButton("Обновить аккаунт", onClick = { refreshes++ })
                             }) { Text("Synthetic workspace") }
                     }
@@ -60,19 +62,26 @@ class TaskerDrawerTest {
         val codes = listOf("ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja")
         for (code in codes) {
             compose.runOnIdle { language = code }
-            compose.onNode(hasScrollAction()).performScrollToNode(hasTestTag("drawer-version-row"))
+            compose.onNodeWithTag("drawer-account-row").performScrollTo().assertIsDisplayed()
             compose.waitForIdle()
-            val status = compose.onNodeWithTag("app-account-status").assertIsDisplayed()
-            val layouts = mutableListOf<TextLayoutResult>()
-            status.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
-            assertTrue("Status text must be measurable in $code", layouts.isNotEmpty())
-            assertFalse("Account status clips in $code/$width/font$font", layouts.any { it.hasVisualOverflow })
-            if (font == 1f && code == "ru") assertEquals("Russian status has three lines", 3, layouts.single().lineCount)
+            val statuses = (0..1).map { index ->
+                val status = compose.onNodeWithTag("drawer-account-status-$index").assertIsDisplayed()
+                    .assert(hasAnyAncestor(hasTestTag("drawer-account-row")))
+                val layouts = mutableListOf<TextLayoutResult>()
+                status.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+                assertEquals("Each account line must be measurable in $code", 1, layouts.size)
+                assertFalse("Account line $index clips in $code/$width/font$font", layouts.single().hasVisualOverflow)
+                assertEquals("Account line $index must stay on one line in $code", 1, layouts.single().lineCount)
+                status
+            }
+            compose.onNodeWithTag("drawer-account-status-2").assertDoesNotExist()
+            compose.onNodeWithTag("drawer-actions").performScrollTo().assertIsDisplayed()
             val button = compose.onNodeWithTag("account-refresh").assertIsDisplayed()
-                .assert(hasAnyAncestor(hasTestTag("drawer-account-row")))
+                .assert(hasAnyAncestor(hasTestTag("drawer-actions")))
             val bounds = button.fetchSemanticsNode().boundsInRoot
-            val textBounds = status.fetchSemanticsNode().boundsInRoot
-            assertTrue("Refresh must sit to the right of the status", bounds.left >= textBounds.right)
+            val textBounds = statuses.map { it.assertIsDisplayed().fetchSemanticsNode().boundsInRoot }
+            assertTrue("Account identity precedes the protected local copy", textBounds[0].bottom <= textBounds[1].top)
+            assertTrue("Refresh actions must sit below the account status", bounds.top >= textBounds[1].bottom)
             val measuredDensity = button.fetchSemanticsNode().layoutInfo.density.density
             assertTrue("Refresh retains a 48dp touch target", bounds.width / measuredDensity >= 47.9f && bounds.height / measuredDensity >= 47.9f)
             button.performClick()

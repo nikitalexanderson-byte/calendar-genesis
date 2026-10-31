@@ -66,7 +66,7 @@ jobs:
           printf '%s' "$SIGNING_KEYSTORE_B64" | base64 --decode > "$GENESIS_ANDROID_SIGNING_STORE"
           export GENESIS_YANDEX_CLIENT_ID=""
           cd android
-          bash ./gradlew :app:testDebugUnitTest :app:lintRelease :app:assembleRelease \
+          bash ./gradlew :app:testDebugUnitTest :app:lintRelease :app:lintPlay :app:assembleRelease :app:bundlePlay \
             --no-daemon --console=plain --max-workers=1 \
             -Pkotlin.compiler.execution.strategy=in-process \
             '-Dorg.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8' \
@@ -97,7 +97,30 @@ jobs:
             "$GITHUB_SHA" "$GITHUB_REF" "$VERSION_CODE" > trial-artifact/source.txt
           cp "$RUNNER_TEMP/genesis-trial-cert.txt" trial-artifact/signing-certificate.txt
 
-      - name: Save trial APK for explicit installation
+      - name: Verify and package the immutable Play candidate
+        run: |
+          set -euo pipefail
+          AAB=android/app/build/outputs/bundle/play/app-play.aab
+          test -s "$AAB"
+          jarsigner -verify "$AAB" | grep -q 'jar verified'
+          keytool -printcert -jarfile "$AAB" > "$RUNNER_TEMP/genesis-trial-play-cert.txt"
+          grep -qi '1E:16:1D:36:F5:74:B0:56:0D:80:8C:7E:E9:5E:1A:BE:98:16:5B:33:85:33:6D:02:76:FB:38:1D:FD:90:1C:B8' \
+            "$RUNNER_TEMP/genesis-trial-play-cert.txt"
+          MANIFEST=android/app/build/intermediates/merged_manifest/play/processPlayMainManifest/AndroidManifest.xml
+          test -s "$MANIFEST"
+          ! grep -q 'android.permission.REQUEST_INSTALL_PACKAGES' "$MANIFEST"
+          ! grep -q 'android:debuggable="true"' "$MANIFEST"
+          cp "$AAB" "trial-artifact/GENESIS-Android-Play-${ANDROID_CANDIDATE_VERSION}.aab"
+          (cd trial-artifact && sha256sum "GENESIS-Android-Play-${ANDROID_CANDIDATE_VERSION}.aab" > "GENESIS-Android-Play-${ANDROID_CANDIDATE_VERSION}.aab.sha256")
+          cp "$MANIFEST" trial-artifact/play-manifest.xml
+          cp "$RUNNER_TEMP/genesis-trial-play-cert.txt" trial-artifact/play-signing-certificate.txt
+          for variant in release play; do
+            mapping="android/app/build/outputs/mapping/$variant/mapping.txt"
+            test -s "$mapping"
+            cp "$mapping" "trial-artifact/mapping-$variant.txt"
+          done
+
+      - name: Save immutable APK and Play candidates for verification
         uses: actions/upload-artifact@v6
         with:
           name: genesis-android-3.0-trial-${{ github.run_number }}

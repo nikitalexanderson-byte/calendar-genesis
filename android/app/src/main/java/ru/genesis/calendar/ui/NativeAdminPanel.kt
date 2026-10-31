@@ -59,7 +59,7 @@ internal fun NativeAdminPanel(onClose: () -> Unit, load: suspend () -> JSONObjec
                     FilterChip(false, onClick = { adsExitSignal = 0; section = "ads" }, enabled = gateway != null && !busy,
                         label = { Text("Реклама") }, modifier = Modifier.heightIn(min = 48.dp).testTag("admin-manage-ads"))
                 }
-                if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+                if (busy) WorkspaceLoadingLine(Modifier.fillMaxWidth())
                 if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
                 if (message.isNotBlank()) Text(message, color = MaterialTheme.colorScheme.primary)
                 val users = payload?.optJSONArray("users")?.let { array -> (0 until array.length()).map { array.getJSONObject(it) } }.orEmpty()
@@ -94,8 +94,8 @@ internal fun NativeAdminPanel(onClose: () -> Unit, load: suspend () -> JSONObjec
                     if (payload != null && users.isEmpty()) item { Text("Пользователей пока нет.") }
                     items(users, key = { it.getString("id") }) { user ->
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            androidx.compose.material3.Text(user.optString("displayName").ifBlank { user.getString("email") }, style = MaterialTheme.typography.titleMedium)
-                            androidx.compose.material3.Text(user.getString("email"), style = MaterialTheme.typography.bodySmall)
+                            UntranslatedText(user.optString("displayName").ifBlank { user.getString("email") }, style = MaterialTheme.typography.titleMedium)
+                            UntranslatedText(user.getString("email"), style = MaterialTheme.typography.bodySmall)
                             Text(adminCount("Задач", user.optInt("taskCount")) + " · " + adminCount("Привычек", user.optInt("habitCount")) + " · " + adminCount("Проектов", user.optInt("projectCount")), style = MaterialTheme.typography.bodySmall)
                             Text(genesisTranslate("Последняя активность") + ": " + adminDate(user.optString("lastSeenAt")), style = MaterialTheme.typography.bodySmall)
                             AdminSubscriptionControl(gateway, user, busy, onSaved = { plan ->
@@ -125,7 +125,7 @@ internal fun NativeAdminPanel(onClose: () -> Unit, load: suspend () -> JSONObjec
     pendingDelete?.let { user ->
         AlertDialog(onDismissRequest = { if (!busy) pendingDelete = null }, title = { Text("Удалить пользователя?") },
             text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                androidx.compose.material3.Text(user.getString("email"))
+                UntranslatedText(user.getString("email"))
                 Text("Аккаунт, зашифрованное пространство, привычки, задачи и связанные серверные данные будут удалены без возможности восстановления.")
                 AdminChoice("Заблокировать повторный вход", blacklist, !busy) { blacklist = it }
                 Text("Для блокировки остаются только необратимые криптографические отпечатки Google ID и email.", style = MaterialTheme.typography.bodySmall)

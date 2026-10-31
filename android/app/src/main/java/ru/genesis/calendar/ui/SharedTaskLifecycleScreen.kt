@@ -73,13 +73,13 @@ internal fun SharedTaskLifecycleScreen(gateway: SharedTaskLifecycleGateway, spac
             else "Архив скрывает задачу и её подзадачи из активных списков. Завершение и сроки не меняются.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("lifecycle-error"))
-        if (!loaded && error.isBlank()) LinearProgressIndicator(Modifier.fillMaxWidth())
+        if (!loaded && error.isBlank()) WorkspaceLoadingLine(Modifier.fillMaxWidth())
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (loaded && rows.isEmpty()) item { Text(if (tab == "trash") "Корзина пуста." else "Архив задач пуст.") }
             items(rows, key = { (it.optString("kind") + ":" + it.getString("id")) }) { item ->
                 Surface(shape = AffairsLayout.shape, color = MaterialTheme.colorScheme.surface) {
                     Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        androidx.compose.material3.Text(item.getString("title"), style = MaterialTheme.typography.titleMedium)
+                        UntranslatedText(item.getString("title"), style = MaterialTheme.typography.titleMedium)
                         if (tab == "trash") {
                             Text((if (item.getString("kind") == "task") "Задача" else "Проект") + " · " + item.getString("expiresAt"), style = MaterialTheme.typography.bodySmall)
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -94,8 +94,8 @@ internal fun SharedTaskLifecycleScreen(gateway: SharedTaskLifecycleGateway, spac
                             }
                             if (item.optBoolean("canManageWorkflow") && item.optString("projectId").isNotBlank()) TextButton(onClick = { onWorkflow(item.getString("projectId")) }) { Text("Проверить состояние проекта") }
                         } else {
-                            androidx.compose.material3.Text(item.optString("projectTitle"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            item.optString("description").takeIf { it.isNotBlank() }?.let { androidx.compose.material3.Text(it, style = MaterialTheme.typography.bodyMedium) }
+                            UntranslatedText(item.optString("projectTitle"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            item.optString("description").takeIf { it.isNotBlank() }?.let { UntranslatedText(it, style = MaterialTheme.typography.bodyMedium) }
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 TextButton(onClick = { onOpen(item.getString("projectId"), item.getString("id")) }, enabled = !busy) { Text("Открыть") }
                                 if (projects.any { it.optString("id") == item.optString("projectId") && it.optBoolean("canOrganizeTasks") }) {
@@ -117,7 +117,7 @@ internal fun SharedTaskLifecycleScreen(gateway: SharedTaskLifecycleGateway, spac
         val days = retention.toIntOrNull()
         AlertDialog(onDismissRequest = { if (!busy) confirmation = null }, title = { Text(when (kind) { "purge" -> "Удалить навсегда?"; "retention" -> "Срок хранения"; else -> "Переместить в корзину?" }) },
             text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                androidx.compose.material3.Text(item.getString("title"))
+                UntranslatedText(item.getString("title"))
                 Text(if (kind == "purge") "Задача, её подзадачи, комментарии и вложения будут удалены навсегда. Это действие нельзя отменить."
                     else "Подзадачи перемещаются вместе с родителем. Ранее удалённые подзадачи сохраняют свой срок хранения.")
                 if (kind != "purge") OutlinedTextField(retention, { retention = it.take(2) }, label = { Text("Срок хранения, дней: 1–30") }, isError = days == null || days !in 1..30, singleLine = true)
@@ -145,7 +145,7 @@ internal fun SharedTaskLifecycleActionDialog(gateway: SharedTaskLifecycleGateway
     val days = retention.toIntOrNull()
     AlertDialog(onDismissRequest = { if (!busy) onClose() }, title = { Text(if (action == "archive") "Архивировать задачу?" else "Переместить в корзину?") },
         text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            androidx.compose.material3.Text(task.getString("title"))
+            UntranslatedText(task.getString("title"))
             Text(if (action == "archive") "Задача и её подзадачи исчезнут из активных списков. Завершение и сроки не изменятся."
                 else "Подзадачи перемещаются вместе с родителем. До окончания срока хранения их можно восстановить. Затем они будут удалены автоматически.")
             if (action != "archive") OutlinedTextField(retention, { retention = it.take(2) }, singleLine = true,

@@ -327,11 +327,11 @@ internal fun RestorationJourney(source: RestorationSource, letters: List<Stoiche
                         RestorationChoice(existingId == habit.id, "${habit.emoji} ${habit.title}", "restoration-link-${habit.id}") { existingId = habit.id }
                     }
                 }
-                androidx.compose.material3.Text(habitPracticeCopy().getString("warning"), style = MaterialTheme.typography.bodySmall)
+                UntranslatedText(habitPracticeCopy().getString("warning"), style = MaterialTheme.typography.bodySmall)
                 if (!enabled) Text(catalog.copy("disabled"), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (prior != null) Text(catalog.copy("snapshot"), color = MaterialTheme.colorScheme.primary)
                 if (LocalDate.now() !in LocalDate.parse(source.date)..LocalDate.parse(source.date).plusDays(1))
-                    androidx.compose.material3.Text(habitPracticeCopy().getString("divinationExpired"),color=MaterialTheme.colorScheme.error)
+                    UntranslatedText(habitPracticeCopy().getString("divinationExpired"),color=MaterialTheme.colorScheme.error)
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 Button(onClick = {
                     val snapshot = StoicheionRestorationSnapshot(
@@ -396,8 +396,8 @@ internal fun RestorationCycle(habit: Habit, workspace: LocalHabitWorkspace, lett
             Text("${letter.symbol} · ${letter.name} · ${snapshot.sourceDate}", color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text("${catalog.copy("progress")} · $count/$target", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
             if(finite != null) {
-                androidx.compose.material3.Text(finiteCopy.getString("deadline") + ": ${finite.deadline} · ${habit.schedule.timezone}")
-                androidx.compose.material3.Text(finiteCopy.getString("warning"),style=MaterialTheme.typography.bodySmall)
+                UntranslatedText(finiteCopy.getString("deadline") + ": ${finite.deadline} · ${habit.schedule.timezone}")
+                UntranslatedText(finiteCopy.getString("warning"),style=MaterialTheme.typography.bodySmall)
             } else { RestorationTetractys(count, catalog); Text(catalog.copy("cycleHelp"), style = MaterialTheme.typography.bodySmall) }
         } }
         item { RestorationBlock(catalog.copy("practice"), RestorationTone.SAGE) {

@@ -12,7 +12,7 @@ import org.json.JSONObject
 @Composable internal fun SharedTaskCoreConflict(details: JSONObject, enabled: Boolean, onResolve: (Boolean) -> Unit) {
     val copy = listOf("Эти поля изменены с двух сторон. Выберите значения перед сохранением. Остальные правки сохранены.", "Мой вариант", "С сайта").map { genesisTranslate(it) }
     Column(Modifier.fillMaxWidth().testTag("shared-task-core-conflict"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        androidx.compose.material3.Text(copy[0], color = MaterialTheme.colorScheme.error)
+        UntranslatedText(copy[0], color = MaterialTheme.colorScheme.error)
         val conflicts = details.getJSONArray(SHARED_TASK_CORE_CONFLICTS)
         for (index in 0 until conflicts.length()) Text(when (conflicts.getString(index)) {
             "priority" -> "Приоритет"
@@ -26,11 +26,11 @@ import org.json.JSONObject
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton({ onResolve(true) }, enabled = enabled,
                 modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("shared-core-keep-local")) {
-                androidx.compose.material3.Text(copy[1])
+                UntranslatedText(copy[1])
             }
             OutlinedButton({ onResolve(false) }, enabled = enabled,
                 modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("shared-core-use-server")) {
-                androidx.compose.material3.Text(copy[2])
+                UntranslatedText(copy[2])
             }
         }
     }

@@ -26,7 +26,7 @@ import java.io.File
 import java.util.UUID
 
 internal class WorkflowUiFixture : SharedWorkspaceGateway, WorkflowDraftAccess {
-    val context = InstrumentationRegistry.getInstrumentation().targetContext.also { check(it.packageName in setOf("ru.genesis.calendar.g1qa.debug", "ru.genesis.calendar.debug")) }
+    val context = InstrumentationRegistry.getInstrumentation().targetContext.also { check(it.packageName in setOf("ru.genesis.calendar.g1qa.debug", "ru.genesis.calendar.debug", "ru.genesis.calendar.v313.debug")) }
     val account = "qa-workflow-${UUID.randomUUID()}"
     val store = PlanningDraftStore(context, "workflow")
     val journal = PlanningJournal(store, contract = WorkflowJournalContract)
@@ -169,7 +169,12 @@ class SharedWorkflowUiTest {
                 WorkflowLifecycle.rows(edges).find { it.isNull("fromStatusId") && it.getString("toStatusId") == "open" }?.getJSONArray("roles")?.length() == 0
             } == true
         }
-        show(f); click("workflow-restore"); click("workflow-section-transitions"); open("workflow-target-open")
+        show(f)
+        // The summary is rendered before the asynchronous journal load finishes.
+        compose.waitUntil(10000) {
+            compose.onAllNodesWithTag("workflow-restore", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+        }
+        click("workflow-restore"); click("workflow-section-transitions"); open("workflow-target-open")
         compose.onNodeWithTag("workflow-role-open-owner").assertIsOff(); click("workflow-save"); settle()
         compose.onNodeWithTag("workflow-editor-error").assertExists(); assertTrue(f.commands.isEmpty())
     }

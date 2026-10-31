@@ -91,7 +91,7 @@ fun TrackersScreen(app: GenesisApplication, experimental: Boolean = false) {
     if (planChoiceOpen) AlertDialog(onDismissRequest = { planChoiceOpen = false }, title = { Text("Выберите план сна") },
         text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             availablePlans.forEach { plan -> OutlinedButton(onClick = { planChoiceOpen = false; planEditor = plan }, modifier = Modifier.fillMaxWidth()) {
-                androidx.compose.material3.Text(plan.title)
+                UntranslatedText(plan.title)
             } }
         } }, confirmButton = {})
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
@@ -135,7 +135,7 @@ fun TrackersScreen(app: GenesisApplication, experimental: Boolean = false) {
             }
         }
         error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
-        if(current==null) { if(!storageError)CircularProgressIndicator() }
+        if(current==null) { if(!storageError)WorkspaceLoadingIndicator() }
         else {
             Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp),
                 colors = CardDefaults.cardColors(containerColor = if (LocalEveningTheme.current) Color(0xff312936) else Color(0xffefe3ee)),
@@ -559,12 +559,40 @@ internal fun MoodObservationEditor(entries: List<MoodEntry>,initialDate: LocalDa
                 AuthorDatePicker(dateValue,mode,enabled=!busy,modifier=Modifier.testTag("mood-editor-date")) { dateValue=it }
                 TextButton(onClick={dateValue=LocalDate.now().toString()},enabled=!busy) { Text("Сегодня") }
             }
-            MoodCatalog.options.forEach { option -> FilterChip(!custom&&selected==option.value,{
-                selected=option.value;custom=false
-            },enabled=!busy,
-                label={Text("${moodEmoji(option.value)} ${moodOptionLabel(option.value)}")},modifier=Modifier.fillMaxWidth().testTag("mood-value-${option.value}")) }
+            // The same symbolic scale as the website, with room for labels and large system fonts.
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val columns = if (maxWidth >= 480.dp) 3 else 2
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    MoodCatalog.options.chunked(columns).forEach { options ->
+                        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            options.forEach { option ->
+                                FilterChip(!custom && selected == option.value,
+                                    onClick = { selected = option.value; custom = false }, enabled = !busy,
+                                    shape = AffairsLayout.controlShape,
+                                    label = {
+                                        Column(Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                            UntranslatedText(option.symbol,
+                                                style = MaterialTheme.typography.headlineSmall,
+                                                color = MaterialTheme.colorScheme.primary)
+                                            Text(moodOptionLabel(option.value),
+                                                style = MaterialTheme.typography.labelLarge,
+                                                textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                            Text(if (option.value > 0) "+${option.value}" else option.value.toString(),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }, modifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = 100.dp)
+                                        .testTag("mood-value-${option.value}"))
+                            }
+                        }
+                    }
+                }
+            }
             FilterChip(custom,onClick={custom=true;if(selected==null)selected=0},enabled=!busy,
-                label={Text("✨ Своё настроение")},modifier=Modifier.fillMaxWidth().testTag("custom-mood-choice"))
+                label={Text("✨ Своё настроение")},shape=AffairsLayout.controlShape,
+                modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("custom-mood-choice"))
             if(custom) {
                 OutlinedTextField(customLabel,{if(it.length<=40)customLabel=it},label={Text("Название настроения")},
                     enabled=!busy,modifier=Modifier.fillMaxWidth().testTag("custom-mood-label"))
@@ -605,9 +633,9 @@ internal fun MoodObservationEditor(entries: List<MoodEntry>,initialDate: LocalDa
             Text("Не влияет на баллы. Без выбора запись не создаётся.",style=MaterialTheme.typography.bodySmall)
             error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
             Row {
-                TextButton(onClick=onDismiss,enabled=!busy) { Text("Отмена") }
+                TextButton(onClick=onDismiss,enabled=!busy,modifier=Modifier.heightIn(min=48.dp)) { Text("Отмена") }
                 Button(enabled=!busy&&selected!=null&&(!custom||(customLabel.isNotBlank()&&customEmoji.isNotBlank())),
-                    modifier=Modifier.testTag("mood-entry-save"), onClick={selected?.let { onSave(date,it,note,if(custom)customLabel else "",if(custom)customEmoji else "") }}) {
+                    modifier=Modifier.heightIn(min=48.dp).testTag("mood-entry-save"), onClick={selected?.let { onSave(date,it,note,if(custom)customLabel else "",if(custom)customEmoji else "") }}) {
                     Text("Сохранить")
                 }
             }

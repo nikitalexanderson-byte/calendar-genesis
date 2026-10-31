@@ -103,7 +103,7 @@ const latinAncientNames = /\b(?:Apeiron|Ares|Aphrodite|Hermes|Apollo|Demeter|Hep
 
 for (const language of languages) {
   const files = ["el", "sr", "uk"].includes(language) ? [`${language}.a`, `${language}.b`]
-    : ["ja", "de", "fr"].includes(language) ? [language, `${language}.b`] : [language];
+    : ["ja", "de", "fr", "es", "it", "pl"].includes(language) ? [language, `${language}.b`] : [language];
   const catalog = Object.assign({}, ...await Promise.all(files.map(async (name) =>
     JSON.parse(await readFile(new URL(`../app/translations.${name}.json`, import.meta.url), "utf8")))));
   Object.assign(catalog, JSON.parse(await readFile(new URL(`../app/ui-translations/${language}.json`, import.meta.url), "utf8")), fieldRecoveryCopy[language], refinementCopy[language]);

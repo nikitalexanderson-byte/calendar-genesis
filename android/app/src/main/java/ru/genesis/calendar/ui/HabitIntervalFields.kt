@@ -71,6 +71,7 @@ internal fun HabitIntervalFields(value: HabitIntervalSchedule?, enabled: Boolean
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun HabitIntervalMarks(habit: Habit, entry: HabitCompletion?, enabled: Boolean,
+    expanded: Boolean? = null, onExpandedChange: ((Boolean) -> Unit)? = null,
     onMark: (String,Boolean) -> Unit) {
     val interval=habit.intervalSchedule ?: return
     val app=LocalContext.current.applicationContext as GenesisApplication
@@ -78,16 +79,21 @@ internal fun HabitIntervalMarks(habit: Habit, entry: HabitCompletion?, enabled: 
     val prefs by preferences.values.collectAsStateWithLifecycle(UiPreferences())
     val times=interval.times()
     val marks=habitIntervalMarks(habit,entry)
-    var expanded by rememberSaveable(habit.id) { mutableStateOf(false) }
+    var localExpanded by rememberSaveable(habit.id) { mutableStateOf(false) }
+    val marksExpanded = expanded ?: localExpanded
     Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(8.dp)) {
         Text("Интервал, минут: ${interval.intervalMinutes} · ${intervalTimeLabel(interval.startTime,prefs.use24)}–${intervalTimeLabel(interval.endTime,prefs.use24)}",
             Modifier.testTag("habit-interval-summary-${habit.id}"), style=MaterialTheme.typography.bodySmall)
         if(interval.completionMode=="each" && habit.measurement==null) {
-            TextButton(onClick={expanded=!expanded}, contentPadding = PaddingValues(vertical = 8.dp),
+            TextButton(onClick={
+                val next = !marksExpanded
+                if (expanded == null) localExpanded = next
+                onExpandedChange?.invoke(next)
+            }, contentPadding = PaddingValues(vertical = 8.dp),
                 modifier=Modifier.fillMaxWidth().testTag("habit-interval-marks-toggle")) {
                 Text("Отметки повторений:", Modifier.weight(1f)); Text(" ${marks.size} / ${times.size}")
             }
-            if(expanded) BoxWithConstraints(Modifier.fillMaxWidth().testTag("habit-interval-grid")) {
+            if(marksExpanded) BoxWithConstraints(Modifier.fillMaxWidth().testTag("habit-interval-grid")) {
                 val fontScale = androidx.compose.ui.platform.LocalDensity.current.fontScale
                 val minimumCell = (if (prefs.use24) 80.dp else 112.dp) * fontScale
                 val columns = ((maxWidth + 8.dp) / (minimumCell + 8.dp)).toInt().coerceIn(1, 6)

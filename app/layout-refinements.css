@@ -2221,9 +2221,6 @@ html[data-genesis-theme="standart-dark"] :is(.android-install-welcome, .android-
 html[data-genesis-theme="standart-dark"] :is(.android-install-welcome, .android-install-panel) .android-download-button:hover { background: color-mix(in srgb, var(--gold, #e4c78c) 90%, white); }
 /* Calendar navigation and Today task groups; artwork keeps the established web palette. */
 html[data-genesis-theme] .genesis-app .calendar-header { position: relative; }
-html[data-genesis-theme] .genesis-app .calendar-header > div:first-of-type { padding-top: 48px; }
-html[data-genesis-theme] .genesis-app .calendar-header > .calendar-month-footer { position: absolute; grid-column: auto; grid-row: auto; top: 12px; right: 16px; width: auto; }
-html[data-genesis-theme] .genesis-app .calendar-month-footer .calendar-current-month { width: auto; min-height: 44px; padding: 8px 12px; color: var(--ink); border-color: var(--line); background: var(--paper); }
 @media (max-width: 760px) {
   html[data-genesis-theme] .genesis-app .calendar-month-title { position: relative; padding-inline: 32px; }
   html[data-genesis-theme] .genesis-app .calendar-month-title .calendar-inline-symbol { position: absolute; left: 0; }

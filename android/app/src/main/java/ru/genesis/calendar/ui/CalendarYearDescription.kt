@@ -2,6 +2,7 @@ package ru.genesis.calendar.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -11,7 +12,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.material3.Text as MaterialText
+import ru.genesis.calendar.ui.UntranslatedText as MaterialText
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -23,6 +24,9 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import ru.genesis.calendar.ui.Dialog
 import ru.genesis.calendar.domain.CalendarMode
 import ru.genesis.calendar.domain.GenesisCalendar
@@ -56,6 +60,7 @@ internal fun CalendarYearDescriptionCard(calendar: GenesisCalendar, shown: Local
     val lunarDays = ChronoUnit.DAYS.between(lunarYear.startDate, lunarYear.endDate).toString()
     var detailsOpen by rememberSaveable { mutableStateOf(false) }
     var modelOpen by rememberSaveable { mutableStateOf(false) }
+    var descriptionExpanded by rememberSaveable(mode) { mutableStateOf(false) }
 
     val title: String
     val eyebrow: String
@@ -64,7 +69,7 @@ internal fun CalendarYearDescriptionCard(calendar: GenesisCalendar, shown: Local
     when (mode) {
         CalendarMode.SACRED -> {
             eyebrow = copy("РИТМ GENESIS", "GENESIS RHYTHM")
-            title = copy("Солнечно-лунный календарь", "Solar-lunar calendar")
+            title = copy("Солнечный календарь", "Solar calendar")
             paragraphs = listOf(
                 copy("Год GENESIS начинается в день весеннего равноденствия и раскрывается через двенадцать месяцев. Каждый месяц несёт собственный образ, цвет, стихию и смысл — не просто отрезок времени, а отдельную ступень годового пути.",
                     "The GENESIS year begins on the spring equinox and unfolds through twelve months. Each month carries its own image, color, element, and meaning—a distinct stage of the annual path."),
@@ -123,10 +128,20 @@ internal fun CalendarYearDescriptionCard(calendar: GenesisCalendar, shown: Local
     Surface(Modifier.fillMaxWidth().testTag("calendar-year-description-${mode.wireValue}"),
         shape = RoundedCornerShape(24.dp), color = yearCardBackground,
         border = BorderStroke(1.dp, Color(0x665f8a7d))) {
-        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column {
+            val expandedState = copy(if (descriptionExpanded) "Развернуто" else "Свернуто",
+                if (descriptionExpanded) "Expanded" else "Collapsed")
+            Row(Modifier.fillMaxWidth().heightIn(min = 64.dp)
+                .testTag("calendar-year-description-toggle-${mode.wireValue}")
+                .semantics { stateDescription = expandedState }
+                .clickable(role = Role.Button) { descriptionExpanded = !descriptionExpanded }.padding(18.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                MaterialText(title, Modifier.weight(1f), style = MaterialTheme.typography.titleLarge, color = yearCardText)
+                GenesisLucideIcon(if (descriptionExpanded) "chevron-up" else "chevron-down", Modifier.size(24.dp), yearCardGold)
+            }
+            if (descriptionExpanded) Column(Modifier.padding(start = 18.dp, end = 18.dp, bottom = 18.dp)
+                .testTag("calendar-year-description-body-${mode.wireValue}"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 MaterialText(eyebrow, style = MaterialTheme.typography.labelMedium, color = yearCardGold)
-                MaterialText(title, style = MaterialTheme.typography.headlineSmall, color = yearCardText)
                 paragraphs.take(if (mode == CalendarMode.SACRED) 2 else paragraphs.size).forEach {
                     MaterialText(it, style = MaterialTheme.typography.bodyMedium, color = yearCardMuted)
                 }
@@ -151,8 +166,8 @@ internal fun CalendarYearDescriptionCard(calendar: GenesisCalendar, shown: Local
 }
 
 @Composable
-private fun SacredYearDetailsButton(title: String, subtitle: String,
-    tag: String = "sacred-year-details-open", icon: GenesisPageIcon? = null, onClick: () -> Unit) {
+internal fun SacredYearDetailsButton(title: String, subtitle: String,
+    tag: String = "sacred-year-details-open", icon: GenesisPageIcon? = null, expanded: Boolean? = null, onClick: () -> Unit) {
     val evening = LocalEveningTheme.current
     val motion = rememberInfiniteTransition(label = "sacred-details-glow")
     val pulse by motion.animateFloat(initialValue = 0f, targetValue = 1f,
@@ -161,8 +176,9 @@ private fun SacredYearDetailsButton(title: String, subtitle: String,
     val base = if (evening) Color(0xff123b39) else Color(0xffeddbb1)
     val accent = if (evening) Color(0xff377067) else Color(0xffd7b46b)
     val ink = if (evening) Color(0xfffff1cf) else Color(0xff18332f)
+    val expandedState = expanded?.let { genesisTranslate(if (it) "Развернуто" else "Свернуто") }
     Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp)
-        .testTag(tag), shape = shape, color = base,
+        .testTag(tag).semantics { expandedState?.let { stateDescription = it } }, shape = shape, color = base,
         shadowElevation = (5 + pulse * 4).dp,
         border = BorderStroke(1.5.dp, yearCardGold.copy(alpha = .58f + pulse * .28f))) {
         Row(Modifier.fillMaxWidth().background(Brush.horizontalGradient(listOf(base,
@@ -184,6 +200,7 @@ private fun SacredYearDetailsButton(title: String, subtitle: String,
                 MaterialText(subtitle, color = ink.copy(alpha = .82f),
                     style = MaterialTheme.typography.labelSmall)
             }
+            if (expanded != null) GenesisLucideIcon(if (expanded) "chevron-up" else "chevron-down", Modifier.size(22.dp), ink)
         }
     }
 }

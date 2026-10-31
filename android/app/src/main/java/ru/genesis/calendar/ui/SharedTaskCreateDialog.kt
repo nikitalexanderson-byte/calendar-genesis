@@ -97,7 +97,7 @@ internal fun SharedTaskCreateDialog(controller: AuthController, language: String
                             label = { Text(if (en) "Personal task" else "Личная задача") })
                         FilterChip(selected = true, onClick = {}, label = { Text(if (en) "Team task" else "Общая задача") })
                     }
-                    if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
+                    if (loading) WorkspaceLoadingLine(Modifier.fillMaxWidth())
                     else if (spaces.isEmpty()) Text(if (en)
                         "Create a workspace, then invite people and add a project."
                         else "Создайте пространство, затем добавьте проект и пригласите участников.")

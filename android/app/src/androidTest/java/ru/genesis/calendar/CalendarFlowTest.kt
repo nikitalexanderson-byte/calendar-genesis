@@ -26,7 +26,7 @@ class CalendarFlowTest {
         val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
         try {
             runBlocking { preferences.set("display", "sacred") }
-            compose.onNodeWithTag("navigation-Календарь").performClick()
+            compose.openWorkspacePage("Календарь")
             compose.onNodeWithTag("sacred-month-hero").assertIsDisplayed()
             val currentMonth = SacredCatalog.months[GenesisCalendar().sacredDate(LocalDate.now()).monthIndex]
             compose.waitUntil(10_000) {
@@ -37,7 +37,7 @@ class CalendarFlowTest {
             compose.onNodeWithTag("sacred-month-hero").assertIsDisplayed()
             device.waitForIdle()
             assertTrue(device.takeScreenshot(File(app.getExternalFilesDir(null), "calendar-standart-month.png")))
-            compose.onNodeWithText("Год").performClick()
+            compose.onNodeWithTag("submenu-year").performClick().assertIsSelected()
             compose.onNodeWithTag("calendar-year").assertIsDisplayed()
             compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag("sacred-year-month-12"))
             compose.onNodeWithTag("sacred-year-month-12").assertIsDisplayed()

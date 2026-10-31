@@ -68,14 +68,23 @@ class HabitLifecycleFlowTest {
                 } }
             }
         }
-        compose.waitUntil(30_000) { compose.onAllNodesWithTag("archive-habit-${habit.id}").fetchSemanticsNodes().isNotEmpty() && read().revision>=2 }
+        compose.waitUntil(30_000) { compose.onAllNodesWithTag("habit-view-library").fetchSemanticsNodes().isNotEmpty() && read().revision>=2 }
+        compose.onNodeWithTag("habit-view-library").performScrollTo().performClick().assertIsSelected()
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("habit-actions-${habit.id}").fetchSemanticsNodes().isNotEmpty() }
         check(app.workspaceScope==localScope)
     }
     private fun click(tag: String) {
         if (tag.startsWith("habit-state-")) {
             compose.onNodeWithTag("habit-state-choice").performScrollTo().performClick()
             compose.onNodeWithTag(tag).assertIsEnabled().performClick()
-        } else compose.onNodeWithTag(tag).performScrollTo().assertIsEnabled().performClick()
+        } else {
+            val actionPrefix = listOf("toggle-habit-", "archive-habit-", "delete-habit-").firstOrNull { tag.startsWith(it) }
+            if (actionPrefix != null && compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isEmpty())
+                compose.onNodeWithTag("habit-actions-${tag.removePrefix(actionPrefix)}").performScrollTo().assertIsEnabled().performClick()
+            val action = compose.onNodeWithTag(tag)
+            if (!action.isDisplayed()) action.performScrollTo()
+            action.assertIsEnabled().performClick()
+        }
     }
     private fun awaitState(habit: Habit, state: String) {
         compose.waitUntil(30_000) { read().habits.firstOrNull { it.id==habit.id }?.let { HabitLifecycle.state(it).status==state } == true }

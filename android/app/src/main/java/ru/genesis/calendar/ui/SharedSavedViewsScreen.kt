@@ -72,7 +72,7 @@ internal fun savedViewMessage(code: String): String = when (code) {
                     AffairsDialogHeader("Сохранённые представления", onClose = ::close,
                         onBack = if (detail && !wide) ({ if (conditions) conditions = false else detail = false }) else null,
                         closeTag = "saved-views-close", backTag = "saved-views-back")
-                    if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("saved-view-progress"))
+                    if (state.busy) WorkspaceLoadingLine(Modifier.fillMaxWidth().testTag("saved-view-progress"))
                     HorizontalDivider()
                     if (state.error.isNotBlank()) Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(savedViewMessage(state.error), Modifier.weight(1f).testTag("saved-view-error")
@@ -94,7 +94,7 @@ internal fun savedViewMessage(code: String): String = when (code) {
                             else {
                                 val title = state.definition?.getString("title") ?: newTitle
                                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                    androidx.compose.material3.Text(title, Modifier.weight(1f).testTag("saved-view-title"), style = MaterialTheme.typography.titleMedium)
+                                    UntranslatedText(title, Modifier.weight(1f).testTag("saved-view-title"), style = MaterialTheme.typography.titleMedium)
                                     AffairsIconButton(if (conditions) "Свернуть" else "Изменить условия", if (conditions) AffairsAction.COLLAPSE else AffairsAction.EDIT,
                                         { conditions = !conditions }, Modifier.testTag("saved-view-conditions").semantics { stateDescription = if (conditions) "expanded" else "collapsed" })
                                 }
@@ -186,7 +186,7 @@ internal fun savedViewMessage(code: String): String = when (code) {
     rows.forEach { view ->
         Column(Modifier.fillMaxWidth().heightIn(min = 64.dp).clickable(enabled = !state.busy && !state.locked) { onSelect(view.getString("id")) }
             .padding(vertical = 8.dp).testTag("saved-view-open-${view.getString("id")}"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            androidx.compose.material3.Text(view.optJSONObject("definition")?.optString("title") ?: newTitle, style = MaterialTheme.typography.bodyLarge)
+            UntranslatedText(view.optJSONObject("definition")?.optString("title") ?: newTitle, style = MaterialTheme.typography.bodyLarge)
             Text(if (view.getBoolean("invalid")) "Условия недоступны" else if (view.getString("visibility") == "shared") "Общее" else "Личное", style = MaterialTheme.typography.bodySmall)
         }
     }
@@ -197,21 +197,21 @@ internal fun savedViewMessage(code: String): String = when (code) {
     if (state.queryJson == null) return
     val reader = state.results
     Text("Задачи", Modifier.semantics { heading() }, style = MaterialTheme.typography.titleMedium)
-    if (reader.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+    if (reader.busy) WorkspaceLoadingLine(Modifier.fillMaxWidth())
     if (reader.error.isNotBlank()) Text(savedViewMessage(reader.error), Modifier.testTag("saved-view-results-error"), color = MaterialTheme.colorScheme.error)
     val page = reader.pageState.value ?: return
     val rows = importRows(page.getJSONArray("tasks"))
     val locale = java.util.Locale.forLanguageTag(LocalGenesisLanguage.current)
     val numbers = java.text.NumberFormat.getIntegerInstance(locale)
-    androidx.compose.material3.Text(genesisTranslate("Показано: {shown} из {total}").replace("{shown}", numbers.format(rows.size)).replace("{total}", numbers.format(page.getInt("total"))), Modifier.testTag("saved-view-count"))
+    UntranslatedText(genesisTranslate("Показано: {shown} из {total}").replace("{shown}", numbers.format(rows.size)).replace("{total}", numbers.format(page.getInt("total"))), Modifier.testTag("saved-view-count"))
     if (rows.isEmpty()) Text("Задач пока нет")
     rows.forEach { task ->
         Surface(onClick = { onTask(task.getString("projectId"), task.getString("id")) }, shape = AffairsLayout.shape,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp).testTag("saved-view-task-${task.getString("id")}")) {
             Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                androidx.compose.material3.Text(task.getString("title"), style = MaterialTheme.typography.bodyLarge)
-                androidx.compose.material3.Text(task.optString("projectTitle"), style = MaterialTheme.typography.bodySmall)
+                UntranslatedText(task.getString("title"), style = MaterialTheme.typography.bodyLarge)
+                UntranslatedText(task.optString("projectTitle"), style = MaterialTheme.typography.bodySmall)
             }
         }
     }

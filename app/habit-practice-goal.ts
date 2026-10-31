@@ -31,8 +31,17 @@ export function habitPracticeProgress(habit: Habit, entries: readonly HabitCompl
   const dates = [...current.values()].filter(entry => {
     if (!entry.completed || !isCivilDate(entry.date) || entry.date < start || entry.date > deadline || entry.date > date
       || habit.stoicheionRestoration?.excludeStartDate && entry.date === habit.stoicheionRestoration.startedDate) return false;
-    const rule = habitRuleState(habit, entry.date), life = habitLifecycleState(habit, entry.date);
-    return !rule.conflicts.length && life.status === "active" && !life.conflict
+    const rule = habitRuleState(habit, entry.date), dayLife = habitLifecycleState(habit, entry.date);
+    if (rule.conflicts.length || dayLife.conflict || dayLife.unknown) return false;
+    const markedAt = Date.parse(entry.updatedAt);
+    if (!Number.isFinite(markedAt)) return false;
+    // Preserve an earlier same-day completion after Pause without accepting marks
+    // written while unavailable. The write guard still uses current availability.
+    const lifecycleHistory = (habit.lifecycleHistory ?? []).filter(row => Date.parse(row.at) <= markedAt);
+    if (!lifecycleHistory.length && new Set((habit.lifecycleHistory ?? [])
+      .filter(row => !row.replaces.length).map(row => row.baselineActive)).size > 1) return false;
+    const life = habitLifecycleState({ ...habit, active: dayLife.baselineActive, lifecycleHistory }, entry.date);
+    return life.status === "active" && !life.conflict && !life.unknown
       && isTrackerScheduledForDate(rule.rule.schedule, entry.date, "sacred");
   }).map(entry => entry.date).sort().slice(0, goal.requiredCompletions);
   const completedDate = dates.length >= goal.requiredCompletions ? dates.at(-1)! : null;

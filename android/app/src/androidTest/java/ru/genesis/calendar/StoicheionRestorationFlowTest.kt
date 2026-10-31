@@ -11,7 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.unit.dp
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
@@ -79,6 +79,8 @@ class StoicheionRestorationFlowTest {
         }.toList()
         val source = RestorationSource(LocalDate.now().toString(), 42, sourceCards)
         var saved: Habit? = null
+        val reflectionWrites = java.util.concurrent.atomic.AtomicInteger()
+        val lastReflection = java.util.concurrent.atomic.AtomicReference<String?>(null)
         compose.setContent {
             CompositionLocalProvider(LocalGenesisLanguage provides "ru", LocalEveningTheme provides dark) {
                 MaterialTheme(colorScheme = if (dark) evening else standart) {
@@ -93,8 +95,11 @@ class StoicheionRestorationFlowTest {
                         else RestorationCycle(habit, workspace, letters, catalog, LocalDate.now(), false, null,
                             onComplete = { workspace = workspace.copy(completions = listOf(HabitCompletion(
                                 TrackerEntity.create("completion", Instant.now().toString()), habit.id, LocalDate.now(), true))) },
-                            onReflection = { text -> workspace = workspace.copy(habits = listOf(habit.copy(
-                                stoicheionRestoration = habit.stoicheionRestoration!!.copy(reflection = text)))) }, onOpenHabits = {})
+                            onReflection = { text ->
+                                reflectionWrites.incrementAndGet(); lastReflection.set(text)
+                                workspace = workspace.copy(habits = listOf(habit.copy(
+                                    stoicheionRestoration = habit.stoicheionRestoration!!.copy(reflection = text))))
+                            }, onOpenHabits = {})
                     } } }
                 }
             }
@@ -164,9 +169,41 @@ class StoicheionRestorationFlowTest {
         compose.onNodeWithTag("restoration-complete-today").assertDoesNotExist()
         screenshot("$scheme-cycle")
         compose.onNodeWithTag("restoration-cycle-scroll").performScrollToNode(hasTestTag("restoration-reflection"))
-        compose.onNodeWithTag("restoration-reflection").performTextInput("Сделан один посильный шаг")
-        compose.onNodeWithTag("restoration-save-reflection").performScrollTo().performClick()
-        compose.onNodeWithText("Наблюдение сохранено").assertExists()
+        val note = "Сделан один посильный шаг"
+        compose.onNodeWithTag("restoration-reflection").performTextInput(note)
+        compose.onNodeWithTag("restoration-reflection").assertTextContains(note)
+        // The real IME can resize the viewport after text entry. Dismiss it only
+        // when present, so the following touch targets the settled save button.
+        val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+        val keyboard = android.provider.Settings.Secure.getString(context.contentResolver,
+            android.provider.Settings.Secure.DEFAULT_INPUT_METHOD)?.substringBefore('/')
+        if (keyboard != null && device.hasObject(androidx.test.uiautomator.By.pkg(keyboard))) {
+            device.pressBack()
+            assertTrue("The real keyboard must close before the save touch", device.wait(
+                androidx.test.uiautomator.Until.gone(androidx.test.uiautomator.By.pkg(keyboard)), 5_000))
+        }
+        try {
+            compose.onNodeWithTag("restoration-save-reflection").performScrollTo().assertIsEnabled().performClick()
+            compose.waitUntil(10_000) {
+                lastReflection.get() == note && compose.onAllNodesWithText(catalog.copy("saved"))
+                    .fetchSemanticsNodes().isNotEmpty()
+            }
+            assertEquals(1, reflectionWrites.get())
+            assertEquals(note, lastReflection.get())
+            compose.onNodeWithText("Наблюдение сохранено").assertExists()
+        } catch (failure: Throwable) {
+            runCatching {
+                val proof = JSONObject().put("scheme", scheme).put("expectedNote", note)
+                    .put("callbackWrites", reflectionWrites.get()).put("callbackNote", lastReflection.get())
+                    .put("saveButton", runCatching { compose.onNodeWithTag("restoration-save-reflection")
+                        .printToString() }.getOrElse { it.javaClass.simpleName })
+                    .put("input", runCatching { compose.onNodeWithTag("restoration-reflection")
+                        .printToString() }.getOrElse { it.javaClass.simpleName })
+                File(context.getExternalFilesDir(null), "restoration-reflection313-failure.json").writeText(proof.toString(2))
+                captureNativeWindow(File(context.getExternalFilesDir(null), "restoration-reflection313-failure.png"))
+            }.exceptionOrNull()?.let(failure::addSuppressed)
+            throw failure
+        }
     }
 
     @Test fun lightJourneyKeepsTheDrawAndCompletesThePracticeOnce() = journey(false)

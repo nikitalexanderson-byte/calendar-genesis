@@ -41,9 +41,12 @@ import germanSecurityTranslations from "./translations.de.b.json";
 import frenchTranslations from "./translations.fr.json";
 import frenchSecurityTranslations from "./translations.fr.b.json";
 import spanishTranslations from "./translations.es.json";
+import spanishLegalTranslations from "./translations.es.b.json";
 import italianTranslations from "./translations.it.json";
+import italianLegalTranslations from "./translations.it.b.json";
 import portugueseTranslations from "./translations.pt.json";
 import polishTranslations from "./translations.pl.json";
+import polishLegalTranslations from "./translations.pl.b.json";
 import serbianTranslationsA from "./translations.sr.a.json";
 import serbianTranslationsB from "./translations.sr.b.json";
 import ukrainianTranslationsA from "./translations.uk.a.json";
@@ -941,8 +944,8 @@ const englishCatalog: Record<string, string> = {
 
 const rawCatalogs: Record<Exclude<Language, "ru">, Record<string, string>> = {
   en: englishCatalog, el: { ...greekTranslationsA, ...greekTranslationsB, ...ui_el, ...greekYear }, de: { ...germanTranslations, ...germanSecurityTranslations, ...ui_de, ...germanYear },
-  fr: { ...frenchTranslations, ...frenchSecurityTranslations, ...ui_fr, ...frenchYear }, es: { ...spanishTranslations, ...ui_es, ...spanishYear }, it: { ...italianTranslations, ...ui_it, ...italianYear }, pt: { ...portugueseTranslations, ...ui_pt, ...portugueseYear },
-  pl: { ...polishTranslations, ...ui_pl, ...polishYear }, sr: { ...serbianTranslationsA, ...serbianTranslationsB, ...ui_sr, ...serbianYear },
+  fr: { ...frenchTranslations, ...frenchSecurityTranslations, ...ui_fr, ...frenchYear }, es: { ...spanishTranslations, ...spanishLegalTranslations, ...ui_es, ...spanishYear }, it: { ...italianTranslations, ...italianLegalTranslations, ...ui_it, ...italianYear }, pt: { ...portugueseTranslations, ...ui_pt, ...portugueseYear },
+  pl: { ...polishTranslations, ...polishLegalTranslations, ...ui_pl, ...polishYear }, sr: { ...serbianTranslationsA, ...serbianTranslationsB, ...ui_sr, ...serbianYear },
   uk: { ...ukrainianTranslationsA, ...ukrainianTranslationsB, ...ui_uk, ...ukrainianYear },
   zh: { ...chineseTranslations, ...ui_zh, ...chineseYear }, tr: { ...turkishTranslations, ...ui_tr, ...turkishYear }, ja: { ...japaneseTranslations, ...japaneseYandexTranslations, ...ui_ja, ...japaneseYear },
 };

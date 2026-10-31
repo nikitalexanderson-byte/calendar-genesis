@@ -41,7 +41,7 @@ internal fun SharedTaskEstimates(task: JSONObject, details: JSONObject, planning
     val focus = LocalFocusManager.current
     val number = remember(language) { NumberFormat.getNumberInstance(Locale.forLanguageTag(language)).apply { maximumFractionDigits = 2 } }
     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp).testTag("shared-task-estimates"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        androidx.compose.material3.Text(copy.getString("estimates"), style = MaterialTheme.typography.titleSmall)
+        UntranslatedText(copy.getString("estimates"), style = MaterialTheme.typography.titleSmall)
         val editing = planningEnabled && canEdit || draft.dirty
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val wide = maxWidth >= 600.dp
@@ -49,16 +49,16 @@ internal fun SharedTaskEstimates(task: JSONObject, details: JSONObject, planning
                 if (editing) {
                     val invalid = runCatching { parseSharedEstimate(raw) }.isFailure
                     OutlinedTextField(raw, change, modifier.testTag("shared-estimate-$key"), singleLine = true,
-                        enabled = !disabled && canEdit, label = { androidx.compose.material3.Text(copy.getString(key)) },
-                        placeholder = { androidx.compose.material3.Text(copy.getString("unestimated")) },
+                        enabled = !disabled && canEdit, label = { UntranslatedText(copy.getString(key)) },
+                        placeholder = { UntranslatedText(copy.getString("unestimated")) },
                         isError = invalid,
-                        supportingText = if (invalid) ({ androidx.compose.material3.Text(copy.getString("numbersInvalid")) }) else null,
+                        supportingText = if (invalid) ({ UntranslatedText(copy.getString("numbersInvalid")) }) else null,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = if (last) ImeAction.Done else ImeAction.Next),
                         keyboardActions = KeyboardActions(onNext = { focus.moveFocus(FocusDirection.Next) }, onDone = { focus.clearFocus() }))
                 } else Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    androidx.compose.material3.Text(copy.getString(key), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    UntranslatedText(copy.getString(key), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     val field = if (key == "points") "storyPoints" else "estimateHours"
-                    androidx.compose.material3.Text(if (task.isNull(field)) copy.getString("unestimated") else number.format(task.getDouble(field)),
+                    UntranslatedText(if (task.isNull(field)) copy.getString("unestimated") else number.format(task.getDouble(field)),
                         modifier = Modifier.testTag("shared-estimate-$key-value"), style = MaterialTheme.typography.bodyMedium)
                 }
             }
@@ -70,12 +70,12 @@ internal fun SharedTaskEstimates(task: JSONObject, details: JSONObject, planning
                 Field("hours", draft.estimateHours, true, { onChange(sharedTaskWithEstimates(details, draft.hours(it))) }, Modifier.fillMaxWidth())
             }
         }
-        androidx.compose.material3.Text(copy.getString("independent"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        if (draft.dirty && !planningEnabled) androidx.compose.material3.Text(copy.getString("disabled"), style = MaterialTheme.typography.bodySmall)
+        UntranslatedText(copy.getString("independent"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (draft.dirty && !planningEnabled) UntranslatedText(copy.getString("disabled"), style = MaterialTheme.typography.bodySmall)
         if (draft.dirty && !canEdit) Text("Нет доступа", style = MaterialTheme.typography.bodySmall)
         if (draft.dirty) TextButton(onClick = { onChange(sharedTaskWithEstimates(details, SharedTaskEstimateDraft.fromTask(task))) },
             enabled = !disabled, modifier = Modifier.heightIn(min = 48.dp).testTag("shared-estimate-reset")) {
-            androidx.compose.material3.Text(copy.getString("resetEstimates"))
+            UntranslatedText(copy.getString("resetEstimates"))
         }
     }
 }

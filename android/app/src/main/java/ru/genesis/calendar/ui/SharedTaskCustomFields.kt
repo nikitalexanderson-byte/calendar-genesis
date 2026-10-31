@@ -86,7 +86,7 @@ import java.util.Locale
                     .testTag("shared-custom-more")) { Text("Показать ещё") }
             }
             unknownChanges.forEach { id -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                androidx.compose.material3.Text(id, style = MaterialTheme.typography.labelMedium)
+                UntranslatedText(id, style = MaterialTheme.typography.labelMedium)
                 Text("Поле больше недоступно. Обновите данные; черновик сохранён.", color = MaterialTheme.colorScheme.error)
                 TextButton({ onChange(sharedTaskWithCustomFields(task, details, draft.reset(id))) }, enabled = canEdit && !disabled,
                     modifier = Modifier.heightIn(min = 48.dp).testTag("shared-custom-$id-reset")) { Text("Сбросить") }
@@ -128,7 +128,7 @@ internal fun customDisplay(field: JSONObject, value: Any?, language: String, cal
     var linkError by remember { mutableStateOf(false) }
     Column(modifier.testTag("$tag-field"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            androidx.compose.material3.Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+            UntranslatedText(title, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
             if (enabled && !CustomFieldProtocol.absent(value)) AffairsIconButton("Очистить", AffairsAction.CLOSE,
                 { onValue(id, null) }, Modifier.testTag("$tag-clear"))
         }
@@ -138,7 +138,7 @@ internal fun customDisplay(field: JSONObject, value: Any?, language: String, cal
                 value is Boolean -> genesisTranslate(if (value) "Да" else "Нет")
                 type == "date" -> genesisTranslate(customDisplay(field, value, language, dateCalendar, unavailable).orEmpty())
                 else -> customDisplay(field, value, language, calendar, unavailable).orEmpty() }
-            androidx.compose.material3.Text(label, Modifier.testTag("$tag-value"), style = MaterialTheme.typography.bodyMedium)
+            UntranslatedText(label, Modifier.testTag("$tag-value"), style = MaterialTheme.typography.bodyMedium)
         } else when (type) {
             "text", "number", "url" -> OutlinedTextField(if (CustomFieldProtocol.absent(value)) "" else value.toString(),
                 { onValue(id, it.take(5000)) }, enabled = enabled, isError = error != null, singleLine = type != "text",
@@ -153,7 +153,7 @@ internal fun customDisplay(field: JSONObject, value: Any?, language: String, cal
                     listOf(null to unspecified, true to yes, false to no).forEach { (option, label) ->
                         FilterChip(selected = if (option == null) CustomFieldProtocol.absent(value) else value == option,
                             onClick = { onValue(id, option) }, enabled = enabled,
-                            label = { androidx.compose.material3.Text(label) }, modifier = Modifier.heightIn(min = 48.dp).testTag("$tag-${option ?: "unset"}"))
+                            label = { UntranslatedText(label) }, modifier = Modifier.heightIn(min = 48.dp).testTag("$tag-${option ?: "unset"}"))
                     }
                 }
             }
@@ -170,7 +170,7 @@ internal fun customDisplay(field: JSONObject, value: Any?, language: String, cal
                 val previous = (draft.previous(id) as? JSONArray)?.let { rows -> (0 until rows.length()).map(rows::getString) }.orEmpty()
                 val options = importRows(field.getJSONArray("options")).filter { !it.getBoolean("archived") || it.getString("id") in previous }
                 val summary = customDisplay(field, value, language, calendar, unavailable) ?: genesisTranslate("Не задано")
-                androidx.compose.material3.Text(summary, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("$tag-value"))
+                UntranslatedText(summary, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("$tag-value"))
                 AffairsDisclosure("Варианты", Modifier.testTag(tag)) {
                     var limit by rememberSaveable(id) { mutableIntStateOf(5) }
                     options.take(limit).forEach { option ->
@@ -179,7 +179,7 @@ internal fun customDisplay(field: JSONObject, value: Any?, language: String, cal
                             Checkbox(key in selected, { checked -> onValue(id, JSONArray((selected.filterNot { it == key } + if (checked) listOf(key) else emptyList()).distinct())) },
                                 enabled = enabled, modifier = Modifier.testTag("$tag-$key").semantics { contentDescription = title + ": " + option.getString("title") })
                             Column(Modifier.weight(1f)) {
-                                androidx.compose.material3.Text(option.getString("title"), style = MaterialTheme.typography.bodyMedium)
+                                UntranslatedText(option.getString("title"), style = MaterialTheme.typography.bodyMedium)
                                 if (option.getBoolean("archived")) Text("Архив", style = MaterialTheme.typography.labelSmall)
                             }
                         }

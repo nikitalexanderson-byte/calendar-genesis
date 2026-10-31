@@ -22,6 +22,7 @@ import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
 import ru.genesis.calendar.PagerTestActivity
+import ru.genesis.calendar.captureNativeWindow
 import ru.genesis.calendar.auth.SharedWorkspaceGateway
 import java.io.File
 
@@ -231,6 +232,13 @@ class SharedWorkspaceUiTest {
     private fun customId(type: String) = importRows(JSONArray(workspaceCustomFile("fields"))).first { it.getString("type") == type && !it.getBoolean("archived") }.getString("id")
     private fun customInput(type: String) = compose.onNodeWithTag("shared-custom-${customId(type)}")
 
+    private fun openTaskCreation() {
+        // The create control opens a menu; the task form is a separate, permission-checked choice.
+        compose.onNodeWithTag("shared-create-task").performScrollTo().assertIsDisplayed().assertIsEnabled().performClick()
+        compose.onNodeWithTag("shared-create-task-option").assertIsDisplayed().assertIsEnabled().performClick()
+        compose.onNodeWithTag("shared-new-task-title").assertIsDisplayed()
+    }
+
     private fun fillRequiredCreation(number: String = "0") {
         customInput("number").performScrollTo().performTextReplacement(number); customInput("number").performImeAction()
         compose.onNodeWithTag("shared-custom-${customId("checkbox")}-false").performScrollTo().performClick()
@@ -239,7 +247,7 @@ class SharedWorkspaceUiTest {
     @Test fun customCreationRequiresZeroAndFalseAndKeepsInputVisibleAfterServerRejection() {
         val fixture = WorkspaceFixture(withTasks = true, custom = true)
         openFixtureProject(fixture)
-        compose.onNodeWithTag("shared-create-task").performScrollTo().performClick()
+        openTaskCreation()
         compose.onNodeWithTag("shared-new-task-title").performTextInput("New custom task")
         compose.onNodeWithTag("shared-create-confirm").assertIsNotEnabled()
         compose.onNodeWithTag("shared-custom-${customId("number")}-error").assertDoesNotExist()
@@ -262,7 +270,7 @@ class SharedWorkspaceUiTest {
         assertEquals(setOf(customId("number"), customId("checkbox")), values.keys().asSequence().toSet())
         assertEquals(0.0, values.getDouble(customId("number")), 0.0); assertEquals(false, values.get(customId("checkbox")))
         assertFalse(body.has(SHARED_CUSTOM_CALENDAR_KEY)); assertFalse(body.has("id")); assertFalse(body.has("expectedRevision"))
-        compose.onNodeWithTag("shared-create-task").performScrollTo().performClick()
+        openTaskCreation()
         compose.onNodeWithTag("shared-create-confirm").assertIsNotEnabled()
         customInput("number").assertTextEquals("")
     }
@@ -271,7 +279,7 @@ class SharedWorkspaceUiTest {
         val fixture = WorkspaceFixture(withTasks = true, custom = true)
         val restoration = StateRestorationTester(compose)
         openFixtureProject(fixture, restoration)
-        compose.onNodeWithTag("shared-create-task").performScrollTo().performClick()
+        openTaskCreation()
         compose.onNodeWithTag("shared-new-task-title").performTextInput("Restored custom task")
         fillRequiredCreation("3,5")
         restoration.emulateSavedInstanceStateRestore()
@@ -290,7 +298,7 @@ class SharedWorkspaceUiTest {
     @Test fun customPendingCreationResetsTheFormOnlyAfterItsBodyIsDurablyQueued() {
         val fixture = WorkspaceFixture(withTasks = true, custom = true)
         openFixtureProject(fixture)
-        compose.onNodeWithTag("shared-create-task").performScrollTo().performClick()
+        openTaskCreation()
         compose.onNodeWithTag("shared-new-task-title").performTextInput("Queued custom task")
         fillRequiredCreation()
         fixture.pendingNextCreate = true
@@ -310,21 +318,27 @@ class SharedWorkspaceUiTest {
     @Test fun customCreationHonorsExplicitEditPermissionBeforeOpeningTheForm() {
         val fixture = WorkspaceFixture(withTasks = true, custom = true, editPermission = false)
         openFixtureProject(fixture)
-        compose.onNodeWithTag("shared-create-task").assertIsNotEnabled()
+        compose.onNodeWithTag("shared-create-task").performScrollTo().assertIsEnabled().performClick()
+        // Container creation is still allowed for this owner; task-like entries enforce editTasks=false.
+        listOf("task", "event", "meeting").forEach { kind ->
+            compose.onNodeWithTag("shared-create-$kind-option").assertIsDisplayed().assertIsNotEnabled()
+        }
+        compose.onNodeWithTag("shared-create-project-option").assertIsEnabled()
+        compose.onNodeWithTag("shared-new-task-title").assertDoesNotExist()
         assertEquals(0, fixture.createAttempts)
     }
 
     @Test fun customCreationDoesNotCarryProjectFieldsIntoAnotherProjectsNewTask() {
         val fixture = WorkspaceFixture(withTasks = true, custom = true)
         openFixtureProject(fixture)
-        compose.onNodeWithTag("shared-create-task").performScrollTo().performClick()
+        openTaskCreation()
         compose.onNodeWithTag("shared-new-task-title").performTextInput("Original draft")
         fillRequiredCreation("17")
         compose.onNodeWithText("Отмена").performClick()
         compose.onNodeWithContentDescription("Назад").performScrollTo().performClick()
         compose.onNodeWithTag("shared-project-$childFixture").performScrollTo().performClick()
         compose.waitUntil(10000) { compose.onAllNodesWithTag("shared-create-task").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithTag("shared-create-task").performScrollTo().performClick()
+        openTaskCreation()
         compose.onNodeWithTag("shared-custom-fields").assertDoesNotExist()
         compose.onNodeWithTag("shared-new-task-title").performTextReplacement("Child task")
         compose.onNodeWithTag("shared-create-confirm").assertIsEnabled().performClick()
@@ -352,7 +366,7 @@ class SharedWorkspaceUiTest {
                 preferences = ru.genesis.calendar.data.UiPreferences(input = ru.genesis.calendar.domain.CalendarMode.SACRED)) }
         } }
         selectFixtureProject(fixture)
-        compose.onNodeWithTag("shared-create-task").performScrollTo().performClick()
+        openTaskCreation()
         compose.onNodeWithTag("shared-new-task-title").performTextInput("Gregorian custom date")
         fillRequiredCreation()
         compose.onNodeWithText("Пользовательские поля").performScrollTo().performClick()
@@ -605,7 +619,7 @@ class SharedWorkspaceUiTest {
         for (locale in locales) for (night in listOf(false, true)) {
             compose.runOnIdle { fixture = WorkspaceFixture(withTasks = true, custom = true); language = locale; dark = night }
             selectFixtureProject(fixture)
-            compose.onNodeWithTag("shared-create-task").performScrollTo().performClick()
+            openTaskCreation()
             compose.onNodeWithTag("shared-new-task-title").assertIsDisplayed()
             if (!localeOnly) capture("required")
             compose.onNodeWithTag("shared-new-task-title").performTextInput("Новая задача с полями")
@@ -644,7 +658,7 @@ class SharedWorkspaceUiTest {
         } }
         for (night in listOf(false, true)) {
             compose.runOnIdle { dark = night }; selectFixtureProject(fixture)
-            compose.onNodeWithTag("shared-create-task").performScrollTo().performClick()
+            openTaskCreation()
             compose.onNodeWithTag("shared-new-task-title").assertIsDisplayed()
             compose.waitForIdle(); InstrumentationRegistry.getInstrumentation().uiAutomation.waitForIdle(350, 5000)
             val file = File(InstrumentationRegistry.getInstrumentation().targetContext.filesDir,
@@ -831,12 +845,39 @@ class SharedWorkspaceUiTest {
     }
 
     private fun selectFixtureProject(fixture: WorkspaceFixture) {
-        compose.waitUntil(5_000) { compose.onAllNodesWithTag("shared-space-$spaceFixture").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithTag("shared-space-$spaceFixture").performClick()
-        compose.onNodeWithTag("shared-project-$projectFixture").performClick()
-        compose.waitUntil(5_000) { compose.onAllNodesWithTag("shared-view-list").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithTag("shared-view-list").performScrollTo().performClick()
-        compose.waitUntil(5_000) { fixture.queries.isNotEmpty() }
+        var phase = "space"
+        try {
+            compose.waitUntil(5_000) { compose.onAllNodesWithTag("shared-space-$spaceFixture").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithTag("shared-space-$spaceFixture").performClick()
+            phase = "project"; compose.onNodeWithTag("shared-project-$projectFixture").performClick()
+            // View choices are popup items; opening the real selector is a separate action.
+            phase = "view-menu"
+            compose.waitUntil(5_000) { compose.onAllNodesWithTag("shared-view-selector").fetchSemanticsNodes().isNotEmpty() }
+            val selector = compose.onNodeWithTag("shared-view-selector")
+            if (runCatching { selector.assertIsDisplayed() }.isFailure) selector.performScrollTo()
+            selector.assertIsDisplayed().assertIsEnabled().performClick()
+            compose.waitUntil(5_000) { compose.onAllNodesWithTag("shared-view-list").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithTag("shared-view-list").assertIsDisplayed().performClick()
+            phase = "list-query"; compose.waitUntil(5_000) { fixture.queries.isNotEmpty() }
+        } catch (failure: Throwable) {
+            val instrumentation = InstrumentationRegistry.getInstrumentation()
+            val directory = instrumentation.targetContext.getExternalFilesDir(null) ?: instrumentation.targetContext.cacheDir
+            val name = "workspace313-select-$phase-${System.currentTimeMillis()}"
+            fun diagnostic(action: () -> Unit) {
+                try { action() } catch (diagnosticFailure: Throwable) { failure.addSuppressed(diagnosticFailure) }
+            }
+            diagnostic {
+                val proof = JSONObject().put("ownedSpaceId", spaceFixture).put("ownedProjectId", projectFixture)
+                    .put("phase", phase).put("failure", failure.stackTraceToString()).put("snapshots", fixture.snapshots)
+                    .put("queries", JSONArray(fixture.queries.map { JSONObject(it.toString()) }))
+                    .put("records", JSONArray(fixture.records.map { JSONObject(it.toString()) }))
+                    .put("role", fixture.role).put("planning", fixture.planning).put("editPermission", fixture.editPermission ?: JSONObject.NULL)
+                    .put("creates", fixture.creates).put("updates", fixture.updates).put("queueCount", fixture.queue.size)
+                File(directory, "$name.json").writeText(proof.toString(2))
+            }
+            diagnostic { captureNativeWindow(File(directory, "$name.png")) }
+            throw failure
+        }
     }
 
     private fun openEstimateTask(fixture: WorkspaceFixture, restoration: StateRestorationTester? = null) {
@@ -1061,6 +1102,7 @@ class SharedWorkspaceUiTest {
     @Test fun searchAndAppliedFiltersResetAndTaskCanBeCompletedWithoutDragging() {
         val fixture = WorkspaceFixture(withTasks = true)
         openFixtureProject(fixture)
+        compose.onNodeWithTag("shared-task-search-open").assertIsDisplayed().performClick()
         compose.onNodeWithTag("shared-task-search").performTextInput("обзор")
         compose.waitUntil(5_000) { fixture.queries.last().optString("q") == "обзор" }
         compose.onNodeWithTag("shared-filters").performClick()
@@ -1091,7 +1133,7 @@ class SharedWorkspaceUiTest {
         compose.onNodeWithTag("affairs-save").performClick()
         compose.waitUntil(5_000) { fixture.records.single().optString("title") == "Обновлённый план команды" }
         compose.onNodeWithTag("affairs-back").performScrollTo().performClick()
-        compose.onNodeWithTag("shared-view-list").assertExists()
+        compose.onNodeWithTag("shared-view-selector").assertIsDisplayed().assertContentDescriptionEquals("Список")
         compose.onNodeWithTag("shared-task-title-input").assertDoesNotExist()
         compose.onNodeWithTag("shared-task-qa-task").assertIsDisplayed()
         compose.onNodeWithTag("shared-project-$projectFixture").assertDoesNotExist()
@@ -1114,7 +1156,7 @@ class SharedWorkspaceUiTest {
     @Test fun newTaskUsesExplicitCreateAndViewerCannotEditOrComplete() {
         val fixture = WorkspaceFixture(withTasks = true)
         openFixtureProject(fixture)
-        compose.onNodeWithTag("shared-create-task").performScrollTo().performClick()
+        openTaskCreation()
         compose.onNodeWithTag("shared-new-task-title").performTextInput("Задача для команды")
         compose.onNodeWithTag("shared-create-confirm").assertTextContains("Добавить задачу").performClick()
         compose.waitUntil(5_000) { fixture.creates == 1 }
@@ -1151,7 +1193,7 @@ class SharedWorkspaceUiTest {
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("shared-project-$projectFixture").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("shared-project-$childFixture").assertDoesNotExist()
         assertEquals(0, fixture.snapshots)
-        compose.onNodeWithTag("shared-actions").performClick()
+        compose.onNodeWithTag("shared-space-team").assertIsDisplayed().performClick()
         compose.onNodeWithTag("shared-invite-space").assertIsDisplayed()
         androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
         compose.onNodeWithTag("shared-project-expand-$projectFixture").performClick()

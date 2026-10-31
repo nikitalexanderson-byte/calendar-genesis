@@ -25,12 +25,34 @@ internal object HabitTimerDevice {
 
 /** Called inside the repository's Room transaction; a failed write leaves the finished session intact. */
 internal object HabitTimerWorkspace {
+    /** Save elapsed time only, so a hidden session cannot block the next habit's timer. */
+    fun finishDisabled(workspace: LocalHabitWorkspace, at: String, owner: String): LocalHabitWorkspace {
+        var operations = workspace.timers
+        for (session in HabitTimers.sessions(operations)) {
+            if (session.root.owner != owner) continue
+            if (workspace.habits.firstOrNull { it.id == session.root.habitId }?.timerEnabled != false) continue
+            // Conflicting history still needs explicit resolution; unrelated edits must remain possible.
+            val state = session.state ?: continue
+            if (state.status in setOf("running", "paused")) {
+                val finishedAt = Instant.parse(at)
+                val allocations = HabitTimers.days(state, finishedAt).map { day ->
+                    HabitTimerAllocation(day.date, day.workMs, day.value, requireNotNull(session.root.plan).ruleId, "not-duration")
+                }
+                operations = HabitTimers.append(operations, session.id, session.root.owner, "finish", finishedAt,
+                    "timer-disabled:${UUID.randomUUID()}", allocations = allocations)
+            }
+            if (HabitTimers.sessions(operations).first { it.id == session.id }.state?.status == "finished")
+                operations = HabitTimers.append(operations, session.id, session.root.owner, "save", Instant.parse(at), timeOnly = true)
+        }
+        return if (operations == workspace.timers) workspace else workspace.copy(timers = operations)
+    }
     private fun scheduled(habit: Habit, date: LocalDate) = HabitEngine(GenesisCalendar()).isScheduled(habit, date)
 
     fun apply(workspace: LocalHabitWorkspace, command: HabitTimerCommand, now: Instant = Instant.now()): LocalHabitWorkspace {
         val at = Instant.parse(command.at); val operations = workspace.timers
         if (command.action == "start") {
             val habit = requireNotNull(workspace.habits.firstOrNull { it.id == command.habitId }) { "HABIT_TIMER_GOAL_CHANGED" }
+            require(habit.timerEnabled) { "HABIT_TIMER_DISABLED" }
             val date = at.atZone(ZoneId.of(habit.periodGoal?.context?.timeZone ?: habit.schedule.timezone)).toLocalDate()
             require(scheduled(habit, date)) { "HABIT_TIMER_DATE_UNAVAILABLE" }
             val rule = HabitMeasurements.rule(habit, date)
@@ -42,6 +64,9 @@ internal object HabitTimerWorkspace {
         }
         val session = HabitTimers.sessions(operations).firstOrNull { it.id == command.sessionId }
         require(session != null && session.root.owner == command.owner) { "HABIT_TIMER_OTHER_DEVICE" }
+        if (command.action == "resume") require(workspace.habits.firstOrNull { it.id == session.root.habitId }?.timerEnabled != false) {
+            "HABIT_TIMER_DISABLED"
+        }
         val state = session.state
         require(state != null || command.action == "resolve") { "HABIT_TIMER_CONFLICT" }
         if (command.action == "finish") {

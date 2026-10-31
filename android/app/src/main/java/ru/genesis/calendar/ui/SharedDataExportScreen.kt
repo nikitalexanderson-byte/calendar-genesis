@@ -141,7 +141,7 @@ internal typealias DataExportPicker = (String, String, (DataExportDestination?) 
                 HorizontalDivider()
                 Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (state.busy) {
-                        LinearProgressIndicator(Modifier.fillMaxWidth())
+                        WorkspaceLoadingLine(Modifier.fillMaxWidth())
                         Text(if (state.working) "Выполнение…" else "Выберите место сохранения файла.", Modifier.testTag("export-working"), style = MaterialTheme.typography.bodyMedium)
                     }
                     if (invalidRange || zone == null) Text("Проверьте диапазон дат и часовой пояс.", Modifier.testTag("export-validation"),

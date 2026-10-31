@@ -57,7 +57,7 @@ private val gold = Color(0xffdfc17e)
 
 @Composable
 fun TheokyklosScreen(app: GenesisApplication, calendarMode: CalendarMode, onOpenHabits: () -> Unit,
-    initialSectorId: String? = null, onInitialSectorConsumed: () -> Unit = {}) {
+    initialSectorId: String? = null, onInitialSectorConsumed: () -> Unit = {}, onOpenStoicheion: () -> Unit = {}) {
     val context = LocalContext.current
     val language = LocalGenesisLanguage.current
     val english = language == "en"
@@ -118,6 +118,7 @@ fun TheokyklosScreen(app: GenesisApplication, calendarMode: CalendarMode, onOpen
                 row.forEach { sector -> SectorCard(sector, english, Modifier.weight(1f)) { selectedId = sector.id } }
             }
         }
+        OlympianIsopsephy(onOpenStoicheion)
         }
         if (maxWidth >= 840.dp) Row(Modifier.fillMaxSize().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
             Column(Modifier.weight(1.2f).fillMaxHeight().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) { diagram() }
@@ -354,7 +355,7 @@ private fun TheokyklosDetail(sector: TheokyklosSector, practices: List<Theokyklo
                                         " · ${existing.preferredTime}",
                                     style = MaterialTheme.typography.labelSmall)
                                 if(existing == null) {
-                                    androidx.compose.material3.Text(habitPracticeCopy().getString("warning"), style = MaterialTheme.typography.bodySmall)
+                                    UntranslatedText(habitPracticeCopy().getString("warning"), style = MaterialTheme.typography.bodySmall)
                                     Button(onClick = { onPractice(practice, null, "begin") },
                                         enabled = workspace != null && !busy) { Text("Начать") }
                                 }

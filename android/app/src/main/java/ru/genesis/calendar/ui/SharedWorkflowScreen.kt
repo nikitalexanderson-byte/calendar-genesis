@@ -133,7 +133,7 @@ internal fun workflowMessage(code: String, copy: JSONObject): String? { return c
     }
     @Composable fun EditorActions() {
         val current = data ?: return
-        if (editor.notice) androidx.compose.material3.Text(copy.getString("saved"), Modifier.testTag("workflow-saved"), color = MaterialTheme.colorScheme.primary)
+        if (editor.notice) UntranslatedText(copy.getString("saved"), Modifier.testTag("workflow-saved"), color = MaterialTheme.colorScheme.primary)
         if (editor.error.isNotBlank()) {
             val message = workflowMessage(editor.error, copy) ?: when (editor.error) {
                 "PLANNING_DRAFT_CHANGED" -> drafts.getString("changed")
@@ -144,63 +144,63 @@ internal fun workflowMessage(code: String, copy: JSONObject): String? { return c
                 "WORKFLOW_PERMISSION_CHANGED" -> drafts.getString("cached")
                 else -> planning.getString("error")
             }
-            androidx.compose.material3.Text(message, Modifier.testTag("workflow-editor-error"), color = MaterialTheme.colorScheme.error)
+            UntranslatedText(message, Modifier.testTag("workflow-editor-error"), color = MaterialTheme.colorScheme.error)
             if (!editor.ready) TextButton({ scope.launch { editor.load() } }) { Text("Повторить") }
             if (editor.error == "PLANNING_DRAFT_STORAGE" && editor.active) TextButton({ scope.launch { editor.persist() } }, enabled = !editor.busy) { Text("Повторить") }
-            if (editor.conflicted) TextButton({ scope.launch { editor.versions() } }, Modifier.testTag("workflow-versions"), enabled = !editor.busy) { androidx.compose.material3.Text(planning.getString("draftVersions")) }
+            if (editor.conflicted) TextButton({ scope.launch { editor.versions() } }, Modifier.testTag("workflow-versions"), enabled = !editor.busy) { UntranslatedText(planning.getString("draftVersions")) }
         }
         if (editor.copies.isNotEmpty() && !editor.active) AffairsDisclosure(planning.getString("draftVersions")) {
-            androidx.compose.material3.Text(planning.getString("draftVersionsHint"), style = MaterialTheme.typography.bodySmall)
+            UntranslatedText(planning.getString("draftVersionsHint"), style = MaterialTheme.typography.bodySmall)
             editor.copies.forEach { version -> Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                androidx.compose.material3.Text(copy.getString("revision") + " " + number.format(version.getJSONObject("edit").getLong("expectedRevision")), Modifier.weight(1f))
+                UntranslatedText(copy.getString("revision") + " " + number.format(version.getJSONObject("edit").getLong("expectedRevision")), Modifier.weight(1f))
                 AffairsIconButton(planning.getString("useDraftVersion"), AffairsAction.EDIT, { scope.launch { editor.useCopy(version) } }, Modifier.testTag("workflow-use-${version.getString("id")}"), controls && editor.phase !in setOf("pending", "received"))
                 AffairsIconButton(drafts.getString("discard"), AffairsAction.DELETE, { scope.launch { editor.removeCopy(version) } }, enabled = !editor.busy)
             } }
         }
         if (editor.record != null && !editor.active) {
-            androidx.compose.material3.Text(drafts.getString("heading"), style = MaterialTheme.typography.titleSmall)
-            Button({ editor.restore() }, Modifier.heightIn(min = 48.dp).testTag("workflow-restore"), enabled = !editor.busy) { androidx.compose.material3.Text(drafts.getString("restore")) }
+            UntranslatedText(drafts.getString("heading"), style = MaterialTheme.typography.titleSmall)
+            Button({ editor.restore() }, Modifier.heightIn(min = 48.dp).testTag("workflow-restore"), enabled = !editor.busy) { UntranslatedText(drafts.getString("restore")) }
         }
         if (editor.active) {
             if (editor.phase in setOf("pending", "received")) {
-                androidx.compose.material3.Text(drafts.getString("pending"), Modifier.testTag("workflow-pending"))
+                UntranslatedText(drafts.getString("pending"), Modifier.testTag("workflow-pending"))
                 Button({ scope.launch { editor.retry() } }, Modifier.heightIn(min = 48.dp).testTag("workflow-retry"), enabled = controls) { Text("Повторить") }
             } else if (stale || editor.phase == "rejected") {
-                androidx.compose.material3.Text(copy.getString("conflict"), Modifier.testTag("workflow-stale"))
-                Button({ scope.launch { editor.rebase() } }, Modifier.heightIn(min = 48.dp).testTag("workflow-rebase"), enabled = controls && !editor.conflicted) { androidx.compose.material3.Text(copy.getString("rebase")) }
+                UntranslatedText(copy.getString("conflict"), Modifier.testTag("workflow-stale"))
+                Button({ scope.launch { editor.rebase() } }, Modifier.heightIn(min = 48.dp).testTag("workflow-rebase"), enabled = controls && !editor.conflicted) { UntranslatedText(copy.getString("rebase")) }
             }
             if (editor.phase == "editing") {
-                androidx.compose.material3.Text(drafts.getString(if (editor.saved) "saved" else "saving"), Modifier.testTag("workflow-draft-status"), style = MaterialTheme.typography.bodySmall)
+                UntranslatedText(drafts.getString(if (editor.saved) "saved" else "saving"), Modifier.testTag("workflow-draft-status"), style = MaterialTheme.typography.bodySmall)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton({ scope.launch { editor.discard() } }, Modifier.weight(1f).heightIn(min = 48.dp).testTag("workflow-discard"), enabled = !editor.busy) { androidx.compose.material3.Text(copy.getString("cancel")) }
+                    TextButton({ scope.launch { editor.discard() } }, Modifier.weight(1f).heightIn(min = 48.dp).testTag("workflow-discard"), enabled = !editor.busy) { UntranslatedText(copy.getString("cancel")) }
                     Button({ scope.launch { editor.submit() } }, Modifier.weight(1f).heightIn(min = 48.dp).testTag("workflow-save"), enabled = writable && !stale) { Text("Сохранить") }
                 }
             } else if (editor.phase == "rejected" || editor.phase == "pending" && editor.record?.optInt("attempts") == 0) {
-                OutlinedButton({ scope.launch { editor.discard() } }, Modifier.testTag("workflow-discard"), enabled = !editor.busy) { androidx.compose.material3.Text(drafts.getString("discard")) }
+                OutlinedButton({ scope.launch { editor.discard() } }, Modifier.testTag("workflow-discard"), enabled = !editor.busy) { UntranslatedText(drafts.getString("discard")) }
             }
         } else if (editor.record == null && manage) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 AffairsIconButton(copy.getString("configure"), AffairsAction.SETTINGS, { scope.launch { editor.start(WorkflowLifecycle.newEdit(current)) } }, Modifier.testTag("workflow-configure"), controls)
                 if (current.getJSONObject("config").getBoolean("enabled")) OutlinedButton({ scope.launch {
                     editor.start(WorkflowLifecycle.newEdit(current, disableOnly = true)); editor.submit()
-                } }, Modifier.heightIn(min = 48.dp).testTag("workflow-disable"), enabled = controls) { androidx.compose.material3.Text(copy.getString("disable")) }
+                } }, Modifier.heightIn(min = 48.dp).testTag("workflow-disable"), enabled = controls) { UntranslatedText(copy.getString("disable")) }
             }
         }
-        if (editor.busy) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("workflow-editor-busy"))
+        if (editor.busy) WorkspaceLoadingLine(Modifier.fillMaxWidth().testTag("workflow-editor-busy"))
     }
     val listState = rememberLazyListState()
     LaunchedEffect(section) { listState.scrollToItem(0) }
     @Composable fun Content(modifier: Modifier, phone: Boolean) {
         LazyColumn(modifier.testTag("workflow-content"), state = listState, verticalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
             if (phone) item { Navigation(Modifier.fillMaxWidth()) }
-            if (loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
+            if (loading) item { WorkspaceLoadingLine(Modifier.fillMaxWidth()) }
             if (error.isNotBlank()) item { Text(if (lost) "Нет доступа" else "Не удалось загрузить данные", color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("workflow-error")) }
             if (data != null && !lost) {
                 val current = data!!
                 item { Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.widthIn(max = AffairsLayout.formMaxWidth)) {
-                    androidx.compose.material3.Text(copy.getString(if (current.getJSONObject("config").getBoolean("enabled")) "enabled" else "disabled") + " · " + copy.getString("revision") + ": " + number.format(current.getJSONObject("config").getLong("revision")), Modifier.testTag("workflow-summary"), style = MaterialTheme.typography.titleMedium)
-                    androidx.compose.material3.Text(copy.getString("hint"), style = MaterialTheme.typography.bodyMedium)
-                    if (offline) androidx.compose.material3.Text(drafts.getString("cached"), Modifier.testTag("workflow-offline"), color = MaterialTheme.colorScheme.secondary)
+                    UntranslatedText(copy.getString(if (current.getJSONObject("config").getBoolean("enabled")) "enabled" else "disabled") + " · " + copy.getString("revision") + ": " + number.format(current.getJSONObject("config").getLong("revision")), Modifier.testTag("workflow-summary"), style = MaterialTheme.typography.titleMedium)
+                    UntranslatedText(copy.getString("hint"), style = MaterialTheme.typography.bodyMedium)
+                    if (offline) UntranslatedText(drafts.getString("cached"), Modifier.testTag("workflow-offline"), color = MaterialTheme.colorScheme.secondary)
                     EditorActions()
                 } }
                 when (section) {
@@ -224,7 +224,7 @@ internal fun workflowMessage(code: String, copy: JSONObject): String? { return c
                                 editor.change(next)
                             }) { Text("Удалить") } }
                         } }
-                        item { androidx.compose.material3.Text(copy.getString("safety"), style = MaterialTheme.typography.bodySmall) }
+                        item { UntranslatedText(copy.getString("safety"), style = MaterialTheme.typography.bodySmall) }
                     }
                     "transitions" -> item { WorkflowTransitions(current, form?.getJSONObject("draft") ?: current.getJSONObject("config"), source,
                         { source = it }, writable && form?.getBoolean("disableOnly") == false, copy) { edges ->
@@ -235,21 +235,21 @@ internal fun workflowMessage(code: String, copy: JSONObject): String? { return c
                         items(versions.size, key = { versions[it].getLong("revision") }) { index ->
                             val version = versions[index]
                             AffairsDisclosure(copy.getString("revision") + " " + number.format(version.getLong("revision")) + " · " + copy.getString(if (version.getBoolean("enabled")) "enabled" else "disabled"), Modifier.widthIn(max = AffairsLayout.formMaxWidth).testTag("workflow-history-${version.getLong("revision")}")) {
-                                androidx.compose.material3.Text(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM).withLocale(Locale.forLanguageTag(language)).withZone(ZoneId.systemDefault()).format(Instant.parse(version.getString("createdAt"))))
+                                UntranslatedText(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM).withLocale(Locale.forLanguageTag(language)).withZone(ZoneId.systemDefault()).format(Instant.parse(version.getString("createdAt"))))
                                 WorkflowLifecycle.rows(version.getJSONArray("statuses")).forEach { rule ->
                                     val title = WorkflowLifecycle.rows(current.getJSONObject("context").getJSONArray("statuses")).find { it.getString("id") == rule.getString("statusId") }?.getString("title") ?: genesisTranslate("Недоступно")
-                                    androidx.compose.material3.Text(title, style = MaterialTheme.typography.titleSmall)
-                                    androidx.compose.material3.Text(copy.getString("limit") + ": " + if (rule.isNull("wipLimit")) copy.getString("noLimit") else number.format(rule.getLong("wipLimit")))
+                                    UntranslatedText(title, style = MaterialTheme.typography.titleSmall)
+                                    UntranslatedText(copy.getString("limit") + ": " + if (rule.isNull("wipLimit")) copy.getString("noLimit") else number.format(rule.getLong("wipLimit")))
                                     val fields = workflowFields(current, copy).toMap()
                                     val unavailableField = genesisTranslate("Недоступно")
-                                    androidx.compose.material3.Text(copy.getString("required") + ": " + (0 until rule.getJSONArray("requiredFields").length()).joinToString { fields[rule.getJSONArray("requiredFields").getString(it)] ?: unavailableField }.ifBlank { "—" })
+                                    UntranslatedText(copy.getString("required") + ": " + (0 until rule.getJSONArray("requiredFields").length()).joinToString { fields[rule.getJSONArray("requiredFields").getString(it)] ?: unavailableField }.ifBlank { "—" })
                                 }
                                 WorkflowTransitions(current, version, "", {}, false, copy, {})
                             }
                         }
-                        if (history != null && versions.isEmpty()) item { androidx.compose.material3.Text(genesisTranslate("История") + ": " + number.format(0), Modifier.testTag("workflow-history-empty")) }
-                        if (history == null || !history!!.isNull("nextCursor")) item { Button(::moreHistory, Modifier.heightIn(min = 48.dp).testTag("workflow-history-more"), enabled = !offline && !historyBusy) { androidx.compose.material3.Text(copy.getString(if (history == null) "load" else "more")) } }
-                        if (historyBusy) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
+                        if (history != null && versions.isEmpty()) item { UntranslatedText(genesisTranslate("История") + ": " + number.format(0), Modifier.testTag("workflow-history-empty")) }
+                        if (history == null || !history!!.isNull("nextCursor")) item { Button(::moreHistory, Modifier.heightIn(min = 48.dp).testTag("workflow-history-more"), enabled = !offline && !historyBusy) { UntranslatedText(copy.getString(if (history == null) "load" else "more")) } }
+                        if (historyBusy) item { WorkspaceLoadingLine(Modifier.fillMaxWidth()) }
                     }
                 }
             }
@@ -283,7 +283,7 @@ internal fun workflowMessage(code: String, copy: JSONObject): String? { return c
 
 @Composable private fun WorkflowCheck(label: String, checked: Boolean, enabled: Boolean, tag: String, onChange: (Boolean) -> Unit) {
     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag(tag).toggleable(value = checked, enabled = enabled, role = Role.Checkbox, onValueChange = onChange), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Checkbox(checked, null, enabled = enabled); androidx.compose.material3.Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        Checkbox(checked, null, enabled = enabled); UntranslatedText(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
     }
 }
 
@@ -292,14 +292,14 @@ internal fun workflowMessage(code: String, copy: JSONObject): String? { return c
     val limit = rule?.get("wipLimit").takeUnless { it == JSONObject.NULL }
     val fields = workflowFields(data, copy)
     AffairsDisclosure(status.getString("title") + " · " + number.format(count) + if (limit != null) " / $limit" else "", Modifier.widthIn(max = AffairsLayout.formMaxWidth).testTag("workflow-status-$id"), titleIsUserContent = true) {
-        if (rule == null) androidx.compose.material3.Text(copy.getString("disabled"))
+        if (rule == null) UntranslatedText(copy.getString("disabled"))
         else {
             if (editable && (!status.getBoolean("isDone") || limit != null)) OutlinedTextField(if (limit == null) "" else limit.toString(), {
                 if (it.length <= 32) change(JSONObject(rule.toString()).put("wipLimit", it))
-            }, Modifier.fillMaxWidth().testTag("workflow-limit-$id"), label = { androidx.compose.material3.Text(copy.getString("limit")) },
-                placeholder = { androidx.compose.material3.Text(copy.getString("noLimit")) }, supportingText = { androidx.compose.material3.Text(copy.getString("noLimit") + " · " + genesisTranslate("Задачи") + ": " + number.format(count)) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true)
-            else androidx.compose.material3.Text(copy.getString("limit") + ": " + (limit?.toString() ?: copy.getString("noLimit")))
-            androidx.compose.material3.Text(copy.getString("required"), style = MaterialTheme.typography.titleSmall)
+            }, Modifier.fillMaxWidth().testTag("workflow-limit-$id"), label = { UntranslatedText(copy.getString("limit")) },
+                placeholder = { UntranslatedText(copy.getString("noLimit")) }, supportingText = { UntranslatedText(copy.getString("noLimit") + " · " + genesisTranslate("Задачи") + ": " + number.format(count)) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true)
+            else UntranslatedText(copy.getString("limit") + ": " + (limit?.toString() ?: copy.getString("noLimit")))
+            UntranslatedText(copy.getString("required"), style = MaterialTheme.typography.titleSmall)
             val required = (0 until rule.getJSONArray("requiredFields").length()).map { rule.getJSONArray("requiredFields").getString(it) }
             val options = fields + required.filter { key -> fields.none { it.first == key } }.map { it to genesisTranslate("Недоступно") }
             options.forEach { (key, label) ->
@@ -307,7 +307,7 @@ internal fun workflowMessage(code: String, copy: JSONObject): String? { return c
                     change(JSONObject(rule.toString()).put("requiredFields", JSONArray(if (checked) required + key else required - key)))
                 }
             }
-            if (!editable && required.isEmpty()) androidx.compose.material3.Text("—")
+            if (!editable && required.isEmpty()) UntranslatedText("—")
         }
     }
 }
@@ -324,11 +324,11 @@ internal fun workflowMessage(code: String, copy: JSONObject): String? { return c
     val from = if (editable) source else viewing
     val label = if (from.isEmpty()) copy.getString("entry") else statuses.find { it.getString("id") == from }?.getString("title") ?: genesisTranslate("Недоступно")
     Column(Modifier.widthIn(max = AffairsLayout.formMaxWidth).fillMaxWidth().testTag("workflow-transitions"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        androidx.compose.material3.Text(copy.getString("accessHint"), style = MaterialTheme.typography.bodySmall)
-        Box { OutlinedButton({ expanded = true }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("workflow-source")) { androidx.compose.material3.Text(label, Modifier.weight(1f)); AffairsActionIcon(AffairsAction.EXPAND) }
+        UntranslatedText(copy.getString("accessHint"), style = MaterialTheme.typography.bodySmall)
+        Box { OutlinedButton({ expanded = true }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("workflow-source")) { UntranslatedText(label, Modifier.weight(1f)); AffairsActionIcon(AffairsAction.EXPAND) }
             DropdownMenu(expanded, { expanded = false }) {
                 (listOf("" to copy.getString("entry")) + statuses.map { it.getString("id") to it.getString("title") }).forEach { (id, title) ->
-                    DropdownMenuItem(text = { androidx.compose.material3.Text(title) }, modifier = Modifier.testTag("workflow-source-${id.ifEmpty { "entry" }}"), onClick = { if (editable) onSource(id) else viewing = id; expanded = false })
+                    DropdownMenuItem(text = { UntranslatedText(title) }, modifier = Modifier.testTag("workflow-source-${id.ifEmpty { "entry" }}"), onClick = { if (editable) onSource(id) else viewing = id; expanded = false })
                 }
             }
         }
@@ -339,7 +339,7 @@ internal fun workflowMessage(code: String, copy: JSONObject): String? { return c
                     change(JSONArray(if (selected) edges + JSONObject().put("fromStatusId", from.ifEmpty { null } ?: JSONObject.NULL).put("toStatusId", to).put("roles", JSONArray(WorkflowLifecycle.roles)) else edges.filterNot { it === edge }))
                 }
                 if (edge != null) {
-                    androidx.compose.material3.Text(copy.getString("roles"), style = MaterialTheme.typography.titleSmall)
+                    UntranslatedText(copy.getString("roles"), style = MaterialTheme.typography.titleSmall)
                     val roles = (0 until edge.getJSONArray("roles").length()).map { edge.getJSONArray("roles").getString(it) }
                     WorkflowLifecycle.roles.forEach { role -> WorkflowCheck(genesisTranslate(sharedRoleLabel(role, false)), role in roles, editable, "workflow-role-$to-$role") { checked ->
                         change(JSONArray(edges.map { if (it === edge) JSONObject(it.toString()).put("roles", JSONArray(if (checked) roles + role else roles - role)) else it }))

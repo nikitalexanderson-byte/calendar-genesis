@@ -37,22 +37,22 @@ import java.util.Locale
         Column(Modifier.fillMaxWidth().testTag(if (index == 0) "habit-comparison-current" else "habit-comparison-previous"),
             verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-            androidx.compose.material3.Text("${calendar.formatDate(dates.first, mode)} — ${calendar.formatDate(dates.second, mode)}",
+            UntranslatedText("${calendar.formatDate(dates.first, mode)} — ${calendar.formatDate(dates.second, mode)}",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            androidx.compose.material3.Text(comparisonCopy("Выполнено {completed} из {planned} целей", "completed" to number.format(part.completed), "planned" to number.format(part.planned)),
+            UntranslatedText(comparisonCopy("Выполнено {completed} из {planned} целей", "completed" to number.format(part.completed), "planned" to number.format(part.planned)),
                 style = MaterialTheme.typography.bodyMedium)
-            androidx.compose.material3.Text(comparisonCopy("Доля выполнения: {percent}", "percent" to percent(part.percent)), style = MaterialTheme.typography.bodySmall)
+            UntranslatedText(comparisonCopy("Доля выполнения: {percent}", "percent" to percent(part.percent)), style = MaterialTheme.typography.bodySmall)
         }
     }
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     Column(Modifier.fillMaxWidth().testTag("habit-comparison-change"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text("Изменение числа выполненных целей", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
         val difference = (if (data.absoluteChange > 0) "+" else "") + number.format(data.absoluteChange)
-        androidx.compose.material3.Text(comparisonCopy("Разница: {count}", "count" to difference), style = MaterialTheme.typography.bodyMedium)
+        UntranslatedText(comparisonCopy("Разница: {count}", "count" to difference), style = MaterialTheme.typography.bodyMedium)
         if (data.changePercent == null) Text("Процентное сравнение недоступно: не хватает сопоставимых данных.", style = MaterialTheme.typography.bodySmall)
-        else androidx.compose.material3.Text(comparisonCopy("Изменение к предыдущему периоду: {percent}", "percent" to percent(data.changePercent)), style = MaterialTheme.typography.bodySmall)
+        else UntranslatedText(comparisonCopy("Изменение к предыдущему периоду: {percent}", "percent" to percent(data.changePercent)), style = MaterialTheme.typography.bodySmall)
     }
-    if (data.current.unknown + data.previous.unknown > 0) androidx.compose.material3.Text(
+    if (data.current.unknown + data.previous.unknown > 0) UntranslatedText(
         comparisonCopy("Дни привычек с неизвестной историей пауз: {count}. Они исключены из расчёта.", "count" to number.format(data.current.unknown + data.previous.unknown)),
         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }

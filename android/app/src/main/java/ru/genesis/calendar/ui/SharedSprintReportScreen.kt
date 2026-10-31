@@ -78,17 +78,17 @@ import java.util.Locale
     }.joinToString(" · ")
     fun choose(query: JSONObject, more: Boolean = false) { scope.launch { state.choose(query, more) } }
     fun back() { when { state.task != null -> state.backToSources(); state.pane == "sources" -> state.closeSources(); else -> onClose() } }
-    @Composable fun Heading(label: String) { androidx.compose.material3.Text(label, Modifier.semantics { heading() }, style = MaterialTheme.typography.titleMedium) }
+    @Composable fun Heading(label: String) { UntranslatedText(label, Modifier.semantics { heading() }, style = MaterialTheme.typography.titleMedium) }
     @Composable fun Metric(label: String, metric: JSONObject, key: String? = null) {
         Column(Modifier.fillMaxWidth().testTag("report-metric-${key ?: label}"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                androidx.compose.material3.Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                UntranslatedText(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                 if (key != null) TextButton({ choose(SprintReportProtocol.query("tasks", key)) }, enabled = state.ready,
                     modifier = Modifier.heightIn(min = 48.dp).testTag("report-open-$key")) {
-                    androidx.compose.material3.Text(metricValue(metric), style = MaterialTheme.typography.titleMedium)
-                } else androidx.compose.material3.Text(metricValue(metric), style = MaterialTheme.typography.titleSmall)
+                    UntranslatedText(metricValue(metric), style = MaterialTheme.typography.titleMedium)
+                } else UntranslatedText(metricValue(metric), style = MaterialTheme.typography.titleSmall)
             }
-            androidx.compose.material3.Text(metricDetail(metric), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            UntranslatedText(metricDetail(metric), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
     }
@@ -101,14 +101,14 @@ import java.util.Locale
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 panes.forEach { (id, label) ->
                     FilterChip(selected = state.pane == id, onClick = { state.backToSources(); state.pane = id },
-                        enabled = report != null, label = { androidx.compose.material3.Text(label) },
+                        enabled = report != null, label = { UntranslatedText(label) },
                         modifier = Modifier.heightIn(min = 48.dp).testTag("report-pane-$id"))
                 }
             }
             if (report != null) {
-                androidx.compose.material3.Text(planningPeriod(report.getJSONObject("launch"), language), style = MaterialTheme.typography.bodyMedium)
-                androidx.compose.material3.Text(stamp(report.getString("asOf")), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                androidx.compose.material3.Text(report.getJSONObject("launch").getJSONObject("calendarContext").getString("timeZone"), style = MaterialTheme.typography.bodySmall)
+                UntranslatedText(planningPeriod(report.getJSONObject("launch"), language), style = MaterialTheme.typography.bodyMedium)
+                UntranslatedText(stamp(report.getString("asOf")), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                UntranslatedText(report.getJSONObject("launch").getJSONObject("calendarContext").getString("timeZone"), style = MaterialTheme.typography.bodySmall)
             }
         }
     }
@@ -120,11 +120,11 @@ import java.util.Locale
         Column(Modifier.fillMaxWidth().testTag("report-source-${item.getString("id")}"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (task != null) TextButton({ scope.launch { state.openTask(task) } }, enabled = state.ready,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("report-source-open-${task.getString("id")}")) {
-                androidx.compose.material3.Text(task.getString("title"), Modifier.fillMaxWidth(), style = MaterialTheme.typography.titleSmall)
-            } else androidx.compose.material3.Text(copy.getString(if (item.optBoolean("unavailable")) "unavailable" else when (item.optString("action")) {
+                UntranslatedText(task.getString("title"), Modifier.fillMaxWidth(), style = MaterialTheme.typography.titleSmall)
+            } else UntranslatedText(copy.getString(if (item.optBoolean("unavailable")) "unavailable" else when (item.optString("action")) {
                 "sprint.started" -> "startEvent"; "sprint.completed" -> "closeEvent"; else -> "stateEvent"
             }), style = MaterialTheme.typography.titleSmall)
-            item.optString("at").takeIf { it.isNotBlank() }?.let { androidx.compose.material3.Text(stamp(it), style = MaterialTheme.typography.bodySmall) }
+            item.optString("at").takeIf { it.isNotBlank() }?.let { UntranslatedText(stamp(it), style = MaterialTheme.typography.bodySmall) }
             val kind = when {
                 item.optBoolean("completionCarry") -> "carryEvent"
                 item.optBoolean("leftScope") || item.optString("kind") == "removed" -> "removed"
@@ -132,9 +132,9 @@ import java.util.Locale
                 item.optString("kind") == "estimate" -> "estimateDelta"
                 else -> null
             }
-            kind?.let { androidx.compose.material3.Text(copy.getString(it), style = MaterialTheme.typography.bodySmall) }
+            kind?.let { UntranslatedText(copy.getString(it), style = MaterialTheme.typography.bodySmall) }
             if (item.optString("kind") == "estimate" && item.optJSONObject("before") != null && item.optJSONObject("after") != null) {
-                for (key in listOf("before", "after")) { androidx.compose.material3.Text(copy.getString(key), style = MaterialTheme.typography.labelLarge); Observation(item.getJSONObject(key)) }
+                for (key in listOf("before", "after")) { UntranslatedText(copy.getString(key), style = MaterialTheme.typography.labelLarge); Observation(item.getJSONObject(key)) }
             } else (item.optJSONObject("observed") ?: item.optJSONObject("after") ?: item.optJSONObject("before"))?.let { Observation(it) }
             HorizontalDivider()
         }
@@ -144,7 +144,7 @@ import java.util.Locale
         LaunchedEffect(state.pane, state.task) { list.scrollToItem(0) }
         LazyColumn(modifier.testTag("report-content"), state = list, verticalArrangement = Arrangement.spacedBy(16.dp)) {
             if (compact) item { Navigation(Modifier.fillMaxWidth()) }
-            if (state.busy) item { LinearProgressIndicator(Modifier.fillMaxWidth().testTag("report-loading")) }
+            if (state.busy) item { WorkspaceLoadingLine(Modifier.fillMaxWidth().testTag("report-loading")) }
             if (state.error.isNotBlank()) item {
                 val message = when (state.error) {
                     "REPORT_CHANGED", "REPORT_TOKEN_INVALID" -> copy.getString("stale")
@@ -155,16 +155,16 @@ import java.util.Locale
                     "SPRINT_REPORT_HISTORY_INVALID" -> copy.getString("partial")
                     else -> planning.getString("error")
                 }
-                androidx.compose.material3.Text(message, Modifier.testTag("report-error"), color = MaterialTheme.colorScheme.error)
+                UntranslatedText(message, Modifier.testTag("report-error"), color = MaterialTheme.colorScheme.error)
             }
-            if (state.offline) item { androidx.compose.material3.Text(copy.getString("stale"), Modifier.testTag("report-offline"), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            if (state.offline) item { UntranslatedText(copy.getString("stale"), Modifier.testTag("report-offline"), color = MaterialTheme.colorScheme.onSurfaceVariant) }
             val actual = state.task
             when {
                 actual != null -> item {
                     Column(Modifier.fillMaxWidth().testTag("report-actual-task"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         Heading(genesisTranslate("Задача"))
-                        androidx.compose.material3.Text(actual.getString("title"), style = MaterialTheme.typography.titleLarge)
-                        if (actual.optString("description").isNotBlank()) androidx.compose.material3.Text(actual.getString("description"))
+                        UntranslatedText(actual.getString("title"), style = MaterialTheme.typography.titleLarge)
+                        if (actual.optString("description").isNotBlank()) UntranslatedText(actual.getString("description"))
                         if (!actual.isNull("archivedAt")) Text("Архив")
                         SharedTaskEstimates(actual, sharedTaskDetailDraft(actual), true, false, true, {})
                         SharedTaskDetailsFields(actual, sharedTaskDetailDraft(actual), {}, true)
@@ -173,11 +173,11 @@ import java.util.Locale
                 state.pane == "sources" -> {
                     item { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Heading(copy.getString(when (state.selection?.optString("kind")) { "events" -> "events"; "changes" -> "changes"; else -> "sources" }))
-                        state.selection?.optString("date")?.takeIf { it.isNotBlank() }?.let { androidx.compose.material3.Text(date(it)) }
+                        state.selection?.optString("date")?.takeIf { it.isNotBlank() }?.let { UntranslatedText(date(it)) }
                         state.sources?.let { source ->
-                            androidx.compose.material3.Text(number.format(source.getJSONArray("items").length()) + " / " + number.format(source.getLong("total")), Modifier.testTag("report-source-count"))
-                            if (source.getLong("unavailable") > 0) androidx.compose.material3.Text(copy.getString("unavailable") + " · " + number.format(source.getLong("unavailable")))
-                            if (source.getJSONArray("items").length() == 0) androidx.compose.material3.Text(copy.getString("empty"))
+                            UntranslatedText(number.format(source.getJSONArray("items").length()) + " / " + number.format(source.getLong("total")), Modifier.testTag("report-source-count"))
+                            if (source.getLong("unavailable") > 0) UntranslatedText(copy.getString("unavailable") + " · " + number.format(source.getLong("unavailable")))
+                            if (source.getJSONArray("items").length() == 0) UntranslatedText(copy.getString("empty"))
                         }
                     } }
                     items(state.sources?.let { SprintReportProtocol.rows(it.getJSONArray("items")) }.orEmpty(), key = { "source-" + it.getString("id") }) { Source(it) }
@@ -185,7 +185,7 @@ import java.util.Locale
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("report-more-sources")) { Text("Показать ещё") } }
                 }
                 report != null && !available -> item {
-                    androidx.compose.material3.Text(copy.getString(when {
+                    UntranslatedText(copy.getString(when {
                         report.getJSONObject("sprint").getString("state") == "planning" -> "notStarted"
                         flow!!.optString("reason") == "terminal-observation-missing" -> "missingEnd"
                         else -> "missingStart"
@@ -195,26 +195,26 @@ import java.util.Locale
                     "overview" -> {
                         val summary = flow!!.getJSONObject("summary")
                         item { Column(Modifier.testTag("report-overview"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            if (!flow.getBoolean("historyComplete")) androidx.compose.material3.Text(copy.getString("partial"), Modifier.testTag("report-partial"))
+                            if (!flow.getBoolean("historyComplete")) UntranslatedText(copy.getString("partial"), Modifier.testTag("report-partial"))
                             for (key in listOf("plan", "alreadyDone", "delivered", "remaining", "carried", "scope"))
                                 Metric(copy.getString(if (key == "remaining" && flow.getBoolean("terminal")) "closedRemaining" else key), summary.getJSONObject(key), key)
                             AffairsDisclosure(copy.getString("changes"), Modifier.testTag("report-scope-details")) {
                                 for (key in listOf("added", "removed")) Metric(copy.getString(key), summary.getJSONObject(key))
                                 val observed = summary.getString("scopeChangeCoverage") == "observed"
                                 for (key in listOf("estimateDelta", "unestimatedDelta")) {
-                                    androidx.compose.material3.Text(copy.getString(key), style = MaterialTheme.typography.labelLarge)
-                                    androidx.compose.material3.Text(if (observed) number.format(summary.getDouble(key)) else copy.getString("unknown"))
+                                    UntranslatedText(copy.getString(key), style = MaterialTheme.typography.labelLarge)
+                                    UntranslatedText(if (observed) number.format(summary.getDouble(key)) else copy.getString("unknown"))
                                 }
                             }
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 for (kind in listOf("events", "changes")) OutlinedButton({ choose(SprintReportProtocol.query(kind)) }, enabled = state.ready,
-                                    modifier = Modifier.heightIn(min = 48.dp).testTag("report-open-$kind")) { androidx.compose.material3.Text(copy.getString(kind)) }
+                                    modifier = Modifier.heightIn(min = 48.dp).testTag("report-open-$kind")) { UntranslatedText(copy.getString(kind)) }
                             }
                         } }
                     }
                     "charts" -> {
-                        item { androidx.compose.material3.Text(copy.getString("daily"), style = MaterialTheme.typography.bodySmall) }
-                        if (!flow!!.getBoolean("historyComplete")) item { androidx.compose.material3.Text(copy.getString("partial")) }
+                        item { UntranslatedText(copy.getString("daily"), style = MaterialTheme.typography.bodySmall) }
+                        if (!flow!!.getBoolean("historyComplete")) item { UntranslatedText(copy.getString("partial")) }
                         item { ReportChoice(copy.getString("wip"), listOf("all" to copy.getString("allStatuses")) + wipIds.map { id -> id to (statuses.find { it.first == id }?.second ?: copy.getString("historicalStatus")) }, selectedWip, true, "report-wip") { wipStatus = it } }
                         for (key in listOf("burndown", "wip", "flow")) item {
                             SprintReportChart(key, copy.getString(key), planning.getString(if (state.unit == "tasks") "count" else state.unit), points, statuses,
@@ -223,17 +223,17 @@ import java.util.Locale
                         }
                     }
                     "data" -> {
-                        item { Heading(copy.getString("data")); androidx.compose.material3.Text(copy.getString("daily"), style = MaterialTheme.typography.bodySmall) }
+                        item { Heading(copy.getString("data")); UntranslatedText(copy.getString("daily"), style = MaterialTheme.typography.bodySmall) }
                         items(points.take(dailyLimit).indices.toList(), key = { "day-$it" }) { index ->
                             val point = points[index]
                             Column(Modifier.fillMaxWidth().testTag("report-day-$index"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Heading(date(point.getString("date")))
-                                if (point.getString("sourceKind") == "current-snapshot") androidx.compose.material3.Text(copy.getString("snapshot"), style = MaterialTheme.typography.bodySmall)
-                                if (point.getString("coverage") == "partial" || point.optBoolean("gapWithinBucket")) androidx.compose.material3.Text(copy.getString("knownPart"))
+                                if (point.getString("sourceKind") == "current-snapshot") UntranslatedText(copy.getString("snapshot"), style = MaterialTheme.typography.bodySmall)
+                                if (point.getString("coverage") == "partial" || point.optBoolean("gapWithinBucket")) UntranslatedText(copy.getString("knownPart"))
                                 for ((key, label) in listOf("scope" to copy.getString("scope"), "remaining" to copy.getString("burndown"), "done" to genesisTranslate("Завершено"), "wip" to copy.getString("wip"))) Metric(label, point.getJSONObject(key))
                                 AffairsDisclosure(copy.getString("flow")) { statuses.forEach { Metric(it.second, reportStatusMetric(point, it.first)) } }
                                 OutlinedButton({ choose(SprintReportProtocol.query("events", date = point.getString("date"))) }, enabled = state.ready,
-                                    modifier = Modifier.heightIn(min = 48.dp).testTag("report-day-sources-$index")) { androidx.compose.material3.Text(copy.getString("events")) }
+                                    modifier = Modifier.heightIn(min = 48.dp).testTag("report-day-sources-$index")) { UntranslatedText(copy.getString("events")) }
                             }
                         }
                         if (dailyLimit < points.size) item { TextButton({ dailyLimit += 50 }, Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Показать ещё") } }
@@ -265,14 +265,14 @@ import java.util.Locale
     enabled: Boolean, tag: String, onSelect: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        androidx.compose.material3.Text(label, style = MaterialTheme.typography.labelLarge)
+        UntranslatedText(label, style = MaterialTheme.typography.labelLarge)
         Box {
             OutlinedButton({ expanded = true }, enabled = enabled, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag(tag)) {
-                androidx.compose.material3.Text(choices.find { it.first == selected }?.second ?: label, Modifier.weight(1f))
+                UntranslatedText(choices.find { it.first == selected }?.second ?: label, Modifier.weight(1f))
                 AffairsActionIcon(AffairsAction.EXPAND)
             }
             DropdownMenu(expanded, { expanded = false }) { choices.forEach { (id, title) ->
-                DropdownMenuItem(text = { androidx.compose.material3.Text(title) }, onClick = { expanded = false; onSelect(id) }, modifier = Modifier.testTag("$tag-$id"))
+                DropdownMenuItem(text = { UntranslatedText(title) }, onClick = { expanded = false; onSelect(id) }, modifier = Modifier.testTag("$tag-$id"))
             } }
         }
     }

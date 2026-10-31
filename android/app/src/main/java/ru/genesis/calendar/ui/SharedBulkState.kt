@@ -4,8 +4,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import ru.genesis.calendar.auth.*
@@ -27,6 +29,7 @@ internal class SharedBulkState(private val gateway: SharedWorkspaceGateway, val 
     var dirty by mutableStateOf(false); private set
     private var inputRecord: JSONObject? = null
     private var inputLoaded = false
+    private val inputWriter = gateway.captureSharedBulkInputWriter()
     private val inputMutex = Mutex()
     var scopeProjects by mutableStateOf(emptyList<JSONObject>()); private set
     var form by mutableStateOf(runCatching { SharedBulkForm.restore(savedForm) }.getOrElse { SharedBulkForm.initial() }); private set
@@ -66,18 +69,19 @@ internal class SharedBulkState(private val gateway: SharedWorkspaceGateway, val 
     }
     private fun edit() = if (query) form.queryEdit(origin, scopeProjects.map { it.getString("id") }.toSet()) else form.edit(projectId, filter, sort)
     /** A single CAS writer keeps later keystrokes dirty while a disk write is in flight. */
-    suspend fun saveInput(): Boolean = inputMutex.withLock {
-        if (!gateway.supportsSharedBulkInput || !dirty) return@withLock true
-        if (!inputLoaded || inputInvalid) return@withLock false
+    // Cancellation must not discard the CAS stamp of a committed local write.
+    suspend fun saveInput(): Boolean = inputMutex.withLock { withContext(NonCancellable) {
+        if (!gateway.supportsSharedBulkInput || !dirty) return@withContext true
+        if (!inputLoaded || inputInvalid) return@withContext false
         val revision = version
-        return@withLock try {
+        try {
             val input = JSONObject().put("context", projectId).put("origin", origin).put("form", JSONObject(form.saved()))
                 .put("calendar", JSONObject(requireNotNull(calendarJson)))
-            val saved = gateway.saveSharedBulkInput(projectId, inputRecord?.getString("stamp"), input)
+            val saved = inputWriter.save(projectId, inputRecord?.getString("stamp"), input)
             inputRecord = saved; if (revision == version) dirty = false; true
         } catch (cancelled: CancellationException) { throw cancelled }
         catch (cause: Exception) { error = failure(cause); false }
-    }
+    } }
     private fun failure(failure: Exception) = when (failure) {
         is AuthApiError -> failure.code; is CustomFieldFailure -> failure.code; is WorkflowFailure -> failure.code
         is AuthFailure -> sharedFailureCode(failure)
@@ -240,9 +244,12 @@ internal class SharedBulkState(private val gateway: SharedWorkspaceGateway, val 
         // Commit the replacement input before acknowledging/removing the old command.
         if (gateway.supportsSharedBulkInput) {
             require(inputLoaded) { "PLANNING_DRAFT_STORAGE" }
-            val input = JSONObject().put("context", projectId).put("origin", incomingOrigin).put("form", JSONObject(nextForm.saved()))
-                .put("calendar", JSONObject(requireNotNull(calendarJson)))
-            val stored = gateway.saveSharedBulkInput(projectId, inputRecord?.getString("stamp"), input); current(ticket); inputRecord = stored
+            inputMutex.withLock { withContext(NonCancellable) {
+                val input = JSONObject().put("context", projectId).put("origin", incomingOrigin).put("form", JSONObject(nextForm.saved()))
+                    .put("calendar", JSONObject(requireNotNull(calendarJson)))
+                inputRecord = inputWriter.save(projectId, inputRecord?.getString("stamp"), input)
+            } }
+            current(ticket)
         }
         if (saved != null) { gateway.removeSharedBulkDraft(projectId, saved.getString("stamp")); current(ticket) }
         record = null; operationId = ""; onOperation(""); after = 0; previousPages = emptyList(); report = null; history = null

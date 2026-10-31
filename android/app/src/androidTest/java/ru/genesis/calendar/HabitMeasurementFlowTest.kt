@@ -53,25 +53,29 @@ class HabitMeasurementFlowTest {
                 }
             }
         }
+        fun ready(node: SemanticsNodeInteraction): SemanticsNodeInteraction {
+            compose.waitUntil(15_000) { runCatching { node.assertIsEnabled() }.isSuccess }
+            return node
+        }
         compose.waitUntil(15_000) { compose.onAllNodesWithTag("habit-measurement-${habit.id}").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("+ 15 мин").performScrollTo().performClick()
+        ready(compose.onNodeWithText("+ 15 мин")).performScrollTo().performClick()
         compose.waitUntil(15_000) { saved().measurements.count { it.habitId==habit.id }==1 }
         assertFalse(saved().completions.single { it.habitId==habit.id }.completed)
-        compose.onNodeWithText("Значение").performScrollTo().performTextReplacement("45,125")
-        compose.onNodeWithText("Добавить значение").performScrollTo().performClick()
+        ready(compose.onNodeWithText("Значение")).performScrollTo().performTextReplacement("45,125")
+        ready(compose.onNodeWithText("Добавить значение")).performScrollTo().performClick()
         compose.waitUntil(15_000) { saved().completions.single { it.habitId==habit.id }.completed }
         assertEquals(10,saved().completions.single { it.habitId==habit.id }.xpAwarded)
         compose.onNodeWithText("Записи · 2").performScrollTo().performClick()
-        compose.onAllNodesWithText("Изменить")[0].performScrollTo().performClick()
-        compose.onNodeWithText("Значение").performScrollTo().performTextReplacement("10,125")
-        compose.onNodeWithText("Сохранить").performScrollTo().performClick()
+        ready(compose.onAllNodesWithText("Изменить")[0]).performScrollTo().performClick()
+        ready(compose.onNodeWithText("Значение")).performScrollTo().performTextReplacement("10,125")
+        ready(compose.onNodeWithText("Сохранить")).performScrollTo().performClick()
         compose.waitUntil(15_000) { HabitMeasurements.progress(habit,date,saved().measurements).total==55_250L }
         assertFalse(saved().completions.single { it.habitId==habit.id }.completed)
         assertEquals(10,saved().completions.single { it.habitId==habit.id }.xpAwarded)
-        compose.onAllNodesWithText("Удалить запись")[1].performScrollTo().performClick()
+        ready(compose.onAllNodesWithText("Удалить запись")[1]).performScrollTo().performClick()
         compose.waitUntil(15_000) { HabitMeasurements.progress(habit,date,saved().measurements).total==10_125L }
-        compose.onNodeWithText("Восстановить запись").performScrollTo().performClick()
-        compose.onNodeWithText("Сохранить").performScrollTo().performClick()
+        ready(compose.onNodeWithText("Восстановить запись")).performScrollTo().performClick()
+        ready(compose.onNodeWithText("Сохранить")).performScrollTo().performClick()
         compose.waitUntil(15_000) { HabitMeasurements.progress(habit,date,saved().measurements).total==55_250L }
         val reloaded=HabitsRepository(app)
         assertEquals(55_250L,HabitMeasurements.progress(habit,date,runBlocking { reloaded.workspace.first() }.measurements).total)

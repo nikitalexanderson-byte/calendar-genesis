@@ -37,8 +37,8 @@ internal val LocalTemplateInspection = staticCompositionLocalOf { false }
 
 @Composable internal fun TemplateInspectionValue(label: String, value: String, tag: String) {
     Column(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag(tag).semantics(mergeDescendants = true) { disabled() }, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        androidx.compose.material3.Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        androidx.compose.material3.Text(value.ifBlank { genesisTranslate("Не задано") }, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+        UntranslatedText(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        UntranslatedText(value.ifBlank { genesisTranslate("Не задано") }, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
     }
 }
 
@@ -77,9 +77,9 @@ internal fun templateIssueMessage(code: String, copy: JSONObject) = copy.getJSON
             bringIntoView.bringIntoView()
         }
     }
-    OutlinedTextField(value, { onChange(it.substring(0, it.offsetByCodePoints(0, minOf(maxLength, it.codePointCount(0, it.length))))) }, label = { androidx.compose.material3.Text(description) }, enabled = enabled, singleLine = lines == 1,
+    OutlinedTextField(value, { onChange(it.substring(0, it.offsetByCodePoints(0, minOf(maxLength, it.codePointCount(0, it.length))))) }, label = { UntranslatedText(description) }, enabled = enabled, singleLine = lines == 1,
         minLines = lines, maxLines = if (lines == 1) 1 else 5, textStyle = MaterialTheme.typography.bodyMedium, isError = error != null,
-        supportingText = if (error == null) null else { { androidx.compose.material3.Text(error) } },
+        supportingText = if (error == null) null else { { UntranslatedText(error) } },
         keyboardOptions = KeyboardOptions(keyboardType = if (number) KeyboardType.Decimal else KeyboardType.Text),
         shape = AffairsLayout.shape, modifier = Modifier.fillMaxWidth().bringIntoViewRequester(bringIntoView)
             .onFocusChanged { focused = it.isFocused }.testTag(tag))
@@ -98,7 +98,7 @@ internal fun templateIssueMessage(code: String, copy: JSONObject) = copy.getJSON
         Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag(tag).semantics(mergeDescendants = true) {
             contentDescription = description; role = Role.Switch; toggleableState = if (selected) ToggleableState.On else ToggleableState.Off; disabled()
         }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            androidx.compose.material3.Text(description, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+            UntranslatedText(description, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
             Text(if (selected) "Да" else "Нет", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface)
         }
         return
@@ -107,7 +107,7 @@ internal fun templateIssueMessage(code: String, copy: JSONObject) = copy.getJSON
         .toggleable(selected, enabled = enabled, role = Role.Switch, onValueChange = onChange)
         .semantics(mergeDescendants = true) { contentDescription = description }, verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        androidx.compose.material3.Text(description, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        UntranslatedText(description, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
         Switch(selected, null, enabled = enabled, modifier = Modifier.clearAndSetSemantics { })
     }
 }
@@ -137,10 +137,10 @@ internal fun templateIssueMessage(code: String, copy: JSONObject) = copy.getJSON
                 val code = issue.getString("code")
                 val message = if (code == "OPTION_EXCLUDED" && issue.has("option")) copy.getJSONObject("options").optString(issue.getString("option")) + ": " + genesisTranslate("Не переносится")
                     else templateIssueMessage(code, copy)
-                androidx.compose.material3.Text(message, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("$tag-$index"))
-                if (issue.has("title")) androidx.compose.material3.Text(issue.getString("title"), style = MaterialTheme.typography.bodyMedium)
-                if (issue.has("date")) androidx.compose.material3.Text(issue.getString("date"), style = MaterialTheme.typography.bodySmall)
-                if (issue.has("count")) androidx.compose.material3.Text(number.format(issue.getInt("count")), style = MaterialTheme.typography.bodySmall)
+                UntranslatedText(message, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("$tag-$index"))
+                if (issue.has("title")) UntranslatedText(issue.getString("title"), style = MaterialTheme.typography.bodyMedium)
+                if (issue.has("date")) UntranslatedText(issue.getString("date"), style = MaterialTheme.typography.bodySmall)
+                if (issue.has("count")) UntranslatedText(number.format(issue.getInt("count")), style = MaterialTheme.typography.bodySmall)
             }
         }
         if (issues.length() > limit) TemplateOutlinedButton({ limit += 5 }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("$tag-more")) { Text("Показать ещё") }

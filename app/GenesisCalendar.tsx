@@ -82,7 +82,6 @@ import { ExperimentalIcon } from "./ExperimentalIcon";
 import { NavigationIcon } from "./NavigationIcon";
 import { WorkspaceHeader } from "./WorkspaceHeader";
 import "./account-discovery.css";
-import discoveryCopy from "./current-month-copy.json";
 const SharedAffairsHint = lazy(() => import("./SharedAffairsHint"));
 const CalendarExploreNotice = lazy(() => import("./CalendarExploreNotice"));
 const IosInstallPrompt = lazy(() => import("./IosInstallPrompt"));
@@ -5562,14 +5561,6 @@ export function GenesisCalendar() {
     );
   };
 
-  const renderCurrentMonthButton = () => {
-    return <div className="calendar-month-footer"><button type="button" className="calendar-current-month" aria-label={discoveryCopy[language].returnMonth}
-      onClick={() => { selectCalendarDate(new Date()); setDayDetailsOpen(false); }}>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M7 3v4M17 3v4M4 10h16M10 21H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5"/><path d="m15 13-3 3 3 3m-3-3h5a3 3 0 0 1 0 6"/></svg>
-      <span>{translateText("Сегодня", language)}</span>
-    </button></div>;
-  };
-
   const renderSacredCalendar = () => {
     const dayCount = monthIndex === 12 ? apeironLength(sacredYear) : 30;
     const days = Array.from({ length: dayCount }, (_, index) => index + 1);
@@ -5601,7 +5592,6 @@ export function GenesisCalendar() {
             <span aria-hidden="true">{selectedMonth.symbol}</span>
             <button type="button" onClick={() => selectMonth(monthIndex + 1)} aria-label="Следующий месяц">→</button>
           </div>
-          {renderCurrentMonthButton()}
         </header>
 
         <section className="month-calendar" aria-label={`Календарь месяца ${selectedMonth.name}`}>
@@ -5896,7 +5886,6 @@ export function GenesisCalendar() {
             <span aria-hidden="true">{sacredFeaturesEnabled ? <CalendarModeIcon mode={mode} size={35} /> : gregorianMonthNumber(firstDate, gregorianYearStartsInMarch ? "march" : "january")}</span>
             <button type="button" onClick={() => moveMonth(1)} aria-label={mode === "profane" ? "Следующий календарный месяц" : "Следующий лунный месяц"}>→</button>
           </div>
-          {renderCurrentMonthButton()}
         </header>
 
         <section className={`month-calendar calendar-mode-calendar mode-${mode}`} aria-label={`${CALENDAR_MODE_META[mode].label}: ${monthTitle}`}>
@@ -7156,6 +7145,7 @@ export function GenesisCalendar() {
                     onSelectedSectorClosed={clearRequestedTheokyklosSector}
                     onChange={updateHabitWorkspace}
                     onOpenHabits={() => navigateTo("habits")}
+                    onOpenStoicheion={() => navigateTo("stoicheion")}
                   />
                 </Suspense>
               ) : null}

@@ -46,7 +46,7 @@ internal fun SharedTaskReviewPanel(gateway: SharedTaskReviewGateway, task: JSONO
         (0 until rows.length()).forEach { index -> val row = rows.getJSONObject(index)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 AffairsActionIcon(if (row.isNull("approvedAt")) AffairsAction.PAUSE else AffairsAction.TASK)
-                androidx.compose.material3.Text(row.optString("displayName"), Modifier.weight(1f))
+                UntranslatedText(row.optString("displayName"), Modifier.weight(1f))
                 Text(if (row.isNull("approvedAt")) "Ожидается" else "Подтверждено", style = MaterialTheme.typography.labelMedium)
             }
         }
@@ -70,12 +70,12 @@ internal fun SharedTaskReviewPanel(gateway: SharedTaskReviewGateway, task: JSONO
                 }
             }
         }
-        if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+        if (busy) WorkspaceLoadingLine(Modifier.fillMaxWidth())
         if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
     }
     if (confirm) AlertDialog(onDismissRequest = { if (!busy) confirm = false }, title = { Text("Подтвердить выполнение?") },
         text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            androidx.compose.material3.Text(task.getString("title"))
+            UntranslatedText(task.getString("title"))
             Text("Когда все назначенные участники подтвердят выполнение, задача перейдёт в выполненные.")
         } }, confirmButton = { TextButton(enabled = enabled, onClick = { run {
             require(SharedTaskReviewProtocol.canApprove(task, userId)); gateway.sharedTaskApprove(task.getString("projectId"), task.getString("id")); confirm = false
@@ -101,7 +101,7 @@ private fun SharedTaskApproverDialog(task: JSONObject, members: List<JSONObject>
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(id in selected, { if (it) selected = selected + id else selected = selected - id }, enabled = enabled,
                         modifier = Modifier.size(48.dp).semantics { contentDescription = member.optString("displayName") })
-                    androidx.compose.material3.Text(member.optString("displayName"))
+                    UntranslatedText(member.optString("displayName"))
                 }
             }
             if (required && selected.isEmpty()) Text("Выберите хотя бы одного участника.", color = MaterialTheme.colorScheme.error)

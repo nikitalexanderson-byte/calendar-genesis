@@ -96,7 +96,7 @@ fun WelcomeScreen(state: AuthPanelState, controller: AuthController, language: S
                     }
                     Text("Вход через Google открывает ваши данные GENESIS. Подключение календаря и задач выполняется отдельно.",
                         color = welcomeMuted, style = MaterialTheme.typography.bodyMedium)
-                    if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth(), color = welcomeGold, trackColor = welcomeNight)
+                    if (state.busy) WorkspaceLoadingLine(Modifier.fillMaxWidth(), color = welcomeGold, trackColor = welcomeNight)
                     if (state.checkedAt == null || state.message !in setOf("На сервере нет активного входа.", "Серверная сессия ещё не проверена.")) {
                         Text(if (state.checkedAt == null) "Проверяем аккаунт…" else state.message,
                             Modifier.testTag("welcome-status"), color = welcomeMuted, style = MaterialTheme.typography.bodySmall)
@@ -224,7 +224,7 @@ fun LanguageChips(language: String, dark: Boolean = false, flagsOnly: Boolean = 
                                     if (active) welcomeGold else welcomeMuted
                                 } else if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)) {
                                 Box(contentAlignment = Alignment.Center) {
-                                    androidx.compose.material3.Text(flag, fontSize = 20.sp)
+                                    UntranslatedText(flag, fontSize = 20.sp)
                                 }
                             }
                         }
@@ -240,8 +240,8 @@ fun LanguageChips(language: String, dark: Boolean = false, flagsOnly: Boolean = 
                     label = {
                         Row(verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            androidx.compose.material3.Text(flag)
-                            if (!flagsOnly) androidx.compose.material3.Text(label)
+                            UntranslatedText(flag)
+                            if (!flagsOnly) UntranslatedText(label)
                         }
                     },
                     colors = if (dark) FilterChipDefaults.filterChipColors(

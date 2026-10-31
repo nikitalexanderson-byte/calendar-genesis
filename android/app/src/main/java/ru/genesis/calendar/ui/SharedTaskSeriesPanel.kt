@@ -108,7 +108,7 @@ internal fun SharedTaskSeriesPanel(gateway: SharedTaskSeriesGateway, task: JSONO
                 Text(if (healthy) "Фоновое выполнение работает." else "Фоновое выполнение пока не подтверждено. Задачи появятся после восстановления обработчика.", style = MaterialTheme.typography.bodySmall)
                 if (!current.isNull("lastError") && current.optString("lastError").isNotBlank()) Text(sharedTaskSeriesError(current.getString("lastError")), color = MaterialTheme.colorScheme.error)
             }
-            if (!loaded && error.isBlank()) LinearProgressIndicator(Modifier.fillMaxWidth())
+            if (!loaded && error.isBlank()) WorkspaceLoadingLine(Modifier.fillMaxWidth())
             if (stale) Text("Задача или серия изменились. Черновик сохранён на экране. Обновите данные перед сохранением.", color = MaterialTheme.colorScheme.error)
             if (stale && (series?.optLong("revision") ?: 0) == baseSeriesRevision && !disabled && !busy) OutlinedButton(onClick = {
                 baseTaskRevision = task.getLong("revision"); preview = null
@@ -148,7 +148,8 @@ internal fun SharedTaskSeriesPanel(gateway: SharedTaskSeriesGateway, task: JSONO
                 SeriesCheckbox("Копировать подзадачи", settings.getBoolean("cloneChildren")) { change(JSONObject(settingsJson).put("cloneChildren", it)); if (series != null) refreshTemplate = true }
                 if (series != null) SeriesCheckbox("Обновить образец из этой сохранённой задачи", refreshTemplate) { refreshTemplate = it; preview = null }
                 Text("Исключения дат", style = MaterialTheme.typography.titleSmall)
-                AuthorDatePicker(excludedDate, mode, calculationContext = rule.calendarContext!!) { excludedDate = it }
+                AuthorDatePicker(excludedDate, mode, calculationContext = rule.calendarContext!!,
+                    placeholder = "Выберите дату") { excludedDate = it }
                 OutlinedButton(enabled = excludedDate.isNotBlank() && (0 until settings.getJSONArray("excludedDates").length()).none { settings.getJSONArray("excludedDates").getString(it) == excludedDate }, onClick = {
                     val dates = settings.getJSONArray("excludedDates"); change(JSONObject(settingsJson).put("excludedDates", JSONArray((0 until dates.length()).map { dates.getString(it) }.plus(excludedDate).sorted()))); excludedDate = ""
                 }) { Text("Пропустить дату") }
@@ -176,7 +177,7 @@ internal fun SharedTaskSeriesPanel(gateway: SharedTaskSeriesGateway, task: JSONO
                 }
             }
             if (disabled || task.optBoolean("pending")) Text("Сначала сохраните задачу и дождитесь синхронизации.", style = MaterialTheme.typography.bodySmall)
-            if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+            if (busy) WorkspaceLoadingLine(Modifier.fillMaxWidth())
             if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
             if (message.isNotBlank()) Text(message, color = MaterialTheme.colorScheme.primary)
             TextButton(enabled = !busy, onClick = { if (dirty) confirmation = "reload" else run { reload() } }) { Text("Обновить данные") }

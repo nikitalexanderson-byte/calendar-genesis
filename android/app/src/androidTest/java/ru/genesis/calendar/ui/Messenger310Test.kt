@@ -50,6 +50,18 @@ private class Messenger310Gateway : MessagingGateway {
     }
 }
 class Messenger310Test {
+    @Test fun contactFieldAndAddButtonShareHeightAndHaveASpaceBetweenThem() {
+        content()
+        compose.waitUntil(15000) { repository.state.value.ready }
+        compose.onNodeWithText("Контакты").performClick()
+        compose.waitUntil(10000) { compose.onAllNodesWithTag("messenger-contact-email").fetchSemanticsNodes().isNotEmpty() }
+        val field = compose.onNodeWithTag("messenger-contact-email").fetchSemanticsNode().boundsInRoot
+        val add = compose.onNodeWithTag("messenger-contact-add").fetchSemanticsNode().boundsInRoot
+        assertEquals(field.height, add.height, 1f)
+        assertTrue(add.left > field.right)
+        assertEquals(field.center.y, add.center.y, 1f)
+        capture("contacts-aligned")
+    }
     @get:Rule val compose=createAndroidComposeRule<PagerTestActivity>()
     private val gateway=Messenger310Gateway()
     private val repository=MessengerRepository("owner",gateway,Messenger310Store())

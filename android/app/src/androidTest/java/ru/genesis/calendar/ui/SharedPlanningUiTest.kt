@@ -34,6 +34,7 @@ private class PlanningFixture : SharedWorkspaceGateway {
     var pageReads=0
     var cursorReads=0
     var planningReads=0
+    @Volatile var lastReadBucket=""
     var gate:CompletableDeferred<Unit>?=null
     val queue=mutableListOf<JSONObject>()
     val updates=mutableListOf<JSONObject>()
@@ -73,6 +74,7 @@ private class PlanningFixture : SharedWorkspaceGateway {
         if(bucket=="sprint")gate?.let{withContext(NonCancellable){it.await()}}
         val rows=records.filter{if(bucket=="backlog")it.isNull("sprintId")else it.optString("sprintId")==bucket}
         val start=cursor?.toInt()?:0;val end=minOf(start+100,rows.size)
+        lastReadBucket=bucket
         return JSONObject().put("tasks",JSONArray(rows.subList(start,end).map{JSONObject(it.toString())}))
             .put("total",rows.size).put("queryVersion","v$version-$bucket").put("nextCursor",if(end<rows.size)end.toString()else JSONObject.NULL)
             .put("offlineCache",cached)
@@ -89,6 +91,28 @@ private class PlanningFixture : SharedWorkspaceGateway {
 
 class SharedPlanningUiTest {
     @get:Rule val compose=createAndroidComposeRule<PagerTestActivity>()
+    private fun withAssignmentProof(fixture: PlanningFixture, action: () -> Unit) {
+        try { action() }
+        catch (failure: Throwable) {
+            val instrumentation = InstrumentationRegistry.getInstrumentation()
+            val directory = instrumentation.targetContext.getExternalFilesDir(null) ?: instrumentation.targetContext.cacheDir
+            val name = "planning313-assignment-${System.currentTimeMillis()}"
+            runCatching {
+                val proof = JSONObject().put("ownedProjectId", "project").put("ownedTaskId", "task-0")
+                    .put("failure", failure.toString()).put("pageReads", fixture.pageReads).put("planningReads", fixture.planningReads)
+                    .put("lastReadBucket", fixture.lastReadBucket)
+                    .put("task", JSONObject(fixture.records.first { it.getString("id") == "task-0" }.toString()))
+                    .put("updates", JSONArray(fixture.updates.map { JSONObject(it.toString()) }))
+                    .put("queue", JSONArray(fixture.queue.map { JSONObject(it.toString()) }))
+                File(directory, "$name.json").writeText(proof.toString(2))
+            }
+            runCatching {
+                android.os.ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("screencap -p"))
+                    .use { input -> File(directory, "$name.png").outputStream().use { input.copyTo(it) } }
+            }
+            throw failure
+        }
+    }
     private fun show(fixture:PlanningFixture,onTask:(String)->Unit={},onClose:()->Unit={}) {
         compose.setContent { CompositionLocalProvider(LocalGenesisLanguage provides "ru") {
             MaterialTheme(colorScheme=standart){Surface(Modifier.fillMaxSize()){
@@ -108,16 +132,28 @@ class SharedPlanningUiTest {
         assertEquals("task-130",opened)
     }
     @Test fun assignmentUsesExistingTaskPatchAndKeepsZeroAndHours() {
-        val fixture=PlanningFixture();show(fixture)
-        compose.onNodeWithTag("planning-move-task-0").performClick()
-        compose.onNodeWithTag("planning-destination").performClick()
-        compose.onNodeWithTag("planning-destination-sprint").performClick()
-        compose.onNodeWithTag("planning-assign").performClick()
-        compose.waitUntil(5_000){fixture.updates.size==1}
-        assertEquals(setOf("sprintId","expectedRevision"),fixture.updates.single().keys().asSequence().toSet())
-        assertEquals("sprint",fixture.records[0].getString("sprintId"));assertEquals(0,fixture.records[0].getInt("storyPoints"));assertEquals(2.5,fixture.records[0].getDouble("estimateHours"),0.0)
-        compose.onNodeWithTag("planning-bucket").performClick();compose.onNodeWithTag("planning-select-sprint").performClick()
-        compose.waitUntil(5_000){compose.onAllNodesWithTag("planning-move-task-0").fetchSemanticsNodes().isNotEmpty()}
+        val fixture=PlanningFixture()
+        withAssignmentProof(fixture) {
+            show(fixture)
+            compose.onNodeWithTag("planning-move-task-0").performClick()
+            compose.onNodeWithTag("planning-destination").performClick()
+            compose.onNodeWithTag("planning-destination-sprint").performClick()
+            compose.onNodeWithTag("planning-assign").performClick()
+            compose.waitUntil(5_000){fixture.updates.size==1}
+            assertEquals(setOf("sprintId","expectedRevision"),fixture.updates.single().keys().asSequence().toSet())
+            assertEquals("sprint",fixture.records[0].getString("sprintId"));assertEquals(0,fixture.records[0].getInt("storyPoints"));assertEquals(2.5,fixture.records[0].getDouble("estimateHours"),0.0)
+            val readsBeforeSprint=fixture.pageReads
+            compose.onNodeWithTag("planning-bucket").performClick();compose.onNodeWithTag("planning-select-sprint").performClick()
+            compose.waitUntil(10_000) {
+                fixture.lastReadBucket=="sprint" && fixture.pageReads>readsBeforeSprint &&
+                    compose.onAllNodesWithTag("planning-loading").fetchSemanticsNodes().isEmpty()
+            }
+            compose.onNodeWithTag("planning-bucket").assertTextContains("Следующий спринт")
+            // The sprint period/totals can put the first task below the lazy viewport.
+            compose.onNodeWithTag("planning-tasks").performScrollToNode(hasTestTag("planning-task-task-0"))
+            compose.onNodeWithTag("planning-task-task-0").assertIsDisplayed()
+            compose.onNodeWithTag("planning-move-task-0").assertIsDisplayed().assertIsEnabled()
+        }
     }
     @Test fun pendingCommandCannotBeSentAgainAndRemainsInExistingQueue() {
         val fixture=PlanningFixture().apply{pending=true};show(fixture)

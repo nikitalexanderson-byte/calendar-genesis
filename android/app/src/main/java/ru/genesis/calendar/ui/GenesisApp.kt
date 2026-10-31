@@ -267,6 +267,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
         }
     }
     var selected by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
+    var calendarEntryRequest by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(habitTrackingEnabled, tab) {
         if (!habitTrackingEnabled && tab == "Привычки") tab = "Сегодня"
     }
@@ -406,6 +407,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     val eveningTheme = rememberEveningTheme(AppearanceSettings.read(habitWorkspace.settings.rawJson, prefs.theme))
     var themeSwitchBusy by remember { mutableStateOf(false) }
     var themeSwitchError by remember { mutableStateOf<String?>(null) }
+    var updateCheckMessage by remember { mutableStateOf<String?>(null) }
     val accountGate = !testWorkspace && (!activeScope.startsWith("account-") || authState.user == null || !authState.ready)
     val welcomeVisible = accountGate && !(authState.busy && authState.user != null)
     val window = LocalContext.current.activity()?.window
@@ -417,14 +419,21 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
         isAppearanceLightStatusBars = !eveningTheme && !welcomeVisible
         isAppearanceLightNavigationBars = !eveningTheme && !welcomeVisible
     } } }
+    val language = if (testWorkspace || activeScope.startsWith("account-")) prefs.language else welcomePrefs.language
+    val frameworkConfiguration = remember(configuration, language) {
+        Configuration(configuration).apply { setLocale(java.util.Locale.forLanguageTag(language)) }
+    }
+    val context = LocalContext.current
+    val frameworkContext = remember(context, frameworkConfiguration) { GenesisLocaleContext(context, frameworkConfiguration) }
     MaterialTheme(colorScheme=if (eveningTheme) evening else standart, typography = GenesisTypography,
         shapes = GenesisShapes) {
       CompositionLocalProvider(LocalEveningTheme provides eveningTheme) {
-      CompositionLocalProvider(LocalGenesisLanguage provides
-          (if(testWorkspace || activeScope.startsWith("account-")) prefs.language else welcomePrefs.language),
+      CompositionLocalProvider(LocalGenesisLanguage provides language,
+          LocalContext provides frameworkContext, LocalConfiguration provides frameworkConfiguration,
           LocalEnabledCalendars provides CalendarMode.entries
               .filter { it.wireValue in uiVisibility.visibleCalendars }.toSet(),
           LocalSacredFeaturesEnabled provides uiVisibility.sacredFeaturesEnabled,
+          LocalFeatureAccess provides (authState.accountSettings?.featureAccess ?: ru.genesis.calendar.auth.FeatureAccess()),
           LocalTimerDisplayMode provides prefs.display,
           LocalTimerUse24 provides prefs.use24,
           LocalGenesisUserId provides (authState.user?.uid?:"local")) {
@@ -454,18 +463,33 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                 prefs.settingsSubmenuEnabled)
             val screenStates = rememberSaveableStateHolder()
             MobileWorkspaceShell(tab, menuSwipeState.section(tab), destinations, "$accountStatus\n$saveStatus",
+                footerStatusLines = if (activeScope.startsWith("account-")) listOf(
+                    genesisTranslate("Аккаунт Genesis.").trimEnd('.') + " · " + genesisTranslate(when {
+                        authState.outgoingSyncIssue != null || accountTaskSync?.issue != null -> "Ошибка синхронизации"
+                        authState.requiresSignIn -> "Требуется вход"
+                        pendingWrites > 0 || pendingPreferences.isNotEmpty() || authState.busy || accountTaskSync?.loading == true -> "Синхронизация…"
+                        else -> "Синхронизированно."
+                    }).trimEnd('.'), genesisTranslate("Защищенная локальная копия.").trimEnd('.')) else null,
                 calendarMode = prefs.display,
                 gesturesEnabled = !mindmapsOpen,
                 onNavigate = { destination ->
+                    if (destination.page == "Календарь") {
+                        calendarEntryRequest++
+                        if ("calendar.month" !in uiVisibility.hiddenSubmenus) menuSwipeState.calendar = "month"
+                    }
                     if (destination.page != tab || destination.section != null && destination.section != menuSwipeState.section(tab))
                         routeHistory = (routeHistory + "$tab|${menuSwipeState.section(tab).orEmpty()}").takeLast(30)
                     destination.section?.let { menuSwipeState.select(destination.page, it) }
                     tab = destination.page
                 }, actions = {
-                    val themeOnRoot = LocalWorkspaceThemeToggleAllowed.current &&
-                        (tab != "Проекты" || menuSwipeState.projectArea == "shared" || menuSwipeState.personalView == "projects")
-                    if (themeOnRoot && tab in setOf("Сегодня", "Календарь", "Сакральное", "Дневник", "Проекты", "Привычки", "Сообщения"))
-                        TodayThemeButton(eveningTheme, !themeSwitchBusy, calendar = tab == "Календарь") {
+                    Box(Modifier.testTag("global-calendar-switch")) {
+                        CalendarModeSwitcher(prefs.display, {
+                            changeDisplayCalendar(nextAvailableCalendarMode(prefs.display,
+                                CalendarMode.entries.filter { it.wireValue in uiVisibility.visibleCalendars }.toSet()))
+                        }, size = 48.dp, interactive = uiVisibility.visibleCalendars.size > 1)
+                    }
+                }, footerActions = {
+                    TodayThemeButton(eveningTheme, !themeSwitchBusy, plainIcon = true) {
                         themeSwitchBusy = true
                         scope.launch {
                             try {
@@ -481,35 +505,34 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                             finally { themeSwitchBusy = false }
                         }
                     }
-                    Box(Modifier.testTag("global-calendar-switch")) {
-                        CalendarModeSwitcher(prefs.display, {
-                            changeDisplayCalendar(nextAvailableCalendarMode(prefs.display,
-                                CalendarMode.entries.filter { it.wireValue in uiVisibility.visibleCalendars }.toSet()))
-                        }, size = 48.dp, interactive = uiVisibility.visibleCalendars.size > 1)
-                    }
-                }, footerActions = {
-                    AndroidUpdateCheckAction(plainIcon = true)
+                    AndroidUpdateCheckAction(plainIcon = true, onStatus = { updateCheckMessage = it })
                     val refreshBusy = !testWorkspace && (authState.busy || accountTaskSync?.loading == true)
                     WorkspaceAccountRefreshButton(genesisTranslate(if (refreshBusy)
                         "Получаем изменения с сервера…" else "$saveStatus. Обновить аккаунт"),
                         enabled = !refreshBusy, onClick = { if (!testWorkspace) authController.refresh() })
                 }, footerDetails = {
+                    if (prefs.updateRemindersEnabled) AndroidUpdateBanner(compact = true)
+                    updateCheckMessage?.let { WorkspaceStatusNotice(it,
+                        Modifier.padding(horizontal = 16.dp, vertical = 4.dp).testTag("drawer-update-status")) }
+                    if (!testWorkspace && authState.requiresSignIn) WorkspaceStatusNotice(
+                        "Для синхронизации повторите вход. Данные и напоминания доступны на устройстве.",
+                        Modifier.padding(horizontal = 16.dp, vertical = 4.dp).testTag("drawer-sign-in-notice")) {
+                        TextButton(onClick = { authController.checkSession(); tab = "Настройки" }) {
+                            Text("Открыть вход через Google")
+                        }
+                    }
+                    themeSwitchError?.let { WorkspaceStatusNotice(it,
+                        Modifier.padding(horizontal = 16.dp, vertical = 4.dp), isError = true) }
+                    if (!testWorkspace) ru.genesis.calendar.auth.WorkspaceSyncNotice(authState,
+                        authController::syncPending, authController::keepLocalWorkspaceChanges,
+                        authController::keepRemoteWorkspaceChanges)
                     if (!testWorkspace && accountTaskSync != null) {
                         ru.genesis.calendar.auth.AccountTaskSyncNotice(accountTaskSync,
                             Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
                     }
                 }) {
-                if(!testWorkspace && authState.requiresSignIn) {
-                    Text("Для синхронизации повторите вход. Данные и напоминания доступны на устройстве.",
-                        Modifier.padding(horizontal=16.dp),style=MaterialTheme.typography.bodySmall)
-                    TextButton(onClick={authController.checkSession();tab="Настройки"},
-                        modifier=Modifier.padding(horizontal=8.dp)) { Text("Открыть вход через Google") }
-                }
                 HabitNotificationAccessNotice(app,habitTrackingEnabled &&
                     habitWorkspace.habits.any { it.reminder.enabled })
-                if (!testWorkspace) ru.genesis.calendar.auth.WorkspaceSyncNotice(authState,
-                    authController::syncPending, authController::keepLocalWorkspaceChanges,
-                    authController::keepRemoteWorkspaceChanges)
                 val personalAffairsContent: @Composable (MenuSwipeState) -> Unit = { visibleSwipeState ->
                     if(mindmapsOpen && authState.user!=null) {
                         val uid=authState.user!!.uid
@@ -556,7 +579,6 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                 val pageContent: @Composable (String, MenuSwipeState) -> Unit = { visibleTab, visibleSwipeState ->
                   Column(Modifier.fillMaxSize()) {
                   error?.let { Text(it,color=MaterialTheme.colorScheme.error,modifier=Modifier.padding(12.dp)) }
-                  themeSwitchError?.let { Text(it,color=MaterialTheme.colorScheme.error,modifier=Modifier.padding(12.dp)) }
                   when(visibleTab) {
                     "Привычки" -> HabitsScreen(app,true,prefs.input,prefs.display,authState.accountSettings,taskLists,visibleSwipeState,
                         openSacredHabits=requestedSacredHabits,
@@ -577,7 +599,8 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                             TheokyklosScreen(app, prefs.input,
                                 onOpenHabits = { requestedSacredHabits = true; tab = "Привычки" },
                                 initialSectorId = requestedTheokyklosSector,
-                                onInitialSectorConsumed = { requestedTheokyklosSector = null })
+                                onInitialSectorConsumed = { requestedTheokyklosSector = null },
+                                onOpenStoicheion = { menuSwipeState.sacred = "stoicheion" })
                         else StoicheionScreen(app, prefs.divinationDisabled,
                             inputCalendarMode = prefs.input,
                             onOpenHabits = { requestedSacredHabits = true; tab = "Привычки" },
@@ -647,6 +670,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         menuVisibilityExpanded = menuVisibilityExpanded,
                         onMenuVisibilityExpanded = { menuVisibilityExpanded = it })
                     "Календарь" -> CalendarScreen(LocalDate.parse(selected),prefs.display,
+                        entryRequest = calendarEntryRequest,
                         onSelect={selected=it.toString()},
                         onModeChange=changeDisplayCalendar,
                         experimental=true, tasks=tasks, use24=prefs.use24,
@@ -839,7 +863,7 @@ private fun AuthTransitionScreen(message: String) {
     Box(Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            CircularProgressIndicator()
+            WorkspaceLoadingIndicator()
             Text("Открываем защищённое пространство", style = MaterialTheme.typography.titleMedium)
             Text(message, style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -989,7 +1013,7 @@ internal fun DayHeader(date: LocalDate, mode: CalendarMode) {
     }
     val civilDate = date.format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.forLanguageTag(language)))
     val lightHero = !LocalEveningTheme.current
-    val heroSecondary = if (lightHero) MaterialTheme.colorScheme.onSurfaceVariant else Color(0xfffff8e9)
+    val heroSecondary = if (lightHero) MaterialTheme.colorScheme.onSurface.copy(alpha = .90f) else Color(0xfffff8e9)
     Card(Modifier.fillMaxWidth().testTag("today-hero"), shape = AffairsLayout.shape,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         if (!sacredFeaturesEnabled) {
@@ -1004,16 +1028,16 @@ internal fun DayHeader(date: LocalDate, mode: CalendarMode) {
                 null, Modifier.matchParentSize().testTag("today-calendar-image"), dimInDarkTheme = false,
                 lightThemeBrightness = 1.25f)
             Box(Modifier.matchParentSize().background(if (lightHero) Brush.verticalGradient(
-                0f to MaterialTheme.colorScheme.surface.copy(alpha=.18f),
-                .45f to MaterialTheme.colorScheme.surface.copy(alpha=.32f),
-                1f to MaterialTheme.colorScheme.surface.copy(alpha=.58f)) else Brush.verticalGradient(
+                0f to MaterialTheme.colorScheme.surface.copy(alpha=.528f),
+                .45f to MaterialTheme.colorScheme.surface.copy(alpha=.56f),
+                1f to MaterialTheme.colorScheme.surface.copy(alpha=.592f)) else Brush.verticalGradient(
                 listOf(Color.Black.copy(alpha=.16f), Color.Black.copy(alpha=.16f)))))
             CompositionLocalProvider(LocalPreserveCalendarColors provides true) {
             androidx.compose.material3.Surface(Modifier.fillMaxWidth().testTag("today-hero-copy"),
                 shape = AffairsLayout.shape, border = BorderStroke(1.dp, Color(0x80dfc17e)),
                 color = if (lightHero) Color.Transparent else Color.Black.copy(alpha = .48f),
                 contentColor = if (lightHero) MaterialTheme.colorScheme.onSurface else Color.White) {
-                    Column(Modifier.padding(12.dp).padding(top=if(lightHero) 80.dp else 0.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         TodayHeroGroup("today-hero-context") {
                         Text(copy.title, style = MaterialTheme.typography.headlineSmall, fontFamily = GenesisHeadingFont)
                         Text(if (mode == CalendarMode.PROFANE) civilDate else copy.footerDate,
@@ -1067,7 +1091,7 @@ internal fun DayHeader(date: LocalDate, mode: CalendarMode) {
 @Composable
 private fun TodayHeroGroup(tag: String, content: @Composable ColumnScope.() -> Unit) {
     androidx.compose.material3.Surface(Modifier.fillMaxWidth().testTag(tag), shape = AffairsLayout.shape,
-        color = if (LocalEveningTheme.current) Color.Black.copy(alpha = .20f) else MaterialTheme.colorScheme.surface.copy(alpha=.88f),
+        color = if (LocalEveningTheme.current) Color.Black.copy(alpha = .30f) else Color.Transparent,
         contentColor = if (LocalEveningTheme.current) Color.White else MaterialTheme.colorScheme.onSurface,
         border = BorderStroke(1.dp, if (LocalEveningTheme.current) Color(0xffffe7ae).copy(alpha = .18f)
             else MaterialTheme.colorScheme.outlineVariant.copy(alpha=.6f))) {
@@ -1685,7 +1709,7 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sectionId:
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text("Напоминать о новых версиях", style = MaterialTheme.typography.titleSmall)
-                        Text("Показывать предложение после синхронизации и плашку в настройках.",
+                        Text("Показывать предложение после синхронизации и плашку в боковой панели.",
                             style = MaterialTheme.typography.bodySmall)
                     }
                     Switch(checked = prefs.updateRemindersEnabled,
@@ -1694,7 +1718,6 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sectionId:
                 }
             }
             AndroidUpdateCheckAction(iconOnly = false)
-            if (prefs.updateRemindersEnabled) AndroidUpdateBanner()
         }
         SettingsSection("G", "Аккаунт GENESIS", "Вход, синхронизация и связанные Google-аккаунты",
             Color(0xfff4e8df)) {

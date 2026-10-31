@@ -18,13 +18,16 @@ import org.junit.After
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
+import ru.genesis.calendar.BuildConfig
 import ru.genesis.calendar.PagerTestActivity
 import ru.genesis.calendar.auth.*
 import java.util.UUID
 import java.io.File
 
 private class LifecycleFixture(active: Boolean = false) : SharedWorkspaceGateway, PlanningDraftAccess {
-    val context = InstrumentationRegistry.getInstrumentation().targetContext.also { check(it.packageName == "ru.genesis.calendar.g1qa.debug") }
+    val context = InstrumentationRegistry.getInstrumentation().targetContext.also {
+        check(BuildConfig.DEBUG && it.packageName in setOf("ru.genesis.calendar.g1qa.debug", "ru.genesis.calendar.v313.debug"))
+    }
     val account = "qa-lifecycle-${UUID.randomUUID()}"
     val store = PlanningDraftStore(context)
     @Volatile var diskFailure = false
@@ -142,6 +145,27 @@ class SharedPlanningLifecycleUiTest {
     private var sacredEnabled by mutableStateOf(true)
     private var currentClose: () -> Unit = {}
     private var installed = false
+    private fun withLifecycleProof(fixture: LifecycleFixture, phase: String, action: () -> Unit) {
+        try { action() }
+        catch (failure: Throwable) {
+            val instrumentation = InstrumentationRegistry.getInstrumentation()
+            val directory = instrumentation.targetContext.getExternalFilesDir(null) ?: instrumentation.targetContext.cacheDir
+            val name = "planning313-lifecycle-$phase-${System.currentTimeMillis()}"
+            runCatching {
+                val proof = JSONObject().put("ownedAccount", fixture.account).put("ownedProjectId", "project")
+                    .put("ownedSprintId", "source").put("phase", phase).put("failure", failure.toString())
+                    .put("planning", fixture.planning("project"))
+                    .put("draft", fixture.service.load("project") ?: JSONObject.NULL)
+                    .put("commands", JSONArray(fixture.commands.toList())).put("receiptCount", fixture.receipts.size)
+                File(directory, "$name.json").writeText(proof.toString(2))
+            }
+            runCatching {
+                android.os.ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("screencap -p"))
+                    .use { input -> File(directory, "$name.png").outputStream().use { input.copyTo(it) } }
+            }
+            throw failure
+        }
+    }
     private fun show(fixture: LifecycleFixture, onClose: () -> Unit = {}) {
         if (fixture !in fixtures) fixtures.add(fixture)
         if (!installed) {
@@ -282,10 +306,34 @@ class SharedPlanningLifecycleUiTest {
         bucket("next"); compose.onNodeWithTag("planning-start-sprint").assertIsNotEnabled()
     }
     @Test fun emptySprintCanBeCompletedWithoutInventingTaskDecisions() {
-        val fixture = LifecycleFixture(active = true); fixture.records.clear(); show(fixture); bucket("source"); click("planning-complete-sprint")
-        click("planning-finish-completion")
-        compose.waitUntil(10_000) { fixture.commands.isNotEmpty() && compose.onAllNodesWithTag("planning-lifecycle-saved").fetchSemanticsNodes().isNotEmpty() }
-        assertEquals(0, JSONObject(fixture.commands.single()).getJSONObject("body").getJSONArray("outcomes").length())
+        val fixture = LifecycleFixture(active = true); fixture.records.clear()
+        withLifecycleProof(fixture, "empty-completion") {
+            show(fixture); bucket("source")
+            compose.waitUntil(10_000) { runCatching { compose.onNodeWithTag("planning-complete-sprint").assertIsEnabled() }.isSuccess }
+            click("planning-complete-sprint")
+            // Preparation commits the encrypted journal on IO before the editor is ready.
+            compose.waitUntil(10_000) {
+                val prepared = fixture.service.load("project")
+                val edit = prepared?.optJSONObject("edit")
+                prepared?.optString("phase") == "editing" && edit != null && edit.optString("kind") == "transition" &&
+                    edit.optString("action") == "complete" && edit.optString("sprintId") == "source" && edit.getJSONArray("tasks").length() == 0 &&
+                    compose.onAllNodesWithTag("planning-lifecycle-busy").fetchSemanticsNodes().isEmpty() &&
+                    compose.onAllNodesWithTag("planning-lifecycle-error").fetchSemanticsNodes().isEmpty()
+            }
+            compose.onNodeWithTag("planning-tasks").performScrollToNode(hasTestTag("planning-finish-completion"))
+            compose.onNodeWithTag("planning-finish-completion").assertIsDisplayed().assertIsEnabled().performClick()
+            compose.waitUntil(10_000) {
+                fixture.sprints.first().getString("state") == "completed" &&
+                    compose.onAllNodesWithTag("planning-lifecycle-saved").fetchSemanticsNodes().isNotEmpty()
+            }
+            val command = JSONObject(fixture.commands.single())
+            assertEquals("transition", command.getString("kind")); assertEquals("source", command.getString("sprintId"))
+            assertEquals("complete", command.getJSONObject("body").getString("action"))
+            assertEquals(1, command.getJSONObject("body").getInt("expectedRevision"))
+            assertEquals(0, command.getJSONObject("body").getJSONArray("outcomes").length())
+            assertEquals(2, fixture.sprints.first().getInt("revision")); assertEquals(1, fixture.receipts.size)
+            assertNull(fixture.service.load("project"))
+        }
     }
     @Test fun viewerHasNoLifecycleActionsAndManagerMayChangeOnlySettings() {
         val fixture = LifecycleFixture(); fixture.organize = false; fixture.manage = false; show(fixture)
@@ -301,18 +349,22 @@ class SharedPlanningLifecycleUiTest {
             val fixture = LifecycleFixture()
             fixture.sprints.first().put("calendarMode", mode).put("startDate", "2026-10-24").put("endDate", "2026-10-26")
                 .put("calendarContext", JSONObject().put("version", 2).put("timeZone", "Europe/Berlin").put("gregorianYearStart", year))
-            show(fixture); bucket("source"); click("planning-edit-sprint"); waitSaved()
-            for (nextMode in listOf("sacred", "lunar", "profane")) {
-                click("planning-input-$nextMode"); waitSaved()
-                val draft = fixture.service.load("project")!!.getJSONObject("edit").getJSONObject("draft")
-                assertEquals("2026-10-24", draft.getString("startDate")); assertEquals("2026-10-26", draft.getString("endDate"))
-                assertEquals(year, draft.getJSONObject("calendarContext").getString("gregorianYearStart"))
-                assertEquals("Europe/Berlin", draft.getJSONObject("calendarContext").getString("timeZone"))
+            withLifecycleProof(fixture, "date-$mode-$year") {
+                show(fixture); bucket("source"); click("planning-edit-sprint"); waitSaved()
+                for (nextMode in listOf("sacred", "lunar", "profane")) {
+                    click("planning-input-$nextMode"); waitSaved()
+                    val draft = fixture.service.load("project")!!.getJSONObject("edit").getJSONObject("draft")
+                    assertEquals("2026-10-24", draft.getString("startDate")); assertEquals("2026-10-26", draft.getString("endDate"))
+                    assertEquals(year, draft.getJSONObject("calendarContext").getString("gregorianYearStart"))
+                    assertEquals("Europe/Berlin", draft.getJSONObject("calendarContext").getString("timeZone"))
+                }
+                show(fixture); click("planning-restore-draft")
+                compose.onNodeWithTag("planning-start-date", useUnmergedTree = true).performScrollTo().onChildren().filter(hasClickAction()).onFirst().performClick()
+                compose.onNodeWithText("Выберите дату").assertIsDisplayed()
+                compose.onNodeWithTag("author-date-close").assertIsDisplayed().assertContentDescriptionEquals("Закрыть").performClick()
+                compose.onNodeWithTag("author-date-close").assertDoesNotExist()
+                assertEquals("2026-10-24", fixture.service.load("project")!!.getJSONObject("edit").getJSONObject("draft").getString("startDate"))
             }
-            show(fixture); click("planning-restore-draft")
-            compose.onNodeWithTag("planning-start-date", useUnmergedTree = true).performScrollTo().onChildren().filter(hasClickAction()).onFirst().performClick()
-            compose.onNodeWithText("Выберите дату").assertIsDisplayed(); compose.onNodeWithText("Закрыть").performClick()
-            assertEquals("2026-10-24", fixture.service.load("project")!!.getJSONObject("edit").getJSONObject("draft").getString("startDate"))
         }
     }
     @Test fun disabledSacredFeaturesHideCalendarOptionsWithoutRewritingTheSavedContext() {

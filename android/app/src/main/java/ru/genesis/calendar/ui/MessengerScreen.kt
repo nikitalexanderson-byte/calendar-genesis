@@ -90,7 +90,7 @@ import java.util.UUID
                 modal="new";creationId=UUID.randomUUID().toString();run{projects=repository.projects()}
             }) { GenesisLucideIcon("message-circle") }
         }
-        if(busy)Row(Modifier.fillMaxWidth().padding(horizontal=12.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)){CircularProgressIndicator(Modifier.size(20.dp),strokeWidth=2.dp);Text(c("loading"),style=MaterialTheme.typography.bodySmall)}
+        WorkspaceBackgroundStatus(busy, c("loading"))
         if(failure.isNotBlank())Row(Modifier.fillMaxWidth().padding(horizontal=12.dp),verticalAlignment=Alignment.CenterVertically){Text(failure,Modifier.weight(1f),color=MaterialTheme.colorScheme.error);AffairsIconButton(c("close"),AffairsAction.CLOSE,{failure=""})}
         if(current==null){
             ConnectedSubmenu(listOf(SubmenuItem("chats", c("chats")), SubmenuItem("contacts", c("contacts"))),
@@ -101,7 +101,14 @@ import java.util.UUID
                 MessengerActionButton(c("devices"), "phone-source", "messenger-devices", Modifier.weight(1f), !busy) { run { devices=repository.devices();modal="devices" } }
                 MessengerActionButton(c("legacy"), "history", "messenger-legacy", Modifier.weight(1f), !busy && legacy!=null) { legacyOpen=true }
             }
-            if(tab=="contacts")Row(Modifier.fillMaxWidth().padding(horizontal=12.dp),verticalAlignment=Alignment.CenterVertically){OutlinedTextField(email,{email=it.take(254)},Modifier.weight(1f),label={Text(c("email"))},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Email));AffairsIconButton(c("addContact"),AffairsAction.ADD,{run{repository.addContact(email);email=""}},enabled=!busy)}
+            if(tab=="contacts") Row(Modifier.fillMaxWidth().padding(horizontal=12.dp).height(IntrinsicSize.Min)
+                .testTag("messenger-contact-form"), verticalAlignment=Alignment.CenterVertically,
+                horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(email,{email=it.take(254)},Modifier.weight(1f).testTag("messenger-contact-email"),
+                    label={Text(c("email"))},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Email))
+                AffairsIconButton(c("addContact"),AffairsAction.ADD,{run{repository.addContact(email);email=""}},
+                    Modifier.fillMaxHeight().testTag("messenger-contact-add"),enabled=!busy)
+            }
             LazyColumn(Modifier.weight(1f),contentPadding=PaddingValues(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
                 if(tab=="chats"){
                     if(state.chats.isEmpty()&&!busy)item{Text(c("empty"),color=MaterialTheme.colorScheme.onSurfaceVariant)}
@@ -127,7 +134,7 @@ import java.util.UUID
                     Column(Modifier.padding(12.dp)){
                         Row(verticalAlignment=Alignment.CenterVertically){Text(if(row.senderId==repository.owner)c("you")else current.members.firstOrNull{it.userId==row.senderId}?.name?:"",Modifier.weight(1f),style=MaterialTheme.typography.labelMedium)
                             if(!row.deleted&&row.senderId==repository.owner){var more by remember{mutableStateOf(false)};Box{AffairsIconButton(c("actions"),AffairsAction.MORE,{more=true},enabled=!busy&&!state.pending);DropdownMenu(more,{more=false}){DropdownMenuItem(text={Text(c("edit"))},onClick={more=false;run{repository.edit(row);draft=row.text}},enabled=!row.failed);DropdownMenuItem(text={Text(c("delete"))},onClick={more=false;delete=row})}}}}
-                        SelectionContainer{androidx.compose.material3.Text(if(row.deleted)c("deleted")else if(row.failed)c("decryptError")else row.text,style=MaterialTheme.typography.bodyLarge)}
+                        SelectionContainer{UntranslatedText(if(row.deleted)c("deleted")else if(row.failed)c("decryptError")else row.text,style=MaterialTheme.typography.bodyLarge)}
                     }
                 }}}
             }
@@ -188,7 +195,7 @@ import java.util.UUID
     )
     if (modal == "security") AlertDialog(
         onDismissRequest = { modal = null }, title = { Text(c("security")) },
-        text = { Column { SelectionContainer { androidx.compose.material3.Text(state.securityCode ?: "") }; Text(c("securityHelp")) } },
+        text = { Column { SelectionContainer { UntranslatedText(state.securityCode ?: "") }; Text(c("securityHelp")) } },
         confirmButton = { TextButton({ modal = null }) { Text(c("close")) } }
     )
     if (modal == "devices") AlertDialog(

@@ -44,8 +44,8 @@ android {
         applicationId = "ru.genesis.calendar"
         minSdk = 26
         targetSdk = 37
-        versionCode = 119
-        versionName = "3.1.2"
+        versionCode = 120
+        versionName = "3.1.3"
         buildConfigField("boolean", "PLAY_DISTRIBUTION", "false")
         buildConfigField("boolean", "TRIAL_BUILD", "false")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -117,8 +117,8 @@ val genesisAssets = tasks.register<GenesisAssetsTask>("genesisAssets") {
     from(rootProject.file("../app")) { include("solar-model-localization.js", "solar-model-labels.json", "ui-refinement-copy.json"); into("i18n") }
     from(rootProject.file("../app")) {
         include("translations.el.a.json", "translations.el.b.json", "translations.de.json", "translations.de.b.json", "translations.fr.json", "translations.fr.b.json",
-            "translations.es.json", "translations.it.json", "translations.pt.json",
-            "translations.pl.json", "translations.sr.a.json", "translations.sr.b.json",
+            "translations.es.json", "translations.es.b.json", "translations.it.json", "translations.it.b.json", "translations.pt.json",
+            "translations.pl.json", "translations.pl.b.json", "translations.sr.a.json", "translations.sr.b.json",
             "translations.uk.a.json", "translations.uk.b.json",
             "translations.zh.json", "translations.tr.json", "translations.ja.json", "translations.ja.b.json")
         into("i18n")
@@ -156,6 +156,10 @@ val genesisAssets = tasks.register<GenesisAssetsTask>("genesisAssets") {
     from(rootProject.file("../app/stoicheion-restoration-content.json")) { into("catalogs") }
     from(rootProject.file("../app/stoicheion-restoration-ui.json")) { into("catalogs") }
     from(rootProject.file("../app/stoicheion-reading-layout.json")) { into("catalogs") }
+    from(rootProject.file("../app/stoicheion-timeline.json")) { into("catalogs") }
+    from(rootProject.file("../app/olympian-isopsephy.json")) { into("catalogs") }
+    from(rootProject.file("../app/future-modeling.json")) { into("catalogs") }
+    from(rootProject.file("../app/future-modeling-locales")) { include("*.json"); into("catalogs/future-modeling-locales") }
     from(rootProject.file("../app/stoicheion-restoration-locales")) { into("catalogs/stoicheion-restoration-locales") }
     from(rootProject.file("../app/catalog-translations")) {
         include("*.json")

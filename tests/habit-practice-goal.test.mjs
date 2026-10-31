@@ -4,12 +4,53 @@ import { calendarModule } from "./helpers/calendar-modules.mjs";
 const habits = calendarModule("app/habits.ts"), practices = calendarModule("app/sacred-practices.ts");
 const goals = calendarModule("app/habit-practice-goal.ts"), rewards = calendarModule("app/rewards.ts");
 const timers = calendarModule("app/habit-timer-workspace.ts"), timerState = calendarModule("app/habit-timer.ts");
+const lifecycle = calendarModule("app/habit-lifecycle.ts"), ruleHistory = calendarModule("app/habit-rule-history.ts");
 const plain = value => JSON.parse(JSON.stringify(value));
 const start = "2026-10-23", next = "2026-10-24", expired = "2026-10-25";
 function fixture(mode = "profane") {
   const habit = habits.createHabitFromSacredPractice(practices.SACRED_PRACTICES[0], start, mode, "ru");
   return { habit, workspace: { ...habits.EMPTY_HABIT_WORKSPACE, habits: [habit] } };
 }
+
+test("today's finite progress survives a later pause and resume, but paused or conflicted marks do not count", () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const habit = habits.createHabitFromSacredPractice(practices.SACRED_PRACTICES[0], today, "profane", "ru");
+  habit.schedule.timezone = "UTC";
+  habit.practiceGoal.requiredCompletions = 3;
+  const workspace = { ...habits.EMPTY_HABIT_WORKSPACE, habits: [habit] };
+  const done = habits.updateHabitCompletion(workspace, habit, today, { completed: true }, today);
+  const entries = done.habitCompletions.map(row => ({ ...row, updatedAt: `${today}T10:00:00.000Z` }));
+  const paused = lifecycle.applyHabitLifecycleCommand(habit, {
+    id: "pause", habitId: habit.id, at: `${today}T11:00:00.000Z`, action: "pause", heads: [],
+  });
+  const dates = (value, rows = entries) => plain(goals.habitPracticeProgress(value, rows, today).dates);
+  assert.deepEqual(dates(habit), [today]);
+  assert.deepEqual(dates(paused), [today]);
+  assert.equal(goals.habitPracticeProgress(paused, entries, today).status, "open");
+  const pausedWorkspace = { ...done, habits: [paused], habitCompletions: entries };
+  assert.equal(habits.updateHabitCompletion(pausedWorkspace, paused, today, { completed: false }, today), pausedWorkspace);
+  const resumed = lifecycle.applyHabitLifecycleCommand(paused, {
+    id: "resume", habitId: habit.id, at: `${today}T12:00:00.000Z`, action: "resume", heads: ["pause"],
+  });
+  assert.deepEqual(dates(resumed), [today]);
+  const stale = entries.map(row => ({ ...row, updatedAt: `${today}T11:30:00.000Z` }));
+  assert.deepEqual(dates(paused, stale), []);
+  assert.deepEqual(dates(resumed, stale), []);
+  assert.deepEqual(dates({ ...habit, active: false }), []);
+  assert.deepEqual(dates({ ...habit, practiceGoal: { ...habit.practiceGoal, startDate: "9999-12-31" } }), []);
+  assert.deepEqual(dates({ ...habit, schedule: { ...habit.schedule, endDate: "2000-01-01" } }), []);
+  const archive = lifecycle.applyHabitLifecycleCommand(habit, {
+    id: "archive", habitId: habit.id, at: `${today}T11:00:00.000Z`, action: "archive", heads: [],
+  });
+  const conflict = lifecycle.projectHabitLifecycle({ ...habit,
+    lifecycleHistory: lifecycle.mergeHabitLifecycleEvents(paused.lifecycleHistory, archive.lifecycleHistory) });
+  assert.deepEqual(dates(conflict), []);
+  const root = ruleHistory.habitRuleState(habit, today).rule;
+  const rules = { ...habit, ruleHistory: [root,
+    { ...root, id: "left", supersedes: [root.id] }, { ...root, id: "right", supersedes: [root.id] }] };
+  assert.deepEqual(dates(rules), []);
+  assert.equal(goals.habitPracticeProgress(rules, entries, today).status, "conflict");
+});
 test("a reading cycle does not occupy a standard sacred practice slot", () => {
   const { habit } = fixture();
   const reading = { ...habit, id: "reading-cycle", title: "Personal reading practice",

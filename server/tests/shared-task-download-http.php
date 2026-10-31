@@ -26,7 +26,16 @@ function attachmentHttpDownloads(string $userId, string $taskId, array $file, st
             if (is_file($library)) array_push($command, '-d', 'extension=' . $extension);
         }
     }
-    array_push($command, '-S', $address, 'server/public/api/index.php');
+    $router = null;
+    $routerPath = 'server/public/api/index.php';
+    if (defined('GENESIS_LOCAL_TEST_CONFIG') && is_file((string)GENESIS_LOCAL_TEST_CONFIG)) {
+        $router = tempnam(sys_get_temp_dir(), 'genesis-download-router-');
+        attachmentExpect($router !== false, 'Cannot create an isolated download router.');
+        file_put_contents($router, '<?php define("GENESIS_LOCAL_TEST_CONFIG", ' . var_export((string)GENESIS_LOCAL_TEST_CONFIG, true)
+            . '); require ' . var_export(dirname(__DIR__) . '/public/api/index.php', true) . ';');
+        $routerPath = $router;
+    }
+    array_push($command, '-S', $address, $routerPath);
     $log = tempnam(sys_get_temp_dir(), 'genesis-download-http-');
     attachmentExpect($log !== false, 'Cannot create HTTP test log.');
     $process = proc_open($command, [0 => ['pipe', 'r'], 1 => ['file', $log, 'a'], 2 => ['file', $log, 'a']], $pipes, dirname(__DIR__, 2));
@@ -83,6 +92,7 @@ function attachmentHttpDownloads(string $userId, string $taskId, array $file, st
         proc_terminate($process);
         proc_close($process);
         unlink($log);
+        if ($router !== null && is_file($router)) unlink($router);
         $sessionFile = genesisConfig()['session_path'] . '/sess_' . $sessionId;
         if (is_file($sessionFile)) unlink($sessionFile);
         $_SESSION = [];

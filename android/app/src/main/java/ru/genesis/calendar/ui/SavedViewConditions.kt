@@ -111,7 +111,7 @@ private fun savedViewIds(filter: JSONObject, key: String) = filter.optJSONArray(
                 Text(label, style = MaterialTheme.typography.titleSmall)
                 val rawDate = filter.optString(key)
                 val validDate = rawDate.isBlank() || runCatching { java.time.LocalDate.parse(rawDate) }.isSuccess
-                if (!validDate) androidx.compose.material3.Text(rawDate, color = MaterialTheme.colorScheme.error)
+                if (!validDate) UntranslatedText(rawDate, color = MaterialTheme.colorScheme.error)
                 AuthorDatePicker(if (validDate) rawDate else "", visible, calculationContext = calculation, enabled = enabled, placeholder = "Выберите дату",
                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("saved-view-$key")) { selected -> state.criteria { if (selected.isBlank()) it.remove(key) else it.put(key, selected) } }
                 if (filter.has(key)) AffairsIconButton("Очистить дату", AffairsAction.CLOSE, { state.criteria { it.remove(key) } }, enabled = enabled)
@@ -168,12 +168,12 @@ private fun savedViewIds(filter: JSONObject, key: String) = filter.optJSONArray(
     }
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(label, Modifier.weight(1f))
-        androidx.compose.material3.Text(java.text.NumberFormat.getIntegerInstance(java.util.Locale.forLanguageTag(LocalGenesisLanguage.current)).format(values.size))
+        UntranslatedText(java.text.NumberFormat.getIntegerInstance(java.util.Locale.forLanguageTag(LocalGenesisLanguage.current)).format(values.size))
         AffairsIconButton("Изменить условия", AffairsAction.EDIT, { open = true }, Modifier.testTag("saved-view-options-$kind"), enabled = enabled)
     }
     if (open && enabled) AlertDialog(onDismissRequest = { open = false }, title = { Text(label) }, text = {
         Column(Modifier.fillMaxWidth().heightIn(max = 420.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+            if (busy) WorkspaceLoadingLine(Modifier.fillMaxWidth())
             val base = if (kind == "assignees") listOf(JSONObject().put("id", "me").put("title", genesisTranslate("Назначено мне")), JSONObject().put("id", "unassigned").put("title", genesisTranslate("Без исполнителя"))) else emptyList()
             val rows = base + page?.getJSONArray("options")?.let(::importRows).orEmpty()
             val choices = rows + values.filter { id -> rows.none { it.getString("id") == id } }.map { JSONObject().put("id", it).put("title", genesisTranslate("Недоступно") + " · " + it.take(8)) }
@@ -181,7 +181,7 @@ private fun savedViewIds(filter: JSONObject, key: String) = filter.optJSONArray(
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(id in values, { yes -> onChange(if (yes) (values + id).distinct() else values - id) }, enabled = enabled,
                         modifier = Modifier.testTag("saved-view-option-$id").semantics { contentDescription = option.getString("title") })
-                    androidx.compose.material3.Text(option.getString("title"), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                    UntranslatedText(option.getString("title"), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                 }
             }
             if (failure) Text("Не удалось загрузить данные", color = MaterialTheme.colorScheme.error)

@@ -78,16 +78,16 @@ private fun startEdit(sprint: JSONObject, data: JSONObject) = JSONObject().put("
                     { scope.launch { state.start(sprintEdit(selected)) } }, Modifier.testTag("planning-edit-sprint"), controls && enabled && selected.has("revision"))
                 if (selected?.optString("state") == "planning") Button({ scope.launch { state.start(startEdit(selected, data)); state.submit() } },
                     Modifier.heightIn(min = 48.dp).testTag("planning-start-sprint"), enabled = controls && enabled && noActive && selected.has("revision") && data.has("fingerprint")) {
-                    androidx.compose.material3.Text(copy.getString("startSprint"))
+                    UntranslatedText(copy.getString("startSprint"))
                 }
                 if (selected?.optString("state") == "active") Button({ scope.launch { state.complete(selected.getString("id")) } },
                     Modifier.heightIn(min = 48.dp).testTag("planning-complete-sprint"), enabled = controls && enabled) {
-                    androidx.compose.material3.Text(copy.getString("finishSprint"))
+                    UntranslatedText(copy.getString("finishSprint"))
                 }
             }
         }
-        if (!noActive && selected?.optString("state") == "planning") androidx.compose.material3.Text(copy.getString("activeExists"), style = MaterialTheme.typography.bodySmall)
-        if (state.notice) androidx.compose.material3.Text(copy.getString("saved"), Modifier.testTag("planning-lifecycle-saved"))
+        if (!noActive && selected?.optString("state") == "planning") UntranslatedText(copy.getString("activeExists"), style = MaterialTheme.typography.bodySmall)
+        if (state.notice) UntranslatedText(copy.getString("saved"), Modifier.testTag("planning-lifecycle-saved"))
         if (state.error.isNotBlank()) {
             val message = when (state.error) {
                 "PLANNING_DRAFT_INVALID", "PLANNING_DRAFT_SCOPE" -> copy.getString("deviceInvalid")
@@ -104,15 +104,15 @@ private fun startEdit(sprint: JSONObject, data: JSONObject) = JSONObject().put("
                 "SPRINT_OUTCOMES_REQUIRED" -> copy.getString("outcomesRequired")
                 else -> copy.getString("error")
             }
-            androidx.compose.material3.Text(message, Modifier.testTag("planning-lifecycle-error"), color = MaterialTheme.colorScheme.error)
+            UntranslatedText(message, Modifier.testTag("planning-lifecycle-error"), color = MaterialTheme.colorScheme.error)
             if (!state.ready) TextButton({ scope.launch { state.load() } }, enabled = !state.busy) { Text("Обновить") }
             if (state.active && state.phase == "editing" && state.error == "PLANNING_DRAFT_STORAGE") TextButton({ scope.launch { state.persist() } }, enabled = !state.busy) { Text("Повторить") }
             if (state.error == "PLANNING_DRAFT_CHANGED") TextButton({ scope.launch { state.versions() } }, enabled = !state.busy,
-                modifier = Modifier.testTag("planning-list-versions")) { androidx.compose.material3.Text(copy.getString("draftVersions")) }
+                modifier = Modifier.testTag("planning-list-versions")) { UntranslatedText(copy.getString("draftVersions")) }
         }
         if ((!state.active || state.error == "PLANNING_DRAFT_LIMIT") && state.copies.isNotEmpty()) {
             Text(copy.getString("draftVersions"), style = MaterialTheme.typography.titleSmall)
-            androidx.compose.material3.Text(copy.getString("draftVersionsHint"), style = MaterialTheme.typography.bodySmall)
+            UntranslatedText(copy.getString("draftVersionsHint"), style = MaterialTheme.typography.bodySmall)
             state.copies.forEach { version ->
                 val edit = version.getJSONObject("edit")
                 val allowed = if (edit.getString("kind") == "settings") manage else organize
@@ -121,10 +121,10 @@ private fun startEdit(sprint: JSONObject, data: JSONObject) = JSONObject().put("
                 Row(Modifier.fillMaxWidth().testTag("planning-version-${version.getString("id")}"), verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Column(Modifier.weight(1f)) {
-                        androidx.compose.material3.Text(title, style = MaterialTheme.typography.bodyLarge)
+                        UntranslatedText(title, style = MaterialTheme.typography.bodyLarge)
                         if (edit.getString("kind") == "sprint" && edit.getJSONObject("draft").optString("goal").isNotBlank())
-                            androidx.compose.material3.Text(edit.getJSONObject("draft").getString("goal"), maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
-                        androidx.compose.material3.Text(java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT,
+                            UntranslatedText(edit.getJSONObject("draft").getString("goal"), maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
+                        UntranslatedText(java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT,
                             java.util.Locale.forLanguageTag(LocalGenesisLanguage.current)).format(java.util.Date(version.getLong("savedAt"))), style = MaterialTheme.typography.bodySmall)
                     }
                     AffairsIconButton(copy.getString("useDraftVersion"), AffairsAction.EDIT, { scope.launch { state.useCopy(version) } },
@@ -135,72 +135,72 @@ private fun startEdit(sprint: JSONObject, data: JSONObject) = JSONObject().put("
             }
         }
         if (state.record != null && !state.active) {
-            androidx.compose.material3.Text(draftCopy.getString("heading"), style = MaterialTheme.typography.titleSmall)
+            UntranslatedText(draftCopy.getString("heading"), style = MaterialTheme.typography.titleSmall)
             val storedEdit = state.record!!.getJSONObject("edit")
             if (permitted && storedEdit.getString("kind") == "sprint") {
-                androidx.compose.material3.Text(storedEdit.getJSONObject("draft").getString("title"), style = MaterialTheme.typography.bodyLarge)
-                androidx.compose.material3.Text(storedEdit.getJSONObject("draft").getString("goal"), maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
+                UntranslatedText(storedEdit.getJSONObject("draft").getString("title"), style = MaterialTheme.typography.bodyLarge)
+                UntranslatedText(storedEdit.getJSONObject("draft").getString("goal"), maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
             }
             if (permitted || state.phase == "received") TextButton(state::restore, enabled = !state.busy, modifier = Modifier.testTag("planning-restore-draft")) {
-                androidx.compose.material3.Text(draftCopy.getString("restore"))
+                UntranslatedText(draftCopy.getString("restore"))
             } else Text("Нет доступа")
             if (!state.pending) TextButton({ scope.launch { state.discard() } }, enabled = !state.busy, modifier = Modifier.testTag("planning-discard-draft")) {
-                androidx.compose.material3.Text(draftCopy.getString("discard"))
+                UntranslatedText(draftCopy.getString("discard"))
             }
         }
         if (state.active && (!permitted && state.phase != "received")) Text("Нет доступа")
         else if (state.active) {
-            if (state.conflicted && state.saved) androidx.compose.material3.Text(copy.getString("draftConflictSaved"), Modifier.testTag("planning-conflict-copy-saved"))
+            if (state.conflicted && state.saved) UntranslatedText(copy.getString("draftConflictSaved"), Modifier.testTag("planning-conflict-copy-saved"))
             if (state.phase == "pending") {
-                androidx.compose.material3.Text(draftCopy.getString("pending"), Modifier.testTag("planning-pending-command"))
+                UntranslatedText(draftCopy.getString("pending"), Modifier.testTag("planning-pending-command"))
                 Button({ scope.launch { state.retry() } }, Modifier.heightIn(min = 48.dp).testTag("planning-retry-command"), enabled = available && permitted) { Text("Повторить") }
                 if (state.record?.optInt("attempts") == 0) FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     TextButton({ scope.launch { state.rebase() } }, enabled = available && permitted, modifier = Modifier.testTag("planning-rebase-unsent")) { Text("Обновить") }
                     TextButton({ scope.launch { state.discard() } }, enabled = !state.busy, modifier = Modifier.testTag("planning-cancel-unsent")) { Text("Отмена") }
                 }
             } else if (state.phase == "received") {
-                androidx.compose.material3.Text(copy.getString("saved"))
+                UntranslatedText(copy.getString("saved"))
                 Button({ scope.launch { state.retry() } }, Modifier.heightIn(min = 48.dp).testTag("planning-acknowledge"), enabled = !state.busy) { Text("Готово") }
             } else {
-                if (readOnly) androidx.compose.material3.Text(copy.getString("deviceCached"))
-                if (state.phase == "rejected") androidx.compose.material3.Text(copy.getString("conflict"))
+                if (readOnly) UntranslatedText(copy.getString("deviceCached"))
+                if (state.phase == "rejected") UntranslatedText(copy.getString("conflict"))
                 val editable = state.editable && permitted
                 when (form?.optString("kind")) {
                     "settings" -> {
                         Text("Настройки", style = MaterialTheme.typography.titleMedium)
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            androidx.compose.material3.Text(copy.getString("enable"), Modifier.weight(1f))
+                            UntranslatedText(copy.getString("enable"), Modifier.weight(1f))
                             Switch(form.getBoolean("enabled"), { state.changeSetting("enabled", it) },
                                 enabled = editable && (noActive || !form.getBoolean("enabled")), modifier = Modifier.testTag("planning-enabled"))
                         }
-                        if (!noActive) androidx.compose.material3.Text(copy.getString("activeExists"), style = MaterialTheme.typography.bodySmall)
-                        androidx.compose.material3.Text(copy.getString("unit"), style = MaterialTheme.typography.titleSmall)
+                        if (!noActive) UntranslatedText(copy.getString("activeExists"), style = MaterialTheme.typography.bodySmall)
+                        UntranslatedText(copy.getString("unit"), style = MaterialTheme.typography.titleSmall)
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             for (unit in listOf("points", "hours")) FilterChip(form.getString("estimateUnit") == unit,
                                 { state.changeSetting("estimateUnit", unit) }, enabled = editable,
-                                modifier = Modifier.heightIn(min = 48.dp).testTag("planning-unit-$unit"), label = { androidx.compose.material3.Text(copy.getString(unit)) })
+                                modifier = Modifier.heightIn(min = 48.dp).testTag("planning-unit-$unit"), label = { UntranslatedText(copy.getString(unit)) })
                         }
-                        androidx.compose.material3.Text(copy.getString("independent"), style = MaterialTheme.typography.bodySmall)
+                        UntranslatedText(copy.getString("independent"), style = MaterialTheme.typography.bodySmall)
                     }
                     "sprint" -> SharedSprintForm(form, editable, state::changeSprintField)
                     "transition" -> {
                         if (form.getString("action") == "complete") {
-                            androidx.compose.material3.Text(copy.getString("remaining") + ": " + form.getJSONArray("tasks").length(), style = MaterialTheme.typography.titleMedium)
-                            androidx.compose.material3.Text(copy.getString("chooseOutcome"))
-                            if (!state.tasksVerified) androidx.compose.material3.Text(copy.getString("deviceTasksHidden"))
+                            UntranslatedText(copy.getString("remaining") + ": " + form.getJSONArray("tasks").length(), style = MaterialTheme.typography.titleMedium)
+                            UntranslatedText(copy.getString("chooseOutcome"))
+                            if (!state.tasksVerified) UntranslatedText(copy.getString("deviceTasksHidden"))
                             if (state.tasksVerified && form.getJSONArray("tasks").length() > 0) PlanningTarget(copy.getString("chooseAll"), "", sprints, form.getString("sprintId"), editable,
                                 Modifier.testTag("planning-all-destinations")) { target ->
                                 state.chooseOutcome(target)
                             }
-                        } else androidx.compose.material3.Text(copy.getString("startSprint"), style = MaterialTheme.typography.titleMedium)
+                        } else UntranslatedText(copy.getString("startSprint"), style = MaterialTheme.typography.titleMedium)
                     }
                 }
-                if (state.saved) androidx.compose.material3.Text(draftCopy.getString("saved"), Modifier.testTag("planning-device-saved"), style = MaterialTheme.typography.bodySmall)
-                else androidx.compose.material3.Text(draftCopy.getString("saving"), style = MaterialTheme.typography.bodySmall)
+                if (state.saved) UntranslatedText(draftCopy.getString("saved"), Modifier.testTag("planning-device-saved"), style = MaterialTheme.typography.bodySmall)
+                else UntranslatedText(draftCopy.getString("saving"), style = MaterialTheme.typography.bodySmall)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (!state.completion || state.phase != "editing") Button({ scope.launch { state.submit() } },
                         Modifier.heightIn(min = 48.dp).testTag("planning-save-lifecycle"), enabled = canSubmit) {
-                        if (form?.optString("kind") == "transition") androidx.compose.material3.Text(copy.getString("startSprint")) else Text("Сохранить")
+                        if (form?.optString("kind") == "transition") UntranslatedText(copy.getString("startSprint")) else Text("Сохранить")
                     }
                     if (state.record != null) TextButton({ scope.launch { state.rebase() } }, enabled = available && permitted && !state.conflicted,
                         modifier = Modifier.heightIn(min = 48.dp).testTag("planning-rebase-draft")) { Text("Обновить") }
@@ -209,7 +209,7 @@ private fun startEdit(sprint: JSONObject, data: JSONObject) = JSONObject().put("
                 }
             }
         }
-        if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("planning-lifecycle-busy"))
+        if (state.busy) WorkspaceLoadingLine(Modifier.fillMaxWidth().testTag("planning-lifecycle-busy"))
     }
 }
 
@@ -222,7 +222,7 @@ private fun startEdit(sprint: JSONObject, data: JSONObject) = JSONObject().put("
         label = { Text("Название") }, modifier = Modifier.fillMaxWidth().testTag("planning-sprint-title"), enabled = enabled,
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next), singleLine = false, maxLines = 3)
     OutlinedTextField(draft.getString("goal"), { if (it.codePointCount(0, it.length) <= 5000) field("goal", it) },
-        label = { androidx.compose.material3.Text(copy.getString("goal")) }, modifier = Modifier.fillMaxWidth().testTag("planning-sprint-goal"), enabled = enabled, minLines = 2, maxLines = 6)
+        label = { UntranslatedText(copy.getString("goal")) }, modifier = Modifier.fillMaxWidth().testTag("planning-sprint-goal"), enabled = enabled, minLines = 2, maxLines = 6)
     Text("Календарь ввода", style = MaterialTheme.typography.titleSmall)
     val modes = if (LocalSacredFeaturesEnabled.current) LocalEnabledCalendars.current else setOf(CalendarMode.PROFANE)
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -234,10 +234,10 @@ private fun startEdit(sprint: JSONObject, data: JSONObject) = JSONObject().put("
     val context = CalendarContext(saved.getInt("version"), saved.getString("timeZone"), saved.getString("gregorianYearStart"))
     val mode = CalendarMode.fromWire(draft.getString("calendarMode"))
     for ((key, tag) in listOf("startDate" to "planning-start-date", "endDate" to "planning-end-date")) {
-        androidx.compose.material3.Text(copy.getString(key), style = MaterialTheme.typography.titleSmall)
+        UntranslatedText(copy.getString(key), style = MaterialTheme.typography.titleSmall)
         val raw = draft.getString(key)
         val parsed = runCatching { LocalDate.parse(raw) }.getOrNull()
-        if (parsed == null) androidx.compose.material3.Text(copy.getString("datesInvalid"), color = MaterialTheme.colorScheme.error)
+        if (parsed == null) UntranslatedText(copy.getString("datesInvalid"), color = MaterialTheme.colorScheme.error)
         Box(Modifier.testTag(tag)) { AuthorDatePicker((parsed ?: LocalDate.now()).toString(), mode, calculationContext = context, enabled = enabled) { field(key, it) } }
     }
 }
@@ -248,12 +248,12 @@ private fun startEdit(sprint: JSONObject, data: JSONObject) = JSONObject().put("
     val title = when (selected) { "backlog" -> copy.getString("backlog"); "" -> label; else -> sprints.find { it.getString("id") == selected }?.getString("title") ?: label }
     Box(modifier.fillMaxWidth()) {
         OutlinedButton({ open = true }, enabled = enabled, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-            androidx.compose.material3.Text(title, Modifier.weight(1f)); AffairsActionIcon(AffairsAction.EXPAND)
+            UntranslatedText(title, Modifier.weight(1f)); AffairsActionIcon(AffairsAction.EXPAND)
         }
         DropdownMenu(open, { open = false }) {
-            DropdownMenuItem(text = { androidx.compose.material3.Text(copy.getString("backlog")) }, modifier = Modifier.testTag("planning-outcome-backlog"), onClick = { onChange("backlog"); open = false })
+            DropdownMenuItem(text = { UntranslatedText(copy.getString("backlog")) }, modifier = Modifier.testTag("planning-outcome-backlog"), onClick = { onChange("backlog"); open = false })
             sprints.filter { it.getString("id") != source && it.getString("state") != "completed" }.forEach { sprint ->
-                DropdownMenuItem(text = { androidx.compose.material3.Text(sprint.getString("title")) }, modifier = Modifier.testTag("planning-outcome-${sprint.getString("id")}"),
+                DropdownMenuItem(text = { UntranslatedText(sprint.getString("title")) }, modifier = Modifier.testTag("planning-outcome-${sprint.getString("id")}"),
                     onClick = { onChange(sprint.getString("id")); open = false })
             }
         }
@@ -275,6 +275,6 @@ private fun startEdit(sprint: JSONObject, data: JSONObject) = JSONObject().put("
     val canSubmit = !readOnly && state.editable && !state.conflicted && state.tasksVerified &&
         runCatching { PlanningLifecycle.verify(edit, data, projectId, false, state.tasks) }.isSuccess
     Button({ scope.launch { state.submit() } }, Modifier.widthIn(max = AffairsLayout.formMaxWidth).fillMaxWidth().heightIn(min = 48.dp).testTag("planning-finish-completion"), enabled = canSubmit) {
-        androidx.compose.material3.Text(copy.getString("finishSprint"))
+        UntranslatedText(copy.getString("finishSprint"))
     }
 }

@@ -110,14 +110,14 @@ internal fun bulkErrorText(code: String) = when {
                         val scroll = rememberScrollState()
                         LaunchedEffect(state.pane, state.operationId, state.after) { scroll.scrollTo(0) }
                         Column(Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(scroll).padding(16.dp).testTag("bulk-content"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                            if (state.query && state.title.isNotBlank()) androidx.compose.material3.Text(state.title, style = MaterialTheme.typography.titleMedium)
-                            state.project?.let { androidx.compose.material3.Text(it.optString("title"), style = MaterialTheme.typography.titleMedium) }
+                            if (state.query && state.title.isNotBlank()) UntranslatedText(state.title, style = MaterialTheme.typography.titleMedium)
+                            state.project?.let { UntranslatedText(it.optString("title"), style = MaterialTheme.typography.titleMedium) }
                             when {
                                 state.inputInvalid -> Text("Не удалось восстановить выбор. Создайте новую операцию.")
-                                !state.loaded -> Text("Загрузка…")
+                                !state.loaded -> WorkspaceLoadingText()
                                 state.pane == "history" -> BulkHistory(state) { scope.launch { state.openOperation(it) } }
                                 state.pane == "operation" -> state.report?.let { BulkReport(it, state.after, state.previousPages.isNotEmpty(), !state.busy,
-                                    state.expired, { scope.launch { state.reportPage(it) } }, onTask) } ?: Text("Загрузка отчёта…")
+                                    state.expired, { scope.launch { state.reportPage(it) } }, onTask) } ?: WorkspaceLoadingText("Загрузка отчёта…")
                                 state.phase == "pending" -> Text("Результат отправки пока не подтверждён. Повторите ту же команду.")
                                 state.phase == "rejected" -> Text("Задачи изменились. Обновите выборку и выберите задачи заново.")
                                 state.pane == "configure" -> BulkActionForm(state, controller, calendar) { savedCalendar = it.saved().toString(); state.calendar(it.saved()) }
@@ -128,7 +128,7 @@ internal fun bulkErrorText(code: String) = when {
                         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             if (controller.supportsSharedBulkInput && (state.dirty || state.inputSaved) && state.phase in setOf("", "editing"))
                                 Text(if (state.dirty) "Сохранение…" else "Сохранено на устройстве", Modifier.testTag("bulk-save-state"), style = MaterialTheme.typography.bodySmall)
-                            if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("bulk-working"))
+                            if (state.busy) WorkspaceLoadingLine(Modifier.fillMaxWidth().testTag("bulk-working"))
                             if (state.error.isNotBlank()) Text(bulkErrorText(state.error), Modifier.testTag("bulk-error").semantics { liveRegion = LiveRegionMode.Polite },
                                 color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
                             if (state.loaded && state.project != null && !state.canEdit) Text("Недостаточно прав или задача недоступна.", style = MaterialTheme.typography.bodySmall)
@@ -173,10 +173,10 @@ internal fun bulkErrorText(code: String) = when {
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Checkbox(selected, null)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    androidx.compose.material3.Text(task.getString("title"), style = MaterialTheme.typography.bodyLarge)
-                    if (state.query) androidx.compose.material3.Text(task.getString("projectTitle"), style = MaterialTheme.typography.bodySmall)
+                    UntranslatedText(task.getString("title"), style = MaterialTheme.typography.bodyLarge)
+                    if (state.query) UntranslatedText(task.getString("projectTitle"), style = MaterialTheme.typography.bodySmall)
                     val due = task.optString("dueDate").takeUnless { it == "null" }.orEmpty()
-                    if (due.isNotEmpty()) androidx.compose.material3.Text(due, style = MaterialTheme.typography.bodySmall)
+                    if (due.isNotEmpty()) UntranslatedText(due, style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
@@ -204,7 +204,7 @@ internal fun bulkErrorText(code: String) = when {
             state.scopeProjects.forEach { row ->
                 val id = row.getString("id")
                 Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    androidx.compose.material3.Text(row.getString("title"), style = MaterialTheme.typography.titleSmall)
+                    UntranslatedText(row.getString("title"), style = MaterialTheme.typography.titleSmall)
                     ImportChoice("Статус", form.status(id), listOf("" to genesisTranslate("Выберите")) + importRows(row.getJSONArray("statuses"))
                         .map { it.getString("id") to it.getString("title") }, enabled, "bulk-status-$id") { state.change(state.form.status(id, it)) }
                 }
@@ -271,12 +271,12 @@ internal fun bulkErrorText(code: String) = when {
                     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).toggleable(item.getString("id") in selected, enabled, Role.Checkbox) {
                         onChange(if (item.getString("id") in selected) selected - item.getString("id") else selected + item.getString("id"))
                     }.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(item.getString("id") in selected, null); androidx.compose.material3.Text(item.getString("title"), Modifier.weight(1f))
+                        Checkbox(item.getString("id") in selected, null); UntranslatedText(item.getString("title"), Modifier.weight(1f))
                     }
                 }
                 if (options.size > limit) OutlinedButton({ limit += 5 }, Modifier.fillMaxWidth()) { Text("Показать ещё") }
             }
-            if (loading) Text("Загрузка…", style = MaterialTheme.typography.bodySmall)
+            if (loading) WorkspaceLoadingText()
             if (failure) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("Не удалось загрузить данные", Modifier.weight(1f), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 AffairsIconButton("Обновить", AffairsAction.REFRESH, { refresh++ }, enabled = !loading)
@@ -299,7 +299,7 @@ internal fun bulkErrorText(code: String) = when {
     (listOf("selected" to "Выбрано", "affected" to "Будет затронуто") + if (preview) emptyList() else listOf("pending" to "Ожидает", "succeeded" to "Выполнено", "skipped" to "Пропущено", "failed" to "Ошибка", "cancelled" to "Отменено"))
         .forEach { (key, label) -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-            androidx.compose.material3.Text(counts.getInt(key).toString(), style = MaterialTheme.typography.titleSmall)
+            UntranslatedText(counts.getInt(key).toString(), style = MaterialTheme.typography.titleSmall)
         } }
 }
 
@@ -314,10 +314,10 @@ internal fun bulkErrorText(code: String) = when {
     }
     val info = report.getJSONObject("actionInfo")
     if (info.optBoolean("unavailable")) Text("Недостаточно прав или задача недоступна.")
-    for (key in listOf("projectTitle", "statusTitle", "assigneeName")) if (!info.isNull(key)) androidx.compose.material3.Text(info.getString(key))
+    for (key in listOf("projectTitle", "statusTitle", "assigneeName")) if (!info.isNull(key)) UntranslatedText(info.getString(key))
     if (action.getString("kind") == "assignee" && action.isNull("assigneeId")) Text("Без исполнителя")
     for (key in listOf("labels", "statuses")) info.optJSONArray(key)?.let { rows -> importRows(rows).forEach { row ->
-        androidx.compose.material3.Text(if (key == "labels") row.getString("title") else row.getString("projectTitle") + " · " + row.getString("statusTitle"))
+        UntranslatedText(if (key == "labels") row.getString("title") else row.getString("projectTitle") + " · " + row.getString("statusTitle"))
     } }
     BulkCounts(report.getJSONObject("counts"), state == "preview")
     if (state == "preview") Text(if (expired) "Предварительный просмотр истёк. Создайте новую операцию." else "Проверьте выборку и действие перед применением.", Modifier.testTag("bulk-preview-note"), style = MaterialTheme.typography.bodyMedium)
@@ -327,11 +327,11 @@ internal fun bulkErrorText(code: String) = when {
         val items = importRows(report.getJSONArray("items"))
         items.take(limit).forEach { item -> Column(Modifier.fillMaxWidth().testTag("bulk-result-${item.getLong("cursor")}"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                if (item.has("title")) androidx.compose.material3.Text(item.getString("title"), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge) else Text("Задача недоступна", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                if (item.has("title")) UntranslatedText(item.getString("title"), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge) else Text("Задача недоступна", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
                 if (item.optBoolean("available") && item.has("id") && item.has("projectId")) AffairsIconButton("Открыть", AffairsAction.VIEW,
                     { onTask(item.getString("projectId"), item.getString("id")) }, Modifier.testTag("bulk-open-${item.getLong("cursor")}"), enabled = enabled)
             }
-            if (item.has("projectTitle")) androidx.compose.material3.Text(item.getString("projectTitle"), style = MaterialTheme.typography.bodySmall)
+            if (item.has("projectTitle")) UntranslatedText(item.getString("projectTitle"), style = MaterialTheme.typography.bodySmall)
             Text(bulkStateLabel(item.getString("state")), style = MaterialTheme.typography.bodySmall)
             if (!item.isNull("code")) Text(bulkErrorText(item.getString("code")), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             HorizontalDivider()
@@ -348,14 +348,14 @@ internal fun bulkErrorText(code: String) = when {
     val page = state.history; val scope = rememberCoroutineScope()
     val language = LocalGenesisLanguage.current
     val zone = java.time.ZoneId.systemDefault()
-    if (page == null) Text("Загрузка…") else {
+    if (page == null) WorkspaceLoadingText() else {
         val rows = importRows(page.getJSONArray("operations"))
         if (rows.isEmpty()) Text("Операций пока нет.")
         rows.forEach { item -> OutlinedButton({ onOpen(item.getString("id")) }, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("bulk-history-${item.getString("id")}")) {
             Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(item.optJSONObject("action")?.optString("kind")?.let(::bulkKindLabel) ?: "Действие", style = MaterialTheme.typography.titleSmall)
                 Text(bulkStateLabel(item.getString("state")), style = MaterialTheme.typography.bodyMedium)
-                androidx.compose.material3.Text(bulkHistoryTimestamp(item.getString("createdAt"), language, zone), style = MaterialTheme.typography.bodySmall)
+                UntranslatedText(bulkHistoryTimestamp(item.getString("createdAt"), language, zone), style = MaterialTheme.typography.bodySmall)
             }
         } }
         if (page.getBoolean("hasMore")) OutlinedButton({ scope.launch { state.showHistory(page.getString("nextCursor")) } }, enabled = !state.busy,

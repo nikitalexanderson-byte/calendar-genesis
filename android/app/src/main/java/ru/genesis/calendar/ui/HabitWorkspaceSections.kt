@@ -55,7 +55,7 @@ internal fun HabitWorkspaceTabs(selected: String, onSelect: (String) -> Unit) {
         listOf("today" to "Сегодня", "library" to "Все привычки").forEach { (id, title) ->
             FilterChip(selected = selected == id, onClick = { onSelect(id) }, shape = AffairsLayout.controlShape,
                 modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("habit-view-$id"),
-                label = { Text(title, Modifier.fillMaxWidth(), textAlign = TextAlign.Center) })
+                label = { Text(title, Modifier.fillMaxWidth(), textAlign = TextAlign.Center, maxLines = 1) })
         }
     }
 }

@@ -35,12 +35,12 @@ internal fun importMapValue(map: JSONObject?, key: String, fallback: String = "@
     }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (showLabel) {
-            if (userLabel) androidx.compose.material3.Text(label, style = MaterialTheme.typography.titleSmall) else Text(label, style = MaterialTheme.typography.titleSmall)
+            if (userLabel) UntranslatedText(label, style = MaterialTheme.typography.titleSmall) else Text(label, style = MaterialTheme.typography.titleSmall)
         }
         Box {
             OutlinedButton({ search = ""; limit = 50; open = true }, enabled = enabled,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag(tag).semantics { contentDescription = description }) {
-                androidx.compose.material3.Text(selected, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                UntranslatedText(selected, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 AffairsActionIcon(AffairsAction.EXPAND)
             }
             DropdownMenu(open, { open = false }, Modifier.widthIn(min = 240.dp, max = 600.dp).heightIn(max = 420.dp)) {
@@ -48,7 +48,7 @@ internal fun importMapValue(map: JSONObject?, key: String, fallback: String = "@
                     singleLine = true, modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp).testTag("$tag-search"), textStyle = MaterialTheme.typography.bodyMedium)
                 val filtered = choices.filter { search.isBlank() || it.second.contains(search, ignoreCase = true) }
                 filtered.take(limit).forEach { (id, title) -> DropdownMenuItem(text = {
-                    androidx.compose.material3.Text(title, style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                    UntranslatedText(title, style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
                 }, onClick = { open = false; onChange(id) }, modifier = Modifier.testTag("$tag-$id")) }
                 if (filtered.size > limit) DropdownMenuItem(text = { Text("Показать ещё") }, onClick = { limit += 50 }, modifier = Modifier.testTag("$tag-more"))
             }
@@ -73,7 +73,7 @@ internal fun importMapValue(map: JSONObject?, key: String, fallback: String = "@
     ImportChoice("Формат", selection.getString("format"), listOf("json" to "GENESIS JSON v1", "csv" to "CSV", "trello" to "Trello JSON"), editable, "import-format") { format ->
         importEdit(state) { it.put("format", format); for (map in listOf("memberMap", "statusMap", "labelMap", "fieldMap", "optionMap", "fieldDefaults")) it.put(map, JSONObject()) }
     }
-    if (source != null) androidx.compose.material3.Text(source.getString("name"), Modifier.testTag("import-filename"), style = MaterialTheme.typography.titleSmall)
+    if (source != null) UntranslatedText(source.getString("name"), Modifier.testTag("import-filename"), style = MaterialTheme.typography.titleSmall)
     OutlinedButton(choose, enabled = editable, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("import-choose")) {
         AffairsActionIcon(AffairsAction.IMPORT); Spacer(Modifier.width(8.dp)); Text("Выбрать файл")
     }

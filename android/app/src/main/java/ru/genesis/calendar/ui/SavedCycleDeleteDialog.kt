@@ -18,7 +18,7 @@ import ru.genesis.calendar.domain.habits.Habit
     var failed by remember { mutableStateOf(false) }
     AlertDialog(onDismissRequest = { if (!busy) onClose() }, title = { Text("Удалить сохранённый цикл?") },
         text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            androidx.compose.material3.Text(habitDisplayTitle(habit), style = MaterialTheme.typography.titleSmall)
+            UntranslatedText(habitDisplayTitle(habit), style = MaterialTheme.typography.titleSmall)
             Text("Связанная практика переместится в корзину привычек. История выполнения сохранится; цикл можно восстановить вместе с практикой.")
             if (failed) Text("Не удалось удалить цикл. Повторите попытку.", color = MaterialTheme.colorScheme.error)
         } }, confirmButton = { TextButton(onClick = {

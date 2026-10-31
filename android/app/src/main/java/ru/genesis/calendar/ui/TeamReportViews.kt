@@ -32,10 +32,10 @@ internal val LocalTeamReportChoose = staticCompositionLocalOf<(String) -> Unit> 
     val shown = display ?: number.format(value.getInt("count"))
     Column(Modifier.fillMaxWidth()) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        androidx.compose.material3.Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        UntranslatedText(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
         TextButton({ choose(value.getString("key")) }, enabled = state.ready,
             modifier = Modifier.heightIn(min = 48.dp).testTag("team-open-${value.getString("key")}").semantics { contentDescription = "$label: $shown" }) {
-            androidx.compose.material3.Text(shown, style = MaterialTheme.typography.titleSmall)
+            UntranslatedText(shown, style = MaterialTheme.typography.titleSmall)
             Spacer(Modifier.width(8.dp)); AffairsActionIcon(AffairsAction.VIEW)
         }
     }
@@ -54,10 +54,10 @@ internal val LocalTeamReportChoose = staticCompositionLocalOf<(String) -> Unit> 
     when (pane) {
         "summary" -> {
             TeamHeading("Состояние на")
-            androidx.compose.material3.Text(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT).withLocale(Locale.forLanguageTag(language))
+            UntranslatedText(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT).withLocale(Locale.forLanguageTag(language))
                 .withZone(ZoneId.of(context.getString("timeZone"))).format(SprintReportProtocol.instant(report.getString("asOf"))), style = MaterialTheme.typography.bodySmall)
             AffairsDisclosure("Период истории") {
-                androidx.compose.material3.Text(period.getString("from") + " — " + period.getString("to"), style = MaterialTheme.typography.bodyMedium)
+                UntranslatedText(period.getString("from") + " — " + period.getString("to"), style = MaterialTheme.typography.bodyMedium)
                 Text("Счётчики показывают выбранные задачи на момент отчёта. Период ограничивает историю, время этапов и завершённые циклы.", style = MaterialTheme.typography.bodyMedium)
             }
             for ((key, title) in listOf("all" to "Все задачи", "open" to "Открытые задачи", "completed" to "Завершённые задачи", "overdue" to "Просроченные задачи", "unassigned" to "Без исполнителя"))
@@ -69,7 +69,7 @@ internal val LocalTeamReportChoose = staticCompositionLocalOf<(String) -> Unit> 
             }
         }
         "members" -> ImportBatch("Распределение задач по участникам", importRows(report.getJSONArray("members")), "team-members") { row ->
-            androidx.compose.material3.Text(member(row.getString("id")), style = MaterialTheme.typography.titleSmall)
+            UntranslatedText(member(row.getString("id")), style = MaterialTheme.typography.titleSmall)
             for ((key, title) in listOf("all" to "Все задачи", "open" to "Открытые задачи", "completed" to "Завершённые задачи")) TeamMetric(state, genesisTranslate(title), row.getJSONObject(key))
         }
         "time" -> {
@@ -92,7 +92,7 @@ internal val LocalTeamReportChoose = staticCompositionLocalOf<(String) -> Unit> 
             Text("Показаны подтверждённые события существующих выбранных задач. До появления истории — «Нет данных»; частичная история отмечается отдельно.", style = MaterialTheme.typography.bodyMedium)
             val days = importRows(report.getJSONArray("daily")); var limit by remember(report) { mutableIntStateOf(5) }
             days.take(limit).forEach { day -> key(day.getString("date")) {
-                androidx.compose.material3.Text(genesisTranslate(calendar.formatDate(LocalDate.parse(day.getString("date")), CalendarMode.fromWire(period.getString("calendarMode")))), style = MaterialTheme.typography.titleSmall)
+                UntranslatedText(genesisTranslate(calendar.formatDate(LocalDate.parse(day.getString("date")), CalendarMode.fromWire(period.getString("calendarMode")))), style = MaterialTheme.typography.titleSmall)
                 if (day.getString("coverage") in setOf("unknown", "future")) Text("Нет данных") else {
                     if (day.getString("coverage") == "partial") Text("История частично неизвестна")
                     for ((key, title) in listOf("created" to "Создано", "completed" to "Завершено", "reopened" to "Возвращено в работу", "unknown" to "Нет полной истории"))
@@ -106,7 +106,7 @@ internal val LocalTeamReportChoose = staticCompositionLocalOf<(String) -> Unit> 
             TeamHeading(planning.getString("estimates"))
             ImportBatch("Проекты", importRows(estimates.getJSONArray("projects")), "team-estimates") { project ->
                 val id = project.getString("projectId")
-                androidx.compose.material3.Text(importRows(report.getJSONObject("catalog").getJSONArray("projects")).find { it.getString("id") == id }?.getString("title") ?: genesisTranslate("Недоступно"), style = MaterialTheme.typography.titleSmall)
+                UntranslatedText(importRows(report.getJSONObject("catalog").getJSONArray("projects")).find { it.getString("id") == id }?.getString("title") ?: genesisTranslate("Недоступно"), style = MaterialTheme.typography.titleSmall)
                 @Composable fun Totals(group: JSONObject) {
                     TeamMetric(state, genesisTranslate("Все задачи"), group.getJSONObject("all"))
                     for (unit in listOf("points", "hours")) {
@@ -118,7 +118,7 @@ internal val LocalTeamReportChoose = staticCompositionLocalOf<(String) -> Unit> 
                 }
                 Totals(project)
                 ImportBatch("Распределение задач по участникам", importRows(project.getJSONArray("members")), "team-estimate-members-$id") { person ->
-                    androidx.compose.material3.Text(member(person.getString("id")), style = MaterialTheme.typography.titleSmall); Totals(person)
+                    UntranslatedText(member(person.getString("id")), style = MaterialTheme.typography.titleSmall); Totals(person)
                 }
             }
         }

@@ -133,7 +133,7 @@ internal fun AdminAdsScreen(gateway: AdminGateway, closeSignal: Int = 0, use24: 
     val enabled = ready && !storageBlocked && !busy && pending == null
     Column(Modifier.fillMaxSize().testTag("native-admin-ads")) {
         AffairsPageHeader("Управление рекламой", "Админ-панель", onBack = ::close)
-        if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+        if (busy) WorkspaceLoadingLine(Modifier.fillMaxWidth())
         if (error.isNotBlank()) Text(error, Modifier.padding(8.dp), color = MaterialTheme.colorScheme.error)
         if (message.isNotBlank()) Text(message, Modifier.padding(8.dp), color = MaterialTheme.colorScheme.primary)
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -141,7 +141,7 @@ internal fun AdminAdsScreen(gateway: AdminGateway, closeSignal: Int = 0, use24: 
             Text("Черновики скрыты. Опубликованное объявление появится вторым блоком у подходящих пользователей.", style = MaterialTheme.typography.bodySmall)
             if (!ready && !storageBlocked) OutlinedButton(onClick = { run { refresh(); ready = true } }, enabled = !busy) { Text("Обновить") }
             ads.forEach { ad ->
-                ListItem(headlineContent = { androidx.compose.material3.Text(ad.getString("title")) }, supportingContent = { Text(if (ad.getBoolean("enabled")) "Опубликовано" else "Черновик") },
+                ListItem(headlineContent = { UntranslatedText(ad.getString("title")) }, supportingContent = { Text(if (ad.getBoolean("enabled")) "Опубликовано" else "Черновик") },
                     trailingContent = { Row {
                         AffairsIconButton("Изменить объявление", AffairsAction.EDIT, { if (dirty) editTarget = ad else accept(ad) }, enabled = enabled)
                         AffairsIconButton("Удалить объявление", AffairsAction.DELETE, { deleteTarget = ad }, enabled = enabled)
@@ -187,7 +187,7 @@ internal fun AdminAdsScreen(gateway: AdminGateway, closeSignal: Int = 0, use24: 
         }
     }
     if (confirmation == "save") AlertDialog(onDismissRequest = { if (!busy) confirmation = "" }, title = { Text(if (form.getBoolean("enabled")) "Опубликовать объявление?" else "Сохранить объявление?") },
-        text = { Column { androidx.compose.material3.Text(form.getString("title")); Text(if (form.getBoolean("enabled")) "Объявление станет доступно подходящей аудитории в указанный период." else "Объявление останется скрытым.") } },
+        text = { Column { UntranslatedText(form.getString("title")); Text(if (form.getBoolean("enabled")) "Объявление станет доступно подходящей аудитории в указанный период." else "Объявление останется скрытым.") } },
         confirmButton = { TextButton(enabled = !busy, modifier = Modifier.testTag("admin-ad-confirm-save"), onClick = { run {
             val current = JSONObject(stateJson); val body = AdminProtocol.input(current.getJSONObject("form"), ZoneId.of(current.getString("zoneId"))); val id = current.optString("editingId").takeIf(String::isNotBlank)
             require(current.optJSONObject("sentBody") == null)
@@ -238,7 +238,7 @@ internal fun AdminAdsScreen(gateway: AdminGateway, closeSignal: Int = 0, use24: 
             }
             if (parsed != null) {
                 if (enabled) AuthorTimePicker(parsed.toLocalTime().toString().take(5), use24) { time -> onChange(parsed.toLocalDate().toString() + "T" + time) }
-                else androidx.compose.material3.Text(parsed.toLocalTime().toString().take(5))
+                else UntranslatedText(parsed.toLocalTime().toString().take(5))
                 AffairsIconButton("Снять ограничение даты", AffairsAction.CLOSE, { onChange("") }, enabled = enabled)
             }
         }

@@ -5,7 +5,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.material3.*
-import androidx.compose.material3.Text as MaterialText
+import ru.genesis.calendar.ui.UntranslatedText as MaterialText
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -94,7 +94,7 @@ internal val habitActivityLabels = mapOf("completed" to "Выполнено", "a
         }
         if (habit != null) {
             val data = report
-            if (data == null) LinearProgressIndicator(Modifier.fillMaxWidth()) else {
+            if (data == null) WorkspaceLoadingLine(Modifier.fillMaxWidth()) else {
                 HabitAnalysisBlock("Итоги периода", "habit-analysis-summary") {
                     Text("Проценты целей и объёма рассчитываются отдельно.", style = MaterialTheme.typography.bodySmall)
                     Text("Успешные закрытые цели", style = MaterialTheme.typography.labelLarge)

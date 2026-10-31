@@ -39,7 +39,7 @@ internal fun CalendarSharedTaskListDialog(date: LocalDate, load: suspend (LocalD
                         Text("Не удалось загрузить задачи", color = MaterialTheme.colorScheme.error)
                         TextButton(onClick = { retry++ }) { Text("Повторить") }
                     }
-                    tasks == null -> CircularProgressIndicator(Modifier.size(32.dp))
+                    tasks == null -> WorkspaceLoadingIndicator(Modifier.size(32.dp))
                     tasks!!.isEmpty() -> Text("На этот день задач больше нет.")
                     else -> LazyColumn(Modifier.weight(1f, fill = false), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         items(tasks!!, key = { it.id }) { task ->

@@ -19,7 +19,7 @@ import java.time.format.FormatStyle
 import java.util.Locale
 
 @Composable internal fun ImportCounts(value: JSONObject) {
-    androidx.compose.material3.Text(genesisTranslate("Проекты") + ": " + value.getInt("projectCount") + " · " + genesisTranslate("Задачи") + ": " + value.getInt("taskCount"),
+    UntranslatedText(genesisTranslate("Проекты") + ": " + value.getInt("projectCount") + " · " + genesisTranslate("Задачи") + ": " + value.getInt("taskCount"),
         Modifier.testTag("import-counts"), style = MaterialTheme.typography.bodyMedium)
 }
 
@@ -28,15 +28,15 @@ import java.util.Locale
     if (!current) Text("Настройки изменились. Обновите предпросмотр.", style = MaterialTheme.typography.bodyMedium)
     ImportCounts(preview)
     val data = preview.getJSONObject("data"); val calendar = data.getJSONObject("calendarContext")
-    androidx.compose.material3.Text(genesisTranslate("Календарь") + ": " + calendarModeLabel(CalendarMode.fromWire(data.getString("calendarMode"))) + " · " + calendar.getString("timeZone"), style = MaterialTheme.typography.bodyMedium)
-    if (data.getString("calendarMode") == "profane") androidx.compose.material3.Text(genesisTranslate("Начало года") + ": " + genesisTranslate(if (calendar.getString("gregorianYearStart") == "march") "Март" else "Январь"), style = MaterialTheme.typography.bodyMedium)
+    UntranslatedText(genesisTranslate("Календарь") + ": " + calendarModeLabel(CalendarMode.fromWire(data.getString("calendarMode"))) + " · " + calendar.getString("timeZone"), style = MaterialTheme.typography.bodyMedium)
+    if (data.getString("calendarMode") == "profane") UntranslatedText(genesisTranslate("Начало года") + ": " + genesisTranslate(if (calendar.getString("gregorianYearStart") == "march") "Март" else "Январь"), style = MaterialTheme.typography.bodyMedium)
     val counts = preview.getJSONObject("sourceCounts")
-    androidx.compose.material3.Text(genesisTranslate("Комментарии") + ": " + counts.getInt("comments") + " · " + genesisTranslate("Вложения") + ": " + counts.getInt("attachments"), style = MaterialTheme.typography.bodyMedium)
+    UntranslatedText(genesisTranslate("Комментарии") + ": " + counts.getInt("comments") + " · " + genesisTranslate("Вложения") + ": " + counts.getInt("attachments"), style = MaterialTheme.typography.bodyMedium)
     val titles = preview.optJSONObject("issueTitles")
     ImportIssues("Ошибки", preview.getJSONArray("blockers"), titles)
     ImportIssues("Замечания", preview.getJSONArray("notices"), titles)
     ImportBatch("Задачи в переносе", importRows(data.getJSONArray("tasks")), "import-task-sample") { row ->
-        androidx.compose.material3.Text(row.getString("title"), style = MaterialTheme.typography.bodyMedium)
+        UntranslatedText(row.getString("title"), style = MaterialTheme.typography.bodyMedium)
     }
     if (preview.getInt("taskCount") > data.getJSONArray("tasks").length()) Text("Показаны первые 100 задач. Переносятся все задачи из предпросмотра.", style = MaterialTheme.typography.bodyMedium)
 }
@@ -49,7 +49,7 @@ import java.util.Locale
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(importIssueText(issue.getString("code")), style = MaterialTheme.typography.bodyMedium)
                 val field = issue.getString("field")
-                if (field.isNotBlank()) androidx.compose.material3.Text(titles?.optString(field, field) ?: field, style = MaterialTheme.typography.bodySmall)
+                if (field.isNotBlank()) UntranslatedText(titles?.optString(field, field) ?: field, style = MaterialTheme.typography.bodySmall)
             }
         }
         if (rows.length() > limit) OutlinedButton({ limit += 5 }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Показать ещё") }
@@ -61,7 +61,7 @@ import java.util.Locale
     val shown = receipt.getJSONArray("notices").length(); val total = receipt.optInt("noticeCount", shown)
     if (total > shown) {
         Text("Показаны первые 100 замечаний.", style = MaterialTheme.typography.bodyMedium)
-        androidx.compose.material3.Text(genesisTranslate("Замечания") + ": $total", style = MaterialTheme.typography.bodyMedium)
+        UntranslatedText(genesisTranslate("Замечания") + ": $total", style = MaterialTheme.typography.bodyMedium)
     }
     if (receipt.getString("state") == "active") Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
         AffairsIconButton("Открыть проект", AffairsAction.VIEW, open, Modifier.testTag("import-open-project"), enabled = enabled)
@@ -76,13 +76,13 @@ import java.util.Locale
             ImportCounts(receipt)
             OutlinedButton({ undo(receipt) }, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Повторить отмену") }
     }
-    if (!state.historyLoaded) Text("Загрузка…") else if (state.history.isEmpty()) Text("Импортов пока нет.")
+    if (!state.historyLoaded) WorkspaceLoadingText() else if (state.history.isEmpty()) Text("Импортов пока нет.")
     var limit by rememberSaveable { mutableIntStateOf(5) }
     state.history.take(limit).forEach { receipt -> key(receipt.getString("importId")) {
         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             receipt.optString("createdAt").takeIf { it.isNotBlank() }?.let { raw ->
                 val date = runCatching { DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT).withLocale(Locale.forLanguageTag(language)).withZone(ZoneId.systemDefault()).format(Instant.parse(raw)) }.getOrDefault(raw)
-                androidx.compose.material3.Text(date, style = MaterialTheme.typography.titleSmall)
+                UntranslatedText(date, style = MaterialTheme.typography.titleSmall)
             }
             ImportCounts(receipt)
             Text(when (receipt.getString("state")) { "undone" -> "Отменено"; "removed" -> "Удалено"; else -> "Применено" }, style = MaterialTheme.typography.bodyMedium)
@@ -99,7 +99,7 @@ import java.util.Locale
     ImportBatch("Сохранённые версии", state.copies, "import-copies") { copy ->
             val edit = copy.getJSONObject("edit")
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                androidx.compose.material3.Text(edit.getJSONObject("source").getString("name"), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                UntranslatedText(edit.getJSONObject("source").getString("name"), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                 AffairsIconButton("Выбрать версию", AffairsAction.VIEW, { scope.launch { state.useCopy(copy) } }, enabled = enabled &&
                     (state.phase in setOf("editing", "rejected") || state.phase == "pending" && state.record?.optInt("attempts") == 0))
                 AffairsIconButton("Удалить версию", AffairsAction.DELETE, { scope.launch { state.removeCopy(copy) } }, enabled = enabled)

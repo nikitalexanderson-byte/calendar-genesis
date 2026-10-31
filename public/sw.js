@@ -352,6 +352,19 @@ const THEOKYKLOS_SYMBOL_ART = [
   "./theokyklos-symbols/nadir-hades-persephone.png",
   "./theokyklos-symbols/entrance-aether-hemera.png",
   "./theokyklos-symbols/exit-eros-psyche.png",
+  "./theokyklos-symbols/olympian-zeus-v313.png",
+  "./theokyklos-symbols/olympian-hera-v313.png",
+  "./theokyklos-symbols/olympian-poseidon-v313.png",
+  "./theokyklos-symbols/olympian-demeter-v313.png",
+  "./theokyklos-symbols/olympian-athena-v313.png",
+  "./theokyklos-symbols/olympian-apollo-v313.png",
+  "./theokyklos-symbols/olympian-artemis-v313.png",
+  "./theokyklos-symbols/olympian-ares-v313.png",
+  "./theokyklos-symbols/olympian-aphrodite-v313.png",
+  "./theokyklos-symbols/olympian-hephaestus-v313.png",
+  "./theokyklos-symbols/olympian-hermes-v313.png",
+  "./theokyklos-symbols/olympian-hestia-v313.png",
+  "./theokyklos-symbols/olympian-dionysus-v313.png",
 ];
 const CORE = ["./", "./manifest.webmanifest", "./manifest.en.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./genesis-hero.png", ...MONTH_ART, ...LUNAR_MONTH_ART, ...WEEKDAY_ART, ...ACHIEVEMENT_ART, ...HABIT_REWARD_ART, ...HERO_RANK_BANNER_ART, ...PHYSIS_EXERCISE_ART, ...CALENDAR_ART, ...HERO_PATH_ART, ...THEOKYKLOS_ART, ...THEOKYKLOS_SYMBOL_ART]
   .map((path) => new URL(path, SCOPE).href);

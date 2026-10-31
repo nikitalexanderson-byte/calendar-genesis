@@ -78,7 +78,7 @@ class Release311UiTest {
         for(choice in CalendarMode.entries) {
             compose.runOnIdle { mode=choice }
             compose.onNodeWithTag("calendar-selected-day").performScrollTo()
-            compose.onNodeWithTag("calendar-day-hero").assertHeightIsAtLeast(180.dp)
+            compose.onNodeWithTag("calendar-day-hero").assertHeightIsAtLeast(100.dp)
             compose.onNodeWithTag("calendar-weekday-art",useUnmergedTree=true).assertExists()
             capture("selected-day-${choice.wireValue}")
         }

@@ -50,7 +50,7 @@ class StoicheionFlowTest {
         }
         openOracle()
         compose.waitUntil(10_000) {
-            compose.onAllNodesWithTag("stoicheion-grid", useUnmergedTree = true)
+            compose.onAllNodesWithTag("stoicheion-catalog-block", useUnmergedTree = true)
                 .fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithTag("stoicheion-grid", useUnmergedTree = true).assertExists()

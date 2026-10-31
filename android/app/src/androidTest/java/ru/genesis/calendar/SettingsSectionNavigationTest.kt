@@ -72,32 +72,42 @@ class SettingsSectionNavigationTest {
                 preferences.set("settingsSubmenuEnabled", "true")
                 preferences.set("language", "ru")
             }
-            compose.onNodeWithTag("navigation-Настройки").performClick()
-            val fixedSubmenu = compose.onNodeWithTag("settings-submenu")
+            compose.openWorkspacePage("Настройки", "appearance")
+            val fixedHeader = compose.onNodeWithTag("app-header")
                 .fetchSemanticsNode().boundsInRoot
-            val titles = listOf("Оформление", "Привычки", "Напоминания", "Общие дела",
-                "Регион", "Аккаунт GENESIS", "Ссылки")
-            titles.forEachIndexed { index, title ->
-                if (index > 0) compose.onNodeWithTag("main-content").performTouchInput { swipeLeft() }
+            val sections = listOf("appearance" to "Оформление", "habits" to "привычек",
+                "reminders" to "Напоминания", "shared" to "Общие дела", "region" to "Регион",
+                "account" to "Аккаунт GENESIS", "links" to "Ссылки")
+            sections.forEachIndexed { index, (id, title) ->
+                // The shipped workspace changes settings pages through the drawer;
+                // its root pager was removed before 3.1.3 to preserve feature gestures.
+                if (index > 0) compose.openWorkspacePage("Настройки", id)
                 compose.waitUntil(5_000) {
-                    compose.onAllNodesWithText("Настройки - $title").fetchSemanticsNodes().isNotEmpty()
+                    compose.onAllNodes(hasTestTag("workspace-title") and hasText("Настройки\n$title"))
+                        .fetchSemanticsNodes().isNotEmpty()
                 }
-                compose.onNodeWithText("Настройки - $title").assertExists()
-                val currentSubmenu = compose.onNodeWithTag("settings-submenu")
+                compose.onNodeWithTag("workspace-title").assertTextEquals("Настройки\n$title")
+                val currentHeader = compose.onNodeWithTag("app-header")
                     .fetchSemanticsNode().boundsInRoot
-                assertTrue("Submenu must stay fixed while the page swipes",
-                    kotlin.math.abs(currentSubmenu.top - fixedSubmenu.top) < app.resources.displayMetrics.density)
+                assertTrue("App header must stay fixed while the settings page changes",
+                    kotlin.math.abs(currentHeader.top - fixedHeader.top) < app.resources.displayMetrics.density)
+                compose.onNodeWithTag("workspace-menu").performClick()
+                compose.waitUntil(5_000) { compose.onNodeWithTag("workspace-drawer").isDisplayed() }
+                compose.onNodeWithTag("drawer-Настройки-$id").performScrollTo().assertIsSelected()
+                compose.onNodeWithTag("drawer-close").performScrollTo().performClick()
+                compose.waitUntil(5_000) { !compose.onNodeWithTag("workspace-drawer").isDisplayed() }
                 if (index == 3) {
-                    val nav = compose.onNodeWithTag("settings-submenu").fetchSemanticsNode().boundsInRoot
-                    val header = compose.onNodeWithTag("genesis-page-header").fetchSemanticsNode().boundsInRoot
-                    assertTrue("Settings header gap: ${header.top - nav.bottom}px; nav=$nav; header=$header",
-                        header.top - nav.bottom < 40 * app.resources.displayMetrics.density)
+                    val header = compose.onNodeWithTag("app-header").fetchSemanticsNode().boundsInRoot
+                    val content = compose.onNodeWithTag("settings-page-sections").fetchSemanticsNode().boundsInRoot
+                    assertTrue("Settings content gap: ${content.top - header.bottom}px; header=$header; content=$content",
+                        content.top - header.bottom < 40 * app.resources.displayMetrics.density)
+                    compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
                     assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
                         .takeScreenshot(File(app.getExternalFilesDir(null), "settings-shared-2.6.3.png")))
                 }
             }
-            compose.onNodeWithTag("navigation-Настройки").performClick()
-            compose.onNodeWithText("Настройки - Оформление").assertExists()
+            compose.openWorkspacePage("Настройки", "appearance")
+            compose.onNodeWithTag("workspace-title").assertTextEquals("Настройки\nОформление")
         } finally {
             runBlocking {
                 preferences.set("menuSwipeEnabled", original.menuSwipeEnabled.toString())

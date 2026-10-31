@@ -1,6 +1,7 @@
 package ru.genesis.calendar.domain.habits
 
 import java.time.LocalDate
+import java.time.Instant
 import java.time.ZoneId
 import ru.genesis.calendar.domain.GenesisCalendar
 
@@ -12,6 +13,18 @@ data class HabitPracticeProgress(val goal: HabitPracticeGoal, val deadline: Loca
 
 /** Same finite-window projection as app/habit-practice-goal.ts; legacy habits have no policy. */
 object HabitPracticeGoals {
+    private fun scheduledWhenCompleted(habit: Habit, entry: HabitCompletion, engine: HabitEngine): Boolean {
+        val dayState = HabitLifecycle.state(habit, entry.date)
+        if (dayState.conflict || dayState.unknown) return false
+        val markedAt = runCatching { Instant.parse(entry.entity.updatedAt) }.getOrNull() ?: return false
+        // A later same-day pause must not erase work already completed. Replay only
+        // availability known at the authoritative mark; marks made during a pause stay invalid.
+        val history = habit.lifecycleHistory.filter { Instant.parse(it.at) <= markedAt }
+        if (history.isEmpty() && habit.lifecycleHistory.filter { it.replaces.isEmpty() }
+                .map { it.baselineActive }.distinct().size > 1) return false
+        return engine.isScheduled(habit.copy(active = dayState.baselineActive, lifecycleHistory = history), entry.date)
+    }
+
     fun progress(habit: Habit, entries: List<HabitCompletion>, date: LocalDate): HabitPracticeProgress? {
         if(habit.practiceGoal == null && habit.sacredPracticeId == null) return null
         val current = entries.filter { it.habitId == habit.id }.groupBy { it.date }.values.map { rows ->
@@ -31,7 +44,7 @@ object HabitPracticeGoals {
         val start = goal.startDate ?: schedule.startDate
         val deadline = if(legacyDone) legacyEnd else schedule.endDate ?: schedule.recurrence.rangeEnd.takeIf { it.isNotBlank() }?.let(LocalDate::parse) ?: schedule.startDate
         val engine = HabitEngine(GenesisCalendar(ZoneId.of(schedule.timezone)))
-        val dates = current.filter { it.completed && it.date >= start && it.date <= deadline && it.date <= date && engine.isScheduled(habit, it.date)
+        val dates = current.filter { it.completed && it.date >= start && it.date <= deadline && it.date <= date && scheduledWhenCompleted(habit, it, engine)
             && !(habit.stoicheionRestoration?.excludeStartDate == true && it.date.toString() == habit.stoicheionRestoration.startedDate) }
             .map { it.date }.sorted().take(goal.requiredCompletions)
         val completed = dates.lastOrNull().takeIf { dates.size >= goal.requiredCompletions }

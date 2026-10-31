@@ -43,7 +43,7 @@ internal fun TaskTitle(task: LocalTask, modifier: Modifier = Modifier,
         androidx.compose.material3.Surface(shape=RoundedCornerShape(8.dp),
             color=if(dark) Color(0xff542c31) else Color(0xfffae2e2),
             border=BorderStroke(1.dp,Color(0xffb6424e))) {
-            androidx.compose.material3.Text(genesisTranslate("Просрочено"),Modifier.padding(horizontal=8.dp,vertical=3.dp),
+            UntranslatedText(genesisTranslate("Просрочено"),Modifier.padding(horizontal=8.dp,vertical=3.dp),
                 color=if(dark) Color(0xfff3b9bb) else Color(0xff9e2634),style=MaterialTheme.typography.labelSmall)
         }
     }

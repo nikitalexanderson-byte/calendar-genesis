@@ -107,6 +107,13 @@ class ReminderFlowTest {
         // A synthetic account has not accepted the optional Google services offer.
         // Dismiss it through the same control available to an offline user.
         device.wait(Until.findObject(By.text("Не сейчас").enabled(true)), 5_000)?.click()
+        // A newly created QA account also sees the real release notes. Acknowledge
+        // that modal explicitly before inspecting the editor beneath it.
+        if (device.wait(Until.hasObject(By.text("Что нового · ${BuildConfig.VERSION_NAME}")), 2_000)) {
+            val acknowledge = device.wait(Until.findObject(By.text("Понятно").enabled(true)), 5_000)
+            assertNotNull("Release notes expose their acknowledgement control", acknowledge)
+            acknowledge.click()
+        }
         val opened = device.wait(Until.hasObject(By.text("Изолированный тест открытия")),10_000)
         if (!opened) {
             device.takeScreenshot(java.io.File(app.getExternalFilesDir(null), "notification-open-failure.png"))

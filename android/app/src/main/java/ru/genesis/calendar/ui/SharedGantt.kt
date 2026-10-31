@@ -35,6 +35,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import org.json.JSONObject
@@ -118,13 +119,15 @@ private val ganttRowHeight = 64.dp
         Surface(shape = AffairsLayout.shape, color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Масштаб времени", style = MaterialTheme.typography.titleSmall)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(Modifier.fillMaxWidth().testTag("gantt-scales"), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     SharedGanttScale.entries.forEach { choice ->
                         val title = if (choice == SharedGanttScale.WEEKS) when (calendarMode) {
                             CalendarMode.SACRED -> "Пяты"; CalendarMode.LUNAR -> "Декады"; else -> choice.label
                         } else choice.label
-                        FilterChip(scale == choice, { scaleValue = choice.name; fit = false }, { Text(title) }, enabled = !saving,
-                            modifier = Modifier.heightIn(min = 48.dp).testTag("gantt-scale-${choice.name.lowercase()}"))
+                        FilterChip(scale == choice, { scaleValue = choice.name; fit = false },
+                            { CompactChoiceLabel(title, minFontSize = 11.sp, maxFontSize = 14.sp) }, enabled = !saving,
+                            shape = AffairsLayout.controlShape,
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("gantt-scale-${choice.name.lowercase()}"))
                     }
                 }
                 HorizontalDivider()
@@ -138,11 +141,21 @@ private val ganttRowHeight = 64.dp
                         fit = false; anchorValue = sharedGanttShift(anchor, scale, calendarMode, calendar, 1).toString()
                     }, Modifier.testTag("gantt-next"), !saving, outlined = false)
                 }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    TextButton({ anchorValue = LocalDate.now().toString(); fit = false }) { Text("Сегодня") }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    TextButton({ anchorValue = LocalDate.now().toString(); fit = false },
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp)) {
+                        CompactChoiceLabel("Сегодня", minFontSize = 11.sp, maxFontSize = 14.sp)
+                    }
                     if (scale != SharedGanttScale.HOURS) TextButton({ fit = !fit }, enabled = first != null && !saving,
-                        modifier = Modifier.testTag("gantt-fit")) { Text("По задачам") }
-                    TextButton({ help = true }) { Text("Как пользоваться") }
+                        modifier = Modifier.weight(1.2f).heightIn(min = 48.dp).testTag("gantt-fit"),
+                        contentPadding = PaddingValues(horizontal = 4.dp)) {
+                        CompactChoiceLabel("По задачам", minFontSize = 11.sp, maxFontSize = 14.sp)
+                    }
+                    TextButton({ help = true }, modifier = Modifier.weight(1.8f).heightIn(min = 48.dp).testTag("gantt-help"),
+                        contentPadding = PaddingValues(horizontal = 4.dp)) {
+                        CompactChoiceLabel("Как пользоваться", minFontSize = 11.sp, maxFontSize = 14.sp)
+                    }
                 }
             }
         }
@@ -177,7 +190,7 @@ private val ganttRowHeight = 64.dp
                     Column(Modifier.width(ganttNameWidth)) {
                     rows.forEach { task -> Row(Modifier.fillMaxWidth().height(ganttRowHeight), verticalAlignment = Alignment.CenterVertically) {
                         TextButton({ onOpen(task) }, Modifier.weight(1f).fillMaxHeight(), contentPadding = PaddingValues(6.dp)) {
-                            androidx.compose.material3.Text(task.optString("title"), maxLines = 3, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
+                            UntranslatedText(task.optString("title"), maxLines = 3, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
                         }
                     } }
                     }
@@ -226,7 +239,7 @@ private val ganttRowHeight = 64.dp
                                 })
                         }, shape = AffairsLayout.shape, color = MaterialTheme.colorScheme.surface) {
                         Row(Modifier.padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            TextButton({ onOpen(task) }, Modifier.weight(1f)) { androidx.compose.material3.Text(task.optString("title"), Modifier.fillMaxWidth()) }
+                            TextButton({ onOpen(task) }, Modifier.weight(1f)) { UntranslatedText(task.optString("title"), Modifier.fillMaxWidth()) }
                             if (canEdit) AffairsIconButton("Запланировать задачу", AffairsAction.MORE,
                                 { editingJson = task.toString() }, Modifier.testTag("gantt-schedule-${task.optString("id")}"), !busy && !saving && !task.optBoolean("pending"), outlined = false)
                         }
@@ -237,7 +250,7 @@ private val ganttRowHeight = 64.dp
         }
         if (completed.isNotEmpty()) AffairsDisclosure("Завершённые", Modifier.testTag("gantt-completed")) {
             completed.forEach { task -> TextButton({ onOpen(task) }, Modifier.fillMaxWidth()) {
-                androidx.compose.material3.Text(task.optString("title"), Modifier.fillMaxWidth())
+                UntranslatedText(task.optString("title"), Modifier.fillMaxWidth())
             } }
             source?.completed?.let { GanttPageControls(it, "gantt-completed-more") }
         }
@@ -249,7 +262,7 @@ private val ganttRowHeight = 64.dp
         androidx.compose.ui.unit.IntOffset((point.x - rootPosition.x - 80.dp.toPx()).roundToInt(),
             (point.y - rootPosition.y - 24.dp.toPx()).roundToInt())
     }.widthIn(max = 200.dp), shape = AffairsLayout.shape, color = MaterialTheme.colorScheme.primaryContainer, shadowElevation = 6.dp) {
-        androidx.compose.material3.Text(previewTask.optString("title"), Modifier.padding(8.dp), maxLines = 2)
+        UntranslatedText(previewTask.optString("title"), Modifier.padding(8.dp), maxLines = 2)
     }
     }
     if (help) AlertDialog(onDismissRequest = { help = false }, title = { Text("Диаграмма Ганта") },
@@ -414,7 +427,7 @@ private val ganttRowHeight = 64.dp
     AlertDialog(onDismissRequest = { if (enabled) onDismiss() }, title = { Text("Сроки задачи") },
         text = { Column(Modifier.fillMaxWidth().heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            androidx.compose.material3.Text(task.optString("title"), style = MaterialTheme.typography.titleSmall)
+            UntranslatedText(task.optString("title"), style = MaterialTheme.typography.titleSmall)
             Text("Начало")
             AuthorDatePicker(start, inputMode, enabled = enabled, modifier = Modifier.fillMaxWidth().testTag("gantt-start-date"), displayMode = displayMode) { start = it }
             Text("Окончание")

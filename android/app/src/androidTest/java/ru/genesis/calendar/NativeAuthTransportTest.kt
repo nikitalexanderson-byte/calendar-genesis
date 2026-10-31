@@ -22,8 +22,9 @@ class NativeAuthTransportTest {
 
     @Test fun deviceCanReachProductionSessionOverHttps() {
         val app = InstrumentationRegistry.getInstrumentation().targetContext
-        assertEquals("ru.genesis.calendar.debug", app.packageName)
-        val connection = URL("https://genesiscalendar.ru/api/session").openConnection() as HttpsURLConnection
+        assertTrue(BuildConfig.DEBUG && app.packageName.endsWith(".debug"))
+        assertEquals(BuildConfig.APPLICATION_ID, app.packageName)
+        val connection = URL("${BuildConfig.GENESIS_ORIGIN}/api/session").openConnection() as HttpsURLConnection
         try {
             connection.instanceFollowRedirects = false
             connection.connectTimeout = 10_000

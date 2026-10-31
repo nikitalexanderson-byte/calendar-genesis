@@ -49,7 +49,7 @@ internal val stoicheionPositions = listOf(
 )
 
 internal data class StoicheionSelection(val letter: StoicheionLetter, val reversed: Boolean? = null,
-    val position: StoicheionPosition? = null)
+    val position: StoicheionPosition? = null, val timePosition: StoicheionTimePosition? = null)
 
 private fun orientation(reversed: Boolean) = if (reversed) "Перевёрнутое положение" else "Парадное положение"
 private fun countdown(seconds: Int) = "%02d:%02d".format(seconds / 60, seconds % 60)
@@ -150,14 +150,16 @@ internal fun StoicheionDrawPanel(letters: List<StoicheionLetter>, draws: Stoiche
                             Text("Повторить загрузку")
                         }
                     }
-                    RerollAction(spread, now, busy, "Перебросить расклад") { onBegin("spread") }
+                    RerollAction(spread, now, busy, "Перебросить расклад", tone = OracleTone.MAUVE) { onBegin("spread") }
                 }
             }
         }
+        StoicheionTimelinePanel(letters, draws?.timeline, draws != null, now, busy,
+            onBegin = { onBegin("timeline") }, onSelect = onSelect)
     }
 }
 
-internal enum class OracleTone { GOLD, BLUE, MAUVE, SAGE }
+internal enum class OracleTone { GOLD, BLUE, MAUVE, SAGE, CLAY }
 
 @Composable internal fun oracleSectionColor(tone: OracleTone): Color {
     val pair = when (tone) {
@@ -165,6 +167,7 @@ internal enum class OracleTone { GOLD, BLUE, MAUVE, SAGE }
         OracleTone.BLUE -> 0xffe0eaf0 to 0xff202e36
         OracleTone.MAUVE -> 0xffede3ed to 0xff302632
         OracleTone.SAGE -> 0xffdfede4 to 0xff1b3029
+        OracleTone.CLAY -> 0xffeee2d9 to 0xff332923
     }
     return Color(if (LocalEveningTheme.current) pair.second else pair.first)
 }
@@ -176,8 +179,16 @@ internal enum class OracleTone { GOLD, BLUE, MAUVE, SAGE }
 }
 
 @Composable
-private fun RerollAction(draw: StoicheionDraw, now: Long, busy: Boolean, label: String, onClick: () -> Unit) {
-    if (draw.canReroll(now)) OutlinedButton(onClick = onClick, enabled = !busy,
+internal fun RerollAction(draw: StoicheionDraw, now: Long, busy: Boolean, label: String,
+    tone: OracleTone? = null, onClick: () -> Unit) {
+    if (draw.canReroll(now) && tone == OracleTone.MAUVE) Button(onClick = onClick, enabled = !busy,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (LocalEveningTheme.current) Color(0xff554058) else Color(0xff604966),
+            contentColor = Color(0xfffff5ff), disabledContainerColor = Color(0xff57495a),
+            disabledContentColor = Color(0xffe1d7e2)),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("stoicheion-reroll-${draw.kind}")) {
+        Text("$label · ${countdown(draw.remainingSeconds(now))}")
+    } else if (draw.canReroll(now)) OutlinedButton(onClick = onClick, enabled = !busy,
         modifier = Modifier.testTag("stoicheion-reroll-${draw.kind}")) {
         Text("$label · ${countdown(draw.remainingSeconds(now))}")
     } else Text(if (draw.attempts == 2) "Переброс на сегодня использован"
@@ -198,7 +209,9 @@ internal fun StoicheionMotionDialog(mode: String, busy: Boolean, onCancel: () ->
             shape = RoundedCornerShape(22.dp), color = Color(0xff071d20)) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(if (mode == "daily") "Проведите рукой над знаками" else "Соберите девять ликов движением",
+                    val timelineCopy = if (mode == "timeline") stoicheionTimelineCopy() else null
+                    Text(when (mode) { "daily" -> "Проведите рукой над знаками"
+                        "timeline" -> timelineCopy!!.getString("motion"); else -> "Соберите девять ликов движением" },
                         Modifier.weight(1f), style = MaterialTheme.typography.titleLarge,
                         color = Color(0xfffffcf6))
                     AffairsIconButton("Закрыть", AffairsAction.CLOSE, onCancel, contentColor = Color(0xffdfc17e))

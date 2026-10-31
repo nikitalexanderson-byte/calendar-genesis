@@ -540,10 +540,12 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
         }
         api.sharedBulkCommand(generation, id, command, after)
     }
-    private suspend fun <T> bulkDraftCall(action: (SharedBulkDraftService) -> T): T {
-        val initial = mutableState.value; val account = initial.user?.uid ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
+    private data class BulkDraftSession(val account: String?, val generation: Long)
+    private fun bulkDraftSession() = BulkDraftSession(mutableState.value.user?.uid, client.currentGeneration())
+    private suspend fun <T> bulkDraftCall(session: BulkDraftSession = bulkDraftSession(), action: (SharedBulkDraftService) -> T): T {
+        val initial = mutableState.value; val account = session.account ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
         if (!initial.ready || initial.accountSettings?.sharedProjectsEnabled != true) throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
-        val generation = client.currentGeneration(); val caller = currentCoroutineContext()
+        val generation = session.generation; val caller = currentCoroutineContext()
         fun current() {
             caller.ensureActive(); val state = mutableState.value
             if (!client.isCurrent(generation) || !state.ready || state.user?.uid != account || state.accountSettings?.sharedProjectsEnabled != true ||
@@ -563,6 +565,10 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
         return withContext(Dispatchers.IO) { bulkOperationMutex.withLock { current(); action(SharedBulkDraftService(bulkJournal, account, access, bulkInputJournal)).also { current() } } }
     }
     override val supportsSharedBulkInput = true
+    override fun captureSharedBulkInputWriter(): SharedBulkInputWriter {
+        val session = bulkDraftSession()
+        return SharedBulkInputWriter { context, stamp, input -> bulkDraftCall(session) { it.saveInput(context, stamp, input) } }
+    }
     override suspend fun sharedBulkInput(context: String) = bulkDraftCall { it.loadInput(context) }
     override suspend fun saveSharedBulkInput(context: String, stamp: String?, input: JSONObject) = bulkDraftCall { it.saveInput(context, stamp, input) }
     override suspend fun removeSharedBulkInput(context: String, stamp: String) = bulkDraftCall { it.removeInput(context, stamp) }

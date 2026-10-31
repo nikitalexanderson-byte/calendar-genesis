@@ -43,7 +43,8 @@ import ru.genesis.calendar.domain.habits.HabitEngine
 import ru.genesis.calendar.domain.habits.TrackerEntity
 import ru.genesis.calendar.ui.AppearanceSettings
 import ru.genesis.calendar.ui.GenesisApp
-import ru.genesis.calendar.ui.calendarName
+import ru.genesis.calendar.ui.LocalGenesisTextLayoutAudit
+import ru.genesis.calendar.ui.splitsWord
 
 /** Actual shell, encrypted local repositories and synthetic data; never enters a user account. */
 class MobileRedesignFlowTest {
@@ -68,6 +69,7 @@ class MobileRedesignFlowTest {
     private lateinit var previousHabitSettings: HabitSettings
     private val checks = JSONArray()
     private val images = JSONArray()
+    private val wordLayouts = linkedMapOf<String, Boolean>()
     private var seeded = false
     private val folder get() = File(app.getExternalFilesDir(null), "3.0-captures").apply { mkdirs() }
     private val orientation get() = if (compose.activity.resources.displayMetrics.widthPixels > compose.activity.resources.displayMetrics.heightPixels) "landscape" else "portrait"
@@ -151,7 +153,8 @@ class MobileRedesignFlowTest {
                     this.fontScale = this@MobileRedesignFlowTest.fontScale
                 }
                 CompositionLocalProvider(LocalDensity provides Density(density, fontScale),
-                    LocalConfiguration provides config) {
+                    LocalConfiguration provides config,
+                    LocalGenesisTextLayoutAudit provides { text, layout -> wordLayouts[text] = layout.splitsWord() }) {
                     GenesisApp(app, null, testWorkspace = true)
                 }
             }
@@ -165,7 +168,9 @@ class MobileRedesignFlowTest {
     private fun exists(tag: String) = compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
     private fun drawerClosed() {
         compose.waitUntil(5_000) { !compose.onNodeWithTag("workspace-drawer").isDisplayed() }
-        compose.onNodeWithTag("app-account-status").assertIsNotDisplayed()
+        compose.onNodeWithTag("drawer-account-row").assertIsNotDisplayed()
+        compose.onNodeWithTag("drawer-actions").assertIsNotDisplayed()
+        (0..1).forEach { compose.onNodeWithTag("drawer-account-status-$it").assertIsNotDisplayed() }
     }
     private fun openDrawer() {
         if (!compose.onNodeWithTag("workspace-drawer").isDisplayed())
@@ -181,8 +186,7 @@ class MobileRedesignFlowTest {
         if (route.page == "Проекты" && exists("submenu-personal"))
             compose.onNodeWithTag("submenu-personal").performClick()
         val expectedTitle = when (route.page) {
-            "Календарь" -> ru.genesis.calendar.ui.mobileCalendarCopy("ru").calendarName(
-                runBlocking { LocalPreferences(app, app.workspaceScope).values.first().display })
+            "Календарь" -> "Календарь"
             "Проекты" -> "Личные дела"
             "Сакральное" -> if (route.section == "theokyklos") "Оракул · Теокиклос" else "Оракул · Стойхейон"
             "Настройки" -> "Настройки\n${route.title.removePrefix("Настройки ")}"
@@ -215,6 +219,8 @@ class MobileRedesignFlowTest {
         }
         assertTrue("PNG was not written for $scene", target.length() > 1024)
         images.put(target.name)
+        assertEquals("Words split in $scene: ${wordLayouts.filterValues { it }.keys}",
+            emptyList<String>(), wordLayouts.filterValues { it }.keys.toList())
     }
     private fun checkTarget(tag: String) {
         val node = compose.onNodeWithTag(tag).assertIsDisplayed().fetchSemanticsNode()
@@ -274,7 +280,7 @@ class MobileRedesignFlowTest {
         compose.onNodeWithTag("drawer-Календарь-year").assertDoesNotExist()
         capture("drawer-always-labels")
         compose.onNodeWithTag("account-refresh").performScrollTo()
-            .assert(hasAnyAncestor(hasTestTag("drawer-account-row")))
+            .assert(hasAnyAncestor(hasTestTag("drawer-actions")))
         checkTarget("account-refresh")
         compose.onAllNodes(hasTestTag("account-refresh") and hasAnyAncestor(hasTestTag("app-header"))).assertCountEquals(0)
         capture("drawer-refresh-by-account")
@@ -388,6 +394,8 @@ class MobileRedesignFlowTest {
         val sacredCurrent = height("sacred-year-month-${ru.genesis.calendar.domain.GenesisCalendar().sacredDate(LocalDate.now()).monthIndex}")
         assertEquals("Task counts must not grow sacred year tiles", sacredFirst, sacredCurrent, 1f)
         capture("review4-sacred-year-equal-tiles")
+        compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag("calendar-year-description-toggle-sacred"))
+        compose.onNodeWithTag("calendar-year-description-toggle-sacred").performClick()
         compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag("solar-model-open"))
         compose.onNodeWithTag("solar-model-open").assertIsDisplayed()
         runBlocking { prefs.set("display", "profane") }
@@ -515,24 +523,102 @@ class MobileRedesignFlowTest {
                 .put("googleTaskListId",listId).toString()))
         }
         navigate(personalRoute)
+        fun workspaceRoot() = compose.onNode(isRoot() and hasAnyDescendant(hasTestTag("projects-screen")))
+        val dragProofs = JSONArray()
+        fun saveDragProof() {
+            val tasks = runBlocking { ownedTasks.mapNotNull { app.repository.get(it) } }
+            val proof = JSONObject().put("drags", dragProofs).put("tasks", JSONArray(tasks.map {
+                JSONObject().put("id", it.id).put("title", it.title).put("projectId", it.projectId)
+            })).put("links", JSONArray(runBlocking { repo.workspace.first().taskListLinks }.map {
+                JSONObject().put("listId", it.taskListId).put("projectId", it.projectId)
+            }))
+            File(folder, "$suffix-review4-persistence.json").writeText(proof.toString(2))
+            device.takeScreenshot(File(folder, "$suffix-review4-persistence.png"))
+        }
+        fun awaitAssignment(condition: () -> Boolean) {
+            try { compose.waitUntil(10_000, condition) }
+            catch (failure: Throwable) { saveDragProof(); throw failure }
+        }
         fun drag(tag: String, target: String) {
+            val targetTag = if (target == "__genesis_inbox__") "project-inbox" else "project-drop-$target"
             val node = compose.onNodeWithTag(tag, useUnmergedTree = true)
             compose.onNodeWithTag("projects-screen", useUnmergedTree = true).performScrollToNode(hasTestTag(tag))
-            val origin = node.fetchSemanticsNode().boundsInRoot
-            node.performTouchInput { down(center); advanceEventTime(700); moveBy(Offset(0f,4f)) }
-            compose.onNodeWithTag("drag-overlay").assertIsDisplayed()
-            compose.onNodeWithTag("drag-overlay-target-$target").performScrollTo()
-            val destination = compose.onNodeWithTag("drag-overlay-target-$target").fetchSemanticsNode().boundsInRoot.center
-            node.performTouchInput { moveTo(destination-origin.topLeft); advanceEventTime(300); up() }
-            compose.waitUntil(10_000) { !exists("drag-overlay") }
+            // A tall inbox is one lazy item; reveal this descendant before reading its touch point.
+            node.performScrollTo().assertIsDisplayed()
+            val source = node.fetchSemanticsNode()
+            val origin = source.boundsInRoot
+            val rootOrigin = workspaceRoot().fetchSemanticsNode().boundsInRoot.topLeft
+            val startedAt = compose.mainClock.currentTime
+            var phase = "before-long-press"
+            try {
+                // Keep the original single700ms hold. The viewport retains delivery if scrolling recycles the row.
+                workspaceRoot().performTouchInput { down(origin.center - rootOrigin); advanceEventTime(700); moveBy(Offset(0f,4f)) }
+                phase = "floating-preview-assert"
+                //3.1.0 replaced the old destination-sheet overlay with this visible floating card and direct project drops.
+                compose.onNodeWithTag("drag-floating-task").assertIsDisplayed()
+                phase = "reveal-current-drop-target"
+                compose.onNodeWithTag("projects-screen", useUnmergedTree = true).performScrollToNode(hasTestTag(targetTag))
+                val destination = compose.onNodeWithTag(targetTag).performScrollTo().assertIsDisplayed()
+                    .fetchSemanticsNode().boundsInRoot.center
+                val releaseRootOrigin = workspaceRoot().fetchSemanticsNode().boundsInRoot.topLeft
+                val proof = JSONObject().put("sourceTag", tag).put("targetTag", targetTag)
+                    .put("sourceBefore", origin.toString()).put("destinationBefore", destination.toString())
+                    .put("preview", compose.onNodeWithTag("drag-floating-task").printToString())
+                dragProofs.put(proof)
+                phase = "deliver-release"
+                workspaceRoot().performTouchInput { moveTo(destination - releaseRootOrigin); advanceEventTime(300); up() }
+                phase = "floating-preview-dismiss-assert"
+                compose.waitUntil(10_000) { !exists("drag-floating-task") }
+                proof.put("targetAfter", compose.onAllNodesWithTag(targetTag).fetchSemanticsNodes()
+                    .firstOrNull()?.boundsInRoot.toString())
+            } catch (failure: Throwable) {
+                // Passive evidence after the original failure; never repeat the hold, drop, or persistence action.
+                runCatching {
+                    fun describeTag(value: String): JSONObject {
+                        val matches = compose.onAllNodesWithTag(value, useUnmergedTree = true).fetchSemanticsNodes()
+                        return JSONObject().put("tag", value).put("count", matches.size).put("nodes", JSONArray(matches.map {
+                            JSONObject().put("boundsInRoot", it.boundsInRoot.toString())
+                                .put("boundsInWindow", it.boundsInWindow.toString()).put("size", it.size.toString())
+                                .put("disabled", it.config.contains(SemanticsProperties.Disabled))
+                                .put("onClick", it.config.contains(SemanticsActions.OnClick))
+                                .put("onLongClick", it.config.contains(SemanticsActions.OnLongClick))
+                                .put("density", it.layoutInfo.density.density.toDouble())
+                                .put("fontScale", it.layoutInfo.density.fontScale.toDouble())
+                        }))
+                    }
+                    val proof = JSONObject().put("phase", phase).put("failureClass", failure.javaClass.simpleName)
+                        .put("sourceTag", tag).put("targetTag", targetTag).put("holdMs", 700).put("movePx", 4)
+                        .put("sourceBefore", origin.toString()).put("sourceSizeBefore", source.size.toString())
+                        .put("rootOriginBefore", rootOrigin.toString()).put("mainClockStartedAt", startedAt)
+                        .put("mainClockAfterFailure", compose.mainClock.currentTime).put("mainClockAutoAdvance", compose.mainClock.autoAdvance)
+                        .put("androidLongPressTimeoutMs", android.view.ViewConfiguration.getLongPressTimeout())
+                        .put("androidTouchSlopPx", android.view.ViewConfiguration.get(compose.activity).scaledTouchSlop)
+                        .put("composeViewConfigurationInstrumented", false)
+                        .put("sdk", Build.VERSION.SDK_INT).put("requestedWidthDp", width).put("requestedFontScale", fontScale.toDouble())
+                        .put("orientation", orientation).put("dark", dark).put("callbackInstrumented", false)
+                        .put("tags", JSONArray(listOf(tag, targetTag, "projects-screen", "drag-floating-task", "drag-overlay",
+                            "workspace-menu", "workspace-drawer").map(::describeTag)))
+                        .put("window", compose.runOnIdle {
+                            val decor = compose.activity.window.decorView
+                            val insets = androidx.core.view.ViewCompat.getRootWindowInsets(decor)
+                            JSONObject().put("hasFocus", decor.hasWindowFocus()).put("decorWidth", decor.width).put("decorHeight", decor.height)
+                                .put("imeVisible", insets?.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime()) ?: JSONObject.NULL)
+                        })
+                    proof.put("screenshotSaved", device.takeScreenshot(File(folder, "$suffix-review4-drag-failure.png")))
+                    File(folder, "$suffix-review4-drag-failure.json").writeText(proof.toString(2))
+                }.onFailure { android.util.Log.e("GENESIS_DRAG_DIAGNOSTIC", "Passive drag proof failed: ${it.javaClass.simpleName}") }
+                // Release the failed fixture's pointer after capturing evidence; cancellation never commits a move.
+                runCatching { workspaceRoot().performTouchInput { cancel() } }
+                throw failure
+            }
         }
         drag("drag-task-$inboxTaskId",projectId)
-        compose.waitUntil(10_000) { runBlocking { app.repository.get(inboxTaskId)?.projectId == projectId } }
+        awaitAssignment { runBlocking { app.repository.get(inboxTaskId)?.projectId == projectId } }
         showProject()
         drag("drag-task-$inboxTaskId",secondProjectId)
-        compose.waitUntil(10_000) { runBlocking { app.repository.get(inboxTaskId)?.projectId == secondProjectId } }
+        awaitAssignment { runBlocking { app.repository.get(inboxTaskId)?.projectId == secondProjectId } }
         drag("drag-block-list-$listId",secondProjectId)
-        compose.waitUntil(10_000) { runBlocking {
+        awaitAssignment { runBlocking {
             repo.workspace.first().taskListLinks.any { it.taskListId == listId && it.projectId == secondProjectId } &&
                 app.repository.get(listTask)?.projectId == secondProjectId
         } }
@@ -540,8 +626,9 @@ class MobileRedesignFlowTest {
         compose.onNodeWithTag("project-drop-$secondProjectId").performClick()
         capture("review4-list-and-task-in-subproject")
         drag("drag-block-list-$listId","__genesis_inbox__")
-        compose.waitUntil(10_000) { runBlocking { repo.workspace.first().taskListLinks.any { it.taskListId == listId && it.projectId == null } } }
+        awaitAssignment { runBlocking { repo.workspace.first().taskListLinks.any { it.taskListId == listId && it.projectId == null } } }
         assertNotNull(runBlocking { app.repository.get(listTask) })
+        saveDragProof()
         checks.put("review4:real-longpress-task-and-whole-list-moves-project-subproject-inbox-no-record-loss")
     }
 
@@ -561,7 +648,13 @@ class MobileRedesignFlowTest {
         capture("today")
         openDrawer()
         compose.onNodeWithTag(todayRoute.tag).assertIsSelected()
-        compose.onNodeWithTag("app-account-status").assert(hasAnyAncestor(hasTestTag("workspace-drawer")))
+        compose.onNodeWithTag("drawer-account-row").performScrollTo().assertIsDisplayed()
+            .assert(hasAnyAncestor(hasTestTag("workspace-drawer")))
+        (0..1).forEach { index ->
+            compose.onNodeWithTag("drawer-account-status-$index").assertIsDisplayed()
+                .assert(hasAnyAncestor(hasTestTag("drawer-account-row")))
+        }
+        compose.onNodeWithTag("drawer-account-status-2").assertDoesNotExist()
         compose.onNodeWithTag("drawer-Проекты-shared").assertDoesNotExist()
         capture("drawer")
         device.pressBack()
@@ -584,7 +677,11 @@ class MobileRedesignFlowTest {
                 yearRoute -> {
                     await("calendar-year-panel")
                     compose.onNodeWithTag("calendar-year-solar-points").assertDoesNotExist()
-                    checkTarget("calendar-year-today")
+                    // Today belongs to the month description; the year has two period arrows.
+                    compose.onNodeWithTag("calendar-year-today").assertDoesNotExist()
+                    compose.onNodeWithTag("calendar-year-previous").performScrollTo().assertIsDisplayed()
+                    checkTarget("calendar-year-previous")
+                    checkTarget("calendar-year-next")
                     capture("calendar-year")
                     compose.onNodeWithTag("calendar-year-solar-toggle").performClick()
                     compose.onNodeWithTag("calendar-year-solar-points").assertExists()
@@ -595,8 +692,31 @@ class MobileRedesignFlowTest {
                     route.page == "Дневник" -> capture("diary")
                     route.page == "Привычки" && route.section == "Привычки" -> {
                         checkTarget("habit-create")
-                        val daily = compose.onNodeWithTag("habit-view-today").fetchSemanticsNode().boundsInRoot
-                        val library = compose.onNodeWithTag("habit-view-library").fetchSemanticsNode().boundsInRoot
+                        val dailyNode = compose.onNodeWithTag("habit-view-today").fetchSemanticsNode()
+                        val libraryNode = compose.onNodeWithTag("habit-view-library").fetchSemanticsNode()
+                        val daily = dailyNode.boundsInRoot
+                        val library = libraryNode.boundsInRoot
+                        // Observe the actual nodes before a strict alignment assertion can stop the run.
+                        runCatching {
+                            fun bounds(value: androidx.compose.ui.geometry.Rect) = JSONObject()
+                                .put("left", value.left).put("top", value.top)
+                                .put("right", value.right).put("bottom", value.bottom)
+                                .put("width", value.width).put("height", value.height)
+                            File(folder, "$suffix-habits-view-alignment.json").writeText(JSONObject()
+                                .put("widthDp", width).put("fontScale", fontScale).put("dark", dark)
+                                .put("daily", JSONObject().put("boundsInRootPx", bounds(daily))
+                                    .put("measuredWidthPx", dailyNode.size.width).put("measuredHeightPx", dailyNode.size.height)
+                                    .put("density", dailyNode.layoutInfo.density.density)
+                                    .put("fontScale", dailyNode.layoutInfo.density.fontScale))
+                                .put("library", JSONObject().put("boundsInRootPx", bounds(library))
+                                    .put("measuredWidthPx", libraryNode.size.width).put("measuredHeightPx", libraryNode.size.height)
+                                    .put("density", libraryNode.layoutInfo.density.density)
+                                    .put("fontScale", libraryNode.layoutInfo.density.fontScale))
+                                .put("heightDifferencePx", kotlin.math.abs(daily.height - library.height))
+                                .put("widthDifferencePx", kotlin.math.abs(daily.width - library.width)).toString(2))
+                        }.onFailure { android.util.Log.e("GENESIS_LAYOUT_DIAGNOSTIC", "Habit bounds capture failed", it) }
+                        runCatching { captureNativeWindow(File(folder, "$suffix-habits-before-alignment.png")) }
+                            .onFailure { android.util.Log.e("GENESIS_LAYOUT_DIAGNOSTIC", "Habit window capture failed", it) }
                         assertTrue("Habit views must stay aligned at the current font scale", kotlin.math.abs(daily.height - library.height) <= 1f)
                         assertTrue("Habit views must have equal widths", kotlin.math.abs(daily.width - library.width) <= 1f)
                         checks.put("habits:views-equal-size-and-header-create")
@@ -640,7 +760,9 @@ class MobileRedesignFlowTest {
         navigate(todayRoute)
         navigate(yearRoute)
         compose.onNodeWithTag("calendar-year-period").assertTextEquals(year)
-        compose.onNodeWithTag("calendar-year-today").performClick()
+        compose.onNodeWithTag("calendar-year-today").assertDoesNotExist()
+        // Undo the single year advance using the actual year control, keeping the context assertion above.
+        compose.onNodeWithTag("calendar-year-previous").performScrollTo().assertIsDisplayed().performClick()
         compose.onNodeWithTag("calendar-year-period").assertTextEquals(LocalDate.now().year.toString())
         navigate(personalRoute)
         showProject()

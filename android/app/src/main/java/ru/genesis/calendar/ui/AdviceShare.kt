@@ -49,7 +49,7 @@ internal const val adviceApplicationUrl = "https://genesiscalendar.com"
         }
     }, enabled = !preparing, modifier = Modifier.size(48.dp).testTag("daily-advice-share")
         .semantics { contentDescription = copy.getString(if (preparing) "sharePreparing" else "share") }) {
-        if (preparing) androidx.compose.material3.CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+        if (preparing) WorkspaceLoadingIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
         else GenesisLucideIcon("share-2")
     }
 }

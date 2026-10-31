@@ -7,8 +7,10 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.test.platform.app.InstrumentationRegistry
@@ -21,6 +23,7 @@ import ru.genesis.calendar.domain.CalendarMode
 import ru.genesis.calendar.domain.GenesisCalendar
 import java.io.File
 import java.time.LocalDate
+import java.time.ZoneId
 
 class Android310AcceptanceTest {
     @get:Rule val compose = createAndroidComposeRule<StoicheionGestureActivity>()
@@ -37,6 +40,12 @@ class Android310AcceptanceTest {
         }
     }
     private fun capture(name: String) {
+        // Settle an animated scroll and submit the frame on the Android UI thread;
+        // screenshot capture itself never draws an AndroidComposeView off-thread.
+        compose.mainClock.advanceTimeByFrame()
+        compose.waitForIdle()
+        compose.runOnUiThread { compose.activity.window.decorView.postInvalidateOnAnimation() }
+        compose.mainClock.advanceTimeByFrame()
         compose.waitForIdle()
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         captureNativeWindow(File(context.getExternalFilesDir(null), "310-$width-${if(dark) "dark" else "light"}-$name.png"))
@@ -79,14 +88,34 @@ class Android310AcceptanceTest {
         }
     }
 
-    @Test fun monthIllustrationsUseTheSameLunarHeightAndKeepTheirImages() {
+    @Test fun monthIllustrationsFollowTheFullDescriptionHeightWithoutNestedScrolling() {
         var mode by mutableStateOf(CalendarMode.PROFANE)
-        compose.setContent { Frame { CalendarScreen(LocalDate.of(2026,10,29), mode, {}, experimental=true) } }
+        val anchor = LocalDate.of(2026,10,29)
+        val calendar = GenesisCalendar()
+        compose.setContent { Frame { CalendarScreen(anchor, mode, {}, experimental=true) } }
         for (choice in CalendarMode.entries) {
             compose.runOnIdle { mode=choice }
-            compose.onNodeWithTag("month-description-layout").assertHeightIsEqualTo(160.dp)
+            val layout = compose.onNodeWithTag("month-description-layout").performScrollTo()
+            layout.assertHeightIsAtLeast(160.dp)
             val art = when(choice) { CalendarMode.PROFANE -> "gregorian-month-art"; CalendarMode.SACRED -> "sacred-month-art"; CalendarMode.LUNAR -> "lunar-month-art" }
-            compose.onNodeWithTag(art, useUnmergedTree=true).assertHeightIsEqualTo(160.dp)
+            val layoutBounds = layout.fetchSemanticsNode().boundsInRoot
+            val imageBounds = compose.onNodeWithTag(art, useUnmergedTree=true).assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+            assertEquals("$choice artwork must fill the complete text block", layoutBounds.height, imageBounds.height, 1f)
+            assertEquals(layoutBounds.top, imageBounds.top, 1f)
+            compose.onAllNodes(hasAnyAncestor(hasTestTag("month-description-layout")) and hasScrollAction(),
+                useUnmergedTree=true).assertCountEquals(0)
+            val description = when(choice) {
+                CalendarMode.PROFANE -> gregorianMonthNature(anchor.monthValue, ZoneId.systemDefault())
+                CalendarMode.SACRED -> ru.genesis.calendar.domain.SacredCatalog.months[calendar.sacredDate(anchor).monthIndex].description
+                CalendarMode.LUNAR -> calendar.lunarDate(anchor).month.description
+            }
+            val copy = compose.onNode(hasText(description, substring=false) and
+                hasAnyAncestor(hasTestTag("month-description-layout")), useUnmergedTree=true).assertIsDisplayed()
+            val textLayouts = mutableListOf<TextLayoutResult>()
+            copy.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(textLayouts) }
+            assertEquals(description, textLayouts.single().layoutInput.text.text)
+            assertFalse("$choice must display the whole month description", textLayouts.single().hasVisualOverflow)
+            assertTrue(copy.fetchSemanticsNode().boundsInRoot.bottom <= layoutBounds.bottom + 1f)
             capture("hero-${choice.wireValue}")
         }
     }

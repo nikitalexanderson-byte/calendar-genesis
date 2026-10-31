@@ -31,7 +31,8 @@ import ru.genesis.calendar.auth.rebaseNotificationSettings
         "noreply@genesiscalendar.com",androidx.compose.ui.graphics.Color(0xfffff1cf)) {
         val settings=draft
         if(settings==null){
-            Text(if(error){if(en)"Could not load email settings." else "Не удалось загрузить настройки почты."}else if(en)"Loading…" else "Загрузка…")
+            if(error) Text(if(en)"Could not load email settings." else "Не удалось загрузить настройки почты.")
+            else WorkspaceLoadingText()
             if(error)TextButton(onClick={version++}){Text(if(en)"Retry" else "Повторить")}
         }else{
             val channels=settings.getJSONObject("channels")

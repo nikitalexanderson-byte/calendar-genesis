@@ -46,6 +46,7 @@ internal class QueryBulkHttpsFixture : AutoCloseable {
     val gateway = object : SharedWorkspaceGateway by views.gateway {
         private suspend fun <T> io(action: () -> T): T = withContext(Dispatchers.IO) { action() }
         override val supportsSharedBulkInput = true
+        override fun captureSharedBulkInputWriter() = SharedBulkInputWriter { context, stamp, input -> saveSharedBulkInput(context, stamp, input) }
         override suspend fun sharedProject(projectId: String): JSONObject { projectReads++; return io { base.client.sharedProject(base.generation, projectId) } }
         override suspend fun sharedBulkDraft(projectId: String) = io { service().load(projectId) }
         override suspend fun saveSharedBulkDraft(projectId: String, stamp: String?, edit: JSONObject) = io { service().save(projectId, stamp, edit) }

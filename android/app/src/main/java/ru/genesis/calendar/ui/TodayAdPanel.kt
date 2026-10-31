@@ -196,18 +196,18 @@ internal fun TodayAdPanel(controller: AuthController, userId: String?, language:
                 modifier = Modifier.fillMaxWidth().heightIn(max = 220.dp),
                 contentScale = ContentScale.Crop) }
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                androidx.compose.material3.Text(copy.label, color = MaterialTheme.colorScheme.primary,
+                UntranslatedText(copy.label, color = MaterialTheme.colorScheme.primary,
                     style = MaterialTheme.typography.labelMedium)
-                androidx.compose.material3.Text(ad.title, style = MaterialTheme.typography.titleLarge)
-                androidx.compose.material3.Text(ad.description, style = MaterialTheme.typography.bodyMedium)
+                UntranslatedText(ad.title, style = MaterialTheme.typography.titleLarge)
+                UntranslatedText(ad.description, style = MaterialTheme.typography.bodyMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(ad.destination(BuildConfig.PLAY_DISTRIBUTION)))
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }, modifier = Modifier.weight(1f)) {
-                        androidx.compose.material3.Text(copy.open)
+                        UntranslatedText(copy.open)
                     }
                     if (!ad.isUpdate) OutlinedButton(onClick = { dismissed = true }, enabled = viewedSeconds >= 60,
                         modifier = Modifier.weight(1f).testTag("today-ad-close")) {
-                        androidx.compose.material3.Text(if (viewedSeconds >= 60) copy.close
+                        UntranslatedText(if (viewedSeconds >= 60) copy.close
                             else "${copy.wait} ${60 - viewedSeconds} ${copy.unit}")
                     }
                 }

@@ -4,10 +4,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -15,6 +17,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CompletableDeferred
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.*
@@ -28,6 +31,7 @@ import ru.genesis.calendar.auth.DiaryProtocol
 import ru.genesis.calendar.data.*
 import java.io.File
 import java.util.Base64
+import java.util.concurrent.ConcurrentHashMap
 
 private class DiaryUiStore : DiaryStore {
     var ciphertext: String? = null
@@ -38,10 +42,29 @@ private class DiaryUiStore : DiaryStore {
 private class DiaryUiGateway : DiaryGateway {
     val key = ByteArray(32) { it.toByte() }
     val rows = mutableMapOf<String, JSONObject>()
+    var offline = false
+    var invalidResponse = false
+    var readGate: CompletableDeferred<Unit>? = null
+    private var syncEnabled = true
+    private var settingsRevision = 0L
+    private val snapshot = "0".repeat(64)
+    private fun metadata() = JSONObject().put("settings", JSONObject().put("syncEnabled", syncEnabled).put("revision", settingsRevision))
+        .put("snapshot", snapshot).put("deleted", JSONArray())
     override fun check() = Unit
     override suspend fun workspace() = JSONObject().put("workspace", JSONObject().put("keyMode", "account").put("key", Base64.getEncoder().encodeToString(key)))
     override suspend fun request(path: String, body: JSONObject?): JSONObject {
-        if (body == null) return JSONObject().put("notes", JSONArray(rows.values.toList()))
+        if (body == null) {
+            readGate?.await()
+            if (offline) throw AuthFailure(AuthFailure.Kind.NETWORK)
+            if (path == "/diary/settings") return metadata()
+            if (invalidResponse) return JSONObject().put("notes", JSONArray().put(JSONObject().put("version", 99)))
+            return metadata().put("notes", JSONArray(rows.values.toList()))
+        }
+        if (path == "/diary/settings") {
+            check(body.getLong("expectedRevision") == settingsRevision && body.getString("expectedSnapshot") == snapshot)
+            syncEnabled = body.getBoolean("syncEnabled"); settingsRevision++
+            return metadata()
+        }
         val id = path.substringAfterLast('/'); val previous = rows[id]
         val same = previous != null && previous.getString("ciphertext") == body.getString("ciphertext") && previous.getString("iv") == body.getString("iv")
         if (!same) {
@@ -60,11 +83,18 @@ class DiaryScreenTest {
     private val repository = DiaryRepository("diary-ui-fixture", gateway, store, DiaryKeystoreCipher("diary-ui-fixture", "diary-ui-fixture"))
     private val width get() = InstrumentationRegistry.getArguments().getString("genesisWidth")?.toIntOrNull() ?: 390
     private val dark get() = InstrumentationRegistry.getArguments().getString("genesisEvening") == "true"
-    @Composable private fun Content() {
-        val scale = InstrumentationRegistry.getArguments().getString("genesisFontScale")?.toFloatOrNull() ?: LocalDensity.current.fontScale
-        val density = Density(compose.activity.resources.displayMetrics.widthPixels.toFloat() / width, scale)
-        CompositionLocalProvider(LocalDensity provides density, LocalGenesisLanguage provides "ru", LocalEveningTheme provides dark) {
-            MaterialTheme(colorScheme = if (dark) evening else standart, typography = GenesisTypography, shapes = GenesisShapes) {
+    @Composable private fun Content(language: String = "ru", logicalWidth: Int = width, fontScaleOverride: Float? = null,
+        night: Boolean = dark, textLayoutAudit: ((String, TextLayoutResult) -> Unit)? = null) {
+        val scale = fontScaleOverride ?: InstrumentationRegistry.getArguments().getString("genesisFontScale")?.toFloatOrNull() ?: LocalDensity.current.fontScale
+        val density = Density(compose.activity.resources.displayMetrics.widthPixels.toFloat() / logicalWidth, scale)
+        val configuration = android.content.res.Configuration(LocalConfiguration.current).apply {
+            screenWidthDp = logicalWidth
+            screenHeightDp = (compose.activity.resources.displayMetrics.heightPixels / density.density).toInt()
+            fontScale = scale
+        }
+        CompositionLocalProvider(LocalDensity provides density, LocalConfiguration provides configuration,
+            LocalGenesisLanguage provides language, LocalEveningTheme provides night, LocalGenesisTextLayoutAudit provides textLayoutAudit) {
+            MaterialTheme(colorScheme = if (night) evening else standart, typography = GenesisTypography, shapes = GenesisShapes) {
                 Surface(Modifier.fillMaxSize()) {
                     MobileWorkspaceShell("Дневник", null, emptyList(), "Synthetic fixture", true,
                         onNavigate = {}, actions = {
@@ -81,6 +111,262 @@ class DiaryScreenTest {
         compose.waitForIdle()
         compose.onNodeWithTag(tag).assertExists()
         captureNativeWindow(File(compose.activity.getExternalFilesDir(null), "diary-${width}-${if (dark) "dark" else "light"}-$name.png"))
+    }
+
+    @Test fun cachedOfflineDiaryShowsItsNoticeOnlyInTheDrawerWithoutAProgressSpinner() {
+        val note = DiaryNote.create("Сохранённая запись доступна без сети", "Офлайн-проверка")
+        runBlocking { repository.refresh(); repository.save(note) }
+        gateway.offline = true
+        compose.setContent { Content() }; await("diary-create")
+        compose.waitUntil(20_000) { repository.state.value.offline }
+        val message = "Нет сети. Доступна защищённая локальная копия дневника."
+        compose.onNode(hasText(message) and hasAnyAncestor(hasTestTag("diary-screen")), useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag("diary-offline").assertDoesNotExist()
+        compose.onNodeWithTag("workspace-menu").performClick()
+        compose.onNodeWithTag("drawer-diary-offline").performScrollTo().assertIsDisplayed()
+        compose.onNode(hasText(message) and hasAnyAncestor(hasTestTag("drawer-diary-offline")), useUnmergedTree = true).assertExists()
+        compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo) and
+            hasAnyAncestor(hasTestTag("drawer-diary-offline")), useUnmergedTree = true).assertCountEquals(0)
+        assertTrue(repository.state.value.records.single().note.sameContent(note))
+    }
+
+    @Test fun protectedDiaryFormatErrorStaysInTheDrawerAndRetryPreservesTheCachedRecord() {
+        val note = DiaryNote.create("Защищённая запись должна сохраниться", "Проверка восстановления")
+        runBlocking { repository.refresh(); repository.save(note) }
+        gateway.invalidResponse = true
+        compose.setContent { Content() }; await("diary-create")
+        compose.waitUntil(20_000) { repository.state.value.protected }
+        val message = "Формат дневника изменился. Обновите приложение; записи сохранены."
+        compose.onNodeWithTag("diary-create").assertIsNotEnabled()
+        compose.onNode(hasText(message) and hasAnyAncestor(hasTestTag("diary-screen")), useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag("workspace-menu").performClick()
+        compose.onNodeWithTag("drawer-diary-error").performScrollTo().assertIsDisplayed()
+        compose.onNode(hasText(message) and hasAnyAncestor(hasTestTag("drawer-diary-error")), useUnmergedTree = true).assertExists()
+        compose.runOnIdle { gateway.invalidResponse = false }
+        compose.onNodeWithTag("drawer-diary-error-retry").performScrollTo().assertIsEnabled().performClick()
+        compose.waitUntil(20_000) { !repository.state.value.protected &&
+            compose.onAllNodesWithTag("drawer-diary-error").fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithTag("drawer-close").performScrollTo().performClick()
+        compose.onNodeWithTag("diary-create").assertIsEnabled()
+        assertTrue(repository.state.value.records.single().note.sameContent(note))
+    }
+
+    @Test fun everyDiaryLocaleKeepsNotesAndDrawerStatusesReadableAt360AndLargeFontInBothThemes() {
+        val supported = listOf("ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja")
+        val requestedLanguage = InstrumentationRegistry.getArguments().getString("genesisDiaryLanguage")
+        require(requestedLanguage == null || requestedLanguage in supported)
+        val languages = if (requestedLanguage == null) supported else listOf(requestedLanguage)
+        val context = compose.activity
+        val nativeCopy = JSONObject(context.assets.open("native-3-translations.json").bufferedReader().use { it.readText() })
+        val diaryCopy = JSONObject(context.assets.open("originals/i18n/diary-copy.json").bufferedReader().use { it.readText() })
+        val note = DiaryNote.create("Авторский текст {body}: Москва и Αθήνα.", "Новая запись · {title} · Tokyo")
+        runBlocking { repository.refresh(); repository.save(note) }
+        var language by mutableStateOf("ru")
+        var night by mutableStateOf(false)
+        var epoch by mutableIntStateOf(0)
+        val layouts = ConcurrentHashMap<String, TextLayoutResult>()
+        val states = JSONArray()
+        val completed = mutableListOf<String>()
+        var checkpoint = "setup"
+        var failure: Throwable? = null
+        compose.setContent { key(epoch) { Content(language, 360, 1.3f, night) { text, layout -> layouts[text] = layout } } }
+        try {
+            for (scheme in listOf(false, true)) for (choice in languages) {
+                val prefix = "${if (scheme) "dark" else "light"}/$choice"
+                checkpoint = "$prefix/entry"
+                compose.runOnIdle { language = choice; night = scheme; epoch++; layouts.clear() }
+                // Diary expectations require this locale's exact dictionary objects and keys.
+                val native = nativeCopy.getJSONObject(choice)
+                val copy = diaryCopy.getJSONObject(choice)
+                // Common editor buttons use the app's reviewed regional wording, independently of privacy copy.
+                val saveLabel = if (choice == "pt") "Guardar" else copy.getString("save")
+                val cancelLabel = if (choice == "sr") "Одустани" else copy.getString("cancel")
+                fun t(source: String) = translateGenesisText(context, source, choice)
+                fun state(name: String, vararg required: String) {
+                    checkpoint = "$prefix/$name"
+                    compose.waitForIdle()
+                    val split = layouts.filterValues { it.splitsWord() }.keys
+                    assertTrue("$checkpoint: words split across lines: $split", split.isEmpty())
+                    required.forEach { text ->
+                        val layout = requireNotNull(layouts[text]) { "$checkpoint: no rendered layout for $text" }
+                        val clipped = layout.didOverflowWidth || layout.didOverflowHeight ||
+                            layout.multiParagraph.didExceedMaxLines || (0 until layout.lineCount).any { layout.isLineEllipsized(it) }
+                        if (clipped) {
+                            val diagnosticName = "diary-locale-360-font1.3-${checkpoint.replace('/', '-')}-clipped-label"
+                            runCatching {
+                                val input = layout.layoutInput
+                                val lines = JSONArray()
+                                for (line in 0 until layout.lineCount) lines.put(JSONObject()
+                                    .put("index", line).put("start", layout.getLineStart(line))
+                                    .put("end", layout.getLineEnd(line)).put("visibleEnd", layout.getLineEnd(line, visibleEnd = true))
+                                    .put("topPx", layout.getLineTop(line)).put("bottomPx", layout.getLineBottom(line))
+                                    .put("baselinePx", layout.getLineBaseline(line)).put("leftPx", layout.getLineLeft(line))
+                                    .put("rightPx", layout.getLineRight(line)).put("ellipsized", layout.isLineEllipsized(line)))
+                                val nodes = JSONArray()
+                                compose.onAllNodesWithText(text, useUnmergedTree = true).fetchSemanticsNodes().forEach { node ->
+                                    val bounds = node.boundsInRoot
+                                    nodes.put(JSONObject().put("leftPx", bounds.left).put("topPx", bounds.top)
+                                        .put("rightPx", bounds.right).put("bottomPx", bounds.bottom)
+                                        .put("widthPx", bounds.width).put("heightPx", bounds.height)
+                                        .put("measuredWidthPx", node.size.width).put("measuredHeightPx", node.size.height))
+                                }
+                                File(context.getExternalFilesDir(null), "$diagnosticName.json").writeText(JSONObject()
+                                    .put("checkpoint", checkpoint).put("label", text).put("layoutText", input.text.text)
+                                    .put("fontSize", input.style.fontSize.toString()).put("lineHeight", input.style.lineHeight.toString())
+                                    .put("fontFamily", input.style.fontFamily.toString()).put("fontWeight", input.style.fontWeight.toString())
+                                    .put("letterSpacing", input.style.letterSpacing.toString()).put("style", input.style.toString())
+                                    .put("density", input.density.density).put("fontScale", input.density.fontScale)
+                                    .put("constraintsPx", JSONObject().put("minWidth", input.constraints.minWidth)
+                                        .put("maxWidth", input.constraints.maxWidth).put("minHeight", input.constraints.minHeight)
+                                        .put("maxHeight", input.constraints.maxHeight))
+                                    .put("sizePx", JSONObject().put("width", layout.size.width).put("height", layout.size.height))
+                                    .put("paragraphWidthPx", layout.multiParagraph.width).put("paragraphHeightPx", layout.multiParagraph.height)
+                                    .put("maxLines", input.maxLines).put("softWrap", input.softWrap).put("overflow", input.overflow.toString())
+                                    .put("lineCount", layout.lineCount).put("didOverflowWidth", layout.didOverflowWidth)
+                                    .put("didOverflowHeight", layout.didOverflowHeight).put("hasVisualOverflow", layout.hasVisualOverflow)
+                                    .put("didExceedMaxLines", layout.multiParagraph.didExceedMaxLines)
+                                    .put("lines", lines).put("semanticsNodes", nodes).toString(2))
+                            }.onFailure { android.util.Log.e("GENESIS_LAYOUT_DIAGNOSTIC", "Diary layout capture failed: $checkpoint", it) }
+                            runCatching { captureNativeWindow(File(context.getExternalFilesDir(null), "$diagnosticName.png")) }
+                                .onFailure { android.util.Log.e("GENESIS_LAYOUT_DIAGNOSTIC", "Diary window capture failed: $checkpoint", it) }
+                        }
+                        assertFalse("$checkpoint: clipped/ellipsized label: $text", clipped)
+                    }
+                    states.put(JSONObject().put("checkpoint", checkpoint).put("renderedStrings", layouts.size)
+                        .put("checkedLabels", JSONArray(required.toList())))
+                }
+                fun shot(name: String) {
+                    captureNativeWindow(File(context.getExternalFilesDir(null), "diary-locale-360-font1.3-${prefix.replace('/', '-')}-$name.png"))
+                }
+                fun closeDialog(tag: String) {
+                    compose.onNode(hasContentDescription(t("Закрыть")) and hasAnyAncestor(hasTestTag(tag)), useUnmergedTree = true).performClick()
+                    compose.waitUntil(10_000) { compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isEmpty() }
+                }
+                fun closeDrawer() { compose.onNodeWithTag("drawer-close").performScrollTo().performClick(); compose.waitForIdle() }
+                fun refresh() {
+                    compose.onNodeWithTag("diary-actions").performClick()
+                    compose.onNodeWithText(t("Обновить")).performClick()
+                }
+                fun notice(tag: String, message: String) {
+                    compose.onNode(hasText(message) and hasAnyAncestor(hasTestTag("diary-screen")), useUnmergedTree = true).assertDoesNotExist()
+                    compose.onNodeWithTag("diary-${tag.removePrefix("drawer-diary-")}").assertDoesNotExist()
+                    compose.onNodeWithTag("workspace-menu").performClick()
+                    compose.onNodeWithTag(tag).performScrollTo().assertIsDisplayed()
+                    compose.onNode(hasText(message) and hasAnyAncestor(hasTestTag(tag)), useUnmergedTree = true).assertExists()
+                    compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo) and
+                        hasAnyAncestor(hasTestTag(tag)), useUnmergedTree = true).assertCountEquals(0)
+                    compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.HorizontalScrollAxisRange) and
+                        hasAnyAncestor(hasTestTag(tag)), useUnmergedTree = true).assertCountEquals(0)
+                    state(tag, message)
+                }
+                await("diary-open-${note.id}")
+                compose.onNodeWithTag("workspace-title").assertTextEquals(native.getString("Дневник"))
+                compose.onNodeWithTag("diary-create").assertContentDescriptionEquals(native.getString("Новая запись"))
+                compose.onNodeWithTag("diary-actions").assertContentDescriptionEquals(native.getString("Действия дневника"))
+                compose.onNode(hasText(note.title) and hasAnyAncestor(hasTestTag("diary-note-${note.id}")), useUnmergedTree = true).assertExists()
+                compose.onNode(hasText(note.body) and hasAnyAncestor(hasTestTag("diary-note-${note.id}")), useUnmergedTree = true).assertExists()
+                state("board", native.getString("Дневник")); shot("board")
+                compose.onNodeWithTag("diary-open-${note.id}").performClick(); await("diary-editor")
+                assertEquals(note.title, compose.onNodeWithTag("diary-title").fetchSemanticsNode().config[SemanticsProperties.EditableText].text)
+                assertEquals(note.body, compose.onNodeWithTag("diary-body").fetchSemanticsNode().config[SemanticsProperties.EditableText].text)
+                compose.onNodeWithText(native.getString("Редактирование записи"), useUnmergedTree = true).assertExists()
+                compose.onNodeWithText(native.getString("Текст записи"), useUnmergedTree = true).assertExists()
+                compose.onNodeWithTag("diary-save").assertIsDisplayed().assertIsEnabled().assertHeightIsAtLeast(48.dp)
+                compose.onNodeWithText(saveLabel, useUnmergedTree = true).assertExists()
+                compose.onNodeWithText(cancelLabel, useUnmergedTree = true).assertExists()
+                for ((index, color) in DiaryNote.colors.withIndex()) {
+                    val label = native.getString(listOf("Шалфей", "Песок", "Роза", "Небо")[index])
+                    compose.onNodeWithTag("diary-color-$color").performScrollTo().assertHeightIsAtLeast(48.dp).assertContentDescriptionEquals(label)
+                    state("preset-$color", label)
+                }
+                compose.onNodeWithTag("diary-color-custom").performScrollTo().assertHeightIsAtLeast(48.dp).performClick(); await("diary-color-picker")
+                compose.onNodeWithText(t("Цвет записи"), useUnmergedTree = true).assertExists()
+                compose.onNodeWithTag("diary-color-apply").assertIsDisplayed().assertIsEnabled()
+                state("custom-color", t("Цвет записи"), t("Применить"), cancelLabel); shot("palette")
+                closeDialog("diary-color-picker")
+                state("editor", saveLabel, cancelLabel); shot("editor")
+                closeDialog("diary-editor")
+                compose.onNodeWithTag("diary-actions").performClick(); compose.onNodeWithTag("diary-favorites-open").performClick()
+                compose.onNodeWithText(native.getString("Избранных советов пока нет.")).assertExists()
+                compose.onNodeWithTag("diary-back-to-board").assertIsDisplayed().assertHeightIsAtLeast(48.dp)
+                state("favorites", t("Назад в дневник"), native.getString("Избранных советов пока нет."))
+                compose.onNodeWithTag("diary-back-to-board").performClick()
+                compose.onNodeWithTag("diary-actions").performClick(); compose.onNodeWithText(t("Архив")).performClick()
+                compose.onNodeWithText(native.getString("В архиве пока нет записей.")).assertExists()
+                state("archive", t("Назад в дневник"), native.getString("В архиве пока нет записей."))
+                compose.onNodeWithTag("diary-back-to-board").performClick()
+                compose.onNodeWithTag("diary-search-open").assertContentDescriptionEquals(t("Поиск записей")).performClick(); await("diary-search")
+                compose.onNodeWithText(t("Поиск записей"), useUnmergedTree = true).assertExists()
+                compose.onNodeWithTag("diary-search-close").assertHeightIsAtLeast(48.dp).assertWidthIsAtLeast(48.dp)
+                state("search", t("Поиск записей"))
+                compose.onNodeWithTag("diary-search").performTextReplacement("missing-synthetic-note")
+                compose.onNodeWithText(native.getString("Записи не найдены. Измените запрос.")).assertExists()
+                state("empty-search", native.getString("Записи не найдены. Измените запрос."))
+                compose.onNodeWithTag("diary-search").performTextClearance()
+                compose.onNodeWithTag("diary-search-close").performClick(); await("diary-open-${note.id}")
+                val gate = CompletableDeferred<Unit>()
+                compose.runOnIdle { gateway.readGate = gate }
+                refresh(); compose.onNodeWithTag("workspace-menu").performClick(); await("drawer-background-status")
+                compose.onNodeWithTag("drawer-background-status").performScrollTo().assertIsDisplayed()
+                compose.onNode(hasText(t("Загрузка…")) and hasAnyAncestor(hasTestTag("drawer-background-status")), useUnmergedTree = true).assertExists()
+                compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo) and
+                    hasAnyAncestor(hasTestTag("diary-screen")), useUnmergedTree = true).assertCountEquals(0)
+                state("loading-in-drawer", t("Загрузка…"))
+                compose.runOnIdle { gateway.readGate = null; gate.complete(Unit) }
+                compose.waitUntil(20_000) { compose.onAllNodesWithTag("drawer-background-status").fetchSemanticsNodes().isEmpty() }
+                closeDrawer()
+                compose.runOnIdle { gateway.offline = true }; refresh()
+                compose.waitUntil(20_000) { repository.state.value.offline }
+                notice("drawer-diary-offline", native.getString("Нет сети. Доступна защищённая локальная копия дневника.")); shot("offline")
+                closeDrawer()
+                compose.runOnIdle { gateway.offline = false; gateway.invalidResponse = true }; refresh()
+                compose.waitUntil(20_000) { repository.state.value.protected }
+                compose.onNodeWithTag("diary-create").assertIsNotEnabled()
+                notice("drawer-diary-error", native.getString("Формат дневника изменился. Обновите приложение; записи сохранены."))
+                compose.onNodeWithTag("drawer-diary-error-retry").performScrollTo().assertIsEnabled().assertHeightIsAtLeast(48.dp).assertWidthIsAtLeast(48.dp)
+                state("protected-retry", t("Повторить")); shot("protected")
+                compose.runOnIdle { gateway.invalidResponse = false }
+                compose.onNodeWithTag("drawer-diary-error-retry").performClick()
+                compose.waitUntil(20_000) { !repository.state.value.protected && !repository.state.value.offline &&
+                    compose.onAllNodesWithTag("drawer-diary-error").fetchSemanticsNodes().isEmpty() }
+                closeDrawer()
+                compose.onNodeWithTag("diary-create").assertIsEnabled()
+                compose.onNodeWithTag("diary-actions").performClick(); compose.onNodeWithTag("diary-settings-open").performClick(); await("diary-settings-dialog")
+                compose.onNode(hasText(copy.getString("settings")) and hasAnyAncestor(hasTestTag("diary-settings-dialog")), useUnmergedTree = true).assertExists()
+                compose.onNodeWithTag("diary-sync-status").assertTextEquals(copy.getString("syncOn"))
+                state("settings", copy.getString("settings"), copy.getString("syncLabel"), copy.getString("syncOn"))
+                for (key in listOf("syncHint", "localWarning", "backupRetention")) {
+                    compose.onNode(hasText(copy.getString(key)) and hasAnyAncestor(hasTestTag("diary-settings-dialog")), useUnmergedTree = true).performScrollTo().assertIsDisplayed()
+                    state("settings-$key", copy.getString(key))
+                }
+                compose.onNodeWithTag("diary-purge-server").performScrollTo().assertIsDisplayed().assertHeightIsAtLeast(48.dp)
+                state("settings-server-action", copy.getString("purgeServer"))
+                compose.onNodeWithTag("diary-sync-toggle").performScrollTo().performClick(); await("diary-sync-confirmation")
+                compose.onNodeWithText(copy.getString("disableTitle"), useUnmergedTree = true).assertExists()
+                compose.onNodeWithText(copy.getString("disableBody"), useUnmergedTree = true).performScrollTo().assertIsDisplayed()
+                state("disable-confirmation", copy.getString("disableTitle"), copy.getString("disableBody"), copy.getString("apply"))
+                compose.onNodeWithTag("diary-sync-confirm").performClick()
+                compose.waitUntil(20_000) { !repository.state.value.syncEnabled && compose.onAllNodesWithTag("diary-sync-confirmation").fetchSemanticsNodes().isEmpty() }
+                compose.onNodeWithTag("diary-sync-status").assertTextEquals(copy.getString("localOnly"))
+                closeDialog("diary-settings-dialog")
+                notice("drawer-diary-local-only", copy.getString("localOnly")); closeDrawer()
+                runBlocking { repository.setSyncEnabled(true) }
+                compose.waitUntil(20_000) { repository.state.value.syncEnabled }
+                assertTrue("$prefix: authored note survives every locale/status", repository.state.value.records.single().note.sameContent(note))
+                assertFalse(store.ciphertext!!.contains(note.title)); assertFalse(store.ciphertext!!.contains(note.body))
+                state("recovered-board")
+                completed += prefix
+                println("GENESIS_DIARY_LOCALE_CHECKED=$prefix")
+            }
+            assertEquals(languages.size * 2, completed.size)
+        } catch (cause: Throwable) { failure = cause; throw cause }
+        finally {
+            gateway.readGate?.complete(Unit); gateway.readGate = null
+            File(context.getExternalFilesDir(null), "diary-locales-360-font1.3-proof.json").writeText(JSONObject()
+                .put("widthDp", 360).put("fontScale", 1.3).put("completed", JSONArray(completed)).put("states", states)
+                .put("requestedLanguage", requestedLanguage ?: JSONObject.NULL).put("allLocalesRequested", requestedLanguage == null)
+                .put("lastCheckpoint", checkpoint).put("failure", failure?.stackTraceToString() ?: JSONObject.NULL).toString(2))
+        }
     }
 
     @Test fun palettePresetsAreEqualAndCustomColorAppliesOnlyOnConfirmation() {
@@ -134,30 +420,68 @@ class DiaryScreenTest {
     }
 
     @Test fun noteSaveRemainsVisibleWithKeyboardAndLongText() {
-        compose.setContent { Content() }; await("diary-create")
-        compose.onNodeWithTag("diary-create").performClick(); await("diary-editor")
-        compose.onNodeWithTag("diary-body").performClick()
-        compose.waitUntil(10_000) {
-            androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
-                .executeShellCommand("dumpsys input_method").contains("mInputShown=true")
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val device = androidx.test.uiautomator.UiDevice.getInstance(instrumentation)
+        val proof = File(compose.activity.getExternalFilesDir(null), "diary-long-note-ime-proof.json")
+        val stages = JSONArray()
+        var failure: Throwable? = null
+        fun stage(name: String, cause: Throwable? = null) {
+            stages.put(JSONObject().put("stage", name).put("uptimeMs", android.os.SystemClock.uptimeMillis())
+                .put("savedNotes", repository.state.value.records.count { !it.draft })
+                .put("failure", cause?.stackTraceToString() ?: JSONObject.NULL))
+            proof.writeText(JSONObject().put("widthDp", width).put("dark", dark).put("stages", stages).toString(2))
+            println("GENESIS_DIARY_IME_PHASE=$name")
         }
-        compose.onNodeWithTag("diary-body").performTextReplacement("Длинный текст записи. ".repeat(100))
-        compose.onNodeWithTag("diary-body").assertTextContains("Длинный текст записи.", substring = true)
-        compose.onNodeWithTag("diary-save").assertIsDisplayed().assertIsEnabled()
-        capture("keyboard", "diary-editor")
-        val device = androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
-        val close = requireNotNull(device.findObject(androidx.test.uiautomator.By.desc("Закрыть").pkg(compose.activity.packageName))) {
-            "Close remains accessible with a long note and IME"
+        try {
+            stage("open")
+            compose.setContent { Content() }; await("diary-create")
+            compose.onNodeWithTag("diary-create").performClick(); await("diary-editor")
+            stage("show-system-ime")
+            compose.onNodeWithTag("diary-body").performClick().assertIsFocused()
+            compose.waitUntil(10_000) { device.executeShellCommand("dumpsys input_method").contains("mInputShown=true") }
+            stage("long-note")
+            compose.onNodeWithTag("diary-body").performTextReplacement("Длинный текст записи. ".repeat(100))
+            compose.onNodeWithTag("diary-body").assertTextContains("Длинный текст записи.", substring = true)
+            compose.onNodeWithTag("diary-save").assertIsDisplayed().assertIsEnabled()
+            capture("keyboard", "diary-editor")
+            val close = requireNotNull(device.findObject(androidx.test.uiautomator.By.desc("Закрыть").pkg(compose.activity.packageName))) {
+                "Close remains accessible with a long note and IME"
+            }
+            val statusBarHeight = compose.runOnIdle {
+                requireNotNull(androidx.core.view.ViewCompat.getRootWindowInsets(compose.activity.window.decorView))
+                    .getInsets(androidx.core.view.WindowInsetsCompat.Type.statusBars()).top
+            }
+            val closeBounds = close.visibleBounds
+            assertTrue("Close bounds=$closeBounds must stay below status bar=$statusBarHeight", closeBounds.top >= statusBarHeight)
+            stage("save-with-ime")
+            compose.onNodeWithTag("diary-save").performClick()
+            compose.waitUntil(20_000) { repository.state.value.records.any { !it.draft } }
+            assertTrue(repository.state.value.records.single { !it.draft }.note.body.length > 1000)
+            stage("wait-editor-disposal")
+            compose.waitUntil(20_000) { compose.onAllNodesWithTag("diary-editor").fetchSemanticsNodes().isEmpty() }
+            val saved = repository.state.value.records.single { !it.draft }
+            await("diary-note-${saved.note.id}")
+            compose.onNodeWithTag("diary-note-${saved.note.id}").assertIsDisplayed()
+            compose.onNodeWithTag("diary-editor").assertDoesNotExist()
+            stage("body-assertions-passed")
+        } catch (cause: Throwable) {
+            failure = cause
+            // Preserve the body failure even if ActivityScenario.after later reports a lifecycle timeout.
+            try { stage("body-failure", cause) } catch (capture: Throwable) { cause.addSuppressed(capture) }
+            throw cause
+        } finally {
+            try {
+                stage("ime-cleanup-started")
+                if (device.executeShellCommand("dumpsys input_method").contains("mInputShown=true")) device.pressBack()
+                // Do not re-enter Compose after a failed body. Its first error and phase stay available above.
+                if (failure == null) compose.waitUntil(10_000) {
+                    !device.executeShellCommand("dumpsys input_method").contains("mInputShown=true")
+                }
+                stage("ime-cleanup-finished")
+            } catch (cleanup: Throwable) {
+                if (failure != null) failure.addSuppressed(cleanup) else throw cleanup
+            }
         }
-        val statusBarHeight = compose.runOnIdle {
-            requireNotNull(androidx.core.view.ViewCompat.getRootWindowInsets(compose.activity.window.decorView))
-                .getInsets(androidx.core.view.WindowInsetsCompat.Type.statusBars()).top
-        }
-        val closeBounds = close.visibleBounds
-        assertTrue("Close bounds=$closeBounds must stay below status bar=$statusBarHeight", closeBounds.top >= statusBarHeight)
-        compose.onNodeWithTag("diary-save").performClick()
-        compose.waitUntil(20_000) { repository.state.value.records.any { !it.draft } }
-        assertTrue(repository.state.value.records.single { !it.draft }.note.body.length > 1000)
     }
     @Test fun createEditSearchPinArchiveAndRestorePersistEncryptedNotes() {
         compose.setContent { Content() }; await("diary-create")

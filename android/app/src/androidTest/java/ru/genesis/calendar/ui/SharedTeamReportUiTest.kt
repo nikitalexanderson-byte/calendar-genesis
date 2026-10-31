@@ -1,5 +1,12 @@
 package ru.genesis.calendar.ui
 
+import android.accessibilityservice.AccessibilityServiceInfo
+import android.content.res.Configuration
+import android.graphics.Rect
+import android.os.Build
+import android.provider.Settings
+import android.view.accessibility.AccessibilityWindowInfo
+import android.view.inspector.WindowInspector
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -7,11 +14,17 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.unit.Density
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.By
+import androidx.test.uiautomator.Until
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.*
@@ -76,11 +89,21 @@ class SharedTeamReportUiTest {
         compose.runOnIdle { fixture = value; epoch++; closed = false }
         compose.waitUntil(10000) { runCatching { compose.onNodeWithTag("team-open-all").assertIsEnabled() }.isSuccess }
     }
+    private fun assertScrollableViewport() {
+        val bounds = compose.onNodeWithTag("team-content").fetchSemanticsNode().boundsInRoot
+        assertTrue("The team report must have a non-zero scroll viewport before searching for an offscreen control: $bounds",
+            bounds.width > 0f && bounds.height > 0f)
+    }
     private fun click(tag: String) {
-        if (compose.onAllNodesWithTag(tag, useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
+        if (compose.onAllNodesWithTag(tag, useUnmergedTree = true).fetchSemanticsNodes().isEmpty()) {
+            assertScrollableViewport()
             compose.onNodeWithTag("team-content").performScrollToNode(hasTestTag(tag))
+        }
         val node = compose.onNodeWithTag(tag, useUnmergedTree = true)
-        if (runCatching { node.assertIsDisplayed() }.isFailure) node.performScrollTo()
+        if (runCatching { node.assertIsDisplayed() }.isFailure) {
+            assertScrollableViewport()
+            node.performScrollTo()
+        }
         node.assertIsEnabled().performClick(); compose.waitForIdle()
     }
     private fun pane(name: String) {
@@ -111,6 +134,109 @@ class SharedTeamReportUiTest {
         pane("conditions"); compose.onNodeWithTag("team-time-zone").assertTextContains("America/New_York")
         click("team-apply"); pane("summary"); compose.onNodeWithTag("team-open-all").assertExists(); assertEquals(2, f.reports)
         assertEquals("America/New_York", f.lastOptions!!.getJSONObject("calendarContext").getString("timeZone"))
+    }
+    @Test fun landscapeSystemKeyboardKeepsConditionsAndReportReachable() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val device = UiDevice.getInstance(instrumentation)
+        val automation = instrumentation.uiAutomation
+        val originalFlags = automation.serviceInfo.flags
+        val keyboard = requireNotNull(Settings.Secure.getString(instrumentation.targetContext.contentResolver,
+            Settings.Secure.DEFAULT_INPUT_METHOD)).substringBefore('/')
+        var phase = "orientation"
+        var lastInputGeometry: JSONObject? = null
+        try {
+            device.setOrientationLeft()
+            compose.waitUntil(10_000) { compose.activity.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE }
+            phase = "conditions"
+            val f = TeamUiFixture(); show(f); pane("conditions")
+            compose.onNodeWithTag("team-time-zone").performScrollTo().performTouchInput { click() }
+            phase = "system-ime"
+            assertTrue("The regression must use the real system IME", device.wait(Until.hasObject(By.pkg(keyboard)), 10_000))
+            compose.onNodeWithTag("team-time-zone").performTextReplacement("America/New_York")
+            automation.serviceInfo = automation.serviceInfo.apply { flags = flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS }
+            phase = "input-full-height"
+            compose.waitUntil(10_000) {
+                val input = compose.onNodeWithTag("team-time-zone").fetchSemanticsNode()
+                val ancestors = JSONArray()
+                var parent = input.parent
+                repeat(8) {
+                    parent?.let { node -> ancestors.put(JSONObject().put("tag", node.config.getOrNull(SemanticsProperties.TestTag))
+                        .put("boundsInWindow", node.boundsInWindow.toString()).put("size", node.size.toString())) }
+                    parent = parent?.parent
+                }
+                lastInputGeometry = JSONObject().put("boundsInRoot", input.boundsInRoot.toString())
+                    .put("boundsInWindow", input.boundsInWindow.toString()).put("size", input.size.toString()).put("ancestors", ancestors)
+                input.boundsInWindow.height >= input.size.height - 1f
+            }
+            val input = compose.onNodeWithTag("team-time-zone").assertIsFocused().fetchSemanticsNode()
+            val imeWindow = requireNotNull(automation.windows.firstOrNull { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD })
+            val imeBounds = Rect().also(imeWindow::getBoundsInScreen)
+            val viewport = compose.onNodeWithTag("team-content").fetchSemanticsNode().boundsInWindow
+            val actualDensity = requireNotNull(density).density
+            assertScrollableViewport()
+            assertTrue("The focused input must remain fully visible above the real system keyboard",
+                input.boundsInWindow.height >= input.size.height - 1f && input.boundsInWindow.bottom <= imeBounds.top + 1f)
+            assertTrue("The landscape IME must leave enough report space for a full input row", viewport.height >= 56f * actualDensity - 1f)
+            val proof = JSONObject().put("imeBounds", imeBounds.toShortString()).put("inputBounds", input.boundsInWindow.toString())
+                .put("inputFullHeight", input.size.height).put("viewportBounds", viewport.toString()).put("density", actualDensity.toDouble())
+            File(instrumentation.targetContext.filesDir, "team-landscape-ime-proof.json").writeText(proof.toString())
+            assertTrue(device.takeScreenshot(File(instrumentation.targetContext.filesDir, "team-landscape-ime.png")))
+
+            // Leave the real keyboard open: navigation must work in the constrained viewport.
+            phase = "navigate-with-ime"
+            pane("summary"); compose.onNodeWithTag("team-open-all").assertDoesNotExist()
+            pane("conditions"); compose.onNodeWithTag("team-time-zone").assertTextContains("America/New_York")
+            click("team-apply"); pane("summary"); compose.onNodeWithTag("team-open-all").assertExists()
+            assertEquals(2, f.reports)
+            assertEquals("America/New_York", f.lastOptions!!.getJSONObject("calendarContext").getString("timeZone"))
+            assertFalse(closed)
+        } catch (failure: Throwable) {
+            val context = instrumentation.targetContext
+            val directory = context.getExternalFilesDir(null) ?: context.cacheDir
+            val name = "team313-ime-$phase-${System.currentTimeMillis()}"
+            fun diagnostic(action: () -> Unit) {
+                try {
+                    check(ru.genesis.calendar.BuildConfig.DEBUG && context.packageName in setOf("ru.genesis.calendar.v313.debug", "ru.genesis.calendar.g1qa.debug", "ru.genesis.calendar.debug"))
+                    action()
+                } catch (captureFailure: Throwable) { failure.addSuppressed(captureFailure) }
+            }
+            // No Compose/Espresso re-entry after failure; preserve the last polled geometry and process-owned evidence.
+            diagnostic {
+                val traces = Thread.getAllStackTraces().entries.sortedBy { it.key.id }.joinToString("\n\n") { (thread, frames) ->
+                    "Thread ${thread.id} ${thread.name} ${thread.state}\n" + frames.joinToString("\n") { "  at $it" }
+                }
+                File(directory, "$name-threads.txt").writeText(traces)
+            }
+            diagnostic {
+                val windows = JSONArray(automation.windows.map { window ->
+                    val bounds = Rect().also(window::getBoundsInScreen)
+                    JSONObject().put("type", window.type).put("bounds", bounds.toShortString()).put("focused", window.isFocused)
+                })
+                val roots = if (Build.VERSION.SDK_INT >= 29) WindowInspector.getGlobalWindowViews() else emptyList()
+                val ownedWindows = JSONArray(roots.map { view ->
+                    val location = IntArray(2).also(view::getLocationOnScreen)
+                    val insets = ViewCompat.getRootWindowInsets(view)
+                    JSONObject().put("class", view.javaClass.name).put("width", view.width).put("height", view.height)
+                        .put("screenX", location[0]).put("screenY", location[1]).put("windowFocus", view.hasWindowFocus())
+                        .put("imeVisible", insets?.isVisible(WindowInsetsCompat.Type.ime()))
+                        .put("imeInsets", insets?.getInsets(WindowInsetsCompat.Type.ime())?.toString())
+                        .put("systemBarInsets", insets?.getInsets(WindowInsetsCompat.Type.systemBars())?.toString())
+                })
+                val config = context.resources.configuration
+                File(directory, "$name.json").writeText(JSONObject().put("phase", phase).put("failure", failure.stackTraceToString())
+                    .put("keyboardPackage", keyboard).put("orientation", config.orientation).put("widthDp", config.screenWidthDp)
+                    .put("heightDp", config.screenHeightDp).put("fontScale", config.fontScale.toDouble())
+                    .put("lastInputGeometry", lastInputGeometry ?: JSONObject.NULL).put("windows", windows).put("ownedWindows", ownedWindows).toString(2))
+            }
+            diagnostic { check(device.takeScreenshot(File(directory, "$name.png"))) }
+            println("QA team IME first failure: $name")
+            throw failure
+        } finally {
+            runCatching { device.pressBack() }
+            automation.serviceInfo = automation.serviceInfo.apply { flags = originalFlags }
+            device.setOrientationNatural()
+            device.unfreezeRotation()
+        }
     }
     @Test fun aChangedReportCannotOpenAnOldTaskAndOfflineClearsResults() {
         val f = TeamUiFixture(); show(f); click("team-open-all")

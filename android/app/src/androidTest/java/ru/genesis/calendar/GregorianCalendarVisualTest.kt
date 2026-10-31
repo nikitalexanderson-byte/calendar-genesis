@@ -164,7 +164,7 @@ class GregorianCalendarVisualTest {
             badge.performClick()
             compose.onNodeWithTag("calendar-task-list-dialog").assertIsDisplayed()
             compose.onAllNodesWithText("Badge task").assertCountEquals(2)
-            compose.onNodeWithText("Закрыть").performClick()
+            compose.onNodeWithContentDescription("Закрыть").performClick()
         }
     }
 

@@ -57,27 +57,33 @@ class NotificationReliabilityTest {
     }
 
     @Test fun migratingChannelsPreservesDisabledAndVibrationSettings() {
-        check(BuildConfig.DEBUG && app.packageName.endsWith(".debug"))
+        check(BuildConfig.DEBUG && app.packageName in setOf(
+            "ru.genesis.calendar.g1qa.debug", "ru.genesis.calendar.v313.debug"))
         val manager = app.getSystemService(NotificationManager::class.java)
-        // These changes are restricted to the synthetic debug application.
-        val taskId = ReminderScheduler.TASK_CHANNEL + ".migration-" + System.nanoTime()
-        val habitId = ReminderScheduler.HABIT_CHANNEL + ".migration-" + System.nanoTime()
-        manager.createNotificationChannel(android.app.NotificationChannel("genesis.tasks.v1", "Legacy task", NotificationManager.IMPORTANCE_NONE).apply {
-            vibrationPattern = longArrayOf(0, 200, 50, 200)
-            enableVibration(false)
-        })
-        manager.createNotificationChannel(android.app.NotificationChannel("genesis.habits.v1", "Legacy habit", NotificationManager.IMPORTANCE_HIGH).apply {
-            vibrationPattern = longArrayOf(0, 70, 90, 70)
-            enableVibration(false)
-        })
-        app.scheduler.createChannels("ru", taskId, habitId)
+        val suffix = java.util.UUID.randomUUID().toString()
+        val taskId = ReminderScheduler.TASK_CHANNEL + ".migration-" + suffix
+        val habitId = ReminderScheduler.HABIT_CHANNEL + ".migration-" + suffix
+        val legacyTaskId = "genesis.tasks.v1.migration-" + suffix
+        val legacyHabitId = "genesis.habits.v1.migration-" + suffix
         try {
+            manager.createNotificationChannel(android.app.NotificationChannel(legacyTaskId, "Legacy task", NotificationManager.IMPORTANCE_NONE).apply {
+                vibrationPattern = longArrayOf(0, 200, 50, 200)
+                enableVibration(false)
+            })
+            manager.createNotificationChannel(android.app.NotificationChannel(legacyHabitId, "Legacy habit", NotificationManager.IMPORTANCE_HIGH).apply {
+                vibrationPattern = longArrayOf(0, 70, 90, 70)
+                enableVibration(false)
+            })
+            app.scheduler.createChannels("ru", taskId, habitId,
+                legacyTaskChannelId = legacyTaskId, legacyHabitChannelId = legacyHabitId)
             assertEquals(NotificationManager.IMPORTANCE_NONE, manager.getNotificationChannel(taskId).importance)
+            assertEquals(NotificationManager.IMPORTANCE_HIGH, manager.getNotificationChannel(habitId).importance)
             assertFalse(manager.getNotificationChannel(taskId).shouldVibrate())
             assertFalse(manager.getNotificationChannel(habitId).shouldVibrate())
+            assertArrayEquals(longArrayOf(0, 200, 50, 200), manager.getNotificationChannel(taskId).vibrationPattern)
+            assertArrayEquals(longArrayOf(0, 70, 90, 70), manager.getNotificationChannel(habitId).vibrationPattern)
         } finally {
-            manager.deleteNotificationChannel(taskId)
-            manager.deleteNotificationChannel(habitId)
+            listOf(taskId, habitId, legacyTaskId, legacyHabitId).forEach(manager::deleteNotificationChannel)
         }
     }
 

@@ -147,8 +147,12 @@ class SharedSprintReportUiTest {
     }
     @Test fun disconnectionLeavesOnlyAnExplicitlyStaleAggregateUntilRefresh() {
         val f = ReportUiFixture(); show(f); f.offline = true; click("report-refresh")
-        compose.onNodeWithTag("report-offline").assertExists(); compose.onNodeWithTag("report-open-plan").assertIsNotEnabled()
-        f.offline = false; click("report-refresh"); compose.onNodeWithTag("report-offline").assertDoesNotExist(); compose.onNodeWithTag("report-open-plan").assertIsEnabled()
+        compose.onNodeWithTag("report-offline").assertExists()
+        compose.onNodeWithTag("report-content").performScrollToNode(hasTestTag("report-open-plan"))
+        compose.onNodeWithTag("report-open-plan").assertIsNotEnabled()
+        f.offline = false; click("report-refresh"); compose.onNodeWithTag("report-offline").assertDoesNotExist()
+        compose.onNodeWithTag("report-content").performScrollToNode(hasTestTag("report-open-plan"))
+        compose.onNodeWithTag("report-open-plan").assertIsEnabled()
     }
     @Test fun changedReportCannotOpenAnOldSource() {
         val f = ReportUiFixture(); show(f); f.changed = true; click("report-open-plan")

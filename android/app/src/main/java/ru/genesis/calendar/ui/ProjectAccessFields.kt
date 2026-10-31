@@ -52,8 +52,8 @@ import java.util.Locale
     filtered.take(limit).forEach { project -> key(project.getString("id")) {
         val id = project.getString("id"); val selected = rules.find { it.getString("projectId") == id }
         Column(Modifier.fillMaxWidth().testTag("access-rule-$id"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            androidx.compose.material3.Text(project.getString("title"), style = MaterialTheme.typography.titleSmall)
-            catalog[project.optString("parentId")]?.let { androidx.compose.material3.Text(it.getString("title"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            UntranslatedText(project.getString("title"), style = MaterialTheme.typography.titleSmall)
+            catalog[project.optString("parentId")]?.let { UntranslatedText(it.getString("title"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             if (project.optInt("inTrash") == 1) Text("Корзина", style = MaterialTheme.typography.bodySmall)
             else if (!project.isNull("archivedAt")) Text("Архив", style = MaterialTheme.typography.bodySmall)
             ImportChoice("Правило доступа", selected?.getString("role") ?: "inherit", choices, state.editable, "access-role-$id") { role -> rule(id, role) }
@@ -65,7 +65,7 @@ import java.util.Locale
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
     } }
-    if (filtered.isEmpty()) Text("Проекты не найдены.") else androidx.compose.material3.Text(genesisTranslate("Показано {shown} из {total}")
+    if (filtered.isEmpty()) Text("Проекты не найдены.") else UntranslatedText(genesisTranslate("Показано {shown} из {total}")
         .replace("{shown}", number.format(minOf(limit, filtered.size))).replace("{total}", number.format(filtered.size)), Modifier.testTag("access-project-count"), style = MaterialTheme.typography.bodySmall)
     if (limit < filtered.size) OutlinedButton({ limit += 5 }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("access-more-projects")) { Text("Показать ещё") }
 }
@@ -88,11 +88,11 @@ import java.util.Locale
     }
     importRows(preview.getJSONArray("blockers")).forEach { blocker ->
         Text("Сначала передайте владение проектом другому участнику.", Modifier.testTag("access-last-owner"), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
-        projects[blocker.getString("projectId")]?.let { androidx.compose.material3.Text(it.getString("title"), style = MaterialTheme.typography.titleSmall) }
+        projects[blocker.getString("projectId")]?.let { UntranslatedText(it.getString("title"), style = MaterialTheme.typography.titleSmall) }
     }
-    androidx.compose.material3.Text(genesisTranslate("Проектов с изменениями: {count}").replace("{count}", number.format(changes.size)), Modifier.testTag("access-change-count"), style = MaterialTheme.typography.titleSmall)
+    UntranslatedText(genesisTranslate("Проектов с изменениями: {count}").replace("{count}", number.format(changes.size)), Modifier.testTag("access-change-count"), style = MaterialTheme.typography.titleSmall)
     val assignments = changes.sumOf { it.getLong("clearedAssignments") }
-    if (assignments > 0) androidx.compose.material3.Text(genesisTranslate("Будут сняты назначения: {count}").replace("{count}", number.format(assignments)), Modifier.testTag("access-assignment-count"), style = MaterialTheme.typography.bodyMedium)
+    if (assignments > 0) UntranslatedText(genesisTranslate("Будут сняты назначения: {count}").replace("{count}", number.format(assignments)), Modifier.testTag("access-assignment-count"), style = MaterialTheme.typography.bodyMedium)
     AffairsDisclosure("Правило доступа", Modifier.testTag("access-preview-policy")) {
         val desired = preview.getJSONObject("desired")
         if (desired.getBoolean("allProjects")) Text("Все проекты пространства, включая будущие", style = MaterialTheme.typography.bodyMedium)
@@ -100,7 +100,7 @@ import java.util.Locale
             Text("Без отдельного правила действует ближайшее включённое правило родителя. Если его нет, доступа нет. «Нет доступа» создаёт явное исключение.", style = MaterialTheme.typography.bodyMedium)
             val rules = importRows(desired.getJSONArray("grants")); var shown by remember(preview) { mutableIntStateOf(5) }
             rules.take(shown).forEach { rule ->
-                projects[rule.getString("projectId")]?.let { androidx.compose.material3.Text(it.getString("title"), style = MaterialTheme.typography.titleSmall) }
+                projects[rule.getString("projectId")]?.let { UntranslatedText(it.getString("title"), style = MaterialTheme.typography.titleSmall) }
                 Text(when (rule.getString("role")) { "member" -> "Редактирование"; "commenter" -> "Комментарии"; "viewer" -> "Просмотр"; else -> "Нет доступа" }, style = MaterialTheme.typography.bodyMedium)
                 if (rule.getBoolean("includeDescendants")) Text("Включая существующие и будущие подпроекты", style = MaterialTheme.typography.bodySmall)
             }
@@ -110,8 +110,8 @@ import java.util.Locale
     if (changes.isEmpty()) Text("Текущие права проектов не изменятся.")
     changes.take(limit).forEach { row -> key(row.getString("projectId")) {
         Column(Modifier.fillMaxWidth().testTag("access-change-${row.getString("projectId")}"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            androidx.compose.material3.Text(row.getString("title"), style = MaterialTheme.typography.titleSmall)
-            androidx.compose.material3.Text(permissions(row.getJSONObject("beforePermissions")) + " → " + permissions(row.getJSONObject("afterPermissions")), style = MaterialTheme.typography.bodyMedium)
+            UntranslatedText(row.getString("title"), style = MaterialTheme.typography.titleSmall)
+            UntranslatedText(permissions(row.getJSONObject("beforePermissions")) + " → " + permissions(row.getJSONObject("afterPermissions")), style = MaterialTheme.typography.bodyMedium)
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
     } }

@@ -38,18 +38,19 @@ class NativeUiTest {
     }
 
     @Test fun nativeHabitFormPersistsEntry() {
-        compose.onNodeWithTag("navigation-Привычки").performClick()
-        compose.onNodeWithText("Новая привычка").performScrollTo().performClick()
-        compose.onAllNodes(hasSetTextAction()).onFirst().performTextInput("UI synthetic habit")
+        val title = "UI synthetic habit ${UUID.randomUUID()}"
+        compose.openWorkspacePage("Привычки", "Привычки")
+        compose.onNodeWithTag("habit-create").assertIsEnabled().performClick()
+        compose.onAllNodes(hasSetTextAction()).onFirst().performTextInput(title)
         compose.onNodeWithTag("habit-emoji-picker-open").performScrollTo().performClick()
         compose.onNodeWithText("Животные и природа").performScrollTo().performClick()
         compose.onNodeWithTag("habit-emoji-choice-🦋").performScrollTo().performClick()
         compose.onNodeWithTag("habit-emoji").assertTextContains("🦋")
         compose.onNodeWithText("Сохранить").performScrollTo().performClick()
         compose.waitUntil(10_000) {
-            compose.onAllNodesWithText("UI synthetic habit",substring=true).fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithText(title,substring=true).fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onAllNodesWithText("UI synthetic habit",substring=true).onFirst().assertExists()
+        compose.onAllNodesWithText(title,substring=true).onFirst().assertExists()
     }
 
     @Test fun nativeMoodFormPersistsSelection() {
@@ -70,8 +71,7 @@ class NativeUiTest {
     }
 
     @Test fun customMoodNameAndEmojiCanBePickedOnDevice() {
-        compose.onNodeWithTag("navigation-Привычки").performClick()
-        compose.onNodeWithText("Сон и настроение").performClick()
+        compose.openWorkspacePage("Привычки", "Сон и настроение")
         compose.onNode(hasText("Выбрать настроение") or hasText("Изменить настроение")).performScrollTo().performClick()
         compose.onNodeWithTag("custom-mood-choice").performScrollTo().performClick()
         compose.onNodeWithTag("custom-mood-label").performTextClearance()
@@ -132,10 +132,7 @@ class NativeUiTest {
     }
 
     @Test fun accountSettingsAlwaysShowThreeExternalLinks() {
-        compose.onNodeWithTag("navigation-Настройки").performClick()
-        compose.onNodeWithTag("settings-submenu")
-            .performScrollToNode(hasTestTag("settings-submenu-links"))
-        compose.onNodeWithTag("settings-submenu-links").performClick()
+        compose.openWorkspacePage("Настройки", "links")
         compose.onNodeWithTag("account-link-telegram").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("account-link-donate").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("account-link-web").performScrollTo().assertIsDisplayed()
@@ -155,7 +152,7 @@ class NativeUiTest {
         val initial = runBlocking { preferences.values.first() }
         try {
             runBlocking { preferences.set("display", "sacred") }
-            compose.onNodeWithTag("navigation-Настройки").performClick()
+            compose.openWorkspacePage("Настройки", "appearance")
             compose.onNodeWithTag("gregorian-week-start-setting").assertDoesNotExist()
             runBlocking { preferences.set("display", "profane") }
             compose.waitUntil(5_000) {

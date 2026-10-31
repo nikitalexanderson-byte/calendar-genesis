@@ -111,8 +111,8 @@ import java.util.UUID
                         TextButton({ erase = true }, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-discard")) { Text(draftCopy.getString("discard")) }
                     }
                     if (!compactIme) Header()
-                    if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth().testTag("template-progress"))
-                    @Composable fun Notice() { if (state.error.isNotBlank()) androidx.compose.material3.Text(when {
+                    if (state.busy) WorkspaceLoadingLine(Modifier.fillMaxWidth().testTag("template-progress"))
+                    @Composable fun Notice() { if (state.error.isNotBlank()) UntranslatedText(when {
                         state.lost -> templateIssueMessage("TEMPLATE_PERMISSION_CHANGED", copy)
                         state.conflicted -> draftCopy.getString("changed")
                         state.error in setOf("PLANNING_DRAFT_STORAGE", "STORAGE") -> draftCopy.getString("error")
@@ -145,7 +145,7 @@ import java.util.UUID
                                     if (records.isNotEmpty()) Text(title, style = MaterialTheme.typography.titleMedium)
                                     records.take(limit).forEach { row -> TemplateOutlinedButton({ run { state.open(row.getString("id")) } }, enabled = !state.busy && state.edit == null && !state.lost, shape = AffairsLayout.controlShape,
                                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-source-${row.getString("id")}")) {
-                                        androidx.compose.material3.Text(row.getString("title"), Modifier.fillMaxWidth(), style = MaterialTheme.typography.bodyMedium)
+                                        UntranslatedText(row.getString("title"), Modifier.fillMaxWidth(), style = MaterialTheme.typography.bodyMedium)
                                     } }
                                     if (records.size > limit) TemplateOutlinedButton({ limit += 5 }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-library-$collection-more")) { Text("Показать ещё") }
                                 }
@@ -153,7 +153,7 @@ import java.util.UUID
                                 if (state.hasMore) TemplateOutlinedButton({ run { state.loadLibrary(more = true) } }, enabled = !state.busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Показать ещё") }
                                 if (state.copies.isNotEmpty()) AffairsDisclosure(draftCopy.getString("heading")) { state.copies.forEach { saved ->
                                     val title = saved.getJSONObject("edit").getJSONObject("request").optString("title").takeUnless { it == "null" }.orEmpty()
-                                    androidx.compose.material3.Text(title, style = MaterialTheme.typography.bodyMedium)
+                                    UntranslatedText(title, style = MaterialTheme.typography.bodyMedium)
                                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                         TemplateIconButton("Восстановить", AffairsAction.HISTORY, !state.busy && !state.dirty && !state.lost, Modifier.weight(1f)) { run { state.useCopy(saved.getString("id")) } }
                                         TemplateIconButton("Убрать", AffairsAction.DELETE, !state.busy && !state.lost, Modifier.weight(1f)) { run { state.removeCopy(saved.getString("id")) } }
@@ -206,7 +206,7 @@ import java.util.UUID
                                         } }
                                     }
                                 } else if (source != null) {
-                                    androidx.compose.material3.Text(source.getString("title"), style = MaterialTheme.typography.headlineSmall)
+                                    UntranslatedText(source.getString("title"), style = MaterialTheme.typography.headlineSmall)
                                     Text(if (source.getBoolean("system")) "Системный шаблон" else "Пользовательский шаблон", style = MaterialTheme.typography.bodyMedium)
                                     val available = !state.busy && !state.lost && state.record == null
                                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -218,7 +218,7 @@ import java.util.UUID
                                     for (collection in listOf("projects", "tasks")) {
                                         val rows = SharedTemplateEdits.rows(manifest.getJSONArray(collection))
                                         var limit by rememberSaveable(source.getString("id"), collection) { mutableIntStateOf(5) }
-                                        rows.take(limit).forEach { row -> androidx.compose.material3.Text(row.getString("title"), style = if (collection == "projects") MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium) }
+                                        rows.take(limit).forEach { row -> UntranslatedText(row.getString("title"), style = if (collection == "projects") MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium) }
                                         if (rows.size > limit) TemplateOutlinedButton({ limit += 5 }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-source-$collection-more")) { Text("Показать ещё") }
                                     }
                                     if (!source.getBoolean("deleted")) Button(::applySource, enabled = available && (if (source.getString("kind") == "project") canCreate else canWrite), shape = AffairsLayout.controlShape, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("template-apply-open")) { Text("Применить шаблон") }

@@ -32,7 +32,7 @@ private fun done(row: JSONObject) = row.opt("isDone") == true || (row.opt("isDon
                 val next = current.filterNot { it == row.getString("key") }.toMutableList(); if (checked) next += row.getString("key")
                 selection.getJSONObject("parse").put("doneStatusKeys", JSONArray(next))
             } }, enabled = enabled)
-            androidx.compose.material3.Text(row.getString("title"), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+            UntranslatedText(row.getString("title"), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
         }
     }
     val none = "@none" to genesisTranslate("Без исполнителя"); val unset = "@unset" to genesisTranslate("Не задано")
@@ -102,20 +102,20 @@ private fun done(row: JSONObject) = row.opt("isDone") == true || (row.opt("isDon
         "select" -> ImportChoice(title, value as? String ?: "@unset", listOf("@unset" to genesisTranslate("Не задано")) +
             importRows(field.getJSONArray("options")).filterNot { it.optBoolean("archived") }.map { it.getString("id") to it.getString("title") }, enabled, "import-default-$id", userLabel = true) { set(it.takeUnless { it == "@unset" }) }
         "multi" -> {
-            androidx.compose.material3.Text(title, style = MaterialTheme.typography.titleSmall)
+            UntranslatedText(title, style = MaterialTheme.typography.titleSmall)
             val selected = (value as? JSONArray)?.let { rows -> (0 until rows.length()).map(rows::getString) }.orEmpty()
             ImportBatch("Варианты", importRows(field.getJSONArray("options")).filterNot { it.optBoolean("archived") }, "import-default-$id") { option ->
                 val key = option.getString("id")
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(key in selected, { checked -> set(JSONArray((selected.filterNot { it == key } + if (checked) listOf(key) else emptyList()).distinct())) }, enabled = enabled,
                         modifier = Modifier.testTag("import-default-$id-$key"))
-                    androidx.compose.material3.Text(option.getString("title"), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                    UntranslatedText(option.getString("title"), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                 }
             }
             if (value != null) TextButton({ set(null) }, enabled = enabled, modifier = Modifier.testTag("import-default-$id-clear")) { Text("Очистить") }
         }
         "date" -> {
-            androidx.compose.material3.Text(title, style = MaterialTheme.typography.titleSmall)
+            UntranslatedText(title, style = MaterialTheme.typography.titleSmall)
             val parse = state.selection.getJSONObject("parse"); val calendar = parse.getJSONObject("calendarContext")
             val date = (value as? String)?.takeIf { runCatching { LocalDate.parse(it) }.isSuccess }.orEmpty()
             AuthorDatePicker(date, CalendarMode.fromWire(parse.getString("calendarMode")),
@@ -129,7 +129,7 @@ private fun done(row: JSONObject) = row.opt("isDone") == true || (row.opt("isDon
             OutlinedTextField(text, { next ->
                 text = next.take(5000)
                 set(if (text.isBlank()) null else if (type == "number") text.replace(',', '.').toDoubleOrNull()?.takeIf { it.isFinite() } ?: text else text)
-            }, label = { androidx.compose.material3.Text(title) }, enabled = enabled,
+            }, label = { UntranslatedText(title) }, enabled = enabled,
                 isError = type == "number" && text.isNotBlank() && text.replace(',', '.').toDoubleOrNull()?.isFinite() != true,
                 modifier = Modifier.fillMaxWidth().onFocusChanged { focused = it.isFocused }.testTag("import-default-$id"), textStyle = MaterialTheme.typography.bodyMedium)
         }
