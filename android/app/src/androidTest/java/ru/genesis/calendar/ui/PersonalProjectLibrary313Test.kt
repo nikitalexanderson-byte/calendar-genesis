@@ -128,15 +128,15 @@ class PersonalProjectLibrary313Test {
         row(id)
         if (compose.onAllNodes(actions).fetchSemanticsNodes().isEmpty()) row(id).performClick()
         val button = compose.onNode(actions)
-        if (!button.isDisplayed()) button.performScrollTo()
-        button.assertIsEnabled().performClick()
+        button.performScrollTo().assertIsDisplayed().assertIsEnabled().performClick()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("Изменить проект", substring = false).fetchSemanticsNodes().isNotEmpty()
+        }
     }
     private fun edit(id: String) { menu(id); compose.onNodeWithText("Изменить проект", substring = false).performClick(); ready("project-title") }
     private fun settleIme() {
         compose.runOnIdle { hideSearchKeyboard?.invoke() }
-        compose.waitUntil(5_000) { ViewCompat.getRootWindowInsets(compose.activity.window.decorView)
-            ?.isVisible(WindowInsetsCompat.Type.ime()) != true }
-        compose.waitForIdle()
+        compose.dismissValidationKeyboard()
     }
     private fun selectProjectStatus(label: String) {
         settleIme()
@@ -217,10 +217,7 @@ class PersonalProjectLibrary313Test {
     private fun search(value: String) {
         if (compose.onAllNodesWithTag("personal-task-search").fetchSemanticsNodes().isEmpty()) click("personal-task-search-open")
         ready("personal-task-search").performTextReplacement(value)
-        compose.runOnIdle { hideSearchKeyboard?.invoke() }
-        compose.waitUntil(5_000) { ViewCompat.getRootWindowInsets(compose.activity.window.decorView)
-            ?.isVisible(WindowInsetsCompat.Type.ime()) != true }
-        compose.waitForIdle()
+        settleIme()
     }
     private fun assertSearchTask(id: String) {
         compose.onNodeWithTag("projects-screen").performScrollToNode(hasTestTag("task-$id"))

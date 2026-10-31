@@ -212,7 +212,12 @@ class Release313UiTest {
         }
         compose.onNodeWithTag("olympian-stoicheion-link").performScrollTo().performClick()
         assertEquals(1, links)
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("olympian-zeus").fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithTag("olympian-zeus").assertDoesNotExist()
         compose.onNodeWithTag("olympian-isopsephy-toggle").performScrollTo().performClick()
+        compose.onNodeWithTag("olympian-zeus").assertExists()
+        compose.onNodeWithTag("olympian-catalog-close").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("olympian-zeus").fetchSemanticsNodes().isEmpty() }
         compose.onNodeWithTag("olympian-zeus").assertDoesNotExist()
         compose.onNodeWithTag("future-modeling-open").performScrollTo().performClick()
         compose.onNodeWithTag("future-modeling-dialog").assertIsDisplayed()

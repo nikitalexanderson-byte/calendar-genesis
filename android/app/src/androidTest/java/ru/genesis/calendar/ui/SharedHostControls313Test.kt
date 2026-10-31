@@ -52,15 +52,7 @@ class SharedHostControls313Test {
     private fun clickText(text: String, substring: Boolean = false) = click(hasText(text, substring = substring) and hasClickAction())
     private fun dialogClick(text: String) = click(hasText(text) and hasClickAction() and hasAnyAncestor(isDialog()))
     private fun field(label: String) = compose.onNode(hasText(label) and hasSetTextAction())
-    private fun imeVisible(): Boolean = compose.activity.window.decorView.rootWindowInsets?.let {
-        WindowInsetsCompat.toWindowInsetsCompat(it).isVisible(WindowInsetsCompat.Type.ime())
-    } == true
-    private fun hideIme() {
-        if (imeVisible()) {
-            UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
-            compose.waitUntil(5_000) { !imeVisible() }
-        }
-    }
+    private fun hideIme() = compose.dismissValidationKeyboard()
     private fun content(body: @Composable () -> Unit) = compose.setContent {
         CompositionLocalProvider(LocalGenesisLanguage provides "ru", LocalEveningTheme provides false,
             LocalGenesisUserId provides "synthetic-author") {
