@@ -341,8 +341,10 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                     }
                 }
                 val renderHabit: @Composable (Habit) -> Unit = { habit ->
-                    val card = movableHabitCards.getOrPut("$area:${habit.id}") {
-                        movableContentOf { item: Habit, render: @Composable (Habit) -> Unit -> render(item) }
+                    val card = remember(movableHabitCards, area, habit.id) {
+                        movableHabitCards.getOrPut("$area:${habit.id}") {
+                            movableContentOf { item: Habit, render: @Composable (Habit) -> Unit -> render(item) }
+                        }
                     }
                     // Pass the current renderer so workspace data and action callbacks never stay captured in the cache.
                     card(habit, habitCardContent)

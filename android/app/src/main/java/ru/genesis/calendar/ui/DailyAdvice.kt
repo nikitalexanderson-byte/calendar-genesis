@@ -227,10 +227,10 @@ import kotlin.math.min
                 Image(bitmap.asImageBitmap(), null, Modifier.fillMaxSize().testTag("daily-advice-art"),
                     contentScale = ContentScale.Crop)
                 Box(Modifier.matchParentSize().background(Brush.horizontalGradient(
-                    0f to surface.copy(alpha = if (LocalEveningTheme.current) .80f else .78f),
-                    .40f to surface.copy(alpha = .76f),
-                    .70f to surface.copy(alpha = .72f),
-                    1f to surface.copy(alpha = if (LocalEveningTheme.current) .64f else .70f))))
+                    0f to surface.copy(alpha = if (LocalEveningTheme.current) .80f else .624f),
+                    .40f to surface.copy(alpha = if (LocalEveningTheme.current) .76f else .608f),
+                    .70f to surface.copy(alpha = if (LocalEveningTheme.current) .72f else .576f),
+                    1f to surface.copy(alpha = if (LocalEveningTheme.current) .64f else .56f))))
             }
             Column(Modifier.padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -439,7 +439,7 @@ internal fun NativeMindmapCanvas(map:MindmapDocument,rows:List<Pair<MindmapNode,
                         n.mindmapIcon()?.let { MindmapGlyph(it, Modifier.padding(end=8.dp).size(24.dp), ink) }
                         Column(Modifier.weight(1f)){Text(if(n.kind=="idea")"Мысль" else "GENESIS",style=MaterialTheme.typography.labelSmall);Text(label(n),maxLines=2,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.titleSmall)}
                     }
-                    if(!readOnly)Box(Modifier.fillMaxSize(),contentAlignment=Alignment.CenterEnd){AffairsIconButton(if(connecting==n.id)"Отменить соединение" else "Создать связь",AffairsAction.LINK,{val from=connecting;if(from!=null&&from!=n.id){connecting=null;onLink(from,n.id)}else connecting=if(from==n.id)null else n.id},modifier=Modifier.testTag("mindmap-connect-${n.id}"),contentColor=ink,selected=connecting==n.id)}
+                    if(!readOnly)Box(Modifier.fillMaxSize(),contentAlignment=Alignment.CenterEnd){AffairsIconButton(if(connecting==n.id)"Отменить соединение" else "Создать связь",AffairsAction.LINK,{val from=connecting;if(from!=null&&from!=n.id){connecting=null;onLink(from,n.id)}else connecting=if(from==n.id)null else n.id},modifier=Modifier.testTag("mindmap-connect-${n.id}"),contentColor=ink,outlined=false,selected=connecting==n.id)}
                     }
                 }
 

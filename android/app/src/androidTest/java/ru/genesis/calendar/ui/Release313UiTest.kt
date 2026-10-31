@@ -264,7 +264,7 @@ class Release313UiTest {
 
     @Test fun completeMonthDescriptionsHaveNoInnerScrollAndTodayAlignsWithTheName() {
         var mode by mutableStateOf(CalendarMode.PROFANE)
-        var date by mutableStateOf(LocalDate.of(2026, 10, 30))
+        var date by mutableStateOf(LocalDate.now().plusDays(1))
         compose.setContent { Frame { CalendarScreen(date, mode, { date = it }, experimental = true) } }
         for (choice in CalendarMode.entries) {
             compose.runOnIdle { mode = choice }
@@ -356,7 +356,7 @@ class Release313UiTest {
         val sleep = SleepPlan(TrackerEntity.create("sleep-plan", id = "sleep313"), schedule, "Восстановление")
         val tracker = AddictionTracker(TrackerEntity.create("addiction", id = "abstinence313"), schedule, "Моя практика")
         compose.setContent { Frame { Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp)) {
-            TodayTrackerCards(data, date, true, { moodClicks++ }, { _, _ -> }, { _, _ -> })
+            TodayTrackerCards(data, date, true, { moodClicks++ }, { _, _ -> }, { _, _ -> }, { _, _, _, _, _ -> })
         } } }
         compose.onNodeWithTag("today-sleep-sleep313").assertDoesNotExist()
         compose.onNodeWithText("Сон").assertDoesNotExist()
@@ -372,6 +372,65 @@ class Release313UiTest {
         compose.onNodeWithTag("today-sleep-paused").assertDoesNotExist()
         compose.onNodeWithTag("today-abstinence-paused").assertDoesNotExist()
         capture("today-observations")
+        wordsStayWhole()
+    }
+
+    @Test fun compactCalendarHeroesFillTheirArtworkAndTodayAppearsOnlyWhenReturningIsUseful() {
+        val today = LocalDate.now()
+        val calendar = GenesisCalendar()
+        var mode by mutableStateOf(CalendarMode.PROFANE)
+        var date by mutableStateOf(today)
+        compose.setContent { Frame { CalendarScreen(date, mode, { date = it }, experimental = true) } }
+        for (choice in CalendarMode.entries) {
+            compose.runOnIdle { mode = choice; date = today }
+            compose.onNodeWithTag("calendar-month-today").assertDoesNotExist()
+            val current = calendar.monthRange(today, choice)
+            compose.runOnIdle { date = if (today < current.end) today.plusDays(1) else today.minusDays(1) }
+            compose.onNodeWithTag("calendar-month-today").performScrollTo().assertHeightIsAtLeast(48.dp).performClick()
+            compose.waitUntil(5_000) { date == today }
+            compose.onNodeWithTag("calendar-month-today").assertDoesNotExist()
+            compose.onNodeWithTag("calendar-month-next").performScrollTo().performClick()
+            compose.waitUntil(10_000) { date != today }
+            compose.onNodeWithTag("calendar-month-today").performScrollTo().assertIsDisplayed().performClick()
+            compose.waitUntil(5_000) { date == today }
+            compose.onNodeWithTag("calendar-month-today").assertDoesNotExist()
+            val month = compose.onNodeWithTag("month-description-layout").performScrollTo()
+            month.assertHeightIsEqualTo(200.dp)
+            val monthBounds = month.fetchSemanticsNode().boundsInRoot
+            val artTag = when (choice) { CalendarMode.PROFANE -> "gregorian-month-art"; CalendarMode.SACRED -> "sacred-month-art"; CalendarMode.LUNAR -> "lunar-month-art" }
+            val artwork = compose.onNodeWithTag(artTag, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+            assertEquals(monthBounds.width, artwork.width, 1f)
+            assertEquals(monthBounds.height, artwork.height, 1f)
+            capture("compact-month-${choice.wireValue}")
+            val day = compose.onNodeWithTag("calendar-day-hero").performScrollTo()
+            day.assertHeightIsEqualTo(240.dp)
+            val dayBounds = day.fetchSemanticsNode().boundsInRoot
+            val dayArt = compose.onNodeWithTag("calendar-weekday-art", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+            assertEquals(dayBounds.width, dayArt.width, 1f)
+            assertEquals(dayBounds.height, dayArt.height, 1f)
+            capture("compact-day-${choice.wireValue}")
+        }
+        assertEquals("System date is unchanged during this bounded journey", today, LocalDate.now())
+        wordsStayWhole()
+    }
+
+    @Test fun todayHabitListKeepsFiveVisibleAndRevealsTheRemainingHabitsWithoutChangingMarks() {
+        val date = LocalDate.now()
+        val habits = (1..7).map { index -> Habit(TrackerEntity.create("habit", id = "fold313-$index"),
+            "Практика $index", date, dailySleepSchedule(date, CalendarMode.PROFANE)) }
+        val workspace = LocalHabitWorkspace(habits = habits)
+        compose.setContent { Frame { Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp)) {
+            TodayHabitsContent(app, date, workspace, {})
+        } } }
+        for (index in 1..5) compose.onNodeWithTag("today-habit-fold313-$index").assertExists()
+        for (index in 6..7) compose.onNodeWithTag("today-habit-fold313-$index").assertDoesNotExist()
+        compose.onNodeWithTag("today-habits-more").performScrollTo().assertHeightIsAtLeast(48.dp).performClick()
+        for (index in 6..7) compose.onNodeWithTag("today-habit-fold313-$index").assertExists()
+        compose.onNodeWithTag("today-habits-more").performScrollTo().performClick()
+        compose.onNodeWithTag("today-habit-fold313-6").assertDoesNotExist()
+        compose.onNodeWithTag("today-habit-fold313-7").assertDoesNotExist()
+        for (index in 1..5) compose.onNodeWithTag("today-habit-check-fold313-$index").assertIsOff()
+        capture("today-five-habits")
         wordsStayWhole()
     }
 

@@ -1,6 +1,7 @@
 package ru.genesis.calendar.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -10,6 +11,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import java.time.LocalDate
 import kotlinx.coroutines.CancellationException
@@ -54,7 +56,14 @@ internal fun TodayTrackersContent(app: GenesisApplication, date: LocalDate, pref
             onMood = { error = null; moodEditor = current.moodEntries },
             onSleep = { plan, entry -> error = null; sleepEditor = plan to entry },
             onAbstinence = { tracker, entry -> error = null; abstinenceEditor = tracker to entry },
+            onAbstinenceChange = { tracker, entry, clean, relapse, craving ->
+                if (canEdit) scope.launch { save({
+                    repo.saveAbstinence(tracker.id, date, clean, relapse, craving, entry?.trigger.orEmpty(),
+                        entry?.note.orEmpty(), entry?.entity?.version ?: 0)
+                }, {}) }
+            },
             use24 = prefs.use24)
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     }
     moodEditor?.let { snapshot ->
         val entry = snapshot.firstOrNull { it.date == date }
@@ -81,13 +90,22 @@ internal fun TodayTrackersContent(app: GenesisApplication, date: LocalDate, pref
 @Composable
 internal fun TodayTrackerCards(data: LocalTrackersWorkspace, date: LocalDate, enabled: Boolean,
     onMood: () -> Unit, onSleep: (SleepPlan, SleepEntry?) -> Unit,
-    onAbstinence: (AddictionTracker, AddictionEntry?) -> Unit, use24: Boolean = true) {
+    onAbstinence: (AddictionTracker, AddictionEntry?) -> Unit,
+    onAbstinenceChange: (AddictionTracker, AddictionEntry?, Boolean, Boolean, Int) -> Unit,
+    use24: Boolean = true) {
     val mood = data.moodEntries.firstOrNull { it.date == date }
     val sleep = data.sleepPlans.filter { it.active && TrackerSchedules.isScheduled(it.schedule, date) }
     val abstinence = data.addictionTrackers.filter {
         it.status == "active" && it.trackedBehavior.isNotBlank() && TrackerSchedules.isScheduled(it.schedule, date)
     }
     Column(Modifier.fillMaxWidth().testTag("today-observations"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        abstinence.forEach { tracker ->
+            val entry = data.addictionEntries.firstOrNull { it.trackerId == tracker.id && it.date == date }
+            TodayAbstinenceCard(tracker, entry, date, enabled,
+                AddictionTrackerRules.streak(data.addictionEntries, tracker.id, date),
+                onEdit = { onAbstinence(tracker, entry) },
+                onChange = { clean, relapse, craving -> onAbstinenceChange(tracker, entry, clean, relapse, craving) })
+        }
         TodayObservationSummary("Настроение дня", "heart-pulse",
             if (mood == null) "Выбрать настроение" else "Изменить настроение",
             "today-mood-edit", enabled, onMood,
@@ -115,40 +133,78 @@ internal fun TodayTrackerCards(data: LocalTrackersWorkspace, date: LocalDate, en
             }
             }
         }
-        abstinence.forEach { tracker ->
-            val entry = data.addictionEntries.firstOrNull { it.trackerId == tracker.id && it.date == date }
-            Box(Modifier.testTag("today-abstinence-${tracker.id}")) {
-            TodayObservationSummary("Воздержание", "shield-check", "Итог дня", "today-abstinence-edit-${tracker.id}",
-                enabled, { onAbstinence(tracker, entry) }) {
+    }
+}
+
+@Composable
+private fun TodayAbstinenceCard(tracker: AddictionTracker, entry: AddictionEntry?, date: LocalDate,
+    enabled: Boolean, streak: Int, onEdit: () -> Unit, onChange: (Boolean, Boolean, Int) -> Unit) {
+    var craving by rememberSaveable(tracker.id, date.toString()) { mutableIntStateOf(entry?.cravingIntensity ?: 0) }
+    LaunchedEffect(entry?.entity?.version) { craving = entry?.cravingIntensity ?: 0 }
+    Surface(Modifier.fillMaxWidth().testTag("today-abstinence-${tracker.id}"), shape = AffairsLayout.shape,
+        color = MaterialTheme.colorScheme.surfaceContainerLowest,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                .clickable(enabled = enabled, role = Role.Button, onClick = onEdit)
+                .testTag("today-abstinence-edit-${tracker.id}").genesisDescription("Итог дня"),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Воздержание", style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                     UntranslatedText(tracker.trackedBehavior, style = MaterialTheme.typography.titleMedium)
-                    Text(when { entry?.relapse == true -> "Срыв"; entry?.cleanDay == true -> "Чистый день"; else -> "Не выбрано" },
-                        color = if (entry?.relapse == true) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (entry != null) Text("Сила тяги" + ": ${entry.cravingIntensity}/10", style = MaterialTheme.typography.bodySmall)
+                }
+                UntranslatedText(streak.toString(), style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary)
             }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = entry?.cleanDay == true, onClick = { onChange(true, false, craving) },
+                    enabled = enabled, shape = AffairsLayout.shape,
+                    label = { Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { Text("Чистый день", maxLines = 1) } },
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("today-abstinence-clean-${tracker.id}"))
+                FilterChip(selected = entry?.relapse == true, onClick = { onChange(false, true, craving) },
+                    enabled = enabled, shape = AffairsLayout.shape,
+                    label = { Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { Text("Срыв", maxLines = 1) } },
+                    colors = FilterChipDefaults.filterChipColors(labelColor = MaterialTheme.colorScheme.error,
+                        selectedLabelColor = MaterialTheme.colorScheme.onErrorContainer,
+                        selectedContainerColor = MaterialTheme.colorScheme.errorContainer),
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("today-abstinence-relapse-${tracker.id}"))
             }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("Сила тяги", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                UntranslatedText("$craving/10", style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary)
+            }
+            Slider(value = craving.toFloat(), onValueChange = { craving = it.toInt() },
+                onValueChangeFinished = { if (craving != (entry?.cravingIntensity ?: 0))
+                    onChange(entry?.cleanDay == true, entry?.relapse == true, craving) },
+                valueRange = 0f..10f, steps = 9, enabled = enabled,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                    .testTag("today-abstinence-craving-${tracker.id}").genesisDescription("Сила тяги"))
         }
     }
 }
 
-/** The whole summary is a native touch target; no separate column of edit/setup buttons. */
 @Composable
 private fun TodayObservationSummary(title: String, icon: String, action: String, tag: String, enabled: Boolean,
     onClick: () -> Unit, actionText: String? = null, content: @Composable ColumnScope.() -> Unit) {
-    Surface(onClick = onClick, enabled = enabled, shape = AffairsLayout.shape,
+    Surface(shape = AffairsLayout.shape,
         color = MaterialTheme.colorScheme.surfaceContainerLowest,
         contentColor = MaterialTheme.colorScheme.onSurface,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        modifier = Modifier.fillMaxWidth().heightIn(min = 80.dp).testTag(tag).genesisDescription(action)) {
+        modifier = Modifier.fillMaxWidth().heightIn(min = 80.dp)) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            GenesisLucideIcon(icon, Modifier.size(24.dp), MaterialTheme.colorScheme.primary)
+            if (actionText == null) GenesisLucideIcon(icon, Modifier.size(24.dp), MaterialTheme.colorScheme.primary)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 content()
             }
-            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                actionText?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary) }
-                GenesisLucideIcon("chevron-right", Modifier.size(20.dp), MaterialTheme.colorScheme.primary)
+            FilledTonalButton(onClick = onClick, enabled = enabled, shape = AffairsLayout.shape,
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                modifier = Modifier.heightIn(min = 48.dp).widthIn(min = 80.dp).testTag(tag).genesisDescription(action)) {
+                if (actionText != null) Text(actionText, maxLines = 1)
+                else GenesisLucideIcon("pencil", Modifier.size(20.dp))
             }
         }
     }

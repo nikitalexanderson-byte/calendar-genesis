@@ -1028,9 +1028,9 @@ internal fun DayHeader(date: LocalDate, mode: CalendarMode) {
                 null, Modifier.matchParentSize().testTag("today-calendar-image"), dimInDarkTheme = false,
                 lightThemeBrightness = 1.25f)
             Box(Modifier.matchParentSize().background(if (lightHero) Brush.verticalGradient(
-                0f to MaterialTheme.colorScheme.surface.copy(alpha=.66f),
-                .45f to MaterialTheme.colorScheme.surface.copy(alpha=.70f),
-                1f to MaterialTheme.colorScheme.surface.copy(alpha=.74f)) else Brush.verticalGradient(
+                0f to MaterialTheme.colorScheme.surface.copy(alpha=.528f),
+                .45f to MaterialTheme.colorScheme.surface.copy(alpha=.56f),
+                1f to MaterialTheme.colorScheme.surface.copy(alpha=.592f)) else Brush.verticalGradient(
                 listOf(Color.Black.copy(alpha=.16f), Color.Black.copy(alpha=.16f)))))
             CompositionLocalProvider(LocalPreserveCalendarColors provides true) {
             androidx.compose.material3.Surface(Modifier.fillMaxWidth().testTag("today-hero-copy"),

@@ -20,10 +20,8 @@ const deities: readonly OlympianDeity[] = content.deities;
 const locale = (language: Language): Language => Object.hasOwn(content.locales, language) ? language : "en";
 
 function OlympianSymbol({ deity, className = "" }: { deity: OlympianDeity; className?: string }) {
-  return <svg className={`olympian-symbol ${className}`.trim()} viewBox="0 0 24 24" fill="none" stroke="currentColor"
-    strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
-    {deity.paths.map(path => <path key={path} d={path} />)}
-  </svg>;
+  return <img className={`olympian-symbol ${className}`.trim()}
+    src={`/theokyklos-symbols/olympian-${deity.id}-v313.png`} alt="" aria-hidden="true" decoding="async" />;
 }
 
 export function OlympianIsopsephyContent({ language, onSelect, onOpenStoicheion }: {
@@ -42,8 +40,8 @@ export function OlympianIsopsephyContent({ language, onSelect, onOpenStoicheion 
       }}>{copy.link}<ExperimentalIcon name="open" /></a>
     </div>
     <ul className="olympian-grid">
-      {deities.map(deity => <li key={deity.id}>
-        <button type="button" className="olympian-tile" data-olympian={deity.id}
+      {deities.map(deity => <li key={deity.id} className={deity.id === "dionysus" ? "olympian-wide" : undefined}>
+        <button type="button" className="olympian-tile" data-olympian={deity.id} data-dialog-save="false"
           aria-haspopup="dialog" onClick={() => onSelect(deity)}>
           <span className="olympian-tile-heading" aria-hidden="true">
             <OlympianSymbol deity={deity} />
@@ -100,18 +98,37 @@ export function OlympianIsopsephyDialog({ deity, language, onClose }: {
 }
 
 export function OlympianIsopsephy({ language, onOpenStoicheion }: { language: Language; onOpenStoicheion?: () => void }) {
+  const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<OlympianDeity | null>(null);
   const lang = locale(language);
   const copy = content.locales[lang];
-  return <details className="olympian-isopsephy" lang={lang} data-no-translate onToggle={event => {
-    if (!event.currentTarget.open) setSelected(null);
-  }}>
-    <summary className="year-details-button olympian-disclosure">
+  const titleId = useId();
+  const close = () => { setOpen(false); setSelected(null); };
+  const catalogRef = useDialogAccessibility<HTMLElement>(close, open);
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previous; };
+  }, [open]);
+  const catalog = open ? <div className="modal-backdrop olympian-backdrop" role="presentation" lang={lang} data-no-translate>
+    <section ref={catalogRef} className="olympian-modal olympian-catalog-modal" role="dialog" aria-modal="true"
+      aria-labelledby={titleId} aria-hidden={selected ? true : undefined} inert={selected ? true : undefined} tabIndex={-1}>
+      <header className="olympian-catalog-heading">
+        <h2 id={titleId}>{copy.title}</h2>
+        <DialogCloseButton onClick={close} aria-label={copy.close} />
+      </header>
+      <OlympianIsopsephyContent language={language} onSelect={setSelected}
+        onOpenStoicheion={onOpenStoicheion ? () => { close(); onOpenStoicheion(); } : undefined} />
+    </section>
+  </div> : null;
+  return <div className="olympian-isopsephy" lang={lang} data-no-translate>
+    <button type="button" className="year-details-button olympian-disclosure" aria-haspopup="dialog" onClick={() => setOpen(true)}>
       <span><ExperimentalIcon name="theokyklos" /></span>
       <span><strong>{copy.title}</strong><small>{copy.subtitle}</small></span>
-      <ExperimentalIcon name="chevron-down" />
-    </summary>
-    <OlympianIsopsephyContent language={language} onSelect={setSelected} onOpenStoicheion={onOpenStoicheion} />
+      <ExperimentalIcon name="open" />
+    </button>
+    {typeof document === "undefined" ? catalog : createPortal(catalog, document.body)}
     {selected ? <OlympianIsopsephyDialog deity={selected} language={language} onClose={() => setSelected(null)} /> : null}
-  </details>;
+  </div>;
 }

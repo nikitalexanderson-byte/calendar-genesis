@@ -115,15 +115,7 @@ class PersonalProjectLibrary313Test {
         hasText(text, substring = false) and hasClickAction() and hasAnyAncestor(isDialog()))
     private fun clickDialog(text: String) {
         val node = dialogText(text)
-        if (!node.isDisplayed()) {
-            // The chips live inside horizontal rows nested in this vertical editor.
-            // Address the outer scroll first; nearest-ancestor scrolling alone can
-            // leave a horizontally scrollable chip below the dialog viewport.
-            compose.onNode(hasAnyAncestor(isDialog()) and
-                SemanticsMatcher.keyIsDefined(SemanticsProperties.VerticalScrollAxisRange))
-                .performScrollToNode(hasText(text, substring = false) and hasClickAction())
-            if (!node.isDisplayed()) node.performScrollTo()
-        }
+        if (!node.isDisplayed()) node.performScrollTo()
         node.assertIsDisplayed().assertIsEnabled().performClick()
     }
     private fun row(id: String): SemanticsNodeInteraction {
@@ -148,6 +140,12 @@ class PersonalProjectLibrary313Test {
     }
     private fun selectProjectStatus(label: String) {
         settleIme()
+        // Scroll the whole State section, whose closest scroll parent is vertical.
+        // Scrolling the chip itself selects its horizontal Row even when invoked
+        // through outer.performScrollToNode(), leaving the vertical viewport still.
+        compose.onNode(hasAnyChild(hasText("Состояние", substring = false)) and
+            hasAnyAncestor(isDialog())).performScrollTo().assertIsDisplayed()
+        dialogText(label).assertIsDisplayed()
         statusActionTrace.put(JSONObject().put("phase", "before-status-click").put("label", label)
             .put("semantics", statusSemantics(label)))
         clickDialog(label) // Exactly one actual status-chip click; no retry or repository mutation.

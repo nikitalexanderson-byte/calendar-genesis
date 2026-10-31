@@ -148,7 +148,8 @@ internal fun SharedTaskSeriesPanel(gateway: SharedTaskSeriesGateway, task: JSONO
                 SeriesCheckbox("Копировать подзадачи", settings.getBoolean("cloneChildren")) { change(JSONObject(settingsJson).put("cloneChildren", it)); if (series != null) refreshTemplate = true }
                 if (series != null) SeriesCheckbox("Обновить образец из этой сохранённой задачи", refreshTemplate) { refreshTemplate = it; preview = null }
                 Text("Исключения дат", style = MaterialTheme.typography.titleSmall)
-                AuthorDatePicker(excludedDate, mode, calculationContext = rule.calendarContext!!) { excludedDate = it }
+                AuthorDatePicker(excludedDate, mode, calculationContext = rule.calendarContext!!,
+                    placeholder = "Выберите дату") { excludedDate = it }
                 OutlinedButton(enabled = excludedDate.isNotBlank() && (0 until settings.getJSONArray("excludedDates").length()).none { settings.getJSONArray("excludedDates").getString(it) == excludedDate }, onClick = {
                     val dates = settings.getJSONArray("excludedDates"); change(JSONObject(settingsJson).put("excludedDates", JSONArray((0 until dates.length()).map { dates.getString(it) }.plus(excludedDate).sorted()))); excludedDate = ""
                 }) { Text("Пропустить дату") }

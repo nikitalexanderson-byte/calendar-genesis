@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -40,6 +41,7 @@ internal fun TodayHabitsContent(app: GenesisApplication, date: LocalDate,
     var error by remember { mutableStateOf<String?>(null) }
     var ratingHabit by remember(date) { mutableStateOf<Habit?>(null) }
     var timerHabitId by remember { mutableStateOf<String?>(null) }
+    var allHabitsExpanded by rememberSaveable(app.workspaceScope, date.toString()) { mutableStateOf(false) }
     fun complete(habit: Habit, checked: Boolean, quality: Double?) {
         if (busy || date != LocalDate.now()) return
         busy = true
@@ -100,7 +102,7 @@ internal fun TodayHabitsContent(app: GenesisApplication, date: LocalDate,
         if (scheduled.isEmpty()) Text("На этот день привычек нет.",
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        scheduled.forEach { habit ->
+        scheduled.take(if (allHabitsExpanded) scheduled.size else 5).forEach { habit ->
             val entry = entries[habit.id]
             Surface(Modifier.fillMaxWidth().testTag("today-habit-${habit.id}"),
                 shape = AffairsLayout.shape, color = MaterialTheme.colorScheme.surfaceContainerLowest,
@@ -138,6 +140,14 @@ internal fun TodayHabitsContent(app: GenesisApplication, date: LocalDate,
                 }
                 }
             }
+        }
+        if (scheduled.size > 5) FilledTonalButton(
+            onClick = { allHabitsExpanded = !allHabitsExpanded }, shape = AffairsLayout.shape,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("today-habits-more")) {
+            Text(if (allHabitsExpanded) "Свернуть" else "Показать ещё", Modifier.weight(1f), maxLines = 1)
+            UntranslatedText("${scheduled.size - 5}", style = MaterialTheme.typography.labelLarge)
+            Spacer(Modifier.width(8.dp))
+            GenesisLucideIcon(if (allHabitsExpanded) "chevron-up" else "chevron-down", Modifier.size(20.dp))
         }
         if(date != LocalDate.now()) Text("Отметки выполнения доступны в день практики.",
             style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)

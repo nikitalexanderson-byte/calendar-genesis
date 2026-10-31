@@ -10,6 +10,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -100,5 +101,26 @@ class TodayTrackers312Test {
             val saved = repo.workspace.first().addictionEntries.single()
             assertTrue(saved.cleanDay); assertEquals("first", saved.note); assertEquals(3, saved.cravingIntensity)
         }
+    }
+
+    @Test fun inlineTodayCravingAndOutcomePreserveTheEntryNotesAndIdentity() {
+        runBlocking { repo.saveAbstinence("abstinence312", today, true, false, 3, "context", "original note", 0) }
+        val initial = runBlocking { repo.workspace.first().addictionEntries.single() }
+        content()
+        compose.onNodeWithTag("today-mood-edit").assertHasClickAction().assertHeightIsAtLeast(48.dp)
+        compose.onNodeWithTag("today-abstinence-craving-abstinence312").performScrollTo().performTouchInput {
+            click(androidx.compose.ui.geometry.Offset(center.x * 1.6f, center.y))
+        }
+        compose.waitUntil(10_000) { runBlocking { repo.workspace.first().addictionEntries.single().cravingIntensity != 3 } }
+        val measured = runBlocking { repo.workspace.first().addictionEntries.single() }
+        assertEquals(initial.entity.id, measured.entity.id)
+        assertEquals("context", measured.trigger); assertEquals("original note", measured.note)
+        compose.onNodeWithTag("today-abstinence-relapse-abstinence312").performScrollTo().performClick()
+        compose.waitUntil(10_000) { runBlocking { repo.workspace.first().addictionEntries.single().relapse } }
+        val relapse = runBlocking { TrackersRepository(app).workspace.first().addictionEntries.single() }
+        assertEquals(initial.entity.id, relapse.entity.id); assertFalse(relapse.cleanDay)
+        assertEquals(measured.cravingIntensity, relapse.cravingIntensity)
+        assertEquals("context", relapse.trigger); assertEquals("original note", relapse.note)
+        capture("today-inline-trackers")
     }
 }

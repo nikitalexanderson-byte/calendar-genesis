@@ -29,6 +29,16 @@ const expected = {
   dionysus: [1004, "Творческий экстаз, преображение."],
 };
 
+test("every Olympian symbol ships as a transparent PNG shared by web and Android", () => {
+  for (const deity of content.deities) {
+    const png = readFileSync(new URL(`../public/theokyklos-symbols/olympian-${deity.id}-v313.png`, import.meta.url));
+    assert.deepEqual([...png.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10], `${deity.id}: valid PNG`);
+    assert.ok(png.readUInt32BE(16) >= 128, `${deity.id}: sufficient icon resolution`);
+    assert.equal(png.readUInt32BE(16), png.readUInt32BE(20), `${deity.id}: square canvas`);
+    assert.equal(png[25], 6, `${deity.id}: preserve RGBA transparency`);
+  }
+});
+
 test("all 13 Olympian names use Greek letters and verified isopsephy with the approved Aphrodite correction", () => {
   assert.equal(content.deities.length, 13);
   assert.deepEqual(content.deities.map(row => row.id), Object.keys(expected));
@@ -111,20 +121,26 @@ test("the real spoiler, all 13 dialogs and Stoicheion navigation preserve conten
   await writeFile(file, bundle.output.find(row => row.isEntry).code);
   try {
     const api = await import(pathToFileURL(fileURLToPath(file)).href);
-    await t.test("the spoiler starts collapsed at the end of Theokyklos, with 13 complete translated tiles in all 14 languages", () => {
+    await t.test("the Olympian catalog starts as a dialog button at the end of Theokyklos in all 14 languages", () => {
       for (const language of languages) {
         const lang = language;
         const html = renderToStaticMarkup(createElement(api.TheokyklosView, {
           language, workspace: api.EMPTY_HABIT_WORKSPACE, date: "2026-10-30", calendarMode: "profane", onChange() {},
         }));
-        assert.match(html, /<details class="olympian-isopsephy"[^>]*>/);
-        assert.doesNotMatch(html, /<details class="olympian-isopsephy"[^>]*\bopen(?:=|\s|>)/);
-        assert.equal((html.match(/data-olympian=/g) ?? []).length, 13);
-        assert.match(html, /href="#stoicheion"/);
+        assert.match(html, /<div class="olympian-isopsephy"[^>]*>/);
+        assert.match(html, /<button[^>]*class="year-details-button olympian-disclosure"[^>]*aria-haspopup="dialog"/);
+        assert.doesNotMatch(html, /<details class="olympian-isopsephy"/);
+        assert.equal((html.match(/data-olympian=/g) ?? []).length, 0, "the unopened catalog does not occupy page space");
         assert.ok(html.indexOf('class="olympian-isopsephy"') > html.indexOf('class="theokyklos-mandala"'));
-        assert.ok(html.endsWith("</ul></div></details></section>"), "the spoiler belongs at the very end of the section");
+        assert.ok(html.endsWith("</button></div></section>"), "the dialog entry belongs at the very end of the section");
         assert.ok(html.includes(content.locales[lang].title));
-        for (const deity of content.deities) assert.ok(html.includes(deity.summary[lang]), `${language}/${deity.id}: complete summary`);
+        const catalog = renderToStaticMarkup(createElement(api.OlympianIsopsephyContent, { language, onSelect() {} }));
+        assert.equal((catalog.match(/data-olympian=/g) ?? []).length, 13);
+        for (const deity of content.deities) {
+          assert.ok(catalog.includes(escaped(deity.summary[lang])), `${language}/${deity.id}: complete summary`);
+          assert.ok(catalog.includes(`/theokyklos-symbols/olympian-${deity.id}-v313.png`));
+        }
+        assert.match(catalog, /<li class="olympian-wide"><button[^>]*data-olympian="dionysus"/);
       }
     });
     await t.test("each tile selects its own deity, and the actual Stoicheion link invokes navigation once", () => {
@@ -137,6 +153,7 @@ test("the real spoiler, all 13 dialogs and Stoicheion navigation preserve conten
       assert.equal(tiles.length, 13);
       tiles.forEach(tile => {
         assert.equal(tile.props["aria-haspopup"], "dialog");
+        assert.equal(tile.props["data-dialog-save"], "false", "translated descriptions cannot be mistaken for a Save control");
         tile.props.onClick();
       });
       assert.deepEqual(selected, content.deities.map(row => row.id));

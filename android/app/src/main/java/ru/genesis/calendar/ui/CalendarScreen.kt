@@ -38,6 +38,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -403,13 +404,14 @@ private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange
                     CalendarMode.LUNAR -> calendar.lunarDate(page.start).month.name
                 }, false, previous, next)
                 }
-                if (mode == CalendarMode.PROFANE) GregorianMonthHero(page.start, seasonRegionZone, locale, onToday)
+                val offerToday = calendarOffersToday(selected, page, LocalDate.now())
+                if (mode == CalendarMode.PROFANE) GregorianMonthHero(page.start, seasonRegionZone, locale, offerToday, onToday)
                 Card(Modifier.fillMaxWidth().testTag(if (mode == CalendarMode.SACRED) "sacred-month-pyatas"
                     else "calendar-month-panel-${mode.wireValue}"), shape = AffairsLayout.shape,
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = .45f))) {
-                if (mode == CalendarMode.SACRED) SacredMonthHero(month, sacred.sacredYear, onToday)
-                else if (mode == CalendarMode.LUNAR) LunarMonthHero(calendar.lunarDate(page.start), onToday)
+                if (mode == CalendarMode.SACRED) SacredMonthHero(month, sacred.sacredYear, offerToday, onToday)
+                else if (mode == CalendarMode.LUNAR) LunarMonthHero(calendar.lunarDate(page.start), offerToday, onToday)
                 Column(Modifier.padding(horizontal = 10.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("${page.start.format(dateLabel(locale))} — ${page.end.format(dateLabel(locale))}",
                         style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -496,77 +498,95 @@ private fun CalendarFlowNameplate(mode: CalendarMode) {
 }
 
 @Composable
-private fun GregorianMonthHero(date: LocalDate, zone: ZoneId, locale: Locale, onToday: () -> Unit) {
+private fun GregorianMonthHero(date: LocalDate, zone: ZoneId, locale: Locale, offerToday: Boolean, onToday: () -> Unit) {
     Surface(Modifier.fillMaxWidth().testTag("calendar-month-description"), shape = AffairsLayout.shape,
         color = MaterialTheme.colorScheme.primaryContainer) {
         MonthDescriptionLayout(gregorianMonthArtPath(date.monthValue - 1, zone),
-            "Иллюстрация месяца ${date.month}", "gregorian-month-art", onToday, heading = {
+            "Иллюстрация месяца ${date.month}", "gregorian-month-art", offerToday, onToday, heading = {
                 Text(date.month.getDisplayName(TextStyle.FULL_STANDALONE, locale)
                     .replaceFirstChar { it.titlecase(locale) }, Modifier.testTag("gregorian-month-name"),
-                    style = MaterialTheme.typography.titleLarge, maxLines = 1)
+                    style = MaterialTheme.typography.titleLarge.copy(lineHeight = 1.1.em), maxLines = 1)
             }) {
-                Text("Григорианский месяц", style = MaterialTheme.typography.labelMedium)
-                UntranslatedText(genesisTranslate(gregorianMonthOrigin(date.monthValue)), Modifier.testTag("gregorian-month-origin"),
-                    style = MaterialTheme.typography.bodySmall.copy(lineBreak = androidx.compose.ui.text.style.LineBreak.Heading),
-                    maxLines = 2, autoSize = TextAutoSize.StepBased(minFontSize = 10.sp, maxFontSize = 12.sp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(gregorianMonthNature(date.monthValue, zone), Modifier.testTag("gregorian-month-nature"),
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Григорианский месяц", style = MaterialTheme.typography.labelMedium, maxLines = 1)
+                UntranslatedText(genesisTranslate(gregorianMonthOrigin(date.monthValue)), Modifier.weight(1f, fill = false).testTag("gregorian-month-origin"),
+                    style = MaterialTheme.typography.bodySmall.copy(lineHeight = 1.2.em),
+                    autoSize = CalendarHeroTextAutoSize(MaterialTheme.typography.bodySmall.fontSize),
+                    color = LocalContentColor.current)
+                Text(gregorianMonthNature(date.monthValue, zone), Modifier.weight(1f, fill = false).testTag("gregorian-month-nature"),
+                    style = MaterialTheme.typography.bodySmall.copy(lineHeight = 1.2.em),
+                    autoSize = CalendarHeroTextAutoSize(MaterialTheme.typography.bodySmall.fontSize))
         }
     }
 }
 
 @Composable
-private fun LunarMonthHero(lunar: ru.genesis.calendar.domain.LunarDateInfo, onToday: () -> Unit) {
+private fun LunarMonthHero(lunar: ru.genesis.calendar.domain.LunarDateInfo, offerToday: Boolean, onToday: () -> Unit) {
+    val accent = if (LocalEveningTheme.current) Color(0xffffe9b5) else MaterialTheme.colorScheme.primary
     Box(Modifier.fillMaxWidth().testTag("calendar-month-description").background(Color(0xff082e2f))) {
         MonthDescriptionLayout(lunarMonthArtPath(lunar.monthOrdinal - 1),
-            "Иллюстрация месяца ${lunar.month.name}", "lunar-month-art", onToday, heading = {
-            Text(lunar.month.name, style = MaterialTheme.typography.titleLarge, color = Color(0xfffff5df), maxLines = 1)
-        }, todayInk=Color(0xffffe9b5)) {
-            Text(lunar.month.title, style = MaterialTheme.typography.titleSmall, color = Color(0xffffe9b5))
-            Text(lunar.month.description, style = MaterialTheme.typography.bodySmall, color = Color(0xffd5e5df))
+            "Иллюстрация месяца ${lunar.month.name}", "lunar-month-art", offerToday, onToday, heading = {
+            Text(lunar.month.name, style = MaterialTheme.typography.titleLarge.copy(lineHeight = 1.1.em), maxLines = 1)
+        }) {
+            Text(lunar.month.title, Modifier.heightIn(max = 34.dp), style = MaterialTheme.typography.titleSmall.copy(lineHeight = 1.12.em),
+                color = accent, maxLines = 2, autoSize = CalendarHeroTextAutoSize(MaterialTheme.typography.titleSmall.fontSize))
+            Text(lunar.month.description, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall.copy(lineHeight = 1.25.em),
+                autoSize = CalendarHeroTextAutoSize(MaterialTheme.typography.bodySmall.fontSize))
         }
     }
 }
 
 @Composable
-private fun SacredMonthHero(month: SacredMonth, year: Int, onToday: () -> Unit) {
+private fun SacredMonthHero(month: SacredMonth, year: Int, offerToday: Boolean, onToday: () -> Unit) {
+    val accent = if (LocalEveningTheme.current) Color(0xffffe9b5) else MaterialTheme.colorScheme.primary
         Box(Modifier.fillMaxWidth().testTag("sacred-month-hero").background(Color(0xff082e2f))) {
             MonthDescriptionLayout(sacredMonthArtPath(month.index),
-                "Иллюстрация месяца ${month.name}", "sacred-month-art", onToday, heading = {
-                Text(month.name, style = MaterialTheme.typography.titleLarge, color = Color(0xfffff5df), maxLines = 1)
-            }, todayInk=Color(0xffffe9b5)) {
+                "Иллюстрация месяца ${month.name}", "sacred-month-art", offerToday, onToday, heading = {
+                Text(month.name, style = MaterialTheme.typography.titleLarge.copy(lineHeight = 1.1.em), maxLines = 1)
+            }) {
                 Text("${month.season} · ${month.roman} месяц · $year", style = MaterialTheme.typography.labelSmall,
-                    color = Color(0xffdfc17e))
-                Text(month.title, style = MaterialTheme.typography.titleSmall, color = Color(0xffffe9b5))
-                Text(month.description, style = MaterialTheme.typography.bodySmall, color = Color(0xffd5e5df))
+                    color = accent, maxLines = 1)
+                Text(month.title, Modifier.heightIn(max = 34.dp), style = MaterialTheme.typography.titleSmall.copy(lineHeight = 1.12.em),
+                    color = accent, maxLines = 2, autoSize = CalendarHeroTextAutoSize(MaterialTheme.typography.titleSmall.fontSize))
+                Text(month.description, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall.copy(lineHeight = 1.25.em),
+                    autoSize = CalendarHeroTextAutoSize(MaterialTheme.typography.bodySmall.fontSize))
             }
         }
 }
 
-/** The whole description determines the block height; only the page itself scrolls. */
+/** All three calendars share a compact, full-bleed hero; the page owns scrolling. */
 @Composable private fun MonthDescriptionLayout(image: String, description: String, artTag: String,
-    onToday: () -> Unit, heading: @Composable () -> Unit, todayInk: Color = Color.Unspecified,
+    offerToday: Boolean, onToday: () -> Unit, heading: @Composable () -> Unit,
     content: @Composable ColumnScope.() -> Unit) {
-    val height = 160.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)
-    Row(Modifier.fillMaxWidth().heightIn(min = height).height(IntrinsicSize.Min).testTag("month-description-layout")) {
-        OriginalImage(image, description, Modifier.width(104.dp).fillMaxHeight().testTag(artTag),
-            darkThemeBrightness = .82f)
-        Column(Modifier.weight(1f).padding(12.dp),
+    val light = !LocalEveningTheme.current
+    val ink = if (light) MaterialTheme.colorScheme.onSurface else Color(0xfff9f2e2)
+    Box(Modifier.fillMaxWidth().height(calendarMonthHeroHeight).testTag("month-description-layout")) {
+        OriginalImage(image, description, Modifier.matchParentSize().testTag(artTag),
+            darkThemeBrightness = .82f, lightThemeBrightness = 1.25f)
+        CalendarHeroContrast(Modifier.matchParentSize())
+        CompositionLocalProvider(LocalContentColor provides ink) {
+        Column(Modifier.fillMaxSize().padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment=Alignment.CenterVertically, horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 Box(Modifier.weight(1f).testTag("month-description-name")) { heading() }
-                Button(onClick=onToday, modifier=Modifier.heightIn(min=48.dp).testTag("calendar-month-today"),
+                if (offerToday) Button(onClick=onToday, modifier=Modifier.heightIn(min=48.dp).testTag("calendar-month-today"),
                     colors=ButtonDefaults.buttonColors(
-                        containerColor=if(todayInk==Color.Unspecified) MaterialTheme.colorScheme.secondaryContainer else Color(0xff224b48),
-                        contentColor=if(todayInk==Color.Unspecified) MaterialTheme.colorScheme.onSecondaryContainer else todayInk),
+                        containerColor=if(light) MaterialTheme.colorScheme.secondaryContainer else Color(0xff224b48),
+                        contentColor=if(light) MaterialTheme.colorScheme.onSecondaryContainer else Color(0xffffe9b5)),
                     contentPadding=PaddingValues(horizontal=10.dp), shape=AffairsLayout.controlShape) {
                     Text("Сегодня", maxLines=1, style=MaterialTheme.typography.labelMedium)
                 }
             }
             content()
         }
+        }
     }
+}
+
+@Composable private fun CalendarHeroContrast(modifier: Modifier = Modifier) {
+    Box(modifier.background(if (!LocalEveningTheme.current) Brush.verticalGradient(
+        0f to MaterialTheme.colorScheme.surface.copy(alpha = .68f),
+        1f to MaterialTheme.colorScheme.surface.copy(alpha = .78f))
+        else Brush.verticalGradient(0f to Color(0xb3040e10), 1f to Color(0xd6040e10))))
 }
 
 @Composable
@@ -1179,21 +1199,18 @@ private fun ExperimentalSelectedDayCard(calendar: GenesisCalendar, date: LocalDa
         border = BorderStroke(1.dp, Color(0x66dfc17e)),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
         Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
-            Box(Modifier.fillMaxWidth().testTag("calendar-day-hero")) {
+            Box(Modifier.fillMaxWidth().height(calendarDayHeroHeight).testTag("calendar-day-hero")) {
                 OriginalImage(heroPath, heroTitle, Modifier.matchParentSize().testTag("calendar-weekday-art"),
                     lightThemeBrightness=1.25f)
-                Box(Modifier.matchParentSize().background(if (lightHero) Brush.verticalGradient(
-                    0f to MaterialTheme.colorScheme.surface.copy(alpha = .72f),
-                    .55f to MaterialTheme.colorScheme.surface.copy(alpha = .76f),
-                    1f to MaterialTheme.colorScheme.surface.copy(alpha = .82f))
-                    else Brush.verticalGradient(0f to Color(0xb3040e10), 1f to Color(0xd6040e10))))
-                Column(Modifier.fillMaxWidth().padding(18.dp),
+                CalendarHeroContrast(Modifier.matchParentSize())
+                Column(Modifier.fillMaxSize().padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(modeTitle, style = MaterialTheme.typography.labelMedium, color = heroAccent)
-                    Text(primaryDate, style = MaterialTheme.typography.headlineSmall,
-                        color = heroInk, modifier = Modifier.testTag("calendar-selected-primary-date"))
+                    Text(modeTitle, style = MaterialTheme.typography.labelMedium, color = heroAccent, maxLines = 1)
+                    Text(primaryDate, style = MaterialTheme.typography.headlineSmall.copy(lineHeight = 1.1.em),
+                        color = heroInk, modifier = Modifier.heightIn(max = 62.dp).testTag("calendar-selected-primary-date"),
+                        maxLines = 2, autoSize = CalendarHeroTextAutoSize(MaterialTheme.typography.headlineSmall.fontSize))
                     if (mode == CalendarMode.PROFANE) {
-                        Column(Modifier.testTag("calendar-selected-gregorian"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Column(Modifier.weight(1f).testTag("calendar-selected-gregorian"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text("${date.dayOfYear}-й из ${date.lengthOfYear()} дней года · ${date.lengthOfMonth()} дней в месяце",
                                 style = MaterialTheme.typography.bodySmall, color = heroSecondary)
                             SunriseSunsetLine(date, solarLocation, calendar, heroAccent, heroSecondary)
@@ -1203,11 +1220,14 @@ private fun ExperimentalSelectedDayCard(calendar: GenesisCalendar, date: LocalDa
                             }
                         }
                     } else {
-                        Text(heroTitle, style = MaterialTheme.typography.titleMedium, color = heroInk)
-                        Text(heroDescription, style = MaterialTheme.typography.bodyMedium, color = heroSecondary)
+                        Text(heroTitle, Modifier.heightIn(max = 40.dp), style = MaterialTheme.typography.titleMedium.copy(lineHeight = 1.15.em),
+                            color = heroInk, maxLines = 2, autoSize = CalendarHeroTextAutoSize(MaterialTheme.typography.titleMedium.fontSize))
+                        Text(heroDescription, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 1.25.em),
+                            color = heroSecondary, autoSize = CalendarHeroTextAutoSize(MaterialTheme.typography.bodyMedium.fontSize))
                     }
                     moon?.event?.takeIf { it.isNotBlank() }?.let { event ->
-                        Text(event, style=MaterialTheme.typography.labelMedium,color=heroAccent)
+                        Text(event, Modifier.heightIn(max = 30.dp), style=MaterialTheme.typography.labelMedium.copy(lineHeight = 1.15.em),
+                            color=heroAccent, maxLines = 2, autoSize = CalendarHeroTextAutoSize(MaterialTheme.typography.labelMedium.fontSize))
                     }
                 }
             }
