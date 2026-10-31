@@ -8,7 +8,7 @@ import androidx.test.uiautomator.UiDevice
 import ru.genesis.calendar.BuildConfig
 
 /** A dialog owns its IME window; the underlying Activity can retain old insets. */
-internal fun ComposeTestRule.dismissValidationKeyboard() {
+internal fun ComposeTestRule.dismissValidationKeyboard(requestBack: Boolean = true) {
     val instrumentation = InstrumentationRegistry.getInstrumentation()
     check(BuildConfig.DEBUG && instrumentation.targetContext.packageName == "ru.genesis.calendar.v313.debug")
     val device = UiDevice.getInstance(instrumentation)
@@ -19,11 +19,12 @@ internal fun ComposeTestRule.dismissValidationKeyboard() {
     }
     try {
         waitUntil(5_000) { automation.windows.any { it.type == AccessibilityWindowInfo.TYPE_APPLICATION } }
-        if (automation.windows.any { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD }) {
-            check(device.pressBack())
+        fun visibleIme() = automation.windows.any {
+            it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD && it.root?.isVisibleToUser == true
         }
         waitForIdle()
-        waitUntil(5_000) { automation.windows.none { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD } }
+        if (requestBack && visibleIme()) device.pressBack()
+        waitUntil(5_000) { !visibleIme() }
     } finally {
         automation.serviceInfo = automation.serviceInfo.apply { flags = originalFlags }
     }

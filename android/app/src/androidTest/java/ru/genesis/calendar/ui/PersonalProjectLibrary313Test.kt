@@ -128,7 +128,12 @@ class PersonalProjectLibrary313Test {
         row(id)
         if (compose.onAllNodes(actions).fetchSemanticsNodes().isEmpty()) row(id).performClick()
         val button = compose.onNode(actions)
-        button.performScrollTo().assertIsDisplayed().assertIsEnabled().performClick()
+        button.performScrollTo().assertIsDisplayed().assertIsEnabled()
+        compose.onAllNodesWithTag("personal-task-search-dock").fetchSemanticsNodes().singleOrNull()?.let { dock ->
+            assertTrue("Project actions must remain above the search panel",
+                button.fetchSemanticsNode().boundsInRoot.bottom <= dock.boundsInRoot.top + 1f)
+        }
+        button.performClick()
         compose.waitUntil(5_000) {
             compose.onAllNodesWithText("Изменить проект", substring = false).fetchSemanticsNodes().isNotEmpty()
         }
@@ -136,7 +141,7 @@ class PersonalProjectLibrary313Test {
     private fun edit(id: String) { menu(id); compose.onNodeWithText("Изменить проект", substring = false).performClick(); ready("project-title") }
     private fun settleIme() {
         compose.runOnIdle { hideSearchKeyboard?.invoke() }
-        compose.dismissValidationKeyboard()
+        compose.dismissValidationKeyboard(requestBack = false)
     }
     private fun selectProjectStatus(label: String) {
         settleIme()

@@ -238,6 +238,8 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
     var moveAnnouncement by remember { mutableStateOf<String?>(null) }
     var pickup by remember { mutableStateOf<TaskPickup?>(null) }
     var workspaceBounds by remember { mutableStateOf(Rect.Zero) }
+    var searchDockHeight by remember { mutableIntStateOf(0) }
+    val searchDockInset = with(LocalDensity.current) { searchDockHeight.toDp() }
     val dropBounds = remember { mutableStateMapOf<String, Rect>() }
     val latestPickup by rememberUpdatedState(pickup)
     val dragEdge=with(LocalDensity.current) { 72.dp.toPx() }
@@ -245,8 +247,18 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
         if(pickup == null) return@LaunchedEffect
         val edge=dragEdge
         while(true) {
-            val point=latestPickup?.position ?: break
-            val direction=when { point.y < workspaceBounds.top+edge -> -1f; point.y > workspaceBounds.bottom-edge -> 1f; else -> 0f }
+            val held=latestPickup ?: break
+            val point=held.position
+            val layout=listState.layoutInfo
+            // Let a fully visible destination stay under the finger until release.
+            // Edge scrolling otherwise carries a small project away during the drop.
+            val overDestination=layout.visibleItemsInfo.any { item ->
+                val id=if(item.key == "personal-inbox") inboxDropId else item.key as? String
+                id != null && id != (held.originId ?: inboxDropId) &&
+                    item.offset >= layout.viewportStartOffset && item.offset + item.size <= layout.viewportEndOffset &&
+                    dropBounds[id]?.contains(point) == true
+            }
+            val direction=when { overDestination -> 0f; point.y < workspaceBounds.top+edge -> -1f; point.y > workspaceBounds.bottom-searchDockHeight-edge -> 1f; else -> 0f }
             if(direction != 0f) listState.scrollBy(direction*edge/6f)
             delay(16)
         }
@@ -338,7 +350,14 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
     val onDrag: (Offset) -> Unit = { delta -> pickup = pickup?.let { it.copy(position = it.position + delta) } }
     val onRelease: (Boolean) -> Unit = { cancelled ->
         if (!cancelled) pickup?.let { held ->
-            dropBounds.entries.firstOrNull { it.value.contains(held.position) }?.let { (id, _) ->
+            val visibleDropIds = listState.layoutInfo.visibleItemsInfo.mapNotNull { item ->
+                if (item.key == "personal-inbox") inboxDropId else item.key as? String
+            }.toSet()
+            val viewport = Rect(workspaceBounds.left, workspaceBounds.top, workspaceBounds.right,
+                workspaceBounds.bottom - searchDockHeight)
+            dropBounds.entries.filter { (id, bounds) -> id in visibleDropIds &&
+                viewport.contains(held.position) && bounds.contains(held.position) }
+                .minByOrNull { (_, bounds) -> bounds.width * bounds.height }?.let { (id, _) ->
                 if (held.list == null) moveTask(held.id, id) else {
                     val list = held.list
                     val origin = listProjectId(list)
@@ -496,7 +515,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
                 }
             }
     }
-    LazyColumn(state = listState, modifier = Modifier.fillMaxSize().testTag("projects-screen"), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 92.dp),
+    LazyColumn(state = listState, modifier = Modifier.fillMaxSize().padding(bottom = searchDockInset).testTag("projects-screen"), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item(key = "personal-controls") {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -642,7 +661,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
             modifier = Modifier.testTag("project-move-announcement")) } }
     }
     WorkspaceSearchDock(searchQuery, { searchQuery = it }, "Поиск задач", "personal-task-search",
-        Modifier.align(Alignment.BottomCenter), below = {
+        Modifier.align(Alignment.BottomCenter).onGloballyPositioned { searchDockHeight = it.size.height }, below = {
             if (categoryFiltersOpen || categoriesExpanded) categoriesContent()
         }, controls = {
             TaskListSortChoice(taskSort, setTaskSort, Modifier, compact = true, iconOnly = true)

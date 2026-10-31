@@ -216,7 +216,7 @@ class Release313UiTest {
         compose.onNodeWithTag("olympian-zeus").assertDoesNotExist()
         compose.onNodeWithTag("olympian-isopsephy-toggle").performScrollTo().performClick()
         compose.onNodeWithTag("olympian-zeus").assertExists()
-        compose.onNodeWithTag("olympian-catalog-close").performClick()
+        compose.onNodeWithTag("olympian-catalog-close").performScrollTo().assertIsDisplayed().performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("olympian-zeus").fetchSemanticsNodes().isEmpty() }
         compose.onNodeWithTag("olympian-zeus").assertDoesNotExist()
         compose.onNodeWithTag("future-modeling-open").performScrollTo().performClick()

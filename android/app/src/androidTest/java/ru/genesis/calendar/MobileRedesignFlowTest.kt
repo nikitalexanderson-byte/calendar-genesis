@@ -524,10 +524,27 @@ class MobileRedesignFlowTest {
         }
         navigate(personalRoute)
         fun workspaceRoot() = compose.onNode(isRoot() and hasAnyDescendant(hasTestTag("projects-screen")))
+        val dragProofs = JSONArray()
+        fun saveDragProof() {
+            val tasks = runBlocking { ownedTasks.mapNotNull { app.repository.get(it) } }
+            val proof = JSONObject().put("drags", dragProofs).put("tasks", JSONArray(tasks.map {
+                JSONObject().put("id", it.id).put("title", it.title).put("projectId", it.projectId)
+            })).put("links", JSONArray(runBlocking { repo.workspace.first().taskListLinks }.map {
+                JSONObject().put("listId", it.taskListId).put("projectId", it.projectId)
+            }))
+            File(folder, "$suffix-review4-persistence.json").writeText(proof.toString(2))
+            device.takeScreenshot(File(folder, "$suffix-review4-persistence.png"))
+        }
+        fun awaitAssignment(condition: () -> Boolean) {
+            try { compose.waitUntil(10_000, condition) }
+            catch (failure: Throwable) { saveDragProof(); throw failure }
+        }
         fun drag(tag: String, target: String) {
             val targetTag = if (target == "__genesis_inbox__") "project-inbox" else "project-drop-$target"
             val node = compose.onNodeWithTag(tag, useUnmergedTree = true)
             compose.onNodeWithTag("projects-screen", useUnmergedTree = true).performScrollToNode(hasTestTag(tag))
+            // A tall inbox is one lazy item; reveal this descendant before reading its touch point.
+            node.performScrollTo().assertIsDisplayed()
             val source = node.fetchSemanticsNode()
             val origin = source.boundsInRoot
             val rootOrigin = workspaceRoot().fetchSemanticsNode().boundsInRoot.topLeft
@@ -541,12 +558,19 @@ class MobileRedesignFlowTest {
                 compose.onNodeWithTag("drag-floating-task").assertIsDisplayed()
                 phase = "reveal-current-drop-target"
                 compose.onNodeWithTag("projects-screen", useUnmergedTree = true).performScrollToNode(hasTestTag(targetTag))
-                val destination = compose.onNodeWithTag(targetTag).assertIsDisplayed().fetchSemanticsNode().boundsInRoot.center
+                val destination = compose.onNodeWithTag(targetTag).performScrollTo().assertIsDisplayed()
+                    .fetchSemanticsNode().boundsInRoot.center
                 val releaseRootOrigin = workspaceRoot().fetchSemanticsNode().boundsInRoot.topLeft
+                val proof = JSONObject().put("sourceTag", tag).put("targetTag", targetTag)
+                    .put("sourceBefore", origin.toString()).put("destinationBefore", destination.toString())
+                    .put("preview", compose.onNodeWithTag("drag-floating-task").printToString())
+                dragProofs.put(proof)
                 phase = "deliver-release"
                 workspaceRoot().performTouchInput { moveTo(destination - releaseRootOrigin); advanceEventTime(300); up() }
                 phase = "floating-preview-dismiss-assert"
                 compose.waitUntil(10_000) { !exists("drag-floating-task") }
+                proof.put("targetAfter", compose.onAllNodesWithTag(targetTag).fetchSemanticsNodes()
+                    .firstOrNull()?.boundsInRoot.toString())
             } catch (failure: Throwable) {
                 // Passive evidence after the original failure; never repeat the hold, drop, or persistence action.
                 runCatching {
@@ -589,12 +613,12 @@ class MobileRedesignFlowTest {
             }
         }
         drag("drag-task-$inboxTaskId",projectId)
-        compose.waitUntil(10_000) { runBlocking { app.repository.get(inboxTaskId)?.projectId == projectId } }
+        awaitAssignment { runBlocking { app.repository.get(inboxTaskId)?.projectId == projectId } }
         showProject()
         drag("drag-task-$inboxTaskId",secondProjectId)
-        compose.waitUntil(10_000) { runBlocking { app.repository.get(inboxTaskId)?.projectId == secondProjectId } }
+        awaitAssignment { runBlocking { app.repository.get(inboxTaskId)?.projectId == secondProjectId } }
         drag("drag-block-list-$listId",secondProjectId)
-        compose.waitUntil(10_000) { runBlocking {
+        awaitAssignment { runBlocking {
             repo.workspace.first().taskListLinks.any { it.taskListId == listId && it.projectId == secondProjectId } &&
                 app.repository.get(listTask)?.projectId == secondProjectId
         } }
@@ -602,8 +626,9 @@ class MobileRedesignFlowTest {
         compose.onNodeWithTag("project-drop-$secondProjectId").performClick()
         capture("review4-list-and-task-in-subproject")
         drag("drag-block-list-$listId","__genesis_inbox__")
-        compose.waitUntil(10_000) { runBlocking { repo.workspace.first().taskListLinks.any { it.taskListId == listId && it.projectId == null } } }
+        awaitAssignment { runBlocking { repo.workspace.first().taskListLinks.any { it.taskListId == listId && it.projectId == null } } }
         assertNotNull(runBlocking { app.repository.get(listTask) })
+        saveDragProof()
         checks.put("review4:real-longpress-task-and-whole-list-moves-project-subproject-inbox-no-record-loss")
     }
 

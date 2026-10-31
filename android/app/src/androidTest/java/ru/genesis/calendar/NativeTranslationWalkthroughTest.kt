@@ -33,6 +33,26 @@ class NativeTranslationWalkthroughTest {
     private fun userFieldPattern(value: String) =
         Regex("(?<![\\u0400-\\u052F\\u2DE0-\\u2DFF\\uA640-\\uA69F\\p{N}])${Regex.escape(value)}(?![\\u0400-\\u052F\\u2DE0-\\u2DFF\\uA640-\\uA69F\\p{N}])")
 
+    @Test fun weekdayPatronDetailsUseCompleteLocalizedParagraphs() {
+        val app = compose.activity.application as GenesisApplication
+        check(BuildConfig.DEBUG && app.packageName == "ru.genesis.calendar.v313.debug" &&
+            app.workspaceScope == "internal-validation-v1")
+        val calendar = ru.genesis.calendar.domain.GenesisCalendar()
+        for (language in listOf("en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja")) {
+            for (weekday in 0..6) {
+                val copy = todayHeroCopy(LocalDate.of(2026, 10, 25).plusDays(weekday.toLong()),
+                    ru.genesis.calendar.domain.CalendarMode.PROFANE, calendar)
+                val source = copy.details.last()
+                val body = source.removePrefix("Части тела: ")
+                val translatedBody = translateGenesisText(app, body, language)
+                assertTrue("$language/$weekday must have the complete paragraph", translatedBody != body)
+                assertEquals("$language/$weekday must compose the translated label and paragraph",
+                    "${translateGenesisText(app, "Части тела:", language)} $translatedBody",
+                    translateGenesisText(app, source, language))
+            }
+        }
+    }
+
     @Test fun dynamicCopyKeepsUserTitlesAndLocaleDatesLiteral() {
         val app = compose.activity.application as GenesisApplication
         check(BuildConfig.DEBUG && app.packageName == "ru.genesis.calendar.v313.debug" &&

@@ -1923,6 +1923,13 @@ private object TranslationCatalog {
         fun format(key: String, vararg values: Pair<String, String>): String? = translations[key]?.let { template ->
             values.fold(template) { result, (name, value) -> result.replace("{$name}", value) }
         }
+        if (text.startsWith("Части тела: ")) {
+            val body = text.removePrefix("Части тела: ")
+            // These authored paragraphs exceed the short English fragment limit.
+            translations[body]?.let { translatedBody ->
+                return "${translate(context, "Части тела:", language)} $translatedBody"
+            }
+        }
         duration.matchEntire(text)?.let { match ->
             return format("${match.groupValues[1]}{hours} ч {minutes} мин",
                 "hours" to match.groupValues[2], "minutes" to match.groupValues[3])
