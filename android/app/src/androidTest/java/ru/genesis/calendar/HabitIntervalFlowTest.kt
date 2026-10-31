@@ -162,9 +162,23 @@ class HabitIntervalFlowTest {
         compose.onNodeWithTag("edit-habit-${habit.id}").assertIsEnabled().performClick()
         compose.waitUntil(15_000) { compose.onAllNodesWithTag("habit-editor-close").fetchSemanticsNodes().isNotEmpty() }
         screenshot("edit-reopened")
+        val timerHistory = saved().timers
+        compose.onNodeWithTag("habit-timer-enabled").performScrollTo().assertIsOn().performClick().assertIsOff()
         compose.onNodeWithTag("habit-interval-mode-day").performScrollTo().performClick().assertIsSelected()
         compose.onNodeWithText("Сохранить").performScrollTo().performClick()
-        compose.waitUntil(15_000) { saved().habits.single { it.id==habit.id }.intervalSchedule?.completionMode=="day" }
+        compose.waitUntil(15_000) { saved().habits.single { it.id==habit.id }.let {
+            it.intervalSchedule?.completionMode=="day" && !it.timerEnabled
+        } }
+        ownNode("habit-timer-open-${habit.id}").assertDoesNotExist()
+        compose.onNodeWithTag("habit-timer-panel").assertDoesNotExist()
+        assertEquals("Disabling a timer preserves all timer history", timerHistory, saved().timers)
+        compose.onNode(editButton).performScrollTo().performClick()
+        compose.onNodeWithTag("edit-habit-${habit.id}").performClick()
+        compose.onNodeWithTag("habit-timer-enabled").performScrollTo().assertIsOff().performClick().assertIsOn()
+        compose.onNodeWithText("Сохранить").performScrollTo().performClick()
+        compose.waitUntil(15_000) { saved().habits.single { it.id==habit.id }.timerEnabled }
+        ownNode("habit-timer-open-${habit.id}").assertExists()
+        assertEquals("Re-enabling a timer preserves all timer history", timerHistory, saved().timers)
         ownNode("habit-interval-marks-toggle").assertDoesNotExist()
         readyOwnAction("habit-complete-${habit.id}", "daily").performClick()
         compose.waitUntil(15_000) { saved().completions.single { it.habitId==habit.id }.completed }

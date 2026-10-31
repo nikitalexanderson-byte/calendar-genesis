@@ -1904,6 +1904,7 @@ private object TranslationCatalog {
     private val resolved = ConcurrentHashMap<String, String>()
     private val cyrillic = Regex("[А-Яа-яЁё]")
     private val dragTask = Regex("^Удерживайте задачу (.+) и перетащите в проект$", RegexOption.DOT_MATCHES_ALL)
+    private val dragBlock = Regex("^Удерживайте «(.+)» и перетащите в проект$", RegexOption.DOT_MATCHES_ALL)
     private val dailyGoal = Regex("^Дневная цель: (\\d+) · (достигнута|впереди)$")
     private val schemeTime = Regex("^(Светлая|Тёмная) схема с (\\d{2}:\\d{2})$")
     private val cardArtwork = Regex("^Живописная основа карты (.+)$")
@@ -1936,6 +1937,9 @@ private object TranslationCatalog {
         }
         dragTask.matchEntire(text)?.let { match ->
             return format("Удерживайте задачу {title} и перетащите в проект", "title" to match.groupValues[1])
+        }
+        dragBlock.matchEntire(text)?.let { match ->
+            return format("Удерживайте «{title}» и перетащите в проект", "title" to match.groupValues[1])
         }
         dailyGoal.matchEntire(text)?.let { match ->
             val status = translations[match.groupValues[2]] ?: return null

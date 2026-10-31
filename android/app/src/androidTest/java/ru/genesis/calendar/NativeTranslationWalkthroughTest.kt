@@ -103,6 +103,8 @@ class NativeTranslationWalkthroughTest {
                 assertTranslation(phase, copy.getString(phase))
             assertTranslation("Удерживайте задачу $userTitle и перетащите в проект",
                 expected("Удерживайте задачу {title} и перетащите в проект", "title" to userTitle))
+            assertTranslation("Удерживайте «$userTitle» и перетащите в проект",
+                expected("Удерживайте «{title}» и перетащите в проект", "title" to userTitle))
             for (status in listOf("достигнута", "впереди")) assertTranslation("Дневная цель: 2 · $status",
                 expected("Дневная цель: {count} · {status}", "count" to "2", "status" to copy.getString(status)))
             for (scheme in listOf("Светлая", "Тёмная")) assertTranslation("$scheme схема с 07:00",

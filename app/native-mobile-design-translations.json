@@ -76,7 +76,8 @@
     "Старый серп": "Старый серп",
     "{title}: снять отметку": "{title}: снять отметку",
     "{title}: отметить выполнение": "{title}: отметить выполнение",
-    "Таймер привычки {title}": "Таймер привычки {title}"
+    "Таймер привычки {title}": "Таймер привычки {title}",
+    "Удерживайте «{title}» и перетащите в проект": "Удерживайте «{title}» и перетащите в проект"
   },
   "en": {
     "На сегодня нет запланированных привычек.": "No habits are scheduled for today.",
@@ -155,7 +156,8 @@
     "Старый серп": "Waning crescent",
     "{title}: снять отметку": "{title}: mark incomplete",
     "{title}: отметить выполнение": "{title}: mark complete",
-    "Таймер привычки {title}": "Habit timer: {title}"
+    "Таймер привычки {title}": "Habit timer: {title}",
+    "Удерживайте «{title}» и перетащите в проект": "Hold “{title}” and drag it into a project"
   },
   "el": {
     "На сегодня нет запланированных привычек.": "Δεν υπάρχουν προγραμματισμένες συνήθειες για σήμερα.",
@@ -234,7 +236,8 @@
     "Старый серп": "Φθίνουσα ημισέληνος",
     "{title}: снять отметку": "{title}: αναίρεση ολοκλήρωσης",
     "{title}: отметить выполнение": "{title}: σήμανση ως ολοκληρωμένη",
-    "Таймер привычки {title}": "Χρονόμετρο συνήθειας: {title}"
+    "Таймер привычки {title}": "Χρονόμετρο συνήθειας: {title}",
+    "Удерживайте «{title}» и перетащите в проект": "Πατήστε παρατεταμένα το «{title}» και σύρετέ το σε ένα έργο"
   },
   "de": {
     "На сегодня нет запланированных привычек.": "Für heute sind keine Gewohnheiten geplant.",
@@ -313,7 +316,8 @@
     "Старый серп": "Abnehmende Sichel",
     "{title}: снять отметку": "{title}: Erledigung aufheben",
     "{title}: отметить выполнение": "{title}: als erledigt markieren",
-    "Таймер привычки {title}": "Gewohnheitstimer: {title}"
+    "Таймер привычки {title}": "Gewohnheitstimer: {title}",
+    "Удерживайте «{title}» и перетащите в проект": "Halten Sie „{title}“ gedrückt und ziehen Sie es in ein Projekt"
   },
   "fr": {
     "На сегодня нет запланированных привычек.": "Aucune habitude n’est prévue aujourd’hui.",
@@ -392,7 +396,8 @@
     "Старый серп": "Dernier croissant",
     "{title}: снять отметку": "{title} : annuler la réalisation",
     "{title}: отметить выполнение": "{title} : marquer comme réalisé",
-    "Таймер привычки {title}": "Minuteur de l’habitude : {title}"
+    "Таймер привычки {title}": "Minuteur de l’habitude : {title}",
+    "Удерживайте «{title}» и перетащите в проект": "Maintenez «{title}» appuyé et faites-le glisser dans un projet"
   },
   "es": {
     "На сегодня нет запланированных привычек.": "No hay hábitos programados para hoy.",
@@ -471,7 +476,8 @@
     "Старый серп": "Menguante final",
     "{title}: снять отметку": "{title}: desmarcar como completado",
     "{title}: отметить выполнение": "{title}: marcar como completado",
-    "Таймер привычки {title}": "Temporizador del hábito: {title}"
+    "Таймер привычки {title}": "Temporizador del hábito: {title}",
+    "Удерживайте «{title}» и перетащите в проект": "Mantén pulsado «{title}» y arrástralo a un proyecto"
   },
   "it": {
     "На сегодня нет запланированных привычек.": "Non ci sono abitudini programmate per oggi.",
@@ -550,7 +556,8 @@
     "Старый серп": "Falce calante",
     "{title}: снять отметку": "{title}: annulla completamento",
     "{title}: отметить выполнение": "{title}: segna come completata",
-    "Таймер привычки {title}": "Timer dell’abitudine: {title}"
+    "Таймер привычки {title}": "Timer dell’abitudine: {title}",
+    "Удерживайте «{title}» и перетащите в проект": "Tieni premuto «{title}» e trascinalo in un progetto"
   },
   "pt": {
     "На сегодня нет запланированных привычек.": "Não há hábitos programados para hoje.",
@@ -629,7 +636,8 @@
     "Старый серп": "Minguante final",
     "{title}: снять отметку": "{title}: desmarcar conclusão",
     "{title}: отметить выполнение": "{title}: marcar como concluído",
-    "Таймер привычки {title}": "Temporizador do hábito: {title}"
+    "Таймер привычки {title}": "Temporizador do hábito: {title}",
+    "Удерживайте «{title}» и перетащите в проект": "Mantenha «{title}» pressionado e arraste-o para um projeto"
   },
   "pl": {
     "На сегодня нет запланированных привычек.": "Na dziś nie zaplanowano żadnych nawyków.",
@@ -708,7 +716,8 @@
     "Старый серп": "Ubywający sierp",
     "{title}: снять отметку": "{title}: cofnij oznaczenie wykonania",
     "{title}: отметить выполнение": "{title}: oznacz jako wykonane",
-    "Таймер привычки {title}": "Minutnik nawyku: {title}"
+    "Таймер привычки {title}": "Minutnik nawyku: {title}",
+    "Удерживайте «{title}» и перетащите в проект": "Przytrzymaj „{title}” i przeciągnij do projektu"
   },
   "sr": {
     "На сегодня нет запланированных привычек.": "За данас нема планираних навика.",
@@ -787,7 +796,8 @@
     "Старый серп": "Опадајући срп",
     "{title}: снять отметку": "{title}: поништи ознаку завршетка",
     "{title}: отметить выполнение": "{title}: означи као завршено",
-    "Таймер привычки {title}": "Тајмер навике: {title}"
+    "Таймер привычки {title}": "Тајмер навике: {title}",
+    "Удерживайте «{title}» и перетащите в проект": "Притисните и задржите „{title}” и превуците у пројекат"
   },
   "uk": {
     "На сегодня нет запланированных привычек.": "На сьогодні немає запланованих звичок.",
@@ -866,7 +876,8 @@
     "Старый серп": "Старий серп",
     "{title}: снять отметку": "{title}: зняти позначку виконання",
     "{title}: отметить выполнение": "{title}: позначити виконання",
-    "Таймер привычки {title}": "Таймер звички: {title}"
+    "Таймер привычки {title}": "Таймер звички: {title}",
+    "Удерживайте «{title}» и перетащите в проект": "Натисніть і утримуйте «{title}», а потім перетягніть до проєкту"
   },
   "zh": {
     "На сегодня нет запланированных привычек.": "今天没有安排习惯。",
@@ -945,7 +956,8 @@
     "Старый серп": "残月",
     "{title}: снять отметку": "{title}：取消完成标记",
     "{title}: отметить выполнение": "{title}：标记为已完成",
-    "Таймер привычки {title}": "习惯计时器：{title}"
+    "Таймер привычки {title}": "习惯计时器：{title}",
+    "Удерживайте «{title}» и перетащите в проект": "长按“{title}”并将其拖入项目"
   },
   "tr": {
     "На сегодня нет запланированных привычек.": "Bugün için planlanmış alışkanlık yok.",
@@ -1024,7 +1036,8 @@
     "Старый серп": "Küçülen hilal",
     "{title}: снять отметку": "{title}: tamamlandı işaretini kaldır",
     "{title}: отметить выполнение": "{title}: tamamlandı olarak işaretle",
-    "Таймер привычки {title}": "Alışkanlık zamanlayıcısı: {title}"
+    "Таймер привычки {title}": "Alışkanlık zamanlayıcısı: {title}",
+    "Удерживайте «{title}» и перетащите в проект": "“{title}” öğesini basılı tutup bir projeye sürükleyin"
   },
   "ja": {
     "На сегодня нет запланированных привычек.": "今日の習慣は予定されていません。",
@@ -1103,6 +1116,7 @@
     "Старый серп": "欠けていく三日月",
     "{title}: снять отметку": "{title}：完了の印を外す",
     "{title}: отметить выполнение": "{title}：完了としてマーク",
-    "Таймер привычки {title}": "習慣タイマー：{title}"
+    "Таймер привычки {title}": "習慣タイマー：{title}",
+    "Удерживайте «{title}» и перетащите в проект": "「{title}」を長押ししてプロジェクトにドラッグ"
   }
 }
