@@ -4,7 +4,7 @@
 
 Продолжение PR #331, ветка `codex/v3.1.3-today-trackers`. Производственный код на текущем срезе: `010afbf27fb80549ccb2c0e40fabcafdafd567b5`. Основной checkout пользователя с незакоммиченными изменениями Фюзиса сохранён. Для QA используется отдельный пакет `ru.genesis.calendar.v313.debug`; установленное основное приложение Samsung пока не изменено.
 
-Подписанный кандидат: workflow [41214668210](https://github.com/nikitalexanderson-byte/calendar-genesis/actions/runs/41214668210), выполняется. Отменённый 41213272833 предшествовал последнему исправлению перевода и финальным кандидатом не считается. Deploy, установка основного приложения Samsung и Play Alpha120 пока не завершены.
+Подписанный кандидат: workflow [41214668210](https://github.com/nikitalexanderson-byte/calendar-genesis/actions/runs/41214668210) SUCCESS. Независимые static checks APK/AAB PASS: прежняя подпись, version3.1.3/120, non-debuggable, min26/target37, 16KB ELF/ZIP alignment, R8 и все75requiredclasses в каждом variant; test-only classes отсутствуют. APK установлен поверх119 на API35, три запуска Status:ok (COLD756ms, WARM439ms, COLD571ms), процесс жив, AndroidRuntime без FATAL/VerifyError/ClassNotFound. Это smoke, не полноценный стресс-бенчмарк. Отменённый41213272833 предшествовал последнему переводу. Deploy, основное приложение Samsung и Play Alpha120 на этом pre-merge срезе ещё не завершены.
 
 ## Законченные исправления
 
@@ -48,7 +48,7 @@ Test30e добавляет только instrumentation-проверку, код
 
 | Этап | Текущее состояние |
 | --- | --- |
-| Подписанные APK/AAB 3.1.3/120, прежний сертификат, minified startup | Выполняется |
+| Подписанные APK/AAB 3.1.3/120, прежний сертификат, minified startup | PASS: CI41214668210, независимые checks и API35 startup |
 | Merge master и deploy.yml Hostinger | Не выполнено |
 | Публичные deploy-meta / health / update120 / APK hash / download redirect | Не выполнено |
 | Samsung SM-A566E: обновление основного пакета поверх 119, без clear/uninstall | Не выполнено |
@@ -60,3 +60,6 @@ Test30e добавляет только instrumentation-проверку, код
 Сохранённая матрица содержит 197 acceptance rows и отдельные исторические RUN rows. Одна успешная проверка не переносится автоматически на все их контракты. Не заявлены PASS для отсутствующих или не выполненных live-сценариев: свежий OAuth/consent/revoke на Play-доставленном APK, полный обмен всех коллекций двумя реальными аккаунтами, администраторские/provider операции, физическая слышимость и reboot/OEM на Samsung, реальный TalkBack walkthrough и полный стресс-бенчмарк. Закрытый Alpha и публичный Production имеют разные условия доступности. Новые юридические соглашения не принимались.
 
 SSH вручную не использовался. Production-БД вручную не читалась и не изменялась. Rollback кода — Git revert и обычный deploy; автоматический database rollback запрещён.
+
+
+Подписанный pre-merge APK SHA256: `9cb0a20b307cf2cd6ed5313672283ea1031c59ef64405b64994921ff8378878f`; Play AAB SHA256: `5cc0003dc907257dbff505923eb58ae43f2f90cdd61ea3e7ac89b6e5c89fbe37`. Оба относятся к source010afbf2; последующие изменения до merge затрагивают только QA/docs и instrumentation. Конечный deploy пересобирает release на merge SHA; его опубликованные hashes и установка проверяются отдельно. Подпись установленного основного Samsung119 сверена напрямую из его base.apk и совпала с постоянным release certificate.
